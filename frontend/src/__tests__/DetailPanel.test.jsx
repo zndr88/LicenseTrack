@@ -732,8 +732,7 @@ describe('DetailPanel field editing', () => {
 
     await user.click(await screen.findByRole('button', { name: /edit publisher/i }))
     const input = screen.getByDisplayValue('Acme Corp')
-    await user.clear(input)
-    await user.type(input, 'Updated Publisher')
+    fireEvent.change(input, { target: { value: 'Updated Publisher' } })
     await user.click(screen.getByRole('button', { name: /^save$/i }))
 
     await waitFor(() => {
