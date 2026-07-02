@@ -1,0 +1,68 @@
+node_modules
+dist
+frontend/coverage/
+frontend/test-results/
+.DS_Store
+*.local
+
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Storage (local data - not committed)
+documents/
+
+# Environment
+.env
+
+release_context.md
+export_context.sh
+
+# Local AI assistant files
+
+.claude/
+.codesight/
+
+# Desktop wrapper build outputs
+
+
+
+# PyInstaller
+backend/build/
+backend/dist/
+backend/__pycache__/
+
+# Runtime data directories (created on first use, never committed)
+backend/storage/
+backend/backups/
+backend/plugins/
+
+backend/.venv/
+
+#CodeSight
+.cursorrules
+agents.md
+codex.md
+.github/copilot-instructions.md
+licensetrack_context.md
+export_filelist.sh
+FileList.txt
+export_filelist.ps1
+export_filecount.ps1
+file_linecounts.csv
+/docs/superpowers
+backend/licenses.db-journal
+known-gaps-verification-prompt.md
+ADVERSARIAL_REVIEW.md
+ADVERSARIAL_REVIEW_FINDINGS.md
+localization-plan.md
+.impeccable.md
+scripts/gen_test_quote.py
+scripts/gen_test_invoice.py

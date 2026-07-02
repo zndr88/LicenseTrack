@@ -1,0 +1,441 @@
+"""
+Write-side business rules for license mutations.
+
+These helpers centralize validation and side effects so the route layer can
+focus on HTTP concerns, auth, and response wiring.
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import date, datetime, timezone
+
+from fastapi import HTTPException
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.contract import Contract
+from app.models.document import Document
+from app.models.license import License, LicenseType, MaintenanceCoverage
+from app.schemas.license import LicenseCreate, LicenseUpdate
+from app.services.maintenance_rules import (
+    assert_active_maintenance_allows_retirement,
+    assert_active_maintenance_allows_coverage_change,
+    assert_active_maintenance_allows_type_change,
+    default_maintenance_coverage,
+    assert_maintenance_requires_parent,
+    assert_non_maintenance_has_no_parent,
+)
+from app.services.maintenance_service import (
+    create_maintenance_for_parent,
+    sync_parent_mirror_fields,
+    validate_parent_license,
+)
+from app.services.lifecycle_rules import (
+    REPAIR_ONLY_UPDATE_FIELDS,
+    validate_general_license_update_fields,
+    validate_lifecycle_repair_update,
+    validate_renewal_link_invariants,
+)
+from app.services.money import is_canonical_money
+
+ALLOWED_PATCH_FIELDS: dict[str, str] = {
+    "publisherName": "publisher_name",
+    "softwareDescription": "software_description",
+    "licenseType": "license_type",
+    "licenseMetric": "license_metric",
+    "portalUrl": "portal_url",
+    "quantity": "quantity",
+    "skuCode": "sku_code",
+    "unitPrice": "unit_price",
+    "totalPoPrice": "total_po_price",
+    "currency": "currency",
+    "startDate": "start_date",
+    "endDate": "end_date",
+    "requestDate": "request_date",
+    "purchaseDate": "purchase_date",
+    "contractNumber": "contract_number",
+    "poNumber": "po_number",
+    "invoiceNumber": "invoice_number",
+    "contactEmail": "contact_email",
+    "supplier": "supplier",
+    "costCentre": "cost_centre",
+    "budgetOwnerEmail": "budget_owner_email",
+    "notes": "notes",
+    "maintenanceCoverage": "maintenance_coverage",
+}
+DATE_PATCH_FIELDS = {"startDate", "endDate"}
+DATETIME_PATCH_FIELDS = {"requestDate", "purchaseDate"}
+EMAIL_PATCH_FIELDS = {"contactEmail", "budgetOwnerEmail"}
+NUMERIC_PATCH_FIELDS = {"quantity", "unitPrice", "totalPoPrice"}
+MAINTENANCE_COVERAGE_VALUES = {coverage.value for coverage in MaintenanceCoverage}
+
+
+def _parse_procurement_milestone_datetime(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+
+async def _resolve_contract_id(db: AsyncSession, contract_number: str | None) -> int | None:
+    """Return the Contract.id matching contract_number (case-insensitive), or None."""
+    if not contract_number:
+        return None
+    from sqlalchemy import func as sa_func
+    result = await db.execute(
+        select(Contract).where(sa_func.lower(Contract.contract_number) == contract_number.lower())
+    )
+    contract = result.scalar_one_or_none()
+    return contract.id if contract is not None else None
+
+
+def normalise_perpetual_end_date(update_data: dict) -> None:
+    """Perpetual licenses never carry an end date in persisted state."""
+    if update_data.get("license_type") == LicenseType.perpetual:
+        update_data["end_date"] = None
+
+
+async def create_license_record(
+    db: AsyncSession,
+    payload: LicenseCreate,
+    *,
+    created_by: int,
+    generate_license_ref,
+) -> License:
+    """Create a license ORM record, including maintenance-parent invariants."""
+    parent_license = None
+    try:
+        assert_maintenance_requires_parent(payload.license_type, payload.parent_license_id)
+        assert_non_maintenance_has_no_parent(payload.license_type, payload.parent_license_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if payload.license_type == LicenseType.maintenance:
+        try:
+            parent_license = await validate_parent_license(db, payload.parent_license_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    if payload.license_type == LicenseType.maintenance:
+        create_data = payload.model_dump(by_alias=False)
+        create_data["contract_id"] = await _resolve_contract_id(db, create_data.get("contract_number"))
+        return await create_maintenance_for_parent(
+            db,
+            parent_license,
+            create_data,
+            created_by=created_by,
+        )
+
+    create_data = payload.model_dump(by_alias=False)
+    create_data["maintenance_coverage"] = (
+        create_data.get("maintenance_coverage")
+        or default_maintenance_coverage(payload.license_type)
+    )
+
+    # F1: chain and lifecycle fields cannot be set at create time.
+    _CREATE_CHAIN_FIELDS = REPAIR_ONLY_UPDATE_FIELDS
+    blocked = sorted(f for f in _CREATE_CHAIN_FIELDS if create_data.get(f) is not None)
+    if blocked:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Chain fields cannot be set on license create: {', '.join(blocked)}",
+        )
+    lifecycle_val = create_data.get("lifecycle_status")
+    if lifecycle_val is not None and getattr(lifecycle_val, "value", lifecycle_val) not in (None, "legacy"):
+        raise HTTPException(
+            status_code=400,
+            detail="lifecycle_status cannot be set on create except to 'legacy'.",
+        )
+
+    normalise_perpetual_end_date(create_data)
+    create_data["contract_id"] = await _resolve_contract_id(db, create_data.get("contract_number"))
+    license_obj = License(**create_data, created_by=created_by)
+    db.add(license_obj)
+    await db.flush()
+    license_obj.license_ref = await generate_license_ref(db)
+    return license_obj
+
+
+async def apply_license_update(
+    db: AsyncSession,
+    license_id: int,
+    payload: LicenseUpdate,
+) -> tuple[License, dict, dict]:
+    """Apply a full license update and return (license, before, after)."""
+    result = await db.execute(select(License).where(License.id == license_id))
+    license_obj = result.scalar_one_or_none()
+    if license_obj is None:
+        raise HTTPException(status_code=404, detail="License not found")
+
+    update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+    if (
+        "license_type" in update_data
+        and "maintenance_coverage" not in update_data
+        and license_obj.active_maintenance_id is None
+    ):
+        update_data["maintenance_coverage"] = default_maintenance_coverage(update_data["license_type"])
+    normalise_perpetual_end_date(update_data)
+
+    validate_general_license_update_fields(update_data, license_obj)
+
+    new_type = update_data.get("license_type", license_obj.license_type)
+    new_parent_id = update_data.get("parent_license_id", license_obj.parent_license_id)
+    await _validate_maintenance_parent_transition(db, new_type, new_parent_id)
+
+    before = {column.name: getattr(license_obj, column.name) for column in license_obj.__table__.columns}
+    for field, value in update_data.items():
+        setattr(license_obj, field, value)
+
+    if "contract_number" in update_data:
+        license_obj.contract_id = await _resolve_contract_id(db, update_data.get("contract_number"))
+
+    validate_renewal_link_invariants(license_obj)
+    _validate_active_maintenance_parent_update(license_obj, before)
+    await _sync_active_maintenance_parent_if_needed(db, license_obj)
+
+    # Build `after` from `before` + applied changes rather than re-reading from
+    # the ORM object. The db.execute() in _resolve_contract_id triggers autoflush
+    # (the session has pending changes), which causes SQLAlchemy to expire
+    # server-generated columns like `updated_at` (onupdate=func.now()). Accessing
+    # them afterwards in an async context raises MissingGreenlet.
+    # `updated_at` and `created_at` are in _DEFAULT_EXCLUDE so they don't affect
+    # the audit diff regardless.
+    after = dict(before)
+    for field, value in update_data.items():
+        if field in after:
+            after[field] = value
+    if "contract_number" in update_data:
+        # contract_id is derived from contract_number but set separately above;
+        # read from instance __dict__ to avoid any instrumentation lazy-load path
+        after["contract_id"] = license_obj.__dict__.get("contract_id", before.get("contract_id"))
+
+    return license_obj, before, after
+
+
+async def apply_license_lifecycle_repair(
+    db: AsyncSession,
+    license_id: int,
+    update_data: dict,
+) -> tuple[License, dict, dict]:
+    """Apply admin-only lifecycle/relationship repair fields."""
+    result = await db.execute(select(License).where(License.id == license_id))
+    license_obj = result.scalar_one_or_none()
+    if license_obj is None:
+        raise HTTPException(status_code=404, detail="License not found")
+    if not update_data:
+        raise HTTPException(status_code=422, detail="At least one repair field is required")
+
+    await validate_lifecycle_repair_update(db, license_obj, update_data)
+
+    before = {column.name: getattr(license_obj, column.name) for column in license_obj.__table__.columns}
+    for field, value in update_data.items():
+        setattr(license_obj, field, value)
+
+    validate_renewal_link_invariants(license_obj)
+    after = dict(before)
+    for field, value in update_data.items():
+        if field in after:
+            after[field] = value
+    return license_obj, before, after
+
+
+def validate_patch_field_input(field: str, value: str | None) -> None:
+    """Raise HTTP 400 when a patch field name or value is invalid."""
+    if field not in ALLOWED_PATCH_FIELDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Field '{field}' is not allowed. Allowed: {', '.join(ALLOWED_PATCH_FIELDS)}",
+        )
+
+    if field in DATE_PATCH_FIELDS and value:
+        try:
+            date.fromisoformat(value)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid date for '{field}'. Expected YYYY-MM-DD.")
+
+    if field in DATETIME_PATCH_FIELDS and value:
+        try:
+            _parse_procurement_milestone_datetime(value)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid date for '{field}'. Expected YYYY-MM-DD or an ISO datetime.",
+            )
+
+    if field in EMAIL_PATCH_FIELDS and value:
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value):
+            raise HTTPException(status_code=400, detail=f"Invalid email format for '{field}'.")
+
+    if field in NUMERIC_PATCH_FIELDS and value and not is_canonical_money(value):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid numeric value for '{field}'. Expected a plain decimal string such as '1234.50'.",
+        )
+    if field == "maintenanceCoverage" and value not in MAINTENANCE_COVERAGE_VALUES:
+        raise HTTPException(status_code=400, detail=f"Invalid maintenance coverage: {value}")
+
+
+async def apply_license_field_patch(
+    db: AsyncSession,
+    license_id: int,
+    *,
+    field: str,
+    value: str | None,
+) -> License:
+    """Apply a single-field patch to a license and return the ORM object."""
+    validate_patch_field_input(field, value)
+
+    result = await db.execute(
+        select(License).where(License.id == license_id)
+    )
+    license_obj = result.scalar_one_or_none()
+    if license_obj is None:
+        raise HTTPException(status_code=404, detail="License not found")
+
+    snake_field = ALLOWED_PATCH_FIELDS[field]
+    if field in DATE_PATCH_FIELDS:
+        setattr(license_obj, snake_field, date.fromisoformat(value) if value else None)
+    elif field in DATETIME_PATCH_FIELDS:
+        setattr(license_obj, snake_field, _parse_procurement_milestone_datetime(value) if value else None)
+    elif field == "licenseType":
+        apply_license_type_patch(license_obj, value)
+    elif field == "maintenanceCoverage":
+        try:
+            new_coverage = MaintenanceCoverage(value)
+            assert_active_maintenance_allows_coverage_change(license_obj.active_maintenance_id, new_coverage)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        license_obj.maintenance_coverage = new_coverage
+    elif field == "contractNumber":
+        license_obj.contract_number = value or ""
+        license_obj.contract_id = await _resolve_contract_id(db, value)
+    else:
+        setattr(license_obj, snake_field, value)
+
+    await _sync_active_maintenance_parent_if_needed(db, license_obj)
+    return license_obj
+
+
+async def bulk_delete_license_records(db: AsyncSession, license_ids: list[int]) -> list[int]:
+    """Delete multiple licenses and return the IDs actually removed."""
+    if not license_ids:
+        return []
+
+    result = await db.execute(select(License).where(License.id.in_(license_ids)))
+    found = list(result.scalars().all())
+    if not found:
+        return []
+
+    found_ids = [license_obj.id for license_obj in found]
+
+    maintenance_result = await db.execute(
+        select(License).where(
+            License.parent_license_id.in_(found_ids),
+            License.license_type == LicenseType.maintenance,
+            License.is_retired.is_(False),
+        )
+    )
+    maintenance_children = maintenance_result.scalars().all()
+    parent_ids_with_maintenance = {child.parent_license_id for child in maintenance_children}
+    for child in maintenance_children:
+        child.is_retired = True
+    for license_obj in found:
+        if license_obj.id in parent_ids_with_maintenance:
+            license_obj.active_maintenance_id = None
+            await sync_parent_mirror_fields(db, license_obj)
+
+    await db.execute(delete(Document).where(Document.license_id.in_(found_ids)))
+    for license_obj in found:
+        await db.delete(license_obj)
+
+    return found_ids
+
+
+async def delete_license_record(db: AsyncSession, license_id: int) -> str:
+    """Delete a single license and return its audit label."""
+    result = await db.execute(select(License).where(License.id == license_id))
+    license_obj = result.scalar_one_or_none()
+    if license_obj is None:
+        raise HTTPException(status_code=404, detail="License not found")
+
+    maintenance_result = await db.execute(
+        select(License).where(
+            License.parent_license_id == license_id,
+            License.license_type == LicenseType.maintenance,
+            License.is_retired.is_(False),
+        )
+    )
+    maintenance_children = maintenance_result.scalars().all()
+    for child in maintenance_children:
+        child.is_retired = True
+
+    label = license_obj.software_description
+    await db.execute(delete(Document).where(Document.license_id == license_id))
+    await db.delete(license_obj)
+    return label
+
+
+def apply_license_type_patch(license_obj: License, value: str | None) -> None:
+    """Apply licenseType patch semantics, including perpetual end-date normalization."""
+    try:
+        new_type = LicenseType(value)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid license type: {value}")
+
+    try:
+        assert_maintenance_requires_parent(new_type, license_obj.parent_license_id)
+        assert_non_maintenance_has_no_parent(new_type, license_obj.parent_license_id)
+        assert_active_maintenance_allows_type_change(license_obj.active_maintenance_id, new_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    license_obj.license_type = new_type
+    if license_obj.active_maintenance_id is None:
+        license_obj.maintenance_coverage = default_maintenance_coverage(new_type)
+    if new_type == LicenseType.perpetual:
+        license_obj.end_date = None
+
+
+async def _validate_maintenance_parent_transition(
+    db: AsyncSession,
+    new_type: LicenseType,
+    new_parent_id: int | None,
+) -> None:
+    try:
+        assert_maintenance_requires_parent(new_type, new_parent_id)
+        assert_non_maintenance_has_no_parent(new_type, new_parent_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if new_type == LicenseType.maintenance and new_parent_id is not None:
+        try:
+            await validate_parent_license(db, new_parent_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+
+def _validate_active_maintenance_parent_update(license_obj: License, before: dict) -> None:
+    if license_obj.active_maintenance_id is None:
+        return
+    try:
+        assert_active_maintenance_allows_type_change(
+            license_obj.active_maintenance_id, license_obj.license_type
+        )
+        assert_active_maintenance_allows_retirement(
+            license_obj.active_maintenance_id,
+            was_retired=bool(before.get("is_retired", False)),
+            now_retired=license_obj.is_retired,
+        )
+        assert_active_maintenance_allows_coverage_change(
+            license_obj.active_maintenance_id,
+            license_obj.maintenance_coverage,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+async def _sync_active_maintenance_parent_if_needed(db: AsyncSession, license_obj: License) -> None:
+    if license_obj.license_type != LicenseType.maintenance or license_obj.parent_license_id is None:
+        return
+
+    parent_result = await db.execute(select(License).where(License.id == license_obj.parent_license_id))
+    parent_license = parent_result.scalar_one_or_none()
+    if parent_license is not None and parent_license.active_maintenance_id == license_obj.id:
+        await sync_parent_mirror_fields(db, parent_license)

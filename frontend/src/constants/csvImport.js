@@ -1,0 +1,27 @@
+// Native importable fields exposed in the custom CSV mapping UI.
+// Keep in sync with _HEADER_MAP in backend/app/services/csv_importer.py.
+export const NATIVE_FIELDS = [
+  { value: "publisher_name",       label: "Publisher" },
+  { value: "software_description", label: "Software / Description" },
+  { value: "start_date",           label: "Start Date" },
+  { value: "end_date",             label: "End Date" },
+  { value: "contract_number",      label: "Contract Number" },
+  { value: "po_number",            label: "PO Number" },
+  { value: "invoice_number",       label: "Invoice Number" },
+  { value: "contact_email",        label: "Contact Email" },
+  { value: "supplier",             label: "Supplier" },
+  { value: "cost_centre",          label: "Department / Cost Centre" },
+  { value: "license_type",         label: "License Type" },
+  { value: "license_metric",       label: "License Metric" },
+  { value: "quantity",             label: "Quantity" },
+  { value: "sku_code",             label: "SKU Code" },
+  { value: "unit_price",           label: "Unit Price" },
+  { value: "total_po_price",       label: "Total PO Price" },
+  { value: "currency",             label: "Currency" },
+  { value: "notes",                label: "Notes" },
+  { value: "budget_owner_email",   label: "Budget Owner Email" },
+  { value: "external_ref",         label: "External Reference" },
+  { value: "portal_url",           label: "Portal / Vendor Portal URL" },
+  { value: "maintenance_coverage", label: "Maintenance Coverage" },
+  { value: "__calc_total__",       label: "Calc. Total — derived from Qty × Unit Price, skip this column", disabled: true },
+];

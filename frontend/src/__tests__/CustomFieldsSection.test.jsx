@@ -1,0 +1,157 @@
+import React from "react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import CustomFieldsSection from "../components/settings/sections/CustomFieldsSection.jsx";
+import { getCustomFieldSectionLabel } from "../utils/customFieldPresentation.js";
+import {
+  createCustomField,
+  deleteCustomField,
+  listCustomFields,
+  updateCustomField,
+  updateCustomFieldSection,
+} from "../api/settings.js";
+
+vi.mock("../api/settings.js", () => ({
+  listCustomFields: vi.fn(),
+  createCustomField: vi.fn(),
+  updateCustomField: vi.fn(),
+  deleteCustomField: vi.fn(),
+  updateCustomFieldSection: vi.fn(),
+}));
+
+const baseProps = {
+  isOpen: true,
+  isDirty: false,
+  onToggle: vi.fn(),
+  onError: vi.fn(),
+  onToast: vi.fn(),
+};
+
+function renderSection(props = {}) {
+  return render(<CustomFieldsSection {...baseProps} {...props} />);
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  listCustomFields.mockResolvedValue({
+    data: [
+      {
+        id: 1,
+        name: "Contract Owner",
+        fieldKey: "contract_owner",
+        fieldType: "text",
+        section: "",
+        displayOrder: 0,
+      },
+    ],
+    error: null,
+  });
+  createCustomField.mockResolvedValue({
+    data: {
+      id: 2,
+      name: "Security Reviewer",
+      fieldKey: "security_reviewer",
+      fieldType: "boolean",
+      section: "",
+      displayOrder: 1,
+    },
+    error: null,
+  });
+  updateCustomField.mockResolvedValue({ data: {}, error: null });
+  updateCustomFieldSection.mockResolvedValue({ data: {}, error: null });
+  deleteCustomField.mockResolvedValue({ data: { affectedLicenses: 3 }, error: null });
+});
+
+afterEach(() => {
+  cleanup();
+});
+
+describe("CustomFieldsSection", () => {
+  test("renders section labels from the shared custom field presentation source", async () => {
+    renderSection();
+
+    const sectionSelect = await screen.findByRole("combobox", { name: /section for contract owner/i });
+    const labels = within(sectionSelect).getAllByRole("option").map((option) => option.textContent);
+
+    expect(labels).toEqual([
+      `— ${getCustomFieldSectionLabel(null)} —`,
+      getCustomFieldSectionLabel("identity"),
+      getCustomFieldSectionLabel("dates"),
+      getCustomFieldSectionLabel("commercial"),
+      getCustomFieldSectionLabel("people"),
+      getCustomFieldSectionLabel("documents"),
+      getCustomFieldSectionLabel("notes"),
+    ]);
+    expect(getCustomFieldSectionLabel("unknown")).toBe("Custom Fields");
+  });
+
+  test("updates a custom field section with the same payload shape", async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    const sectionSelect = await screen.findByRole("combobox", { name: /section for contract owner/i });
+    await user.selectOptions(sectionSelect, "people");
+
+    expect(updateCustomFieldSection).toHaveBeenCalledWith(1, "people");
+  });
+
+  test("creates a custom field with the same API payload", async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(await screen.findByRole("button", { name: /add field/i }));
+    await user.type(screen.getByLabelText(/field name/i), "Security Reviewer");
+    await user.selectOptions(screen.getByLabelText(/type/i), "boolean");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(createCustomField).toHaveBeenCalledWith({
+      name: "Security Reviewer",
+      fieldType: "boolean",
+      displayOrder: 1,
+    });
+  });
+
+  test("updates custom field display order with the same API payloads", async () => {
+    const user = userEvent.setup();
+    listCustomFields.mockResolvedValueOnce({
+      data: [
+        {
+          id: 1,
+          name: "Contract Owner",
+          fieldKey: "contract_owner",
+          fieldType: "text",
+          section: "",
+          displayOrder: 0,
+        },
+        {
+          id: 2,
+          name: "Renewal Flag",
+          fieldKey: "renewal_flag",
+          fieldType: "boolean",
+          section: "",
+          displayOrder: 1,
+        },
+      ],
+      error: null,
+    });
+    renderSection();
+
+    await user.click(await screen.findByRole("button", { name: /move contract owner down/i }));
+
+    await waitFor(() => {
+      expect(updateCustomField).toHaveBeenCalledWith(1, { displayOrder: 1 });
+      expect(updateCustomField).toHaveBeenCalledWith(2, { displayOrder: 0 });
+    });
+  });
+
+  test("deletes a custom field by id with the same API call", async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(await screen.findByRole("button", { name: /delete contract owner/i }));
+    await user.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    expect(deleteCustomField).toHaveBeenCalledWith(1);
+  });
+});

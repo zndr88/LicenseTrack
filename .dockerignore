@@ -1,0 +1,42 @@
+.git
+.gitignore
+.dockerignore
+
+# Local dependency installs and frontend build output must not overwrite
+# the clean Linux install created by npm ci inside the Docker build.
+node_modules
+frontend/node_modules
+dist
+frontend/dist
+
+# Python/runtime caches and local environments.
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.ruff_cache
+venv
+.venv
+backend/.venv
+backend/__pycache__
+backend/build
+backend/dist
+
+# Local app data, logs, and environment overrides.
+backend/storage
+backend/backups
+documents
+*.db
+*.sqlite
+*.sqlite3
+*.log
+.env
+*.local
+
+# OS/editor/assistant local files.
+.DS_Store
+.claude
+.codesight
+.cursorrules
+agents.md
+codex.md

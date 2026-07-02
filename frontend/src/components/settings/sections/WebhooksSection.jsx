@@ -1,0 +1,444 @@
+import { useEffect, useState } from "react";
+import {
+  createWebhook,
+  deleteWebhook,
+  listWebhookDeliveries,
+  listWebhooks,
+  retryWebhookDelivery,
+  testWebhook,
+  updateWebhook,
+} from "../../../api/settings.js";
+import { formatDateTime } from "../../../utils/formatting.js";
+import Icon from "../../ui/Icon.jsx";
+import ConfirmDialog from "../../ui/ConfirmDialog.jsx";
+import { SectionHeader } from "../SectionShared.jsx";
+
+const WEBHOOK_EVENTS = [
+  ["*", "All events"],
+  ["license.created", "License created"],
+  ["license.updated", "License updated"],
+  ["license.deleted", "License deleted"],
+  ["sourcing_request.created", "Sourcing request created"],
+  ["po.created", "Pending order created"],
+  ["document.uploaded", "Document uploaded"],
+  ["procurement_document.uploaded", "Procurement document uploaded"],
+  ["document_action.requested", "Document action requested"],
+];
+
+function normalizeEndpoint(endpoint) {
+  return {
+    ...endpoint,
+    isActive: endpoint.isActive ?? endpoint.is_active,
+    createdAt: endpoint.createdAt ?? endpoint.created_at,
+    updatedAt: endpoint.updatedAt ?? endpoint.updated_at,
+    lastSuccessAt: endpoint.lastSuccessAt ?? endpoint.last_success_at,
+    lastFailureAt: endpoint.lastFailureAt ?? endpoint.last_failure_at,
+    signingSecret: endpoint.signingSecret ?? endpoint.signing_secret,
+  };
+}
+
+function normalizeDelivery(delivery) {
+  return {
+    ...delivery,
+    endpointId: delivery.endpointId ?? delivery.endpoint_id,
+    eventType: delivery.eventType ?? delivery.event_type,
+    nextAttemptAt: delivery.nextAttemptAt ?? delivery.next_attempt_at,
+    responseStatus: delivery.responseStatus ?? delivery.response_status,
+    responseBody: delivery.responseBody ?? delivery.response_body,
+    createdAt: delivery.createdAt ?? delivery.created_at,
+    deliveredAt: delivery.deliveredAt ?? delivery.delivered_at,
+  };
+}
+
+function statusColor(status) {
+  if (status === "succeeded") return "var(--green-text)";
+  if (status === "failed") return "var(--red-text)";
+  return "var(--text-2)";
+}
+
+function deliveryResponseLabel(delivery) {
+  if (delivery.responseStatus) return `HTTP ${delivery.responseStatus}`;
+  if (delivery.error) return delivery.error;
+  return "-";
+}
+
+function deliveryResponseDetail(delivery) {
+  return delivery.responseBody || delivery.error || "";
+}
+
+export default function WebhooksSection({ isOpen, isDirty, onToggle, onError, onToast, userSettings }) {
+  const [webhooks, setWebhooks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [events, setEvents] = useState(["license.created"]);
+  const [createdWebhook, setCreatedWebhook] = useState(null);
+  const [deletePending, setDeletePending] = useState(null);
+  const [editId, setEditId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editEvents, setEditEvents] = useState([]);
+  const [selectedEndpoint, setSelectedEndpoint] = useState(null);
+  const [deliveries, setDeliveries] = useState([]);
+  const [deliveriesLoading, setDeliveriesLoading] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoading(true);
+    listWebhooks().then(({ data, error }) => {
+      setLoading(false);
+      if (error) { onError(error); return; }
+      setWebhooks((data ?? []).map(normalizeEndpoint));
+    });
+  }, [isOpen, onError]);
+
+  const refreshWebhooks = async () => {
+    const { data, error } = await listWebhooks();
+    if (error) { onError(error); return null; }
+    const normalized = (data ?? []).map(normalizeEndpoint);
+    setWebhooks(normalized);
+    return normalized;
+  };
+
+  const loadDeliveries = async (endpoint) => {
+    setSelectedEndpoint(endpoint);
+    setDeliveriesLoading(true);
+    const { data, error } = await listWebhookDeliveries(endpoint.id);
+    setDeliveriesLoading(false);
+    if (error) { onError(error); return; }
+    setDeliveries((data ?? []).map(normalizeDelivery));
+  };
+
+  const toggleEvent = (event) => {
+    setEvents((current) => {
+      if (event === "*") return current.includes("*") ? ["license.created"] : ["*"];
+      const withoutAll = current.filter((item) => item !== "*");
+      return withoutAll.includes(event)
+        ? withoutAll.filter((item) => item !== event)
+        : [...withoutAll, event].sort();
+    });
+  };
+
+  const handleCreate = async () => {
+    if (!name.trim() || !url.trim() || events.length === 0) return;
+    setSaving(true);
+    const { data, error } = await createWebhook({ name: name.trim(), url: url.trim(), events, isActive: true });
+    setSaving(false);
+    if (error) { onError(error); return; }
+    const endpoint = normalizeEndpoint(data);
+    setWebhooks((current) => [endpoint, ...current]);
+    setCreatedWebhook(endpoint);
+    setName("");
+    setUrl("");
+    setEvents(["license.created"]);
+    setShowCreate(false);
+    onToast("Webhook endpoint created.", "info");
+  };
+
+  const handleToggleActive = async (endpoint) => {
+    setBusyId(endpoint.id);
+    const { data, error } = await updateWebhook(endpoint.id, { isActive: !endpoint.isActive });
+    setBusyId(null);
+    if (error) { onError(error); return; }
+    const updated = normalizeEndpoint(data);
+    setWebhooks((current) => current.map((item) => item.id === endpoint.id ? updated : item));
+    if (selectedEndpoint?.id === endpoint.id) setSelectedEndpoint(updated);
+    onToast(updated.isActive ? "Webhook enabled." : "Webhook disabled.", "info");
+  };
+
+  const startEdit = (endpoint) => {
+    setEditId(endpoint.id);
+    setEditName(endpoint.name);
+    setEditUrl(endpoint.url);
+    setEditEvents(endpoint.events ?? ["license.created"]);
+  };
+
+  const cancelEdit = () => {
+    setEditId(null);
+    setEditName("");
+    setEditUrl("");
+    setEditEvents([]);
+  };
+
+  const toggleEditEvent = (event) => {
+    setEditEvents((current) => {
+      if (event === "*") return current.includes("*") ? ["license.created"] : ["*"];
+      const withoutAll = current.filter((item) => item !== "*");
+      return withoutAll.includes(event)
+        ? withoutAll.filter((item) => item !== event)
+        : [...withoutAll, event].sort();
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editId || !editName.trim() || !editUrl.trim() || editEvents.length === 0) return;
+    setBusyId(editId);
+    const { data, error } = await updateWebhook(editId, {
+      name: editName.trim(),
+      url: editUrl.trim(),
+      events: editEvents,
+    });
+    setBusyId(null);
+    if (error) { onError(error); return; }
+    const updated = normalizeEndpoint(data);
+    setWebhooks((current) => current.map((item) => item.id === editId ? updated : item));
+    if (selectedEndpoint?.id === editId) setSelectedEndpoint(updated);
+    cancelEdit();
+    onToast("Webhook updated.", "info");
+  };
+
+  const handleDelete = async () => {
+    if (!deletePending) return;
+    const { error } = await deleteWebhook(deletePending.id);
+    if (error) { onError(error); setDeletePending(null); return; }
+    setWebhooks((current) => current.filter((item) => item.id !== deletePending.id));
+    if (selectedEndpoint?.id === deletePending.id) {
+      setSelectedEndpoint(null);
+      setDeliveries([]);
+    }
+    onToast(`Webhook "${deletePending.name}" deleted.`, "info");
+    setDeletePending(null);
+  };
+
+  const handleTest = async (endpoint) => {
+    setBusyId(endpoint.id);
+    const { data, error } = await testWebhook(endpoint.id);
+    setBusyId(null);
+    if (error) { onError(error); return; }
+    onToast(`Test delivery ${data.status}.`, data.status === "succeeded" ? "info" : "warning");
+    const updatedEndpoints = await refreshWebhooks();
+    const updatedEndpoint = updatedEndpoints?.find((item) => item.id === endpoint.id) ?? endpoint;
+    if (selectedEndpoint?.id === endpoint.id) setSelectedEndpoint(updatedEndpoint);
+    if (selectedEndpoint?.id === endpoint.id) await loadDeliveries(endpoint);
+  };
+
+  const handleRetry = async (deliveryId) => {
+    setBusyId(deliveryId);
+    const { data, error } = await retryWebhookDelivery(deliveryId);
+    setBusyId(null);
+    if (error) { onError(error); return; }
+    const updated = normalizeDelivery(data);
+    setDeliveries((current) => current.map((item) => item.id === deliveryId ? updated : item));
+    onToast(`Delivery ${updated.status}.`, updated.status === "succeeded" ? "info" : "warning");
+    await refreshWebhooks();
+  };
+
+  const copySecret = async () => {
+    if (!createdWebhook?.signingSecret) return;
+    try {
+      await navigator.clipboard.writeText(createdWebhook.signingSecret);
+      onToast("Signing secret copied.", "info");
+    } catch {
+      onError("Could not copy signing secret to clipboard.");
+    }
+  };
+
+  return (
+    <>
+      <div className="setsec">
+        <SectionHeader sectionKey="webhooks" icon="link" title="Webhooks" description="Notify internal systems when audited LicenseTrack events occur." isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
+        <div className={`setsec-body${isOpen ? " open" : ""}`}>
+          <div className="setsec-inner">
+            {createdWebhook && (
+              <div style={{ border: "1px solid var(--border)", background: "var(--bg-2)", borderRadius: 6, padding: 12, marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                  <strong style={{ fontSize: 13 }}>Signing secret for {createdWebhook.name}</strong>
+                  <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => setCreatedWebhook(null)}>
+                    <Icon name="x" size={12} /> Dismiss
+                  </button>
+                </div>
+                <p style={{ fontSize: 12, color: "var(--text-2)", margin: "0 0 8px" }}>
+                  Copy and save this secret now. It cannot be recovered after you dismiss it.
+                </p>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input className="fi mono" readOnly value={createdWebhook.signingSecret} style={{ fontSize: 12 }} />
+                  <button type="button" className="btn btn-p" style={{ fontSize: 12, whiteSpace: "nowrap" }} onClick={copySecret}>Copy</button>
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginTop: 12 }}>
+              {loading ? (
+                <p style={{ fontSize: 13, color: "var(--text-3)", marginTop: 8 }}>Loading...</p>
+              ) : webhooks.length === 0 ? (
+                <p style={{ fontSize: 13, color: "var(--text-3)", marginTop: 8, marginBottom: 12 }}>No webhook endpoints yet.</p>
+              ) : (
+                <table className="mapping-matched-table" style={{ marginTop: 12 }}>
+                  <thead>
+                    <tr>
+                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Name</th>
+                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>URL</th>
+                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Events</th>
+                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Last Result</th>
+                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {webhooks.map((endpoint) => (
+                      <tr key={endpoint.id} style={{ opacity: endpoint.isActive ? 1 : 0.6 }}>
+                        <td>
+                          {editId === endpoint.id ? (
+                            <input className="fi" style={{ fontSize: 12, padding: "2px 6px" }} value={editName} onChange={(event) => setEditName(event.target.value)} />
+                          ) : (
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>{endpoint.name}</span>
+                          )}
+                        </td>
+                        <td>
+                          {editId === endpoint.id ? (
+                            <input className="fi mono" style={{ fontSize: 11, padding: "2px 6px" }} value={editUrl} onChange={(event) => setEditUrl(event.target.value)} />
+                          ) : (
+                            <span className="mono" style={{ fontSize: 11 }}>{endpoint.url}</span>
+                          )}
+                        </td>
+                        <td>
+                          {editId === endpoint.id ? (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                              {WEBHOOK_EVENTS.map(([event, label]) => (
+                                <label key={event} style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid var(--border)", borderColor: editEvents.includes(event) ? "var(--accent)" : "var(--border)", borderRadius: 4, background: "var(--bg-2)", color: "var(--text-2)", fontSize: 10, lineHeight: 1.2, padding: "2px 6px", cursor: "pointer" }}>
+                                  <input type="checkbox" checked={editEvents.includes(event)} onChange={() => toggleEditEvent(event)} />
+                                  {label}
+                                </label>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: 12 }}>{(endpoint.events ?? []).join(", ")}</span>
+                          )}
+                        </td>
+                        <td><span style={{ fontSize: 12 }}>{endpoint.lastSuccessAt ? `Success ${formatDateTime(endpoint.lastSuccessAt, userSettings)}` : endpoint.lastFailureAt ? `Failed ${formatDateTime(endpoint.lastFailureAt, userSettings)}` : "Never"}</span></td>
+                        <td>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {editId === endpoint.id ? (
+                              <>
+                                <button type="button" className="btn btn-p" disabled={busyId === endpoint.id || !editName.trim() || !editUrl.trim() || editEvents.length === 0} style={{ fontSize: 11, padding: "2px 8px" }} onClick={handleSaveEdit}>Save</button>
+                                <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "2px 8px" }} onClick={cancelEdit}>Cancel</button>
+                              </>
+                            ) : (
+                              <>
+                                <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => loadDeliveries(endpoint)}>Deliveries</button>
+                                <button type="button" className="btn btn-g" disabled={busyId === endpoint.id} style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleTest(endpoint)}>Test</button>
+                                <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => startEdit(endpoint)}>Edit</button>
+                                <button type="button" className="btn btn-g" disabled={busyId === endpoint.id} style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleToggleActive(endpoint)}>{endpoint.isActive ? "Disable" : "Enable"}</button>
+                                <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "2px 8px", color: "var(--red-text)" }} onClick={() => setDeletePending(endpoint)}>Delete</button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {showCreate ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <div className="fg" style={{ flex: "1 1 220px" }}>
+                      <label htmlFor="webhook-name">Name</label>
+                      <input id="webhook-name" className="fi" value={name} onChange={(event) => setName(event.target.value)} placeholder="CMDB events" autoFocus />
+                    </div>
+                    <div className="fg" style={{ flex: "2 1 320px" }}>
+                      <label htmlFor="webhook-url">URL</label>
+                      <input id="webhook-url" className="fi" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com/webhooks/licensetrack" />
+                    </div>
+                  </div>
+                  <div className="fg">
+                    <label>Events</label>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {WEBHOOK_EVENTS.map(([event, label]) => (
+                        <label key={event} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--border)", borderColor: events.includes(event) ? "var(--accent)" : "var(--border)", borderRadius: 4, background: "var(--bg-2)", color: "var(--text-2)", fontSize: 11, lineHeight: 1.2, padding: "4px 8px", cursor: "pointer" }}>
+                          <input type="checkbox" checked={events.includes(event)} onChange={() => toggleEvent(event)} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button type="button" className="btn btn-p" disabled={saving || !name.trim() || !url.trim() || events.length === 0} onClick={handleCreate} style={{ fontSize: 13 }}>
+                      {saving ? "Creating..." : "Create"}
+                    </button>
+                    <button type="button" className="btn btn-g" onClick={() => { setShowCreate(false); setName(""); setUrl(""); setEvents(["license.created"]); }} style={{ fontSize: 13 }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="btn btn-g" onClick={() => setShowCreate(true)} style={{ fontSize: 13, marginTop: 12 }}>
+                  <Icon name="plus" size={13} /> Create Webhook
+                </button>
+              )}
+
+              {selectedEndpoint && (
+                <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                    <strong style={{ fontSize: 13 }}>Recent deliveries for {selectedEndpoint.name}</strong>
+                    <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => loadDeliveries(selectedEndpoint)}>Refresh</button>
+                  </div>
+                  {deliveriesLoading ? (
+                    <p style={{ fontSize: 13, color: "var(--text-3)" }}>Loading...</p>
+                  ) : deliveries.length === 0 ? (
+                    <p style={{ fontSize: 13, color: "var(--text-3)" }}>No deliveries yet.</p>
+                  ) : (
+                    <table className="mapping-matched-table" style={{ marginTop: 8 }}>
+                      <thead>
+                        <tr>
+                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Event</th>
+                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Status</th>
+                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Attempts</th>
+                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Response</th>
+                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Created</th>
+                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deliveries.map((delivery) => (
+                          <tr key={delivery.id}>
+                            <td><span className="mono" style={{ fontSize: 11 }}>{delivery.eventType}</span></td>
+                            <td><span style={{ fontSize: 12, color: statusColor(delivery.status), fontWeight: 600 }}>{delivery.status}</span></td>
+                            <td><span style={{ fontSize: 12 }}>{delivery.attempts}</span></td>
+                            <td>
+                              <div style={{ fontSize: 12 }}>{deliveryResponseLabel(delivery)}</div>
+                              {deliveryResponseDetail(delivery) && (
+                                <div
+                                  title={deliveryResponseDetail(delivery)}
+                                  style={{
+                                    color: "var(--text-3)",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: 10,
+                                    marginTop: 2,
+                                    maxWidth: 280,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {deliveryResponseDetail(delivery)}
+                                </div>
+                              )}
+                              {delivery.nextAttemptAt && delivery.status === "pending" && (
+                                <div style={{ color: "var(--text-3)", fontSize: 10, marginTop: 2 }}>
+                                  Next retry {formatDateTime(delivery.nextAttemptAt, userSettings)}
+                                </div>
+                              )}
+                            </td>
+                            <td><span style={{ fontSize: 12 }}>{formatDateTime(delivery.createdAt, userSettings)}</span></td>
+                            <td>
+                              <button type="button" className="btn btn-g" disabled={busyId === delivery.id} style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleRetry(delivery.id)}>Retry</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      {deletePending && (
+        <ConfirmDialog title="Delete Webhook" message={`Delete "${deletePending.name}"? Future events will no longer be sent to this endpoint.`} confirmLabel="Delete" danger onConfirm={handleDelete} onCancel={() => setDeletePending(null)} />
+      )}
+    </>
+  );
+}

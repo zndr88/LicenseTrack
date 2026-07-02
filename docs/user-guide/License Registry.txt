@@ -1,0 +1,63 @@
+License Registry
+
+What it is
+The License Registry is LicenseTrack's central record of every software license your organisation holds. It is where you view, manage, and track the full lifecycle of your software entitlements, from initial entry through to expiry and renewal.
+
+How it works
+The Registry is the main page in LicenseTrack. It shows all license records in a sortable, filterable table. You can search across columns, apply status filters, and toggle column visibility to focus on what matters to you. Because the table can hold a very large number of records, LicenseTrack renders only the rows visible on screen at a time; scrolling loads more rows smoothly without a page reload.
+
+Every new license chain starts with a reference number in the format LT-YYYY-NNNNN. LicenseTrack assigns this automatically when the first record in the chain is created. Renewal successors inherit the predecessor's reference, so the reference identifies the logical entitlement chain rather than a unique database row. LicenseTrack also computes several fields for you: how complete the record is as a percentage, whether the license is active, expiring, or expired, how many days remain until the end date, and how many documents are visible on the record.
+
+Admins and Editors can create a license directly from the Registry by using Add License and choosing manual entry. The manual flow opens the same review form used by extracted/imported license data, with editable license identity, dates, commercial fields, ownership fields, type/metric, perpetual flag, and notes before saving. CSV import and procurement conversion are separate creation paths for bulk or workflow-driven records.
+
+At the top of the Registry, a row of stats summarises your portfolio at a glance. The annual cost total covers active, perpetual-status, and expiring subscription, SaaS, and maintenance records only. Expired, retired, renewed, and legacy records are excluded from this active annual rollup. Perpetual, OEM, and freeware license types are also deliberately excluded from this figure. Amounts remain in their native currencies: mixed-currency totals are displayed as grouped values rather than being combined using an implied exchange rate. If malformed legacy values cannot be included in a total, the stats row shows how many records were excluded.
+
+Opening a license expands a detail panel on the right side of the screen showing all fields, attached documents, and any custom fields your admin has configured. You can edit the license from within this panel. The identity header shows the LicenseTrack chain reference and, when present, the external reference together so imported or integrated records are easy to reconcile. Date-only values are displayed using your personal date-format setting while stored API values remain canonical YYYY-MM-DD strings. Timestamp values use your personal date, time, and time-zone settings.
+
+The Key Dates & Contract section also shows procurement milestones. Request Date records when the sourcing item was created. Purchase Date records when the pending purchase order was created. LicenseTrack fills these automatically during pending-order conversion, including renewal conversion. Admins and Editors can edit either value from the detail panel to enrich imported or legacy records that did not pass through LicenseTrack's procurement workflow.
+
+The History section appears below Custom Fields. It shows the account name that created the license record, the record creation timestamp, and the most recent update timestamp. If the original account is no longer available, LicenseTrack falls back to the creator email, stored user ID, or a legacy-record label.
+
+Admins and Editors can also use the inline edit toggle in the Registry toolbar to edit common license fields directly in the table, similar to a spreadsheet. Inline edit mode closes the detail panel and prevents row clicks from opening it while the mode is active. Changes save per field when you leave the cell or press Enter. Computed and document-related columns, such as status, expiration, document count, total PO price, and calculated total, remain read-only in the table.
+
+You can save your current combination of visible columns, column order, sort order, status filters, and column filter row values as a named view, then reload it later with one click. This includes manual text filters such as publisher and multi-select filters such as license type. Saved views are personal; each user manages their own. Newly released optional columns stay hidden until you deliberately enable them, including when you load an older saved view.
+
+Perpetual licenses have no end date by design, and LicenseTrack treats them accordingly: they are never flagged as incomplete for lacking an end date.
+
+Maintenance is a special license type for a separately managed maintenance or support contract. It attaches to a perpetual, OEM, or freeware/open-source parent. The parent has a separate Maintenance / Support Coverage classification: unknown, not applicable, included, or separately tracked. When you add a linked record, LicenseTrack automatically updates the parent to reflect the active maintenance/support dates and cost; you do not need to edit the parent manually.
+
+When a license is renewed, the successor license carries a structural predecessor link pointing back to the license it replaced. This link is stored as a database reference (predecessor_id) and is set automatically during renewal — both when converting a pending order to a renewal successor and when importing renewal rows from CSV. The predecessor_id enables reliable renewal-chain tracing without relying on string fields such as PO number or contract number.
+
+Procurement documents are included in the document count when they belong to the license itself or to the pending order that created the license. Licenses created from the same pending order share that pending order's Quote, Purchase Order, and Invoice files. A separate pending order with the same PO number does not automatically share those files.
+
+Field reference
+LT Ref is LicenseTrack's entitlement-chain reference. External Ref is an optional identifier from another system or internal process. Publisher and Description identify the product. Contract #, PO #, and Invoice # reconcile the record with commercial documents. Supplier, Department, Publisher Contact, and Budget Owner describe external and internal ownership. Type, Metric, Quantity, and SKU describe the entitlement model and purchased item. Unit Price, Total PO Price, Currency, and Calc. Total describe commercial value. Start Date and End Date describe the entitlement period. Request Date is the sourcing-item creation timestamp; Purchase Date is the pending-order creation timestamp; Created is the later timestamp when the license record itself was created in LicenseTrack. Portal URL and Notes retain operational context.
+
+Advanced metadata is available when useful. Created By identifies the creator account and Last Updated records the most recent record change. Lifecycle Status is LicenseTrack workflow metadata such as pending_renewal, renewed, or legacy; it supplements the calculated Expiration status. Sync Status and Last Synced are external-integration metadata and normally remain empty without an integration. Maintenance / Support Coverage records whether support is unknown, not applicable, included, or separately tracked. Maintenance Start, Maintenance End, and Maintenance Cost mirror the active linked maintenance/support record on an eligible parent. Docs is the combined visible document count. Complete is the calculated percentage of admin-required fields and evidence currently present. Custom Fields are installation-specific fields configured by an admin.
+
+Key concepts
+License reference - the logical entitlement-chain reference (LT-YYYY-NNNNN). It is unique when first assigned to a new chain, then reused by renewal successors. Use the database ID for a unique row identifier.
+Completeness - a percentage score showing how many of the required fields on a license record have been filled in.
+Expiration status - LicenseTrack's classification of a license as active, expiring, or expired, based on the end date.
+License type - one of: subscription, perpetual, maintenance, SaaS, OEM, or freeware.
+Maintenance child - a maintenance-type license linked to a perpetual, OEM, or freeware/open-source parent that tracks a separately managed maintenance or support contract.
+Predecessor link - a direct database reference (predecessor_id) on a renewal successor license pointing to the license it replaced. Set automatically during renewal; enables reliable chain tracing.
+Procurement documents - Quote, Purchase Order, and Invoice files scoped to a license or to the pending order that created the license.
+Saved view - a named snapshot of column visibility, column order, sort order, status filters, and column filter row values that a user can restore at any time.
+Procurement milestones - Request Date and Purchase Date timestamps retained on the license record to preserve its sourcing and purchase-order history.
+History section - read-only record metadata showing who created a license record and when it was created or last updated.
+
+Who can use it
+All roles. Admins and Editors can create, edit, bulk-delete, and export licenses. Viewers can browse and read records, but only for departments they have been assigned access to.
+
+Things to know
+- The annual cost figure in the stats row is an active recurring-cost rollup, not historical spend. It excludes expired, retired, renewed, and legacy records as well as perpetual, OEM, and freeware license types. If your portfolio is heavily perpetual or you need prior spend, use Reports for the broader breakdown. Mixed currencies are shown as separate grouped amounts; LicenseTrack does not invent exchange rates.
+- hasMaintenance remains a computed linked-record signal: it is true only when an active maintenance/support child record exists. Bundled support is represented by Maintenance / Support Coverage = included.
+- Maintenance/support linking controls appear only for perpetual, OEM, and freeware/open-source licenses classified as separately tracked.
+- During pending-order conversion, maintenance licenses require an explicit parent selection. The parent can be an existing active perpetual/OEM/freeware license or another eligible line in the same conversion.
+- Perpetual, OEM, and freeware/open-source licenses satisfy the End Date completeness requirement without an end date. Subscription, SaaS, and maintenance records still require one when that rule is enabled.
+- LicenseTrack prevents duplicate reference assignment when multiple users create new license chains at the same time. Renewal successors deliberately reuse the predecessor's LT reference. The backend `/api/licenses/export` CSV includes both ID and License Ref; integrations should use ID for row uniqueness.
+- The Visible Categories section in My Settings exposes the Registry's user-facing license fields in Standard, Advanced, and Computed groups. The table defaults remain focused: optional fields, advanced history metadata, and newly released columns stay hidden until enabled. Notes are shortened visually in the table but retain their full value in exports. Procurement documents remain one computed document-count column.
+- The Registry Export menu provides Export Current View and Export Full Data. Export Current View writes every filtered row using the visible columns in their current order. Export Full Data writes every filtered row with every user-facing Registry column and every configured custom field, including hidden fields. Both exports keep full underlying values such as long notes. Canonical exports use ISO date/timestamp values and period decimal separators; the localized Current View option uses your personal date and number formats. The backend `/api/licenses/export` integration contract remains separate and continues to include database ID.
+- Inline editing is intended for quick corrections to visible table fields. Use the detail panel for documents, custom fields, notes, maintenance workflow, renewal actions, and full record review.
+- The Dates visibility preference controls both Start Date and End Date columns in the Registry table. Request Date and Purchase Date remain detail-panel history fields.

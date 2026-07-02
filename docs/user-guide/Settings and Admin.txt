@@ -1,0 +1,80 @@
+Settings and Admin
+
+  What it is
+  Settings and Admin is where users manage their personal preferences and where admins configure the system-wide behaviour of LicenseTrack — email delivery, authentication policy, notification schedules, mandatory fields, and more.
+
+  How it works
+  My Settings is available to all users for personal preferences. Admins also have a separate Admin area with Settings, Users, and Audit Log sections. Within Admin > Settings, system settings are grouped into General, Integrations, and Operations. Each configuration section still saves independently so you can update one area without touching the others.
+
+  Backend ownership
+  Settings endpoints are split by responsibility while keeping the existing HTTP paths stable. user_settings.py owns per-user preferences at /api/settings. global_settings.py owns public/admin global settings reads and updates at /api/settings/global and /api/settings/global/public. integrations.py owns admin-only integration actions under /api/settings/global, including test email and manual notification trigger. api_tokens.py owns API token creation, listing, and revocation under /api/api-tokens. webhooks.py owns admin-managed webhook endpoints and delivery inspection under /api/webhooks. backup.py owns database backup trigger, listing, and restore under /api/backup. settings.py is only a compatibility router for older imports.
+
+  Secret handling and settings update sanitisation live outside the route modules. settings_update_service.py validates storage paths, preserves masked SMTP/OIDC secret placeholders, encrypts newly supplied secrets, and tells the route when OIDC cache invalidation is needed.
+
+  My Settings
+  Each user controls a small set of personal preferences here: theme, UI Size, display currency for cost fields, number format, date format, time format, time zone, sidebar collapsed state, and license table preferences such as column visibility and saved views. UI Size changes the app scale for that user, with Normal, Large (115%), and Larger (130%) options. The sidebar collapse/expand control is also saved per user, so the navigation rail returns to that user's last chosen state on reload. Visible Categories exposes user-facing Registry fields in Standard, Advanced, and Computed groups, followed by configured custom fields. Each group has toggle-all controls for its List View and applicable Details fields so broad table layouts can be configured quickly. Saved views include column visibility, column order, sort order, status filters, and column filter row values. Newly released optional columns stay hidden by default, including when older saved views are loaded. The Registry Dates visibility preference controls both Start Date and End Date columns together. Date-only displays in the Registry detail panel, Registry table, and Renewal Workbench use the selected date format. Quantity displays in the Registry, Sourcing, and Pending Orders tables use the selected number format. The CSV import page uses the user's number and date formats as its initial import defaults; they can be changed per file before upload. The Registry Export menu provides a canonical Current View export, a canonical Full Data export, and a localized Current View export. Timestamp previews and timestamp displays, including procurement milestones and license History metadata, use the selected time zone. These settings are per-user and do not affect anyone else.
+
+  Global settings (Admin only)
+  Admin > Settings contains all system-wide configuration. Changes here apply to every user and every scheduled process.
+
+  Admin groups
+  General contains day-to-day system configuration: storage, notifications, SMTP, OIDC, completeness requirements, custom fields, and import mapping presets.
+  Integrations contains API tokens, webhooks, and integration capability declarations. These surfaces support technical integrations and sidecars; they are not a plugin marketplace or package installer.
+  Operations contains database backup and restore.
+
+  Notifications
+  Sets the hour at which the daily notification email run fires, the alert window (how many days before expiry a license is treated as expiring), the manager email address that receives the digest, and the allowed email domains whitelist. The intro and sign-off text in both the budget owner alert and manager digest emails can be customised here. A "Send test email" button sends a single test message to the manager email address using the current SMTP settings, without going through the full notification logic. A "Trigger notifications now" button runs the full daily notification flow immediately; it is subject to the same domain whitelist as the scheduled run, but it is an explicit admin retry path and is not blocked by the scheduled once-per-day guard.
+
+  SMTP
+  Configures the outgoing mail server: host, port, sender name, sender address, username, password, and TLS usage. The section also has an Enable Email Notifications toggle. When email notifications are disabled, automated scheduled alerts and manual "Send Notifications Now" runs will not send notification emails, but SMTP settings can still be saved and tested. The password is stored encrypted and is never returned in full by the API — the settings form shows a masked placeholder instead.
+
+  Mandatory fields
+  An admin can designate any combination of supported license fields as mandatory. LicenseTrack uses these to compute the completeness percentage on each license record and to classify licenses as incomplete in the notification run. The checklist includes core dates and references, ownership fields such as Department / Cost Centre and Budget Owner Email, commercial references such as Invoice Number, and evidence requirements such as Invoice attached, Purchase Order attached, Quote attached, EULA attached, and Proof of entitlement. New requirements are disabled by default so admins can raise the completeness standard gradually while legacy records are improved.
+
+  Custom fields
+  Admins can define installation-specific license fields that appear on all license records. Supported custom field types are Text, Currency, Date, and True/False. Each custom field has a generated key, can be assigned to a license detail section such as Identity, Dates, Commercial, People, Documents, or Notes, and can be reordered. Deleting a custom field permanently removes the definition and all stored values for that field across licenses.
+
+  Password policy
+  Sets the minimum password length for local user accounts. The default is 12 characters. This applies at account creation and whenever a password is reset or changed.
+
+  Session timeout
+  The global session timeout controls how many minutes of browser inactivity are allowed before the frontend logs the user out. The default is 30 minutes. This is a system-wide setting, not a per-user preference.
+
+  OIDC
+  Configures single sign-on via OpenID Connect: the discovery URL, client ID, and client secret. The client secret is encrypted at rest in the same way as the SMTP password. Enabling OIDC does not disable local login — both methods can coexist. LicenseTrack checks the OIDC provider is reachable before reporting it as available to the login page. The discovery URL and any JWKS URI returned by the discovery document are validated against an SSRF block list before fetching; loopback, link-local, and RFC1918 addresses are rejected.
+
+  Database Backup
+  Sets the directory where database backup files are written and how many database backups to keep before the oldest are pruned. See the Database Backup and Restore article for the full behaviour. Uploaded documents are not included in these database backup files.
+
+  Import Mapping Presets
+  Shows saved column mappings created during CSV import. Admins can rename or delete presets here; new presets are created from the importer when saving a mapping for a file layout.
+
+  API Tokens
+  Lets admins create and revoke scoped bearer tokens for integrations and automation. Available scope families cover license read/write, procurement read/write, document read/write, report read, and integration capability read/write access. The raw token is shown only once when created. LicenseTrack stores only a token hash, the visible prefix, scopes, creation metadata, revocation status, and last-used time.
+
+  Webhooks
+  Lets admins create, test, disable, and delete webhook endpoints for audited LicenseTrack events. The signing secret is shown only once when the endpoint is created. Admins can inspect recent deliveries, see HTTP response/error details and next retry timing, and retry a delivery from the same section. Document-processing actions in license document rows are shown only when an active endpoint subscribes to document_action.requested or all events and an available document.processing capability is registered.
+
+  Extension Capabilities
+  Shows declared optional capabilities from integrations and sidecars, such as document.processing. Capabilities are registered through the API with scoped tokens; the Settings section is a status and cleanup surface, not a plugin installer, marketplace, settings host, or runtime code loader.
+
+  Key concepts
+  My Settings — per-user preferences that do not affect other users.
+  Global settings — system-wide configuration that applies to all users and background processes; admin only.
+  UI Size — a per-user appearance preference that scales the app to Normal, Large (115%), or Larger (130%).
+  Sidebar collapsed state — a per-user navigation preference saved when the user collapses or expands the sidebar.
+  Mandatory fields — the set of license fields whose presence is counted when computing completeness.
+  Custom field — an admin-defined license field with a type, stable key, display order, and optional detail-section placement.
+  SMTP password / OIDC client secret — sensitive credentials stored encrypted; masked in the UI and API responses.
+  API token — a scoped bearer credential for machine-to-machine API access. Raw tokens must be stored by the operator because LicenseTrack cannot show them again after creation.
+  Webhook signing secret — a per-endpoint HMAC secret used by receivers to verify LicenseTrack webhook deliveries. Raw signing secrets must be stored by the operator because LicenseTrack cannot show them again after creation.
+  Extension capability — a declared optional integration capability, such as document.processing, with status, version, last-seen time, and optional error details. It is not an installed plugin.
+
+  Who can use it
+  All users can access My Settings. Global settings are admin only.
+
+  Things to know
+  - The SMTP password and OIDC client secret are masked in the API response as "••••••••". Saving the settings form without changing those fields sends back the masked value, which LicenseTrack recognises and leaves the stored credential unchanged. Only supplying a new value overwrites it.
+  - The scheduled notification run is guarded so it sends at most once per day automatically. The "Trigger notifications now" button is a manual admin action and runs the notification flow even if the scheduled run already fired or attempted today. To test SMTP delivery without sending real alert emails, use "Send test email" instead.
+  - Changing the mandatory fields list retroactively affects the completeness scores shown on all license records. Existing licenses are not modified, but their completeness percentages will reflect the new field set the next time they are loaded.
+  - OIDC configuration changes invalidate the in-memory OIDC availability cache immediately, so users will see the updated login options on their next page load without needing a server restart.

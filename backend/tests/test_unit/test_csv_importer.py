@@ -1,0 +1,564 @@
+"""
+Unit tests for app.services.csv_importer.parse_csv.
+
+Pure-function tests — no fixtures required.
+"""
+
+import csv
+import io
+from datetime import date, timedelta
+
+import pytest
+
+from app.services.csv_importer import parse_csv
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+_FUTURE = (date.today() + timedelta(days=365)).isoformat()
+_PAST = (date.today() - timedelta(days=365)).isoformat()
+
+
+def _csv(headers: list[str], rows: list[dict] | None = None) -> bytes:
+    """Build CSV bytes from an ordered list of headers and optional row dicts."""
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=headers, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows or []:
+        writer.writerow(row)
+    return buf.getvalue().encode()
+
+
+# ---------------------------------------------------------------------------
+# 1a — Valid minimal import
+# ---------------------------------------------------------------------------
+
+def test_valid_minimal_import():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "end_date"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "end_date": _FUTURE}],
+    )
+    result = parse_csv(csv_bytes)
+
+    assert len(result.rows) == 1
+    row = result.rows[0]
+    assert row.import_status == "active"
+    assert row.validation_errors == []
+    assert row.warnings == []
+
+
+# ---------------------------------------------------------------------------
+# 1b — Date format variants
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("raw_date,date_format,expected", [
+    ("2026-06-15", "DD/MM/YYYY", date(2026, 6, 15)),  # ISO is always accepted
+    ("15/06/2026", "DD/MM/YYYY", date(2026, 6, 15)),
+    ("06/15/2026", "MM/DD/YYYY", date(2026, 6, 15)),
+])
+def test_date_format_variants(raw_date, date_format, expected):
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "end_date"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "end_date": raw_date}],
+    )
+    row = parse_csv(csv_bytes, date_format=date_format).rows[0]
+
+    assert row.db_end_date == expected
+    assert row.validation_errors == []
+    assert row.warnings == []
+
+
+def test_perpetual_end_date():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "end_date"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "end_date": "perpetual"}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.db_end_date is None
+    assert row.end_date is None
+    assert row.import_status == "active"
+
+
+# ---------------------------------------------------------------------------
+# 1c — Invalid date produces warning, not error
+# ---------------------------------------------------------------------------
+
+def test_invalid_date_produces_error():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "end_date"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "end_date": "not-a-date"}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert any("Unrecognised date format" in e for e in row.validation_errors)
+    assert row.db_end_date is None
+    assert row.import_status == "error"
+
+
+def test_declared_date_format_controls_ambiguous_dates():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "end_date"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "end_date": "01/02/2027"}],
+    )
+
+    european = parse_csv(csv_bytes, date_format="DD/MM/YYYY").rows[0]
+    american = parse_csv(csv_bytes, date_format="MM/DD/YYYY").rows[0]
+
+    assert european.db_end_date == date(2027, 2, 1)
+    assert american.db_end_date == date(2027, 1, 2)
+
+
+def test_localized_numeric_fields_land_canonical():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "quantity", "unit_price", "total_po_price"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            "quantity": "1.000",
+            "unit_price": "1.234,50",
+            "total_po_price": "1.234.500,00",
+        }],
+    )
+
+    row = parse_csv(csv_bytes, number_format_locale="nl-BE").rows[0]
+
+    assert row.quantity == "1000"
+    assert row.unit_price == "1234.50"
+    assert row.total_po_price == "1234500.00"
+    assert row.import_status == "active"
+
+
+def test_invalid_localized_numeric_field_is_a_row_error():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "unit_price"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "unit_price": "€12"}],
+    )
+
+    row = parse_csv(csv_bytes, number_format_locale="nl-BE").rows[0]
+
+    assert row.import_status == "error"
+    assert any("unit_price" in e for e in row.validation_errors)
+
+
+# ---------------------------------------------------------------------------
+# 1d — Missing required fields
+# ---------------------------------------------------------------------------
+
+def test_both_required_fields_missing():
+    csv_bytes = _csv(["end_date"], [{"end_date": _FUTURE}])
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.import_status == "error"
+    assert row.validation_errors
+
+
+def test_only_publisher_missing():
+    csv_bytes = _csv(
+        ["software_description", "end_date"],
+        [{"software_description": "Widget", "end_date": _FUTURE}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.import_status == "active"
+    assert any("publisher_name" in e for e in row.validation_errors)
+
+
+def test_only_description_missing():
+    csv_bytes = _csv(
+        ["publisher_name", "end_date"],
+        [{"publisher_name": "Acme", "end_date": _FUTURE}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.import_status == "active"
+    assert any("software_description" in e for e in row.validation_errors)
+
+
+# ---------------------------------------------------------------------------
+# 1e — Legacy classification
+# ---------------------------------------------------------------------------
+
+def test_legacy_exempt_classification():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "end_date"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "end_date": _PAST}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.import_status == "legacy_exempt"
+    assert row.lifecycle_status == "legacy"
+    assert row.is_completeness_exempt is True
+
+
+def test_legacy_incomplete_classification():
+    # publisher_name missing, end_date in past → legacy_incomplete
+    csv_bytes = _csv(
+        ["software_description", "end_date"],
+        [{"software_description": "Widget", "end_date": _PAST}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.import_status == "legacy_incomplete"
+
+
+# ---------------------------------------------------------------------------
+# 1f — Enum validation
+# ---------------------------------------------------------------------------
+
+def test_valid_license_type():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "license_type"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "license_type": "subscription"}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.license_type == "subscription"
+    assert not any("license_type" in w for w in row.warnings)
+
+
+def test_invalid_license_type():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "license_type"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "license_type": "banana"}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert any("Unrecognised license_type" in e for e in row.validation_errors)
+    assert row.import_status == "error"
+    assert row.license_type == ""
+
+
+def test_valid_license_metric():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "license_metric"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "license_metric": "per_user"}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.license_metric == "per_user"
+    assert not any("license_metric" in w for w in row.warnings)
+
+
+def test_invalid_license_metric():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "license_metric"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "license_metric": "banana"}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert any("Unrecognised license_metric" in e for e in row.validation_errors)
+    assert row.import_status == "error"
+    assert row.license_metric == ""
+
+
+def test_parse_csv_recognizes_parent_license_ref():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "license_type", "parent_license_ref"],
+        [
+            {
+                "publisher_name": "Acme",
+                "software_description": "Acme Maintenance",
+                "license_type": "maintenance",
+                "parent_license_ref": "LT-2025-00001",
+            }
+        ],
+    )
+    result = parse_csv(csv_bytes)
+
+    assert result.rows[0].parent_license_ref == "LT-2025-00001"
+
+
+def test_parse_csv_maintenance_without_parent_ref_is_deferred_to_batch_validation():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "license_type"],
+        [
+            {
+                "publisher_name": "Acme",
+                "software_description": "Acme Maintenance",
+                "license_type": "maintenance",
+            }
+        ],
+    )
+    result = parse_csv(csv_bytes)
+
+    assert result.rows[0].import_status == "active"
+    assert result.rows[0].validation_errors == []
+    assert result.rows[0].parent_license_ref is None
+
+
+# ---------------------------------------------------------------------------
+# 1g — Currency default
+# ---------------------------------------------------------------------------
+
+def test_currency_defaults_to_eur():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description"],
+        [{"publisher_name": "Acme", "software_description": "Widget"}],
+    )
+    assert parse_csv(csv_bytes).rows[0].currency == "EUR"
+
+
+def test_currency_explicit_usd():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "currency"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "currency": "USD"}],
+    )
+    assert parse_csv(csv_bytes).rows[0].currency == "USD"
+
+
+# ---------------------------------------------------------------------------
+# 1h — Header aliases
+# ---------------------------------------------------------------------------
+
+def test_header_aliases():
+    raw_csv = (
+        "License Ref,External Ref,Publisher,Description,Contract #,PO #,"
+        "Cost Center,Type,Metric,Qty,SKU,Invoice\n"
+        "LT-2026-00001,EXT-1,Acme,Widget,C-1,PO-1,IT Ops,"
+        "Subscription,Per User,25,SKU-1,INV-1\n"
+    )
+    result = parse_csv(raw_csv.encode())
+
+    assert "license_ref" in result.headers_found
+    assert "external_ref" in result.headers_found
+    assert "publisher_name" in result.headers_found
+    assert "software_description" in result.headers_found
+    assert "contract_number" in result.headers_found
+    assert "po_number" in result.headers_found
+    assert "cost_centre" in result.headers_found
+    assert "license_type" in result.headers_found
+    assert "license_metric" in result.headers_found
+    assert "quantity" in result.headers_found
+
+    row = result.rows[0]
+    assert row.license_ref == "LT-2026-00001"
+    assert row.external_ref == "EXT-1"
+    assert row.publisher_name == "Acme"
+    assert row.software_description == "Widget"
+    assert row.contract_number == "C-1"
+    assert row.po_number == "PO-1"
+    assert row.cost_centre == "IT Ops"
+    assert row.license_type == "subscription"
+    assert row.license_metric == "per_user"
+    assert row.quantity == "25"
+    assert row.sku_code == "SKU-1"
+    assert row.invoice_number == "INV-1"
+
+
+# ---------------------------------------------------------------------------
+# 1i — headers_missing
+# ---------------------------------------------------------------------------
+
+def test_headers_missing():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description"],
+        [{"publisher_name": "Acme", "software_description": "Widget"}],
+    )
+    result = parse_csv(csv_bytes)
+
+    for expected in ("start_date", "end_date", "contract_number", "po_number", "license_type"):
+        assert expected in result.headers_missing
+    assert "publisher_name" not in result.headers_missing
+    assert "software_description" not in result.headers_missing
+
+
+# ---------------------------------------------------------------------------
+# 1j — BOM handling
+# ---------------------------------------------------------------------------
+
+def test_bom_handling():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description"],
+        [{"publisher_name": "Acme", "software_description": "Widget"}],
+    )
+    bom_csv = b"\xef\xbb\xbf" + csv_bytes
+    result = parse_csv(bom_csv)
+
+    assert len(result.rows) == 1
+    assert "publisher_name" in result.headers_found
+    row = result.rows[0]
+    assert row.publisher_name == "Acme"
+    assert row.validation_errors == []
+
+
+# ---------------------------------------------------------------------------
+# 1k — Empty CSV (headers only, no data rows)
+# ---------------------------------------------------------------------------
+
+def test_empty_csv_no_rows():
+    csv_bytes = _csv(["publisher_name", "software_description"])
+    result = parse_csv(csv_bytes)
+
+    assert result.rows == []
+
+
+# ---------------------------------------------------------------------------
+# currency_defaulted flag
+# ---------------------------------------------------------------------------
+
+def test_row_marks_currency_defaulted_when_currency_absent():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description"],
+        [{"publisher_name": "Acme", "software_description": "Widget"}],
+    )
+    result = parse_csv(csv_bytes)
+    assert result.rows[0].currency_defaulted is True
+
+
+def test_row_does_not_mark_currency_defaulted_when_currency_present():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "currency"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "currency": "USD"}],
+    )
+    result = parse_csv(csv_bytes)
+    assert result.rows[0].currency_defaulted is False
+    assert result.rows[0].currency == "USD"
+
+
+# ---------------------------------------------------------------------------
+# build_warning_summary
+# ---------------------------------------------------------------------------
+
+from app.services.import_.import_workflow import build_warning_summary
+from app.services.csv_importer import ParsedRow
+
+
+def _make_row(**kwargs) -> ParsedRow:
+    """Minimal ParsedRow for unit tests — only sets the fields you pass."""
+    defaults = dict(
+        row_number=1,
+        publisher_name="Acme",
+        software_description="Widget",
+        start_date=None,
+        end_date=None,
+        contract_number="",
+        po_number="",
+        invoice_number="",
+        contact_email="",
+        supplier="",
+        cost_centre="",
+        license_type="subscription",
+        license_metric="per_user",
+        quantity="",
+        sku_code="",
+        unit_price="",
+        total_po_price="",
+        currency="EUR",
+        notes=None,
+        budget_owner_email="",
+        external_ref=None,
+        license_ref=None,
+        parent_license_ref=None,
+        portal_url=None,
+        maintenance_coverage=None,
+        import_status="active",
+        currency_defaulted=False,
+        db_start_date=None,
+        db_end_date=None,
+        is_completeness_exempt=False,
+        lifecycle_status=None,
+    )
+    defaults.update(kwargs)
+    return ParsedRow(**defaults)
+
+
+def test_build_warning_summary_no_warnings():
+    row = _make_row()
+    summary = build_warning_summary([row])
+    assert summary.defaulted_currency_count == 0
+    assert summary.defaulted_enum_count == 0
+    assert summary.ambiguous_date_count == 0
+    assert summary.inferred_parent_count == 0
+    assert summary.duplicate_warning_count == 0
+    assert summary.rows_with_warnings_count == 0
+    assert summary.has_warnings is False
+
+
+def test_build_warning_summary_defaulted_enum():
+    # Unrecognised enum values are now hard errors, so defaulted_enum_count is always 0.
+    row = _make_row(warnings=[])
+    summary = build_warning_summary([row])
+    assert summary.defaulted_enum_count == 0
+    assert summary.rows_with_warnings_count == 0
+    assert summary.has_warnings is False
+
+
+def test_build_warning_summary_ambiguous_date():
+    row = _make_row(warnings=["start_date: Unrecognised date format: '99-99-99'"])
+    summary = build_warning_summary([row])
+    assert summary.ambiguous_date_count == 1
+    assert summary.rows_with_warnings_count == 1
+    assert summary.has_warnings is True
+
+
+def test_build_warning_summary_both_enum_and_date_counts_once_each():
+    """Row with ambiguous date warning: enum count is 0 (enums are now errors), date count is 1."""
+    row = _make_row(warnings=[
+        "start_date: Unrecognised date format: '99-99-99'",
+    ])
+    summary = build_warning_summary([row])
+    assert summary.defaulted_enum_count == 0
+    assert summary.ambiguous_date_count == 1
+    assert summary.rows_with_warnings_count == 1
+
+
+def test_build_warning_summary_two_enum_warnings_counts_row_once():
+    """Unrecognised enum values are now hard errors; defaulted_enum_count is always 0."""
+    row = _make_row(warnings=[])
+    summary = build_warning_summary([row])
+    assert summary.defaulted_enum_count == 0
+    assert summary.rows_with_warnings_count == 0
+
+
+def test_build_warning_summary_currency_defaulted():
+    row = _make_row(currency_defaulted=True)
+    summary = build_warning_summary([row])
+    assert summary.defaulted_currency_count == 1
+    assert summary.rows_with_warnings_count == 1
+    assert summary.has_warnings is False  # currency does NOT gate
+
+
+def test_build_warning_summary_inferred_parent():
+    row = _make_row(parent_import_row_number=1)
+    summary = build_warning_summary([row])
+    assert summary.inferred_parent_count == 1
+    assert summary.rows_with_warnings_count == 1
+    assert summary.has_warnings is True
+
+
+def test_build_warning_summary_duplicate_warning():
+    row = _make_row(duplicate_warnings=["some warning"])
+    summary = build_warning_summary([row])
+    assert summary.duplicate_warning_count == 1
+    assert summary.rows_with_warnings_count == 1
+    assert summary.has_warnings is True
+
+
+def test_build_warning_summary_error_rows_skipped():
+    """Error rows must not contribute to any counts."""
+    error_row = _make_row(
+        import_status="error",
+        warnings=[],
+        currency_defaulted=True,
+        parent_import_row_number=1,
+        duplicate_warnings=["dup"],
+    )
+    summary = build_warning_summary([error_row])
+    assert summary.defaulted_enum_count == 0
+    assert summary.rows_with_warnings_count == 0
+    assert summary.has_warnings is False
+
+
+def test_build_warning_summary_mixed_rows():
+    """3 rows: 1 clean, 1 with error (skipped), 1 clean. Enum issues are now hard errors."""
+    rows = [
+        _make_row(row_number=1, warnings=[]),
+        _make_row(row_number=2, import_status="error", warnings=["publisher_name is missing"]),
+        _make_row(row_number=3),
+    ]
+    summary = build_warning_summary(rows)
+    assert summary.defaulted_enum_count == 0
+    assert summary.rows_with_warnings_count == 0
+    assert summary.has_warnings is False

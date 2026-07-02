@@ -1,0 +1,47 @@
+services:
+  license-lifecycle:
+    image: license-lifecycle-system:1.0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${APP_PORT:-8080}:8000"
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:////data/licenses.db}
+      - STORAGE_PATH=${STORAGE_PATH:-/data/storage}
+      - BACKUP_LOCATION=${BACKUP_LOCATION:-/data/backups}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8080}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-CHANGEME_REQUIRED}
+      - TOKEN_EXPIRY=${TOKEN_EXPIRY:-1440}
+      - HOST=${HOST:-0.0.0.0}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - OIDC_STATE_SECRET=${OIDC_STATE_SECRET:-}
+      - SESSION_COOKIE_NAME=${SESSION_COOKIE_NAME:-license_lifecycle_session}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-20}
+      - ALLOWED_UPLOAD_EXTENSIONS=${ALLOWED_UPLOAD_EXTENSIONS:-.pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+    volumes:
+      - license_lifecycle_data:/data
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+        "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  license_lifecycle_data:
+    driver: local

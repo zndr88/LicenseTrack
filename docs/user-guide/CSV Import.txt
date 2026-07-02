@@ -1,0 +1,76 @@
+CSV Import
+
+  What it is
+  CSV Import lets you bulk-load license records into LicenseTrack from a spreadsheet. It handles files exported from your existing systems — including Flexera — as well as files you prepare yourself using LicenseTrack's own template.
+
+  How it works
+  The import is a multi-step flow. You upload a file, LicenseTrack analyses it, you review what it found, and then you confirm. The same file is never written to the database until you explicitly confirm.
+
+  Step 1 — Upload and analyse
+  You upload a CSV file. LicenseTrack reads the headers, maps them to its internal field names, and reports back which recommended fields it found, which fields are missing, and which columns are unrecognised. It also returns sample values so you can make better mapping decisions. At this point nothing has been written.
+
+  Before uploading, choose the number format and date format used by the file. Both controls default to your personal settings. The selected formats remain fixed for preview and confirm so the same file is interpreted consistently throughout the import.
+
+  The analysis endpoint only accepts CSV files. Empty files and files without headers are rejected before the mapping or preview steps.
+
+  If LicenseTrack recognises every column automatically (standard or Flexera headers), it moves directly to preview. If the file has unrecognised columns or you want to map columns manually, a mapping step appears first.
+
+  Step 2 — Column mapping (external files only)
+  For files with non-standard headers, LicenseTrack shows each unrecognised column and lets you assign it to one of the known internal fields, or mark it as a custom field to be imported as a custom field value. You can save a mapping profile by name and reload it for future imports with files that follow the same layout.
+
+  Step 3 — Preview
+  LicenseTrack parses every row and classifies it:
+  - Active — a row with a future or open-ended end date that will be imported as a live license.
+  - Legacy (exempt) — a row whose end date is already in the past and all required fields are present. It will be imported with its lifecycle status set to "legacy" and flagged as completeness-exempt, so it does not drag down your portfolio completeness score.
+  - Legacy (incomplete) — a row with a past end date and one or more required fields missing. These rows are still importable but will not receive the completeness exemption.
+  - Error — a row with invalid import data, such as a missing publisher name and software description, an unsupported enum, an invalid date, an invalid numeric value, or an invalid typed custom-field value. These rows cannot be imported and will be skipped regardless of what you select.
+
+  The preview lists every row with its classification, validation errors, any warnings (inferred maintenance parent, possible duplicate, and so on), and a duplicate check against existing records. It also shows a warning summary. Inferred maintenance parents and possible duplicates require explicit acknowledgement before import. Currency defaults are shown in the summary as informational and do not require acknowledgement by themselves. You can individually skip rows you do not want to import, or restore skipped rows before confirming.
+
+  Step 4 — Confirm / Execute
+  You confirm the import. If the preview contains acknowledgement-required warnings, the final action is presented as "Import with warnings" and sends that acknowledgement with the request. LicenseTrack re-parses the file using the selected formats, rebuilds the warning summary, and rejects the write with a conflict response if warnings are still present but were not acknowledged. Once accepted, it writes all non-error rows that you have not skipped. Numeric values are stored in canonical decimal form, such as 1234.50, regardless of how they appeared in the CSV. Each imported license receives a new LT reference number unless it is later renewed through the renewal workflow, where successors deliberately inherit the predecessor's reference.
+
+  The parent_license_ref column is interpreted differently depending on the row's license type. For maintenance rows, it resolves the parent license (perpetual, OEM, or freeware/open-source) that the maintenance record attaches to — the same behaviour as before. For all other license types, parent_license_ref is treated as a renewal predecessor reference: the matching license is looked up and its database ID is stored in predecessor_id on the new record, establishing a structural link in the renewal chain without creating a maintenance relationship. Custom field values included in the mapping are written at the same time as the license record.
+
+  The import is recorded in the audit log with structured detail: mutationType=csv_import, import mode, inserted/skipped/error counts, warning summary counts, custom-field failure count, and whether warnings were acknowledged.
+
+  Template download
+  If you are preparing a file from scratch, you can download LicenseTrack's CSV template from the import page. It includes the supported column headers plus a few example rows that demonstrate common subscription, legacy, and perpetual records. Remove or replace the sample rows before importing your own data.
+
+  Supported column names
+  LicenseTrack accepts both its own column names and common aliases. Recognised names include: publisher_name (or "publisher"), software_description (or "description"), start_date, end_date, contract_number, po_number, invoice_number, contact_email, supplier, cost_centre (or "cost_center" or "department"), license_type, license_metric, quantity (or "qty"), sku_code, unit_price, total_po_price, currency, notes, budget_owner_email, external_ref, license_ref, and parent_license_ref.
+
+  Flexera-specific column names are also recognised and mapped automatically: Purchase Order No., Effective Quantity, Unit Price (EUR), Total Price (EUR), Effective Date, Expiry Date, Vendor, Part No./SKU, Contract No., and ContractEndDate, among others.
+
+  Date formats
+  Choose the date format used by the file before upload: DD/MM/YYYY, MM/DD/YYYY, or YYYY-MM-DD. ISO YYYY-MM-DD dates are always accepted. The value "Perpetual" in an end_date column is treated as no end date.
+
+  The selected format resolves dates that would otherwise be ambiguous. For example, 03/04/2025 is 3 April under DD/MM/YYYY and 4 March under MM/DD/YYYY. A value that does not match ISO or the selected date format is a row error and must be corrected before that row can be imported.
+
+  Encoding
+  Files are read as UTF-8 (with BOM support for Excel exports). If UTF-8 decoding fails, Latin-1 is tried as a fallback.
+
+  Key concepts
+  Active row — an import row whose end date is in the future or absent; will create a live license record.
+  Legacy (exempt) row — an import row with a past end date and both required fields present; imported with lifecycle status "legacy" and completeness exemption applied.
+  Legacy (incomplete) row — an import row with a past end date but one or more required fields missing; imported without completeness exemption.
+  Error row — an import row with invalid required, enum, date, numeric, or typed custom-field data; cannot be imported.
+  Column mapping — the manual assignment of unrecognised CSV headers to LicenseTrack internal fields or custom fields.
+  Saved mapping — a named column mapping profile that can be reloaded for future imports.
+  Completeness exemption — a flag that excludes a legacy license from the portfolio completeness score.
+
+  Who can use it
+  Admins and Editors only. Viewers cannot import.
+
+  Things to know
+  - A row classified as "error" will always be skipped, regardless of your row selection. Correct its validation errors in the source file before importing it.
+  - The initial analysis step is metadata-only: it inspects headers and samples, but it does not create or update license records.
+  - If a license type value in the CSV is not one of the six recognised types (subscription, perpetual, maintenance, SaaS, OEM, freeware), the row is classified as an error and will not be imported. Correct the value in your file, or remove the license_type column to omit the field.
+  - If a license metric value in the CSV is not one of the recognised values (per_user, per_device, per_cpu, per_core, site, concurrent, enterprise), the row is likewise classified as an error and will not be imported. Correct the value or remove the license_metric column.
+  - Number parsing follows the format selected before upload. For example, Belgian or German 1.234,50, French 1 234,50, and US 1,234.50 are stored canonically as 1234.50 when the matching format is selected. Quantity, price, and mapped custom currency values use the same parser. Remove currency symbols from numeric columns and provide currency separately as an ISO code such as EUR or USD.
+  - If your file has no currency column, or a row has a blank currency, affected rows default to your configured display currency, falling back to EUR, and are counted in the warning summary as informational.
+  - The import does not update existing records. Every row that is confirmed creates a new license. If you need to correct an existing license, edit it directly in the Registry.
+  - For maintenance rows, parent_license_ref must resolve to an existing perpetual, OEM, or freeware/open-source license in the database at the time of import. If the parent is being imported in the same batch, it must appear in the file before the maintenance row. For non-maintenance rows, parent_license_ref is a renewal predecessor reference — it establishes a predecessor_id link and does not create a maintenance relationship. The predecessor license must already exist in the database; predecessor links are not resolved across rows in the same import batch.
+  - License Ref is a chain reference, not a unique row key. Renewal successors reuse the predecessor's reference. If an import or downstream system needs to identify one specific database row, use the record ID from LicenseTrack exports or API responses.
+  - Maintenance rows without a parent_license_ref are not automatically skipped. LicenseTrack attempts to infer a parent from other rows in the same import by scoring perpetual, OEM, and freeware/open-source candidates: publisher name must match exactly (required), then description similarity, shared PO number, and shared contract number each add to the score. A candidate must reach a minimum score threshold to be selected. If a parent is inferred, the row is counted in the warning summary and requires acknowledgement before import. If no candidate qualifies, or if two or more candidates tie for the best score, the maintenance row is marked as an error with an explanation in the preview. Adding an explicit parent_license_ref column is the most reliable approach when parent rows may be ambiguous.
+  - Possible duplicates do not block preview, but they are counted in the warning summary and require acknowledgement before import.

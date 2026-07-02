@@ -1,0 +1,175 @@
+import { describe, expect, test, vi } from "vitest";
+
+import * as client from "../../api/client.js";
+import * as licensesApi from "../../api/licenses.js";
+import * as settingsApi from "../../api/settings.js";
+import * as usersApi from "../../api/users.js";
+import * as documentsApi from "../../api/documents.js";
+import * as pluginActionsApi from "../../api/pluginActions.js";
+import * as pluginSuggestionsApi from "../../api/pluginSuggestions.js";
+import * as pendingOrdersApi from "../../api/pendingOrders.js";
+import * as sourcingApi from "../../api/sourcing.js";
+import { getPortfolioStats } from "../../api/reports.js";
+
+vi.mock("../../api/client.js", () => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  patch: vi.fn(),
+  del: vi.fn(),
+  request: vi.fn(),
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  client.get.mockResolvedValue({ data: {}, error: null });
+  client.post.mockResolvedValue({ data: {}, error: null });
+  client.put.mockResolvedValue({ data: {}, error: null });
+  client.patch.mockResolvedValue({ data: {}, error: null });
+  client.del.mockResolvedValue({ data: null, error: null });
+  client.request.mockResolvedValue({ data: {}, error: null });
+});
+
+describe("frontend API endpoint contracts", () => {
+  test("license API maps high-risk calls to the expected paths and payloads", async () => {
+    await licensesApi.getLicenses();
+    expect(client.get).toHaveBeenLastCalledWith("/api/licenses");
+
+    await licensesApi.getLicenses({ includeRetired: true });
+    expect(client.get).toHaveBeenLastCalledWith("/api/licenses?include_retired=true");
+
+    await licensesApi.bulkDeleteLicenses([1, 2]);
+    expect(client.request).toHaveBeenLastCalledWith("/api/licenses/bulk", {
+      method: "DELETE",
+      body: JSON.stringify({ ids: [1, 2] }),
+    });
+
+    await licensesApi.patchLicenseField(7, "publisherName", "Acme");
+    expect(client.request).toHaveBeenLastCalledWith("/api/licenses/7/field", {
+      method: "PATCH",
+      body: JSON.stringify({ field: "publisherName", value: "Acme" }),
+    });
+  });
+
+  test("settings and user APIs preserve backend route and payload shape", async () => {
+    await settingsApi.updateGlobalSettings({ notification_days: 45 });
+    expect(client.put).toHaveBeenLastCalledWith("/api/settings/global", { notification_days: 45 });
+
+    await settingsApi.restoreBackup(new File(["zip"], "backup.zip", { type: "application/zip" }));
+    expect(client.post.mock.calls.at(-1)[0]).toBe("/api/backup/restore");
+    expect(client.post.mock.calls.at(-1)[1]).toBeInstanceOf(FormData);
+
+    await settingsApi.createApiToken({ name: "CMDB", scopes: ["licenses:read"] });
+    expect(client.post).toHaveBeenLastCalledWith("/api/api-tokens", { name: "CMDB", scopes: ["licenses:read"] });
+
+    await settingsApi.revokeApiToken(8);
+    expect(client.del).toHaveBeenLastCalledWith("/api/api-tokens/8");
+
+    await settingsApi.createWebhook({ name: "CMDB", url: "https://example.com/hook", events: ["license.created"] });
+    expect(client.post).toHaveBeenLastCalledWith("/api/webhooks", { name: "CMDB", url: "https://example.com/hook", events: ["license.created"] });
+
+    await settingsApi.listWebhookDeliveries(4);
+    expect(client.get).toHaveBeenLastCalledWith("/api/webhooks/4/deliveries");
+
+    await settingsApi.testWebhook(4);
+    expect(client.post).toHaveBeenLastCalledWith("/api/webhooks/4/test");
+
+    await settingsApi.listExtensionCapabilities();
+    expect(client.get).toHaveBeenLastCalledWith("/api/extensions/capabilities");
+
+    await settingsApi.upsertExtensionCapability("licensetrack-ai", { name: "AI", capabilityType: "document.processing" });
+    expect(client.put).toHaveBeenLastCalledWith(
+      "/api/extensions/capabilities/licensetrack-ai",
+      { name: "AI", capabilityType: "document.processing" }
+    );
+
+    await settingsApi.deleteExtensionCapability("licensetrack-ai");
+    expect(client.del).toHaveBeenLastCalledWith("/api/extensions/capabilities/licensetrack-ai");
+
+    await usersApi.updateRole(3, "editor");
+    expect(client.put).toHaveBeenLastCalledWith("/api/users/3/role", { role: "editor" });
+
+    await usersApi.updateUserDepartments(3, ["Finance", "IT"]);
+    expect(client.put).toHaveBeenLastCalledWith("/api/users/3/departments", { departments: ["Finance", "IT"] });
+  });
+
+  test("document, pending-order, and sourcing APIs use multipart bodies for uploads and conversion attachments", async () => {
+    const file = new File(["hello"], "invoice.pdf", { type: "application/pdf" });
+
+    await documentsApi.uploadDocument(9, file, "invoice");
+    expect(client.post.mock.calls.at(-1)[0]).toBe("/api/licenses/9/documents");
+    expect(client.post.mock.calls.at(-1)[1]).toBeInstanceOf(FormData);
+
+    await documentsApi.listDocumentActions();
+    expect(client.get).toHaveBeenLastCalledWith("/api/document-actions");
+
+    await documentsApi.invokeDocumentAction("request_processing", { documentType: "license_document", documentId: 3 });
+    expect(client.post).toHaveBeenLastCalledWith(
+      "/api/document-actions/request_processing/invoke",
+      { documentType: "license_document", documentId: 3 }
+    );
+
+    await pluginActionsApi.listPluginActions({
+      slot: "document.row.actions",
+      targetType: "license_document",
+      targetId: 3,
+    });
+    expect(client.get).toHaveBeenLastCalledWith(
+      "/api/plugin-actions?slot=document.row.actions&targetType=license_document&targetId=3"
+    );
+
+    await pluginActionsApi.invokePluginAction("plugin-ai", "parseDocument", {
+      targetType: "license_document",
+      targetId: "3",
+      context: { documentId: 3 },
+    });
+    expect(client.post).toHaveBeenLastCalledWith(
+      "/api/plugin-actions/plugin-ai/parseDocument/invoke",
+      { targetType: "license_document", targetId: "3", context: { documentId: 3 } }
+    );
+
+    await documentsApi.listDocumentProcessingResults({ licenseId: 9, status: "pending" });
+    expect(client.get).toHaveBeenLastCalledWith("/api/document-processing-results?license_id=9&status=pending");
+
+    await documentsApi.acceptDocumentProcessingResult(12);
+    expect(client.post).toHaveBeenLastCalledWith("/api/document-processing-results/12/accept");
+
+    await documentsApi.acceptDocumentProcessingResult(12, [0, 2]);
+    expect(client.post).toHaveBeenLastCalledWith(
+      "/api/document-processing-results/12/accept",
+      { suggestedFieldIndexes: [0, 2] }
+    );
+
+    await documentsApi.rejectDocumentProcessingResult(12);
+    expect(client.post).toHaveBeenLastCalledWith("/api/document-processing-results/12/reject");
+
+    await pluginSuggestionsApi.listPluginSuggestions({ licenseId: 9, status: "pending" });
+    expect(client.get).toHaveBeenLastCalledWith("/api/plugin-suggestions?licenseId=9&status=pending");
+
+    await pluginSuggestionsApi.acceptPluginSuggestion(12);
+    expect(client.post).toHaveBeenLastCalledWith("/api/plugin-suggestions/12/accept");
+
+    await pluginSuggestionsApi.acceptPluginSuggestion(12, [0, 2]);
+    expect(client.post).toHaveBeenLastCalledWith(
+      "/api/plugin-suggestions/12/accept",
+      { suggestedFieldIndexes: [0, 2] }
+    );
+
+    await pluginSuggestionsApi.rejectPluginSuggestion(12);
+    expect(client.post).toHaveBeenLastCalledWith("/api/plugin-suggestions/12/reject");
+
+    await pendingOrdersApi.convertPendingOrder(4, { publisherName: "Acme" }, file);
+    expect(client.post.mock.calls.at(-1)[0]).toBe("/api/pending-orders/4/convert");
+    expect(client.post.mock.calls.at(-1)[1]).toBeInstanceOf(FormData);
+
+    await sourcingApi.uploadSourcingQuoteDocument(5, file);
+    expect(client.post.mock.calls.at(-1)[0]).toBe("/api/sourcing/requests/5/quote-documents");
+    expect(client.post.mock.calls.at(-1)[1]).toBeInstanceOf(FormData);
+  });
+
+  test("reports API throws query errors so React Query can surface failure state", async () => {
+    client.get.mockResolvedValueOnce({ data: null, error: "Report stats failed" });
+
+    await expect(getPortfolioStats()).rejects.toThrow("Report stats failed");
+  });
+});

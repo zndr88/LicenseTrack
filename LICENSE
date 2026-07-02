@@ -1,0 +1,205 @@
+LicenseTrack
+Source-Available License
+Version 1.0.0
+
+SPDX-License-Identifier: LicenseRef-LicenseTrack-Source-Available-1.0.0
+
+Copyright (c) 2025-2026 Alexander Janssen. All rights reserved.
+
+Licensor: Alexander Janssen
+
+  Preamble
+
+This license governs the use, reproduction, modification, and distribution of LicenseTrack and any Derivative Works thereof. LicenseTrack is made available as source-available software: the source code is publicly accessible, but use is subject to the conditions set out in this document.
+
+The intent of this license is straightforward. Organisations are free to use LicenseTrack to manage their own software licenses at no cost. Individuals and organisations are free to build plugins, extensions, and integrations on top of LicenseTrack and to publish or distribute those works under their own terms, provided they are genuinely additive and do not constitute a repackaging of LicenseTrack itself. Commercial exploitation of LicenseTrack as a product or service, including offering it to third parties or incorporating it into a commercial offering, requires a separate written agreement with the Licensor.
+
+  1. Definitions
+
+"Software" means LicenseTrack, including all source code, documentation, configuration files, and associated materials made available under this license.
+
+"Licensor" means Alexander Janssen, or any person or entity to whom the copyright in the Software is lawfully assigned or transferred.
+
+"You" means the individual or legal entity exercising rights under this license.
+
+"Affiliate" means any legal entity that Controls, is Controlled by, or is under common Control with You. "Control" means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise. Control can be direct or indirect.
+
+"Internal Use" means use of the Software solely to track, manage, and report on software licenses held by You or Your Affiliates for the operations of You and Your Affiliates, where You or an Affiliate operates the Software and the licenses being tracked belong to You or Your Affiliates.
+
+"Commercial Use" means any use of the Software, or a service substantially powered by the Software, that generates revenue or other commercial benefit, including but not limited to: offering the Software as a hosted or managed service to third parties; charging fees for access to or use of the Software; and incorporating the Software into a commercial product or offering. Commercial Use does not include Internal Use permitted under Section 2.1.
+
+"Derivative Work" means any work that is based on or derived from the Software and that reproduces or incorporates a substantial portion of the Software's source code, including modifications, forks, adaptations, and translations of the Software. A Plugin, Extension, or Integration is not a Derivative Work solely because it interfaces with or extends the Software through the Software's published API, documented extension points, import/export contracts, webhook mechanisms, or configuration mechanisms.
+
+"Plugin, Extension, or Integration" means a standalone software component, such as a connector, extension, script, sidecar service, integration module, import/export adapter, webhook consumer, or optional capability module, that interfaces with the Software through its published API, documented extension points, import/export contracts, webhook mechanisms, or configuration mechanisms, but does not reproduce or incorporate a substantial portion of the Software's source code.
+
+"Implementation Services" means time-limited professional services to install, configure, and deploy the Software for a client, after which the client operates the Software independently for Internal Use.
+
+  2. Grant of License
+
+    2.1 Internal Use
+
+Subject to the terms of this license, the Licensor grants You a worldwide, royalty-free, non-exclusive, non-sublicensable license to:
+
+use, copy, and run the Software for Internal Use;
+
+modify the Software for Your own Internal Use, without any obligation to publish those modifications;
+
+distribute unmodified copies of the Software to other parties, provided that such distribution includes this license in full and the recipient uses the Software solely for Internal Use.
+
+Each recipient of an unmodified copy receives rights directly from the Licensor under this license, and You may not grant any rights in the Software beyond those expressly granted by this license.
+
+Example: A consulting firm may use LicenseTrack to track its own internal software licenses. It may customise the Software privately, for example by adding an integration with a discovery tool, without being required to publish those changes. It may not use LicenseTrack to track its clients' licenses.
+
+Example: A company may track any software license where that company or one of its Affiliates is the named end licensee — that is, the organisation in whose name the license was purchased and to whom the entitlement belongs. If the name of your organisation, or of a group company under common Control with it, is on the license agreement or entitlement certificate, you may manage that record in your LicenseTrack instance under Internal Use. A shared-services entity or group IT department may therefore operate a single instance covering the licenses of its parent, subsidiaries, and sister companies. You may not use LicenseTrack to track licenses belonging to, or held on behalf of, an organisation outside Your corporate group.
+
+    2.2 Plugins, Extensions, and Integrations
+
+You may create, publish, distribute, and commercialise Plugins, Extensions, or Integrations that extend or connect with the Software. Plugins, Extensions, and Integrations are not subject to the restrictions in Section 3 and may be released under any license terms You choose, including proprietary or commercial terms.
+
+To qualify as a Plugin, Extension, or Integration under this license, a work must satisfy all of the following:
+
+it does not reproduce or incorporate a substantial portion of the Software's source code;
+
+it is genuinely additive, meaning that it extends, connects to, or automates the Software rather than replacing or repackaging its core functionality;
+
+it does not, in combination with other components, constitute a functional equivalent of the Software offered to third parties as a service.
+
+Example: A standalone connector that pulls discovered software from Lansweeper and pushes it into LicenseTrack via the API is a Plugin, Extension, or Integration and may be published or sold freely.
+
+Example: An optional document-parsing sidecar that uses a documented LicenseTrack document-action extension point and returns proposed field values for user review is a Plugin, Extension, or Integration, provided it does not reproduce or incorporate a substantial portion of the Software's source code.
+
+Example: A fork of LicenseTrack with a Lansweeper tab added directly inside the core application frontend, and distributed as a modified LicenseTrack application, is a Derivative Work and is subject to Section 3.
+
+Example: A white-labelled copy of LicenseTrack, or a modified version of the LicenseTrack frontend that preserves the Software's core functionality and is distributed to third parties, is a Derivative Work and is subject to Section 3.
+
+Example: A separately maintained dashboard that reads LicenseTrack data through the API and adds reporting views, without reproducing a substantial portion of the Software's source code or replacing its core functionality, may qualify as a Plugin, Extension, or Integration.
+
+    2.3 Implementation Services
+
+You may provide Implementation Services to a client in exchange for payment. This is permitted provided that: (a) the resulting deployment is used solely by the client for Internal Use; (b) You do not retain ongoing operational access to or control of the deployed instance after the implementation engagement concludes; and (c) You do not market or represent the engagement as a managed, hosted, or recurring service.
+
+    2.4 Internal Hosting
+
+An organisation may host and operate the Software on infrastructure it controls, including cloud infrastructure, as a deployment for its own Internal Use. Hosting the Software for the benefit of third parties is not permitted under this license.
+
+  3. Restrictions
+
+The following uses are not permitted under this license without a separate written commercial license from the Licensor:
+
+Offering the Software as a service to third parties. This includes hosted services, managed services, and software-as-a-service offerings where the Software or its functionality is made available to parties other than You.
+
+Tracking third-party licenses. Using the Software to track, manage, or report on software licenses belonging to a third party, regardless of whether a fee is charged.
+
+Commercial distribution of Derivative Works. Distributing, publishing, or making available a Derivative Work to third parties, whether for free or for payment, without a commercial license from the Licensor.
+
+Incorporation into a commercial product. Incorporating the Software into a commercial product or offering that is sold, licensed, or otherwise distributed to third parties.
+
+Sublicensing. Sublicensing the Software or granting third parties rights beyond those granted in Section 2.
+
+Removal of notices. Removing or altering any copyright notice, license notice, or attribution statement in the Software or its documentation.
+
+  4. Private Modifications
+
+You may modify the Software for Internal Use without any obligation to publish or disclose those modifications. Private modifications remain subject to all other terms of this license, including the restrictions in Section 3. You may not distribute, publish, or make available a modified version of the Software to third parties without a commercial license from the Licensor.
+
+The absence of a publish-on-modify obligation is intentional. Organisations are encouraged to adapt LicenseTrack to their internal needs. The restriction is on distribution, not on modification itself.
+
+  5. Commercial License
+
+If You wish to use the Software in a manner not permitted by this license, including any use described in Section 3, You must obtain a separate written commercial license from the Licensor prior to such use.
+
+Commercial licenses are available at the Licensor's discretion and may be subject to fees, royalties, revenue-sharing arrangements, or other negotiated conditions. To enquire about a commercial license, contact the Licensor directly.
+
+The Licensor reserves the right to use the Software for any purpose without restriction, including purposes that would constitute Commercial Use or restricted distribution under this license.
+
+  6. Attribution
+
+Any permitted distribution of the Software must:
+
+retain this license document in full;
+
+preserve all copyright notices present in the source code;
+
+include, in any user-facing documentation or About screen, a clear acknowledgement that the software is or is derived from LicenseTrack.
+
+Plugins, Extensions, and Integrations distributed under Section 2.2 must acknowledge in their documentation that they are designed to work with LicenseTrack, but are not required to reproduce this license.
+
+  7. Contributions
+
+You retain ownership of any copyright You hold in Your contribution. However, by submitting a contribution, including pull requests, patches, or suggested modifications, to the Software's official repository, You grant the Licensor a perpetual, worldwide, royalty-free, irrevocable, sublicensable license to use, reproduce, modify, distribute, and relicense Your contribution as part of the Software under any license terms the Licensor chooses, including commercial license terms.
+
+If You wish to keep a Plugin, Extension, or Integration under separate terms, You should publish or distribute it separately under Section 2.2 rather than submitting it for inclusion in the Software's official repository. Once a Plugin, Extension, Integration, or other addition is submitted to and accepted into the Software's official repository, it is treated as a contribution under this Section 7.
+
+You represent that You have the right to grant this license and that Your contribution does not infringe any third-party intellectual property rights.
+
+  8. Disclaimer of Warranties
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. THE LICENSOR DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE, UNINTERRUPTED, OR FREE OF SECURITY VULNERABILITIES.
+
+  9. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS OF DATA, LOSS OF PROFITS, OR BUSINESS INTERRUPTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR INABILITY TO USE THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+  10. Termination
+
+If You fail to comply with any term of this license, Your rights under it terminate. However, the first time You receive written notice from the Licensor that You have violated these terms, Your rights continue if You come into full compliance with this license, and take practical steps to correct past violations, within 32 days of receiving that notice. If You do not, or if You violate these terms again after having been notified, Your rights under this license terminate immediately and permanently.
+
+Upon termination You must cease all use of the Software and destroy all copies in Your possession or control. Sections 5, 6, 8, 9, 11, 12, and 13 survive termination.
+
+  11. General
+
+This license constitutes the entire agreement between You and the Licensor with respect to the use of the Software and supersedes all prior agreements, representations, and understandings.
+
+If any provision of this license is held to be unenforceable, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force and effect.
+
+The Licensor's failure to enforce any provision of this license shall not constitute a waiver of the Licensor's right to enforce that provision in the future.
+
+Unless otherwise agreed in writing, this License shall be governed by the laws of Belgium, without regard to conflict of law provisions.
+
+LicenseTrack incorporates third-party software components listed in the THIRD_PARTY_NOTICES file accompanying this distribution, each governed by its own license terms. Those license terms are unaffected by this license.
+
+  12. Patent Rights
+
+Subject to the terms of this license, the Licensor grants You a limited, worldwide, royalty-free, non-exclusive patent license under any patent claims owned or controlled by the Licensor that are necessarily infringed by using, running, copying, or modifying the Software solely as permitted under this license.
+
+If You initiate a patent infringement claim alleging that the Software infringes a patent, Your rights under this license terminate automatically.
+
+  13. License Versions
+
+The Licensor may publish revised versions of this license from time to time. Each version will be identified by a distinct version number.
+
+The Software is licensed under the version of this license that accompanies the copy of the Software You receive or use. If You obtain, download, update, or otherwise use a later version of the Software that is accompanied by a revised version of this license, that later version of the license applies to that later version of the Software.
+
+Nothing in a revised version of this license retroactively changes the terms applicable to earlier copies of the Software that were distributed under an earlier version of this license.
+
+  Quick Reference:
+
+The following table summarises the key permissions and restrictions under this license. It is provided for convenience only; the full license terms above govern in all cases.
+
+  Permitted without a commercial license:
+
+Internal use by any organisation, including consulting firms tracking their own licenses
+
+Group-wide use: one instance covering licenses held by Your parent, subsidiary, and sister companies under common Control
+
+Private modifications for internal use, with no obligation to publish
+
+One-time implementation and setup services for a client who then self-operates
+
+Self-hosted internal deployments on any infrastructure
+
+Publishing free or commercial Plugins, Extensions, and Integrations that extend the Software through its published API, documented extension points, import/export contracts, webhook mechanisms, or configuration mechanisms
+
+  Requires a commercial license from the Licensor:
+
+Offering LicenseTrack as a hosted or managed service to third parties
+
+Using LicenseTrack to track software licenses belonging to a third party
+
+Distributing or publishing a modified version of LicenseTrack
+
+Incorporating LicenseTrack into a commercial product sold to third parties
+
+---------------
+
+For uses that require a separate commercial license, contact the Licensor. This License is not legal advice. If you are unsure whether your intended use is permitted, seek independent legal counsel.

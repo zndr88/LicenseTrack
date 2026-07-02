@@ -1,0 +1,133 @@
+import React from "react";
+import { render, fireEvent, screen } from "@testing-library/react";
+import { describe, expect, test, vi } from "vitest";
+import LicenseToolbar from "../components/pages/licenses/LicenseToolbar.jsx";
+
+const baseUserSettings = {
+  savedViews: [],
+  numberFormatLocale: "en-US",
+};
+
+function setup(overrides = {}) {
+  const props = {
+    search: "",
+    setSearch: vi.fn(),
+    setCurrentPage: vi.fn(),
+    filterRowOpen: false,
+    setFilterRowOpen: vi.fn(),
+    hasColumnFilters: false,
+    setColumnFilters: vi.fn(),
+    statsVisible: true,
+    onSetStatsVisible: vi.fn(),
+    fullViewProp: false,
+    handleToggleFullView: vi.fn(),
+    loadLicenses: vi.fn(),
+    selectedIds: new Set(),
+    setShowBulkDeleteConfirm: vi.fn(),
+    userSettings: baseUserSettings,
+    handleSaveView: vi.fn(),
+    handleDeleteView: vi.fn(),
+    handleLoadView: vi.fn(),
+    handleRevertToDefault: vi.fn(),
+    activeColumns: [],
+    visList: {},
+    filtered: [],
+    displayCurrency: "USD",
+    licenses: [],
+    customFieldValuesMap: new Map(),
+    showError: vi.fn(),
+    ...overrides,
+  };
+  render(<LicenseToolbar {...props} />);
+  return props;
+}
+
+describe("LicenseToolbar", () => {
+  test("renders search input", () => {
+    setup();
+    expect(screen.getByPlaceholderText("Search…")).toBeTruthy();
+  });
+
+  test("search input calls setSearch and setCurrentPage", () => {
+    const { setSearch, setCurrentPage } = setup();
+    fireEvent.change(screen.getByPlaceholderText("Search…"), { target: { value: "acme" } });
+    expect(setSearch).toHaveBeenCalledWith("acme");
+    expect(setCurrentPage).toHaveBeenCalledWith(1);
+  });
+
+  test("saved views dropdown opens on bookmark button click", () => {
+    setup();
+    fireEvent.click(screen.getByLabelText("Saved views"));
+    expect(screen.getByPlaceholderText("View name...")).toBeTruthy();
+  });
+
+  test("saving a new view name calls handleSaveView with trimmed name", () => {
+    const { handleSaveView } = setup();
+    fireEvent.click(screen.getByLabelText("Saved views"));
+    fireEvent.change(screen.getByPlaceholderText("View name..."), { target: { value: "  My View  " } });
+    fireEvent.click(screen.getByText("Save"));
+    expect(handleSaveView).toHaveBeenCalledWith("My View");
+  });
+
+  test("saving a duplicate name shows overwrite confirmation instead of saving", () => {
+    const { handleSaveView } = setup({
+      userSettings: { savedViews: [{ name: "Existing" }], numberFormatLocale: "en-US" },
+    });
+    fireEvent.click(screen.getByLabelText("Saved views"));
+    fireEvent.change(screen.getByPlaceholderText("View name..."), { target: { value: "Existing" } });
+    fireEvent.click(screen.getByText("Save"));
+    // handleSaveView should NOT have been called yet — overwrite prompt shown instead
+    expect(handleSaveView).not.toHaveBeenCalled();
+    // The overwrite confirmation renders a paragraph and a button both containing "Overwrite"
+    expect(screen.getAllByText(/Overwrite/).length).toBeGreaterThan(0);
+  });
+
+  test("confirming overwrite calls handleSaveView with the duplicate name", () => {
+    const { handleSaveView } = setup({
+      userSettings: { savedViews: [{ name: "Existing" }], numberFormatLocale: "en-US" },
+    });
+    fireEvent.click(screen.getByLabelText("Saved views"));
+    fireEvent.change(screen.getByPlaceholderText("View name..."), { target: { value: "Existing" } });
+    fireEvent.click(screen.getByText("Save"));
+    // Click the "Overwrite" confirm button (there may be multiple elements with "Overwrite" text — get the button)
+    const overwriteBtn = screen.getAllByText("Overwrite").find(el => el.tagName === "BUTTON");
+    fireEvent.click(overwriteBtn);
+    expect(handleSaveView).toHaveBeenCalledWith("Existing");
+  });
+
+  test("Save button is disabled when view name input is empty", () => {
+    setup();
+    fireEvent.click(screen.getByLabelText("Saved views"));
+    const saveBtn = screen.getByText("Save").closest("button");
+    expect(saveBtn.disabled).toBe(true);
+  });
+
+  test("bulk delete button shown when selectedIds is non-empty", () => {
+    setup({ selectedIds: new Set([1, 2]) });
+    expect(screen.getByLabelText("Delete 2 selected license(s)")).toBeTruthy();
+  });
+
+  test("bulk delete button not shown when selectedIds is empty", () => {
+    setup({ selectedIds: new Set() });
+    expect(screen.queryByLabelText(/Delete \d+ selected/)).toBeNull();
+  });
+
+  test("CSV export options are disclosed from a single toolbar button", () => {
+    setup();
+    expect(screen.queryByLabelText("Toggle localized CSV export")).toBeNull();
+
+    fireEvent.click(screen.getByLabelText("Export CSV"));
+
+    expect(screen.getByRole("menu", { name: "CSV export options" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Export Current View Filtered rows and visible columns/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Export Full Data Filtered rows and every available column/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Export Current View \(localized\) Use your date and number formats/ })).toBeTruthy();
+  });
+
+  test("CSV export options close when clicking outside the menu", () => {
+    setup();
+    fireEvent.click(screen.getByLabelText("Export CSV"));
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("menu", { name: "CSV export options" })).toBeNull();
+  });
+});

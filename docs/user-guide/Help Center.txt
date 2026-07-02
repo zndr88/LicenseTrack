@@ -1,0 +1,44 @@
+Help Center
+
+What it is
+The Help Center is LicenseTrack's in-app documentation surface. It gives users workflow guidance, feature notes, operating caveats, and glossary definitions without sending them away from the installed application.
+
+The Help Center is deliberately not a wiki. LicenseTrack is an operational system for software license lifecycle management, not a general collaboration or knowledge-authoring space. Help content is maintained with the application so it can match the version that is deployed.
+
+How it works
+The Help Center is opened from the question-mark button in the top-right utility area, next to notifications and the user menu. It is not part of the main top navigation and it is not listed in the left sidebar.
+
+This placement is intentional. The top navigation is reserved for primary work areas such as Overview, Import, Reports, and Admin. The sidebar is reserved for operational pipeline and reference data such as sourcing, pending orders, renewals, license records, and contracts. Help cuts across all of those areas, so it lives as a utility action.
+
+The Help page has three main regions:
+
+- A category rail for browsing broad topic groups.
+- An article list showing matching help topics.
+- An article panel showing the selected topic.
+
+The search box filters across article titles, summaries, categories, headings, body text, and bullets. Title and summary matches are ranked ahead of deep body matches so searches such as "backup" surface the most direct article first.
+
+Included topics
+The initial Help Center content covers:
+
+- Procurement flow - sourcing, pending orders, conversion, and document handoff.
+- Renewal workflow - renewal initiation, predecessor/successor records, and coterm behavior.
+- License registry - search, filters, saved views, configurable Standard/Advanced/Computed table columns, a searchable field reference, Current View and Full Data CSV exports, inline editing, procurement milestone dates, external references, and detail-panel History metadata.
+- CSV import - analysis, mapping, preview, confirmation, and import caveats.
+- Documents and evidence - license-owned documents, procurement evidence, and document scope.
+- Reports - filtered lifecycle counters and budgets, historical PO spend, active recurring forecast, merged publisher/vendor overview, fiscal-quarter renewals, and PDF export caveats.
+- Admin and operations - users, global settings, SMTP, OIDC, audit log, and opt-in completeness requirements.
+- Database backup and restore - database snapshot behavior and document-storage backup responsibility.
+- API tokens and integrations - scoped bearer tokens, one-time token visibility, route limits, revocation, webhooks, integration capability declarations, current non-plugin limitations, and document processor review behavior.
+- Roles and access - Admin, Editor, Viewer, department scope, downloads, and authentication.
+- Glossary - common workflow and portfolio terms.
+
+Who can use it
+All authenticated users can open the Help Center. The content is general product guidance and does not expose data from restricted departments or admin-only records.
+
+Things to know
+- Help content is static frontend content in the current implementation.
+- It is available inside the self-hosted app and does not require an external documentation website.
+- Public website or repository documentation should still hold deployment, compliance, release, security, and maintainer-oriented material.
+- In-app help should stay focused on product workflows, feature behavior, caveats, troubleshooting, and glossary terms.
+- If a feature has complex or surprising behavior, add it to Help when the feature ships rather than waiting for a separate documentation pass.

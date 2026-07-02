@@ -1,0 +1,164 @@
+// frontend/src/components/licenses/detail/ContractDatesSection.jsx
+import { formatDate, formatDateTime } from "../../../utils/formatting.js";
+import Icon from "../../ui/Icon.jsx";
+import DetailSectionHeader from "./DetailSectionHeader.jsx";
+import CustomFieldRows from "./CustomFieldRows.jsx";
+
+export default function ContractDatesSection({
+  license,
+  perms,
+  userSettings,
+  isOpen,
+  onToggle,
+  contracts,
+  onNavigateToContract,
+  onCreateContract,
+  openFieldEdit,
+  cfBySection,
+  customFieldValues,
+  vis,
+  customFieldsLoading,
+  makeCustomFieldSaveFn,
+  closeFieldEdit,
+}) {
+  return (
+    <>
+      <DetailSectionHeader sectionKey="dates" title="Key Dates &amp; Contract" isOpen={isOpen} onToggle={onToggle} />
+      {isOpen && (
+        <div className="dp-section-body" id="dp-section-dates">
+          <div className="fr dp-data-row">
+            <div className="dp-field">
+              <label>Start Date</label>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div className="val mono">{license.startDate ? formatDate(license.startDate, userSettings) : "—"}</div>
+                {perms.canEdit && (
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit start date"
+                    onClick={() => openFieldEdit({ fieldKey: "startDate", fieldLabel: "Start Date", currentValue: license.startDate || "", inputType: "date" })}
+                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                    <Icon name="edit" size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="dp-field">
+              <label>End Date</label>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div className="val mono">{license.endDate ? formatDate(license.endDate, userSettings) : "—"}</div>
+                {perms.canEdit && (
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit end date"
+                    onClick={() => openFieldEdit({ fieldKey: "endDate", fieldLabel: "End Date", currentValue: license.endDate || "", inputType: "date" })}
+                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                    <Icon name="edit" size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="fr dp-data-row">
+            <div className="dp-field">
+              <label>Request Date</label>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div className="val mono">{license.requestDate ? formatDateTime(license.requestDate, userSettings) : "\u2014"}</div>
+                {perms.canEdit && (
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit request date"
+                    onClick={() => openFieldEdit({ fieldKey: "requestDate", fieldLabel: "Request Date", currentValue: license.requestDate?.slice(0, 10) || "", inputType: "date" })}
+                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                    <Icon name="edit" size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="dp-field">
+              <label>Purchase Date</label>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div className="val mono">{license.purchaseDate ? formatDateTime(license.purchaseDate, userSettings) : "\u2014"}</div>
+                {perms.canEdit && (
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit purchase date"
+                    onClick={() => openFieldEdit({ fieldKey: "purchaseDate", fieldLabel: "Purchase Date", currentValue: license.purchaseDate?.slice(0, 10) || "", inputType: "date" })}
+                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                    <Icon name="edit" size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="fr dp-data-row">
+            <div className="dp-field">
+              <label>Contract #</label>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div className="val mono">{license.contractNumber || "—"}</div>
+                {perms.canEdit && (
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit contract number"
+                    onClick={() => openFieldEdit({ fieldKey: "contractNumber", fieldLabel: "Contract #", currentValue: license.contractNumber || "", inputType: "text" })}
+                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                    <Icon name="edit" size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="dp-field">
+              <label>PO #</label>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div className="val mono">{license.poNumber || "—"}</div>
+                {perms.canEdit && (
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit PO number"
+                    onClick={() => openFieldEdit({ fieldKey: "poNumber", fieldLabel: "PO #", currentValue: license.poNumber || "", inputType: "text" })}
+                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                    <Icon name="edit" size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          {license.contractNumber && (() => {
+            const matched = (contracts ?? []).find(
+              (c) => c.contractNumber?.toLowerCase() === license.contractNumber?.toLowerCase()
+            );
+            return (
+              <div className="dp-field" style={{ marginBottom: 4 }}>
+                <label>Contract Record</label>
+                {matched ? (
+                  <button className="btn btn-g btn-sm" onClick={() => onNavigateToContract?.(matched.id)} style={{ marginTop: 2 }}>
+                    <Icon name="file" size={12} /> Open Contract
+                  </button>
+                ) : (
+                  <button className="btn btn-g btn-sm"
+                    onClick={() => onCreateContract?.({ contractNumber: license.contractNumber, publisherName: license.publisherName })}
+                    style={{ marginTop: 2 }}>
+                    <Icon name="plus" size={12} /> Create Contract Record
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+          <div className="dp-field">
+            <label>Invoice #</label>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <div className="val mono">{license.invoiceNumber || "—"}</div>
+              {perms.canEdit && (
+                <button type="button" className="dp-field-edit-icon" aria-label="Edit invoice number"
+                  onClick={() => openFieldEdit({ fieldKey: "invoiceNumber", fieldLabel: "Invoice #", currentValue: license.invoiceNumber || "", inputType: "text" })}
+                  onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  <Icon name="edit" size={11} />
+                </button>
+              )}
+            </div>
+          </div>
+          <CustomFieldRows
+            fieldDefs={cfBySection["dates"] ?? []}
+            values={customFieldValues}
+            visibleInDetail={vis}
+            license={license}
+            userSettings={userSettings}
+            canEdit={perms.canEdit}
+            onOpenFieldEdit={openFieldEdit}
+            makeCustomFieldSaveFn={makeCustomFieldSaveFn}
+            onCloseFieldEdit={closeFieldEdit}
+            loading={customFieldsLoading}
+          />
+        </div>
+      )}
+      <div className="dp-section-divider" />
+    </>
+  );
+}
