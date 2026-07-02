@@ -16,7 +16,6 @@ from app.models.document import ProcurementDocument
 from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.schemas.document import ProcurementDocumentResponse
-from app.services import storage
 from app.schemas.pending_order import PendingOrderCreate, PendingOrderResponse, PendingOrderUpdate, SourcingItemSummary
 from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate
 
