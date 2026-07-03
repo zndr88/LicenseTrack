@@ -1,6 +1,6 @@
 services:
   license-lifecycle:
-    image: license-lifecycle-system:1.0.0
+    image: license-lifecycle-system:1.0.1
     build:
       context: .
       dockerfile: Dockerfile
@@ -12,7 +12,7 @@ services:
       - STORAGE_PATH=${STORAGE_PATH:-/data/storage}
       - BACKUP_LOCATION=${BACKUP_LOCATION:-/data/backups}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8080}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-CHANGEME_REQUIRED}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - TOKEN_EXPIRY=${TOKEN_EXPIRY:-1440}
       - HOST=${HOST:-0.0.0.0}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -29,6 +29,8 @@ services:
     volumes:
       - license_lifecycle_data:/data
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     logging:
       driver: "json-file"
       options:

@@ -81,7 +81,7 @@ async def lifespan(app: FastAPI):
         sys.exit(1)
 
     admin_pw = settings.ADMIN_PASSWORD or ""
-    if admin_pw.lower() in ("admin", "password", "", "changeme"):
+    if admin_pw.lower() in ("admin", "password", "", "changeme", "changeme_required"):
         print(
             "\n[FATAL] ADMIN_PASSWORD is set to a default or blank value. "
             "Set a strong password in your .env file and restart.\n",

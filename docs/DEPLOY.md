@@ -43,6 +43,35 @@ Log in with username `admin` and the password configured in `ADMIN_PASSWORD`. Ch
 
 The Docker image serves the React frontend and FastAPI backend from the same origin. Browser API calls use `/api/...` by default, so the backend container port `8000` does not need to be exposed directly to end users.
 
+## Running with Podman
+
+The image is a standard OCI image and runs under Podman without changes. The most reliable path is a plain build and run (it avoids differences between compose providers):
+
+```bash
+podman build -t license-lifecycle-system:1.0.1 .
+
+podman run -d --name licensetrack -p 8080:8000 \
+  --env-file .env \
+  -v license_lifecycle_data:/data \
+  license-lifecycle-system:1.0.1
+```
+
+Notes:
+
+- `podman compose up -d --build` also works, but only if a compose provider (`podman-compose` or `docker-compose`) is installed; without one, use the `podman run` form above.
+- Rootless Podman is supported — the published port (`8080`) is above 1024 and the container already runs as a non-root user.
+- The Compose healthcheck is not applied by `podman run`; verify health with `curl http://localhost:8080/api/health` (expects `{"status":"ok", ...}`).
+
+## Production hardening
+
+For any deployment reachable beyond your own machine:
+
+- **Serve over HTTPS behind a reverse proxy** (nginx, Caddy, Traefik) and set `SESSION_COOKIE_SECURE=true` so session cookies are only sent over TLS.
+- **Set `CORS_ORIGINS`** to the exact browser origin(s) you serve from — not the default localhost value.
+- **Do not expose the container port directly to an untrusted network.** Publish it only to the reverse proxy (e.g. bind to `127.0.0.1` on the host, or keep it on an internal network).
+- **Keep a single Uvicorn worker** (the default). The Plugin Host manages plugin subprocesses in the worker's memory; multiple workers break plugin runtime management.
+- The bundled `docker-compose.yml` already sets `no-new-privileges` and runs the app as a non-root user.
+
 ## Configuration
 
 All variables are read from `.env` at container start. Restart the container after changing configuration.

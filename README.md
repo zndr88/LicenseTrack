@@ -1,6 +1,6 @@
 # LicenseTrack
 
-Version 1.0.0.
+Version 1.0.1.
 
 LicenseTrack is a self-hosted software license procurement and lifecycle management system. It gives organisations a single Docker-deployed application for sourcing, purchase orders, active license records, renewals, contracts, documents, notifications, reporting, database backups, audit history, and user access control.
 
@@ -116,7 +116,7 @@ See [docs/extensions.md](docs/extensions.md), [docs/plugin-host-roadmap.md](docs
 | Auth | JWT sessions, bcrypt password hashing, optional OIDC |
 | Documents | Filesystem-backed storage under the configured storage path |
 | Jobs | APScheduler background scheduler |
-| Deployment | Docker and Docker Compose |
+| Deployment | Docker and Docker Compose (Podman-compatible) |
 
 ## Quick Start
 
@@ -205,8 +205,7 @@ Application database backups contain the SQLite database only. Uploaded document
 - [docs/extensions.md](docs/extensions.md): Integration Framework, terminology, boundaries, and Plugin Host positioning.
 - [docs/plugin-author-guide.md](docs/plugin-author-guide.md): how to build, package, and license an installable plugin against the shipped Plugin Host v1 contract.
 - [docs/plugin-host-roadmap.md](docs/plugin-host-roadmap.md): the installable plugin system (Plugin Host v1, shipped) with manifests, settings, permissions, UI slots, and managed runtime, plus post-v1 direction.
-- [docs/plugin-host-v1-roadmap.md](docs/plugin-host-v1-roadmap.md): concrete v1 roadmap for uploadable plugin zip packages with a `.ltplugin` manifest.
-- [docs/plugin-host-v1-implementation-plan.md](docs/plugin-host-v1-implementation-plan.md): phased implementation plan for building the v1 Plugin Host.
+- [docs/plugin-host-v1-roadmap.md](docs/plugin-host-v1-roadmap.md): the Plugin Host v1 platform contract — package rules, `.ltplugin` manifest, permission catalog, slot catalog, and runtime protocol.
 - [docs/extension-author-checklist.md](docs/extension-author-checklist.md): checklist for building private integrations or document processors against current framework boundaries.
 - [docs/build-integrations.md](docs/build-integrations.md): integration author guide, scope matrix, quickstart, compatibility notes, and operational checklist.
 - [docs/build-document-processor.md](docs/build-document-processor.md): document processor author guide for the webhook/action/result review contract.

@@ -1,8 +1,6 @@
 # Plugin Host V1 Roadmap
 
-This roadmap turns the Plugin Host concept into a concrete v1 release plan.
-
-For execution sequencing, milestones, backend/frontend work packages, and test gates, see `docs/plugin-host-v1-implementation-plan.md`.
+This document is the frozen Plugin Host v1 platform contract: package rules, the `.ltplugin` manifest, the permission catalog, the slot catalog, the runtime protocol, and the suggestion shape.
 
 Current implementation status:
 

@@ -155,7 +155,7 @@ Use this guide when deciding where a feature belongs:
 
 ## Plugin Host V1
 
-The Plugin Host v1 is a separate platform layer above the Integration Framework, shipped as of LicenseTrack v0.9.9. It makes plugins feel closer to browser or editor extensions: install a package, approve permissions, configure settings, and see approved UI/actions appear in LicenseTrack.
+The Plugin Host v1 is a separate platform layer above the Integration Framework, shipped in LicenseTrack v1.0.0. It makes plugins feel closer to browser or editor extensions: install a package, approve permissions, configure settings, and see approved UI/actions appear in LicenseTrack.
 
 The v1 design and scope are documented in `docs/plugin-host-v1-roadmap.md`. Plugin author guidance is in `docs/plugin-author-guide.md`.
 

@@ -2,7 +2,7 @@
 
 This guide describes the LicenseTrack Plugin Host v1 contract for authors building installable plugin packages. The v1 host is intentionally conservative: plugins ship as offline zip packages, declare their permissions and actions in a manifest, run as managed local processes, and return structured results for LicenseTrack to review or apply through core services.
 
-For implementation sequencing, see `docs/plugin-host-v1-implementation-plan.md`. For the frozen v1 platform contract, see `docs/plugin-host-v1-roadmap.md`.
+For the frozen v1 platform contract, see `docs/plugin-host-v1-roadmap.md`.
 
 ## What A Plugin Can Do In V1
 

@@ -1,6 +1,6 @@
 # Plugin Host Roadmap
 
-> **Status (as of v0.9.9):** Plugin Host v1 is shipped. The First Milestone listed at the bottom of this document is complete. See `docs/plugin-host-v1-roadmap.md` for the delivered scope and `docs/plugin-author-guide.md` for the author contract.
+> **Status (as of v1.0.0):** Plugin Host v1 is shipped. The First Milestone listed at the bottom of this document is complete. See `docs/plugin-host-v1-roadmap.md` for the delivered scope and `docs/plugin-author-guide.md` for the author contract.
 
 LicenseTrack's extensibility has two layers: an Integration Framework (API tokens, webhooks, declared capabilities, document actions, and document-processing results) and the Plugin Host v1 (installable packages, managed runtimes, core-rendered slots, generic suggestions).
 
@@ -208,7 +208,7 @@ The difference is operator experience. Today, admins manually assemble tokens, w
 
 ## First Milestone (Complete)
 
-The first milestone is complete as of v0.9.9:
+The first milestone is complete as of v1.0.0:
 
 1. ✅ Plugin registry table and Admin Settings section.
 2. ✅ Manifest parser and compatibility validation.

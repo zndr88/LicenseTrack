@@ -9,6 +9,32 @@ API stability levels and the breaking-change policy are defined in
 [docs/api-stability.md](docs/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
+## [1.0.1] - 2026-07-04
+
+### Security
+
+- Exclude nested `.env` files (e.g. `backend/.env`) from the Docker build context
+  so local secrets can no longer be baked into a built image.
+- Docker Compose no longer supplies a default `ADMIN_PASSWORD`; an unset value now
+  fails startup instead of silently using a placeholder. Added `changeme_required`
+  to the weak-password blocklist as defense-in-depth.
+- Bump `pydantic-settings` to 2.14.2 (resolves a symlink-escape advisory in
+  `NestedSecretsSettingsSource`) and `dompurify` to 3.4.11.
+- Docker Compose now runs the container with `no-new-privileges`.
+
+### Changed
+
+- Frontend build stage now uses `node:22-alpine` (Node 20 reached end-of-life).
+
+### Docs
+
+- Removed the internal Plugin Host v1 implementation-plan and Pydantic schema-plan
+  documents (build scaffolding for already-shipped functionality) and corrected
+  stale version references in the remaining plugin-host docs.
+- Added Podman deployment instructions and a production-hardening section (HTTPS,
+  `SESSION_COOKIE_SECURE`, reverse-proxy, and trusted-network guidance) to
+  `docs/DEPLOY.md`.
+
 ## [1.0.0] - 2026-06-16
 
 First public source-available release. LicenseTrack is a self-hosted software
@@ -132,4 +158,5 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
+[1.0.1]: https://github.com/zndr88/LicenseTrack/releases/tag/v1.0.1
 [1.0.0]: https://github.com/zndr88/LicenseTrack/releases/tag/v1.0.0
