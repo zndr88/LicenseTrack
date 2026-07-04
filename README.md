@@ -33,8 +33,6 @@ LicenseTrack is what I needed in both roles: a single source of truth for softwa
 
 ### License Registry
 
-![Searchable, filterable license register with configurable columns](docs/images/license-registry.png)
-
 - Maintain searchable, filterable license records with publisher, contract, purchase order, dates, quantities, costs, status, custom fields, and notes.
 - Preserve sourcing-request and purchase-order milestone dates on resulting license records, with manual enrichment for imported and legacy data.
 - Review record history in the license detail panel, including creator account, creation timestamp, and latest update timestamp.
