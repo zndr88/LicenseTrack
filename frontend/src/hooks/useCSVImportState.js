@@ -66,6 +66,11 @@ export function useCSVImportState({ onImportComplete, userSettings }) {
     await analysis.handleMappedPreview(csvFile, preview.setMappedPreviewData);
   };
 
+  const onToggleUpdateExisting = async (next) => {
+    analysis.setUpdateExisting(next);
+    await analysis.handleMappedPreview(csvFile, preview.setMappedPreviewData, next);
+  };
+
   const reset = () => {
     setStep("upload");
     setCsvFile(null);
@@ -107,6 +112,9 @@ export function useCSVImportState({ onImportComplete, userSettings }) {
     skipRows: preview.skipRows,
     restoreRows: preview.restoreRows,
     handleConfirm,
+    updateExisting: analysis.updateExisting,
+    onToggleUpdateExisting,
+    showUpdateControls: source === "external",
 
     // Mapping
     analyzeData: analysis.analyzeData,

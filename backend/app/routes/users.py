@@ -31,6 +31,7 @@ from app.schemas.user import DepartmentAssignment, ResetPasswordRequest, RoleUpd
 from app.services.audit_service import diff_fields, log_event
 from app.services.user_service import (
     apply_user_update,
+    build_inherited_user_settings,
     ensure_local_admin_invariant,
     reject_break_glass_change,
 )
@@ -101,7 +102,12 @@ async def create_user(
     )
     db.add(user)
     await db.flush()
-    db.add(UserSettings(user_id=user.id))
+
+    # New users inherit the creating admin's regional/display preferences.
+    admin_settings = await db.scalar(
+        select(UserSettings).where(UserSettings.user_id == _admin.id)
+    )
+    db.add(build_inherited_user_settings(user_id=user.id, source=admin_settings))
 
     ip = request.client.host if request.client else None
     await log_event(

@@ -348,6 +348,92 @@ def test_header_aliases():
 
 
 # ---------------------------------------------------------------------------
+# 1h-2 — Procurement milestone datetimes (request_date / purchase_date)
+# ---------------------------------------------------------------------------
+
+def test_request_and_purchase_date_headers_auto_map_and_parse():
+    csv_bytes = _csv(
+        ["Publisher", "Description", "Request Date", "Purchase Date"],
+        [{
+            "Publisher": "Acme",
+            "Description": "Widget",
+            "Request Date": "2026-01-15",
+            "Purchase Date": "2026-02-20",
+        }],
+    )
+    result = parse_csv(csv_bytes)
+
+    assert "request_date" in result.headers_found
+    assert "purchase_date" in result.headers_found
+    row = result.rows[0]
+    assert row.validation_errors == []
+    assert row.db_request_date is not None
+    assert (row.db_request_date.year, row.db_request_date.month, row.db_request_date.day) == (2026, 1, 15)
+    assert row.db_request_date.tzinfo is not None
+    assert (row.db_purchase_date.year, row.db_purchase_date.month, row.db_purchase_date.day) == (2026, 2, 20)
+    assert row.db_purchase_date.tzinfo is not None
+
+
+def test_purchase_date_maps_to_purchase_date_field_not_start_date():
+    # Regression: "Purchase Date" was mis-aliased to start_date (Flexera fallback).
+    csv_bytes = _csv(
+        ["Publisher", "Description", "Purchase Date"],
+        [{"Publisher": "Acme", "Description": "Widget", "Purchase Date": "2026-02-20"}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.db_purchase_date is not None
+    assert row.db_start_date is None
+    assert row.start_date is None
+
+
+def test_request_date_accepts_iso_datetime_round_trip():
+    # LicenseTrack export emits full ISO datetimes for these fields.
+    csv_bytes = _csv(
+        ["Publisher", "Description", "Request Date"],
+        [{"Publisher": "Acme", "Description": "Widget", "Request Date": "2026-01-15T09:30:00Z"}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.validation_errors == []
+    assert row.db_request_date.tzinfo is not None
+    assert (row.db_request_date.year, row.db_request_date.month, row.db_request_date.day) == (2026, 1, 15)
+    assert row.db_request_date.hour == 9
+
+
+def test_request_date_respects_declared_date_format():
+    csv_bytes = _csv(
+        ["Publisher", "Description", "Request Date"],
+        [{"Publisher": "Acme", "Description": "Widget", "Request Date": "15/06/2026"}],
+    )
+    row = parse_csv(csv_bytes, date_format="DD/MM/YYYY").rows[0]
+
+    assert (row.db_request_date.year, row.db_request_date.month, row.db_request_date.day) == (2026, 6, 15)
+
+
+def test_invalid_request_date_is_row_error():
+    csv_bytes = _csv(
+        ["Publisher", "Description", "Request Date"],
+        [{"Publisher": "Acme", "Description": "Widget", "Request Date": "not-a-date"}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.import_status == "error"
+    assert any("request_date" in e for e in row.validation_errors)
+    assert row.db_request_date is None
+
+
+def test_parsed_row_defaults_to_create_action():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description"],
+        [{"publisher_name": "Acme", "software_description": "Widget"}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+    assert row.import_action == "create"
+    assert row.matched_license_id is None
+
+
+# ---------------------------------------------------------------------------
 # 1i — headers_missing
 # ---------------------------------------------------------------------------
 

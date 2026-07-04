@@ -1,5 +1,7 @@
 import bcrypt
+from sqlalchemy import select
 
+from app.models.settings import UserSettings
 from app.models.user import AuthProvider, User, UserRole
 
 
@@ -128,6 +130,53 @@ async def test_create_user_persists_viewer_download_permission(test_app, auth_he
     body = resp.json()
     assert body["role"] == "viewer"
     assert body["allow_downloads"] is False
+
+
+async def test_created_user_inherits_admin_regional_settings(db_session, test_app, auth_headers):
+    # Give the acting admin (testadmin) distinctive regional preferences.
+    admin = await db_session.scalar(select(User).where(User.username == "testadmin"))
+    db_session.add(
+        UserSettings(
+            user_id=admin.id,
+            theme="dark",
+            display_currency="GBP",
+            number_format_locale="en-GB",
+            ui_size="large",
+            date_format="YYYY-MM-DD",
+            time_format="12h",
+            time_zone="Europe/London",
+            saved_views=[{"name": "Admin only view"}],
+        )
+    )
+    await db_session.commit()
+
+    resp = await test_app.post(
+        "/api/users",
+        json={
+            "username": "inheritor",
+            "email": "inheritor@example.com",
+            "password": "password123456",
+            "role": "viewer",
+            "auth_provider": "local",
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201, resp.text
+    new_user_id = resp.json()["id"]
+
+    new_settings = await db_session.scalar(
+        select(UserSettings).where(UserSettings.user_id == new_user_id)
+    )
+    assert new_settings is not None
+    assert new_settings.theme == "dark"
+    assert new_settings.display_currency == "GBP"
+    assert new_settings.number_format_locale == "en-GB"
+    assert new_settings.ui_size == "large"
+    assert new_settings.date_format == "YYYY-MM-DD"
+    assert new_settings.time_format == "12h"
+    assert new_settings.time_zone == "Europe/London"
+    # Personal layout state is NOT inherited.
+    assert new_settings.saved_views == []
 
 
 async def test_update_user_persists_viewer_download_permission(db_session, test_app, auth_headers):

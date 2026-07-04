@@ -834,7 +834,7 @@ Optional but recommended:
 
 These are host-level constraints operators must observe when running Plugin Host v1.
 
-**Single-worker requirement.** Managed plugin state (subprocess handles, bearer tokens, per-action document scopes) is in-process. LicenseTrack must run with exactly one Uvicorn worker (`--workers 1`, the default). Multiple workers partition plugin state invisibly: one worker starts a subprocess and records its bearer token; a second worker cannot find it and rejects all runtime requests from that plugin with 401. Do not set `--workers > 1` in Docker, systemd, or any other process manager. See `docs/DEPLOY.md` for Docker Compose notes.
+**Single-worker requirement.** Managed plugin state (subprocess handles, bearer tokens, per-action document scopes) is in-process. LicenseTrack must run with exactly one Uvicorn worker (`--workers 1`, the default). Multiple workers partition plugin state invisibly: one worker starts a subprocess and records its bearer token; a second worker cannot find it and rejects all runtime requests from that plugin with 401. Do not set `--workers > 1` in Docker, systemd, or any other process manager. See `wiki/operations/deployment.md` for Docker Compose notes.
 
 **Python-only entrypoints.** Only `.py` entrypoints are supported in v1. The host rejects a plugin at enable time if `runtime.entrypoint` does not end in `.py`. Plugin authors must not declare `.sh`, `.exe`, or any other executable type.
 

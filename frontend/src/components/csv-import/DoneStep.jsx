@@ -11,6 +11,11 @@ export default function DoneStep({ confirmResult, onGoToLicenses, reset }) {
           {confirmResult.importedCount} {confirmResult.importedCount === 1 ? "license" : "licenses"} imported
         </div>
         <div className="csv-success-label">Import complete</div>
+        {(confirmResult.updatedCount ?? 0) > 0 && (
+          <div className="csv-skipped">
+            {confirmResult.updatedCount} existing {confirmResult.updatedCount === 1 ? "license was" : "licenses were"} updated.
+          </div>
+        )}
         {confirmResult.skippedCount > 0 && (
           <div className="csv-skipped">
             {confirmResult.skippedCount} {confirmResult.skippedCount === 1 ? "row was" : "rows were"} skipped due to errors.

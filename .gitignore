@@ -22,17 +22,8 @@ documents/
 # Environment
 .env
 
-release_context.md
-export_context.sh
-
-# Local AI assistant files
-
-.claude/
-.codesight/
-
-# Desktop wrapper build outputs
-
-
+# MkDocs build output
+site/
 
 # PyInstaller
 backend/build/
@@ -45,24 +36,4 @@ backend/backups/
 backend/plugins/
 
 backend/.venv/
-
-#CodeSight
-.cursorrules
-agents.md
-codex.md
-.github/copilot-instructions.md
-licensetrack_context.md
-export_filelist.sh
-FileList.txt
-export_filelist.ps1
-export_filecount.ps1
-file_linecounts.csv
-/docs/superpowers
 backend/licenses.db-journal
-known-gaps-verification-prompt.md
-ADVERSARIAL_REVIEW.md
-ADVERSARIAL_REVIEW_FINDINGS.md
-localization-plan.md
-.impeccable.md
-scripts/gen_test_quote.py
-scripts/gen_test_invoice.py

@@ -109,4 +109,19 @@ describe("buildConvertItemDefaults", () => {
   it("returns empty array when order has no items", () => {
     expect(buildConvertItemDefaults(baseOrder, [])).toEqual([]);
   });
+
+  it("carries the sourcing item's start and end dates into the convert form", () => {
+    const si = makeSI({ startDate: "2026-03-01", endDate: "2027-02-28" });
+    const order = { ...baseOrder, items: [si] };
+    const [d] = buildConvertItemDefaults(order, []);
+    expect(d.startDate).toBe("2026-03-01");
+    expect(d.endDate).toBe("2027-02-28");
+  });
+
+  it("defaults dates to empty strings when the sourcing item has none", () => {
+    const order = { ...baseOrder, items: [makeSI()] };
+    const [d] = buildConvertItemDefaults(order, []);
+    expect(d.startDate).toBe("");
+    expect(d.endDate).toBe("");
+  });
 });

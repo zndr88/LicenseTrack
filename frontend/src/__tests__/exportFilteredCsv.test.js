@@ -61,6 +61,17 @@ describe('exportFilteredCsv', () => {
     expect(lines[0]).toBe('publisher_name,software_description')
   })
 
+  it('exports request/purchase date columns with importable snake_case headers', () => {
+    const cols = [
+      { key: 'requestDate', label: 'Request Date' },
+      { key: 'purchaseDate', label: 'Purchase Date' },
+    ]
+    const row = makeRow({ requestDate: '2026-01-15T00:00:00Z', purchaseDate: '2026-02-20T00:00:00Z' })
+    exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
+    const lines = capturedCsvContent.split('\n')
+    expect(lines[0]).toBe('request_date,purchase_date')
+  })
+
   it('maps publisher and description fields to correct cells', () => {
     const cols = [
       { key: 'publisher', label: 'Publisher' },

@@ -40,6 +40,8 @@ class SourcingItemSummary(BaseModel):
     estimated_unit_price: Optional[str] = None
     estimated_total_price: Optional[str] = None
     currency: str
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
     supplier: Optional[str] = None
     contact_email: Optional[str] = None
     notes: Optional[str] = None

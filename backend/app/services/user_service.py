@@ -16,7 +16,38 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import auth
+from app.models.settings import UserSettings
 from app.models.user import AuthProvider, User
+
+# Regional / display preferences a newly created user inherits from the admin
+# who created them. Personal layout state (saved views, column order, visible
+# columns, sidebar) is intentionally excluded and left at defaults.
+INHERITED_SETTING_FIELDS = (
+    "theme",
+    "display_currency",
+    "number_format_locale",
+    "ui_size",
+    "date_format",
+    "time_format",
+    "time_zone",
+)
+
+
+def build_inherited_user_settings(
+    *,
+    user_id: int,
+    source: UserSettings | None,
+) -> UserSettings:
+    """Build a UserSettings row for a new user, inheriting regional/display
+    preferences from ``source`` (typically the creating admin's settings).
+
+    When ``source`` is None the new row keeps model defaults.
+    """
+    settings = UserSettings(user_id=user_id)
+    if source is not None:
+        for field in INHERITED_SETTING_FIELDS:
+            setattr(settings, field, getattr(source, field))
+    return settings
 
 
 async def count_active_local_admins(

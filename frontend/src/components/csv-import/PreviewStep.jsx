@@ -18,6 +18,7 @@ export default function PreviewStep({
   selectedImportableRows, selectedRowsToSkip, selectedRowsToRestore,
   toggleSelectedRow, toggleAllSelectableRows,
   skipRows, restoreRows,
+  showUpdateControls, updateExisting, onToggleUpdateExisting,
   handleConfirm, reset,
 }) {
   if (!previewData) return null;
@@ -61,6 +62,24 @@ export default function PreviewStep({
           </div>
         )}
       </div>
+
+      {showUpdateControls && (
+        <div className="csv-missing-warn" style={{ alignItems: "center" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={updateExisting}
+              onChange={(e) => onToggleUpdateExisting(e.target.checked)}
+            />
+            <span>
+              <strong>Update existing records when LT Ref matches.</strong>{" "}
+              {updateExisting
+                ? `${previewData.updateCount ?? 0} will update, ${previewData.createCount ?? 0} will be created.`
+                : "Off — every row will be created as a new license."}
+            </span>
+          </label>
+        </div>
+      )}
 
       {previewData.headersMissing.length > 0 && (
         <div className="csv-missing-warn">
@@ -169,7 +188,16 @@ export default function PreviewStep({
                     <td className="mono csv-mono-sm">{row.poNumber || empty}</td>
                     <td>{row.supplier || empty}</td>
                     <td>{row.costCentre || empty}</td>
-                    <td>{isSkipped ? <Badge type="gray">Skipped</Badge> : statusBadge(row.importStatus)}</td>
+                    <td>
+                      {isSkipped ? <Badge type="gray">Skipped</Badge> : (
+                        <>
+                          {statusBadge(row.importStatus)}
+                          {row.importAction === "update" && row.importStatus !== "error" && (
+                            <Badge type="blue">Update</Badge>
+                          )}
+                        </>
+                      )}
+                    </td>
                     <td>
                       {(row.validationErrors.length > 0 || row.warnings.length > 0 || (row.duplicateWarnings?.length || 0) > 0) ? (
                         <div>

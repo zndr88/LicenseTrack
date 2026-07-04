@@ -178,7 +178,9 @@ async def add_duplicate_warnings(rows: list[ParsedRow], db: AsyncSession) -> Non
         for license_obj in existing_licenses:
             ref_warning = _match_by_license_ref(row, license_obj)
             if ref_warning:
-                row.duplicate_warnings.append(ref_warning)
+                # An intended update reconciles onto this record; not a duplicate.
+                if row.import_action != "update":
+                    row.duplicate_warnings.append(ref_warning)
                 break
             match = _match_duplicate(row, license_obj)
             if not match:

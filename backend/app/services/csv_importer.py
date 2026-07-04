@@ -14,7 +14,7 @@ import csv
 import io
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 
 import logging
@@ -40,6 +40,8 @@ _HEADER_MAP: dict[str, str] = {
     "contract": "contract_number",
     "po_number": "po_number",
     "po": "po_number",
+    "request_date": "request_date",
+    "purchase_date": "purchase_date",
     "invoice_number": "invoice_number",
     "invoice": "invoice_number",
     "contact_email": "contact_email",
@@ -77,7 +79,9 @@ _HEADER_MAP: dict[str, str] = {
     "contract_no": "contract_number",          # "Contract No."
     # Flexera fallback columns
     "item": "software_description",            # "Item" (fallback for description)
-    "purchase_date": "start_date",             # "Purchase Date" (fallback for start)
+    # NOTE: "purchase_date" now maps to the real purchase_date procurement
+    # milestone field (see above), not start_date. Flexera exports that relied
+    # on Purchase Date as a start-date fallback now populate purchase_date.
     "contractenddate": "end_date",             # "ContractEndDate" (fallback for end)
     # LicenseTrack export display-label aliases (pre-round-trip-fix exports)
     "lt_ref": "license_ref",                       # "LT Ref"
@@ -87,6 +91,24 @@ _HEADER_MAP: dict[str, str] = {
     "maintenance_coverage": "maintenance_coverage",
     "maintenance_support_coverage": "maintenance_coverage",  # "Maintenance / Support Coverage"
 }
+
+# Export-only / computed columns (normalised header form). These are recognised
+# on import but intentionally mapped to nothing, so round-tripping a full
+# LicenseTrack export does not prompt the user to create custom fields for them.
+# Covers computed/metadata columns and the maintenance mirror fields, which are
+# derived from the linked child maintenance license and must not be imported
+# directly. Both the export display-label form and the snake_case field form are
+# listed so either survives a round-trip.
+_IGNORED_HEADERS: frozenset[str] = frozenset({
+    "docs", "calc_total", "expiration", "complete",
+    "created", "created_at", "created_by",
+    "last_updated", "updated_at",
+    "last_synced", "last_synced_at",
+    "lifecycle_status", "sync_status",
+    "maintenance_start", "maintenance_start_date",
+    "maintenance_end", "maintenance_end_date",
+    "maintenance_cost",
+})
 
 # Ordered list used for headers_missing reporting.
 _RECOMMENDED_FIELDS = [
@@ -171,6 +193,12 @@ class ParsedRow:
     # DB insertion values — not exposed in the preview response
     db_start_date: Optional[date] = field(default=None, repr=False)
     db_end_date: Optional[date] = field(default=None, repr=False)
+    db_request_date: Optional[datetime] = field(default=None, repr=False)
+    db_purchase_date: Optional[datetime] = field(default=None, repr=False)
+
+    # Update-on-LT-Ref annotation — set during preview/execute, not by parsing.
+    import_action: str = field(default="create")   # "create" | "update"
+    matched_license_id: Optional[int] = field(default=None)
     is_completeness_exempt: bool = field(default=False, repr=False)
     lifecycle_status: Optional[str] = field(default=None, repr=False)
 
@@ -289,6 +317,37 @@ def _parse_date(raw: str, date_format: str) -> tuple[Optional[date], bool, str]:
     )
 
 
+def _parse_datetime(raw: str, date_format: str) -> tuple[Optional[datetime], str]:
+    """Parse a procurement-milestone datetime (request_date / purchase_date).
+
+    Accepts ISO 8601 dates/datetimes (as emitted by LicenseTrack exports, so
+    imports round-trip) and plain dates in the declared date_format (for
+    hand-authored CSVs). Returns a timezone-aware UTC datetime, or a non-empty
+    error message when the value is present but unparseable.
+    """
+    raw = raw.strip()
+    if not raw:
+        return None, ""
+
+    # ISO 8601 date or datetime — the export round-trip path.
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        return (parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)), ""
+    except ValueError:
+        pass
+
+    # Declared date format (DD/MM/YYYY, MM/DD/YYYY, …) — hand-authored CSVs.
+    fmt = _DATE_FORMATS.get(date_format, "%d/%m/%Y")
+    try:
+        parsed = datetime.strptime(raw, fmt)
+        return parsed.replace(tzinfo=timezone.utc), ""
+    except ValueError:
+        return None, (
+            f"Unrecognised date format: {raw!r}; expected ISO YYYY-MM-DD "
+            f"or declared format {date_format}"
+        )
+
+
 def _classify_row(
     publisher_name: str,
     software_description: str,
@@ -367,6 +426,17 @@ def _parse_row(
                 db_end_date = ed
                 end_date_str = ed.isoformat()
             # perpetual → db_end_date stays None, end_date_str stays None
+
+    # ── Procurement milestone datetimes ──────────────────────────────────
+    db_request_date, request_err = _parse_datetime(data.get("request_date", ""), date_format)
+    if request_err:
+        errors.append(f"request_date: {request_err}")
+        has_parse_error = True
+
+    db_purchase_date, purchase_err = _parse_datetime(data.get("purchase_date", ""), date_format)
+    if purchase_err:
+        errors.append(f"purchase_date: {purchase_err}")
+        has_parse_error = True
 
     # ── Enum fields ───────────────────────────────────────────────────────
     has_enum_error = False
@@ -474,6 +544,8 @@ def _parse_row(
         currency_defaulted=currency_defaulted,
         db_start_date=db_start_date,
         db_end_date=db_end_date,
+        db_request_date=db_request_date,
+        db_purchase_date=db_purchase_date,
         is_completeness_exempt=is_completeness_exempt,
         lifecycle_status=lifecycle_status,
     )

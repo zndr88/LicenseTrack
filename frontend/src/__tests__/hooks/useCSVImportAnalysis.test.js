@@ -14,6 +14,7 @@ vi.mock("../../api/csvImport.js", () => ({
 }));
 
 import { listCustomFields, createCustomField } from "../../api/settings.js";
+import { analyzeImport } from "../../api/csvImport.js";
 import { useCSVImportAnalysis } from "../../hooks/useCSVImportAnalysis.js";
 
 describe("useCSVImportAnalysis — handleCreateField", () => {
@@ -50,5 +51,53 @@ describe("useCSVImportAnalysis — handleCreateField", () => {
     expect(createCustomField).toHaveBeenCalledWith(
       expect.objectContaining({ name: "My Column", field_type: "text", display_order: 2 })
     );
+  });
+});
+
+describe("useCSVImportAnalysis — updateExisting auto-arm", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("auto-arms updateExisting when license_ref is a matched column", async () => {
+    analyzeImport.mockResolvedValue({
+      data: {
+        totalRows: 1,
+        matchedColumns: [{ rawHeader: "LT Ref", internalField: "license_ref", sampleValues: ["LT-2026-00001"] }],
+        unrecognizedColumns: [],
+        missingRequired: [],
+      },
+      error: null,
+    });
+
+    const { result } = renderHook(() =>
+      useCSVImportAnalysis({ active: true, setStep: vi.fn(), setLoading: vi.fn(), setError: vi.fn() })
+    );
+
+    await act(async () => {
+      await result.current.handleAnalyze(new File(["x"], "a.csv"));
+    });
+
+    expect(result.current.updateExisting).toBe(true);
+  });
+
+  it("leaves updateExisting off when no license_ref column is matched", async () => {
+    analyzeImport.mockResolvedValue({
+      data: {
+        totalRows: 1,
+        matchedColumns: [{ rawHeader: "Publisher", internalField: "publisher_name", sampleValues: ["Acme"] }],
+        unrecognizedColumns: [],
+        missingRequired: [],
+      },
+      error: null,
+    });
+
+    const { result } = renderHook(() =>
+      useCSVImportAnalysis({ active: true, setStep: vi.fn(), setLoading: vi.fn(), setError: vi.fn() })
+    );
+
+    await act(async () => {
+      await result.current.handleAnalyze(new File(["x"], "a.csv"));
+    });
+
+    expect(result.current.updateExisting).toBe(false);
   });
 });

@@ -53,6 +53,9 @@ const CSVImportPage = ({ onImportComplete, onGoToLicenses, userSettings }) => {
             toggleAllSelectableRows={state.toggleAllSelectableRows}
             skipRows={state.skipRows}
             restoreRows={state.restoreRows}
+            showUpdateControls={state.showUpdateControls}
+            updateExisting={state.updateExisting}
+            onToggleUpdateExisting={state.onToggleUpdateExisting}
             handleConfirm={state.handleConfirm}
             reset={state.reset}
           />

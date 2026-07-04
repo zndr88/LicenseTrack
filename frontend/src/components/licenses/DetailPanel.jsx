@@ -255,19 +255,25 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               customFieldsLoading={customFieldsLoading}
             />
 
-            <PluginSuggestionsSection
-              license={license}
-              perms={perms}
-              isOpen={openSections.pluginSuggestions}
-              onToggle={toggleSection}
-              suggestions={pluginSuggestions}
-              loading={pluginSuggestionsLoading}
-              reviewBusy={pluginSuggestionReviewBusy}
-              onAccept={handleAcceptPluginSuggestion}
-              onReject={handleRejectPluginSuggestion}
-              cfBySection={cfBySection}
-              customFieldValues={customFieldValues}
-            />
+            {/* Only render the review surface when a plugin has actually produced
+                suggestions. Rows are created solely by installed plugins submitting
+                action output, so an empty queue means no integrations are in play —
+                showing the section then just confuses operators with no plugins. */}
+            {pluginSuggestions.length > 0 && (
+              <PluginSuggestionsSection
+                license={license}
+                perms={perms}
+                isOpen={openSections.pluginSuggestions}
+                onToggle={toggleSection}
+                suggestions={pluginSuggestions}
+                loading={pluginSuggestionsLoading}
+                reviewBusy={pluginSuggestionReviewBusy}
+                onAccept={handleAcceptPluginSuggestion}
+                onReject={handleRejectPluginSuggestion}
+                cfBySection={cfBySection}
+                customFieldValues={customFieldValues}
+              />
+            )}
 
             {/* ══ Completeness & Flags ══ */}
             <CompletenessFlagsSection

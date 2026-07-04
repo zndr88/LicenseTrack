@@ -128,6 +128,8 @@ class CSVImportPreviewRow(BaseModel):
     validation_errors: list[str] = []
     warnings: list[str] = []
     duplicate_warnings: list[DuplicateWarning] = []
+    import_action: str = "create"          # "create" | "update"
+    matched_license_id: Optional[int] = None
 
 
 class CSVImportPreviewResponse(BaseModel):
@@ -140,6 +142,8 @@ class CSVImportPreviewResponse(BaseModel):
     active_count: int
     legacy_incomplete_count: int
     error_count: int
+    create_count: int = 0
+    update_count: int = 0
     headers_found: list[str]   # internal field names detected in the file
     headers_missing: list[str] # recommended fields absent from the file
     warning_summary: ImportWarningSummary = ImportWarningSummary()
@@ -156,6 +160,7 @@ class CSVImportConfirmResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     imported_count: int
+    updated_count: int = 0
     skipped_count: int
     error_count: int
     errors: list[CSVImportError]

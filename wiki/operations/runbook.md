@@ -1,8 +1,8 @@
-# LicenseTrack Operations Runbook
+# Operations runbook
 
 This runbook describes the baseline operational checks for a self-hosted Docker Compose deployment. It is not a managed-service SLA or a substitute for the operator's monitoring, database backup, document-storage backup, vulnerability-management, or incident-response process.
 
-## Health Monitoring
+## Health monitoring
 
 LicenseTrack exposes a health endpoint at:
 
@@ -22,21 +22,23 @@ Minimum recommended monitors:
 
 Useful commands:
 
-```bash
-docker compose ps
-docker compose logs --tail=200 license-lifecycle
-docker inspect --format='{{json .State.Health}}' <container-name-or-id>
-```
+=== "Bash"
 
-PowerShell equivalents:
+    ```bash
+    docker compose ps
+    docker compose logs --tail=200 license-lifecycle
+    docker inspect --format='{{json .State.Health}}' <container-name-or-id>
+    ```
 
-```powershell
-docker compose ps
-docker compose logs --tail=200 license-lifecycle
-docker inspect --format='{{json .State.Health}}' <container-name-or-id>
-```
+=== "PowerShell"
 
-## Log Review
+    ```powershell
+    docker compose ps
+    docker compose logs --tail=200 license-lifecycle
+    docker inspect --format='{{json .State.Health}}' <container-name-or-id>
+    ```
+
+## Log review
 
 The application logs HTTP requests, startup failures, scheduler work, and unhandled server errors to container stdout/stderr. Docker Compose configures the `json-file` log driver with rotation.
 
@@ -52,7 +54,7 @@ Review logs for:
 
 Operators should forward Docker logs to their normal log platform if centralized retention, search, or alerting is required.
 
-## Database Backup And Document Storage Checks
+## Database backup and document storage checks
 
 LicenseTrack database backups are SQLite snapshots only. Uploaded documents are stored separately under `/data/storage`, so complete recovery requires backing up the full `/data` volume or an equivalent database-plus-storage snapshot.
 
@@ -65,9 +67,9 @@ Minimum recommended checks:
 - Test restore in a non-production environment before go-live and after material upgrade changes.
 - Include uploaded document storage in disaster-recovery testing.
 
-See `docs/user-guide/Backup and Restore.txt` and `docs/DEPLOY.md` for database backup behavior and full-volume backup examples.
+See [Backup & restore](backup-restore.md) and the [Deployment guide](deployment.md) for database backup behavior and full-volume backup examples.
 
-## Audit Review
+## Audit review
 
 Admins can review and export audit history for authentication, settings, user, database backup, document, and data-changing actions.
 
@@ -78,18 +80,18 @@ Suggested periodic checks:
 - Review restore events and failed database backup attempts.
 - Confirm audit retention matches local policy.
 
-## Vulnerability Management
+## Vulnerability management
 
 For every release candidate:
 
-- Run the backend and frontend verification commands listed in `README.md` from the exact release commit.
+- Run the backend and frontend verification commands listed in the [project README](https://github.com/zndr88/LicenseTrack/blob/main/README.md) from the exact release commit.
 - Retain dependency audit artifacts, SBOMs, Docker image scan output, build logs, release version, commit SHA, and any vulnerability triage notes.
 - Triage dependency, base-image, and OS package findings before production rollout.
 - Re-run scans after dependency updates, base image updates, or advisories affecting declared dependencies.
 
 If Docker is unavailable on a local workstation, the verifier can skip image scanning for local development only. Final release evidence should include a Docker image build and at least one completed image scan.
 
-## Upgrade Checks
+## Upgrade checks
 
 Before upgrading:
 
@@ -107,9 +109,9 @@ After upgrading:
 - Smoke-test license listing, document access, settings, database backup listing, and any configured SMTP/OIDC integrations.
 - Confirm scheduled database backup and notification settings remain as expected.
 
-## Incident Response
+## Incident response
 
-For an application outage:
+**For an application outage:**
 
 - Check container state and health.
 - Review recent logs.
@@ -118,14 +120,14 @@ For an application outage:
 - Confirm recent configuration or image changes.
 - Roll back to the previous known-good image if needed, preserving `/data`.
 
-For suspected data loss or corruption:
+**For suspected data loss or corruption:**
 
 - Stop writes by taking the application out of service.
 - Preserve the current `/data` volume before attempting restore.
 - Restore in a non-production environment first when possible.
 - Restore from the most recent known-good database backup and document-storage snapshot.
 
-For suspected credential compromise:
+**For suspected credential compromise:**
 
 - Rotate `JWT_SECRET` and other affected credentials according to local policy.
 - Review users, roles, OIDC settings, SMTP settings, and audit logs.

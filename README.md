@@ -1,6 +1,6 @@
 # LicenseTrack
 
-Version 1.0.1.
+Version 1.0.2.
 
 LicenseTrack is a self-hosted software license procurement and lifecycle management system. It gives organisations a single Docker-deployed application for sourcing, purchase orders, active license records, renewals, contracts, documents, notifications, reporting, database backups, audit history, and user access control.
 
@@ -99,7 +99,7 @@ LicenseTrack extends through two layers:
 
 - Plugins cannot inject arbitrary JavaScript or modify compiled React code.
 - Plugins cannot write directly to the database or create migrations.
-- The Plugin Host requires a single Uvicorn worker (the default); see `docs/DEPLOY.md`.
+- The Plugin Host requires a single Uvicorn worker (the default); see `wiki/operations/deployment.md`.
 - Only Python (`.py`) entrypoints are supported in v1.
 
 AI-assisted document parsing, Lansweeper integration, Flexera exports, and similar capabilities can be built as installable plugins using the Plugin Host v1 contract, or as API/webhook integrations today. None are required for baseline LicenseTrack deployments.
@@ -159,7 +159,7 @@ The backend refuses to start with blank or common default values for `JWT_SECRET
 
 In Docker deployments the compiled frontend is served by the backend container and calls the API through same-origin `/api` URLs. `VITE_API_URL` is only needed for development or custom split-host deployments where the browser must call a separate API origin.
 
-For full deployment guidance, see [docs/DEPLOY.md](docs/DEPLOY.md).
+For full deployment guidance, see the [deployment guide](wiki/operations/deployment.md).
 
 ## Configuration
 
@@ -199,8 +199,9 @@ Application database backups contain the SQLite database only. Uploaded document
 
 ## Documentation
 
-- [docs/DEPLOY.md](docs/DEPLOY.md): deployment, environment variables, persistent data, reverse proxy notes, database backup, and restore.
-- [docs/operations-runbook.md](docs/operations-runbook.md): health checks, log review, database backup checks, vulnerability management, upgrades, and incident-response notes.
+- [wiki/operations/deployment.md](wiki/operations/deployment.md): deployment, environment variables, persistent data, reverse proxy notes, database backup, and restore.
+- [wiki/operations/runbook.md](wiki/operations/runbook.md): health checks, log review, database backup checks, vulnerability management, upgrades, and incident-response notes.
+- [wiki/operations/backup-restore.md](wiki/operations/backup-restore.md): database backup behavior, retention, restore safety snapshot, and what is (and isn't) covered.
 - [docs/architecture.md](docs/architecture.md): maintainer architecture conventions and module boundaries.
 - [docs/extensions.md](docs/extensions.md): Integration Framework, terminology, boundaries, and Plugin Host positioning.
 - [docs/plugin-author-guide.md](docs/plugin-author-guide.md): how to build, package, and license an installable plugin against the shipped Plugin Host v1 contract.

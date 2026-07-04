@@ -171,6 +171,78 @@ async def test_confirm_import_maintenance_with_valid_parent_ref_links_license(
     assert parent_after.maintenance_coverage.value == "separately_tracked"
 
 
+async def test_confirm_import_persists_request_and_purchase_dates(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "request_date", "purchase_date"],
+        [
+            {
+                "publisher_name": "Datadog",
+                "software_description": "Infra Monitoring",
+                "request_date": "2026-01-15",
+                "purchase_date": "2026-02-20T00:00:00Z",
+            }
+        ],
+    )
+
+    resp = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("milestones.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["importedCount"] == 1
+
+    result = await db_session.execute(
+        select(License).where(License.software_description == "Infra Monitoring")
+    )
+    license_obj = result.scalar_one()
+    assert license_obj.request_date is not None
+    assert (license_obj.request_date.year, license_obj.request_date.month, license_obj.request_date.day) == (2026, 1, 15)
+    assert license_obj.purchase_date is not None
+    assert (license_obj.purchase_date.year, license_obj.purchase_date.month, license_obj.purchase_date.day) == (2026, 2, 20)
+    # request_date must not leak into start_date, nor purchase_date either.
+    assert license_obj.start_date is None
+
+
+async def test_analyze_ignores_export_only_computed_columns(test_app, auth_headers):
+    # Round-tripping a full LicenseTrack export must not prompt custom-field
+    # creation for computed/metadata columns or the maintenance mirror fields.
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Maintenance Cost", "Created", "Expiration", "Docs"],
+        [
+            {
+                "Publisher": "Acme",
+                "Description": "Widget",
+                "Maintenance Cost": "100.00",
+                "Created": "2026-01-01T00:00:00Z",
+                "Expiration": "Active",
+                "Docs": "0",
+            }
+        ],
+    )
+
+    resp = await test_app.post(
+        "/api/import/analyze",
+        headers=auth_headers,
+        files={"file": ("export.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    matched_fields = {c["internalField"] for c in body["matchedColumns"]}
+    unrecognized = {c["rawHeader"] for c in body["unrecognizedColumns"]}
+
+    assert matched_fields == {"publisher_name", "software_description"}
+    # None of the export-only columns should appear as needing a decision.
+    for ignored in ("Maintenance Cost", "Created", "Expiration", "Docs"):
+        assert ignored not in unrecognized
+
+
 async def test_confirm_import_maintenance_with_missing_parent_ref_errors(
     test_app,
     auth_headers,

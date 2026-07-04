@@ -23,7 +23,7 @@ const BROWSER_SETTINGS = detectBrowserSettings();
 const DEFAULT_USER_SETTINGS = {
   visibleInList: VISIBLE_IN_LIST_DEFAULTS,
   visibleInDetail: { supplier: true, costCentre: true, licenseType: true, licenseMetric: true, quantity: true, skuCode: true, unitPrice: true, totalPoPrice: true, notes: true, licenseRef: true },
-  theme: "gray",
+  theme: "light",
   uiSize: "normal",
   displayCurrency: DEFAULT_DISPLAY_CURRENCY,
   numberFormatLocale: BROWSER_SETTINGS.numberFormatLocale,
@@ -129,7 +129,7 @@ export function useAppSettings({ showError }) {
   useEffect(() => {
     document.documentElement.setAttribute(
       "data-theme",
-      userSettings.theme ?? "gray"
+      userSettings.theme ?? "light"
     );
   }, [userSettings.theme]);
 
@@ -180,7 +180,7 @@ export function useAppSettings({ showError }) {
       }));
       document.documentElement.setAttribute(
         "data-theme",
-        savedUserSettingsRef.current.theme ?? "gray"
+        savedUserSettingsRef.current.theme ?? "light"
       );
     }
   }, []);

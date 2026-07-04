@@ -96,15 +96,15 @@ function renderCell(column, row, { startingId, locale, userSettings, canStartRen
               <button
                 type="button"
                 className="btn btn-p rw-action-btn"
-                aria-label={`Start renewal for ${row.softwareDescription}`}
-                title="Start renewal"
+                aria-label={`Initiate renewal for ${row.softwareDescription}`}
+                title="Initiate renewal"
                 disabled={startingId === row.licenseId}
                 onClick={(event) => {
                   event.stopPropagation();
                   onStartRenewal(row);
                 }}
               >
-                {startingId === row.licenseId ? "Starting" : "Start Renewal"}
+                {startingId === row.licenseId ? "Initiating" : "Initiate Renewal"}
               </button>
             )}
             {primaryAction === "sourcing" && (

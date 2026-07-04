@@ -20,6 +20,7 @@ export function useCSVImportAnalysis({ active, setStep, setLoading, setError, on
   const [savedMappings, setSavedMappings] = useState([]);
   const [selectedMappingId, setSelectedMappingId] = useState(null);
   const [loadingMappings, setLoadingMappings] = useState(false);
+  const [updateExisting, setUpdateExisting] = useState(false);
 
   useEffect(() => {
     if (!active) return;
@@ -93,14 +94,17 @@ export function useCSVImportAnalysis({ active, setStep, setLoading, setError, on
       }
     }
     setColumnDecisions(presetDecisions);
+    const hasLicenseRef = (data.matchedColumns || []).some((c) => c.internalField === "license_ref");
+    setUpdateExisting(hasLicenseRef);
     setStep("mapping");
   };
 
-  const handleMappedPreview = async (csvFile, setMappedPreviewData) => {
+  const handleMappedPreview = async (csvFile, setMappedPreviewData, updateExistingOverride) => {
     if (!csvFile || !analyzeData) return;
     const payload = buildMappingPayload();
     setLoading(true);
-    const { data, error: err } = await previewMappedImport(csvFile, JSON.stringify(payload), importFormats);
+    const flag = updateExistingOverride ?? updateExisting;
+    const { data, error: err } = await previewMappedImport(csvFile, JSON.stringify(payload), importFormats, flag);
     setLoading(false);
     if (err) { setError(err); return; }
     setMappedPreviewData(data);
@@ -112,7 +116,7 @@ export function useCSVImportAnalysis({ active, setStep, setLoading, setError, on
     const payload = buildMappingPayload();
     setStep("importing");
     const { data, error: err } = await executeImport(
-      csvFile, JSON.stringify(payload), Array.from(skippedRows), acknowledgeWarnings, importFormats
+      csvFile, JSON.stringify(payload), Array.from(skippedRows), acknowledgeWarnings, importFormats, updateExisting
     );
     if (err) { setError(err); setStep("mapping"); return; }
     setConfirmResult(data);
@@ -154,6 +158,7 @@ export function useCSVImportAnalysis({ active, setStep, setLoading, setError, on
     setUnmatchedColumns([]);
     setSavedMappings([]);
     setSelectedMappingId(null);
+    setUpdateExisting(false);
   };
 
   return {
@@ -168,6 +173,8 @@ export function useCSVImportAnalysis({ active, setStep, setLoading, setError, on
     creatingFields,
     showMatched,
     setShowMatched,
+    updateExisting,
+    setUpdateExisting,
     activeMatchedColumns,
     allUnrecognizedColumns,
     matchedInternalFields,

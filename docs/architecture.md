@@ -174,13 +174,15 @@ Keep backend permission invariants in the API/services and page-level mutation w
 | Module | Owns |
 |--------|------|
 | `useCSVImportPreview.js` | Standard import preview data, warning summary exposure, row selection, skipped rows, duplicate warning counts, acknowledgement-aware confirm import |
-| `useCSVImportAnalysis.js` | External/mapped import analysis, column decisions, saved mappings, mapping preview/execute, acknowledgement-aware mapped execute |
+| `useCSVImportAnalysis.js` | External/mapped import analysis, column decisions, saved mappings, mapping preview/execute, acknowledgement-aware mapped execute, and the `updateExisting` flag (auto-armed when a `license_ref` column is matched) forwarded to preview/execute |
 
 `CSVImportPage.jsx` should remain a UI shell that wires `useCSVImportState` into `UploadStep`, `MappingStep`, `PreviewStep`, and `DoneStep`.
 
 The frontend forwards the same declared number/date formats through native preview/confirm and mapped preview/execute. The backend parses localized input only at that boundary: quantity, price, and mapped custom currency values become canonical decimal strings; dates accept ISO or the declared date format. Invalid values become row errors.
 
 The backend is the source of truth for import warning summaries. Preview responses include `warningSummary`; execute/confirm requests must send `acknowledge_warnings=true` when that summary has acknowledgement-required warnings. The route rechecks the summary before writing so a stale or hand-built client cannot bypass the gate.
+
+The mapped flow (`/preview-mapped`, `/execute`) supports update-on-LT-Ref-match via the `update_existing` flag. `import_/license_matcher.py` resolves a row's `license_ref` to the current chain head (`is_retired = false AND renewed_to_id IS NULL`): exactly one match updates, none creates, two or more active heads is a row error. `annotate_update_targets` tags each row's `import_action` ("create"/"update") for both preview counts and execute; `import_/import_update.py` patches only non-empty importable fields, leaves `license_type`/`license_ref`/chain-lifecycle/maintenance-mirror fields immutable, and re-resolves `contract_id` on a contract-number change. When a row will update, `duplicate_detection` suppresses its "license ref matches" warning. The legacy `/confirm` auto-map path is always create-only. Preview responses carry `createCount`/`updateCount` and per-row `importAction`; execute responses add `updatedCount`.
 
 ## Forms And Validation
 

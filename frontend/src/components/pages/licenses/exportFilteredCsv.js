@@ -25,6 +25,8 @@ const IMPORTABLE_FIELD_NAMES = {
   notes:            "notes",
   startDate:           "start_date",
   endDate:             "end_date",
+  requestDate:         "request_date",
+  purchaseDate:        "purchase_date",
   portalUrl:           "portal_url",
   maintenanceCoverage: "maintenance_coverage",
 };

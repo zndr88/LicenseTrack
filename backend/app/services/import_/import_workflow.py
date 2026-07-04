@@ -17,7 +17,9 @@ from app.schemas.csv_import import (
 from app.services.csv_importer import ParsedImportResult, ParsedRow
 from app.services.custom_fields_service import upsert_imported_values_for_license
 from app.services.import_.duplicate_detection import add_duplicate_warnings
+from app.services.import_.import_update import apply_import_update
 from app.services.import_.license_builder import build_license
+from app.services.import_.license_matcher import annotate_update_targets
 from app.services.import_.maintenance_parenting import infer_batch_maintenance_parents
 from app.services.license_service import generate_license_ref
 from app.models.license import License, LicenseType
@@ -42,9 +44,13 @@ async def get_import_defaults(db: AsyncSession, user_id: int) -> tuple[str, str,
     )
 
 
-async def prepare_import_rows(rows: list[ParsedRow], db: AsyncSession) -> None:
-    """Run maintenance parent inference then duplicate detection in place."""
+async def prepare_import_rows(
+    rows: list[ParsedRow], db: AsyncSession, update_existing: bool = False
+) -> None:
+    """Run maintenance parent inference, update-target annotation, then duplicate detection."""
     infer_batch_maintenance_parents(rows)
+    if update_existing:
+        await annotate_update_targets(db, rows)
     await add_duplicate_warnings(rows, db)
 
 
@@ -138,6 +144,8 @@ def _row_to_schema(row: ParsedRow) -> CSVImportPreviewRow:
         validation_errors=row.validation_errors,
         warnings=row.warnings,
         duplicate_warnings=row.duplicate_warnings,
+        import_action=row.import_action,
+        matched_license_id=row.matched_license_id,
     )
 
 
@@ -148,6 +156,8 @@ def build_preview_response(result: ParsedImportResult) -> CSVImportPreviewRespon
     active_count = sum(1 for r in result.rows if r.import_status == "active")
     legacy_incomplete_count = sum(1 for r in result.rows if r.import_status == "legacy_incomplete")
     error_count = sum(1 for r in result.rows if r.import_status == "error")
+    create_count = sum(1 for r in result.rows if r.import_status != "error" and r.import_action == "create")
+    update_count = sum(1 for r in result.rows if r.import_status != "error" and r.import_action == "update")
     warning_summary = build_warning_summary(result.rows)
     return CSVImportPreviewResponse(
         rows=row_schemas,
@@ -157,6 +167,8 @@ def build_preview_response(result: ParsedImportResult) -> CSVImportPreviewRespon
         active_count=active_count,
         legacy_incomplete_count=legacy_incomplete_count,
         error_count=error_count,
+        create_count=create_count,
+        update_count=update_count,
         headers_found=result.headers_found,
         headers_missing=result.headers_missing,
         warning_summary=warning_summary,
@@ -170,13 +182,23 @@ async def run_import_rows(
     user_id: int,
     db: AsyncSession,
     number_format_locale: str | None = None,
-) -> tuple[int, int, list[CSVImportError], int]:
-    """Persist importable rows and return (imported_count, skipped_count, errors, custom_field_failure_count).
+    update_existing: bool = False,
+) -> tuple[int, int, int, list[CSVImportError], int]:
+    """Persist importable rows.
+
+    Returns (created_count, updated_count, skipped_count, errors,
+    custom_field_failure_count).
 
     custom_rows must be a parallel list to rows. Pass a list of empty dicts
     (one per row) for the legacy flow where no custom field mapping exists.
+    When update_existing is True, rows whose LT Ref resolves to an active
+    chain head patch that record instead of inserting a new one.
     """
-    imported_count = 0
+    if update_existing:
+        await annotate_update_targets(db, rows)
+
+    created_count = 0
+    updated_count = 0
     skipped_count = 0
     import_errors: list[CSVImportError] = []
     custom_field_failure_count = 0
@@ -194,6 +216,17 @@ async def run_import_rows(
             continue
 
         try:
+            if update_existing and parsed.import_action == "update" and parsed.matched_license_id is not None:
+                target = await db.get(License, parsed.matched_license_id)
+                if target is None:
+                    # Target vanished between preview and execute -> fall back to create.
+                    parsed.import_action = "create"
+                else:
+                    await apply_import_update(target, parsed, custom_data, db, number_format_locale)
+                    updated_count += 1
+                    inserted_by_row_number[parsed.row_number] = target.id
+                    continue
+
             parent_license_id: Optional[int] = (
                 inserted_by_row_number.get(parsed.parent_import_row_number)
                 if parsed.parent_import_row_number is not None
@@ -225,11 +258,11 @@ async def run_import_rows(
                         "run_import_rows: custom field key %r not found, skipping", cf_key
                     )
 
-            imported_count += 1
+            created_count += 1
 
         except Exception as exc:
             log.error("import failed on row %s: %s", parsed.row_number, exc, exc_info=True)
             skipped_count += 1
             import_errors.append(CSVImportError(row_number=parsed.row_number, reason=str(exc)))
 
-    return imported_count, skipped_count, import_errors, custom_field_failure_count
+    return created_count, updated_count, skipped_count, import_errors, custom_field_failure_count

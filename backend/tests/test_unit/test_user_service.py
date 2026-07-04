@@ -2,9 +2,12 @@
 
 import pytest
 from fastapi import HTTPException
+from app.models.settings import UserSettings
 from app.models.user import AuthProvider, User
 from app.services.user_service import (
+    INHERITED_SETTING_FIELDS,
     apply_user_update,
+    build_inherited_user_settings,
     ensure_local_admin_invariant,
     reject_break_glass_change,
 )
@@ -231,3 +234,51 @@ def test_apply_user_update_local_no_password_leaves_hash_unchanged():
         min_password_length=12,
     )
     assert user.hashed_password == "existing_hash"
+
+
+# ---------------------------------------------------------------------------
+# build_inherited_user_settings
+# ---------------------------------------------------------------------------
+
+def test_build_inherited_user_settings_copies_regional_fields():
+    admin_settings = UserSettings(
+        user_id=1,
+        theme="dark",
+        display_currency="GBP",
+        number_format_locale="en-GB",
+        ui_size="large",
+        date_format="YYYY-MM-DD",
+        time_format="12h",
+        time_zone="Europe/London",
+    )
+
+    new_settings = build_inherited_user_settings(user_id=42, source=admin_settings)
+
+    assert new_settings.user_id == 42
+    for field in INHERITED_SETTING_FIELDS:
+        assert getattr(new_settings, field) == getattr(admin_settings, field)
+
+
+def test_build_inherited_user_settings_leaves_layout_at_defaults():
+    admin_settings = UserSettings(
+        user_id=1,
+        theme="dark",
+        saved_views=[{"name": "Admin view"}],
+        column_order=["a", "b", "c"],
+        sidebar_collapsed=True,
+    )
+
+    new_settings = build_inherited_user_settings(user_id=42, source=admin_settings)
+
+    # Personal layout state is NOT inherited.
+    assert new_settings.saved_views != admin_settings.saved_views
+    assert new_settings.column_order != admin_settings.column_order
+    assert new_settings.sidebar_collapsed != admin_settings.sidebar_collapsed
+
+
+def test_build_inherited_user_settings_none_source_keeps_defaults():
+    new_settings = build_inherited_user_settings(user_id=42, source=None)
+
+    assert new_settings.user_id == 42
+    # A None source leaves regional fields unset so model defaults apply.
+    assert new_settings.theme is None

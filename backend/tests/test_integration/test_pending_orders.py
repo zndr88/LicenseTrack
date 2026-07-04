@@ -876,6 +876,34 @@ async def test_pending_order_line_item_can_be_edited_before_conversion(test_app,
     assert updated_item["estimatedTotalPrice"] == "210"
 
 
+async def test_pending_order_line_item_preserves_start_and_end_dates(test_app, auth_headers):
+    """A sourcing item's start/end dates must survive conversion to a pending order.
+
+    Regression: SourcingItemSummary (nested in PendingOrderResponse) previously
+    omitted start_date/end_date, so the PO view showed the dates as blank.
+    """
+    item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        softwareDescription="Dated App",
+        startDate="2026-03-01",
+        endDate="2027-02-28",
+    )
+    po = await _convert_sourcing_to_po(test_app, auth_headers, item["id"])
+
+    # Dates present on the convert response...
+    convert_line = po["items"][0]
+    assert convert_line["startDate"] == "2026-03-01"
+    assert convert_line["endDate"] == "2027-02-28"
+
+    # ...and on a subsequent GET of the pending order.
+    resp = await test_app.get(f"/api/pending-orders/{po['id']}", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    line = resp.json()["items"][0]
+    assert line["startDate"] == "2026-03-01"
+    assert line["endDate"] == "2027-02-28"
+
+
 async def test_pending_order_line_item_can_be_deleted_before_conversion(test_app, auth_headers):
     first = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Keep App")
     second = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Delete App")

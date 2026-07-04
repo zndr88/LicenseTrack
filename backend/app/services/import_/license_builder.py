@@ -106,6 +106,8 @@ async def build_license(
         currency=row.currency,
         start_date=row.db_start_date,
         end_date=row.db_end_date,
+        request_date=row.db_request_date,
+        purchase_date=row.db_purchase_date,
         contract_number=row.contract_number,
         po_number=row.po_number,
         invoice_number=row.invoice_number,

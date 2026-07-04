@@ -9,6 +9,58 @@ API stability levels and the breaking-change policy are defined in
 [docs/api-stability.md](docs/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
+## [1.0.2] - 2026-07-05
+
+### Added
+
+- CSV import now supports procurement dates: `request_date` and `purchase_date`
+  are importable and export with importable headers, so a full export
+  round-trips cleanly back into the tool.
+- CSV import can update existing licenses by LT Ref (mapped flow). Re-importing
+  an exported list reconciles onto existing records by LT Ref chain-head match
+  instead of creating duplicates, with an auto-armed toggle and preview counts.
+  `license_type`, `license_ref`, lifecycle, and maintenance-mirror fields are
+  immutable on update; ambiguous refs surface a per-row error. The legacy
+  `/confirm` path stays create-only.
+- Admin-created users inherit the creating admin's regional and display
+  preferences (currency, number/date/time format, timezone, theme, UI size).
+  Personal layout state (saved views, column order, visible columns) still
+  starts at defaults.
+- User documentation wiki (`wiki/`, MkDocs Material) covering getting started,
+  importing and understanding licenses, the renewal lifecycle, navigating the
+  dashboard, and operations. Published to GitHub Pages via a new `Docs`
+  workflow (`.github/workflows/docs.yml`, `mkdocs build --strict`).
+
+### Changed
+
+- Renamed the Renewal Workbench action from "Start Renewal" to "Initiate
+  Renewal" so it matches the License Details panel.
+- Consolidated operations/deployment reference into the wiki as the single
+  source of truth: moved `docs/DEPLOY.md`, `docs/operations-runbook.md`, and
+  `docs/user-guide/Backup and Restore.txt` into `wiki/operations/`. The former
+  deployment guide is reframed as advanced "Production deployment & hardening";
+  the beginner quick-start it duplicated now lives in the Installation guide.
+- Repointed `README.md` and `docs/plugin-host-v1-roadmap.md` doc links to the
+  new wiki paths.
+
+### Fixed
+
+- Sourcing item start/end dates are now preserved through conversion to a
+  pending order and pre-filled into the convert-to-license form.
+  `SourcingItemSummary` (nested in the pending-order response) previously
+  omitted the dates, and the convert form hardcoded them blank.
+- The first-launch login page now renders in light mode instead of gray,
+  matching the post-login default for a consistent first impression.
+- CSV import round-trip: `_IGNORED_HEADERS` lets a full export re-import skip
+  computed/metadata columns instead of prompting custom-field creation, and the
+  Flexera `purchase_date` alias now maps to the real field instead of
+  `start_date`.
+
+### Removed
+
+- `docs/DEPLOY.md`, `docs/operations-runbook.md`, and
+  `docs/user-guide/Backup and Restore.txt` (relocated to `wiki/operations/`).
+
 ## [1.0.1] - 2026-07-04
 
 ### Security

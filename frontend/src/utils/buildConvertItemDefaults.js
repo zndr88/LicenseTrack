@@ -35,8 +35,8 @@ export function buildConvertItemDefaults(order, licenses) {
     return {
       publisherName:       si.publisherName || "",
       softwareDescription: si.softwareDescription || "",
-      startDate:           "",
-      endDate:             "",
+      startDate:           si.startDate || "",
+      endDate:             si.endDate || "",
       isPerpetual:         false,
       contractNumber:      renewal?.contractNumber || "",
       poNumber:            order.poNumber || "",

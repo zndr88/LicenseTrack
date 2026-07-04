@@ -43,6 +43,7 @@ from app.schemas.csv_import import (
 from app.services.audit_service import format_audit_detail, log_event
 from app.services.csv_importer import (
     _HEADER_MAP,
+    _IGNORED_HEADERS,
     _normalise_header,
     parse_csv,
 )
@@ -181,7 +182,12 @@ async def analyze_import(
     unrecognized_columns: list[UnrecognizedColumn] = []
 
     for raw_h in raw_headers:
-        internal = _HEADER_MAP.get(_normalise_header(raw_h))
+        norm = _normalise_header(raw_h)
+        # Export-only/computed columns are recognised but silently dropped, so
+        # round-tripping a full export does not prompt custom-field creation.
+        if norm in _IGNORED_HEADERS:
+            continue
+        internal = _HEADER_MAP.get(norm)
         samples = [r.get(raw_h, "").strip() for r in sample_rows if r.get(raw_h, "").strip()][:3]
         if internal and internal not in matched_fields:
             matched_fields.add(internal)
@@ -226,6 +232,7 @@ async def preview_mapped_import(
     db: DbSession,
     file: UploadFile,
     mapping_json: str = Form(...),
+    update_existing: bool = Form(False),
     number_format_locale: str | None = Form(None),
     date_format: str | None = Form(None),
     current_user: User = Depends(require_editor_or_admin),
@@ -245,7 +252,7 @@ async def preview_mapped_import(
         contents, column_to_target, default_currency, locale, declared_date_format
     )
     await validate_imported_custom_rows(db, result.rows, _custom_rows, locale)
-    await prepare_import_rows(result.rows, db)
+    await prepare_import_rows(result.rows, db, update_existing=update_existing)
     return build_preview_response(result)
 
 
@@ -257,6 +264,7 @@ async def execute_import(
     mapping_json: str = Form(...),
     skipped_rows_json: str = Form("[]"),
     acknowledge_warnings: bool = Form(False),
+    update_existing: bool = Form(False),
     number_format_locale: str | None = Form(None),
     date_format: str | None = Form(None),
     current_user: User = Depends(require_editor_or_admin),
@@ -312,8 +320,9 @@ async def execute_import(
             },
         )
 
-    imported_count, skipped_count, import_errors, cf_failures = await run_import_rows(
+    imported_count, updated_count, skipped_count, import_errors, cf_failures = await run_import_rows(
         parsed_result.rows, custom_rows, skipped_rows, current_user.id, db, locale,
+        update_existing=update_existing,
     )
 
     if imported_count > 0:
@@ -323,6 +332,7 @@ async def execute_import(
             {
                 "importMode": "mapped_csv",
                 "insertedCount": str(imported_count),
+                "updatedCount": str(updated_count),
                 "skippedCount": str(skipped_count),
                 "errorCount": str(len(import_errors)),
                 "defaultedEnumCount": str(warning_summary.defaulted_enum_count),
@@ -341,6 +351,7 @@ async def execute_import(
     await db.commit()
     return CSVImportConfirmResponse(
         imported_count=imported_count,
+        updated_count=updated_count,
         skipped_count=skipped_count,
         error_count=len(import_errors),
         errors=import_errors,
@@ -389,7 +400,7 @@ async def confirm_import(
         )
 
     empty_custom_rows = [{} for _ in result.rows]
-    imported_count, skipped_count, import_errors, cf_failures = await run_import_rows(
+    imported_count, updated_count, skipped_count, import_errors, cf_failures = await run_import_rows(
         result.rows, empty_custom_rows, skipped_rows, current_user.id, db, locale,
     )
 
@@ -418,6 +429,7 @@ async def confirm_import(
     await db.commit()
     return CSVImportConfirmResponse(
         imported_count=imported_count,
+        updated_count=updated_count,
         skipped_count=skipped_count,
         error_count=len(import_errors),
         errors=import_errors,

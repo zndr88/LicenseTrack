@@ -69,12 +69,13 @@ export async function analyzeImport(file) {
  * @param {boolean} acknowledgeWarnings - must be true when preview showed hasWarnings
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
-export async function executeImport(file, mappingJson, skippedRows = [], acknowledgeWarnings = false, formats) {
+export async function executeImport(file, mappingJson, skippedRows = [], acknowledgeWarnings = false, formats, updateExisting = false) {
   const form = new FormData();
   form.append("file", file);
   form.append("mapping_json", mappingJson);
   form.append("skipped_rows_json", JSON.stringify(skippedRows));
   form.append("acknowledge_warnings", String(acknowledgeWarnings));
+  form.append("update_existing", String(updateExisting));
   appendImportFormats(form, formats);
   return post("/api/import/execute", form);
 }
@@ -86,10 +87,11 @@ export async function executeImport(file, mappingJson, skippedRows = [], acknowl
  * @param {string} mappingJson - JSON-serialised mapping array + optional preset name
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
-export async function previewMappedImport(file, mappingJson, formats) {
+export async function previewMappedImport(file, mappingJson, formats, updateExisting = false) {
   const form = new FormData();
   form.append("file", file);
   form.append("mapping_json", mappingJson);
+  form.append("update_existing", String(updateExisting));
   appendImportFormats(form, formats);
   return post("/api/import/preview-mapped", form);
 }

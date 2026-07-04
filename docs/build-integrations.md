@@ -86,8 +86,8 @@ Use the record `id` from API responses when you need to reference a specific dat
 
 License read responses also expose procurement and record-history metadata:
 
-- `requestDate`: sourcing-item creation timestamp captured during LicenseTrack procurement conversion, or entered later for imported/legacy records;
-- `purchaseDate`: pending-order creation timestamp captured during LicenseTrack procurement conversion, or entered later for imported/legacy records;
+- `requestDate`: sourcing-item creation timestamp captured during LicenseTrack procurement conversion, or set later through the license patch endpoint or a CSV import (`request_date` column);
+- `purchaseDate`: pending-order creation timestamp captured during LicenseTrack procurement conversion, or set later through the license patch endpoint or a CSV import (`purchase_date` column);
 - `createdAt` and `updatedAt`: license-row creation and latest-update timestamps;
 - `createdBy`, `createdByName`, and `createdByEmail`: creator ID plus best-effort account labels. Account labels may be null for deleted or legacy users.
 

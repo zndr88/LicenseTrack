@@ -1,45 +1,9 @@
-# Deployment Guide
+# Production deployment & hardening
 
-## Requirements
+You've got a basic instance running from the [Installation guide](../getting-started/installation.md). This page is the production reference: running under Podman, hardening a network-reachable install, the full configuration variable list, the plugin runtime constraint, persistent data, and reverse-proxy setup.
 
-| Component | Minimum |
-|-----------|---------|
-| Docker Engine | 24+ |
-| Docker Compose | v2 plugin |
-| RAM | 512 MB |
-| Disk | 1 GB plus stored documents and database backups |
-
-## Quick Start
-
-1. Copy the environment file:
-
-```bash
-cp .env.example .env
-```
-
-2. Generate and set `JWT_SECRET`:
-
-```bash
-openssl rand -hex 32
-```
-
-Windows PowerShell:
-
-```powershell
--join ((0..31) | ForEach-Object { '{0:x2}' -f (Get-Random -Max 256) })
-```
-
-3. Start the application:
-
-Before starting, also set a strong `ADMIN_PASSWORD` in `.env`. Startup fails if `JWT_SECRET` is missing/unsafe or if `ADMIN_PASSWORD` is blank or a common default such as `admin`, `password`, or `changeme`.
-
-```bash
-docker compose up -d --build
-```
-
-4. Open `http://<your-server>:8080`.
-
-Log in with username `admin` and the password configured in `ADMIN_PASSWORD`. Change and store the break-glass admin password according to your operational policy.
+!!! note "This page does not repeat the basics"
+    For requirements and the initial `cp .env` → generate `JWT_SECRET` → `docker compose up` steps, see [Prerequisites](../getting-started/prerequisites.md) and [Installation](../getting-started/installation.md).
 
 The Docker image serves the React frontend and FastAPI backend from the same origin. Browser API calls use `/api/...` by default, so the backend container port `8000` does not need to be exposed directly to end users.
 
@@ -48,12 +12,12 @@ The Docker image serves the React frontend and FastAPI backend from the same ori
 The image is a standard OCI image and runs under Podman without changes. The most reliable path is a plain build and run (it avoids differences between compose providers):
 
 ```bash
-podman build -t license-lifecycle-system:1.0.1 .
+podman build -t license-lifecycle-system:1.0.2 .
 
 podman run -d --name licensetrack -p 8080:8000 \
   --env-file .env \
   -v license_lifecycle_data:/data \
-  license-lifecycle-system:1.0.1
+  license-lifecycle-system:1.0.2
 ```
 
 Notes:
@@ -64,7 +28,8 @@ Notes:
 
 ## Production hardening
 
-For any deployment reachable beyond your own machine:
+!!! danger "For any deployment reachable beyond your own machine"
+    Do not skip these steps for a network-reachable install.
 
 - **Serve over HTTPS behind a reverse proxy** (nginx, Caddy, Traefik) and set `SESSION_COOKIE_SECURE=true` so session cookies are only sent over TLS.
 - **Set `CORS_ORIGINS`** to the exact browser origin(s) you serve from — not the default localhost value.
@@ -104,11 +69,12 @@ All variables are read from `.env` at container start. Restart the container aft
 | `MAX_PLUGIN_DOCUMENT_SIZE_MB` | No | `10` | Maximum size of a single document a plugin may read at runtime. |
 | `PLUGIN_RUNTIME_LOG_MAX_BYTES` | No | `524288` | Maximum bytes returned when viewing plugin runtime logs (tail). |
 
-## Plugin Runtime
+## Plugin runtime
 
 LicenseTrack v1 includes a Plugin Host that runs installable plugin packages as managed local processes.
 
-**Single-worker constraint.** Plugin subprocess state (process handles, bearer tokens, per-action document scopes) lives in the FastAPI process. You must run exactly one Uvicorn worker. Do not set `--workers N` with `N > 1` in any process manager. Running multiple workers silently partitions plugin state: worker A starts a subprocess and records its token; worker B cannot find it and rejects all runtime requests from that plugin with 401.
+!!! warning "Single-worker constraint"
+    Plugin subprocess state (process handles, bearer tokens, per-action document scopes) lives in the FastAPI process. You must run exactly one Uvicorn worker. Do not set `--workers N` with `N > 1` in any process manager. Running multiple workers silently partitions plugin state: worker A starts a subprocess and records its token; worker B cannot find it and rejects all runtime requests from that plugin with 401.
 
 The Docker Compose configuration uses the default of one worker. If you override the Uvicorn command in your deployment, do not add `--workers`.
 
@@ -125,7 +91,7 @@ The named `license_lifecycle_data` volume covers `/data`, including `/data/plugi
 
 **Runtime callback URL.** `PLUGIN_RUNTIME_LOG_MAX_BYTES` controls how much log the admin can view. `PLUGIN_HOST_BASE_URL` controls the URL injected into plugin runtime env as `LT_PLUGIN_BASE_URL`. Set it to the internal URL the backend is reachable on from within the same host.
 
-## Startup Behavior
+## Startup behavior
 
 On startup the backend:
 
@@ -136,7 +102,7 @@ On startup the backend:
 
 For local development you may still run `alembic upgrade head` and `python -m app.seed` manually before starting Uvicorn. In Docker, startup performs those operational steps automatically after configuration validation.
 
-## Persistent Data
+## Persistent data
 
 Docker Compose creates a named volume called `license_lifecycle_data`.
 
@@ -156,19 +122,15 @@ docker run --rm \
   tar -czf /backup/license-lifecycle-data-$(date +%Y%m%d).tar.gz -C /data .
 ```
 
-## Database Backup And Restore
+## Database backup and restore
 
 Admins can create and restore database backups in Settings. Database restore creates a pre-restore database safety snapshot before replacing the database.
 
 Database backups contain the SQLite database only. Uploaded documents are data files stored separately under `/data/storage`; operators must back them up separately, usually by backing up the full `/data` volume.
 
-## Operations
+For the full behavior — scheduled backups, retention, and the restore safety snapshot — see [Backup & restore](backup-restore.md). For ongoing operational checks (health monitoring, log review, upgrades, incident response), see the [Operations runbook](runbook.md).
 
-Monitor `/api/health`, Docker container health, logs, disk space for `/data`, and database backup freshness. Forward container logs to your normal log platform if centralized retention or alerting is required.
-
-See `docs/operations-runbook.md` for baseline health checks, log review, database backup checks, vulnerability-management cadence, upgrade checks, and incident-response notes.
-
-## Reverse Proxy
+## Reverse proxy
 
 When deploying behind HTTPS, set:
 
