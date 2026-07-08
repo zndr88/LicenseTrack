@@ -9,6 +9,22 @@ from app.services.crypto_service import decrypt_secret
 
 log = logging.getLogger(__name__)
 
+_FORBIDDEN_RECIPIENT_CHARS = ("\r", "\n", "\x00")
+
+
+def _reject_crlf_recipient(address: str) -> None:
+    """Raise ValueError if *address* contains CR/LF/NUL bytes.
+
+    Belt-and-braces guard against SMTP command injection (CVE-2026-53533 /
+    GHSA-v3q9-hj7j-63hq) at the actual sink — aiosmtplib.send() — in addition
+    to the input-boundary validation on the Pydantic schemas that feed this
+    function (budget_owner_email, manager_email, etc).
+    """
+    if any(ch in address for ch in _FORBIDDEN_RECIPIENT_CHARS):
+        raise ValueError(
+            f"Refusing to send: recipient address contains line breaks or null bytes: {address!r}"
+        )
+
 
 async def send_email(
     gs: GlobalSettings,
@@ -20,6 +36,10 @@ async def send_email(
     """Send a single email using SMTP settings from GlobalSettings."""
     if not gs.smtp_host or not gs.smtp_sender:
         raise ValueError("SMTP is not configured")
+
+    _reject_crlf_recipient(to)
+    if cc:
+        _reject_crlf_recipient(cc)
 
     msg = MIMEMultipart("alternative")
     msg["From"] = gs.smtp_sender

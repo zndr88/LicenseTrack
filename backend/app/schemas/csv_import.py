@@ -1,8 +1,10 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 from pydantic.alias_generators import to_camel
+
+from app.services.email_validation import reject_email_crlf
 
 
 class ColumnMatch(BaseModel):
@@ -130,6 +132,13 @@ class CSVImportPreviewRow(BaseModel):
     duplicate_warnings: list[DuplicateWarning] = []
     import_action: str = "create"          # "create" | "update"
     matched_license_id: Optional[int] = None
+
+    @field_validator("budget_owner_email", mode="before")
+    @classmethod
+    def _reject_budget_owner_email_crlf(cls, v: object) -> object:
+        if not isinstance(v, str):
+            return v
+        return reject_email_crlf(v)
 
 
 class CSVImportPreviewResponse(BaseModel):

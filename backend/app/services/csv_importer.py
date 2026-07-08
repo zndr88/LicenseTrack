@@ -475,6 +475,17 @@ def _parse_row(
     )
     has_parse_error = has_parse_error or len(errors) > numeric_error_count
 
+    # ── Budget owner email — reject SMTP command-injection payloads ──────
+    # (CVE-2026-53533 hardening: this value eventually reaches
+    # aiosmtplib.send(recipients=...) via the daily notification job.)
+    budget_owner_email = data.get("budget_owner_email", "").strip()
+    if any(ch in budget_owner_email for ch in ("\r", "\n", "\x00")):
+        errors.append(
+            "budget_owner_email contains invalid characters (line breaks or null bytes)"
+        )
+        has_parse_error = True
+        budget_owner_email = ""
+
     # ── Parent linkage (for maintenance rows) ────────────────────────────
     parent_license_ref = data.get("parent_license_ref", "").strip() or None
 
@@ -532,7 +543,7 @@ def _parse_row(
         total_po_price=total_po_price,
         currency=currency,
         notes=data.get("notes", "").strip() or None,
-        budget_owner_email=data.get("budget_owner_email", "").strip(),
+        budget_owner_email=budget_owner_email,
         external_ref=data.get("external_ref", "").strip() or None,
         license_ref=data.get("license_ref", "").strip() or None,
         parent_license_ref=parent_license_ref,

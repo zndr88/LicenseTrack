@@ -5,6 +5,7 @@ from typing import Optional
 import zoneinfo
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from app.services.email_validation import reject_email_crlf
 from app.services.money import SUPPORTED_NUMBER_FORMAT_LOCALES
 
 
@@ -75,6 +76,13 @@ class UserSettingsUpdate(BaseModel):
             raise ValueError(f"ui_size must be one of {sorted(allowed)}; got {v!r}.")
         return v
 
+    @field_validator("manager_email", mode="before")
+    @classmethod
+    def _reject_manager_email_crlf(cls, v: object) -> object:
+        if not isinstance(v, str):
+            return v
+        return reject_email_crlf(v)
+
 
 class UserSettingsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -138,6 +146,13 @@ class GlobalSettingsUpdate(BaseModel):
     email_template_budget_owner_intro: Optional[str] = None
     email_template_budget_owner_signoff: Optional[str] = None
     email_template_manager_intro: Optional[str] = None
+
+    @field_validator("manager_email", mode="before")
+    @classmethod
+    def _reject_manager_email_crlf(cls, v: object) -> object:
+        if not isinstance(v, str):
+            return v
+        return reject_email_crlf(v)
 
 
 class GlobalSettingsResponse(BaseModel):

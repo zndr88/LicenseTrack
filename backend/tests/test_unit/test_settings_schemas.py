@@ -2,7 +2,11 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.settings import UserSettingsUpdate, UserSettingsResponse
+from app.schemas.settings import (
+    GlobalSettingsUpdate,
+    UserSettingsResponse,
+    UserSettingsUpdate,
+)
 
 
 # ── date_format ──────────────────────────────────────────────────────────────
@@ -76,3 +80,40 @@ def test_user_settings_response_has_time_format_default():
 
 def test_user_settings_response_has_time_zone_default():
     assert UserSettingsResponse.model_fields["time_zone"].default == "UTC"
+
+
+# ── manager_email CRLF injection guard (CVE-2026-53533 / GHSA-v3q9-hj7j-63hq) ─
+
+def test_user_settings_update_manager_email_allows_none():
+    m = UserSettingsUpdate(manager_email=None)
+    assert m.manager_email is None
+
+
+def test_user_settings_update_manager_email_allows_normal_address():
+    m = UserSettingsUpdate(manager_email="manager@example.com")
+    assert m.manager_email == "manager@example.com"
+
+
+def test_user_settings_update_manager_email_rejects_crlf():
+    with pytest.raises(ValidationError):
+        UserSettingsUpdate(manager_email="a@b.com\r\nRCPT TO:<evil@x>")
+
+
+def test_global_settings_update_manager_email_allows_none():
+    m = GlobalSettingsUpdate(manager_email=None)
+    assert m.manager_email is None
+
+
+def test_global_settings_update_manager_email_allows_normal_address():
+    m = GlobalSettingsUpdate(manager_email="manager@example.com")
+    assert m.manager_email == "manager@example.com"
+
+
+def test_global_settings_update_manager_email_rejects_crlf():
+    with pytest.raises(ValidationError):
+        GlobalSettingsUpdate(manager_email="a@b.com\r\nRCPT TO:<evil@x>")
+
+
+def test_global_settings_update_manager_email_rejects_nul_byte():
+    with pytest.raises(ValidationError):
+        GlobalSettingsUpdate(manager_email="a@b.com\x00")

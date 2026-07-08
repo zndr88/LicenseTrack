@@ -6,6 +6,7 @@ from pydantic.alias_generators import to_camel
 
 from app.models.license import LicenseMetric, LicenseType, LifecycleStatus, MaintenanceCoverage
 from app.schemas.custom_fields import CustomFieldValueResponse
+from app.services.email_validation import reject_email_crlf
 from app.services.money import is_canonical_money
 
 
@@ -72,6 +73,13 @@ class LicenseBase(BaseModel):
             )
         return v
 
+    @field_validator("budget_owner_email", mode="before")
+    @classmethod
+    def _reject_budget_owner_email_crlf(cls, v: object) -> object:
+        if not isinstance(v, str):
+            return v
+        return reject_email_crlf(v)
+
 
 class LicenseCreate(LicenseBase):
     pass
@@ -137,6 +145,13 @@ class LicenseUpdate(BaseModel):
                 f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}."
             )
         return v
+
+    @field_validator("budget_owner_email", mode="before")
+    @classmethod
+    def _reject_budget_owner_email_crlf(cls, v: object) -> object:
+        if not isinstance(v, str):
+            return v
+        return reject_email_crlf(v)
 
 
 class LicenseLifecycleRepairRequest(BaseModel):

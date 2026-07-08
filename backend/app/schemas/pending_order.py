@@ -6,6 +6,7 @@ from pydantic.alias_generators import to_camel
 
 from app.models.license import LicenseMetric, LicenseType
 from app.models.pending_order import EvidenceTransferStatus, PendingOrderStatus
+from app.services.email_validation import reject_email_crlf
 from app.services.money import is_canonical_money
 from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.sourcing import SourcingQuoteDocumentResponse
@@ -202,6 +203,13 @@ class PendingOrderConvertRequest(BaseModel):
             )
         return v
 
+    @field_validator("budget_owner_email", mode="before")
+    @classmethod
+    def _reject_budget_owner_email_crlf(cls, v: object) -> object:
+        if not isinstance(v, str):
+            return v
+        return reject_email_crlf(v)
+
 
 class ConvertSourcingItemRequest(BaseModel):
     model_config = ConfigDict(
@@ -281,6 +289,13 @@ class BatchConvertItem(BaseModel):
                 f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}."
             )
         return v
+
+    @field_validator("budget_owner_email", mode="before")
+    @classmethod
+    def _reject_budget_owner_email_crlf(cls, v: object) -> object:
+        if not isinstance(v, str):
+            return v
+        return reject_email_crlf(v)
 
 
 # Type alias: the convert-all endpoint accepts a JSON array of BatchConvertItem

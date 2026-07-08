@@ -68,6 +68,51 @@ async def test_send_email_raises_when_smtp_sender_missing():
 
 
 # ---------------------------------------------------------------------------
+# send_email — CRLF/NUL injection guard (CVE-2026-53533 / GHSA-v3q9-hj7j-63hq)
+# ---------------------------------------------------------------------------
+
+async def test_send_email_rejects_crlf_in_to():
+    gs = _make_gs()
+    send_mock = AsyncMock()
+
+    with patch("app.services.email_service.aiosmtplib.send", new=send_mock), \
+         patch("app.services.email_service.decrypt_secret", return_value="pw"):
+        with pytest.raises(ValueError, match="line breaks or null bytes"):
+            await send_email(
+                gs, "a@example.com\r\nRCPT TO:<evil@x>", "Subject", "<p/>"
+            )
+
+    send_mock.assert_not_awaited()
+
+
+async def test_send_email_rejects_crlf_in_cc():
+    gs = _make_gs()
+    send_mock = AsyncMock()
+
+    with patch("app.services.email_service.aiosmtplib.send", new=send_mock), \
+         patch("app.services.email_service.decrypt_secret", return_value="pw"):
+        with pytest.raises(ValueError, match="line breaks or null bytes"):
+            await send_email(
+                gs, "to@example.com", "Subject", "<p/>",
+                cc="a@example.com\nRCPT TO:<evil@x>",
+            )
+
+    send_mock.assert_not_awaited()
+
+
+async def test_send_email_rejects_nul_byte_in_to():
+    gs = _make_gs()
+    send_mock = AsyncMock()
+
+    with patch("app.services.email_service.aiosmtplib.send", new=send_mock), \
+         patch("app.services.email_service.decrypt_secret", return_value="pw"):
+        with pytest.raises(ValueError, match="line breaks or null bytes"):
+            await send_email(gs, "a@example.com\x00", "Subject", "<p/>")
+
+    send_mock.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
 # send_email — message construction
 # ---------------------------------------------------------------------------
 

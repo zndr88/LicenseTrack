@@ -504,6 +504,48 @@ def test_row_does_not_mark_currency_defaulted_when_currency_present():
 
 
 # ---------------------------------------------------------------------------
+# budget_owner_email CRLF/NUL injection guard
+# (CVE-2026-53533 / GHSA-v3q9-hj7j-63hq — this value eventually reaches
+# aiosmtplib.send(recipients=...) via the daily notification job)
+# ---------------------------------------------------------------------------
+
+def test_budget_owner_email_with_crlf_flagged_as_row_error():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "budget_owner_email"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            "budget_owner_email": "a@b.com\r\nRCPT TO:<evil@x>",
+        }],
+    )
+    result = parse_csv(csv_bytes)
+
+    assert len(result.rows) == 1
+    row = result.rows[0]
+    # The dangerous value must never be carried through to the parsed row —
+    # it is neutralised so downstream schema construction cannot raise.
+    assert row.budget_owner_email == ""
+    assert row.import_status == "error"
+    assert any("budget_owner_email" in e for e in row.validation_errors)
+
+
+def test_budget_owner_email_normal_value_passes_through():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "budget_owner_email"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            "budget_owner_email": "owner@example.com",
+        }],
+    )
+    result = parse_csv(csv_bytes)
+
+    row = result.rows[0]
+    assert row.budget_owner_email == "owner@example.com"
+    assert row.validation_errors == []
+
+
+# ---------------------------------------------------------------------------
 # build_warning_summary
 # ---------------------------------------------------------------------------
 
