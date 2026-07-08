@@ -283,7 +283,9 @@ async def test_licenses_export_headers_and_representative_csv_content(
         license_metric=LicenseMetric.per_user,
         quantity="25",
         unit_price="12.00",
-        total_po_price="300.00",
+        # Deliberately stale stored aggregate: the export must derive
+        # Total PO Value (25 × 12.00 = 300.00), not emit this column.
+        total_po_price="999.99",
         currency="EUR",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 12, 31),
@@ -317,7 +319,7 @@ async def test_licenses_export_headers_and_representative_csv_content(
     assert row["External Ref"] == "ERP-1"
     assert row["Publisher"] == "Contoso"
     assert row["Software Description"] == "Contoso Analytics"
-    assert row["Total PO Price"] == "300.00"
+    assert row["Total PO Value"] == "300.00"
     assert row["Notes"] == "primary export row"
 
 
@@ -414,7 +416,7 @@ async def test_sourcing_export_headers_and_representative_csv_content(
     row = rows[0]
     assert row["Publisher"] == "Northwind"
     assert row["Software Description"] == "Northwind CRM"
-    assert row["Quantity"] == "5"
+    assert row["Purchase Quantity"] == "5"
     assert row["Est. Total Price"] == "100.00"
     assert row["Status"] == "sourcing"
     assert row["Is Renewal"] == "No"
@@ -474,7 +476,7 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
         "PO Line #",
         "Publisher",
         "Description",
-        "Quantity",
+        "Purchase Quantity",
         "Estimated Unit Price",
         "Estimated Line Total",
     ]

@@ -4,6 +4,7 @@ from typing import Literal
 
 from app.models.license import License, LicenseType
 from app.models.sourcing import SourcingItem, SourcingStatus
+from app.services.license_service import calc_line_total
 
 
 RenewalWorkflowState = Literal[
@@ -81,7 +82,13 @@ def build_renewal_sourcing_item(
         software_description=license_obj.software_description,
         quantity=license_obj.quantity or None,
         estimated_unit_price=license_obj.unit_price or None,
-        estimated_total_price=license_obj.total_po_price or None,
+        # Seed with this license's own line total (qty × unit price), not the
+        # stored total_po_price: that column is a deprecated whole-PO aggregate.
+        estimated_total_price=(
+            format(line_total, "f")
+            if (line_total := calc_line_total(license_obj.quantity, license_obj.unit_price)) is not None
+            else None
+        ),
         currency=license_obj.currency,
         supplier=license_obj.supplier or None,
         contact_email=license_obj.contact_email or None,

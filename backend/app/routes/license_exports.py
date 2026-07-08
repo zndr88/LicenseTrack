@@ -1,6 +1,7 @@
 import csv
 import io
 from datetime import date
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -14,6 +15,7 @@ from app.dependencies import CurrentUser
 from app.models.license import License
 from app.services.access_service import apply_department_filter, get_viewer_departments
 from app.services.license_service import (
+    calc_line_total,
     compute_completeness,
     compute_days_until_expiry,
     compute_expiration_status,
@@ -58,13 +60,24 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
     headers = [
         "ID", "License Ref", "External Ref", "Publisher", "Software Description",
         "License Type", "License Metric",
-        "Quantity", "SKU Code", "Unit Price", "Total PO Price", "Currency",
+        "Purchase Quantity", "SKU Code", "Unit Price", "Total PO Value", "Currency",
         "Start Date", "End Date", "Contract Number", "PO Number", "Invoice Number",
         "Contact Email", "Supplier", "Cost Centre", "Budget Owner Email",
         "Lifecycle Status", "Completeness %", "Expiration Status", "Days Until Expiry",
         "Notes",
     ]
     writer.writerow(headers)
+
+    # Total PO Value is derived, not read from the deprecated total_po_price
+    # column: the whole PO's value = sum of line totals (qty × unit price)
+    # across the exported licenses sharing a PO number. Mirrors the frontend's
+    # getPoTotal, so both exports agree.
+    po_totals: dict[str, Decimal] = {}
+    for lic in licenses:
+        if lic.po_number:
+            line = calc_line_total(lic.quantity, lic.unit_price)
+            if line is not None:
+                po_totals[lic.po_number] = po_totals.get(lic.po_number, Decimal("0")) + line
 
     today = date.today()
     for lic in licenses:
@@ -80,7 +93,7 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
             lic.quantity,
             lic.sku_code,
             lic.unit_price,
-            lic.total_po_price,
+            format(po_totals[lic.po_number], "f") if lic.po_number in po_totals else "",
             lic.currency,
             lic.start_date.isoformat() if lic.start_date else "",
             lic.end_date.isoformat() if lic.end_date else "Perpetual",

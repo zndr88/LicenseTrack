@@ -20,7 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType, MaintenanceCoverage
-from app.services.license_service import generate_license_ref
+from app.services.license_service import calc_line_total, generate_license_ref
 from app.services.maintenance_rules import (
     assert_parent_not_retired,
     assert_parent_type_eligible,
@@ -74,7 +74,11 @@ async def sync_parent_mirror_fields(
     parent.maintenance_coverage = MaintenanceCoverage.separately_tracked
     parent.maintenance_start_date = active_child.start_date
     parent.maintenance_end_date = active_child.end_date
-    parent.maintenance_cost = active_child.total_po_price
+    # Mirror the child's own line total (qty × unit price), not the stored
+    # total_po_price: that column is a deprecated whole-PO aggregate and would
+    # attribute the entire PO's value to this one maintenance line.
+    line_total = calc_line_total(active_child.quantity, active_child.unit_price)
+    parent.maintenance_cost = format(line_total, "f") if line_total is not None else None
 
 
 # ---------------------------------------------------------------------

@@ -38,7 +38,7 @@ async def build_pending_orders_export_csv(db: AsyncSession) -> str:
             "PO Line #",
             "Publisher",
             "Description",
-            "Quantity",
+            "Purchase Quantity",
             "Estimated Unit Price",
             "Estimated Line Total",
         ]

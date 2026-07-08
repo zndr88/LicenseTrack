@@ -111,7 +111,7 @@ export default function LicenseEditForm({
       )}
       <div className="fr">
         <div className="fg">
-          <label>Quantity</label>
+          <label>Purchase Quantity</label>
           <input className="fi" inputMode="decimal" value={editFields.quantity} onChange={(e) => setEditFields((p) => ({ ...p, quantity: parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value }))} />
         </div>
         <div className="fg">

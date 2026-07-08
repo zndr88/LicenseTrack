@@ -9,6 +9,66 @@ API stability levels and the breaking-change policy are defined in
 [docs/api-stability.md](docs/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
+## [1.0.3] - 2026-07-08
+
+### Security
+
+- Upgraded `aiosmtplib` from 3.0.2 to 5.1.2 to address SMTP command
+  injection via CR/LF in caller-supplied sender or recipient addresses
+  (GHSA-v3q9-hj7j-63hq).
+- Added defense-in-depth email address hardening for notification and settings
+  flows: budget owner and manager email fields now reject CR/LF/NUL while
+  preserving existing loose email formatting and CSV round-trip behavior.
+- CSV import now flags CR/LF in `budget_owner_email` as a per-row validation
+  error, and `email_service.send_email()` rejects CR/LF/NUL in `to` and `cc`
+  before calling the SMTP sink.
+- Added release-hygiene dependency audits to CI: `pip-audit` for backend
+  Python dependencies and `npm audit --audit-level=high` for frontend npm
+  packages.
+- Added Dependabot configuration for grouped weekly backend pip, frontend npm,
+  and GitHub Actions update PRs.
+
+### Changed
+
+- License exports now label `Quantity` as `Purchase Quantity` and the former
+  `Total PO Price` as computed `Total PO Value`. The exported PO value is
+  derived as the sum of `quantity x unit_price` across exported licenses that
+  share a PO number, instead of reading the legacy stored `total_po_price`
+  field.
+- CSV import recognizes the new `Purchase Quantity` export header and ignores
+  the derived `Total PO Value` header so fresh exports do not overwrite
+  per-license stored totals on re-import. Legacy `Total PO Price` imports still
+  map to the stored field for older CSVs.
+- License details, edit forms, invoice confirmation, sourcing, pending-order
+  conversion, CSV mapping, and help copy now consistently use `Purchase
+  Quantity` for the bought quantity.
+- `Total PO Value` is shown as a computed read-only value in license details
+  rather than an editable stored field.
+- Sourcing and pending-order CSV exports now use the `Purchase Quantity` label.
+
+### Fixed
+
+- Maintenance/support mirror cost now uses the active maintenance child's own
+  line total (`quantity x unit_price`) instead of the legacy stored
+  `total_po_price` aggregate, preventing a whole PO value from being attributed
+  to one maintenance line.
+- Renewal sourcing items now seed their estimated total from the renewing
+  license's line total (`quantity x unit_price`) instead of the stored
+  `total_po_price` aggregate.
+
+### Maintenance
+
+- Bumped backend dependencies including FastAPI, Uvicorn, Authlib, SQLAlchemy,
+  Alembic, Pydantic, APScheduler, aiosmtplib, pytest, pytest-asyncio, respx,
+  ruff, and cryptography.
+- Bumped frontend dependencies including React Query, React Virtual, React Hook
+  Form, Recharts, Playwright, Vitest, and related test/lint packages.
+
+### Release
+
+- Version bumped to 1.0.3 across backend, frontend, README, Docker Compose, and
+  wiki installation/deployment examples.
+
 ## [1.0.2] - 2026-07-05
 
 ### Added

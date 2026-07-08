@@ -347,7 +347,7 @@ const ConvertPendingOrderModal = ({
           )}
           {(vis.quantity || vis.skuCode) && (
             <div className="fr">
-              {vis.quantity && <div className="fg"><label htmlFor="cpo-quantity">Quantity <span style={{ color: "var(--red)" }}>*</span></label><input id="cpo-quantity" className="fi" {...register("quantity")} /></div>}
+              {vis.quantity && <div className="fg"><label htmlFor="cpo-quantity">Purchase Quantity <span style={{ color: "var(--red)" }}>*</span></label><input id="cpo-quantity" className="fi" {...register("quantity")} /></div>}
               {vis.skuCode  && <div className="fg"><label htmlFor="cpo-sku-code">SKU Code</label><input id="cpo-sku-code" className="fi" placeholder="e.g. AAA-13528" {...register("skuCode")} /></div>}
             </div>
           )}

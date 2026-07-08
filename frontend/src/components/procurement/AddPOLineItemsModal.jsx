@@ -126,7 +126,7 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 />
               </div>
               <div className="fg">
-                <label>Quantity</label>
+                <label>Purchase Quantity</label>
                 <input
                   className="fi"
                   inputMode="decimal"

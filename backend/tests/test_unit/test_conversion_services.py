@@ -104,7 +104,10 @@ async def test_create_maintenance_purchase_uses_created_parent_map(db_session):
         license_type=LicenseType.maintenance,
         parent_sourcing_item_id=77,
         end_date=date(2027, 12, 31),
-        total_po_price="250",
+        # maintenance_cost mirrors the child's own line total (qty × unit
+        # price), not the deprecated stored total_po_price aggregate.
+        unit_price="250",
+        total_po_price="999.99",
     )
 
     maintenance = await maintenance_linker.create_maintenance_purchase(

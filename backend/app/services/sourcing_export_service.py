@@ -41,7 +41,7 @@ async def build_sourcing_export_csv(db: AsyncSession) -> str:
     writer.writerow([
         "ID", "License Ref", "External Ref",
         "Publisher", "Software Description",
-        "Quantity", "Est. Unit Price", "Est. Total Price",
+        "Purchase Quantity", "Est. Unit Price", "Est. Total Price",
         "Currency", "Supplier", "Contact Email",
         "Status", "Is Renewal", "Renewal For License ID",
         "Created At",

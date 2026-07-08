@@ -58,6 +58,7 @@ _HEADER_MAP: dict[str, str] = {
     "parent": "parent_license_ref",
     "quantity": "quantity",
     "qty": "quantity",
+    "purchase_quantity": "quantity",           # "Purchase Quantity" (v1.0.3 export label)
     "sku_code": "sku_code",
     "sku": "sku_code",
     "unit_price": "unit_price",
@@ -101,6 +102,11 @@ _HEADER_MAP: dict[str, str] = {
 # listed so either survives a round-trip.
 _IGNORED_HEADERS: frozenset[str] = frozenset({
     "docs", "calc_total", "expiration", "complete",
+    # "Total PO Value" (v1.0.3 export label) is a derived whole-PO aggregate —
+    # importing it into the per-license total_po_price column would be wrong.
+    # The legacy "Total PO Price" header still maps to the stored column above
+    # so pre-1.0.3 exports round-trip unchanged.
+    "total_po_value",
     "created", "created_at", "created_by",
     "last_updated", "updated_at",
     "last_synced", "last_synced_at",

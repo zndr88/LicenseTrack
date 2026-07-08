@@ -292,7 +292,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           )}
           {(vis.quantity || vis.skuCode) && (
             <div className="fr">
-              {vis.quantity && <div className="fg"><label htmlFor="inv-quantity">Quantity</label><input id="inv-quantity" className="fi" type="number" value={form.quantity} onChange={(e) => u("quantity", e.target.value)} /></div>}
+              {vis.quantity && <div className="fg"><label htmlFor="inv-quantity">Purchase Quantity</label><input id="inv-quantity" className="fi" type="number" value={form.quantity} onChange={(e) => u("quantity", e.target.value)} /></div>}
               {vis.skuCode && <div className="fg"><label htmlFor="inv-sku-code">SKU Code</label><input id="inv-sku-code" className="fi" value={form.skuCode} placeholder="e.g. AAA-13528" onChange={(e) => u("skuCode", e.target.value)} /></div>}
             </div>
           )}
@@ -410,7 +410,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               <div className="fr">
                 {vis.quantity && (
                   <div className="fg">
-                    <label>Quantity</label>
+                    <label>Purchase Quantity</label>
                     <input type="number" className="fi" value={line.quantity} onChange={(e) => updateLine(line.id, "quantity", e.target.value)} />
                   </div>
                 )}

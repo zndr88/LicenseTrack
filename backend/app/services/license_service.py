@@ -166,6 +166,28 @@ def compute_expiration_status(
 
 
 # ---------------------------------------------------------------------------
+# Computed field: per-line total (quantity × unit price)
+# ---------------------------------------------------------------------------
+
+def calc_line_total(quantity: str | None, unit_price: str | None) -> Decimal | None:
+    """
+    Per-line total (quantity × unit price) from canonical stored strings.
+
+    This is the single-license "calculated total" — NOT the whole-PO value,
+    which is the sum of line totals across licenses sharing a PO number.
+    Returns None when either value is blank or non-canonical.
+    """
+    try:
+        qty = parse_money(quantity or None)
+        price = parse_money(unit_price or None)
+    except MoneyParseError:
+        return None
+    if qty is None or price is None:
+        return None
+    return qty * price
+
+
+# ---------------------------------------------------------------------------
 # Dashboard statistics
 # ---------------------------------------------------------------------------
 

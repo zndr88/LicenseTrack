@@ -50,6 +50,7 @@ async def _create_parent_with_maintenance(client, headers) -> tuple[dict, dict]:
         licenseType="maintenance",
         softwareDescription="Acme Server Maintenance",
         parentLicenseId=parent["id"],
+        quantity="1",
         startDate="2025-01-01",
         endDate="2025-12-31",
         unitPrice="2500",
@@ -302,8 +303,10 @@ async def test_convert_pending_order_can_create_maintenance_for_existing_parent(
                     softwareDescription="Existing Perpetual Maintenance",
                     licenseType="maintenance",
                     parentLicenseId=parent["id"],
+                    quantity="2",
+                    unitPrice="250",
                     endDate="2027-12-31",
-                    totalPoPrice="500",
+                    totalPoPrice="999",
                 )
             )
         },
@@ -383,8 +386,10 @@ async def test_batch_convert_links_new_maintenance_to_same_purchase_perpetual(
                 softwareDescription="Perpetual Product Maintenance",
                 licenseType="maintenance",
                 parentSourcingItemId=parent_item["id"],
+                quantity="2",
+                unitPrice="100",
                 endDate="2027-12-31",
-                totalPoPrice="200",
+                totalPoPrice="999",
             ),
             _batch_convert_item(
                 parent_item["id"],
@@ -997,6 +1002,7 @@ async def test_convert_po_with_maintenance_renewal_succeeds(test_app, auth_heade
     update_resp = await test_app.put(
         f"/api/sourcing/{sourcing_item['id']}",
         json={
+            "quantity": "1",
             "estimatedUnitPrice": "3400",
             "estimatedTotalPrice": "3400",
         },
@@ -1024,7 +1030,8 @@ async def test_convert_po_with_maintenance_renewal_succeeds(test_app, auth_heade
     parent_after = await _get_license(test_app, auth_headers, parent["id"])
     assert parent_after["activeMaintenanceId"] == new_license["id"]
     assert parent_after["maintenanceEndDate"] == new_license["endDate"]
-    assert parent_after["maintenanceCost"] == new_license["totalPoPrice"] == "3400"
+    assert parent_after["maintenanceCost"] == "3400"
+    assert new_license["totalPoPrice"] == "3400"
     assert parent_after["lifecycleStatus"] == parent_before["lifecycleStatus"]
 
 
@@ -1236,8 +1243,10 @@ async def test_coterm_renewal_of_maintenance_updates_parent_active_maintenance(
         licenseType="maintenance",
         softwareDescription="Acme Server Maintenance",
         parentLicenseId=parent["id"],
+        quantity="1",
         startDate="2024-01-01",
         endDate="2024-12-31",
+        unitPrice="2000",
         totalPoPrice="2000",
     )
     maintenance_b = await _create_license(
@@ -1246,8 +1255,10 @@ async def test_coterm_renewal_of_maintenance_updates_parent_active_maintenance(
         licenseType="maintenance",
         softwareDescription="Acme Server Maintenance",
         parentLicenseId=parent["id"],
+        quantity="1",
         startDate="2025-01-01",
         endDate="2025-12-31",
+        unitPrice="2200",
         totalPoPrice="2200",
     )
     parent_before = await _get_license(test_app, auth_headers, parent["id"])
@@ -1262,6 +1273,17 @@ async def test_coterm_renewal_of_maintenance_updates_parent_active_maintenance(
     )
     assert merge_resp.status_code == 201, merge_resp.text
     coterm_item = merge_resp.json()
+
+    update_resp = await test_app.put(
+        f"/api/sourcing/{coterm_item['id']}",
+        json={
+            "quantity": "1",
+            "estimatedUnitPrice": "2500",
+            "estimatedTotalPrice": "2500",
+        },
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200, update_resp.text
 
     po = await _convert_sourcing_to_po(test_app, auth_headers, coterm_item["id"])
 
@@ -1289,7 +1311,8 @@ async def test_coterm_renewal_of_maintenance_updates_parent_active_maintenance(
     parent_after = await _get_license(test_app, auth_headers, parent["id"])
     assert parent_after["activeMaintenanceId"] == successor["id"]
     assert parent_after["maintenanceEndDate"] == successor["endDate"]
-    assert parent_after["maintenanceCost"] == successor["totalPoPrice"]
+    assert parent_after["maintenanceCost"] == "2500"
+    assert successor["totalPoPrice"] == "2500"
     assert parent_after["lifecycleStatus"] == parent_before["lifecycleStatus"]
 
 

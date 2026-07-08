@@ -87,12 +87,12 @@ export default function CommercialSection({
           )}
           {vis.quantity && (
             <div className="dp-field">
-              <label>Quantity</label>
+              <label>Purchase Quantity</label>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.quantity || "—"}</div>
                 {perms.canEdit && (
-                  <button type="button" className="dp-field-edit-icon" aria-label="Edit quantity"
-                    onClick={() => openFieldEdit({ fieldKey: "quantity", fieldLabel: "Quantity", currentValue: license.quantity || "", inputType: "text" })}
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit purchase quantity"
+                    onClick={() => openFieldEdit({ fieldKey: "quantity", fieldLabel: "Purchase Quantity", currentValue: license.quantity || "", inputType: "text" })}
                     onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
                     <Icon name="edit" size={11} />
                   </button>
@@ -138,18 +138,11 @@ export default function CommercialSection({
           )}
           {vis.totalPoPrice && (
             <div className="dp-field">
-              <label>Total PO Price</label>
+              <label>Total PO Value</label>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val dp-mono-val">
                   {license.poNumber ? fmtCost(getPoTotal(license.poNumber, allLicenses)) : "—"}
                 </div>
-                {perms.canEdit && (
-                  <button type="button" className="dp-field-edit-icon" aria-label="Edit total PO price"
-                    onClick={() => openFieldEdit({ fieldKey: "totalPoPrice", fieldLabel: "Total PO Price", currentValue: license.totalPoPrice || "", inputType: "text" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
-                    <Icon name="edit" size={11} />
-                  </button>
-                )}
               </div>
             </div>
           )}

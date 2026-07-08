@@ -234,7 +234,7 @@ export default function ConvertItemForm({
           )}
           <div className="fr">
             <div className="fg">
-              <label htmlFor={`ca-quantity-${idx}`}>Quantity <span style={{ color: "var(--red)" }}>*</span></label>
+              <label htmlFor={`ca-quantity-${idx}`}>Purchase Quantity <span style={{ color: "var(--red)" }}>*</span></label>
               <input id={`ca-quantity-${idx}`} className="fi" {...register(`items.${idx}.quantity`)} />
             </div>
             <div className="fg">

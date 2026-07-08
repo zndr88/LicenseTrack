@@ -309,7 +309,7 @@ const SourcingItemModal = ({
           </div>
           <div className="fr">
             <div className="fg" style={{ flex: 1 }}>
-              <label htmlFor="si-quantity">Quantity</label>
+              <label htmlFor="si-quantity">Purchase Quantity</label>
               <input id="si-quantity" className="fi" placeholder="e.g. 25" {...register("quantity")} />
             </div>
             <div className="fg" style={{ flex: 1 }}>
@@ -434,7 +434,7 @@ const SourcingItemModal = ({
               </div>
               <div className="fr">
                 <div className="fg" style={{ flex: 1 }}>
-                  <label>Quantity</label>
+                  <label>Purchase Quantity</label>
                   <input
                     className="fi"
                     value={line.quantity}
