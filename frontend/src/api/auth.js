@@ -15,6 +15,9 @@ import { apiUrl, clearToken, get, post, setToken } from "./client.js";
  * Defaults to local login on any error so normal auth is unaffected.
  */
 export async function getAuthMode() {
+  if (import.meta.env.VITE_DEMO_MODE === "true") {
+    return { oidc_enabled: false, oidc_available: false };
+  }
   try {
     const res = await fetch(apiUrl("/api/auth/mode"), { credentials: "include" });
     if (!res.ok) return { oidc_enabled: false, oidc_available: false };

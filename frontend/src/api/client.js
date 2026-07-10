@@ -42,6 +42,14 @@ export function getToken() {
  */
 export async function request(path, options = {}) {
   const url = apiUrl(path);
+
+  // Demo build only: route to the in-browser fake backend instead of the network.
+  // Build-time constant — dead-code-eliminated (module and all) in normal builds.
+  if (import.meta.env.VITE_DEMO_MODE === "true") {
+    const { demoRequest } = await import("../demo/router.js");
+    return demoRequest(path, options);
+  }
+
   const redirectOn401 = options.redirectOn401 ?? true;
 
   const headers = {
