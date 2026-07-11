@@ -15,6 +15,7 @@ import { NotesSection, CatchallCustomFieldsSection } from "./detail/NotesSection
 import HistorySection from "./detail/HistorySection.jsx";
 import FieldEditModal from "./FieldEditModal.jsx";
 import MaintenanceCreateModal from "./MaintenanceCreateModal.jsx";
+import InvoiceNumbersModal from "./InvoiceNumbersModal.jsx";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 
@@ -50,6 +51,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     confirmAction, setConfirmAction,
     showMaintenanceModal, setShowMaintenanceModal,
     fieldEdit, openFieldEdit, closeFieldEdit, handleFieldSaved,
+    invoiceNumbersEdit, openInvoiceNumbersEdit, closeInvoiceNumbersEdit,
     toast, setToast,
     editingLicense, setEditingLicense,
     editFields, setEditFields,
@@ -155,6 +157,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               onNavigateToContract={onNavigateToContract}
               onCreateContract={onCreateContract}
               openFieldEdit={openFieldEdit}
+              openInvoiceNumbersEdit={openInvoiceNumbersEdit}
               cfBySection={cfBySection}
               customFieldValues={customFieldValues}
               vis={vis}
@@ -393,6 +396,19 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
           onSave={fieldEdit.onSaveCallback ?? handleFieldSaved}
           onClose={closeFieldEdit}
           userSettings={userSettings}
+        />
+      )}
+
+      {invoiceNumbersEdit && (
+        <InvoiceNumbersModal
+          licenseId={license.id}
+          invoiceNumbers={license.invoiceNumbers}
+          primaryInvoiceNumber={license.invoiceNumber}
+          onSave={(updatedLicense) => {
+            onUpdate(license.id, updatedLicense);
+            closeInvoiceNumbersEdit();
+          }}
+          onClose={closeInvoiceNumbersEdit}
         />
       )}
     </div>

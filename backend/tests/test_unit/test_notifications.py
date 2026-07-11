@@ -290,6 +290,34 @@ async def test_run_daily_notifications_sends_budget_owner_email_for_expiring_lic
     assert first_call_args[0][1] == "owner@example.com"
 
 
+async def test_run_daily_notifications_skips_license_with_renewal_notifications_disabled(
+    db_session, smtp_settings
+):
+    expiring = License(
+        publisher_name="Vendor",
+        software_description="App",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        end_date=date.today() + timedelta(days=10),
+        budget_owner_email="owner@example.com",
+        is_retired=False,
+        renewal_notifications_enabled=False,
+    )
+    db_session.add(expiring)
+    await db_session.commit()
+
+    with patch(
+        "app.services.notification_sender.send_email", new_callable=AsyncMock
+    ) as mock_send:
+        result = await run_daily_notifications(db_session)
+
+    assert result["budget_owner_emails_sent"] == 0
+    assert result["digest_sent"] is False
+    assert result["total_notifications"] == 0
+    mock_send.assert_not_called()
+
+
 async def test_run_daily_notifications_sends_digest_to_manager(
     db_session, smtp_settings
 ):

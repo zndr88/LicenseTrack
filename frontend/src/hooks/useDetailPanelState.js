@@ -24,6 +24,7 @@ export function useDetailPanelState({
 }) {
   const [confirmAction, setConfirmAction] = useState(null);
   const [fieldEdit, setFieldEdit] = useState(null);
+  const [invoiceNumbersEdit, setInvoiceNumbersEdit] = useState(false);
   const [displayUnitPrice, setDisplayUnitPrice] = useState("");
   const [editingLicense, setEditingLicense] = useState(false);
   const [editFields, setEditFields] = useState({});
@@ -208,6 +209,8 @@ export function useDetailPanelState({
   // ── Field edit modal ───────────────────────────────────────────────────────
   const openFieldEdit = (config) => setFieldEdit(config);
   const closeFieldEdit = () => setFieldEdit(null);
+  const openInvoiceNumbersEdit = () => setInvoiceNumbersEdit(true);
+  const closeInvoiceNumbersEdit = () => setInvoiceNumbersEdit(false);
 
   const handleFieldSaved = (updatedLicense) => {
     if (fieldEdit) {
@@ -298,6 +301,7 @@ export function useDetailPanelState({
 
     // Field edit
     fieldEdit, openFieldEdit, closeFieldEdit, handleFieldSaved,
+    invoiceNumbersEdit, openInvoiceNumbersEdit, closeInvoiceNumbersEdit,
 
     // Toast
     toast, setToast,

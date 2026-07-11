@@ -108,6 +108,10 @@ export const getExpirationStatus = (endDate, notificationDays, retired, lifecycl
 // Map an API license response to the shape the frontend expects.
 export const normalizeLicense = (l) => ({
   ...l,
+  invoiceNumber: l.invoiceNumber ?? l.invoiceNumbers?.[0] ?? "",
+  invoiceNumbers: Array.isArray(l.invoiceNumbers)
+    ? l.invoiceNumbers.filter(Boolean)
+    : (l.invoiceNumber ? [l.invoiceNumber] : []),
   // API uses isRetired; frontend uses retired
   retired: l.isRetired ?? l.retired ?? false,
   // API returns null for no end date; frontend uses "" for perpetual display
@@ -123,4 +127,5 @@ export const normalizeLicense = (l) => ({
         : "unknown"
   ),
   isCompletenessExempt: l.isCompletenessExempt ?? false,
+  renewalNotificationsEnabled: l.renewalNotificationsEnabled ?? true,
 });

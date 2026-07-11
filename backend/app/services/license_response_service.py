@@ -96,6 +96,8 @@ def enrich_license_response(
     documents = [*list(license_obj.documents), *(procurement_documents or [])]
 
     response = LicenseResponse.model_validate(license_obj)
+    if not response.invoice_numbers and response.invoice_number:
+        response.invoice_numbers = [response.invoice_number]
     creator = license_obj.__dict__.get("creator")
     response.created_by_name = creator.username if creator is not None else None
     response.created_by_email = creator.email if creator is not None else None

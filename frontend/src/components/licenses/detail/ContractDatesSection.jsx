@@ -14,6 +14,7 @@ export default function ContractDatesSection({
   onNavigateToContract,
   onCreateContract,
   openFieldEdit,
+  openInvoiceNumbersEdit,
   cfBySection,
   customFieldValues,
   vis,
@@ -21,6 +22,12 @@ export default function ContractDatesSection({
   makeCustomFieldSaveFn,
   closeFieldEdit,
 }) {
+  const invoiceNumbers = Array.isArray(license.invoiceNumbers)
+    ? license.invoiceNumbers.filter(Boolean)
+    : (license.invoiceNumber ? [license.invoiceNumber] : []);
+  const invoiceCount = invoiceNumbers.length;
+  const primaryInvoiceNumber = license.invoiceNumber || invoiceNumbers[0] || "";
+
   return (
     <>
       <DetailSectionHeader sectionKey="dates" title="Key Dates &amp; Contract" isOpen={isOpen} onToggle={onToggle} />
@@ -30,7 +37,7 @@ export default function ContractDatesSection({
             <div className="dp-field">
               <label>Start Date</label>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val mono">{license.startDate ? formatDate(license.startDate, userSettings) : "—"}</div>
+                <div className="val mono">{license.startDate ? formatDate(license.startDate, userSettings) : "\u2014"}</div>
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit start date"
                     onClick={() => openFieldEdit({ fieldKey: "startDate", fieldLabel: "Start Date", currentValue: license.startDate || "", inputType: "date" })}
@@ -43,7 +50,7 @@ export default function ContractDatesSection({
             <div className="dp-field">
               <label>End Date</label>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val mono">{license.endDate ? formatDate(license.endDate, userSettings) : "—"}</div>
+                <div className="val mono">{license.endDate ? formatDate(license.endDate, userSettings) : "\u2014"}</div>
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit end date"
                     onClick={() => openFieldEdit({ fieldKey: "endDate", fieldLabel: "End Date", currentValue: license.endDate || "", inputType: "date" })}
@@ -86,7 +93,7 @@ export default function ContractDatesSection({
             <div className="dp-field">
               <label>Contract #</label>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val mono">{license.contractNumber || "—"}</div>
+                <div className="val mono">{license.contractNumber || "\u2014"}</div>
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit contract number"
                     onClick={() => openFieldEdit({ fieldKey: "contractNumber", fieldLabel: "Contract #", currentValue: license.contractNumber || "", inputType: "text" })}
@@ -99,7 +106,7 @@ export default function ContractDatesSection({
             <div className="dp-field">
               <label>PO #</label>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val mono">{license.poNumber || "—"}</div>
+                <div className="val mono">{license.poNumber || "\u2014"}</div>
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit PO number"
                     onClick={() => openFieldEdit({ fieldKey: "poNumber", fieldLabel: "PO #", currentValue: license.poNumber || "", inputType: "text" })}
@@ -134,12 +141,33 @@ export default function ContractDatesSection({
           <div className="dp-field">
             <label>Invoice #</label>
             <div style={{ display: "flex", alignItems: "center" }}>
-              <div className="val mono">{license.invoiceNumber || "—"}</div>
+              {perms.canEdit ? (
+                <button
+                  type="button"
+                  className="dp-clickable-value val mono invoice-primary-value"
+                  onClick={openInvoiceNumbersEdit}
+                >
+                  {primaryInvoiceNumber || "\u2014"}
+                  {invoiceCount > 1 && <span className="invoice-count-badge">+{invoiceCount - 1}</span>}
+                </button>
+              ) : (
+                <div className="val mono invoice-primary-value">
+                  {primaryInvoiceNumber || "\u2014"}
+                  {invoiceCount > 1 && <span className="invoice-count-badge">+{invoiceCount - 1}</span>}
+                </div>
+              )}
               {perms.canEdit && (
-                <button type="button" className="dp-field-edit-icon" aria-label="Edit invoice number"
-                  onClick={() => openFieldEdit({ fieldKey: "invoiceNumber", fieldLabel: "Invoice #", currentValue: license.invoiceNumber || "", inputType: "text" })}
+                <button type="button" className="dp-field-edit-icon" aria-label="Edit invoice numbers"
+                  onClick={openInvoiceNumbersEdit}
                   onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
                   <Icon name="edit" size={11} />
+                </button>
+              )}
+              {perms.canEdit && (
+                <button type="button" className="dp-field-edit-icon invoice-add-icon" aria-label="Add invoice number"
+                  onClick={openInvoiceNumbersEdit}
+                  onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  <Icon name="plus" size={11} />
                 </button>
               )}
             </div>

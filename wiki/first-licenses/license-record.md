@@ -33,6 +33,8 @@ Here you'll find the important dates for your license purchase. The **start** an
 
 Your **PO number**, **invoice number**, and — if required — **contract number** are shown in this section. You can also link the license to a dedicated contract from here. More on that later.
 
+A license can have more than one invoice number. Click the invoice number or the add control to manage the invoice-number list. The first invoice number is the primary invoice shown in the overview table and exports.
+
 ## Details
 
 ![Details section](../assets/record-04-details.png)
@@ -67,6 +69,8 @@ Each purchase has a **completeness score**. The completeness requirements are de
 Licenses that are not marked complete generate email notifications, and you'll see alerts in the top-right menu.
 
 You can also mark a license as **retired** or **legacy**, or **exempt** it from completeness entirely to suppress the alerts.
+
+The **Renewal notifications** toggle controls expiry emails for this specific license. It is enabled by default. Turn it off when a license is still active but should not send renewal emails, for example because renewal discussions have already started.
 
 ## Notes, Custom Fields & History
 

@@ -47,6 +47,10 @@ async def create_purchase_license(
             detail=f"Item {item_id}: parentSourcingItemId is only valid for maintenance licenses",
         )
 
+    if "invoice_numbers" not in item_data:
+        invoice_number = item_data.get("invoice_number") or ""
+        item_data["invoice_numbers"] = [invoice_number] if invoice_number else []
+
     new_license = License(**item_data, created_by=created_by)
     db.add(new_license)
     await db.flush()

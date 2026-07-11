@@ -90,7 +90,7 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
         docs = list(lic.documents)
 
         # Check expiration
-        if lic.end_date is not None:
+        if lic.end_date is not None and getattr(lic, "renewal_notifications_enabled", True):
             days_left = (lic.end_date - today).days
 
             if days_left < 0:

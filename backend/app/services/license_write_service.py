@@ -71,6 +71,26 @@ NUMERIC_PATCH_FIELDS = {"quantity", "unitPrice", "totalPoPrice"}
 MAINTENANCE_COVERAGE_VALUES = {coverage.value for coverage in MaintenanceCoverage}
 
 
+def _sync_invoice_numbers(update_data: dict) -> None:
+    """Keep the legacy primary invoice_number mirrored from invoice_numbers."""
+    if "invoice_numbers" in update_data:
+        invoice_numbers = update_data.get("invoice_numbers") or []
+        if invoice_numbers:
+            update_data["invoice_number"] = invoice_numbers[0]
+            return
+        primary = update_data.get("invoice_number") or ""
+        if primary:
+            update_data["invoice_numbers"] = [primary]
+        else:
+            update_data["invoice_number"] = ""
+        return
+
+    if "invoice_number" in update_data:
+        primary = update_data.get("invoice_number") or ""
+        update_data["invoice_number"] = primary
+        update_data["invoice_numbers"] = [primary] if primary else []
+
+
 def _parse_procurement_milestone_datetime(value: str) -> datetime:
     parsed = datetime.fromisoformat(value)
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
@@ -116,6 +136,7 @@ async def create_license_record(
 
     if payload.license_type == LicenseType.maintenance:
         create_data = payload.model_dump(by_alias=False)
+        _sync_invoice_numbers(create_data)
         create_data["contract_id"] = await _resolve_contract_id(db, create_data.get("contract_number"))
         return await create_maintenance_for_parent(
             db,
@@ -125,6 +146,7 @@ async def create_license_record(
         )
 
     create_data = payload.model_dump(by_alias=False)
+    _sync_invoice_numbers(create_data)
     create_data["maintenance_coverage"] = (
         create_data.get("maintenance_coverage")
         or default_maintenance_coverage(payload.license_type)
@@ -166,6 +188,7 @@ async def apply_license_update(
         raise HTTPException(status_code=404, detail="License not found")
 
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+    _sync_invoice_numbers(update_data)
     if (
         "license_type" in update_data
         and "maintenance_coverage" not in update_data
@@ -307,6 +330,10 @@ async def apply_license_field_patch(
     elif field == "contractNumber":
         license_obj.contract_number = value or ""
         license_obj.contract_id = await _resolve_contract_id(db, value)
+    elif field == "invoiceNumber":
+        primary = value or ""
+        license_obj.invoice_number = primary
+        license_obj.invoice_numbers = [primary] if primary else []
     else:
         setattr(license_obj, snake_field, value)
 

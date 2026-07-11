@@ -88,6 +88,7 @@ class License(Base):
     )
     po_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     invoice_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    invoice_numbers: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     pending_order_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("pending_orders.id"), nullable=True, index=True
     )
@@ -150,6 +151,7 @@ class License(Base):
     is_retired: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     lifecycle_status: Mapped[LifecycleStatus | None] = mapped_column(Enum(LifecycleStatus), nullable=True)
     is_completeness_exempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    renewal_notifications_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
 
     # Renewal chain: a license can reference the one it was renewed from/to
     renewed_from_id: Mapped[int | None] = mapped_column(

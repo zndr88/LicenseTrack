@@ -64,6 +64,7 @@ async def test_create_license_valid(test_app, auth_headers):
     assert data["createdByEmail"] == "testadmin@test.local"
     assert "expirationStatus" in data
     assert data["maintenanceCoverage"] == "included"
+    assert data["renewalNotificationsEnabled"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +135,54 @@ async def test_update_license(test_app, auth_headers):
 
     assert resp.status_code == 200
     assert resp.json()["softwareDescription"] == "Updated Suite"
+
+
+async def test_update_license_can_disable_renewal_notifications(test_app, auth_headers):
+    created = await _create_license(test_app, auth_headers)
+
+    resp = await test_app.put(
+        f"/api/licenses/{created['id']}",
+        json={"renewalNotificationsEnabled": False},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["renewalNotificationsEnabled"] is False
+
+
+async def test_update_license_invoice_numbers_mirrors_primary(test_app, auth_headers):
+    created = await _create_license(test_app, auth_headers, invoiceNumber="INV-1")
+
+    resp = await test_app.put(
+        f"/api/licenses/{created['id']}",
+        json={"invoiceNumbers": ["INV-1", "INV-2", "  INV-3  "]},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["invoiceNumber"] == "INV-1"
+    assert body["invoiceNumbers"] == ["INV-1", "INV-2", "INV-3"]
+
+
+async def test_patch_invoice_number_replaces_invoice_number_list(test_app, auth_headers):
+    created = await _create_license(test_app, auth_headers, invoiceNumber="INV-1")
+    await test_app.put(
+        f"/api/licenses/{created['id']}",
+        json={"invoiceNumbers": ["INV-1", "INV-2"]},
+        headers=auth_headers,
+    )
+
+    resp = await test_app.patch(
+        f"/api/licenses/{created['id']}/field",
+        json={"field": "invoiceNumber", "value": "INV-PRIMARY"},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["invoiceNumber"] == "INV-PRIMARY"
+    assert body["invoiceNumbers"] == ["INV-PRIMARY"]
 
 
 async def test_update_license_type_to_perpetual_clears_end_date(test_app, auth_headers):

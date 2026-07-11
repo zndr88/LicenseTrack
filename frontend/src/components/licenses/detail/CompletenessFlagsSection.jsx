@@ -73,6 +73,25 @@ export default function CompletenessFlagsSection({
             </div>
           )}
 
+          {!license.renewedToId && license.lifecycleStatus !== "pending_renewal" && (
+            <div className="dp-toggle-row" style={{ background: license.renewalNotificationsEnabled === false ? "var(--orange-m)" : "var(--bg-2)", borderColor: license.renewalNotificationsEnabled === false ? "var(--orange-border)" : "var(--border)" }}>
+              <div className="dp-toggle-inner">
+                <Icon name="bell" size={14} color={license.renewalNotificationsEnabled === false ? "var(--orange)" : "var(--text-3)"} />
+                <div>
+                  <div className="dp-toggle-title" style={{ color: license.renewalNotificationsEnabled === false ? "var(--orange-text)" : "var(--text-2)" }}>Renewal notifications</div>
+                  <div className="dp-toggle-desc">{license.renewalNotificationsEnabled === false ? "Expiry emails are disabled for this license" : "Send expiry emails for this license"}</div>
+                </div>
+              </div>
+              {perms.canEdit && (
+                <Toggle
+                  value={license.renewalNotificationsEnabled !== false}
+                  ariaLabel="Toggle renewal notifications"
+                  onChange={(v) => onUpdate(license.id, { renewalNotificationsEnabled: v })}
+                />
+              )}
+            </div>
+          )}
+
           {perms.canEdit && (
             <div className="dp-toggle-row" style={{ background: license.isCompletenessExempt ? "var(--bg-3)" : "var(--bg-2)", borderColor: license.isCompletenessExempt ? "var(--border-strong)" : "var(--border)" }}>
               <div className="dp-toggle-inner">

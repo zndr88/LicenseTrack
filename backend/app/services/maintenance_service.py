@@ -139,6 +139,9 @@ async def create_maintenance_for_parent(
         for k, v in maintenance_data.items()
         if k not in ("license_type", "maintenance_coverage", "parent_license_id", "created_by")
     }
+    if "invoice_numbers" not in data:
+        invoice_number = data.get("invoice_number") or ""
+        data["invoice_numbers"] = [invoice_number] if invoice_number else []
 
     maintenance_license = License(
         license_type=LicenseType.maintenance,

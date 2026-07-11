@@ -10,6 +10,25 @@ from app.services.email_validation import reject_email_crlf
 from app.services.money import is_canonical_money
 
 
+def normalise_invoice_numbers(value: object) -> list[str]:
+    if value is None or value == "":
+        return []
+    if not isinstance(value, list):
+        raise ValueError("Invoice numbers must be a list of strings.")
+
+    numbers: list[str] = []
+    for item in value:
+        if item is None:
+            continue
+        text = str(item).strip()
+        if not text:
+            continue
+        if len(text) > 200:
+            raise ValueError("Invoice numbers cannot exceed 200 characters.")
+        numbers.append(text)
+    return numbers
+
+
 class LicenseBase(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -30,6 +49,7 @@ class LicenseBase(BaseModel):
     contract_number: str = ""
     po_number: str = ""
     invoice_number: str = ""
+    invoice_numbers: list[str] = Field(default_factory=list)
     pending_order_id: Optional[int] = None
     contact_email: str = ""
     supplier: str = ""
@@ -50,6 +70,7 @@ class LicenseBase(BaseModel):
     sync_status: Optional[str] = None
     is_retired: bool = False
     is_completeness_exempt: bool = False
+    renewal_notifications_enabled: bool = True
     lifecycle_status: Optional[LifecycleStatus] = None
     renewed_from_id: Optional[int] = None
     renewed_to_id: Optional[int] = None
@@ -80,6 +101,11 @@ class LicenseBase(BaseModel):
             return v
         return reject_email_crlf(v)
 
+    @field_validator("invoice_numbers", mode="before")
+    @classmethod
+    def _normalise_invoice_numbers(cls, value: object) -> list[str]:
+        return normalise_invoice_numbers(value)
+
 
 class LicenseCreate(LicenseBase):
     pass
@@ -109,6 +135,7 @@ class LicenseUpdate(BaseModel):
     contract_number: Optional[str] = None
     po_number: Optional[str] = None
     invoice_number: Optional[str] = None
+    invoice_numbers: Optional[list[str]] = None
     pending_order_id: Optional[int] = None
     contact_email: Optional[str] = None
     supplier: Optional[str] = None
@@ -122,6 +149,7 @@ class LicenseUpdate(BaseModel):
     sync_status: Optional[str] = None
     is_retired: Optional[bool] = None
     is_completeness_exempt: Optional[bool] = None
+    renewal_notifications_enabled: Optional[bool] = None
     lifecycle_status: Optional[LifecycleStatus] = None
     renewed_from_id: Optional[int] = None
     renewed_to_id: Optional[int] = None
@@ -152,6 +180,11 @@ class LicenseUpdate(BaseModel):
         if not isinstance(v, str):
             return v
         return reject_email_crlf(v)
+
+    @field_validator("invoice_numbers", mode="before")
+    @classmethod
+    def _normalise_invoice_numbers(cls, value: object) -> list[str]:
+        return normalise_invoice_numbers(value)
 
 
 class LicenseLifecycleRepairRequest(BaseModel):
@@ -234,5 +267,3 @@ class InitiateRenewalResponse(BaseModel):
 from app.schemas.sourcing import SourcingItemResponse  # noqa: E402
 
 InitiateRenewalResponse.model_rebuild()
-
-

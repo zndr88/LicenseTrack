@@ -111,6 +111,7 @@ async def build_license(
         contract_number=row.contract_number,
         po_number=row.po_number,
         invoice_number=row.invoice_number,
+        invoice_numbers=[row.invoice_number] if row.invoice_number else [],
         contact_email=row.contact_email,
         supplier=row.supplier,
         cost_centre=row.cost_centre,

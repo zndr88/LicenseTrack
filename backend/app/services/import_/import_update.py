@@ -51,6 +51,8 @@ async def apply_import_update(
         value = getattr(row, row_attr)
         if value:
             setattr(license_obj, col_attr, value)
+            if col_attr == "invoice_number":
+                license_obj.invoice_numbers = [value]
 
     # license_metric is a validated enum on the model.
     if row.license_metric:

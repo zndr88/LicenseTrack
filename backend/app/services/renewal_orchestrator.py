@@ -206,6 +206,10 @@ async def _create_coterm_renewal_successor(
     created_by: int | None,
     primary_predecessor: License,
 ) -> RenewalConversionResult:
+    if "invoice_numbers" not in license_data:
+        invoice_number = license_data.get("invoice_number") or ""
+        license_data["invoice_numbers"] = [invoice_number] if invoice_number else []
+
     predecessor_ids = list(sourcing_item.coterm_predecessor_ids or [])
     all_pred_result = await db.execute(
         select(License).where(License.id.in_(predecessor_ids))
@@ -261,6 +265,9 @@ async def _create_single_renewal_successor(
     created_by: int | None,
 ) -> RenewalConversionResult:
     assert_predecessor_has_no_successor(old_license)
+    if "invoice_numbers" not in license_data:
+        invoice_number = license_data.get("invoice_number") or ""
+        license_data["invoice_numbers"] = [invoice_number] if invoice_number else []
 
     new_lic = License(
         **license_data,

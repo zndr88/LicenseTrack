@@ -499,6 +499,27 @@ describe('DetailPanel — custom fields section', () => {
       })
     })
   })
+
+  it('toggles renewal notifications from completeness and flags', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn()
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        license={{ ...baseLicense, renewalNotificationsEnabled: true }}
+        onUpdate={onUpdate}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /^completeness & flags$/i }))
+    await user.click(screen.getByRole('switch', { name: /toggle renewal notifications/i }))
+
+    expect(onUpdate).toHaveBeenCalledWith(1, {
+      renewalNotificationsEnabled: false,
+    })
+  })
 })
 
 describe('DetailPanel documents', () => {
@@ -812,6 +833,47 @@ describe('DetailPanel field editing', () => {
     })
     expect(onUpdate).toHaveBeenCalledWith(1, expect.objectContaining({
       requestDate: '2025-03-04T00:00:00',
+    }))
+  })
+
+  it('edits repeatable invoice numbers from the key dates section', async () => {
+    const user = userEvent.setup()
+    const { updateLicense } = await import('../api/licenses.js')
+    updateLicense.mockResolvedValueOnce({
+      data: {
+        ...baseLicense,
+        invoiceNumber: 'INV-001',
+        invoiceNumbers: ['INV-001', 'INV-002'],
+      },
+      error: null,
+    })
+    const onUpdate = vi.fn()
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        license={{ ...baseLicense, invoiceNumbers: ['INV-001'] }}
+        user={{ id: 2, role: 'admin' }}
+        onUpdate={onUpdate}
+      />
+    )
+
+    await user.click(screen.getByText('Key Dates & Contract'))
+    await user.click(screen.getByRole('button', { name: /add invoice number/i }))
+    const dialog = screen.getByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /add invoice number/i }))
+    const inputs = within(dialog).getAllByRole('textbox')
+    await user.type(inputs[1], 'INV-002')
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => {
+      expect(updateLicense).toHaveBeenCalledWith(1, {
+        invoiceNumbers: ['INV-001', 'INV-002'],
+      })
+    })
+    expect(onUpdate).toHaveBeenCalledWith(1, expect.objectContaining({
+      invoiceNumber: 'INV-001',
+      invoiceNumbers: ['INV-001', 'INV-002'],
     }))
   })
 })

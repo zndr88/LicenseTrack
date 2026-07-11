@@ -157,6 +157,20 @@ function renderCustomFieldCell({ col, license, customFieldValuesMap, displayCurr
   return <td key={col.key} className="lp-td">{value.valueText || "-"}</td>;
 }
 
+function InvoiceNumberCell({ license }) {
+  const invoiceNumbers = Array.isArray(license.invoiceNumbers)
+    ? license.invoiceNumbers.filter(Boolean)
+    : (license.invoiceNumber ? [license.invoiceNumber] : []);
+  const primary = license.invoiceNumber || invoiceNumbers[0] || "";
+
+  return (
+    <td key="invoiceNumber" className="mono">
+      {primary || "-"}
+      {invoiceNumbers.length > 1 && <span className="invoice-count-badge">+{invoiceNumbers.length - 1}</span>}
+    </td>
+  );
+}
+
 export default function LicenseTableRowCells({
   license,
   visibleColumns,
@@ -219,7 +233,7 @@ export default function LicenseTableRowCells({
       case "poNumber":
         return <td key="poNumber" className="mono">{license.poNumber || "-"}</td>;
       case "invoiceNumber":
-        return <td key="invoiceNumber" className="mono">{license.invoiceNumber || "-"}</td>;
+        return <InvoiceNumberCell key="invoiceNumber" license={license} />;
       case "costCentre":
         return <td key="costCentre" className="lp-td">{license.costCentre || "-"}</td>;
       case "supplier":
