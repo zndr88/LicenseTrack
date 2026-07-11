@@ -90,6 +90,7 @@ function buildLicensePayload(form) {
 }
 
 const DEFAULT_SIDEBAR_STATS = { active: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 };
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
 export default function App() {
   const queryClient = useQueryClient();
@@ -237,6 +238,11 @@ export default function App() {
             perms={perms}
             onAddLicense={() => setConfirmData(createManualEntryData())}
           />
+          {DEMO_MODE && (
+            <div className="demo-banner" role="status">
+              Demo mode - sample data, stored only in your browser, resets on logout or refresh.
+            </div>
+          )}
 
           <main className="main">
             <AppRouter

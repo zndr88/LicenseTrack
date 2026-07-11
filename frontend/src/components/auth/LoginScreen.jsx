@@ -10,9 +10,11 @@ const ERROR_MESSAGES = {
   oidc_unavailable: "SSO is currently unavailable. Local login remains available.",
 };
 
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+
 const LoginScreen = ({ onLogin }) => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState(DEMO_MODE ? "demo" : "");
+  const [password, setPassword] = useState(DEMO_MODE ? "demo" : "");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState(null);
@@ -130,6 +132,21 @@ const LoginScreen = ({ onLogin }) => {
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 12, marginBottom: 4 }}>
                   Local login is reserved for break-glass and admin access.
                 </div>
+              )}
+              {DEMO_MODE && (
+                <>
+                  <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 10, marginBottom: 6 }}>
+                    Demo credentials are prefilled. Any non-empty values work.
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                    <a className="btn btn-g" href="../" style={{ flex: 1, justifyContent: "center", textDecoration: "none" }}>
+                      Back to homepage
+                    </a>
+                    <a className="btn btn-g" href="../docs/" style={{ flex: 1, justifyContent: "center", textDecoration: "none" }}>
+                      To documentation
+                    </a>
+                  </div>
+                </>
               )}
               <div className="fg">
                 <label>Username</label>

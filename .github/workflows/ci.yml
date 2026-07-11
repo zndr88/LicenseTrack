@@ -77,6 +77,13 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify demo code is absent from production build
+        run: |
+          if grep -R "LICENSETRACK_DEMO_MARKER" dist; then
+            echo "Demo marker leaked into the production build."
+            exit 1
+          fi
+
   e2e:
     name: Frontend e2e (Playwright)
     runs-on: ubuntu-latest
@@ -100,3 +107,27 @@ jobs:
 
       - name: Run e2e tests
         run: npm run test:e2e
+
+  demo-e2e:
+    name: Demo showcase e2e (Playwright)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run demo golden path
+        run: npm run test:e2e:demo

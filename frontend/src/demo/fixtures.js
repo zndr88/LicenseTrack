@@ -1,4 +1,5 @@
 import { daysFromNow, datetimeDaysAgo, daysUntil } from "./time.js";
+import { computeTotalPoValue } from "./store.js";
 
 /**
  * Seed data for the demo mode in-memory store.
@@ -16,7 +17,7 @@ const NOTIFICATION_DAYS = 30;
 // Mirrors backend/app/services/license_service.py::compute_expiration_status
 // (verified 2026-07-10, license_service.py:135-165). Priority order:
 // retired > legacy > renewed > pending_renewal > perpetual > expired > expiring > active.
-function computeExpirationStatus({ isRetired, lifecycleStatus, endDate }) {
+export function computeExpirationStatus({ isRetired, lifecycleStatus, endDate }) {
   if (isRetired) return "retired";
   if (lifecycleStatus === "legacy") return "legacy";
   if (lifecycleStatus === "renewed") return "renewed";
@@ -33,7 +34,7 @@ function licenseRef(n) {
 }
 
 /** Builds a full LicenseResponse-shaped object, filling in defaults for shared fields. */
-function buildLicense(overrides) {
+export function buildLicense(overrides) {
   const isRetired = overrides.isRetired ?? false;
   const lifecycleStatus = overrides.lifecycleStatus ?? null;
   const endDate = overrides.endDate ?? null;
@@ -124,11 +125,11 @@ export function buildSeedData() {
       poNumber: "PO-2025-0871",
       invoiceNumber: "INV-AT-99231",
       contactEmail: "renewals@atlassian.com",
-      supplier: "SoftwareOne",
+      supplier: "Northstar Procurement",
       costCentre: "Engineering",
       budgetOwnerEmail: "budget.owner@example.com",
       portalUrl: "https://my.atlassian.com",
-      notes: "Data Center tier — renewal quote requested from SoftwareOne.",
+      notes: "Data Center tier — renewal quote requested from Northstar Procurement.",
       hasMaintenance: false,
       licenseRef: licenseRef(1),
       createdAt: datetimeDaysAgo(365 - 20),
@@ -149,7 +150,7 @@ export function buildSeedData() {
       quantity: "40",
       unitPrice: "279.00",
       totalPoPrice: "11160.00",
-      supplier: "JetBrains s.r.o.",
+      supplier: "Direct Software Desk",
       costCentre: "Engineering",
       endOffset: 120,
     },
@@ -161,7 +162,7 @@ export function buildSeedData() {
       quantity: "300",
       unitPrice: "32.10",
       totalPoPrice: "9630.00",
-      supplier: "Insight",
+      supplier: "Bluepeak Resellers",
       costCentre: "IT-Operations",
       endOffset: 210,
     },
@@ -173,7 +174,7 @@ export function buildSeedData() {
       quantity: "25",
       unitPrice: "59.99",
       totalPoPrice: "1499.75",
-      supplier: "Bechtle",
+      supplier: "Acme License Supply",
       costCentre: "Marketing",
       endOffset: 275,
     },
@@ -185,7 +186,7 @@ export function buildSeedData() {
       quantity: "60",
       unitPrice: "185.00",
       totalPoPrice: "11100.00",
-      supplier: "SoftwareOne",
+      supplier: "Northstar Procurement",
       costCentre: "IT-Operations",
       endOffset: 340,
     },
@@ -197,7 +198,7 @@ export function buildSeedData() {
       quantity: "1",
       unitPrice: "4200.00",
       totalPoPrice: "4200.00",
-      supplier: "Insight",
+      supplier: "Bluepeak Resellers",
       costCentre: "IT-Operations",
       endOffset: 400,
       termDays: 1095, // 3-year UTM bundle — keeps startDate/createdAt in the past
@@ -210,7 +211,7 @@ export function buildSeedData() {
       quantity: "80",
       unitPrice: "21.00",
       totalPoPrice: "1680.00",
-      supplier: "GitHub Inc.",
+      supplier: "Direct Software Desk",
       costCentre: "Engineering",
       endOffset: 150,
     },
@@ -222,7 +223,7 @@ export function buildSeedData() {
       quantity: "200",
       unitPrice: "12.50",
       totalPoPrice: "2500.00",
-      supplier: "SoftwareOne",
+      supplier: "Northstar Procurement",
       costCentre: "IT-Operations",
       endOffset: 95,
     },
@@ -234,7 +235,7 @@ export function buildSeedData() {
       quantity: "150",
       unitPrice: "15.99",
       totalPoPrice: "2398.50",
-      supplier: "Bechtle",
+      supplier: "Acme License Supply",
       costCentre: "IT-Operations",
       endOffset: 360, // < termDays so startDate/createdAt stay strictly in the past
     },
@@ -284,24 +285,27 @@ export function buildSeedData() {
       quantity: "500",
       unitPrice: "9.50",
       totalPoPrice: "4750.00",
-      currency: "USD",
+      currency: "EUR",
       startDate: daysFromNow(-15 - 365),
       endDate: daysFromNow(-15),
       contractNumber: "CTR-SW-2024-007",
       poNumber: "PO-2024-1120",
-      supplier: "Insight",
+      supplier: "Bluepeak Resellers",
       costCentre: "IT-Operations",
       contactEmail: "renewals@solarwinds.com",
       budgetOwnerEmail: "budget.owner@example.com",
       licenseRef: licenseRef(10),
       createdAt: datetimeDaysAgo(380),
       updatedAt: datetimeDaysAgo(15),
-      notes: "Renewal quote overdue — follow up with Insight.",
+      notes: "Renewal quote overdue — follow up with Bluepeak Resellers.",
       completenessPct: 65,
     })
   );
 
-  // 11. Perpetual (no end date).
+  // 11. Perpetual (no end date) with separately tracked maintenance.
+  const corelMaintenanceStart = daysFromNow(-135);
+  const corelMaintenanceEnd = daysFromNow(230);
+  const corelMaintenanceCost = "748.50";
   licenses.push(
     buildLicense({
       id: 11,
@@ -317,19 +321,48 @@ export function buildSeedData() {
       endDate: null,
       contractNumber: "CTR-COREL-2023-002",
       poNumber: "PO-2023-0455",
-      supplier: "Bechtle",
+      supplier: "Acme License Supply",
       costCentre: "Marketing",
       contactEmail: "sales@corel.com",
       budgetOwnerEmail: "budget.owner@example.com",
       licenseRef: licenseRef(11),
       hasMaintenance: true,
       maintenanceCoverage: "separately_tracked",
-      maintenanceStartDate: daysFromNow(-135),
-      maintenanceEndDate: daysFromNow(230),
-      maintenanceCost: "748.50",
+      maintenanceStartDate: corelMaintenanceStart,
+      maintenanceEndDate: corelMaintenanceEnd,
+      maintenanceCost: corelMaintenanceCost,
+      activeMaintenanceId: 15,
       createdAt: datetimeDaysAgo(500),
       updatedAt: datetimeDaysAgo(135),
       completenessPct: 90,
+    })
+  );
+
+  licenses.push(
+    buildLicense({
+      id: 15,
+      publisherName: "Corel",
+      softwareDescription: "CorelDRAW Graphics Suite - Maintenance",
+      licenseType: "maintenance",
+      licenseMetric: "per_device",
+      quantity: "10",
+      unitPrice: "74.85",
+      totalPoPrice: corelMaintenanceCost,
+      currency: "EUR",
+      startDate: corelMaintenanceStart,
+      endDate: corelMaintenanceEnd,
+      contractNumber: "CTR-COREL-MNT-2026-001",
+      poNumber: "PO-2026-0315",
+      supplier: "Acme License Supply",
+      costCentre: "Marketing",
+      contactEmail: "sales@corel.com",
+      budgetOwnerEmail: "budget.owner@example.com",
+      licenseRef: licenseRef(15),
+      maintenanceCoverage: "not_applicable",
+      parentLicenseId: 11,
+      createdAt: datetimeDaysAgo(135),
+      updatedAt: datetimeDaysAgo(20),
+      completenessPct: 92,
     })
   );
 
@@ -344,12 +377,12 @@ export function buildSeedData() {
       quantity: "300",
       unitPrice: "18.00",
       totalPoPrice: "5400.00",
-      currency: "USD",
+      currency: "EUR",
       startDate: daysFromNow(-800),
       endDate: daysFromNow(-440),
       contractNumber: "CTR-SYM-2023-011",
       poNumber: "PO-2023-0203",
-      supplier: "SoftwareOne",
+      supplier: "Northstar Procurement",
       costCentre: "IT-Operations",
       contactEmail: "support@broadcom.com",
       budgetOwnerEmail: "budget.owner@example.com",
@@ -373,12 +406,12 @@ export function buildSeedData() {
       quantity: "5",
       unitPrice: "890.00",
       totalPoPrice: "4450.00",
-      currency: "USD",
+      currency: "EUR",
       startDate: daysFromNow(180 - 365),
       endDate: daysFromNow(180),
       contractNumber: "CTR-HS-2025-003",
       poNumber: "PO-2025-0640",
-      supplier: "HubSpot Inc.",
+      supplier: "Direct Software Desk",
       costCentre: "Finance",
       contactEmail: "billing@hubspot.com",
       budgetOwnerEmail: "budget.owner@example.com",
@@ -407,7 +440,7 @@ export function buildSeedData() {
       endDate: daysFromNow(45),
       contractNumber: "CTR-VMW-2025-009",
       poNumber: "PO-2025-0902",
-      supplier: "SoftwareOne",
+      supplier: "Northstar Procurement",
       costCentre: "IT-Operations",
       contactEmail: "renewals@vmware.com",
       budgetOwnerEmail: "budget.owner@example.com",
@@ -433,7 +466,7 @@ export function buildSeedData() {
       currency: "EUR",
       startDate: daysFromNow(46),
       endDate: daysFromNow(46 + 365),
-      supplier: "SoftwareOne",
+      supplier: "Northstar Procurement",
       contactEmail: "renewals@vmware.com",
       notes: "Renewal quote received; pending budget sign-off.",
       status: "sourcing",
@@ -453,10 +486,10 @@ export function buildSeedData() {
       quantity: "75",
       estimatedUnitPrice: "23.00",
       estimatedTotalPrice: "1725.00",
-      currency: "USD",
+      currency: "EUR",
       startDate: daysFromNow(60),
       endDate: daysFromNow(60 + 365),
-      supplier: "Datadog Inc.",
+      supplier: "Direct Software Desk",
       contactEmail: "sales@datadoghq.com",
       notes: "New observability tooling request from Engineering.",
       status: "sourcing",
@@ -484,9 +517,9 @@ export function buildSeedData() {
       currency: "EUR",
       startDate: daysFromNow(30),
       endDate: daysFromNow(30 + 365),
-      supplier: "SoftwareOne",
+      supplier: "Northstar Procurement",
       contactEmail: "sales@okta.com",
-      notes: "SSO rollout — PO raised with SoftwareOne.",
+      notes: "SSO rollout — PO raised with Northstar Procurement.",
       status: "converted",
       renewalForLicenseId: null,
       cotermPredecessorIds: null,
@@ -502,7 +535,7 @@ export function buildSeedData() {
       currency: "EUR",
       startDate: daysFromNow(30),
       endDate: daysFromNow(30 + 365),
-      supplier: "SoftwareOne",
+      supplier: "Northstar Procurement",
       contactEmail: "sales@okta.com",
       notes: "Bundled with the Workforce Identity order.",
       status: "converted",
@@ -530,15 +563,15 @@ export function buildSeedData() {
     isRenewal: raw.renewalForLicenseId !== null,
   }));
 
-  // totalPoValue mirrors backend _format_currency: symbol + thousands separators + 2dp.
-  const poTotal = poLineItemsRaw.reduce((sum, item) => sum + Number(item.estimatedTotalPrice), 0);
-  const totalPoValue = `€${poTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // totalPoValue mirrors backend _format_currency: symbol + thousands separators + 2dp
+  // (see store.js::computeTotalPoValue, which mirrors PendingOrderResponse._compute_total_po_value).
+  const totalPoValue = computeTotalPoValue(poItems);
 
   const pendingOrders = [
     {
       id: poId,
       poNumber: "PO-2026-0142",
-      supplier: "SoftwareOne",
+      supplier: "Northstar Procurement",
       notes: "Okta SSO + server access bundle for the IT-Operations rollout.",
       status: "pending",
       createdAt: datetimeDaysAgo(12),
@@ -553,8 +586,105 @@ export function buildSeedData() {
     },
   ];
 
+  const contracts = [
+    {
+      id: 301,
+      contractNumber: "CTR-AT-2025-014",
+      publisherName: "Atlassian",
+      notes: "Primary Jira Data Center agreement for the Engineering renewal flow.",
+      createdAt: datetimeDaysAgo(350),
+      createdBy: 1,
+      folders: [
+        { id: 401, name: "Signed agreement", createdAt: datetimeDaysAgo(350), documentCount: 0 },
+        { id: 402, name: "Renewal quotes", createdAt: datetimeDaysAgo(25), documentCount: 0 },
+      ],
+    },
+    {
+      id: 302,
+      contractNumber: "CTR-VMW-2025-009",
+      publisherName: "VMware",
+      notes: "Renewal currently represented in sourcing; useful for testing linked-license navigation.",
+      createdAt: datetimeDaysAgo(320),
+      createdBy: 1,
+      folders: [
+        { id: 403, name: "Commercials", createdAt: datetimeDaysAgo(320), documentCount: 0 },
+      ],
+    },
+    {
+      id: 303,
+      contractNumber: "CTR-COREL-2023-002",
+      publisherName: "Corel",
+      notes: "Perpetual entitlement with separately tracked maintenance.",
+      createdAt: datetimeDaysAgo(500),
+      createdBy: 1,
+      folders: [
+        { id: 404, name: "Entitlement", createdAt: datetimeDaysAgo(500), documentCount: 0 },
+        { id: 405, name: "Maintenance", createdAt: datetimeDaysAgo(135), documentCount: 0 },
+      ],
+    },
+    {
+      id: 304,
+      contractNumber: "CTR-OKTA-2026-0142",
+      publisherName: "Okta",
+      notes: "Draft contract record for the pending PO bundle.",
+      createdAt: datetimeDaysAgo(12),
+      createdBy: 1,
+      folders: [],
+    },
+  ];
+
+  const contractDocuments = [
+    {
+      id: 501,
+      contractId: 301,
+      folderId: 401,
+      filename: "contracts/301/atlassian_signed_agreement.pdf",
+      originalFilename: "Atlassian signed agreement.pdf",
+      fileSize: 184320,
+      createdAt: datetimeDaysAgo(349),
+    },
+    {
+      id: 502,
+      contractId: 301,
+      folderId: 402,
+      filename: "contracts/301/atlassian_renewal_quote.pdf",
+      originalFilename: "Atlassian renewal quote.pdf",
+      fileSize: 96256,
+      createdAt: datetimeDaysAgo(18),
+    },
+    {
+      id: 503,
+      contractId: 302,
+      folderId: 403,
+      filename: "contracts/302/vmware_budget_quote.pdf",
+      originalFilename: "VMware budget quote.pdf",
+      fileSize: 128512,
+      createdAt: datetimeDaysAgo(8),
+    },
+    {
+      id: 504,
+      contractId: 303,
+      folderId: 404,
+      filename: "contracts/303/corel_entitlement.pdf",
+      originalFilename: "Corel entitlement certificate.pdf",
+      fileSize: 74240,
+      createdAt: datetimeDaysAgo(498),
+    },
+    {
+      id: 505,
+      contractId: 303,
+      folderId: 405,
+      filename: "contracts/303/corel_maintenance.pdf",
+      originalFilename: "Corel maintenance confirmation.pdf",
+      fileSize: 65536,
+      createdAt: datetimeDaysAgo(132),
+    },
+  ];
+
   return {
     licenses,
+    contracts,
+    contractDocuments,
     sourcingItems,
     sourcingRequests: [],
     pendingOrders,

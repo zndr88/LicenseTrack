@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Redirecting - LicenseTrack</title>
+    <script>
+      const base = "/LicenseTrack/";
+      const path = window.location.pathname;
+      if (path.startsWith(base) && !path.startsWith(base + "docs/") && !path.startsWith(base + "demo/")) {
+        const oldPath = path.slice(base.length);
+        window.location.replace(base + "docs/" + oldPath + window.location.search + window.location.hash);
+      }
+    </script>
+  </head>
+  <body>
+    <p>That page moved. Try <a href="/LicenseTrack/docs/">LicenseTrack docs</a>.</p>
+  </body>
+</html>

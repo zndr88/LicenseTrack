@@ -501,6 +501,16 @@ body { background: var(--bg-0); color: var(--text-1); font-family: var(--font-sa
   opacity: 0.88;
 }
 
+.demo-banner {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-0));
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  padding: 8px 20px;
+}
+
 /* ─ Main layout ─ */
 .main { margin-left: 0; flex: 1; min-width: 0; background: var(--bg-1); }
 .page-header { padding: 14px 20px; border-bottom: none; background: var(--bg-0); position: sticky; top: 44px; z-index: 50; }

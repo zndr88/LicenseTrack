@@ -1,0 +1,86 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "landing/**"
+      - "wiki/**"
+      - "docs/images/**"
+      - "mkdocs.yml"
+      - "frontend/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Pages artifact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: wiki/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Prepare artifact directory
+        run: mkdir -p pages-artifact
+
+      - name: Copy landing page
+        run: |
+          cp -R landing/. pages-artifact/
+          mkdir -p pages-artifact/images
+          cp -R docs/images/. pages-artifact/images/
+          mkdir -p pages-artifact/fonts
+          cp -R frontend/public/fonts/. pages-artifact/fonts/
+
+      - name: Install MkDocs dependencies
+        run: pip install -r wiki/requirements.txt
+
+      - name: Build docs
+        run: mkdocs build --strict --site-dir pages-artifact/docs
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build demo frontend
+        working-directory: frontend
+        run: npm run build -- --mode demo
+
+      - name: Copy demo frontend
+        run: cp -R frontend/dist pages-artifact/demo
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages-artifact
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

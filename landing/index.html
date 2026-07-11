@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LicenseTrack - Self-hosted license procurement and lifecycle management</title>
+    <meta name="description" content="LicenseTrack is a source-available, self-hosted tool for software license procurement records, renewals, contracts, documents, reporting, and operational governance. A single source of truth for your purchased software license.">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="LicenseTrack home">
+        <span class="brand-icon" aria-hidden="true">LT</span>
+        <span class="brand-name">LicenseTrack</span>
+      </a>
+      <nav aria-label="Primary">
+        <a class="nav-link active" href="./">Overview</a>
+        <a class="nav-link" href="docs/">Docs</a>
+        <a class="nav-link" href="demo/">Live demo</a>
+        <a class="nav-link" href="https://github.com/zndr88/LicenseTrack">GitHub</a>
+      </nav>
+      <div class="header-actions">
+        <div class="theme-switch" role="group" aria-label="Landing page theme">
+          <button class="theme-option active" type="button" data-theme-choice="light" aria-pressed="true">Light</button>
+          <button class="theme-option" type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+        </div>
+        <a class="btn btn-p header-action" href="demo/">Open Demo</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">A practical license-management workbench</p>
+          <h1 id="hero-title">LicenseTrack</h1>
+          <p class="lead">
+            LicenseTrack is a source-available, self-hosted tool for the part of software license
+            management that too often lives in inboxes, shared drives, and spreadsheets: sourcing,
+            purchase orders, license records, contracts, renewals, alerts, and reports.
+            It was built from day-to-day license-management work.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-p" href="demo/">Try the live demo</a>
+            <a class="btn btn-g" href="docs/">Read the docs</a>
+          </div>
+          <p class="demo-note">Demo credentials are prefilled. The demo uses in-browser sample data and does not write to a server. Not all functionality is present in the demo.</p>
+        </div>
+        <div class="hero-preview" aria-label="LicenseTrack dashboard preview">
+          <div class="browser-frame">
+            <div class="frame-top">
+              <span class="frame-dot"></span>
+              <span class="frame-dot"></span>
+              <span class="frame-dot"></span>
+              <span class="frame-path">/demo - License Overview</span>
+            </div>
+            <img src="images/dashboard.png" alt="LicenseTrack license overview dashboard">
+          </div>
+        </div>
+      </section>
+
+      <section class="workflow" aria-labelledby="workflow-title">
+        <div class="section-intro">
+          <p class="eyebrow">Operational flow</p>
+          <h2 id="workflow-title">For the gap between quote request and reliable license record.</h2>
+        </div>
+        <div class="workflow-table" role="table" aria-label="LicenseTrack procurement workflow">
+          <div class="workflow-row" role="row">
+            <span class="mono" role="cell">01</span>
+            <strong role="cell">Sourcing</strong>
+            <p role="cell">Capture quote-stage work: supplier context, line items, estimated cost, renewal context, and quote documents.</p>
+          </div>
+          <div class="workflow-row" role="row">
+            <span class="mono" role="cell">02</span>
+            <strong role="cell">Purchase orders</strong>
+            <p role="cell">Move approved sourcing into pending orders, keep PO evidence with the order, and convert to an active license.</p>
+          </div>
+          <div class="workflow-row" role="row">
+            <span class="mono" role="cell">03</span>
+            <strong role="cell">License Overview</strong>
+            <p role="cell">Convert fulfilled orders into license records with procurement milestones, documents, and renewal-chain history.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="feature feature-left" id="procurement">
+        <div class="feature-copy">
+          <p class="eyebrow">Procurement pipeline</p>
+          <h2>Keep the buying trail connected to the license.</h2>
+          <p>
+            The pipeline is built around real procurement handoffs: quote, PO, invoice, entitlement, and legacy cleanup. It does not replace an ERP or purchasing system. It
+            gives the license owner a structured record that survives the handoff.
+          </p>
+          <div class="badge-strip" aria-label="Procurement capabilities">
+            <span class="badge badge-blue"><span class="badge-dot"></span>Sourcing</span>
+            <span class="badge badge-pending"><span class="badge-dot"></span>Pending</span>
+            <span class="badge badge-green"><span class="badge-dot"></span>Active</span>
+          </div>
+        </div>
+        <figure class="screenshot-panel">
+          <img src="images/procurement.png" alt="Sourcing requests and pending purchase orders">
+        </figure>
+      </section>
+
+      <section class="feature feature-right" id="renewals">
+        <figure class="screenshot-panel">
+          <img src="images/renewals.png" alt="Renewal workbench showing overdue and upcoming renewals">
+        </figure>
+        <div class="feature-copy">
+          <p class="eyebrow">Renewal workbench</p>
+          <h2>Renewals start as work, not as a magic new record.</h2>
+          <p>
+            The workbench surfaces licenses entering the renewal window, highlights risk such as
+            overdue dates, missing evidence, or high value, and starts the same sourcing-to-PO flow
+            used for new purchases. The successor record is created only when the pending order is
+            converted.
+          </p>
+        </div>
+      </section>
+
+      <section class="capabilities" id="contracts" aria-labelledby="capabilities-title">
+        <div class="section-intro">
+          <p class="eyebrow">Scope</p>
+          <h2 id="capabilities-title">What LicenseTrack is trying to be, and what it is not.</h2>
+        </div>
+        <div class="capability-grid">
+          <article>
+            <span class="mono">Overview</span>
+            <p>Searchable records, saved views, custom fields, completeness scoring, inline edits, CSV import and exports.</p>
+          </article>
+          <article>
+            <span class="mono">Records</span>
+            <p>Quotes, purchase orders, invoices, EULAs, entitlement files, contract folders, and document counts tied to the right scope.</p>
+          </article>
+          <article>
+            <span class="mono">Reports</span>
+            <p>Spend, portfolio shape, publisher and supplier views, renewal calendar, and easy to export to PDF.</p>
+          </article>
+          <article>
+            <span class="mono">Operations</span>
+            <p>Users, roles, OIDC, SMTP alerts, audit history, database backups, API tokens, webhooks, and integration hooks.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="final-cta">
+        <div>
+          <p class="eyebrow">Demo</p>
+          <h2>Explore the workflow in your browser.</h2>
+          <p>The live demo is the real frontend backed by an in-memory demo layer. Some functionalities are disabled for the demo.</p>
+        </div>
+        <div class="final-actions">
+          <a class="btn btn-p" href="demo/">Open demo</a>
+          <a class="btn btn-g" href="https://github.com/zndr88/LicenseTrack">View source</a>
+        </div>
+      </section>
+    </main>
+    <script>
+      (() => {
+        const storageKey = "licensetrack-landing-theme";
+        const root = document.documentElement;
+        const buttons = Array.from(document.querySelectorAll("[data-theme-choice]"));
+        const setTheme = (theme) => {
+          const next = theme === "dark" ? "dark" : "light";
+          root.setAttribute("data-theme", next);
+          buttons.forEach((button) => {
+            const active = button.dataset.themeChoice === next;
+            button.classList.toggle("active", active);
+            button.setAttribute("aria-pressed", String(active));
+          });
+          try {
+            window.localStorage.setItem(storageKey, next);
+          } catch {
+            /* localStorage can be unavailable in restricted browser modes. */
+          }
+        };
+
+        let savedTheme = "light";
+        try {
+          savedTheme = window.localStorage.getItem(storageKey) || "light";
+        } catch {
+          savedTheme = "light";
+        }
+        setTheme(savedTheme);
+        buttons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.themeChoice)));
+      })();
+    </script>
+  </body>
+</html>

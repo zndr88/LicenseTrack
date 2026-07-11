@@ -46,8 +46,12 @@ export async function request(path, options = {}) {
   // Demo build only: route to the in-browser fake backend instead of the network.
   // Build-time constant — dead-code-eliminated (module and all) in normal builds.
   if (import.meta.env.VITE_DEMO_MODE === "true") {
-    const { demoRequest } = await import("../demo/router.js");
-    return demoRequest(path, options);
+    try {
+      const { demoRequest } = await import("../demo/router.js");
+      return demoRequest(path, options);
+    } catch {
+      return { data: null, error: "Demo backend failed to load — try refreshing the page." };
+    }
   }
 
   const redirectOn401 = options.redirectOn401 ?? true;
