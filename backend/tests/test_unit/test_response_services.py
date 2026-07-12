@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 from app.models.contract import Contract, ContractDocument, ContractFolder
 from app.models.document import Document, DocumentCategory, ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import License, LicenseMetric, LicenseType
+from app.models.pending_order import PendingOrder
 from app.models.settings import GlobalSettings
 from app.services.contract_response_service import build_contract_response
 from app.services.conversion_response_service import build_conversion_response
@@ -149,6 +150,38 @@ async def test_build_conversion_response_marks_new_and_predecessor_licenses(db_s
     assert by_id[new_license.id].document_count == 1
     assert by_id[new_license.id].completeness_pct == 100
     assert by_id[predecessor.id].conversion_type == "renewed_predecessor"
+
+
+async def test_build_conversion_response_includes_pending_order_procurement_documents(db_session):
+    db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}))
+    order = PendingOrder(po_number="PO-CONVERT")
+    db_session.add(order)
+    await db_session.flush()
+    new_license = _license(software_description="Converted License", pending_order_id=order.id)
+    db_session.add(new_license)
+    await db_session.flush()
+    db_session.add(
+        ProcurementDocument(
+            po_number=order.po_number,
+            pending_order_id=order.id,
+            filename="procurement/invoice.pdf",
+            original_filename="invoice.pdf",
+            file_size=10,
+            mime_type="application/pdf",
+            category=ProcurementDocumentCategory.invoice,
+        )
+    )
+    await db_session.commit()
+
+    responses = await build_conversion_response(
+        db_session,
+        [(new_license.id, "new_purchase")],
+        [],
+    )
+
+    response = responses[0]
+    assert response.document_count == 1
+    assert response.completeness_pct == 100
 
 
 async def test_build_contract_response_counts_licenses_documents_and_folder_documents(db_session):

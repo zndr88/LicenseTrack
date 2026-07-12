@@ -12,6 +12,7 @@ from app.services.license_service import (
     compute_days_until_expiry,
     compute_expiration_status,
 )
+from app.services.license_response_service import get_procurement_documents_by_scope
 
 
 async def build_conversion_response(
@@ -28,6 +29,7 @@ async def build_conversion_response(
         .options(selectinload(License.documents), selectinload(License.creator))
     )
     licenses = list(reload_result.scalars().all())
+    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, licenses)
 
     gs_result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
     gs = gs_result.scalar_one_or_none()
@@ -36,7 +38,10 @@ async def build_conversion_response(
     today = date.today()
     responses: list[LicenseResponse] = []
     for lic in licenses:
-        docs = list(lic.documents)
+        docs = [
+            *list(lic.documents),
+            *procurement_documents_by_license_id.get(lic.id, []),
+        ]
         resp = LicenseResponse.model_validate(lic)
         resp.completeness_pct = compute_completeness(lic, docs, mandatory_fields)
         resp.days_until_expiry = compute_days_until_expiry(lic, today)

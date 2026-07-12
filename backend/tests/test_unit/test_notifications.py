@@ -15,7 +15,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import License, LicenseType, LicenseMetric
+from app.models.pending_order import PendingOrder
 from app.models.settings import GlobalSettings
 from app.services import email_templates
 from app.services.notification_sender import _is_domain_allowed, run_daily_notifications
@@ -449,5 +451,47 @@ async def test_run_daily_notifications_no_emails_sent_when_no_expiring(
         result = await run_daily_notifications(db_session)
 
     assert result["budget_owner_emails_sent"] == 0
+    assert result["digest_sent"] is False
+    mock_send.assert_not_called()
+
+
+async def test_run_daily_notifications_counts_procurement_documents_for_completeness(
+    db_session, smtp_settings
+):
+    smtp_settings.mandatory_fields = {"invoice": True}
+    order = PendingOrder(po_number="PO-INVOICE")
+    db_session.add(order)
+    await db_session.flush()
+    license_obj = License(
+        publisher_name="Vendor",
+        software_description="App",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        end_date=date.today() + timedelta(days=180),
+        pending_order_id=order.id,
+        is_retired=False,
+    )
+    db_session.add(license_obj)
+    await db_session.flush()
+    db_session.add(
+        ProcurementDocument(
+            po_number=order.po_number,
+            pending_order_id=order.id,
+            filename="procurement/invoice.pdf",
+            original_filename="invoice.pdf",
+            file_size=10,
+            mime_type="application/pdf",
+            category=ProcurementDocumentCategory.invoice,
+        )
+    )
+    await db_session.commit()
+
+    with patch(
+        "app.services.notification_sender.send_email", new_callable=AsyncMock
+    ) as mock_send:
+        result = await run_daily_notifications(db_session)
+
+    assert result["total_notifications"] == 0
     assert result["digest_sent"] is False
     mock_send.assert_not_called()
