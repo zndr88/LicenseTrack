@@ -9,6 +9,56 @@ API stability levels and the breaking-change policy are defined in
 [docs/api-stability.md](docs/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
+## [1.0.4] - 2026-07-12
+
+### Added
+
+- Added support for multiple invoice numbers per license while preserving
+  compatibility with the existing single invoice number field.
+- Added per-license renewal notification controls so individual records can be
+  excluded from renewal reminders without changing global notification rules.
+
+### Fixed
+
+- Fixed renewal cancellation warnings by aligning the frontend with the
+  backend `poWarning` response shape, including demo and regression coverage.
+- Fixed stale completeness and notification state after admin mandatory-field
+  changes by refreshing affected notification, license, report, and stats
+  queries.
+- Included procurement documents in completeness calculations, notifications,
+  reports, and conversion responses so post-conversion evidence is counted
+  consistently.
+- Locked viewer access out of sourcing and pending-order procurement views
+  while preserving department-scoped renewal workbench visibility.
+- Hardened lifecycle deletion rules for licenses linked to sourcing,
+  pending-order, procurement-document, renewal, and maintenance relationships.
+- Fixed plugin draft suggestion and document-processing response schemas so
+  draft sourcing and pending-order suggestions can be listed without validation
+  errors.
+- Normalized localized number fields in additional sourcing request lines
+  before submit.
+- Hardened frontend release workflows around API request casing, cache
+  invalidation, role visibility, mutation side effects, procurement modal
+  failures, renewal initiation, custom-field admin rollback, unsaved SMTP
+  settings, and initial settings normalization.
+
+### Security
+
+- Tightened plugin action API-token scope checks for procurement and
+  document-processing targets.
+- Rejected oversized quote and document uploads earlier in request handling.
+
+### Changed
+
+- Updated frontend tooling and GitHub Actions dependencies while deferring the
+  React 19 upgrade.
+- Replaced deprecated Authlib JOSE imports.
+
+### Release
+
+- Version bumped to 1.0.4 across backend, frontend, README, Docker Compose, and
+  frontend package metadata.
+
 ## [1.0.3] - 2026-07-08
 
 ### Security
