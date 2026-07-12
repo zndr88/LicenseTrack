@@ -20,4 +20,26 @@ describe('normalizeGlobalSettings', () => {
     expect(normalized.sessionTimeout).toBe(120)
     expect(normalized.passwordMinLength).toBe(14)
   })
+
+  test('maps renewal/report and backup status fields on initial load', () => {
+    const normalized = normalizeGlobalSettings(
+      {
+        high_value_threshold: '75000',
+        fiscal_year_start_month: 4,
+        last_backup_status: 'failed',
+        last_backup_at: '2026-07-12T08:00:00Z',
+      },
+      {
+        highValueThreshold: 50000,
+        fiscalYearStartMonth: 1,
+        lastBackupStatus: null,
+        lastBackupAt: null,
+      }
+    )
+
+    expect(normalized.highValueThreshold).toBe(75000)
+    expect(normalized.fiscalYearStartMonth).toBe(4)
+    expect(normalized.lastBackupStatus).toBe('failed')
+    expect(normalized.lastBackupAt).toBe('2026-07-12T08:00:00Z')
+  })
 })

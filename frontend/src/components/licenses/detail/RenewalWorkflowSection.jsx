@@ -1,4 +1,5 @@
 // frontend/src/components/licenses/detail/RenewalWorkflowSection.jsx
+import { useState } from "react";
 import { formatDate } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
 import { useRenewalPanelModel } from "./useRenewalPanelModel.js";
@@ -20,6 +21,7 @@ export default function RenewalWorkflowSection({
   setToast,
 }) {
   const { poSiblings, bundleCount } = useRenewalPanelModel({ license, allLicenses, globalSettings });
+  const [initiatingRenewal, setInitiatingRenewal] = useState(false);
 
   return (
     <>
@@ -41,21 +43,36 @@ export default function RenewalWorkflowSection({
             <button
               className="btn btn-p"
               style={{ fontSize: 11, padding: "6px 12px" }}
+              disabled={initiatingRenewal}
               onClick={async () => {
-                const allToRenew = [license, ...poSiblings];
-                for (const lic of allToRenew) {
-                  await onCreateRenewal(lic.id);
+                setInitiatingRenewal(true);
+                try {
+                  const allToRenew = [license, ...poSiblings];
+                  let createdCount = 0;
+                  for (const lic of allToRenew) {
+                    const result = await onCreateRenewal(lic.id);
+                    if (!result?.ok) {
+                      if (createdCount > 0) {
+                        setToast(`Renewal partially initiated - ${createdCount} of ${bundleCount} sourcing records created`);
+                        setTimeout(() => setToast(null), 6000);
+                      }
+                      return;
+                    }
+                    createdCount += 1;
+                  }
+                  setToast(
+                    bundleCount > 1
+                      ? `Renewal initiated - ${bundleCount} sourcing records created`
+                      : "Renewal initiated - sourcing record created"
+                  );
+                  setTimeout(() => setToast(null), 6000);
+                } finally {
+                  setInitiatingRenewal(false);
                 }
-                setToast(
-                  bundleCount > 1
-                    ? `Renewal initiated — ${bundleCount} sourcing records created`
-                    : "Renewal initiated — sourcing record created"
-                );
-                setTimeout(() => setToast(null), 6000);
               }}
             >
               <Icon name="clock" size={13} />{" "}
-              {bundleCount > 1 ? `Initiate Renewal (${bundleCount} licenses)` : "Initiate Renewal"}
+              {initiatingRenewal ? "Initiating..." : bundleCount > 1 ? `Initiate Renewal (${bundleCount} licenses)` : "Initiate Renewal"}
             </button>
           )}
         </div>

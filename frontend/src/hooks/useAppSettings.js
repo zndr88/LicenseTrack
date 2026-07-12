@@ -186,13 +186,17 @@ export function useAppSettings({ showError }) {
   }, []);
 
   const handleToggleSidebar = useCallback(async () => {
-    const newCollapsed = !userSettings.sidebarCollapsed;
+    const previousCollapsed = userSettings.sidebarCollapsed;
+    const newCollapsed = !previousCollapsed;
     setUserSettings((s) => ({ ...s, sidebarCollapsed: newCollapsed }));
     const { error } = await updateSettings({
       sidebar_collapsed: newCollapsed,
     });
-    if (error) showError(error);
-  }, [showError, userSettings]);
+    if (error) {
+      setUserSettings((s) => ({ ...s, sidebarCollapsed: previousCollapsed }));
+      showError(error);
+    }
+  }, [showError, userSettings.sidebarCollapsed]);
 
   return {
     userSettings,

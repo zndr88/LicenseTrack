@@ -19,7 +19,7 @@ vi.mock("../components/settings/EmailTemplatesModal.jsx", () => ({
   default: () => null,
 }));
 
-import { updateGlobalSettings, sendTestEmail, triggerBackup } from "../api/settings.js";
+import { updateGlobalSettings, sendTestEmail, triggerBackup, triggerNotifications } from "../api/settings.js";
 import NotificationsSection from "../components/settings/sections/NotificationsSection.jsx";
 import SmtpSection from "../components/settings/sections/SmtpSection.jsx";
 import OidcSection from "../components/settings/sections/OidcSection.jsx";
@@ -348,7 +348,7 @@ describe("SmtpSection test-email validation", () => {
   test("blocks test email when host is blank", () => {
     const onError = vi.fn();
     const settings = baseSmtpSettings({ smtpHost: "" });
-    render(<SmtpSection {...sectionProps(settings, { onError })} />);
+    render(<SmtpSection {...sectionProps(settings, { isDirty: false, onError })} />);
 
     fireEvent.click(screen.getByRole("button", { name: /send test email/i }));
 
@@ -359,7 +359,7 @@ describe("SmtpSection test-email validation", () => {
   test("blocks test email when sender is invalid", () => {
     const onError = vi.fn();
     const settings = baseSmtpSettings({ smtpSender: "bad-email" });
-    render(<SmtpSection {...sectionProps(settings, { onError })} />);
+    render(<SmtpSection {...sectionProps(settings, { isDirty: false, onError })} />);
 
     fireEvent.click(screen.getByRole("button", { name: /send test email/i }));
 
@@ -370,11 +370,21 @@ describe("SmtpSection test-email validation", () => {
   test("calls sendTestEmail when host/port/sender are valid", async () => {
     sendTestEmail.mockResolvedValue({ data: {}, error: null });
     const settings = baseSmtpSettings({ emailEnabled: false });
-    render(<SmtpSection {...sectionProps(settings)} />);
+    render(<SmtpSection {...sectionProps(settings, { isDirty: false })} />);
 
     fireEvent.click(screen.getByRole("button", { name: /send test email/i }));
 
     await waitFor(() => expect(sendTestEmail).toHaveBeenCalled());
+  });
+
+  test("blocks test email and manual notifications when SMTP settings are unsaved", () => {
+    const settings = baseSmtpSettings({ emailEnabled: true });
+    render(<SmtpSection {...sectionProps(settings, { isDirty: true })} />);
+
+    expect(screen.getByRole("button", { name: /send test email/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /send notifications now/i })).toBeDisabled();
+    expect(sendTestEmail).not.toHaveBeenCalled();
+    expect(triggerNotifications).not.toHaveBeenCalled();
   });
 });
 

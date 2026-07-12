@@ -10,6 +10,7 @@ import {
   downloadPendingOrderDocument,
   exportPendingOrdersCsv,
   getPendingOrders,
+  retryPendingOrderEvidenceTransfer,
   uploadPendingOrderDocument,
   updatePendingOrderItem as apiUpdatePendingOrderItem,
   updatePendingOrder as apiUpdatePendingOrder,
@@ -22,7 +23,7 @@ import { parseLocalizedNumber } from "../../utils/formatting.js";
 const EMPTY_PENDING_ORDERS = [];
 
 async function fetchPendingOrders() {
-  const { data, error } = await getPendingOrders();
+  const { data, error } = await getPendingOrders({ includeEvidenceIssues: true });
   if (error) throw new Error(error);
   return data ?? [];
 }
@@ -203,6 +204,14 @@ export function usePendingOrdersData({
     return true;
   }, [showError]);
 
+  const handleRetryEvidenceTransfer = useCallback(async (orderId) => {
+    const { error } = await retryPendingOrderEvidenceTransfer(orderId);
+    if (error) { showError(error); return false; }
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
+    showSuccess("Evidence transfer retry started.");
+    return true;
+  }, [showError, showSuccess, queryClient]);
+
   const handleBatchConvert = useCallback(async (orderId, items, poNumber) => {
     const { data, error } = await batchConvertPendingOrder(orderId, items);
     if (error) { showError(error); return false; }
@@ -240,6 +249,7 @@ export function usePendingOrdersData({
     handleUploadPurchaseOrderDocument,
     handleDownloadPurchaseOrderDocument,
     handleDownloadSourcingQuote,
+    handleRetryEvidenceTransfer,
     handleBatchConvert,
     handleExportPendingOrdersCsv,
   };

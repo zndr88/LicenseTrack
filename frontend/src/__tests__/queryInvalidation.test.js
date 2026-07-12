@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from "vitest";
 import {
   invalidateCompletenessRules,
   invalidateContracts,
+  invalidateCustomFieldDefinitions,
   invalidateNotifications,
   invalidateRenewalWorkflow,
 } from "../queryInvalidation.js";
@@ -58,5 +59,17 @@ describe("query invalidation helpers", () => {
     invalidateContracts(queryClient);
 
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.contracts });
+  });
+
+  test("invalidates every cache that renders custom field definitions", () => {
+    const queryClient = makeQueryClient();
+
+    invalidateCustomFieldDefinitions(queryClient);
+
+    expect(queryClient.invalidateQueries.mock.calls.map(([arg]) => arg.queryKey)).toEqual([
+      queryKeys.customFieldDefs,
+      queryKeys.licenses,
+      queryKeys.renewals,
+    ]);
   });
 });

@@ -2,7 +2,7 @@
 Tests for custom field definitions and per-license values.
 
 Covers:
-- Definition CRUD (admin-only enforcement, ordering, uniqueness, 404)
+- Definition CRUD (authenticated reads, admin-only writes, ordering, uniqueness, 404)
 - Value upsert (partial update, unknown def_id validation, cascade delete)
 """
 
@@ -221,6 +221,16 @@ async def test_admin_only_create_rejects_non_admin(db_session, test_app):
     )
 
     assert resp.status_code == 403
+
+
+async def test_editor_can_list_definitions(test_app, auth_headers, db_session):
+    await _create_definition(test_app, auth_headers, name="Editor Visible Field")
+    editor_headers = await _make_editor_headers(db_session, test_app)
+
+    resp = await test_app.get("/api/custom-fields/", headers=editor_headers)
+
+    assert resp.status_code == 200
+    assert any(item["name"] == "Editor Visible Field" for item in resp.json())
 
 
 # ---------------------------------------------------------------------------

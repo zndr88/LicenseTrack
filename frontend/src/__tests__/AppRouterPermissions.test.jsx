@@ -62,13 +62,23 @@ function renderRouter(props) {
 }
 
 describe("AppRouter permissions", () => {
-  test("blocks viewer users from procurement and notification routes", () => {
+  test("blocks viewer users from procurement routes", () => {
     renderRouter({
       page: "sourcing",
       currentUser: { id: 2, role: "viewer" },
     });
 
     expect(screen.queryByText("Sourcing page")).not.toBeInTheDocument();
+  });
+
+  test("allows viewer users to open their filtered notifications", async () => {
+    renderRouter({
+      page: "notifications",
+      currentUser: { id: 2, role: "viewer" },
+      perms: { canUpload: false, canAdminSettings: false },
+    });
+
+    expect(await screen.findByText("Notifications page")).toBeInTheDocument();
   });
 
   test("opens the manual add-license modal only with upload permission", () => {

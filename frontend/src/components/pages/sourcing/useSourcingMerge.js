@@ -58,6 +58,7 @@ export function useSourcingMerge({ sourcingItems, queryClient, showToast }) {
     setShowMergeModal(false);
     setSelectedForMerge(new Set());
     await queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.sourcingItems });
     showToast(
       `Sourcing items merged - ${ids.length} licenses combined into one renewal for ${finalQty} seats.`,
       "success"

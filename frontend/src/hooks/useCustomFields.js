@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { listCustomFields } from "../api/settings.js";
 import { getCustomFieldValues } from "../api/licenses.js";
 
@@ -6,17 +6,26 @@ export function useCustomFields(licenseId) {
   const [customFieldValues, setCustomFieldValues] = useState([]);
   const [customFieldDefs, setCustomFieldDefs] = useState([]);
   const [customFieldsLoading, setCustomFieldsLoading] = useState(false);
+  const refreshRequestRef = useRef(0);
 
   const refreshCustomFields = useCallback(async () => {
-    if (!licenseId) return;
+    const requestId = ++refreshRequestRef.current;
+    if (!licenseId) {
+      setCustomFieldValues([]);
+      setCustomFieldDefs([]);
+      setCustomFieldsLoading(false);
+      return [];
+    }
     setCustomFieldsLoading(true);
     const [defsResult, valsResult] = await Promise.all([
       listCustomFields(),
       getCustomFieldValues(licenseId),
     ]);
+    if (refreshRequestRef.current !== requestId) return [];
     setCustomFieldsLoading(false);
     if (!defsResult.error && defsResult.data) setCustomFieldDefs(defsResult.data);
     if (!valsResult.error && valsResult.data) setCustomFieldValues(valsResult.data.values ?? []);
+    return valsResult.data?.values ?? [];
   }, [licenseId]);
 
   useEffect(() => {

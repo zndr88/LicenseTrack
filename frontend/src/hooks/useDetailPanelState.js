@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { formatPriceInput, getCompleteness, getExpirationStatus, normalizeLicense } from "../utils/helpers.js";
 import { ROLE_PERMISSIONS } from "../constants/permissions.js";
 import { upsertCustomFieldValues, getMaintenanceForParent, getLicense } from "../api/licenses.js";
@@ -35,6 +35,10 @@ export function useDetailPanelState({
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [maintenanceHistory, setMaintenanceHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const latestLicenseIdRef = useRef(license.id);
+  const maintenanceRequestRef = useRef(0);
+  const pluginSuggestionsRequestRef = useRef(0);
+  latestLicenseIdRef.current = license.id;
 
   const [openSections, setOpenSections] = useState({
     identity:     true,
@@ -52,8 +56,11 @@ export function useDetailPanelState({
 
   const fetchMaintenanceHistory = async (id) => {
     if (!["perpetual", "oem", "freeware"].includes(license.licenseType)) return;
+    const targetId = id ?? license.id;
+    const requestId = ++maintenanceRequestRef.current;
     setHistoryLoading(true);
-    const { data } = await getMaintenanceForParent(id ?? license.id);
+    const { data } = await getMaintenanceForParent(targetId);
+    if (requestId !== maintenanceRequestRef.current || latestLicenseIdRef.current !== targetId) return;
     setHistoryLoading(false);
     if (data) setMaintenanceHistory(data);
   };
@@ -69,6 +76,7 @@ export function useDetailPanelState({
 
   useEffect(() => {
     setMaintenanceHistory([]);
+    setHistoryLoading(false);
     setShowMaintenanceModal(false);
   }, [license.id]);
 
@@ -114,8 +122,11 @@ export function useDetailPanelState({
   const [pluginSuggestionReviewBusy, setPluginSuggestionReviewBusy] = useState(null);
 
   const loadPluginSuggestions = async ({ showLoading = true } = {}) => {
+    const licenseId = license.id;
+    const requestId = ++pluginSuggestionsRequestRef.current;
     if (showLoading) setPluginSuggestionsLoading(true);
-    const { data } = await listPluginSuggestions({ licenseId: license.id });
+    const { data } = await listPluginSuggestions({ licenseId });
+    if (requestId !== pluginSuggestionsRequestRef.current || latestLicenseIdRef.current !== licenseId) return [];
     if (showLoading) setPluginSuggestionsLoading(false);
     if (data) {
       const pending = data.filter((suggestion) => suggestion.status === "pending");
@@ -131,6 +142,7 @@ export function useDetailPanelState({
   };
 
   useEffect(() => {
+    setPluginSuggestions([]);
     loadPluginSuggestions();
   }, [license.id]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional license-scoped fetch
 

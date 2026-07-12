@@ -84,7 +84,7 @@ export function useAppNavigation({ currentUser, setUserSettings }) {
 
   useEffect(() => {
     if (!currentUser) return;
-    const viewerRestricted = ["sourcing", "pending-orders", "import", "notifications", "admin"];
+    const viewerRestricted = ["sourcing", "pending-orders", "import", "admin"];
     if (currentUser.role === "viewer" && viewerRestricted.includes(page)) {
       setPage("licenses");
     }

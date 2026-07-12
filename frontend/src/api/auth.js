@@ -1,10 +1,14 @@
 /**
- * Authentication API — login, logout, current user, password change.
+ * Authentication API - public auth mode, login/session, logout, current user,
+ * and password change.
  *
  * Endpoints:
- *   POST /api/auth/login            — obtain JWT
- *   POST /api/auth/change-password  — change own password (authenticated)
- *   GET  /api/users/me              — current user profile
+ *   GET  /api/auth/mode             - public auth mode
+ *   GET  /api/auth/session          - cookie-backed session state
+ *   POST /api/auth/login            - obtain JWT and set session cookie
+ *   POST /api/auth/logout           - clear session cookie
+ *   POST /api/auth/change-password  - change own password (authenticated)
+ *   GET  /api/users/me              - current user profile
  */
 
 import { apiUrl, clearToken, get, post, setToken } from "./client.js";

@@ -279,7 +279,7 @@ export default function SourcingPage({
                 quoteFile: form.quoteFile || null,
               });
               if (success) setShowSourcingModal(null);
-              return;
+              return success;
             }
             // Single item
             const payload = {
@@ -299,6 +299,7 @@ export default function SourcingPage({
               ? await handleUpdateSourcingItem(showSourcingModal.item.id, payload)
               : await handleCreateSourcingItem(payload, showSourcingModal.request?.id ?? null);
             if (success) setShowSourcingModal(null);
+            return success;
           }}
         />
       )}
@@ -311,6 +312,7 @@ export default function SourcingPage({
           onConfirm={async (opts) => {
             const success = await handleConvertSourcingRequest(showConvertModal.request.id, opts);
             if (success) setShowConvertModal(null);
+            return success;
           }}
         />
       )}

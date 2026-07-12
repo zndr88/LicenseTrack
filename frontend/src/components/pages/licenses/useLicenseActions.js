@@ -105,7 +105,7 @@ export function useLicenseActions({
   }, [updateLicensesInCache, onPortfolioStateChange, showError, queryClient]);
 
   const handleCreateRenewal = useCallback(async (licenseId) => {
-    await startRenewal(licenseId);
+    return startRenewal(licenseId);
   }, [startRenewal]);
 
   const handleCancelRenewal = useCallback(async (licenseId) => {

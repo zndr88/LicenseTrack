@@ -118,8 +118,13 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
       ? (deptAssignments[user.id] ?? [])
       : [];
     setDeptSaving(user.id);
-    await updateUserDepartments(user.id, depts);
+    const { error: deptError } = await updateUserDepartments(user.id, depts);
     setDeptSaving(null);
+    if (deptError) {
+      setSavingUserId(null);
+      onError(deptError);
+      return;
+    }
     setDeptAssignments((prev) => ({ ...prev, [user.id]: depts }));
 
     setSavingUserId(null);
@@ -151,7 +156,11 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
     }
 
     if (newUser.role === "viewer" && newUser.departments.length > 0) {
-      await updateUserDepartments(data.id, newUser.departments);
+      const { error: deptError } = await updateUserDepartments(data.id, newUser.departments);
+      if (deptError) {
+        setAddError(deptError);
+        return;
+      }
     }
     setDeptAssignments((prev) => ({ ...prev, [data.id]: newUser.role === "viewer" ? newUser.departments : [] }));
 

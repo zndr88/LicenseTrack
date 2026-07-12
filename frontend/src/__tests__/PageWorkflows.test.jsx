@@ -155,8 +155,12 @@ vi.mock("../api/pendingOrders.js", () => ({
   createPendingOrder: vi.fn(),
   updatePendingOrder: vi.fn(),
   deletePendingOrder: vi.fn(),
+  uploadPendingOrderDocument: vi.fn(),
+  downloadPendingOrderDocument: vi.fn(),
   convertPendingOrder: vi.fn(),
   batchConvertPendingOrder: vi.fn(),
+  retryPendingOrderEvidenceTransfer: vi.fn(),
+  exportPendingOrdersCsv: vi.fn(),
 }));
 
 vi.mock("../utils/pdfExport.js", () => ({
@@ -277,6 +281,8 @@ function setupDefaultApiMocks() {
   sourcingApi.deleteSourcingRequest.mockResolvedValue({ error: null });
   sourcingApi.exportSourcingCsv.mockResolvedValue({ data: null, error: null });
   pendingOrdersApi.getPendingOrders.mockResolvedValue({ data: [], error: null });
+  pendingOrdersApi.retryPendingOrderEvidenceTransfer.mockResolvedValue({ data: null, error: null });
+  pendingOrdersApi.exportPendingOrdersCsv.mockResolvedValue({ data: null, error: null });
   contractsApi.getContracts.mockResolvedValue({ data: [], error: null });
   settingsApi.listCustomFields.mockResolvedValue({ data: [], error: null });
   settingsApi.listBackups.mockResolvedValue({ data: [], error: null });
@@ -748,6 +754,49 @@ describe("UsersPage workflows", () => {
     expect(await screen.findByText("newuser")).toBeInTheDocument();
     expect(usersApi.createUser).toHaveBeenCalledWith(expect.objectContaining({ username: "newuser" }));
   });
+
+  test("reports department assignment failures instead of silently completing user saves", async () => {
+    const user = userEvent.setup();
+    const onError = vi.fn();
+    usersApi.getUsers.mockResolvedValueOnce({
+      data: [{
+        id: 4,
+        username: "viewer1",
+        email: "viewer@example.com",
+        role: "viewer",
+        auth_provider: "local",
+        allow_downloads: true,
+        is_active: true,
+      }],
+      error: null,
+    });
+    usersApi.getDepartments.mockResolvedValueOnce({ data: ["IT"], error: null });
+    usersApi.getUserDepartments.mockResolvedValueOnce({ data: ["IT"], error: null });
+    usersApi.updateUser.mockResolvedValueOnce({
+      data: {
+        id: 4,
+        username: "viewer1",
+        email: "viewer@example.com",
+        role: "viewer",
+        auth_provider: "local",
+        allow_downloads: true,
+        is_active: true,
+      },
+      error: null,
+    });
+    usersApi.updateUserDepartments.mockResolvedValueOnce({ data: null, error: "Department update failed" });
+
+    render(<UsersPage currentUserId={1} onError={onError} onToast={vi.fn()} />);
+
+    expect(await screen.findByText("viewer1")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => {
+      expect(usersApi.updateUser).toHaveBeenCalledWith(4, expect.objectContaining({ role: "viewer" }));
+      expect(usersApi.updateUserDepartments).toHaveBeenCalledWith(4, ["IT"]);
+      expect(onError).toHaveBeenCalledWith("Department update failed");
+    });
+  });
 });
 
 describe("ContractsPage workflows", () => {
@@ -1011,6 +1060,7 @@ describe("PendingOrdersPage workflows", () => {
     const showError = vi.fn();
     pendingOrdersApi.getPendingOrders.mockReturnValueOnce(pending.promise);
     wrapWithQueryClient(<PendingOrdersPage user={admin} userSettings={userSettings} showError={showError} showSuccess={vi.fn()} />);
+    expect(pendingOrdersApi.getPendingOrders).toHaveBeenCalledWith({ includeEvidenceIssues: true });
     expect(await screen.findByText(/Loading pending orders/i)).toBeInTheDocument();
     pending.resolve({ data: [], error: null });
     expect(await screen.findByText(/No pending orders yet/i)).toBeInTheDocument();
@@ -1077,6 +1127,41 @@ describe("PendingOrdersPage workflows", () => {
     });
     expect(onPortfolioStateChange).toHaveBeenCalled();
     expect(onRenewalsReload).toHaveBeenCalled();
+  });
+
+  test("surfaces retry for converted pending orders with failed evidence transfer", async () => {
+    const user = userEvent.setup();
+    const showSuccess = vi.fn();
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({
+      data: [{
+        id: 12,
+        poNumber: "PO-EVIDENCE",
+        supplier: "Evidence Supplier",
+        status: "converted",
+        evidenceTransferStatus: "failed",
+        evidenceTransferDetail: "storage failed",
+        items: [],
+        createdAt: "2026-01-01T00:00:00Z",
+      }],
+      error: null,
+    });
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={showSuccess}
+      />
+    );
+
+    expect(await screen.findByText("Evidence Failed")).toBeInTheDocument();
+    expect(screen.getByText("storage failed")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Retry Evidence/i }));
+
+    await waitFor(() => {
+      expect(pendingOrdersApi.retryPendingOrderEvidenceTransfer).toHaveBeenCalledWith(12);
+      expect(showSuccess).toHaveBeenCalledWith("Evidence transfer retry started.");
+    });
   });
 });
 

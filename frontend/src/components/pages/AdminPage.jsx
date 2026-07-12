@@ -11,6 +11,7 @@ export default function AdminPage({
   user, onError, onToast,
   onRefreshLicenses, onRefreshNotifications,
   onCompletenessRulesChanged,
+  onCustomFieldsChanged,
   navGuard,
   currentUserId,
 }) {
@@ -56,6 +57,7 @@ export default function AdminPage({
             onRefreshLicenses={onRefreshLicenses}
             onRefreshNotifications={onRefreshNotifications}
             onCompletenessRulesChanged={onCompletenessRulesChanged}
+            onCustomFieldsChanged={onCustomFieldsChanged}
             navGuard={navGuard}
             _adminOnly={true}
             _hideHeader={true}

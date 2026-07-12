@@ -32,7 +32,7 @@ async function fetchRenewalRows(view) {
 
 async function fetchCustomFieldDefs() {
   const { data, error } = await listCustomFields();
-  if (error) return [];
+  if (error) throw new Error(error);
   return data ?? [];
 }
 
@@ -63,7 +63,7 @@ export default function RenewalWorkbenchPage({
     enabled: view !== "all",
   });
   const qCustomFields = useQuery({
-    queryKey: ["custom-fields"],
+    queryKey: queryKeys.customFieldDefs,
     queryFn: fetchCustomFieldDefs,
   });
 
@@ -71,7 +71,7 @@ export default function RenewalWorkbenchPage({
   const summaryRows = qAll.data ?? EMPTY_ROWS;
   const customFieldDefs = qCustomFields.data ?? EMPTY_ROWS;
   const loading = qAll.isLoading || (view !== "all" && qSelected.isLoading);
-  const queryError = qAll.error || (view !== "all" ? qSelected.error : null);
+  const queryError = qAll.error || (view !== "all" ? qSelected.error : null) || qCustomFields.error;
   const error = queryError?.message ?? null;
 
   useEffect(() => {

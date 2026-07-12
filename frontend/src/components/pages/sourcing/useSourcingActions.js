@@ -11,6 +11,13 @@ import {
   uploadSourcingQuoteDocument,
 } from "../../../api/sourcing.js";
 
+function invalidateSourcingCaches(queryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.sourcing }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.sourcingItems }),
+  ]);
+}
+
 export function useSourcingActions({
   queryClient,
   showToast,
@@ -30,7 +37,7 @@ export function useSourcingActions({
           items: [payload],
         });
     if (error) { showToast(error, "error"); return false; }
-    await queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
+    await invalidateSourcingCaches(queryClient);
     if (created?.id) setExpandedRequestId(created.id);
     return true;
   }, [showToast, queryClient, setExpandedRequestId]);
@@ -38,14 +45,14 @@ export function useSourcingActions({
   const handleUpdateSourcingItem = useCallback(async (id, payload) => {
     const { error } = await apiUpdateSourcingItem(id, payload);
     if (error) { showToast(error, "error"); return false; }
-    await queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
+    await invalidateSourcingCaches(queryClient);
     return true;
   }, [showToast, queryClient]);
 
   const handleDeleteSourcingItem = useCallback(async (id) => {
     const { error } = await apiDeleteSourcingItem(id);
     if (error) { showToast(error, "error"); return false; }
-    await queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
+    await invalidateSourcingCaches(queryClient);
     onRenewalsReload?.();
     onPortfolioStateChange?.();
     return true;
@@ -54,7 +61,7 @@ export function useSourcingActions({
   const handleDeleteSourcingRequest = useCallback(async (request) => {
     const { error } = await apiDeleteSourcingRequest(request.id);
     if (error) { showToast(error, "error"); return false; }
-    await queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
+    await invalidateSourcingCaches(queryClient);
     onRenewalsReload?.();
     onPortfolioStateChange?.();
     showToast("Sourcing request deleted. Linked renewal processing was cancelled where applicable.", "success");
@@ -64,7 +71,7 @@ export function useSourcingActions({
   const handleConvertSourcingRequest = useCallback(async (id, opts) => {
     const { data: order, error } = await apiConvertSourcingRequest(id, opts);
     if (error) { showToast(error, "error"); return false; }
-    await queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
+    await invalidateSourcingCaches(queryClient);
     onPendingOrdersReload?.();
     onRenewalsReload?.();
     onPortfolioStateChange?.();
@@ -94,7 +101,7 @@ export function useSourcingActions({
         if (qErr) showToast(`Request created but quote upload failed: ${qErr}`, "warning");
       }
     }
-    await queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
+    await invalidateSourcingCaches(queryClient);
     showToast(`Sourcing request created with ${apiPayload.items.length} line${apiPayload.items.length === 1 ? "" : "s"}.`, "success");
     return true;
   }, [showToast, queryClient, setExpandedRequestId]);

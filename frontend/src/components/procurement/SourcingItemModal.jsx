@@ -97,6 +97,7 @@ const SourcingItemModal = ({
   const [attachedFileBase64, setAttachedFileBase64] = useState(null);
   const [slotHasActions, setSlotHasActions] = useState(false);
   const [additionalLines, setAdditionalLines] = useState([]);
+  const [saving, setSaving] = useState(false);
 
   const handleFileChange = (file) => {
     setAttachedFile(file);
@@ -200,46 +201,56 @@ const SourcingItemModal = ({
     }
   };
 
-  const onSubmit = (data) => {
-    reset();
-    // New requests always go through the request-create path (items + optional
-    // quoteFile), so an attached quote is uploaded even for a single line.
-    // Edit / add-to-existing-request modes (no upload field) use the plain payload.
-    if (isNewRequest) {
-      const primaryItem = {
-        publisherName: data.publisherName,
-        softwareDescription: data.softwareDescription,
-        quantity: (parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity) || null,
-        estimatedUnitPrice: (parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice) || null,
-        estimatedTotalPrice: (parseLocalizedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice) || null,
-        currency: data.currency || "EUR",
-        startDate: data.startDate || null,
-        endDate: data.endDate || null,
-      };
-      onSave({
-        items: [
-          primaryItem,
-          ...additionalLines.map((l) => ({
-            publisherName: l.publisherName,
-            softwareDescription: l.softwareDescription,
-            quantity: normalizeOptionalNumber(l.quantity, userSettings),
-            estimatedUnitPrice: normalizeOptionalNumber(l.estimatedUnitPrice, userSettings),
-            estimatedTotalPrice: normalizeOptionalNumber(l.estimatedTotalPrice, userSettings),
-            currency: l.currency || "EUR",
-          })),
-        ],
-        supplier: data.supplier || null,
-        contactEmail: data.contactEmail || null,
-        notes: data.notes || null,
-        quoteFile: attachedFile || null,
-      });
-    } else {
-      onSave({
-        ...data,
-        quantity: parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity,
-        estimatedUnitPrice: parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice,
-        estimatedTotalPrice: parseLocalizedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice,
-      });
+  const onSubmit = async (data) => {
+    setSaving(true);
+    try {
+      // New requests always go through the request-create path (items + optional
+      // quoteFile), so an attached quote is uploaded even for a single line.
+      // Edit / add-to-existing-request modes (no upload field) use the plain payload.
+      if (isNewRequest) {
+        const primaryItem = {
+          publisherName: data.publisherName,
+          softwareDescription: data.softwareDescription,
+          quantity: (parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity) || null,
+          estimatedUnitPrice: (parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice) || null,
+          estimatedTotalPrice: (parseLocalizedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice) || null,
+          currency: data.currency || "EUR",
+          startDate: data.startDate || null,
+          endDate: data.endDate || null,
+        };
+        const saved = await onSave({
+          items: [
+            primaryItem,
+            ...additionalLines.map((l) => ({
+              publisherName: l.publisherName,
+              softwareDescription: l.softwareDescription,
+              quantity: normalizeOptionalNumber(l.quantity, userSettings),
+              estimatedUnitPrice: normalizeOptionalNumber(l.estimatedUnitPrice, userSettings),
+              estimatedTotalPrice: normalizeOptionalNumber(l.estimatedTotalPrice, userSettings),
+              currency: l.currency || "EUR",
+            })),
+          ],
+          supplier: data.supplier || null,
+          contactEmail: data.contactEmail || null,
+          notes: data.notes || null,
+          quoteFile: attachedFile || null,
+        });
+        if (saved) {
+          reset();
+          setAdditionalLines([]);
+          handleFileChange(null);
+        }
+      } else {
+        const saved = await onSave({
+          ...data,
+          quantity: parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity,
+          estimatedUnitPrice: parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice,
+          estimatedTotalPrice: parseLocalizedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice,
+        });
+        if (saved) reset();
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -254,9 +265,9 @@ const SourcingItemModal = ({
         modalStyle={{ maxWidth: "min(560px, 92vw)" }}
         footer={(
           <>
-            <button className="btn btn-g" onClick={requestClose}>Cancel</button>
-            <button className="btn btn-p" disabled={!canSave} onClick={handleSubmit(onSubmit)}>
-              {lineCount > 1 ? `Save ${lineCount} lines` : "Save"}
+            <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
+            <button className="btn btn-p" disabled={!canSave || saving} onClick={handleSubmit(onSubmit)}>
+              {saving ? "Saving..." : lineCount > 1 ? `Save ${lineCount} lines` : "Save"}
             </button>
           </>
         )}

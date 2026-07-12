@@ -36,6 +36,7 @@ export default function SettingsPage({
   user, onError, onToast,
   onRefreshLicenses, onRefreshNotifications: _onRefreshNotifications,
   onCompletenessRulesChanged,
+  onCustomFieldsChanged,
   navGuard,
   _adminOnly = false,
   _hideHeader = false,
@@ -112,7 +113,7 @@ export default function SettingsPage({
                 <SmtpSection {...sharedDirty("smtp")} {...sharedAdmin} />
                 <OidcSection {...sharedDirty("oidc")} {...sharedAdmin} />
                 <CompletenessSection {...sharedDirty("completeness")} {...sharedAdmin} onRefreshLicenses={onRefreshLicenses} onCompletenessRulesChanged={onCompletenessRulesChanged} />
-                <CustomFieldsSection {...sharedDirty("customFields")} onError={onError} onToast={onToast} />
+                <CustomFieldsSection {...sharedDirty("customFields")} onError={onError} onToast={onToast} onCustomFieldsChanged={onCustomFieldsChanged} />
                 <ImportMappingsSection {...sharedDirty("importMappings")} onError={onError} onToast={onToast} />
               </>
             )}

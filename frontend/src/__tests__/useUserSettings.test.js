@@ -99,4 +99,39 @@ describe("useUserSettings saved views", () => {
 
     expect(props.setColumnFilters).toHaveBeenCalledWith({});
   });
+
+  test("handleHideColumn rolls back local settings when save fails", async () => {
+    updateSettings.mockResolvedValueOnce({ data: null, error: "Save failed" });
+    const { result, props } = setup();
+
+    await act(async () => {
+      await result.current.handleHideColumn("publisher");
+    });
+
+    expect(props.showError).toHaveBeenCalledWith("Save failed");
+    expect(props.setUserSettings).toHaveBeenLastCalledWith(baseUserSettings);
+  });
+
+  test("handleLoadView rolls back local view state when save fails", async () => {
+    updateSettings.mockResolvedValueOnce({ data: null, error: "Save failed" });
+    const { result, props } = setup();
+
+    await act(async () => {
+      await result.current.handleLoadView({
+        name: "Broken View",
+        statusFilters: ["expired"],
+        columnFilters: { publisher: "contoso" },
+        columnOrder: ["licenseType"],
+        visibleInList: { publisher: false },
+        sortCol: "licenseType",
+        sortDir: "asc",
+      });
+    });
+
+    expect(props.setStatusFilters).toHaveBeenLastCalledWith(["active"]);
+    expect(props.setColumnFilters).toHaveBeenLastCalledWith({ publisher: "acme", licenseType: ["subscription"] });
+    expect(props.setSortCol).toHaveBeenLastCalledWith("publisher");
+    expect(props.setSortDir).toHaveBeenLastCalledWith("desc");
+    expect(props.setUserSettings).toHaveBeenLastCalledWith(baseUserSettings);
+  });
 });

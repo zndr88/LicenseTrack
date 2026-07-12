@@ -1,7 +1,8 @@
 /**
  * Core fetch wrapper for the API.
  *
- * - Prepends API base URL when VITE_API_URL is set; defaults to same-origin /api
+ * - Prepends VITE_API_URL when set; callers pass full same-origin /api paths
+ *   by default, such as /api/licenses.
  * - Attaches Authorization: Bearer <token> header when a token is stored
  * - Parses JSON responses automatically
  * - On 401, clears the stored token and redirects to the login page

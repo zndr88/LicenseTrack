@@ -81,6 +81,7 @@ describe("CustomFieldsSection", () => {
       getCustomFieldSectionLabel("commercial"),
       getCustomFieldSectionLabel("people"),
       getCustomFieldSectionLabel("documents"),
+      getCustomFieldSectionLabel("maintenance"),
       getCustomFieldSectionLabel("notes"),
     ]);
     expect(getCustomFieldSectionLabel("unknown")).toBe("Custom Fields");
@@ -88,17 +89,33 @@ describe("CustomFieldsSection", () => {
 
   test("updates a custom field section with the same payload shape", async () => {
     const user = userEvent.setup();
-    renderSection();
+    const onCustomFieldsChanged = vi.fn();
+    renderSection({ onCustomFieldsChanged });
 
     const sectionSelect = await screen.findByRole("combobox", { name: /section for contract owner/i });
     await user.selectOptions(sectionSelect, "people");
 
     expect(updateCustomFieldSection).toHaveBeenCalledWith(1, "people");
+    expect(onCustomFieldsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  test("rolls back a custom field section when the API rejects the update", async () => {
+    const user = userEvent.setup();
+    const onError = vi.fn();
+    updateCustomFieldSection.mockResolvedValueOnce({ data: null, error: "Section update failed" });
+    renderSection({ onError });
+
+    const sectionSelect = await screen.findByRole("combobox", { name: /section for contract owner/i });
+    await user.selectOptions(sectionSelect, "people");
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith("Section update failed"));
+    expect(sectionSelect).toHaveValue("");
   });
 
   test("creates a custom field with the same API payload", async () => {
     const user = userEvent.setup();
-    renderSection();
+    const onCustomFieldsChanged = vi.fn();
+    renderSection({ onCustomFieldsChanged });
 
     await user.click(await screen.findByRole("button", { name: /add field/i }));
     await user.type(screen.getByLabelText(/field name/i), "Security Reviewer");
@@ -110,6 +127,7 @@ describe("CustomFieldsSection", () => {
       fieldType: "boolean",
       displayOrder: 1,
     });
+    expect(onCustomFieldsChanged).toHaveBeenCalledTimes(1);
   });
 
   test("updates custom field display order with the same API payloads", async () => {
@@ -135,7 +153,8 @@ describe("CustomFieldsSection", () => {
       ],
       error: null,
     });
-    renderSection();
+    const onCustomFieldsChanged = vi.fn();
+    renderSection({ onCustomFieldsChanged });
 
     await user.click(await screen.findByRole("button", { name: /move contract owner down/i }));
 
@@ -143,15 +162,55 @@ describe("CustomFieldsSection", () => {
       expect(updateCustomField).toHaveBeenCalledWith(1, { displayOrder: 1 });
       expect(updateCustomField).toHaveBeenCalledWith(2, { displayOrder: 0 });
     });
+    expect(onCustomFieldsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  test("rolls back custom field display order when a reorder update fails", async () => {
+    const user = userEvent.setup();
+    const onError = vi.fn();
+    listCustomFields.mockResolvedValueOnce({
+      data: [
+        {
+          id: 1,
+          name: "Contract Owner",
+          fieldKey: "contract_owner",
+          fieldType: "text",
+          section: "",
+          displayOrder: 0,
+        },
+        {
+          id: 2,
+          name: "Renewal Flag",
+          fieldKey: "renewal_flag",
+          fieldType: "boolean",
+          section: "",
+          displayOrder: 1,
+        },
+      ],
+      error: null,
+    });
+    updateCustomField
+      .mockResolvedValueOnce({ data: null, error: "Order update failed" })
+      .mockResolvedValueOnce({ data: {}, error: null });
+    renderSection({ onError });
+
+    await user.click(await screen.findByRole("button", { name: /move contract owner down/i }));
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith("Order update failed"));
+    const fieldRows = screen.getAllByRole("row").slice(1);
+    expect(within(fieldRows[0]).getByText("Contract Owner")).toBeInTheDocument();
+    expect(within(fieldRows[1]).getByText("Renewal Flag")).toBeInTheDocument();
   });
 
   test("deletes a custom field by id with the same API call", async () => {
     const user = userEvent.setup();
-    renderSection();
+    const onCustomFieldsChanged = vi.fn();
+    renderSection({ onCustomFieldsChanged });
 
     await user.click(await screen.findByRole("button", { name: /delete contract owner/i }));
     await user.click(screen.getByRole("button", { name: /^delete$/i }));
 
     expect(deleteCustomField).toHaveBeenCalledWith(1);
+    expect(onCustomFieldsChanged).toHaveBeenCalledTimes(1);
   });
 });

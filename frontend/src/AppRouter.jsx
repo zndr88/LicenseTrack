@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "./queryKeys.js";
-import { invalidateCompletenessRules, invalidateNotifications } from "./queryInvalidation.js";
+import { invalidateCompletenessRules, invalidateCustomFieldDefinitions, invalidateNotifications } from "./queryInvalidation.js";
 import LicensesPage from "./components/pages/LicensesPage.jsx";
 import InvoiceConfirmModal from "./components/licenses/InvoiceConfirmModal.jsx";
 import { createManualEntryData } from "./constants/licenseData.js";
@@ -141,7 +141,7 @@ export default function AppRouter({
         </Suspense>
       )}
 
-      {page === "notifications" && currentUser.role !== "viewer" && (
+      {page === "notifications" && (
         <Suspense fallback={<div className="page-loading">Loading...</div>}>
           <NotificationsPage
             notifications={notifications}
@@ -154,7 +154,7 @@ export default function AppRouter({
 
       {page === "settings" && (
         <Suspense fallback={<div className="page-loading">Loading...</div>}>
-          <SettingsPage userSettings={userSettings} setUserSettings={setUserSettings} globalSettings={globalSettings} setGlobalSettings={setGlobalSettings} user={currentUser} onError={showError} onToast={showToast} onRefreshLicenses={() => queryClient.invalidateQueries({ queryKey: queryKeys.licenses })} onRefreshNotifications={() => invalidateNotifications(queryClient)} onCompletenessRulesChanged={() => invalidateCompletenessRules(queryClient)} navGuard={{ navigate: setPage, registerNavGuard: handleRegisterNavGuard, discard: handleSettingsDiscard, sectionSaved: handleSectionSaved }} _mySettingsOnly={true} />
+          <SettingsPage userSettings={userSettings} setUserSettings={setUserSettings} globalSettings={globalSettings} setGlobalSettings={setGlobalSettings} user={currentUser} onError={showError} onToast={showToast} onRefreshLicenses={() => queryClient.invalidateQueries({ queryKey: queryKeys.licenses })} onRefreshNotifications={() => invalidateNotifications(queryClient)} onCompletenessRulesChanged={() => invalidateCompletenessRules(queryClient)} onCustomFieldsChanged={() => invalidateCustomFieldDefinitions(queryClient)} navGuard={{ navigate: setPage, registerNavGuard: handleRegisterNavGuard, discard: handleSettingsDiscard, sectionSaved: handleSectionSaved }} _mySettingsOnly={true} />
         </Suspense>
       )}
 
@@ -171,6 +171,7 @@ export default function AppRouter({
             onRefreshLicenses={() => queryClient.invalidateQueries({ queryKey: queryKeys.licenses })}
             onRefreshNotifications={() => invalidateNotifications(queryClient)}
             onCompletenessRulesChanged={() => invalidateCompletenessRules(queryClient)}
+            onCustomFieldsChanged={() => invalidateCustomFieldDefinitions(queryClient)}
             navGuard={{
               navigate: setPage,
               registerNavGuard: handleRegisterNavGuard,
@@ -184,7 +185,7 @@ export default function AppRouter({
 
       {page === "user-settings" && (
         <Suspense fallback={<div className="page-loading">Loading...</div>}>
-          <SettingsPage userSettings={userSettings} setUserSettings={setUserSettings} globalSettings={globalSettings} setGlobalSettings={setGlobalSettings} user={currentUser} onError={showError} onToast={showToast} onRefreshLicenses={() => queryClient.invalidateQueries({ queryKey: queryKeys.licenses })} onRefreshNotifications={() => invalidateNotifications(queryClient)} onCompletenessRulesChanged={() => invalidateCompletenessRules(queryClient)} navGuard={{ navigate: setPage, registerNavGuard: handleRegisterNavGuard, discard: handleSettingsDiscard, sectionSaved: handleSectionSaved }} _mySettingsOnly={true} />
+          <SettingsPage userSettings={userSettings} setUserSettings={setUserSettings} globalSettings={globalSettings} setGlobalSettings={setGlobalSettings} user={currentUser} onError={showError} onToast={showToast} onRefreshLicenses={() => queryClient.invalidateQueries({ queryKey: queryKeys.licenses })} onRefreshNotifications={() => invalidateNotifications(queryClient)} onCompletenessRulesChanged={() => invalidateCompletenessRules(queryClient)} onCustomFieldsChanged={() => invalidateCustomFieldDefinitions(queryClient)} navGuard={{ navigate: setPage, registerNavGuard: handleRegisterNavGuard, discard: handleSettingsDiscard, sectionSaved: handleSectionSaved }} _mySettingsOnly={true} />
         </Suspense>
       )}
 

@@ -6,9 +6,9 @@ import ConfirmDialog from "../../ui/ConfirmDialog.jsx";
 import { SectionHeader } from "../SectionShared.jsx";
 
 const CUSTOM_FIELD_TYPE_LABELS = { text: "Text", currency: "Currency", date: "Date", boolean: "True/False" };
-const CUSTOM_FIELD_SECTION_KEYS = ["identity", "dates", "commercial", "people", "documents", "notes"];
+const CUSTOM_FIELD_SECTION_KEYS = ["identity", "dates", "commercial", "people", "documents", "maintenance", "notes"];
 
-export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError, onToast }) {
+export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError, onToast, onCustomFieldsChanged }) {
   const [customFields, setCustomFields] = useState([]);
   const [customFieldsLoading, setCustomFieldsLoading] = useState(false);
   const [customFieldsSaving, setCustomFieldsSaving] = useState(false);
@@ -34,6 +34,7 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
     if (error) { onError(error); return; }
     setCustomFields(prev => [...prev, data]);
     setNewFieldName(""); setNewFieldType("text"); setShowAddField(false);
+    onCustomFieldsChanged?.();
     onToast("Custom field added.", "info");
   };
 
@@ -42,6 +43,7 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
     const { data, error } = await deleteCustomField(deleteFieldPending.id);
     if (error) { onError(error); setDeleteFieldPending(null); return; }
     setCustomFields(prev => prev.filter(f => f.id !== deleteFieldPending.id));
+    onCustomFieldsChanged?.();
     onToast(`Field "${deleteFieldPending.name}" deleted.${data?.affectedLicenses ? ` ${data.affectedLicenses} license value(s) removed.` : ""}`, "info");
     setDeleteFieldPending(null);
   };
@@ -49,19 +51,36 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
   const handleMoveCustomField = async (index, direction) => {
     const swapIndex = direction === "up" ? index - 1 : index + 1;
     if (swapIndex < 0 || swapIndex >= customFields.length) return;
+    const previous = customFields;
     const updated = [...customFields];
     const a = { ...updated[index], displayOrder: updated[swapIndex].displayOrder };
     const b = { ...updated[swapIndex], displayOrder: updated[index].displayOrder };
     updated[index] = a; updated[swapIndex] = b;
     updated.sort((x, y) => x.displayOrder - y.displayOrder);
     setCustomFields(updated);
-    await Promise.all([updateCustomField(a.id, { displayOrder: a.displayOrder }), updateCustomField(b.id, { displayOrder: b.displayOrder })]);
+    const results = await Promise.all([
+      updateCustomField(a.id, { displayOrder: a.displayOrder }),
+      updateCustomField(b.id, { displayOrder: b.displayOrder }),
+    ]);
+    const error = results.find((result) => result?.error)?.error;
+    if (error) {
+      onError(error);
+      setCustomFields(previous);
+      return;
+    }
+    onCustomFieldsChanged?.();
   };
 
   const handleUpdateCustomFieldSection = async (fieldId, section) => {
+    const previous = customFields;
     setCustomFields(prev => prev.map(f => f.id === fieldId ? { ...f, section } : f));
     const { error } = await updateCustomFieldSection(fieldId, section);
-    if (error) { onError(error); setCustomFields(prev => prev.map(f => f.id === fieldId ? { ...f, section: f.section } : f)); }
+    if (error) {
+      onError(error);
+      setCustomFields(previous);
+      return;
+    }
+    onCustomFieldsChanged?.();
   };
 
   return (

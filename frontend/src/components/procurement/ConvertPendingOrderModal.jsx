@@ -174,11 +174,16 @@ const ConvertPendingOrderModal = ({
 
   const onSubmit = useCallback(async (data) => {
     setSaving(true);
-    const licenseData = buildPendingOrderConversionPayload(data, userSettings);
-    await onConfirm(licenseData, invoiceFile);
-    reset();
-    setInvoiceFile(null);
-    setSaving(false);
+    try {
+      const licenseData = buildPendingOrderConversionPayload(data, userSettings);
+      const confirmed = await onConfirm(licenseData, invoiceFile);
+      if (confirmed) {
+        reset();
+        setInvoiceFile(null);
+      }
+    } finally {
+      setSaving(false);
+    }
   }, [onConfirm, reset, invoiceFile, userSettings]);
 
   return (

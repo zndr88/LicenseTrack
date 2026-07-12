@@ -26,6 +26,10 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
   const [processingReviewBusy, setProcessingReviewBusy] = useState(null);
   const [processingRequestPending, setProcessingRequestPending] = useState(false);
   const processingPollRef = useRef(null);
+  const latestLicenseIdRef = useRef(license.id);
+  const documentsRequestRef = useRef(0);
+  const processingRequestRef = useRef(0);
+  latestLicenseIdRef.current = license.id;
 
   const stopProcessingPoll = () => {
     if (processingPollRef.current) {
@@ -35,15 +39,21 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
   };
 
   const loadDocuments = async () => {
+    const licenseId = license.id;
+    const requestId = ++documentsRequestRef.current;
     setDocsLoading(true);
-    const { data } = await getDocuments(license.id);
+    const { data } = await getDocuments(licenseId);
+    if (requestId !== documentsRequestRef.current || latestLicenseIdRef.current !== licenseId) return;
     setDocsLoading(false);
     if (data) setDocuments(data);
   };
 
   const loadProcessingResults = async ({ showLoading = true } = {}) => {
+    const licenseId = license.id;
+    const requestId = ++processingRequestRef.current;
     if (showLoading) setProcessingResultsLoading(true);
-    const { data } = await listDocumentProcessingResults({ licenseId: license.id });
+    const { data } = await listDocumentProcessingResults({ licenseId });
+    if (requestId !== processingRequestRef.current || latestLicenseIdRef.current !== licenseId) return [];
     if (showLoading) setProcessingResultsLoading(false);
     if (data) {
       const pending = data.filter((result) => result.status === "pending");
@@ -60,6 +70,9 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
 
   useEffect(() => {
     stopProcessingPoll();
+    setDocuments(null);
+    setProcessingResults([]);
+    setProcessingResultHistory([]);
     setProcessingRequestPending(false);
     loadDocuments();
     loadProcessingResults();

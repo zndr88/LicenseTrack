@@ -1,12 +1,12 @@
 """
 Custom fields routes.
 
-Definitions router (admin only):
-GET    /api/custom-fields          — list all definitions
-POST   /api/custom-fields          — create definition (201)
-GET    /api/custom-fields/{id}     — get single definition
-PATCH  /api/custom-fields/{id}     — update definition
-DELETE /api/custom-fields/{id}     — delete definition + cascade values
+Definitions router:
+GET    /api/custom-fields          - list all definitions (authenticated)
+POST   /api/custom-fields          - create definition (admin only, 201)
+GET    /api/custom-fields/{id}     - get single definition (authenticated)
+PATCH  /api/custom-fields/{id}     - update definition (admin only)
+DELETE /api/custom-fields/{id}     - delete definition + cascade values (admin only)
 
 Values router (any authenticated user):
 GET    /api/licenses/{license_id}/custom-fields   — get all values for license
@@ -36,20 +36,19 @@ from app.services.access_service import can_view_license, get_user_departments_f
 from app.services.audit_service import log_event
 
 # ---------------------------------------------------------------------------
-# Definitions router — admin only
+# Definitions router
 # ---------------------------------------------------------------------------
 
 definitions_router = APIRouter(
     prefix="/api/custom-fields",
     tags=["custom-fields"],
-    dependencies=[Depends(require_admin)],
 )
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
 @definitions_router.get("/", response_model=list[CustomFieldDefinitionResponse])
-async def list_definitions(db: DbSession):
+async def list_definitions(db: DbSession, _current_user: CurrentUser):
     return await custom_fields_service.get_all_definitions(db)
 
 
@@ -77,7 +76,7 @@ async def create_definition(
 
 
 @definitions_router.get("/{def_id}", response_model=CustomFieldDefinitionResponse)
-async def get_definition(def_id: int, db: DbSession):
+async def get_definition(def_id: int, db: DbSession, _current_user: CurrentUser):
     definition = await custom_fields_service.get_definition_by_id(db, def_id)
     if definition is None:
         from fastapi import HTTPException

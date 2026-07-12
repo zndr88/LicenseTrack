@@ -31,6 +31,8 @@ export function normalizeGlobalSettings(data, current) {
     backupHour: data.backup_hour ?? current.backupHour,
     backupKeep: data.backup_keep ?? current.backupKeep,
     auditLogRetentionDays: data.audit_log_retention_days ?? current.auditLogRetentionDays,
+    highValueThreshold: data.high_value_threshold !== undefined ? Number(data.high_value_threshold) : current.highValueThreshold,
+    fiscalYearStartMonth: data.fiscal_year_start_month ?? current.fiscalYearStartMonth,
     emailEnabled: data.email_enabled ?? current.emailEnabled,
     oidcEnabled: data.oidc_enabled ?? current.oidcEnabled,
     oidcAvailable: data.oidc_available ?? current.oidcAvailable,
@@ -40,6 +42,8 @@ export function normalizeGlobalSettings(data, current) {
     emailTemplateBudgetOwnerIntro: data.email_template_budget_owner_intro ?? current.emailTemplateBudgetOwnerIntro ?? "",
     emailTemplateBudgetOwnerSignoff: data.email_template_budget_owner_signoff ?? current.emailTemplateBudgetOwnerSignoff ?? "",
     emailTemplateManagerIntro: data.email_template_manager_intro ?? current.emailTemplateManagerIntro ?? "",
+    lastBackupStatus: data.last_backup_status ?? current.lastBackupStatus,
+    lastBackupAt: data.last_backup_at ?? current.lastBackupAt,
   };
 }
 

@@ -48,6 +48,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
   const [attachedFile, setAttachedFile] = useState(null);
   const [attachedFileBase64, setAttachedFileBase64] = useState(null);
   const [slotHasActions, setSlotHasActions] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose: onCancel });
 
@@ -81,12 +82,22 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
   const addItem = () => setItems((prev) => [...prev, emptyItem()]);
   const removeItem = (id) => setItems((prev) => prev.length > 1 ? prev.filter((i) => i.id !== id) : prev);
 
-  const onSubmit = (data) => {
-    reset();
-    if (isNewOrder) {
-      onSave({ ...data, items, quoteFile: attachedFile || null });
-    } else {
-      onSave(data);
+  const onSubmit = async (data) => {
+    setSaving(true);
+    try {
+      if (isNewOrder) {
+        const saved = await onSave({ ...data, items, quoteFile: attachedFile || null });
+        if (saved) {
+          reset();
+          setItems([emptyItem()]);
+          handleFileChange(null);
+        }
+      } else {
+        const saved = await onSave(data);
+        if (saved) reset();
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -99,9 +110,9 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
         modalStyle={{ maxWidth: isNewOrder ? "min(640px, 96vw)" : "min(480px, 92vw)" }}
         footer={(
           <>
-            <button className="btn btn-g" onClick={requestClose}>Cancel</button>
-            <button className="btn btn-p" disabled={!canSave} onClick={handleSubmit(onSubmit)}>
-              {isNewOrder && items.filter((i) => i.publisherName.trim()).length > 0
+            <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
+            <button className="btn btn-p" disabled={!canSave || saving} onClick={handleSubmit(onSubmit)}>
+              {saving ? "Saving..." : isNewOrder && items.filter((i) => i.publisherName.trim()).length > 0
                 ? `Save PO + ${items.filter((i) => i.publisherName.trim()).length} Item${items.filter((i) => i.publisherName.trim()).length > 1 ? "s" : ""}`
                 : "Save"}
             </button>

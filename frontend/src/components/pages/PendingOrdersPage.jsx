@@ -38,6 +38,7 @@ export default function PendingOrdersPage({
     handleUploadPurchaseOrderDocument,
     handleDownloadPurchaseOrderDocument,
     handleDownloadSourcingQuote,
+    handleRetryEvidenceTransfer,
     handleBatchConvert,
     handleExportPendingOrdersCsv,
   } = usePendingOrdersData({
@@ -152,6 +153,7 @@ export default function PendingOrdersPage({
             onUploadPurchaseOrder={handleOpenPurchaseOrderUpload}
             onDownloadPurchaseOrder={handleDownloadPurchaseOrderDocument}
             onDownloadQuote={handleDownloadSourcingQuote}
+            onRetryEvidenceTransfer={handleRetryEvidenceTransfer}
             onOpenAddItems={(po) => setShowAddPOItemsModal({ order: po })}
             onOpenConvert={(po) => setShowConvertToLicenseModal({
               order: po,
@@ -202,6 +204,7 @@ export default function PendingOrdersPage({
               ? await handleUpdatePendingOrder(showPendingOrderModal.order.id, { poNumber: payload.poNumber, supplier: payload.supplier, notes: payload.notes })
               : await handleCreatePendingOrder(payload);
             if (success) setShowPendingOrderModal(null);
+            return success;
           }}
         />
       )}
@@ -217,6 +220,7 @@ export default function PendingOrdersPage({
           onConfirm={async (licenseData, file) => {
             const ok = await handleConvertToLicense(showConvertToLicenseModal.order.id, licenseData, file);
             if (ok) setShowConvertToLicenseModal(null);
+            return ok;
           }}
         />
       )}
@@ -246,6 +250,7 @@ export default function PendingOrdersPage({
               payload,
             );
             if (success) setShowEditPOItemModal(null);
+            return success;
           }}
         />
       )}

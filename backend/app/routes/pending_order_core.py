@@ -35,8 +35,14 @@ async def list_pending_orders(
     _editor: User = Depends(require_editor_or_admin),
     limit: int | None = Query(default=None, ge=1),
     offset: int = Query(default=0, ge=0),
+    include_evidence_issues: bool = Query(default=False),
 ) -> list[PendingOrderResponse]:
-    orders = await list_pending_order_records(db, limit=limit, offset=offset)
+    orders = await list_pending_order_records(
+        db,
+        limit=limit,
+        offset=offset,
+        include_evidence_issues=include_evidence_issues,
+    )
     return [to_pending_order_response(order) for order in orders]
 
 

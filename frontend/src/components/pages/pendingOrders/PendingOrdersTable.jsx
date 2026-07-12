@@ -161,6 +161,7 @@ export default function PendingOrdersTable({
   onUploadPurchaseOrder,
   onDownloadPurchaseOrder,
   onDownloadQuote,
+  onRetryEvidenceTransfer,
   onOpenAddItems,
   onOpenConvert,
   onOpenConvertAll,
@@ -208,8 +209,17 @@ export default function PendingOrdersTable({
               const isExpanded = expandedPendingOrderId === po.id;
               const canDelete = po.status === "pending";
               const isInvoiceReceived = po.status === "invoice_received";
-              const statusLabel = isInvoiceReceived ? "Invoice Received" : "Pending";
-              const statusClass = isInvoiceReceived ? "badge-green" : "badge-pending";
+              const evidenceStatus = po.evidenceTransferStatus ?? po.evidence_transfer_status;
+              const evidenceDetail = po.evidenceTransferDetail ?? po.evidence_transfer_detail;
+              const canRetryEvidence = po.status === "converted" && ["failed", "pending"].includes(evidenceStatus);
+              const statusLabel = po.status === "converted"
+                ? (evidenceStatus === "failed" ? "Evidence Failed" : evidenceStatus === "pending" ? "Evidence Pending" : evidenceStatus === "escalated" ? "Evidence Escalated" : "Converted")
+                : isInvoiceReceived ? "Invoice Received" : "Pending";
+              const statusClass = evidenceStatus === "failed" || evidenceStatus === "escalated"
+                ? "badge-red"
+                : evidenceStatus === "pending"
+                  ? "badge-pending"
+                  : isInvoiceReceived || po.status === "converted" ? "badge-green" : "badge-pending";
 
               return (
                 <React.Fragment key={po.id}>
@@ -244,6 +254,11 @@ export default function PendingOrdersTable({
                         <span className="badge-dot" />
                         {statusLabel}
                       </span>
+                      {evidenceDetail && (
+                        <div style={{ marginTop: 4, maxWidth: 220, fontSize: 10, color: "var(--text-3)" }}>
+                          {evidenceDetail}
+                        </div>
+                      )}
                     </td>
                     <td onClick={(event) => event.stopPropagation()}>
                       <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", alignItems: "center", justifyContent: "flex-start" }}>
@@ -290,6 +305,15 @@ export default function PendingOrdersTable({
                             onClick={() => onOpenConvertAll(po)}
                           >
                             <Icon name="check" size={12} />Convert
+                          </button>
+                        )}
+                        {perms.canEdit && canRetryEvidence && (
+                          <button
+                            className="btn btn-g"
+                            style={{ padding: "4px 6px", fontSize: 11 }}
+                            onClick={() => onRetryEvidenceTransfer(po.id)}
+                          >
+                            <Icon name="refresh" size={12} />Retry Evidence
                           </button>
                         )}
                         {perms.canDelete && (

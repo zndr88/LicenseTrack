@@ -14,6 +14,7 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
   const [emailTemplatesOpen, setEmailTemplatesOpen] = useState(false);
   const [emailTemplateDraft, setEmailTemplateDraft] = useState({ emailTemplateBudgetOwnerIntro: "", emailTemplateBudgetOwnerSignoff: "", emailTemplateManagerIntro: "" });
   const [emailTemplatesSaving, setEmailTemplatesSaving] = useState(false);
+  const unsavedSettingsMessage = "Save email settings before testing or sending notifications.";
 
   const handleSave = async () => {
     const schema = globalSettings.emailEnabled ? smtpConnectionSchema : smtpSaveSchema;
@@ -42,6 +43,7 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
   };
 
   const handleTestEmail = async () => {
+    if (isDirty) { onError(unsavedSettingsMessage); return; }
     const validation = smtpConnectionSchema.safeParse({
       smtpHost: globalSettings.smtpHost,
       smtpPort: globalSettings.smtpPort,
@@ -56,6 +58,7 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
   };
 
   const handleTriggerNotifications = async () => {
+    if (isDirty) { onError(unsavedSettingsMessage); return; }
     setTriggeringSending(true);
     const { data, error } = await triggerNotifications();
     setTriggeringSending(false);
@@ -134,11 +137,11 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
                 <Toggle value={globalSettings.smtpUseTls} onChange={v => { setGlobalSettings(s => ({ ...s, smtpUseTls: v })); markDirty("smtp"); }} />
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                <button className="btn btn-g" onClick={handleTestEmail} disabled={testEmailSending}>
-                  <Icon name="mail" size={14} /> {testEmailSending ? "Sending…" : "Send Test Email"}
+                <button className="btn btn-g" onClick={handleTestEmail} disabled={testEmailSending || isDirty} title={isDirty ? unsavedSettingsMessage : undefined}>
+                  <Icon name="mail" size={14} /> {testEmailSending ? "Sending..." : "Send Test Email"}
                 </button>
-                <button className="btn btn-g" onClick={handleTriggerNotifications} disabled={triggeringSending || !globalSettings.emailEnabled} title={!globalSettings.emailEnabled ? "Enable email notifications to use this feature" : undefined}>
-                  <Icon name="bell" size={14} /> {triggeringSending ? "Sending…" : "Send Notifications Now"}
+                <button className="btn btn-g" onClick={handleTriggerNotifications} disabled={triggeringSending || !globalSettings.emailEnabled || isDirty} title={isDirty ? unsavedSettingsMessage : !globalSettings.emailEnabled ? "Enable email notifications to use this feature" : undefined}>
+                  <Icon name="bell" size={14} /> {triggeringSending ? "Sending..." : "Send Notifications Now"}
                 </button>
                 <button type="button" className="btn btn-g" onClick={handleOpenEmailTemplates} style={{ fontSize: 13 }}>
                   <Icon name="mail" size={13} /> Edit Email Templates

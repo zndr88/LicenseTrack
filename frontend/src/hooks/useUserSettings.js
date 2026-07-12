@@ -53,13 +53,18 @@ export function useUserSettings({
     ];
     setUserSettings((s) => ({ ...s, savedViews: updatedViews }));
     const ok = await commitSettings({ saved_views: updatedViews });
+    if (!ok) {
+      setUserSettings(userSettings);
+      return;
+    }
     if (ok) showSuccess("View saved.");
   }, [userSettings, statusFilters, columnFilters, sortCol, sortDir, setUserSettings, showSuccess, commitSettings]);
 
   const handleDeleteView = useCallback(async (name) => {
     const updatedViews = userSettings.savedViews.filter((v) => v.name !== name);
     setUserSettings((s) => ({ ...s, savedViews: updatedViews }));
-    await commitSettings({ saved_views: updatedViews });
+    const ok = await commitSettings({ saved_views: updatedViews });
+    if (!ok) setUserSettings(userSettings);
   }, [userSettings, setUserSettings, commitSettings]);
 
   const handleLoadView = useCallback(async (view) => {
@@ -76,16 +81,24 @@ export function useUserSettings({
     setSortCol(view.sortCol ?? null);
     setSortDir(view.sortDir ?? "asc");
 
-    await commitSettings({
+    const ok = await commitSettings({
       visible_in_list: newVisibleInList,
       column_order: newColumnOrder,
     });
-  }, [userSettings, setStatusFilters, setColumnFilters, setUserSettings, setSortCol, setSortDir, commitSettings]);
+    if (!ok) {
+      if (view.statusFilters) setStatusFilters(statusFilters);
+      setColumnFilters(columnFilters);
+      setUserSettings(userSettings);
+      setSortCol(sortCol ?? null);
+      setSortDir(sortDir);
+    }
+  }, [userSettings, statusFilters, columnFilters, sortCol, sortDir, setStatusFilters, setColumnFilters, setUserSettings, setSortCol, setSortDir, commitSettings]);
 
   const handleHideColumn = useCallback(async (colKey) => {
     const updatedVisList = { ...userSettings.visibleInList, [colKey]: false };
     setUserSettings((s) => ({ ...s, visibleInList: updatedVisList }));
-    await commitSettings({ visible_in_list: updatedVisList });
+    const ok = await commitSettings({ visible_in_list: updatedVisList });
+    if (!ok) setUserSettings(userSettings);
   }, [userSettings, setUserSettings, commitSettings]);
 
   const handleRevertToDefault = useCallback(async () => {
@@ -101,11 +114,18 @@ export function useUserSettings({
     setSortCol(null);
     setSortDir("asc");
 
-    await commitSettings({
+    const ok = await commitSettings({
       visible_in_list: defaultVisibleInList,
       column_order: [],
     });
-  }, [setStatusFilters, setColumnFilters, setUserSettings, setSortCol, setSortDir, commitSettings]);
+    if (!ok) {
+      setStatusFilters(statusFilters);
+      setColumnFilters(columnFilters);
+      setUserSettings(userSettings);
+      setSortCol(sortCol ?? null);
+      setSortDir(sortDir);
+    }
+  }, [userSettings, statusFilters, columnFilters, sortCol, sortDir, setStatusFilters, setColumnFilters, setUserSettings, setSortCol, setSortDir, commitSettings]);
 
   return {
     handleSaveView,

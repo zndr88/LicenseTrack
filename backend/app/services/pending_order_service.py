@@ -8,12 +8,12 @@ preserving the existing business rules around deletions and item creation.
 from __future__ import annotations
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.document import ProcurementDocument
-from app.models.pending_order import PendingOrder, PendingOrderStatus
+from app.models.pending_order import EvidenceTransferStatus, PendingOrder, PendingOrderStatus
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.pending_order import PendingOrderCreate, PendingOrderResponse, PendingOrderUpdate, SourcingItemSummary
@@ -66,10 +66,25 @@ async def list_pending_order_records(
     *,
     limit: int | None,
     offset: int,
+    include_evidence_issues: bool = False,
 ) -> list[PendingOrder]:
+    status_filter = PendingOrder.status != PendingOrderStatus.converted
+    if include_evidence_issues:
+        status_filter = or_(
+            status_filter,
+            (
+                (PendingOrder.status == PendingOrderStatus.converted)
+                & PendingOrder.evidence_transfer_status.in_([
+                    EvidenceTransferStatus.pending,
+                    EvidenceTransferStatus.failed,
+                    EvidenceTransferStatus.escalated,
+                ])
+            ),
+        )
+
     query = (
         select(PendingOrder)
-        .where(PendingOrder.status != PendingOrderStatus.converted)
+        .where(status_filter)
         .options(
             selectinload(PendingOrder.items)
             .selectinload(SourcingItem.sourcing_request)

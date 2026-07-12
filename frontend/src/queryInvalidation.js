@@ -30,6 +30,15 @@ export function invalidateCompletenessRules(queryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
 }
 
+// Invalidate queries affected by custom field definition changes.
+// Covers reusable definitions plus license/workbench views that render custom
+// field columns and sections from those definitions.
+export function invalidateCustomFieldDefinitions(queryClient) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.customFieldDefs });
+  queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
+  queryClient.invalidateQueries({ queryKey: queryKeys.renewals });
+}
+
 // Invalidate the contracts query.
 // Used after creating a contract or closing the contract modal after edits.
 export function invalidateContracts(queryClient) {

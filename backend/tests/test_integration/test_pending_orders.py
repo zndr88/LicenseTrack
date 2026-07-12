@@ -9,7 +9,7 @@ from app.config import settings
 from app.models.license import License
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.services import storage as _storage_module
-from app.models.pending_order import PendingOrder
+from app.models.pending_order import EvidenceTransferStatus, PendingOrder, PendingOrderStatus
 
 
 def _minimal_license_payload(**overrides) -> dict:
@@ -143,6 +143,40 @@ async def test_sourcing_item_list_hides_items_under_converted_requests(test_app,
 
     assert "Visible App" in descriptions
     assert "Floating App" not in descriptions
+
+
+async def test_pending_order_list_can_include_converted_evidence_issues(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    order_resp = await test_app.post(
+        "/api/pending-orders",
+        json={"poNumber": "PO-EVIDENCE-ISSUE", "supplier": "Evidence Supplier"},
+        headers=auth_headers,
+    )
+    assert order_resp.status_code == 201, order_resp.text
+    order_id = order_resp.json()["id"]
+
+    order = await db_session.get(PendingOrder, order_id)
+    order.status = PendingOrderStatus.converted
+    order.evidence_transfer_status = EvidenceTransferStatus.failed
+    order.evidence_transfer_detail = "storage failed"
+    await db_session.commit()
+
+    default_resp = await test_app.get("/api/pending-orders", headers=auth_headers)
+    assert default_resp.status_code == 200, default_resp.text
+    assert order_id not in {item["id"] for item in default_resp.json()}
+
+    issue_resp = await test_app.get(
+        "/api/pending-orders?include_evidence_issues=true",
+        headers=auth_headers,
+    )
+    assert issue_resp.status_code == 200, issue_resp.text
+    issue_orders = {item["id"]: item for item in issue_resp.json()}
+    assert issue_orders[order_id]["status"] == "converted"
+    assert issue_orders[order_id]["evidenceTransferStatus"] == "failed"
+    assert issue_orders[order_id]["evidenceTransferDetail"] == "storage failed"
 
 
 async def test_converted_sourcing_item_update_delete_and_reconvert_are_rejected(test_app, auth_headers):

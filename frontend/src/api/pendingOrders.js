@@ -1,6 +1,13 @@
 import { del, get, post, put } from "./client.js";
 
-export const getPendingOrders = () => get("/api/pending-orders");
+export function getPendingOrders(options = {}) {
+  const params = new URLSearchParams();
+  if (options.limit != null) params.set("limit", String(options.limit));
+  if (options.offset != null) params.set("offset", String(options.offset));
+  if (options.includeEvidenceIssues) params.set("include_evidence_issues", "true");
+  const query = params.toString();
+  return get(`/api/pending-orders${query ? `?${query}` : ""}`);
+}
 export const getPendingOrder = (id) => get(`/api/pending-orders/${id}`);
 export const createPendingOrder = (data) => post("/api/pending-orders", data);
 export const updatePendingOrder = (id, data) => put(`/api/pending-orders/${id}`, data);
@@ -44,6 +51,10 @@ export async function convertPendingOrder(id, licenseData, file = null) {
 
 export function batchConvertPendingOrder(id, items) {
   return post(`/api/pending-orders/${id}/convert-all`, items);
+}
+
+export function retryPendingOrderEvidenceTransfer(id) {
+  return post(`/api/pending-orders/${id}/retry-evidence-transfer`);
 }
 
 export const addItemsToPendingOrderBulk = (poId, items) =>

@@ -13,6 +13,7 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
   const [localOrders, setLocalOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState("");
+  const [converting, setConverting] = useState(false);
 
   const {
     register,
@@ -55,12 +56,20 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
 
   const handleConfirm = () => {
     if (mode === "new") {
-      handleSubmit((data) => {
-        reset();
-        onConfirm({ poNumber: data.poNumber.trim(), supplier: data.supplier || null, notes: data.notes || null });
+      handleSubmit(async (data) => {
+        setConverting(true);
+        try {
+          const converted = await onConfirm({ poNumber: data.poNumber.trim(), supplier: data.supplier || null, notes: data.notes || null });
+          if (converted) reset();
+        } finally {
+          setConverting(false);
+        }
       })();
     } else {
-      onConfirm({ pendingOrderId: Number(selectedOrderId) });
+      setConverting(true);
+      Promise.resolve(onConfirm({ pendingOrderId: Number(selectedOrderId) }))
+        .catch(() => false)
+        .finally(() => setConverting(false));
     }
   };
 
@@ -73,8 +82,10 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
         modalStyle={{ maxWidth: "min(520px, 92vw)" }}
         footer={(
           <>
-            <button className="btn btn-g" onClick={requestClose}>Cancel</button>
-            <button className="btn btn-p" disabled={!canConfirm} onClick={handleConfirm}>Convert</button>
+            <button className="btn btn-g" onClick={requestClose} disabled={converting}>Cancel</button>
+            <button className="btn btn-p" disabled={!canConfirm || converting} onClick={handleConfirm}>
+              {converting ? "Converting..." : "Convert"}
+            </button>
           </>
         )}
       >
