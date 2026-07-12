@@ -8,13 +8,25 @@ export function invalidateNotifications(queryClient) {
 }
 
 // Invalidate all queries affected by a renewal workflow mutation.
-// Covers licenses, sourcing, renewals, portfolio counts, and notifications.
+// Covers licenses, sourcing views/items, renewals, portfolio counts, and notifications.
 export function invalidateRenewalWorkflow(queryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
   queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
+  queryClient.invalidateQueries({ queryKey: queryKeys.sourcingItems });
   queryClient.invalidateQueries({ queryKey: queryKeys.renewals });
   queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
   queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
+  queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
+}
+
+// Invalidate queries whose computed completeness/notification data depends on
+// global mandatory-field settings.
+export function invalidateCompletenessRules(queryClient) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
+  queryClient.invalidateQueries({ queryKey: queryKeys.licenseStats });
+  queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
+  queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
+  queryClient.invalidateQueries({ queryKey: queryKeys.renewals });
   queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
 }
 

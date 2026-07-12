@@ -3,11 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType
-from app.models.sourcing import SourcingItem, SourcingStatus
+from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
 from app.services.audit_service import log_event
 from app.services.license_service import generate_license_ref
@@ -105,15 +105,36 @@ async def cancel_renewal(
             SourcingItem.status == SourcingStatus.sourcing,
         )
     )
-    sourcing_only = sourcing_result.scalar_one_or_none()
-    if sourcing_only is not None:
-        await db.delete(sourcing_only)
+    sourcing_only_items = list(sourcing_result.scalars().all())
+    affected_request_ids = {
+        item.sourcing_request_id
+        for item in sourcing_only_items
+        if item.sourcing_request_id is not None
+    }
+    for item in sourcing_only_items:
+        await db.delete(item)
+    if sourcing_only_items:
+        await db.flush()
+
+    if affected_request_ids:
+        empty_request_result = await db.execute(
+            select(SourcingRequest)
+            .outerjoin(SourcingItem, SourcingItem.sourcing_request_id == SourcingRequest.id)
+            .where(
+                SourcingRequest.id.in_(affected_request_ids),
+                SourcingRequest.status == SourcingStatus.sourcing,
+            )
+            .group_by(SourcingRequest.id)
+            .having(func.count(SourcingItem.id) == 0)
+        )
+        for request_obj in empty_request_result.scalars().all():
+            await db.delete(request_obj)
 
     po_result = await db.execute(
-        select(SourcingItem).where(
+        select(SourcingItem.id).where(
             SourcingItem.renewal_for_license_id == license_id,
             SourcingItem.status == SourcingStatus.converted,
-        )
+        ).limit(1)
     )
     po_warning = po_result.scalar_one_or_none() is not None
 
@@ -125,7 +146,7 @@ async def cancel_renewal(
         target_type="license",
         target_id=str(license_id),
         target_label=license_obj.software_description,
-        detail="sourcing item deleted" if sourcing_only is not None else None,
+        detail="sourcing item deleted" if sourcing_only_items else None,
     )
 
     return CancelRenewalResult(license=license_obj, po_warning=po_warning)

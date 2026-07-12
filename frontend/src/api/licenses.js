@@ -91,10 +91,10 @@ export async function bulkDeleteLicenses(ids) {
  * Cancel a pending renewal for a license.
  *
  * Clears lifecycle_status back to active and deletes the sourcing item if it
- * has not yet been promoted to a PO.  Returns { license, po_warning }.
+ * has not yet been promoted to a PO.  Returns { license, poWarning }.
  *
  * @param {number} licenseId
- * @returns {Promise<{ data: { license: object, po_warning: boolean } | null, error: string | null }>}
+ * @returns {Promise<{ data: { license: object, poWarning: boolean } | null, error: string | null }>}
  */
 export async function cancelRenewal(licenseId) {
   return post(`/api/licenses/${licenseId}/cancel-renewal`, {});

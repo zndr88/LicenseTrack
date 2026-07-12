@@ -4,7 +4,7 @@ import { mapResponseToState } from "../../../utils/settingsHelpers.js";
 import Toggle from "../../ui/Toggle.jsx";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
 
-export default function CompletenessSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, onError, onToast, onRefreshLicenses, navGuard }) {
+export default function CompletenessSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, onError, onToast, onRefreshLicenses, onCompletenessRulesChanged, navGuard }) {
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -15,7 +15,11 @@ export default function CompletenessSection({ isOpen, isDirty, onToggle, markDir
     setGlobalSettings(s => ({ ...s, ...mapResponseToState(data, s) }));
     navGuard?.sectionSaved?.({ global: mapResponseToState(data, globalSettings) });
     clearDirty("completeness");
-    if (onRefreshLicenses) onRefreshLicenses();
+    if (onCompletenessRulesChanged) {
+      onCompletenessRulesChanged();
+    } else if (onRefreshLicenses) {
+      onRefreshLicenses();
+    }
     onToast("Settings saved.", "info");
   };
 

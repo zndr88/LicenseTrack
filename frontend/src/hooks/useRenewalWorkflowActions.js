@@ -83,7 +83,7 @@ export function useRenewalWorkflowActions({
       ));
     }
 
-    if (data?.po_warning) {
+    if (data?.poWarning) {
       showError?.(PO_CANCEL_WARNING);
     } else {
       showToast?.("Renewal cancelled.", "info");

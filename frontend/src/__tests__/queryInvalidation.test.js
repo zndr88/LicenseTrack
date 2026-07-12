@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
 import {
+  invalidateCompletenessRules,
   invalidateContracts,
   invalidateNotifications,
   invalidateRenewalWorkflow,
@@ -28,9 +29,25 @@ describe("query invalidation helpers", () => {
     expect(queryClient.invalidateQueries.mock.calls.map(([arg]) => arg.queryKey)).toEqual([
       queryKeys.licenses,
       queryKeys.sourcing,
+      queryKeys.sourcingItems,
       queryKeys.renewals,
       queryKeys.portfolioStats,
       queryKeys.reportsPortfolioStats,
+      queryKeys.notifications,
+    ]);
+  });
+
+  test("invalidates every cache derived from completeness rules", () => {
+    const queryClient = makeQueryClient();
+
+    invalidateCompletenessRules(queryClient);
+
+    expect(queryClient.invalidateQueries.mock.calls.map(([arg]) => arg.queryKey)).toEqual([
+      queryKeys.licenses,
+      queryKeys.licenseStats,
+      queryKeys.portfolioStats,
+      queryKeys.reportsPortfolioStats,
+      queryKeys.renewals,
       queryKeys.notifications,
     ]);
   });

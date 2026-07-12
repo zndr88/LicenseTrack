@@ -47,7 +47,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   licensesApi.initiateRenewal.mockResolvedValue({ data: renewalResponse, error: null });
   licensesApi.cancelRenewal.mockResolvedValue({
-    data: { license, po_warning: false },
+    data: { license, poWarning: false },
     error: null,
   });
 });
@@ -82,7 +82,7 @@ describe("useRenewalWorkflowActions", () => {
   test("cancels renewal and reports pending-order cleanup warnings", async () => {
     const showError = vi.fn();
     licensesApi.cancelRenewal.mockResolvedValueOnce({
-      data: { license, po_warning: true },
+      data: { license, poWarning: true },
       error: null,
     });
     const { result } = renderRenewalActions({ showError });

@@ -24,6 +24,7 @@ import NotificationsSection from "../components/settings/sections/NotificationsS
 import SmtpSection from "../components/settings/sections/SmtpSection.jsx";
 import OidcSection from "../components/settings/sections/OidcSection.jsx";
 import BackupSection from "../components/settings/sections/BackupSection.jsx";
+import CompletenessSection from "../components/settings/sections/CompletenessSection.jsx";
 
 // ─── shared helpers ──────────────────────────────────────────────────────────
 
@@ -78,6 +79,27 @@ function baseBackupSettings(overrides = {}) {
   };
 }
 
+function baseCompletenessSettings(overrides = {}) {
+  return {
+    mandatoryFields: {
+      invoice: true,
+      purchaseOrder: true,
+      quote: false,
+      eula: false,
+      entitlement: false,
+      startDate: false,
+      endDate: false,
+      contractNumber: false,
+      poNumber: false,
+      invoiceNumber: false,
+      contactEmail: false,
+      costCentre: false,
+      budgetOwnerEmail: false,
+    },
+    ...overrides,
+  };
+}
+
 function sectionProps(globalSettings, overrides = {}) {
   return {
     isOpen: true,
@@ -95,6 +117,27 @@ function sectionProps(globalSettings, overrides = {}) {
 }
 
 // ─── NotificationsSection ────────────────────────────────────────────────────
+
+describe("CompletenessSection save side effects", () => {
+  beforeEach(() => {
+    updateGlobalSettings.mockReset();
+  });
+
+  test("refreshes derived completeness caches after a successful save", async () => {
+    updateGlobalSettings.mockResolvedValue({ data: {}, error: null });
+    const onCompletenessRulesChanged = vi.fn();
+
+    render(
+      <CompletenessSection
+        {...sectionProps(baseCompletenessSettings(), { onCompletenessRulesChanged })}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(onCompletenessRulesChanged).toHaveBeenCalledTimes(1));
+  });
+});
 
 describe("NotificationsSection validation", () => {
   beforeEach(() => {

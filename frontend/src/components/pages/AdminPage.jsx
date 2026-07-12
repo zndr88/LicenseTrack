@@ -10,6 +10,7 @@ export default function AdminPage({
   globalSettings, setGlobalSettings,
   user, onError, onToast,
   onRefreshLicenses, onRefreshNotifications,
+  onCompletenessRulesChanged,
   navGuard,
   currentUserId,
 }) {
@@ -54,6 +55,7 @@ export default function AdminPage({
             onToast={onToast}
             onRefreshLicenses={onRefreshLicenses}
             onRefreshNotifications={onRefreshNotifications}
+            onCompletenessRulesChanged={onCompletenessRulesChanged}
             navGuard={navGuard}
             _adminOnly={true}
             _hideHeader={true}
