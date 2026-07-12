@@ -2,7 +2,9 @@ from datetime import date, timedelta
 
 import bcrypt
 
+from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import License, LicenseMetric, LicenseType
+from app.models.pending_order import PendingOrder
 from app.models.settings import GlobalSettings
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
@@ -148,6 +150,43 @@ async def test_notifications_exclude_legacy_renewed_retired_and_exempt_records(
     assert "Renewed Expired" not in names
     assert "Retired Expired" not in names
     assert "Exempt Incomplete" not in names
+
+
+async def test_notifications_count_procurement_documents_for_completeness(
+    db_session, test_app, auth_headers
+):
+    db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}))
+    order = PendingOrder(po_number="PO-NOTIFY")
+    db_session.add(order)
+    await db_session.flush()
+    license_obj = _license(
+        software_description="Invoice Complete",
+        end_date=date.today() + timedelta(days=180),
+        pending_order_id=order.id,
+    )
+    db_session.add(license_obj)
+    await db_session.flush()
+    db_session.add(
+        ProcurementDocument(
+            po_number=order.po_number,
+            pending_order_id=order.id,
+            filename="procurement/invoice.pdf",
+            original_filename="invoice.pdf",
+            file_size=10,
+            mime_type="application/pdf",
+            category=ProcurementDocumentCategory.invoice,
+        )
+    )
+    await db_session.commit()
+
+    response = await test_app.get("/api/notifications", headers=auth_headers)
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert not [
+        row for row in rows
+        if row["software_name"] == "Invoice Complete" and row["type"] == "incomplete"
+    ]
 
 
 async def test_notification_visibility_respects_viewer_department_filter(

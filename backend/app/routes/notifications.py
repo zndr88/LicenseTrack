@@ -31,6 +31,7 @@ from app.models.user import UserRole
 from app.schemas.notification import NotificationItem
 from app.services.access_service import apply_department_filter, get_viewer_departments
 from app.services.license_service import compute_completeness
+from app.services.license_response_service import get_procurement_documents_by_scope
 from app.services.settings_service import get_global_settings
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
@@ -65,6 +66,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
         departments = await get_viewer_departments(current_user.id, db)
     result = await db.execute(apply_department_filter(query, departments))
     licenses = list(result.scalars().all())
+    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, licenses)
 
     today = date.today()
     notifications: list[NotificationItem] = []
@@ -74,7 +76,10 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
         if lic.lifecycle_status == "legacy":
             continue
 
-        docs = list(lic.documents)
+        docs = [
+            *list(lic.documents),
+            *procurement_documents_by_license_id.get(lic.id, []),
+        ]
         is_renewed = lic.lifecycle_status == "renewed"
 
         # ------------------------------------------------------------------
