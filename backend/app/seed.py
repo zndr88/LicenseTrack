@@ -12,9 +12,9 @@ Usage:
 import asyncio
 import logging
 
-import bcrypt
 from sqlalchemy import select
 
+from app import auth
 from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models import AuthProvider, GlobalSettings, User, UserRole, UserSettings
@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 
 def _hash_password(plain: str) -> str:
-    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+    return auth.hash_password(plain)
 
 
 async def seed() -> None:

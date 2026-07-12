@@ -158,7 +158,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 _UPLOAD_PATHS = ("/api/backup/restore", "/api/plugins/preview-install", "/api/plugins/install")
-_UPLOAD_PATH_SUFFIXES = ("/documents",)
+_UPLOAD_PATH_SUFFIXES = ("/documents", "/quote-documents")
 
 
 @app.middleware("http")

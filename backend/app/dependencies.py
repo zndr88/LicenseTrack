@@ -7,7 +7,7 @@ require_admin     — raises 403 unless the current user has the admin role.
 require_editor_or_admin — raises 403 if the current user is a viewer.
 """
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -26,9 +26,33 @@ from app.services.api_token_service import API_TOKEN_PREFIX, decode_scopes, hash
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def _required_api_token_scopes(method: str, path: str) -> set[str] | None:
+PLUGIN_DOCUMENT_TARGET_TYPES = {"license_document"}
+PLUGIN_LICENSE_TARGET_TYPES = {"license_draft"}
+PLUGIN_PROCUREMENT_TARGET_TYPES = {
+    "sourcing_item",
+    "sourcing_quote_draft",
+    "pending_order_draft",
+    "pending_order_item",
+    "pending_order_conversion",
+}
+
+
+async def _plugin_action_target_type(request: Request) -> str | None:
+    if request.method.upper() in {"GET", "HEAD", "OPTIONS"}:
+        return request.query_params.get("targetType") or request.query_params.get("target_type")
+    try:
+        payload: Any = await request.json()
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload.get("targetType") or payload.get("target_type")
+
+
+async def _required_api_token_scopes(request: Request) -> set[str] | None:
     """Return required API-token scopes, or None when the route does not support API tokens."""
-    method = method.upper()
+    method = request.method.upper()
+    path = request.url.path
     is_read = method in {"GET", "HEAD", "OPTIONS"}
 
     if path.startswith("/api/api-tokens"):
@@ -46,6 +70,17 @@ def _required_api_token_scopes(method: str, path: str) -> set[str] | None:
     if path.startswith("/api/document-actions"):
         return {"documents:read"} if is_read else {"documents:write"}
     if path.startswith("/api/plugin-actions"):
+        target_type = await _plugin_action_target_type(request)
+        if target_type in PLUGIN_PROCUREMENT_TARGET_TYPES:
+            return (
+                {"documents:read", "procurement:read"}
+                if is_read
+                else {"documents:write", "procurement:write"}
+            )
+        if target_type in PLUGIN_LICENSE_TARGET_TYPES:
+            return {"licenses:read"} if is_read else {"licenses:write"}
+        if target_type in PLUGIN_DOCUMENT_TARGET_TYPES:
+            return {"documents:read"} if is_read else {"documents:write"}
         return {"documents:read"} if is_read else {"documents:write"}
     if path.startswith("/api/plugin-suggestions"):
         if path.endswith("/accept"):
@@ -113,7 +148,7 @@ async def get_current_user(
             )
 
         token_scopes = set(decode_scopes(api_token))
-        required_scopes = _required_api_token_scopes(request.method, request.url.path)
+        required_scopes = await _required_api_token_scopes(request)
         if required_scopes is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

@@ -5,6 +5,7 @@ import json
 
 from sqlalchemy import select, text
 
+from app.config import settings
 from app.models.license import License
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.services import storage as _storage_module
@@ -754,6 +755,23 @@ async def test_sourcing_quote_document_download_and_delete(test_app, auth_header
     )
     assert list_resp.status_code == 200
     assert list_resp.json() == []
+
+
+async def test_sourcing_quote_upload_rejects_oversized_content_length(
+    test_app,
+    auth_headers,
+):
+    sourcing_item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Large Quote App")
+    request_id = sourcing_item["sourcingRequestId"]
+    oversized_cl = str(settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024 + 1)
+
+    resp = await test_app.post(
+        f"/api/sourcing/requests/{request_id}/quote-documents",
+        content=b"%PDF-1.4 small quote",
+        headers={**auth_headers, "content-length": oversized_cl},
+    )
+
+    assert resp.status_code == 413
 
 
 async def test_add_sourcing_request_item_and_convert_request(test_app, auth_headers):

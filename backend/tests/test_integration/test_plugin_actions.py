@@ -707,6 +707,64 @@ async def test_sourcing_item_slot_sends_scoped_context(test_app, db_session, aut
     assert unrelated_doc.id not in context["quoteDocumentIds"]
 
 
+async def test_api_token_procurement_plugin_actions_require_procurement_scopes(
+    test_app,
+    db_session,
+    auth_headers,
+):
+    await _install_enabled_slot_plugin(
+        db_session,
+        key="token-quote-parser",
+        slot="sourcing.item.edit.actions",
+        action_key="parseQuote",
+        handler="parse_quote",
+        granted_permissions=["actions:invoke", "procurement:read", "suggestions:sourcing_item:write"],
+    )
+    request = SourcingRequest(supplier="Token Scoped Supplier")
+    db_session.add(request)
+    await db_session.flush()
+    item = SourcingItem(
+        sourcing_request_id=request.id,
+        publisher_name="Token Scoped Publisher",
+        software_description="Token Scoped Suite",
+        quantity="1",
+        currency="EUR",
+    )
+    db_session.add(item)
+    await db_session.commit()
+
+    read_token_resp = await test_app.post(
+        "/api/api-tokens",
+        headers=auth_headers,
+        json={"name": "Document reader only", "scopes": ["documents:read"]},
+    )
+    assert read_token_resp.status_code == 201, read_token_resp.text
+    read_token_headers = {"Authorization": f"Bearer {read_token_resp.json()['token']}"}
+
+    list_response = await test_app.get(
+        f"/api/plugin-actions?slot=sourcing.item.edit.actions&targetType=sourcing_item&targetId={item.id}",
+        headers=read_token_headers,
+    )
+    assert list_response.status_code == 403
+    assert "procurement:read" in list_response.json()["detail"]
+
+    write_token_resp = await test_app.post(
+        "/api/api-tokens",
+        headers=auth_headers,
+        json={"name": "Document writer only", "scopes": ["documents:write"]},
+    )
+    assert write_token_resp.status_code == 201, write_token_resp.text
+    write_token_headers = {"Authorization": f"Bearer {write_token_resp.json()['token']}"}
+
+    invoke_response = await test_app.post(
+        "/api/plugin-actions/token-quote-parser/parseQuote/invoke",
+        headers=write_token_headers,
+        json={"targetType": "sourcing_item", "targetId": str(item.id)},
+    )
+    assert invoke_response.status_code == 403
+    assert "procurement:write" in invoke_response.json()["detail"]
+
+
 async def test_pending_order_conversion_rejects_unrelated_line_item_context(
     test_app,
     db_session,
