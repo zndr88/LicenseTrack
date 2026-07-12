@@ -47,6 +47,10 @@ const emptyAdditionalLine = () => ({
   currency: "EUR",
 });
 
+function normalizeOptionalNumber(value, settings) {
+  return (parseLocalizedNumber(value, settings) ?? value) || null;
+}
+
 const SourcingItemModal = ({
   item,
   requestId,
@@ -218,9 +222,9 @@ const SourcingItemModal = ({
           ...additionalLines.map((l) => ({
             publisherName: l.publisherName,
             softwareDescription: l.softwareDescription,
-            quantity: l.quantity || null,
-            estimatedUnitPrice: l.estimatedUnitPrice || null,
-            estimatedTotalPrice: l.estimatedTotalPrice || null,
+            quantity: normalizeOptionalNumber(l.quantity, userSettings),
+            estimatedUnitPrice: normalizeOptionalNumber(l.estimatedUnitPrice, userSettings),
+            estimatedTotalPrice: normalizeOptionalNumber(l.estimatedTotalPrice, userSettings),
             currency: l.currency || "EUR",
           })),
         ],

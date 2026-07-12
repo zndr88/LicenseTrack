@@ -804,6 +804,67 @@ async def test_license_draft_slot_creates_pending_draft_suggestion_without_savin
     assert draft_suggestion["suggestedFields"][0]["field"] == "publisherName"
 
 
+@pytest.mark.parametrize(
+    ("slot", "target_type", "permission"),
+    [
+        ("sourcing.quote.add.actions", "sourcing_quote_draft", "suggestions:sourcing_quote_draft:write"),
+        ("pendingOrder.add.actions", "pending_order_draft", "suggestions:pending_order_draft:write"),
+    ],
+)
+async def test_draft_procurement_suggestions_are_listed_without_response_validation_errors(
+    test_app,
+    db_session,
+    auth_headers,
+    monkeypatch,
+    slot,
+    target_type,
+    permission,
+):
+    plugin_key = f"{target_type.replace('_', '-')}-parser"
+    await _install_enabled_slot_plugin(
+        db_session,
+        key=plugin_key,
+        slot=slot,
+        action_key="parseDraft",
+        handler="parse_draft",
+        granted_permissions=["actions:invoke", permission],
+    )
+
+    async def fake_invoke(*_args, **_kwargs):
+        return {
+            "status": "ok",
+            "suggestions": [
+                {
+                    "targetType": target_type,
+                    "targetId": "new",
+                    "summary": "Draft procurement values",
+                    "fields": [
+                        {"field": "publisherName", "value": "Draft Publisher"},
+                        {"field": "softwareDescription", "value": "Draft Suite"},
+                    ],
+                }
+            ],
+        }
+
+    monkeypatch.setattr("app.services.plugin_action_service.invoke_plugin_runtime_action", fake_invoke)
+
+    response = await test_app.post(
+        f"/api/plugin-actions/{plugin_key}/parseDraft/invoke",
+        headers=auth_headers,
+        json={"targetType": target_type, "targetId": "new", "context": {}},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["suggestionsCreated"] == 1
+
+    list_response = await test_app.get("/api/plugin-suggestions?status=pending", headers=auth_headers)
+    assert list_response.status_code == 200, list_response.text
+    suggestion = next(row for row in list_response.json() if row["pluginKey"] == plugin_key)
+    assert suggestion["targetType"] == target_type
+    assert suggestion["licenseId"] is None
+    assert suggestion["suggestedFields"][0]["field"] == "publisherName"
+
+
 async def test_sourcing_slot_suggestion_can_store_multi_line_item_proposals(
     test_app,
     db_session,

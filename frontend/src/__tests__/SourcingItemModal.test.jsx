@@ -191,6 +191,31 @@ describe("onSave payload shape", () => {
       currency: "EUR",
     }));
   });
+
+  test("normalizes localized number fields for additional request lines", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderModal({ userSettings: { numberFormatLocale: "de-DE" } });
+
+    fireEvent.change(screen.getByPlaceholderText(/microsoft corporation/i), { target: { value: "Primary Pub" } });
+    fireEvent.change(screen.getByPlaceholderText(/microsoft 365/i), { target: { value: "Primary Suite" } });
+
+    await user.click(screen.getByRole("button", { name: /add additional license line/i }));
+    fireEvent.change(screen.getByPlaceholderText(/adobe inc/i), { target: { value: "Extra Pub" } });
+    fireEvent.change(screen.getByPlaceholderText(/adobe creative cloud/i), { target: { value: "Extra Suite" } });
+    fireEvent.change(screen.getByPlaceholderText(/e\.g\. 10/i), { target: { value: "1.000" } });
+    fireEvent.change(screen.getByPlaceholderText(/unit price/i), { target: { value: "1.234,50" } });
+    fireEvent.change(screen.getByPlaceholderText(/total price/i), { target: { value: "1.234.500,00" } });
+
+    await user.click(screen.getByRole("button", { name: /save 2 lines/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const payload = onSave.mock.calls[0][0];
+    expect(payload.items[1]).toEqual(expect.objectContaining({
+      quantity: "1000",
+      estimatedUnitPrice: "1234.50",
+      estimatedTotalPrice: "1234500.00",
+    }));
+  });
 });
 
 // ─── Dirty close guard ────────────────────────────────────────────────────────

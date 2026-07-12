@@ -10,6 +10,8 @@ PluginSuggestionTargetType = Literal[
     "license",
     "license_draft",
     "sourcing_item",
+    "sourcing_quote_draft",
+    "pending_order_draft",
     "pending_order_item",
     "pending_order_conversion",
 ]
