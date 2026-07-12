@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import CurrentUser, require_editor_or_admin
+from app.dependencies import require_editor_or_admin
 from app.models.license import License
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
@@ -33,7 +33,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 @router.get("", response_model=list[SourcingItemResponse])
 async def list_sourcing_items(
     db: DbSession,
-    _current_user: CurrentUser,
+    _editor: User = Depends(require_editor_or_admin),
     limit: int | None = Query(default=None, ge=1),
     offset: int = Query(default=0, ge=0),
 ) -> list[SourcingItemResponse]:
@@ -149,7 +149,7 @@ async def merge_coterm_sourcing_items(
 async def get_sourcing_item(
     item_id: int,
     db: DbSession,
-    _current_user: CurrentUser,
+    _editor: User = Depends(require_editor_or_admin),
 ) -> SourcingItemResponse:
     result = await db.execute(select(SourcingItem).where(SourcingItem.id == item_id))
     item = result.scalar_one_or_none()

@@ -249,6 +249,11 @@ async def delete_contract(
     docs = docs_result.scalars().all()
     stored_paths = [doc.filename for doc in docs]
 
+    await db.execute(
+        sa_update(License)
+        .where(License.contract_id == contract_id)
+        .values(contract_id=None)
+    )
     await db.delete(contract)
 
     ip = request.client.host if request.client else None

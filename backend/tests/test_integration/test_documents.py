@@ -17,7 +17,7 @@ from sqlalchemy import select
 import app.services.storage as _storage_module
 from app.config import settings
 from app.models.audit_log import AuditLog
-from app.models.document import Document, DocumentCategory
+from app.models.document import Document, DocumentCategory, ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import License, LicenseMetric, LicenseType
 from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.settings import GlobalSettings
@@ -675,6 +675,49 @@ async def test_viewer_cannot_download_document_outside_assigned_department(
 
     resp = await test_app.get(
         f"/api/documents/{document.id}/download",
+        headers=headers,
+    )
+
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Document not found"
+
+
+async def test_procurement_document_download_does_not_authorize_by_po_number_only(
+    db_session, test_app, patch_storage
+):
+    _, credentials = await _create_viewer(db_session, "po_fallback_viewer", ["IT"])
+    license_obj = License(
+        publisher_name="Acme",
+        software_description="Visible PO Suite",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        cost_centre="IT",
+        po_number="PO-SHARED",
+    )
+    db_session.add(license_obj)
+    await db_session.flush()
+
+    stored_path = "procurement/PO-SHARED/orphan.pdf"
+    target = patch_storage / stored_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b"%PDF-1.4 orphan procurement")
+    document = ProcurementDocument(
+        po_number="PO-SHARED",
+        pending_order_id=None,
+        license_id=None,
+        filename=stored_path,
+        original_filename="orphan.pdf",
+        file_size=26,
+        mime_type="application/pdf",
+        category=ProcurementDocumentCategory.purchase_order,
+    )
+    db_session.add(document)
+    await db_session.commit()
+    headers = await _login(test_app, credentials["username"], credentials["password"])
+
+    resp = await test_app.get(
+        f"/api/procurement-documents/{document.id}/download",
         headers=headers,
     )
 

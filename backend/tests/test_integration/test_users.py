@@ -1,8 +1,15 @@
 import bcrypt
 from sqlalchemy import select
 
+from app.models.api_token import ApiToken
+from app.models.contract import Contract, ContractDocument
+from app.models.document import Document, DocumentCategory, ProcurementDocument, ProcurementDocumentCategory
+from app.models.license import License, LicenseMetric, LicenseType
+from app.models.pending_order import PendingOrder
 from app.models.settings import UserSettings
+from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingRequest
 from app.models.user import AuthProvider, User, UserRole
+from app.models.webhook import WebhookEndpoint
 
 
 def _make_user(
@@ -97,6 +104,118 @@ async def test_last_local_admin_cannot_be_deleted(db_session, test_app):
 
     resp = await test_app.delete(f"/api/users/{user.id}", headers=headers)
     assert resp.status_code == 400
+
+
+async def test_delete_user_clears_related_creator_and_uploader_references(
+    db_session, test_app, auth_headers
+):
+    user = _make_user("delete_related_user", "password123", role=UserRole.editor)
+    db_session.add(user)
+    await db_session.flush()
+
+    license_obj = License(
+        publisher_name="Acme",
+        software_description="Created License",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        created_by=user.id,
+    )
+    pending_order = PendingOrder(po_number="PO-USER-DELETE", created_by=user.id)
+    sourcing_request = SourcingRequest(supplier="Acme", created_by=user.id)
+    contract = Contract(contract_number="C-USER-DELETE", publisher_name="Acme", created_by=user.id)
+    api_token = ApiToken(
+        name="User token",
+        token_hash="delete-related-token-hash",
+        token_prefix="delrel",
+        scopes="licenses:read",
+        created_by=user.id,
+    )
+    webhook = WebhookEndpoint(
+        name="User webhook",
+        url="https://example.test/hook",
+        secret="encrypted-secret",
+        events="*",
+        created_by=user.id,
+    )
+    db_session.add_all([license_obj, pending_order, sourcing_request, contract, api_token, webhook])
+    await db_session.flush()
+
+    sourcing_item = SourcingItem(
+        publisher_name="Acme",
+        software_description="Created Sourcing",
+        currency="EUR",
+        created_by=user.id,
+        sourcing_request_id=sourcing_request.id,
+        pending_order_id=pending_order.id,
+    )
+    document = Document(
+        license_id=license_obj.id,
+        filename="documents/user-delete/license.pdf",
+        original_filename="license.pdf",
+        file_size=1,
+        mime_type="application/pdf",
+        category=DocumentCategory.invoice,
+        uploaded_by=user.id,
+    )
+    procurement_document = ProcurementDocument(
+        po_number="PO-USER-DELETE",
+        pending_order_id=pending_order.id,
+        filename="procurement/user-delete/po.pdf",
+        original_filename="po.pdf",
+        file_size=1,
+        mime_type="application/pdf",
+        category=ProcurementDocumentCategory.purchase_order,
+        uploaded_by=user.id,
+    )
+    quote_document = SourcingQuoteDocument(
+        sourcing_request_id=sourcing_request.id,
+        filename="sourcing/user-delete/quote.pdf",
+        original_filename="quote.pdf",
+        file_size=1,
+        mime_type="application/pdf",
+        uploaded_by=user.id,
+    )
+    contract_document = ContractDocument(
+        contract_id=contract.id,
+        filename="contracts/user-delete/contract.pdf",
+        original_filename="contract.pdf",
+        file_size=1,
+        created_by=user.id,
+    )
+    db_session.add_all([sourcing_item, document, procurement_document, quote_document, contract_document])
+    await db_session.commit()
+    ids = {
+        "user": user.id,
+        "license": license_obj.id,
+        "pending_order": pending_order.id,
+        "sourcing_request": sourcing_request.id,
+        "sourcing_item": sourcing_item.id,
+        "contract": contract.id,
+        "contract_document": contract_document.id,
+        "document": document.id,
+        "procurement_document": procurement_document.id,
+        "quote_document": quote_document.id,
+        "api_token": api_token.id,
+        "webhook": webhook.id,
+    }
+
+    resp = await test_app.delete(f"/api/users/{ids['user']}", headers=auth_headers)
+
+    assert resp.status_code == 204, resp.text
+    db_session.expire_all()
+    assert await db_session.get(User, ids["user"]) is None
+    assert (await db_session.get(License, ids["license"])).created_by is None
+    assert (await db_session.get(PendingOrder, ids["pending_order"])).created_by is None
+    assert (await db_session.get(SourcingRequest, ids["sourcing_request"])).created_by is None
+    assert (await db_session.get(SourcingItem, ids["sourcing_item"])).created_by is None
+    assert (await db_session.get(Contract, ids["contract"])).created_by is None
+    assert (await db_session.get(ContractDocument, ids["contract_document"])).created_by is None
+    assert (await db_session.get(Document, ids["document"])).uploaded_by is None
+    assert (await db_session.get(ProcurementDocument, ids["procurement_document"])).uploaded_by is None
+    assert (await db_session.get(SourcingQuoteDocument, ids["quote_document"])).uploaded_by is None
+    assert await db_session.get(ApiToken, ids["api_token"]) is None
+    assert await db_session.get(WebhookEndpoint, ids["webhook"]) is None
 
 
 async def test_oidc_user_reset_password_rejected(db_session, test_app, auth_headers):

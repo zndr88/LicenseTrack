@@ -274,7 +274,7 @@ async def download_procurement_document(document_id: int, db: DbSession, current
     elif document.pending_order_id is not None:
         license_result = await db.execute(select(License).where(License.pending_order_id == document.pending_order_id))
     else:
-        license_result = await db.execute(select(License).where(License.po_number == document.po_number))
+        raise HTTPException(status_code=404, detail="Document not found")
     licenses = list(license_result.scalars().all())
     can_view_any = any([await can_view_license(current_user, license_obj, db) for license_obj in licenses])
     if not can_view_any:

@@ -187,11 +187,9 @@ async def _resolve_document_context(
         license_query = select(License).where(License.id == document.license_id)
     elif document.pending_order_id is not None:
         license_query = select(License).where(License.pending_order_id == document.pending_order_id)
-    elif document.po_number:
-        license_query = select(License).where(License.po_number == document.po_number)
 
     if license_query is None:
-        return document.original_filename, None
+        raise HTTPException(status_code=404, detail="Document not found")
 
     result = await db.execute(license_query)
     licenses = list(result.scalars().all())

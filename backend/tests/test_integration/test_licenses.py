@@ -7,7 +7,12 @@ the B1 unit tests, not here.
 """
 
 import bcrypt
+from sqlalchemy import select
 
+from app.models.document import ProcurementDocument, ProcurementDocumentCategory
+from app.models.license import License, LicenseMetric, LicenseType, LifecycleStatus
+from app.models.pending_order import PendingOrder
+from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User, UserRole
 
 
@@ -658,6 +663,162 @@ async def test_delete_license(test_app, auth_headers):
 
     get_resp = await test_app.get(f"/api/licenses/{license_id}", headers=auth_headers)
     assert get_resp.status_code == 404
+
+
+async def test_delete_license_detaches_procurement_documents(
+    test_app, auth_headers, db_session
+):
+    created = await _create_license(test_app, auth_headers, poNumber="PO-DELETE-1")
+    document = ProcurementDocument(
+        po_number="PO-DELETE-1",
+        license_id=created["id"],
+        filename="invoice.pdf",
+        original_filename="invoice.pdf",
+        file_size=1,
+        mime_type="application/pdf",
+        category=ProcurementDocumentCategory.invoice,
+    )
+    db_session.add(document)
+    await db_session.commit()
+    document_id = document.id
+
+    del_resp = await test_app.delete(f"/api/licenses/{created['id']}", headers=auth_headers)
+
+    assert del_resp.status_code == 204
+    db_session.expire_all()
+    result = await db_session.execute(
+        select(ProcurementDocument).where(ProcurementDocument.id == document_id)
+    )
+    stored_document = result.scalar_one()
+    assert stored_document.license_id is None
+
+
+async def test_delete_license_with_renewal_sourcing_item_returns_409(
+    test_app, auth_headers, db_session
+):
+    created = await _create_license(test_app, auth_headers)
+    item = SourcingItem(
+        publisher_name="Acme Corp",
+        software_description="Acme Suite renewal",
+        status=SourcingStatus.sourcing,
+        renewal_for_license_id=created["id"],
+    )
+    db_session.add(item)
+    await db_session.commit()
+    item_id = item.id
+
+    del_resp = await test_app.delete(f"/api/licenses/{created['id']}", headers=auth_headers)
+
+    assert del_resp.status_code == 409
+    assert "renewal sourcing or pending-order item" in del_resp.json()["detail"]
+    db_session.expire_all()
+    result = await db_session.execute(select(SourcingItem).where(SourcingItem.id == item_id))
+    stored_item = result.scalar_one()
+    assert stored_item.renewal_for_license_id == created["id"]
+
+
+async def test_delete_license_with_renewal_pending_order_item_returns_409(
+    test_app, auth_headers, db_session
+):
+    created = await _create_license(test_app, auth_headers)
+    order = PendingOrder(po_number="PO-RENEWAL-DELETE")
+    db_session.add(order)
+    await db_session.flush()
+    order_id = order.id
+    item = SourcingItem(
+        publisher_name="Acme Corp",
+        software_description="Acme Suite renewal",
+        status=SourcingStatus.converted,
+        pending_order_id=order_id,
+        renewal_for_license_id=created["id"],
+    )
+    db_session.add(item)
+    await db_session.commit()
+    item_id = item.id
+
+    del_resp = await test_app.delete(f"/api/licenses/{created['id']}", headers=auth_headers)
+
+    assert del_resp.status_code == 409
+    assert "renewal sourcing or pending-order item" in del_resp.json()["detail"]
+    db_session.expire_all()
+    result = await db_session.execute(select(SourcingItem).where(SourcingItem.id == item_id))
+    stored_item = result.scalar_one()
+    assert stored_item.renewal_for_license_id == created["id"]
+    assert stored_item.pending_order_id == order_id
+
+
+async def test_delete_license_with_successor_links_returns_409(test_app, auth_headers, db_session):
+    predecessor = License(
+        publisher_name="Acme Corp",
+        software_description="Old Suite",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        lifecycle_status=LifecycleStatus.renewed,
+    )
+    successor = License(
+        publisher_name="Acme Corp",
+        software_description="New Suite",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+    )
+    db_session.add_all([predecessor, successor])
+    await db_session.flush()
+    predecessor.renewed_to_id = successor.id
+    successor.renewed_from_id = predecessor.id
+    successor.predecessor_id = predecessor.id
+    await db_session.commit()
+    predecessor_id = predecessor.id
+    successor_id = successor.id
+
+    del_resp = await test_app.delete(f"/api/licenses/{predecessor_id}", headers=auth_headers)
+
+    assert del_resp.status_code == 409
+    assert "renewal workflow or renewal history" in del_resp.json()["detail"]
+    db_session.expire_all()
+    result = await db_session.execute(select(License).where(License.id == successor_id))
+    stored_successor = result.scalar_one()
+    assert stored_successor.renewed_from_id == predecessor_id
+    assert stored_successor.predecessor_id == predecessor_id
+
+
+async def test_delete_active_maintenance_child_clears_parent_link(
+    test_app, auth_headers, db_session
+):
+    parent = License(
+        publisher_name="Acme Corp",
+        software_description="Perpetual Suite",
+        license_type=LicenseType.perpetual,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+    )
+    db_session.add(parent)
+    await db_session.flush()
+    child = License(
+        publisher_name="Acme Corp",
+        software_description="Maintenance",
+        license_type=LicenseType.maintenance,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        parent_license_id=parent.id,
+    )
+    db_session.add(child)
+    await db_session.flush()
+    parent.active_maintenance_id = child.id
+    parent.has_maintenance = True
+    await db_session.commit()
+    parent_id = parent.id
+    child_id = child.id
+
+    del_resp = await test_app.delete(f"/api/licenses/{child_id}", headers=auth_headers)
+
+    assert del_resp.status_code == 204
+    db_session.expire_all()
+    result = await db_session.execute(select(License).where(License.id == parent_id))
+    stored_parent = result.scalar_one()
+    assert stored_parent.active_maintenance_id is None
+    assert stored_parent.has_maintenance is False
 
 
 # ---------------------------------------------------------------------------

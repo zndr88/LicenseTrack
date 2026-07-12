@@ -120,6 +120,22 @@ VIEWER_DENIED_MUTATION_ROUTES = [
 ]
 
 
+VIEWER_DENIED_PROCUREMENT_READ_ROUTES = [
+    RouteCase("GET", "/api/sourcing"),
+    RouteCase("GET", "/api/sourcing/999999"),
+    RouteCase("GET", "/api/sourcing/export"),
+    RouteCase("GET", "/api/sourcing/requests"),
+    RouteCase("GET", "/api/sourcing/requests/999999"),
+    RouteCase("GET", "/api/sourcing/requests/999999/quote-documents"),
+    RouteCase("GET", "/api/sourcing/quote-documents/999999/download"),
+    RouteCase("GET", "/api/pending-orders"),
+    RouteCase("GET", "/api/pending-orders/999999"),
+    RouteCase("GET", "/api/pending-orders/export"),
+    RouteCase("GET", "/api/pending-orders/999999/documents"),
+    RouteCase("GET", "/api/pending-orders/documents/999999/download"),
+]
+
+
 EDITOR_ALLOWED_MUTATION_ROUTES = [
     RouteCase("POST", "/api/licenses", lambda: {"json": _license_payload("Editor License")}),
     RouteCase("POST", "/api/contracts", lambda: {"json": {"contract_number": "C-EDITOR", "publisher_name": "Acme"}}),
@@ -167,6 +183,20 @@ async def test_viewers_are_denied_mutation_routes(test_app, role_headers, case: 
     response = await _send(test_app, case, role_headers[UserRole.viewer])
 
     assert response.status_code == 403
+
+
+@pytest.mark.parametrize("case", VIEWER_DENIED_PROCUREMENT_READ_ROUTES, ids=lambda case: f"{case.method} {case.path}")
+async def test_viewers_are_denied_procurement_read_routes(test_app, role_headers, case: RouteCase):
+    response = await _send(test_app, case, role_headers[UserRole.viewer])
+
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("case", VIEWER_DENIED_PROCUREMENT_READ_ROUTES, ids=lambda case: f"{case.method} {case.path}")
+async def test_editors_can_reach_procurement_read_routes(test_app, role_headers, case: RouteCase):
+    response = await _send(test_app, case, role_headers[UserRole.editor])
+
+    assert response.status_code not in (401, 403), response.text
 
 
 @pytest.mark.parametrize("case", EDITOR_ALLOWED_MUTATION_ROUTES, ids=lambda case: f"{case.method} {case.path}")

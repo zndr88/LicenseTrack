@@ -21,12 +21,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import auth
 from app.database import get_db
 from app.dependencies import CurrentUser, require_admin
+from app.models.api_token import ApiToken
+from app.models.contract import Contract, ContractDocument
+from app.models.document import Document, ProcurementDocument
+from app.models.document_processing import DocumentProcessingResult
+from app.models.extension import ExtensionCapability
 from app.models.license import License
 from app.models.pending_order import PendingOrder
+from app.models.plugin import PluginPermission, PluginSettingValue
+from app.models.plugin_suggestion import PluginSuggestion
 from app.models.settings import GlobalSettings, UserSettings
-from app.models.sourcing import SourcingItem
+from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingRequest
 from app.models.user import AuthProvider, User
 from app.models.user_department_access import UserDepartmentAccess
+from app.models.webhook import WebhookEndpoint
 from app.schemas.user import DepartmentAssignment, ResetPasswordRequest, RoleUpdate, UserCreate, UserResponse, UserUpdate
 from app.services.audit_service import diff_fields, log_event
 from app.services.user_service import (
@@ -223,9 +231,71 @@ async def delete_user(
 
     label = user.email
 
+    await db.execute(delete(ApiToken).where(ApiToken.created_by == user_id))
+    await db.execute(delete(UserDepartmentAccess).where(UserDepartmentAccess.user_id == user_id))
+    await db.execute(delete(WebhookEndpoint).where(WebhookEndpoint.created_by == user_id))
+
+    await db.execute(update(Contract).where(Contract.created_by == user_id).values(created_by=None))
+    await db.execute(update(ContractDocument).where(ContractDocument.created_by == user_id).values(created_by=None))
+    await db.execute(update(Document).where(Document.uploaded_by == user_id).values(uploaded_by=None))
+    await db.execute(
+        update(ProcurementDocument)
+        .where(ProcurementDocument.uploaded_by == user_id)
+        .values(uploaded_by=None)
+    )
     await db.execute(update(License).where(License.created_by == user_id).values(created_by=None))
+    await db.execute(
+        update(SourcingRequest)
+        .where(SourcingRequest.created_by == user_id)
+        .values(created_by=None)
+    )
+    await db.execute(
+        update(SourcingQuoteDocument)
+        .where(SourcingQuoteDocument.uploaded_by == user_id)
+        .values(uploaded_by=None)
+    )
     await db.execute(update(SourcingItem).where(SourcingItem.created_by == user_id).values(created_by=None))
     await db.execute(update(PendingOrder).where(PendingOrder.created_by == user_id).values(created_by=None))
+    await db.execute(
+        update(DocumentProcessingResult)
+        .where(DocumentProcessingResult.created_by == user_id)
+        .values(created_by=None)
+    )
+    await db.execute(
+        update(DocumentProcessingResult)
+        .where(DocumentProcessingResult.reviewed_by == user_id)
+        .values(reviewed_by=None)
+    )
+    await db.execute(
+        update(ExtensionCapability)
+        .where(ExtensionCapability.created_by == user_id)
+        .values(created_by=None)
+    )
+    await db.execute(
+        update(ExtensionCapability)
+        .where(ExtensionCapability.updated_by == user_id)
+        .values(updated_by=None)
+    )
+    await db.execute(
+        update(PluginPermission)
+        .where(PluginPermission.granted_by == user_id)
+        .values(granted_by=None)
+    )
+    await db.execute(
+        update(PluginSettingValue)
+        .where(PluginSettingValue.updated_by == user_id)
+        .values(updated_by=None)
+    )
+    await db.execute(
+        update(PluginSuggestion)
+        .where(PluginSuggestion.created_by == user_id)
+        .values(created_by=None)
+    )
+    await db.execute(
+        update(PluginSuggestion)
+        .where(PluginSuggestion.reviewed_by == user_id)
+        .values(reviewed_by=None)
+    )
 
     user_settings = await db.scalar(select(UserSettings).where(UserSettings.user_id == user_id))
     if user_settings is not None:

@@ -20,6 +20,7 @@ Storage is redirected to a pytest tmp_path by patching settings.STORAGE_PATH.
 
 import pytest
 import bcrypt
+from sqlalchemy import select
 
 import app.services.storage as _storage_module
 from app.models.contract import ContractDocument
@@ -175,6 +176,33 @@ async def test_delete_contract_returns_204(test_app, auth_headers, contract):
         f"/api/contracts/{contract['id']}", headers=auth_headers
     )
     assert get_resp.status_code == 404
+
+
+async def test_delete_contract_unlinks_linked_licenses(
+    test_app, auth_headers, db_session, contract
+):
+    license_obj = License(
+        publisher_name="Acme",
+        software_description="Suite A",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        contract_number=contract["contractNumber"],
+        contract_id=contract["id"],
+        is_retired=False,
+    )
+    db_session.add(license_obj)
+    await db_session.commit()
+
+    resp = await test_app.delete(
+        f"/api/contracts/{contract['id']}", headers=auth_headers
+    )
+
+    assert resp.status_code == 204
+    result = await db_session.execute(select(License).where(License.id == license_obj.id))
+    linked_license = result.scalar_one()
+    assert linked_license.contract_id is None
+    assert linked_license.contract_number == contract["contractNumber"]
 
 
 # ---------------------------------------------------------------------------

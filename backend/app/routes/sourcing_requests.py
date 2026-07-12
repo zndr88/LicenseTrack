@@ -5,7 +5,7 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import CurrentUser, require_editor_or_admin
+from app.dependencies import require_editor_or_admin
 from app.models.user import User
 from app.schemas.sourcing import (
     SourcingItemCreate,
@@ -30,7 +30,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 @router.get("/requests", response_model=list[SourcingRequestResponse])
 async def list_sourcing_requests(
     db: DbSession,
-    _current_user: CurrentUser,
+    _editor: User = Depends(require_editor_or_admin),
 ) -> list[SourcingRequestResponse]:
     requests = await list_sourcing_request_records(db)
     await db.commit()
@@ -65,7 +65,7 @@ async def create_sourcing_request(
 async def get_sourcing_request(
     request_id: int,
     db: DbSession,
-    _current_user: CurrentUser,
+    _editor: User = Depends(require_editor_or_admin),
 ) -> SourcingRequestResponse:
     sourcing_request = await get_sourcing_request_or_404(db, request_id)
     return SourcingRequestResponse.model_validate(sourcing_request)

@@ -7,14 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import CurrentUser, require_editor_or_admin
+from app.dependencies import require_editor_or_admin
 from app.models.sourcing import SourcingQuoteDocument
 from app.models.user import User
 from app.schemas.sourcing import (
     SourcingQuoteDocumentResponse,
 )
 from app.services import storage
-from app.services.access_service import can_download_documents
 from app.services.audit_service import log_event
 from app.services.sourcing_service import (
     get_sourcing_request_or_404,
@@ -72,7 +71,7 @@ async def upload_sourcing_quote_document(
 async def list_sourcing_quote_documents(
     request_id: int,
     db: DbSession,
-    _current_user: CurrentUser,
+    _editor: User = Depends(require_editor_or_admin),
 ) -> list[SourcingQuoteDocumentResponse]:
     await get_sourcing_request_or_404(db, request_id)
     result = await db.execute(
@@ -85,10 +84,8 @@ async def list_sourcing_quote_documents(
 async def download_sourcing_quote_document(
     document_id: int,
     db: DbSession,
-    current_user: CurrentUser,
+    _editor: User = Depends(require_editor_or_admin),
 ) -> FileResponse:
-    if not can_download_documents(current_user):
-        raise HTTPException(status_code=403, detail="Downloads are disabled for this viewer")
     result = await db.execute(select(SourcingQuoteDocument).where(SourcingQuoteDocument.id == document_id))
     document = result.scalar_one_or_none()
     if document is None:
@@ -132,4 +129,3 @@ async def delete_sourcing_quote_document(
     await db.commit()
     storage.delete_file(filename, storage_base)
     return Response(status_code=204)
-

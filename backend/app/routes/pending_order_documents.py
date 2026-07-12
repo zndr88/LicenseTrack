@@ -7,13 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import CurrentUser, require_editor_or_admin
+from app.dependencies import require_editor_or_admin
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.pending_order import PendingOrderStatus
 from app.models.user import User
 from app.schemas.document import ProcurementDocumentResponse
 from app.services import storage
-from app.services.access_service import can_download_documents
 from app.services.audit_contracts import format_document_amendment_detail
 from app.services.audit_service import log_event
 from app.services.pending_order_service import get_pending_order_or_404
@@ -82,7 +81,7 @@ async def upload_pending_order_document(
 async def list_pending_order_documents(
     order_id: int,
     db: DbSession,
-    _current_user: CurrentUser,
+    _editor: User = Depends(require_editor_or_admin),
 ) -> list[ProcurementDocumentResponse]:
     result = await db.execute(
         select(ProcurementDocument).where(ProcurementDocument.pending_order_id == order_id)
@@ -94,10 +93,8 @@ async def list_pending_order_documents(
 async def download_pending_order_document(
     document_id: int,
     db: DbSession,
-    current_user: CurrentUser,
+    _editor: User = Depends(require_editor_or_admin),
 ) -> FileResponse:
-    if not can_download_documents(current_user):
-        raise HTTPException(status_code=403, detail="Downloads are disabled for this viewer")
     result = await db.execute(select(ProcurementDocument).where(ProcurementDocument.id == document_id))
     document = result.scalar_one_or_none()
     if document is None:

@@ -17,6 +17,10 @@ import time
 import zipfile
 
 import bcrypt
+import pytest
+from fastapi import HTTPException
+from starlette.datastructures import UploadFile
+from starlette.requests import Request
 
 import app.routes.backup as backup_module
 from app.config import settings
@@ -236,3 +240,30 @@ async def test_backup_restore_rejects_oversized_content_length(
     )
 
     assert resp.status_code == 413
+
+
+async def test_backup_restore_rejects_oversized_body_after_read(
+    db_session, monkeypatch
+):
+    monkeypatch.setattr(settings, "MAX_UPLOAD_SIZE_MB", 0)
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/backup/restore",
+            "headers": [(b"content-length", b"0")],
+            "client": ("testclient", 50000),
+            "scheme": "http",
+            "server": ("testserver", 80),
+        }
+    )
+    upload = UploadFile(
+        file=io.BytesIO(_make_zip_with_db()),
+        filename="backup.zip",
+    )
+    admin = User(username="admin", email="admin@test.local", hashed_password="x", role=UserRole.admin)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await backup_module.restore_backup(upload, request, db_session, admin)
+
+    assert exc_info.value.status_code == 413

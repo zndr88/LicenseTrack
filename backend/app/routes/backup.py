@@ -98,6 +98,11 @@ async def restore_backup(
         )
 
     content = await file.read()
+    if len(content) > _max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds the maximum allowed size of {_settings.MAX_UPLOAD_SIZE_MB} MB.",
+        )
 
     # Validate the zip contains a .db file before touching anything
     try:

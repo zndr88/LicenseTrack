@@ -5,7 +5,7 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import CurrentUser, require_editor_or_admin
+from app.dependencies import require_editor_or_admin
 from app.models.user import User
 from app.schemas.pending_order import (
     PendingOrderCreate,
@@ -32,7 +32,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 @router.get("", response_model=list[PendingOrderResponse])
 async def list_pending_orders(
     db: DbSession,
-    _current_user: CurrentUser,
+    _editor: User = Depends(require_editor_or_admin),
     limit: int | None = Query(default=None, ge=1),
     offset: int = Query(default=0, ge=0),
 ) -> list[PendingOrderResponse]:
@@ -44,7 +44,7 @@ async def list_pending_orders(
 async def get_pending_order(
     order_id: int,
     db: DbSession,
-    _current_user: CurrentUser,
+    _editor: User = Depends(require_editor_or_admin),
 ) -> PendingOrderResponse:
     order = await get_pending_order_or_404(db, order_id, include_items=True)
     return to_pending_order_response(order)

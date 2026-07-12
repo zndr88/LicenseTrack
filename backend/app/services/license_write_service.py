@@ -11,12 +11,13 @@ import re
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.contract import Contract
-from app.models.document import Document
+from app.models.document import Document, ProcurementDocument
 from app.models.license import License, LicenseType, MaintenanceCoverage
+from app.models.sourcing import SourcingItem
 from app.schemas.license import LicenseCreate, LicenseUpdate
 from app.services.maintenance_rules import (
     assert_active_maintenance_allows_retirement,
@@ -351,6 +352,8 @@ async def bulk_delete_license_records(db: AsyncSession, license_ids: list[int]) 
     if not found:
         return []
 
+    await _assert_license_delete_allowed(db, found)
+
     found_ids = [license_obj.id for license_obj in found]
 
     maintenance_result = await db.execute(
@@ -368,8 +371,10 @@ async def bulk_delete_license_records(db: AsyncSession, license_ids: list[int]) 
         if license_obj.id in parent_ids_with_maintenance:
             license_obj.active_maintenance_id = None
             await sync_parent_mirror_fields(db, license_obj)
+        if license_obj.license_type == LicenseType.maintenance:
+            license_obj.is_retired = True
 
-    await db.execute(delete(Document).where(Document.license_id.in_(found_ids)))
+    await _cleanup_license_delete_references(db, found_ids)
     for license_obj in found:
         await db.delete(license_obj)
 
@@ -383,6 +388,8 @@ async def delete_license_record(db: AsyncSession, license_id: int) -> str:
     if license_obj is None:
         raise HTTPException(status_code=404, detail="License not found")
 
+    await _assert_license_delete_allowed(db, [license_obj])
+
     maintenance_result = await db.execute(
         select(License).where(
             License.parent_license_id == license_id,
@@ -394,10 +401,87 @@ async def delete_license_record(db: AsyncSession, license_id: int) -> str:
     for child in maintenance_children:
         child.is_retired = True
 
+    if license_obj.license_type == LicenseType.maintenance:
+        license_obj.is_retired = True
+
     label = license_obj.software_description
-    await db.execute(delete(Document).where(Document.license_id == license_id))
+    await _cleanup_license_delete_references(db, [license_id])
     await db.delete(license_obj)
     return label
+
+
+async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list[int]) -> None:
+    """Detach rows that may legitimately outlive deleted license records."""
+    if not license_ids:
+        return
+
+    await db.execute(delete(Document).where(Document.license_id.in_(license_ids)))
+    await db.execute(
+        sa_update(ProcurementDocument)
+        .where(ProcurementDocument.license_id.in_(license_ids))
+        .values(license_id=None)
+    )
+    await db.execute(
+        sa_update(License)
+        .where(License.renewed_from_id.in_(license_ids))
+        .values(renewed_from_id=None)
+    )
+    await db.execute(
+        sa_update(License)
+        .where(License.renewed_to_id.in_(license_ids))
+        .values(renewed_to_id=None)
+    )
+    await db.execute(
+        sa_update(License)
+        .where(License.predecessor_id.in_(license_ids))
+        .values(predecessor_id=None)
+    )
+    await db.execute(
+        sa_update(License)
+        .where(License.active_maintenance_id.in_(license_ids))
+        .values(
+            active_maintenance_id=None,
+            has_maintenance=False,
+            maintenance_start_date=None,
+            maintenance_end_date=None,
+            maintenance_cost=None,
+        )
+    )
+
+
+async def _assert_license_delete_allowed(db: AsyncSession, licenses: list[License]) -> None:
+    license_ids = [license_obj.id for license_obj in licenses]
+    if not license_ids:
+        return
+
+    for license_obj in licenses:
+        if (
+            license_obj.lifecycle_status in {"pending_renewal", "renewed"}
+            or license_obj.renewed_from_id is not None
+            or license_obj.renewed_to_id is not None
+            or license_obj.predecessor_id is not None
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Cannot delete a license that is part of a renewal workflow or renewal history. "
+                    "Cancel the renewal or repair the lifecycle links first."
+                ),
+            )
+
+    renewal_item_result = await db.execute(
+        select(SourcingItem.id)
+        .where(SourcingItem.renewal_for_license_id.in_(license_ids))
+        .limit(1)
+    )
+    if renewal_item_result.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Cannot delete a license that is linked to a renewal sourcing or pending-order item. "
+                "Cancel or complete the renewal workflow first."
+            ),
+        )
 
 
 def apply_license_type_patch(license_obj: License, value: str | None) -> None:
