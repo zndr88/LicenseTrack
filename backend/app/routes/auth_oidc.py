@@ -150,7 +150,8 @@ async def oidc_callback(
 
         metadata = await get_oidc_metadata(global_settings)
         from authlib.integrations.httpx_client import AsyncOAuth2Client
-        from authlib.jose import jwt
+        from joserfc import jwk, jwt
+        from joserfc.jwt import JWTClaimsRegistry
 
         redirect_uri = str(request.url_for("oidc_callback"))
         async with AsyncOAuth2Client(
@@ -168,8 +169,8 @@ async def oidc_callback(
             if not id_token:
                 raise auth.JWTError("Missing ID token")
 
-            claims = jwt.decode(id_token, metadata.jwks)
-            claims.validate()
+            claims = jwt.decode(id_token, jwk.KeySet.import_key_set(metadata.jwks)).claims
+            JWTClaimsRegistry().validate(claims)
             if claims.get("iss") != metadata.discovery.get("issuer"):
                 raise auth.JWTError("Unexpected token issuer")
             audience = claims.get("aud")

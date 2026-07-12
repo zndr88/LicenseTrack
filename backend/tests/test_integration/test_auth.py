@@ -9,8 +9,8 @@ import bcrypt
 import httpx
 import pytest
 import respx
-from authlib.jose import JsonWebKey
-from authlib.jose import jwt as authlib_jwt
+from joserfc import jwk
+from joserfc import jwt as joserfc_jwt
 
 import app.routes.auth as auth_module
 import app.routes.auth_oidc as auth_oidc_module
@@ -40,8 +40,8 @@ _DISCOVERY_DOC = {
 }
 
 # RSA key pair generated once at module import — signs and verifies test ID tokens.
-_TEST_PRIVATE_JWK = JsonWebKey.generate_key("RSA", 2048, is_private=True)
-_full_jwk = _TEST_PRIVATE_JWK.as_dict()
+_TEST_PRIVATE_JWK = jwk.generate_key("RSA", 2048, private=True)
+_full_jwk = _TEST_PRIVATE_JWK.as_dict(private=False)
 # Only public components go in the mocked JWKS response.
 _TEST_JWKS = {"keys": [{"kty": _full_jwk["kty"], "n": _full_jwk["n"], "e": _full_jwk["e"], "alg": "RS256", "use": "sig"}]}
 
@@ -58,8 +58,7 @@ def _build_id_token(email: str, nonce: str) -> str:
         "iat": now,
         "exp": now + 3600,
     }
-    token = authlib_jwt.encode({"alg": "RS256"}, payload, _TEST_PRIVATE_JWK)
-    return token.decode() if isinstance(token, bytes) else token
+    return joserfc_jwt.encode({"alg": "RS256"}, payload, _TEST_PRIVATE_JWK)
 
 
 async def _add_oidc_settings(db_session) -> None:
