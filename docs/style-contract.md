@@ -145,14 +145,30 @@ When a pattern appears three times, extract a component or CSS class unless doin
 
 ### CSS
 
-The current `global.css` is the legacy central stylesheet. Do not expand it casually.
+`frontend/src/styles/global.css` is the stylesheet entrypoint. Keep it as an ordered import manifest, not a place for new selectors.
 
 - Use existing design tokens such as `--bg-*`, `--text-*`, `--border`, and semantic color variables.
 - Prefer feature prefixes that already exist, such as `dp-`, `lp-`, `csv-`, `mapping-`, `plugin-`, `set-`, and `rw-`.
 - Avoid duplicate selectors. If a selector already exists, extend it in place.
 - Avoid `!important` unless overriding an unavoidable third-party or legacy rule.
-- Keep responsive rules near the feature they affect when possible.
-- A future release may split `global.css`, but maintenance work should avoid a large CSS reorganization unless that is the explicit milestone.
+- Add new selectors to the narrowest existing stylesheet partial:
+  - `foundation.css`: tokens, themes, resets, focus, and error-boundary basics.
+  - `app-shell.css`: login, sidebar, top bar, main app shell, and page frame.
+  - `shared-ui.css`: shared tables, buttons, modals, forms, badges, document blocks, stats, notifications, and common settings shells.
+  - `renewals.css`: renewal workbench styles.
+  - `settings.css`: settings sections, settings grids, extensions, webhooks, audit log, and email template modal.
+  - `settings-plugin-host.css`: settings plugin host management styles.
+  - `sidebar-widgets.css`: sidebar version and portfolio widgets.
+  - `admin-users.css`: admin page navigation, users page, toast, and small shared admin buttons.
+  - `help.css`: Help Center styles.
+  - `licenses.css`: page title, detail panel extensions, and license registry toolbar/table extensions.
+  - `csv-import.css`: CSV import and mapping resolver styles.
+  - `workflows.css`: consumption, pipeline strip, attention banner, and workflow toolbar styles.
+  - `platform.css`: browser/platform integration details such as drag regions and scrollbars.
+  - `responsive.css`: late cascade responsive overrides that intentionally affect multiple features.
+  - `motion.css`: reduced-motion overrides and other late motion safety rules.
+- Preserve `global.css` import order unless you are intentionally changing cascade behavior and have verified the visual impact.
+- Keep feature-local responsive rules near the feature when possible; use `responsive.css` only for late cross-feature overrides.
 
 ## Testing Expectations
 
@@ -184,7 +200,6 @@ This contract does not require:
 - splitting every large component immediately
 - converting every component export style
 - moving all inline styles in one pass
-- splitting `global.css` immediately
 - replacing the custom icon registry immediately
 - converting the codebase to TypeScript
 
