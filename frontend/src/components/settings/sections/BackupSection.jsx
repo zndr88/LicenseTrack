@@ -62,7 +62,7 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
         <div className="setsec-inner">
           <div className="set-section-stack">
             <div className="set-warning-box">
-              <Icon name="alert" size={14} color="var(--orange, #ca8a04)" className="set-warning-icon" />
+              <Icon name="alert" size={14} color="var(--orange)" className="set-warning-icon" />
               <span className="set-warning-text">
                 <strong>Database backup only.</strong>{" "}
                 This backup covers the database file. Uploaded document files stored on disk are <em>not</em> included
@@ -70,7 +70,7 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
               </span>
             </div>
             <div className="fr">
-              <div className="fg" style={{ flex: 1 }}>
+              <div className="fg set-flex-field">
                 <label htmlFor="settings-backup-location">Database Backup Location</label>
                 <input id="settings-backup-location" className="fi" value={globalSettings.backupLocation} onChange={(e) => { setGlobalSettings(s => ({ ...s, backupLocation: e.target.value })); markDirty("backup"); }} placeholder="./backups" />
               </div>
@@ -103,7 +103,7 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
                 <Icon name="download" size={14} /> {backupTriggering ? "Creating..." : "Create Database Backup"}
               </button>
               <span className="set-inline-warning">
-                <Icon name="alert" size={11} color="var(--orange, #ca8a04)" />
+                <Icon name="alert" size={11} color="var(--orange)" />
                 Database only - document files are not included
               </span>
             </div>

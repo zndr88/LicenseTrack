@@ -1057,6 +1057,8 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 /* Settings shared section patterns */
 .set-section-stack { margin-top: 12px; }
 .set-field-hint { font-size: 12px; color: var(--text-3); margin: 2px 0 8px; }
+.set-flex-field { flex: 1; }
+.set-spaced-field { margin-top: 8px; }
 .set-warning-box {
   display: flex;
   align-items: flex-start;
@@ -1076,6 +1078,16 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .set-status-box-failed { background: var(--red-m); border: 1px solid var(--red); color: var(--red-text); }
 .set-status-box-success { background: var(--green-m); border: 1px solid var(--green); color: var(--green-text); }
 .set-status-time { margin-left: 6px; opacity: .75; }
+.set-appearance-preview {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--bg-2);
+  border-radius: var(--r);
+  line-height: 1.8;
+}
+.set-appearance-preview strong { color: var(--text-2); }
 .set-muted-text { font-size: 12px; color: var(--text-3); margin-top: 12px; }
 .set-error-box {
   padding: 8px 12px;
@@ -2446,12 +2458,16 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .plugin-detail-sections li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-1); border-bottom: 1px solid var(--border); padding-bottom: 6px; }
 .plugin-detail-sections p,
 .plugin-empty-text { color: var(--text-3); font-size: 13px; margin: 0; }
+.plugin-install-modal { width: 820px; }
 .plugin-settings-form { display: grid; gap: 10px; }
 .plugin-settings-form .fg { margin-bottom: 0; }
 .plugin-settings-form .fi { width: 100%; }
 .plugin-settings-form textarea.fi { resize: vertical; min-height: 78px; }
 .plugin-setting-help { display: block; margin-top: 4px; color: var(--text-3); font-size: 11px; }
 .plugin-setting-toggle { margin: 0; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-1); padding: 9px 10px; }
+.plugin-setting-toggle-label { font-weight: 600; }
+.plugin-setting-toggle-help { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.plugin-file-input { display: none; }
 .plugin-upload-row { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px dashed var(--border-strong); border-radius: var(--r); background: var(--bg-2); margin-bottom: 14px; }
 .plugin-file-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .plugin-file-meta strong { font-size: 13px; color: var(--text-1); overflow-wrap: anywhere; }
@@ -2476,6 +2492,9 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .plugin-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 26px 18px; border: 1px dashed var(--border-strong); border-radius: var(--r); color: var(--text-2); text-align: center; }
 .plugin-empty-state strong { color: var(--text-1); font-size: 14px; }
 .plugin-empty-state span { font-size: 13px; }
+.plugin-table-wrap { overflow-x: auto; }
+.plugin-row-selectable { cursor: pointer; }
+.plugin-key { color: var(--text-3); font-size: 12px; }
 
 @media (max-width: 900px) {
   .plugin-section-toolbar,

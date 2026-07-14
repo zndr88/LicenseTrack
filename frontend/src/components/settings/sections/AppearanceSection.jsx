@@ -57,7 +57,7 @@ export default function AppearanceSection({ isOpen, isDirty, onToggle, markDirty
       <SectionHeader sectionKey="appearance" icon="eye" title="Appearance" description="Theme preference (per-user)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
-          <div style={{ marginTop: 12 }}>
+          <div className="set-section-stack">
             <div className="fr">
               <div className="fg">
                 <label htmlFor="settings-theme">Theme</label>
@@ -78,19 +78,19 @@ export default function AppearanceSection({ isOpen, isDirty, onToggle, markDirty
               <div className="fg">
                 <label htmlFor="settings-display-currency">Display Currency</label>
                 <select id="settings-display-currency" className="fi fi-select" value={userSettings.displayCurrency} onChange={(e) => set("displayCurrency", e.target.value)}>
-                  <option value="EUR">EUR — Euro</option>
-                  <option value="USD">USD — US Dollar</option>
-                  <option value="GBP">GBP — British Pound</option>
-                  <option value="CHF">CHF — Swiss Franc</option>
-                  <option value="SEK">SEK — Swedish Krona</option>
-                  <option value="NOK">NOK — Norwegian Krone</option>
-                  <option value="DKK">DKK — Danish Krone</option>
-                  <option value="PLN">PLN — Polish Zloty</option>
-                  <option value="CZK">CZK — Czech Koruna</option>
-                  <option value="HUF">HUF — Hungarian Forint</option>
-                  <option value="AUD">AUD — Australian Dollar</option>
-                  <option value="CAD">CAD — Canadian Dollar</option>
-                  <option value="JPY">JPY — Japanese Yen</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="USD">USD - US Dollar</option>
+                  <option value="GBP">GBP - British Pound</option>
+                  <option value="CHF">CHF - Swiss Franc</option>
+                  <option value="SEK">SEK - Swedish Krona</option>
+                  <option value="NOK">NOK - Norwegian Krone</option>
+                  <option value="DKK">DKK - Danish Krone</option>
+                  <option value="PLN">PLN - Polish Zloty</option>
+                  <option value="CZK">CZK - Czech Koruna</option>
+                  <option value="HUF">HUF - Hungarian Forint</option>
+                  <option value="AUD">AUD - Australian Dollar</option>
+                  <option value="CAD">CAD - Canadian Dollar</option>
+                  <option value="JPY">JPY - Japanese Yen</option>
                 </select>
               </div>
               <div className="fg">
@@ -125,12 +125,12 @@ export default function AppearanceSection({ isOpen, isDirty, onToggle, markDirty
                 </select>
               </div>
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 8, padding: "6px 10px", background: "var(--bg-2)", borderRadius: "var(--r)", lineHeight: 1.8 }}>
-              <strong style={{ color: "var(--text-2)" }}>Preview:</strong>
-              {" "}{previewDate}{" · "}{previewMoney}{" · "}{previewDT}
+            <div className="set-appearance-preview">
+              <strong>Preview:</strong>
+              {" "}{previewDate}{" - "}{previewMoney}{" - "}{previewDT}
             </div>
             <div className="set-save-row">
-              <button className="btn btn-p" disabled={!isDirty || saving} onClick={handleSave} style={{ fontSize: 13 }}>
+              <button className="btn btn-p set-save-button" disabled={!isDirty || saving} onClick={handleSave}>
                 {saving ? "Saving..." : "Save"}
               </button>
             </div>

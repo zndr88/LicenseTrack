@@ -63,7 +63,7 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
                 <input id="settings-send-hour" className="fi" type="number" min="0" max="23" value={globalSettings.notificationSendHour} onChange={(e) => { setGlobalSettings(s => ({ ...s, notificationSendHour: parseInt(e.target.value) || 7 })); markDirty("notifications"); }} />
               </div>
             </div>
-            <div className="fg" style={{ marginTop: 8 }}>
+            <div className="fg set-spaced-field">
               <label htmlFor="settings-allowed-domains">Allowed Outbound Domains</label>
               <p className="set-field-hint">Only these domains can receive notification emails. Leave empty to allow all domains.</p>
               {globalSettings.allowedEmailDomains.length > 0 && (

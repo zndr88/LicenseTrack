@@ -99,7 +99,7 @@ function PluginInstallModal({ onClose, onInstalled, onError, onToast }) {
       titleId="plugin-install-title"
       onClose={onClose}
       closeOnOverlayClick={!installing}
-      modalStyle={{ width: 820 }}
+      modalClassName="modal plugin-install-modal"
       footer={(
         <>
           <button type="button" className="btn btn-g" onClick={onClose} disabled={installing}>Cancel</button>
@@ -117,7 +117,7 @@ function PluginInstallModal({ onClose, onInstalled, onError, onToast }) {
             type="file"
             accept=".zip,application/zip"
             onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
-            style={{ display: "none" }}
+            className="plugin-file-input"
             aria-label="Plugin package zip"
           />
           <button type="button" className="btn btn-g" onClick={() => fileInputRef.current?.click()} disabled={previewing || installing}>
@@ -235,8 +235,8 @@ function PluginSettingField({ definition, value, masked, onChange }) {
     return (
       <div className="trow plugin-setting-toggle">
         <div>
-          <span style={{ fontWeight: 600 }}>{definition.label}</span>
-          {definition.helpText && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>{definition.helpText}</div>}
+          <span className="plugin-setting-toggle-label">{definition.label}</span>
+          {definition.helpText && <div className="plugin-setting-toggle-help">{definition.helpText}</div>}
         </div>
         <Toggle value={!!value} ariaLabel={definition.label} onChange={(next) => onChange(key, next, false)} />
       </div>
@@ -275,7 +275,7 @@ function PluginSettingField({ definition, value, masked, onChange }) {
         type={type === "secret" ? "password" : type === "number" ? "number" : type === "url" ? "url" : "text"}
         autoComplete={type === "secret" ? "off" : undefined}
         value={value ?? ""}
-        placeholder={masked ? "••••••••" : undefined}
+        placeholder={masked ? "********" : undefined}
         onChange={(event) => {
           const nextValue = type === "number" && event.target.value !== "" ? Number(event.target.value) : event.target.value;
           onChange(key, nextValue, false);
@@ -387,7 +387,7 @@ function PluginDetail({
                 />
               ))}
               <div className="set-save-row">
-                <button type="button" className="btn btn-p" onClick={onSaveSettings} disabled={!settingsDirty || settingsSaving} style={{ fontSize: 13 }}>
+                <button type="button" className="btn btn-p set-save-button" onClick={onSaveSettings} disabled={!settingsDirty || settingsSaving}>
                   {settingsSaving ? "Saving..." : "Save settings"}
                 </button>
               </div>
@@ -579,7 +579,7 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
               </div>
             ) : (
               <div className="plugin-management-grid">
-                <div style={{ overflowX: "auto" }}>
+                <div className="plugin-table-wrap">
                   <table className="settings-table">
                     <thead>
                       <tr>
@@ -593,13 +593,12 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
                       {plugins.map((plugin) => (
                         <tr
                           key={plugin.key}
-                          className={selectedPlugin?.key === plugin.key ? "plugin-row-selected" : ""}
                           onClick={() => setSelectedKey(plugin.key)}
-                          style={{ cursor: "pointer" }}
+                          className={selectedPlugin?.key === plugin.key ? "plugin-row-selected plugin-row-selectable" : "plugin-row-selectable"}
                         >
                           <td>
                             <strong>{plugin.name}</strong>
-                            <div style={{ color: "var(--text-3)", fontSize: 12 }}>{plugin.key}</div>
+                            <div className="plugin-key">{plugin.key}</div>
                           </td>
                           <td><Badge type={statusBadgeType(plugin.status)}>{plugin.status}</Badge></td>
                           <td>{plugin.installedVersion}</td>
