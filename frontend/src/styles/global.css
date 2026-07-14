@@ -1099,6 +1099,11 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .set-flex-fill { flex: 1; }
 .set-file-input { display: block; margin-top: 6px; }
 .set-form-actions { display: flex; gap: 8px; margin-top: 8px; }
+.set-form-row-spaced { margin-top: 16px; }
+.set-small-hint { font-size: 11px; color: var(--text-3); margin-top: 6px; }
+.set-toggle-title { font-weight: 600; }
+.set-toggle-note { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.set-status-note { font-size: 11px; color: var(--text-2); margin-top: 6px; }
 .set-backup-list { margin-top: 16px; }
 .set-backup-title { font-size: 12px; font-weight: 600; margin-bottom: 6px; }
 .set-backup-table { width: 100%; font-size: 12px; border-collapse: collapse; }

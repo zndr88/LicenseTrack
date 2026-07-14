@@ -30,11 +30,11 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
       <SectionHeader sectionKey="renewals" icon="refresh" title="Renewals" description="Renewal workbench configuration (global)" iconColor="var(--purple)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
-          <div style={{ marginTop: 12 }}>
+          <div className="set-section-stack">
             <div className="fr">
               <div className="fg">
                 <label htmlFor="settings-high-value-threshold">High-Value Threshold</label>
-                <p style={{ fontSize: 12, color: "var(--text-3)", margin: "2px 0 8px" }}>
+                <p className="set-field-hint">
                   Licenses with an estimated annual value at or above this amount are flagged as high-value in the Renewal Workbench.
                 </p>
                 <input
@@ -51,10 +51,10 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
                 />
               </div>
             </div>
-            <div className="fr" style={{ marginTop: 16 }}>
+            <div className="fr set-form-row-spaced">
               <div className="fg">
                 <label htmlFor="settings-fiscal-year-start-month">Fiscal Year Start Month</label>
-                <p style={{ fontSize: 12, color: "var(--text-3)", margin: "2px 0 8px" }}>
+                <p className="set-field-hint">
                   Quarter labels in the renewal calendar align to this month. January = calendar quarters.
                 </p>
                 <select

@@ -22,15 +22,15 @@ export default function StorageSection({ isOpen, isDirty, onToggle, markDirty, c
       <SectionHeader sectionKey="storage" icon="folder" title="Document Storage" description="File system path where uploaded documents are stored (admin only)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
-          <div style={{ marginTop: 12 }}>
+          <div className="set-section-stack">
             <div className="fr">
-              <div className="fg" style={{ flex: 1 }}>
+              <div className="fg set-flex-fill">
                 <label htmlFor="settings-storage-path">Storage Path</label>
                 <input id="settings-storage-path" className="fi" value={globalSettings.storagePath} onChange={(e) => { setGlobalSettings(s => ({ ...s, storagePath: e.target.value })); markDirty("storage"); }} placeholder="e.g. /data/licenses/documents" />
               </div>
             </div>
-            <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 6 }}>
-              Leave empty to use the default server path. Changing this does NOT move existing files — move them manually first, then update this path.
+            <p className="set-small-hint">
+              Leave empty to use the default server path. Changing this does NOT move existing files - move them manually first, then update this path.
             </p>
             <SectionSaveButton sectionKey="storage" isDirty={isDirty} isSaving={saving} onSave={handleSave} />
           </div>

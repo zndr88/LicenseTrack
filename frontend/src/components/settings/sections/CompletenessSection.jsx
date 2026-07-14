@@ -28,7 +28,7 @@ export default function CompletenessSection({ isOpen, isDirty, onToggle, markDir
       <SectionHeader sectionKey="completeness" icon="check" title="Completeness Requirements" description={"Fields required for a license to be marked \"complete\" (global)"} iconColor="var(--green)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
-          <div style={{ marginTop: 12 }}>
+          <div className="set-section-stack">
             {Object.entries({ invoice: "Invoice attached", purchaseOrder: "Purchase Order attached", quote: "Quote attached", eula: "EULA attached", entitlement: "Proof of entitlement", startDate: "Start date", endDate: "End date / Perpetual", contractNumber: "Contract number", poNumber: "PO number", invoiceNumber: "Invoice Number", contactEmail: "Publisher contact", costCentre: "Department / Cost Centre", budgetOwnerEmail: "Budget Owner Email" }).map(([k, label]) => (
               <div className="trow" key={k}>
                 <span>{label}</span>
