@@ -99,50 +99,50 @@ export default function ApiTokensSection({ isOpen, isDirty, onToggle, onError, o
         <div className={`setsec-body${isOpen ? " open" : ""}`}>
           <div className="setsec-inner">
             {createdToken && (
-              <div style={{ border: "1px solid var(--border)", background: "var(--bg-2)", borderRadius: 6, padding: 12, marginBottom: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-                  <strong style={{ fontSize: 13 }}>New token for {createdToken.name}</strong>
-                  <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => setCreatedToken(null)}>
+              <div className="set-token-panel">
+                <div className="set-token-panel-header">
+                  <strong className="set-token-title">New token for {createdToken.name}</strong>
+                  <button type="button" className="btn btn-g set-token-dismiss" onClick={() => setCreatedToken(null)}>
                     <Icon name="x" size={12} /> Dismiss
                   </button>
                 </div>
-                <p style={{ fontSize: 12, color: "var(--text-2)", margin: "0 0 8px" }}>
+                <p className="set-token-panel-note">
                   Copy and save this token now. It cannot be recovered after you dismiss it.
                 </p>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input className="fi mono" readOnly value={createdToken.token} style={{ fontSize: 12 }} />
-                  <button type="button" className="btn btn-p" style={{ fontSize: 12, whiteSpace: "nowrap" }} onClick={copyCreatedToken}>
+                <div className="set-token-copy-row">
+                  <input className="fi mono set-token-input" readOnly value={createdToken.token} />
+                  <button type="button" className="btn btn-p set-token-copy-button" onClick={copyCreatedToken}>
                     Copy
                   </button>
                 </div>
               </div>
             )}
 
-            <div style={{ marginTop: 12 }}>
+            <div className="set-section-stack">
               {loading ? (
-                <p style={{ fontSize: 13, color: "var(--text-3)", marginTop: 8 }}>Loading...</p>
+                <p className="set-muted-text">Loading...</p>
               ) : tokens.length === 0 ? (
-                <p style={{ fontSize: 13, color: "var(--text-3)", marginTop: 8, marginBottom: 12 }}>No API tokens yet.</p>
+                <p className="set-muted-text set-token-empty">No API tokens yet.</p>
               ) : (
-                <table className="mapping-matched-table" style={{ marginTop: 12 }}>
+                <table className="mapping-matched-table set-token-table">
                   <thead>
                     <tr>
-                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Name</th>
-                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Prefix</th>
-                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Scopes</th>
-                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Last Used</th>
-                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Actions</th>
+                      <th scope="col">Name</th>
+                      <th scope="col">Prefix</th>
+                      <th scope="col">Scopes</th>
+                      <th scope="col">Last Used</th>
+                      <th scope="col">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tokens.map((token) => (
-                      <tr key={token.id} style={{ opacity: token.revokedAt ? 0.55 : 1 }}>
-                        <td><span style={{ fontSize: 13, fontWeight: 600 }}>{token.name}</span></td>
-                        <td><span className="mono" style={{ fontSize: 11 }}>{token.tokenPrefix}</span></td>
-                        <td><span style={{ fontSize: 12 }}>{(token.scopes ?? []).join(", ")}</span></td>
-                        <td><span style={{ fontSize: 12 }}>{token.revokedAt ? "Revoked" : (formatDateTime(token.lastUsedAt, userSettings) || "Never")}</span></td>
+                      <tr key={token.id} className={token.revokedAt ? "set-token-row-revoked" : undefined}>
+                        <td><span className="set-token-name">{token.name}</span></td>
+                        <td><span className="mono set-token-prefix">{token.tokenPrefix}</span></td>
+                        <td><span className="set-token-cell-text">{(token.scopes ?? []).join(", ")}</span></td>
+                        <td><span className="set-token-cell-text">{token.revokedAt ? "Revoked" : (formatDateTime(token.lastUsedAt, userSettings) || "Never")}</span></td>
                         <td>
-                          <button type="button" className="btn btn-g" disabled={!!token.revokedAt} style={{ fontSize: 11, padding: "2px 8px", color: token.revokedAt ? "var(--text-3)" : "var(--red-text)" }} onClick={() => setRevokePending(token)}>
+                          <button type="button" className="btn btn-g set-token-revoke" disabled={!!token.revokedAt} onClick={() => setRevokePending(token)}>
                             Revoke
                           </button>
                         </td>
@@ -153,33 +153,33 @@ export default function ApiTokensSection({ isOpen, isDirty, onToggle, onError, o
               )}
 
               {showCreateToken ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-                  <div className="fg" style={{ maxWidth: 320 }}>
+                <div className="set-token-form">
+                  <div className="fg set-token-name-field">
                     <label htmlFor="api-token-name">Name</label>
                     <input id="api-token-name" className="fi" value={name} onChange={(event) => setName(event.target.value)} placeholder="CMDB sync" onKeyDown={(event) => { if (event.key === "Enter") handleCreate(); }} autoFocus />
                   </div>
                   <div className="fg">
                     <label>Scopes</label>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    <div className="set-token-scopes">
                       {API_TOKEN_SCOPES.map(([scope, label]) => (
-                        <label key={scope} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--border)", borderColor: scopes.includes(scope) ? "var(--accent)" : "var(--border)", borderRadius: 4, background: "var(--bg-2)", color: "var(--text-2)", fontSize: 11, lineHeight: 1.2, padding: "4px 8px", cursor: "pointer" }}>
+                        <label key={scope} className={`set-token-scope${scopes.includes(scope) ? " selected" : ""}`}>
                           <input type="checkbox" checked={scopes.includes(scope)} onChange={() => toggleScope(scope)} />
                           {label}
                         </label>
                       ))}
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button type="button" className="btn btn-p" disabled={creating || !name.trim() || scopes.length === 0} onClick={handleCreate} style={{ fontSize: 13 }}>
+                  <div className="set-token-actions">
+                    <button type="button" className="btn btn-p set-token-form-button" disabled={creating || !name.trim() || scopes.length === 0} onClick={handleCreate}>
                       {creating ? "Creating..." : "Create"}
                     </button>
-                    <button type="button" className="btn btn-g" onClick={() => { setShowCreateToken(false); setName(""); setScopes(["licenses:read"]); }} style={{ fontSize: 13 }}>
+                    <button type="button" className="btn btn-g set-token-form-button" onClick={() => { setShowCreateToken(false); setName(""); setScopes(["licenses:read"]); }}>
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <button type="button" className="btn btn-g" onClick={() => setShowCreateToken(true)} style={{ fontSize: 13, marginTop: 12 }}>
+                <button type="button" className="btn btn-g set-token-create-button" onClick={() => setShowCreateToken(true)}>
                   <Icon name="plus" size={13} /> Create Token
                 </button>
               )}

@@ -1108,6 +1108,66 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .set-inline-control { display: flex; gap: 6px; }
 .set-inline-input { flex: 1; }
 .set-add-button { padding: 0 12px; font-size: 12px; }
+.set-token-panel {
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.set-token-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.set-token-title { font-size: 13px; }
+.set-token-dismiss { font-size: 11px; padding: 3px 8px; }
+.set-token-panel-note { font-size: 12px; color: var(--text-2); margin: 0 0 8px; }
+.set-token-copy-row { display: flex; gap: 8px; align-items: center; }
+.set-token-input { font-size: 12px; }
+.set-token-copy-button { font-size: 12px; white-space: nowrap; }
+.set-token-empty { margin-bottom: 12px; }
+.set-token-table { margin-top: 12px; }
+.set-token-table th {
+  color: var(--text-3);
+  font-weight: 600;
+  padding-bottom: 6px;
+  text-align: left;
+}
+.set-token-row-revoked { opacity: .55; }
+.set-token-name { font-size: 13px; font-weight: 600; }
+.set-token-prefix { font-size: 11px; }
+.set-token-cell-text { font-size: 12px; }
+.set-token-revoke { font-size: 11px; padding: 2px 8px; color: var(--red-text); }
+.set-token-revoke:disabled { color: var(--text-3); }
+.set-token-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.set-token-name-field { max-width: 320px; }
+.set-token-scopes { display: flex; flex-wrap: wrap; gap: 6px; }
+.set-token-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.set-token-scope.selected { border-color: var(--accent); }
+.set-token-actions { display: flex; gap: 6px; }
+.set-token-form-button,
+.set-token-create-button { font-size: 13px; }
+.set-token-create-button { margin-top: 12px; }
 
 /* Settings visibility grid */
 .set-vis-grid { display: grid; grid-template-columns: 1fr 80px 80px; gap: 0; }
