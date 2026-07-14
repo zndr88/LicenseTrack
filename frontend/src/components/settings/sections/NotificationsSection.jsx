@@ -46,7 +46,7 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
       <SectionHeader sectionKey="notifications" icon="bell" title="Notifications" description="Expiration alert configuration (global)" iconColor="var(--orange)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
-          <div style={{ marginTop: 12 }}>
+          <div className="set-section-stack">
             <div className="fr">
               <div className="fg">
                 <label htmlFor="settings-alert-window">Alert Window (days)</label>
@@ -59,26 +59,26 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
             </div>
             <div className="fr">
               <div className="fg">
-                <label htmlFor="settings-send-hour">Daily Send Time (hour, 0–23)</label>
+                <label htmlFor="settings-send-hour">Daily Send Time (hour, 0-23)</label>
                 <input id="settings-send-hour" className="fi" type="number" min="0" max="23" value={globalSettings.notificationSendHour} onChange={(e) => { setGlobalSettings(s => ({ ...s, notificationSendHour: parseInt(e.target.value) || 7 })); markDirty("notifications"); }} />
               </div>
             </div>
             <div className="fg" style={{ marginTop: 8 }}>
               <label htmlFor="settings-allowed-domains">Allowed Outbound Domains</label>
-              <p style={{ fontSize: 12, color: "var(--text-3)", margin: "2px 0 8px" }}>Only these domains can receive notification emails. Leave empty to allow all domains.</p>
+              <p className="set-field-hint">Only these domains can receive notification emails. Leave empty to allow all domains.</p>
               {globalSettings.allowedEmailDomains.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                <div className="set-domain-list">
                   {globalSettings.allowedEmailDomains.map((d) => (
-                    <span key={d} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12, color: "var(--text)" }}>
+                    <span key={d} className="set-domain-chip">
                       {d}
-                      <button onClick={() => { setGlobalSettings(s => ({ ...s, allowedEmailDomains: s.allowedEmailDomains.filter(x => x !== d) })); markDirty("notifications"); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "var(--red)", fontSize: 13, marginLeft: 2 }} title={`Remove ${d}`}>×</button>
+                      <button type="button" className="set-domain-remove" onClick={() => { setGlobalSettings(s => ({ ...s, allowedEmailDomains: s.allowedEmailDomains.filter(x => x !== d) })); markDirty("notifications"); }} title={`Remove ${d}`}>&times;</button>
                     </span>
                   ))}
                 </div>
               )}
-              <div style={{ display: "flex", gap: 6 }}>
-                <input id="settings-allowed-domains" className="fi" style={{ flex: 1 }} value={domainInput} placeholder="e.g. company.com" onChange={(e) => setDomainInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDomain(); } }} />
-                <button className="btn btn-g" style={{ padding: "0 12px", fontSize: 12 }} onClick={addDomain}>Add</button>
+              <div className="set-inline-control">
+                <input id="settings-allowed-domains" className="fi set-inline-input" value={domainInput} placeholder="e.g. company.com" onChange={(e) => setDomainInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDomain(); } }} />
+                <button className="btn btn-g set-add-button" onClick={addDomain}>Add</button>
               </div>
             </div>
             <SectionSaveButton sectionKey="notifications" isDirty={isDirty} isSaving={saving} onSave={handleSave} />

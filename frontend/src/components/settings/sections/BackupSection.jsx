@@ -60,15 +60,11 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
       <SectionHeader sectionKey="backup" icon="server" title="Database Backup" description="Scheduled and manual database backups (admin only)" iconColor="var(--accent)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
-          <div style={{ marginTop: 12 }}>
-            <div style={{
-              display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px",
-              background: "var(--orange-m, rgba(234,179,8,.12))", border: "1px solid var(--orange, #ca8a04)",
-              borderRadius: "var(--r)", marginBottom: 12,
-            }}>
-              <Icon name="alert" size={14} color="var(--orange, #ca8a04)" style={{ flexShrink: 0, marginTop: 1 }} />
-              <span style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.5 }}>
-                <strong style={{ color: "var(--text)" }}>Database backup only.</strong>{" "}
+          <div className="set-section-stack">
+            <div className="set-warning-box">
+              <Icon name="alert" size={14} color="var(--orange, #ca8a04)" className="set-warning-icon" />
+              <span className="set-warning-text">
+                <strong>Database backup only.</strong>{" "}
                 This backup covers the database file. Uploaded document files stored on disk are <em>not</em> included
                 and must be backed up separately. Check the storage path configured under Storage settings.
               </span>
@@ -81,7 +77,7 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
             </div>
             <div className="fr">
               <div className="fg">
-                <label htmlFor="settings-backup-hour">Daily Database Backup Hour (0–23)</label>
+                <label htmlFor="settings-backup-hour">Daily Database Backup Hour (0-23)</label>
                 <input id="settings-backup-hour" className="fi" type="number" min="0" max="23" value={globalSettings.backupHour} onChange={(e) => { setGlobalSettings(s => ({ ...s, backupHour: parseInt(e.target.value) || 2 })); markDirty("backup"); }} />
               </div>
               <div className="fg">
@@ -102,48 +98,48 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
               <span>Scheduled Daily Database Backup</span>
               <Toggle value={globalSettings.backupEnabled} onChange={(v) => { setGlobalSettings(s => ({ ...s, backupEnabled: v })); markDirty("backup"); }} />
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            <div className="set-inline-actions">
               <button className="btn btn-g" onClick={handleTriggerBackup} disabled={backupTriggering}>
                 <Icon name="download" size={14} /> {backupTriggering ? "Creating..." : "Create Database Backup"}
               </button>
-              <span style={{ fontSize: 11, color: "var(--orange, #ca8a04)", display: "flex", alignItems: "center", gap: 4 }}>
+              <span className="set-inline-warning">
                 <Icon name="alert" size={11} color="var(--orange, #ca8a04)" />
-                Database only — document files are not included
+                Database only - document files are not included
               </span>
             </div>
             {globalSettings.lastBackupStatus && (
-              <div style={{ marginTop: 10, padding: "7px 12px", borderRadius: "var(--r)", fontSize: 12, background: globalSettings.lastBackupStatus === "failed" ? "var(--red-m)" : "var(--green-m)", border: `1px solid ${globalSettings.lastBackupStatus === "failed" ? "var(--red)" : "var(--green)"}`, color: globalSettings.lastBackupStatus === "failed" ? "var(--red-text)" : "var(--green-text)" }}>
+              <div className={`set-status-box ${globalSettings.lastBackupStatus === "failed" ? "set-status-box-failed" : "set-status-box-success"}`}>
                 {globalSettings.lastBackupStatus === "failed" ? "Last scheduled database backup failed." : "Last scheduled database backup succeeded."}
-                {globalSettings.lastBackupAt && <span style={{ marginLeft: 6, opacity: 0.75 }}>{formatDateTime(globalSettings.lastBackupAt, userSettings)}</span>}
+                {globalSettings.lastBackupAt && <span className="set-status-time">{formatDateTime(globalSettings.lastBackupAt, userSettings)}</span>}
               </div>
             )}
             <SectionSaveButton sectionKey="backup" isDirty={isDirty} isSaving={saving} onSave={handleSave} />
             {backupListLoading ? (
-              <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 12 }}>Loading database backups...</p>
+              <p className="set-muted-text">Loading database backups...</p>
             ) : backupList.length > 0 ? (
-              <div style={{ marginTop: 16 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Recent Database Backups</p>
-                <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+              <div className="set-backup-list">
+                <p className="set-backup-title">Recent Database Backups</p>
+                <table className="set-backup-table">
                   <thead>
-                    <tr style={{ color: "var(--text-3)", textAlign: "left" }}>
-                      <th scope="col" style={{ paddingBottom: 4 }}>Filename</th>
-                      <th scope="col" style={{ paddingBottom: 4 }}>Size</th>
-                      <th scope="col" style={{ paddingBottom: 4 }}>Created</th>
+                    <tr>
+                      <th scope="col">Filename</th>
+                      <th scope="col">Size</th>
+                      <th scope="col">Created</th>
                     </tr>
                   </thead>
                   <tbody>
                     {backupList.map((b) => (
                       <tr key={b.filename}>
-                        <td style={{ padding: "3px 0", color: "var(--text)" }}>{b.filename}</td>
-                        <td style={{ padding: "3px 0", color: "var(--text-2)" }}>{formatFileSize(b.size_bytes, userSettings)}</td>
-                        <td style={{ padding: "3px 0", color: "var(--text-2)" }}>{formatDateTime(new Date(b.created_at * 1000).toISOString(), userSettings)}</td>
+                        <td className="set-backup-filename">{b.filename}</td>
+                        <td>{formatFileSize(b.size_bytes, userSettings)}</td>
+                        <td>{formatDateTime(new Date(b.created_at * 1000).toISOString(), userSettings)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 12 }}>No database backups found in the configured location.</p>
+              <p className="set-muted-text">No database backups found in the configured location.</p>
             )}
           </div>
         </div>
