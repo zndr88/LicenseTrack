@@ -243,85 +243,85 @@ export default function WebhooksSection({ isOpen, isDirty, onToggle, onError, on
         <div className={`setsec-body${isOpen ? " open" : ""}`}>
           <div className="setsec-inner">
             {createdWebhook && (
-              <div style={{ border: "1px solid var(--border)", background: "var(--bg-2)", borderRadius: 6, padding: 12, marginBottom: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-                  <strong style={{ fontSize: 13 }}>Signing secret for {createdWebhook.name}</strong>
-                  <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => setCreatedWebhook(null)}>
+              <div className="set-webhook-secret-panel">
+                <div className="set-webhook-secret-header">
+                  <strong className="set-webhook-secret-title">Signing secret for {createdWebhook.name}</strong>
+                  <button type="button" className="btn btn-g set-webhook-secret-dismiss" onClick={() => setCreatedWebhook(null)}>
                     <Icon name="x" size={12} /> Dismiss
                   </button>
                 </div>
-                <p style={{ fontSize: 12, color: "var(--text-2)", margin: "0 0 8px" }}>
+                <p className="set-webhook-secret-note">
                   Copy and save this secret now. It cannot be recovered after you dismiss it.
                 </p>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input className="fi mono" readOnly value={createdWebhook.signingSecret} style={{ fontSize: 12 }} />
-                  <button type="button" className="btn btn-p" style={{ fontSize: 12, whiteSpace: "nowrap" }} onClick={copySecret}>Copy</button>
+                <div className="set-webhook-secret-copy-row">
+                  <input className="fi mono set-webhook-secret-input" readOnly value={createdWebhook.signingSecret} />
+                  <button type="button" className="btn btn-p set-webhook-secret-copy-button" onClick={copySecret}>Copy</button>
                 </div>
               </div>
             )}
 
-            <div style={{ marginTop: 12 }}>
+            <div className="set-section-stack">
               {loading ? (
-                <p style={{ fontSize: 13, color: "var(--text-3)", marginTop: 8 }}>Loading...</p>
+                <p className="set-muted-text">Loading...</p>
               ) : webhooks.length === 0 ? (
-                <p style={{ fontSize: 13, color: "var(--text-3)", marginTop: 8, marginBottom: 12 }}>No webhook endpoints yet.</p>
+                <p className="set-muted-text set-list-empty">No webhook endpoints yet.</p>
               ) : (
-                <table className="mapping-matched-table" style={{ marginTop: 12 }}>
+                <table className="mapping-matched-table set-list-table set-webhook-table">
                   <thead>
                     <tr>
-                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Name</th>
-                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>URL</th>
-                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Events</th>
-                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Last Result</th>
-                      <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Actions</th>
+                      <th scope="col">Name</th>
+                      <th scope="col">URL</th>
+                      <th scope="col">Events</th>
+                      <th scope="col">Last Result</th>
+                      <th scope="col">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {webhooks.map((endpoint) => (
-                      <tr key={endpoint.id} style={{ opacity: endpoint.isActive ? 1 : 0.6 }}>
+                      <tr key={endpoint.id} className={endpoint.isActive ? undefined : "set-webhook-row-inactive"}>
                         <td>
                           {editId === endpoint.id ? (
-                            <input className="fi" style={{ fontSize: 12, padding: "2px 6px" }} value={editName} onChange={(event) => setEditName(event.target.value)} />
+                            <input className="fi set-compact-input" value={editName} onChange={(event) => setEditName(event.target.value)} />
                           ) : (
-                            <span style={{ fontSize: 13, fontWeight: 600 }}>{endpoint.name}</span>
+                            <span className="set-webhook-name">{endpoint.name}</span>
                           )}
                         </td>
                         <td>
                           {editId === endpoint.id ? (
-                            <input className="fi mono" style={{ fontSize: 11, padding: "2px 6px" }} value={editUrl} onChange={(event) => setEditUrl(event.target.value)} />
+                            <input className="fi mono set-compact-input set-webhook-url-input" value={editUrl} onChange={(event) => setEditUrl(event.target.value)} />
                           ) : (
-                            <span className="mono" style={{ fontSize: 11 }}>{endpoint.url}</span>
+                            <span className="mono set-webhook-url">{endpoint.url}</span>
                           )}
                         </td>
                         <td>
                           {editId === endpoint.id ? (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            <div className="set-webhook-edit-events">
                               {WEBHOOK_EVENTS.map(([event, label]) => (
-                                <label key={event} style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid var(--border)", borderColor: editEvents.includes(event) ? "var(--accent)" : "var(--border)", borderRadius: 4, background: "var(--bg-2)", color: "var(--text-2)", fontSize: 10, lineHeight: 1.2, padding: "2px 6px", cursor: "pointer" }}>
+                                <label key={event} className={`set-webhook-event-chip${editEvents.includes(event) ? " selected" : ""}`}>
                                   <input type="checkbox" checked={editEvents.includes(event)} onChange={() => toggleEditEvent(event)} />
                                   {label}
                                 </label>
                               ))}
                             </div>
                           ) : (
-                            <span style={{ fontSize: 12 }}>{(endpoint.events ?? []).join(", ")}</span>
+                            <span className="set-webhook-cell-text">{(endpoint.events ?? []).join(", ")}</span>
                           )}
                         </td>
-                        <td><span style={{ fontSize: 12 }}>{endpoint.lastSuccessAt ? `Success ${formatDateTime(endpoint.lastSuccessAt, userSettings)}` : endpoint.lastFailureAt ? `Failed ${formatDateTime(endpoint.lastFailureAt, userSettings)}` : "Never"}</span></td>
+                        <td><span className="set-webhook-cell-text">{endpoint.lastSuccessAt ? `Success ${formatDateTime(endpoint.lastSuccessAt, userSettings)}` : endpoint.lastFailureAt ? `Failed ${formatDateTime(endpoint.lastFailureAt, userSettings)}` : "Never"}</span></td>
                         <td>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          <div className="set-webhook-actions">
                             {editId === endpoint.id ? (
                               <>
-                                <button type="button" className="btn btn-p" disabled={busyId === endpoint.id || !editName.trim() || !editUrl.trim() || editEvents.length === 0} style={{ fontSize: 11, padding: "2px 8px" }} onClick={handleSaveEdit}>Save</button>
-                                <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "2px 8px" }} onClick={cancelEdit}>Cancel</button>
+                                <button type="button" className="btn btn-p set-compact-button" disabled={busyId === endpoint.id || !editName.trim() || !editUrl.trim() || editEvents.length === 0} onClick={handleSaveEdit}>Save</button>
+                                <button type="button" className="btn btn-g set-compact-button" onClick={cancelEdit}>Cancel</button>
                               </>
                             ) : (
                               <>
-                                <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => loadDeliveries(endpoint)}>Deliveries</button>
-                                <button type="button" className="btn btn-g" disabled={busyId === endpoint.id} style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleTest(endpoint)}>Test</button>
-                                <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => startEdit(endpoint)}>Edit</button>
-                                <button type="button" className="btn btn-g" disabled={busyId === endpoint.id} style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleToggleActive(endpoint)}>{endpoint.isActive ? "Disable" : "Enable"}</button>
-                                <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "2px 8px", color: "var(--red-text)" }} onClick={() => setDeletePending(endpoint)}>Delete</button>
+                                <button type="button" className="btn btn-g set-compact-button" onClick={() => loadDeliveries(endpoint)}>Deliveries</button>
+                                <button type="button" className="btn btn-g set-compact-button" disabled={busyId === endpoint.id} onClick={() => handleTest(endpoint)}>Test</button>
+                                <button type="button" className="btn btn-g set-compact-button" onClick={() => startEdit(endpoint)}>Edit</button>
+                                <button type="button" className="btn btn-g set-compact-button" disabled={busyId === endpoint.id} onClick={() => handleToggleActive(endpoint)}>{endpoint.isActive ? "Disable" : "Enable"}</button>
+                                <button type="button" className="btn btn-g set-compact-button set-danger-action" onClick={() => setDeletePending(endpoint)}>Delete</button>
                               </>
                             )}
                           </div>

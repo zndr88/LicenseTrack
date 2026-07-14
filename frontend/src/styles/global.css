@@ -1299,6 +1299,49 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .set-ext-status-error { color: var(--red); }
 .set-ext-error { color: var(--red); font-size: 12px; margin-top: 3px; }
 
+/* Settings webhooks */
+.set-webhook-secret-panel {
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.set-webhook-secret-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.set-webhook-secret-title { font-size: 13px; }
+.set-webhook-secret-dismiss { font-size: 11px; padding: 3px 8px; }
+.set-webhook-secret-note { font-size: 12px; color: var(--text-2); margin: 0 0 8px; }
+.set-webhook-secret-copy-row { display: flex; gap: 8px; align-items: center; }
+.set-webhook-secret-input { font-size: 12px; }
+.set-webhook-secret-copy-button { font-size: 12px; white-space: nowrap; }
+.set-webhook-row-inactive { opacity: .6; }
+.set-webhook-name { font-size: 13px; font-weight: 600; }
+.set-webhook-url,
+.set-webhook-url-input { font-size: 11px; }
+.set-webhook-edit-events { display: flex; flex-wrap: wrap; gap: 4px; }
+.set-webhook-event-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.set-webhook-event-chip.selected { border-color: var(--accent); }
+.set-webhook-cell-text { font-size: 12px; }
+.set-webhook-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
 /* Settings email template modal */
 .email-tpl-overlay { display: flex; align-items: center; justify-content: center; }
 .email-tpl-modal {
