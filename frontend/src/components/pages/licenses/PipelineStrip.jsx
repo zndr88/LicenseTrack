@@ -3,6 +3,7 @@ export default function PipelineStrip({ stats, onStageClick, activeFilters }) {
     { key: 'sourcing',  label: 'Sourcing',  color: 'renewed' },
     { key: 'pending',   label: 'Pending',   color: 'pending' },
     null,
+    { key: 'upcoming',  label: 'Upcoming',  color: 'upcoming' },
     { key: 'active',    label: 'Active',    color: 'active' },
     { key: 'expiring',  label: 'Expiring',  color: 'expiring' },
     { key: 'expired',   label: 'Expired',   color: 'expired' },

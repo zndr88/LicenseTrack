@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { getCompleteness, getExpirationStatus } from "../utils/helpers.js";
+import { daysBetween, getCompleteness, getExpirationStatus, todayStr } from "../utils/helpers.js";
 import { getSortValue } from "../utils/sort.js";
 
 function statNumber(value, fallback = 0) {
@@ -45,7 +45,7 @@ export function useLicenseData(licenses, {
 
   const activeStatusFilters = useMemo(() => {
     const values = new Set(statusFilters);
-    const lifecycleKeys = ["active", "expiring", "expired", "pending_renewal", "renewed", "retired", "legacy"];
+    const lifecycleKeys = ["active", "upcoming", "expiring", "expired", "pending_renewal", "renewed", "retired", "legacy"];
     const completenessKeys = ["complete", "incomplete"];
     return {
       values,
@@ -79,6 +79,10 @@ export function useLicenseData(licenses, {
       if (l.expirationStatus === "expired") label = `Expired ${Math.abs(days ?? 0)}d ago`;
       else if (l.expirationStatus === "expiring") label = `Expires in ${days}d`;
       else if (l.expirationStatus === "active") label = days !== null && days !== undefined ? `${days}d remaining` : "Active";
+      else if (l.expirationStatus === "upcoming") {
+        const startDays = l.startDate ? daysBetween(todayStr(), l.startDate) : null;
+        label = startDays !== null && startDays > 0 ? `Starts in ${startDays}d` : "Upcoming";
+      }
       else if (l.expirationStatus === "perpetual") label = "Perpetual";
       else if (l.expirationStatus === "renewed") label = "Renewed";
       else if (l.expirationStatus === "pending_renewal") label = "Pending Renewal";
@@ -87,7 +91,7 @@ export function useLicenseData(licenses, {
       else label = l.expirationStatus;
       expiration = { status: l.expirationStatus, days, label };
     } else {
-      expiration = getExpirationStatus(l.endDate, globalSettings.notificationDays, l.retired, l.lifecycleStatus, l.renewedToId);
+      expiration = getExpirationStatus(l.endDate, globalSettings.notificationDays, l.retired, l.lifecycleStatus, l.renewedToId, l.startDate);
     }
 
     return { ...l, completeness, expiration };
@@ -102,6 +106,7 @@ export function useLicenseData(licenses, {
       const { values } = activeStatusFilters;
       const matchesLifecycle = (
         (values.has("active") && (l.expiration.status === "active" || l.expiration.status === "perpetual" || l.expiration.status === "expiring")) ||
+        (values.has("upcoming") && l.expiration.status === "upcoming") ||
         (values.has("expiring") && l.expiration.status === "expiring") ||
         (values.has("expired") && l.expiration.status === "expired") ||
         (values.has("pending_renewal") && l.expiration.status === "pending_renewal") ||
@@ -254,6 +259,7 @@ export function useLicenseData(licenses, {
         active,
         expiring,
         expired: statNumber(apiStats.total_expired, statNumber(apiStats.expired)),
+        upcoming: statNumber(apiStats.total_upcoming, statNumber(apiStats.upcoming)),
         pending: statNumber(apiStats.total_pending, statNumber(apiStats.pending)),
         incomplete: statNumber(apiStats.total_incomplete, statNumber(apiStats.incomplete)),
         retired: statNumber(apiStats.total_retired, statNumber(apiStats.retired)),
@@ -280,6 +286,7 @@ export function useLicenseData(licenses, {
     active: enriched.filter((l) => l.expiration.status === "active" || l.expiration.status === "perpetual").length,
     expiring: enriched.filter((l) => l.expiration.status === "expiring").length,
     expired: enriched.filter((l) => l.expiration.status === "expired").length,
+    upcoming: enriched.filter((l) => l.expiration.status === "upcoming").length,
     pending: enriched.filter((l) => l.expiration.status === "pending_renewal").length,
     incomplete: enriched.filter((l) => !l.completeness.isExempt && !l.completeness.isComplete && !l.completeness.isPending && l.expiration.status !== "retired" && l.expiration.status !== "renewed" && l.expiration.status !== "pending_renewal" && l.expiration.status !== "legacy").length,
     retired: enriched.filter((l) => l.expiration.status === "retired").length,

@@ -9,6 +9,41 @@ API stability levels and the breaking-change policy are defined in
 [docs/api-stability.md](docs/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
+## [1.0.5] - 2026-07-14
+
+### Added
+
+- Added an upcoming license status for records whose entitlement start date is
+  still in the future, with overview filtering, report counts, notification
+  handling, and regression coverage.
+
+### Changed
+
+- Added a public style contract and contribution guidance for consistent
+  AI-assisted backend, frontend, CSS, testing, and release work.
+- Normalized backend formatting and comments to the repository style contract.
+- Updated form placeholders to use more neutral wording.
+- Consolidated frontend modal, settings, license-toolbar, and shared UI
+  presentation patterns to reduce inline style drift.
+- Consolidated global settings response normalization through the canonical
+  frontend normalizer.
+
+### Fixed
+
+- Reduced frontend hook dependency suppressions to the remaining documented,
+  license-scoped effects.
+- Replaced silent cleanup failures with warning logs where broad cleanup paths
+  intentionally continue after failure.
+- Removed production-source comment artifacts, mojibake, and demo-build marker
+  leakage from normal production builds.
+
+### Release
+
+- Version bumped to 1.0.5 across backend, frontend, README, Docker Compose,
+  frontend package metadata, and wiki installation/deployment examples.
+- Verified backend tests, frontend lint, frontend tests, frontend production
+  build, demo marker absence, and tracked-file release-surface scans.
+
 ## [1.0.4] - 2026-07-12
 
 ### Added

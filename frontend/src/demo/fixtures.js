@@ -16,12 +16,13 @@ const NOTIFICATION_DAYS = 30;
 
 // Mirrors backend/app/services/license_service.py::compute_expiration_status
 // (verified 2026-07-10, license_service.py:135-165). Priority order:
-// retired > legacy > renewed > pending_renewal > perpetual > expired > expiring > active.
-export function computeExpirationStatus({ isRetired, lifecycleStatus, endDate }) {
+// retired > legacy > renewed > pending_renewal > upcoming > perpetual > expired > expiring > active.
+export function computeExpirationStatus({ isRetired, lifecycleStatus, startDate, endDate }) {
   if (isRetired) return "retired";
   if (lifecycleStatus === "legacy") return "legacy";
   if (lifecycleStatus === "renewed") return "renewed";
   if (lifecycleStatus === "pending_renewal") return "pending_renewal";
+  if (startDate !== null && daysUntil(startDate) > 0) return "upcoming";
   if (endDate === null) return "perpetual";
   const days = daysUntil(endDate);
   if (days < 0) return "expired";
@@ -98,6 +99,7 @@ export function buildLicense(overrides) {
   merged.expirationStatus = computeExpirationStatus({
     isRetired: merged.isRetired,
     lifecycleStatus: merged.lifecycleStatus,
+    startDate: merged.startDate,
     endDate: merged.endDate,
   });
   return merged;

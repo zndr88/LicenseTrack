@@ -166,7 +166,7 @@ export default function MappingStep({
         <label className="mapping-preset-label" htmlFor="mapping-preset-name">
           Save this mapping as a preset (optional)
         </label>
-        <input id="mapping-preset-name" className="fi" type="text" placeholder="e.g. Flexera Q1 Export" value={mappingName} onChange={e => setMappingName(e.target.value)} />
+        <input id="mapping-preset-name" className="fi" type="text" placeholder="Import mapping name" value={mappingName} onChange={e => setMappingName(e.target.value)} />
       </div>
 
       {/* PART D - Actions */}

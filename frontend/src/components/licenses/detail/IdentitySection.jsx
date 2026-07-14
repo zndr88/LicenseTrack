@@ -93,6 +93,7 @@ export default function IdentitySection({
               {exp.status === "legacy" && <Badge type="gray">Legacy</Badge>}
               {exp.status === "renewed" && <span className="badge badge-renewed"><span className="badge-dot" />Renewed</span>}
               {exp.status === "pending_renewal" && <span className="badge badge-pending"><span className="badge-dot" />Pending Renewal</span>}
+              {exp.status === "upcoming" && <Badge type="blue">{exp.label}</Badge>}
               {exp.status === "expired" && <Badge type="red">{exp.label}</Badge>}
               {exp.status === "expiring" && <Badge type="orange">{exp.label}</Badge>}
               {exp.status === "active" && <Badge type="green">{exp.label}</Badge>}

@@ -212,6 +212,7 @@ export function useDetailPanelState({
     license.retired,
     license.lifecycleStatus,
     license.renewedToId,
+    license.startDate,
   );
 
   const perms = ROLE_PERMISSIONS[user.role];

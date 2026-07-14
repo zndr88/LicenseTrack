@@ -42,7 +42,7 @@ describe("required field validation", () => {
 
   test("Save button is disabled when only publisher is filled", () => {
     renderModal();
-    fireEvent.change(screen.getByPlaceholderText(/microsoft corporation/i), {
+    fireEvent.change(screen.getByPlaceholderText(/software publisher/i), {
       target: { value: "Acme" },
     });
     expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
@@ -50,8 +50,8 @@ describe("required field validation", () => {
 
   test("Save button becomes enabled once both required fields are filled", async () => {
     renderModal();
-    fireEvent.change(screen.getByPlaceholderText(/microsoft corporation/i), { target: { value: "Acme" } });
-    fireEvent.change(screen.getByPlaceholderText(/microsoft 365/i), { target: { value: "Acme Suite" } });
+    fireEvent.change(screen.getByPlaceholderText(/software publisher/i), { target: { value: "Acme" } });
+    fireEvent.change(screen.getByPlaceholderText(/product or service name/i), { target: { value: "Acme Suite" } });
     expect(screen.getByRole("button", { name: /^save$/i })).not.toBeDisabled();
   });
 
@@ -80,8 +80,8 @@ describe("contact email validation", () => {
     const { onSave } = renderModal({ item: { ...VALID_ITEM, contactEmail: "" } });
 
     // Fill invalid email — Save is enabled because required fields come from item
-    await user.clear(screen.getByPlaceholderText(/sales@vendor/i));
-    await user.type(screen.getByPlaceholderText(/sales@vendor/i), "not-an-email");
+    await user.clear(screen.getByPlaceholderText(/contact@example\.com/i));
+    await user.type(screen.getByPlaceholderText(/contact@example\.com/i), "not-an-email");
 
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
@@ -168,8 +168,8 @@ describe("onSave payload shape", () => {
     const user = userEvent.setup();
     const { onSave } = renderModal();
 
-    fireEvent.change(screen.getByPlaceholderText(/microsoft corporation/i), { target: { value: "TestPub" } });
-    fireEvent.change(screen.getByPlaceholderText(/microsoft 365/i), { target: { value: "TestSoft" } });
+    fireEvent.change(screen.getByPlaceholderText(/software publisher/i), { target: { value: "TestPub" } });
+    fireEvent.change(screen.getByPlaceholderText(/product or service name/i), { target: { value: "TestSoft" } });
 
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
@@ -196,12 +196,12 @@ describe("onSave payload shape", () => {
     const user = userEvent.setup();
     const { onSave } = renderModal({ userSettings: { numberFormatLocale: "de-DE" } });
 
-    fireEvent.change(screen.getByPlaceholderText(/microsoft corporation/i), { target: { value: "Primary Pub" } });
-    fireEvent.change(screen.getByPlaceholderText(/microsoft 365/i), { target: { value: "Primary Suite" } });
+    fireEvent.change(screen.getByPlaceholderText(/software publisher/i), { target: { value: "Primary Pub" } });
+    fireEvent.change(screen.getByPlaceholderText(/product or service name/i), { target: { value: "Primary Suite" } });
 
     await user.click(screen.getByRole("button", { name: /add additional license line/i }));
-    fireEvent.change(screen.getByPlaceholderText(/adobe inc/i), { target: { value: "Extra Pub" } });
-    fireEvent.change(screen.getByPlaceholderText(/adobe creative cloud/i), { target: { value: "Extra Suite" } });
+    fireEvent.change(screen.getAllByPlaceholderText(/software publisher/i)[1], { target: { value: "Extra Pub" } });
+    fireEvent.change(screen.getAllByPlaceholderText(/product or service name/i)[1], { target: { value: "Extra Suite" } });
     fireEvent.change(screen.getByPlaceholderText(/e\.g\. 10/i), { target: { value: "1.000" } });
     fireEvent.change(screen.getByPlaceholderText(/unit price/i), { target: { value: "1.234,50" } });
     fireEvent.change(screen.getByPlaceholderText(/total price/i), { target: { value: "1.234.500,00" } });
@@ -234,7 +234,7 @@ describe("dirty close guard", () => {
     const user = userEvent.setup();
     const { onCancel } = renderModal();
 
-    fireEvent.change(screen.getByPlaceholderText(/microsoft corporation/i), { target: { value: "A" } });
+    fireEvent.change(screen.getByPlaceholderText(/software publisher/i), { target: { value: "A" } });
 
     await user.click(screen.getByRole("button", { name: /cancel/i }));
 
@@ -248,7 +248,7 @@ describe("dirty close guard", () => {
     const user = userEvent.setup();
     const { onCancel } = renderModal();
 
-    fireEvent.change(screen.getByPlaceholderText(/microsoft corporation/i), { target: { value: "A" } });
+    fireEvent.change(screen.getByPlaceholderText(/software publisher/i), { target: { value: "A" } });
     await user.click(screen.getByRole("button", { name: /cancel/i }));
 
     await waitFor(() =>
@@ -265,7 +265,7 @@ describe("dirty close guard", () => {
     const user = userEvent.setup();
     const { onCancel } = renderModal();
 
-    fireEvent.change(screen.getByPlaceholderText(/microsoft corporation/i), { target: { value: "A" } });
+    fireEvent.change(screen.getByPlaceholderText(/software publisher/i), { target: { value: "A" } });
     await user.click(screen.getByRole("button", { name: /cancel/i }));
 
     await waitFor(() =>
@@ -295,7 +295,7 @@ describe("dirty close guard", () => {
     const user = userEvent.setup();
     const { onCancel } = renderModal();
 
-    fireEvent.change(screen.getByPlaceholderText(/microsoft corporation/i), { target: { value: "A" } });
+    fireEvent.change(screen.getByPlaceholderText(/software publisher/i), { target: { value: "A" } });
 
     await user.click(screen.getByRole("button", { name: /^close$/i }));
     expect(await screen.findByText(/discard unsaved changes/i)).toBeInTheDocument();

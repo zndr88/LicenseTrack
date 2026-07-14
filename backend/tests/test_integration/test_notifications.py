@@ -78,6 +78,26 @@ async def test_notifications_include_upcoming_and_expired_license_rows(
     assert ("Expired Suite", "expired") in by_name
 
 
+async def test_notifications_exclude_future_start_from_expiration_alerts(
+    db_session, test_app, auth_headers
+):
+    future_start = _license(
+        software_description="Future Contract Year",
+        start_date=date.today() + timedelta(days=30),
+        end_date=date.today() + timedelta(days=45),
+    )
+    db_session.add(future_start)
+    await db_session.commit()
+
+    response = await test_app.get("/api/notifications", headers=auth_headers)
+
+    assert response.status_code == 200
+    expiration_rows = {
+        row["software_name"] for row in response.json() if row["type"] in {"expiring", "expired"}
+    }
+    assert "Future Contract Year" not in expiration_rows
+
+
 async def test_notifications_respect_notification_day_setting(
     db_session, test_app, auth_headers
 ):

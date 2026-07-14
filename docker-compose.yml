@@ -1,6 +1,6 @@
 services:
   license-lifecycle:
-    image: license-lifecycle-system:1.0.4
+    image: license-lifecycle-system:1.0.5
     build:
       context: .
       dockerfile: Dockerfile

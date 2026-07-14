@@ -109,7 +109,7 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
               <div className="fr">
                 <div className="fg" style={{ flex: 2 }}>
                   <label htmlFor="settings-smtp-host">SMTP Host</label>
-                  <input id="settings-smtp-host" className="fi" value={globalSettings.smtpHost} onChange={e => { setGlobalSettings(s => ({ ...s, smtpHost: e.target.value })); markDirty("smtp"); }} placeholder="smtp.company.com" />
+                  <input id="settings-smtp-host" className="fi" value={globalSettings.smtpHost} onChange={e => { setGlobalSettings(s => ({ ...s, smtpHost: e.target.value })); markDirty("smtp"); }} placeholder="smtp.example.com" />
                 </div>
                 <div className="fg" style={{ flex: 1 }}>
                   <label htmlFor="settings-smtp-port">Port</label>
@@ -119,7 +119,7 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
               <div className="fr">
                 <div className="fg">
                   <label htmlFor="settings-smtp-username">Username</label>
-                  <input id="settings-smtp-username" className="fi" value={globalSettings.smtpUsername} onChange={e => { setGlobalSettings(s => ({ ...s, smtpUsername: e.target.value })); markDirty("smtp"); }} placeholder="notifications@company.com" />
+                  <input id="settings-smtp-username" className="fi" value={globalSettings.smtpUsername} onChange={e => { setGlobalSettings(s => ({ ...s, smtpUsername: e.target.value })); markDirty("smtp"); }} placeholder="notifications@example.com" />
                 </div>
                 <div className="fg">
                   <label htmlFor="settings-smtp-password">Password</label>
@@ -129,7 +129,7 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
               <div className="fr">
                 <div className="fg">
                   <label htmlFor="settings-smtp-sender">Sender Address</label>
-                  <input id="settings-smtp-sender" className="fi" value={globalSettings.smtpSender} onChange={e => { setGlobalSettings(s => ({ ...s, smtpSender: e.target.value })); markDirty("smtp"); }} placeholder="Licenses <noreply@company.com>" />
+                  <input id="settings-smtp-sender" className="fi" value={globalSettings.smtpSender} onChange={e => { setGlobalSettings(s => ({ ...s, smtpSender: e.target.value })); markDirty("smtp"); }} placeholder="LicenseTrack <noreply@example.com>" />
                 </div>
               </div>
               <div className="trow">

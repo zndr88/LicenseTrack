@@ -110,11 +110,11 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
               </div>
               <div className="fg">
                 <label htmlFor="cs-supplier">Supplier</label>
-                <input id="cs-supplier" className="fi" placeholder="e.g. SoftwareOne" {...register("supplier")} />
+                <input id="cs-supplier" className="fi" placeholder="Reseller or direct supplier" {...register("supplier")} />
               </div>
               <div className="fg">
                 <label htmlFor="cs-notes">Notes</label>
-                <textarea id="cs-notes" className="fi" rows={2} placeholder="Any notes..." style={{ resize: "vertical" }} {...register("notes")} />
+                <textarea id="cs-notes" className="fi" rows={2} placeholder="PO notes" style={{ resize: "vertical" }} {...register("notes")} />
               </div>
             </>
           ) : (

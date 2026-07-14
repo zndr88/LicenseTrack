@@ -14,6 +14,7 @@ import {
 
 const STATUS_BADGE_TYPE = {
   active:    "green",
+  upcoming:  "blue",
   expiring:  "orange",
   expired:   "red",
   perpetual: "blue",
@@ -23,6 +24,7 @@ const STATUS_BADGE_TYPE = {
 
 const STATUS_LABEL = {
   active: "Active",
+  upcoming: "Upcoming",
   expiring: "Expiring",
   expired: "Expired",
   perpetual: "Perpetual",

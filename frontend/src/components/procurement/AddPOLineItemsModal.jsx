@@ -111,7 +111,7 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 <label>Publisher <span style={{ color: "var(--red)" }}>*</span></label>
                 <input
                   className="fi"
-                  placeholder="e.g. Adobe"
+                  placeholder="Software publisher"
                   value={item.publisherName}
                   onChange={(e) => update(idx, "publisherName", e.target.value)}
                 />
@@ -120,7 +120,7 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 <label>Software Description <span style={{ color: "var(--red)" }}>*</span></label>
                 <input
                   className="fi"
-                  placeholder="e.g. Adobe Creative Cloud All Apps"
+                  placeholder="Product or service name"
                   value={item.softwareDescription}
                   onChange={(e) => update(idx, "softwareDescription", e.target.value)}
                 />
@@ -169,7 +169,7 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 <label>Supplier</label>
                 <input
                   className="fi"
-                  placeholder="e.g. SoftwareOne"
+                  placeholder="Reseller or direct supplier"
                   value={item.supplier}
                   onChange={(e) => update(idx, "supplier", e.target.value)}
                 />
@@ -179,7 +179,7 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 <input
                   className="fi"
                   type="email"
-                  placeholder="e.g. rep@softwareone.com"
+                  placeholder="contact@example.com"
                   value={item.contactEmail}
                   onChange={(e) => update(idx, "contactEmail", e.target.value)}
                 />

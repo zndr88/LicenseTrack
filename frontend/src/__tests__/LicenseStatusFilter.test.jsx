@@ -19,6 +19,7 @@ describe("LicenseStatusFilter", () => {
   test("renders all status chip buttons", () => {
     setup();
     expect(screen.getByText("Active")).toBeTruthy();
+    expect(screen.getByText("Upcoming")).toBeTruthy();
     expect(screen.getByText("Expiring")).toBeTruthy();
     expect(screen.getByText("Expired")).toBeTruthy();
     expect(screen.getByText("Pending")).toBeTruthy();

@@ -143,10 +143,11 @@ def compute_expiration_status(
     2. legacy    - lifecycle_status == "legacy"
     3. renewed   - lifecycle_status == "renewed"
     4. pending_renewal - lifecycle_status == "pending_renewal"
-    5. perpetual - no end_date
-    6. expired   - end_date in the past
-    7. expiring  - end_date within notification_days
-    8. active    - everything else
+    5. upcoming  - start_date is in the future
+    6. perpetual - no end_date
+    7. expired   - end_date in the past
+    8. expiring  - end_date within notification_days
+    9. active    - everything else
     """
     if license.is_retired:
         return "retired"
@@ -156,6 +157,8 @@ def compute_expiration_status(
         return "renewed"
     if license.lifecycle_status == "pending_renewal":
         return "pending_renewal"
+    if license.start_date is not None and license.start_date > today:
+        return "upcoming"
     if license.end_date is None:
         return "perpetual"
     if license.end_date < today:
@@ -205,6 +208,7 @@ def compute_stats(
     total_active = 0
     total_expiring = 0
     total_expired = 0
+    total_upcoming = 0
     total_pending = 0
     total_incomplete = 0
     total_retired = 0
@@ -226,6 +230,8 @@ def compute_stats(
             total_renewed += 1
         elif status == "pending_renewal":
             total_pending += 1
+        elif status == "upcoming":
+            total_upcoming += 1
         elif status == "expired":
             total_expired += 1
         elif status == "expiring":
@@ -274,6 +280,7 @@ def compute_stats(
         "total_active": total_active,
         "total_expiring": total_expiring,
         "total_expired": total_expired,
+        "total_upcoming": total_upcoming,
         "total_pending": total_pending,
         "total_incomplete": total_incomplete,
         "total_retired": total_retired,

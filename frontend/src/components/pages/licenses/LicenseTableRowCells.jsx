@@ -108,6 +108,7 @@ function ExpirationCell({ license }) {
       {license.expiration.status === "legacy" && <Badge type="gray">Legacy</Badge>}
       {license.expiration.status === "renewed" && <span className="badge badge-renewed"><span className="badge-dot" />Renewed</span>}
       {license.expiration.status === "pending_renewal" && <span className="badge badge-pending"><span className="badge-dot" />Pending Renewal</span>}
+      {license.expiration.status === "upcoming" && <Badge type="blue">{license.expiration.label}</Badge>}
       {license.expiration.status === "expired" && <Badge type="red">{license.expiration.label}</Badge>}
       {license.expiration.status === "expiring" && <Badge type="orange">{license.expiration.label}</Badge>}
       {license.expiration.status === "active" && <Badge type="green">{license.expiration.label}</Badge>}

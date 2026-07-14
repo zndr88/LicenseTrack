@@ -241,6 +241,7 @@ export default function LicensesPage({
               sourcing: activeSourcingCount,
               pending: activePendingCount,
               active: stats.active,
+              upcoming: stats.upcoming,
               expiring: stats.expiring,
               expired: stats.expired,
               renewed: stats.renewed,

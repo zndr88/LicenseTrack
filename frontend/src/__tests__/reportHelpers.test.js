@@ -66,8 +66,10 @@ describe("report cost helpers", () => {
       license({ id: 4, expirationStatus: "expired" }),
       license({ id: 5, expirationStatus: "renewed" }),
       license({ id: 6, expirationStatus: "legacy" }),
+      license({ id: 7, expirationStatus: "upcoming" }),
     ])).toEqual({
       active: 2,
+      upcoming: 1,
       expiring: 1,
       expired: 1,
     });

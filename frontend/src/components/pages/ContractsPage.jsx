@@ -58,7 +58,7 @@ function NewContractModal({ onClose, onCreate, showError }) {
             <label htmlFor="new-contract-number">Contract Number *</label>
             <input id="new-contract-number" className="fi" value={form.contractNumber}
               onChange={(e) => setForm((s) => ({ ...s, contractNumber: e.target.value }))}
-              placeholder="e.g. MS-EA-2024-001" />
+              placeholder="CTR-2026-001" />
           </div>
         </div>
         <div className="fr">
@@ -66,7 +66,7 @@ function NewContractModal({ onClose, onCreate, showError }) {
             <label htmlFor="new-contract-publisher">Publisher Name *</label>
             <input id="new-contract-publisher" className="fi" value={form.publisherName}
               onChange={(e) => setForm((s) => ({ ...s, publisherName: e.target.value }))}
-              placeholder="e.g. Microsoft" />
+              placeholder="Software publisher" />
           </div>
         </div>
         <div className="fr">
@@ -74,7 +74,7 @@ function NewContractModal({ onClose, onCreate, showError }) {
             <label htmlFor="new-contract-notes">Notes</label>
             <textarea id="new-contract-notes" className="fi" rows={3} value={form.notes}
               onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))}
-              placeholder="Optional notes about this contract..." />
+              placeholder="Contract notes" />
           </div>
         </div>
       </div>

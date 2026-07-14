@@ -239,7 +239,7 @@ export default function ConvertItemForm({
             </div>
             <div className="fg">
               <label htmlFor={`ca-sku-code-${idx}`}>SKU Code</label>
-              <input id={`ca-sku-code-${idx}`} className="fi" placeholder="e.g. AAA-13528" {...register(`items.${idx}.skuCode`)} />
+              <input id={`ca-sku-code-${idx}`} className="fi" placeholder="SKU or product code" {...register(`items.${idx}.skuCode`)} />
             </div>
           </div>
           <div className="fr">
@@ -293,7 +293,7 @@ export default function ConvertItemForm({
             </div>
             <div className="fg">
               <label htmlFor={`ca-budget-owner-${idx}`}>Budget Owner Email</label>
-              <input id={`ca-budget-owner-${idx}`} className="fi" placeholder="budget.owner@company.com" {...register(`items.${idx}.budgetOwnerEmail`)} />
+              <input id={`ca-budget-owner-${idx}`} className="fi" placeholder="owner@example.com" {...register(`items.${idx}.budgetOwnerEmail`)} />
               {itemErrors?.budgetOwnerEmail && <span className="field-error">{itemErrors.budgetOwnerEmail.message}</span>}
             </div>
           </div>

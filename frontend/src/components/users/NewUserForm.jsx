@@ -12,7 +12,7 @@ export default function NewUserForm({ availableDepts, newUser, onAddUser, setNew
         </div>
         <div className="fg">
           <label>Email</label>
-          <input className="fi" value={newUser.email} onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))} placeholder="email@company.com" />
+          <input className="fi" value={newUser.email} onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))} placeholder="user@example.com" />
         </div>
       </div>
       <div className="fr">

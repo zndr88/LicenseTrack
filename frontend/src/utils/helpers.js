@@ -89,11 +89,15 @@ export const getCompleteness = (license, mandatoryFields) => {
   return { percentage: checks.length > 0 ? Math.round((met.length / checks.length) * 100) : 100, checks, isComplete: met.length === checks.length };
 };
 
-export const getExpirationStatus = (endDate, notificationDays, retired, lifecycleStatus, renewedToId) => {
-  if (lifecycleStatus === "pending_renewal") return { status: "pending_renewal", days: null, label: "Pending Renewal" };
-  if (lifecycleStatus === "renewed") return { status: "renewed", days: null, label: "Renewed" };
-  if (lifecycleStatus === "legacy") return { status: "legacy", days: null, label: "Legacy" };
+export const getExpirationStatus = (endDate, notificationDays, retired, lifecycleStatus, renewedToId, startDate = null) => {
   if (retired) return { status: "retired", days: null, label: "Retired" };
+  if (lifecycleStatus === "legacy") return { status: "legacy", days: null, label: "Legacy" };
+  if (lifecycleStatus === "renewed") return { status: "renewed", days: null, label: "Renewed" };
+  if (lifecycleStatus === "pending_renewal") return { status: "pending_renewal", days: null, label: "Pending Renewal" };
+  if (startDate) {
+    const daysUntilStart = daysBetween(todayStr(), startDate);
+    if (daysUntilStart > 0) return { status: "upcoming", days: daysUntilStart, label: `Starts in ${daysUntilStart}d` };
+  }
   if (!endDate || endDate === "Perpetual") return { status: "perpetual", days: null, label: "Perpetual" };
   const days = daysBetween(todayStr(), endDate);
   // End date passed - either renewed (successor exists) or expired (no successor)

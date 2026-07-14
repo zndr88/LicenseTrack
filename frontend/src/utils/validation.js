@@ -29,7 +29,7 @@ export function requiredEmail(value, fieldName = "Email") {
 }
 
 /**
- * Email domain like "company.com" (a leading @ is stripped automatically).
+ * Email domain like "example.com" (a leading @ is stripped automatically).
  * Empty -> error.
  */
 export function allowedEmailDomain(value) {
@@ -37,7 +37,7 @@ export function allowedEmailDomain(value) {
   if (v.startsWith("@")) v = v.slice(1);
   if (!v) return "Domain is required.";
   if (v.includes(" ") || v.includes("@") || !v.includes(".")) {
-    return "Must be a valid domain (e.g. company.com).";
+    return "Must be a valid domain (e.g. example.com).";
   }
   return null;
 }

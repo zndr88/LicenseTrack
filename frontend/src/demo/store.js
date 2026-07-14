@@ -119,6 +119,7 @@ export function decorateLicense(license) {
   license.expirationStatus = computeExpirationStatus({
     isRetired: license.isRetired,
     lifecycleStatus: license.lifecycleStatus,
+    startDate: license.startDate,
     endDate: license.endDate,
   });
   license.updatedAt = new Date().toISOString();
@@ -138,6 +139,7 @@ export function computeStats() {
   let totalActive = 0;
   let totalExpiring = 0;
   let totalExpired = 0;
+  let totalUpcoming = 0;
   let totalPending = 0;
   let totalIncomplete = 0;
   let totalRetired = 0;
@@ -152,6 +154,7 @@ export function computeStats() {
     else if (status === "legacy") totalLegacy++;
     else if (status === "renewed") totalRenewed++;
     else if (status === "pending_renewal") totalPending++;
+    else if (status === "upcoming") totalUpcoming++;
     else if (status === "expired") totalExpired++;
     else if (status === "expiring") {
       totalExpiring++;
@@ -183,6 +186,7 @@ export function computeStats() {
     total_active: totalActive,
     total_expiring: totalExpiring,
     total_expired: totalExpired,
+    total_upcoming: totalUpcoming,
     total_pending: totalPending,
     total_incomplete: totalIncomplete,
     total_retired: totalRetired,
@@ -264,10 +268,11 @@ export function computeNotifications() {
     .flatMap((license) => {
       const items = [];
       const isRenewed = license.lifecycleStatus === "renewed";
+      const isUpcoming = license.startDate ? daysUntil(license.startDate) > 0 : false;
       const days = license.daysUntilExpiry ?? daysUntil(license.endDate);
       const completenessPct = computeLicenseCompletenessPct(license);
 
-      if (license.endDate && !isRenewed && days < 0) {
+      if (license.endDate && !isRenewed && !isUpcoming && days < 0) {
         const overdue = Math.abs(days);
         items.push({
           license_id: license.id,
@@ -278,7 +283,7 @@ export function computeNotifications() {
           severity: "critical",
           relevant_date: license.endDate,
         });
-      } else if (license.endDate && !isRenewed && days >= 0 && days <= (store.globalSettings.notification_days ?? 90)) {
+      } else if (license.endDate && !isRenewed && !isUpcoming && days >= 0 && days <= (store.globalSettings.notification_days ?? 90)) {
         const severity = days <= 30 ? "critical" : days <= 60 ? "warning" : "info";
         items.push({
           license_id: license.id,
@@ -328,6 +333,7 @@ export function computePortfolioReportStats() {
   }
   return {
     total_active: stats.total_active,
+    total_upcoming: stats.total_upcoming,
     total_expiring: stats.total_expiring,
     total_expired: stats.total_expired,
     total_incomplete: stats.total_incomplete,

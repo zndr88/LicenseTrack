@@ -1,50 +1,50 @@
 Reports
 
   What it is
-  Reports is LicenseTrack's analytics dashboard. It transforms your license data into charts and tables that answer questions about spend, portfolio composition, upcoming renewals, and vendor relationships — and lets you export the whole thing as a PDF.
+  Reports is LicenseTrack's analytics dashboard. It transforms your license data into charts and tables that answer questions about spend, portfolio composition, upcoming renewals, and vendor relationships, and lets you export the whole thing as a PDF.
 
   How it works
-  The Reports page is a combination of server-computed summary stats and client-computed section data.
+  The Reports page combines a server-computed portfolio annual-cost rollup with client-side analysis of visible license records.
 
-  A summary stats bar at the top of the page shows active, expiring, and expired counts for the currently filtered report rows. Active excludes expiring licenses so the three counters remain distinct. The portfolio-wide annual cost grouped by native currency is fetched from the server and is not affected by local report filters. It also shows how many malformed legacy amounts were excluded from that server total.
+  A summary stats bar at the top of the page shows upcoming, active, expiring, and expired counts for the currently filtered report rows. Active excludes upcoming and expiring licenses so the counters remain distinct. The portfolio-wide annual cost grouped by native currency is fetched from the server and is not affected by local report filters. It also shows how many malformed legacy amounts were excluded from that server total.
 
   Below the stats bar, the rest of the page pulls your full license list and runs it through a set of data transformations on the client. Amounts remain in their native currencies. LicenseTrack does not currently perform exchange-rate conversion, so totals spanning multiple currencies must not be treated as converted portfolio totals.
 
   A set of filters controls what data feeds into every section below the stats bar: you can exclude retired licenses, narrow by license start date (this calendar year, the last 12 months, or a custom from/to window), or restrict results to one or more cost centres. Changing any filter updates all sections simultaneously.
 
   Spend overview
-  Shows total historical spend (summed from totalPoPrice across all matching licenses, de-duplicated by PO number so shared POs are not double-counted), the recurring annual cost covering active subscription, SaaS, and maintenance licenses only, and the implied non-recurring remainder. It also breaks matching calculated license value into active, expiring, and expired budget buckets using the same lifecycle statuses as License Overview. Perpetual licenses are included in active budget. Missing PO totals are called out beside historical spend. Records with neither a usable unit price × quantity nor a totalPoPrice are surfaced separately as unpriced and excluded from calculated totals.
+  Shows total historical spend (summed from totalPoPrice across all matching licenses, de-duplicated by PO number so shared POs are not double-counted), the recurring annual cost covering active subscription, SaaS, and maintenance licenses only, and the implied non-recurring remainder. It also breaks matching calculated license value into active, expiring, and expired budget buckets using the same lifecycle statuses as License Overview. Upcoming records are counted separately in the summary and are not included in active budget. Perpetual licenses are included in active budget. Missing PO totals are called out beside historical spend. Records with neither a usable unit price x quantity nor a totalPoPrice are surfaced separately as unpriced and excluded from calculated totals.
 
   Publisher and vendor overview
-  A bar chart ranked by calculated license value, grouping licenses by publisher name. Each bar uses unit price × quantity when available, with totalPoPrice as a fallback. The sortable table beneath it breaks the same portfolio down by publisher/supplier relationship, showing license count, calculated value, and whether any licenses in that row are missing price data. When the filtered records use multiple currencies, the chart is replaced by an explanatory note and the grouped-by-currency table remains available.
+  A bar chart ranked by calculated license value, grouping licenses by publisher name. Each bar uses unit price x quantity when available, with totalPoPrice as a fallback. The sortable table beneath it breaks the same portfolio down by publisher/supplier relationship, showing license count, calculated value, and whether any licenses in that row are missing price data. When the filtered records use multiple currencies, the chart is replaced by an explanatory note and the grouped-by-currency table remains available.
 
   Portfolio health
   Two donut charts side by side: one showing the breakdown of your portfolio by license type (subscription, perpetual, maintenance, SaaS, OEM, freeware), the other by license metric (per user, per device, per CPU, and so on). Each segment is labelled with its count and percentage of the total.
 
   Budget forecast
-  Projects your recurring annual cost forward across a number of years you set in the section (1–10, default: five), with an optional annual growth rate you can dial in. The baseline is the sum of annual costs for all active, non-renewed subscription, SaaS, and maintenance licenses. When the filtered records use multiple currencies, the forecast chart is replaced by an explanatory note with the grouped baseline because LicenseTrack cannot project a single combined value without exchange rates. For a single currency, the table beneath the chart lists each contributing license with its cost so you can inspect what is driving the baseline.
+  Projects your recurring annual cost forward across a number of years you set in the section (1-10, default: five), with an optional annual growth rate you can dial in. The baseline is the sum of annual costs for all active, non-renewed subscription, SaaS, and maintenance licenses. Upcoming records are excluded until their start date arrives. When the filtered records use multiple currencies, the forecast chart is replaced by an explanatory note with the grouped baseline because LicenseTrack cannot project a single combined value without exchange rates. For a single currency, the table beneath the chart lists each contributing license with its cost so you can inspect what is driving the baseline.
 
   Renewal calendar
-  A bar chart showing how many licenses expire in each of the next four fiscal quarters, with an estimated value for each quarter based on unit price × quantity when available and totalPoPrice as a fallback. Only active and expiring licenses with an end date are included — expired and renewed licenses are excluded. For mixed currencies, the chart keeps the license-count bars and omits the combined value bars; the table continues to show estimated value grouped by currency.
+  A bar chart showing how many licenses expire in each of the next four fiscal quarters, with an estimated value for each quarter based on unit price x quantity when available and totalPoPrice as a fallback. Only active and expiring licenses with an end date are included; upcoming, expired, and renewed licenses are excluded. For mixed currencies, the chart keeps the license-count bars and omits the combined value bars; the table continues to show estimated value grouped by currency.
 
   PDF export
   The Export PDF button captures each visible section as an image and assembles them into an A4 landscape PDF. The export reads the current theme's background colour so the document matches the on-screen appearance.
 
   Key concepts
-  Recurring annual cost — the combined annual cost of all active subscription, SaaS, and maintenance licenses. Perpetual, OEM, and freeware licenses are excluded from this figure.
-  Total historical spend — the sum of totalPoPrice across all licenses, with PO number de-duplication applied.
-  Baseline — the recurring annual cost figure used as the starting point for the budget forecast.
-  Display currency — your preferred currency for currency-aware displays. Reports does not currently convert exchange rates; amounts shown in native currencies remain unconverted. Mixed-currency totals are shown grouped by currency code (e.g. €1,000 · $500).
-  Excluded from totals — recurring licenses whose stored quantity or price cannot be parsed as canonical decimals are excluded from the server-computed annual-cost total and the count is displayed alongside it.
-  Unpriced license — a license where neither a unit price × quantity nor a totalPoPrice is available; these are counted but excluded from spend totals.
+  Recurring annual cost - the combined annual cost of all active subscription, SaaS, and maintenance licenses. Upcoming, perpetual, OEM, and freeware licenses are excluded from this figure.
+  Total historical spend - the sum of totalPoPrice across all licenses, with PO number de-duplication applied.
+  Baseline - the recurring annual cost figure used as the starting point for the budget forecast.
+  Display currency - your preferred currency for currency-aware displays. Reports does not currently convert exchange rates; amounts shown in native currencies remain unconverted. Mixed-currency totals are shown grouped by currency code.
+  Excluded from totals - recurring licenses whose stored quantity or price cannot be parsed as canonical decimals are excluded from the server-computed annual-cost total and the count is displayed alongside it.
+  Unpriced license - a license where neither a unit price x quantity nor a totalPoPrice is available; these are counted but excluded from spend totals.
 
   Who can use it
-  All roles. Reports reflects only the licenses visible to the current user — viewers see data for their assigned departments only.
+  All roles. Reports reflects only the licenses visible to the current user; viewers see data for their assigned departments only.
 
   Things to know
   - The spend overview de-duplicates by PO number, so licenses that share the same PO number contribute only once to the historical total. Licenses with a blank PO number are each counted individually and are not grouped together. If your data has inconsistent or missing PO numbers, the total may be under- or over-stated.
-  - The active, expiring, and expired budget buckets are line-level calculated values: unit price × quantity when available, with totalPoPrice as a fallback. They are not PO-de-duplicated because a shared PO can contain licenses in different lifecycle states.
-  - The recurring annual cost uses line-level cost (unit price × quantity) as the primary source. If those fields are absent, it falls back to totalPoPrice. A count of how many licenses used the fallback is shown in the budget forecast section. Aggregation consumes canonical decimal values only. Malformed legacy values are excluded from the total, logged as warnings, and surfaced in the excluded-from-totals count.
+  - The active, expiring, and expired budget buckets are line-level calculated values: unit price x quantity when available, with totalPoPrice as a fallback. They are not PO-de-duplicated because a shared PO can contain licenses in different lifecycle states. Upcoming records are kept out of the active bucket until their start date arrives.
+  - The recurring annual cost uses line-level cost (unit price x quantity) as the primary source. If those fields are absent, it falls back to totalPoPrice. A count of how many licenses used the fallback is shown in the budget forecast section. Aggregation consumes canonical decimal values only. Malformed legacy values are excluded from the total, logged as warnings, and surfaced in the excluded-from-totals count.
   - The renewal calendar covers the next four fiscal quarters using the configured fiscal-year start month.
-  - Expired, retired, renewed, legacy, and pending-renewal licenses are excluded from the budget forecast baseline. If you want to include retired records for historical comparison elsewhere in the report, toggle "Include retired" in the filters.
+  - Upcoming, expired, retired, renewed, legacy, and pending-renewal licenses are excluded from the budget forecast baseline. If you want to include retired records for historical comparison elsewhere in the report, toggle "Include retired" in the filters.
   - The PDF export captures the DOM, so very large tables may be clipped if they overflow their containers. Scroll-truncated content will not appear in the export.

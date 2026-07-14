@@ -72,6 +72,28 @@ def test_status_pending_renewal():
     )
 
 
+def test_status_upcoming():
+    today = date.today()
+    assert (
+        compute_expiration_status(
+            make_license(start_date=today + timedelta(days=10), end_date=today + timedelta(days=370)),
+            today,
+        )
+        == "upcoming"
+    )
+
+
+def test_status_upcoming_before_perpetual():
+    today = date.today()
+    assert (
+        compute_expiration_status(
+            make_license(start_date=today + timedelta(days=10), end_date=None),
+            today,
+        )
+        == "upcoming"
+    )
+
+
 def test_status_perpetual():
     assert compute_expiration_status(make_license(end_date=None), date.today()) == "perpetual"
 
@@ -202,17 +224,24 @@ def test_compute_stats():
     lic_expiring = make_license(id=2, end_date=today + timedelta(days=10))   # → "expiring"
     lic_expired  = make_license(id=3, end_date=today - timedelta(days=1))    # → "expired"
 
+    lic_upcoming = make_license(
+        id=4,
+        start_date=today + timedelta(days=30),
+        end_date=today + timedelta(days=395),
+    )
+
     stats = compute_stats(
-        licenses=[lic_active, lic_expiring, lic_expired],
+        licenses=[lic_active, lic_expiring, lic_expired, lic_upcoming],
         documents_by_license_id={},
         mandatory_fields={},
         notification_days=30,
     )
 
-    assert stats["total"] == 3
+    assert stats["total"] == 4
     assert stats["total_active"] == 2    # active + expiring both count
     assert stats["total_expiring"] == 1
     assert stats["total_expired"] == 1
+    assert stats["total_upcoming"] == 1
 
 
 def test_compute_stats_excludes_perpetual_capex_from_annual_cost():
@@ -247,6 +276,34 @@ def test_compute_stats_excludes_perpetual_capex_from_annual_cost():
     )
 
     assert stats["annual_cost_by_currency"] == {"EUR": 175.0}
+
+
+def test_compute_stats_excludes_upcoming_recurring_license_from_annual_cost():
+    today = date.today()
+    active = make_license(
+        id=1,
+        end_date=today + timedelta(days=60),
+        license_type="subscription",
+        quantity="2",
+        unit_price="50",
+    )
+    upcoming = make_license(
+        id=2,
+        start_date=today + timedelta(days=60),
+        end_date=today + timedelta(days=425),
+        license_type="subscription",
+        quantity="1",
+        unit_price="999",
+    )
+
+    stats = compute_stats(
+        licenses=[active, upcoming],
+        documents_by_license_id={},
+        mandatory_fields={},
+        notification_days=30,
+    )
+
+    assert stats["annual_cost_by_currency"] == {"EUR": 100.0}
 
 
 def test_compute_stats_excludes_expired_recurring_license_from_annual_cost():

@@ -3,7 +3,7 @@ Reports API - server-side aggregates for the portfolio summary.
 
 GET /api/reports/portfolio-stats
     Returns pre-computed summary statistics:
-    - total_active, total_expiring, total_expired, total_incomplete
+    - total_active, total_upcoming, total_expiring, total_expired, total_incomplete
     - annual_cost_total (subscription / SaaS / maintenance only)
     - by_license_type  (count per LicenseType value)
 """
@@ -67,6 +67,7 @@ async def get_portfolio_stats(
 
     return {
         "total_active": stats["total_active"],
+        "total_upcoming": stats["total_upcoming"],
         "total_expiring": stats["total_expiring"],
         "total_expired": stats["total_expired"],
         "total_incomplete": stats["total_incomplete"],

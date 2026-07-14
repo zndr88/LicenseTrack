@@ -77,11 +77,12 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
             *procurement_documents_by_license_id.get(lic.id, []),
         ]
         is_renewed = lic.lifecycle_status == "renewed"
+        is_upcoming = lic.start_date is not None and lic.start_date > today
 
         # ------------------------------------------------------------------
         # Expired - end_date in the past; skip licenses already renewed
         # ------------------------------------------------------------------
-        if lic.end_date is not None and lic.end_date < today and not is_renewed:
+        if lic.end_date is not None and lic.end_date < today and not is_renewed and not is_upcoming:
             days_overdue = (today - lic.end_date).days
             day_word = "day" if days_overdue == 1 else "days"
             notifications.append(
@@ -99,7 +100,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
         # ------------------------------------------------------------------
         # Expiring soon - end_date within the next N days; skip renewed
         # ------------------------------------------------------------------
-        elif lic.end_date is not None and not is_renewed:
+        elif lic.end_date is not None and not is_renewed and not is_upcoming:
             days_left = _days_until(lic.end_date, today)
             if 0 <= days_left <= expiry_window_days:
                 if days_left <= 30:

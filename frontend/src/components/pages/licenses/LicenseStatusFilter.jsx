@@ -2,6 +2,7 @@ import { DEFAULT_STATUS_FILTERS } from "../../../constants/licenseData.js";
 
 const CHIPS = [
   { key: "active",          label: "Active",     color: "var(--green)"       },
+  { key: "upcoming",        label: "Upcoming",   color: "var(--steel-text)"  },
   { key: "expiring",        label: "Expiring",   color: "var(--orange)"      },
   { key: "expired",         label: "Expired",    color: "var(--red)"         },
   { key: "pending_renewal", label: "Pending",    color: "var(--purple-text)" },

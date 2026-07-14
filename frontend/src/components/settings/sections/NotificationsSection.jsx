@@ -77,7 +77,7 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
                 </div>
               )}
               <div className="set-inline-control">
-                <input id="settings-allowed-domains" className="fi set-inline-input" value={domainInput} placeholder="e.g. company.com" onChange={(e) => setDomainInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDomain(); } }} />
+                <input id="settings-allowed-domains" className="fi set-inline-input" value={domainInput} placeholder="example.com" onChange={(e) => setDomainInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDomain(); } }} />
                 <button className="btn btn-g set-add-button" onClick={addDomain}>Add</button>
               </div>
             </div>

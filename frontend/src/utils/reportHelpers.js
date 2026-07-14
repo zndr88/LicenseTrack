@@ -121,6 +121,7 @@ function getLifecycleBudget(licenses) {
 export function getLifecycleCounts(licenses) {
   const counts = {
     active: 0,
+    upcoming: 0,
     expiring: 0,
     expired: 0,
   };
@@ -128,6 +129,8 @@ export function getLifecycleCounts(licenses) {
   for (const l of licenses) {
     if (l.expirationStatus === "active" || l.expirationStatus === "perpetual") {
       counts.active += 1;
+    } else if (l.expirationStatus === "upcoming") {
+      counts.upcoming += 1;
     } else if (l.expirationStatus === "expiring") {
       counts.expiring += 1;
     } else if (l.expirationStatus === "expired") {

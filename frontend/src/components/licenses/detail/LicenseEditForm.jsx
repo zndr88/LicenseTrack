@@ -64,7 +64,7 @@ export default function LicenseEditForm({
       </div>
       <div className="fg">
         <label>Budget Owner Email</label>
-        <input className="fi" type="email" value={editFields.budgetOwnerEmail || ""} onChange={(e) => setEditFields((p) => ({ ...p, budgetOwnerEmail: e.target.value }))} placeholder="email@company.com" />
+        <input className="fi" type="email" value={editFields.budgetOwnerEmail || ""} onChange={(e) => setEditFields((p) => ({ ...p, budgetOwnerEmail: e.target.value }))} placeholder="owner@example.com" />
       </div>
       <div className="fr">
         <div className="fg">

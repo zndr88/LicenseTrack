@@ -232,12 +232,12 @@ const ConvertPendingOrderModal = ({
 
           <div className="fg">
             <label htmlFor="cpo-publisher-name">Publisher Name <span style={{ color: "var(--red)" }}>*</span></label>
-            <input id="cpo-publisher-name" className="fi" placeholder="e.g. Microsoft" {...register("publisherName")} />
+            <input id="cpo-publisher-name" className="fi" placeholder="Software publisher" {...register("publisherName")} />
             {errors.publisherName && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.publisherName.message}</span>}
           </div>
           <div className="fg">
             <label htmlFor="cpo-software-desc">Software Description <span style={{ color: "var(--red)" }}>*</span></label>
-            <input id="cpo-software-desc" className="fi" placeholder="e.g. Microsoft 365 E3" {...register("softwareDescription")} />
+            <input id="cpo-software-desc" className="fi" placeholder="Product or service name" {...register("softwareDescription")} />
             {errors.softwareDescription && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.softwareDescription.message}</span>}
           </div>
           <div className="fr">
@@ -294,8 +294,8 @@ const ConvertPendingOrderModal = ({
           <PendingOrderInvoiceField invoiceFile={invoiceFile} onChange={setInvoiceFile} />
           {(vis.supplier || vis.costCentre) && (
             <div className="fr">
-              {vis.supplier    && <div className="fg"><label htmlFor="cpo-supplier">Supplier</label><input id="cpo-supplier" className="fi" placeholder="Direct or third-party" {...register("supplier")} /></div>}
-              {vis.costCentre  && <div className="fg"><label htmlFor="cpo-cost-centre">Cost Centre / Department</label><input id="cpo-cost-centre" className="fi" placeholder="e.g. IT Operations" {...register("costCentre")} /></div>}
+              {vis.supplier    && <div className="fg"><label htmlFor="cpo-supplier">Supplier</label><input id="cpo-supplier" className="fi" placeholder="Reseller or direct supplier" {...register("supplier")} /></div>}
+              {vis.costCentre  && <div className="fg"><label htmlFor="cpo-cost-centre">Cost Centre / Department</label><input id="cpo-cost-centre" className="fi" placeholder="Department or cost centre" {...register("costCentre")} /></div>}
             </div>
           )}
           {(vis.licenseType || vis.licenseMetric) && (
@@ -353,7 +353,7 @@ const ConvertPendingOrderModal = ({
           {(vis.quantity || vis.skuCode) && (
             <div className="fr">
               {vis.quantity && <div className="fg"><label htmlFor="cpo-quantity">Purchase Quantity <span style={{ color: "var(--red)" }}>*</span></label><input id="cpo-quantity" className="fi" {...register("quantity")} /></div>}
-              {vis.skuCode  && <div className="fg"><label htmlFor="cpo-sku-code">SKU Code</label><input id="cpo-sku-code" className="fi" placeholder="e.g. AAA-13528" {...register("skuCode")} /></div>}
+              {vis.skuCode  && <div className="fg"><label htmlFor="cpo-sku-code">SKU Code</label><input id="cpo-sku-code" className="fi" placeholder="SKU or product code" {...register("skuCode")} /></div>}
             </div>
           )}
           {(vis.unitPrice || vis.totalPoPrice) && (
@@ -423,7 +423,7 @@ const ConvertPendingOrderModal = ({
           )}
           <div className="fg">
             <label htmlFor="cpo-budget-owner">Budget Owner Email</label>
-            <input id="cpo-budget-owner" className="fi" placeholder="budget.owner@company.com" {...register("budgetOwnerEmail")} />
+            <input id="cpo-budget-owner" className="fi" placeholder="owner@example.com" {...register("budgetOwnerEmail")} />
             {errors.budgetOwnerEmail && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.budgetOwnerEmail.message}</span>}
           </div>
           {vis.notes && (

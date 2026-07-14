@@ -2,6 +2,7 @@ import { renderHook } from "@testing-library/react"
 import { useLicenseData } from "../../hooks/useLicenseData.js"
 
 vi.mock("../../utils/helpers.js", () => ({
+  daysBetween: vi.fn(() => 1460),
   getCompleteness: vi.fn(() => ({
     percentage: 100,
     checks: [],
@@ -14,6 +15,7 @@ vi.mock("../../utils/helpers.js", () => ({
     days: 60,
     label: "60d remaining",
   })),
+  todayStr: vi.fn(() => "2026-01-01"),
 }))
 
 vi.mock("../../utils/sort.js", () => ({
@@ -96,6 +98,7 @@ describe("useLicenseData", () => {
   test("statusFilters filters by expiration status", () => {
     const licenses = [
       makeLicense({ expirationStatus: "active" }),
+      makeLicense({ expirationStatus: "upcoming", startDate: "2030-01-01", daysUntilExpiry: 365 }),
       makeLicense({ expirationStatus: "expired" }),
       makeLicense({ expirationStatus: "expiring" }),
     ]
@@ -104,6 +107,32 @@ describe("useLicenseData", () => {
     )
     expect(result.current.filtered.length).toBe(1)
     expect(result.current.filtered[0].expirationStatus).toBe("expired")
+  })
+
+  test("statusFilters filters upcoming licenses", () => {
+    const licenses = [
+      makeLicense({ expirationStatus: "active" }),
+      makeLicense({ expirationStatus: "upcoming", startDate: "2030-01-01" }),
+    ]
+    const { result } = renderHook(() =>
+      useLicenseData(licenses, { ...defaultOptions, statusFilters: ["upcoming"] })
+    )
+    expect(result.current.filtered.length).toBe(1)
+    expect(result.current.filtered[0].expirationStatus).toBe("upcoming")
+  })
+
+  test("stats count upcoming separately from active", () => {
+    const licenses = [
+      makeLicense({ expirationStatus: "active" }),
+      makeLicense({ expirationStatus: "upcoming", startDate: "2030-01-01" }),
+      makeLicense({ expirationStatus: "expiring" }),
+    ]
+    const { result } = renderHook(() =>
+      useLicenseData(licenses, defaultOptions)
+    )
+    expect(result.current.stats.active).toBe(1)
+    expect(result.current.stats.upcoming).toBe(1)
+    expect(result.current.stats.expiring).toBe(1)
   })
 
   // 4o

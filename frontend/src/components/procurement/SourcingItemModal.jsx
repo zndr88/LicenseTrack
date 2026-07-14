@@ -313,13 +313,13 @@ const SourcingItemModal = ({
           <div className="fr">
             <div className="fg" style={{ flex: 1 }}>
               <label htmlFor="si-publisher">Publisher <span style={{ color: "var(--red)" }}>*</span></label>
-              <input id="si-publisher" className="fi" placeholder="e.g. Microsoft Corporation" {...register("publisherName")} />
+              <input id="si-publisher" className="fi" placeholder="Software publisher" {...register("publisherName")} />
               {errors.publisherName && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.publisherName.message}</span>}
             </div>
           </div>
           <div className="fg">
             <label htmlFor="si-software-desc">Software Description <span style={{ color: "var(--red)" }}>*</span></label>
-            <input id="si-software-desc" className="fi" placeholder="e.g. Microsoft 365 Business Premium" {...register("softwareDescription")} />
+            <input id="si-software-desc" className="fi" placeholder="Product or service name" {...register("softwareDescription")} />
             {errors.softwareDescription && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.softwareDescription.message}</span>}
           </div>
           <div className="fr">
@@ -400,17 +400,17 @@ const SourcingItemModal = ({
           <div className="fr">
             <div className="fg" style={{ flex: 1 }}>
               <label htmlFor="si-supplier">Supplier</label>
-              <input id="si-supplier" className="fi" placeholder="e.g. SoftwareOne" {...register("supplier")} />
+              <input id="si-supplier" className="fi" placeholder="Reseller or direct supplier" {...register("supplier")} />
             </div>
             <div className="fg" style={{ flex: 1 }}>
               <label htmlFor="si-contact-email">Contact Email</label>
-              <input id="si-contact-email" className="fi" type="email" placeholder="e.g. sales@vendor.com" {...register("contactEmail")} />
+              <input id="si-contact-email" className="fi" type="email" placeholder="contact@example.com" {...register("contactEmail")} />
               {errors.contactEmail && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.contactEmail.message}</span>}
             </div>
           </div>
           <div className="fg">
             <label htmlFor="si-notes">Notes</label>
-            <textarea id="si-notes" className="fi" rows={3} placeholder="Any additional notes..." style={{ resize: "vertical" }} {...register("notes")} />
+            <textarea id="si-notes" className="fi" rows={3} placeholder="Procurement notes" style={{ resize: "vertical" }} {...register("notes")} />
           </div>
 
           {/* Additional lines (new-request mode only) */}
@@ -434,7 +434,7 @@ const SourcingItemModal = ({
                     className="fi"
                     value={line.publisherName}
                     onChange={(e) => updateAdditionalLine(line.id, "publisherName", e.target.value)}
-                    placeholder="e.g. Adobe Inc."
+                    placeholder="Software publisher"
                   />
                 </div>
               </div>
@@ -444,7 +444,7 @@ const SourcingItemModal = ({
                   className="fi"
                   value={line.softwareDescription}
                   onChange={(e) => updateAdditionalLine(line.id, "softwareDescription", e.target.value)}
-                  placeholder="e.g. Adobe Creative Cloud"
+                  placeholder="Product or service name"
                 />
               </div>
               <div className="fr">

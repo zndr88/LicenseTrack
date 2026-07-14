@@ -7,6 +7,7 @@ export function rowStyle(license) {
   if (license.expiration.status === "legacy") return { opacity: 0.55 };
   if (license.expiration.status === "renewed") return { opacity: 0.45, background: "var(--steel-dim)" };
   if (license.expiration.status === "pending_renewal") return { background: "var(--purple-dim)", borderLeft: "3px solid var(--purple)" };
+  if (license.expiration.status === "upcoming") return { background: "var(--steel-dim)", borderLeft: "3px solid var(--steel)" };
   if (license.expiration.status === "expiring") return { background: "var(--orange-dim)", borderLeft: "3px solid var(--orange)" };
   if (license.expiration.status === "expired") return { background: "var(--red-dim)", borderLeft: "3px solid var(--red)" };
   return undefined;

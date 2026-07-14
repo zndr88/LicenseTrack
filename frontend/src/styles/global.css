@@ -1765,6 +1765,7 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 }
 .kp-num--zero    { color: var(--text-3); }
 .kp-num--active  { color: var(--green-text); }
+.kp-num--upcoming { color: var(--steel-text); }
 .kp-num--expiring { color: var(--orange-text); }
 .kp-num--expired { color: var(--red-text); }
 .kp-num--renewed  { color: var(--steel-text); }

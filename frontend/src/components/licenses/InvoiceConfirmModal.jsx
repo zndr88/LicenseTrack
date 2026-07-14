@@ -257,8 +257,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           {/* Toggleable categories */}
           {(vis.supplier || vis.costCentre) && (
             <div className="fr">
-              {vis.supplier && <div className="fg"><label htmlFor="inv-supplier">Supplier</label><input id="inv-supplier" className="fi" value={form.supplier} placeholder="Direct or third-party" onChange={(e) => u("supplier", e.target.value)} /></div>}
-              {vis.costCentre && <div className="fg"><label htmlFor="inv-cost-centre">Cost Centre / Department</label><input id="inv-cost-centre" className="fi" value={form.costCentre} placeholder="e.g. IT Operations" onChange={(e) => u("costCentre", e.target.value)} /></div>}
+              {vis.supplier && <div className="fg"><label htmlFor="inv-supplier">Supplier</label><input id="inv-supplier" className="fi" value={form.supplier} placeholder="Reseller or direct supplier" onChange={(e) => u("supplier", e.target.value)} /></div>}
+              {vis.costCentre && <div className="fg"><label htmlFor="inv-cost-centre">Cost Centre / Department</label><input id="inv-cost-centre" className="fi" value={form.costCentre} placeholder="Department or cost centre" onChange={(e) => u("costCentre", e.target.value)} /></div>}
             </div>
           )}
           {(vis.licenseType || vis.licenseMetric) && (
@@ -293,7 +293,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           {(vis.quantity || vis.skuCode) && (
             <div className="fr">
               {vis.quantity && <div className="fg"><label htmlFor="inv-quantity">Purchase Quantity</label><input id="inv-quantity" className="fi" type="number" value={form.quantity} onChange={(e) => u("quantity", e.target.value)} /></div>}
-              {vis.skuCode && <div className="fg"><label htmlFor="inv-sku-code">SKU Code</label><input id="inv-sku-code" className="fi" value={form.skuCode} placeholder="e.g. AAA-13528" onChange={(e) => u("skuCode", e.target.value)} /></div>}
+              {vis.skuCode && <div className="fg"><label htmlFor="inv-sku-code">SKU Code</label><input id="inv-sku-code" className="fi" value={form.skuCode} placeholder="SKU or product code" onChange={(e) => u("skuCode", e.target.value)} /></div>}
             </div>
           )}
           {(vis.unitPrice || vis.totalPoPrice) && (
@@ -339,7 +339,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               </select>
             </div>
           )}
-          <div className="fg"><label htmlFor="inv-budget-owner">Budget Owner Email</label><input id="inv-budget-owner" className="fi" value={form.budgetOwnerEmail} placeholder="budget.owner@company.com" onChange={(e) => u("budgetOwnerEmail", e.target.value)} /></div>
+          <div className="fg"><label htmlFor="inv-budget-owner">Budget Owner Email</label><input id="inv-budget-owner" className="fi" value={form.budgetOwnerEmail} placeholder="owner@example.com" onChange={(e) => u("budgetOwnerEmail", e.target.value)} /></div>
           {vis.notes && <div className="fg"><label htmlFor="inv-notes">Notes / Comments</label><textarea id="inv-notes" className="fi" rows={3} value={form.notes} onChange={(e) => u("notes", e.target.value)} style={{ resize: "vertical" }} /></div>}
 
           {/* Additional license lines */}
@@ -355,7 +355,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               </div>
               <div className="fg">
                 <label>Software Description <span style={{ color: "var(--red)" }}>*</span></label>
-                <input className="fi" value={line.softwareDescription} onChange={(e) => updateLine(line.id, "softwareDescription", e.target.value)} placeholder="e.g. Adobe Creative Cloud" />
+                <input className="fi" value={line.softwareDescription} onChange={(e) => updateLine(line.id, "softwareDescription", e.target.value)} placeholder="Product or service name" />
               </div>
               <div className="fr">
                 <div className="fg">
@@ -417,7 +417,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 {vis.skuCode && (
                   <div className="fg">
                     <label>SKU Code</label>
-                    <input className="fi" value={line.skuCode} onChange={(e) => updateLine(line.id, "skuCode", e.target.value)} placeholder="e.g. AAA-13528" />
+                    <input className="fi" value={line.skuCode} onChange={(e) => updateLine(line.id, "skuCode", e.target.value)} placeholder="SKU or product code" />
                   </div>
                 )}
               </div>

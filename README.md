@@ -1,6 +1,6 @@
 # LicenseTrack
 
-Version 1.0.4.
+Version 1.0.5.
 
 LicenseTrack is a self-hosted software license procurement and lifecycle management system. It gives organisations a single Docker-deployed application for sourcing, purchase orders, active license records, renewals, contracts, documents, notifications, reporting, database backups, audit history, and user access control.
 
@@ -36,7 +36,7 @@ LicenseTrack is what I needed in both roles: a single source of truth for softwa
 - Maintain searchable, filterable license records with publisher, contract, purchase order, dates, quantities, costs, status, custom fields, and notes.
 - Preserve sourcing-request and purchase-order milestone dates on resulting license records, with manual enrichment for imported and legacy data.
 - Review record history in the license detail panel, including creator account, creation timestamp, and latest update timestamp.
-- Use status filters for active, expiring, expired, pending renewal, renewed, retired, legacy, complete, and incomplete records.
+- Use status filters for upcoming, active, expiring, expired, pending renewal, renewed, retired, legacy, complete, and incomplete records.
 - Configure visible columns, reorder columns, save user display preferences, and export CSV data.
 - Create, edit, retire, renew, and link license records.
 

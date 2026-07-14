@@ -180,11 +180,11 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
           </div>
           <div className="fg">
             <label htmlFor="po-supplier">Supplier</label>
-            <input id="po-supplier" className="fi" placeholder="e.g. SoftwareOne" {...register("supplier")} />
+            <input id="po-supplier" className="fi" placeholder="Reseller or direct supplier" {...register("supplier")} />
           </div>
           <div className="fg">
             <label htmlFor="po-notes">Notes</label>
-            <textarea id="po-notes" className="fi" rows={2} placeholder="Any notes..." style={{ resize: "vertical" }} {...register("notes")} />
+            <textarea id="po-notes" className="fi" rows={2} placeholder="PO notes" style={{ resize: "vertical" }} {...register("notes")} />
           </div>
 
           {/* Inline line items - new order only */}
@@ -206,11 +206,11 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 10px" }}>
                     <div className="fg" style={{ gridColumn: "1 / -1" }}>
                       <label>Publisher</label>
-                      <input className="fi" placeholder="e.g. Adobe" value={item.publisherName} onChange={(e) => updateItem(item.id, "publisherName", e.target.value)} />
+                      <input className="fi" placeholder="Software publisher" value={item.publisherName} onChange={(e) => updateItem(item.id, "publisherName", e.target.value)} />
                     </div>
                     <div className="fg" style={{ gridColumn: "1 / -1" }}>
                       <label>Software Description</label>
-                      <input className="fi" placeholder="e.g. Adobe Creative Cloud All Apps" value={item.softwareDescription} onChange={(e) => updateItem(item.id, "softwareDescription", e.target.value)} />
+                      <input className="fi" placeholder="Product or service name" value={item.softwareDescription} onChange={(e) => updateItem(item.id, "softwareDescription", e.target.value)} />
                     </div>
                     <div className="fg">
                       <label>Qty</label>

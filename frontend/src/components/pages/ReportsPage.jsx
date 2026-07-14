@@ -256,6 +256,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
           borderBottom: "1px solid var(--border)", background: "var(--bg-2)",
         }}>
           {[
+            { label: "Upcoming", value: licensesLoading || licensesError ? "-" : lifecycleCounts.upcoming, color: "var(--steel-text)" },
             { label: "Active", value: licensesLoading || licensesError ? "—" : lifecycleCounts.active, color: "var(--green)" },
             { label: "Expiring", value: licensesLoading || licensesError ? "—" : lifecycleCounts.expiring, color: "var(--orange)" },
             { label: "Expired", value: licensesLoading || licensesError ? "—" : lifecycleCounts.expired, color: "var(--red)" },

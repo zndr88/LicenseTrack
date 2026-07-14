@@ -54,8 +54,8 @@ describe("PendingOrderModal", () => {
     const { onSave } = renderModal();
 
     fireEvent.change(screen.getByPlaceholderText(/PO-2026/i), { target: { value: "PO-001" } });
-    fireEvent.change(screen.getByPlaceholderText(/SoftwareOne/i), { target: { value: "Vendor X" } });
-    fireEvent.change(screen.getByPlaceholderText(/Any notes/i), { target: { value: "Note here" } });
+    fireEvent.change(screen.getByPlaceholderText(/reseller or direct supplier/i), { target: { value: "Vendor X" } });
+    fireEvent.change(screen.getByPlaceholderText(/PO notes/i), { target: { value: "Note here" } });
 
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 

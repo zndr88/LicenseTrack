@@ -166,6 +166,7 @@ describe("ReportsPage interactions", () => {
         license({ id: 3, costCentre: "DEVOPS", expirationStatus: "expiring" }),
         license({ id: 4, costCentre: "DEVOPS", expirationStatus: "expired" }),
         license({ id: 5, costCentre: "Finance", expirationStatus: "active" }),
+        license({ id: 6, costCentre: "Finance", expirationStatus: "upcoming" }),
       ],
       error: null,
     });
@@ -173,6 +174,7 @@ describe("ReportsPage interactions", () => {
     renderReportsPage();
 
     expect(await screen.findByLabelText("Active: 3")).toBeInTheDocument();
+    expect(screen.getByLabelText("Upcoming: 1")).toBeInTheDocument();
     expect(screen.getByLabelText("Expiring: 1")).toBeInTheDocument();
     expect(screen.getByLabelText("Expired: 1")).toBeInTheDocument();
     expect(screen.queryByText("Incomplete")).not.toBeInTheDocument();
@@ -181,6 +183,7 @@ describe("ReportsPage interactions", () => {
     await user.click(within(screen.getByRole("listbox")).getByText("DEVOPS"));
 
     expect(await screen.findByLabelText("Active: 2")).toBeInTheDocument();
+    expect(screen.getByLabelText("Upcoming: 0")).toBeInTheDocument();
     expect(screen.getByLabelText("Expiring: 1")).toBeInTheDocument();
     expect(screen.getByLabelText("Expired: 1")).toBeInTheDocument();
   });

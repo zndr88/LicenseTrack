@@ -748,7 +748,7 @@ describe("UsersPage workflows", () => {
     render(<UsersPage currentUserId={1} onError={onError} onToast={vi.fn()} />);
     await screen.findByText(/Add New User/i);
     await user.type(screen.getByPlaceholderText("username"), "newuser");
-    await user.type(screen.getByPlaceholderText("email@company.com"), "new@example.com");
+    await user.type(screen.getByPlaceholderText("user@example.com"), "new@example.com");
     await user.type(screen.getByPlaceholderText("••••••••"), "password123");
     await user.click(screen.getByRole("button", { name: /Add User/i }));
     expect(await screen.findByText("newuser")).toBeInTheDocument();

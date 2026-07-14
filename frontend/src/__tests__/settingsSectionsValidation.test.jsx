@@ -187,7 +187,7 @@ describe("NotificationsSection validation", () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText(/e.g. company.com/i), {
+    fireEvent.change(screen.getByPlaceholderText(/example.com/i), {
       target: { value: "nodot" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
@@ -206,7 +206,7 @@ describe("NotificationsSection validation", () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText(/e.g. company.com/i), {
+    fireEvent.change(screen.getByPlaceholderText(/example.com/i), {
       target: { value: "company.com" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
