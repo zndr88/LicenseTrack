@@ -166,7 +166,9 @@ def build_registry_payload(inspection: PluginPackageInspection, files: PluginIns
         package_path=str(files.package_path),
         checksum_sha256=inspection.preview.checksum_sha256,
         manifest=manifest.model_dump(mode="json"),
-        permissions=[PluginPermissionCreate(permission=permission, granted=False) for permission in manifest.permissions],
+        permissions=[
+            PluginPermissionCreate(permission=permission, granted=False) for permission in manifest.permissions
+        ],
         settings=[
             PluginSettingDefinitionCreate(
                 key=setting.key,

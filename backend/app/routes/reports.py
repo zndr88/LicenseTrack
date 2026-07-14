@@ -40,11 +40,7 @@ async def get_portfolio_stats(
     """Return server-side computed portfolio summary stats for the reports page."""
     mandatory_fields = await get_mandatory_fields(db)
 
-    departments = (
-        await get_viewer_departments(_current_user.id, db)
-        if _current_user.role == "viewer"
-        else None
-    )
+    departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
 
     query = select(License).options(selectinload(License.documents))
     query = apply_department_filter(query, departments)

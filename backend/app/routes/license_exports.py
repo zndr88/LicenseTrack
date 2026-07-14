@@ -40,16 +40,8 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
     """Download all active (non-retired) licenses as a CSV file."""
     mandatory_fields = await _get_global_settings(db)
 
-    departments = (
-        await get_viewer_departments(_current_user.id, db)
-        if _current_user.role == "viewer"
-        else None
-    )
-    query = (
-        select(License)
-        .where(License.is_retired.is_(False))
-        .options(selectinload(License.documents))
-    )
+    departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
+    query = select(License).where(License.is_retired.is_(False)).options(selectinload(License.documents))
     query = apply_department_filter(query, departments)
     result = await db.execute(query)
     licenses = list(result.scalars().all())
@@ -58,12 +50,31 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
     writer = csv.writer(output)
 
     headers = [
-        "ID", "License Ref", "External Ref", "Publisher", "Software Description",
-        "License Type", "License Metric",
-        "Purchase Quantity", "SKU Code", "Unit Price", "Total PO Value", "Currency",
-        "Start Date", "End Date", "Contract Number", "PO Number", "Invoice Number",
-        "Contact Email", "Supplier", "Cost Centre", "Budget Owner Email",
-        "Lifecycle Status", "Completeness %", "Expiration Status", "Days Until Expiry",
+        "ID",
+        "License Ref",
+        "External Ref",
+        "Publisher",
+        "Software Description",
+        "License Type",
+        "License Metric",
+        "Purchase Quantity",
+        "SKU Code",
+        "Unit Price",
+        "Total PO Value",
+        "Currency",
+        "Start Date",
+        "End Date",
+        "Contract Number",
+        "PO Number",
+        "Invoice Number",
+        "Contact Email",
+        "Supplier",
+        "Cost Centre",
+        "Budget Owner Email",
+        "Lifecycle Status",
+        "Completeness %",
+        "Expiration Status",
+        "Days Until Expiry",
         "Notes",
     ]
     writer.writerow(headers)
@@ -82,34 +93,38 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
     today = date.today()
     for lic in licenses:
         docs = list(lic.documents)
-        writer.writerow(safe_csv_row([
-            lic.id,
-            lic.license_ref or "",
-            lic.external_ref or "",
-            lic.publisher_name,
-            lic.software_description,
-            lic.license_type.value,
-            lic.license_metric.value,
-            lic.quantity,
-            lic.sku_code,
-            lic.unit_price,
-            format(po_totals[lic.po_number], "f") if lic.po_number in po_totals else "",
-            lic.currency,
-            lic.start_date.isoformat() if lic.start_date else "",
-            lic.end_date.isoformat() if lic.end_date else "Perpetual",
-            lic.contract_number,
-            lic.po_number,
-            lic.invoice_number,
-            lic.contact_email,
-            lic.supplier,
-            lic.cost_centre,
-            lic.budget_owner_email,
-            lic.lifecycle_status or "",
-            compute_completeness(lic, docs, mandatory_fields),
-            compute_expiration_status(lic, today, _DEFAULT_NOTIFICATION_DAYS),
-            compute_days_until_expiry(lic, today) if lic.end_date else "",
-            lic.notes or "",
-        ]))
+        writer.writerow(
+            safe_csv_row(
+                [
+                    lic.id,
+                    lic.license_ref or "",
+                    lic.external_ref or "",
+                    lic.publisher_name,
+                    lic.software_description,
+                    lic.license_type.value,
+                    lic.license_metric.value,
+                    lic.quantity,
+                    lic.sku_code,
+                    lic.unit_price,
+                    format(po_totals[lic.po_number], "f") if lic.po_number in po_totals else "",
+                    lic.currency,
+                    lic.start_date.isoformat() if lic.start_date else "",
+                    lic.end_date.isoformat() if lic.end_date else "Perpetual",
+                    lic.contract_number,
+                    lic.po_number,
+                    lic.invoice_number,
+                    lic.contact_email,
+                    lic.supplier,
+                    lic.cost_centre,
+                    lic.budget_owner_email,
+                    lic.lifecycle_status or "",
+                    compute_completeness(lic, docs, mandatory_fields),
+                    compute_expiration_status(lic, today, _DEFAULT_NOTIFICATION_DAYS),
+                    compute_days_until_expiry(lic, today) if lic.end_date else "",
+                    lic.notes or "",
+                ]
+            )
+        )
 
     output.seek(0)
     return StreamingResponse(

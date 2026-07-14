@@ -410,7 +410,7 @@ const SourcingItemModal = ({
           </div>
           <div className="fg">
             <label htmlFor="si-notes">Notes</label>
-            <textarea id="si-notes" className="fi" rows={3} placeholder="Any additional notes…" style={{ resize: "vertical" }} {...register("notes")} />
+            <textarea id="si-notes" className="fi" rows={3} placeholder="Any additional notes..." style={{ resize: "vertical" }} {...register("notes")} />
           </div>
 
           {/* Additional lines (new-request mode only) */}

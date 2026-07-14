@@ -32,7 +32,5 @@ def reject_email_crlf(value: str | None) -> str | None:
         return value
     stripped = value.strip()
     if any(ch in stripped for ch in _FORBIDDEN_CHARS):
-        raise ValueError(
-            "Email field must not contain line breaks or null bytes."
-        )
+        raise ValueError("Email field must not contain line breaks or null bytes.")
     return stripped

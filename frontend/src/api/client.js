@@ -38,7 +38,7 @@ export function getToken() {
  * Make an authenticated request to the backend.
  *
  * @param {string} path       - API path, e.g. "/api/licenses"
- * @param {RequestInit} [options] - Standard fetch options (method, body, headers, …)
+ * @param {RequestInit} [options] - Standard fetch options (method, body, headers, ...)
  * @returns {Promise<{ data: any, error: string | null }>}
  */
 export async function request(path, options = {}) {

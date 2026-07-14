@@ -43,8 +43,6 @@ _INCOMPLETE_THRESHOLD = 80
 _SEVERITY_RANK: dict[str, int] = {"critical": 0, "warning": 1, "info": 2}
 
 
-
-
 def _days_until(end_date: date, today: date) -> int:
     return (end_date - today).days
 
@@ -54,13 +52,11 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
     """Return aggregated license alerts sorted by severity then date."""
     gs = await get_global_settings(db)
     mandatory_fields = gs.mandatory_fields if gs and gs.mandatory_fields else {}
-    expiry_window_days = gs.notification_days if gs and gs.notification_days and 1 <= gs.notification_days <= 365 else 90
-
-    query = (
-        select(License)
-        .where(License.is_retired.is_(False))
-        .options(selectinload(License.documents))
+    expiry_window_days = (
+        gs.notification_days if gs and gs.notification_days and 1 <= gs.notification_days <= 365 else 90
     )
+
+    query = select(License).where(License.is_retired.is_(False)).options(selectinload(License.documents))
     departments = None
     if current_user.role == UserRole.viewer:
         departments = await get_viewer_departments(current_user.id, db)
@@ -94,10 +90,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
                     software_name=lic.software_description,
                     publisher=lic.publisher_name,
                     type="expired",
-                    detail=(
-                        f"Expired {days_overdue} {day_word} ago"
-                        f" on {lic.end_date.isoformat()}"
-                    ),
+                    detail=(f"Expired {days_overdue} {day_word} ago on {lic.end_date.isoformat()}"),
                     severity="critical",
                     relevant_date=lic.end_date,
                 )
@@ -123,10 +116,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
                         software_name=lic.software_description,
                         publisher=lic.publisher_name,
                         type="expiring",
-                        detail=(
-                            f"Expires in {days_left} {day_word}"
-                            f" on {lic.end_date.isoformat()}"
-                        ),
+                        detail=(f"Expires in {days_left} {day_word} on {lic.end_date.isoformat()}"),
                         severity=severity,
                         relevant_date=lic.end_date,
                     )
@@ -144,10 +134,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
                         software_name=lic.software_description,
                         publisher=lic.publisher_name,
                         type="incomplete",
-                        detail=(
-                            f"Record is {completeness}% complete"
-                            f" (below {_INCOMPLETE_THRESHOLD}%)"
-                        ),
+                        detail=(f"Record is {completeness}% complete (below {_INCOMPLETE_THRESHOLD}%)"),
                         severity="info",
                         relevant_date=lic.end_date,
                     )

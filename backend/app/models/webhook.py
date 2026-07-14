@@ -42,7 +42,9 @@ class WebhookDelivery(Base):
     __tablename__ = "webhook_deliveries"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    endpoint_id: Mapped[int] = mapped_column(Integer, ForeignKey("webhook_endpoints.id", ondelete="CASCADE"), nullable=False)
+    endpoint_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("webhook_endpoints.id", ondelete="CASCADE"), nullable=False
+    )
     event_type: Mapped[str] = mapped_column(String(150), nullable=False)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", server_default="pending")

@@ -45,7 +45,7 @@ export default function AdminPage({
       </div>
 
       {adminSection === "settings" && (
-        <Suspense fallback={<div className="page-loading">Loading…</div>}>
+        <Suspense fallback={<div className="page-loading">Loading...</div>}>
           <SettingsPage
             userSettings={userSettings}
             setUserSettings={setUserSettings}

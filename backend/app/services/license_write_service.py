@@ -102,6 +102,7 @@ async def _resolve_contract_id(db: AsyncSession, contract_number: str | None) ->
     if not contract_number:
         return None
     from sqlalchemy import func as sa_func
+
     result = await db.execute(
         select(Contract).where(sa_func.lower(Contract.contract_number) == contract_number.lower())
     )
@@ -148,9 +149,8 @@ async def create_license_record(
 
     create_data = payload.model_dump(by_alias=False)
     _sync_invoice_numbers(create_data)
-    create_data["maintenance_coverage"] = (
-        create_data.get("maintenance_coverage")
-        or default_maintenance_coverage(payload.license_type)
+    create_data["maintenance_coverage"] = create_data.get("maintenance_coverage") or default_maintenance_coverage(
+        payload.license_type
     )
 
     # F1: chain and lifecycle fields cannot be set at create time.
@@ -307,9 +307,7 @@ async def apply_license_field_patch(
     """Apply a single-field patch to a license and return the ORM object."""
     validate_patch_field_input(field, value)
 
-    result = await db.execute(
-        select(License).where(License.id == license_id)
-    )
+    result = await db.execute(select(License).where(License.id == license_id))
     license_obj = result.scalar_one_or_none()
     if license_obj is None:
         raise HTTPException(status_code=404, detail="License not found")
@@ -417,25 +415,11 @@ async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list
 
     await db.execute(delete(Document).where(Document.license_id.in_(license_ids)))
     await db.execute(
-        sa_update(ProcurementDocument)
-        .where(ProcurementDocument.license_id.in_(license_ids))
-        .values(license_id=None)
+        sa_update(ProcurementDocument).where(ProcurementDocument.license_id.in_(license_ids)).values(license_id=None)
     )
-    await db.execute(
-        sa_update(License)
-        .where(License.renewed_from_id.in_(license_ids))
-        .values(renewed_from_id=None)
-    )
-    await db.execute(
-        sa_update(License)
-        .where(License.renewed_to_id.in_(license_ids))
-        .values(renewed_to_id=None)
-    )
-    await db.execute(
-        sa_update(License)
-        .where(License.predecessor_id.in_(license_ids))
-        .values(predecessor_id=None)
-    )
+    await db.execute(sa_update(License).where(License.renewed_from_id.in_(license_ids)).values(renewed_from_id=None))
+    await db.execute(sa_update(License).where(License.renewed_to_id.in_(license_ids)).values(renewed_to_id=None))
+    await db.execute(sa_update(License).where(License.predecessor_id.in_(license_ids)).values(predecessor_id=None))
     await db.execute(
         sa_update(License)
         .where(License.active_maintenance_id.in_(license_ids))
@@ -470,9 +454,7 @@ async def _assert_license_delete_allowed(db: AsyncSession, licenses: list[Licens
             )
 
     renewal_item_result = await db.execute(
-        select(SourcingItem.id)
-        .where(SourcingItem.renewal_for_license_id.in_(license_ids))
-        .limit(1)
+        select(SourcingItem.id).where(SourcingItem.renewal_for_license_id.in_(license_ids)).limit(1)
     )
     if renewal_item_result.scalar_one_or_none() is not None:
         raise HTTPException(
@@ -526,9 +508,7 @@ def _validate_active_maintenance_parent_update(license_obj: License, before: dic
     if license_obj.active_maintenance_id is None:
         return
     try:
-        assert_active_maintenance_allows_type_change(
-            license_obj.active_maintenance_id, license_obj.license_type
-        )
+        assert_active_maintenance_allows_type_change(license_obj.active_maintenance_id, license_obj.license_type)
         assert_active_maintenance_allows_retirement(
             license_obj.active_maintenance_id,
             was_retired=bool(before.get("is_retired", False)),

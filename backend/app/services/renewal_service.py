@@ -79,11 +79,7 @@ async def _load_candidate_licenses(
     current_user: User,
     cutoff: date,
 ) -> list[License]:
-    departments = (
-        await get_viewer_departments(current_user.id, db)
-        if current_user.role == "viewer"
-        else None
-    )
+    departments = await get_viewer_departments(current_user.id, db) if current_user.role == "viewer" else None
 
     query = (
         select(License)

@@ -42,9 +42,7 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
     """
 
     # Load settings
-    result = await db.execute(
-        select(GlobalSettings).where(GlobalSettings.id == 1)
-    )
+    result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
     gs = result.scalar_one_or_none()
     if not gs or not gs.smtp_host:
         log.info("SMTP not configured — skipping notifications")
@@ -60,24 +58,17 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
 
     # Load licenses
     lic_result = await db.execute(
-        select(License)
-        .where(License.is_retired.is_(False))
-        .options(selectinload(License.documents))
+        select(License).where(License.is_retired.is_(False)).options(selectinload(License.documents))
     )
     all_licenses = list(lic_result.scalars().all())
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, all_licenses)
 
     # Build lookup for parent licenses of any maintenance Licenses we
     # encounter -- used for email copy context
-    parent_ids = {
-        lic.parent_license_id for lic in all_licenses
-        if lic.parent_license_id is not None
-    }
+    parent_ids = {lic.parent_license_id for lic in all_licenses if lic.parent_license_id is not None}
     parent_map: dict[int, License] = {}
     if parent_ids:
-        pr = await db.execute(
-            select(License).where(License.id.in_(parent_ids))
-        )
+        pr = await db.execute(select(License).where(License.id.in_(parent_ids)))
         for p in pr.scalars().all():
             parent_map[p.id] = p
 
@@ -100,25 +91,17 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
 
             if days_left < 0:
                 # Expired
-                entry = _build_license_entry(
-                    lic, "expired", days_left, parent_map=parent_map
-                )
+                entry = _build_license_entry(lic, "expired", days_left, parent_map=parent_map)
                 all_notifications.append(entry)
                 if lic.budget_owner_email:
-                    expiring_by_owner.setdefault(
-                        lic.budget_owner_email, []
-                    ).append(entry)
+                    expiring_by_owner.setdefault(lic.budget_owner_email, []).append(entry)
 
             elif 0 <= days_left <= notification_days:
                 # Expiring within threshold
-                entry = _build_license_entry(
-                    lic, "expiring", days_left, parent_map=parent_map
-                )
+                entry = _build_license_entry(lic, "expiring", days_left, parent_map=parent_map)
                 all_notifications.append(entry)
                 if lic.budget_owner_email:
-                    expiring_by_owner.setdefault(
-                        lic.budget_owner_email, []
-                    ).append(entry)
+                    expiring_by_owner.setdefault(lic.budget_owner_email, []).append(entry)
 
         # Check completeness
         if not lic.is_completeness_exempt:
@@ -175,15 +158,9 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
                 all_notifications,
                 intro_text=gs.email_template_manager_intro or None,
             )
-            expired_count = sum(
-                1 for n in all_notifications if n["type"] == "expired"
-            )
-            expiring_count = sum(
-                1 for n in all_notifications if n["type"] == "expiring"
-            )
-            incomplete_count = sum(
-                1 for n in all_notifications if n["type"] == "incomplete"
-            )
+            expired_count = sum(1 for n in all_notifications if n["type"] == "expired")
+            expiring_count = sum(1 for n in all_notifications if n["type"] == "expiring")
+            incomplete_count = sum(1 for n in all_notifications if n["type"] == "incomplete")
             subject = (
                 f"License Lifecycle Daily Summary: "
                 f"{expired_count} expired, "

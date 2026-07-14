@@ -179,7 +179,9 @@ async def restart_plugin_runtime(db: AsyncSession, plugin_key: str) -> PluginRun
     return status
 
 
-async def stop_plugin_runtime(db: AsyncSession, plugin_key: str, *, mark_stopped: bool = True) -> PluginRuntimeStatus | None:
+async def stop_plugin_runtime(
+    db: AsyncSession, plugin_key: str, *, mark_stopped: bool = True
+) -> PluginRuntimeStatus | None:
     status = None
     plugin = await _get_plugin_or_none(db, plugin_key)
     if plugin is not None:
@@ -209,10 +211,9 @@ async def reset_stale_runtime_statuses(db: AsyncSession) -> None:
     """
     from sqlalchemy import update as sa_update
     from app.models.plugin import PluginRuntimeStatus as _PRS
+
     await db.execute(
-        sa_update(_PRS)
-        .where(_PRS.health.notin_({"stopped", "unknown"}))
-        .values(health="stopped", pid=None, port=None)
+        sa_update(_PRS).where(_PRS.health.notin_({"stopped", "unknown"})).values(health="stopped", pid=None, port=None)
     )
     await db.flush()
 
@@ -437,7 +438,9 @@ async def _wait_for_health(
     while asyncio.get_running_loop().time() < deadline:
         process = _processes.get(plugin.key)
         if process and process.process.returncode is not None:
-            raise PluginRuntimeError(f"Runtime exited before health check passed with code {process.process.returncode}")
+            raise PluginRuntimeError(
+                f"Runtime exited before health check passed with code {process.process.returncode}"
+            )
         try:
             health = await _health_check(runtime, token, port)
             if health.get("status") == "ok":
@@ -591,17 +594,16 @@ async def _redaction_values(db: AsyncSession, plugin: Plugin, status: PluginRunt
     token = _runtime_token(plugin.key, status)
     if token:
         values.append(token)
-    definitions = {
-        definition.setting_key: definition
-        for definition in await _setting_definitions(db, plugin.id)
-    }
+    definitions = {definition.setting_key: definition for definition in await _setting_definitions(db, plugin.id)}
     result = await db.execute(select(PluginSettingValue).where(PluginSettingValue.plugin_id == plugin.id))
     for value in result.scalars().all():
         definition = definitions.get(value.setting_key)
         if definition is None or value.encrypted_value is None:
             continue
         try:
-            decoded = decrypt_secret(value.encrypted_value) if definition.setting_type == "secret" else value.encrypted_value
+            decoded = (
+                decrypt_secret(value.encrypted_value) if definition.setting_type == "secret" else value.encrypted_value
+            )
         except Exception:
             continue
         if isinstance(decoded, str) and decoded:
@@ -664,7 +666,9 @@ def _document_refs_from_context(context: dict[str, Any]) -> list[tuple[str, int]
     for item in line_items:
         if not isinstance(item, dict):
             continue
-        linked_context = item.get("linkedSourcingContext") if isinstance(item.get("linkedSourcingContext"), dict) else {}
+        linked_context = (
+            item.get("linkedSourcingContext") if isinstance(item.get("linkedSourcingContext"), dict) else {}
+        )
         for document_id in _int_list(linked_context.get("quoteDocumentIds")):
             refs.add((DOCUMENT_TYPE_SOURCING_QUOTE, document_id))
 

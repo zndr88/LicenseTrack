@@ -153,7 +153,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleAddFolder(); }}
-                placeholder="New folder name…"
+                placeholder="New folder name..."
               />
               <button
                 className="btn btn-g"
@@ -352,7 +352,7 @@ function DocSection({ docs, canEdit, canDownload = true, hideUpload, uploading, 
                 style={{ background: "none", border: "none", cursor: canDownload ? "pointer" : "default", color: canDownload ? "var(--accent)" : "var(--text-2)", fontSize: 12, padding: 0, textAlign: "left", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                 title={doc.originalFilename}
               >
-                {downloadingId === doc.id ? "Downloading…" : doc.originalFilename}
+                {downloadingId === doc.id ? "Downloading..." : doc.originalFilename}
               </button>
               {canEdit && (
                 <button
@@ -373,7 +373,7 @@ function DocSection({ docs, canEdit, canDownload = true, hideUpload, uploading, 
       {showUpload && (
         <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, cursor: uploading ? "not-allowed" : "pointer", color: uploading ? "var(--text-3)" : "var(--accent)", userSelect: "none" }}>
           <Icon name="upload" size={12} />
-          {uploading ? "Uploading…" : "Upload file"}
+          {uploading ? "Uploading..." : "Upload file"}
           <input
             type="file"
             style={{ display: "none" }}

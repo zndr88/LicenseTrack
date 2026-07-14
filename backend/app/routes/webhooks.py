@@ -51,7 +51,9 @@ async def list_webhook_endpoints(
     db: DbSession,
     _admin: User = Depends(require_admin),
 ) -> list[WebhookEndpointResponse]:
-    result = await db.execute(select(WebhookEndpoint).order_by(WebhookEndpoint.created_at.desc(), WebhookEndpoint.id.desc()))
+    result = await db.execute(
+        select(WebhookEndpoint).order_by(WebhookEndpoint.created_at.desc(), WebhookEndpoint.id.desc())
+    )
     return [_serialize_endpoint(endpoint) for endpoint in result.scalars().all()]
 
 

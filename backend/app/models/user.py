@@ -31,9 +31,7 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False, default=UserRole.viewer)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     allow_downloads: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
-    is_break_glass_admin: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="0"
-    )
+    is_break_glass_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

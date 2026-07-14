@@ -58,7 +58,7 @@ _HEADER_MAP: dict[str, str] = {
     "parent": "parent_license_ref",
     "quantity": "quantity",
     "qty": "quantity",
-    "purchase_quantity": "quantity",           # "Purchase Quantity" (v1.0.3 export label)
+    "purchase_quantity": "quantity",  # "Purchase Quantity" (v1.0.3 export label)
     "sku_code": "sku_code",
     "sku": "sku_code",
     "unit_price": "unit_price",
@@ -69,26 +69,26 @@ _HEADER_MAP: dict[str, str] = {
     "external_ref": "external_ref",
     "license_ref": "license_ref",
     # Flexera aliases — normalised from Flexera column names
-    "purchase_order_no": "po_number",         # "Purchase Order No."
-    "effective_quantity": "quantity",          # "Effective Quantity"
-    "unit_price_eur": "unit_price",            # "Unit Price (EUR)"
-    "total_price_eur": "total_po_price",       # "Total Price (EUR)"
-    "effective_date": "start_date",            # "Effective Date"
-    "expiry_date": "end_date",                 # "Expiry Date"
-    "vendor": "supplier",                      # "Vendor"
-    "part_no_sku": "sku_code",                 # "Part No./SKU"
-    "contract_no": "contract_number",          # "Contract No."
+    "purchase_order_no": "po_number",  # "Purchase Order No."
+    "effective_quantity": "quantity",  # "Effective Quantity"
+    "unit_price_eur": "unit_price",  # "Unit Price (EUR)"
+    "total_price_eur": "total_po_price",  # "Total Price (EUR)"
+    "effective_date": "start_date",  # "Effective Date"
+    "expiry_date": "end_date",  # "Expiry Date"
+    "vendor": "supplier",  # "Vendor"
+    "part_no_sku": "sku_code",  # "Part No./SKU"
+    "contract_no": "contract_number",  # "Contract No."
     # Flexera fallback columns
-    "item": "software_description",            # "Item" (fallback for description)
+    "item": "software_description",  # "Item" (fallback for description)
     # NOTE: "purchase_date" now maps to the real purchase_date procurement
     # milestone field (see above), not start_date. Flexera exports that relied
     # on Purchase Date as a start-date fallback now populate purchase_date.
-    "contractenddate": "end_date",             # "ContractEndDate" (fallback for end)
+    "contractenddate": "end_date",  # "ContractEndDate" (fallback for end)
     # LicenseTrack export display-label aliases (pre-round-trip-fix exports)
-    "lt_ref": "license_ref",                       # "LT Ref"
-    "publisher_contact": "contact_email",          # "Publisher Contact"
-    "budget_owner": "budget_owner_email",          # "Budget Owner"
-    "portal_url": "portal_url",                    # "Portal URL"
+    "lt_ref": "license_ref",  # "LT Ref"
+    "publisher_contact": "contact_email",  # "Publisher Contact"
+    "budget_owner": "budget_owner_email",  # "Budget Owner"
+    "portal_url": "portal_url",  # "Portal URL"
     "maintenance_coverage": "maintenance_coverage",
     "maintenance_support_coverage": "maintenance_coverage",  # "Maintenance / Support Coverage"
 }
@@ -100,21 +100,33 @@ _HEADER_MAP: dict[str, str] = {
 # derived from the linked child maintenance license and must not be imported
 # directly. Both the export display-label form and the snake_case field form are
 # listed so either survives a round-trip.
-_IGNORED_HEADERS: frozenset[str] = frozenset({
-    "docs", "calc_total", "expiration", "complete",
-    # "Total PO Value" (v1.0.3 export label) is a derived whole-PO aggregate —
-    # importing it into the per-license total_po_price column would be wrong.
-    # The legacy "Total PO Price" header still maps to the stored column above
-    # so pre-1.0.3 exports round-trip unchanged.
-    "total_po_value",
-    "created", "created_at", "created_by",
-    "last_updated", "updated_at",
-    "last_synced", "last_synced_at",
-    "lifecycle_status", "sync_status",
-    "maintenance_start", "maintenance_start_date",
-    "maintenance_end", "maintenance_end_date",
-    "maintenance_cost",
-})
+_IGNORED_HEADERS: frozenset[str] = frozenset(
+    {
+        "docs",
+        "calc_total",
+        "expiration",
+        "complete",
+        # "Total PO Value" (v1.0.3 export label) is a derived whole-PO aggregate —
+        # importing it into the per-license total_po_price column would be wrong.
+        # The legacy "Total PO Price" header still maps to the stored column above
+        # so pre-1.0.3 exports round-trip unchanged.
+        "total_po_value",
+        "created",
+        "created_at",
+        "created_by",
+        "last_updated",
+        "updated_at",
+        "last_synced",
+        "last_synced_at",
+        "lifecycle_status",
+        "sync_status",
+        "maintenance_start",
+        "maintenance_start_date",
+        "maintenance_end",
+        "maintenance_end_date",
+        "maintenance_cost",
+    }
+)
 
 # Ordered list used for headers_missing reporting.
 _RECOMMENDED_FIELDS = [
@@ -128,17 +140,30 @@ _RECOMMENDED_FIELDS = [
 ]
 
 _VALID_LICENSE_TYPES = {
-    "subscription", "perpetual", "maintenance", "saas", "oem", "freeware",
+    "subscription",
+    "perpetual",
+    "maintenance",
+    "saas",
+    "oem",
+    "freeware",
 }
 
 
 _VALID_LICENSE_METRICS = {
-    "per_user", "per_device", "per_cpu", "per_core",
-    "site", "concurrent", "enterprise",
+    "per_user",
+    "per_device",
+    "per_cpu",
+    "per_core",
+    "site",
+    "concurrent",
+    "enterprise",
 }
 
 _VALID_MAINTENANCE_COVERAGE = {
-    "unknown", "not_applicable", "included", "separately_tracked",
+    "unknown",
+    "not_applicable",
+    "included",
+    "separately_tracked",
 }
 
 # Date formats tried in order (most common first).
@@ -153,26 +178,28 @@ _DATE_FORMATS = {
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ParsedRow:
     """Represents one parsed CSV row.
 
-    String fields (publisher_name, end_date, …) hold display/preview values.
+    String fields (publisher_name, end_date, ...) hold display/preview values.
     db_* fields hold typed values ready for database insertion.
     """
+
     row_number: int
     publisher_name: str
     software_description: str
-    start_date: Optional[str]       # ISO string or None
-    end_date: Optional[str]         # ISO string or None (None = perpetual)
+    start_date: Optional[str]  # ISO string or None
+    end_date: Optional[str]  # ISO string or None (None = perpetual)
     contract_number: str
     po_number: str
     invoice_number: str
     contact_email: str
     supplier: str
     cost_centre: str
-    license_type: str               # validated enum value, or "" if unrecognised
-    license_metric: str             # validated enum value, or "" if unrecognised
+    license_type: str  # validated enum value, or "" if unrecognised
+    license_metric: str  # validated enum value, or "" if unrecognised
     quantity: str
     sku_code: str
     unit_price: str
@@ -187,7 +214,7 @@ class ParsedRow:
     maintenance_coverage: Optional[str]
 
     # Classification
-    import_status: str              # "legacy_exempt" | "active" | "legacy_incomplete" | "error"
+    import_status: str  # "legacy_exempt" | "active" | "legacy_incomplete" | "error"
     validation_errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     duplicate_warnings: list[object] = field(default_factory=list)
@@ -203,7 +230,7 @@ class ParsedRow:
     db_purchase_date: Optional[datetime] = field(default=None, repr=False)
 
     # Update-on-LT-Ref annotation — set during preview/execute, not by parsing.
-    import_action: str = field(default="create")   # "create" | "update"
+    import_action: str = field(default="create")  # "create" | "update"
     matched_license_id: Optional[int] = field(default=None)
     is_completeness_exempt: bool = field(default=False, repr=False)
     lifecycle_status: Optional[str] = field(default=None, repr=False)
@@ -212,21 +239,22 @@ class ParsedRow:
 @dataclass
 class ParsedImportResult:
     rows: list[ParsedRow]
-    headers_found: list[str]        # internal field names detected in the file
-    headers_missing: list[str]      # recommended fields not present in the file
+    headers_found: list[str]  # internal field names detected in the file
+    headers_missing: list[str]  # recommended fields not present in the file
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _normalise_header(raw: str) -> str:
     """Lowercase, strip whitespace, replace any sequence of non-alphanumeric
     characters (spaces, dots, slashes, parentheses, etc.) with a single
     underscore, then strip leading/trailing underscores."""
     s = raw.strip().lower()
-    s = re.sub(r'[^a-z0-9]+', '_', s)
-    return s.strip('_')
+    s = re.sub(r"[^a-z0-9]+", "_", s)
+    return s.strip("_")
 
 
 def _parse_localized_numeric_field(
@@ -317,10 +345,7 @@ def _parse_date(raw: str, date_format: str) -> tuple[Optional[date], bool, str]:
         except ValueError:
             continue
 
-    return None, False, (
-        f"Unrecognised date format: {raw!r}; expected ISO YYYY-MM-DD "
-        f"or declared format {date_format}"
-    )
+    return None, False, (f"Unrecognised date format: {raw!r}; expected ISO YYYY-MM-DD or declared format {date_format}")
 
 
 def _parse_datetime(raw: str, date_format: str) -> tuple[Optional[datetime], str]:
@@ -342,16 +367,13 @@ def _parse_datetime(raw: str, date_format: str) -> tuple[Optional[datetime], str
     except ValueError:
         pass
 
-    # Declared date format (DD/MM/YYYY, MM/DD/YYYY, …) — hand-authored CSVs.
+    # Declared date format (DD/MM/YYYY, MM/DD/YYYY, ...) — hand-authored CSVs.
     fmt = _DATE_FORMATS.get(date_format, "%d/%m/%Y")
     try:
         parsed = datetime.strptime(raw, fmt)
         return parsed.replace(tzinfo=timezone.utc), ""
     except ValueError:
-        return None, (
-            f"Unrecognised date format: {raw!r}; expected ISO YYYY-MM-DD "
-            f"or declared format {date_format}"
-        )
+        return None, (f"Unrecognised date format: {raw!r}; expected ISO YYYY-MM-DD or declared format {date_format}")
 
 
 def _classify_row(
@@ -450,18 +472,14 @@ def _parse_row(
     license_type = _extract_license_type(_normalise_enum_value(data.get("license_type", "")))
     license_type = _LICENSE_TYPE_VALUE_ALIASES.get(license_type, license_type)
     if license_type and license_type not in _VALID_LICENSE_TYPES:
-        errors.append(
-            f"Unrecognised license_type {license_type!r}; correct the value or remove the column"
-        )
+        errors.append(f"Unrecognised license_type {license_type!r}; correct the value or remove the column")
         license_type = ""
         has_enum_error = True
 
     license_metric = _normalise_enum_value(data.get("license_metric", ""))
     license_metric = _LICENSE_METRIC_VALUE_ALIASES.get(license_metric, license_metric)
     if license_metric and license_metric not in _VALID_LICENSE_METRICS:
-        errors.append(
-            f"Unrecognised license_metric {license_metric!r}; correct the value or remove the column"
-        )
+        errors.append(f"Unrecognised license_metric {license_metric!r}; correct the value or remove the column")
         license_metric = ""
         has_enum_error = True
 
@@ -470,12 +488,8 @@ def _parse_row(
     currency = _currency_raw or default_currency
     currency_defaulted = not bool(_currency_raw)
     numeric_error_count = len(errors)
-    quantity = _parse_localized_numeric_field(
-        data.get("quantity", ""), "quantity", errors, number_format_locale
-    )
-    unit_price = _parse_localized_numeric_field(
-        data.get("unit_price", ""), "unit_price", errors, number_format_locale
-    )
+    quantity = _parse_localized_numeric_field(data.get("quantity", ""), "quantity", errors, number_format_locale)
+    unit_price = _parse_localized_numeric_field(data.get("unit_price", ""), "unit_price", errors, number_format_locale)
     total_po_price = _parse_localized_numeric_field(
         data.get("total_po_price", ""), "total_po_price", errors, number_format_locale
     )
@@ -486,9 +500,7 @@ def _parse_row(
     # aiosmtplib.send(recipients=...) via the daily notification job.)
     budget_owner_email = data.get("budget_owner_email", "").strip()
     if any(ch in budget_owner_email for ch in ("\r", "\n", "\x00")):
-        errors.append(
-            "budget_owner_email contains invalid characters (line breaks or null bytes)"
-        )
+        errors.append("budget_owner_email contains invalid characters (line breaks or null bytes)")
         has_parse_error = True
         budget_owner_email = ""
 
@@ -500,9 +512,7 @@ def _parse_row(
 
     maintenance_coverage_raw = _normalise_enum_value(data.get("maintenance_coverage", ""))
     if maintenance_coverage_raw and maintenance_coverage_raw not in _VALID_MAINTENANCE_COVERAGE:
-        warnings.append(
-            f"Unrecognised maintenance_coverage {maintenance_coverage_raw!r}; defaulting to 'unknown'"
-        )
+        warnings.append(f"Unrecognised maintenance_coverage {maintenance_coverage_raw!r}; defaulting to 'unknown'")
         maintenance_coverage_raw = None
     maintenance_coverage = maintenance_coverage_raw or None
 
@@ -572,6 +582,7 @@ def _parse_row(
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def parse_csv(
     file_contents: bytes,
     default_currency: str = "EUR",
@@ -608,17 +619,16 @@ def parse_csv(
     logger.info("CSV import: parsing started")
     rows: list[ParsedRow] = []
     for row_idx, raw_row in enumerate(reader, start=1):
-        row_data: dict[str, str] = {
-            internal: (raw_row.get(raw_h) or "")
-            for raw_h, internal in header_mapping.items()
-        }
-        rows.append(_parse_row(
-            row_idx,
-            row_data,
-            default_currency,
-            number_format_locale,
-            date_format,
-        ))
+        row_data: dict[str, str] = {internal: (raw_row.get(raw_h) or "") for raw_h, internal in header_mapping.items()}
+        rows.append(
+            _parse_row(
+                row_idx,
+                row_data,
+                default_currency,
+                number_format_locale,
+                date_format,
+            )
+        )
 
     error_count = sum(1 for r in rows if r.import_status == "error")
     logger.info(

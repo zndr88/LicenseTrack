@@ -188,7 +188,7 @@ export default function AuditLogTab() {
         <input
           className="fi"
           type="text"
-          placeholder="Search actor, target, detail…"
+          placeholder="Search actor, target, detail..."
           value={filterSearch}
           onChange={(e) => setFilterSearch(e.target.value)}
           style={{ flex: "1 1 200px", minWidth: 160 }}
@@ -222,7 +222,7 @@ export default function AuditLogTab() {
           {loadError}
         </div>
       ) : loading ? (
-        <p style={{ color: "var(--text-3)", fontSize: 13, padding: "24px 0" }}>Loading…</p>
+        <p style={{ color: "var(--text-3)", fontSize: 13, padding: "24px 0" }}>Loading...</p>
       ) : entries.length === 0 ? (
         <div style={{ textAlign: "center", padding: "40px 0" }}>
           <p style={{ fontWeight: 600, marginBottom: 4 }}>No audit events found</p>
@@ -278,7 +278,7 @@ export default function AuditLogTab() {
                     {entry.detail ? (
                       <span title={entry.detail} style={{ cursor: entry.detail.length > 80 ? "help" : "default" }}>
                         {entry.detail.length > 80
-                          ? entry.detail.slice(0, 80) + "…"
+                          ? entry.detail.slice(0, 80) + "..."
                           : entry.detail}
                       </span>
                     ) : null}

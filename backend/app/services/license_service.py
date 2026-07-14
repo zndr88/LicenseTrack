@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 # License reference generation
 # ---------------------------------------------------------------------------
 
+
 async def generate_license_ref(db: AsyncSession) -> str:
     """
     Generate the next license_ref in format LT-YYYY-NNNNN.
@@ -35,9 +36,7 @@ async def generate_license_ref(db: AsyncSession) -> str:
     caller's transaction, preventing concurrent requests from reading the same
     last_value and producing duplicate refs.
     """
-    result = await db.execute(
-        select(LicenseRefSequence).where(LicenseRefSequence.id == 1).with_for_update()
-    )
+    result = await db.execute(select(LicenseRefSequence).where(LicenseRefSequence.id == 1).with_for_update())
     seq = result.scalar_one_or_none()
     if seq is None:
         seq = LicenseRefSequence(id=1, last_value=0)
@@ -61,6 +60,7 @@ _DOCUMENT_CATEGORIES = {
     "purchaseOrder": "purchase_order",
     "quote": "quote",
 }
+
 
 # Maps mandatory_fields JSON key → how to check it on a license/docs pair
 def _check_mandatory_field(
@@ -111,15 +111,14 @@ def compute_completeness(
         return 100
 
     doc_categories = {doc.category.value for doc in documents}
-    met = sum(
-        1 for key in enabled_keys if _check_mandatory_field(key, license, doc_categories)
-    )
+    met = sum(1 for key in enabled_keys if _check_mandatory_field(key, license, doc_categories))
     return round(met * 100 / len(enabled_keys))
 
 
 # ---------------------------------------------------------------------------
 # Computed field: days_until_expiry
 # ---------------------------------------------------------------------------
+
 
 def compute_days_until_expiry(license: "License", today: date) -> int | None:
     """Days until end_date; None if no end_date."""
@@ -131,6 +130,7 @@ def compute_days_until_expiry(license: "License", today: date) -> int | None:
 # ---------------------------------------------------------------------------
 # Computed field: expiration_status
 # ---------------------------------------------------------------------------
+
 
 def compute_expiration_status(
     license: "License",
@@ -169,6 +169,7 @@ def compute_expiration_status(
 # Computed field: per-line total (quantity × unit price)
 # ---------------------------------------------------------------------------
 
+
 def calc_line_total(quantity: str | None, unit_price: str | None) -> Decimal | None:
     """
     Per-line total (quantity × unit price) from canonical stored strings.
@@ -190,6 +191,7 @@ def calc_line_total(quantity: str | None, unit_price: str | None) -> Decimal | N
 # ---------------------------------------------------------------------------
 # Dashboard statistics
 # ---------------------------------------------------------------------------
+
 
 def compute_stats(
     licenses: list["License"],
@@ -260,7 +262,9 @@ def compute_stats(
                 except MoneyParseError:
                     log.warning(
                         "annual_cost: skipping license id=%s — non-canonical quantity=%r unit_price=%r",
-                        lic.id, lic.quantity, lic.unit_price,
+                        lic.id,
+                        lic.quantity,
+                        lic.unit_price,
                     )
                     excluded_from_totals += 1
             # Perpetual, OEM, Freeware contribute zero

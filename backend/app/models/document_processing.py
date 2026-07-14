@@ -12,7 +12,9 @@ class DocumentProcessingResult(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     document_type: Mapped[str] = mapped_column(String(50), nullable=False)
     document_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
-    license_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("licenses.id", ondelete="SET NULL"), nullable=True, index=True)
+    license_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("licenses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     capability_key: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending", server_default="pending")
     suggested_fields: Mapped[list] = mapped_column(JSON, nullable=False)

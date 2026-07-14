@@ -107,9 +107,7 @@ async def cancel_renewal(
     )
     sourcing_only_items = list(sourcing_result.scalars().all())
     affected_request_ids = {
-        item.sourcing_request_id
-        for item in sourcing_only_items
-        if item.sourcing_request_id is not None
+        item.sourcing_request_id for item in sourcing_only_items if item.sourcing_request_id is not None
     }
     for item in sourcing_only_items:
         await db.delete(item)
@@ -131,10 +129,12 @@ async def cancel_renewal(
             await db.delete(request_obj)
 
     po_result = await db.execute(
-        select(SourcingItem.id).where(
+        select(SourcingItem.id)
+        .where(
             SourcingItem.renewal_for_license_id == license_id,
             SourcingItem.status == SourcingStatus.converted,
-        ).limit(1)
+        )
+        .limit(1)
     )
     po_warning = po_result.scalar_one_or_none() is not None
 
@@ -173,9 +173,7 @@ async def create_renewal_successor_from_sourcing_item(
 
     old_lic = primary_predecessor
     if old_lic is None:
-        old_result = await db.execute(
-            select(License).where(License.id == sourcing_item.renewal_for_license_id)
-        )
+        old_result = await db.execute(select(License).where(License.id == sourcing_item.renewal_for_license_id))
         old_lic = old_result.scalar_one_or_none()
     if old_lic is None:
         raise HTTPException(status_code=404, detail=missing_license_detail)
@@ -191,8 +189,7 @@ async def create_renewal_successor_from_sourcing_item(
     license_data = {
         **license_data,
         "maintenance_coverage": (
-            license_data.get("maintenance_coverage")
-            or default_maintenance_coverage(successor_type)
+            license_data.get("maintenance_coverage") or default_maintenance_coverage(successor_type)
         ),
     }
 
@@ -232,9 +229,7 @@ async def _create_coterm_renewal_successor(
         license_data["invoice_numbers"] = [invoice_number] if invoice_number else []
 
     predecessor_ids = list(sourcing_item.coterm_predecessor_ids or [])
-    all_pred_result = await db.execute(
-        select(License).where(License.id.in_(predecessor_ids))
-    )
+    all_pred_result = await db.execute(select(License).where(License.id.in_(predecessor_ids)))
     all_preds = {lic.id: lic for lic in all_pred_result.scalars().all()}
     for pred in all_preds.values():
         assert_predecessor_has_no_successor(pred)
@@ -251,8 +246,7 @@ async def _create_coterm_renewal_successor(
 
     primary_pred = all_preds.get(predecessor_ids[0])
     new_lic.license_ref = (
-        primary_pred.license_ref if primary_pred and primary_pred.license_ref
-        else await generate_license_ref(db)
+        primary_pred.license_ref if primary_pred and primary_pred.license_ref else await generate_license_ref(db)
     )
 
     marked_predecessor_ids: list[int] = []
@@ -262,10 +256,11 @@ async def _create_coterm_renewal_successor(
             mark_predecessor_renewed(pred, new_lic.id)
             marked_predecessor_ids.append(pred.id)
 
-    if primary_predecessor.license_type == LicenseType.maintenance and primary_predecessor.parent_license_id is not None:
-        parent_result = await db.execute(
-            select(License).where(License.id == primary_predecessor.parent_license_id)
-        )
+    if (
+        primary_predecessor.license_type == LicenseType.maintenance
+        and primary_predecessor.parent_license_id is not None
+    ):
+        parent_result = await db.execute(select(License).where(License.id == primary_predecessor.parent_license_id))
         parent_lic = parent_result.scalar_one_or_none()
         if parent_lic is not None:
             parent_lic.active_maintenance_id = new_lic.id
@@ -303,9 +298,7 @@ async def _create_single_renewal_successor(
     mark_predecessor_renewed(old_license, new_lic.id)
 
     if old_license.license_type == LicenseType.maintenance and old_license.parent_license_id is not None:
-        parent_result = await db.execute(
-            select(License).where(License.id == old_license.parent_license_id)
-        )
+        parent_result = await db.execute(select(License).where(License.id == old_license.parent_license_id))
         parent_lic = parent_result.scalar_one_or_none()
         if parent_lic is not None:
             parent_lic.active_maintenance_id = new_lic.id

@@ -8,6 +8,7 @@ PUT    /api/contracts/{contract_id}            — update contract
 DELETE /api/contracts/{contract_id}            — delete contract + files
 GET    /api/contracts/{contract_id}/licenses   — licenses linked by contract_number
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -59,6 +60,7 @@ async def _get_notification_days(db: AsyncSession) -> int:
 # List
 # ---------------------------------------------------------------------------
 
+
 @router.get("/api/contracts", response_model=list[ContractResponse])
 async def list_contracts(
     db: DbSession,
@@ -94,6 +96,7 @@ async def list_contracts(
 # Get single
 # ---------------------------------------------------------------------------
 
+
 @router.get("/api/contracts/{contract_id}", response_model=ContractResponse)
 async def get_contract(
     contract_id: int,
@@ -101,9 +104,7 @@ async def get_contract(
     _current_user: CurrentUser,
 ) -> ContractResponse:
     result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id)
-        .options(selectinload(Contract.folders))
+        select(Contract).where(Contract.id == contract_id).options(selectinload(Contract.folders))
     )
     contract = result.scalar_one_or_none()
     if contract is None:
@@ -117,6 +118,7 @@ async def get_contract(
 # ---------------------------------------------------------------------------
 # Create
 # ---------------------------------------------------------------------------
+
 
 @router.post("/api/contracts", response_model=ContractResponse, status_code=201)
 async def create_contract(
@@ -147,9 +149,7 @@ async def create_contract(
     await db.commit()
     await db.refresh(contract)
     result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract.id)
-        .options(selectinload(Contract.folders))
+        select(Contract).where(Contract.id == contract.id).options(selectinload(Contract.folders))
     )
     contract = result.scalar_one()
     return await build_contract_response(contract, db)
@@ -158,6 +158,7 @@ async def create_contract(
 # ---------------------------------------------------------------------------
 # Update
 # ---------------------------------------------------------------------------
+
 
 @router.put("/api/contracts/{contract_id}", response_model=ContractResponse)
 async def update_contract(
@@ -168,9 +169,7 @@ async def update_contract(
     _editor: User = Depends(require_editor_or_admin),
 ) -> ContractResponse:
     result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id)
-        .options(selectinload(Contract.folders))
+        select(Contract).where(Contract.id == contract_id).options(selectinload(Contract.folders))
     )
     contract = result.scalar_one_or_none()
     if contract is None:
@@ -213,9 +212,7 @@ async def update_contract(
     await db.commit()
     await db.refresh(contract)
     result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract.id)
-        .options(selectinload(Contract.folders))
+        select(Contract).where(Contract.id == contract.id).options(selectinload(Contract.folders))
     )
     contract = result.scalar_one()
     return await build_contract_response(contract, db)
@@ -225,6 +222,7 @@ async def update_contract(
 # Delete
 # ---------------------------------------------------------------------------
 
+
 @router.delete("/api/contracts/{contract_id}", status_code=204, response_class=Response)
 async def delete_contract(
     contract_id: int,
@@ -233,9 +231,7 @@ async def delete_contract(
     _editor: User = Depends(require_editor_or_admin),
 ) -> Response:
     result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id)
-        .options(selectinload(Contract.folders))
+        select(Contract).where(Contract.id == contract_id).options(selectinload(Contract.folders))
     )
     contract = result.scalar_one_or_none()
     if contract is None:
@@ -243,17 +239,11 @@ async def delete_contract(
 
     label = contract.contract_number
 
-    docs_result = await db.execute(
-        select(ContractDocument).where(ContractDocument.contract_id == contract_id)
-    )
+    docs_result = await db.execute(select(ContractDocument).where(ContractDocument.contract_id == contract_id))
     docs = docs_result.scalars().all()
     stored_paths = [doc.filename for doc in docs]
 
-    await db.execute(
-        sa_update(License)
-        .where(License.contract_id == contract_id)
-        .values(contract_id=None)
-    )
+    await db.execute(sa_update(License).where(License.contract_id == contract_id).values(contract_id=None))
     await db.delete(contract)
 
     ip = request.client.host if request.client else None
@@ -281,6 +271,7 @@ async def delete_contract(
 # ---------------------------------------------------------------------------
 # Linked licenses
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/api/contracts/{contract_id}/licenses",

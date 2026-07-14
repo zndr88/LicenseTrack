@@ -56,6 +56,7 @@ _ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
 # Upload
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "/api/licenses/{license_id}/documents",
     response_model=DocumentResponse | ProcurementDocumentResponse,
@@ -78,6 +79,7 @@ async def upload_document(
 
     # F10: reject oversized uploads before buffering the full body.
     from app.config import settings as _settings
+
     _max_bytes = _settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     _cl = request.headers.get("content-length")
     try:
@@ -184,6 +186,7 @@ async def upload_document(
 # List
 # ---------------------------------------------------------------------------
 
+
 @router.get(
     "/api/licenses/{license_id}/documents",
     response_model=list[DocumentResponse | ProcurementDocumentResponse],
@@ -201,9 +204,7 @@ async def list_documents(
     if not await can_view_license(_current_user, license_obj, db):
         raise HTTPException(status_code=404, detail="License not found")
 
-    docs_result = await db.execute(
-        select(Document).where(Document.license_id == license_id)
-    )
+    docs_result = await db.execute(select(Document).where(Document.license_id == license_id))
     documents = list(docs_result.scalars().all())
     responses: list[DocumentResponse | ProcurementDocumentResponse] = [
         DocumentResponse.model_validate(doc) for doc in documents
@@ -213,20 +214,16 @@ async def list_documents(
         procurement_conditions.append(ProcurementDocument.pending_order_id == license_obj.pending_order_id)
     procurement_query = select(ProcurementDocument).where(procurement_conditions[0])
     if len(procurement_conditions) > 1:
-        procurement_query = select(ProcurementDocument).where(
-            procurement_conditions[0] | procurement_conditions[1]
-        )
+        procurement_query = select(ProcurementDocument).where(procurement_conditions[0] | procurement_conditions[1])
     procurement_result = await db.execute(procurement_query)
-    responses.extend(
-        ProcurementDocumentResponse.model_validate(doc)
-        for doc in procurement_result.scalars().all()
-    )
+    responses.extend(ProcurementDocumentResponse.model_validate(doc) for doc in procurement_result.scalars().all())
     return responses
 
 
 # ---------------------------------------------------------------------------
 # Download
 # ---------------------------------------------------------------------------
+
 
 @router.get("/api/documents/{document_id}/download")
 async def download_document(document_id: int, db: DbSession, current_user: CurrentUser) -> FileResponse:
@@ -241,9 +238,7 @@ async def download_document(document_id: int, db: DbSession, current_user: Curre
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    license_result = await db.execute(
-        select(License).where(License.id == document.license_id)
-    )
+    license_result = await db.execute(select(License).where(License.id == document.license_id))
     license_obj = license_result.scalar_one_or_none()
     if license_obj is None or not await can_view_license(current_user, license_obj, db):
         raise HTTPException(status_code=404, detail="Document not found")
@@ -297,6 +292,7 @@ async def download_procurement_document(document_id: int, db: DbSession, current
 # ---------------------------------------------------------------------------
 # Delete
 # ---------------------------------------------------------------------------
+
 
 @router.delete("/api/documents/{document_id}", status_code=204, response_class=Response)
 async def delete_document(
@@ -371,9 +367,7 @@ async def delete_procurement_document(
     pending_order_id = document.pending_order_id
     related_license = await db.get(License, license_id) if license_id is not None else None
     if related_license is None and pending_order_id is not None:
-        related_license = await db.scalar(
-            select(License).where(License.pending_order_id == pending_order_id)
-        )
+        related_license = await db.scalar(select(License).where(License.pending_order_id == pending_order_id))
     storage_base = await storage.resolve_storage_path(db)
 
     await db.delete(document)
@@ -397,11 +391,7 @@ async def delete_procurement_document(
             document_id=document_id,
             filename=filename,
             related_license_id=related_license.id if related_license is not None else license_id,
-            pending_order_id=(
-                related_license.pending_order_id
-                if related_license is not None
-                else pending_order_id
-            ),
+            pending_order_id=(related_license.pending_order_id if related_license is not None else pending_order_id),
             po_number=po_number,
             actor_email=_editor.email,
             reason=reason,

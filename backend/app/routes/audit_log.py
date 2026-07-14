@@ -32,6 +32,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 # Schemas
 # ---------------------------------------------------------------------------
 
+
 class AuditLogEntry(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -63,6 +64,7 @@ class AuditLogPage(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _build_query(
     actor_email: str | None,
     action: str | None,
@@ -83,9 +85,7 @@ def _build_query(
     if date_to:
         # Include the full day_to by going to end of day
         next_day = date_to + timedelta(days=1)
-        q = q.where(
-            AuditLog.timestamp < datetime(next_day.year, next_day.month, next_day.day, tzinfo=timezone.utc)
-        )
+        q = q.where(AuditLog.timestamp < datetime(next_day.year, next_day.month, next_day.day, tzinfo=timezone.utc))
     if search:
         pattern = f"%{search}%"
         q = q.where(
@@ -104,6 +104,7 @@ def _build_query(
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @router.get("", response_model=AuditLogPage)
 async def list_audit_log(
@@ -152,23 +153,37 @@ async def export_audit_log(
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow([
-        "timestamp", "actor_email", "actor_token_id", "actor_token_name",
-        "ip_address", "action", "target_type", "target_id", "target_label", "detail",
-    ])
+    writer.writerow(
+        [
+            "timestamp",
+            "actor_email",
+            "actor_token_id",
+            "actor_token_name",
+            "ip_address",
+            "action",
+            "target_type",
+            "target_id",
+            "target_label",
+            "detail",
+        ]
+    )
     for row in rows:
-        writer.writerow(safe_csv_row([
-            row.timestamp.isoformat() if row.timestamp else "",
-            row.actor_email,
-            str(row.actor_token_id) if row.actor_token_id is not None else "",
-            row.actor_token_name or "",
-            row.ip_address or "",
-            row.action,
-            row.target_type or "",
-            row.target_id or "",
-            row.target_label or "",
-            row.detail or "",
-        ]))
+        writer.writerow(
+            safe_csv_row(
+                [
+                    row.timestamp.isoformat() if row.timestamp else "",
+                    row.actor_email,
+                    str(row.actor_token_id) if row.actor_token_id is not None else "",
+                    row.actor_token_name or "",
+                    row.ip_address or "",
+                    row.action,
+                    row.target_type or "",
+                    row.target_id or "",
+                    row.target_label or "",
+                    row.detail or "",
+                ]
+            )
+        )
 
     output.seek(0)
     return StreamingResponse(

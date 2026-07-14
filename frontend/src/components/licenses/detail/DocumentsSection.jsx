@@ -277,12 +277,12 @@ export default function DocumentsSection({
                   ))}
 
                   {!docsLoading && files.length === 0 && <div className="doc-empty">No files uploaded yet</div>}
-                  {docsLoading && files.length === 0 && <div className="doc-empty">Loading…</div>}
+                  {docsLoading && files.length === 0 && <div className="doc-empty">Loading...</div>}
 
                   {perms.canEdit && (
                     <button className="doc-upload-btn" disabled={!!uploadingCategory} onClick={() => handleFileUpload(cat.key)}>
                       <Icon name={isUploading ? "clock" : "upload"} size={13} />
-                      {isUploading ? "Uploading…" : `Upload ${cat.label.toLowerCase()}`}
+                      {isUploading ? "Uploading..." : `Upload ${cat.label.toLowerCase()}`}
                     </button>
                   )}
                 </div>

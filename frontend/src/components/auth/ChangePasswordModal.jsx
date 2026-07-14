@@ -53,7 +53,7 @@ const ChangePasswordModal = ({ onSuccess }) => {
             </div>
           )}
           <button className="btn btn-p btn-full" type="submit" disabled={saving} style={{ marginTop: 4 }}>
-            {saving ? "Saving…" : "Set New Password"}
+            {saving ? "Saving..." : "Set New Password"}
           </button>
         </form>
       </div>

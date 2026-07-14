@@ -20,7 +20,7 @@ import re
 from decimal import Decimal
 
 # Pattern for canonical decimal: optional minus, digits, optional fractional part.
-_CANONICAL_RE = re.compile(r'^-?\d+(\.\d+)?$')
+_CANONICAL_RE = re.compile(r"^-?\d+(\.\d+)?$")
 
 # Locale separator lookup: (decimal_sep, group_sep).
 # group_sep of None means the locale uses no grouping character in practice.
@@ -105,10 +105,7 @@ def parse_localized_money(raw: str | None, number_format_locale: str) -> str | N
         if grp_sep
         else ""
     )
-    if grp_sep and (
-        has_decimal_sep
-        or re.match(grouping_pattern, s)
-    ):
+    if grp_sep and (has_decimal_sep or re.match(grouping_pattern, s)):
         s = s.replace(grp_sep, "")
     # Also strip common Unicode space variants used as grouping separators
     s = re.sub(r"[\s\u00a0\u202f\u2009]", "", s)
@@ -118,9 +115,7 @@ def parse_localized_money(raw: str | None, number_format_locale: str) -> str | N
         s = s.replace(dec_sep, ".")
 
     if not is_canonical_money(s):
-        raise MoneyParseError(
-            f"Cannot parse {raw!r} as a number for locale {number_format_locale!r}."
-        )
+        raise MoneyParseError(f"Cannot parse {raw!r} as a number for locale {number_format_locale!r}.")
 
     return s
 
@@ -135,8 +130,5 @@ def parse_money(raw: str | None) -> Decimal | None:
     if raw is None or not raw.strip():
         return None
     if not is_canonical_money(raw):
-        raise MoneyParseError(
-            f"Non-canonical money value: {raw!r}. "
-            "Expected a plain decimal string (e.g. '1234.50')."
-        )
+        raise MoneyParseError(f"Non-canonical money value: {raw!r}. Expected a plain decimal string (e.g. '1234.50').")
     return Decimal(raw.strip())

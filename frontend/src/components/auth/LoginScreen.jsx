@@ -157,7 +157,7 @@ const LoginScreen = ({ onLogin }) => {
                 <input className="fi" type="password" value={password} placeholder="••••••••••••" autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} disabled={loading} />
               </div>
               <button className="btn btn-g btn-full" type="submit" disabled={loading} style={{ marginTop: 4 }}>
-                {loading ? "Signing in…" : "Sign in locally"}
+                {loading ? "Signing in..." : "Sign in locally"}
               </button>
             </>
           )}

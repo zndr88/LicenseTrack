@@ -127,10 +127,7 @@ def _match_duplicate(
     has_date = (
         _row_match_value(row, "start_date") == getter(candidate, "start_date")
         and _row_match_value(row, "end_date") == getter(candidate, "end_date")
-        and (
-            _row_match_value(row, "start_date") is not None
-            or _row_match_value(row, "end_date") is not None
-        )
+        and (_row_match_value(row, "start_date") is not None or _row_match_value(row, "end_date") is not None)
     )
     if all_available_match and (has_contract or has_po) and has_date:
         return "high", match_fields
@@ -187,14 +184,16 @@ async def add_duplicate_warnings(rows: list[ParsedRow], db: AsyncSession) -> Non
                 continue
             severity, match_fields = match
             label = _license_label(license_obj)
-            row.duplicate_warnings.append(DuplicateWarning(
-                type="existing_license",
-                severity=severity,
-                message=f"Possible duplicate of existing license {label}. {_match_fields_sentence(match_fields)}",
-                matched_license_id=license_obj.id,
-                matched_license_ref=license_obj.license_ref,
-                match_fields=match_fields,
-            ))
+            row.duplicate_warnings.append(
+                DuplicateWarning(
+                    type="existing_license",
+                    severity=severity,
+                    message=f"Possible duplicate of existing license {label}. {_match_fields_sentence(match_fields)}",
+                    matched_license_id=license_obj.id,
+                    matched_license_ref=license_obj.license_ref,
+                    match_fields=match_fields,
+                )
+            )
             break
 
     for index, row in enumerate(rows):
@@ -207,11 +206,13 @@ async def add_duplicate_warnings(rows: list[ParsedRow], db: AsyncSession) -> Non
             if not match:
                 continue
             severity, match_fields = match
-            row.duplicate_warnings.append(DuplicateWarning(
-                type="import_row",
-                severity=severity,
-                message=f"Possible duplicate of row {earlier.row_number} in this import. {_match_fields_sentence(match_fields)}",
-                matched_row_number=earlier.row_number,
-                match_fields=match_fields,
-            ))
+            row.duplicate_warnings.append(
+                DuplicateWarning(
+                    type="import_row",
+                    severity=severity,
+                    message=f"Possible duplicate of row {earlier.row_number} in this import. {_match_fields_sentence(match_fields)}",
+                    matched_row_number=earlier.row_number,
+                    match_fields=match_fields,
+                )
+            )
             break

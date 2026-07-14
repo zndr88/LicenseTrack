@@ -22,10 +22,7 @@ async def get_viewer_departments(user_id: int, db: AsyncSession) -> list[str]:
     Returns None for admin/editor callers — callers must check role first.
     An empty list means the viewer has no departments assigned (sees zero records).
     """
-    result = await db.execute(
-        select(UserDepartmentAccess.department)
-        .where(UserDepartmentAccess.user_id == user_id)
-    )
+    result = await db.execute(select(UserDepartmentAccess.department).where(UserDepartmentAccess.user_id == user_id))
     return [row[0] for row in result.all()]
 
 
@@ -67,9 +64,11 @@ async def can_view_contract(user: User, contract: Contract, db: AsyncSession) ->
         return False
 
     result = await db.execute(
-        select(License.id).where(
+        select(License.id)
+        .where(
             License.contract_number == contract.contract_number,
             License.cost_centre.in_(departments),
-        ).limit(1)
+        )
+        .limit(1)
     )
     return result.scalar_one_or_none() is not None

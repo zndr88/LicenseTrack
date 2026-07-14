@@ -8,8 +8,4 @@ def mark_item_converted(item) -> None:
 
 def refresh_order_status(order: PendingOrder) -> None:
     all_items_converted = all(item.status == SourcingStatus.converted for item in order.items)
-    order.status = (
-        PendingOrderStatus.converted
-        if all_items_converted
-        else PendingOrderStatus.invoice_received
-    )
+    order.status = PendingOrderStatus.converted if all_items_converted else PendingOrderStatus.invoice_received

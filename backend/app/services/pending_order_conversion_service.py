@@ -174,9 +174,7 @@ async def convert_pending_order_to_licenses(
     else:
         for item in order.items:
             if item.renewal_for_license_id is not None:
-                old_result = await db.execute(
-                    select(License).where(License.id == item.renewal_for_license_id)
-                )
+                old_result = await db.execute(select(License).where(License.id == item.renewal_for_license_id))
                 old_lic = old_result.scalar_one_or_none()
                 if old_lic is None:
                     raise HTTPException(
@@ -241,9 +239,11 @@ async def convert_pending_order_to_licenses(
         written_paths: list[StoredProcurementPath] = []
         if file_data is not None:
             content, filename, mime_type = file_data
-            written_paths.append(await write_invoice_procurement_document(
-                db, content, filename, mime_type, order_po_number, order_id, actor_snapshot.id
-            ))
+            written_paths.append(
+                await write_invoice_procurement_document(
+                    db, content, filename, mime_type, order_po_number, order_id, actor_snapshot.id
+                )
+            )
 
         if quote_request_ids:
             written_paths.extend(
@@ -334,9 +334,7 @@ async def batch_convert_pending_order_to_licenses(
 
         if sourcing_item.renewal_for_license_id is not None:
             item_data.pop("parent_sourcing_item_id", None)
-            old_result = await db.execute(
-                select(License).where(License.id == sourcing_item.renewal_for_license_id)
-            )
+            old_result = await db.execute(select(License).where(License.id == sourcing_item.renewal_for_license_id))
             old_lic = old_result.scalar_one_or_none()
             if old_lic is None:
                 raise HTTPException(
@@ -457,9 +455,7 @@ async def retry_evidence_transfer(
           associated quote documents to copy.
     """
     result = await db.execute(
-        select(PendingOrder)
-        .where(PendingOrder.id == order_id)
-        .options(selectinload(PendingOrder.items))
+        select(PendingOrder).where(PendingOrder.id == order_id).options(selectinload(PendingOrder.items))
     )
     order = result.scalar_one_or_none()
     if order is None:
@@ -475,11 +471,7 @@ async def retry_evidence_transfer(
             detail="Evidence transfer is not in a retryable state",
         )
 
-    quote_request_ids = [
-        item.sourcing_request_id
-        for item in order.items
-        if item.sourcing_request_id is not None
-    ]
+    quote_request_ids = [item.sourcing_request_id for item in order.items if item.sourcing_request_id is not None]
     if not quote_request_ids:
         raise HTTPException(
             status_code=409,
@@ -528,10 +520,12 @@ async def sweep_stale_evidence_transfers() -> int:
             select(PendingOrder)
             .where(PendingOrder.status == PendingOrderStatus.converted)
             .where(
-                PendingOrder.evidence_transfer_status.in_([
-                    EvidenceTransferStatus.pending,
-                    EvidenceTransferStatus.failed,
-                ])
+                PendingOrder.evidence_transfer_status.in_(
+                    [
+                        EvidenceTransferStatus.pending,
+                        EvidenceTransferStatus.failed,
+                    ]
+                )
             )
             .options(selectinload(PendingOrder.items))
         )
@@ -589,15 +583,14 @@ async def sweep_stale_evidence_transfers() -> int:
             continue
 
         async with AsyncSessionLocal() as db:
+
             async def _transfer(
                 _db=db,
                 _opn=order_po_number,
                 _oid=order_id,
                 _qids=quote_ids,
             ) -> list[StoredProcurementPath]:
-                written = await copy_quote_documents_to_procurement_documents(
-                    _db, _opn, _oid, _qids, _SYSTEM_ACTOR.id
-                )
+                written = await copy_quote_documents_to_procurement_documents(_db, _opn, _oid, _qids, _SYSTEM_ACTOR.id)
                 await _db.commit()
                 return written
 

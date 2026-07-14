@@ -42,6 +42,7 @@ RECURRING_LICENSE_TYPES = {
 # Public computation functions
 # ---------------------------------------------------------------------------
 
+
 def parse_decimal(value: str | None) -> Decimal:
     """Parse a string to Decimal; return Decimal('0') for blank or invalid input."""
     if value is None or not str(value).strip():
@@ -95,11 +96,13 @@ def compute_risk_flags(
     if estimated_annual_value >= threshold:
         flags.append(_flag("high_value", "High value", "high"))
     if renewal_status in ("expired_unresolved", "due_soon"):
-        flags.append(_flag(
-            "renewal_not_started",
-            "Renewal not started",
-            "high" if renewal_status == "expired_unresolved" else "medium",
-        ))
+        flags.append(
+            _flag(
+                "renewal_not_started",
+                "Renewal not started",
+                "high" if renewal_status == "expired_unresolved" else "medium",
+            )
+        )
     if renewal_status == "pending_order":
         flags.append(_flag("pending_order", "Pending order", "low"))
     return flags
@@ -136,6 +139,7 @@ def matches_workbench_view(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
 
 def _flag(code: str, label: str, severity: str) -> RenewalRiskFlag:
     return RenewalRiskFlag(code=code, label=label, severity=severity)

@@ -37,7 +37,7 @@ export function SectionSaveButton({ sectionKey, isDirty, isSaving, onSave }) {
         onClick={() => onSave(sectionKey)}
         style={{ fontSize: 13 }}
       >
-        {isSaving && isDirty ? "Saving…" : "Save"}
+        {isSaving && isDirty ? "Saving..." : "Save"}
       </button>
     </div>
   );

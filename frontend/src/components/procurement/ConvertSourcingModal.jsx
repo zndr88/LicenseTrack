@@ -114,14 +114,14 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
               </div>
               <div className="fg">
                 <label htmlFor="cs-notes">Notes</label>
-                <textarea id="cs-notes" className="fi" rows={2} placeholder="Any notes…" style={{ resize: "vertical" }} {...register("notes")} />
+                <textarea id="cs-notes" className="fi" rows={2} placeholder="Any notes..." style={{ resize: "vertical" }} {...register("notes")} />
               </div>
             </>
           ) : (
             <div className="fg">
               <label htmlFor="cs-select-order">Select Pending Order</label>
               {loadingOrders ? (
-                <div className="fi" style={{ color: "var(--text-3)", pointerEvents: "none" }}>Loading pending orders…</div>
+                <div className="fi" style={{ color: "var(--text-3)", pointerEvents: "none" }}>Loading pending orders...</div>
               ) : localOrders.length === 0 ? (
                 <div className="fi" style={{ color: "var(--text-3)", pointerEvents: "none" }}>No existing pending orders — create a new one below</div>
               ) : (

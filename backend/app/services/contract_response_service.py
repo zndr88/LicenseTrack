@@ -4,6 +4,7 @@ Response assembly for contracts.
 Provides build_contract_response(), which enriches a Contract ORM object
 with computed license_count, document_count, and per-folder document counts.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import func, select
@@ -29,9 +30,7 @@ async def build_contract_response(
     license_count = lic_count_result.scalar_one() or 0
 
     doc_count_result = await db.execute(
-        select(func.count(ContractDocument.id)).where(
-            ContractDocument.contract_id == contract.id
-        )
+        select(func.count(ContractDocument.id)).where(ContractDocument.contract_id == contract.id)
     )
     document_count = doc_count_result.scalar_one() or 0
 

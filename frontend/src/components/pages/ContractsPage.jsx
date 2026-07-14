@@ -47,7 +47,7 @@ function NewContractModal({ onClose, onCreate, showError }) {
         <>
           <button className="btn btn-g" onClick={onClose}>Cancel</button>
           <button className="btn btn-p" onClick={handleSubmit} disabled={saving}>
-            {saving ? "Creating…" : "Create Contract"}
+            {saving ? "Creating..." : "Create Contract"}
           </button>
         </>
       )}
@@ -74,7 +74,7 @@ function NewContractModal({ onClose, onCreate, showError }) {
             <label htmlFor="new-contract-notes">Notes</label>
             <textarea id="new-contract-notes" className="fi" rows={3} value={form.notes}
               onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))}
-              placeholder="Optional notes about this contract…" />
+              placeholder="Optional notes about this contract..." />
           </div>
         </div>
       </div>
@@ -231,7 +231,7 @@ export default function ContractsPage({
       <div className="page-content">
         {contractsLoading ? (
           <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-3)" }}>
-            Loading contracts…
+            Loading contracts...
           </div>
         ) : contracts.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-3)", fontSize: 14 }}>

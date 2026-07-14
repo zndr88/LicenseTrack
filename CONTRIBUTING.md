@@ -77,6 +77,7 @@ python -m pip_audit -r backend/requirements.txt
 
 ## Current Architecture Conventions
 
+- Follow the repository style contract in `docs/style-contract.md`. It is the source of truth for conservative backend, frontend, CSS, testing, and AI-assisted coding conventions.
 - Use TanStack Query for frontend server data. Add query keys to `frontend/src/queryKeys.js` and shared invalidation groups to `frontend/src/queryInvalidation.js` when repeated cross-page invalidation appears.
 - Keep backend route handlers thin. Workflow-heavy behavior belongs in services, such as pending-order conversion in `backend/app/services/pending_order_conversion_service.py`.
 - Use shared custom-field helpers rather than duplicating key, label, input, or formatting logic. Frontend presentation helpers live in `frontend/src/utils/customFieldPresentation.js`; backend value normalization lives in `backend/app/services/custom_fields_service.py`.

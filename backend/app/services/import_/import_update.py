@@ -82,6 +82,4 @@ async def apply_import_update(
         license_obj.purchase_date = row.db_purchase_date
 
     if custom_data:
-        await upsert_imported_values_for_license(
-            db, license_obj.id, custom_data, number_format_locale
-        )
+        await upsert_imported_values_for_license(db, license_obj.id, custom_data, number_format_locale)

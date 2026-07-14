@@ -43,14 +43,42 @@ _WEAK_JWT_SECRETS = frozenset(
 )
 
 from app.routes import (
-    api_tokens, audit_log, auth, auth_oidc, backup, contract_documents, contract_folders,
-    contracts, csv_import, custom_fields, document_actions, document_processing, documents, extensions, global_settings, import_mappings,
-    integrations, license_exports, license_maintenance, license_renewals, plugin_actions, plugin_runtime_access, plugin_suggestions,
-    licenses, notifications, pending_orders, plugins, renewals, reports, sourcing, user_settings, users, webhooks,
+    api_tokens,
+    audit_log,
+    auth,
+    auth_oidc,
+    backup,
+    contract_documents,
+    contract_folders,
+    contracts,
+    csv_import,
+    custom_fields,
+    document_actions,
+    document_processing,
+    documents,
+    extensions,
+    global_settings,
+    import_mappings,
+    integrations,
+    license_exports,
+    license_maintenance,
+    license_renewals,
+    plugin_actions,
+    plugin_runtime_access,
+    plugin_suggestions,
+    licenses,
+    notifications,
+    pending_orders,
+    plugins,
+    renewals,
+    reports,
+    sourcing,
+    user_settings,
+    users,
+    webhooks,
 )
 from app.services.notification_scheduler import start_scheduler
 from app.version import APP_VERSION
-
 
 
 @asynccontextmanager
@@ -75,7 +103,7 @@ async def lifespan(app: FastAPI):
     if not secret or secret.strip().lower() in _WEAK_JWT_SECRETS:
         logger.critical(
             "JWT_SECRET is blank or set to a common default value. "
-            "Generate a long random string (e.g. `python -c \"import secrets; print(secrets.token_hex(32))\"`) "
+            'Generate a long random string (e.g. `python -c "import secrets; print(secrets.token_hex(32))"`) '
             "and set it in your .env file, then restart."
         )
         sys.exit(1)
@@ -90,6 +118,7 @@ async def lifespan(app: FastAPI):
         sys.exit(1)
 
     from app.seed import seed as run_seed
+
     await run_seed()
 
     # Reset any plugin runtime DB rows left in a non-stopped state from a
@@ -100,6 +129,7 @@ async def lifespan(app: FastAPI):
     try:
         from app.database import AsyncSessionLocal
         from app.services.plugin_runtime_service import reset_stale_runtime_statuses
+
         async with AsyncSessionLocal() as startup_db:
             await reset_stale_runtime_statuses(startup_db)
             await startup_db.commit()
@@ -112,6 +142,7 @@ async def lifespan(app: FastAPI):
     # Gracefully stop all managed plugin processes before the event loop exits.
     try:
         from app.services.plugin_lifecycle_service import stop_all_plugin_runtimes
+
         async with AsyncSessionLocal() as shutdown_db:
             await stop_all_plugin_runtimes(shutdown_db)
     except Exception as _exc:
@@ -126,11 +157,7 @@ async def lifespan(app: FastAPI):
 
 # Disable the interactive docs and OpenAPI schema unless explicitly enabled, so
 # the full API surface is not handed to unauthenticated callers in production.
-_docs_kwargs = (
-    {}
-    if settings.EXPOSE_API_DOCS
-    else {"docs_url": None, "redoc_url": None, "openapi_url": None}
-)
+_docs_kwargs = {} if settings.EXPOSE_API_DOCS else {"docs_url": None, "redoc_url": None, "openapi_url": None}
 
 app = FastAPI(
     title="Software License Lifecycle Management System API",
@@ -170,7 +197,11 @@ async def reject_oversized_uploads(request: Request, call_next):
         if is_upload:
             cl_header = request.headers.get("content-length")
             if cl_header is not None:
-                max_upload_mb = settings.MAX_PLUGIN_PACKAGE_SIZE_MB if path.startswith("/api/plugins/") else settings.MAX_UPLOAD_SIZE_MB
+                max_upload_mb = (
+                    settings.MAX_PLUGIN_PACKAGE_SIZE_MB
+                    if path.startswith("/api/plugins/")
+                    else settings.MAX_UPLOAD_SIZE_MB
+                )
                 max_bytes = max_upload_mb * 1024 * 1024
                 try:
                     cl_value = int(cl_header)

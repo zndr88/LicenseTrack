@@ -347,7 +347,7 @@ export function getPortfolioBreakdown(licenses) {
 
 /**
  * @param {object[]} licenses
- * @param {number} fiscalYearStartMonth - 1=Jan … 12=Dec (default: 1)
+ * @param {number} fiscalYearStartMonth - 1=Jan ... 12=Dec (default: 1)
  * @returns {{ quarterLabel: string, count: number, estimatedValueByCurrency: {[currency: string]: number}, estimatedValue: number }[]}
  */
 export function getRenewalCalendar(licenses, fiscalYearStartMonth = 1) {

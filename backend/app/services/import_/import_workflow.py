@@ -31,9 +31,7 @@ log = logging.getLogger(__name__)
 
 async def get_import_defaults(db: AsyncSession, user_id: int) -> tuple[str, str, str]:
     """Return the user's currency, number locale, and date format for CSV import."""
-    result = await db.execute(
-        sa_select(UserSettings).where(UserSettings.user_id == user_id)
-    )
+    result = await db.execute(sa_select(UserSettings).where(UserSettings.user_id == user_id))
     settings = result.scalar_one_or_none()
     if settings is None:
         return "EUR", "en-US", "DD/MM/YYYY"
@@ -44,9 +42,7 @@ async def get_import_defaults(db: AsyncSession, user_id: int) -> tuple[str, str,
     )
 
 
-async def prepare_import_rows(
-    rows: list[ParsedRow], db: AsyncSession, update_existing: bool = False
-) -> None:
+async def prepare_import_rows(rows: list[ParsedRow], db: AsyncSession, update_existing: bool = False) -> None:
     """Run maintenance parent inference, update-target annotation, then duplicate detection."""
     infer_batch_maintenance_parents(rows)
     if update_existing:
@@ -250,13 +246,14 @@ async def run_import_rows(
 
             if custom_data:
                 missing_custom_keys = await upsert_imported_values_for_license(
-                    db, license_obj.id, custom_data, number_format_locale,
+                    db,
+                    license_obj.id,
+                    custom_data,
+                    number_format_locale,
                 )
                 custom_field_failure_count += len(missing_custom_keys)
                 for cf_key in missing_custom_keys:
-                    log.warning(
-                        "run_import_rows: custom field key %r not found, skipping", cf_key
-                    )
+                    log.warning("run_import_rows: custom field key %r not found, skipping", cf_key)
 
             created_count += 1
 

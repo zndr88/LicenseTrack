@@ -18,7 +18,11 @@ from app.models.user import User
 from app.schemas.plugin_suggestion import PluginSuggestedField, PluginSuggestionLineItem
 from app.services.access_service import can_view_license
 from app.services.custom_fields_service import build_custom_field_value
-from app.services.license_write_service import ALLOWED_PATCH_FIELDS, apply_license_field_patch, validate_patch_field_input
+from app.services.license_write_service import (
+    ALLOWED_PATCH_FIELDS,
+    apply_license_field_patch,
+    validate_patch_field_input,
+)
 
 
 SUPPORTED_TARGET_TYPES = {
@@ -103,9 +107,7 @@ def _payload_value(payload: dict[str, Any], *keys: str, default: Any = None) -> 
 
 def _plugin_has_permission(plugin: Plugin, permission_name: str) -> bool:
     return any(
-        isinstance(permission, PluginPermission)
-        and permission.permission == permission_name
-        and permission.granted
+        isinstance(permission, PluginPermission) and permission.permission == permission_name and permission.granted
         for permission in plugin.permissions
     )
 
@@ -165,16 +167,10 @@ def _validate_allowlisted_fields(
     if not fields and not line_items:
         raise PluginSuggestionError("Plugin suggestions must include at least one field or line item")
 
-    unknown_fields = [
-        suggestion.field.strip()
-        for suggestion in fields
-        if suggestion.field.strip() not in allowlist
-    ]
+    unknown_fields = [suggestion.field.strip() for suggestion in fields if suggestion.field.strip() not in allowlist]
     for line_item in line_items:
         unknown_fields.extend(
-            suggestion.field.strip()
-            for suggestion in line_item.fields
-            if suggestion.field.strip() not in allowlist
+            suggestion.field.strip() for suggestion in line_item.fields if suggestion.field.strip() not in allowlist
         )
     if unknown_fields:
         raise PluginSuggestionError(f"Unsupported suggested field(s): {', '.join(sorted(set(unknown_fields)))}")
@@ -198,19 +194,26 @@ async def _resolve_target_license_id(
         return license_id
 
     if target_type == "sourcing_item":
-        item = await db.get(SourcingItem, _parse_int_target_id(target_id, "Sourcing item suggestion targetId must be an integer"))
+        item = await db.get(
+            SourcingItem, _parse_int_target_id(target_id, "Sourcing item suggestion targetId must be an integer")
+        )
         if item is None or item.status == SourcingStatus.converted:
             raise PluginSuggestionError("Sourcing item suggestion target not found")
         return None
 
     if target_type == "pending_order_item":
-        item = await db.get(SourcingItem, _parse_int_target_id(target_id, "Pending order item suggestion targetId must be an integer"))
+        item = await db.get(
+            SourcingItem, _parse_int_target_id(target_id, "Pending order item suggestion targetId must be an integer")
+        )
         if item is None or item.pending_order_id is None:
             raise PluginSuggestionError("Pending order item suggestion target not found")
         return None
 
     if target_type == "pending_order_conversion":
-        order = await db.get(PendingOrder, _parse_int_target_id(target_id, "Pending order conversion suggestion targetId must be an integer"))
+        order = await db.get(
+            PendingOrder,
+            _parse_int_target_id(target_id, "Pending order conversion suggestion targetId must be an integer"),
+        )
         if order is None:
             raise PluginSuggestionError("Pending order conversion suggestion target not found")
         return None
@@ -427,12 +430,12 @@ async def accept_plugin_suggestion(
     if suggested_field_indexes is not None:
         selected_indexes = sorted(set(suggested_field_indexes))
         invalid_indexes = [
-            index
-            for index in selected_indexes
-            if index < 0 or index >= len(suggestion.suggested_fields)
+            index for index in selected_indexes if index < 0 or index >= len(suggestion.suggested_fields)
         ]
         if invalid_indexes:
-            raise PluginSuggestionError(f"Invalid suggested field index(es): {', '.join(str(index) for index in invalid_indexes)}")
+            raise PluginSuggestionError(
+                f"Invalid suggested field index(es): {', '.join(str(index) for index in invalid_indexes)}"
+            )
 
     raw_suggestions = (
         [suggestion.suggested_fields[index] for index in selected_indexes]
@@ -476,7 +479,13 @@ async def accept_plugin_suggestion(
                 CustomFieldValue.custom_field_def_id == definition.id,
             )
         )
-        before_value = existing.value_currency if definition.field_type == "currency" and existing else existing.value_text if existing else None
+        before_value = (
+            existing.value_currency
+            if definition.field_type == "currency" and existing
+            else existing.value_text
+            if existing
+            else None
+        )
         await _apply_custom_field_value(
             db,
             license_id=suggestion.license_id,

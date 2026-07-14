@@ -8,7 +8,7 @@ import React from "react";
 export default function SearchBox({
   value,
   onChange,
-  placeholder = "Search…",
+  placeholder = "Search...",
   ariaLabel = "Search",
 }) {
   return (

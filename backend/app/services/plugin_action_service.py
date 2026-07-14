@@ -99,7 +99,10 @@ async def list_plugin_actions(
     result = await db.execute(
         select(PluginAction)
         .join(Plugin)
-        .options(selectinload(PluginAction.plugin).selectinload(Plugin.permissions), selectinload(PluginAction.plugin).selectinload(Plugin.runtime_status))
+        .options(
+            selectinload(PluginAction.plugin).selectinload(Plugin.permissions),
+            selectinload(PluginAction.plugin).selectinload(Plugin.runtime_status),
+        )
         .where(
             Plugin.enabled.is_(True),
             Plugin.status == "enabled",
@@ -242,7 +245,10 @@ async def _get_action(db: AsyncSession, plugin_key: str, action_key: str) -> Plu
     result = await db.execute(
         select(PluginAction)
         .join(Plugin)
-        .options(selectinload(PluginAction.plugin).selectinload(Plugin.permissions), selectinload(PluginAction.plugin).selectinload(Plugin.runtime_status))
+        .options(
+            selectinload(PluginAction.plugin).selectinload(Plugin.permissions),
+            selectinload(PluginAction.plugin).selectinload(Plugin.runtime_status),
+        )
         .where(Plugin.key == plugin_key, PluginAction.action_key == action_key)
     )
     return result.scalar_one_or_none()
@@ -263,7 +269,9 @@ async def _build_context(
     if target_type == "pending_order_item":
         return await _build_pending_order_item_context(db, target_id=target_id, actor=actor)
     if target_type == "pending_order_conversion":
-        return await _build_pending_order_conversion_context(db, target_id=target_id, actor=actor, client_context=client_context)
+        return await _build_pending_order_conversion_context(
+            db, target_id=target_id, actor=actor, client_context=client_context
+        )
     if target_type == "license_draft":
         return _build_license_draft_context(target_id=target_id, actor=actor, client_context=client_context)
     if target_type == "sourcing_quote_draft":
@@ -387,7 +395,9 @@ async def _build_pending_order_conversion_context(
         select(PendingOrder)
         .where(PendingOrder.id == order_id)
         .options(
-            selectinload(PendingOrder.items).selectinload(SourcingItem.sourcing_request).selectinload(SourcingRequest.quote_documents),
+            selectinload(PendingOrder.items)
+            .selectinload(SourcingItem.sourcing_request)
+            .selectinload(SourcingRequest.quote_documents),
             selectinload(PendingOrder.documents),
         )
     )
@@ -416,9 +426,7 @@ async def _build_pending_order_conversion_context(
             "conversionDraftFields": _dict_or_empty(client_context.get("conversionDraftFields")),
             "documentIds": requested_document_ids or [doc.id for doc in order.documents],
             "lineItems": [
-                _pending_order_conversion_item_context(item)
-                for item in order.items
-                if item.id in selected_item_ids
+                _pending_order_conversion_item_context(item) for item in order.items if item.id in selected_item_ids
             ],
             "userRole": _role_value(actor),
         },

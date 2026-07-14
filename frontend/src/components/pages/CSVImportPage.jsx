@@ -87,7 +87,7 @@ const CSVImportPage = ({ onImportComplete, onGoToLicenses, userSettings }) => {
         {state.step === "importing" && (
           <div className="csv-importing">
             <div className="spinner" style={{ width: 22, height: 22, margin: 0 }} />
-            Importing licenses…
+            Importing licenses...
           </div>
         )}
 

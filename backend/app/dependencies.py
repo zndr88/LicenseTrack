@@ -72,11 +72,7 @@ async def _required_api_token_scopes(request: Request) -> set[str] | None:
     if path.startswith("/api/plugin-actions"):
         target_type = await _plugin_action_target_type(request)
         if target_type in PLUGIN_PROCUREMENT_TARGET_TYPES:
-            return (
-                {"documents:read", "procurement:read"}
-                if is_read
-                else {"documents:write", "procurement:write"}
-            )
+            return {"documents:read", "procurement:read"} if is_read else {"documents:write", "procurement:write"}
         if target_type in PLUGIN_LICENSE_TARGET_TYPES:
             return {"licenses:read"} if is_read else {"licenses:write"}
         if target_type in PLUGIN_DOCUMENT_TARGET_TYPES:

@@ -30,6 +30,7 @@ logger = logging.getLogger("license_lifecycle.storage")
 # StorageBackend interface
 # ---------------------------------------------------------------------------
 
+
 class StorageBackend(ABC):
     """Abstract file-storage interface.
 
@@ -58,6 +59,7 @@ class StorageBackend(ABC):
 # LocalStorageBackend — filesystem implementation
 # ---------------------------------------------------------------------------
 
+
 class LocalStorageBackend(StorageBackend):
     """Stores files on the local filesystem."""
 
@@ -84,6 +86,7 @@ _backend: StorageBackend = LocalStorageBackend()
 # ---------------------------------------------------------------------------
 # Internal path helpers
 # ---------------------------------------------------------------------------
+
 
 def _resolve_base(storage_base: Optional[str] = None) -> Path:
     """Return the effective storage base path."""
@@ -130,6 +133,7 @@ def _check_traversal(dest: Path, base: Path) -> None:
 # ---------------------------------------------------------------------------
 # Public API — delegates I/O to _backend
 # ---------------------------------------------------------------------------
+
 
 async def save_file(file: UploadFile, license_id: int, storage_base: Optional[str] = None) -> tuple[str, int]:
     """
@@ -299,17 +303,12 @@ def validate_upload(
             detail=f"File exceeds the maximum allowed size of {settings.MAX_UPLOAD_SIZE_MB} MB.",
         )
     ext = Path(file.filename or "").suffix.lower()
-    allowed_exts = frozenset(
-        e.strip().lower()
-        for e in settings.ALLOWED_UPLOAD_EXTENSIONS.split(",")
-        if e.strip()
-    )
+    allowed_exts = frozenset(e.strip().lower() for e in settings.ALLOWED_UPLOAD_EXTENSIONS.split(",") if e.strip())
     if ext not in allowed_exts:
         raise HTTPException(
             status_code=422,
             detail=(
-                f"File extension '{ext or '(none)'}' is not allowed. "
-                f"Accepted types: {', '.join(sorted(allowed_exts))}"
+                f"File extension '{ext or '(none)'}' is not allowed. Accepted types: {', '.join(sorted(allowed_exts))}"
             ),
         )
     if allowed_mimes is not None:

@@ -35,9 +35,7 @@ class SourcingItemCreate(BaseModel):
         if v is None or v == "":
             return v
         if isinstance(v, str) and not is_canonical_money(v):
-            raise ValueError(
-                f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}."
-            )
+            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
 
 
@@ -66,9 +64,7 @@ class SourcingItemUpdate(BaseModel):
         if v is None or v == "":
             return v
         if isinstance(v, str) and not is_canonical_money(v):
-            raise ValueError(
-                f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}."
-            )
+            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
 
 
@@ -187,9 +183,7 @@ class SourcingRequestResponse(BaseModel):
                 continue
             totals[item.currency] = totals.get(item.currency, 0.0) + val
         if totals:
-            self.total_estimated_value = " + ".join(
-                f"{currency} {amount:,.2f}" for currency, amount in totals.items()
-            )
+            self.total_estimated_value = " + ".join(f"{currency} {amount:,.2f}" for currency, amount in totals.items())
         else:
             self.total_estimated_value = None
         return self

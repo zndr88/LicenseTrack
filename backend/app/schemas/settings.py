@@ -17,6 +17,7 @@ _VALID_TIMEZONES: frozenset[str] = frozenset(zoneinfo.available_timezones())
 # User Settings
 # ---------------------------------------------------------------------------
 
+
 class UserSettingsUpdate(BaseModel):
     """Partial update — all fields optional."""
 

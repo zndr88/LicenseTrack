@@ -104,7 +104,7 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
               <button className="btn btn-g" onClick={handleTriggerBackup} disabled={backupTriggering}>
-                <Icon name="download" size={14} /> {backupTriggering ? "Creating…" : "Create Database Backup"}
+                <Icon name="download" size={14} /> {backupTriggering ? "Creating..." : "Create Database Backup"}
               </button>
               <span style={{ fontSize: 11, color: "var(--orange, #ca8a04)", display: "flex", alignItems: "center", gap: 4 }}>
                 <Icon name="alert" size={11} color="var(--orange, #ca8a04)" />
@@ -119,7 +119,7 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
             )}
             <SectionSaveButton sectionKey="backup" isDirty={isDirty} isSaving={saving} onSave={handleSave} />
             {backupListLoading ? (
-              <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 12 }}>Loading database backups…</p>
+              <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 12 }}>Loading database backups...</p>
             ) : backupList.length > 0 ? (
               <div style={{ marginTop: 16 }}>
                 <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Recent Database Backups</p>

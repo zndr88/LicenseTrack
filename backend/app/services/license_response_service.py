@@ -47,8 +47,9 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
         conditions.append(ProcurementDocument.license_id.in_(license_ids))
 
     result = await db.execute(
-        select(ProcurementDocument).where(*conditions) if len(conditions) == 1 else
-        select(ProcurementDocument).where(conditions[0] | conditions[1])
+        select(ProcurementDocument).where(*conditions)
+        if len(conditions) == 1
+        else select(ProcurementDocument).where(conditions[0] | conditions[1])
     )
     documents_by_license_id: dict[int, list[ProcurementDocument]] = {lic.id: [] for lic in licenses}
     pending_to_license_ids: dict[int, list[int]] = {}
@@ -105,8 +106,5 @@ def enrich_license_response(
     response.days_until_expiry = compute_days_until_expiry(license_obj, today)
     response.expiration_status = compute_expiration_status(license_obj, today, notification_days)
     response.document_count = len(documents)
-    response.custom_fields = [
-        CustomFieldValueResponse.model_validate(value)
-        for value in custom_field_values or []
-    ]
+    response.custom_fields = [CustomFieldValueResponse.model_validate(value) for value in custom_field_values or []]
     return response

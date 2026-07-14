@@ -14,7 +14,6 @@ router = APIRouter(prefix="/api/pending-orders", tags=["pending-orders"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
-
 @router.get("/export")
 async def export_pending_orders(
     db: DbSession,
@@ -25,8 +24,5 @@ async def export_pending_orders(
     return StreamingResponse(
         iter([csv_content]),
         media_type="text/csv",
-        headers={
-            "Content-Disposition":
-                "attachment; filename=pending_orders_export.csv"
-        },
+        headers={"Content-Disposition": "attachment; filename=pending_orders_export.csv"},
     )

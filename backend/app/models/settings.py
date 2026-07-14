@@ -129,9 +129,7 @@ class UserSettings(Base):
     sidebar_collapsed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
 
     # Number format locale (controls thousands/decimal separator style)
-    number_format_locale: Mapped[str] = mapped_column(
-        String(10), nullable=False, default="en-US"
-    )
+    number_format_locale: Mapped[str] = mapped_column(String(10), nullable=False, default="en-US")
 
     # UI zoom level
     ui_size: Mapped[str] = mapped_column(String(10), nullable=False, default="normal", server_default="normal")
@@ -140,12 +138,8 @@ class UserSettings(Base):
     date_format: Mapped[str] = mapped_column(
         String(20), nullable=False, default="DD/MM/YYYY", server_default="DD/MM/YYYY"
     )
-    time_format: Mapped[str] = mapped_column(
-        String(5), nullable=False, default="24h", server_default="24h"
-    )
-    time_zone: Mapped[str] = mapped_column(
-        String(50), nullable=False, default="UTC", server_default="UTC"
-    )
+    time_format: Mapped[str] = mapped_column(String(5), nullable=False, default="24h", server_default="24h")
+    time_zone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC", server_default="UTC")
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="settings")  # noqa: F821
@@ -197,24 +191,16 @@ class GlobalSettings(Base):
     high_value_threshold: Mapped[Decimal] = mapped_column(
         Numeric(18, 2), nullable=False, default=Decimal("50000"), server_default="50000"
     )
-    fiscal_year_start_month: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=1, server_default="1"
-    )
+    fiscal_year_start_month: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     # Audit log retention
-    audit_log_retention_days: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=90, server_default="90"
-    )
+    audit_log_retention_days: Mapped[int] = mapped_column(Integer, nullable=False, default=90, server_default="90")
 
     # Email notifications master toggle
-    email_enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="0"
-    )
+    email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
 
     # Integrations
-    oidc_enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="0"
-    )
+    oidc_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     oidc_discovery_url: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     oidc_client_id: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
     oidc_client_secret: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)

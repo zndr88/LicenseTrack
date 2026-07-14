@@ -53,13 +53,15 @@ def parse_mapped_csv(
                 custom_data[target] = value
             else:
                 native_data[target] = value
-        rows.append(_parse_row(
-            row_idx,
-            native_data,
-            default_currency,
-            number_format_locale,
-            date_format,
-        ))
+        rows.append(
+            _parse_row(
+                row_idx,
+                native_data,
+                default_currency,
+                number_format_locale,
+                date_format,
+            )
+        )
         custom_rows.append(custom_data)
 
     return ParsedImportResult(

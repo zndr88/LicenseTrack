@@ -43,15 +43,11 @@ async def get_all_definitions(db: AsyncSession) -> list[CustomFieldDefinition]:
 
 
 async def get_definition_by_id(db: AsyncSession, def_id: int) -> CustomFieldDefinition | None:
-    result = await db.execute(
-        select(CustomFieldDefinition).where(CustomFieldDefinition.id == def_id)
-    )
+    result = await db.execute(select(CustomFieldDefinition).where(CustomFieldDefinition.id == def_id))
     return result.scalar_one_or_none()
 
 
-async def create_definition(
-    db: AsyncSession, data: CustomFieldDefinitionCreate
-) -> CustomFieldDefinition:
+async def create_definition(db: AsyncSession, data: CustomFieldDefinitionCreate) -> CustomFieldDefinition:
     """
     Generate field_key from name. Check uniqueness of both name and field_key
     before inserting — raise HTTPException 409 on conflict.
@@ -60,9 +56,7 @@ async def create_definition(
 
     # Check name uniqueness
     existing_name = await db.scalar(
-        select(CustomFieldDefinition).where(
-            func.lower(CustomFieldDefinition.name) == func.lower(data.name)
-        )
+        select(CustomFieldDefinition).where(func.lower(CustomFieldDefinition.name) == func.lower(data.name))
     )
     if existing_name is not None:
         raise HTTPException(
@@ -71,9 +65,7 @@ async def create_definition(
         )
 
     # Check field_key uniqueness
-    existing_key = await db.scalar(
-        select(CustomFieldDefinition).where(CustomFieldDefinition.field_key == field_key)
-    )
+    existing_key = await db.scalar(select(CustomFieldDefinition).where(CustomFieldDefinition.field_key == field_key))
     if existing_key is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -203,13 +195,9 @@ async def upsert_imported_values_for_license(
         return []
 
     result = await db.execute(
-        select(CustomFieldDefinition).where(
-            CustomFieldDefinition.field_key.in_(values_by_field_key.keys())
-        )
+        select(CustomFieldDefinition).where(CustomFieldDefinition.field_key.in_(values_by_field_key.keys()))
     )
-    definitions_by_key = {
-        definition.field_key: definition for definition in result.scalars().all()
-    }
+    definitions_by_key = {definition.field_key: definition for definition in result.scalars().all()}
 
     missing_keys: list[str] = []
     for field_key, raw_value in values_by_field_key.items():
@@ -225,15 +213,11 @@ async def upsert_imported_values_for_license(
             )
         )
         if existing is not None:
-            value = build_custom_field_value(
-                license_id, definition, raw_value, number_format_locale
-            )
+            value = build_custom_field_value(license_id, definition, raw_value, number_format_locale)
             existing.value_text = value.value_text
             existing.value_currency = value.value_currency
         else:
-            db.add(build_custom_field_value(
-                license_id, definition, raw_value, number_format_locale
-            ))
+            db.add(build_custom_field_value(license_id, definition, raw_value, number_format_locale))
 
     return missing_keys
 
@@ -254,12 +238,8 @@ async def validate_imported_custom_rows(
     if not field_keys:
         return
 
-    result = await db.execute(
-        select(CustomFieldDefinition).where(CustomFieldDefinition.field_key.in_(field_keys))
-    )
-    definitions_by_key = {
-        definition.field_key: definition for definition in result.scalars().all()
-    }
+    result = await db.execute(select(CustomFieldDefinition).where(CustomFieldDefinition.field_key.in_(field_keys)))
+    definitions_by_key = {definition.field_key: definition for definition in result.scalars().all()}
 
     for row, custom_data in zip(rows, custom_rows):
         for field_key, raw_value in custom_data.items():
@@ -275,16 +255,12 @@ async def validate_imported_custom_rows(
                     number_format_locale=number_format_locale,
                 )
             except HTTPException as exc:
-                row.validation_errors.append(
-                    f"{definition.name}: {exc.detail}"
-                )
+                row.validation_errors.append(f"{definition.name}: {exc.detail}")
         if row.validation_errors:
             row.import_status = "error"
 
 
-async def update_definition(
-    db: AsyncSession, def_id: int, data: CustomFieldDefinitionUpdate
-) -> CustomFieldDefinition:
+async def update_definition(db: AsyncSession, def_id: int, data: CustomFieldDefinitionUpdate) -> CustomFieldDefinition:
     """
     Only name and display_order are mutable. If name changes, do NOT regenerate
     field_key — it is immutable after creation.
@@ -335,9 +311,7 @@ async def delete_definition(db: AsyncSession, def_id: int) -> dict:
             detail=f"Custom field definition {def_id} not found.",
         )
 
-    count_result = await db.scalar(
-        select(func.count()).where(CustomFieldValue.custom_field_def_id == def_id)
-    )
+    count_result = await db.scalar(select(func.count()).where(CustomFieldValue.custom_field_def_id == def_id))
     affected = count_result or 0
 
     await db.delete(definition)
@@ -362,9 +336,7 @@ async def get_all_values(
     return list(result.scalars().all())
 
 
-async def get_values_for_license(
-    db: AsyncSession, license_id: int
-) -> list[CustomFieldValue]:
+async def get_values_for_license(db: AsyncSession, license_id: int) -> list[CustomFieldValue]:
     """
     Return all CustomFieldValue rows for the given license_id,
     with definition eagerly loaded (selectinload).
@@ -393,12 +365,8 @@ async def upsert_values_for_license(
 
     # Validate all def IDs exist
     def_ids = [item.custom_field_def_id for item in data.values]
-    existing_defs_result = await db.execute(
-        select(CustomFieldDefinition).where(CustomFieldDefinition.id.in_(def_ids))
-    )
-    definitions_by_id = {
-        definition.id: definition for definition in existing_defs_result.scalars().all()
-    }
+    existing_defs_result = await db.execute(select(CustomFieldDefinition).where(CustomFieldDefinition.id.in_(def_ids)))
+    definitions_by_id = {definition.id: definition for definition in existing_defs_result.scalars().all()}
     found_ids = set(definitions_by_id)
     missing = [d for d in def_ids if d not in found_ids]
     if missing:

@@ -23,7 +23,9 @@ async def list_available_plugin_actions(
     target_id: str = Query(..., alias="targetId", min_length=1, max_length=120),
 ) -> PluginActionsListResponse:
     try:
-        return await list_plugin_actions(db, slot=slot, target_type=target_type, target_id=target_id, actor=current_user)
+        return await list_plugin_actions(
+            db, slot=slot, target_type=target_type, target_id=target_id, actor=current_user
+        )
     except PluginActionError as exc:
         detail = str(exc)
         status_code = 404 if "not found" in detail.lower() else 422

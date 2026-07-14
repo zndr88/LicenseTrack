@@ -33,7 +33,7 @@ export default function CustomFieldRows({
   loading,
 }) {
   if (loading) {
-    return <div style={{ fontSize: 12, color: "var(--text-3)", padding: "8px 0" }}>Loading…</div>;
+    return <div style={{ fontSize: 12, color: "var(--text-3)", padding: "8px 0" }}>Loading...</div>;
   }
 
   const visible = fieldDefs.filter((def) => visibleInDetail[`cf_${def.fieldKey}`] ?? true);

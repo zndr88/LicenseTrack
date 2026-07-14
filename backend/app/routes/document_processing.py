@@ -22,7 +22,11 @@ from app.schemas.document_processing import (
 from app.services.access_service import can_view_license
 from app.services.audit_service import format_audit_detail, log_event
 from app.services.custom_fields_service import build_custom_field_value
-from app.services.license_write_service import ALLOWED_PATCH_FIELDS, apply_license_field_patch, validate_patch_field_input
+from app.services.license_write_service import (
+    ALLOWED_PATCH_FIELDS,
+    apply_license_field_patch,
+    validate_patch_field_input,
+)
 
 router = APIRouter(prefix="/api/document-processing-results", tags=["document-processing"])
 
@@ -151,7 +155,13 @@ async def _apply_suggested_fields(
                 CustomFieldValue.custom_field_def_id == definition.id,
             )
         )
-        before_value = existing.value_currency if definition.field_type == "currency" and existing else existing.value_text if existing else None
+        before_value = (
+            existing.value_currency
+            if definition.field_type == "currency" and existing
+            else existing.value_text
+            if existing
+            else None
+        )
         await _apply_custom_field_value(
             db,
             license_id=result.license_id,
@@ -241,11 +251,7 @@ async def _supersede_previous_pending_results(
             target_type="document_processing_result",
             target_id=str(row.id),
             target_label=f"{row.document_type}:{row.document_id}",
-            detail=(
-                f"capability={row.capability_key}\n"
-                f"documentType={row.document_type}\n"
-                f"documentId={row.document_id}"
-            ),
+            detail=(f"capability={row.capability_key}\ndocumentType={row.document_type}\ndocumentId={row.document_id}"),
         )
     return len(superseded)
 
@@ -265,7 +271,9 @@ async def create_document_processing_result(
         )
     )
     if capability is None:
-        raise HTTPException(status_code=409, detail="No available document processor extension is registered for this capability")
+        raise HTTPException(
+            status_code=409, detail="No available document processor extension is registered for this capability"
+        )
 
     filename, license_id = await _resolve_document_context(
         db,
@@ -323,14 +331,14 @@ async def accept_document_processing_result(
     current_user: User = Depends(require_editor_or_admin),
 ) -> DocumentProcessingReviewResponse:
     result = await _get_pending_result_or_404(db, result_id, current_user)
-    applied_fields, applied_changes = await _apply_suggested_fields(db, result, payload.suggested_field_indexes if payload else None)
+    applied_fields, applied_changes = await _apply_suggested_fields(
+        db, result, payload.suggested_field_indexes if payload else None
+    )
     result.status = "accepted"
     result.reviewed_by = current_user.id
     result.reviewed_at = datetime.now(timezone.utc)
 
-    source_doc = await _get_source_document_filename(
-        db, result.document_type, result.document_id
-    )
+    source_doc = await _get_source_document_filename(db, result.document_type, result.document_id)
     acceptance_detail = format_audit_detail(
         "document_processing_acceptance",
         {
@@ -403,9 +411,7 @@ async def reject_document_processing_result(
         target_id=str(result.id),
         target_label=f"{result.document_type}:{result.document_id}",
         detail=(
-            f"capability={result.capability_key}\n"
-            f"documentType={result.document_type}\n"
-            f"documentId={result.document_id}"
+            f"capability={result.capability_key}\ndocumentType={result.document_type}\ndocumentId={result.document_id}"
         ),
     )
     await db.commit()
@@ -423,7 +429,9 @@ async def list_document_processing_results(
     license_id: int | None = Query(default=None),
     status_filter: str | None = Query(default=None, alias="status"),
 ) -> list[DocumentProcessingResultResponse]:
-    query = select(DocumentProcessingResult).order_by(DocumentProcessingResult.created_at.desc(), DocumentProcessingResult.id.desc())
+    query = select(DocumentProcessingResult).order_by(
+        DocumentProcessingResult.created_at.desc(), DocumentProcessingResult.id.desc()
+    )
     if license_id is not None:
         license_obj = await db.get(License, license_id)
         if license_obj is None or not await can_view_license(current_user, license_obj, db):

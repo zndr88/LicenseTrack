@@ -39,10 +39,7 @@ async def create_maintenance_purchase(
     else:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Item {item_id}: maintenance licenses require parentLicenseId "
-                "or parentSourcingItemId"
-            ),
+            detail=(f"Item {item_id}: maintenance licenses require parentLicenseId or parentSourcingItemId"),
         )
 
     return await create_maintenance_for_parent(

@@ -255,7 +255,9 @@ class PluginManifest(BaseModel):
         _require_unique([action.key for action in self.actions], "action")
         unknown_rationales = sorted(set(self.permissionRationale) - set(self.permissions))
         if unknown_rationales:
-            raise ValueError(f"Permission rationale provided for unrequested permission: {', '.join(unknown_rationales)}")
+            raise ValueError(
+                f"Permission rationale provided for unrequested permission: {', '.join(unknown_rationales)}"
+            )
         for rationale in self.permissionRationale.values():
             if len(rationale) > 500:
                 raise ValueError("Permission rationale must be 500 characters or fewer")

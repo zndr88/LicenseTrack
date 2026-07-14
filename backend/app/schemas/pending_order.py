@@ -198,9 +198,7 @@ class PendingOrderConvertRequest(BaseModel):
         if v == "":
             return v
         if not is_canonical_money(v):
-            raise ValueError(
-                f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}."
-            )
+            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
 
     @field_validator("budget_owner_email", mode="before")
@@ -285,9 +283,7 @@ class BatchConvertItem(BaseModel):
         if v == "":
             return v
         if not is_canonical_money(v):
-            raise ValueError(
-                f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}."
-            )
+            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
 
     @field_validator("budget_owner_email", mode="before")

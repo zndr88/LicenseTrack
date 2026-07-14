@@ -81,12 +81,12 @@ class DuplicateWarning(BaseModel):
 class ImportWarningSummary(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    defaulted_currency_count: int = 0   # rows where currency was absent/blank (info only, does not gate)
-    defaulted_enum_count: int = 0       # rows with unrecognised license_type or license_metric
-    ambiguous_date_count: int = 0       # rows where a date field could not be parsed
-    inferred_parent_count: int = 0      # maintenance rows whose parent was inferred from batch
-    duplicate_warning_count: int = 0    # rows with at least one duplicate warning
-    rows_with_warnings_count: int = 0   # non-error rows accepted with any non-fatal warning
+    defaulted_currency_count: int = 0  # rows where currency was absent/blank (info only, does not gate)
+    defaulted_enum_count: int = 0  # rows with unrecognised license_type or license_metric
+    ambiguous_date_count: int = 0  # rows where a date field could not be parsed
+    inferred_parent_count: int = 0  # maintenance rows whose parent was inferred from batch
+    duplicate_warning_count: int = 0  # rows with at least one duplicate warning
+    rows_with_warnings_count: int = 0  # non-error rows accepted with any non-fatal warning
 
     @computed_field  # type: ignore[misc]
     @property
@@ -126,11 +126,11 @@ class CSVImportPreviewRow(BaseModel):
     parent_license_ref: Optional[str] = None
 
     # Classification
-    import_status: str          # "legacy_exempt" | "active" | "legacy_incomplete" | "error"
+    import_status: str  # "legacy_exempt" | "active" | "legacy_incomplete" | "error"
     validation_errors: list[str] = []
     warnings: list[str] = []
     duplicate_warnings: list[DuplicateWarning] = []
-    import_action: str = "create"          # "create" | "update"
+    import_action: str = "create"  # "create" | "update"
     matched_license_id: Optional[int] = None
 
     @field_validator("budget_owner_email", mode="before")
@@ -146,15 +146,15 @@ class CSVImportPreviewResponse(BaseModel):
 
     rows: list[CSVImportPreviewRow]
     total_rows: int
-    valid_rows: int             # rows with import_status != "error"
+    valid_rows: int  # rows with import_status != "error"
     legacy_exempt_count: int
     active_count: int
     legacy_incomplete_count: int
     error_count: int
     create_count: int = 0
     update_count: int = 0
-    headers_found: list[str]   # internal field names detected in the file
-    headers_missing: list[str] # recommended fields absent from the file
+    headers_found: list[str]  # internal field names detected in the file
+    headers_missing: list[str]  # recommended fields absent from the file
     warning_summary: ImportWarningSummary = ImportWarningSummary()
 
 

@@ -48,7 +48,7 @@ export default function ImportMappingsSection({ isOpen, isDirty, onToggle, onErr
         <div className={`setsec-body${isOpen ? " open" : ""}`}>
           <div className="setsec-inner">
             {importMappingsLoading ? (
-              <p style={{ fontSize: 13, color: "var(--text-3)", marginTop: 8 }}>Loading…</p>
+              <p style={{ fontSize: 13, color: "var(--text-3)", marginTop: 8 }}>Loading...</p>
             ) : importMappings.length === 0 ? (
               <p style={{ fontSize: 13, color: "var(--text-3)", marginTop: 8 }}>No saved presets yet. Presets are created during import.</p>
             ) : (

@@ -100,7 +100,9 @@ def validate_relative_package_path(path: str, *, require_runtime_prefix: bool = 
 def get_compatibility_status(manifest: PluginManifest) -> str:
     current = _version_tuple(APP_VERSION)
     min_version = _version_tuple(manifest.licenseTrack.minVersion)
-    max_version = _version_tuple(manifest.licenseTrack.maxVersionExclusive) if manifest.licenseTrack.maxVersionExclusive else None
+    max_version = (
+        _version_tuple(manifest.licenseTrack.maxVersionExclusive) if manifest.licenseTrack.maxVersionExclusive else None
+    )
     if current is None or min_version is None:
         return "unknown"
     if current < min_version:

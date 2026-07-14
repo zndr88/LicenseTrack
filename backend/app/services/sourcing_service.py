@@ -37,9 +37,7 @@ async def handle_delete_side_effects(
     """
     if parent_order_id is not None:
         remaining = await db.scalar(
-            select(func.count()).select_from(SourcingItem).where(
-                SourcingItem.pending_order_id == parent_order_id
-            )
+            select(func.count()).select_from(SourcingItem).where(SourcingItem.pending_order_id == parent_order_id)
         )
         if remaining == 0:
             orphaned_po = await db.get(PendingOrder, parent_order_id)
@@ -50,9 +48,9 @@ async def handle_delete_side_effects(
         linked_license = await db.get(License, renewal_license_id)
         if linked_license is not None:
             sibling_count = await db.scalar(
-                select(func.count()).select_from(SourcingItem).where(
-                    SourcingItem.renewal_for_license_id == renewal_license_id
-                )
+                select(func.count())
+                .select_from(SourcingItem)
+                .where(SourcingItem.renewal_for_license_id == renewal_license_id)
             )
             if sibling_count == 0:
                 clear_pending_renewal_if_current(linked_license)
@@ -69,6 +67,7 @@ def build_merged_sourcing_item(
     renewal checks, eligibility checks). The caller is responsible for persisting
     the returned item and deleting the originals.
     """
+
     def _sort_key(lic: License) -> tuple:
         return (lic.start_date or date.min, lic.id)
 
@@ -226,9 +225,7 @@ async def delete_sourcing_request_record(db: AsyncSession, request_id: int) -> s
 
 
 async def backfill_missing_sourcing_requests(db: AsyncSession) -> None:
-    result = await db.execute(
-        select(SourcingItem).where(SourcingItem.sourcing_request_id.is_(None))
-    )
+    result = await db.execute(select(SourcingItem).where(SourcingItem.sourcing_request_id.is_(None)))
     items = list(result.scalars().all())
     if not items:
         return
@@ -293,7 +290,9 @@ async def convert_sourcing_item_to_order(
     if item.sourcing_request_id is not None:
         request = await db.get(SourcingRequest, item.sourcing_request_id)
         remaining = await db.scalar(
-            select(func.count()).select_from(SourcingItem).where(
+            select(func.count())
+            .select_from(SourcingItem)
+            .where(
                 SourcingItem.sourcing_request_id == item.sourcing_request_id,
                 SourcingItem.status != SourcingStatus.converted,
             )

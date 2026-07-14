@@ -131,7 +131,7 @@ export default function AppearanceSection({ isOpen, isDirty, onToggle, markDirty
             </div>
             <div className="set-save-row">
               <button className="btn btn-p" disabled={!isDirty || saving} onClick={handleSave} style={{ fontSize: 13 }}>
-                {saving ? "Saving…" : "Save"}
+                {saving ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

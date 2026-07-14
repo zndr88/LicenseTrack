@@ -35,7 +35,14 @@ from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingReq
 from app.models.user import AuthProvider, User
 from app.models.user_department_access import UserDepartmentAccess
 from app.models.webhook import WebhookEndpoint
-from app.schemas.user import DepartmentAssignment, ResetPasswordRequest, RoleUpdate, UserCreate, UserResponse, UserUpdate
+from app.schemas.user import (
+    DepartmentAssignment,
+    ResetPasswordRequest,
+    RoleUpdate,
+    UserCreate,
+    UserResponse,
+    UserUpdate,
+)
 from app.services.audit_service import diff_fields, log_event
 from app.services.user_service import (
     apply_user_update,
@@ -112,9 +119,7 @@ async def create_user(
     await db.flush()
 
     # New users inherit the creating admin's regional/display preferences.
-    admin_settings = await db.scalar(
-        select(UserSettings).where(UserSettings.user_id == _admin.id)
-    )
+    admin_settings = await db.scalar(select(UserSettings).where(UserSettings.user_id == _admin.id))
     db.add(build_inherited_user_settings(user_id=user.id, source=admin_settings))
 
     ip = request.client.host if request.client else None
@@ -169,7 +174,11 @@ async def update_user(
 
     gs = await db.scalar(select(GlobalSettings).where(GlobalSettings.id == 1))
     min_length = gs.password_min_length if gs else 12
-    if payload.auth_provider == AuthProvider.local and user.auth_provider != AuthProvider.local and not payload.password:
+    if (
+        payload.auth_provider == AuthProvider.local
+        and user.auth_provider != AuthProvider.local
+        and not payload.password
+    ):
         raise HTTPException(status_code=422, detail="Password is required when converting an OIDC user to local login")
 
     before = {c.name: getattr(user, c.name) for c in user.__table__.columns}
@@ -239,63 +248,31 @@ async def delete_user(
     await db.execute(update(ContractDocument).where(ContractDocument.created_by == user_id).values(created_by=None))
     await db.execute(update(Document).where(Document.uploaded_by == user_id).values(uploaded_by=None))
     await db.execute(
-        update(ProcurementDocument)
-        .where(ProcurementDocument.uploaded_by == user_id)
-        .values(uploaded_by=None)
+        update(ProcurementDocument).where(ProcurementDocument.uploaded_by == user_id).values(uploaded_by=None)
     )
     await db.execute(update(License).where(License.created_by == user_id).values(created_by=None))
+    await db.execute(update(SourcingRequest).where(SourcingRequest.created_by == user_id).values(created_by=None))
     await db.execute(
-        update(SourcingRequest)
-        .where(SourcingRequest.created_by == user_id)
-        .values(created_by=None)
-    )
-    await db.execute(
-        update(SourcingQuoteDocument)
-        .where(SourcingQuoteDocument.uploaded_by == user_id)
-        .values(uploaded_by=None)
+        update(SourcingQuoteDocument).where(SourcingQuoteDocument.uploaded_by == user_id).values(uploaded_by=None)
     )
     await db.execute(update(SourcingItem).where(SourcingItem.created_by == user_id).values(created_by=None))
     await db.execute(update(PendingOrder).where(PendingOrder.created_by == user_id).values(created_by=None))
     await db.execute(
-        update(DocumentProcessingResult)
-        .where(DocumentProcessingResult.created_by == user_id)
-        .values(created_by=None)
+        update(DocumentProcessingResult).where(DocumentProcessingResult.created_by == user_id).values(created_by=None)
     )
     await db.execute(
-        update(DocumentProcessingResult)
-        .where(DocumentProcessingResult.reviewed_by == user_id)
-        .values(reviewed_by=None)
+        update(DocumentProcessingResult).where(DocumentProcessingResult.reviewed_by == user_id).values(reviewed_by=None)
     )
     await db.execute(
-        update(ExtensionCapability)
-        .where(ExtensionCapability.created_by == user_id)
-        .values(created_by=None)
+        update(ExtensionCapability).where(ExtensionCapability.created_by == user_id).values(created_by=None)
     )
     await db.execute(
-        update(ExtensionCapability)
-        .where(ExtensionCapability.updated_by == user_id)
-        .values(updated_by=None)
+        update(ExtensionCapability).where(ExtensionCapability.updated_by == user_id).values(updated_by=None)
     )
-    await db.execute(
-        update(PluginPermission)
-        .where(PluginPermission.granted_by == user_id)
-        .values(granted_by=None)
-    )
-    await db.execute(
-        update(PluginSettingValue)
-        .where(PluginSettingValue.updated_by == user_id)
-        .values(updated_by=None)
-    )
-    await db.execute(
-        update(PluginSuggestion)
-        .where(PluginSuggestion.created_by == user_id)
-        .values(created_by=None)
-    )
-    await db.execute(
-        update(PluginSuggestion)
-        .where(PluginSuggestion.reviewed_by == user_id)
-        .values(reviewed_by=None)
-    )
+    await db.execute(update(PluginPermission).where(PluginPermission.granted_by == user_id).values(granted_by=None))
+    await db.execute(update(PluginSettingValue).where(PluginSettingValue.updated_by == user_id).values(updated_by=None))
+    await db.execute(update(PluginSuggestion).where(PluginSuggestion.created_by == user_id).values(created_by=None))
+    await db.execute(update(PluginSuggestion).where(PluginSuggestion.reviewed_by == user_id).values(reviewed_by=None))
 
     user_settings = await db.scalar(select(UserSettings).where(UserSettings.user_id == user_id))
     if user_settings is not None:
@@ -436,9 +413,7 @@ async def update_user_departments(
     before_departments = sorted([row[0] for row in before_result.all()])
     after_departments = sorted(payload.departments)
 
-    await db.execute(
-        delete(UserDepartmentAccess).where(UserDepartmentAccess.user_id == user_id)
-    )
+    await db.execute(delete(UserDepartmentAccess).where(UserDepartmentAccess.user_id == user_id))
     for dept in payload.departments:
         db.add(UserDepartmentAccess(user_id=user_id, department=dept))
 

@@ -140,13 +140,6 @@
   --surface-2:  var(--bg-2);
 }
 
-/* IT HURTS MY EYES TIER */
- /*  --bg-0: #f4f4f5;
-  --bg-1: #ffffff;
-  --bg-2: #f0f0f1;
-  --bg-3: #e4e4e6; */
-/* IT HURTS MY EYES TIER */
-
 /* ─── Light theme ─── */
 [data-theme="light"] {
   --bg-0: #e3e5e8;

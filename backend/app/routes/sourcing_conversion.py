@@ -76,6 +76,7 @@ async def convert_sourcing_request(
     order = po_result.scalar_one()
     return to_pending_order_response(order)
 
+
 @router.post("/{item_id}/convert", response_model=PendingOrderResponse, status_code=200)
 async def convert_sourcing_item(
     item_id: int,
@@ -86,9 +87,7 @@ async def convert_sourcing_item(
 ) -> PendingOrderResponse:
     """Convert a sourcing item to (or attach it to) a pending order."""
     result = await db.execute(
-        select(SourcingItem)
-        .where(SourcingItem.id == item_id)
-        .options(selectinload(SourcingItem.sourcing_request))
+        select(SourcingItem).where(SourcingItem.id == item_id).options(selectinload(SourcingItem.sourcing_request))
     )
     item = result.scalar_one_or_none()
     if item is None:
@@ -98,7 +97,8 @@ async def convert_sourcing_item(
     try:
         await ensure_sourcing_request_for_item(db, item, created_by=current_user.id)
         order = await convert_sourcing_item_to_order(
-            db, item,
+            db,
+            item,
             pending_order_id=payload.pending_order_id,
             po_number=payload.po_number,
             supplier=payload.supplier,

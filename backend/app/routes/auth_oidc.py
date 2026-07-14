@@ -32,6 +32,7 @@ def _check_oidc_rate_limit(ip: str) -> bool:
 def _record_oidc_attempt(ip: str) -> None:
     _oidc_attempts[ip].append(time())
 
+
 logger = logging.getLogger(__name__)
 
 

@@ -27,11 +27,13 @@ if TYPE_CHECKING:
 
 
 # Types that may act as a maintenance parent.
-MAINTENANCE_PARENT_TYPES: frozenset[LicenseType] = frozenset({
-    LicenseType.perpetual,
-    LicenseType.oem,
-    LicenseType.freeware,
-})
+MAINTENANCE_PARENT_TYPES: frozenset[LicenseType] = frozenset(
+    {
+        LicenseType.perpetual,
+        LicenseType.oem,
+        LicenseType.freeware,
+    }
+)
 
 
 def default_maintenance_coverage(license_type: LicenseType) -> MaintenanceCoverage:
@@ -47,6 +49,7 @@ def default_maintenance_coverage(license_type: LicenseType) -> MaintenanceCovera
 # Rule 1 — parent type must be eligible
 # ---------------------------------------------------------------------------
 
+
 def assert_parent_type_eligible(parent: "License") -> None:
     """Raise ValueError when *parent* cannot host a maintenance child (wrong type)."""
     if parent.license_type not in MAINTENANCE_PARENT_TYPES:
@@ -60,17 +63,17 @@ def assert_parent_type_eligible(parent: "License") -> None:
 # Rule 2 — parent must not be retired
 # ---------------------------------------------------------------------------
 
+
 def assert_parent_not_retired(parent: "License") -> None:
     """Raise ValueError when *parent* is retired and cannot accept a new maintenance child."""
     if parent.is_retired:
-        raise ValueError(
-            f"parent_license_id={parent.id} is retired; cannot attach new maintenance"
-        )
+        raise ValueError(f"parent_license_id={parent.id} is retired; cannot attach new maintenance")
 
 
 # ---------------------------------------------------------------------------
 # Rules 3 & 4 — maintenance ↔ parent_license_id consistency
 # ---------------------------------------------------------------------------
+
 
 def assert_maintenance_requires_parent(
     license_type: LicenseType,
@@ -94,6 +97,7 @@ def assert_non_maintenance_has_no_parent(
 # Rule 5 — cannot change parent type when it has active maintenance
 # ---------------------------------------------------------------------------
 
+
 def assert_active_maintenance_allows_type_change(
     active_maintenance_id: int | None,
     new_type: LicenseType,
@@ -109,6 +113,7 @@ def assert_active_maintenance_allows_type_change(
 # ---------------------------------------------------------------------------
 # Rule 6 — cannot retire a parent that has active maintenance
 # ---------------------------------------------------------------------------
+
 
 def assert_active_maintenance_allows_retirement(
     active_maintenance_id: int | None,

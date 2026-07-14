@@ -92,12 +92,8 @@ class License(Base):
     pending_order_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("pending_orders.id"), nullable=True, index=True
     )
-    request_date: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    purchase_date: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    request_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    purchase_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Contacts & ownership
     contact_email: Mapped[str] = mapped_column(String(255), nullable=False, default="")
@@ -111,47 +107,33 @@ class License(Base):
     # Mirror fields -- denormalized copies of the linked active
     # maintenance License's fields. Kept in sync by service logic.
     # Present on perpetual/oem/freeware parent licenses; null on others.
-    has_maintenance: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="0"
-    )
+    has_maintenance: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     maintenance_coverage: Mapped[MaintenanceCoverage] = mapped_column(
         Enum(MaintenanceCoverage),
         nullable=False,
         default=MaintenanceCoverage.unknown,
         server_default=MaintenanceCoverage.unknown.value,
     )
-    maintenance_start_date: Mapped[date | None] = mapped_column(
-        Date, nullable=True
-    )
-    maintenance_end_date: Mapped[date | None] = mapped_column(
-        Date, nullable=True
-    )
-    maintenance_cost: Mapped[str | None] = mapped_column(
-        String(50), nullable=True
-    )
+    maintenance_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    maintenance_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    maintenance_cost: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Lifecycle-stable reference — assigned once at creation,
     # carried forward through renewals unchanged
-    license_ref: Mapped[str | None] = mapped_column(
-        String(20), nullable=True, index=True
-    )
+    license_ref: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
 
     # External system integration fields
-    external_ref: Mapped[str | None] = mapped_column(
-        String(255), nullable=True
-    )
-    last_synced_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    sync_status: Mapped[str | None] = mapped_column(
-        String(50), nullable=True
-    )
+    external_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sync_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Soft delete / lifecycle
     is_retired: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     lifecycle_status: Mapped[LifecycleStatus | None] = mapped_column(Enum(LifecycleStatus), nullable=True)
     is_completeness_exempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    renewal_notifications_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
+    renewal_notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="1"
+    )
 
     # Renewal chain: a license can reference the one it was renewed from/to
     renewed_from_id: Mapped[int | None] = mapped_column(
@@ -237,6 +219,7 @@ class License(Base):
         remote_side="License.id",
         post_update=True,
     )
+
     @property
     def created_by_email(self) -> str | None:
         creator = self.__dict__.get("creator")

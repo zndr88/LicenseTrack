@@ -16,9 +16,7 @@ class AuditLog(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
-    actor_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )
+    actor_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     actor_email: Mapped[str] = mapped_column(String, nullable=False)
     actor_token_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     actor_token_name: Mapped[str | None] = mapped_column(String, nullable=True)

@@ -67,9 +67,7 @@ def create_backup(backup_location: str) -> Path:
         bad_file = verify_zf.testzip()
         if bad_file is not None:
             zip_path.unlink(missing_ok=True)
-            raise RuntimeError(
-                f"Backup integrity check failed: corrupt entry '{bad_file}'"
-            )
+            raise RuntimeError(f"Backup integrity check failed: corrupt entry '{bad_file}'")
 
     logger.info("Backup created: %s (%.1f KB)", zip_path.name, zip_path.stat().st_size / 1024)
     return zip_path
@@ -128,9 +126,7 @@ def restore_backup(zip_path: Path) -> None:
         safe_name = Path(entry_name).name  # strips any directory components
 
         if not safe_name or safe_name != Path(safe_name).name:
-            raise ValueError(
-                f"Unsafe zip entry name rejected: '{entry_name}'"
-            )
+            raise ValueError(f"Unsafe zip entry name rejected: '{entry_name}'")
 
         # Extract safely: read content and write to a controlled destination path
         # rather than calling zf.extract() which does not sanitise path components

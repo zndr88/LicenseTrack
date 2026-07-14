@@ -26,7 +26,6 @@ router = APIRouter(prefix="/api/pending-orders", tags=["pending-orders"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
-
 @router.post("/{order_id}/items", response_model=PendingOrderResponse, status_code=201)
 async def add_pending_order_item(
     order_id: int,

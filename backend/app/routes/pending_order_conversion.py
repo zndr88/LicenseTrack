@@ -24,7 +24,6 @@ router = APIRouter(prefix="/api/pending-orders", tags=["pending-orders"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
-
 @router.post("/{order_id}/convert", response_model=list[LicenseResponse], status_code=200)
 async def convert_pending_order_to_license(
     order_id: int,

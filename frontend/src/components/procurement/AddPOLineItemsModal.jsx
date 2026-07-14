@@ -73,7 +73,7 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
         <>
           <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
           <button className="btn btn-p" onClick={handleSubmit} disabled={!canSave || saving}>
-            {saving ? "Saving…" : "Save to PO"}
+            {saving ? "Saving..." : "Save to PO"}
           </button>
         </>
       )}

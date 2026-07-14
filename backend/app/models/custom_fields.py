@@ -14,12 +14,8 @@ class CustomFieldDefinition(Base):
     field_key: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     field_type: Mapped[str] = mapped_column(String(20), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    section: Mapped[str | None] = mapped_column(
-        String(50), nullable=True, default=None
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    section: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -35,21 +31,15 @@ class CustomFieldDefinition(Base):
 class CustomFieldValue(Base):
     __tablename__ = "license_custom_values"
 
-    __table_args__ = (
-        UniqueConstraint("license_id", "custom_field_def_id", name="uq_license_custom_field"),
-    )
+    __table_args__ = (UniqueConstraint("license_id", "custom_field_def_id", name="uq_license_custom_field"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    license_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("licenses.id", ondelete="CASCADE"), nullable=False
-    )
+    license_id: Mapped[int] = mapped_column(Integer, ForeignKey("licenses.id", ondelete="CASCADE"), nullable=False)
     custom_field_def_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("custom_field_definitions.id", ondelete="CASCADE"), nullable=False
     )
     value_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     value_currency: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
-    definition: Mapped["CustomFieldDefinition"] = relationship(
-        "CustomFieldDefinition", back_populates="values"
-    )
+    definition: Mapped["CustomFieldDefinition"] = relationship("CustomFieldDefinition", back_populates="values")
     license: Mapped["License"] = relationship("License")  # noqa: F821

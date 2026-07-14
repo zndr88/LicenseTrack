@@ -223,7 +223,7 @@ export default function LicensesPage({
         {licensesLoading && (
           <div className="lp-loading">
             <div className="spinner" style={{ margin: 0, width: 18, height: 18 }} />
-            Loading licenses…
+            Loading licenses...
           </div>
         )}
         {licensesError && (

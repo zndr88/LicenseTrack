@@ -10,12 +10,16 @@ class PluginSuggestion(Base):
     __tablename__ = "plugin_suggestions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    plugin_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("plugins.id", ondelete="SET NULL"), nullable=True, index=True)
+    plugin_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("plugins.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     plugin_key: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
     action_key: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
     target_type: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
     target_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
-    license_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("licenses.id", ondelete="SET NULL"), nullable=True, index=True)
+    license_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("licenses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending", server_default="pending")
     suggested_fields: Mapped[list] = mapped_column(JSON, nullable=False)
     line_items: Mapped[list] = mapped_column(JSON, nullable=False, default=list)

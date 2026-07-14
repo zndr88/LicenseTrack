@@ -184,7 +184,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
           </div>
           <div className="fg">
             <label htmlFor="po-notes">Notes</label>
-            <textarea id="po-notes" className="fi" rows={2} placeholder="Any notes…" style={{ resize: "vertical" }} {...register("notes")} />
+            <textarea id="po-notes" className="fi" rows={2} placeholder="Any notes..." style={{ resize: "vertical" }} {...register("notes")} />
           </div>
 
           {/* Inline line items — new order only */}

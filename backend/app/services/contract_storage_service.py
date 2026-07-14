@@ -6,6 +6,7 @@ Provides:
   require_storage_base(db)  — same but raises HTTP 503 if storage is not configured
   validate_contract_upload(file, content) — size, extension, and MIME checks
 """
+
 from __future__ import annotations
 
 import mimetypes
@@ -18,19 +19,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings as app_settings
 from app.models.settings import GlobalSettings
 
-_ALLOWED_MIME_TYPES: frozenset[str] = frozenset({
-    "application/pdf",
-    "image/png",
-    "image/jpeg",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-excel",
-    "text/csv",
-    "text/plain",
-    "application/csv",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/msword",
-    "application/octet-stream",
-})
+_ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
+    {
+        "application/pdf",
+        "image/png",
+        "image/jpeg",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+        "text/csv",
+        "text/plain",
+        "application/csv",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+        "application/octet-stream",
+    }
+)
 
 
 async def get_storage_base(db: AsyncSession) -> str | None:
@@ -71,11 +74,7 @@ def validate_contract_upload(file: UploadFile, content: bytes) -> None:
         )
     filename = file.filename or ""
     ext = Path(filename).suffix.lower()
-    allowed_exts = frozenset(
-        e.strip().lower()
-        for e in app_settings.ALLOWED_UPLOAD_EXTENSIONS.split(",")
-        if e.strip()
-    )
+    allowed_exts = frozenset(e.strip().lower() for e in app_settings.ALLOWED_UPLOAD_EXTENSIONS.split(",") if e.strip())
     if ext not in allowed_exts:
         raise HTTPException(
             status_code=422,

@@ -138,7 +138,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
         header={(
           <div className="modal-hd" style={{ flexShrink: 0 }}>
           {loading ? (
-            <h3 id="dialog-title-contract">Loading…</h3>
+            <h3 id="dialog-title-contract">Loading...</h3>
           ) : editing ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
               <input
@@ -192,7 +192,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
                   Cancel
                 </button>
                 <button className="btn btn-p" onClick={handleEditSave} disabled={saving}>
-                  {saving ? "Saving…" : "Save"}
+                  {saving ? "Saving..." : "Save"}
                 </button>
               </>
             )}
@@ -206,7 +206,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
         <div className="modal-bd" style={{ overflowY: "auto", flex: 1 }}>
           {loading ? (
             <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-3)" }}>
-              Loading…
+              Loading...
             </div>
           ) : (
             <>
@@ -231,7 +231,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
                         setEditForm(updated);
                         check(updated);
                       }}
-                      placeholder="Optional notes…"
+                      placeholder="Optional notes..."
                     />
                   </div>
                 </div>

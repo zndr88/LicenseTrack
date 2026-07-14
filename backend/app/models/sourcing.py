@@ -22,15 +22,11 @@ class SourcingRequest(Base):
     status: Mapped[SourcingStatus] = mapped_column(
         Enum(SourcingStatus), nullable=False, default=SourcingStatus.sourcing
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
-    created_by: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=True
-    )
+    created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 
     creator: Mapped["User | None"] = relationship("User", foreign_keys=[created_by])  # noqa: F821
     items: Mapped[list["SourcingItem"]] = relationship(
@@ -57,14 +53,10 @@ class SourcingQuoteDocument(Base):
     original_filename: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     mime_type: Mapped[str] = mapped_column(String(255), nullable=False)
-    uploaded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     uploaded_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 
-    sourcing_request: Mapped["SourcingRequest"] = relationship(
-        "SourcingRequest", back_populates="quote_documents"
-    )
+    sourcing_request: Mapped["SourcingRequest"] = relationship("SourcingRequest", back_populates="quote_documents")
     uploader: Mapped["User | None"] = relationship("User", foreign_keys=[uploaded_by])  # noqa: F821
 
 
@@ -89,18 +81,12 @@ class SourcingItem(Base):
     status: Mapped[SourcingStatus] = mapped_column(
         Enum(SourcingStatus), nullable=False, default=SourcingStatus.sourcing
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
-    pending_order_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("pending_orders.id"), nullable=True
-    )
-    created_by: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=True
-    )
+    pending_order_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("pending_orders.id"), nullable=True)
+    created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     creator: Mapped["User | None"] = relationship("User", foreign_keys=[created_by])  # noqa: F821
     sourcing_request: Mapped["SourcingRequest | None"] = relationship(  # noqa: F821
         "SourcingRequest", back_populates="items", foreign_keys=[sourcing_request_id]
@@ -117,13 +103,10 @@ class SourcingItem(Base):
     pending_order: Mapped["PendingOrder | None"] = relationship(  # noqa: F821
         "PendingOrder", back_populates="items", foreign_keys=[pending_order_id]
     )
-    renewal_for_license_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("licenses.id"), nullable=True
-    )
+    renewal_for_license_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("licenses.id"), nullable=True)
     renewal_for_license: Mapped["License | None"] = relationship(  # noqa: F821
         "License", foreign_keys=[renewal_for_license_id]
     )
     # Populated only on coterm-merged sourcing items; stores all predecessor
     # license IDs (including the primary), ordered oldest-first by start_date.
     coterm_predecessor_ids: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
-

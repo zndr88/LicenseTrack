@@ -51,10 +51,10 @@ def _label_row(label: str, value: str) -> str:
     if not value:
         return ""
     return (
-        f'<tr>'
+        f"<tr>"
         f'<td style="padding: 3px 12px 3px 0; color: #64748b; font-size: 12px; white-space: nowrap;">{label}</td>'
         f'<td style="padding: 3px 0; font-size: 12px; color: #1e293b;">{value}</td>'
-        f'</tr>'
+        f"</tr>"
     )
 
 
@@ -155,12 +155,12 @@ def budget_owner_alert(
             td = f'style="padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #e2e8f0; background: {row_bg};"'
             po_sections += (
                 f"<tr>"
-                f'<td {td}>{lic.get("publisher_name", "")}</td>'
-                f'<td {td}>{description_display}</td>'
-                f'<td {td}>{lic.get("quantity", "")}</td>'
-                f'<td {td}>{lic.get("start_date", "")}</td>'
-                f'<td {td}>{lic.get("end_date", "")}</td>'
-                f'<td {td}>{lic.get("cost_centre", "")}</td>'
+                f"<td {td}>{lic.get('publisher_name', '')}</td>"
+                f"<td {td}>{description_display}</td>"
+                f"<td {td}>{lic.get('quantity', '')}</td>"
+                f"<td {td}>{lic.get('start_date', '')}</td>"
+                f"<td {td}>{lic.get('end_date', '')}</td>"
+                f"<td {td}>{lic.get('cost_centre', '')}</td>"
                 f'<td style="padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #e2e8f0; '
                 f'background: {row_bg}; color: {days_color}; font-weight: 600;">{days_text}</td>'
                 f"</tr>"
@@ -192,6 +192,7 @@ def budget_owner_alert(
 # manager_digest
 # ---------------------------------------------------------------------------
 
+
 def manager_digest(
     notifications: list[dict[str, Any]],
     settings: dict[str, Any] | None = None,
@@ -214,7 +215,7 @@ def manager_digest(
         return (
             f'<div style="display: inline-block; background: {bg}; color: white; '
             f'padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: bold; margin: 4px;">'
-            f'{count} {label}</div>'
+            f"{count} {label}</div>"
         )
 
     summary_row = (
@@ -239,25 +240,29 @@ def manager_digest(
         else:
             detail = ""
         is_maintenance = n.get("license_type") == "maintenance"
-        title_html = f'<div style="font-weight: 600; font-size: 13px; color: #1e293b;">{n.get("software_description", "")}</div>'
+        title_html = (
+            f'<div style="font-weight: 600; font-size: 13px; color: #1e293b;">{n.get("software_description", "")}</div>'
+        )
         if is_maintenance and n.get("parent_software_description"):
             title_html += (
                 f'<div style="font-size: 11px; color: #7c3aed; margin-top: 2px;">'
-                f'Maintenance for: {n.get("parent_software_description", "")}'
+                f"Maintenance for: {n.get('parent_software_description', '')}"
                 f"</div>"
             )
-        title_html += f'<div style="font-size: 11px; color: #64748b; margin-top: 2px;">{n.get("publisher_name", "")}</div>'
+        title_html += (
+            f'<div style="font-size: 11px; color: #64748b; margin-top: 2px;">{n.get("publisher_name", "")}</div>'
+        )
         return (
             f'<tr style="border-bottom: 1px solid #f1f5f9;">'
             f'<td style="padding: 10px 12px 10px 0;">'
             f"  {title_html}"
-            f'</td>'
+            f"</td>"
             f'<td style="padding: 10px 0; font-size: 12px; color: #374151;">{detail}</td>'
             f'<td style="padding: 10px 0 10px 12px; text-align: right;">'
             f'  <span style="background: {color}; color: white; font-size: 10px; font-weight: bold; '
             f'  padding: 2px 7px; border-radius: 4px;">{n.get("severity", "").upper()}</span>'
-            f'</td>'
-            f'</tr>'
+            f"</td>"
+            f"</tr>"
         )
 
     def _section(title: str, items: list, color: str) -> str:
@@ -279,7 +284,7 @@ def manager_digest(
             '<div style="font-size: 32px; margin-bottom: 8px;">✓</div>'
             '<div style="font-size: 16px; font-weight: bold; color: #22c55e;">All Clear</div>'
             '<div style="font-size: 13px; margin-top: 4px;">No license issues found.</div>'
-            '</div>'
+            "</div>"
         )
     else:
         intro_template = intro_text if intro_text is not None else _DEFAULT_MANAGER_INTRO

@@ -21,9 +21,7 @@ def _reject_crlf_recipient(address: str) -> None:
     function (budget_owner_email, manager_email, etc).
     """
     if any(ch in address for ch in _FORBIDDEN_RECIPIENT_CHARS):
-        raise ValueError(
-            f"Refusing to send: recipient address contains line breaks or null bytes: {address!r}"
-        )
+        raise ValueError(f"Refusing to send: recipient address contains line breaks or null bytes: {address!r}")
 
 
 async def send_email(

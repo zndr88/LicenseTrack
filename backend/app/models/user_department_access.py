@@ -9,7 +9,5 @@ class UserDepartmentAccess(Base):
     __table_args__ = (UniqueConstraint("user_id", "department"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     department: Mapped[str] = mapped_column(String, nullable=False)

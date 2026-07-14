@@ -5,6 +5,7 @@ POST   /api/contracts/{contract_id}/folders
 PUT    /api/contracts/{contract_id}/folders/{folder_id}
 DELETE /api/contracts/{contract_id}/folders/{folder_id}
 """
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -77,9 +78,7 @@ async def update_folder(
     await db.refresh(folder)
 
     doc_count_result = await db.execute(
-        select(func.count(ContractDocument.id)).where(
-            ContractDocument.folder_id == folder.id
-        )
+        select(func.count(ContractDocument.id)).where(ContractDocument.folder_id == folder.id)
     )
     doc_count = doc_count_result.scalar_one() or 0
 
@@ -113,9 +112,7 @@ async def delete_folder(
         raise HTTPException(status_code=404, detail="Folder not found")
 
     doc_count_result = await db.execute(
-        select(func.count(ContractDocument.id)).where(
-            ContractDocument.folder_id == folder_id
-        )
+        select(func.count(ContractDocument.id)).where(ContractDocument.folder_id == folder_id)
     )
     doc_count = doc_count_result.scalar_one() or 0
     if doc_count > 0:

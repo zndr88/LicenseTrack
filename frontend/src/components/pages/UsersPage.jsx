@@ -219,7 +219,7 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
         </div>
 
         {usersLoading ? (
-          <div className="um-loading">Loading users…</div>
+          <div className="um-loading">Loading users...</div>
         ) : (
           <div className="um-user-grid">
             {users.map((user) => {
@@ -379,7 +379,7 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
                         disabled={savingUserId === user.id}
                         onClick={() => handleSaveUser(user)}
                       >
-                        {savingUserId === user.id ? "Saving…" : "Save"}
+                        {savingUserId === user.id ? "Saving..." : "Save"}
                       </button>
                     </div>
                   </div>

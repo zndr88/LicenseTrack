@@ -31,6 +31,7 @@ from app.services.maintenance_rules import (
 # Mirror sync
 # ---------------------------------------------------------------------
 
+
 async def sync_parent_mirror_fields(
     db: AsyncSession,
     parent: License,
@@ -55,9 +56,7 @@ async def sync_parent_mirror_fields(
         return
 
     with db.no_autoflush:
-        result = await db.execute(
-            select(License).where(License.id == parent.active_maintenance_id)
-        )
+        result = await db.execute(select(License).where(License.id == parent.active_maintenance_id))
     active_child = result.scalar_one_or_none()
 
     if active_child is None:
@@ -85,6 +84,7 @@ async def sync_parent_mirror_fields(
 # Validation
 # ---------------------------------------------------------------------
 
+
 async def validate_parent_license(
     db: AsyncSession,
     parent_license_id: int,
@@ -99,14 +99,10 @@ async def validate_parent_license(
     caller is responsible for converting to HTTPException at the
     route layer.
     """
-    result = await db.execute(
-        select(License).where(License.id == parent_license_id)
-    )
+    result = await db.execute(select(License).where(License.id == parent_license_id))
     parent = result.scalar_one_or_none()
     if parent is None:
-        raise ValueError(
-            f"parent_license_id={parent_license_id} does not exist"
-        )
+        raise ValueError(f"parent_license_id={parent_license_id} does not exist")
     assert_parent_type_eligible(parent)
     assert_parent_not_retired(parent)
     return parent
@@ -115,6 +111,7 @@ async def validate_parent_license(
 # ---------------------------------------------------------------------
 # Helpers -- create / link / disable
 # ---------------------------------------------------------------------
+
 
 async def create_maintenance_for_parent(
     db: AsyncSession,
@@ -177,9 +174,7 @@ async def disable_maintenance_for_parent(
     if parent.active_maintenance_id is None:
         return
 
-    result = await db.execute(
-        select(License).where(License.id == parent.active_maintenance_id)
-    )
+    result = await db.execute(select(License).where(License.id == parent.active_maintenance_id))
     active_child = result.scalar_one_or_none()
     if active_child is not None:
         active_child.is_retired = True

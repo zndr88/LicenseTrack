@@ -52,9 +52,7 @@ async def create_mapping(
     _admin: User = Depends(require_admin),
 ) -> ImportMappingResponse:
     """Create a new named import mapping."""
-    existing = await db.execute(
-        sa_select(ImportMapping).where(ImportMapping.name == body.name)
-    )
+    existing = await db.execute(sa_select(ImportMapping).where(ImportMapping.name == body.name))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -77,17 +75,13 @@ async def update_mapping(
     _admin: User = Depends(require_admin),
 ) -> ImportMappingResponse:
     """Update an existing import mapping."""
-    result = await db.execute(
-        sa_select(ImportMapping).where(ImportMapping.id == mapping_id)
-    )
+    result = await db.execute(sa_select(ImportMapping).where(ImportMapping.id == mapping_id))
     row = result.scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mapping not found")
 
     if body.name != row.name:
-        conflict = await db.execute(
-            sa_select(ImportMapping).where(ImportMapping.name == body.name)
-        )
+        conflict = await db.execute(sa_select(ImportMapping).where(ImportMapping.name == body.name))
         if conflict.scalar_one_or_none() is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -114,9 +108,7 @@ async def delete_mapping(
     _admin: User = Depends(require_admin),
 ) -> Response:
     """Delete an import mapping."""
-    result = await db.execute(
-        sa_select(ImportMapping).where(ImportMapping.id == mapping_id)
-    )
+    result = await db.execute(sa_select(ImportMapping).where(ImportMapping.id == mapping_id))
     row = result.scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mapping not found")

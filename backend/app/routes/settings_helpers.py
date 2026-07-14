@@ -13,10 +13,9 @@ from app.services.settings_service import (
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
+
 async def get_or_create_user_settings(db: AsyncSession, user_id: int) -> UserSettings:
-    settings_result = await db.execute(
-        select(UserSettings).where(UserSettings.user_id == user_id)
-    )
+    settings_result = await db.execute(select(UserSettings).where(UserSettings.user_id == user_id))
     user_settings = settings_result.scalar_one_or_none()
 
     if user_settings is None:

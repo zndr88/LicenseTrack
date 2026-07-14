@@ -58,11 +58,7 @@ async def disable_maintenance(
     """Disable linked maintenance/support tracking on an eligible parent License."""
     mandatory_fields = await _get_global_settings(db)
 
-    result = await db.execute(
-        select(License).where(License.id == license_id).options(
-            selectinload(License.documents)
-        )
-    )
+    result = await db.execute(select(License).where(License.id == license_id).options(selectinload(License.documents)))
     license_obj = result.scalar_one_or_none()
     if license_obj is None:
         raise HTTPException(status_code=404, detail="License not found")
@@ -70,10 +66,7 @@ async def disable_maintenance(
     if license_obj.license_type not in MAINTENANCE_PARENT_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Maintenance/support tracking can only be disabled on "
-                "perpetual, OEM, or freeware Licenses."
-            ),
+            detail=("Maintenance/support tracking can only be disabled on perpetual, OEM, or freeware Licenses."),
         )
 
     if not license_obj.has_maintenance:
@@ -94,9 +87,7 @@ async def disable_maintenance(
     await db.commit()
 
     reload_result = await db.execute(
-        select(License).where(License.id == license_id).options(
-            selectinload(License.documents)
-        )
+        select(License).where(License.id == license_id).options(selectinload(License.documents))
     )
     license_obj = reload_result.scalar_one()
     return _enrich(license_obj, mandatory_fields)

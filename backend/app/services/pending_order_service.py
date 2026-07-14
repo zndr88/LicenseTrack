@@ -23,21 +23,23 @@ from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate
 def to_pending_order_response(order: PendingOrder) -> PendingOrderResponse:
     items = list(order.items) if "items" in order.__dict__ else []
     documents = list(order.documents) if "documents" in order.__dict__ else []
-    return PendingOrderResponse.model_validate({
-        "id": order.id,
-        "po_number": order.po_number,
-        "supplier": order.supplier,
-        "notes": order.notes,
-        "status": order.status,
-        "created_at": order.created_at,
-        "updated_at": order.updated_at,
-        "created_by": order.created_by,
-        "evidence_transfer_status": order.evidence_transfer_status,
-        "evidence_transfer_detail": order.evidence_transfer_detail,
-        "evidence_transfer_failed_at": order.evidence_transfer_failed_at,
-        "items": [SourcingItemSummary.model_validate(item) for item in items],
-        "documents": [ProcurementDocumentResponse.model_validate(document) for document in documents],
-    })
+    return PendingOrderResponse.model_validate(
+        {
+            "id": order.id,
+            "po_number": order.po_number,
+            "supplier": order.supplier,
+            "notes": order.notes,
+            "status": order.status,
+            "created_at": order.created_at,
+            "updated_at": order.updated_at,
+            "created_by": order.created_by,
+            "evidence_transfer_status": order.evidence_transfer_status,
+            "evidence_transfer_detail": order.evidence_transfer_detail,
+            "evidence_transfer_failed_at": order.evidence_transfer_failed_at,
+            "items": [SourcingItemSummary.model_validate(item) for item in items],
+            "documents": [ProcurementDocumentResponse.model_validate(document) for document in documents],
+        }
+    )
 
 
 async def get_pending_order_or_404(
@@ -74,11 +76,13 @@ async def list_pending_order_records(
             status_filter,
             (
                 (PendingOrder.status == PendingOrderStatus.converted)
-                & PendingOrder.evidence_transfer_status.in_([
-                    EvidenceTransferStatus.pending,
-                    EvidenceTransferStatus.failed,
-                    EvidenceTransferStatus.escalated,
-                ])
+                & PendingOrder.evidence_transfer_status.in_(
+                    [
+                        EvidenceTransferStatus.pending,
+                        EvidenceTransferStatus.failed,
+                        EvidenceTransferStatus.escalated,
+                    ]
+                )
             ),
         )
 
@@ -137,15 +141,11 @@ async def delete_pending_order_record(db: AsyncSession, order_id: int) -> str:
             detail="Only pending orders with status 'pending' can be deleted",
         )
 
-    items_result = await db.execute(
-        select(SourcingItem).where(SourcingItem.pending_order_id == order_id)
-    )
+    items_result = await db.execute(select(SourcingItem).where(SourcingItem.pending_order_id == order_id))
     for item in items_result.scalars().all():
         item.status = SourcingStatus.sourcing
 
-    docs_result = await db.execute(
-        select(ProcurementDocument).where(ProcurementDocument.pending_order_id == order_id)
-    )
+    docs_result = await db.execute(select(ProcurementDocument).where(ProcurementDocument.pending_order_id == order_id))
     docs = docs_result.scalars().all()
     stored_paths = [doc.filename for doc in docs]
     for doc in docs:

@@ -20,9 +20,7 @@ def _fernet():
     from cryptography.fernet import Fernet
     from app.config import settings
 
-    raw_key = hashlib.sha256(
-        f"licensetrack-field-encryption:{settings.JWT_SECRET}".encode()
-    ).digest()
+    raw_key = hashlib.sha256(f"licensetrack-field-encryption:{settings.JWT_SECRET}".encode()).digest()
     return Fernet(base64.urlsafe_b64encode(raw_key))
 
 

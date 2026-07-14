@@ -7,6 +7,7 @@ GET    /api/contracts/{contract_id}/documents
 GET    /api/contracts/{contract_id}/documents/{doc_id}/download
 DELETE /api/contracts/{contract_id}/documents/{doc_id}
 """
+
 from __future__ import annotations
 
 import mimetypes

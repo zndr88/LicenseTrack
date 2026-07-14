@@ -22,7 +22,6 @@ router = APIRouter(prefix="/api/pending-orders", tags=["pending-orders"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
-
 @router.post("/{order_id}/documents", response_model=ProcurementDocumentResponse, status_code=201)
 async def upload_pending_order_document(
     order_id: int,
@@ -83,9 +82,7 @@ async def list_pending_order_documents(
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> list[ProcurementDocumentResponse]:
-    result = await db.execute(
-        select(ProcurementDocument).where(ProcurementDocument.pending_order_id == order_id)
-    )
+    result = await db.execute(select(ProcurementDocument).where(ProcurementDocument.pending_order_id == order_id))
     return [ProcurementDocumentResponse.model_validate(doc) for doc in result.scalars().all()]
 
 

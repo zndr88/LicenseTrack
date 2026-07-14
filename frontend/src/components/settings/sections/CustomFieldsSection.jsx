@@ -91,7 +91,7 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
           <div className="setsec-inner">
             <div style={{ marginTop: 12 }}>
               {customFieldsLoading ? (
-                <p style={{ fontSize: 12, color: "var(--text-3)" }}>Loading…</p>
+                <p style={{ fontSize: 12, color: "var(--text-3)" }}>Loading...</p>
               ) : customFields.length === 0 ? (
                 <p style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 12 }}>No custom fields defined yet.</p>
               ) : (
@@ -145,7 +145,7 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
                     </select>
                   </div>
                   <div style={{ display: "flex", gap: 6, paddingBottom: 1 }}>
-                    <button type="button" className="btn btn-p" onClick={handleAddCustomField} disabled={!newFieldName.trim() || customFieldsSaving} style={{ fontSize: 13 }}>{customFieldsSaving ? "Adding…" : "Add"}</button>
+                    <button type="button" className="btn btn-p" onClick={handleAddCustomField} disabled={!newFieldName.trim() || customFieldsSaving} style={{ fontSize: 13 }}>{customFieldsSaving ? "Adding..." : "Add"}</button>
                     <button type="button" className="btn btn-g" onClick={() => { setShowAddField(false); setNewFieldName(""); setNewFieldType("text"); }} style={{ fontSize: 13 }}>Cancel</button>
                   </div>
                 </div>

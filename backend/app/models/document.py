@@ -50,16 +50,12 @@ class ProcurementDocument(Base):
     pending_order_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("pending_orders.id"), nullable=True, index=True
     )
-    license_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("licenses.id"), nullable=True, index=True
-    )
+    license_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("licenses.id"), nullable=True, index=True)
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
     original_filename: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     mime_type: Mapped[str] = mapped_column(String(255), nullable=False)
-    category: Mapped[ProcurementDocumentCategory] = mapped_column(
-        Enum(ProcurementDocumentCategory), nullable=False
-    )
+    category: Mapped[ProcurementDocumentCategory] = mapped_column(Enum(ProcurementDocumentCategory), nullable=False)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     uploaded_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 

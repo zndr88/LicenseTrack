@@ -89,9 +89,7 @@ class LicenseBase(BaseModel):
         if v is None or v == "":
             return v
         if isinstance(v, str) and not is_canonical_money(v):
-            raise ValueError(
-                f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}."
-            )
+            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
 
     @field_validator("budget_owner_email", mode="before")
@@ -169,9 +167,7 @@ class LicenseUpdate(BaseModel):
         if v is None or v == "":
             return v
         if isinstance(v, str) and not is_canonical_money(v):
-            raise ValueError(
-                f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}."
-            )
+            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
 
     @field_validator("budget_owner_email", mode="before")

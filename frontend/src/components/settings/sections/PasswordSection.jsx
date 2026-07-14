@@ -63,7 +63,7 @@ export default function PasswordSection({ isOpen, isDirty, onToggle, globalSetti
                 )}
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <button className="btn btn-p" disabled={pwdSaving} onClick={handleChangePassword}>
-                    {pwdSaving ? "Saving…" : "Update Password"}
+                    {pwdSaving ? "Saving..." : "Update Password"}
                   </button>
                   <button className="btn btn-g" onClick={() => { setShowPasswordForm(false); setCurrentPwd(""); setNewPwd(""); setConfirmPwd(""); setPwdError(null); }}>Cancel</button>
                 </div>

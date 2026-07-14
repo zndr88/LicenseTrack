@@ -82,7 +82,7 @@ export default function FieldEditModal({
         <>
           <button className="btn btn-g btn-sm" onClick={requestClose}>Cancel</button>
           <button className="btn btn-p btn-sm" disabled={saving} onClick={handleSave}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving..." : "Save"}
           </button>
         </>
       )}

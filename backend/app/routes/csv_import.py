@@ -81,6 +81,7 @@ _SUPPORTED_DATE_FORMATS = {"DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"}
 # Request helpers
 # ---------------------------------------------------------------------------
 
+
 def _reject_non_csv(file: UploadFile) -> None:
     filename = file.filename or ""
     content_type = file.content_type or ""
@@ -120,7 +121,6 @@ def _load_skipped_rows(skipped_rows_json: str | None) -> set[int]:
     return set(raw)
 
 
-
 def _column_to_target(mapping: list[MappingEntry]) -> dict[str, str]:
     return {entry.raw_header: entry.target for entry in mapping if entry.target != "skip"}
 
@@ -131,9 +131,7 @@ async def _resolve_import_formats(
     number_format_locale: str | None,
     date_format: str | None,
 ) -> tuple[str, str, str]:
-    default_currency, default_number_locale, default_date_format = await get_import_defaults(
-        db, user_id
-    )
+    default_currency, default_number_locale, default_date_format = await get_import_defaults(db, user_id)
     locale = number_format_locale or default_number_locale
     declared_date_format = date_format or default_date_format
     if locale not in SUPPORTED_NUMBER_FORMAT_LOCALES:
@@ -152,6 +150,7 @@ async def _resolve_import_formats(
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/analyze", response_model=CSVAnalyzeResponse)
 async def analyze_import(
@@ -248,9 +247,7 @@ async def preview_mapped_import(
     default_currency, locale, declared_date_format = await _resolve_import_formats(
         db, current_user.id, number_format_locale, date_format
     )
-    result, _custom_rows = parse_mapped_csv(
-        contents, column_to_target, default_currency, locale, declared_date_format
-    )
+    result, _custom_rows = parse_mapped_csv(contents, column_to_target, default_currency, locale, declared_date_format)
     await validate_imported_custom_rows(db, result.rows, _custom_rows, locale)
     await prepare_import_rows(result.rows, db, update_existing=update_existing)
     return build_preview_response(result)
@@ -284,10 +281,7 @@ async def execute_import(
     skipped_rows = _load_skipped_rows(skipped_rows_json)
 
     if execute_request.mapping_name:
-        mapping_data = [
-            {"raw_header": e.raw_header, "target": e.target}
-            for e in execute_request.mapping
-        ]
+        mapping_data = [{"raw_header": e.raw_header, "target": e.target} for e in execute_request.mapping]
         existing_result = await db.execute(
             sa_select(ImportMapping).where(ImportMapping.name == execute_request.mapping_name)
         )
@@ -321,7 +315,12 @@ async def execute_import(
         )
 
     imported_count, updated_count, skipped_count, import_errors, cf_failures = await run_import_rows(
-        parsed_result.rows, custom_rows, skipped_rows, current_user.id, db, locale,
+        parsed_result.rows,
+        custom_rows,
+        skipped_rows,
+        current_user.id,
+        db,
+        locale,
         update_existing=update_existing,
     )
 
@@ -344,8 +343,12 @@ async def execute_import(
             },
         )
         await log_event(
-            db, "license.csv_imported", actor=current_user, ip_address=ip,
-            target_type="license", detail=detail,
+            db,
+            "license.csv_imported",
+            actor=current_user,
+            ip_address=ip,
+            target_type="license",
+            detail=detail,
         )
 
     await db.commit()
@@ -401,7 +404,12 @@ async def confirm_import(
 
     empty_custom_rows = [{} for _ in result.rows]
     imported_count, updated_count, skipped_count, import_errors, cf_failures = await run_import_rows(
-        result.rows, empty_custom_rows, skipped_rows, current_user.id, db, locale,
+        result.rows,
+        empty_custom_rows,
+        skipped_rows,
+        current_user.id,
+        db,
+        locale,
     )
 
     if imported_count > 0:
@@ -422,8 +430,12 @@ async def confirm_import(
             },
         )
         await log_event(
-            db, "license.csv_imported", actor=current_user, ip_address=ip,
-            target_type="license", detail=detail,
+            db,
+            "license.csv_imported",
+            actor=current_user,
+            ip_address=ip,
+            target_type="license",
+            detail=detail,
         )
 
     await db.commit()

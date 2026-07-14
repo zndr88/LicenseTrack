@@ -32,13 +32,10 @@ def _parent_match_score(maintenance: ParsedRow, parent: ParsedRow) -> int:
     p_desc = _strip_maintenance_suffix(parent.software_description)
     if m_desc and m_desc == p_desc:
         score += 3
-    elif m_desc and p_desc and (
-        m_desc.startswith(p_desc) or p_desc.startswith(m_desc)
-    ):
+    elif m_desc and p_desc and (m_desc.startswith(p_desc) or p_desc.startswith(m_desc)):
         score += 2
 
-    if maintenance.po_number and parent.po_number and \
-            _norm_text(maintenance.po_number) == _norm_text(parent.po_number):
+    if maintenance.po_number and parent.po_number and _norm_text(maintenance.po_number) == _norm_text(parent.po_number):
         score += 3
 
     m_contract = _contract_parent_key(maintenance.contract_number)

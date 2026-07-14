@@ -135,11 +135,7 @@ async def validate_lifecycle_repair_update(
 
 async def _validate_repair_targets(db: AsyncSession, license_obj: License, proposed: dict) -> None:
     target_fields = ("renewed_from_id", "renewed_to_id", "predecessor_id")
-    target_ids = {
-        proposed[field]
-        for field in target_fields
-        if proposed[field] is not None
-    }
+    target_ids = {proposed[field] for field in target_fields if proposed[field] is not None}
     coterm_ids = proposed.get("coterm_from_ids") or []
     target_ids.update(coterm_ids)
 

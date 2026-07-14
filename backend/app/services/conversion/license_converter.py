@@ -32,9 +32,8 @@ async def create_purchase_license(
             item_id=item_id,
         )
 
-    item_data["maintenance_coverage"] = (
-        item_data.get("maintenance_coverage")
-        or default_maintenance_coverage(license_type)
+    item_data["maintenance_coverage"] = item_data.get("maintenance_coverage") or default_maintenance_coverage(
+        license_type
     )
     if item_data.get("parent_license_id") is not None:
         raise HTTPException(

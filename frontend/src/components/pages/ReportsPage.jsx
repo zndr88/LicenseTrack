@@ -180,7 +180,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
             }}
           >
             <Icon name="download" size={14} color="white" />
-            {exporting ? "Generating PDF…" : "Export Full Report (PDF)"}
+            {exporting ? "Generating PDF..." : "Export Full Report (PDF)"}
           </button>
         </div>
 
@@ -294,7 +294,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
         {licensesLoading ? (
           <div className="lp-loading">
             <div className="spinner" style={{ margin: 0, width: 18, height: 18 }} />
-            Loading report data…
+            Loading report data...
           </div>
         ) : licensesError ? (
           <div className="lp-error">

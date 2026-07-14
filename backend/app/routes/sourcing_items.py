@@ -75,9 +75,7 @@ async def merge_coterm_sourcing_items(
         raise HTTPException(status_code=400, detail="At least two sourcing item IDs are required to merge")
 
     result = await db.execute(
-        select(SourcingItem)
-        .where(SourcingItem.id.in_(payload.sourcing_item_ids))
-        .with_for_update()
+        select(SourcingItem).where(SourcingItem.id.in_(payload.sourcing_item_ids)).with_for_update()
     )
     items = list(result.scalars().all())
 
@@ -102,18 +100,13 @@ async def merge_coterm_sourcing_items(
 
     # Load all predecessor licenses
     predecessor_license_ids = [item.renewal_for_license_id for item in items]
-    pred_result = await db.execute(
-        select(License).where(License.id.in_(predecessor_license_ids))
-    )
+    pred_result = await db.execute(select(License).where(License.id.in_(predecessor_license_ids)))
     predecessors = list(pred_result.scalars().all())
     # Validate predecessor licenses are still eligible to be renewed.
     # A sourcing item can outlive a renewal window if the license was
     # renewed, retired, or marked legacy by another path after the item
     # was created.
-    ineligible = [
-        lic.id for lic in predecessors
-        if lic.lifecycle_status in ("renewed", "legacy") or lic.is_retired
-    ]
+    ineligible = [lic.id for lic in predecessors if lic.lifecycle_status in ("renewed", "legacy") or lic.is_retired]
     if ineligible:
         raise HTTPException(
             status_code=400,

@@ -16,7 +16,7 @@ export default function RestoreSection({ isOpen, isDirty, onToggle, onError, onT
     const { error } = await restoreBackup(restoreFile);
     setRestoring(false);
     if (error) { onError(error); return; }
-    onToast("Database restore initiated — the server is restarting…", "info");
+    onToast("Database restore initiated — the server is restarting...", "info");
     setRestoreFile(null);
   };
 
@@ -40,7 +40,7 @@ export default function RestoreSection({ isOpen, isDirty, onToggle, onError, onT
               </div>
               <div style={{ marginTop: 12 }}>
                 <button className="btn" style={{ background: "var(--red)", color: "var(--bg-0)", fontSize: 13, opacity: (!restoreFile || restoring) ? 0.6 : 1 }} disabled={!restoreFile || restoring} onClick={() => setShowRestoreConfirm(true)}>
-                  <Icon name="upload" size={14} /> {restoring ? "Restoring…" : "Restore Database"}
+                  <Icon name="upload" size={14} /> {restoring ? "Restoring..." : "Restore Database"}
                 </button>
               </div>
             </div>

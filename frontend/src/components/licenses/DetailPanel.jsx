@@ -77,7 +77,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
   const canDownloadDocuments = user?.role !== "viewer" || user?.allowDownloads !== false;
 
   const notesPreview = license.notes
-    ? license.notes.slice(0, 60) + (license.notes.length > 60 ? "…" : "")
+    ? license.notes.slice(0, 60) + (license.notes.length > 60 ? "..." : "")
     : null;
 
   return (

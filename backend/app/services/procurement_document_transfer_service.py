@@ -28,10 +28,7 @@ async def validate_invoice_file(file: UploadFile) -> tuple[bytes, str, str]:
     if suffix not in allowed_extensions:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"File type '{suffix}' is not allowed. "
-                "Allowed types: PDF, PNG, JPG, TIFF, WEBP, DOCX."
-            ),
+            detail=(f"File type '{suffix}' is not allowed. Allowed types: PDF, PNG, JPG, TIFF, WEBP, DOCX."),
         )
     mime_type = (file.content_type or "").split(";")[0].strip()
     if not mime_type:
@@ -88,10 +85,7 @@ async def copy_quote_documents_to_procurement_documents(
             ProcurementDocument.category == ProcurementDocumentCategory.quote,
         )
     )
-    existing_keys = {
-        (doc.original_filename, doc.file_size, doc.mime_type)
-        for doc in existing_result.scalars().all()
-    }
+    existing_keys = {(doc.original_filename, doc.file_size, doc.mime_type) for doc in existing_result.scalars().all()}
 
     stored_paths: list[StoredProcurementPath] = []
     for quote_doc in quote_result.scalars().all():

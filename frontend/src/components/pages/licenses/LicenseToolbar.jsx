@@ -101,7 +101,7 @@ export default function LicenseToolbar({
       <div className="lp-row1-left">
         <div style={{ position: "relative", display: "inline-flex", alignItems: "center", width: "100%", maxWidth: 400 }}>
           <input
-            placeholder="Search…"
+            placeholder="Search..."
             aria-label="Search licenses"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}

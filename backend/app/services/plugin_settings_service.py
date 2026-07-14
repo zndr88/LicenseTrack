@@ -87,7 +87,11 @@ async def update_plugin_settings(
         plugin.status = "misconfigured"
         plugin.enabled = False
         plugin.last_error = f"Missing required plugin setting(s): {', '.join(missing_required)}"
-    elif plugin.status == "misconfigured" and plugin.last_error and plugin.last_error.startswith("Missing required plugin setting"):
+    elif (
+        plugin.status == "misconfigured"
+        and plugin.last_error
+        and plugin.last_error.startswith("Missing required plugin setting")
+    ):
         plugin.status = "disabled"
         plugin.last_error = None
 
@@ -127,7 +131,8 @@ def _build_response(
         PluginSettingValueRead(
             key=definition.setting_key,
             value=_read_value(definition, values.get(definition.setting_key)),
-            masked=definition.setting_type == "secret" and _is_configured(definition, values.get(definition.setting_key)),
+            masked=definition.setting_type == "secret"
+            and _is_configured(definition, values.get(definition.setting_key)),
             required=definition.required,
             configured=_is_configured(definition, values.get(definition.setting_key)),
         )

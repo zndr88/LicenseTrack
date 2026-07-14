@@ -37,7 +37,7 @@ export default function PluginSlot({ slot, context, onResult, onActionsLoaded })
   const invoke = async (action) => {
     const key = action.key || `${action.pluginKey}:${action.actionKey}`;
     setBusyKey(key);
-    setResult({ type: "loading", text: `${action.label} in progress…` });
+    setResult({ type: "loading", text: `${action.label} in progress...` });
     const { data, error } = await invokePluginAction(action.pluginKey, action.actionKey, {
       targetType: context.targetType,
       targetId: String(context.targetId),

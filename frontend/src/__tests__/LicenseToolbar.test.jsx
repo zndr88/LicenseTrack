@@ -45,12 +45,12 @@ function setup(overrides = {}) {
 describe("LicenseToolbar", () => {
   test("renders search input", () => {
     setup();
-    expect(screen.getByPlaceholderText("Search…")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Search...")).toBeTruthy();
   });
 
   test("search input calls setSearch and setCurrentPage", () => {
     const { setSearch, setCurrentPage } = setup();
-    fireEvent.change(screen.getByPlaceholderText("Search…"), { target: { value: "acme" } });
+    fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: "acme" } });
     expect(setSearch).toHaveBeenCalledWith("acme");
     expect(setCurrentPage).toHaveBeenCalledWith(1);
   });

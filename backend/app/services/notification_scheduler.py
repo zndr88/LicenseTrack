@@ -53,6 +53,7 @@ async def _run_backup(gs: GlobalSettings) -> None:
     if not gs.backup_enabled:
         return
     from app.services.backup_service import create_backup, prune_backups
+
     try:
         zip_path = create_backup(gs.backup_location)
         prune_backups(gs.backup_location, gs.backup_keep)
@@ -100,9 +101,7 @@ async def start_scheduler():
         # Load settings from GlobalSettings
         try:
             async with AsyncSessionLocal() as db:
-                result = await db.execute(
-                    select(GlobalSettings).where(GlobalSettings.id == 1)
-                )
+                result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
                 gs = result.scalar_one_or_none()
                 send_hour = gs.notification_send_hour if gs else 7
                 backup_hour = gs.backup_hour if gs else 2
@@ -121,8 +120,8 @@ async def start_scheduler():
         wait_seconds = min(notif_wait, backup_wait)
 
         log.info(
-            f"Next notification run in {notif_wait/3600:.1f}h"
-            + (f", next backup run in {backup_wait/3600:.1f}h" if backup_enabled else "")
+            f"Next notification run in {notif_wait / 3600:.1f}h"
+            + (f", next backup run in {backup_wait / 3600:.1f}h" if backup_enabled else "")
         )
         await asyncio.sleep(min(wait_seconds, 60))
 
@@ -135,9 +134,9 @@ async def start_scheduler():
         if now_after >= notif_target:
             try:
                 async with AsyncSessionLocal() as db:
-                    gs_notif = (await db.execute(
-                        select(GlobalSettings).where(GlobalSettings.id == 1)
-                    )).scalar_one_or_none()
+                    gs_notif = (
+                        await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
+                    ).scalar_one_or_none()
                     today = now_after.date()
                     if gs_notif and gs_notif.last_notification_sent_date == today:
                         log.info("Notification run skipped — already sent successfully today")
@@ -162,8 +161,7 @@ async def start_scheduler():
                             log.info(f"Notification run complete: {summary}")
                         else:
                             log.warning(
-                                f"Notification run had delivery failures, day left open "
-                                f"for manual retry: {summary}"
+                                f"Notification run had delivery failures, day left open for manual retry: {summary}"
                             )
             except Exception as exc:
                 log.error(f"Notification run failed: {exc}", exc_info=True)
@@ -176,9 +174,7 @@ async def start_scheduler():
             if now_after >= backup_target:
                 try:
                     async with AsyncSessionLocal() as db:
-                        result = await db.execute(
-                            select(GlobalSettings).where(GlobalSettings.id == 1)
-                        )
+                        result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
                         gs_fresh = result.scalar_one_or_none()
                     if gs_fresh:
                         await _run_backup(gs_fresh)

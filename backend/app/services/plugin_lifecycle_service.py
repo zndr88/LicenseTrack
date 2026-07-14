@@ -88,11 +88,7 @@ async def uninstall_plugin(db: AsyncSession, plugin_key: str, *, actor_id: int |
     await _set_actions_enabled(plugin, enabled=False)
     await _set_manifest_capabilities(db, plugin, status="unavailable", actor_id=actor_id)
     install_path = _safe_install_path(plugin.install_path)
-    await db.execute(
-        update(PluginSuggestion)
-        .where(PluginSuggestion.plugin_id == plugin.id)
-        .values(plugin_id=None)
-    )
+    await db.execute(update(PluginSuggestion).where(PluginSuggestion.plugin_id == plugin.id).values(plugin_id=None))
     await db.delete(plugin)
     await db.flush()
     shutil.rmtree(install_path, ignore_errors=True)
@@ -111,6 +107,7 @@ async def stop_all_plugin_runtimes(db: AsyncSession) -> None:
     """
     from sqlalchemy import select as sa_select
     from app.models.plugin import Plugin as _Plugin
+
     result = await db.execute(sa_select(_Plugin.key).where(_Plugin.enabled.is_(True)))
     keys = list(result.scalars().all())
     for key in keys:
@@ -172,7 +169,9 @@ async def _set_manifest_capabilities(
         capability.capability_type = capability_type
         capability.status = status
         capability.version = plugin.installed_version
-        capability.description = raw_capability.get("description") if isinstance(raw_capability.get("description"), str) else None
+        capability.description = (
+            raw_capability.get("description") if isinstance(raw_capability.get("description"), str) else None
+        )
         capability.health_url = None
         capability.last_error = last_error
         capability.details = {

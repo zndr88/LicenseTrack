@@ -57,6 +57,7 @@ def _repair_diff(before: dict, after: dict, fields: set[str]) -> str | None:
 # CRUD routes
 # ---------------------------------------------------------------------------
 
+
 @router.get("/departments")
 async def list_departments(db: DbSession, _current_user: CurrentUser) -> list[str]:
     """Return distinct non-null, non-empty cost_centre values sorted alphabetically."""
@@ -75,11 +76,7 @@ async def get_stats(db: DbSession, _current_user: CurrentUser) -> dict:
     """Dashboard statistics derived from all licenses."""
     mandatory_fields = await get_mandatory_fields(db)
 
-    departments = (
-        await get_viewer_departments(_current_user.id, db)
-        if _current_user.role == "viewer"
-        else None
-    )
+    departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
     query = select(License).options(selectinload(License.documents))
     query = apply_department_filter(query, departments)
     result = await db.execute(query)
@@ -96,7 +93,6 @@ async def get_stats(db: DbSession, _current_user: CurrentUser) -> dict:
     return compute_stats(all_licenses, documents_by_license_id, mandatory_fields, DEFAULT_NOTIFICATION_DAYS)
 
 
-
 @router.get("", response_model=list[LicenseResponse])
 async def list_licenses(
     db: DbSession,
@@ -108,11 +104,7 @@ async def list_licenses(
 ) -> list[LicenseResponse]:
     mandatory_fields = await get_mandatory_fields(db)
 
-    departments = (
-        await get_viewer_departments(_current_user.id, db)
-        if _current_user.role == "viewer"
-        else None
-    )
+    departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
 
     query = select(License).options(selectinload(License.documents), selectinload(License.creator))
     if not include_retired:
@@ -147,7 +139,9 @@ async def get_license(license_id: int, db: DbSession, _current_user: CurrentUser
     mandatory_fields = await get_mandatory_fields(db)
 
     result = await db.execute(
-        select(License).where(License.id == license_id).options(selectinload(License.documents), selectinload(License.creator))
+        select(License)
+        .where(License.id == license_id)
+        .options(selectinload(License.documents), selectinload(License.creator))
     )
     license_obj = result.scalar_one_or_none()
     if license_obj is None:
@@ -192,7 +186,9 @@ async def create_license(
     await db.commit()
 
     result = await db.execute(
-        select(License).where(License.id == license_obj.id).options(selectinload(License.documents), selectinload(License.creator))
+        select(License)
+        .where(License.id == license_obj.id)
+        .options(selectinload(License.documents), selectinload(License.creator))
     )
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
@@ -244,7 +240,9 @@ async def repair_license_lifecycle(
     await db.commit()
 
     result = await db.execute(
-        select(License).where(License.id == license_id).options(selectinload(License.documents), selectinload(License.creator))
+        select(License)
+        .where(License.id == license_id)
+        .options(selectinload(License.documents), selectinload(License.creator))
     )
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
@@ -255,7 +253,6 @@ async def repair_license_lifecycle(
         procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
     )
-
 
 
 @router.put("/{license_id}", response_model=LicenseResponse)
@@ -286,7 +283,9 @@ async def update_license(
     await db.commit()
 
     result = await db.execute(
-        select(License).where(License.id == license_id).options(selectinload(License.documents), selectinload(License.creator))
+        select(License)
+        .where(License.id == license_id)
+        .options(selectinload(License.documents), selectinload(License.creator))
     )
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
@@ -326,7 +325,9 @@ async def patch_license_field(
     await db.commit()
 
     result = await db.execute(
-        select(License).where(License.id == license_id).options(selectinload(License.documents), selectinload(License.creator))
+        select(License)
+        .where(License.id == license_id)
+        .options(selectinload(License.documents), selectinload(License.creator))
     )
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])

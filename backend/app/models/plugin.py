@@ -84,7 +84,9 @@ class PluginVersion(Base):
     __table_args__ = (UniqueConstraint("plugin_id", "version", name="uq_plugin_versions_plugin_version"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    plugin_id: Mapped[int] = mapped_column(Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True)
+    plugin_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     version: Mapped[str] = mapped_column(String(80), nullable=False)
     package_path: Mapped[str] = mapped_column(Text, nullable=False)
     checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -105,7 +107,9 @@ class PluginPermission(Base):
     __table_args__ = (UniqueConstraint("plugin_id", "permission", name="uq_plugin_permissions_plugin_permission"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    plugin_id: Mapped[int] = mapped_column(Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True)
+    plugin_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     permission: Mapped[str] = mapped_column(String(120), nullable=False)
     granted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     granted_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
@@ -119,7 +123,9 @@ class PluginSettingDefinition(Base):
     __table_args__ = (UniqueConstraint("plugin_id", "setting_key", name="uq_plugin_setting_definitions_plugin_key"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    plugin_id: Mapped[int] = mapped_column(Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True)
+    plugin_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     setting_key: Mapped[str] = mapped_column(String(80), nullable=False)
     setting_type: Mapped[str] = mapped_column(String(30), nullable=False)
     label: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -137,7 +143,9 @@ class PluginSettingValue(Base):
     __table_args__ = (UniqueConstraint("plugin_id", "setting_key", name="uq_plugin_setting_values_plugin_key"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    plugin_id: Mapped[int] = mapped_column(Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True)
+    plugin_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     setting_key: Mapped[str] = mapped_column(String(80), nullable=False)
     encrypted_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     value_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -152,7 +160,9 @@ class PluginAction(Base):
     __table_args__ = (UniqueConstraint("plugin_id", "action_key", name="uq_plugin_actions_plugin_action"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    plugin_id: Mapped[int] = mapped_column(Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True)
+    plugin_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     action_key: Mapped[str] = mapped_column(String(80), nullable=False)
     label: Mapped[str] = mapped_column(String(80), nullable=False)
     slot: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
@@ -171,7 +181,9 @@ class PluginRuntimeStatus(Base):
     __table_args__ = (UniqueConstraint("plugin_id", name="uq_plugin_runtime_status_plugin"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    plugin_id: Mapped[int] = mapped_column(Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True)
+    plugin_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     pid: Mapped[int | None] = mapped_column(Integer, nullable=True)
     port: Mapped[int | None] = mapped_column(Integer, nullable=True)
     process_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)

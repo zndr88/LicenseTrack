@@ -28,7 +28,6 @@ router = APIRouter(prefix="/api/pending-orders", tags=["pending-orders"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
-
 @router.get("", response_model=list[PendingOrderResponse])
 async def list_pending_orders(
     db: DbSession,

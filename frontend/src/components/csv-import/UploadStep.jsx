@@ -90,7 +90,7 @@ export default function UploadStep({
               disabled={loadingMappings || savedMappings.length === 0}
             >
               <option value="">
-                {loadingMappings ? "Loading presets…" : savedMappings.length === 0 ? "No saved presets" : "— no preset —"}
+                {loadingMappings ? "Loading presets..." : savedMappings.length === 0 ? "No saved presets" : "— no preset —"}
               </option>
               {savedMappings.map(m => (
                 <option key={m.id} value={m.id}>{m.name}</option>
@@ -127,7 +127,7 @@ export default function UploadStep({
           onChange={(e) => { const f = e.target.files[0]; if (f) handleFile(f); }}
         />
         {loading
-          ? <><div className="spinner" /><h3>Analysing CSV…</h3><p>Parsing and classifying rows</p></>
+          ? <><div className="spinner" /><h3>Analysing CSV...</h3><p>Parsing and classifying rows</p></>
           : <><Icon name="table" size={26} color="var(--text-3)" /><h3>Drop CSV file here or click to browse</h3><p>Only .csv files are accepted</p></>}
       </div>
 

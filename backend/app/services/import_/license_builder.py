@@ -32,9 +32,7 @@ async def build_license(
     if row.parent_license_ref:
         if license_type == LicenseType.maintenance and parent_license_id is None:
             # Maintenance path: resolve ref to a valid perpetual/oem/freeware parent
-            parent_result = await db.execute(
-                sa_select(License).where(License.license_ref == row.parent_license_ref)
-            )
+            parent_result = await db.execute(sa_select(License).where(License.license_ref == row.parent_license_ref))
             parent_matches = parent_result.scalars().all()
             if not parent_matches:
                 raise ValueError(
@@ -54,9 +52,7 @@ async def build_license(
                         f"parent_license_ref={row.parent_license_ref!r} resolves to a "
                         f"{first.license_type.value} License; maintenance can only attach to perpetual, oem, or freeware"
                     )
-                raise ValueError(
-                    f"parent_license_ref={row.parent_license_ref!r} resolves to a retired License"
-                )
+                raise ValueError(f"parent_license_ref={row.parent_license_ref!r} resolves to a retired License")
             if len(eligible_parents) > 1:
                 raise ValueError(
                     f"parent_license_ref={row.parent_license_ref!r} resolves to multiple "
@@ -66,9 +62,7 @@ async def build_license(
         elif license_type != LicenseType.maintenance:
             # Renewal path: resolve ref to a predecessor license (FK structural link only).
             # Raise if the ref is ambiguous (multiple matches) to mirror the maintenance path.
-            pred_result = await db.execute(
-                sa_select(License).where(License.license_ref == row.parent_license_ref)
-            )
+            pred_result = await db.execute(sa_select(License).where(License.license_ref == row.parent_license_ref))
             pred_matches = pred_result.scalars().all()
             if len(pred_matches) > 1:
                 raise ValueError(

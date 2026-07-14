@@ -85,6 +85,7 @@ async def restore_backup(
 
     # F10: reject oversized uploads before buffering the full body.
     from app.config import settings as _settings
+
     _max_bytes = _settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     _cl = request.headers.get("content-length")
     try:
@@ -107,6 +108,7 @@ async def restore_backup(
     # Validate the zip contains a .db file before touching anything
     try:
         import io
+
         with zipmod.ZipFile(io.BytesIO(content), "r") as zf:
             db_files = [n for n in zf.namelist() if n.endswith(".db")]
         if not db_files:
@@ -131,6 +133,7 @@ async def restore_backup(
         pass  # Never let audit failures block a restore
 
     from app.database import engine as _engine
+
     await db.close()
     try:
         await _engine.dispose()
