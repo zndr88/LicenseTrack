@@ -8,8 +8,8 @@ const ConfirmDialog = ({ title, message, confirmLabel, cancelLabel, danger, onCo
       title={title || "Confirm"}
       titleId="dialog-title-confirm"
       onClose={onCancel}
-      overlayStyle={{ zIndex: 300 }}
-      modalStyle={{ width: 400, maxWidth: "92vw" }}
+      overlayClassName="overlay confirm-dialog-overlay"
+      modalClassName="modal confirm-dialog-modal"
       footer={(
         <>
           <button className="btn btn-g" onClick={onCancel}>{cancelLabel || "Cancel"}</button>
@@ -19,13 +19,13 @@ const ConfirmDialog = ({ title, message, confirmLabel, cancelLabel, danger, onCo
         </>
       )}
     >
-      <div className="modal-bd" style={{ paddingBottom: 8 }}>
-        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: danger ? "var(--red-m)" : "var(--orange-m)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <div className="modal-bd confirm-dialog-body">
+        <div className="confirm-dialog-content">
+          <div className={`confirm-dialog-icon ${danger ? "danger" : "warning"}`}>
             <Icon name="alert" size={20} color={danger ? "var(--red)" : "var(--orange)"} />
           </div>
           <div>
-            <p style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>{message}</p>
+            <p className="confirm-dialog-message">{message}</p>
           </div>
         </div>
       </div>

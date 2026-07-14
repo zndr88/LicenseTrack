@@ -15,6 +15,7 @@ export default function ModalShell({
   closeButtonAriaLabel = "Close",
   closeButtonDisabled = false,
   closeOnOverlayClick = true,
+  overlayClassName = "overlay",
   overlayStyle,
   modalClassName = "modal",
   modalStyle,
@@ -41,7 +42,7 @@ export default function ModalShell({
   };
 
   return (
-    <div className="overlay" onClick={handleOverlayClick} style={overlayStyle}>
+    <div className={overlayClassName} onClick={handleOverlayClick} style={overlayStyle}>
       <div
         className={modalClassName}
         ref={modalRef}
