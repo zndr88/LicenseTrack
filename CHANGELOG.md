@@ -9,6 +9,36 @@ API stability levels and the breaking-change policy are defined in
 [docs/api-stability.md](docs/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
+## [1.0.6] - 2026-07-15
+
+### Added
+
+- Added `RESTART_AFTER_RESTORE` so Docker/process-manager deployments can keep
+  the restore-and-exit restart flow while direct local development keeps the
+  API process running after a database restore.
+- Added a local stylesheet ownership map under `frontend/src/styles/README.md`
+  and updated the style contract so future CSS has a clear destination.
+- Added per-user default saved views on the License Overview while keeping the
+  built-in Default view as a safe reset.
+
+### Changed
+
+- Split the former monolithic frontend stylesheet into ordered CSS partials
+  while preserving the original cascade through `global.css` as the import
+  manifest.
+- Consolidated settings presentation styles across API tokens, import mappings,
+  custom fields, password and restore controls, global settings, visible
+  categories, SMTP/email templates, extensions, webhooks, audit log, and
+  remaining settings stragglers.
+- Normalized root Vite/Vitest config formatting and Alembic environment comments
+  to match the repository style contract.
+
+### Fixed
+
+- Returned restore restart status to the frontend and clarified restore
+  messaging so local and process-manager restart modes report accurately.
+- Covered both restore restart modes with backup integration tests.
+
 ## [1.0.5] - 2026-07-14
 
 ### Added
@@ -355,5 +385,10 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
+[1.0.6]: https://github.com/zndr88/LicenseTrack/compare/v1.0.5...v1.0.6
+[1.0.5]: https://github.com/zndr88/LicenseTrack/compare/v1.0.4...v1.0.5
+[1.0.4]: https://github.com/zndr88/LicenseTrack/compare/v1.0.3...v1.0.4
+[1.0.3]: https://github.com/zndr88/LicenseTrack/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/zndr88/LicenseTrack/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/zndr88/LicenseTrack/releases/tag/v1.0.1
 [1.0.0]: https://github.com/zndr88/LicenseTrack/releases/tag/v1.0.0
