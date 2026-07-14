@@ -1,7 +1,7 @@
-"""Alembic environment — configured for async SQLAlchemy (aiosqlite).
+"""Alembic environment - configured for async SQLAlchemy (aiosqlite).
 
 DATABASE_URL is read from app.config (which reads .env), so alembic.ini
-does NOT need a real sqlalchemy.url value — it is overridden below.
+does NOT need a real sqlalchemy.url value - it is overridden below.
 """
 
 from logging.config import fileConfig
@@ -35,7 +35,7 @@ config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 
 # ---------------------------------------------------------------------------
-# Offline migrations — emit SQL to stdout, no live DB connection needed
+# Offline migrations - emit SQL to stdout, no live DB connection needed
 # ---------------------------------------------------------------------------
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
@@ -51,7 +51,7 @@ def run_migrations_offline() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Online migrations — async engine, run_sync wrapper
+# Online migrations - async engine, run_sync wrapper
 # ---------------------------------------------------------------------------
 def do_run_migrations(connection) -> None:
     context.configure(
@@ -64,7 +64,7 @@ def do_run_migrations(connection) -> None:
 
 
 def run_migrations_online() -> None:
-    # Use a synchronous engine — aiosqlite is only needed
+    # Use a synchronous engine - aiosqlite is only needed
     # for runtime async queries, not for DDL. This avoids
     # asyncio.run() being called from a thread-pool executor
     # under uvloop on Linux, which deadlocks on signal handler
