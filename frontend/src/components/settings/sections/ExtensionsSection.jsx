@@ -16,10 +16,10 @@ function normalizeCapability(capability) {
   };
 }
 
-function statusColor(status) {
-  if (status === "available") return "var(--green-text)";
-  if (status === "misconfigured") return "var(--orange-text)";
-  return "var(--red)";
+function statusClass(status) {
+  if (status === "available") return "set-ext-status-available";
+  if (status === "misconfigured") return "set-ext-status-misconfigured";
+  return "set-ext-status-error";
 }
 
 export default function ExtensionsSection({ isOpen, isDirty, onToggle, onError, onToast, userSettings }) {
@@ -56,8 +56,8 @@ export default function ExtensionsSection({ isOpen, isDirty, onToggle, onError, 
         <SectionHeader sectionKey="extensions" icon="server" title="Extensions" description="Registered optional capabilities from integrations and sidecars." isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
         <div className={`setsec-body${isOpen ? " open" : ""}`}>
           <div className="setsec-inner">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
+            <div className="set-ext-header">
+              <p className="set-ext-intro">
                 Capabilities are declared by external processors using scoped API tokens.
               </p>
               <button type="button" className="btn btn-g btn-sm" onClick={loadCapabilities} disabled={loading}>
@@ -66,12 +66,12 @@ export default function ExtensionsSection({ isOpen, isDirty, onToggle, onError, 
             </div>
 
             {loading ? (
-              <p style={{ fontSize: 13, color: "var(--text-3)", margin: 0 }}>Loading extension capabilities...</p>
+              <p className="set-muted-text set-ext-muted">Loading extension capabilities...</p>
             ) : capabilities.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--text-3)", margin: 0 }}>No extension capabilities registered yet.</p>
+              <p className="set-muted-text set-ext-muted">No extension capabilities registered yet.</p>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table className="settings-table">
+              <div className="set-table-scroll">
+                <table className="settings-table set-ext-table">
                   <thead>
                     <tr>
                       <th>Name</th>
@@ -87,22 +87,22 @@ export default function ExtensionsSection({ isOpen, isDirty, onToggle, onError, 
                       <tr key={capability.key}>
                         <td>
                           <strong>{capability.name}</strong>
-                          <div style={{ color: "var(--text-3)", fontSize: 12 }}>{capability.key}</div>
+                          <div className="set-ext-key">{capability.key}</div>
                           {capability.description && (
-                            <div style={{ color: "var(--text-2)", fontSize: 12, marginTop: 3 }}>{capability.description}</div>
+                            <div className="set-ext-description">{capability.description}</div>
                           )}
                         </td>
                         <td>{capability.capabilityType}</td>
                         <td>
-                          <span style={{ color: statusColor(capability.status), fontWeight: 700 }}>{capability.status}</span>
+                          <span className={`set-ext-status ${statusClass(capability.status)}`}>{capability.status}</span>
                           {capability.lastError && (
-                            <div style={{ color: "var(--red)", fontSize: 12, marginTop: 3 }}>{capability.lastError}</div>
+                            <div className="set-ext-error">{capability.lastError}</div>
                           )}
                         </td>
                         <td>{capability.version || "-"}</td>
                         <td>{formatDateTime(capability.lastSeenAt, userSettings) || "Never"}</td>
                         <td>
-                          <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeletePending(capability)}>
+                          <button type="button" className="btn btn-d btn-sm" onClick={() => setDeletePending(capability)}>
                             <Icon name="trash" size={12} /> Remove
                           </button>
                         </td>

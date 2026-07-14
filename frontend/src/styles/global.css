@@ -1279,6 +1279,26 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .set-save-row { display: flex; justify-content: flex-end; margin-top: 14px; }
 .set-save-button { font-size: 13px; }
 
+/* Settings extensions */
+.set-ext-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.set-ext-intro { font-size: 13px; color: var(--text-2); margin: 0; }
+.set-ext-muted { margin: 0; font-size: 13px; }
+.set-table-scroll { overflow-x: auto; }
+.set-ext-table { width: 100%; }
+.set-ext-key { color: var(--text-3); font-size: 12px; }
+.set-ext-description { color: var(--text-2); font-size: 12px; margin-top: 3px; }
+.set-ext-status { font-weight: 700; }
+.set-ext-status-available { color: var(--green-text); }
+.set-ext-status-misconfigured { color: var(--orange-text); }
+.set-ext-status-error { color: var(--red); }
+.set-ext-error { color: var(--red); font-size: 12px; margin-top: 3px; }
+
 /* Settings email template modal */
 .email-tpl-overlay { display: flex; align-items: center; justify-content: center; }
 .email-tpl-modal {
