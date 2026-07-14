@@ -1262,6 +1262,17 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .set-vis-hd { font-family: var(--font-mono); font-size: 8.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-2); padding: 8px 0; }
 .set-vis-row { display: grid; grid-template-columns: 1fr 80px 80px; gap: 0; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
 .set-vis-label { font-size: 13px; color: var(--text-2); }
+.set-vis-unavailable { font-size: 10px; color: var(--text-3); }
+.set-vis-header-grid { margin-bottom: 4px; }
+.set-vis-hd-category { color: var(--text-3); }
+.set-vis-hd-list { color: var(--accent); text-align: center; }
+.set-vis-hd-detail { color: var(--green); text-align: center; }
+.set-vis-group-row { margin-top: 8px; background: var(--bg-2); }
+.set-vis-group-label { color: var(--text-2); }
+.set-vis-group-note { color: var(--text-3); font-size: 11px; font-weight: 400; }
+.set-vis-loading { font-size: 11px; color: var(--text-3); padding: 6px 0; }
+.set-vis-muted-row { opacity: .45; }
+.set-vis-empty-label { font-style: italic; color: var(--text-3); }
 .col-center { display: flex; justify-content: center; }
 .set-save-row { display: flex; justify-content: flex-end; margin-top: 14px; }
 .set-save-button { font-size: 13px; }

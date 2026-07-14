@@ -7,7 +7,7 @@ import {
 import Toggle from "../../ui/Toggle.jsx";
 import { SectionHeader } from "../SectionShared.jsx";
 
-const unavailable = <span style={{ fontSize: 10, color: "var(--text-3)" }}>-</span>;
+const unavailable = <span className="set-vis-unavailable">-</span>;
 
 export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, userSettings, setUserSettings, onError, onToast, onAfterSave }) {
   const [saving, setSaving] = useState(false);
@@ -79,11 +79,11 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
       <SectionHeader sectionKey="visibleCategories" icon="columns" title="Visible Categories" description="Control which optional fields appear in the list overview vs. the license detail panel (per-user)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
-          <div style={{ marginTop: 12 }}>
-            <div className="set-vis-grid" style={{ marginBottom: 4 }}>
-              <div className="set-vis-hd" style={{ color: "var(--text-3)" }}>Category</div>
-              <div className="set-vis-hd" style={{ color: "var(--accent)", textAlign: "center" }}>List View</div>
-              <div className="set-vis-hd" style={{ color: "var(--green)", textAlign: "center" }}>Details</div>
+          <div className="set-section-stack">
+            <div className="set-vis-grid set-vis-header-grid">
+              <div className="set-vis-hd set-vis-hd-category">Category</div>
+              <div className="set-vis-hd set-vis-hd-list">List View</div>
+              <div className="set-vis-hd set-vis-hd-detail">Details</div>
             </div>
             {LICENSE_COLUMN_GROUPS.map((group) => (
               <div key={group.key}>
@@ -94,8 +94,8 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
                   const allDetailsVisible = detailColumns.length > 0 && detailColumns.every((column) => userSettings.visibleInDetail[column.detailKey] ?? true);
                   return (
                     <>
-                <div className="set-vis-row" style={{ marginTop: 8, background: "var(--bg-2)" }}>
-                  <strong className="set-vis-label" style={{ color: "var(--text-2)" }}>{group.label} <span style={{ color: "var(--text-3)", fontSize: 11, fontWeight: 400 }}>(toggle all)</span></strong>
+                <div className="set-vis-row set-vis-group-row">
+                  <strong className="set-vis-label set-vis-group-label">{group.label} <span className="set-vis-group-note">(toggle all)</span></strong>
                   <div className="col-center"><Toggle ariaLabel={`Toggle all ${group.label} list fields`} value={allListVisible} onChange={(value) => toggleListGroup(groupColumns, value)} /></div>
                   <div className="col-center">{detailColumns.length > 0 ? <Toggle ariaLabel={`Toggle all ${group.label} detail fields`} value={allDetailsVisible} onChange={(value) => toggleDetailGroup(detailColumns, value)} /> : unavailable}</div>
                 </div>
@@ -120,15 +120,15 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
                 })()}
               </div>
             ))}
-            <div className="set-vis-row" style={{ marginTop: 8, background: "var(--bg-2)" }}>
-              <strong className="set-vis-label" style={{ color: "var(--text-2)" }}>Custom Fields <span style={{ color: "var(--text-3)", fontSize: 11, fontWeight: 400 }}>(toggle all)</span></strong>
+            <div className="set-vis-row set-vis-group-row">
+              <strong className="set-vis-label set-vis-group-label">Custom Fields <span className="set-vis-group-note">(toggle all)</span></strong>
               <div className="col-center">{customFieldDefs.length > 0 ? <Toggle ariaLabel="Toggle all Custom Fields list fields" value={customFieldDefs.every((fieldDef) => userSettings.visibleInList[`cf_${fieldDef.fieldKey}`] ?? false)} onChange={(value) => toggleListGroup(customFieldDefs.map((fieldDef) => ({ key: `cf_${fieldDef.fieldKey}` })), value)} /> : unavailable}</div>
               <div className="col-center">{customFieldDefs.length > 0 ? <Toggle ariaLabel="Toggle all Custom Fields detail fields" value={customFieldDefs.every((fieldDef) => userSettings.visibleInDetail[`cf_${fieldDef.fieldKey}`] ?? true)} onChange={(value) => toggleDetailGroup(customFieldDefs.map((fieldDef) => ({ detailKey: `cf_${fieldDef.fieldKey}` })), value)} /> : unavailable}</div>
             </div>
-            {customFieldDefsLoading && <div style={{ fontSize: 11, color: "var(--text-3)", padding: "6px 0" }}>Loading custom fields...</div>}
+            {customFieldDefsLoading && <div className="set-vis-loading">Loading custom fields...</div>}
             {!customFieldDefsLoading && customFieldDefs.length === 0 && (
-              <div className="set-vis-row" style={{ opacity: 0.45 }}>
-                <span className="set-vis-label" style={{ fontStyle: "italic", color: "var(--text-3)" }}>No custom fields defined</span>
+              <div className="set-vis-row set-vis-muted-row">
+                <span className="set-vis-label set-vis-empty-label">No custom fields defined</span>
                 <div className="col-center">{unavailable}</div>
                 <div className="col-center">{unavailable}</div>
               </div>
@@ -144,7 +144,7 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
               );
             })}
             <div className="set-save-row">
-              <button className="btn btn-p" onClick={handleSave} disabled={!isDirty || saving} style={{ fontSize: 13 }}>
+              <button className="btn btn-p set-save-button" onClick={handleSave} disabled={!isDirty || saving}>
                 {saving && isDirty ? "Saving..." : "Save"}
               </button>
             </div>
