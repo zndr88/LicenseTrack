@@ -1108,6 +1108,23 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .set-inline-control { display: flex; gap: 6px; }
 .set-inline-input { flex: 1; }
 .set-add-button { padding: 0 12px; font-size: 12px; }
+.set-list-table { margin-top: 12px; }
+.set-list-table th {
+  color: var(--text-3);
+  font-weight: 600;
+  padding-bottom: 6px;
+  text-align: left;
+}
+.set-list-label { font-size: 13px; }
+.set-list-mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+.set-table-actions { display: flex; gap: 6px; }
+.set-compact-input { font-size: 12px; padding: 2px 6px; }
+.set-compact-button { font-size: 11px; padding: 2px 8px; }
+.set-danger-action { color: var(--red-text); }
 .set-token-panel {
   border: 1px solid var(--border);
   background: var(--bg-2);
