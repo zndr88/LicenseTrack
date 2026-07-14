@@ -54,7 +54,7 @@ export default function ConvertItemForm({
 
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: "var(--r)", marginBottom: 12 }}>
-      {/* ── Section header ── */}
+      {/* Section header */}
       <div
         style={{
           padding: "10px 14px",
@@ -90,7 +90,7 @@ export default function ConvertItemForm({
         </span>
       </div>
 
-      {/* ── Section body ── */}
+      {/* Section body */}
       {isExpanded && (
         <div style={{ padding: "12px 14px" }}>
           <div className="fr">

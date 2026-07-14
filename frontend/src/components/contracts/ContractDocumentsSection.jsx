@@ -65,7 +65,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
     if (data) setFolders(data.folders ?? []);
   };
 
-  // ── Folders ───────────────────────────────────────────────────────────────
+  // Folders
 
   const handleAddFolder = async () => {
     const name = newFolderName.trim();
@@ -97,7 +97,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
   const toggleFolder = (folderId) =>
     setExpandedFolders((prev) => ({ ...prev, [folderId]: !prev[folderId] }));
 
-  // ── Documents ─────────────────────────────────────────────────────────────
+  // Documents
 
   const handleUpload = async (file, folderId = null) => {
     setUploading(true);
@@ -122,7 +122,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
     setDownloadingId(null);
   };
 
-  // ── Derived ───────────────────────────────────────────────────────────────
+  // Derived
 
   const generalDocs = documents.filter((d) => d.folderId == null);
 
@@ -169,7 +169,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
 
         {documentsOpen && (
           <>
-            {/* General folder (system — no rename/delete) */}
+            {/* General folder (system - no rename/delete) */}
             {(() => {
               const generalIsExpanded = !!expandedFolders["general"];
               return (

@@ -16,7 +16,7 @@ export const poFormSchema = z.object({
   notes:    z.string(),
 });
 
-/** ConvertPendingOrderModal — one-license form. */
+/** ConvertPendingOrderModal - one-license form. */
 export const licenseFormSchema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
   softwareDescription: z.string().min(1, "Software description is required."),
@@ -43,7 +43,7 @@ export const licenseFormSchema = z.object({
   notes:               z.string(),
 });
 
-/** ConvertAllModal — one item per sourcing row (adds array-only fields). */
+/** ConvertAllModal - one item per sourcing row (adds array-only fields). */
 export const convertAllItemSchema = licenseFormSchema.extend({
   sourcingItemId: z.number(),
   isRenewal:      z.boolean(),

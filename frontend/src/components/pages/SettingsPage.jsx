@@ -78,7 +78,7 @@ export default function SettingsPage({
           <SettingsTabs activeTab={activeTab} onChange={setActiveTab} user={user} />
         )}
 
-        {/* ── My Settings ── */}
+        {/* My Settings */}
         {!_adminOnly && (!isAdmin(user) || activeTab === "my" || _mySettingsOnly) && (
           <>
             {user?.authProvider !== "oidc" && (
@@ -89,7 +89,7 @@ export default function SettingsPage({
           </>
         )}
 
-        {/* ── Admin Settings ── */}
+        {/* Admin Settings */}
         {isAdmin(user) && activeTab === "admin" && !_mySettingsOnly && (
           <>
             <div className="admin-subnav" aria-label="Admin settings groups">
@@ -136,7 +136,7 @@ export default function SettingsPage({
           </>
         )}
 
-        {/* ── Audit Log ── */}
+        {/* Audit Log */}
         {isAdmin(user) && activeTab === "auditlog" && !_mySettingsOnly && (
           <AuditLogTab />
         )}

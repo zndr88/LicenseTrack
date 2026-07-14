@@ -52,7 +52,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
   const canEdit = isEditorOrAdmin(user);
   const canDownloadDocuments = user?.role !== "viewer" || user?.allowDownloads !== false;
 
-  // requestClose: guard for backdrop, X button — closes the whole modal on discard
+  // requestClose: guard for backdrop, X button - closes the whole modal on discard
   const requestClose = useCallback(() => {
     if (editing && isDirty) {
       setDiscardAction("close");
@@ -62,7 +62,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
     }
   }, [editing, isDirty, onClose]);
 
-  // requestCancelEdit: guard for Cancel button in edit header — goes back to view mode on discard
+  // requestCancelEdit: guard for Cancel button in edit header - goes back to view mode on discard
   const requestCancelEdit = useCallback(() => {
     if (isDirty) {
       setDiscardAction("cancel-edit");
@@ -90,7 +90,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
     return () => { cancelled = true; };
   }, [contractId]);
 
-  // ── Edit ──────────────────────────────────────────────────────────────────
+  // Edit
 
   const handleEditStart = () => {
     const snapshot = {
@@ -119,7 +119,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
     setEditing(false);
   };
 
-  // ── Licenses ──────────────────────────────────────────────────────────────
+  // Licenses
 
   const handleLicenseClick = (licenseId) => {
     onClose();

@@ -1,10 +1,10 @@
 /**
- * CSV import API — preview, confirm, and template download.
+ * CSV import API - preview, confirm, and template download.
  *
  * Endpoints:
- *   POST /api/import/preview   — parse & classify a CSV file (no DB write)
- *   POST /api/import/confirm   — re-parse and persist valid rows
- *   GET  /api/import/template  — download the blank CSV template
+ *   POST /api/import/preview - parse & classify a CSV file (no DB write)
+ *   POST /api/import/confirm - re-parse and persist valid rows
+ *   GET  /api/import/template - download the blank CSV template
  */
 
 import { get, post, put, del } from "./client.js";
@@ -47,7 +47,7 @@ export async function confirmCsvImport(file, skippedRows = [], acknowledgeWarnin
 }
 
 /**
- * POST /api/import/analyze — send a CSV file for column analysis.
+ * POST /api/import/analyze - send a CSV file for column analysis.
  * Returns matched columns, unrecognized columns, and missing required columns.
  *
  * @param {File} file
@@ -60,7 +60,7 @@ export async function analyzeImport(file) {
 }
 
 /**
- * POST /api/import/execute — send a CSV file with a resolved column mapping.
+ * POST /api/import/execute - send a CSV file with a resolved column mapping.
  * Persists all importable rows.
  *
  * @param {File} file
@@ -81,7 +81,7 @@ export async function executeImport(file, mappingJson, skippedRows = [], acknowl
 }
 
 /**
- * POST /api/import/preview-mapped — preview rows using a resolved column mapping.
+ * POST /api/import/preview-mapped - preview rows using a resolved column mapping.
  *
  * @param {File} file
  * @param {string} mappingJson - JSON-serialised mapping array + optional preset name
@@ -97,7 +97,7 @@ export async function previewMappedImport(file, mappingJson, formats, updateExis
 }
 
 /**
- * GET /api/import/mappings — list saved mapping presets.
+ * GET /api/import/mappings - list saved mapping presets.
  *
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
@@ -106,7 +106,7 @@ export async function listImportMappings() {
 }
 
 /**
- * DELETE /api/import/mappings/{id} — delete a saved mapping preset.
+ * DELETE /api/import/mappings/{id} - delete a saved mapping preset.
  *
  * @param {number} id
  * @returns {Promise<{ data: null, error: string | null }>}

@@ -6,7 +6,7 @@ import { computeTotalPoValue } from "./store.js";
  *
  * All dates are computed relative to "now" via the time.js helpers so the
  * demo never goes stale. Money values are canonical decimal strings
- * ("1234.50", "250" — no thousands separators, no currency symbols).
+ * ("1234.50", "250" - no thousands separators, no currency symbols).
  *
  * Field shapes mirror the backend's camelCase (to_camel alias) API responses:
  * LicenseResponse, SourcingItemResponse, SourcingItemSummary, PendingOrderResponse.
@@ -106,7 +106,7 @@ export function buildLicense(overrides) {
 export function buildSeedData() {
   const licenses = [];
 
-  // 1. Centerpiece — drives the demo walkthrough: expiring in exactly 20 days.
+  // 1. Centerpiece - drives the demo walkthrough: expiring in exactly 20 days.
   licenses.push(
     buildLicense({
       id: 1,
@@ -423,7 +423,7 @@ export function buildSeedData() {
     })
   );
 
-  // 14. pending_renewal — linked FROM sourcing item 101 (see below).
+  // 14. pending_renewal - linked FROM sourcing item 101 (see below).
   const pendingRenewalId = 14;
   licenses.push(
     buildLicense({
@@ -453,7 +453,7 @@ export function buildSeedData() {
     })
   );
 
-  // --- Sourcing items (2 standalone) ---
+  // Sourcing items (2 standalone)
   const sourcingItems = [
     {
       id: 101,
@@ -503,7 +503,7 @@ export function buildSeedData() {
     },
   ];
 
-  // --- Pending order (1) with 2 line items ---
+  // Pending order (1) with 2 line items
   const poId = 201;
   const poLineItemsRaw = [
     {

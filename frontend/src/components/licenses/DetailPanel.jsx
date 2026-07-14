@@ -83,7 +83,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
   return (
     <div className="dpanel">
 
-      {/* ── Panel Header (always visible) ── */}
+      {/* Panel Header (always visible) */}
       <DetailPanelHeader
         canEdit={perms.canEdit}
         editingLicense={editingLicense}
@@ -91,7 +91,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
         onClose={onClose}
       />
 
-      {/* ── Scrollable body ── */}
+      {/* Scrollable body */}
       <div className="dp-sections">
 
         <DetailToast toast={toast} onClose={() => setToast(null)} />
@@ -129,7 +129,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               closeFieldEdit={closeFieldEdit}
             />
 
-            {/* ══ Renewal / coterm blocks — always visible, between Identity and Dates ══ */}
+            {/* Renewal / coterm blocks - always visible, between Identity and Dates */}
             <RenewalWorkflowSection
               license={license}
               perms={perms}
@@ -191,7 +191,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               />
             )}
 
-            {/* ══ Commercial ══ */}
+            {/* Commercial */}
             <CommercialSection
               license={license}
               perms={perms}
@@ -208,7 +208,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               closeFieldEdit={closeFieldEdit}
             />
 
-            {/* ══ People & Org ══ */}
+            {/* People & Org */}
             <PeopleSection
               license={license}
               perms={perms}
@@ -224,7 +224,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               closeFieldEdit={closeFieldEdit}
             />
 
-            {/* ══ Documents ══ */}
+            {/* Documents */}
             <DocumentsSection
               license={license}
               perms={perms}
@@ -278,7 +278,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               />
             )}
 
-            {/* ══ Completeness & Flags ══ */}
+            {/* Completeness & Flags */}
             <CompletenessFlagsSection
               license={license}
               perms={perms}
@@ -288,7 +288,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               onUpdate={onUpdate}
             />
 
-            {/* ══ Notes ══ */}
+            {/* Notes */}
             <NotesSection
               license={license}
               perms={perms}
@@ -305,7 +305,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               closeFieldEdit={closeFieldEdit}
             />
 
-            {/* ══ Custom Fields ══ */}
+            {/* Custom Fields */}
             <CatchallCustomFieldsSection
               license={license}
               perms={perms}
@@ -330,7 +330,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
           </>
         )}
 
-        {/* ── Bottom actions ── */}
+        {/* Bottom actions */}
         <div className="dp-bottom-actions" style={{ marginTop: 16 }}>
           <EmailPublisherAction license={license} allLicenses={allLicenses} />
           {perms.canDelete && <button className="btn btn-d" onClick={() => {

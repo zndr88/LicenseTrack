@@ -206,7 +206,7 @@ const ConvertPendingOrderModal = ({
       >
         <div className="modal-bd">
 
-          {/* ── Renewal notice ── */}
+          {/* Renewal notice */}
           {isRenewal && (
             <div style={{ fontSize: 12, color: "var(--purple-text)", marginBottom: 12, padding: "8px 12px", background: "var(--purple-dim)", borderRadius: "var(--r)", border: "1px solid var(--purple-border)" }}>
               This will create a new license record with the updated dates and contract details. The existing license will be marked as Renewed and preserved for historical reference.

@@ -86,7 +86,7 @@ function buildDemoDownloadResponse(document) {
 }
 
 // Fields a PO line-item update may touch. Mirrors backend/app/schemas/sourcing.py:44-61
-// SourcingItemUpdate minus status (the route pops status — pending_order_service.py:188).
+// SourcingItemUpdate minus status (the route pops status - pending_order_service.py:188).
 const PO_ITEM_UPDATE_FIELDS = [
   "publisherName", "softwareDescription", "quantity", "estimatedUnitPrice", "estimatedTotalPrice",
   "currency", "startDate", "endDate", "supplier", "contactEmail", "notes",
@@ -98,7 +98,7 @@ export function stubResponse(_method, _pathname) {
   return { data: null, error: DEMO_TOAST };
 }
 
-// UserResponse is snake_case — no camelCase alias (backend/app/schemas/user.py:8).
+// UserResponse is snake_case - no camelCase alias (backend/app/schemas/user.py:8).
 const demoUser = {
   id: 1,
   username: "demo",
@@ -129,10 +129,8 @@ export const routes = [
   { method: "GET", pattern: /^\/api\/users\/me$/, handler: async () => ({ data: demoUser, error: null }) },
   { method: "GET", pattern: /^\/api\/users$/, handler: async () => ({ data: [demoUser], error: null }) },
 
-  // -------------------------------------------------------------------------
   // Quiet read-only endpoints used by top-level pages and Admin tabs.
   // Side-effect endpoints stay unregistered and therefore show DEMO_TOAST.
-  // -------------------------------------------------------------------------
 
   { method: "GET", pattern: /^\/api\/notifications$/, handler: async () => ({ data: computeNotifications(), error: null }) },
   { method: "GET", pattern: /^\/api\/reports\/portfolio-stats$/, handler: async () => ({ data: computePortfolioReportStats(), error: null }) },
@@ -143,11 +141,9 @@ export const routes = [
   { method: "GET", pattern: /^\/api\/backup\/list$/, handler: async () => ({ data: [], error: null }) },
   { method: "GET", pattern: /^\/api\/audit-log$/, handler: async () => ({ data: { results: [], total: 0 }, error: null }) },
 
-  // -------------------------------------------------------------------------
   // Contracts - in-memory records, folders, document metadata and linked
   // license lookup. Uploads/downloads are browser-local demo placeholders:
   // no backend calls and no file storage.
-  // -------------------------------------------------------------------------
 
   {
     method: "GET", pattern: /^\/api\/contracts$/,
@@ -332,11 +328,9 @@ export const routes = [
     },
   },
 
-  // -------------------------------------------------------------------------
   // Settings - in-memory demo persistence for harmless app preferences.
   // Refresh/logout resets these values; external side-effect actions remain
   // unregistered and fall through to the standard demo-only warning.
-  // -------------------------------------------------------------------------
 
   {
     method: "GET", pattern: /^\/api\/settings$/,
@@ -373,10 +367,8 @@ export const routes = [
     }),
   },
 
-  // -------------------------------------------------------------------------
-  // Licenses — specific routes registered before the generic /{id} routes so
+  // Licenses - specific routes registered before the generic /{id} routes so
   // they match first (the router takes the first regex match in this array).
-  // -------------------------------------------------------------------------
 
   {
     method: "GET", pattern: /^\/api\/renewals\/workbench$/,
@@ -564,9 +556,7 @@ export const routes = [
     handler: async () => ({ data: { values: [] }, error: null }),
   },
 
-  // -------------------------------------------------------------------------
-  // Licenses — generic CRUD (must come after all the specific routes above).
-  // -------------------------------------------------------------------------
+  // Licenses - generic CRUD (must come after all the specific routes above).
 
   {
     method: "GET", pattern: /^\/api\/licenses$/,
@@ -623,12 +613,10 @@ export const routes = [
     },
   },
 
-  // -------------------------------------------------------------------------
-  // Sourcing — specific routes registered before the generic /{id} routes.
+  // Sourcing - specific routes registered before the generic /{id} routes.
   // Mirrors backend/app/routes/sourcing.py, sourcing_items.py, sourcing_requests.py,
   // sourcing_conversion.py (verified 2026-07-10). Quote-document upload/download
   // and CSV export routes are intentionally left unregistered (stub toast).
-  // -------------------------------------------------------------------------
 
   {
     // Mirrors backend/app/services/sourcing_service.py:136-147 list_sourcing_request_records
@@ -698,7 +686,7 @@ export const routes = [
   },
   {
     // Mirrors backend/app/routes/sourcing_requests.py:74-104 update_sourcing_request.
-    // No "already converted" guard on the backend route — mirrored faithfully.
+    // No "already converted" guard on the backend route - mirrored faithfully.
     method: "PUT", pattern: /^\/api\/sourcing\/requests\/(?<id>\d+)$/,
     handler: async ({ params, body }) => {
       const request = findSourcingRequestOr404(Number(params.id));
@@ -711,7 +699,7 @@ export const routes = [
   },
   {
     // Mirrors backend/app/services/sourcing_service.py:212-225 delete_sourcing_request_record
-    // (cascade="all, delete-orphan" on SourcingRequest.items — see models/sourcing.py:36-41 —
+    // (cascade="all, delete-orphan" on SourcingRequest.items - see models/sourcing.py:36-41
     // deletes child items too; only the renewal-cleanup side effect runs, no orphaned-PO cleanup).
     method: "DELETE", pattern: /^\/api\/sourcing\/requests\/(?<id>\d+)$/,
     handler: async ({ params }) => {
@@ -761,7 +749,7 @@ export const routes = [
   },
   {
     // Mirrors backend/app/routes/sourcing_items.py:188-229 update_sourcing_item
-    // (exclude_unset semantics — only fields present on the body are applied).
+    // (exclude_unset semantics - only fields present on the body are applied).
     method: "PUT", pattern: /^\/api\/sourcing\/(?<id>\d+)$/,
     handler: async ({ params, body }) => {
       const item = findSourcingItemOr404(Number(params.id));
@@ -820,18 +808,16 @@ export const routes = [
     },
   },
 
-  // -------------------------------------------------------------------------
-  // Pending orders — specific routes registered before the generic /{id} routes.
+  // Pending orders - specific routes registered before the generic /{id} routes.
   // Mirrors backend/app/routes/pending_order_core.py, pending_order_items.py,
   // pending_order_conversion.py (verified 2026-07-10). Document upload/download,
   // /export and /retry-evidence-transfer are intentionally left unregistered
   // (stub toast).
-  // -------------------------------------------------------------------------
 
   {
     // THE golden-path finish line. Multipart on the wire: the router already
     // unwrapped the FormData "data" field into body. Response is
-    // list[LicenseResponse] — new license(s) + renewed predecessor(s) — see
+    // list[LicenseResponse] - new license(s) + renewed predecessor(s) - see
     // backend/app/routes/pending_order_conversion.py:28-58.
     method: "POST", pattern: /^\/api\/pending-orders\/(?<id>\d+)\/convert$/,
     handler: async ({ params, body }) => {
@@ -840,7 +826,7 @@ export const routes = [
     },
   },
   {
-    // Mirrors backend/app/routes/pending_order_conversion.py:61-76 — the body is
+    // Mirrors backend/app/routes/pending_order_conversion.py:61-76 - the body is
     // a JSON ARRAY of BatchConvertItem; same list[LicenseResponse] response contract.
     method: "POST", pattern: /^\/api\/pending-orders\/(?<id>\d+)\/convert-all$/,
     handler: async ({ params, body }) => {
@@ -878,7 +864,7 @@ export const routes = [
   },
   {
     // Mirrors backend/app/routes/pending_order_items.py:122-147 delete_pending_order_item
-    // (runs handle_delete_side_effects with parent_order_id=None — renewal cleanup only,
+    // (runs handle_delete_side_effects with parent_order_id=None - renewal cleanup only,
     // no orphaned-PO cleanup; the order survives even with zero items).
     method: "DELETE", pattern: /^\/api\/pending-orders\/(?<id>\d+)\/items\/(?<itemId>\d+)$/,
     handler: async ({ params }) => {
@@ -924,7 +910,7 @@ export const routes = [
   },
   {
     // Mirrors backend/app/services/pending_order_service.py:100-114 apply_pending_order_update
-    // (PendingOrderUpdate fields only — poNumber, supplier, notes, status; exclude_unset).
+    // (PendingOrderUpdate fields only - poNumber, supplier, notes, status; exclude_unset).
     method: "PUT", pattern: /^\/api\/pending-orders\/(?<id>\d+)$/,
     handler: async ({ params, body }) => {
       const order = findPendingOrderOr404(Number(params.id));

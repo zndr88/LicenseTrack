@@ -64,7 +64,7 @@ export default function Sidebar({ page, setPage, setSelectedId, currentUser, not
 
       {/* Nav */}
       <div className="sb-nav" style={{ flex: 1, overflowY: "auto" }}>
-        {/* Collapse toggle row — PIPELINE label */}
+        {/* Collapse toggle row - PIPELINE label */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: collapsed ? "flex-end" : "space-between", padding: collapsed ? "6px 10px 2px 0" : "0 6px 0 0" }}>
           {!collapsed && <div className="sb-section-label" style={{ margin: 0 }}>PIPELINE</div>}
           <button
@@ -89,7 +89,7 @@ export default function Sidebar({ page, setPage, setSelectedId, currentUser, not
         {collapsed && <div style={{ height: 8 }} />}
         {referenceItems.map(renderNavItem)}
 
-        {/* Bottom items (viewer-only My Settings) — no section label */}
+        {/* Bottom items (viewer-only My Settings) - no section label */}
         {bottomItems.map(renderNavItem)}
       </div>
 

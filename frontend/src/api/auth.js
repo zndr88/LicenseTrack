@@ -3,19 +3,19 @@
  * and password change.
  *
  * Endpoints:
- *   GET  /api/auth/mode             - public auth mode
- *   GET  /api/auth/session          - cookie-backed session state
- *   POST /api/auth/login            - obtain JWT and set session cookie
- *   POST /api/auth/logout           - clear session cookie
- *   POST /api/auth/change-password  - change own password (authenticated)
- *   GET  /api/users/me              - current user profile
+ *   GET  /api/auth/mode - public auth mode
+ *   GET  /api/auth/session - cookie-backed session state
+ *   POST /api/auth/login - obtain JWT and set session cookie
+ *   POST /api/auth/logout - clear session cookie
+ *   POST /api/auth/change-password - change own password (authenticated)
+ *   GET  /api/users/me - current user profile
  */
 
 import { apiUrl, clearToken, get, post, setToken } from "./client.js";
 
 /**
  * Detect the public authentication mode.
- * Uses plain fetch (no auth header) — safe to call before any token exists.
+ * Uses plain fetch (no auth header) - safe to call before any token exists.
  * Defaults to local login on any error so normal auth is unaffected.
  */
 export async function getAuthMode() {

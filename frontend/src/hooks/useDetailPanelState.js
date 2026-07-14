@@ -80,7 +80,7 @@ export function useDetailPanelState({
     setShowMaintenanceModal(false);
   }, [license.id]);
 
-  // ── Custom fields ──────────────────────────────────────────────────────────
+  // Custom fields
   const {
     customFieldValues,
     setCustomFieldValues,
@@ -89,7 +89,7 @@ export function useDetailPanelState({
     customFieldsLoading,
   } = useCustomFields(license?.id);
 
-  // ── Document management ────────────────────────────────────────────────────
+  // Document management
   const {
     documents,
     docsLoading,
@@ -201,7 +201,7 @@ export function useDetailPanelState({
     });
   };
 
-  // ── Derived / computed ─────────────────────────────────────────────────────
+  // Derived / computed
   const comp = license.isCompletenessExempt
     ? { percentage: null, checks: [], isComplete: false, isPending: false, isExempt: true }
     : getCompleteness({ ...license, documents: liveDocs }, globalSettings.mandatoryFields);
@@ -218,7 +218,7 @@ export function useDetailPanelState({
   const vis = userSettings.visibleInDetail;
   const cfBySection = customFieldsBySection;
 
-  // ── Field edit modal ───────────────────────────────────────────────────────
+  // Field edit modal
   const openFieldEdit = (config) => setFieldEdit(config);
   const closeFieldEdit = () => setFieldEdit(null);
   const openInvoiceNumbersEdit = () => setInvoiceNumbersEdit(true);
@@ -231,7 +231,7 @@ export function useDetailPanelState({
     closeFieldEdit();
   };
 
-  // ── Full edit ──────────────────────────────────────────────────────────────
+  // Full edit
   const handleFullEditSave = async () => {
     setSavingLicense(true);
     setEditError(null);
@@ -272,7 +272,7 @@ export function useDetailPanelState({
     setEditingLicense(true);
   };
 
-  // ── Custom field save factory ──────────────────────────────────────────────
+  // Custom field save factory
   const makeCustomFieldSaveFn = (fieldDef) => async (rawValue) => {
     const normalizedValue = fieldDef.fieldType === "currency"
       ? (parseLocalizedNumber(rawValue, userSettings) ?? rawValue)

@@ -1,8 +1,8 @@
 import { getPoTotal } from "../../../utils/helpers.js";
 import { formatDate, formatDateTime } from "../../../utils/formatting.js";
 
-// Maps export column key → importable snake_case field name.
-// Columns absent from this map are computed/metadata — they keep their display label.
+// Maps export column key -> importable snake_case field name.
+// Columns absent from this map are computed/metadata - they keep their display label.
 const IMPORTABLE_FIELD_NAMES = {
   licenseRef:       "license_ref",
   externalRef:      "external_ref",
@@ -36,14 +36,14 @@ const IMPORTABLE_FIELD_NAMES = {
  * Triggers a browser download as a side effect.
  *
  * Default (canonical) mode:
- *   - dates as ISO YYYY-MM-DD
- *   - decimals with "." separator
- *   - a "Currency" fixed column carries the ISO currency code for all money values
+ * - dates as ISO YYYY-MM-DD
+ * - decimals with "." separator
+ * - a "Currency" fixed column carries the ISO currency code for all money values
  *
  * Localized mode ({ localized: true, userSettings }):
- *   - dates formatted per user's dateFormat preference
- *   - numbers formatted per user's numberFormatLocale (locale decimal/group separators)
- *   - Currency column still present as ISO code
+ * - dates formatted per user's dateFormat preference
+ * - numbers formatted per user's numberFormatLocale (locale decimal/group separators)
+ * - Currency column still present as ISO code
  *
  * @param {object[]} rows - The filtered license array (already sorted/filtered)
  * @param {object[]} columns - activeColumns filtered to visible only

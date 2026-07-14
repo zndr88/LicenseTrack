@@ -120,7 +120,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
         )}
       >
         <div className="modal-bd">
-          {/* Plugin slot — always mounted so it can discover actions; visually hidden when no actions */}
+          {/* Plugin slot - always mounted so it can discover actions; visually hidden when no actions */}
           {isNewOrder && (
             <div className="plugin-slot-form-row" style={slotHasActions ? undefined : { display: "none" }}>
               <PluginSlot
@@ -157,7 +157,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
             </div>
           )}
 
-          {/* Document upload — always shown in new-PO mode */}
+          {/* Document upload - always shown in new-PO mode */}
           {isNewOrder && (
             <div className="fg" style={{ marginBottom: 4 }}>
               <label>Upload Purchase Order Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></label>
@@ -187,7 +187,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
             <textarea id="po-notes" className="fi" rows={2} placeholder="Any notes..." style={{ resize: "vertical" }} {...register("notes")} />
           </div>
 
-          {/* Inline line items — new order only */}
+          {/* Inline line items - new order only */}
           {isNewOrder && (
             <div style={{ borderTop: "1px solid var(--border-lt)", paddingTop: 12, marginTop: 8 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>

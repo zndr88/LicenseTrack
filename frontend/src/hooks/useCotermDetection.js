@@ -7,7 +7,7 @@ import { useMemo } from "react";
  * (case-insensitive) whose linked predecessor licenses share the same endDate.
  *
  * @param {Array} sourcingItems - full list of sourcing items
- * @param {Array} licenses      - full license list (used to look up predecessor endDate)
+ * @param {Array} licenses - full license list (used to look up predecessor endDate)
  * @returns {Array<{ publisher: string, endDate: string|null, ids: number[] }>}
  */
 export function useCotermDetection(sourcingItems, licenses) {

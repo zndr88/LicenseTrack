@@ -1,7 +1,7 @@
 /**
  * Zod schemas for Settings section save validation.
  * Each schema covers only the fields validated before the API call.
- * Payload shapes remain unchanged — schemas only gate the save, not transform data.
+ * Payload shapes remain unchanged - schemas only gate the save, not transform data.
  */
 import { z } from "zod";
 
@@ -15,7 +15,7 @@ function isValidSender(v) {
   return EMAIL_REGEX.test(email);
 }
 
-/** NotificationsSection — manager email (optional) + send hour (0-23). */
+/** NotificationsSection - manager email (optional) + send hour (0-23). */
 export const notificationsSaveSchema = z.object({
   managerEmail: z.string().refine(
     v => { const t = (v ?? "").trim(); return !t || EMAIL_REGEX.test(t); },
@@ -26,7 +26,7 @@ export const notificationsSaveSchema = z.object({
     .max(23, { message: "Must be an hour between 0 and 23." }),
 });
 
-/** SmtpSection — sender only; used when emailEnabled is false. */
+/** SmtpSection - sender only; used when emailEnabled is false. */
 export const smtpSaveSchema = z.object({
   smtpSender: z.string().refine(isValidSender, {
     message: "Sender must be a valid email address or 'Name <email@example.com>'.",
@@ -34,7 +34,7 @@ export const smtpSaveSchema = z.object({
 });
 
 /**
- * SmtpSection — full connection check used when emailEnabled is true
+ * SmtpSection - full connection check used when emailEnabled is true
  * and before sending a test email (regardless of enabled state).
  * Host is required; port must be 1-65535; sender must be valid if set.
  */
@@ -49,7 +49,7 @@ export const smtpConnectionSchema = z.object({
 });
 
 /**
- * OidcSection — used only when oidcEnabled is true.
+ * OidcSection - used only when oidcEnabled is true.
  * Discovery URL must be a valid https:// URL; client ID must be non-empty.
  */
 export const oidcEnabledSaveSchema = z.object({
@@ -62,7 +62,7 @@ export const oidcEnabledSaveSchema = z.object({
   oidcClientId: z.string().min(1, { message: "Client ID is required." }),
 });
 
-/** BackupSection — backup hour (0-23), keep count (1-100), and audit retention (fixed set). */
+/** BackupSection - backup hour (0-23), keep count (1-100), and audit retention (fixed set). */
 export const backupSaveSchema = z.object({
   backupHour: z.number().int()
     .min(0, { message: "Must be an hour between 0 and 23." })

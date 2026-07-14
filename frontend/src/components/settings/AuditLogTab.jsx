@@ -2,9 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import Icon from "../ui/Icon.jsx";
 import { getAuditLog, exportAuditLog } from "../../api/auditLog.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -18,7 +16,7 @@ function daysAgoStr(n) {
 
 function formatTimestamp(ts) {
   if (!ts) return "";
-  // The backend returns naive UTC datetimes — append "Z" so JS parses as UTC.
+  // The backend returns naive UTC datetimes - append "Z" so JS parses as UTC.
   const d = new Date(ts.endsWith("Z") ? ts : ts + "Z");
   const pad = (n) => String(n).padStart(2, "0");
   return (
@@ -27,7 +25,7 @@ function formatTimestamp(ts) {
   );
 }
 
-// Map action category → filter value sent to API
+// Map action category -> filter value sent to API
 const ACTION_CATEGORIES = [
   { label: "All", value: "" },
   { label: "Auth", value: "auth" },
@@ -55,9 +53,7 @@ function actionBadgeStyle(action) {
   return { background: "var(--bg-2)", color: "var(--text-2)" };
 }
 
-// ---------------------------------------------------------------------------
 // Component
-// ---------------------------------------------------------------------------
 
 export default function AuditLogTab() {
   const [entries, setEntries] = useState([]);
@@ -82,10 +78,10 @@ export default function AuditLogTab() {
   // Derive the `action` param from the selected category.
   // For "Procurement" we send two separate requests or handle server-side with one partial match.
   // The backend does partial ilike match, so "sourcing" also matches "sourcing.*" and "po" matches "po.*".
-  // For "Procurement" we need to pick one — use a comma-separated value and split it into two calls.
+  // For "Procurement" we need to pick one - use a comma-separated value and split it into two calls.
   // Simpler: pass the raw category value as two separate filter calls, OR just use one of them.
   // Cleanest: use "sourcing" OR "po" but the API only accepts one action filter.
-  // We'll handle this by fetching twice for Procurement and merging — but that's complex.
+  // We'll handle this by fetching twice for Procurement and merging - but that's complex.
   // Alternative: pass "sourcing" and rely on `po` being a different prefix; or just use "" and local filter.
   // For now: if the selected category value contains a comma, we pass the first part to the API
   // and filter locally. This is acceptable given typical log volumes.
@@ -166,7 +162,7 @@ export default function AuditLogTab() {
   return (
     <div style={{ marginTop: 16 }}>
 
-      {/* ── Filter bar ── */}
+      {/* Filter bar */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
         <input
           className="fi"
@@ -216,7 +212,7 @@ export default function AuditLogTab() {
         )}
       </div>
 
-      {/* ── Table ── */}
+      {/* Table */}
       {loadError ? (
         <div style={{ padding: "10px 12px", background: "var(--red-m)", border: "1px solid var(--red)", borderRadius: "var(--r)", fontSize: 13, color: "var(--red-text)", marginBottom: 12 }}>
           {loadError}
@@ -290,7 +286,7 @@ export default function AuditLogTab() {
         </div>
       )}
 
-      {/* ── Pagination ── */}
+      {/* Pagination */}
       {total > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16, fontSize: 13, color: "var(--text-2)" }}>
           <button

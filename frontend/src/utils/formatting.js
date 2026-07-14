@@ -1,14 +1,14 @@
 /**
  * Locale-aware formatting utilities.
  *
- * parseLocalizedNumber — converts a user-typed number string (any locale) to
+ * parseLocalizedNumber - converts a user-typed number string (any locale) to
  *   a canonical decimal string ("1234.50") or null.
  *
- * All other functions are display-only — they produce human-readable strings
+ * All other functions are display-only - they produce human-readable strings
  * from canonical server values.
  */
 
-// ── Locale separator detection ───────────────────────────────────────────────
+// Locale separator detection
 
 function getSupportedLocale(locale) {
   try {
@@ -31,7 +31,7 @@ function getGroupSep(locale) {
   return grp ? grp.value : "";
 }
 
-// ── parseLocalizedNumber ─────────────────────────────────────────────────────
+// parseLocalizedNumber
 
 /**
  * Convert a user-typed price/quantity string to a canonical decimal string
@@ -82,7 +82,7 @@ export function parseLocalizedNumber(raw, settings) {
   return s;
 }
 
-// ── formatPriceDisplay ───────────────────────────────────────────────────────
+// formatPriceDisplay
 
 /**
  * Format a canonical decimal string for display in the user's locale.
@@ -107,7 +107,7 @@ export function formatPriceDisplay(canonical, settings) {
   }
 }
 
-// ── formatMoney ──────────────────────────────────────────────────────────────
+// formatMoney
 
 /**
  * Format a canonical decimal string as a currency display string.
@@ -135,7 +135,7 @@ export function formatMoney(canonical, currency, settings) {
   }
 }
 
-// ── formatDate ───────────────────────────────────────────────────────────────
+// formatDate
 
 /**
  * Format a YYYY-MM-DD server string into the user's preferred date format.
@@ -158,7 +158,7 @@ export function formatDate(isoDate, settings) {
   }
 }
 
-// ── formatDateTime ───────────────────────────────────────────────────────────
+// formatDateTime
 
 /**
  * Format an ISO datetime string into "date time" using user settings.
@@ -217,7 +217,7 @@ export function formatDateTime(iso, settings) {
   return `${datePart} ${timePart}`;
 }
 
-// ── formatNumber ─────────────────────────────────────────────────────────────
+// formatNumber
 
 /**
  * Format an integer for display in the user's locale (thousands separators).
@@ -236,7 +236,7 @@ export function formatNumber(value, settings) {
   }
 }
 
-// ── formatFileSize ───────────────────────────────────────────────────────────
+// formatFileSize
 
 /**
  * Format a byte count as a human-readable size string.

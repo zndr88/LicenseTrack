@@ -1,11 +1,11 @@
 /**
- * Document API — upload, list, download, and delete license documents.
+ * Document API - upload, list, download, and delete license documents.
  *
  * Endpoints:
- *   POST   /api/licenses/{licenseId}/documents       — upload a file
- *   GET    /api/licenses/{licenseId}/documents       — list documents for a license
- *   GET    /api/documents/{documentId}/download      — stream / download a file
- *   DELETE /api/documents/{documentId}               — delete record + file from disk
+ *   POST   /api/licenses/{licenseId}/documents - upload a file
+ *   GET    /api/licenses/{licenseId}/documents - list documents for a license
+ *   GET    /api/documents/{documentId}/download - stream / download a file
+ *   DELETE /api/documents/{documentId} - delete record + file from disk
  */
 
 import { del, get, post } from "./client.js";
@@ -14,8 +14,8 @@ import { del, get, post } from "./client.js";
  * Upload a file and attach it to a license.
  *
  * @param {number} licenseId
- * @param {File} file         — the File object from an <input type="file">
- * @param {string} category   — DocumentCategory value, e.g. "invoice" | "contract" | "other"
+ * @param {File} file - the File object from an <input type="file">
+ * @param {string} category - DocumentCategory value, e.g. "invoice" | "contract" | "other"
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
 export async function uploadDocument(licenseId, file, category) {
@@ -23,7 +23,7 @@ export async function uploadDocument(licenseId, file, category) {
   formData.append("file", file);
   formData.append("category", category);
 
-  // Pass FormData directly — client.js omits Content-Type so the browser sets
+  // Pass FormData directly - client.js omits Content-Type so the browser sets
   // the correct multipart boundary automatically.
   return post(`/api/licenses/${licenseId}/documents`, formData);
 }
@@ -40,10 +40,10 @@ export async function getDocuments(licenseId) {
 
 /**
  * Download a document and trigger a browser file-save dialog.
- * Returns { data: null, error } — the download is handled as a side-effect.
+ * Returns { data: null, error } - the download is handled as a side-effect.
  *
  * @param {number} documentId
- * @param {string} [filename]   — suggested filename for the download dialog
+ * @param {string} [filename] - suggested filename for the download dialog
  * @returns {Promise<{ data: null, error: string | null }>}
  */
 export async function downloadDocument(documentId, filename) {

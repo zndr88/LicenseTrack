@@ -69,7 +69,7 @@ export default function LicensesPage({
     dismissedAttentionIds, setDismissedAttentionIds,
   } = useLicenseTableState();
 
-  // ── Local state ──────────────────────────────────────────────────
+  // Local state
   useEffect(() => {
     if (fullViewProp) onSetStatsVisible(false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentional mount-only sync
@@ -95,7 +95,7 @@ export default function LicensesPage({
     customFieldValuesMap,
   } = useLicensesPageData({ showError, includeContracts: Boolean(selectedId) });
 
-  // ── Derived data ─────────────────────────────────────────────────
+  // Derived data
   const { filtered, sorted, stats, enriched, paginatedItems, totalPages, departments } = useLicenseData(licenses, {
     search, statusFilters,
     columnFilters,
@@ -171,7 +171,7 @@ export default function LicensesPage({
     onNavigateToSourcing,
   });
 
-  // ── UI handlers ───────────────────────────────────────────────────
+  // UI handlers
   useEffect(() => {
     const handler = (e) => {
       if (e.key === "Escape" && fullViewProp) {
@@ -202,15 +202,15 @@ export default function LicensesPage({
     });
   }, [setSelectedId]);
 
-  // ── Derived column order ──────────────────────────────────────────
-  // Custom field columns — dynamic, derived from admin-defined definitions
+  // Derived column order
+  // Custom field columns - dynamic, derived from admin-defined definitions
   const customFieldColDefs = makeCustomFieldColumnDefs(customFieldDefs);
 
   const allColumnDefs = [...COLUMN_DEFS, ...customFieldColDefs];
   const activeColumns = orderColumnDefs(allColumnDefs, userSettings.columnOrder);
   const visList = mergeVisibleColumns(userSettings.visibleInList);
 
-  // ── DetailPanel ───────────────────────────────────────────────────
+  // DetailPanel
   const selectedLicense = licenses.find((l) => l.id === selectedId);
 
   return (

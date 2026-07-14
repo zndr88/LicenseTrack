@@ -10,12 +10,12 @@ import { parseLocalizedNumber } from "../../utils/formatting.js";
  * Single-field edit modal.
  *
  * Props:
- *   licenseId     {number}  - license ID
- *   fieldKey      {string}  - camelCase field name, e.g. "supplier"
- *   fieldLabel    {string}  - human-readable label, e.g. "Supplier"
- *   currentValue  {string}  - pre-filled value
- *   inputType     {string}  - "text" | "date" | "email" | "number" | "textarea" | "select"
- *   selectOptions {Array}   - [{value, label}] required when inputType="select"
+ *   licenseId     {number} - license ID
+ *   fieldKey      {string} - camelCase field name, e.g. "supplier"
+ *   fieldLabel    {string} - human-readable label, e.g. "Supplier"
+ *   currentValue  {string} - pre-filled value
+ *   inputType     {string} - "text" | "date" | "email" | "number" | "textarea" | "select"
+ *   selectOptions {Array} - [{value, label}] required when inputType="select"
  *   onSave        {Function(updatedLicense)} - called on successful save
  *   onClose       {Function} - called to dismiss modal
  */

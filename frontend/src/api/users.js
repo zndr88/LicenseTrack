@@ -3,15 +3,15 @@
  * scope assignment.
  *
  * Endpoints:
- *   GET    /api/users                     - list users
- *   POST   /api/users                     - create user
- *   PUT    /api/users/{id}                - update user profile/provider/role
- *   PUT    /api/users/{id}/role           - legacy role-only update
+ *   GET    /api/users - list users
+ *   POST   /api/users - create user
+ *   PUT    /api/users/{id} - update user profile/provider/role
+ *   PUT    /api/users/{id}/role - legacy role-only update
  *   PUT    /api/users/{id}/reset-password - force password reset
- *   DELETE /api/users/{id}                - delete user
- *   GET    /api/licenses/departments      - list assignable departments
- *   GET    /api/users/{id}/departments    - list user department assignments
- *   PUT    /api/users/{id}/departments    - replace department assignments
+ *   DELETE /api/users/{id} - delete user
+ *   GET    /api/licenses/departments - list assignable departments
+ *   GET    /api/users/{id}/departments - list user department assignments
+ *   PUT    /api/users/{id}/departments - replace department assignments
  */
 
 import { del, get, post, put } from "./client.js";
@@ -50,7 +50,7 @@ export async function updateUser(userId, userData) {
  * Change the role of an existing user (admin only).
  *
  * @param {number} userId
- * @param {string} role — "admin" | "editor" | "viewer"
+ * @param {string} role - "admin" | "editor" | "viewer"
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
 export async function updateRole(userId, role) {

@@ -1,7 +1,7 @@
 import { buildLicense, buildSeedData, computeExpirationStatus } from "./fixtures.js";
 import { daysUntil } from "./time.js";
 
-/** Module-level in-memory state. Refresh or logout wipes it — that IS the reset story. */
+/** Module-level in-memory state. Refresh or logout wipes it - that IS the reset story. */
 export const store = {
   licenses: [],
   contracts: [],
@@ -111,7 +111,7 @@ export function nextId() {
  * Recompute a license's derived fields after a mutation (create/update/patch/
  * renewal transitions) and bump updatedAt. Mutates and returns the license.
  * Mirrors the enrichment backend routes perform after every write
- * (compute_days_until_expiry / compute_expiration_status — see
+ * (compute_days_until_expiry / compute_expiration_status - see
  * backend/app/routes/license_renewals.py:35-47, license_maintenance.py:36-48).
  */
 export function decorateLicense(license) {
@@ -128,7 +128,7 @@ export function decorateLicense(license) {
 /**
  * Dashboard statistics derived from the live store.
  * Mirrors backend/app/services/license_service.py::compute_stats (verified
- * 2026-07-10, license_service.py:194-280) — counts by expirationStatus,
+ * 2026-07-10, license_service.py:194-280) - counts by expirationStatus,
  * incompleteness, and annual cost (quantity x unitPrice) grouped by currency
  * for active/expiring/perpetual subscription|saas|maintenance licenses that
  * have not been renewed onward.
@@ -174,7 +174,7 @@ export function computeStats() {
         const cur = lic.currency || "EUR";
         annualCostByCurrency[cur] = (annualCostByCurrency[cur] || 0) + qty * price;
       }
-      // Perpetual, OEM, Freeware contribute zero — same as backend.
+      // Perpetual, OEM, Freeware contribute zero - same as backend.
     }
   }
 
@@ -549,15 +549,12 @@ export function renameContractNumberOnLicenses(oldContractNumber, newContractNum
   }
 }
 
-// -----------------------------------------------------------------------
 // Sourcing / pending-order helpers.
-//
 // Mirrors backend/app/services/sourcing_service.py and
 // backend/app/schemas/pending_order.py's currency formatting
 // (verified 2026-07-10). Exported as function DECLARATIONS (not const
 // arrows) so they're hoisted and safe to import from fixtures.js despite
 // the store.js <-> fixtures.js circular import.
-// -----------------------------------------------------------------------
 
 const CURRENCY_SYMBOLS = { EUR: "€", USD: "$", GBP: "£" };
 
@@ -680,7 +677,7 @@ export function buildSourcingRequestResponse(request) {
   };
 }
 
-/** Mirrors backend/app/services/sourcing_service.py — builds a full SourcingItemResponse-shaped item. */
+/** Mirrors backend/app/services/sourcing_service.py - builds a full SourcingItemResponse-shaped item. */
 export function buildSourcingItem(payload, overrides = {}) {
   const now = new Date().toISOString();
   const renewalForLicenseId = payload.renewalForLicenseId ?? null;
@@ -713,7 +710,7 @@ export function buildSourcingItem(payload, overrides = {}) {
  * Side effects after a sourcing item is deleted from the store.
  * Mirrors backend/app/services/sourcing_service.py:26-58 handle_delete_side_effects.
  * Pass parentOrderId: null to skip the orphaned-PO cleanup (mirrors the
- * sourcing-request delete path, which only performs the renewal cleanup —
+ * sourcing-request delete path, which only performs the renewal cleanup
  * see delete_sourcing_request_record, sourcing_service.py:212-225).
  */
 export function handleSourcingItemDeleteSideEffects({ renewalLicenseId, parentOrderId }) {
@@ -917,16 +914,13 @@ export function mergeCotermSourcingItems(ids) {
   return merged;
 }
 
-// -----------------------------------------------------------------------
 // Pending-order lifecycle: CRUD, item management, and the decisive
-// PO → license conversion (single and batch).
-//
+// PO -> license conversion (single and batch).
 // Mirrors backend/app/services/pending_order_service.py,
 // pending_order_conversion_service.py, conversion_response_service.py,
 // renewal_orchestrator.py, lifecycle_rules.py, renewal_workflow.py and
 // conversion/{license_converter,pending_order_status}.py
 // (all verified 2026-07-10).
-// -----------------------------------------------------------------------
 
 /** Mirrors backend/app/services/pending_order_service.py:213-215 ensure_pending_order_editable. */
 export function ensurePendingOrderEditable(order, action = "modify") {
@@ -963,7 +957,7 @@ export function deletePendingOrderRecord(order) {
 
 /**
  * Mirrors backend/app/services/pending_order_service.py:158-174 + 225-241
- * (add_pending_order_items_bulk_record + _build_pending_order_item — status,
+ * (add_pending_order_items_bulk_record + _build_pending_order_item - status,
  * renewal_for_license_id and sourcing_request_id are stripped from the payload;
  * new line items are created with status "converted").
  */
@@ -1013,7 +1007,7 @@ function defaultMaintenanceCoverage(licenseType) {
 
 /**
  * Mirrors backend/app/schemas/pending_order.py:124-211 PendingOrderConvertRequest /
- * BatchConvertItem defaults (the subset the demo needs — enum defaults and
+ * BatchConvertItem defaults (the subset the demo needs - enum defaults and
  * empty-string date coercion).
  */
 function normalizeConvertPayload(payload) {
@@ -1173,7 +1167,7 @@ function buildConversionResponse(newLicenseEntries, predecessorIds) {
 /**
  * THE decisive transition: convert a pending order into live license(s).
  * Mirrors backend/app/services/pending_order_conversion_service.py:110-267
- * convert_pending_order_to_licenses (minus file/evidence transfer — documents
+ * convert_pending_order_to_licenses (minus file/evidence transfer - documents
  * are stubbed in the demo). Returns list[LicenseResponse]: new licenses plus
  * renewed predecessors.
  */

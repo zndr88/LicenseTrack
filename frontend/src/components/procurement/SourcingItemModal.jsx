@@ -65,7 +65,7 @@ const SourcingItemModal = ({
   const pluginSlot = pendingOrderId ? "pendingOrder.line.edit.actions" : "sourcing.item.edit.actions";
   const pluginTargetType = pendingOrderId ? "pending_order_item" : "sourcing_item";
 
-  // "new request" mode: add mode with no parent request — supports multi-line and quote parse
+  // "new request" mode: add mode with no parent request - supports multi-line and quote parse
   const isNewRequest = !item?.id && !requestId;
 
   const {
@@ -273,7 +273,7 @@ const SourcingItemModal = ({
         )}
       >
         <div className="modal-bd">
-          {/* Quote upload — always available (document attaches to the request).
+          {/* Quote upload - always available (document attaches to the request).
               Parse Quote action is layered on below when a plugin is active. */}
           {isNewRequest && (
             <>

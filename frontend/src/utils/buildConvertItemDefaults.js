@@ -1,8 +1,8 @@
 /**
  * Builds the useForm defaultValues array for ConvertAllModal.
- * Pure function — no React, safe to call outside components or in tests.
+ * Pure function - no React, safe to call outside components or in tests.
  *
- * @param {object} order    - pending order (must have .poNumber, .supplier, .items[])
+ * @param {object} order - pending order (must have .poNumber, .supplier, .items[])
  * @param {Array}  licenses - full license list used to prefill renewal fields
  * @returns {Array<object>} - one default-value object per order item
  */

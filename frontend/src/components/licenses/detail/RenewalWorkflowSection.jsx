@@ -89,7 +89,7 @@ export default function RenewalWorkflowSection({
         </div>
       )}
 
-      {/* Renewed — successor exists */}
+      {/* Renewed - successor exists */}
       {exp.status === "renewed" && license.renewedToId && (() => {
         const successor = allLicenses.find((l) => l.id === license.renewedToId);
         const cotermCount = successor?.cotermFromIds?.length ?? 0;

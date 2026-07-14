@@ -1,7 +1,7 @@
-// ─── Utility Functions ───────────────────────────────────────────────
+// Utility Functions
 export const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// ─── Permission Helpers ───────────────────────────────────────────────
+// Permission Helpers
 export const isAdmin = (user) => user?.role === "admin";
 export const isEditorOrAdmin = (user) => user?.role === "admin" || user?.role === "editor";
 export const canEdit = (user) => isEditorOrAdmin(user);
@@ -96,7 +96,7 @@ export const getExpirationStatus = (endDate, notificationDays, retired, lifecycl
   if (retired) return { status: "retired", days: null, label: "Retired" };
   if (!endDate || endDate === "Perpetual") return { status: "perpetual", days: null, label: "Perpetual" };
   const days = daysBetween(todayStr(), endDate);
-  // End date passed — either renewed (successor exists) or expired (no successor)
+  // End date passed - either renewed (successor exists) or expired (no successor)
   if (days < 0) {
     if (renewedToId) return { status: "renewed", days: Math.abs(days), label: "Renewed" };
     return { status: "expired", days: Math.abs(days), label: `Expired ${Math.abs(days)}d ago` };

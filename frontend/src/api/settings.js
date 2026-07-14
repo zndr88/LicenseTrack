@@ -1,13 +1,13 @@
 /**
- * Settings API — per-user preferences and admin-only global settings.
+ * Settings API - per-user preferences and admin-only global settings.
  *
  * User settings endpoints (any authenticated user):
- *   GET /api/settings        — retrieve own settings
- *   PUT /api/settings        — update own settings
+ *   GET /api/settings - retrieve own settings
+ *   PUT /api/settings - update own settings
  *
  * Global settings endpoints (admin only):
- *   GET /api/settings/global — retrieve singleton global settings
- *   PUT /api/settings/global — update global settings
+ *   GET /api/settings/global - retrieve singleton global settings
+ *   PUT /api/settings/global - update global settings
  */
 
 import { get, put, post, patch, del } from "./client.js";
@@ -24,7 +24,7 @@ export async function getSettings() {
 /**
  * Update the authenticated user's own settings (partial updates supported).
  *
- * @param {object} settingsData — matches UserSettingsUpdate schema
+ * @param {object} settingsData - matches UserSettingsUpdate schema
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
 export async function updateSettings(settingsData) {
@@ -43,7 +43,7 @@ export async function getGlobalSettings() {
 /**
  * Update global settings (admin only, partial updates supported).
  *
- * @param {object} settingsData — matches GlobalSettingsUpdate schema
+ * @param {object} settingsData - matches GlobalSettingsUpdate schema
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
 export async function updateGlobalSettings(settingsData) {
@@ -100,7 +100,7 @@ export async function listBackups() {
  * Upload a database backup zip and restore the database (admin only).
  * After a successful call the server will send itself SIGTERM and restart.
  *
- * @param {File} file — .zip database backup file
+ * @param {File} file - .zip database backup file
  * @returns {Promise<{ data: { status: string } | null, error: string | null }>}
  */
 export async function restoreBackup(file) {

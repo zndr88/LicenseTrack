@@ -1,14 +1,14 @@
 /**
- * License API — CRUD, stats, and CSV export.
+ * License API - CRUD, stats, and CSV export.
  *
  * Endpoints:
- *   GET    /api/licenses           — list licenses (active by default)
- *   GET    /api/licenses/stats     — dashboard statistics
- *   GET    /api/licenses/export    — download CSV
- *   GET    /api/licenses/{id}      — single license
- *   POST   /api/licenses           — create license
- *   PUT    /api/licenses/{id}      — update license
- *   DELETE /api/licenses/{id}      — delete license (+ its documents)
+ *   GET    /api/licenses - list licenses (active by default)
+ *   GET    /api/licenses/stats - dashboard statistics
+ *   GET    /api/licenses/export - download CSV
+ *   GET    /api/licenses/{id} - single license
+ *   POST   /api/licenses - create license
+ *   PUT    /api/licenses/{id} - update license
+ *   DELETE /api/licenses/{id} - delete license (+ its documents)
  */
 
 import { del, get, post, put, request } from "./client.js";
@@ -45,7 +45,7 @@ export async function getLicense(id) {
 /**
  * Create a new license.
  *
- * @param {object} licenseData — matches LicenseCreate schema
+ * @param {object} licenseData - matches LicenseCreate schema
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
 export async function createLicense(licenseData) {
@@ -56,7 +56,7 @@ export async function createLicense(licenseData) {
  * Update an existing license (partial updates supported).
  *
  * @param {number} id
- * @param {object} licenseData — matches LicenseUpdate schema
+ * @param {object} licenseData - matches LicenseUpdate schema
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
 export async function updateLicense(id, licenseData) {
@@ -126,8 +126,8 @@ export async function initiateRenewal(id) {
  * PATCH a single named field on a license.
  *
  * @param {number} id
- * @param {string} field  — camelCase field name, e.g. "publisherName"
- * @param {string} value  — new value (always sent as string; backend coerces dates)
+ * @param {string} field - camelCase field name, e.g. "publisherName"
+ * @param {string} value - new value (always sent as string; backend coerces dates)
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
 export async function patchLicenseField(id, field, value) {
@@ -169,7 +169,7 @@ export async function getAllCustomFieldValues() {
 
 /**
  * PUT /api/licenses/{id}/custom-fields
- * Partial upsert — only fields in the payload are updated.
+ * Partial upsert - only fields in the payload are updated.
  * payload: { values: [{ customFieldDefId, valueText?, valueCurrency? }] }
  *
  * @param {number} licenseId
@@ -182,7 +182,7 @@ export async function upsertCustomFieldValues(licenseId, payload) {
 
 /**
  * Trigger a CSV export and initiate a browser file download.
- * Returns { data: null, error } — the download is handled as a side-effect.
+ * Returns { data: null, error } - the download is handled as a side-effect.
  *
  * @returns {Promise<{ data: null, error: string | null }>}
  */

@@ -8,9 +8,9 @@ import Icon from "./Icon.jsx";
  * per-page variants so they never drift apart.
  *
  * Props:
- *   document     - object exposing `originalFilename` or `original_filename`.
- *   onDownload   - callback invoked with the document when clicked.
- *   labelPrefix  - optional short prefix shown before the filename.
+ *   document - object exposing `originalFilename` or `original_filename`.
+ *   onDownload - callback invoked with the document when clicked.
+ *   labelPrefix - optional short prefix shown before the filename.
  */
 export default function DocumentButton({ document, onDownload, labelPrefix = "" }) {
   const filename = document.originalFilename ?? document.original_filename;

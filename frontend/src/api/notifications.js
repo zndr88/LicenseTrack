@@ -1,9 +1,9 @@
 /**
- * Notifications API — aggregated license alerts.
+ * Notifications API - aggregated license alerts.
  *
  * Endpoint:
- *   GET /api/notifications — returns expiring, expired, and incomplete alerts
- *                            sorted by severity (critical → warning → info)
+ *   GET /api/notifications - returns expiring, expired, and incomplete alerts
+ *                            sorted by severity (critical -> warning -> info)
  *                            then by relevant date ascending
  */
 

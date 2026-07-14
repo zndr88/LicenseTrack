@@ -13,7 +13,7 @@ const FOCUSABLE_SELECTORS =
  *
  * Works for both:
  *   (a) Always-mounted modals with an isOpen boolean
- *   (b) Conditionally rendered modals — pass isOpen=true
+ *   (b) Conditionally rendered modals - pass isOpen=true
  *
  * Usage:
  *   const { modalRef, onKeyDown } = useFocusTrap(isOpen);

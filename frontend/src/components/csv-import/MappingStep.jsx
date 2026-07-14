@@ -3,7 +3,7 @@ import { NATIVE_FIELDS } from "../../constants/csvImport.js";
 
 const CUSTOM_FIELD_TYPE_LABELS = { text: "Text", currency: "Currency", date: "Date", boolean: "True/False" };
 
-// LicenseTrack exports include license_ref — use it as the detection signal.
+// LicenseTrack exports include license_ref - use it as the detection signal.
 function looksLikeLTExport(analyzeData) {
   return (analyzeData?.matchedColumns ?? []).some((c) => c.internalField === "license_ref");
 }
@@ -37,7 +37,7 @@ export default function MappingStep({
         </div>
       )}
 
-      {/* PART A — Auto-matched columns (collapsible) */}
+      {/* PART A - Auto-matched columns (collapsible) */}
       <div className="mapping-section">
         <button
           type="button"
@@ -79,7 +79,7 @@ export default function MappingStep({
         )}
       </div>
 
-      {/* PART B — Unrecognized columns */}
+      {/* PART B - Unrecognized columns */}
       <div className="mapping-section">
         {allUnrecognizedColumns.length === 0 ? (
           <p style={{ fontSize: 13, color: "var(--text-2)" }}>All columns were recognized. No mapping required.</p>
@@ -161,7 +161,7 @@ export default function MappingStep({
         )}
       </div>
 
-      {/* PART C — Save mapping preset */}
+      {/* PART C - Save mapping preset */}
       <div className="mapping-preset-row">
         <label className="mapping-preset-label" htmlFor="mapping-preset-name">
           Save this mapping as a preset (optional)
@@ -169,7 +169,7 @@ export default function MappingStep({
         <input id="mapping-preset-name" className="fi" type="text" placeholder="e.g. Flexera Q1 Export" value={mappingName} onChange={e => setMappingName(e.target.value)} />
       </div>
 
-      {/* PART D — Actions */}
+      {/* PART D - Actions */}
       {analyzeData.missingRequired && analyzeData.missingRequired.length > 0 && (
         <div className="csv-warn-box" style={{ marginTop: 16 }}>
           <Icon name="alert" size={14} color="var(--orange-text)" />

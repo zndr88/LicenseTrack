@@ -1,6 +1,6 @@
 import { LICENSE_TYPES, LICENSE_METRICS } from "../constants/licenseData.js";
 
-// ─── Filter ──────────────────────────────────────────────────────────────────
+// Filter
 
 /**
  * @param {object[]} licenses
@@ -46,7 +46,7 @@ export function filterLicenses(licenses, { includeRetired = false, dateRange = "
   return result;
 }
 
-// ─── Spend helpers ────────────────────────────────────────────────────────────
+// Spend helpers
 
 function parsePrice(val) {
   if (val === null || val === undefined || val === "") return null;
@@ -309,7 +309,7 @@ export function getSpendByPublisher(licenses) {
   return Array.from(map.values()).sort((a, b) => b.totalSpend - a.totalSpend);
 }
 
-// ─── Portfolio breakdown ──────────────────────────────────────────────────────
+// Portfolio breakdown
 
 const TYPE_LABEL = Object.fromEntries(LICENSE_TYPES.map((t) => [t.value, t.label]));
 const METRIC_LABEL = Object.fromEntries(LICENSE_METRICS.map((m) => [m.value, m.label]));
@@ -343,7 +343,7 @@ export function getPortfolioBreakdown(licenses) {
   return { byType, byMetric };
 }
 
-// ─── Renewal calendar ─────────────────────────────────────────────────────────
+// Renewal calendar
 
 /**
  * @param {object[]} licenses
@@ -409,7 +409,7 @@ export function getRenewalCalendar(licenses, fiscalYearStartMonth = 1) {
   }));
 }
 
-// ─── Publisher/vendor relationship table ─────────────────────────────────────
+// Publisher/vendor relationship table
 
 /**
  * @param {object[]} licenses

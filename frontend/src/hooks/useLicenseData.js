@@ -120,7 +120,7 @@ export function useLicenseData(licenses, {
       );
       if (!matchesCompleteness) return false;
     }
-    // Column filters — AND logic, applied after existing filters
+    // Column filters - AND logic, applied after existing filters
     if (activeColumnFilters.length > 0) {
       for (const [key, val] of activeColumnFilters) {
         switch (key) {

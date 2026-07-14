@@ -57,14 +57,14 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
     return () => { cancelled = true; };
   }, [onError]);
 
-  // ── Server-side summary stats ──────────────────────────────────────────────
+  // Server-side summary stats
   const { data: portfolioStats } = useQuery({
     queryKey: queryKeys.reportsPortfolioStats,
     queryFn: getPortfolioStats,
     staleTime: 60_000,
   });
 
-  // ── Filters ────────────────────────────────────────────────────────────────
+  // Filters
   const [includeRetired, setIncludeRetired] = useState(false);
   const [dateRange, setDateRange] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
@@ -73,14 +73,14 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
   const [forecastYears, setForecastYears] = useState(5);
   const [forecastGrowthPct, setForecastGrowthPct] = useState(0);
 
-  // ── Export state ───────────────────────────────────────────────────────────
+  // Export state
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     void loadReportSections();
   }, []);
 
-  // ── Available cost centres ─────────────────────────────────────────────────
+  // Available cost centres
   const costCentres = useMemo(() => {
     const vals = new Set();
     for (const l of rawLicenses) {
@@ -89,7 +89,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
     return Array.from(vals).sort();
   }, [rawLicenses]);
 
-  // ── Effective date range ───────────────────────────────────────────────────
+  // Effective date range
   const effectiveDateRange = useMemo(() => {
     if (dateRange === "custom") {
       if (customFrom && customTo) return { from: customFrom, to: customTo };
@@ -98,14 +98,14 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
     return dateRange;
   }, [dateRange, customFrom, customTo]);
 
-  // ── Filtered set ──────────────────────────────────────────────────────────
+  // Filtered set
   const filtered = useMemo(() => filterLicenses(rawLicenses, {
     includeRetired,
     dateRange: effectiveDateRange,
     costCentres: selectedCostCentres,
   }), [rawLicenses, includeRetired, effectiveDateRange, selectedCostCentres]);
 
-  // ── Currency helpers ───────────────────────────────────────────────────────
+  // Currency helpers
   // singleCurrency is non-null only when all filtered licenses share one currency
   const singleCurrency = useMemo(() => {
     const currencies = new Set(filtered.map((l) => l.currency).filter(Boolean));
@@ -117,7 +117,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
     return currencies.size > 1;
   }, [filtered]);
 
-  // ── Section data ───────────────────────────────────────────────────────────
+  // Section data
   const costOverview = useMemo(() => getCostOverview(filtered), [filtered]);
   const lifecycleCounts = useMemo(() => getLifecycleCounts(filtered), [filtered]);
   const budgetForecast = useMemo(() => getBudgetForecast(filtered, {
@@ -129,7 +129,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
   const renewalData = useMemo(() => getRenewalCalendar(filtered, fiscalYearStartMonth), [filtered, fiscalYearStartMonth]);
   const vendorData = useMemo(() => getVendorTable(filtered), [filtered]);
 
-  // ── Export all sections ────────────────────────────────────────────────────
+  // Export all sections
   async function handleExportAll() {
     setExporting(true);
     try {
@@ -147,7 +147,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
     }
   }
 
-  // ── Status line ───────────────────────────────────────────────────────────
+  // Status line
   const statusLine = useMemo(() => {
     if (licensesLoading) return "Loading report data";
     if (licensesError) return "Report data unavailable";
@@ -158,7 +158,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
     return base;
   }, [filtered.length, selectedCostCentres, licensesLoading, licensesError]);
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // Render
   return (
     <div>
       {/* Page header */}
@@ -250,7 +250,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
         )}
       </div>
 
-      {/* ─── Server-side summary stats ────────────────────────────────────── */}
+      {/* Server-side summary stats */}
       <div style={{
           display: "flex", gap: 10, flexWrap: "wrap", padding: "12px 20px",
           borderBottom: "1px solid var(--border)", background: "var(--bg-2)",
@@ -289,7 +289,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
           </div>
       </div>
 
-      {/* ─── Page content ─────────────────────────────────────────────────── */}
+      {/* Page content */}
       <div className="page-content">
         {licensesLoading ? (
           <div className="lp-loading">

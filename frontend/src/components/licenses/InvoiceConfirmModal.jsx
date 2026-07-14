@@ -142,7 +142,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             <h4><Icon name="shield" size={14} color="var(--accent)" /> {formatStrategyLabel(data)}: {data.fileName}</h4>
             <p style={{ fontSize: 11, color: "var(--text-3)" }}>Review and correct any fields before saving.</p>
           </div>
-          {/* Attach document — kept at the top so it sits with the Parse Document
+          {/* Attach document - kept at the top so it sits with the Parse Document
               action it feeds, matching the sourcing and pending-order modals. */}
           <div className="fg" style={{ borderBottom: "1px solid var(--border-lt)", paddingBottom: 12, marginBottom: 4 }}>
             <label>Attach Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional — attached to first license)</span></label>

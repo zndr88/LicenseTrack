@@ -1,4 +1,4 @@
-/** Date helpers — all fixture dates are relative to "now" so the demo never goes stale. */
+/** Date helpers - all fixture dates are relative to "now" so the demo never goes stale. */
 
 /**
  * Serialize a Date's LOCAL calendar day as "YYYY-MM-DD".

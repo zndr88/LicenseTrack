@@ -30,7 +30,7 @@ export function requiredEmail(value, fieldName = "Email") {
 
 /**
  * Email domain like "company.com" (a leading @ is stripped automatically).
- * Empty → error.
+ * Empty -> error.
  */
 export function allowedEmailDomain(value) {
   let v = (value ?? "").trim().toLowerCase();
@@ -44,7 +44,7 @@ export function allowedEmailDomain(value) {
 
 /**
  * Absolute https:// URL.
- * Empty → error (use optionalHttpsUrl for optional fields).
+ * Empty -> error (use optionalHttpsUrl for optional fields).
  */
 export function httpsUrl(value, fieldName = "URL") {
   const v = (value ?? "").trim();
@@ -58,14 +58,14 @@ export function httpsUrl(value, fieldName = "URL") {
   }
 }
 
-/** Integer in the 0–23 range. */
+/** Integer in the 0-23 range. */
 export function hourRange(value) {
   const n = typeof value === "number" ? value : parseInt(value, 10);
   if (!Number.isInteger(n) || n < 0 || n > 23) return "Must be an hour between 0 and 23.";
   return null;
 }
 
-/** Integer in the 1–100 range. */
+/** Integer in the 1-100 range. */
 export function keepRange(value) {
   const n = typeof value === "number" ? value : parseInt(value, 10);
   if (!Number.isInteger(n) || n < 1 || n > 100) return "Must be between 1 and 100.";

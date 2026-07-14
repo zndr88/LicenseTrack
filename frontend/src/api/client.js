@@ -15,7 +15,7 @@ export function apiUrl(path) {
   return `${API_BASE_URL}${path}`;
 }
 
-// In-memory token store — intentionally not localStorage for security.
+// In-memory token store - intentionally not localStorage for security.
 // Token is lost on page refresh; users must log in again.
 let _token = null;
 
@@ -37,7 +37,7 @@ export function getToken() {
 /**
  * Make an authenticated request to the backend.
  *
- * @param {string} path       - API path, e.g. "/api/licenses"
+ * @param {string} path - API path, e.g. "/api/licenses"
  * @param {RequestInit} [options] - Standard fetch options (method, body, headers, ...)
  * @returns {Promise<{ data: any, error: string | null }>}
  */
@@ -45,7 +45,7 @@ export async function request(path, options = {}) {
   const url = apiUrl(path);
 
   // Demo build only: route to the in-browser fake backend instead of the network.
-  // Build-time constant — dead-code-eliminated (module and all) in normal builds.
+  // Build-time constant - dead-code-eliminated (module and all) in normal builds.
   if (import.meta.env.VITE_DEMO_MODE === "true") {
     try {
       const { demoRequest } = await import("../demo/router.js");
@@ -77,7 +77,7 @@ export async function request(path, options = {}) {
     return { data: null, error: "Network error — is the server running?" };
   }
 
-  // 401 → token expired or missing; clear state and bounce to login
+  // 401 -> token expired or missing; clear state and bounce to login
   if (response.status === 401) {
     clearToken();
     if (redirectOn401) {
@@ -86,7 +86,7 @@ export async function request(path, options = {}) {
     return { data: null, error: "Session expired. Please log in again." };
   }
 
-  // 204 No Content — successful but empty body
+  // 204 No Content - successful but empty body
   if (response.status === 204) {
     return { data: null, error: null };
   }
@@ -120,7 +120,7 @@ export async function request(path, options = {}) {
     return { data: body, error: null };
   }
 
-  // Non-JSON response (file download of any MIME type) — return the raw Response
+  // Non-JSON response (file download of any MIME type) - return the raw Response
   if (!response.ok) {
     let text = "";
     try {
