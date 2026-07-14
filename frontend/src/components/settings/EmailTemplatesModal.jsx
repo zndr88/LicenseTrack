@@ -18,22 +18,16 @@ export default function EmailTemplatesModal({ draft, onChange, onSave, onCancel,
       titleId="dialog-title-email-templates"
       onClose={requestClose}
       closeButtonAriaLabel="Close email templates dialog"
-      overlayStyle={{ display: "flex", alignItems: "center", justifyContent: "center" }}
-      modalStyle={{
-        borderRadius: "var(--r-lg)",
-        maxWidth: "min(680px, 92vw)",
-        width: "100%",
-        maxHeight: "90vh",
-      }}
+      overlayClassName="overlay email-tpl-overlay"
+      modalClassName="modal email-tpl-modal"
       footer={(
         <>
-          <button type="button" className="btn btn-g" onClick={requestClose} style={{ fontSize: 13 }}>Cancel</button>
+          <button type="button" className="btn btn-g set-form-button" onClick={requestClose}>Cancel</button>
           <button
             type="button"
-            className="btn btn-p"
+            className="btn btn-p set-form-button"
             onClick={onSave}
             disabled={saving}
-            style={{ fontSize: 13 }}
           >
             {saving ? "Saving..." : "Save changes"}
           </button>
@@ -41,55 +35,50 @@ export default function EmailTemplatesModal({ draft, onChange, onSave, onCancel,
       )}
     >
       <div className="modal-bd">
-        {/* Budget Owner Alert */}
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>Budget Owner Alert</p>
-          <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "8px 0 14px" }} />
+          <p className="email-tpl-section-title">Budget Owner Alert</p>
+          <hr className="email-tpl-divider" />
 
-          <div className="fg" style={{ marginBottom: 14 }}>
-            <label htmlFor="email-tpl-budget-intro" style={{ fontSize: 12 }}>Intro paragraph</label>
+          <div className="fg email-tpl-field">
+            <label htmlFor="email-tpl-budget-intro" className="email-tpl-label">Intro paragraph</label>
             <textarea
               id="email-tpl-budget-intro"
-              className="fi"
+              className="fi email-tpl-textarea"
               rows={4}
               value={draft.emailTemplateBudgetOwnerIntro}
               onChange={(e) => onChange(d => ({ ...d, emailTemplateBudgetOwnerIntro: e.target.value }))}
-              style={{ resize: "vertical", fontFamily: "var(--font-ui)", fontSize: 13 }}
             />
           </div>
 
-          <div className="fg" style={{ marginBottom: 4 }}>
-            <label htmlFor="email-tpl-budget-signoff" style={{ fontSize: 12 }}>Sign-off</label>
+          <div className="fg email-tpl-field-last">
+            <label htmlFor="email-tpl-budget-signoff" className="email-tpl-label">Sign-off</label>
             <textarea
               id="email-tpl-budget-signoff"
-              className="fi"
+              className="fi email-tpl-textarea"
               rows={3}
               value={draft.emailTemplateBudgetOwnerSignoff}
               onChange={(e) => onChange(d => ({ ...d, emailTemplateBudgetOwnerSignoff: e.target.value }))}
-              style={{ resize: "vertical", fontFamily: "var(--font-ui)", fontSize: 13 }}
             />
           </div>
         </div>
 
-        <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "20px 0" }} />
+        <hr className="email-tpl-section-divider" />
 
-        {/* Manager Digest */}
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>Manager Digest</p>
-          <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "8px 0 14px" }} />
+          <p className="email-tpl-section-title">Manager Digest</p>
+          <hr className="email-tpl-divider" />
 
-          <div className="fg" style={{ marginBottom: 4 }}>
-            <label htmlFor="email-tpl-manager-intro" style={{ fontSize: 12 }}>Intro line</label>
+          <div className="fg email-tpl-field-last">
+            <label htmlFor="email-tpl-manager-intro" className="email-tpl-label">Intro line</label>
             <textarea
               id="email-tpl-manager-intro"
-              className="fi"
+              className="fi email-tpl-textarea"
               rows={2}
               value={draft.emailTemplateManagerIntro}
               onChange={(e) => onChange(d => ({ ...d, emailTemplateManagerIntro: e.target.value }))}
-              style={{ resize: "vertical", fontFamily: "var(--font-ui)", fontSize: 13 }}
             />
-            <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>
-              Use <code style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{"{total}"}</code> to insert the notification count.
+            <p className="email-tpl-hint">
+              Use <code className="email-tpl-code">{"{total}"}</code> to insert the notification count.
             </p>
           </div>
         </div>

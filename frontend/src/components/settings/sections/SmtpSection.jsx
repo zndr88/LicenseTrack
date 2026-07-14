@@ -98,20 +98,20 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
         <SectionHeader sectionKey="smtp" icon="mail" title="Email Configuration" description="SMTP server settings for automated email notifications (global)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
         <div className={`setsec-body${isOpen ? " open" : ""}`}>
           <div className="setsec-inner">
-            <div style={{ marginTop: 12 }}>
-              <div className="trow" style={{ marginBottom: 14 }}>
+            <div className="set-section-stack">
+              <div className="trow set-toggle-row">
                 <div>
-                  <span style={{ fontWeight: 600 }}>Enable Email Notifications</span>
-                  <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>When off, no automated or manual notification emails will be sent. SMTP settings can still be configured while disabled.</div>
+                  <span className="set-toggle-title">Enable Email Notifications</span>
+                  <div className="set-toggle-note">When off, no automated or manual notification emails will be sent. SMTP settings can still be configured while disabled.</div>
                 </div>
                 <Toggle value={globalSettings.emailEnabled ?? false} onChange={v => { setGlobalSettings(s => ({ ...s, emailEnabled: v })); markDirty("smtp"); }} />
               </div>
               <div className="fr">
-                <div className="fg" style={{ flex: 2 }}>
+                <div className="fg set-flex-double">
                   <label htmlFor="settings-smtp-host">SMTP Host</label>
                   <input id="settings-smtp-host" className="fi" value={globalSettings.smtpHost} onChange={e => { setGlobalSettings(s => ({ ...s, smtpHost: e.target.value })); markDirty("smtp"); }} placeholder="smtp.example.com" />
                 </div>
-                <div className="fg" style={{ flex: 1 }}>
+                <div className="fg set-flex-fill">
                   <label htmlFor="settings-smtp-port">Port</label>
                   <input id="settings-smtp-port" className="fi" type="number" value={globalSettings.smtpPort} onChange={e => { setGlobalSettings(s => ({ ...s, smtpPort: parseInt(e.target.value) || 587 })); markDirty("smtp"); }} />
                 </div>
@@ -123,7 +123,7 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
                 </div>
                 <div className="fg">
                   <label htmlFor="settings-smtp-password">Password</label>
-                  <input id="settings-smtp-password" className="fi" type="password" autoComplete="off" value={globalSettings.smtpPassword} onChange={e => { setGlobalSettings(s => ({ ...s, smtpPassword: e.target.value })); markDirty("smtp"); }} placeholder="••••••••" />
+                  <input id="settings-smtp-password" className="fi" type="password" autoComplete="off" value={globalSettings.smtpPassword} onChange={e => { setGlobalSettings(s => ({ ...s, smtpPassword: e.target.value })); markDirty("smtp"); }} placeholder="********" />
                 </div>
               </div>
               <div className="fr">
@@ -136,14 +136,14 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
                 <span>Use TLS</span>
                 <Toggle value={globalSettings.smtpUseTls} onChange={v => { setGlobalSettings(s => ({ ...s, smtpUseTls: v })); markDirty("smtp"); }} />
               </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+              <div className="set-inline-actions">
                 <button className="btn btn-g" onClick={handleTestEmail} disabled={testEmailSending || isDirty} title={isDirty ? unsavedSettingsMessage : undefined}>
                   <Icon name="mail" size={14} /> {testEmailSending ? "Sending..." : "Send Test Email"}
                 </button>
                 <button className="btn btn-g" onClick={handleTriggerNotifications} disabled={triggeringSending || !globalSettings.emailEnabled || isDirty} title={isDirty ? unsavedSettingsMessage : !globalSettings.emailEnabled ? "Enable email notifications to use this feature" : undefined}>
                   <Icon name="bell" size={14} /> {triggeringSending ? "Sending..." : "Send Notifications Now"}
                 </button>
-                <button type="button" className="btn btn-g" onClick={handleOpenEmailTemplates} style={{ fontSize: 13 }}>
+                <button type="button" className="btn btn-g set-form-button" onClick={handleOpenEmailTemplates}>
                   <Icon name="mail" size={13} /> Edit Email Templates
                 </button>
               </div>
