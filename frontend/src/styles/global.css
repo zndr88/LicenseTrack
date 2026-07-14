@@ -1341,6 +1341,70 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .set-webhook-event-chip.selected { border-color: var(--accent); }
 .set-webhook-cell-text { font-size: 12px; }
 .set-webhook-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.set-webhook-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.set-webhook-form-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.set-webhook-name-field { flex: 1 1 220px; }
+.set-webhook-url-field { flex: 2 1 320px; }
+.set-webhook-create-events { display: flex; flex-wrap: wrap; gap: 6px; }
+.set-webhook-create-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.set-webhook-create-chip.selected { border-color: var(--accent); }
+.set-webhook-form-actions { display: flex; gap: 6px; }
+.set-webhook-create-button { font-size: 13px; margin-top: 12px; }
+.set-webhook-deliveries {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.set-webhook-deliveries-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.set-webhook-deliveries-title { font-size: 13px; }
+.set-webhook-deliveries-refresh { font-size: 11px; padding: 3px 8px; }
+.set-webhook-deliveries-muted { font-size: 13px; margin-top: 0; }
+.set-webhook-deliveries-table { margin-top: 8px; }
+.set-webhook-deliveries-table th {
+  color: var(--text-3);
+  font-weight: 600;
+  padding-bottom: 6px;
+  text-align: left;
+}
+.set-webhook-delivery-event { font-size: 11px; }
+.set-webhook-delivery-status { font-size: 12px; font-weight: 600; }
+.set-webhook-delivery-status-succeeded { color: var(--green-text); }
+.set-webhook-delivery-status-failed { color: var(--red-text); }
+.set-webhook-delivery-status-pending { color: var(--text-2); }
+.set-webhook-delivery-detail {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  margin-top: 2px;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.set-webhook-delivery-retry { color: var(--text-3); font-size: 10px; margin-top: 2px; }
 
 /* Settings email template modal */
 .email-tpl-overlay { display: flex; align-items: center; justify-content: center; }

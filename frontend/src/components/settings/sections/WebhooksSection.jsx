@@ -50,10 +50,10 @@ function normalizeDelivery(delivery) {
   };
 }
 
-function statusColor(status) {
-  if (status === "succeeded") return "var(--green-text)";
-  if (status === "failed") return "var(--red-text)";
-  return "var(--text-2)";
+function deliveryStatusClass(status) {
+  if (status === "succeeded") return "set-webhook-delivery-status-succeeded";
+  if (status === "failed") return "set-webhook-delivery-status-failed";
+  return "set-webhook-delivery-status-pending";
 }
 
 function deliveryResponseLabel(delivery) {
@@ -333,97 +333,88 @@ export default function WebhooksSection({ isOpen, isDirty, onToggle, onError, on
               )}
 
               {showCreate ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <div className="fg" style={{ flex: "1 1 220px" }}>
+                <div className="set-webhook-form">
+                  <div className="set-webhook-form-row">
+                    <div className="fg set-webhook-name-field">
                       <label htmlFor="webhook-name">Name</label>
                       <input id="webhook-name" className="fi" value={name} onChange={(event) => setName(event.target.value)} placeholder="CMDB events" autoFocus />
                     </div>
-                    <div className="fg" style={{ flex: "2 1 320px" }}>
+                    <div className="fg set-webhook-url-field">
                       <label htmlFor="webhook-url">URL</label>
                       <input id="webhook-url" className="fi" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com/webhooks/licensetrack" />
                     </div>
                   </div>
                   <div className="fg">
                     <label>Events</label>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    <div className="set-webhook-create-events">
                       {WEBHOOK_EVENTS.map(([event, label]) => (
-                        <label key={event} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--border)", borderColor: events.includes(event) ? "var(--accent)" : "var(--border)", borderRadius: 4, background: "var(--bg-2)", color: "var(--text-2)", fontSize: 11, lineHeight: 1.2, padding: "4px 8px", cursor: "pointer" }}>
+                        <label key={event} className={`set-webhook-create-chip${events.includes(event) ? " selected" : ""}`}>
                           <input type="checkbox" checked={events.includes(event)} onChange={() => toggleEvent(event)} />
                           {label}
                         </label>
                       ))}
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button type="button" className="btn btn-p" disabled={saving || !name.trim() || !url.trim() || events.length === 0} onClick={handleCreate} style={{ fontSize: 13 }}>
+                  <div className="set-webhook-form-actions">
+                    <button type="button" className="btn btn-p set-form-button" disabled={saving || !name.trim() || !url.trim() || events.length === 0} onClick={handleCreate}>
                       {saving ? "Creating..." : "Create"}
                     </button>
-                    <button type="button" className="btn btn-g" onClick={() => { setShowCreate(false); setName(""); setUrl(""); setEvents(["license.created"]); }} style={{ fontSize: 13 }}>Cancel</button>
+                    <button type="button" className="btn btn-g set-form-button" onClick={() => { setShowCreate(false); setName(""); setUrl(""); setEvents(["license.created"]); }}>Cancel</button>
                   </div>
                 </div>
               ) : (
-                <button type="button" className="btn btn-g" onClick={() => setShowCreate(true)} style={{ fontSize: 13, marginTop: 12 }}>
+                <button type="button" className="btn btn-g set-webhook-create-button" onClick={() => setShowCreate(true)}>
                   <Icon name="plus" size={13} /> Create Webhook
                 </button>
               )}
 
               {selectedEndpoint && (
-                <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-                    <strong style={{ fontSize: 13 }}>Recent deliveries for {selectedEndpoint.name}</strong>
-                    <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => loadDeliveries(selectedEndpoint)}>Refresh</button>
+                <div className="set-webhook-deliveries">
+                  <div className="set-webhook-deliveries-header">
+                    <strong className="set-webhook-deliveries-title">Recent deliveries for {selectedEndpoint.name}</strong>
+                    <button type="button" className="btn btn-g set-webhook-deliveries-refresh" onClick={() => loadDeliveries(selectedEndpoint)}>Refresh</button>
                   </div>
                   {deliveriesLoading ? (
-                    <p style={{ fontSize: 13, color: "var(--text-3)" }}>Loading...</p>
+                    <p className="set-muted-text set-webhook-deliveries-muted">Loading...</p>
                   ) : deliveries.length === 0 ? (
-                    <p style={{ fontSize: 13, color: "var(--text-3)" }}>No deliveries yet.</p>
+                    <p className="set-muted-text set-webhook-deliveries-muted">No deliveries yet.</p>
                   ) : (
-                    <table className="mapping-matched-table" style={{ marginTop: 8 }}>
+                    <table className="mapping-matched-table set-webhook-deliveries-table">
                       <thead>
                         <tr>
-                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Event</th>
-                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Status</th>
-                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Attempts</th>
-                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Response</th>
-                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Created</th>
-                          <th scope="col" style={{ color: "var(--text-3)", fontWeight: 600, paddingBottom: 6, textAlign: "left" }}>Actions</th>
+                          <th scope="col">Event</th>
+                          <th scope="col">Status</th>
+                          <th scope="col">Attempts</th>
+                          <th scope="col">Response</th>
+                          <th scope="col">Created</th>
+                          <th scope="col">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {deliveries.map((delivery) => (
                           <tr key={delivery.id}>
-                            <td><span className="mono" style={{ fontSize: 11 }}>{delivery.eventType}</span></td>
-                            <td><span style={{ fontSize: 12, color: statusColor(delivery.status), fontWeight: 600 }}>{delivery.status}</span></td>
-                            <td><span style={{ fontSize: 12 }}>{delivery.attempts}</span></td>
+                            <td><span className="mono set-webhook-delivery-event">{delivery.eventType}</span></td>
+                            <td><span className={`set-webhook-delivery-status ${deliveryStatusClass(delivery.status)}`}>{delivery.status}</span></td>
+                            <td><span className="set-webhook-cell-text">{delivery.attempts}</span></td>
                             <td>
-                              <div style={{ fontSize: 12 }}>{deliveryResponseLabel(delivery)}</div>
+                              <div className="set-webhook-cell-text">{deliveryResponseLabel(delivery)}</div>
                               {deliveryResponseDetail(delivery) && (
                                 <div
                                   title={deliveryResponseDetail(delivery)}
-                                  style={{
-                                    color: "var(--text-3)",
-                                    fontFamily: "var(--font-mono)",
-                                    fontSize: 10,
-                                    marginTop: 2,
-                                    maxWidth: 280,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
+                                  className="set-webhook-delivery-detail"
                                 >
                                   {deliveryResponseDetail(delivery)}
                                 </div>
                               )}
                               {delivery.nextAttemptAt && delivery.status === "pending" && (
-                                <div style={{ color: "var(--text-3)", fontSize: 10, marginTop: 2 }}>
+                                <div className="set-webhook-delivery-retry">
                                   Next retry {formatDateTime(delivery.nextAttemptAt, userSettings)}
                                 </div>
                               )}
                             </td>
-                            <td><span style={{ fontSize: 12 }}>{formatDateTime(delivery.createdAt, userSettings)}</span></td>
+                            <td><span className="set-webhook-cell-text">{formatDateTime(delivery.createdAt, userSettings)}</span></td>
                             <td>
-                              <button type="button" className="btn btn-g" disabled={busyId === delivery.id} style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleRetry(delivery.id)}>Retry</button>
+                              <button type="button" className="btn btn-g set-compact-button" disabled={busyId === delivery.id} onClick={() => handleRetry(delivery.id)}>Retry</button>
                             </td>
                           </tr>
                         ))}
