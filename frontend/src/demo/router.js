@@ -1,8 +1,8 @@
-// The marker below must live in REACHABLE CODE, not a comment — the minifier
+// The marker below must live in REACHABLE CODE, not a comment - the minifier
 // strips comments in all build modes. This console.info is a module-load side
 // effect: not tree-shakeable, useful to auditors, and it anchors CI's
 // production-bundle purity grep.
-console.info("LicenseTrack demo mode active — LICENSETRACK_DEMO_MARKER");
+console.info("LicenseTrack demo mode active - LICENSETRACK_DEMO_MARKER");
 import { routes, stubResponse } from "./handlers.js";
 
 /**
