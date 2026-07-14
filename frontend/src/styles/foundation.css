@@ -1,0 +1,228 @@
+/* Brand fonts are self-hosted via `src/styles/fonts.css` + `public/fonts`. */
+
+/* Structural (non-color) variables */
+:root {
+  --r: 8px; --rl: 12px;
+  --font-brand: "Space Grotesk", sans-serif;
+  --font-sans:  "Outfit", sans-serif;
+  --font-mono:  "DM Mono", monospace;
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.40);
+  --detail-panel-w: 440px;
+}
+
+/* Focus visible - system default */
+:focus-visible {
+  outline: 2px solid var(--text-2);
+  outline-offset: 2px;
+}
+.modal-close:focus-visible {
+  background: var(--bg-3);
+  color: var(--text-1);
+  outline: 2px solid var(--text-2);
+  outline-offset: 2px;
+}
+.nav-item:focus-visible {
+  background: var(--bg-3);
+  color: var(--text-1);
+  outline: 2px solid var(--text-2);
+  outline-offset: -2px;
+}
+.role-sel:focus-visible {
+  outline: 2px solid var(--text-2);
+  outline-offset: 1px;
+}
+.chip select:focus-visible {
+  outline: 2px solid var(--text-2);
+  outline-offset: 1px;
+}
+.license-table tbody tr:focus-visible {
+  outline: 2px solid var(--text-2);
+  outline-offset: -2px;
+}
+
+/* Gray theme (default + explicit) */
+:root,
+[data-theme="gray"] {
+  --bg-0: #202225;
+  --bg-1: #2f3136;
+  --bg-2: #36393f;
+  --bg-3: #40444b;
+  --row-alt: #2a2d31;
+  --border: rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.12);
+  --text-1: #dcddde;
+  --text-2: #96989d;
+  --text-3: #4f545c;
+  --brand-color: #ffffff;
+  --green:        #3d8b5e;
+  --green-dim:    rgba(61,139,94,0.15);
+  --green-border: rgba(61,139,94,0.35);
+  --green-text:   #5cb87a;
+  --orange:        #c2601a;
+  --orange-dim:    rgba(194,96,26,0.15);
+  --orange-border: rgba(194,96,26,0.35);
+  --orange-text:   #e07840;
+  --red:        #a83232;
+  --red-dim:    rgba(168,50,50,0.15);
+  --red-border: rgba(168,50,50,0.35);
+  --red-text:   #c85050;
+  --purple:        #6b4faa;
+  --purple-dim:    rgba(107,79,170,0.15);
+  --purple-border: rgba(107,79,170,0.35);
+  --purple-text:   #9b78e8;
+  --steel:        #3a7a9c;
+  --steel-dim:    rgba(58,122,156,0.15);
+  --steel-border: rgba(58,122,156,0.30);
+  --steel-text:   #5aaac8;
+  /* Legacy aliases for JSX compatibility */
+  --text:       var(--text-1);
+  --border-lt:  var(--border-strong);
+  --bg-hover:   var(--bg-2);
+  --bg-active:  var(--bg-3);
+  --accent:     var(--text-1);
+  --accent-m:   var(--bg-3);
+  --accent-h:   var(--text-1);
+  --green-m:    var(--green-dim);
+  --orange-m:   var(--orange-dim);
+  --red-m:      var(--red-dim);
+  --mono:       var(--font-mono);
+  --sans:       var(--font-sans);
+  --surface-2:  var(--bg-2);
+}
+
+/* Dark theme (Onyx - near-black) */
+[data-theme="dark"] {
+  --bg-0: #050606;
+  --bg-1: #111214;
+  --bg-2: #282b30;
+  --bg-3: #383a40;
+  --row-alt: #2b2d31;
+  --border: rgba(255,255,255,0.05);
+  --border-strong: rgba(255,255,255,0.10);
+  --text-1: #dbdee1;
+  --text-2: #949ba4;
+  --text-3: #cfcfd0;
+  --brand-color: #ffffff;
+  --green:        #3d8b5e;
+  --green-dim:    rgba(61,139,94,0.15);
+  --green-border: rgba(61,139,94,0.35);
+  --green-text:   #5cb87a;
+  --orange:        #c2601a;
+  --orange-dim:    rgba(194,96,26,0.15);
+  --orange-border: rgba(194,96,26,0.35);
+  --orange-text:   #e07840;
+  --red:        #a83232;
+  --red-dim:    rgba(168,50,50,0.15);
+  --red-border: rgba(168,50,50,0.35);
+  --red-text:   #c85050;
+  --purple:        #6b4faa;
+  --purple-dim:    rgba(107,79,170,0.15);
+  --purple-border: rgba(107,79,170,0.35);
+  --purple-text:   #9b78e8;
+  --steel:        #3a7a9c;
+  --steel-dim:    rgba(58,122,156,0.15);
+  --steel-border: rgba(58,122,156,0.30);
+  --steel-text:   #5aaac8;
+  /* Legacy aliases */
+  --text:       var(--text-1);
+  --border-lt:  var(--border-strong);
+  --bg-hover:   var(--bg-2);
+  --bg-active:  var(--bg-3);
+  --accent:     var(--text-1);
+  --accent-m:   var(--bg-3);
+  --accent-h:   var(--text-1);
+  --green-m:    var(--green-dim);
+  --orange-m:   var(--orange-dim);
+  --red-m:      var(--red-dim);
+  --mono:       var(--font-mono);
+  --sans:       var(--font-sans);
+  --surface-2:  var(--bg-2);
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg-0: #e3e5e8;
+  --bg-1: #f2f3f5;
+  --bg-2: #ebedef;
+  --bg-3: #d4d7dc;
+  --row-alt: #e6e8eb;
+  --border: rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.15);
+  --text-1: #2e3338;
+  --text-2: #4f5660;
+  --text-3: #747f8d;
+  --brand-color: #060607;
+  --green:        #3d8b5e;
+  --green-dim:    rgba(61,139,94,0.12);
+  --green-border: rgba(61,139,94,0.30);
+  --green-text:   #2d7a4e;
+  --orange:        #c2601a;
+  --orange-dim:    rgba(194,96,26,0.12);
+  --orange-border: rgba(194,96,26,0.30);
+  --orange-text:   #b05010;
+  --red:        #a83232;
+  --red-dim:    rgba(168,50,50,0.12);
+  --red-border: rgba(168,50,50,0.30);
+  --red-text:   #962020;
+  --purple:        #6b4faa;
+  --purple-dim:    rgba(107,79,170,0.12);
+  --purple-border: rgba(107,79,170,0.30);
+  --purple-text:   #5a3e99;
+  --steel:        #3a7a9c;
+  --steel-dim:    rgba(58,122,156,0.12);
+  --steel-border: rgba(58,122,156,0.25);
+  --steel-text:   #2a6a8c;
+  /* Legacy aliases for JSX compatibility */
+  --text:       var(--text-1);
+  --border-lt:  var(--border-strong);
+  --bg-hover:   var(--bg-2);
+  --bg-active:  var(--bg-3);
+  --accent:     var(--text-1);
+  --accent-m:   var(--bg-3);
+  --accent-h:   var(--text-1);
+  --green-m:    var(--green-dim);
+  --orange-m:   var(--orange-dim);
+  --red-m:      var(--red-dim);
+  --mono:       var(--font-mono);
+  --sans:       var(--font-sans);
+  --surface-2:  var(--bg-2);
+}
+
+/* Base reset */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg-0); color: var(--text-1); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+
+/* Error boundary */
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  background: var(--bg-1);
+  font-family: var(--font-sans);
+  text-align: center;
+}
+.error-boundary-title {
+  margin-bottom: 0.5rem;
+  color: var(--text-1);
+  font-size: 1.5rem;
+}
+.error-boundary-copy {
+  margin-bottom: 1.5rem;
+  color: var(--text-2);
+}
+.error-boundary-reload {
+  appearance: none;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--red-text);
+  border-radius: 6px;
+  background: none;
+  color: var(--red-text);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+}
+
