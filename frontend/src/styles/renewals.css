@@ -1,0 +1,82 @@
+/* Renewal Workbench */
+.rw-page { display: flex; flex-direction: column; gap: 12px; }
+.rw-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 0; }
+.rw-toolbar { align-items: flex-start; }
+.rw-view-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.rw-chip { appearance: none; font-family: var(--font-sans); }
+.rw-chip.active { background: var(--bg-3); color: var(--text-1); border-color: var(--border-strong); }
+.rw-chip-count {
+  margin-left: 2px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--bg-1);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.rw-chip.active .rw-chip-count { color: var(--text-1); background: var(--bg-2); }
+.rw-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 16px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.rw-table th:nth-child(1) { width: 104px; }
+.rw-table th:nth-child(2) { width: 90px; }
+.rw-table th:nth-child(4) { width: 116px; }
+.rw-table th:nth-child(7) { width: 118px; }
+.rw-table th:nth-child(8) { width: 140px; }
+.rw-table th:nth-child(10) { width: 230px; }
+.rw-column-picker { position: relative; margin-left: auto; }
+.rw-column-btn { height: 30px; }
+.rw-column-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 120;
+  min-width: 210px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-sm);
+}
+.rw-column-menu-title {
+  padding: 5px 6px 4px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.rw-column-option {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 6px;
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+}
+.rw-column-option:hover { color: var(--text-1); background: var(--bg-3); }
+.rw-custom-cell { max-width: 150px; color: var(--text-2); }
+.rw-muted-cell { color: var(--text-3); }
+.rw-risk-list { display: flex; gap: 4px; flex-wrap: wrap; min-width: 180px; }
+.rw-risk-badge { max-width: 112px; overflow: hidden; text-overflow: ellipsis; }
+.rw-risk-high { font-weight: 700; }
+.rw-risk-medium { opacity: .95; }
+.rw-risk-low { opacity: .78; }
+.rw-risk-more { cursor: help; }
+.rw-actions { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.rw-action-btn { padding: 4px 8px; font-size: 11px; min-height: 26px; }
+.rw-action-btn:disabled { opacity: .55; cursor: wait; }
+
+@media (max-width: 1180px) {
+  .rw-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+

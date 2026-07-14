@@ -1,0 +1,22 @@
+/* Sidebar brand area */
+.sb-brand {
+  -webkit-app-region: drag;
+}
+
+/* Buttons inside the drag region must opt out or they become unclickable */
+.sb-brand button,
+.sb-brand a {
+  -webkit-app-region: no-drag;
+}
+
+/* Custom scrollbar */
+/* WebKit (Chrome, Edge) */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-1); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-2); }
+::-webkit-scrollbar-corner { background: var(--bg-1); }
+
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) var(--bg-1); }
+
