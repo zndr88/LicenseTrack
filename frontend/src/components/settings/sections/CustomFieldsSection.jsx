@@ -89,40 +89,46 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
         <SectionHeader sectionKey="customFields" icon="sliders" title="Custom Fields" description="Define additional fields that appear on all license records (admin only)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
         <div className={`setsec-body${isOpen ? " open" : ""}`}>
           <div className="setsec-inner">
-            <div style={{ marginTop: 12 }}>
+            <div className="set-section-stack">
               {customFieldsLoading ? (
-                <p style={{ fontSize: 12, color: "var(--text-3)" }}>Loading...</p>
+                <p className="set-muted-text">Loading...</p>
               ) : customFields.length === 0 ? (
-                <p style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 12 }}>No custom fields defined yet.</p>
+                <p className="set-muted-text set-list-empty">No custom fields defined yet.</p>
               ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12, fontSize: 13 }}>
+                <table className="set-list-table set-field-table">
                   <thead>
                     <tr>
-                      <th scope="col" style={{ textAlign: "left", padding: "4px 8px", color: "var(--text-2)", fontWeight: 500 }}>Name</th>
-                      <th scope="col" style={{ textAlign: "left", padding: "4px 8px", color: "var(--text-2)", fontWeight: 500 }}>Type</th>
-                      <th scope="col" style={{ textAlign: "left", padding: "4px 8px", color: "var(--text-2)", fontWeight: 500 }}>Key</th>
-                      <th scope="col" style={{ width: 160, textAlign: "left", padding: "4px 8px", color: "var(--text-2)", fontWeight: 500 }}>Section</th>
-                      <th scope="col" style={{ width: 80, padding: "4px 8px" }}></th>
+                      <th scope="col">Name</th>
+                      <th scope="col">Type</th>
+                      <th scope="col">Key</th>
+                      <th scope="col" className="set-field-section-col">Section</th>
+                      <th scope="col" className="set-field-actions-col"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {customFields.map((field, index) => (
-                      <tr key={field.id} style={{ borderTop: "1px solid var(--border)" }}>
-                        <td style={{ padding: "6px 8px" }}>{field.name}</td>
-                        <td style={{ padding: "6px 8px", color: "var(--text-2)", fontFamily: "var(--font-mono)", fontSize: 12 }}>{CUSTOM_FIELD_TYPE_LABELS[field.fieldType] ?? field.fieldType}</td>
-                        <td style={{ padding: "6px 8px", color: "var(--text-3)", fontFamily: "var(--font-mono)", fontSize: 11 }}>{field.fieldKey}</td>
-                        <td style={{ padding: "6px 8px" }}>
-                          <select className="fi fi-select" style={{ fontSize: 11, padding: "2px 6px", height: "auto" }} value={field.section ?? ""} onChange={e => handleUpdateCustomFieldSection(field.id, e.target.value || null)} aria-label={`Section for ${field.name}`}>
-                            <option value="">— {getCustomFieldSectionLabel(null)} —</option>
+                      <tr key={field.id} className="set-field-row">
+                        <td>{field.name}</td>
+                        <td><span className="set-field-type">{CUSTOM_FIELD_TYPE_LABELS[field.fieldType] ?? field.fieldType}</span></td>
+                        <td><span className="set-field-key">{field.fieldKey}</span></td>
+                        <td>
+                          <select className="fi fi-select set-compact-select" value={field.section ?? ""} onChange={e => handleUpdateCustomFieldSection(field.id, e.target.value || null)} aria-label={`Section for ${field.name}`}>
+                            <option value="">-- {getCustomFieldSectionLabel(null)} --</option>
                             {CUSTOM_FIELD_SECTION_KEYS.map((section) => (
                               <option key={section} value={section}>{getCustomFieldSectionLabel(section)}</option>
                             ))}
                           </select>
                         </td>
-                        <td style={{ padding: "6px 8px", display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                          <button type="button" className="btn btn-g" style={{ padding: "2px 6px", fontSize: 12 }} disabled={index === 0} onClick={() => handleMoveCustomField(index, "up")} aria-label={`Move ${field.name} up`}>↑</button>
-                          <button type="button" className="btn btn-g" style={{ padding: "2px 6px", fontSize: 12 }} disabled={index === customFields.length - 1} onClick={() => handleMoveCustomField(index, "down")} aria-label={`Move ${field.name} down`}>↓</button>
-                          <button type="button" className="btn btn-g" style={{ padding: "2px 6px", fontSize: 12, color: "var(--red-text)" }} onClick={() => setDeleteFieldPending({ id: field.id, name: field.name })} aria-label={`Delete ${field.name}`}>✕</button>
+                        <td className="set-field-actions-cell">
+                          <button type="button" className="btn btn-g set-icon-button" disabled={index === 0} onClick={() => handleMoveCustomField(index, "up")} aria-label={`Move ${field.name} up`} title={`Move ${field.name} up`}>
+                            <Icon name="chevron-up" size={12} />
+                          </button>
+                          <button type="button" className="btn btn-g set-icon-button" disabled={index === customFields.length - 1} onClick={() => handleMoveCustomField(index, "down")} aria-label={`Move ${field.name} down`} title={`Move ${field.name} down`}>
+                            <Icon name="chevron-down" size={12} />
+                          </button>
+                          <button type="button" className="btn btn-g set-icon-button set-danger-action" onClick={() => setDeleteFieldPending({ id: field.id, name: field.name })} aria-label={`Delete ${field.name}`} title={`Delete ${field.name}`}>
+                            <Icon name="trash" size={12} />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -130,12 +136,12 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
                 </table>
               )}
               {showAddField ? (
-                <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-                  <div className="fg" style={{ flex: 2, minWidth: 160 }}>
+                <div className="set-field-form">
+                  <div className="fg set-field-name-input">
                     <label htmlFor="new-custom-field-name">Field Name</label>
                     <input id="new-custom-field-name" className="fi" value={newFieldName} onChange={(e) => setNewFieldName(e.target.value)} placeholder="e.g. Contract Owner" onKeyDown={(e) => { if (e.key === "Enter") handleAddCustomField(); }} />
                   </div>
-                  <div className="fg" style={{ flex: 1, minWidth: 100 }}>
+                  <div className="fg set-field-type-input">
                     <label htmlFor="new-custom-field-type">Type</label>
                     <select id="new-custom-field-type" className="fi" value={newFieldType} onChange={(e) => setNewFieldType(e.target.value)}>
                       <option value="text">Text</option>
@@ -144,13 +150,13 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
                       <option value="boolean">True/False</option>
                     </select>
                   </div>
-                  <div style={{ display: "flex", gap: 6, paddingBottom: 1 }}>
-                    <button type="button" className="btn btn-p" onClick={handleAddCustomField} disabled={!newFieldName.trim() || customFieldsSaving} style={{ fontSize: 13 }}>{customFieldsSaving ? "Adding..." : "Add"}</button>
-                    <button type="button" className="btn btn-g" onClick={() => { setShowAddField(false); setNewFieldName(""); setNewFieldType("text"); }} style={{ fontSize: 13 }}>Cancel</button>
+                  <div className="set-field-form-actions">
+                    <button type="button" className="btn btn-p set-form-button" onClick={handleAddCustomField} disabled={!newFieldName.trim() || customFieldsSaving}>{customFieldsSaving ? "Adding..." : "Add"}</button>
+                    <button type="button" className="btn btn-g set-form-button" onClick={() => { setShowAddField(false); setNewFieldName(""); setNewFieldType("text"); }}>Cancel</button>
                   </div>
                 </div>
               ) : (
-                <button type="button" className="btn btn-g" onClick={() => setShowAddField(true)} style={{ fontSize: 13 }}>
+                <button type="button" className="btn btn-g set-form-button" onClick={() => setShowAddField(true)}>
                   <Icon name="plus" size={13} /> Add Field
                 </button>
               )}

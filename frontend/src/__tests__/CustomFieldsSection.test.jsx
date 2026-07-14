@@ -75,7 +75,7 @@ describe("CustomFieldsSection", () => {
     const labels = within(sectionSelect).getAllByRole("option").map((option) => option.textContent);
 
     expect(labels).toEqual([
-      `— ${getCustomFieldSectionLabel(null)} —`,
+      `-- ${getCustomFieldSectionLabel(null)} --`,
       getCustomFieldSectionLabel("identity"),
       getCustomFieldSectionLabel("dates"),
       getCustomFieldSectionLabel("commercial"),
