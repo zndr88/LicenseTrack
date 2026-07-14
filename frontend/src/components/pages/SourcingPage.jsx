@@ -154,7 +154,7 @@ export default function SourcingPage({
       if (onClearHighlight) onClearHighlight();
     }, 2000);
     return () => clearTimeout(t);
-  }, [highlightId, sourcingRequests]); // eslint-disable-line react-hooks/exhaustive-deps -- onClearHighlight is a stable callback prop
+  }, [highlightId, sourcingRequests, onClearHighlight]);
 
   const cotermGroups = useCotermDetection(sourcingItems, licenses);
   const displayed = useMemo(

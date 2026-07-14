@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { deleteExtensionCapability, listExtensionCapabilities } from "../../../api/settings.js";
 import { formatDateTime } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
@@ -27,19 +27,19 @@ export default function ExtensionsSection({ isOpen, isDirty, onToggle, onError, 
   const [loading, setLoading] = useState(false);
   const [deletePending, setDeletePending] = useState(null);
 
-  const loadCapabilities = () => {
+  const loadCapabilities = useCallback(() => {
     setLoading(true);
     listExtensionCapabilities().then(({ data, error }) => {
       setLoading(false);
       if (error) { onError(error); return; }
       setCapabilities((data ?? []).map(normalizeCapability));
     });
-  };
+  }, [onError]);
 
   useEffect(() => {
     if (!isOpen) return;
     loadCapabilities();
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh when opened
+  }, [isOpen, loadCapabilities]);
 
   const handleDelete = async () => {
     if (!deletePending) return;

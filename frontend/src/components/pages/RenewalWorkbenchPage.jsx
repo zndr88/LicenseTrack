@@ -76,7 +76,7 @@ export default function RenewalWorkbenchPage({
 
   useEffect(() => {
     if (queryError) showError?.(queryError.message);
-  }, [queryError]); // eslint-disable-line react-hooks/exhaustive-deps -- showError is stable
+  }, [queryError, showError]);
 
   const canStartRenewal = isEditorOrAdmin(user);
   const canOpenPipeline = user?.role !== "viewer";

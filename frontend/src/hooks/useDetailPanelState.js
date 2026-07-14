@@ -144,7 +144,7 @@ export function useDetailPanelState({
   useEffect(() => {
     setPluginSuggestions([]);
     loadPluginSuggestions();
-  }, [license.id]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional license-scoped fetch
+  }, [license.id]); // eslint-disable-line react-hooks/exhaustive-deps -- license-scoped fetch guarded by latestLicenseIdRef
 
   useEffect(() => {
     const handlePluginSuggestionsChanged = (event) => {
@@ -156,7 +156,7 @@ export function useDetailPanelState({
     return () => {
       window.removeEventListener("plugin-suggestions:changed", handlePluginSuggestionsChanged);
     };
-  }, [license.id]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional license-scoped listener
+  }, [license.id]); // eslint-disable-line react-hooks/exhaustive-deps -- license-scoped listener guarded by latestLicenseIdRef
 
   const refreshAfterPluginSuggestionReview = async () => {
     const { data: freshLicense } = await getLicense(license.id);

@@ -48,7 +48,7 @@ export function usePendingOrdersPageState({
     }, 2000);
 
     return () => clearTimeout(timeoutId);
-  }, [highlightId]); // eslint-disable-line react-hooks/exhaustive-deps -- onClearHighlight is stable
+  }, [highlightId, onClearHighlight]);
 
   const buildPrefillFromOrder = useCallback((po) => {
     const base = {

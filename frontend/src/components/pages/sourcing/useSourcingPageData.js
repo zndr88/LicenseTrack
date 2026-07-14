@@ -37,11 +37,11 @@ export function useSourcingPageData({ showToast }) {
 
   useEffect(() => {
     if (queryError) showToast(queryError.message, "error");
-  }, [queryError]); // eslint-disable-line react-hooks/exhaustive-deps -- showToast is stable
+  }, [queryError, showToast]);
 
   useEffect(() => {
     if (licensesError) showToast(licensesError.message, "error");
-  }, [licensesError]); // eslint-disable-line react-hooks/exhaustive-deps -- showToast is stable
+  }, [licensesError, showToast]);
 
   return {
     licenses,

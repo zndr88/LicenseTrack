@@ -76,7 +76,7 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     setProcessingRequestPending(false);
     loadDocuments();
     loadProcessingResults();
-  }, [license.id]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional license-scoped fetch
+  }, [license.id]); // eslint-disable-line react-hooks/exhaustive-deps -- license-scoped fetch guarded by request refs
 
   useEffect(() => {
     listDocumentActions().then(({ data }) => {

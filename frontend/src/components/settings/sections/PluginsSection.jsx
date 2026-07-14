@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   disablePlugin,
   enablePlugin,
@@ -427,8 +427,9 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
     () => plugins.find((plugin) => plugin.key === selectedKey) ?? plugins[0] ?? null,
     [plugins, selectedKey],
   );
+  const selectedPluginSettingsKey = selectedPlugin?.key;
 
-  const loadPlugins = () => {
+  const loadPlugins = useCallback(() => {
     setLoading(true);
     listPlugins().then(({ data, error }) => {
       setLoading(false);
@@ -440,21 +441,21 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
       setPlugins(normalized);
       setSelectedKey((current) => current ?? normalized[0]?.key ?? null);
     });
-  };
+  }, [onError]);
 
   useEffect(() => {
     if (!isOpen) return;
     loadPlugins();
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh when opened
+  }, [isOpen, loadPlugins]);
 
   useEffect(() => {
-    if (!isOpen || !selectedPlugin) {
+    if (!isOpen || !selectedPluginSettingsKey) {
       setSettingsState(null);
       return;
     }
     setSettingsLoading(true);
     setSettingsDirty(false);
-    getPluginSettings(selectedPlugin.key).then(({ data, error }) => {
+    getPluginSettings(selectedPluginSettingsKey).then(({ data, error }) => {
       setSettingsLoading(false);
       if (error) {
         onError(error);
@@ -462,7 +463,7 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
       }
       setSettingsState(normalizeSettingsPayload(data));
     });
-  }, [isOpen, selectedPlugin?.key]); // eslint-disable-line react-hooks/exhaustive-deps -- selected plugin changes reload settings
+  }, [isOpen, selectedPluginSettingsKey, onError]);
 
   const handleInstalled = (plugin) => {
     const normalized = normalizePlugin(plugin);

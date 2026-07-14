@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invokePluginAction, listPluginActions } from "../../api/pluginActions.js";
 import Icon from "../ui/Icon.jsx";
 
@@ -6,12 +6,17 @@ export default function PluginSlot({ slot, context, onResult, onActionsLoaded })
   const [actions, setActions] = useState([]);
   const [busyKey, setBusyKey] = useState(null);
   const [result, setResult] = useState(null);
+  const onActionsLoadedRef = useRef(onActionsLoaded);
+
+  useEffect(() => {
+    onActionsLoadedRef.current = onActionsLoaded;
+  }, [onActionsLoaded]);
 
   useEffect(() => {
     let cancelled = false;
     setActions([]);
     setResult(null);
-    onActionsLoaded?.(0);
+    onActionsLoadedRef.current?.(0);
     if (!slot || !context?.targetType || context?.targetId == null) return undefined;
     listPluginActions({
       slot,
@@ -25,12 +30,12 @@ export default function PluginSlot({ slot, context, onResult, onActionsLoaded })
       }
       const loaded = data?.actions ?? [];
       setActions(loaded);
-      onActionsLoaded?.(loaded.length);
+      onActionsLoadedRef.current?.(loaded.length);
     });
     return () => {
       cancelled = true;
     };
-  }, [slot, context?.targetType, context?.targetId]); // eslint-disable-line react-hooks/exhaustive-deps -- onActionsLoaded is a stable callback
+  }, [slot, context?.targetType, context?.targetId]);
 
   if (!actions.length) return null;
 

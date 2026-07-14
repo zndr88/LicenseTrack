@@ -72,7 +72,7 @@ export default function LicensesPage({
   // Local state
   useEffect(() => {
     if (fullViewProp) onSetStatsVisible(false);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentional mount-only sync
+  }, [fullViewProp, onSetStatsVisible]);
 
   useEffect(() => {
     if (selectedId) {
@@ -80,7 +80,7 @@ export default function LicensesPage({
     } else if (!fullViewProp) {
       onSetStatsVisible(true);
     }
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedId, fullViewProp, onSetStatsVisible]);
 
   const {
     licenses,

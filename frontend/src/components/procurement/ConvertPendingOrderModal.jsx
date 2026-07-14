@@ -123,7 +123,7 @@ const ConvertPendingOrderModal = ({
   const softwareVal  = watch("softwareDescription");
   const conversionDraftFields = watch();
 
-  // Auto-compute totalPoPrice from quantity × unitPrice when not manually edited.
+  // Auto-compute totalPoPrice from quantity x unitPrice when not manually edited.
   useEffect(() => {
     const qtyStr  = String(quantity  ?? "").trim();
     const unitStr = String(unitPrice ?? "").trim();
@@ -141,7 +141,7 @@ const ConvertPendingOrderModal = ({
       setValue("totalPoPrice", computed, { shouldDirty: true });
       setDisplayTotalPrice(formatPriceInput(computed, locale));
     }
-  }, [quantity, unitPrice, totalManuallyEdited]); // eslint-disable-line react-hooks/exhaustive-deps -- locale and setValue are session-stable
+  }, [quantity, unitPrice, totalManuallyEdited, setValue, userSettings, locale]);
 
   const canSave =
     (publisherVal ?? "").trim() !== "" &&

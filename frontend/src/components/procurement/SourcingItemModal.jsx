@@ -28,7 +28,7 @@ const schema = z.object({
   notes:               z.string(),
 });
 
-// Compute total from qty × unit, falling back to the supplied total value.
+// Compute total from qty x unit, falling back to the supplied total value.
 const computeInitialTotal = (itemData) => {
   if (!itemData) return "";
   const qty = parseFloat(itemData.quantity ?? "");
@@ -142,7 +142,7 @@ const SourcingItemModal = ({
       setValue("estimatedTotalPrice", computed, { shouldDirty: true });
       setDisplayTotalPrice(formatPriceInput(computed, locale));
     }
-  }, [quantity, estimatedUnitPrice, totalManuallyEdited]); // eslint-disable-line react-hooks/exhaustive-deps -- locale and setValue are session-stable
+  }, [quantity, estimatedUnitPrice, totalManuallyEdited, setValue, userSettings, locale]);
 
   const publisherVal = watch("publisherName");
   const softwareVal = watch("softwareDescription");

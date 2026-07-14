@@ -56,7 +56,7 @@ export function usePendingOrdersData({
 
   useEffect(() => {
     if (queryError) showError(queryError.message);
-  }, [queryError]); // eslint-disable-line react-hooks/exhaustive-deps -- showError is stable
+  }, [queryError, showError]);
 
   const handleCreatePendingOrder = useCallback(async (payload) => {
     const { items, quoteFile, ...headerPayload } = payload;
