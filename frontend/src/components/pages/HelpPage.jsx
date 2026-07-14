@@ -238,7 +238,7 @@ const HELP_ARTICLES = [
         heading: "How it works",
         body: [
           "LicenseTrack uses SQLite online backup to create a consistent database snapshot, compresses it, stores it in the configured database backup directory, and prunes old database backups according to retention settings.",
-          "During restore, LicenseTrack validates the uploaded database backup, creates a pre-restore safety snapshot, replaces the live database, and restarts the process.",
+          "During restore, LicenseTrack validates the uploaded database backup, creates a pre-restore safety snapshot, replaces the live database, and may restart the process depending on server configuration.",
         ],
       },
       {

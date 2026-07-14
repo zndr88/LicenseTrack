@@ -129,7 +129,7 @@ Admins can create and restore database backups in Settings. Database restore cre
 
 Database backups contain the SQLite database only. Uploaded documents are data files stored separately under `/data/storage`; operators must back them up separately, usually by backing up the full `/data` volume.
 
-For the full behavior — scheduled backups, retention, and the restore safety snapshot — see [Backup & restore](backup-restore.md). For ongoing operational checks (health monitoring, log review, upgrades, incident response), see the [Operations runbook](runbook.md).
+For the full behavior - scheduled backups, retention, and the restore safety snapshot - see [Backup & restore](backup-restore.md). For ongoing operational checks (health monitoring, log review, upgrades, incident response), see the [Operations runbook](runbook.md).
 
 ## Reverse proxy
 

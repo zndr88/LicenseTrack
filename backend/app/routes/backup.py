@@ -84,7 +84,8 @@ async def restore_backup(
     """
     Upload a backup .zip and restore the database (admin only).
     A safety snapshot of the current database is created before overwriting.
-    After restore, the process is sent SIGTERM so the process manager restarts it.
+    When configured, the process is sent SIGTERM after the response so the
+    process manager restarts it.
     """
     import zipfile as zipmod
     from app.services.backup_service import restore_backup as do_restore
@@ -138,8 +139,8 @@ async def restore_backup(
         async with AsyncSessionLocal() as audit_db:
             await log_event(audit_db, "system.backup_restored", actor=_admin, ip_address=ip)
             await audit_db.commit()
-    except Exception:
-        pass  # Never let audit failures block a restore
+    except Exception as exc:
+        log.warning("Could not audit database restore before overwrite: %s", exc, exc_info=True)
 
     from app.database import engine as _engine
 
