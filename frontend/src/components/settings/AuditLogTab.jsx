@@ -38,19 +38,19 @@ const ACTION_CATEGORIES = [
   { label: "System", value: "system" },
 ];
 
-// Badge colour by action prefix
-function actionBadgeStyle(action) {
-  if (!action) return {};
-  if (action.startsWith("license."))  return { background: "var(--green-dim)",  color: "var(--green-text)"  };
-  if (action.startsWith("user."))     return { background: "var(--purple-dim)", color: "var(--purple-text)" };
-  if (action.startsWith("settings.")) return { background: "var(--orange-dim)", color: "var(--orange-text)" };
-  if (action.startsWith("contract.")) return { background: "var(--steel-dim)",  color: "var(--steel-text)"  };
+// Badge class by action prefix
+function actionBadgeClass(action) {
+  if (!action) return "audit-badge-default";
+  if (action.startsWith("license.")) return "audit-badge-license";
+  if (action.startsWith("user.")) return "audit-badge-user";
+  if (action.startsWith("settings.")) return "audit-badge-settings";
+  if (action.startsWith("contract.")) return "audit-badge-system";
   if (action.startsWith("auth.")     ||
       action.startsWith("sourcing.") ||
       action.startsWith("po.")       ||
       action.startsWith("document.") ||
-      action.startsWith("system."))   return { background: "var(--steel-dim)",  color: "var(--steel-text)"  };
-  return { background: "var(--bg-2)", color: "var(--text-2)" };
+      action.startsWith("system.")) return "audit-badge-system";
+  return "audit-badge-default";
 }
 
 // Component
@@ -160,40 +160,36 @@ export default function AuditLogTab() {
   const end = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <div style={{ marginTop: 16 }}>
+    <div className="audit-log">
 
       {/* Filter bar */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
+      <div className="audit-filters">
         <input
-          className="fi"
+          className="fi audit-date-input"
           type="date"
           value={filterDateFrom}
           onChange={(e) => setFilterDateFrom(e.target.value)}
-          style={{ width: 140 }}
           title="From date"
         />
-        <span style={{ color: "var(--text-3)", fontSize: 13 }}>–</span>
+        <span className="audit-date-separator">-</span>
         <input
-          className="fi"
+          className="fi audit-date-input"
           type="date"
           value={filterDateTo}
           onChange={(e) => setFilterDateTo(e.target.value)}
-          style={{ width: 140 }}
           title="To date"
         />
         <input
-          className="fi"
+          className="fi audit-search-input"
           type="text"
           placeholder="Search actor, target, detail..."
           value={filterSearch}
           onChange={(e) => setFilterSearch(e.target.value)}
-          style={{ flex: "1 1 200px", minWidth: 160 }}
         />
         <select
-          className="fi"
+          className="fi audit-category-select"
           value={filterCategory}
           onChange={(e) => setFilterCategory(e.target.value)}
-          style={{ width: 140 }}
         >
           {ACTION_CATEGORIES.map((c) => (
             <option key={c.value} value={c.value}>{c.label}</option>
@@ -204,7 +200,7 @@ export default function AuditLogTab() {
         </button>
         {hasFilters && (
           <button
-            style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 13, padding: "0 4px" }}
+            className="audit-clear-button"
             onClick={clearFilters}
           >
             Clear filters
@@ -214,65 +210,58 @@ export default function AuditLogTab() {
 
       {/* Table */}
       {loadError ? (
-        <div style={{ padding: "10px 12px", background: "var(--red-m)", border: "1px solid var(--red)", borderRadius: "var(--r)", fontSize: 13, color: "var(--red-text)", marginBottom: 12 }}>
+        <div className="audit-error-box">
           {loadError}
         </div>
       ) : loading ? (
-        <p style={{ color: "var(--text-3)", fontSize: 13, padding: "24px 0" }}>Loading...</p>
+        <p className="audit-loading">Loading...</p>
       ) : entries.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "40px 0" }}>
-          <p style={{ fontWeight: 600, marginBottom: 4 }}>No audit events found</p>
+        <div className="audit-empty">
+          <p className="audit-empty-title">No audit events found</p>
           {hasFilters && (
-            <p style={{ color: "var(--text-3)", fontSize: 13 }}>Try adjusting your filters</p>
+            <p className="audit-empty-hint">Try adjusting your filters</p>
           )}
         </div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <div className="audit-table-wrap">
+          <table className="audit-table">
             <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--text-3)", textAlign: "left" }}>
-                <th scope="col" style={{ padding: "6px 10px", fontWeight: 600 }}>Timestamp</th>
-                <th scope="col" style={{ padding: "6px 10px", fontWeight: 600 }}>Actor</th>
-                <th scope="col" style={{ padding: "6px 10px", fontWeight: 600 }}>Action</th>
-                <th scope="col" style={{ padding: "6px 10px", fontWeight: 600 }}>Target</th>
-                <th scope="col" style={{ padding: "6px 10px", fontWeight: 600 }}>Detail</th>
+              <tr>
+                <th scope="col">Timestamp</th>
+                <th scope="col">Actor</th>
+                <th scope="col">Action</th>
+                <th scope="col">Target</th>
+                <th scope="col">Detail</th>
               </tr>
             </thead>
             <tbody>
               {entries.map((entry) => (
-                <tr
-                  key={entry.id}
-                  style={{ borderBottom: "1px solid var(--border)", verticalAlign: "top" }}
-                >
-                  <td style={{ padding: "7px 10px", whiteSpace: "nowrap", color: "var(--text-2)" }}>
+                <tr key={entry.id}>
+                  <td className="audit-timestamp">
                     {formatTimestamp(entry.timestamp)}
                   </td>
-                  <td style={{ padding: "7px 10px", whiteSpace: "nowrap" }}>
+                  <td className="audit-nowrap">
                     {entry.actorEmail || "system"}
                   </td>
-                  <td style={{ padding: "7px 10px", whiteSpace: "nowrap" }}>
-                    <span style={{
-                      display: "inline-block",
-                      padding: "2px 8px",
-                      borderRadius: 12,
-                      fontSize: 12,
-                      fontWeight: 500,
-                      ...actionBadgeStyle(entry.action),
-                    }}>
+                  <td className="audit-nowrap">
+                    <span className={`audit-badge ${actionBadgeClass(entry.action)}`}>
                       {entry.action}
                     </span>
                   </td>
-                  <td style={{ padding: "7px 10px" }}>
+                  <td>
                     {entry.targetType && (
-                      <span style={{ color: "var(--text-3)", fontSize: 11, marginRight: 4 }}>
-                        {entry.targetType} ·
+                      <span className="audit-target-type">
+                        {entry.targetType} -
                       </span>
                     )}
                     {entry.targetLabel || entry.targetId || ""}
                   </td>
-                  <td style={{ padding: "7px 10px", maxWidth: 280 }}>
+                  <td className="audit-detail">
                     {entry.detail ? (
-                      <span title={entry.detail} style={{ cursor: entry.detail.length > 80 ? "help" : "default" }}>
+                      <span
+                        className={entry.detail.length > 80 ? "audit-detail-truncated" : undefined}
+                        title={entry.detail}
+                      >
                         {entry.detail.length > 80
                           ? entry.detail.slice(0, 80) + "..."
                           : entry.detail}
@@ -288,25 +277,23 @@ export default function AuditLogTab() {
 
       {/* Pagination */}
       {total > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16, fontSize: 13, color: "var(--text-2)" }}>
+        <div className="audit-pagination">
           <button
-            className="btn btn-g"
+            className="btn btn-g audit-page-button"
             onClick={() => setPage((p) => p - 1)}
             disabled={page <= 1}
-            style={{ padding: "4px 12px" }}
           >
             Previous
           </button>
           <span>
             {entries.length === 0
               ? "No results"
-              : `Showing ${start}–${end} of ${total} entries`}
+              : `Showing ${start}-${end} of ${total} entries`}
           </span>
           <button
-            className="btn btn-g"
+            className="btn btn-g audit-page-button"
             onClick={() => setPage((p) => p + 1)}
             disabled={page * PAGE_SIZE >= total}
-            style={{ padding: "4px 12px" }}
           >
             Next
           </button>

@@ -1406,6 +1406,75 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 }
 .set-webhook-delivery-retry { color: var(--text-3); font-size: 10px; margin-top: 2px; }
 
+/* Audit log */
+.audit-log { margin-top: 16px; }
+.audit-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; align-items: center; }
+.audit-date-input,
+.audit-category-select { width: 140px; }
+.audit-date-separator { color: var(--text-3); font-size: 13px; }
+.audit-search-input { flex: 1 1 200px; min-width: 160px; }
+.audit-clear-button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+}
+.audit-error-box {
+  padding: 10px 12px;
+  background: var(--red-m);
+  border: 1px solid var(--red);
+  border-radius: var(--r);
+  font-size: 13px;
+  color: var(--red-text);
+  margin-bottom: 12px;
+}
+.audit-loading { color: var(--text-3); font-size: 13px; padding: 24px 0; }
+.audit-empty { text-align: center; padding: 40px 0; }
+.audit-empty-title { font-weight: 600; margin-bottom: 4px; }
+.audit-empty-hint { color: var(--text-3); font-size: 13px; }
+.audit-table-wrap { overflow-x: auto; }
+.audit-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.audit-table th {
+  padding: 6px 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.audit-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.audit-timestamp { white-space: nowrap; color: var(--text-2); }
+.audit-nowrap { white-space: nowrap; }
+.audit-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.audit-badge-license { background: var(--green-dim); color: var(--green-text); }
+.audit-badge-user { background: var(--purple-dim); color: var(--purple-text); }
+.audit-badge-settings { background: var(--orange-dim); color: var(--orange-text); }
+.audit-badge-system { background: var(--steel-dim); color: var(--steel-text); }
+.audit-badge-default { background: var(--bg-2); color: var(--text-2); }
+.audit-target-type { color: var(--text-3); font-size: 11px; margin-right: 4px; }
+.audit-detail { max-width: 280px; }
+.audit-detail-truncated { cursor: help; }
+.audit-pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.audit-page-button { padding: 4px 12px; }
+
 /* Settings email template modal */
 .email-tpl-overlay { display: flex; align-items: center; justify-content: center; }
 .email-tpl-modal {
