@@ -99,34 +99,22 @@ export default function LicenseToolbar({
   return (
     <div className="tbl-bar lp-toolbar-bar">
       <div className="lp-row1-left">
-        <div style={{ position: "relative", display: "inline-flex", alignItems: "center", width: "100%", maxWidth: 400 }}>
+        <div className="lp-search-wrap">
           <input
+            className={search ? "lp-search-input-has-value" : undefined}
             placeholder="Search..."
             aria-label="Search licenses"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            style={{ paddingRight: search ? 28 : undefined }}
           />
           {search && (
             <button
               type="button"
               onClick={() => { setSearch(""); setCurrentPage(1); }}
               aria-label="Clear search"
-              style={{
-                position: "absolute",
-                right: 6,
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                color: "var(--text-3)",
-                fontSize: 14,
-                lineHeight: 1,
-                display: "flex",
-                alignItems: "center",
-              }}
+              className="lp-search-clear"
             >
-              ✕
+              <Icon name="x" size={13} />
             </button>
           )}
         </div>
@@ -156,28 +144,28 @@ export default function LicenseToolbar({
           <Icon name="bookmark" size={15} />
         </button>
         {viewsOpen && createPortal(
-          <div ref={viewsMenuRef} style={{ position: "fixed", top: viewsPos.top, right: viewsPos.right, zIndex: 9999, background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: 8, padding: 8, minWidth: 200, boxShadow: "var(--shadow-sm)" }}>
+          <div ref={viewsMenuRef} className="lp-menu lp-view-menu" style={{ top: viewsPos.top, right: viewsPos.right }}>
             <button
               type="button"
-              style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "4px 8px", fontSize: 12, color: "var(--text-2)", cursor: "pointer", borderRadius: 4 }}
+              className="lp-menu-item lp-menu-item-muted"
               onClick={() => { handleRevertToDefault(); setViewsOpen(false); setPendingOverwriteName(null); }}
             >
               Default view
             </button>
             {userSettings.savedViews.length > 0 && (
-              <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "4px 0" }} />
+              <hr className="lp-menu-separator" />
             )}
             {userSettings.savedViews.length === 0 && (
-              <p style={{ fontSize: 12, color: "var(--text-3)", padding: "4px 8px" }}>No saved views yet.</p>
+              <p className="lp-menu-empty">No saved views yet.</p>
             )}
             {userSettings.savedViews.map((v) => (
-              <div key={v.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 8px", borderRadius: 4, gap: 8 }}>
-                <button type="button" style={{ background: "none", border: "none", color: "var(--text-1)", cursor: "pointer", fontSize: 13, flex: 1, textAlign: "left" }} onClick={() => { handleLoadView(v); setViewsOpen(false); setPendingOverwriteName(null); }}>
+              <div key={v.name} className="lp-view-row">
+                <button type="button" className="lp-view-load" onClick={() => { handleLoadView(v); setViewsOpen(false); setPendingOverwriteName(null); }}>
                   {v.name}
                 </button>
                 <button
                   type="button"
-                  style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", padding: "2px 4px", display: "inline-flex", alignItems: "center" }}
+                  className="lp-view-delete"
                   onClick={() => handleDeleteView(v.name)}
                   title="Delete view"
                   aria-label="Delete view"
@@ -186,27 +174,27 @@ export default function LicenseToolbar({
                 </button>
               </div>
             ))}
-            <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "6px 0" }} />
+            <hr className="lp-menu-separator lp-menu-separator-roomy" />
             {pendingOverwriteName ? (
-              <div style={{ padding: "6px 8px" }}>
-                <p style={{ fontSize: 12, color: "var(--text-2)", margin: "0 0 6px" }}>
+              <div className="lp-overwrite-panel">
+                <p className="lp-overwrite-text">
                   Overwrite <strong>{pendingOverwriteName}</strong>?
                 </p>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button type="button" className="btn btn-g" style={{ fontSize: 11, flex: 1 }} onClick={() => setPendingOverwriteName(null)}>Cancel</button>
-                  <button type="button" className="btn btn-p" style={{ fontSize: 11, flex: 1 }} onClick={() => { handleSaveView(pendingOverwriteName); setNewViewName(""); setPendingOverwriteName(null); setViewsOpen(false); }}>Overwrite</button>
+                <div className="lp-overwrite-actions">
+                  <button type="button" className="btn btn-g lp-compact-action" onClick={() => setPendingOverwriteName(null)}>Cancel</button>
+                  <button type="button" className="btn btn-p lp-compact-action" onClick={() => { handleSaveView(pendingOverwriteName); setNewViewName(""); setPendingOverwriteName(null); setViewsOpen(false); }}>Overwrite</button>
                 </div>
               </div>
             ) : (
-              <div style={{ display: "flex", gap: 4, padding: "2px 4px" }}>
-                <input className="fi" style={{ fontSize: 12, padding: "4px 8px", flex: 1 }} placeholder="View name..." value={newViewName} onChange={(e) => setNewViewName(e.target.value)}
+              <div className="lp-save-view-row">
+                <input className="fi lp-save-view-input" placeholder="View name..." value={newViewName} onChange={(e) => setNewViewName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && newViewName.trim()) {
                       handleSaveViewLocal(newViewName.trim());
                     }
                   }}
                 />
-                <button type="button" className="btn btn-p" style={{ fontSize: 11, padding: "4px 8px" }} disabled={!newViewName.trim()}
+                <button type="button" className="btn btn-p lp-save-view-button" disabled={!newViewName.trim()}
                   onClick={() => handleSaveViewLocal(newViewName.trim())}
                 >Save</button>
               </div>
@@ -272,34 +260,35 @@ export default function LicenseToolbar({
             ref={exportMenuRef}
             role="menu"
             aria-label="CSV export options"
-            style={{ position: "fixed", top: exportPos.top, right: exportPos.right, zIndex: 9999, background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: 8, padding: 4, minWidth: 238, boxShadow: "var(--shadow-sm)" }}
+            className="lp-menu lp-export-menu"
+            style={{ top: exportPos.top, right: exportPos.right }}
           >
             <button
               type="button"
               role="menuitem"
-              style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "7px 8px", color: "var(--text-1)", cursor: "pointer", borderRadius: 4 }}
+              className="lp-export-option"
               onClick={() => handleExportCsv()}
             >
-              <span style={{ display: "block", fontSize: 12, fontWeight: 500 }}>Export Current View</span>
-              <span style={{ display: "block", marginTop: 2, fontSize: 11, color: "var(--text-2)" }}>Filtered rows and visible columns</span>
+              <span className="lp-export-title">Export Current View</span>
+              <span className="lp-export-subtitle">Filtered rows and visible columns</span>
             </button>
             <button
               type="button"
               role="menuitem"
-              style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "7px 8px", color: "var(--text-1)", cursor: "pointer", borderRadius: 4 }}
+              className="lp-export-option"
               onClick={() => handleExportCsv({ fullData: true })}
             >
-              <span style={{ display: "block", fontSize: 12, fontWeight: 500 }}>Export Full Data</span>
-              <span style={{ display: "block", marginTop: 2, fontSize: 11, color: "var(--text-2)" }}>Filtered rows and every available column</span>
+              <span className="lp-export-title">Export Full Data</span>
+              <span className="lp-export-subtitle">Filtered rows and every available column</span>
             </button>
             <button
               type="button"
               role="menuitem"
-              style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "7px 8px", color: "var(--text-1)", cursor: "pointer", borderRadius: 4 }}
+              className="lp-export-option"
               onClick={() => handleExportCsv({ localized: true })}
             >
-              <span style={{ display: "block", fontSize: 12, fontWeight: 500 }}>Export Current View (localized)</span>
-              <span style={{ display: "block", marginTop: 2, fontSize: 11, color: "var(--text-2)" }}>Use your date and number formats</span>
+              <span className="lp-export-title">Export Current View (localized)</span>
+              <span className="lp-export-subtitle">Use your date and number formats</span>
             </button>
           </div>,
           document.body
