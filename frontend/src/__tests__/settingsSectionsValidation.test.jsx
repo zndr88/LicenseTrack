@@ -10,8 +10,8 @@ vi.mock("../api/settings.js", () => ({
   listBackups: vi.fn().mockResolvedValue({ data: [], error: null }),
 }));
 
-vi.mock("../utils/settingsHelpers.js", () => ({
-  mapResponseToState: vi.fn((data, current) => current),
+vi.mock("../utils/settingsNormalizer.js", () => ({
+  normalizeGlobalSettings: vi.fn((data, current) => current),
 }));
 
 // EmailTemplatesModal is conditionally rendered — mock to keep test simple

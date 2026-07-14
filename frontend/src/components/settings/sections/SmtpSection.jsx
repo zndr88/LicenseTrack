@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { updateGlobalSettings, sendTestEmail, triggerNotifications } from "../../../api/settings.js";
-import { mapResponseToState } from "../../../utils/settingsHelpers.js";
+import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { smtpSaveSchema, smtpConnectionSchema } from "../../../utils/settingsSchemas.js";
 import Icon from "../../ui/Icon.jsx";
 import Toggle from "../../ui/Toggle.jsx";
@@ -36,8 +36,8 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
     });
     setSaving(false);
     if (error) { onError(error); return; }
-    setGlobalSettings(s => ({ ...s, ...mapResponseToState(data, s) }));
-    navGuard?.sectionSaved?.({ global: mapResponseToState(data, globalSettings) });
+    setGlobalSettings(s => normalizeGlobalSettings(data, s));
+    navGuard?.sectionSaved?.({ global: normalizeGlobalSettings(data, globalSettings) });
     clearDirty("smtp");
     onToast("Settings saved.", "info");
   };
@@ -87,7 +87,7 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
     });
     setEmailTemplatesSaving(false);
     if (error) { onError(error); return; }
-    setGlobalSettings(s => ({ ...s, ...mapResponseToState(data, s) }));
+    setGlobalSettings(s => normalizeGlobalSettings(data, s));
     setEmailTemplatesOpen(false);
     onToast("Email templates saved.", "success");
   };

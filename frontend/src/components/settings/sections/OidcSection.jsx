@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { updateGlobalSettings } from "../../../api/settings.js";
-import { mapResponseToState } from "../../../utils/settingsHelpers.js";
+import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { oidcEnabledSaveSchema } from "../../../utils/settingsSchemas.js";
 import Toggle from "../../ui/Toggle.jsx";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
@@ -25,8 +25,8 @@ export default function OidcSection({ isOpen, isDirty, onToggle, markDirty, clea
     });
     setSaving(false);
     if (error) { onError(error); return; }
-    setGlobalSettings(s => ({ ...s, ...mapResponseToState(data, s) }));
-    navGuard?.sectionSaved?.({ global: mapResponseToState(data, globalSettings) });
+    setGlobalSettings(s => normalizeGlobalSettings(data, s));
+    navGuard?.sectionSaved?.({ global: normalizeGlobalSettings(data, globalSettings) });
     clearDirty("oidc");
     onToast("Settings saved.", "info");
   };

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { updateGlobalSettings } from "../../../api/settings.js";
-import { mapResponseToState } from "../../../utils/settingsHelpers.js";
+import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { allowedEmailDomain } from "../../../utils/validation.js";
 import { notificationsSaveSchema } from "../../../utils/settingsSchemas.js";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
@@ -24,8 +24,8 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
     });
     setSaving(false);
     if (error) { onError(error); return; }
-    setGlobalSettings(s => ({ ...s, ...mapResponseToState(data, s) }));
-    navGuard?.sectionSaved?.({ global: mapResponseToState(data, globalSettings) });
+    setGlobalSettings(s => normalizeGlobalSettings(data, s));
+    navGuard?.sectionSaved?.({ global: normalizeGlobalSettings(data, globalSettings) });
     clearDirty("notifications");
     onToast("Settings saved.", "info");
   };

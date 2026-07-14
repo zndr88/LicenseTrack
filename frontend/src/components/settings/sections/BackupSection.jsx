@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { updateGlobalSettings, triggerBackup, listBackups } from "../../../api/settings.js";
-import { mapResponseToState } from "../../../utils/settingsHelpers.js";
+import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { backupSaveSchema } from "../../../utils/settingsSchemas.js";
 import { formatDateTime, formatFileSize } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
@@ -39,8 +39,8 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
     });
     setSaving(false);
     if (error) { onError(error); return; }
-    setGlobalSettings(s => ({ ...s, ...mapResponseToState(data, s) }));
-    navGuard?.sectionSaved?.({ global: mapResponseToState(data, globalSettings) });
+    setGlobalSettings(s => normalizeGlobalSettings(data, s));
+    navGuard?.sectionSaved?.({ global: normalizeGlobalSettings(data, globalSettings) });
     clearDirty("backup");
     onToast("Settings saved.", "info");
   };

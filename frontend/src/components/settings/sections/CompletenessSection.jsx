@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { updateGlobalSettings } from "../../../api/settings.js";
-import { mapResponseToState } from "../../../utils/settingsHelpers.js";
+import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import Toggle from "../../ui/Toggle.jsx";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
 
@@ -12,8 +12,8 @@ export default function CompletenessSection({ isOpen, isDirty, onToggle, markDir
     const { data, error } = await updateGlobalSettings({ mandatory_fields: globalSettings.mandatoryFields });
     setSaving(false);
     if (error) { onError(error); return; }
-    setGlobalSettings(s => ({ ...s, ...mapResponseToState(data, s) }));
-    navGuard?.sectionSaved?.({ global: mapResponseToState(data, globalSettings) });
+    setGlobalSettings(s => normalizeGlobalSettings(data, s));
+    navGuard?.sectionSaved?.({ global: normalizeGlobalSettings(data, globalSettings) });
     clearDirty("completeness");
     if (onCompletenessRulesChanged) {
       onCompletenessRulesChanged();

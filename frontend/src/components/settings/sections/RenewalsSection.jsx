@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { updateGlobalSettings } from "../../../api/settings.js";
-import { mapResponseToState } from "../../../utils/settingsHelpers.js";
+import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
 
 export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, onError, onToast, navGuard }) {
@@ -19,8 +19,8 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
     });
     setSaving(false);
     if (error) { onError(error); return; }
-    setGlobalSettings(s => ({ ...s, ...mapResponseToState(data, s) }));
-    navGuard?.sectionSaved?.({ global: mapResponseToState(data, globalSettings) });
+    setGlobalSettings(s => normalizeGlobalSettings(data, s));
+    navGuard?.sectionSaved?.({ global: normalizeGlobalSettings(data, globalSettings) });
     clearDirty("renewals");
     onToast("Settings saved.", "info");
   };
