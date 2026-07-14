@@ -217,11 +217,12 @@
   border-radius: 8px;
   box-shadow: var(--shadow-sm);
 }
-.lp-view-menu { min-width: 200px; padding: 8px; }
+.lp-view-menu { min-width: 232px; padding: 8px; }
 .lp-export-menu { min-width: 238px; padding: 4px; }
 .lp-menu-item,
 .lp-export-option,
 .lp-view-load,
+.lp-view-default,
 .lp-view-delete {
   background: none;
   border: none;
@@ -239,8 +240,12 @@
 .lp-menu-separator { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
 .lp-menu-separator-roomy { margin: 6px 0; }
 .lp-menu-empty { font-size: 12px; color: var(--text-3); padding: 4px 8px; }
-.lp-view-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 4px; gap: 8px; }
-.lp-view-load { color: var(--text-1); font-size: 13px; flex: 1; text-align: left; }
+.lp-view-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 4px; gap: 6px; }
+.lp-view-load { color: var(--text-1); font-size: 13px; flex: 1; min-width: 0; text-align: left; display: flex; align-items: center; gap: 6px; }
+.lp-view-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-view-default-badge { color: var(--text-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0; }
+.lp-view-default { color: var(--text-3); padding: 2px 4px; display: inline-flex; align-items: center; }
+.lp-view-default-active { color: var(--text-1); }
 .lp-view-delete { color: var(--red); padding: 2px 4px; display: inline-flex; align-items: center; }
 .lp-overwrite-panel { padding: 6px 8px; }
 .lp-overwrite-text { font-size: 12px; color: var(--text-2); margin: 0 0 6px; }

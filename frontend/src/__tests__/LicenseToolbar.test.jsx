@@ -27,6 +27,7 @@ function setup(overrides = {}) {
     userSettings: baseUserSettings,
     handleSaveView: vi.fn(),
     handleDeleteView: vi.fn(),
+    handleSetDefaultView: vi.fn(),
     handleLoadView: vi.fn(),
     handleRevertToDefault: vi.fn(),
     activeColumns: [],
@@ -93,6 +94,25 @@ describe("LicenseToolbar", () => {
     const overwriteBtn = screen.getAllByText("Overwrite").find(el => el.tagName === "BUTTON");
     fireEvent.click(overwriteBtn);
     expect(handleSaveView).toHaveBeenCalledWith("Existing");
+  });
+
+  test("saved view default action toggles the selected saved view", () => {
+    const { handleSetDefaultView } = setup({
+      userSettings: {
+        savedViews: [
+          { name: "Operations", isDefault: true },
+          { name: "Renewals" },
+        ],
+        numberFormatLocale: "en-US",
+      },
+    });
+
+    fireEvent.click(screen.getByLabelText("Saved views"));
+
+    expect(screen.getByText("Default")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Set Renewals as my default view"));
+
+    expect(handleSetDefaultView).toHaveBeenCalledWith("Renewals");
   });
 
   test("Save button is disabled when view name input is empty", () => {

@@ -40,6 +40,7 @@ function setup(overrides = {}) {
 
 describe("useUserSettings saved views", () => {
   beforeEach(() => {
+    updateSettings.mockClear();
     updateSettings.mockResolvedValue({ data: {}, error: null });
   });
 
@@ -98,6 +99,62 @@ describe("useUserSettings saved views", () => {
     });
 
     expect(props.setColumnFilters).toHaveBeenCalledWith({});
+  });
+
+  test("handleSaveView preserves the default marker when overwriting a default view", async () => {
+    const { result } = setup({
+      userSettings: {
+        ...baseUserSettings,
+        savedViews: [{ name: "Preferred", isDefault: true }],
+      },
+    });
+
+    await act(async () => {
+      await result.current.handleSaveView("Preferred");
+    });
+
+    expect(updateSettings.mock.calls[0][0].saved_views[0]).toMatchObject({
+      name: "Preferred",
+      isDefault: true,
+    });
+  });
+
+  test("handleSetDefaultView marks only the selected saved view as default", async () => {
+    const { result } = setup({
+      userSettings: {
+        ...baseUserSettings,
+        savedViews: [
+          { name: "Operations", isDefault: true },
+          { name: "Renewals" },
+        ],
+      },
+    });
+
+    await act(async () => {
+      await result.current.handleSetDefaultView("Renewals");
+    });
+
+    expect(updateSettings.mock.calls[0][0].saved_views).toEqual([
+      { name: "Operations" },
+      { name: "Renewals", isDefault: true },
+    ]);
+  });
+
+  test("handleSetDefaultView clears the default marker when selecting the current default", async () => {
+    const { result } = setup({
+      userSettings: {
+        ...baseUserSettings,
+        savedViews: [{ name: "Operations", isDefault: true }],
+      },
+    });
+
+    await act(async () => {
+      await result.current.handleSetDefaultView("Operations");
+    });
+
+    expect(updateSettings.mock.calls[0][0].saved_views).toEqual([
+      { name: "Operations" },
+    ]);
   });
 
   test("handleHideColumn rolls back local settings when save fails", async () => {

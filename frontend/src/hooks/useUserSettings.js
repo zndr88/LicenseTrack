@@ -3,6 +3,14 @@ import { updateSettings } from "../api/settings.js";
 import { DEFAULT_STATUS_FILTERS } from "../constants/licenseData.js";
 import { VISIBLE_IN_LIST_DEFAULTS } from "../components/pages/licenses/licenseColumns.js";
 
+function withDefaultFlag(view, isDefault) {
+  if (isDefault) return { ...view, isDefault: true };
+
+  const viewWithoutDefault = { ...view };
+  delete viewWithoutDefault.isDefault;
+  return viewWithoutDefault;
+}
+
 export function useUserSettings({
   userSettings,
   setUserSettings,
@@ -38,6 +46,7 @@ export function useUserSettings({
   }, [userSettings, showError]);
 
   const handleSaveView = useCallback(async (name) => {
+    const existingView = userSettings.savedViews.find((v) => v.name === name);
     const newView = {
       name,
       statusFilters,
@@ -46,6 +55,7 @@ export function useUserSettings({
       visibleInList: userSettings.visibleInList,
       sortCol: sortCol ?? null,
       sortDir,
+      ...(existingView?.isDefault ? { isDefault: true } : {}),
     };
     const updatedViews = [
       ...userSettings.savedViews.filter((v) => v.name !== name),
@@ -62,6 +72,20 @@ export function useUserSettings({
 
   const handleDeleteView = useCallback(async (name) => {
     const updatedViews = userSettings.savedViews.filter((v) => v.name !== name);
+    setUserSettings((s) => ({ ...s, savedViews: updatedViews }));
+    const ok = await commitSettings({ saved_views: updatedViews });
+    if (!ok) setUserSettings(userSettings);
+  }, [userSettings, setUserSettings, commitSettings]);
+
+  const handleSetDefaultView = useCallback(async (name) => {
+    const matchingView = userSettings.savedViews.find((v) => v.name === name);
+    if (!matchingView) return;
+
+    const shouldClearDefault = Boolean(matchingView.isDefault);
+    const updatedViews = userSettings.savedViews.map((view) => (
+      withDefaultFlag(view, view.name === name && !shouldClearDefault)
+    ));
+
     setUserSettings((s) => ({ ...s, savedViews: updatedViews }));
     const ok = await commitSettings({ saved_views: updatedViews });
     if (!ok) setUserSettings(userSettings);
@@ -130,6 +154,7 @@ export function useUserSettings({
   return {
     handleSaveView,
     handleDeleteView,
+    handleSetDefaultView,
     handleLoadView,
     handleHideColumn,
     handleRevertToDefault,

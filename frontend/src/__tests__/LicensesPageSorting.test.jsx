@@ -1,6 +1,15 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+const userSettingsHookMocks = vi.hoisted(() => ({
+  handleSaveView: vi.fn(),
+  handleDeleteView: vi.fn(),
+  handleSetDefaultView: vi.fn(),
+  handleLoadView: vi.fn(),
+  handleHideColumn: vi.fn(),
+  handleRevertToDefault: vi.fn(),
+}));
 
 vi.mock("../components/pages/licenses/useLicensesPageData.js", () => ({
   useLicensesPageData: () => ({
@@ -71,13 +80,7 @@ vi.mock("../components/licenses/DetailPanel.jsx", () => ({
 }));
 
 vi.mock("../hooks/useUserSettings.js", () => ({
-  useUserSettings: () => ({
-    handleSaveView: vi.fn(),
-    handleDeleteView: vi.fn(),
-    handleLoadView: vi.fn(),
-    handleHideColumn: vi.fn(),
-    handleRevertToDefault: vi.fn(),
-  }),
+  useUserSettings: () => userSettingsHookMocks,
 }));
 
 vi.mock("../components/pages/licenses/useLicenseActions.js", () => ({
@@ -102,6 +105,10 @@ const userSettings = {
 };
 
 describe("LicensesPage sorting handoff", () => {
+  beforeEach(() => {
+    Object.values(userSettingsHookMocks).forEach((mock) => mock.mockClear());
+  });
+
   test("passes sorted rows to the table so virtualized rendering keeps the requested order", () => {
     render(
       <LicensesPage
@@ -129,5 +136,43 @@ describe("LicensesPage sorting handoff", () => {
     );
 
     expect(screen.getByTestId("license-table-order")).toHaveTextContent("Acme|Zulu");
+  });
+
+  test("loads the preferred saved view when License Overview opens", async () => {
+    const preferredView = {
+      name: "Renewals",
+      isDefault: true,
+      visibleInList: { publisher: true },
+      columnOrder: ["publisher"],
+    };
+
+    render(
+      <LicensesPage
+        selectedId={null}
+        setSelectedId={vi.fn()}
+        user={{ id: 1, role: "admin" }}
+        userSettings={{ ...userSettings, savedViews: [preferredView] }}
+        setUserSettings={vi.fn()}
+        globalSettings={{ mandatoryFields: {}, notificationDays: 30 }}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+        showToast={vi.fn()}
+        fullView={false}
+        onFullView={vi.fn()}
+        statsVisible={false}
+        onSetStatsVisible={vi.fn()}
+        onNavigateToSourcing={vi.fn()}
+        onNavigateToPendingOrder={vi.fn()}
+        onNavigateToContract={vi.fn()}
+        onCreateContract={vi.fn()}
+        onSourcingCreated={vi.fn()}
+        onStatsChange={vi.fn()}
+        onPortfolioStateChange={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(userSettingsHookMocks.handleLoadView).toHaveBeenCalledWith(preferredView);
+    });
   });
 });

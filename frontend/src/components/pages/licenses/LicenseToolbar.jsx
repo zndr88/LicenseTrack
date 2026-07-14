@@ -13,7 +13,7 @@ export default function LicenseToolbar({
   loadLicenses,
   selectedIds, setShowBulkDeleteConfirm,
   userSettings,
-  handleSaveView, handleDeleteView, handleLoadView, handleRevertToDefault,
+  handleSaveView, handleDeleteView, handleSetDefaultView, handleLoadView, handleRevertToDefault,
   activeColumns, visList, filtered, displayCurrency, licenses, customFieldValuesMap,
   showError,
   inlineEditEnabled, onToggleInlineEdit, canInlineEdit,
@@ -161,7 +161,18 @@ export default function LicenseToolbar({
             {userSettings.savedViews.map((v) => (
               <div key={v.name} className="lp-view-row">
                 <button type="button" className="lp-view-load" onClick={() => { handleLoadView(v); setViewsOpen(false); setPendingOverwriteName(null); }}>
-                  {v.name}
+                  <span className="lp-view-name">{v.name}</span>
+                  {v.isDefault && <span className="lp-view-default-badge">Default</span>}
+                </button>
+                <button
+                  type="button"
+                  className={`lp-view-default ${v.isDefault ? "lp-view-default-active" : ""}`}
+                  onClick={() => handleSetDefaultView(v.name)}
+                  title={v.isDefault ? "Unset as my default view" : "Set as my default view"}
+                  aria-label={v.isDefault ? `Unset ${v.name} as my default view` : `Set ${v.name} as my default view`}
+                  aria-pressed={Boolean(v.isDefault)}
+                >
+                  <Icon name={v.isDefault ? "star-filled" : "star"} size={12} />
                 </button>
                 <button
                   type="button"

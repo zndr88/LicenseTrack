@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_STATUS_FILTERS } from "../../constants/licenseData.js";
 import { DEFAULT_DISPLAY_CURRENCY } from "../../constants/currencies.js";
 import { formatCostByCurrency } from "../../utils/helpers.js";
@@ -54,6 +54,7 @@ export default function LicensesPage({
 }) {
   const displayCurrency = userSettings.displayCurrency ?? DEFAULT_DISPLAY_CURRENCY;
   const [inlineEditEnabled, setInlineEditEnabled] = useState(false);
+  const appliedDefaultViewRef = useRef(null);
 
   const {
     search, setSearch,
@@ -131,13 +132,32 @@ export default function LicensesPage({
   const allFilteredSelected = filtered.length > 0 && filtered.every(l => selectedIds.has(l.id));
   const someFilteredSelected = filtered.some(l => selectedIds.has(l.id));
 
-  const { handleSaveView, handleDeleteView, handleLoadView, handleHideColumn, handleRevertToDefault } = useUserSettings({
+  const {
+    handleSaveView,
+    handleDeleteView,
+    handleSetDefaultView,
+    handleLoadView,
+    handleHideColumn,
+    handleRevertToDefault,
+  } = useUserSettings({
     userSettings, setUserSettings,
     statusFilters, setStatusFilters,
     columnFilters, setColumnFilters,
     sortCol, sortDir, setSortCol, setSortDir,
     showError, showSuccess,
   });
+
+  useEffect(() => {
+    const defaultView = userSettings.savedViews.find((view) => view.isDefault);
+    if (!defaultView) {
+      appliedDefaultViewRef.current = null;
+      return;
+    }
+    if (appliedDefaultViewRef.current === defaultView.name) return;
+
+    appliedDefaultViewRef.current = defaultView.name;
+    void handleLoadView(defaultView);
+  }, [userSettings.savedViews, handleLoadView]);
 
   useEffect(() => {
     if (onStatsChange && stats) {
@@ -287,6 +307,7 @@ export default function LicensesPage({
               userSettings={userSettings}
               handleSaveView={handleSaveView}
               handleDeleteView={handleDeleteView}
+              handleSetDefaultView={handleSetDefaultView}
               handleLoadView={handleLoadView}
               handleRevertToDefault={handleRevertToDefault}
               activeColumns={activeColumns}
