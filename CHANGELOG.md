@@ -26,6 +26,8 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Split the former monolithic frontend stylesheet into ordered CSS partials
   while preserving the original cascade through `global.css` as the import
   manifest.
+- Split PDF export dependencies into separate on-demand chunks so production
+  builds no longer emit the Vite large-chunk warning.
 - Consolidated settings presentation styles across API tokens, import mappings,
   custom fields, password and restore controls, global settings, visible
   categories, SMTP/email templates, extensions, webhooks, audit log, and

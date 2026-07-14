@@ -1,5 +1,3 @@
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
 import { formatDate } from "./formatting.js";
 
 // A4 landscape in points (jsPDF default unit)
@@ -16,7 +14,19 @@ function todayStr(settings) {
   return formatDate(isoDate, settings);
 }
 
-async function captureElement(el) {
+async function loadPdfDependencies() {
+  const [{ jsPDF }, html2canvasModule] = await Promise.all([
+    import("jspdf"),
+    import("html2canvas"),
+  ]);
+
+  return {
+    jsPDF,
+    html2canvas: html2canvasModule.default,
+  };
+}
+
+async function captureElement(el, html2canvas) {
   // Resolve --bg-1 CSS variable to a real colour for html2canvas
   const resolvedBg = getComputedStyle(document.documentElement)
     .getPropertyValue("--bg-1").trim() || "#ffffff";
@@ -101,7 +111,8 @@ export async function exportSectionPdf(elementId, sectionTitle, filename, settin
   const el = document.getElementById(elementId);
   if (!el) throw new Error(`Element #${elementId} not found`);
 
-  const canvas = await captureElement(el);
+  const { jsPDF, html2canvas } = await loadPdfDependencies();
+  const canvas = await captureElement(el, html2canvas);
 
   const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
   addPageContent(pdf, canvas, sectionTitle, todayStr(settings));
@@ -117,6 +128,7 @@ export async function exportSectionPdf(elementId, sectionTitle, filename, settin
  */
 export async function exportFullReportPdf(sections, filename, settings) {
   const dateStr = todayStr(settings);
+  const { jsPDF, html2canvas } = await loadPdfDependencies();
 
   let pdf = null;
 
@@ -125,7 +137,7 @@ export async function exportFullReportPdf(sections, filename, settings) {
     const el = document.getElementById(elementId);
     if (!el) continue;
 
-    const canvas = await captureElement(el);
+    const canvas = await captureElement(el, html2canvas);
 
     if (!pdf) {
       pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
