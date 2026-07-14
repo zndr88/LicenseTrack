@@ -41,6 +41,11 @@ contracts will be called out under a **Breaking** heading in future releases.
   messaging so local and process-manager restart modes report accurately.
 - Covered both restore restart modes with backup integration tests.
 
+### Release
+
+- Version bumped to 1.0.6 across backend, frontend, README, Docker Compose,
+  frontend package metadata, and wiki installation/deployment examples.
+
 ## [1.0.5] - 2026-07-14
 
 ### Added
