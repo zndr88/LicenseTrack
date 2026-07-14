@@ -4,7 +4,7 @@ oidc_client_secret).
 
 Uses Fernet symmetric encryption (AES-128-CBC + HMAC-SHA256) with a key
 derived from JWT_SECRET via SHA-256.  The decrypt function is intentionally
-tolerant of plaintext values written before this feature was introduced —
+tolerant of plaintext values written before this feature was introduced  -
 if decryption fails it returns the value unchanged, so existing deployments
 migrate transparently the next time an admin saves the settings.
 """
@@ -43,5 +43,5 @@ def decrypt_secret(value: str) -> str:
     try:
         return _fernet().decrypt(value.encode()).decode()
     except Exception:
-        log.debug("decrypt_secret: value is not Fernet ciphertext — returning as-is")
+        log.debug("decrypt_secret: value is not Fernet ciphertext - returning as-is")
         return value

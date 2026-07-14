@@ -2,10 +2,10 @@
 """
 Mapping CRUD endpoints.
 
-GET    /api/import/mappings           — list all saved mappings
-POST   /api/import/mappings           — create a new mapping
-PUT    /api/import/mappings/{id}      — update a mapping
-DELETE /api/import/mappings/{id}      — delete a mapping
+GET    /api/import/mappings           - list all saved mappings
+POST   /api/import/mappings           - create a new mapping
+PUT    /api/import/mappings/{id}      - update a mapping
+DELETE /api/import/mappings/{id}      - delete a mapping
 
 All endpoints are restricted to admin role.
 """

@@ -349,7 +349,7 @@ async def bulk_delete_licenses(
 ) -> dict:
     """Delete multiple licenses by ID in a single transaction.
 
-    Missing IDs are silently skipped — concurrent deletes should not cause failures.
+    Missing IDs are silently skipped - concurrent deletes should not cause failures.
     Returns { deleted: N } where N is the number of records actually deleted.
     """
     found_ids = await bulk_delete_license_records(db, payload.ids)

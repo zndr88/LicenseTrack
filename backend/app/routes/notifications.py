@@ -1,5 +1,5 @@
 """
-Notifications endpoint — aggregated license alerts.
+Notifications endpoint - aggregated license alerts.
 
 GET /api/notifications returns three alert categories for all non-retired licenses:
   - expiring: end_date within 90 days, grouped into 30/60/90-day urgency bands
@@ -7,9 +7,9 @@ GET /api/notifications returns three alert categories for all non-retired licens
   - incomplete: completeness_pct below 80 %
 
 Severity mapping
-  critical  — expired, or expiring within 30 days
-  warning   — expiring within 31–60 days
-  info      — expiring within 61–90 days, or incomplete
+  critical  - expired, or expiring within 30 days
+  warning   - expiring within 31-60 days
+  info      - expiring within 61-90 days, or incomplete
 
 Sort order: severity (critical first), then relevant_date ascending (None last).
 """
@@ -68,7 +68,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
     notifications: list[NotificationItem] = []
 
     for lic in licenses:
-        # Skip legacy licenses entirely — no expiration or completeness alerts
+        # Skip legacy licenses entirely - no expiration or completeness alerts
         if lic.lifecycle_status == "legacy":
             continue
 
@@ -79,7 +79,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
         is_renewed = lic.lifecycle_status == "renewed"
 
         # ------------------------------------------------------------------
-        # Expired — end_date in the past; skip licenses already renewed
+        # Expired - end_date in the past; skip licenses already renewed
         # ------------------------------------------------------------------
         if lic.end_date is not None and lic.end_date < today and not is_renewed:
             days_overdue = (today - lic.end_date).days
@@ -97,7 +97,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
             )
 
         # ------------------------------------------------------------------
-        # Expiring soon — end_date within the next N days; skip renewed
+        # Expiring soon - end_date within the next N days; skip renewed
         # ------------------------------------------------------------------
         elif lic.end_date is not None and not is_renewed:
             days_left = _days_until(lic.end_date, today)
@@ -123,7 +123,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
                 )
 
         # ------------------------------------------------------------------
-        # Incomplete — completeness below threshold; skip renewed/exempt
+        # Incomplete - completeness below threshold; skip renewed/exempt
         # ------------------------------------------------------------------
         if not is_renewed and not lic.is_completeness_exempt:
             completeness = compute_completeness(lic, docs, mandatory_fields)

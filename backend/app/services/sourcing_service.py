@@ -263,7 +263,7 @@ async def convert_sourcing_item_to_order(
     """Attach a sourcing item to a PendingOrder (existing or newly created).
 
     Mutates item.pending_order_id and item.status in place. Flushes but does
-    not commit — the caller controls the transaction boundary.
+    not commit - the caller controls the transaction boundary.
 
     Raises ValueError if:
     - pending_order_id is given but the order doesn't exist

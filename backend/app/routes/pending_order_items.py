@@ -51,7 +51,7 @@ async def add_pending_order_item(
         target_type="pending_order",
         target_id=str(order_id),
         target_label=order.po_number or order.supplier or "",
-        detail=f"{payload.publisher_name} — {payload.software_description}",
+        detail=f"{payload.publisher_name} - {payload.software_description}",
     )
     await db.commit()
     order = await get_pending_order_or_404(db, order_id, include_items=True)

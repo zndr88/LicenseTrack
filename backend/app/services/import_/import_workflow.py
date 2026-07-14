@@ -232,7 +232,7 @@ async def run_import_rows(
             db.add(license_obj)
             await db.flush()
             license_obj.license_ref = await generate_license_ref(db)
-            # F3: wire renewal chain — mark predecessor as renewed with back-link
+            # F3: wire renewal chain - mark predecessor as renewed with back-link
             if license_obj.predecessor_id is not None:
                 predecessor = await db.get(License, license_obj.predecessor_id)
                 if predecessor is not None:

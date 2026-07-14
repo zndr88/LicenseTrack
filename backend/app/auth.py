@@ -1,5 +1,5 @@
 """
-auth.py — JWT utilities and password hashing.
+auth.py - JWT utilities and password hashing.
 
 NOT wired into routes as middleware yet. Import these functions directly
 from the login route and any future protected routes.

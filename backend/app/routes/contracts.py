@@ -1,16 +1,17 @@
 """
 Contracts routes.
 
-GET    /api/contracts                          — list all contracts
-GET    /api/contracts/{contract_id}            — single contract
-POST   /api/contracts                          — create contract
-PUT    /api/contracts/{contract_id}            — update contract
-DELETE /api/contracts/{contract_id}            — delete contract + files
-GET    /api/contracts/{contract_id}/licenses   — licenses linked by contract_number
+GET    /api/contracts                          - list all contracts
+GET    /api/contracts/{contract_id}            - single contract
+POST   /api/contracts                          - create contract
+PUT    /api/contracts/{contract_id}            - update contract
+DELETE /api/contracts/{contract_id}            - delete contract + files
+GET    /api/contracts/{contract_id}/licenses   - licenses linked by contract_number
 """
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import Annotated
 
@@ -44,6 +45,7 @@ from app.services.contract_storage_service import get_storage_base
 from app.services.license_service import compute_expiration_status
 
 router = APIRouter(tags=["contracts"])
+logger = logging.getLogger(__name__)
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
@@ -263,7 +265,7 @@ async def delete_contract(
             try:
                 storage.delete_file(path, storage_base)
             except Exception:
-                pass
+                logger.warning("Could not delete stored contract file %s", path, exc_info=True)
 
     return Response(status_code=204)
 

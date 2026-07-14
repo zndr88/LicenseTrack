@@ -96,9 +96,9 @@ def restore_backup(zip_path: Path) -> None:
     """
     db_path = get_db_path()
 
-    logger.warning("Restoring backup from %s — current DB will be overwritten", zip_path.name)
+    logger.warning("Restoring backup from %s - current DB will be overwritten", zip_path.name)
 
-    # Safety snapshot before overwrite — WAL-consistent via sqlite3.Connection.backup()
+    # Safety snapshot before overwrite - WAL-consistent via sqlite3.Connection.backup()
     # so dirty WAL pages are checkpointed into the snapshot before we unlink them.
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safety_copy = db_path.with_name(f"license_lifecycle_pre_restore_{timestamp}.db")

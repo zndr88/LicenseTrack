@@ -9,7 +9,7 @@ from app.database import Base
 
 
 # ---------------------------------------------------------------------------
-# Default JSON blobs — mirrors the prototype's settings shape exactly
+# Default JSON blobs - mirrors the prototype's settings shape exactly
 # ---------------------------------------------------------------------------
 
 _DEFAULT_VISIBLE_IN_LIST: dict = {
@@ -102,7 +102,7 @@ class UserSettings(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, unique=True, index=True)
 
-    # Column visibility — stored as JSON blobs matching prototype camelCase keys
+    # Column visibility - stored as JSON blobs matching prototype camelCase keys
     visible_in_list: Mapped[dict] = mapped_column(JSON, nullable=False, default=_DEFAULT_VISIBLE_IN_LIST)
     visible_in_detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=_DEFAULT_VISIBLE_IN_DETAIL)
 
@@ -146,7 +146,7 @@ class UserSettings(Base):
 
 
 class GlobalSettings(Base):
-    """Singleton row — id is always 1."""
+    """Singleton row - id is always 1."""
 
     __tablename__ = "global_settings"
 

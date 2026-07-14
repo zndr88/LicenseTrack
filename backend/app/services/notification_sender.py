@@ -45,10 +45,10 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
     result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
     gs = result.scalar_one_or_none()
     if not gs or not gs.smtp_host:
-        log.info("SMTP not configured — skipping notifications")
+        log.info("SMTP not configured - skipping notifications")
         return {"skipped": True, "reason": "smtp_not_configured"}
     if not gs.email_enabled:
-        log.info("Email notifications disabled — skipping")
+        log.info("Email notifications disabled - skipping")
         return {"skipped": True, "reason": "email_disabled"}
 
     notification_days = gs.notification_days or 30
@@ -122,7 +122,7 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
     budget_owner_count = 0
     for owner_email, licenses_list in expiring_by_owner.items():
         if not _is_domain_allowed(owner_email, allowed_domains):
-            log.warning(f"Skipping email to {owner_email} — domain not in whitelist")
+            log.warning(f"Skipping email to {owner_email} - domain not in whitelist")
             continue
         try:
             html = budget_owner_alert(
@@ -150,7 +150,7 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
     # Send manager digest
     digest_sent = False
     if gs.manager_email and not _is_domain_allowed(gs.manager_email, allowed_domains):
-        log.warning(f"Skipping digest to {gs.manager_email} — domain not in whitelist")
+        log.warning(f"Skipping digest to {gs.manager_email} - domain not in whitelist")
     has_expiry_notifications = any(n["type"] in ("expired", "expiring") for n in all_notifications)
     if gs.manager_email and has_expiry_notifications and _is_domain_allowed(gs.manager_email, allowed_domains):
         try:

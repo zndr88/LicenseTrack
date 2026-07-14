@@ -19,7 +19,7 @@ _VALID_TIMEZONES: frozenset[str] = frozenset(zoneinfo.available_timezones())
 
 
 class UserSettingsUpdate(BaseModel):
-    """Partial update — all fields optional."""
+    """Partial update - all fields optional."""
 
     visible_in_list: Optional[dict] = None
     visible_in_detail: Optional[dict] = None
@@ -63,7 +63,7 @@ class UserSettingsUpdate(BaseModel):
     @field_validator("time_zone")
     @classmethod
     def _validate_time_zone(cls, v: str | None) -> str | None:
-        # "UTC" is always valid — available_timezones() result is platform-dependent
+        # "UTC" is always valid - available_timezones() result is platform-dependent
         # and may omit "UTC" on minimal Docker images without tzdata installed.
         if v is not None and v not in _VALID_TIMEZONES and v != "UTC":
             raise ValueError(f"time_zone {v!r} is not a recognised IANA timezone.")
@@ -115,7 +115,7 @@ _SMTP_PASSWORD_MASK = "••••••••"
 
 
 class GlobalSettingsUpdate(BaseModel):
-    """Partial update — all fields optional."""
+    """Partial update - all fields optional."""
 
     mandatory_fields: Optional[dict] = None
     auth_method: Optional[str] = Field(default=None, max_length=20)

@@ -1,12 +1,12 @@
 """
 CSV import endpoints.
 
-POST /api/import/analyze        — inspect headers, return column match info
-POST /api/import/preview        — legacy flow: auto-map and preview rows
-POST /api/import/preview-mapped — external-tool flow: preview with resolved mapping
-POST /api/import/execute        — external-tool flow: persist with resolved mapping
-POST /api/import/confirm        — legacy flow: persist auto-mapped rows
-GET  /api/import/template       — download blank CSV template
+POST /api/import/analyze        - inspect headers, return column match info
+POST /api/import/preview        - legacy flow: auto-map and preview rows
+POST /api/import/preview-mapped - external-tool flow: preview with resolved mapping
+POST /api/import/execute        - external-tool flow: persist with resolved mapping
+POST /api/import/confirm        - legacy flow: persist auto-mapped rows
+GET  /api/import/template       - download blank CSV template
 
 Editor and admin roles required for all write endpoints.
 """
@@ -212,7 +212,7 @@ async def preview_import(
     current_user: User = Depends(require_editor_or_admin),
 ) -> CSVImportPreviewResponse:
     """Parse and validate a CSV file (legacy auto-map flow). Returns per-row
-    classification and counts — nothing is written to the database."""
+    classification and counts - nothing is written to the database."""
     _reject_non_csv(file)
     contents = await file.read()
     if not contents:

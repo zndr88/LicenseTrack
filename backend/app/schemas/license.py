@@ -110,7 +110,7 @@ class LicenseCreate(LicenseBase):
 
 
 class LicenseUpdate(BaseModel):
-    """Partial update — all fields optional."""
+    """Partial update - all fields optional."""
 
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -210,7 +210,7 @@ class LicenseResponse(LicenseBase):
     request_date: Optional[datetime] = None
     purchase_date: Optional[datetime] = None
 
-    # Computed fields — populated server-side, not stored in the database
+    # Computed fields - populated server-side, not stored in the database
     completeness_pct: Optional[int] = None
     days_until_expiry: Optional[int] = None
     expiration_status: Optional[str] = None
@@ -259,7 +259,7 @@ class InitiateRenewalResponse(BaseModel):
     sourcing_item: "SourcingItemResponse"
 
 
-# Resolve forward reference — import after class definition to avoid circular imports
+# Resolve forward reference - import after class definition to avoid circular imports
 from app.schemas.sourcing import SourcingItemResponse  # noqa: E402
 
 InitiateRenewalResponse.model_rebuild()

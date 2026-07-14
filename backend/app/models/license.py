@@ -70,14 +70,14 @@ class License(Base):
     license_metric: Mapped[LicenseMetric] = mapped_column(Enum(LicenseMetric), nullable=False)
     portal_url: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
 
-    # Quantity & pricing — stored as strings per spec (can be blank/free-form)
+    # Quantity & pricing - stored as strings per spec (can be blank/free-form)
     quantity: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     sku_code: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     unit_price: Mapped[str] = mapped_column(String(50), nullable=False, default="")
     total_po_price: Mapped[str] = mapped_column(String(50), nullable=False, default="")
     currency: Mapped[str] = mapped_column(String(10), nullable=False, default="EUR")
 
-    # Dates — end_date nullable (perpetual licenses have none)
+    # Dates - end_date nullable (perpetual licenses have none)
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
@@ -118,7 +118,7 @@ class License(Base):
     maintenance_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     maintenance_cost: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
-    # Lifecycle-stable reference — assigned once at creation,
+    # Lifecycle-stable reference - assigned once at creation,
     # carried forward through renewals unchanged
     license_ref: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
 
@@ -143,7 +143,7 @@ class License(Base):
         Integer, ForeignKey("licenses.id", use_alter=True, name="fk_license_renewed_to"), nullable=True
     )
 
-    # Structural predecessor link — points at the license this record supersedes.
+    # Structural predecessor link - points at the license this record supersedes.
     # Populated during renewal conversion and CSV import of renewal rows.
     # Display logic is unchanged; the LT ref still shows as before.
     predecessor_id: Mapped[int | None] = mapped_column(

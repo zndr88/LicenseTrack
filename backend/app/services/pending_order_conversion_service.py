@@ -37,7 +37,7 @@ def _cleanup_written_procurement_files(paths: list[StoredProcurementPath]) -> No
         try:
             delete_file(path, storage_base)
         except Exception:
-            pass
+            log.warning("Could not clean up procurement file %s after conversion failure", path, exc_info=True)
 
 
 async def _mark_evidence_transfer_complete(db: AsyncSession, order_id: int) -> None:
@@ -545,7 +545,7 @@ async def sweep_stale_evidence_transfers() -> int:
         new_attempts = attempts + 1
 
         if new_attempts > MAX_EVIDENCE_SWEEP_ATTEMPTS:
-            # Cap exceeded — stop retrying and surface for human review.
+            # Cap exceeded - stop retrying and surface for human review.
             async with AsyncSessionLocal() as db:
                 order = await db.get(PendingOrder, order_id)
                 if order is not None:
@@ -577,7 +577,7 @@ async def sweep_stale_evidence_transfers() -> int:
             await db.commit()
 
         if not quote_ids:
-            # Nothing to copy — mark complete so it stops appearing in the sweep.
+            # Nothing to copy - mark complete so it stops appearing in the sweep.
             async with AsyncSessionLocal() as db:
                 await _mark_evidence_transfer_complete(db, order_id)
             continue

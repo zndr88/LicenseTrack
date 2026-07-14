@@ -1,5 +1,5 @@
 """
-Reports API — server-side aggregates for the portfolio summary.
+Reports API - server-side aggregates for the portfolio summary.
 
 GET /api/reports/portfolio-stats
     Returns pre-computed summary statistics:

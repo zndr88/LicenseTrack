@@ -1,9 +1,9 @@
 """
 Backup and restore endpoints (admin only).
 
-POST /api/backup/trigger   — create a backup immediately
-POST /api/backup/restore   — upload a .zip and restore the database
-GET  /api/backup/list      — list available backup files
+POST /api/backup/trigger   - create a backup immediately
+POST /api/backup/restore   - upload a .zip and restore the database
+GET  /api/backup/list      - list available backup files
 """
 
 import logging

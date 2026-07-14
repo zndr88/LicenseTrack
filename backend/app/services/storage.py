@@ -1,5 +1,5 @@
 """
-File storage service — saves/retrieves/deletes documents on the local filesystem.
+File storage service - saves/retrieves/deletes documents on the local filesystem.
 
 The StorageBackend ABC defines the interface; LocalStorageBackend is the default
 filesystem implementation. The module-level ``_backend`` variable holds the active
@@ -56,7 +56,7 @@ class StorageBackend(ABC):
 
 
 # ---------------------------------------------------------------------------
-# LocalStorageBackend — filesystem implementation
+# LocalStorageBackend - filesystem implementation
 # ---------------------------------------------------------------------------
 
 
@@ -79,7 +79,7 @@ class LocalStorageBackend(StorageBackend):
         return path.exists()
 
 
-# Active backend — swap this to change the storage implementation globally.
+# Active backend - swap this to change the storage implementation globally.
 _backend: StorageBackend = LocalStorageBackend()
 
 
@@ -131,7 +131,7 @@ def _check_traversal(dest: Path, base: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Public API — delegates I/O to _backend
+# Public API - delegates I/O to _backend
 # ---------------------------------------------------------------------------
 
 

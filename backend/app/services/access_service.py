@@ -19,7 +19,7 @@ def can_download_documents(user: User) -> bool:
 async def get_viewer_departments(user_id: int, db: AsyncSession) -> list[str]:
     """
     Returns the list of assigned departments for a viewer.
-    Returns None for admin/editor callers — callers must check role first.
+    Returns None for admin/editor callers - callers must check role first.
     An empty list means the viewer has no departments assigned (sees zero records).
     """
     result = await db.execute(select(UserDepartmentAccess.department).where(UserDepartmentAccess.user_id == user_id))

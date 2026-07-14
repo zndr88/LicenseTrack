@@ -2,7 +2,7 @@
 Shared validator for user-supplied email-address fields.
 
 Fields such as ``budget_owner_email`` and ``manager_email`` are plain,
-loosely-formatted strings — not strict RFC 5322 addresses. They are allowed
+loosely-formatted strings - not strict RFC 5322 addresses. They are allowed
 to be blank/None ("not set"), and some stored values are display strings
 like "First Last <a@b.com>". Switching these fields to Pydantic's
 ``EmailStr`` would reject that existing data and break the CSV round-trip,
@@ -25,7 +25,7 @@ _FORBIDDEN_CHARS = ("\r", "\n", "\x00")
 def reject_email_crlf(value: str | None) -> str | None:
     """Strip whitespace and reject CR/LF/NUL bytes in an email-like field.
 
-    Blank strings and ``None`` pass through unchanged — both are valid
+    Blank strings and ``None`` pass through unchanged - both are valid
     "not set" sentinels used across the license/settings schemas.
     """
     if value is None or value == "":

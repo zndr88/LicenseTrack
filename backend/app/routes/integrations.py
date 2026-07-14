@@ -51,7 +51,7 @@ async def test_email_connection(
     if not gs.manager_email:
         raise HTTPException(
             status_code=422,
-            detail="Manager email is not configured — set it in the Notifications section above",
+            detail="Manager email is not configured - set it in the Notifications section above",
         )
     allowed = [d.lower().strip() for d in (gs.allowed_email_domains or "").split(",") if d.strip()]
     if allowed:

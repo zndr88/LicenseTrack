@@ -1,13 +1,13 @@
 """
 User management routes.
 
-GET    /api/users/me               — current user profile (any authenticated user)
-GET    /api/users                  — list all users (admin only)
-POST   /api/users                  — create user with role/provider (admin only)
-PUT    /api/users/{id}             — update user profile/provider/role (admin only)
-PUT    /api/users/{id}/role        — legacy role-only update (admin only)
-PUT    /api/users/{id}/reset-password — reset local password (admin only)
-DELETE /api/users/{id}             — delete user (admin only)
+GET    /api/users/me               - current user profile (any authenticated user)
+GET    /api/users                  - list all users (admin only)
+POST   /api/users                  - create user with role/provider (admin only)
+PUT    /api/users/{id}             - update user profile/provider/role (admin only)
+PUT    /api/users/{id}/role        - legacy role-only update (admin only)
+PUT    /api/users/{id}/reset-password - reset local password (admin only)
+DELETE /api/users/{id}             - delete user (admin only)
 """
 
 import secrets

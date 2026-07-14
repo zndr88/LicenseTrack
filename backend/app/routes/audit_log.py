@@ -1,8 +1,8 @@
 """
 Audit log endpoints (admin only).
 
-GET  /api/audit-log         — paginated list with filters
-GET  /api/audit-log/export  — CSV download (same filters, no pagination)
+GET  /api/audit-log         - paginated list with filters
+GET  /api/audit-log/export  - CSV download (same filters, no pagination)
 """
 
 import csv

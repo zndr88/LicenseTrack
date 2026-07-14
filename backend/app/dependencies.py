@@ -1,10 +1,10 @@
 """
 FastAPI dependency functions for authentication and role-based access control.
 
-get_current_user  — extracts and validates the JWT from the Authorization header,
+get_current_user  - extracts and validates the JWT from the Authorization header,
                     returns the authenticated User ORM object.
-require_admin     — raises 403 unless the current user has the admin role.
-require_editor_or_admin — raises 403 if the current user is a viewer.
+require_admin     - raises 403 unless the current user has the admin role.
+require_editor_or_admin - raises 403 if the current user is a viewer.
 """
 
 from typing import Annotated, Any

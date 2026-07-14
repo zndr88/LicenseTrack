@@ -10,6 +10,7 @@ DELETE /api/contracts/{contract_id}/documents/{doc_id}
 
 from __future__ import annotations
 
+import logging
 import mimetypes
 from typing import Annotated
 
@@ -32,6 +33,7 @@ from app.services.contract_storage_service import (
 )
 
 router = APIRouter(tags=["contract-documents"])
+logger = logging.getLogger(__name__)
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
@@ -208,6 +210,6 @@ async def delete_contract_document(
     try:
         storage.delete_file(stored_path, storage_base)
     except Exception:
-        pass
+        logger.warning("Could not delete stored contract document file %s", stored_path, exc_info=True)
 
     return Response(status_code=204)

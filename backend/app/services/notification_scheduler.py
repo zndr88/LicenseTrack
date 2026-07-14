@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 
 def _seconds_until_hour(now: datetime, hour: int) -> float:
-    """Return seconds from now until the next occurrence of the given hour (0–23)."""
+    """Return seconds from now until the next occurrence of the given hour (0-23)."""
     target = now.replace(hour=hour, minute=0, second=0, microsecond=0)
     if now >= target:
         target = target + timedelta(days=1)
@@ -139,13 +139,13 @@ async def start_scheduler():
                     ).scalar_one_or_none()
                     today = now_after.date()
                     if gs_notif and gs_notif.last_notification_sent_date == today:
-                        log.info("Notification run skipped — already sent successfully today")
+                        log.info("Notification run skipped - already sent successfully today")
                     elif gs_notif and gs_notif.last_notification_attempt_date == today:
                         # We already tried automatically today and it did not fully
                         # succeed. Do not auto-retry every loop iteration; leave the
                         # day open so an admin can retry via the manual trigger.
                         log.info(
-                            "Notification run skipped — already attempted today without "
+                            "Notification run skipped - already attempted today without "
                             "success; use the manual trigger to retry"
                         )
                     else:

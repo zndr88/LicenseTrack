@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +15,8 @@ from app.models.plugin import Plugin, PluginAction
 from app.models.plugin_suggestion import PluginSuggestion
 from app.services.plugin_runtime_service import restart_plugin_runtime, stop_plugin_runtime
 from app.services.plugin_settings_service import read_plugin_settings
+
+logger = logging.getLogger(__name__)
 
 
 class PluginLifecycleError(ValueError):
@@ -114,11 +117,11 @@ async def stop_all_plugin_runtimes(db: AsyncSession) -> None:
         try:
             await stop_plugin_runtime(db, key, mark_stopped=True)
         except Exception:
-            pass
+            logger.warning("Could not stop plugin runtime during shutdown: %s", key, exc_info=True)
     try:
         await db.commit()
     except Exception:
-        pass
+        logger.warning("Could not commit plugin runtime shutdown updates", exc_info=True)
 
 
 async def _get_plugin(db: AsyncSession, plugin_key: str) -> Plugin:

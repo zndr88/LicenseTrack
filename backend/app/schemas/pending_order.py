@@ -133,7 +133,7 @@ class PendingOrderConvertRequest(BaseModel):
     publisher_name: str
     software_description: str
 
-    # Classification — defaulted so the form can omit them if not changed
+    # Classification - defaulted so the form can omit them if not changed
     license_type: LicenseType = LicenseType.subscription
     license_metric: LicenseMetric = LicenseMetric.per_user
     portal_url: Optional[str] = None

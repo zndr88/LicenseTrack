@@ -28,7 +28,7 @@ class CustomFieldDefinitionUpdate(BaseModel):
         default=None,
         pattern="^(identity|dates|commercial|people|documents|notes)$",
     )
-    # field_type and field_key are immutable after creation — not included here
+    # field_type and field_key are immutable after creation - not included here
 
 
 class CustomFieldDefinitionResponse(BaseModel):
@@ -62,7 +62,7 @@ class CustomFieldValueItem(BaseModel):
 
 
 class CustomFieldValuesUpsert(BaseModel):
-    """Payload for PUT /api/licenses/{id}/custom-fields — replaces all values."""
+    """Payload for PUT /api/licenses/{id}/custom-fields - replaces all values."""
 
     model_config = ConfigDict(
         alias_generator=to_camel,

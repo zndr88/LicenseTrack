@@ -17,7 +17,7 @@ from app.config import settings
 
 logging.basicConfig(
     level=settings.LOG_LEVEL.upper(),
-    format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 logger = logging.getLogger("license_lifecycle")
@@ -94,8 +94,8 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
     try:
         await loop.run_in_executor(None, partial(alembic_command.upgrade, alembic_cfg, "head"))
-    except Exception as e:
-        logger.critical("Alembic migration failed: %s", e)
+    except Exception as exc:
+        logger.critical("Alembic migration failed: %s", exc)
         logger.critical("The application cannot start. Check your database and migration files.")
         raise
 
@@ -110,10 +110,8 @@ async def lifespan(app: FastAPI):
 
     admin_pw = settings.ADMIN_PASSWORD or ""
     if admin_pw.lower() in ("admin", "password", "", "changeme", "changeme_required"):
-        print(
-            "\n[FATAL] ADMIN_PASSWORD is set to a default or blank value. "
-            "Set a strong password in your .env file and restart.\n",
-            file=sys.stderr,
+        logger.critical(
+            "ADMIN_PASSWORD is set to a default or blank value. Set a strong password in your .env file and restart."
         )
         sys.exit(1)
 
@@ -311,7 +309,7 @@ async def health_check() -> dict:
     return {"status": "ok", "version": APP_VERSION}
 
 
-# ── Serve compiled React frontend (Docker / production only) ──────────────────
+# -- Serve compiled React frontend (Docker / production only) ------------------
 # The frontend/dist directory only exists in the Docker image (built by the
 # Dockerfile Stage 1 copy). In local dev the directory is absent and this
 # block is skipped entirely, so API routes are unaffected.

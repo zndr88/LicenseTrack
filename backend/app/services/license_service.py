@@ -73,7 +73,7 @@ def _check_mandatory_field(
     if key == "startDate":
         return license.start_date is not None
     if key == "endDate":
-        # Perpetual licenses intentionally have no end date — satisfy the requirement
+        # Perpetual licenses intentionally have no end date - satisfy the requirement
         return license.end_date is not None or license.license_type in (
             LicenseType.perpetual,
             LicenseType.oem,
@@ -139,14 +139,14 @@ def compute_expiration_status(
 ) -> str:
     """
     Priority order:
-    1. retired   — is_retired flag
-    2. legacy    — lifecycle_status == "legacy"
-    3. renewed   — lifecycle_status == "renewed"
-    4. pending_renewal — lifecycle_status == "pending_renewal"
-    5. perpetual — no end_date
-    6. expired   — end_date in the past
-    7. expiring  — end_date within notification_days
-    8. active    — everything else
+    1. retired   - is_retired flag
+    2. legacy    - lifecycle_status == "legacy"
+    3. renewed   - lifecycle_status == "renewed"
+    4. pending_renewal - lifecycle_status == "pending_renewal"
+    5. perpetual - no end_date
+    6. expired   - end_date in the past
+    7. expiring  - end_date within notification_days
+    8. active    - everything else
     """
     if license.is_retired:
         return "retired"
@@ -174,7 +174,7 @@ def calc_line_total(quantity: str | None, unit_price: str | None) -> Decimal | N
     """
     Per-line total (quantity × unit price) from canonical stored strings.
 
-    This is the single-license "calculated total" — NOT the whole-PO value,
+    This is the single-license "calculated total" - NOT the whole-PO value,
     which is the sum of line totals across licenses sharing a PO number.
     Returns None when either value is blank or non-canonical.
     """
@@ -261,7 +261,7 @@ def compute_stats(
                     annual_cost_by_currency[cur] = annual_cost_by_currency.get(cur, Decimal("0")) + qty * price
                 except MoneyParseError:
                     log.warning(
-                        "annual_cost: skipping license id=%s — non-canonical quantity=%r unit_price=%r",
+                        "annual_cost: skipping license id=%s - non-canonical quantity=%r unit_price=%r",
                         lic.id,
                         lic.quantity,
                         lic.unit_price,

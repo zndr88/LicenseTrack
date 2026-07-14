@@ -50,7 +50,7 @@ async def get_definition_by_id(db: AsyncSession, def_id: int) -> CustomFieldDefi
 async def create_definition(db: AsyncSession, data: CustomFieldDefinitionCreate) -> CustomFieldDefinition:
     """
     Generate field_key from name. Check uniqueness of both name and field_key
-    before inserting — raise HTTPException 409 on conflict.
+    before inserting - raise HTTPException 409 on conflict.
     """
     field_key = await generate_field_key(data.name)
 
@@ -263,7 +263,7 @@ async def validate_imported_custom_rows(
 async def update_definition(db: AsyncSession, def_id: int, data: CustomFieldDefinitionUpdate) -> CustomFieldDefinition:
     """
     Only name and display_order are mutable. If name changes, do NOT regenerate
-    field_key — it is immutable after creation.
+    field_key - it is immutable after creation.
     Raise HTTPException 404 if not found, 409 if new name conflicts.
     """
     definition = await get_definition_by_id(db, def_id)
@@ -357,7 +357,7 @@ async def upsert_values_for_license(
     - If a row exists for (license_id, custom_field_def_id): update it.
     - If no row exists: insert it.
     Items not present in the payload are left untouched (partial update).
-    Validate that each custom_field_def_id exists — raise 422 if any are unknown.
+    Validate that each custom_field_def_id exists - raise 422 if any are unknown.
     Return updated rows with definitions loaded.
     """
     if not data.values:

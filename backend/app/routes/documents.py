@@ -1,10 +1,10 @@
 """
 Document storage routes.
 
-POST   /api/licenses/{license_id}/documents          — upload a file
-GET    /api/licenses/{license_id}/documents          — list documents for a license
-GET    /api/documents/{document_id}/download         — stream a file
-DELETE /api/documents/{document_id}                  — delete record + file
+POST   /api/licenses/{license_id}/documents          - upload a file
+GET    /api/licenses/{license_id}/documents          - list documents for a license
+GET    /api/documents/{document_id}/download         - stream a file
+DELETE /api/documents/{document_id}                  - delete record + file
 """
 
 from __future__ import annotations
@@ -229,7 +229,7 @@ async def list_documents(
 async def download_document(document_id: int, db: DbSession, current_user: CurrentUser) -> FileResponse:
     """Stream a stored file back to the client.
 
-    JWT is required (401 if missing/invalid — enforced by CurrentUser).
+    JWT is required (401 if missing/invalid - enforced by CurrentUser).
     Viewers may only download in-scope documents when downloads are enabled.
     Admins and Editors may download any document.
     """

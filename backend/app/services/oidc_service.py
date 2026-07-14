@@ -21,7 +21,7 @@ def authlib_available() -> bool:
 
 @dataclass
 class OIDCMetadata:
-    cache_key: str  # "{discovery_url}|{client_id}|{bool(secret)}" — matches _availability_cache format
+    cache_key: str  # "{discovery_url}|{client_id}|{bool(secret)}" - matches _availability_cache format
     discovery: dict[str, Any]
     jwks: dict[str, Any] | None
 

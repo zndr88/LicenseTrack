@@ -1,5 +1,5 @@
 """
-MAINTENANCE_RULES — single source of truth for maintenance license invariants.
+MAINTENANCE_RULES - single source of truth for maintenance license invariants.
 
 All maintenance-specific validation should call through this module rather than
 duplicating checks inline. Each assertion raises ValueError with a descriptive
@@ -46,7 +46,7 @@ def default_maintenance_coverage(license_type: LicenseType) -> MaintenanceCovera
 
 
 # ---------------------------------------------------------------------------
-# Rule 1 — parent type must be eligible
+# Rule 1 - parent type must be eligible
 # ---------------------------------------------------------------------------
 
 
@@ -60,7 +60,7 @@ def assert_parent_type_eligible(parent: "License") -> None:
 
 
 # ---------------------------------------------------------------------------
-# Rule 2 — parent must not be retired
+# Rule 2 - parent must not be retired
 # ---------------------------------------------------------------------------
 
 
@@ -71,7 +71,7 @@ def assert_parent_not_retired(parent: "License") -> None:
 
 
 # ---------------------------------------------------------------------------
-# Rules 3 & 4 — maintenance ↔ parent_license_id consistency
+# Rules 3 & 4 - maintenance ↔ parent_license_id consistency
 # ---------------------------------------------------------------------------
 
 
@@ -94,7 +94,7 @@ def assert_non_maintenance_has_no_parent(
 
 
 # ---------------------------------------------------------------------------
-# Rule 5 — cannot change parent type when it has active maintenance
+# Rule 5 - cannot change parent type when it has active maintenance
 # ---------------------------------------------------------------------------
 
 
@@ -111,7 +111,7 @@ def assert_active_maintenance_allows_type_change(
 
 
 # ---------------------------------------------------------------------------
-# Rule 6 — cannot retire a parent that has active maintenance
+# Rule 6 - cannot retire a parent that has active maintenance
 # ---------------------------------------------------------------------------
 
 

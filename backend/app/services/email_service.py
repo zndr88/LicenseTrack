@@ -16,7 +16,7 @@ def _reject_crlf_recipient(address: str) -> None:
     """Raise ValueError if *address* contains CR/LF/NUL bytes.
 
     Belt-and-braces guard against SMTP command injection (CVE-2026-53533 /
-    GHSA-v3q9-hj7j-63hq) at the actual sink — aiosmtplib.send() — in addition
+    GHSA-v3q9-hj7j-63hq) at the actual sink - aiosmtplib.send() - in addition
     to the input-boundary validation on the Pydantic schemas that feed this
     function (budget_owner_email, manager_email, etc).
     """

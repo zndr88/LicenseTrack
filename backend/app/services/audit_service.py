@@ -1,10 +1,10 @@
 """
 Audit logging helpers.
 
-log_event  — async helper that adds an AuditLog row to the session without committing.
+log_event  - async helper that adds an AuditLog row to the session without committing.
              Callers commit as part of their own transaction.
 
-diff_fields — synchronous helper that compares two field-value dicts and returns a
+diff_fields - synchronous helper that compares two field-value dicts and returns a
               human-readable diff string, or None if nothing meaningful changed.
 """
 
@@ -62,7 +62,7 @@ async def log_event(
     """
     Add an AuditLog entry to the session.
 
-    Does NOT commit — the caller is responsible for committing as part of
+    Does NOT commit - the caller is responsible for committing as part of
     their own transaction so the audit row and the business change are atomic.
     """
     timestamp = datetime.now(timezone.utc)

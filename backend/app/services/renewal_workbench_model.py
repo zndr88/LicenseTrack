@@ -1,5 +1,5 @@
 """
-Renewal workbench computation — pure functions with no database access.
+Renewal workbench computation - pure functions with no database access.
 
 All functions here are synchronous and side-effect-free. They can be
 imported and unit-tested without standing up a database session.

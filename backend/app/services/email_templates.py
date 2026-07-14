@@ -39,12 +39,12 @@ _BODY_END = "</div>"
 
 def _severity_color(days_until_expiry: int | None) -> str:
     if days_until_expiry is None or days_until_expiry < 0:
-        return "#ef4444"  # red — expired
+        return "#ef4444"  # red - expired
     if days_until_expiry <= 30:
-        return "#ef4444"  # red — critical
+        return "#ef4444"  # red - critical
     if days_until_expiry <= 60:
-        return "#f59e0b"  # amber — warning
-    return "#3b82f6"  # blue — info
+        return "#f59e0b"  # amber - warning
+    return "#3b82f6"  # blue - info
 
 
 def _label_row(label: str, value: str) -> str:
@@ -137,7 +137,7 @@ def budget_owner_alert(
                 )
 
             if days is None or days == "":
-                days_text = "—"
+                days_text = "-"
                 days_color = "#374151"
             elif days < 0:
                 days_text = f"Expired {abs(days)} days ago"
@@ -210,7 +210,7 @@ def manager_digest(
 
     total = len(notifications)
 
-    # ── Summary chips ──────────────────────────────────────────────────────
+    # -- Summary chips ------------------------------------------------------
     def _chip(count: int, label: str, bg: str) -> str:
         return (
             f'<div style="display: inline-block; background: {bg}; color: white; '
@@ -224,7 +224,7 @@ def manager_digest(
         + _chip(len(incomplete), "Incomplete", "#3b82f6")
     )
 
-    # ── Notification row helper ────────────────────────────────────────────
+    # -- Notification row helper --------------------------------------------
     def _notif_row(n: dict) -> str:
         severity_colors = {"critical": "#ef4444", "warning": "#f59e0b", "info": "#3b82f6"}
         color = severity_colors.get(n.get("severity", "info"), "#3b82f6")

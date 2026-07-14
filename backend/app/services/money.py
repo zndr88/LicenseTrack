@@ -10,7 +10,7 @@ Non-canonical values (currency symbols, grouping separators, locale decimal
 commas) are rejected by parse_money and flagged by is_canonical_money.
 
 This is the single source of truth for the backend.  The CSV import path and
-the aggregation layer must both call these functions — there must be exactly one
+the aggregation layer must both call these functions - there must be exactly one
 money parser in the backend.
 """
 

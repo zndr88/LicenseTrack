@@ -2,9 +2,9 @@
 Storage helpers for contract documents.
 
 Provides:
-  get_storage_base(db)      — resolve effective base path, best-effort (no error on missing)
-  require_storage_base(db)  — same but raises HTTP 503 if storage is not configured
-  validate_contract_upload(file, content) — size, extension, and MIME checks
+  get_storage_base(db)      - resolve effective base path, best-effort (no error on missing)
+  require_storage_base(db)  - same but raises HTTP 503 if storage is not configured
+  validate_contract_upload(file, content) - size, extension, and MIME checks
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ _ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
 async def get_storage_base(db: AsyncSession) -> str | None:
     """Resolve effective storage base. Returns None when no custom path is set (callers fall
     back to STORAGE_PATH from config) and also when no valid storage exists at all.
-    Best-effort — file deletion callers must tolerate a None that leads nowhere."""
+    Best-effort - file deletion callers must tolerate a None that leads nowhere."""
     gs_result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
     gs = gs_result.scalar_one_or_none()
     custom = (gs.storage_path if gs else "") or ""

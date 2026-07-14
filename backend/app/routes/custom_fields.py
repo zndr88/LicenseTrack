@@ -9,8 +9,8 @@ PATCH  /api/custom-fields/{id}     - update definition (admin only)
 DELETE /api/custom-fields/{id}     - delete definition + cascade values (admin only)
 
 Values router (any authenticated user):
-GET    /api/licenses/{license_id}/custom-fields   — get all values for license
-PUT    /api/licenses/{license_id}/custom-fields   — upsert values (partial)
+GET    /api/licenses/{license_id}/custom-fields   - get all values for license
+PUT    /api/licenses/{license_id}/custom-fields   - upsert values (partial)
 """
 
 from typing import Annotated
@@ -141,7 +141,7 @@ async def delete_definition(
 
 
 # ---------------------------------------------------------------------------
-# Bulk values router — any authenticated user
+# Bulk values router - any authenticated user
 # ---------------------------------------------------------------------------
 
 bulk_router = APIRouter(
@@ -163,7 +163,7 @@ async def get_all_custom_field_values(current_user: CurrentUser, db: DbSession):
 
 
 # ---------------------------------------------------------------------------
-# Values router — any authenticated user
+# Values router - any authenticated user
 # ---------------------------------------------------------------------------
 
 values_router = APIRouter(

@@ -4,8 +4,8 @@ CSV import service for the license lifecycle system.
 parse_csv(file_contents) reads a CSV file and returns a ParsedImportResult
 containing per-row classification, validation errors, and warnings.  The
 parsed result is used by:
-  - POST /api/import/preview  — returns the result without writing to DB
-  - POST /api/import/confirm  — re-parses and persists valid rows
+  - POST /api/import/preview  - returns the result without writing to DB
+  - POST /api/import/confirm  - re-parses and persists valid rows
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ _HEADER_MAP: dict[str, str] = {
     "budget_owner_email": "budget_owner_email",
     "external_ref": "external_ref",
     "license_ref": "license_ref",
-    # Flexera aliases — normalised from Flexera column names
+    # Flexera aliases - normalised from Flexera column names
     "purchase_order_no": "po_number",  # "Purchase Order No."
     "effective_quantity": "quantity",  # "Effective Quantity"
     "unit_price_eur": "unit_price",  # "Unit Price (EUR)"
@@ -106,7 +106,7 @@ _IGNORED_HEADERS: frozenset[str] = frozenset(
         "calc_total",
         "expiration",
         "complete",
-        # "Total PO Value" (v1.0.3 export label) is a derived whole-PO aggregate —
+        # "Total PO Value" (v1.0.3 export label) is a derived whole-PO aggregate  -
         # importing it into the per-license total_po_price column would be wrong.
         # The legacy "Total PO Price" header still maps to the stored column above
         # so pre-1.0.3 exports round-trip unchanged.
@@ -220,16 +220,16 @@ class ParsedRow:
     duplicate_warnings: list[object] = field(default_factory=list)
     parent_import_row_number: Optional[int] = None
 
-    # Warning tracking — not exposed in preview response directly
+    # Warning tracking - not exposed in preview response directly
     currency_defaulted: bool = field(default=False, repr=False)
 
-    # DB insertion values — not exposed in the preview response
+    # DB insertion values - not exposed in the preview response
     db_start_date: Optional[date] = field(default=None, repr=False)
     db_end_date: Optional[date] = field(default=None, repr=False)
     db_request_date: Optional[datetime] = field(default=None, repr=False)
     db_purchase_date: Optional[datetime] = field(default=None, repr=False)
 
-    # Update-on-LT-Ref annotation — set during preview/execute, not by parsing.
+    # Update-on-LT-Ref annotation - set during preview/execute, not by parsing.
     import_action: str = field(default="create")  # "create" | "update"
     matched_license_id: Optional[int] = field(default=None)
     is_completeness_exempt: bool = field(default=False, repr=False)
@@ -298,7 +298,7 @@ def _extract_license_type(normalised: str) -> str:
     known type.
 
     Only normalises when every non-filler token is a known license type and
-    exactly one type is present — otherwise returns *normalised* unchanged so
+    exactly one type is present - otherwise returns *normalised* unchanged so
     the validator can reject it.
 
     Examples:
@@ -360,14 +360,14 @@ def _parse_datetime(raw: str, date_format: str) -> tuple[Optional[datetime], str
     if not raw:
         return None, ""
 
-    # ISO 8601 date or datetime — the export round-trip path.
+    # ISO 8601 date or datetime - the export round-trip path.
     try:
         parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
         return (parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)), ""
     except ValueError:
         pass
 
-    # Declared date format (DD/MM/YYYY, MM/DD/YYYY, ...) — hand-authored CSVs.
+    # Declared date format (DD/MM/YYYY, MM/DD/YYYY, ...) - hand-authored CSVs.
     fmt = _DATE_FORMATS.get(date_format, "%d/%m/%Y")
     try:
         parsed = datetime.strptime(raw, fmt)
@@ -386,10 +386,10 @@ def _classify_row(
     """Return (import_status, lifecycle_status, is_completeness_exempt).
 
     Priority:
-      1. "error"             — both required fields missing
-      2. "legacy_incomplete" — end_date in past + a required field missing
-      3. "legacy_exempt"     — end_date in past, all required fields present
-      4. "active"            — everything else (future/perpetual/no date)
+      1. "error"             - both required fields missing
+      2. "legacy_incomplete" - end_date in past + a required field missing
+      3. "legacy_exempt"     - end_date in past, all required fields present
+      4. "active"            - everything else (future/perpetual/no date)
     """
     today = date.today()
     has_publisher = bool(publisher_name)
@@ -420,11 +420,11 @@ def _parse_row(
     warnings: list[str] = []
     has_parse_error = False
 
-    # ── Required fields ──────────────────────────────────────────────────
+    # -- Required fields --------------------------------------------------
     publisher_name = data.get("publisher_name", "").strip()
     software_description = data.get("software_description", "").strip()
 
-    # ── Date fields ──────────────────────────────────────────────────────
+    # -- Date fields ------------------------------------------------------
     db_start_date: Optional[date] = None
     db_end_date: Optional[date] = None
     start_date_str: Optional[str] = None
@@ -455,7 +455,7 @@ def _parse_row(
                 end_date_str = ed.isoformat()
             # perpetual → db_end_date stays None, end_date_str stays None
 
-    # ── Procurement milestone datetimes ──────────────────────────────────
+    # -- Procurement milestone datetimes ----------------------------------
     db_request_date, request_err = _parse_datetime(data.get("request_date", ""), date_format)
     if request_err:
         errors.append(f"request_date: {request_err}")
@@ -466,7 +466,7 @@ def _parse_row(
         errors.append(f"purchase_date: {purchase_err}")
         has_parse_error = True
 
-    # ── Enum fields ───────────────────────────────────────────────────────
+    # -- Enum fields -------------------------------------------------------
     has_enum_error = False
 
     license_type = _extract_license_type(_normalise_enum_value(data.get("license_type", "")))
@@ -483,7 +483,7 @@ def _parse_row(
         license_metric = ""
         has_enum_error = True
 
-    # ── Currency default ─────────────────────────────────────────────────
+    # -- Currency default -------------------------------------------------
     _currency_raw = data.get("currency", "").strip()
     currency = _currency_raw or default_currency
     currency_defaulted = not bool(_currency_raw)
@@ -495,7 +495,7 @@ def _parse_row(
     )
     has_parse_error = has_parse_error or len(errors) > numeric_error_count
 
-    # ── Budget owner email — reject SMTP command-injection payloads ──────
+    # -- Budget owner email - reject SMTP command-injection payloads ------
     # (CVE-2026-53533 hardening: this value eventually reaches
     # aiosmtplib.send(recipients=...) via the daily notification job.)
     budget_owner_email = data.get("budget_owner_email", "").strip()
@@ -504,10 +504,10 @@ def _parse_row(
         has_parse_error = True
         budget_owner_email = ""
 
-    # ── Parent linkage (for maintenance rows) ────────────────────────────
+    # -- Parent linkage (for maintenance rows) ----------------------------
     parent_license_ref = data.get("parent_license_ref", "").strip() or None
 
-    # ── Optional enrichment fields ────────────────────────────────────────
+    # -- Optional enrichment fields ----------------------------------------
     portal_url = data.get("portal_url", "").strip() or None
 
     maintenance_coverage_raw = _normalise_enum_value(data.get("maintenance_coverage", ""))
@@ -516,7 +516,7 @@ def _parse_row(
         maintenance_coverage_raw = None
     maintenance_coverage = maintenance_coverage_raw or None
 
-    # ── Classification ───────────────────────────────────────────────────
+    # -- Classification ---------------------------------------------------
     import_status, lifecycle_status, is_completeness_exempt = _classify_row(
         publisher_name, software_description, db_end_date, is_perpetual, db_start_date
     )
