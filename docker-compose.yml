@@ -11,6 +11,7 @@ services:
       - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:////data/licenses.db}
       - STORAGE_PATH=${STORAGE_PATH:-/data/storage}
       - BACKUP_LOCATION=${BACKUP_LOCATION:-/data/backups}
+      - RESTART_AFTER_RESTORE=${RESTART_AFTER_RESTORE:-true}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8080}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - TOKEN_EXPIRY=${TOKEN_EXPIRY:-1440}

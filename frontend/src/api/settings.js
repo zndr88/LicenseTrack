@@ -98,10 +98,10 @@ export async function listBackups() {
 
 /**
  * Upload a database backup zip and restore the database (admin only).
- * After a successful call the server will send itself SIGTERM and restart.
+ * Depending on backend configuration, the server may restart after a successful restore.
  *
  * @param {File} file - .zip database backup file
- * @returns {Promise<{ data: { status: string } | null, error: string | null }>}
+ * @returns {Promise<{ data: { status: string, restart_scheduled?: boolean } | null, error: string | null }>}
  */
 export async function restoreBackup(file) {
   const formData = new FormData();

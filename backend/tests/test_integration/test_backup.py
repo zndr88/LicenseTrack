@@ -225,6 +225,56 @@ async def test_restore_sanitises_error(test_app, auth_headers, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# 3i — Restore success returns before scheduling process termination
+# ---------------------------------------------------------------------------
+
+async def test_restore_success_can_skip_process_restart(test_app, auth_headers, monkeypatch):
+    restored_paths = []
+    killed = []
+
+    def _restore(path):
+        restored_paths.append(path)
+
+    def _kill(pid, sig):
+        killed.append((pid, sig))
+
+    monkeypatch.setattr(settings, "RESTART_AFTER_RESTORE", False)
+    monkeypatch.setattr("app.services.backup_service.restore_backup", _restore)
+    monkeypatch.setattr(backup_module.os, "kill", _kill)
+
+    files = {"file": ("backup.zip", _make_zip_with_db(), "application/zip")}
+    resp = await test_app.post("/api/backup/restore", files=files, headers=auth_headers)
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "restore_completed", "restart_scheduled": False}
+    assert len(restored_paths) == 1
+    assert killed == []
+
+
+async def test_restore_success_returns_before_scheduled_restart(test_app, auth_headers, monkeypatch):
+    restored_paths = []
+    killed = []
+
+    def _restore(path):
+        restored_paths.append(path)
+
+    def _kill(pid, sig):
+        killed.append((pid, sig))
+
+    monkeypatch.setattr(settings, "RESTART_AFTER_RESTORE", True)
+    monkeypatch.setattr("app.services.backup_service.restore_backup", _restore)
+    monkeypatch.setattr(backup_module.os, "kill", _kill)
+
+    files = {"file": ("backup.zip", _make_zip_with_db(), "application/zip")}
+    resp = await test_app.post("/api/backup/restore", files=files, headers=auth_headers)
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "restore_initiated", "restart_scheduled": True}
+    assert len(restored_paths) == 1
+    assert killed == [(backup_module.os.getpid(), backup_module.signal.SIGTERM)]
+
+
+# ---------------------------------------------------------------------------
 # F10 — Content-Length pre-check: oversized header must be rejected with 413
 # ---------------------------------------------------------------------------
 

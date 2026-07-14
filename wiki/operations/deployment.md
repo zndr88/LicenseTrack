@@ -51,6 +51,7 @@ All variables are read from `.env` at container start. Restart the container aft
 | `DATABASE_URL` | No | `sqlite+aiosqlite:////data/licenses.db` | SQLite database connection string. |
 | `STORAGE_PATH` | No | `/data/storage` | Uploaded document storage path. |
 | `BACKUP_LOCATION` | No | `/data/backups` | Database backup output path. |
+| `RESTART_AFTER_RESTORE` | No | `true` in Docker Compose, `false` in direct backend runs | Exit the backend after database restore so a process manager can restart it. Set `false` for local development without a restart supervisor. |
 | `ADMIN_PASSWORD` | Operationally yes | none | Initial admin password for the seeded local `admin` account. Startup rejects blank/common defaults. |
 | `TOKEN_EXPIRY` | No | `1440` | JWT session lifetime in minutes. |
 | `OIDC_STATE_SECRET` | No | falls back to `JWT_SECRET` | Secret used for OIDC flow state. |

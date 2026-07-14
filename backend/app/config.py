@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     MAX_PLUGIN_DOCUMENT_SIZE_MB: int = 10
     ALLOWED_UPLOAD_EXTENSIONS: str = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx"
     BACKUP_LOCATION: str = "./backups"
+    RESTART_AFTER_RESTORE: bool = False
     ADMIN_PASSWORD: str = "admin"
     HOST: str = "0.0.0.0"
     LOG_LEVEL: str = "INFO"

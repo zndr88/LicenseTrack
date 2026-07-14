@@ -16,9 +16,12 @@ from typing import Annotated
 log = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.background import BackgroundTask
 
+from app.config import settings
 from app.database import AsyncSessionLocal, get_db
 from app.dependencies import require_admin
 from app.models.settings import GlobalSettings
@@ -28,6 +31,12 @@ from app.services.audit_service import log_event
 router = APIRouter(prefix="/api/backup", tags=["backup"])
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+
+def _terminate_process_after_restore() -> None:
+    """Terminate after the restore response has been sent to the client."""
+    log.info("Restore response sent; sending SIGTERM so the process manager can restart the API.")
+    os.kill(os.getpid(), signal.SIGTERM)
 
 
 async def _get_global_settings(db: AsyncSession) -> GlobalSettings:
@@ -144,10 +153,17 @@ async def restore_backup(
     finally:
         tmp_path.unlink(missing_ok=True)
 
-    # Signal the process manager to restart the process
-    os.kill(os.getpid(), signal.SIGTERM)
+    if not settings.RESTART_AFTER_RESTORE:
+        log.info("Restore complete; RESTART_AFTER_RESTORE=false, keeping the API process running.")
+        return {"status": "restore_completed", "restart_scheduled": False}
 
-    return {"status": "restore_initiated"}
+    # Signal the process manager only after the response body has been sent.
+    # Killing the process inline can reset the HTTP connection, making a
+    # successful restore look like a 502/ECONNRESET to the browser.
+    return JSONResponse(
+        {"status": "restore_initiated", "restart_scheduled": True},
+        background=BackgroundTask(_terminate_process_after_restore),
+    )
 
 
 @router.get("/list", status_code=200)

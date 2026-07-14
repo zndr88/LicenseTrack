@@ -174,6 +174,7 @@ Core Docker configuration is loaded from `.env`.
 | `DATABASE_URL` | `sqlite+aiosqlite:////data/licenses.db` | SQLite database connection string. |
 | `STORAGE_PATH` | `/data/storage` | Uploaded document storage path. |
 | `BACKUP_LOCATION` | `/data/backups` | Database backup output path. |
+| `RESTART_AFTER_RESTORE` | `true` in Docker Compose, `false` in direct backend runs | Exit the backend after database restore so a process manager can restart it. Set `false` for local development without a restart supervisor. |
 | `TOKEN_EXPIRY` | `1440` | JWT session lifetime in minutes. |
 | `OIDC_STATE_SECRET` | falls back to `JWT_SECRET` | Secret used for transient OIDC flow state cookies. |
 | `SESSION_COOKIE_NAME` | `license_lifecycle_session` | Browser session cookie name. |
