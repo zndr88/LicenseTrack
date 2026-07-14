@@ -1077,6 +1077,28 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .set-status-box-success { background: var(--green-m); border: 1px solid var(--green); color: var(--green-text); }
 .set-status-time { margin-left: 6px; opacity: .75; }
 .set-muted-text { font-size: 12px; color: var(--text-3); margin-top: 12px; }
+.set-error-box {
+  padding: 8px 12px;
+  background: var(--red-m);
+  border: 1px solid var(--red);
+  border-radius: var(--r);
+  font-size: 12px;
+  color: var(--red-text);
+  margin-bottom: 8px;
+}
+.set-danger-box {
+  padding: 10px 14px;
+  background: var(--red-m);
+  border: 1px solid var(--red);
+  border-radius: var(--r);
+  margin-bottom: 14px;
+}
+.set-danger-text { font-size: 12px; color: var(--red-text); margin: 0; }
+.set-danger-button { background: var(--red); color: var(--bg-0); font-size: 13px; }
+.set-danger-button:disabled { opacity: .6; }
+.set-flex-fill { flex: 1; }
+.set-file-input { display: block; margin-top: 6px; }
+.set-form-actions { display: flex; gap: 8px; margin-top: 8px; }
 .set-backup-list { margin-top: 16px; }
 .set-backup-title { font-size: 12px; font-weight: 600; margin-bottom: 6px; }
 .set-backup-table { width: 100%; font-size: 12px; border-collapse: collapse; }

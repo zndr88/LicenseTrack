@@ -31,7 +31,7 @@ export default function PasswordSection({ isOpen, isDirty, onToggle, globalSetti
       <SectionHeader sectionKey="password" icon="lock" title="Password" description="Change your account password" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
-          <div style={{ marginTop: 12 }}>
+          <div className="set-section-stack">
             {!showPasswordForm ? (
               <button className="btn btn-g" onClick={() => setShowPasswordForm(true)}>
                 <Icon name="edit" size={14} /> Change Password
@@ -41,27 +41,27 @@ export default function PasswordSection({ isOpen, isDirty, onToggle, globalSetti
                 <div className="fr">
                   <div className="fg">
                     <label htmlFor="settings-current-pwd">Current Password</label>
-                    <input id="settings-current-pwd" className="fi" type="password" autoComplete="current-password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} placeholder="••••••••" />
+                    <input id="settings-current-pwd" className="fi" type="password" autoComplete="current-password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} placeholder="********" />
                   </div>
                 </div>
                 <div className="fr">
                   <div className="fg">
                     <label htmlFor="settings-new-pwd">New Password</label>
-                    <input id="settings-new-pwd" className="fi" type="password" autoComplete="new-password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="••••••••" />
+                    <input id="settings-new-pwd" className="fi" type="password" autoComplete="new-password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="********" />
                   </div>
                 </div>
                 <div className="fr">
                   <div className="fg">
                     <label htmlFor="settings-confirm-pwd">Confirm New Password</label>
-                    <input id="settings-confirm-pwd" className="fi" type="password" autoComplete="new-password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder="••••••••" />
+                    <input id="settings-confirm-pwd" className="fi" type="password" autoComplete="new-password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder="********" />
                   </div>
                 </div>
                 {pwdError && (
-                  <div style={{ padding: "8px 12px", background: "var(--red-m)", border: "1px solid var(--red)", borderRadius: "var(--r)", fontSize: 12, color: "var(--red-text)", marginBottom: 8 }}>
+                  <div className="set-error-box">
                     {pwdError}
                   </div>
                 )}
-                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <div className="set-form-actions">
                   <button className="btn btn-p" disabled={pwdSaving} onClick={handleChangePassword}>
                     {pwdSaving ? "Saving..." : "Update Password"}
                   </button>
