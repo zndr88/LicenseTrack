@@ -7,6 +7,12 @@ import Toggle from "../../ui/Toggle.jsx";
 import EmailTemplatesModal from "../EmailTemplatesModal.jsx";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
 
+const SMTP_ENCRYPTION_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "starttls", label: "STARTTLS" },
+  { value: "tls", label: "TLS / SSL" },
+];
+
 export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, onError, onToast, navGuard }) {
   const [saving, setSaving] = useState(false);
   const [testEmailSending, setTestEmailSending] = useState(false);
@@ -15,12 +21,14 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
   const [emailTemplateDraft, setEmailTemplateDraft] = useState({ emailTemplateBudgetOwnerIntro: "", emailTemplateBudgetOwnerSignoff: "", emailTemplateManagerIntro: "" });
   const [emailTemplatesSaving, setEmailTemplatesSaving] = useState(false);
   const unsavedSettingsMessage = "Save email settings before testing or sending notifications.";
+  const smtpEncryption = globalSettings.smtpEncryption ?? (globalSettings.smtpUseTls ? "tls" : "starttls");
 
   const handleSave = async () => {
     const schema = globalSettings.emailEnabled ? smtpConnectionSchema : smtpSaveSchema;
     const validation = schema.safeParse({
       smtpHost: globalSettings.smtpHost,
       smtpPort: globalSettings.smtpPort,
+      smtpEncryption,
       smtpSender: globalSettings.smtpSender,
     });
     if (!validation.success) { onError(validation.error.issues[0].message); return; }
@@ -32,7 +40,8 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
       smtp_username: globalSettings.smtpUsername,
       smtp_password: globalSettings.smtpPassword,
       smtp_sender: globalSettings.smtpSender,
-      smtp_use_tls: globalSettings.smtpUseTls,
+      smtp_use_tls: smtpEncryption === "tls",
+      smtp_encryption: smtpEncryption,
     });
     setSaving(false);
     if (error) { onError(error); return; }
@@ -47,6 +56,7 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
     const validation = smtpConnectionSchema.safeParse({
       smtpHost: globalSettings.smtpHost,
       smtpPort: globalSettings.smtpPort,
+      smtpEncryption,
       smtpSender: globalSettings.smtpSender,
     });
     if (!validation.success) { onError(validation.error.issues[0].message); return; }
@@ -131,10 +141,14 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
                   <label htmlFor="settings-smtp-sender">Sender Address</label>
                   <input id="settings-smtp-sender" className="fi" value={globalSettings.smtpSender} onChange={e => { setGlobalSettings(s => ({ ...s, smtpSender: e.target.value })); markDirty("smtp"); }} placeholder="LicenseTrack <noreply@example.com>" />
                 </div>
-              </div>
-              <div className="trow">
-                <span>Use TLS</span>
-                <Toggle value={globalSettings.smtpUseTls} onChange={v => { setGlobalSettings(s => ({ ...s, smtpUseTls: v })); markDirty("smtp"); }} />
+                <div className="fg">
+                  <label htmlFor="settings-smtp-encryption">Encryption</label>
+                  <select id="settings-smtp-encryption" className="fi" value={smtpEncryption} onChange={e => { const value = e.target.value; setGlobalSettings(s => ({ ...s, smtpEncryption: value, smtpUseTls: value === "tls" })); markDirty("smtp"); }}>
+                    {SMTP_ENCRYPTION_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="set-inline-actions">
                 <button className="btn btn-g" onClick={handleTestEmail} disabled={testEmailSending || isDirty} title={isDirty ? unsavedSettingsMessage : undefined}>

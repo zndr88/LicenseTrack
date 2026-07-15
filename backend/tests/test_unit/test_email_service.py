@@ -7,9 +7,9 @@ Tests cover:
   - send_email: recipients list with and without Cc
   - send_email: aiosmtplib.send called with correct SMTP parameters
   - send_email: smtp_username/smtp_password None-passthrough when blank
-  - send_email: start_tls is inverse of smtp_use_tls
+  - send_email: encryption mode maps to correct TLS/STARTTLS parameters
   - send_test_email: delegates to _send_test_email_impl which calls send_email
-  - send_test_email: HTML body contains host/port/tls/sender tokens
+  - send_test_email: HTML body contains host/port/encryption/sender tokens
   - _send_test_email_impl: calls send_email with fixed subject
 """
 
@@ -60,7 +60,8 @@ def _make_gs(**overrides) -> MagicMock:
         smtp_sender="noreply@example.com",
         smtp_username="smtpuser",
         smtp_password="encrypted-blob",
-        smtp_use_tls=True,
+        smtp_use_tls=False,
+        smtp_encryption="starttls",
     )
     defaults.update(overrides)
     gs = MagicMock()
@@ -225,6 +226,7 @@ async def test_send_email_passes_smtp_parameters_correctly():
         smtp_username="user@corp.com",
         smtp_password="enc-blob",
         smtp_use_tls=True,
+        smtp_encryption="tls",
     )
     send_mock = AsyncMock()
 
@@ -238,11 +240,11 @@ async def test_send_email_passes_smtp_parameters_correctly():
     assert kwargs["username"] == "user@corp.com"
     assert kwargs["password"] == "decrypted-pw"
     assert kwargs["use_tls"] is True
-    assert kwargs["start_tls"] is False  # inverse of use_tls
+    assert kwargs["start_tls"] is False
 
 
-async def test_send_email_start_tls_true_when_use_tls_false():
-    gs = _make_gs(smtp_use_tls=False)
+async def test_send_email_start_tls_mode_uses_starttls():
+    gs = _make_gs(smtp_encryption="starttls")
     send_mock = AsyncMock()
 
     with patch("app.services.email_service.aiosmtplib.send", new=send_mock), \
@@ -252,6 +254,33 @@ async def test_send_email_start_tls_true_when_use_tls_false():
     kwargs = send_mock.await_args.kwargs
     assert kwargs["use_tls"] is False
     assert kwargs["start_tls"] is True
+
+
+async def test_send_email_none_mode_uses_plain_smtp():
+    gs = _make_gs(smtp_encryption="none")
+    send_mock = AsyncMock()
+
+    with patch("app.services.email_service.aiosmtplib.send", new=send_mock), \
+         patch("app.services.email_service.decrypt_secret", return_value="pw"):
+        await send_email(gs, "to@example.com", "Subj", "<p/>")
+
+    kwargs = send_mock.await_args.kwargs
+    assert kwargs["use_tls"] is False
+    assert kwargs["start_tls"] is False
+
+
+async def test_send_email_legacy_use_tls_fallback_still_maps_to_tls():
+    gs = _make_gs(smtp_use_tls=True)
+    del gs.smtp_encryption
+    send_mock = AsyncMock()
+
+    with patch("app.services.email_service.aiosmtplib.send", new=send_mock), \
+         patch("app.services.email_service.decrypt_secret", return_value="pw"):
+        await send_email(gs, "to@example.com", "Subj", "<p/>")
+
+    kwargs = send_mock.await_args.kwargs
+    assert kwargs["use_tls"] is True
+    assert kwargs["start_tls"] is False
 
 
 async def test_send_email_passes_none_for_blank_username():
@@ -289,7 +318,7 @@ async def test_send_test_email_html_contains_smtp_settings():
     gs = _make_gs(
         smtp_host="mail.corp.com",
         smtp_port=465,
-        smtp_use_tls=True,
+        smtp_encryption="tls",
         smtp_sender="sender@corp.com",
     )
     captured_html: list[str] = []
@@ -303,11 +332,11 @@ async def test_send_test_email_html_contains_smtp_settings():
     assert len(captured_html) == 1
     html = captured_html[0]
     text = _html_text(html)
-    assert f"Server: {gs.smtp_host}:{gs.smtp_port} | TLS: Yes | Sender: {gs.smtp_sender}" in text
+    assert f"Server: {gs.smtp_host}:{gs.smtp_port} | Encryption: TLS/SSL | Sender: {gs.smtp_sender}" in text
 
 
-async def test_send_test_email_html_shows_no_for_tls_disabled():
-    gs = _make_gs(smtp_use_tls=False)
+async def test_send_test_email_html_shows_plain_smtp():
+    gs = _make_gs(smtp_encryption="none")
     captured_html: list[str] = []
 
     async def fake_send_email(gs_arg, to_arg, subject_arg, html_body_arg, cc=None):
@@ -316,7 +345,7 @@ async def test_send_test_email_html_shows_no_for_tls_disabled():
     with patch("app.services.email_service.send_email", new=fake_send_email):
         await send_test_email(gs, "admin@corp.com")
 
-    assert "No" in captured_html[0]
+    assert "Encryption: None" in _html_text(captured_html[0])
 
 
 async def test_send_test_email_delegates_to_send_email_with_correct_to():

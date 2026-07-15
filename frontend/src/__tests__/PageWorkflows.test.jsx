@@ -229,7 +229,8 @@ const globalSettings = {
   allowedEmailDomains: [],
   notificationSendHour: 7,
   emailEnabled: false,
-  smtpUseTls: true,
+  smtpUseTls: false,
+  smtpEncryption: "starttls",
   backupEnabled: false,
   backupHour: 2,
   backupKeep: 10,
@@ -622,7 +623,8 @@ describe("SettingsPage workflows", () => {
       smtpUsername: "old-user",
       smtpPassword: "old-secret",
       smtpSender: "Licenses <old@example.com>",
-      smtpUseTls: true,
+      smtpUseTls: false,
+      smtpEncryption: "starttls",
     };
 
     function Harness() {
@@ -654,7 +656,8 @@ describe("SettingsPage workflows", () => {
         smtp_username: "old-user",
         smtp_password: "old-secret",
         smtp_sender: "Licenses <old@example.com>",
-        smtp_use_tls: true,
+        smtp_use_tls: false,
+        smtp_encryption: "starttls",
       });
     });
   });

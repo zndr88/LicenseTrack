@@ -13,6 +13,15 @@ OIDC_CACHE_FIELDS = {
 }
 
 
+def normalize_smtp_encryption(update_data: dict) -> None:
+    if "smtp_encryption" in update_data:
+        update_data["smtp_use_tls"] = update_data["smtp_encryption"] == "tls"
+        return
+
+    if "smtp_use_tls" in update_data:
+        update_data["smtp_encryption"] = "tls" if update_data["smtp_use_tls"] else "starttls"
+
+
 def validate_storage_path(update_data: dict) -> None:
     if "storage_path" not in update_data or not update_data["storage_path"]:
         return

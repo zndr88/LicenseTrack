@@ -117,3 +117,14 @@ def test_global_settings_update_manager_email_rejects_crlf():
 def test_global_settings_update_manager_email_rejects_nul_byte():
     with pytest.raises(ValidationError):
         GlobalSettingsUpdate(manager_email="a@b.com\x00")
+
+
+@pytest.mark.parametrize("mode", ["none", "starttls", "tls"])
+def test_global_settings_update_smtp_encryption_accepts_supported_modes(mode):
+    m = GlobalSettingsUpdate(smtp_encryption=mode)
+    assert m.smtp_encryption == mode
+
+
+def test_global_settings_update_smtp_encryption_rejects_unknown_mode():
+    with pytest.raises(ValidationError):
+        GlobalSettingsUpdate(smtp_encryption="startTLS")

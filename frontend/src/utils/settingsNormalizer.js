@@ -1,3 +1,10 @@
+function normalizeSmtpEncryption(data, current) {
+  if (data.smtp_encryption) return data.smtp_encryption;
+  if (data.smtp_use_tls === true) return "tls";
+  if (data.smtp_use_tls === false) return "starttls";
+  return current.smtpEncryption;
+}
+
 /**
  * Normalizes a raw global settings API response (snake_case) into the
  * camelCase shape used by App.jsx globalSettings state.
@@ -22,6 +29,7 @@ export function normalizeGlobalSettings(data, current) {
     smtpPassword: data.smtp_password ?? current.smtpPassword,
     smtpSender: data.smtp_sender ?? current.smtpSender,
     smtpUseTls: data.smtp_use_tls ?? current.smtpUseTls,
+    smtpEncryption: normalizeSmtpEncryption(data, current),
     notificationSendHour: data.notification_send_hour ?? current.notificationSendHour,
     allowedEmailDomains: data.allowed_email_domains !== undefined
       ? data.allowed_email_domains.split(",").filter(Boolean).map((d) => d.trim())

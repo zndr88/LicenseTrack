@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 import zoneinfo
 
@@ -130,6 +130,7 @@ class GlobalSettingsUpdate(BaseModel):
     smtp_password: Optional[str] = Field(default=None, max_length=255)
     smtp_sender: Optional[str] = Field(default=None, max_length=255)
     smtp_use_tls: Optional[bool] = None
+    smtp_encryption: Optional[Literal["none", "starttls", "tls"]] = None
     notification_send_hour: Optional[int] = Field(default=None, ge=0, le=23)
     allowed_email_domains: Optional[str] = Field(default=None, max_length=1000)
     backup_location: Optional[str] = Field(default=None, max_length=500)
@@ -173,6 +174,7 @@ class GlobalSettingsResponse(BaseModel):
     smtp_password: str
     smtp_sender: str
     smtp_use_tls: bool
+    smtp_encryption: Literal["none", "starttls", "tls"] = "starttls"
     notification_send_hour: int
     allowed_email_domains: str
     backup_location: str = "./backups"

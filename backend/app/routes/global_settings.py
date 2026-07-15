@@ -16,6 +16,7 @@ from app.services.oidc_service import get_oidc_availability, invalidate_oidc_cac
 from app.services.settings_service import invalidate_global_settings_cache
 from app.services.settings_update_service import (
     encrypt_settings_secrets,
+    normalize_smtp_encryption,
     oidc_cache_should_invalidate,
     preserve_masked_or_empty_secrets,
     validate_storage_path,
@@ -63,6 +64,7 @@ async def update_global_settings(
     before = {c.name: getattr(global_settings, c.name) for c in global_settings.__table__.columns}
 
     update_data = payload.model_dump(exclude_unset=True)
+    normalize_smtp_encryption(update_data)
     validate_storage_path(update_data)
     preserve_masked_or_empty_secrets(update_data)
     encrypt_settings_secrets(update_data)

@@ -10,6 +10,18 @@ from app.services.crypto_service import decrypt_secret
 log = logging.getLogger(__name__)
 
 _FORBIDDEN_RECIPIENT_CHARS = ("\r", "\n", "\x00")
+_SMTP_ENCRYPTION_LABELS = {
+    "none": "None",
+    "starttls": "STARTTLS",
+    "tls": "TLS/SSL",
+}
+
+
+def _smtp_encryption_mode(gs: GlobalSettings) -> str:
+    mode = getattr(gs, "smtp_encryption", None)
+    if mode in _SMTP_ENCRYPTION_LABELS:
+        return mode
+    return "tls" if getattr(gs, "smtp_use_tls", False) else "starttls"
 
 
 def _reject_crlf_recipient(address: str) -> None:
@@ -48,14 +60,15 @@ async def send_email(
     msg.attach(MIMEText(html_body, "html"))
 
     recipients = [to, cc] if cc else [to]
+    encryption = _smtp_encryption_mode(gs)
     await aiosmtplib.send(
         msg,
         hostname=gs.smtp_host,
         port=gs.smtp_port,
         username=gs.smtp_username or None,
         password=decrypt_secret(gs.smtp_password) or None,
-        use_tls=gs.smtp_use_tls,
-        start_tls=not gs.smtp_use_tls,
+        use_tls=encryption == "tls",
+        start_tls=encryption == "starttls",
         recipients=recipients,
     )
 
@@ -73,14 +86,14 @@ async def send_test_email(gs: GlobalSettings, to: str) -> None:
         <p>If you are reading this, your SMTP configuration is working correctly.</p>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
         <p style="font-size: 12px; color: #94a3b8;">
-          Server: {host}:{port} | TLS: {tls} | Sender: {sender}
+          Server: {host}:{port} | Encryption: {encryption} | Sender: {sender}
         </p>
       </div>
     </div>
     """.format(
         host=gs.smtp_host,
         port=gs.smtp_port,
-        tls="Yes" if gs.smtp_use_tls else "No",
+        encryption=_SMTP_ENCRYPTION_LABELS[_smtp_encryption_mode(gs)],
         sender=gs.smtp_sender,
     )
     await _send_test_email_impl(gs, to, html)

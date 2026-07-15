@@ -28,6 +28,7 @@ export const notificationsSaveSchema = z.object({
 
 /** SmtpSection - sender only; used when emailEnabled is false. */
 export const smtpSaveSchema = z.object({
+  smtpEncryption: z.enum(["none", "starttls", "tls"]).optional(),
   smtpSender: z.string().refine(isValidSender, {
     message: "Sender must be a valid email address or 'Name <email@example.com>'.",
   }),
@@ -43,6 +44,7 @@ export const smtpConnectionSchema = z.object({
   smtpPort: z.number().int()
     .min(1, { message: "Port must be between 1 and 65535." })
     .max(65535, { message: "Port must be between 1 and 65535." }),
+  smtpEncryption: z.enum(["none", "starttls", "tls"]).optional(),
   smtpSender: z.string().refine(isValidSender, {
     message: "Sender must be a valid email address or 'Name <email@example.com>'.",
   }),

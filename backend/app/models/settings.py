@@ -170,7 +170,8 @@ class GlobalSettings(Base):
     smtp_username: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     smtp_password: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     smtp_sender: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    smtp_use_tls: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    smtp_use_tls: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    smtp_encryption: Mapped[str] = mapped_column(String(20), nullable=False, default="starttls")
 
     # Scheduler
     notification_send_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=7)

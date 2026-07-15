@@ -42,4 +42,16 @@ describe('normalizeGlobalSettings', () => {
     expect(normalized.lastBackupStatus).toBe('failed')
     expect(normalized.lastBackupAt).toBe('2026-07-12T08:00:00Z')
   })
+
+  test('maps explicit SMTP encryption and legacy TLS fallback', () => {
+    expect(normalizeGlobalSettings(
+      { smtp_encryption: 'none', smtp_use_tls: false },
+      { smtpEncryption: 'starttls', smtpUseTls: true }
+    ).smtpEncryption).toBe('none')
+
+    expect(normalizeGlobalSettings(
+      { smtp_use_tls: true },
+      { smtpEncryption: 'starttls', smtpUseTls: false }
+    ).smtpEncryption).toBe('tls')
+  })
 })
