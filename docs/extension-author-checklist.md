@@ -2,15 +2,16 @@
 
 Use this checklist before building a private LicenseTrack API integration, webhook integration, or document processor sidecar. It captures the current Integration Framework and keeps external work aligned with core boundaries.
 
-LicenseTrack does not currently provide an installable Plugin Host. This checklist is for today’s API/webhook-based integration model, not browser-style plugins that inject UI or install packages.
+This checklist is for API/webhook-based integrations. LicenseTrack also ships Plugin Host v1 for installable packages; use `docs/plugin-author-guide.md` if you want a packaged plugin with manifest-declared settings, permissions, UI slots, and a managed runtime.
 
 ## Choose The Right Shape
 
 - Use an API integration for private sync, reporting, import, export, or automation needs.
 - Use a webhook integration when an external service should react to audited LicenseTrack events.
 - Use a document processor sidecar when a user should intentionally ask an external service to inspect an uploaded document and return suggested values.
+- Use Plugin Host v1 when you need an installable package that LicenseTrack manages from Admin Settings.
 - Submit a core contribution only when the feature is broadly useful and should be maintained inside LicenseTrack.
-- Do not rely on plugin package installation, runtime React plugin loading, remote frontend bundles, plugin-owned settings panels, or arbitrary UI injection. LicenseTrack does not currently support that model.
+- Do not rely on runtime React plugin loading, remote frontend bundles, direct database writes, plugin-created migrations, or arbitrary UI injection. Plugin Host v1 supports core-rendered slots only.
 
 ## Authentication And Scopes
 
@@ -53,12 +54,13 @@ LicenseTrack does not currently provide an installable Plugin Host. This checkli
 - Integrations own external parsing, sync, transformation, and provider-specific behavior.
 - Do not bypass LicenseTrack services by writing directly to the database.
 - Do not depend on undocumented frontend state, internal helper APIs, or database schema details.
-- Do not add plugin-specific core code unless a generic extension point or future Plugin Host slot exists first.
+- Do not add plugin-specific core code unless a generic extension point or Plugin Host slot exists first.
 
 ## Documentation To Read First
 
 - `docs/extensions.md`
-- `docs/plugin-host-roadmap.md`
+- `docs/plugin-author-guide.md`
+- `docs/plugin-host-v1-roadmap.md`
 - `docs/build-integrations.md`
 - `docs/build-document-processor.md`
 - `docs/api-auth.md`

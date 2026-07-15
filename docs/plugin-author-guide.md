@@ -472,5 +472,4 @@ Section 6 of the LicenseTrack license asks that a plugin's documentation acknowl
 
 ### Reference plugin
 
-The first-party **LicenseTrack AI** plugin is the canonical example. It is maintained in a separate repository and released under **Apache-2.0** — deliberately a different license from LicenseTrack — demonstrating the separation described above. Use its `LICENSE`, `NOTICE`, and `README.md` as a template for your own package.
-
+The first-party **LicenseTrack AI** companion plugin is intended to become a reference example after release. It is maintained in a separate repository, but release of the AI plugin is pending and it is not bundled with baseline LicenseTrack. Its planned **Apache-2.0** licensing demonstrates the separation described above: installable plugins can use different license terms from LicenseTrack itself.

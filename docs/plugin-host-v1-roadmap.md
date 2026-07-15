@@ -1,8 +1,10 @@
-# Plugin Host V1 Roadmap
+# Plugin Host V1 Contract
+
+> Status: Plugin Host v1 is shipped. This file was originally the v1 roadmap; the filename is retained for existing links. Treat this document as the shipped v1 contract and reference.
 
 This document is the frozen Plugin Host v1 platform contract: package rules, the `.ltplugin` manifest, the permission catalog, the slot catalog, the runtime protocol, and the suggestion shape.
 
-Current implementation status:
+Implementation status at shipment:
 
 - Phase 0 is complete: v1 contracts, package rules, permission catalog, slot catalog, runtime protocol, and suggestion shape are frozen.
 - Phase 1 is complete: backend plugin registry persistence, migration, schemas, service layer, and focused tests exist.
@@ -14,9 +16,9 @@ Current implementation status:
 - Phase 7 is complete for the first slot: document-row plugin actions can be discovered, invoked, audited, and rendered in the existing Documents section.
 - Phase 8 is complete for license-target suggestions: plugin action output with granted target suggestion permissions can create pending suggestions, reviewers can accept selected fields or reject them, older pending suggestions are superseded per plugin/action/target, and audit details include plugin, action, target, reviewer, and applied fields.
 - Phase 9 is complete: sourcing item edit, add-sourcing-quote, pending-order add, pending-order line edit, pending-order conversion, and add-license draft review slots are exposed with scoped backend context builders and core-rendered `PluginSlot` mounts. The `sourcing.quote.add.actions` and `pendingOrder.add.actions` slots support multi-item `sourcing_quote_draft` and `pending_order_draft` targets, enabling a plugin to parse an uploaded document and populate multiple line items before the record is saved.
-- Phase 10 is complete for the first-plugin package proof: `licensetrack-ai` builds an installable `.ltplugin.zip`, the real zip validates with the host inspector, and LicenseTrack has an integration fixture covering install, settings, runtime restart, action discovery/invocation, suggestion creation, and accepting a license suggestion.
+- Phase 10 is complete for the first-plugin package proof: `licensetrack-ai` builds an installable `.ltplugin.zip`, the real zip validates with the host inspector, and LicenseTrack has an integration fixture covering install, settings, runtime restart, action discovery/invocation, suggestion creation, and accepting a license suggestion. Release of the AI plugin is pending, and it is not bundled with baseline LicenseTrack.
 
-The target v1 experience is:
+The shipped v1 experience is:
 
 1. An admin downloads a plugin package as a `.zip`.
 2. The admin uploads that `.zip` in LicenseTrack Admin Settings.
@@ -25,7 +27,7 @@ The target v1 experience is:
 5. LicenseTrack stores the plugin, registers its declared capabilities, renders its settings, and exposes its actions in approved UI slots.
 6. Users see native LicenseTrack buttons/actions where the plugin is allowed to appear.
 
-The v1 host should make plugins feel installable without allowing arbitrary code to rewrite the app.
+The v1 host makes plugins feel installable without allowing arbitrary code to rewrite the app.
 
 ## Product Principle
 
@@ -75,7 +77,7 @@ For v1, plugins should return proposed results or action responses. Core applies
 - Paid licensing enforcement inside LicenseTrack.
 - Sandboxed custom React components.
 
-These can be considered after the first host model is stable.
+These remain post-v1 directions.
 
 ## Phase 0 Contract Decisions
 
@@ -608,7 +610,7 @@ For AI document parsing, this unlocks:
 - enrich pending order conversion fields;
 - upload document in Add License and generate a draft license review.
 
-## Admin UI Roadmap
+## Admin UI Contract
 
 ### Plugins List
 
@@ -658,11 +660,11 @@ Admin Settings should include a Plugins page or section:
 4. Core registers declared capabilities.
 5. Core exposes actions in declared slots.
 
-## Backend Roadmap
+## Backend Contract
 
 ### Phase 1: Data Model
 
-Status: Done. The metadata-only plugin registry tables and service tests are implemented; package upload and runtime execution remain later phases.
+Status: Done. The plugin registry tables, service tests, package upload flow, and managed runtime execution are implemented for v1.
 
 Add tables for:
 
@@ -741,7 +743,7 @@ Add backend action registry and frontend slot renderers for:
 
 ### Phase 7: Suggestions
 
-Status: Done for license application and pending suggestion storage across v1 targets. Procurement, pending-order, conversion, and draft-license apply services remain target-specific follow-up work.
+Status: Done for pending suggestion storage and review/apply paths across the shipped v1 target catalog.
 
 Generalize document-processing results into plugin suggestions:
 
@@ -763,7 +765,7 @@ Implemented Phase 8 slice:
 - Selected accepted fields apply through `license_write_service.py` and `custom_fields_service.py`.
 - Review UI shows current versus suggested values, confidence/source/note, selected fields, line-item proposals, and accept/reject controls.
 
-## Frontend Roadmap
+## Frontend Contract
 
 ### Phase 1: Admin Plugin UI
 
@@ -802,7 +804,7 @@ Create shared suggestion review components:
 - reject;
 - multi-line-item proposal review.
 
-## Security Roadmap
+## Security Requirements
 
 V1 security requirements:
 
@@ -844,7 +846,7 @@ These are host-level constraints operators must observe when running Plugin Host
 
 ## V1 Acceptance Criteria
 
-Plugin Host v1 is ready when:
+Plugin Host v1 is considered complete because:
 
 - an admin can upload a plugin zip;
 - LicenseTrack finds and validates exactly one `.ltplugin` manifest;
@@ -860,7 +862,7 @@ Plugin Host v1 is ready when:
 - uninstalling the plugin leaves historical audit and suggestion records readable;
 - no plugin can inject arbitrary frontend code or write directly to the database.
 
-## Suggested V1 Delivery Order
+## V1 Delivery History
 
 1. Manifest schema and package inspection service.
 2. Plugin registry and install preview UI.
@@ -876,6 +878,6 @@ Plugin Host v1 is ready when:
    - `pendingOrder.convert.actions`
 10. Draft license/add-license slot:
    - `license.add.review.actions`
-11. Convert `licensetrack-ai` from sidecar setup to installable zip package.
+11. Prove the `licensetrack-ai` package shape against the installable zip flow.
 
-This sequence gives the host a working end-to-end path early, then expands into the modal-based AI parser experience.
+This sequence gave the host a working end-to-end path early, then expanded into the modal-based parser experience.

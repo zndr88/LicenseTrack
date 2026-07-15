@@ -1,4 +1,4 @@
-# Integration Framework And Plugin Roadmap
+# Extending LicenseTrack
 
 LicenseTrack is intended to be a software license procurement and lifecycle platform. The core product owns the opinionated process for sourcing, purchase orders, evidence, license records, renewals, contracts, audit history, and reporting. Other systems can connect to that platform through documented integration contracts.
 
@@ -97,11 +97,11 @@ Do not add plugin-specific code paths to core workflows without first defining a
 
 ## First-Party Integrations And Plugins
 
-The project may provide optional first-party integrations or installable plugins over time. Likely candidates include:
+The project may provide optional first-party integrations or installable plugins over time. Candidate areas include:
 
-- AI-assisted document parsing with bring-your-own provider credentials (the `licensetrack-ai` reference plugin is already packaged as an installable v1 plugin);
-- native Lansweeper integration;
-- Flexera export or integration helpers;
+- AI-assisted document parsing with bring-your-own provider credentials. The `licensetrack-ai` companion plugin is a work in progress; release of the AI plugin is pending, and it is not bundled with baseline LicenseTrack.
+- Native Lansweeper integration.
+- Flexera export or integration helpers.
 - ServiceNow or CMDB-oriented synchronization helpers.
 
 First-party plugin work should use the same public Plugin Host contracts available to third-party plugin authors. This keeps core stable and avoids hidden privileges.
@@ -112,7 +112,7 @@ The repository includes `examples/licensetrack-ai-sidecar.py` as a non-AI smoke-
 
 AI-assisted parsing is intentionally optional, not a core dependency. A baseline LicenseTrack deployment should not require AI provider credentials, expose AI-specific UI, or send documents to an external AI service.
 
-When an AI document processor or future AI plugin is installed, operators remain responsible for deciding whether documents may be sent to the selected provider. Documentation should clearly state:
+When an AI document processor or AI plugin is installed, operators remain responsible for deciding whether documents may be sent to the selected provider. Documentation should clearly state:
 
 - what data is sent;
 - which provider receives it;
@@ -187,7 +187,7 @@ The framework foundation supports:
 7. Author guidance in `docs/build-integrations.md`, `docs/build-document-processor.md`, and `docs/extension-author-checklist.md`.
 8. Plugin Host v1: installable packages, managed runtimes, core-rendered slots, encrypted settings, and generic suggestions. See `docs/plugin-host-v1-roadmap.md` and `docs/plugin-author-guide.md`.
 
-## Roadmap
+## Future Directions
 
 The following work is intentionally separate from the current foundation:
 

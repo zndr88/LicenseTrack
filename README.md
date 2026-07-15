@@ -8,6 +8,8 @@ LicenseTrack is source-available software. See [Licensing](#licensing) before us
 
 ![LicenseTrack license overview dashboard](docs/images/dashboard.png)
 
+[Try the hosted demo](https://zndr88.github.io/LicenseTrack/demo/) before installing.
+
 ## Background
 
 LicenseTrack came out of two jobs on opposite sides of the same problem.
@@ -84,25 +86,27 @@ LicenseTrack does not scan networks, discover installed software, or reconcile i
 
 ## Extending LicenseTrack
 
-LicenseTrack extends through two layers:
+LicenseTrack is complete without extensions. Baseline deployments do not need plugins, AI provider credentials, webhooks, or external integrations.
 
-**Integration Framework** — documented APIs, import/export contracts, webhooks, declared capabilities, document actions, and document-processing result review. Useful for company-specific automation, external system connections, and operator-built sidecars without forking core.
+When an organisation does want to connect LicenseTrack to other systems, there are two supported paths:
+
+**Integration Framework** - documented APIs, import/export contracts, webhooks, declared capabilities, document actions, and document-processing result review. This is the best fit for company-specific automation, private connectors, reporting exports, and externally hosted sidecars.
 
 - API integrations: external systems, scripts, or services that use supported API routes to read or write LicenseTrack data.
 - Webhook integrations: external receivers that react to audited LicenseTrack events.
 - Document processors: external sidecars that process selected uploaded documents and submit proposed values for review.
 - Core contributions: broadly useful product features submitted for inclusion in the main LicenseTrack repository.
 
-**Plugin Host v1** — installable `.zip` plugin packages that add approved settings, actions, and workflow UI through core-defined slots. Admins upload a plugin, review its permissions, configure its settings, and enable it. Plugin buttons appear in approved LicenseTrack UI slots; plugin output becomes reviewable suggestions applied through normal core services.
+**Plugin Host v1** - installable `.zip` plugin packages that add approved settings, actions, and workflow UI through core-defined slots. Admins upload a plugin, review its permissions, configure its settings, and enable it. Plugin output becomes reviewable suggestions applied through normal core services.
 
 - Plugins cannot inject arbitrary JavaScript or modify compiled React code.
 - Plugins cannot write directly to the database or create migrations.
 - The Plugin Host requires a single Uvicorn worker (the default); see `wiki/operations/deployment.md`.
 - Only Python (`.py`) entrypoints are supported in v1.
 
-AI-assisted document parsing, Lansweeper integration, Flexera exports, and similar capabilities can be built as installable plugins using the Plugin Host v1 contract, or as API/webhook integrations today. None are required for baseline LicenseTrack deployments.
+AI-assisted document parsing, Lansweeper integration, Flexera exports, and similar capabilities can be built as installable plugins or API/webhook integrations. None are required for baseline LicenseTrack deployments. The first-party LicenseTrack AI plugin is a work in progress; release of the AI plugin is pending, so it is not bundled with LicenseTrack.
 
-See [docs/extensions.md](docs/extensions.md), [docs/plugin-host-roadmap.md](docs/plugin-host-roadmap.md), [docs/plugin-host-v1-roadmap.md](docs/plugin-host-v1-roadmap.md), [docs/plugin-author-guide.md](docs/plugin-author-guide.md), [docs/extension-author-checklist.md](docs/extension-author-checklist.md), [docs/build-integrations.md](docs/build-integrations.md), [docs/build-document-processor.md](docs/build-document-processor.md), [docs/api-stability.md](docs/api-stability.md), [docs/api-auth.md](docs/api-auth.md), [docs/integration-recipes.md](docs/integration-recipes.md), and [docs/webhooks.md](docs/webhooks.md) for the integration model, Plugin Host v1 contracts, author guidance, API compatibility expectations, token authentication, practical integration examples, and event notifications.
+Start with [docs/extensions.md](docs/extensions.md). Use [docs/build-integrations.md](docs/build-integrations.md) for API/webhook integrations, [docs/build-document-processor.md](docs/build-document-processor.md) for document-processing sidecars, and [docs/plugin-author-guide.md](docs/plugin-author-guide.md) for installable plugins.
 
 ## Tech Stack
 
@@ -204,8 +208,7 @@ Application database backups contain the SQLite database only. Uploaded document
 - [docs/architecture.md](docs/architecture.md): maintainer architecture conventions and module boundaries.
 - [docs/extensions.md](docs/extensions.md): Integration Framework, terminology, boundaries, and Plugin Host positioning.
 - [docs/plugin-author-guide.md](docs/plugin-author-guide.md): how to build, package, and license an installable plugin against the shipped Plugin Host v1 contract.
-- [docs/plugin-host-roadmap.md](docs/plugin-host-roadmap.md): the installable plugin system (Plugin Host v1, shipped) with manifests, settings, permissions, UI slots, and managed runtime, plus post-v1 direction.
-- [docs/plugin-host-v1-roadmap.md](docs/plugin-host-v1-roadmap.md): the Plugin Host v1 platform contract — package rules, `.ltplugin` manifest, permission catalog, slot catalog, and runtime protocol.
+- [docs/plugin-host-v1-roadmap.md](docs/plugin-host-v1-roadmap.md): the shipped Plugin Host v1 platform contract; the filename is retained for existing links.
 - [docs/extension-author-checklist.md](docs/extension-author-checklist.md): checklist for building private integrations or document processors against current framework boundaries.
 - [docs/build-integrations.md](docs/build-integrations.md): integration author guide, scope matrix, quickstart, compatibility notes, and operational checklist.
 - [docs/build-document-processor.md](docs/build-document-processor.md): document processor author guide for the webhook/action/result review contract.

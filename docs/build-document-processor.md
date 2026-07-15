@@ -6,7 +6,7 @@ The processor may use AI, OCR, deterministic parsing, or a private rules engine.
 
 Read `docs/extension-author-checklist.md` first for the current framework boundaries and handoff checklist.
 
-This is the API/webhook document-processor flow: operators configure an API token, webhook endpoint, capability declaration, and externally hosted sidecar runtime. If you would rather ship an installable package that LicenseTrack manages — with plugin-owned settings, permissions, a managed runtime, and Parse actions in the UI — use the shipped **Plugin Host v1** instead; see `docs/plugin-author-guide.md`. The first-party LicenseTrack AI plugin is built that way. See `docs/plugin-host-roadmap.md` for post-v1 direction.
+This is the API/webhook document-processor flow: operators configure an API token, webhook endpoint, capability declaration, and externally hosted sidecar runtime. If you would rather ship an installable package that LicenseTrack manages - with plugin-owned settings, permissions, a managed runtime, and Parse actions in the UI - use the shipped **Plugin Host v1** instead; see `docs/plugin-author-guide.md`. The first-party LicenseTrack AI companion plugin uses that model, but release of the AI plugin is pending and it is not bundled with baseline LicenseTrack. See `docs/plugin-host-roadmap.md` for post-v1 direction.
 
 ## User Flow
 

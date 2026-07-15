@@ -2,7 +2,7 @@
 
 LicenseTrack supports API tokens for operator-managed integrations and automation. API tokens are intended for machine-to-machine access where browser sessions or human user credentials are not appropriate.
 
-API tokens are created by admins. For ownership purposes, each token records the admin who created it. For audit purposes, token-authenticated requests are logged with first-class token identity fields (`actor_token_id` and `actor_token_name`) alongside the owning admin's email. Tokens are shown only once at creation time. LicenseTrack stores a SHA-256 hash of the token, not the raw token value.
+API tokens are created by admins. For ownership purposes, each token records the admin who created it. For audit purposes, token-authenticated requests are logged with first-class token identity fields (`actor_token_id` and `actor_token_name`) alongside the owning admin's email. Tokens are shown only once at creation time. LicenseTrack stores a keyed digest of the token, not the raw token value. Tokens created before v1.0.6 with the legacy digest format are migrated to the keyed format after successful use.
 
 ## Token Format
 
