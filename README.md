@@ -1,6 +1,6 @@
 # LicenseTrack
 
-Version 1.0.6.
+Version 1.0.7.
 
 LicenseTrack is a self-hosted software license procurement and lifecycle management system. It gives organisations a single Docker-deployed application for sourcing, purchase orders, active license records, renewals, contracts, documents, notifications, reporting, database backups, audit history, and user access control.
 

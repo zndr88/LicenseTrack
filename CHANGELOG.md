@@ -9,6 +9,19 @@ API stability levels and the breaking-change policy are defined in
 [docs/api-stability.md](docs/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
+## [1.0.7] - 2026-07-15
+
+### Security
+
+- Resolved remaining GitHub CodeQL findings by tightening document storage path
+  validation around an explicit validated-path boundary and moving API token
+  keyed digests to the cryptography HMAC API.
+
+### Release
+
+- Version bumped to 1.0.7 across backend, frontend, README, Docker Compose,
+  frontend package metadata, and wiki installation/deployment examples.
+
 ## [1.0.6] - 2026-07-15
 
 ### Added
@@ -397,6 +410,7 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
+[1.0.7]: https://github.com/zndr88/LicenseTrack/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/zndr88/LicenseTrack/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/zndr88/LicenseTrack/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/zndr88/LicenseTrack/compare/v1.0.3...v1.0.4
