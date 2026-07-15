@@ -203,6 +203,7 @@ Application database backups contain the SQLite database only. Uploaded document
 ## Documentation
 
 - [wiki/operations/deployment.md](wiki/operations/deployment.md): deployment, environment variables, persistent data, reverse proxy notes, database backup, and restore.
+- [wiki/operations/upgrade.md](wiki/operations/upgrade.md): Docker Compose upgrade procedure, persistent volume handling, and project-name/volume-name recovery notes.
 - [wiki/operations/runbook.md](wiki/operations/runbook.md): health checks, log review, database backup checks, vulnerability management, upgrades, and incident-response notes.
 - [wiki/operations/backup-restore.md](wiki/operations/backup-restore.md): database backup behavior, retention, restore safety snapshot, and what is (and isn't) covered.
 - [docs/architecture.md](docs/architecture.md): maintainer architecture conventions and module boundaries.

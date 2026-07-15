@@ -93,12 +93,16 @@ If Docker is unavailable on a local workstation, the verifier can skip image sca
 
 ## Upgrade checks
 
+Use the full [upgrade guide](upgrade.md) for the step-by-step Docker Compose upgrade procedure.
+
 Before upgrading:
 
 - Back up the full `/data` volume or otherwise capture both database and uploaded documents.
+- Confirm which Docker volume is mounted at `/data`.
 - Confirm the target image was built and scanned from the release commit.
 - Review release notes and configuration changes.
 - Run the upgrade in a non-production environment if local policy requires it.
+- Do not run `docker compose down -v` unless you intentionally want to delete persistent data.
 
 After upgrading:
 

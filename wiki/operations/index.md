@@ -1,6 +1,6 @@
 # Operations
 
-Running LicenseTrack in production — hardening, backups, upgrades, and day-to-day operations — is covered by the pages in this section. New to LicenseTrack? Start with [Getting Started](../getting-started/prerequisites.md) to stand up an instance first; this section is about keeping it healthy in production.
+Running LicenseTrack in production - hardening, backups, upgrades, and day-to-day operations - is covered by the pages in this section. New to LicenseTrack? Start with [Getting Started](../getting-started/prerequisites.md) to stand up an instance first; this section is about keeping it healthy in production.
 
 <div class="grid cards" markdown>
 
@@ -12,6 +12,10 @@ Running LicenseTrack in production — hardening, backups, upgrades, and day-to-
 
     Health monitoring, log review, audit review, vulnerability management, upgrade checks, and incident response.
 
+- :material-update: **[Upgrading LicenseTrack](upgrade.md)**
+
+    Docker Compose upgrade procedure, full-volume backup, project-name/volume-name behavior, and recovery if a new empty volume is created.
+
 - :material-database-arrow-down: **[Backup & restore](backup-restore.md)**
 
     How database backups and restores work, retention, the pre-restore safety snapshot, and what is (and isn't) covered.
@@ -19,4 +23,4 @@ Running LicenseTrack in production — hardening, backups, upgrades, and day-to-
 </div>
 
 !!! warning "Back up before you experiment"
-    Deleting a license is permanent unless you have a database backup. Set up backups early — and remember that uploaded **documents** are stored separately from the database and need their own backup. See [Backup & restore](backup-restore.md).
+    Deleting a license is permanent unless you have a database backup. Set up backups early, and remember that uploaded **documents** are stored separately from the database and need their own backup. See [Backup & restore](backup-restore.md) and [Upgrading LicenseTrack](upgrade.md).

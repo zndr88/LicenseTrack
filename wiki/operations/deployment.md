@@ -105,7 +105,7 @@ For local development you may still run `alembic upgrade head` and `python -m ap
 
 ## Persistent data
 
-Docker Compose creates a named volume called `license_lifecycle_data`.
+Docker Compose creates a named volume called `license_lifecycle_data` inside the current Compose project.
 
 The volume is mounted at `/data` and contains:
 
@@ -122,6 +122,8 @@ docker run --rm \
   alpine \
   tar -czf /backup/license-lifecycle-data-$(date +%Y%m%d).tar.gz -C /data .
 ```
+
+Docker Compose prefixes named volumes with the Compose project name, which usually comes from the install folder name. If you move an install from one folder/project name to another, Compose may create a new empty volume unless you point it at the existing one. See [Upgrading LicenseTrack](upgrade.md) before replacing release folders.
 
 ## Database backup and restore
 
