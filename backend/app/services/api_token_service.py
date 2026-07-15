@@ -1,7 +1,8 @@
 import hashlib
-import hmac
 import secrets
 from datetime import datetime, timezone
+
+from cryptography.hazmat.primitives import hashes, hmac
 
 from app.config import settings
 from app.models.api_token import ApiToken
@@ -15,7 +16,9 @@ def generate_api_token() -> str:
 
 def hash_api_token(token: str) -> str:
     secret = settings.JWT_SECRET or settings.EFFECTIVE_OIDC_STATE_SECRET or "licensetrack-development-secret"
-    return hmac.digest(secret.encode("utf-8"), token.encode("utf-8"), "sha256").hex()
+    digest = hmac.HMAC(secret.encode("utf-8"), hashes.SHA256())
+    digest.update(token.encode("utf-8"))
+    return digest.finalize().hex()
 
 
 def hash_legacy_api_token(token: str) -> str:

@@ -8,15 +8,16 @@ instance and is used by all public helper functions.
 
 from __future__ import annotations
 
+import logging
 import mimetypes
+import os
 import uuid
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 from fastapi import HTTPException, UploadFile
-
-import logging
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,15 @@ from app.config import settings
 from app.models.settings import GlobalSettings
 
 logger = logging.getLogger("license_lifecycle.storage")
+
+
+@dataclass(frozen=True)
+class ValidatedStoragePath:
+    """A filesystem path that has been checked against the storage root."""
+
+    base: Path
+    absolute: Path
+    relative: Path
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +49,7 @@ class StorageBackend(ABC):
     """
 
     @abstractmethod
-    def write(self, dest: Path, content: bytes, base: Path) -> None:
+    def write(self, dest: ValidatedStoragePath, content: bytes) -> None:
         """Write *content* to *dest*, creating parent directories as needed."""
 
     @abstractmethod
@@ -63,11 +73,11 @@ class StorageBackend(ABC):
 class LocalStorageBackend(StorageBackend):
     """Stores files on the local filesystem."""
 
-    def write(self, dest: Path, content: bytes, base: Path) -> None:
-        _check_traversal(dest, base)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(content)
-        logger.info("File written: %s (%d bytes)", dest.name, len(content))
+    def write(self, dest: ValidatedStoragePath, content: bytes) -> None:
+        target = dest.absolute
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+        logger.info("File written: %s (%d bytes)", target.name, len(content))
 
     def read(self, source: Path) -> bytes:
         return source.read_bytes()
@@ -117,18 +127,24 @@ def _procurement_document_dir(po_number: str, storage_base: Optional[str] = None
     return _resolve_base(storage_base) / "procurement_documents" / safe_po
 
 
-def _check_traversal(dest: Path, base: Path) -> None:
-    resolved_base = base.resolve()
-    if not dest.resolve().is_relative_to(resolved_base):
-        logger.warning("Path traversal attempt blocked: %s", dest)
+def _path_within_base(candidate: Path, base: Path, log_value: object) -> Path:
+    base_abs = os.path.abspath(os.fspath(base))
+    candidate_abs = os.path.abspath(os.fspath(candidate))
+    try:
+        common_path = os.path.commonpath([base_abs, candidate_abs])
+    except ValueError:
+        common_path = ""
+    if common_path != base_abs:
+        logger.warning("Path traversal attempt blocked: %s", log_value)
         raise HTTPException(status_code=400, detail="Invalid file path.")
+    return Path(candidate_abs)
 
 
-def _stored_file_path(base: Path, directory: Path, stored_name: str) -> Path:
+def _stored_file_path(base: Path, directory: Path, stored_name: str) -> ValidatedStoragePath:
     """Return a validated storage destination before any filesystem mutation."""
-    dest = directory / stored_name
-    _check_traversal(dest, base)
-    return dest
+    base_abs = Path(os.path.abspath(os.fspath(base)))
+    absolute = _path_within_base(directory / stored_name, base_abs, stored_name)
+    return ValidatedStoragePath(base=base_abs, absolute=absolute, relative=absolute.relative_to(base_abs))
 
 
 def _stored_upload_name(filename: str | None) -> str:
@@ -160,9 +176,9 @@ async def save_file(file: UploadFile, license_id: int, storage_base: Optional[st
     dest = _stored_file_path(base, _license_dir(license_id, storage_base), stored_name)
 
     contents = await file.read()
-    _backend.write(dest, contents, base)
+    _backend.write(dest, contents)
 
-    relative = dest.relative_to(base)
+    relative = dest.relative
     return str(relative), len(contents)
 
 
@@ -181,9 +197,9 @@ def save_file_bytes(
     base = _resolve_base(storage_base)
     dest = _stored_file_path(base, _license_dir(license_id, storage_base), stored_name)
 
-    _backend.write(dest, content, base)
+    _backend.write(dest, content)
 
-    relative = dest.relative_to(base)
+    relative = dest.relative
     return str(relative), len(content)
 
 
@@ -203,9 +219,9 @@ async def save_contract_file(file: UploadFile, contract_id: int, storage_base: O
     dest = _stored_file_path(base, _contract_dir(contract_id, storage_base), stored_name)
 
     contents = await file.read()
-    _backend.write(dest, contents, base)
+    _backend.write(dest, contents)
 
-    relative = dest.relative_to(base)
+    relative = dest.relative
     return str(relative), len(contents)
 
 
@@ -220,9 +236,9 @@ async def save_sourcing_request_file(
     dest = _stored_file_path(base, _sourcing_request_dir(sourcing_request_id, storage_base), stored_name)
 
     contents = await file.read()
-    _backend.write(dest, contents, base)
+    _backend.write(dest, contents)
 
-    relative = dest.relative_to(base)
+    relative = dest.relative
     return str(relative), len(contents)
 
 
@@ -237,9 +253,9 @@ async def save_procurement_document_file(
     dest = _stored_file_path(base, _procurement_document_dir(po_number, storage_base), stored_name)
 
     contents = await file.read()
-    _backend.write(dest, contents, base)
+    _backend.write(dest, contents)
 
-    relative = dest.relative_to(base)
+    relative = dest.relative
     return str(relative), len(contents)
 
 
@@ -254,9 +270,9 @@ def save_procurement_document_bytes(
     base = _resolve_base(storage_base)
     dest = _stored_file_path(base, _procurement_document_dir(po_number, storage_base), stored_name)
 
-    _backend.write(dest, content, base)
+    _backend.write(dest, content)
 
-    relative = dest.relative_to(base)
+    relative = dest.relative
     return str(relative), len(content)
 
 
@@ -269,11 +285,7 @@ def delete_file(stored_path: str, storage_base: Optional[str] = None) -> None:
 def get_file_path(stored_path: str, storage_base: Optional[str] = None) -> Path:
     """Return the absolute Path for a stored_path relative to storage_base."""
     base = _resolve_base(storage_base)
-    resolved_path = base / stored_path
-    if not resolved_path.resolve().is_relative_to(base.resolve()):
-        logger.warning("Path traversal attempt blocked in get_file_path: %s", stored_path)
-        raise HTTPException(status_code=400, detail="Invalid file path.")
-    return resolved_path
+    return _path_within_base(base / stored_path, base, stored_path)
 
 
 def validate_upload(
