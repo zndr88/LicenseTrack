@@ -39,7 +39,7 @@ class StorageBackend(ABC):
     """
 
     @abstractmethod
-    def write(self, dest: Path, content: bytes) -> None:
+    def write(self, dest: Path, content: bytes, base: Path) -> None:
         """Write *content* to *dest*, creating parent directories as needed."""
 
     @abstractmethod
@@ -63,7 +63,8 @@ class StorageBackend(ABC):
 class LocalStorageBackend(StorageBackend):
     """Stores files on the local filesystem."""
 
-    def write(self, dest: Path, content: bytes) -> None:
+    def write(self, dest: Path, content: bytes, base: Path) -> None:
+        _check_traversal(dest, base)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
         logger.info("File written: %s (%d bytes)", dest.name, len(content))
@@ -96,38 +97,46 @@ def _resolve_base(storage_base: Optional[str] = None) -> Path:
 
 
 def _license_dir(license_id: int, storage_base: Optional[str] = None) -> Path:
-    """Return (and create) the per-license storage directory."""
-    directory = _resolve_base(storage_base) / "documents" / str(license_id)
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory
+    """Return the per-license storage directory path."""
+    return _resolve_base(storage_base) / "documents" / str(license_id)
 
 
 def _contract_dir(contract_id: int, storage_base: Optional[str] = None) -> Path:
-    """Return (and create) the per-contract storage directory."""
-    directory = _resolve_base(storage_base) / "contracts" / str(contract_id)
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory
+    """Return the per-contract storage directory path."""
+    return _resolve_base(storage_base) / "contracts" / str(contract_id)
 
 
 def _sourcing_request_dir(sourcing_request_id: int, storage_base: Optional[str] = None) -> Path:
-    """Return (and create) the per-sourcing-request storage directory."""
-    directory = _resolve_base(storage_base) / "sourcing_requests" / str(sourcing_request_id)
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory
+    """Return the per-sourcing-request storage directory path."""
+    return _resolve_base(storage_base) / "sourcing_requests" / str(sourcing_request_id)
 
 
 def _procurement_document_dir(po_number: str, storage_base: Optional[str] = None) -> Path:
-    """Return (and create) the per-PO procurement document storage directory."""
+    """Return the per-PO procurement document storage directory path."""
     safe_po = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in po_number) or "unassigned"
-    directory = _resolve_base(storage_base) / "procurement_documents" / safe_po
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory
+    return _resolve_base(storage_base) / "procurement_documents" / safe_po
 
 
 def _check_traversal(dest: Path, base: Path) -> None:
-    if not dest.resolve().is_relative_to(base):
+    resolved_base = base.resolve()
+    if not dest.resolve().is_relative_to(resolved_base):
         logger.warning("Path traversal attempt blocked: %s", dest)
         raise HTTPException(status_code=400, detail="Invalid file path.")
+
+
+def _stored_file_path(base: Path, directory: Path, stored_name: str) -> Path:
+    """Return a validated storage destination before any filesystem mutation."""
+    dest = directory / stored_name
+    _check_traversal(dest, base)
+    return dest
+
+
+def _stored_upload_name(filename: str | None) -> str:
+    """Return a filesystem-only name that never embeds user-controlled path text."""
+    suffix = Path(filename or "").suffix.lower()
+    if suffix and (len(suffix) > 20 or not suffix.startswith(".") or not suffix[1:].isalnum()):
+        suffix = ""
+    return f"{uuid.uuid4().hex}{suffix}"
 
 
 # ---------------------------------------------------------------------------
@@ -146,15 +155,12 @@ async def save_file(file: UploadFile, license_id: int, storage_base: Optional[st
     file_size : int
         Number of bytes written.
     """
-    safe_filename = Path(file.filename).name if file.filename else "upload"
-    stored_name = f"{uuid.uuid4().hex}_{safe_filename}"
+    stored_name = _stored_upload_name(file.filename)
     base = _resolve_base(storage_base)
-    dest = _license_dir(license_id, storage_base) / stored_name
-
-    _check_traversal(dest, base)
+    dest = _stored_file_path(base, _license_dir(license_id, storage_base), stored_name)
 
     contents = await file.read()
-    _backend.write(dest, contents)
+    _backend.write(dest, contents, base)
 
     relative = dest.relative_to(base)
     return str(relative), len(contents)
@@ -171,14 +177,11 @@ def save_file_bytes(
     Unlike save_file(), this accepts bytes directly so the disk write can be
     deferred until after a DB commit. Returns (relative_stored_path, byte_count).
     """
-    safe_filename = Path(filename).name if filename else "upload"
-    stored_name = f"{uuid.uuid4().hex}_{safe_filename}"
+    stored_name = _stored_upload_name(filename)
     base = _resolve_base(storage_base)
-    dest = _license_dir(license_id, storage_base) / stored_name
+    dest = _stored_file_path(base, _license_dir(license_id, storage_base), stored_name)
 
-    _check_traversal(dest, base)
-
-    _backend.write(dest, content)
+    _backend.write(dest, content, base)
 
     relative = dest.relative_to(base)
     return str(relative), len(content)
@@ -195,15 +198,12 @@ async def save_contract_file(file: UploadFile, contract_id: int, storage_base: O
     file_size : int
         Number of bytes written.
     """
-    safe_filename = Path(file.filename).name if file.filename else "upload"
-    stored_name = f"{uuid.uuid4().hex}_{safe_filename}"
+    stored_name = _stored_upload_name(file.filename)
     base = _resolve_base(storage_base)
-    dest = _contract_dir(contract_id, storage_base) / stored_name
-
-    _check_traversal(dest, base)
+    dest = _stored_file_path(base, _contract_dir(contract_id, storage_base), stored_name)
 
     contents = await file.read()
-    _backend.write(dest, contents)
+    _backend.write(dest, contents, base)
 
     relative = dest.relative_to(base)
     return str(relative), len(contents)
@@ -215,15 +215,12 @@ async def save_sourcing_request_file(
     storage_base: Optional[str] = None,
 ) -> tuple[str, int]:
     """Persist *file* under <storage_base>/sourcing_requests/{id}/{uuid}_{filename}."""
-    safe_filename = Path(file.filename).name if file.filename else "upload"
-    stored_name = f"{uuid.uuid4().hex}_{safe_filename}"
+    stored_name = _stored_upload_name(file.filename)
     base = _resolve_base(storage_base)
-    dest = _sourcing_request_dir(sourcing_request_id, storage_base) / stored_name
-
-    _check_traversal(dest, base)
+    dest = _stored_file_path(base, _sourcing_request_dir(sourcing_request_id, storage_base), stored_name)
 
     contents = await file.read()
-    _backend.write(dest, contents)
+    _backend.write(dest, contents, base)
 
     relative = dest.relative_to(base)
     return str(relative), len(contents)
@@ -235,15 +232,12 @@ async def save_procurement_document_file(
     storage_base: Optional[str] = None,
 ) -> tuple[str, int]:
     """Persist *file* under <storage_base>/procurement_documents/{po}/{uuid}_{filename}."""
-    safe_filename = Path(file.filename).name if file.filename else "upload"
-    stored_name = f"{uuid.uuid4().hex}_{safe_filename}"
+    stored_name = _stored_upload_name(file.filename)
     base = _resolve_base(storage_base)
-    dest = _procurement_document_dir(po_number, storage_base) / stored_name
-
-    _check_traversal(dest, base)
+    dest = _stored_file_path(base, _procurement_document_dir(po_number, storage_base), stored_name)
 
     contents = await file.read()
-    _backend.write(dest, contents)
+    _backend.write(dest, contents, base)
 
     relative = dest.relative_to(base)
     return str(relative), len(contents)
@@ -256,14 +250,11 @@ def save_procurement_document_bytes(
     storage_base: Optional[str] = None,
 ) -> tuple[str, int]:
     """Write bytes under procurement_documents/{po}/{uuid}_{filename}."""
-    safe_filename = Path(filename).name if filename else "upload"
-    stored_name = f"{uuid.uuid4().hex}_{safe_filename}"
+    stored_name = _stored_upload_name(filename)
     base = _resolve_base(storage_base)
-    dest = _procurement_document_dir(po_number, storage_base) / stored_name
+    dest = _stored_file_path(base, _procurement_document_dir(po_number, storage_base), stored_name)
 
-    _check_traversal(dest, base)
-
-    _backend.write(dest, content)
+    _backend.write(dest, content, base)
 
     relative = dest.relative_to(base)
     return str(relative), len(content)

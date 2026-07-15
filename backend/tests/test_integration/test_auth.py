@@ -77,7 +77,7 @@ async def _add_oidc_settings(db_session) -> None:
 
 def _flow_cookie(state: str, nonce: str) -> str:
     """Return a signed OIDC flow cookie value for the given state/nonce pair."""
-    return _app_auth.build_oidc_flow_cookie(state, nonce, return_to="http://localhost:5173/")
+    return _app_auth.build_oidc_flow_cookie(state, nonce)
 
 
 @pytest.fixture(autouse=True)
@@ -284,24 +284,24 @@ async def test_oidc_login_unavailable_redirects_to_safe_return_target(test_app, 
     )
 
     assert resp.status_code == 302
-    assert resp.headers["location"] == "http://localhost:5173/license-lifecycle/login?error=oidc_unavailable"
+    assert resp.headers["location"] == "http://localhost:5173/?error=oidc_unavailable"
     assert _app_auth.OIDC_FLOW_COOKIE in "\n".join(resp.headers.get_list("set-cookie"))
 
 
-def test_oidc_redirect_target_rejects_external_origins(monkeypatch):
+def test_oidc_frontend_redirect_uses_configured_origin(monkeypatch):
     monkeypatch.setattr(auth_oidc_module.auth.settings, "CORS_ORIGINS", "http://localhost:5173,http://localhost:8080")
 
-    safe_target = auth_oidc_module._sanitize_return_to("https://evil.example/phish?next=1")
+    safe_target = auth_oidc_module._frontend_redirect_url("oidc_failed")
+
+    assert safe_target == "http://localhost:5173/?error=oidc_failed"
+
+
+def test_oidc_frontend_redirect_omits_error_when_not_provided(monkeypatch):
+    monkeypatch.setattr(auth_oidc_module.auth.settings, "CORS_ORIGINS", "http://localhost:5173,http://localhost:8080")
+
+    safe_target = auth_oidc_module._frontend_redirect_url()
 
     assert safe_target == "http://localhost:5173/"
-
-
-def test_oidc_redirect_target_preserves_allowed_origin_path_and_query(monkeypatch):
-    monkeypatch.setattr(auth_oidc_module.auth.settings, "CORS_ORIGINS", "http://localhost:5173,http://localhost:8080")
-
-    safe_target = auth_oidc_module._sanitize_return_to("http://localhost:5173/license-lifecycle/login?error=test")
-
-    assert safe_target == "http://localhost:5173/license-lifecycle/login?error=test"
 
 
 async def test_unauthenticated_access_rejected(test_app):

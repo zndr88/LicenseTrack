@@ -20,7 +20,13 @@ from app.database import get_db
 from app.models.api_token import ApiToken
 from app.models.user import User, UserRole
 from app.services.audit_service import set_api_token_audit_context
-from app.services.api_token_service import API_TOKEN_PREFIX, decode_scopes, hash_api_token, mark_token_used
+from app.services.api_token_service import (
+    API_TOKEN_PREFIX,
+    decode_scopes,
+    hash_api_token,
+    hash_legacy_api_token,
+    mark_token_used,
+)
 
 # auto_error=False so the dependency can also read the session cookie.
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -131,7 +137,12 @@ async def get_current_user(
         )
 
     if token.startswith(API_TOKEN_PREFIX):
-        api_token = await db.scalar(select(ApiToken).where(ApiToken.token_hash == hash_api_token(token)))
+        token_hash = hash_api_token(token)
+        api_token = await db.scalar(select(ApiToken).where(ApiToken.token_hash == token_hash))
+        if api_token is None:
+            api_token = await db.scalar(select(ApiToken).where(ApiToken.token_hash == hash_legacy_api_token(token)))
+            if api_token is not None:
+                api_token.token_hash = token_hash
         if api_token is None or api_token.revoked_at is not None:
             _raise_invalid_token()
 

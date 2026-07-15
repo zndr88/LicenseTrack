@@ -162,15 +162,13 @@ def clear_session_cookie(response: Response) -> None:
     )
 
 
-def build_oidc_flow_cookie(state: str, nonce: str, return_to: str | None = None) -> str:
+def build_oidc_flow_cookie(state: str, nonce: str) -> str:
     expires_at = int(datetime.now(timezone.utc).timestamp()) + 600
     payload: dict[str, Any] = {
         "state": state,
         "nonce": nonce,
         "exp": expires_at,
     }
-    if return_to:
-        payload["return_to"] = return_to
     return _sign_payload(payload, settings.EFFECTIVE_OIDC_STATE_SECRET)
 
 
@@ -181,10 +179,10 @@ def parse_oidc_flow_cookie(token: str) -> dict[str, Any]:
     return payload
 
 
-def set_oidc_flow_cookie(response: Response, state: str, nonce: str, return_to: str | None = None) -> None:
+def set_oidc_flow_cookie(response: Response, state: str, nonce: str) -> None:
     response.set_cookie(
         key=OIDC_FLOW_COOKIE,
-        value=build_oidc_flow_cookie(state, nonce, return_to=return_to),
+        value=build_oidc_flow_cookie(state, nonce),
         httponly=True,
         secure=settings.SESSION_COOKIE_SECURE,
         samesite="lax",

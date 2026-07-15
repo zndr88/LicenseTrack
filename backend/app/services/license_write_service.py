@@ -7,7 +7,6 @@ focus on HTTP concerns, auth, and response wiring.
 
 from __future__ import annotations
 
-import re
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
@@ -70,6 +69,21 @@ DATETIME_PATCH_FIELDS = {"requestDate", "purchaseDate"}
 EMAIL_PATCH_FIELDS = {"contactEmail", "budgetOwnerEmail"}
 NUMERIC_PATCH_FIELDS = {"quantity", "unitPrice", "totalPoPrice"}
 MAINTENANCE_COVERAGE_VALUES = {coverage.value for coverage in MaintenanceCoverage}
+
+
+def _is_valid_email(value: str) -> bool:
+    if any(ch.isspace() for ch in value):
+        return False
+
+    local_part, separator, domain = value.rpartition("@")
+    if not separator or not local_part or not domain or "@" in local_part or "@" in domain:
+        return False
+
+    labels = domain.split(".")
+    if len(labels) < 2:
+        return False
+
+    return all(label and not label.startswith("-") and not label.endswith("-") for label in labels)
 
 
 def _sync_invoice_numbers(update_data: dict) -> None:
@@ -285,7 +299,7 @@ def validate_patch_field_input(field: str, value: str | None) -> None:
             )
 
     if field in EMAIL_PATCH_FIELDS and value:
-        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value):
+        if not _is_valid_email(value):
             raise HTTPException(status_code=400, detail=f"Invalid email format for '{field}'.")
 
     if field in NUMERIC_PATCH_FIELDS and value and not is_canonical_money(value):

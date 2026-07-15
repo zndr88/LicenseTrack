@@ -16,6 +16,7 @@ Tests cover:
 from __future__ import annotations
 
 from email.mime.multipart import MIMEMultipart
+from html.parser import HTMLParser
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
@@ -29,6 +30,23 @@ from app.services.email_service import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+class _TextExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.parts: list[str] = []
+
+    def handle_data(self, data: str) -> None:
+        text = data.strip()
+        if text:
+            self.parts.append(text)
+
+
+def _html_text(html: str) -> str:
+    parser = _TextExtractor()
+    parser.feed(html)
+    return " ".join(parser.parts)
+
 
 def _make_gs(**overrides) -> MagicMock:
     """Return a MagicMock that quacks like a GlobalSettings instance.
@@ -284,10 +302,8 @@ async def test_send_test_email_html_contains_smtp_settings():
 
     assert len(captured_html) == 1
     html = captured_html[0]
-    assert "mail.corp.com" in html
-    assert "465" in html
-    assert "Yes" in html          # tls=True → "Yes"
-    assert "sender@corp.com" in html
+    text = _html_text(html)
+    assert f"Server: {gs.smtp_host}:{gs.smtp_port} | TLS: Yes | Sender: {gs.smtp_sender}" in text
 
 
 async def test_send_test_email_html_shows_no_for_tls_disabled():

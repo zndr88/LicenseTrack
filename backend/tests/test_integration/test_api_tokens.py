@@ -2,7 +2,7 @@ from sqlalchemy import select
 
 from app.models.api_token import ApiToken
 from app.models.audit_log import AuditLog
-from app.services.api_token_service import hash_api_token
+from app.services.api_token_service import hash_api_token, hash_legacy_api_token
 
 
 def _minimal_license_payload() -> dict:
@@ -74,6 +74,26 @@ async def test_api_token_can_use_matching_license_scopes(test_app, db_session, a
     stored = await db_session.scalar(select(ApiToken).where(ApiToken.id == create_resp.json()["id"]))
     await db_session.refresh(stored)
     assert stored.last_used_at is not None
+
+
+async def test_legacy_api_token_hash_is_accepted_and_migrated(test_app, db_session, auth_headers):
+    create_resp = await test_app.post(
+        "/api/api-tokens",
+        headers=auth_headers,
+        json={"name": "Legacy token", "scopes": ["licenses:read"]},
+    )
+    assert create_resp.status_code == 201, create_resp.text
+    token = create_resp.json()["token"]
+
+    stored = await db_session.scalar(select(ApiToken).where(ApiToken.id == create_resp.json()["id"]))
+    stored.token_hash = hash_legacy_api_token(token)
+    await db_session.commit()
+
+    resp = await test_app.get("/api/licenses", headers={"Authorization": f"Bearer {token}"})
+
+    assert resp.status_code == 200
+    await db_session.refresh(stored)
+    assert stored.token_hash == hash_api_token(token)
 
 
 async def test_api_token_data_changes_are_attributed_in_audit_detail(test_app, db_session, auth_headers):

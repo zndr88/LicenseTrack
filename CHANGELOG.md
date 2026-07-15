@@ -41,6 +41,11 @@ contracts will be called out under a **Breaking** heading in future releases.
   messaging so local and process-manager restart modes report accurately.
 - Covered both restore restart modes with backup integration tests.
 
+### Security
+
+- Hardened CodeQL-reported redirect, storage path, API token digest, email
+  validation, and test assertion patterns before the 1.0.6 release tag.
+
 ### Release
 
 - Version bumped to 1.0.6 across backend, frontend, README, Docker Compose,

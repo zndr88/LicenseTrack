@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from time import time
-from urllib.parse import urlparse
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -45,43 +45,16 @@ def _fallback_frontend_url() -> str:
     return f"{origins[0]}/" if origins else "http://localhost:5173/"
 
 
-def _sanitize_return_to(candidate: str | None) -> str:
-    fallback = _fallback_frontend_url()
-    if not candidate:
-        return fallback
-
-    allowed_origins = _allowed_frontend_origins()
-    if not allowed_origins:
-        return fallback
-
-    try:
-        parsed = urlparse(candidate)
-    except Exception:
-        return fallback
-
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return fallback
-
-    origin = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
-    if origin not in allowed_origins:
-        return fallback
-
-    safe_target = f"{origin}{parsed.path or '/'}"
-    if parsed.query:
-        safe_target = f"{safe_target}?{parsed.query}"
-    return safe_target
-
-
-def _with_error(url: str, error: str | None = None) -> str:
+def _frontend_redirect_url(error: str | None = None) -> str:
+    url = _fallback_frontend_url()
     if not error:
         return url
     separator = "&" if "?" in url else "?"
-    return f"{url}{separator}error={error}"
+    return f"{url}{separator}{urlencode({'error': error})}"
 
 
-def _login_redirect(return_to: str | None = None, error: str | None = None) -> RedirectResponse:
-    target = _sanitize_return_to(return_to)
-    target = _with_error(target, error)
+def _login_redirect(error: str | None = None) -> RedirectResponse:
+    target = _frontend_redirect_url(error)
     response = RedirectResponse(url=target, status_code=302)
     auth.clear_oidc_flow_cookie(response)
     return response
@@ -93,9 +66,8 @@ async def oidc_login(
     db: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
     global_settings = await get_global_settings(db)
-    return_to = _sanitize_return_to(request.headers.get("referer"))
     if not authlib_available() or not oidc_is_configured(global_settings):
-        return _login_redirect(return_to, "oidc_unavailable")
+        return _login_redirect("oidc_unavailable")
 
     try:
         metadata = await get_oidc_metadata(global_settings)
@@ -113,11 +85,11 @@ async def oidc_login(
                 nonce=nonce,
             )
         response = RedirectResponse(url=authorization_url, status_code=302)
-        auth.set_oidc_flow_cookie(response, state, nonce, return_to=return_to)
+        auth.set_oidc_flow_cookie(response, state, nonce)
         return response
     except Exception:
         logger.warning("OIDC login initialisation failed", exc_info=True)
-        return _login_redirect(return_to, "oidc_unavailable")
+        return _login_redirect("oidc_unavailable")
 
 
 @router.get("/callback")
@@ -131,9 +103,8 @@ async def oidc_callback(
     _record_oidc_attempt(ip)
 
     global_settings = await get_global_settings(db)
-    return_to = _sanitize_return_to(request.headers.get("referer"))
     if not authlib_available() or not oidc_is_configured(global_settings):
-        return _login_redirect(return_to, "oidc_unavailable")
+        return _login_redirect("oidc_unavailable")
 
     try:
         flow_cookie = request.cookies.get(auth.OIDC_FLOW_COOKIE)
@@ -141,7 +112,6 @@ async def oidc_callback(
             raise auth.JWTError("Missing OIDC flow cookie")
 
         flow = auth.parse_oidc_flow_cookie(flow_cookie)
-        return_to = _sanitize_return_to(flow.get("return_to") or return_to)
         state = request.query_params.get("state")
         code = request.query_params.get("code")
         if not state or state != flow.get("state"):
@@ -196,11 +166,11 @@ async def oidc_callback(
 
         user = await db.scalar(select(User).where(User.email == email))
         if user is None:
-            return _login_redirect(return_to, "not_provisioned")
+            return _login_redirect("not_provisioned")
         if user.auth_provider == AuthProvider.local:
-            return _login_redirect(return_to, "local_account")
+            return _login_redirect("local_account")
         if not user.is_active:
-            return _login_redirect(return_to, "oidc_failed")
+            return _login_redirect("oidc_failed")
 
         ip = request.client.host if request.client else None
         await log_event(
@@ -214,10 +184,10 @@ async def oidc_callback(
         )
         await db.commit()
 
-        response = RedirectResponse(url=return_to, status_code=302)
+        response = RedirectResponse(url=_frontend_redirect_url(), status_code=302)
         auth.clear_oidc_flow_cookie(response)
         auth.set_session_cookie(response, auth.create_access_token(user.id, user.role))
         return response
     except Exception:
         logger.warning("OIDC callback failed", exc_info=True)
-        return _login_redirect(return_to, "oidc_failed")
+        return _login_redirect("oidc_failed")

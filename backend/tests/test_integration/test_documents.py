@@ -164,9 +164,8 @@ async def test_upload_blocks_blocked_extension_with_allowed_mime(
 # ---------------------------------------------------------------------------
 # 4c — Path traversal in filename is sanitised; upload succeeds
 #
-# storage.save_file uses Path(file.filename).name which strips the leading
-# directory components before writing, so "../../etc/passwd.pdf" is stored
-# safely as "{uuid}_passwd.pdf".
+# storage.save_file stores only a generated filesystem name plus a vetted
+# extension, so "../../etc/passwd.pdf" cannot influence the path.
 # ---------------------------------------------------------------------------
 
 async def test_upload_path_traversal_sanitised(test_app, auth_headers, existing_license):

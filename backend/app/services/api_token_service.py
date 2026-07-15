@@ -1,7 +1,9 @@
 import hashlib
+import hmac
 import secrets
 from datetime import datetime, timezone
 
+from app.config import settings
 from app.models.api_token import ApiToken
 
 API_TOKEN_PREFIX = "lt_"
@@ -12,7 +14,13 @@ def generate_api_token() -> str:
 
 
 def hash_api_token(token: str) -> str:
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+    secret = settings.JWT_SECRET or settings.EFFECTIVE_OIDC_STATE_SECRET or "licensetrack-development-secret"
+    return hmac.digest(secret.encode("utf-8"), token.encode("utf-8"), "sha256").hex()
+
+
+def hash_legacy_api_token(token: str) -> str:
+    """Return the pre-1.0.6 digest for existing high-entropy API tokens."""
+    return hashlib.new("sha256", token.encode("utf-8")).hexdigest()
 
 
 def get_token_prefix(token: str) -> str:
