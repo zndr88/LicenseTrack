@@ -71,17 +71,17 @@ Examples:
 
 API integrations are the preferred starting point for company-specific needs. They can be private, operator-owned, and maintained outside the LicenseTrack repository.
 
-Start with `docs/build-integrations.md` for integration-author guidance, scope selection, and operational expectations. Common API integration flows are documented in `docs/integration-recipes.md`.
+Start with `docs/extension-authors/build-integrations.md` for integration-author guidance, scope selection, and operational expectations. Common API integration flows are documented in `docs/extension-authors/integration-recipes.md`.
 
 ## Webhook Integrations
 
-Webhook event notifications are documented in `docs/webhooks.md`. Use them when an integration needs to react to LicenseTrack changes instead of polling.
+Webhook event notifications are documented in `docs/extension-authors/webhooks.md`. Use them when an integration needs to react to LicenseTrack changes instead of polling.
 
 Webhook endpoints are admin-managed integration endpoints. They are useful for ticket creation, notification relays, sync jobs, and document processor sidecars. They are not a plugin installation mechanism.
 
 ## Document Processors
 
-Document actions are documented in `docs/document-actions.md`. Use them when an operator should intentionally request work from an external processor against a specific uploaded document. Document processor authoring is covered in `docs/build-document-processor.md`.
+Document actions are documented in `docs/extension-authors/document-actions.md`. Use them when an operator should intentionally request work from an external processor against a specific uploaded document. Document processor authoring is covered in `docs/extension-authors/build-document-processor.md`.
 
 Document processors should submit extracted values as pending document processing results. Core treats those values as proposals until an editor or admin reviews them. Reviewers can compare current and suggested values, apply selected supported built-in license fields and existing custom fields through core update paths, or reject the result without changing license data. If the same processor submits a newer pending result for the same document, older pending results are marked superseded.
 
@@ -137,7 +137,7 @@ Integration authors should:
 
 `license_ref` is a chain identity shared across a renewal successor chain, not a unique row key. Integrations that need to reference a specific database row should record the `id` from API responses. `license_ref` is read-only and cannot be set through any integration or document-processing patch path.
 
-Core LicenseTrack should provide deprecation notice for stable API changes according to `docs/api-stability.md`.
+Core LicenseTrack should provide deprecation notice for stable API changes according to `docs/extension-authors/api-stability.md`.
 
 ## Contribution Decision Guide
 
@@ -150,14 +150,14 @@ Use this guide when deciding where a feature belongs:
 | Operator-triggered parsing of a supported uploaded document | Document processor sidecar |
 | Broad product feature that most operators benefit from | Core contribution |
 | Experimental idea that may change quickly | Private integration |
-| Installable package that adds settings, actions, and workflow UI | Plugin Host v1 (shipped) — see `docs/plugin-author-guide.md` |
+| Installable package that adds settings, actions, and workflow UI | Plugin Host v1 (shipped) — see `docs/plugin-authors/plugin-author-guide.md` |
 | Runtime UI component injection into the React app | Not currently supported |
 
 ## Plugin Host V1
 
 The Plugin Host v1 is a separate platform layer above the Integration Framework, shipped in LicenseTrack v1.0.0. It makes plugins feel closer to browser or editor extensions: install a package, approve permissions, configure settings, and see approved UI/actions appear in LicenseTrack.
 
-The v1 design and scope are documented in `docs/plugin-host-v1-roadmap.md`. Plugin author guidance is in `docs/plugin-author-guide.md`.
+The v1 design and scope are documented in `docs/plugin-authors/plugin-host-v1-contract.md`. Plugin author guidance is in `docs/plugin-authors/plugin-author-guide.md`.
 
 Delivered building blocks:
 
@@ -184,8 +184,8 @@ The framework foundation supports:
 4. A core-rendered document action for selected uploaded documents.
 5. Document processing result intake, review history, selected-field accept, reject, and supersede behavior.
 6. Example scripts and sidecar scaffolds under `examples/`.
-7. Author guidance in `docs/build-integrations.md`, `docs/build-document-processor.md`, and `docs/extension-author-checklist.md`.
-8. Plugin Host v1: installable packages, managed runtimes, core-rendered slots, encrypted settings, and generic suggestions. See `docs/plugin-host-v1-roadmap.md` and `docs/plugin-author-guide.md`.
+7. Author guidance in `docs/extension-authors/build-integrations.md`, `docs/extension-authors/build-document-processor.md`, and `docs/extension-authors/checklist.md`.
+8. Plugin Host v1: installable packages, managed runtimes, core-rendered slots, encrypted settings, and generic suggestions. See `docs/plugin-authors/plugin-host-v1-contract.md` and `docs/plugin-authors/plugin-author-guide.md`.
 
 ## Future Directions
 

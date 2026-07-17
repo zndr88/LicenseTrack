@@ -92,7 +92,7 @@ python examples/api-token-smoke-test.py \
 
 The smoke test lists visible licenses, reports whether the first license has custom fields, and confirms that a read-only token cannot delete a license.
 
-Integration author guidance, scope selection, and common integration flows are documented in `docs/build-integrations.md` and `docs/integration-recipes.md`.
+Integration author guidance, scope selection, and common integration flows are documented in `docs/extension-authors/build-integrations.md` and `docs/extension-authors/integration-recipes.md`.
 
 Create a minimal license:
 

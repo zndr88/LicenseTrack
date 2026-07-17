@@ -1,6 +1,6 @@
 # Plugin Host Post-V1 Notes
 
-> Status: Plugin Host v1 is shipped. This file is retained for existing links and for future-direction notes. For the current author contract, use `docs/plugin-author-guide.md`. For the shipped v1 platform contract, use `docs/plugin-host-v1-roadmap.md`.
+> Status: Plugin Host v1 is shipped. This file is retained for existing links and for future-direction notes. For the current author contract, use `docs/plugin-authors/plugin-author-guide.md`. For the shipped v1 platform contract, use `docs/plugin-authors/plugin-host-v1-contract.md`.
 
 LicenseTrack's extensibility has two layers:
 

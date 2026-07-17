@@ -40,18 +40,21 @@ nav:
       - Prerequisites: getting-started/prerequisites.md
       - Installation: getting-started/installation.md
       - First Launch & Login: getting-started/first-login.md
-  - Your First Licenses:
+  - Core Workflows:
       - Importing Licenses: first-licenses/importing.md
       - Understanding the License Record: first-licenses/license-record.md
       - Renewal & Lifecycle: first-licenses/renewal-lifecycle.md
-  - Navigating the Tool:
       - Dashboard & Key Views: navigating/dashboard.md
+  - Administration:
+      - Overview: administration/index.md
   - Operations:
       - Overview: operations/index.md
       - Production Deployment & Hardening: operations/deployment.md
       - Upgrading LicenseTrack: operations/upgrade.md
       - Operations Runbook: operations/runbook.md
       - Backup & Restore: operations/backup-restore.md
+  - Advanced:
+      - Integrations & Plugins: advanced/index.md
 
 markdown_extensions:
   - admonition

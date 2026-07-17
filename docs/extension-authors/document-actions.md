@@ -91,7 +91,7 @@ A document-processing integration should:
 
 For AI parsing, the processor should remain optional and bring-your-own-provider-key. Core should not send documents to an AI provider by itself.
 
-See `docs/ai-sidecar-example.md` and `examples/licensetrack-ai-sidecar.py` for a minimal sidecar that verifies webhooks, downloads a document, and submits fake processing results.
+See `docs/extension-authors/ai-sidecar-example.md` and `examples/licensetrack-ai-sidecar.py` for a minimal sidecar that verifies webhooks, downloads a document, and submits fake processing results.
 
 When testing a local sidecar, verify that the configured port is actually serving the sidecar before wiring the webhook. A response such as `426 Upgrade Required` from `/health` usually means another local application is listening on that port; choose a free port and update the webhook URL.
 

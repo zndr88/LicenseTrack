@@ -111,7 +111,7 @@ Session-based authentication is suitable for the web application. Long-running i
 - audit logging;
 - clear ownership by an admin user.
 
-See `docs/api-auth.md` for the current token model, scopes, and limitations. Dedicated service-account identities remain a future refinement.
+See `docs/extension-authors/api-auth.md` for the current token model, scopes, and limitations. Dedicated service-account identities remain a future refinement.
 
 ## Maintainer Checklist
 

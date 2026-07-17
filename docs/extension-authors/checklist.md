@@ -2,7 +2,7 @@
 
 Use this checklist before building a private LicenseTrack API integration, webhook integration, or document processor sidecar. It captures the current Integration Framework and keeps external work aligned with core boundaries.
 
-This checklist is for API/webhook-based integrations. LicenseTrack also ships Plugin Host v1 for installable packages; use `docs/plugin-author-guide.md` if you want a packaged plugin with manifest-declared settings, permissions, UI slots, and a managed runtime.
+This checklist is for API/webhook-based integrations. LicenseTrack also ships Plugin Host v1 for installable packages; use `docs/plugin-authors/plugin-author-guide.md` if you want a packaged plugin with manifest-declared settings, permissions, UI slots, and a managed runtime.
 
 ## Choose The Right Shape
 
@@ -19,7 +19,7 @@ This checklist is for API/webhook-based integrations. LicenseTrack also ships Pl
 - Grant only the required scopes.
 - Store the raw token outside source control.
 - Expect API tokens to be rejected by admin settings, user management, database backup, restore, authentication, webhook-management, and token-management routes unless explicitly documented otherwise.
-- Use `docs/build-integrations.md` for scope selection.
+- Use `docs/extension-authors/build-integrations.md` for scope selection.
 
 ## Capability Declaration
 
@@ -58,16 +58,16 @@ This checklist is for API/webhook-based integrations. LicenseTrack also ships Pl
 
 ## Documentation To Read First
 
-- `docs/extensions.md`
-- `docs/plugin-author-guide.md`
-- `docs/plugin-host-v1-roadmap.md`
-- `docs/build-integrations.md`
-- `docs/build-document-processor.md`
-- `docs/api-auth.md`
-- `docs/api-stability.md`
-- `docs/webhooks.md`
-- `docs/document-actions.md`
-- `docs/document-processing-results.md`
+- `docs/extension-authors/overview.md`
+- `docs/plugin-authors/plugin-author-guide.md`
+- `docs/plugin-authors/plugin-host-v1-contract.md`
+- `docs/extension-authors/build-integrations.md`
+- `docs/extension-authors/build-document-processor.md`
+- `docs/extension-authors/api-auth.md`
+- `docs/extension-authors/api-stability.md`
+- `docs/extension-authors/webhooks.md`
+- `docs/extension-authors/document-actions.md`
+- `docs/extension-authors/document-processing-results.md`
 
 ## Example Code
 

@@ -323,13 +323,13 @@ Integration and plugin work should follow these boundaries:
 - Backend integration and plugin work must not bypass service boundaries for procurement conversion, document storage, custom fields, user invariants, or audit logging.
 - Document processing result acceptance is restricted to `ALLOWED_PATCH_FIELDS` from `license_write_service.py` plus existing custom fields. Lifecycle repair fields (`lifecycle_status`, `renewed_from_id`, `renewed_to_id`, `predecessor_id`, `coterm_from_ids`), procurement conversion state, and internal identity fields (`id`, `license_ref`) are explicitly excluded and will cause the accept call to fail without partial mutation.
 
-The Plugin Host v1 does not support arbitrary frontend JavaScript injection, plugin-created database migrations, direct plugin writes to the database, or plugin-defined arbitrary pages. See `docs/plugin-host-v1-roadmap.md` for the v1 scope boundary and `docs/plugin-author-guide.md` for the author contract.
+The Plugin Host v1 does not support arbitrary frontend JavaScript injection, plugin-created database migrations, direct plugin writes to the database, or plugin-defined arbitrary pages. See `docs/plugin-authors/plugin-host-v1-contract.md` for the v1 scope boundary and `docs/plugin-authors/plugin-author-guide.md` for the author contract.
 
 API-token access is an alternative client authentication mechanism, not a replacement for human/browser authentication. Add new token access by explicitly mapping routes to scopes in `dependencies.py`; do not make API tokens implicitly valid for every authenticated route. Use narrow scopes first and add audit context for data-changing API-token requests.
 
 Webhook events should represent durable product events, not UI gestures. Emit them through audit-backed data changes or explicit extension action requests so event payloads stay stable and observable. Webhook signing and retry behavior belongs in `webhook_service.py`; route handlers should only create/update endpoints, enqueue test deliveries, or request retries.
 
-Stable API expectations live in `docs/api-stability.md`; integration positioning and Plugin Host guidance live in `docs/extensions.md`, `docs/plugin-host-roadmap.md`, and `docs/plugin-host-v1-roadmap.md`.
+Stable API expectations live in `docs/extension-authors/api-stability.md`; integration positioning and Plugin Host guidance live in `docs/extension-authors/overview.md`, `docs/plugin-authors/plugin-host-post-v1-notes.md`, and `docs/plugin-authors/plugin-host-v1-contract.md`.
 
 ## Quality Gates
 

@@ -2,7 +2,7 @@
 
 These recipes show common operator-built integrations using API tokens. They are intended as starting points for private scripts, CMDB syncs, reporting jobs, optional document processors, and first-party integration pilots.
 
-These recipes cover the API/webhook integration approach, not installable plugins. LicenseTrack does provide an installable **Plugin Host** (v1, shipped) with a package installer, plugin-owned settings panels, permissions, and UI slots — see `docs/plugin-author-guide.md` if you want to build a packaged add-on instead. A marketplace flow and richer runtime UI remain post-v1 directions in `docs/plugin-host-roadmap.md`.
+These recipes cover the API/webhook integration approach, not installable plugins. LicenseTrack does provide an installable **Plugin Host** (v1, shipped) with a package installer, plugin-owned settings panels, permissions, and UI slots — see `docs/plugin-authors/plugin-author-guide.md` if you want to build a packaged add-on instead. A marketplace flow and richer runtime UI remain post-v1 directions in `docs/plugin-authors/plugin-host-post-v1-notes.md`.
 
 Use an API token in the `Authorization` header:
 
@@ -12,7 +12,7 @@ Authorization: Bearer lt_...
 
 Create one token per integration and grant only the scopes needed for that job. API tokens are managed by admins in Admin Settings.
 
-For the higher-level integration author guide and scope matrix, start with `docs/build-integrations.md`. For document processor sidecars, start with `docs/build-document-processor.md`.
+For the higher-level integration author guide and scope matrix, start with `docs/extension-authors/build-integrations.md`. For document processor sidecars, start with `docs/extension-authors/build-document-processor.md`.
 
 ## Register An Integration Capability
 

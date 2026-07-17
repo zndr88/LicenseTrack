@@ -4,7 +4,7 @@ This guide is the starting point for operator-built integrations. Use it when yo
 
 LicenseTrack integrations should live outside core unless they are broadly useful product features. They authenticate with API tokens, use documented routes, and keep their own release and maintenance cycle.
 
-This guide describes the API/webhook Integration Framework, where you authenticate with an API token and drive LicenseTrack through documented routes from your own externally hosted code. It is distinct from the **Plugin Host**, which is now shipped (v1): installable `.ltplugin` packages with manifests, plugin-owned settings panels, permissions, UI slots, and a managed runtime. If you want a packaged, installable add-on, see `docs/plugin-author-guide.md`. Use this API/webhook guide when you are building externally hosted automation rather than an installable package.
+This guide describes the API/webhook Integration Framework, where you authenticate with an API token and drive LicenseTrack through documented routes from your own externally hosted code. It is distinct from the **Plugin Host**, which is now shipped (v1): installable `.ltplugin` packages with manifests, plugin-owned settings panels, permissions, UI slots, and a managed runtime. If you want a packaged, installable add-on, see `docs/plugin-authors/plugin-author-guide.md`. Use this API/webhook guide when you are building externally hosted automation rather than an installable package.
 
 ## Integration Shape
 
@@ -17,7 +17,7 @@ Most integrations follow this pattern:
 5. Record enough external IDs in normal fields or custom fields to reconcile later.
 6. Treat API errors and permission failures as real operator-facing signals.
 
-Do not depend on private frontend internals, database tables, or undocumented response fields. If a route is not documented, treat it as internal until it is promoted in `docs/api-stability.md`.
+Do not depend on private frontend internals, database tables, or undocumented response fields. If a route is not documented, treat it as internal until it is promoted in `docs/extension-authors/api-stability.md`.
 
 ## Scope Matrix
 
@@ -52,7 +52,7 @@ The script lists visible licenses, prints custom-field counts, registers a sampl
 
 ## Core Recipes
 
-Detailed examples live in `docs/integration-recipes.md`:
+Detailed examples live in `docs/extension-authors/integration-recipes.md`:
 
 - register an integration capability;
 - list licenses with custom fields;
@@ -67,12 +67,12 @@ Detailed examples live in `docs/integration-recipes.md`:
 
 Before building an integration, read:
 
-- `docs/extension-author-checklist.md` for the current integration boundaries and handoff checklist;
-- `docs/api-auth.md` for API-token behavior and scope meaning;
-- `docs/api-stability.md` for stable, experimental, and internal route expectations;
-- `docs/webhooks.md` for signed event delivery and retry behavior;
-- `docs/extensions.md` for current Integration Framework terminology and boundaries.
-- `docs/plugin-author-guide.md` for the installable Plugin Host model (shipped) and `docs/plugin-host-roadmap.md` for post-v1 direction.
+- `docs/extension-authors/checklist.md` for the current integration boundaries and handoff checklist;
+- `docs/extension-authors/api-auth.md` for API-token behavior and scope meaning;
+- `docs/extension-authors/api-stability.md` for stable, experimental, and internal route expectations;
+- `docs/extension-authors/webhooks.md` for signed event delivery and retry behavior;
+- `docs/extension-authors/overview.md` for current Integration Framework terminology and boundaries.
+- `docs/plugin-authors/plugin-author-guide.md` for the installable Plugin Host model (shipped) and `docs/plugin-authors/plugin-host-post-v1-notes.md` for post-v1 direction.
 
 Private integrations are maintained by their owners. Test them before upgrading LicenseTrack, especially when they use experimental surfaces such as webhooks, document actions, extension capabilities, or document processing results.
 

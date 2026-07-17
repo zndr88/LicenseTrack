@@ -1,6 +1,6 @@
 # Plugin Host V1 Contract
 
-> Status: Plugin Host v1 is shipped. This file was originally the v1 roadmap; the filename is retained for existing links. Treat this document as the shipped v1 contract and reference.
+> Status: Plugin Host v1 is shipped. Treat this document as the shipped v1 contract and reference.
 
 This document is the frozen Plugin Host v1 platform contract: package rules, the `.ltplugin` manifest, the permission catalog, the slot catalog, the runtime protocol, and the suggestion shape.
 

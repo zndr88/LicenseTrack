@@ -2,7 +2,7 @@
 
 This guide describes the LicenseTrack Plugin Host v1 contract for authors building installable plugin packages. The v1 host is intentionally conservative: plugins ship as offline zip packages, declare their permissions and actions in a manifest, run as managed local processes, and return structured results for LicenseTrack to review or apply through core services.
 
-For the frozen v1 platform contract, see `docs/plugin-host-v1-roadmap.md`.
+For the frozen v1 platform contract, see `docs/plugin-authors/plugin-host-v1-contract.md`.
 
 ## What A Plugin Can Do In V1
 
@@ -449,7 +449,7 @@ Suggestion rules:
 
 ## Licensing Your Plugin
 
-**You choose your plugin's license.** A plugin is not part of LicenseTrack and does not inherit the LicenseTrack license. Under Section 2.2 of the [LicenseTrack Source-Available License](../LICENSE), Plugins, Extensions, and Integrations *"may be released under any license terms You choose, including proprietary or commercial terms."*
+**You choose your plugin's license.** A plugin is not part of LicenseTrack and does not inherit the LicenseTrack license. Under Section 2.2 of the [LicenseTrack Source-Available License](../../LICENSE), Plugins, Extensions, and Integrations *"may be released under any license terms You choose, including proprietary or commercial terms."*
 
 This means you can release your plugin as open source (MIT, Apache-2.0, etc.), keep it proprietary, or sell it. The choice is yours and is independent of how LicenseTrack itself is licensed.
 

@@ -4,9 +4,9 @@ Document processors are optional integration sidecars that inspect an uploaded d
 
 The processor may use AI, OCR, deterministic parsing, or a private rules engine. LicenseTrack does not care how the result was produced. The contract is: receive a document-processing request, inspect the document through the API, submit proposed values, and let LicenseTrack users accept or reject them.
 
-Read `docs/extension-author-checklist.md` first for the current framework boundaries and handoff checklist.
+Read `docs/extension-authors/checklist.md` first for the current framework boundaries and handoff checklist.
 
-This is the API/webhook document-processor flow: operators configure an API token, webhook endpoint, capability declaration, and externally hosted sidecar runtime. If you would rather ship an installable package that LicenseTrack manages - with plugin-owned settings, permissions, a managed runtime, and Parse actions in the UI - use the shipped **Plugin Host v1** instead; see `docs/plugin-author-guide.md`. The first-party LicenseTrack AI companion plugin uses that model, but release of the AI plugin is pending and it is not bundled with baseline LicenseTrack. See `docs/plugin-host-roadmap.md` for post-v1 direction.
+This is the API/webhook document-processor flow: operators configure an API token, webhook endpoint, capability declaration, and externally hosted sidecar runtime. If you would rather ship an installable package that LicenseTrack manages - with plugin-owned settings, permissions, a managed runtime, and Parse actions in the UI - use the shipped **Plugin Host v1** instead; see `docs/plugin-authors/plugin-author-guide.md`. The first-party LicenseTrack AI companion plugin uses that model, but release of the AI plugin is pending and it is not bundled with baseline LicenseTrack. See `docs/plugin-authors/plugin-host-post-v1-notes.md` for post-v1 direction.
 
 ## User Flow
 
@@ -93,7 +93,7 @@ The signed payload is:
 {timestamp}.{raw_json_body}
 ```
 
-See `docs/webhooks.md` for the full signing contract.
+See `docs/extension-authors/webhooks.md` for the full signing contract.
 
 ## Download The Document
 

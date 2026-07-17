@@ -84,29 +84,13 @@ If you do not yet use a dedicated discovery tool, LicenseTrack works as your cen
 
 LicenseTrack does not scan networks, discover installed software, or reconcile installed deployments against entitlements. It tracks license lifecycle data entered manually, imported through CSV, or added through documented API integrations.
 
-## Extending LicenseTrack
+## Advanced Integrations
 
 LicenseTrack is complete without extensions. Baseline deployments do not need plugins, AI provider credentials, webhooks, or external integrations.
 
-When an organisation does want to connect LicenseTrack to other systems, there are two supported paths:
+When an organisation does want to connect LicenseTrack to other systems, it can use API tokens, webhooks, document-processing sidecars, or installable Plugin Host v1 packages. These are advanced paths for technical operators and extension authors, not requirements for normal use.
 
-**Integration Framework** - documented APIs, import/export contracts, webhooks, declared capabilities, document actions, and document-processing result review. This is the best fit for company-specific automation, private connectors, reporting exports, and externally hosted sidecars.
-
-- API integrations: external systems, scripts, or services that use supported API routes to read or write LicenseTrack data.
-- Webhook integrations: external receivers that react to audited LicenseTrack events.
-- Document processors: external sidecars that process selected uploaded documents and submit proposed values for review.
-- Core contributions: broadly useful product features submitted for inclusion in the main LicenseTrack repository.
-
-**Plugin Host v1** - installable `.zip` plugin packages that add approved settings, actions, and workflow UI through core-defined slots. Admins upload a plugin, review its permissions, configure its settings, and enable it. Plugin output becomes reviewable suggestions applied through normal core services.
-
-- Plugins cannot inject arbitrary JavaScript or modify compiled React code.
-- Plugins cannot write directly to the database or create migrations.
-- The Plugin Host requires a single Uvicorn worker (the default); see `wiki/operations/deployment.md`.
-- Only Python (`.py`) entrypoints are supported in v1.
-
-AI-assisted document parsing, Lansweeper integration, Flexera exports, and similar capabilities can be built as installable plugins or API/webhook integrations. None are required for baseline LicenseTrack deployments. The first-party LicenseTrack AI plugin is a work in progress; release of the AI plugin is pending, so it is not bundled with LicenseTrack.
-
-Start with [docs/extensions.md](docs/extensions.md). Use [docs/build-integrations.md](docs/build-integrations.md) for API/webhook integrations, [docs/build-document-processor.md](docs/build-document-processor.md) for document-processing sidecars, and [docs/plugin-author-guide.md](docs/plugin-author-guide.md) for installable plugins.
+Start with [docs/extension-authors/overview.md](docs/extension-authors/overview.md) for API/webhook integrations and document processors. Use [docs/plugin-authors/plugin-author-guide.md](docs/plugin-authors/plugin-author-guide.md) for installable plugin packages. Plugin runtime deployment constraints are covered in [wiki/operations/deployment.md](wiki/operations/deployment.md).
 
 ## Tech Stack
 
@@ -204,24 +188,14 @@ Application database backups contain the SQLite database only. Uploaded document
 
 ## Documentation
 
-- [wiki/operations/deployment.md](wiki/operations/deployment.md): deployment, environment variables, persistent data, reverse proxy notes, database backup, and restore.
-- [wiki/operations/upgrade.md](wiki/operations/upgrade.md): Docker Compose upgrade procedure, persistent volume handling, and project-name/volume-name recovery notes.
-- [wiki/operations/runbook.md](wiki/operations/runbook.md): health checks, log review, database backup checks, vulnerability management, upgrades, and incident-response notes.
-- [wiki/operations/backup-restore.md](wiki/operations/backup-restore.md): database backup behavior, retention, restore safety snapshot, and what is (and isn't) covered.
-- [docs/architecture.md](docs/architecture.md): maintainer architecture conventions and module boundaries.
-- [docs/extensions.md](docs/extensions.md): Integration Framework, terminology, boundaries, and Plugin Host positioning.
-- [docs/plugin-author-guide.md](docs/plugin-author-guide.md): how to build, package, and license an installable plugin against the shipped Plugin Host v1 contract.
-- [docs/plugin-host-v1-roadmap.md](docs/plugin-host-v1-roadmap.md): the shipped Plugin Host v1 platform contract; the filename is retained for existing links.
-- [docs/extension-author-checklist.md](docs/extension-author-checklist.md): checklist for building private integrations or document processors against current framework boundaries.
-- [docs/build-integrations.md](docs/build-integrations.md): integration author guide, scope matrix, quickstart, compatibility notes, and operational checklist.
-- [docs/build-document-processor.md](docs/build-document-processor.md): document processor author guide for the webhook/action/result review contract.
-- [docs/api-stability.md](docs/api-stability.md): API stability levels, breaking-change policy, and compatibility expectations.
-- [docs/api-auth.md](docs/api-auth.md): API-token authentication, scopes, examples, and operator guidance.
-- [docs/integration-recipes.md](docs/integration-recipes.md): copyable API-token recipes for common integration jobs.
-- [docs/webhooks.md](docs/webhooks.md): admin-managed webhook endpoints, event payloads, signatures, and retry behavior.
+- Public operator docs: [LicenseTrack documentation](https://zndr88.github.io/LicenseTrack/docs/) and the source pages under [wiki/](wiki/).
+- Deployment and operations: [deployment](wiki/operations/deployment.md), [upgrade](wiki/operations/upgrade.md), [runbook](wiki/operations/runbook.md), and [backup/restore](wiki/operations/backup-restore.md).
+- Maintainer docs: [docs/maintainer/architecture.md](docs/maintainer/architecture.md) and [docs/maintainer/style-contract.md](docs/maintainer/style-contract.md).
+- Extension author docs: [docs/extension-authors/](docs/extension-authors/).
+- Plugin author docs: [docs/plugin-authors/](docs/plugin-authors/).
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): human-readable direct dependency license summary.
 
-Feature-specific operator notes are also available under `docs/`.
+Version-local Help Center source copy lives under [docs/in-app-help/](docs/in-app-help/). It is not the public documentation site.
 
 ## Maintainer Notes
 
@@ -232,7 +206,7 @@ Feature-specific operator notes are also available under `docs/`.
 - Pending-order conversion behavior is coordinated by `backend/app/services/pending_order_conversion_service.py`; route handlers should remain thin.
 - Procurement forms use React Hook Form and Zod schemas.
 
-See [docs/architecture.md](docs/architecture.md) for the fuller maintainer map.
+See [docs/maintainer/architecture.md](docs/maintainer/architecture.md) for the fuller maintainer map.
 
 ## Development
 
