@@ -125,6 +125,23 @@ export function useUserSettings({
     if (!ok) setUserSettings(userSettings);
   }, [userSettings, setUserSettings, commitSettings]);
 
+  const handleSetVisibleColumn = useCallback(async (colKey, visible) => {
+    const updatedVisList = { ...userSettings.visibleInList, [colKey]: visible };
+    setUserSettings((s) => ({ ...s, visibleInList: updatedVisList }));
+    const ok = await commitSettings({ visible_in_list: updatedVisList });
+    if (!ok) setUserSettings(userSettings);
+  }, [userSettings, setUserSettings, commitSettings]);
+
+  const handleSetVisibleColumnGroup = useCallback(async (columns, visible) => {
+    const updatedVisList = columns.reduce((visibleInList, column) => ({
+      ...visibleInList,
+      [column.settingsKey ?? column.key]: visible,
+    }), userSettings.visibleInList);
+    setUserSettings((s) => ({ ...s, visibleInList: updatedVisList }));
+    const ok = await commitSettings({ visible_in_list: updatedVisList });
+    if (!ok) setUserSettings(userSettings);
+  }, [userSettings, setUserSettings, commitSettings]);
+
   const handleRevertToDefault = useCallback(async () => {
     const defaultVisibleInList = { ...VISIBLE_IN_LIST_DEFAULTS };
 
@@ -157,6 +174,8 @@ export function useUserSettings({
     handleSetDefaultView,
     handleLoadView,
     handleHideColumn,
+    handleSetVisibleColumn,
+    handleSetVisibleColumnGroup,
     handleRevertToDefault,
   };
 }

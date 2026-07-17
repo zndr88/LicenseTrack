@@ -1,9 +1,47 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../../ui/Icon.jsx";
+import Toggle from "../../ui/Toggle.jsx";
 import { exportFilteredCsv } from "./exportFilteredCsv.js";
-import { getFullExportColumns } from "./licenseColumns.js";
+import { getFullExportColumns, LICENSE_COLUMN_GROUPS } from "./licenseColumns.js";
 import { getVisibleColumns } from "./licenseTableShared.js";
+
+const COLUMN_GROUP_LABELS = new Map([
+  ...LICENSE_COLUMN_GROUPS.map((group) => [group.key, group.label]),
+  ["custom", "Custom Fields"],
+]);
+
+function getSelectorKey(column) {
+  return column.settingsKey ?? column.key;
+}
+
+function getSelectorLabel(column) {
+  if (column.settingsKey === "dates") return column.settingsLabel ?? "Dates";
+  return column.settingsLabel ?? column.label;
+}
+
+function buildColumnSelectorGroups(activeColumns) {
+  const seen = new Set();
+  const byGroup = new Map();
+  for (const column of activeColumns) {
+    if (!column.group || column.always || column.tableOnly) continue;
+    const key = getSelectorKey(column);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const entry = {
+      ...column,
+      selectorKey: key,
+      selectorLabel: getSelectorLabel(column),
+    };
+    const groupColumns = byGroup.get(column.group) ?? [];
+    groupColumns.push(entry);
+    byGroup.set(column.group, groupColumns);
+  }
+
+  return Array.from(COLUMN_GROUP_LABELS.entries())
+    .map(([key, label]) => ({ key, label, columns: byGroup.get(key) ?? [] }))
+    .filter((group) => group.columns.length > 0);
+}
 
 export default function LicenseToolbar({
   search, setSearch, setCurrentPage,
@@ -14,6 +52,7 @@ export default function LicenseToolbar({
   selectedIds, setShowBulkDeleteConfirm,
   userSettings,
   handleSaveView, handleDeleteView, handleSetDefaultView, handleLoadView, handleRevertToDefault,
+  handleSetVisibleColumn, handleSetVisibleColumnGroup,
   activeColumns, visList, filtered, displayCurrency, licenses, customFieldValuesMap,
   showError,
   inlineEditEnabled, onToggleInlineEdit, canInlineEdit,
@@ -21,12 +60,16 @@ export default function LicenseToolbar({
   const [viewsOpen, setViewsOpen] = useState(false);
   const [newViewName, setNewViewName] = useState("");
   const [pendingOverwriteName, setPendingOverwriteName] = useState(null);
+  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [viewsPos, setViewsPos] = useState({});
+  const [columnsPos, setColumnsPos] = useState({});
   const [exportPos, setExportPos] = useState({});
 
   const viewsBtnRef = useRef(null);
   const viewsMenuRef = useRef(null);
+  const columnsBtnRef = useRef(null);
+  const columnsMenuRef = useRef(null);
   const exportBtnRef = useRef(null);
   const exportMenuRef = useRef(null);
 
@@ -48,6 +91,24 @@ export default function LicenseToolbar({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [viewsOpen]);
+
+  useEffect(() => {
+    if (!columnsMenuOpen) return;
+    if (columnsBtnRef.current) {
+      const r = columnsBtnRef.current.getBoundingClientRect();
+      setColumnsPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    }
+    const handler = (e) => {
+      if (
+        columnsBtnRef.current && !columnsBtnRef.current.contains(e.target) &&
+        columnsMenuRef.current && !columnsMenuRef.current.contains(e.target)
+      ) {
+        setColumnsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [columnsMenuOpen]);
 
   useEffect(() => {
     if (!exportMenuOpen) return;
@@ -95,6 +156,9 @@ export default function LicenseToolbar({
       showError("CSV export failed: " + (err?.message ?? "Unknown error"));
     }
   };
+
+  const selectorGroups = buildColumnSelectorGroups(activeColumns);
+  const isColumnVisible = (column) => Boolean(visList[column.selectorKey]);
 
   return (
     <div className="tbl-bar lp-toolbar-bar">
@@ -244,6 +308,54 @@ export default function LicenseToolbar({
         <button className="toolbar-btn" onClick={loadLicenses} title="Refresh" aria-label="Refresh">
           <Icon name="refresh" size={15} />
         </button>
+        <button
+          ref={columnsBtnRef}
+          type="button"
+          className={`toolbar-btn ${columnsMenuOpen ? "toolbar-btn-active" : ""}`}
+          onClick={() => setColumnsMenuOpen((open) => !open)}
+          title="Column categories"
+          aria-label="Column categories"
+          aria-expanded={columnsMenuOpen}
+          aria-haspopup="menu"
+        >
+          <Icon name="columns" size={15} />
+        </button>
+        {columnsMenuOpen && createPortal(
+          <div
+            ref={columnsMenuRef}
+            role="menu"
+            aria-label="Column categories"
+            className="lp-menu lp-column-menu"
+            style={{ top: columnsPos.top, right: columnsPos.right }}
+          >
+            {selectorGroups.map((group) => {
+              const allVisible = group.columns.every(isColumnVisible);
+              return (
+                <div key={group.key} className="lp-column-group">
+                  <div className="lp-column-group-row">
+                    <strong>{group.label}</strong>
+                    <Toggle
+                      ariaLabel={`Toggle all ${group.label} columns`}
+                      value={allVisible}
+                      onChange={(value) => handleSetVisibleColumnGroup(group.columns, value)}
+                    />
+                  </div>
+                  {group.columns.map((column) => (
+                    <div key={column.selectorKey} className="lp-column-option">
+                      <span>{column.selectorLabel}</span>
+                      <Toggle
+                        ariaLabel={`Show ${column.selectorLabel} column`}
+                        value={isColumnVisible(column)}
+                        onChange={(value) => handleSetVisibleColumn(column.selectorKey, value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>,
+          document.body
+        )}
         <button
           type="button"
           className={`toolbar-btn ${filterRowOpen || hasColumnFilters ? "toolbar-btn-active" : ""}`}

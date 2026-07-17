@@ -3,6 +3,7 @@ Integration tests for authentication routes.
 """
 
 import importlib.util
+import logging
 import time
 
 import bcrypt
@@ -84,10 +85,12 @@ def _flow_cookie(state: str, nonce: str) -> str:
 def reset_rate_limiter(monkeypatch):
     auth_module._login_attempts_by_user.clear()
     auth_module._login_attempts_by_ip.clear()
+    auth_oidc_module._oidc_attempts.clear()
     monkeypatch.setattr(oidc_service, "check_ssrf", lambda _url: None)
     yield
     auth_module._login_attempts_by_user.clear()
     auth_module._login_attempts_by_ip.clear()
+    auth_oidc_module._oidc_attempts.clear()
 
 
 def _make_user(
@@ -372,8 +375,9 @@ async def test_oidc_callback_oidc_user_match(db_session, test_app):
     assert _app_auth.settings.SESSION_COOKIE_NAME in all_cookies
 
 
-async def test_oidc_callback_local_account_match(db_session, test_app):
+async def test_oidc_callback_local_account_match(db_session, test_app, caplog):
     """Token email matches a local user: redirect with error=local_account, no session cookie."""
+    caplog.set_level(logging.WARNING, logger="app.routes.auth_oidc")
     await _add_oidc_settings(db_session)
 
     user = User(
@@ -410,6 +414,63 @@ async def test_oidc_callback_local_account_match(db_session, test_app):
     assert "error=local_account" in resp.headers.get("location", "")
     all_cookies = "\n".join(resp.headers.get_list("set-cookie"))
     assert _app_auth.settings.SESSION_COOKIE_NAME + "=" not in all_cookies
+    assert "stage=local_account" in caplog.text
+    assert _CLIENT_SECRET not in caplog.text
+
+
+async def test_oidc_callback_unexpected_failure_logs_callback_failed(
+    db_session,
+    test_app,
+    caplog,
+    monkeypatch,
+):
+    """Unexpected post-validation failures use a generic callback stage."""
+    caplog.set_level(logging.WARNING, logger="app.routes.auth_oidc")
+    await _add_oidc_settings(db_session)
+
+    user = User(
+        username="oidcunexpected",
+        email="oidcunexpected@test.local",
+        hashed_password=bcrypt.hashpw(b"unused"[:72], bcrypt.gensalt()).decode(),
+        auth_provider=AuthProvider.oidc,
+        role=UserRole.viewer,
+        is_active=True,
+        must_change_password=False,
+    )
+    db_session.add(user)
+    await db_session.commit()
+
+    async def failing_log_event(*_args, **_kwargs):
+        raise RuntimeError("audit unavailable")
+
+    monkeypatch.setattr(auth_oidc_module, "log_event", failing_log_event)
+
+    state = "valid-state-callback-failed"
+    nonce = "valid-nonce-callback-failed"
+    id_tok = _build_id_token("oidcunexpected@test.local", nonce)
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.get(_DISCOVERY_URL).mock(return_value=httpx.Response(200, json=_DISCOVERY_DOC))
+        mock.get(_JWKS_URI).mock(return_value=httpx.Response(200, json=_TEST_JWKS))
+        mock.post(_TOKEN_ENDPOINT).mock(return_value=httpx.Response(200, json={
+            "access_token": "mock-access-token",
+            "token_type": "bearer",
+            "id_token": id_tok,
+        }))
+
+        test_app.cookies.set(_app_auth.OIDC_FLOW_COOKIE, _flow_cookie(state, nonce), path="/")
+        resp = await test_app.get(
+            f"/api/auth/oidc/callback?state={state}&code=test-code",
+        )
+
+    assert resp.status_code == 302
+    assert "error=oidc_failed" in resp.headers.get("location", "")
+    all_cookies = "\n".join(resp.headers.get_list("set-cookie"))
+    assert _app_auth.settings.SESSION_COOKIE_NAME + "=" not in all_cookies
+    assert "stage=callback_failed" in caplog.text
+    assert "stage=invalid_claims" not in caplog.text
+    assert "test-code" not in caplog.text
+    assert _CLIENT_SECRET not in caplog.text
 
 
 async def test_oidc_callback_not_provisioned(db_session, test_app):
@@ -440,8 +501,9 @@ async def test_oidc_callback_not_provisioned(db_session, test_app):
     assert _app_auth.settings.SESSION_COOKIE_NAME + "=" not in all_cookies
 
 
-async def test_oidc_callback_invalid_state(db_session, test_app):
+async def test_oidc_callback_invalid_state(db_session, test_app, caplog):
     """Tampered state param: redirect with error=oidc_failed, no IdP calls made."""
+    caplog.set_level(logging.WARNING, logger="app.routes.auth_oidc")
     await _add_oidc_settings(db_session)
 
     state_in_cookie = "real-state-value"
@@ -457,3 +519,5 @@ async def test_oidc_callback_invalid_state(db_session, test_app):
     assert "error=oidc_failed" in resp.headers.get("location", "")
     all_cookies = "\n".join(resp.headers.get_list("set-cookie"))
     assert _app_auth.settings.SESSION_COOKIE_NAME + "=" not in all_cookies
+    assert "stage=invalid_state" in caplog.text
+    assert "test-code" not in caplog.text

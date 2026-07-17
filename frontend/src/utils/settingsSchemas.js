@@ -52,14 +52,20 @@ export const smtpConnectionSchema = z.object({
 
 /**
  * OidcSection - used only when oidcEnabled is true.
- * Discovery URL must be a valid https:// URL; client ID must be non-empty.
+ * Discovery URL must be a valid http:// or https:// URL; client ID must be non-empty.
  */
 export const oidcEnabledSaveSchema = z.object({
   oidcDiscoveryUrl: z.string()
     .min(1, { message: "Discovery URL is required." })
     .refine(
-      v => { try { return new URL(v).protocol === "https:"; } catch { return false; } },
-      { message: "Discovery URL must be a valid HTTPS URL." }
+      v => {
+        try {
+          return ["http:", "https:"].includes(new URL(v).protocol);
+        } catch {
+          return false;
+        }
+      },
+      { message: "Discovery URL must be a valid HTTP or HTTPS URL. The backend may reject HTTP or private URLs unless explicitly enabled for test deployments." }
     ),
   oidcClientId: z.string().min(1, { message: "Client ID is required." }),
 });

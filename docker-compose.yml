@@ -1,6 +1,6 @@
 services:
   license-lifecycle:
-    image: license-lifecycle-system:1.0.7
+    image: license-lifecycle-system:1.0.8
     build:
       context: .
       dockerfile: Dockerfile
@@ -18,6 +18,8 @@ services:
       - HOST=${HOST:-0.0.0.0}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - OIDC_STATE_SECRET=${OIDC_STATE_SECRET:-}
+      - ALLOW_HTTP_OIDC_DISCOVERY=${ALLOW_HTTP_OIDC_DISCOVERY:-false}
+      - ALLOW_PRIVATE_OIDC_DISCOVERY=${ALLOW_PRIVATE_OIDC_DISCOVERY:-false}
       - SESSION_COOKIE_NAME=${SESSION_COOKIE_NAME:-license_lifecycle_session}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
       - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-20}

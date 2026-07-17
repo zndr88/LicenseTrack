@@ -410,8 +410,9 @@ describe("OidcSection validation", () => {
     expect(updateGlobalSettings).not.toHaveBeenCalled();
   });
 
-  test("rejects http (non-https) discovery URL when OIDC is enabled", () => {
+  test("allows http discovery URL when OIDC is enabled", () => {
     const onError = vi.fn();
+    updateGlobalSettings.mockResolvedValue({ data: {}, error: null });
     const settings = baseOidcSettings({
       oidcEnabled: true,
       oidcDiscoveryUrl: "http://idp.example.com/.well-known/openid-configuration",
@@ -420,8 +421,8 @@ describe("OidcSection validation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    expect(onError).toHaveBeenCalled();
-    expect(updateGlobalSettings).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+    expect(updateGlobalSettings).toHaveBeenCalled();
   });
 
   test("rejects empty client ID when OIDC is enabled", () => {

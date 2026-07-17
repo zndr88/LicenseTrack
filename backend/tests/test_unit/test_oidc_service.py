@@ -20,6 +20,7 @@ from app.services.oidc_service import (
     get_oidc_metadata,
     invalidate_oidc_cache,
     oidc_is_configured,
+    validate_oidc_url,
 )
 
 # ---------------------------------------------------------------------------
@@ -47,6 +48,19 @@ DISCOVERY_DOC_NO_JWKS = {
     # deliberately no jwks_uri
 }
 
+DISCOVERY_DOC_HTTP_TOKEN = {
+    "issuer": "https://idp.example.com",
+    "authorization_endpoint": "https://idp.example.com/auth",
+    "token_endpoint": "http://idp.example.com/token",
+}
+
+DISCOVERY_DOC_HTTP_JWKS = {
+    "issuer": "https://idp.example.com",
+    "authorization_endpoint": "https://idp.example.com/auth",
+    "token_endpoint": "https://idp.example.com/token",
+    "jwks_uri": "http://idp.example.com/jwks",
+}
+
 
 def make_settings(
     *,
@@ -69,8 +83,61 @@ def clear_oidc_caches(monkeypatch):
     """Reset module-level caches before every test for isolation."""
     invalidate_oidc_cache()
     monkeypatch.setattr(oidc_module, "check_ssrf", lambda _url: None)
+    monkeypatch.setattr(oidc_module.app_settings, "ALLOW_HTTP_OIDC_DISCOVERY", False)
+    monkeypatch.setattr(oidc_module.app_settings, "ALLOW_PRIVATE_OIDC_DISCOVERY", False)
     yield
     invalidate_oidc_cache()
+
+
+# ---------------------------------------------------------------------------
+# validate_oidc_url
+# ---------------------------------------------------------------------------
+
+def test_validate_oidc_url_allows_https_public_url_by_default():
+    validate_oidc_url(DISCOVERY_URL, purpose="OIDC discovery URL")
+
+
+def test_validate_oidc_url_rejects_http_by_default():
+    with pytest.raises(ValueError, match="HTTPS"):
+        validate_oidc_url(
+            "http://idp.example.com/.well-known/openid-configuration",
+            purpose="OIDC discovery URL",
+        )
+
+
+def test_validate_oidc_url_allows_http_when_enabled(monkeypatch):
+    monkeypatch.setattr(oidc_module.app_settings, "ALLOW_HTTP_OIDC_DISCOVERY", True)
+
+    validate_oidc_url(
+        "http://idp.example.com/.well-known/openid-configuration",
+        purpose="OIDC discovery URL",
+    )
+
+
+def test_validate_oidc_url_rejects_private_hosts_by_default(monkeypatch):
+    def fail_ssrf(_url):
+        raise ValueError("blocked private host")
+
+    monkeypatch.setattr(oidc_module, "check_ssrf", fail_ssrf)
+
+    with pytest.raises(ValueError, match="blocked private host"):
+        validate_oidc_url(
+            "https://127.0.0.1/.well-known/openid-configuration",
+            purpose="OIDC discovery URL",
+        )
+
+
+def test_validate_oidc_url_allows_private_hosts_when_enabled(monkeypatch):
+    def fail_ssrf(_url):
+        raise AssertionError("SSRF guard should not run when private OIDC is allowed")
+
+    monkeypatch.setattr(oidc_module, "check_ssrf", fail_ssrf)
+    monkeypatch.setattr(oidc_module.app_settings, "ALLOW_PRIVATE_OIDC_DISCOVERY", True)
+
+    validate_oidc_url(
+        "https://127.0.0.1/.well-known/openid-configuration",
+        purpose="OIDC discovery URL",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +304,32 @@ async def test_get_oidc_metadata_no_jwks_uri_leaves_jwks_none(monkeypatch):
 
     assert result.discovery == DISCOVERY_DOC_NO_JWKS
     assert result.jwks is None
+
+
+@respx.mock
+async def test_get_oidc_metadata_rejects_http_token_endpoint(monkeypatch):
+    monkeypatch.setattr(oidc_module, "authlib_available", lambda: True)
+
+    respx.get(DISCOVERY_URL).mock(
+        return_value=httpx.Response(200, json=DISCOVERY_DOC_HTTP_TOKEN)
+    )
+
+    settings = make_settings()
+    with pytest.raises(ValueError, match="OIDC token endpoint"):
+        await get_oidc_metadata(settings)
+
+
+@respx.mock
+async def test_get_oidc_metadata_rejects_http_jwks_uri(monkeypatch):
+    monkeypatch.setattr(oidc_module, "authlib_available", lambda: True)
+
+    respx.get(DISCOVERY_URL).mock(
+        return_value=httpx.Response(200, json=DISCOVERY_DOC_HTTP_JWKS)
+    )
+
+    settings = make_settings()
+    with pytest.raises(ValueError, match="OIDC JWKS URI"):
+        await get_oidc_metadata(settings)
 
 
 # ---------------------------------------------------------------------------

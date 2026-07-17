@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     LOG_LEVEL: str = "INFO"
     OIDC_STATE_SECRET: str = ""
+    ALLOW_HTTP_OIDC_DISCOVERY: bool = False
+    ALLOW_PRIVATE_OIDC_DISCOVERY: bool = False
     SESSION_COOKIE_NAME: str = "license_lifecycle_session"
     SESSION_COOKIE_SECURE: bool = False
     # When False (the default), the interactive API docs (/docs, /redoc) and the

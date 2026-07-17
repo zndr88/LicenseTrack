@@ -30,6 +30,8 @@ function setup(overrides = {}) {
     handleSetDefaultView: vi.fn(),
     handleLoadView: vi.fn(),
     handleRevertToDefault: vi.fn(),
+    handleSetVisibleColumn: vi.fn(),
+    handleSetVisibleColumnGroup: vi.fn(),
     activeColumns: [],
     visList: {},
     filtered: [],
@@ -149,5 +151,42 @@ describe("LicenseToolbar", () => {
     fireEvent.click(screen.getByLabelText("Export CSV"));
     fireEvent.mouseDown(document.body);
     expect(screen.queryByRole("menu", { name: "CSV export options" })).toBeNull();
+  });
+
+  test("column category menu toggles individual visible columns", () => {
+    const { handleSetVisibleColumn } = setup({
+      activeColumns: [
+        { key: "publisher", label: "Publisher", group: "standard" },
+        { key: "createdBy", label: "Created By", group: "advanced" },
+      ],
+      visList: { publisher: true, createdBy: false },
+    });
+
+    fireEvent.click(screen.getByLabelText("Column categories"));
+    fireEvent.click(screen.getByRole("switch", { name: "Show Publisher column" }));
+
+    expect(handleSetVisibleColumn).toHaveBeenCalledWith("publisher", false);
+  });
+
+  test("column category menu toggles grouped visible columns", () => {
+    const { handleSetVisibleColumnGroup } = setup({
+      activeColumns: [
+        { key: "publisher", label: "Publisher", group: "standard" },
+        { key: "description", label: "Description", group: "standard" },
+        { key: "createdBy", label: "Created By", group: "advanced" },
+      ],
+      visList: { publisher: true, description: false, createdBy: false },
+    });
+
+    fireEvent.click(screen.getByLabelText("Column categories"));
+    fireEvent.click(screen.getByRole("switch", { name: "Toggle all Standard columns" }));
+
+    expect(handleSetVisibleColumnGroup).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "publisher" }),
+        expect.objectContaining({ key: "description" }),
+      ]),
+      true
+    );
   });
 });

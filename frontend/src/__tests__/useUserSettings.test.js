@@ -169,6 +169,49 @@ describe("useUserSettings saved views", () => {
     expect(props.setUserSettings).toHaveBeenLastCalledWith(baseUserSettings);
   });
 
+  test("handleSetVisibleColumn persists a list column visibility change", async () => {
+    const { result, props } = setup();
+
+    await act(async () => {
+      await result.current.handleSetVisibleColumn("publisher", false);
+    });
+
+    expect(updateSettings.mock.calls[0][0].visible_in_list).toEqual({
+      publisher: false,
+      licenseType: true,
+    });
+    expect(props.setUserSettings).toHaveBeenCalled();
+  });
+
+  test("handleSetVisibleColumnGroup persists grouped list column visibility changes", async () => {
+    const { result } = setup();
+
+    await act(async () => {
+      await result.current.handleSetVisibleColumnGroup([
+        { key: "publisher" },
+        { key: "startDate", settingsKey: "dates" },
+      ], true);
+    });
+
+    expect(updateSettings.mock.calls[0][0].visible_in_list).toEqual({
+      publisher: true,
+      licenseType: true,
+      dates: true,
+    });
+  });
+
+  test("handleSetVisibleColumn rolls back local settings when save fails", async () => {
+    updateSettings.mockResolvedValueOnce({ data: null, error: "Save failed" });
+    const { result, props } = setup();
+
+    await act(async () => {
+      await result.current.handleSetVisibleColumn("publisher", false);
+    });
+
+    expect(props.showError).toHaveBeenCalledWith("Save failed");
+    expect(props.setUserSettings).toHaveBeenLastCalledWith(baseUserSettings);
+  });
+
   test("handleLoadView rolls back local view state when save fails", async () => {
     updateSettings.mockResolvedValueOnce({ data: null, error: "Save failed" });
     const { result, props } = setup();

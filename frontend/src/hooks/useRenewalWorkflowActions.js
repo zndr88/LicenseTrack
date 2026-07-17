@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cancelRenewal, initiateRenewal } from "../api/licenses.js";
 import { queryKeys } from "../queryKeys.js";
 import { invalidateRenewalWorkflow } from "../queryInvalidation.js";
+import { updateLicensesInQueryData } from "../utils/licenseQueryData.js";
 import { normalizeLicense } from "../utils/helpers.js";
 
 const PO_CANCEL_WARNING =
@@ -12,8 +13,7 @@ const PO_CANCEL_WARNING =
 
 export function updateLicensesQueryCache(queryClient, updater) {
   queryClient.setQueryData(queryKeys.licenses, (old) => {
-    if (!old) return old;
-    return { ...old, licenses: updater(old.licenses) };
+    return updateLicensesInQueryData(old, updater);
   });
 }
 

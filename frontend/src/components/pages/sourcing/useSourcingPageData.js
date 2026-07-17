@@ -1,9 +1,9 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getLicenses } from "../../../api/licenses.js";
 import { getSourcingRequests } from "../../../api/sourcing.js";
 import { queryKeys } from "../../../queryKeys.js";
-import { normalizeLicense } from "../../../utils/helpers.js";
+import { fetchLicensesData } from "../licenses/useLicensesPageData.js";
+import { getLicensesFromQueryData } from "../../../utils/licenseQueryData.js";
 
 const EMPTY_SOURCING = [];
 
@@ -11,12 +11,6 @@ async function fetchSourcingRequests() {
   const { data, error } = await getSourcingRequests();
   if (error) throw new Error(error);
   return data ?? [];
-}
-
-async function fetchLicenses() {
-  const { data, error } = await getLicenses({ includeRetired: true });
-  if (error) throw new Error(error);
-  return (data ?? []).map(normalizeLicense);
 }
 
 export function useSourcingPageData({ showToast }) {
@@ -30,10 +24,11 @@ export function useSourcingPageData({ showToast }) {
     [sourcingRequests]
   );
 
-  const { data: licenses = [], error: licensesError } = useQuery({
+  const { data: licensesData, error: licensesError } = useQuery({
     queryKey: queryKeys.licenses,
-    queryFn: fetchLicenses,
+    queryFn: fetchLicensesData,
   });
+  const licenses = getLicensesFromQueryData(licensesData);
 
   useEffect(() => {
     if (queryError) showToast(queryError.message, "error");

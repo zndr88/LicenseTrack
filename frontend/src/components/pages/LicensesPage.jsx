@@ -138,6 +138,8 @@ export default function LicensesPage({
     handleSetDefaultView,
     handleLoadView,
     handleHideColumn,
+    handleSetVisibleColumn,
+    handleSetVisibleColumnGroup,
     handleRevertToDefault,
   } = useUserSettings({
     userSettings, setUserSettings,
@@ -232,12 +234,13 @@ export default function LicensesPage({
 
   // DetailPanel
   const selectedLicense = licenses.find((l) => l.id === selectedId);
+  const trackedLicenseCount = Math.max(0, licenses.length - (stats.legacy ?? 0));
 
   return (
     <>
       <div className="page-header">
         <h2>License Overview</h2>
-        <p>{formatNumber(licenses.length - (stats.legacy ?? 0), userSettings)} licenses tracked{visList.totalPoPrice && stats.costByCurrency ? ` · ${formatCostByCurrency(stats.costByCurrency, userSettings.numberFormatLocale ?? "en-US")} active PO value${stats.excludedFromTotals > 0 ? ` (${stats.excludedFromTotals} excluded)` : ""}` : ""}{hasColumnFilters ? " · column filters active" : ""}</p>
+        <p>{formatNumber(trackedLicenseCount, userSettings)} licenses tracked{visList.totalPoPrice && stats.costByCurrency ? ` · ${formatCostByCurrency(stats.costByCurrency, userSettings.numberFormatLocale ?? "en-US")} active PO value${stats.excludedFromTotals > 0 ? ` (${stats.excludedFromTotals} excluded)` : ""}` : ""}{hasColumnFilters ? " · column filters active" : ""}</p>
       </div>
       <div className={`page-content ${selectedLicense ? "lp-page-open" : ""}`}>
         {licensesLoading && (
@@ -310,6 +313,8 @@ export default function LicensesPage({
               handleSetDefaultView={handleSetDefaultView}
               handleLoadView={handleLoadView}
               handleRevertToDefault={handleRevertToDefault}
+              handleSetVisibleColumn={handleSetVisibleColumn}
+              handleSetVisibleColumnGroup={handleSetVisibleColumnGroup}
               activeColumns={activeColumns}
               visList={visList}
               filtered={sorted}

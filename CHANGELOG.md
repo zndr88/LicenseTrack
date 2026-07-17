@@ -9,6 +9,37 @@ API stability levels and the breaking-change policy are defined in
 [docs/api-stability.md](docs/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
+## [1.0.8] - 2026-07-17
+
+### Added
+
+- Added a License Overview toolbar column-category selector so users can quickly
+  show or hide Standard, Advanced, Computed, and Custom Field list columns while
+  building saved views, without visiting My Settings.
+
+### Fixed
+
+- Fixed an app-breaking shared frontend query-cache shape mismatch between the
+  License Overview and Sourcing pages that could crash Sourcing with
+  `licenses.find is not a function` after navigating from renewal workflows.
+- Fixed the related License Overview failure mode where a stale shared cache
+  could clear the license list and show a negative tracked-license count until
+  another navigation refreshed the page.
+- Hardened shared license-cache readers and mutation helpers so legacy
+  array-shaped cache data is handled consistently across License Overview,
+  Sourcing, Pending Orders, and renewal workflow actions.
+- Added an explicit SMTP encryption mode fix so mail configuration no longer
+  relies on ambiguous implicit encryption behavior.
+- Hardened OIDC discovery and callback handling with explicit unsafe dev/test
+  flags for HTTP or private IdP URLs, validation for server-fetched OIDC
+  endpoints, and safe stage-aware callback diagnostics, including a generic
+  `callback_failed` stage for unexpected server-side callback errors.
+
+### Release
+
+- Version bumped to 1.0.8 across backend, frontend, README, Docker Compose,
+  frontend package metadata, and wiki installation/deployment examples.
+
 ## [1.0.7] - 2026-07-15
 
 ### Security
@@ -410,6 +441,7 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
+[1.0.8]: https://github.com/zndr88/LicenseTrack/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/zndr88/LicenseTrack/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/zndr88/LicenseTrack/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/zndr88/LicenseTrack/compare/v1.0.4...v1.0.5

@@ -10,6 +10,7 @@ import {
 import { queryKeys } from "../../../queryKeys.js";
 import { invalidateNotifications } from "../../../queryInvalidation.js";
 import { normalizeLicense } from "../../../utils/helpers.js";
+import { updateLicensesInQueryData } from "../../../utils/licenseQueryData.js";
 import { useRenewalWorkflowActions } from "../../../hooks/useRenewalWorkflowActions.js";
 
 export function useLicenseActions({
@@ -27,8 +28,7 @@ export function useLicenseActions({
 
   const updateLicensesInCache = useCallback((updater) => {
     queryClient.setQueryData(queryKeys.licenses, (old) => {
-      if (!old) return old;
-      return { ...old, licenses: updater(old.licenses) };
+      return updateLicensesInQueryData(old, updater);
     });
   }, [queryClient]);
 

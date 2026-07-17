@@ -5,9 +5,11 @@ import importlib.util
 import logging
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
+from app.config import settings as app_settings
 from app.services.ssrf_guard import check_ssrf
 
 from app.models.settings import GlobalSettings
@@ -45,6 +47,27 @@ def oidc_is_configured(global_settings: GlobalSettings | None) -> bool:
         and global_settings.oidc_client_id
         and global_settings.oidc_client_secret
     )
+
+
+def validate_oidc_url(url: str, *, purpose: str = "OIDC URL") -> None:
+    normalized_url = (url or "").strip()
+    parsed = urlparse(normalized_url)
+    if not parsed.scheme or not parsed.hostname:
+        raise ValueError(f"{purpose} must be a valid URL with a resolvable host")
+    if parsed.scheme == "https":
+        pass
+    elif parsed.scheme == "http" and app_settings.ALLOW_HTTP_OIDC_DISCOVERY:
+        pass
+    else:
+        raise ValueError(
+            f"{purpose} must use HTTPS unless ALLOW_HTTP_OIDC_DISCOVERY is enabled"
+        )
+    if not app_settings.ALLOW_PRIVATE_OIDC_DISCOVERY:
+        check_ssrf(normalized_url)
+
+
+async def validate_oidc_fetch_url(url: str, *, purpose: str = "OIDC URL") -> None:
+    await asyncio.to_thread(validate_oidc_url, url, purpose=purpose)
 
 
 async def get_oidc_availability(global_settings: GlobalSettings | None) -> bool:
@@ -88,14 +111,18 @@ async def get_oidc_metadata(global_settings: GlobalSettings) -> OIDCMetadata:
         return _metadata_cache
 
     discovery_url = (global_settings.oidc_discovery_url or "").strip()
-    await asyncio.to_thread(check_ssrf, discovery_url)
+    await validate_oidc_fetch_url(discovery_url, purpose="OIDC discovery URL")
     async with httpx.AsyncClient(timeout=10.0) as client:
         discovery_response = await client.get(discovery_url)
         discovery_response.raise_for_status()
         discovery = discovery_response.json()
+        if discovery.get("token_endpoint"):
+            await validate_oidc_fetch_url(discovery["token_endpoint"], purpose="OIDC token endpoint")
+        if discovery.get("userinfo_endpoint"):
+            await validate_oidc_fetch_url(discovery["userinfo_endpoint"], purpose="OIDC userinfo endpoint")
         jwks = None
         if discovery.get("jwks_uri"):
-            await asyncio.to_thread(check_ssrf, discovery["jwks_uri"])
+            await validate_oidc_fetch_url(discovery["jwks_uri"], purpose="OIDC JWKS URI")
             jwks_response = await client.get(discovery["jwks_uri"])
             jwks_response.raise_for_status()
             jwks = jwks_response.json()

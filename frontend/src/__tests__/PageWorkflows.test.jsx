@@ -31,6 +31,7 @@ import * as contractsApi from "../api/contracts.js";
 import * as sourcingApi from "../api/sourcing.js";
 import * as pendingOrdersApi from "../api/pendingOrders.js";
 import * as pdfExport from "../utils/pdfExport.js";
+import { queryKeys } from "../queryKeys.js";
 
 vi.mock("recharts", () => {
   const passthrough = ({ children }) => <div>{children}</div>;
@@ -350,6 +351,54 @@ describe("LicensesPage workflows", () => {
     await userEvent.type(screen.getByLabelText(/Search licenses/i), "Beta");
     expect(screen.getByText("Beta Tool")).toBeInTheDocument();
     expect(screen.queryByText("Acme Suite")).not.toBeInTheDocument();
+  });
+
+  test("renders licenses when the shared licenses cache contains the legacy array shape", async () => {
+    const cachedLicenses = Array.from({ length: 5 }, (_, index) => license({
+      id: index + 1,
+      publisherName: `Cached Publisher ${index + 1}`,
+      softwareDescription: `Cached App ${index + 1}`,
+    }));
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(queryKeys.licenses, cachedLicenses);
+    licensesApi.getLicenses.mockResolvedValueOnce({ data: cachedLicenses, error: null });
+    licensesApi.getStats.mockResolvedValueOnce({
+      data: {
+        total: 5,
+        total_active: 5,
+        total_expiring: 0,
+        total_expired: 0,
+        total_legacy: 4,
+        annual_cost_by_currency: {},
+        excluded_from_totals: 0,
+      },
+      error: null,
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <LicensesPage
+          selectedId={null}
+          setSelectedId={vi.fn()}
+          user={admin}
+          userSettings={userSettings}
+          setUserSettings={vi.fn()}
+          globalSettings={globalSettings}
+          showError={vi.fn()}
+          showSuccess={vi.fn()}
+          showToast={vi.fn()}
+          onStatsChange={vi.fn()}
+          onPortfolioStateChange={vi.fn()}
+          statsVisible
+          onSetStatsVisible={vi.fn()}
+        />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByText("Cached App 1")).toBeInTheDocument();
+    expect(screen.queryByText(/-4 licenses tracked/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No licenses found/i)).not.toBeInTheDocument();
+    cleanup();
   });
 
   test("saves license edits from the detail panel through the update API", async () => {
@@ -944,6 +993,50 @@ describe("SourcingPage workflows", () => {
     await user.click(screen.getByRole("button", { name: /Add Request/i }));
     await user.click(screen.getByRole("button", { name: /Save sourcing item/i }));
     expect(await screen.findByText("Created Sourcing App")).toBeInTheDocument();
+  });
+
+  test("renders renewal sourcing rows when the shared licenses cache is already populated", async () => {
+    const user = userEvent.setup();
+    const queryClient = createTestQueryClient();
+    const cachedLicense = license({
+      id: 42,
+      publisherName: "Cache Publisher",
+      softwareDescription: "Cache Suite",
+    });
+    queryClient.setQueryData(queryKeys.licenses, {
+      licenses: [cachedLicense],
+      customFieldValuesMap: new Map(),
+    });
+    licensesApi.getLicenses.mockResolvedValueOnce({ data: [cachedLicense], error: null });
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({
+      data: [{
+        id: 3,
+        supplier: "Renewal Supplier",
+        contactEmail: null,
+        createdAt: "2026-01-03T00:00:00Z",
+        quoteDocuments: [],
+        items: [{
+          id: 30,
+          publisherName: "Renewal Publisher",
+          softwareDescription: "Renewal App",
+          quantity: "1",
+          currency: "EUR",
+          isRenewal: true,
+          renewalForLicenseId: 42,
+        }],
+      }],
+      error: null,
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SourcingPage user={admin} userSettings={userSettings} />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByText("Renewal Supplier")).toBeInTheDocument();
+    await user.click(screen.getByText("Renewal Supplier"));
+    expect(await screen.findByText("Renewing: Cache Publisher")).toBeInTheDocument();
   });
 
   test("merge modal opens and cancel, close, and overlay dismiss it when not merging", async () => {

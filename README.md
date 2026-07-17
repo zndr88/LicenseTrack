@@ -1,6 +1,6 @@
 # LicenseTrack
 
-Version 1.0.7.
+Version 1.0.8.
 
 LicenseTrack is a self-hosted software license procurement and lifecycle management system. It gives organisations a single Docker-deployed application for sourcing, purchase orders, active license records, renewals, contracts, documents, notifications, reporting, database backups, audit history, and user access control.
 
@@ -39,7 +39,7 @@ LicenseTrack is what I needed in both roles: a single source of truth for softwa
 - Preserve sourcing-request and purchase-order milestone dates on resulting license records, with manual enrichment for imported and legacy data.
 - Review record history in the license detail panel, including creator account, creation timestamp, and latest update timestamp.
 - Use status filters for upcoming, active, expiring, expired, pending renewal, renewed, retired, legacy, complete, and incomplete records.
-- Configure visible columns, reorder columns, save user display preferences, and export CSV data.
+- Configure visible columns from the Registry toolbar or user settings, reorder columns, save user display preferences, and export CSV data.
 - Create, edit, retire, renew, and link license records.
 
 ### Renewals
@@ -181,12 +181,14 @@ Core Docker configuration is loaded from `.env`.
 | `RESTART_AFTER_RESTORE` | `true` in Docker Compose, `false` in direct backend runs | Exit the backend after database restore so a process manager can restart it. Set `false` for local development without a restart supervisor. |
 | `TOKEN_EXPIRY` | `1440` | JWT session lifetime in minutes. |
 | `OIDC_STATE_SECRET` | falls back to `JWT_SECRET` | Secret used for transient OIDC flow state cookies. |
+| `ALLOW_HTTP_OIDC_DISCOVERY` | `false` | Unsafe testing-only allowance for plain-HTTP OIDC discovery. Leave disabled in production. |
+| `ALLOW_PRIVATE_OIDC_DISCOVERY` | `false` | Unsafe testing-only allowance for private, loopback, link-local, or reserved OIDC hosts. Leave disabled in production. |
 | `SESSION_COOKIE_NAME` | `license_lifecycle_session` | Browser session cookie name. |
 | `SESSION_COOKIE_SECURE` | `false` | Set to `true` behind HTTPS. |
 | `MAX_UPLOAD_SIZE_MB` | `20` | Maximum upload size. |
 | `ALLOWED_UPLOAD_EXTENSIONS` | common document formats | Comma-separated upload extension allow-list. |
 
-SMTP and OIDC are configured through application settings after startup. Deployment placeholders also exist in `.env.example`.
+SMTP and OIDC are configured through application settings after startup. Deployment placeholders also exist in `.env.example`. OIDC callback logs use safe stage names for troubleshooting without logging auth codes, tokens, client secrets, or raw ID tokens.
 
 ## Persistent Data
 

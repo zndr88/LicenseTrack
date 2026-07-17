@@ -33,6 +33,7 @@ function makeQueryClient() {
 
 function renderActions({
   licenses = [baseLicense],
+  licenseCacheData,
   selectedId = null,
   selectedIds = new Set(),
   setSelectedId = vi.fn(),
@@ -45,7 +46,10 @@ function renderActions({
   onNavigateToSourcing = vi.fn(),
 } = {}) {
   const queryClient = makeQueryClient();
-  queryClient.setQueryData(queryKeys.licenses, { licenses, customFieldValuesMap: new Map() });
+  queryClient.setQueryData(
+    queryKeys.licenses,
+    licenseCacheData ?? { licenses, customFieldValuesMap: new Map() },
+  );
 
   const wrapper = ({ children }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -114,6 +118,20 @@ describe("useLicenseActions", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.licenses });
     const cached = queryClient.getQueryData(queryKeys.licenses);
     expect(cached.licenses[0].documentCount).toBe(2);
+  });
+
+  test("updates the shared licenses cache when it still has the legacy array shape", async () => {
+    const { result, queryClient } = renderActions({
+      licenseCacheData: [baseLicense],
+    });
+
+    await act(async () => {
+      const ok = await result.current.handleLicenseUpdate(1, { documentCount: 3 });
+      expect(ok).toBe(true);
+    });
+
+    const cached = queryClient.getQueryData(queryKeys.licenses);
+    expect(cached).toEqual([{ ...baseLicense, documentCount: 3 }]);
   });
 
   test("bulk delete sends selected ids and clears selection/detail state", async () => {

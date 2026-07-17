@@ -18,6 +18,7 @@ import {
 import { downloadSourcingQuoteDocument } from "../../api/sourcing.js";
 import { queryKeys } from "../../queryKeys.js";
 import { fetchLicensesData } from "./licenses/useLicensesPageData.js";
+import { getLicensesFromQueryData } from "../../utils/licenseQueryData.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 
 const EMPTY_PENDING_ORDERS = [];
@@ -48,7 +49,7 @@ export function usePendingOrdersData({
   const { data: licensesData } = useQuery({
     queryKey: queryKeys.licenses,
     queryFn: fetchLicensesData,
-    select: (d) => d.licenses,
+    select: getLicensesFromQueryData,
   });
   const licenses = licensesData ?? [];
 

@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from time import time
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -13,7 +13,12 @@ from app.database import get_db
 from app.models.user import AuthProvider, User
 from app.services.audit_service import log_event
 from app.services.crypto_service import decrypt_secret
-from app.services.oidc_service import authlib_available, get_oidc_metadata, oidc_is_configured
+from app.services.oidc_service import (
+    authlib_available,
+    get_oidc_metadata,
+    oidc_is_configured,
+    validate_oidc_fetch_url,
+)
 from app.services.settings_service import get_global_settings
 
 router = APIRouter(prefix="/api/auth/oidc", tags=["auth"])
@@ -58,6 +63,41 @@ def _login_redirect(error: str | None = None) -> RedirectResponse:
     response = RedirectResponse(url=target, status_code=302)
     auth.clear_oidc_flow_cookie(response)
     return response
+
+
+def _safe_host(url: str | None) -> str | None:
+    if not url:
+        return None
+    try:
+        return urlparse(url).hostname
+    except ValueError:
+        return None
+
+
+def _oidc_log_context(global_settings, discovery: dict | None = None) -> dict:
+    return {
+        "client_id": getattr(global_settings, "oidc_client_id", None),
+        "discovery_host": _safe_host(getattr(global_settings, "oidc_discovery_url", None)),
+        "issuer_host": _safe_host((discovery or {}).get("issuer")),
+    }
+
+
+def _log_oidc_callback_failure(
+    stage: str,
+    global_settings,
+    *,
+    discovery: dict | None = None,
+    exc: Exception | None = None,
+) -> None:
+    context = _oidc_log_context(global_settings, discovery)
+    logger.warning(
+        "OIDC callback failed stage=%s client_id=%s discovery_host=%s issuer_host=%s",
+        stage,
+        context["client_id"],
+        context["discovery_host"],
+        context["issuer_host"],
+        exc_info=exc,
+    )
 
 
 @router.get("/login")
@@ -106,20 +146,34 @@ async def oidc_callback(
     if not authlib_available() or not oidc_is_configured(global_settings):
         return _login_redirect("oidc_unavailable")
 
+    discovery = None
     try:
         flow_cookie = request.cookies.get(auth.OIDC_FLOW_COOKIE)
         if not flow_cookie:
-            raise auth.JWTError("Missing OIDC flow cookie")
+            _log_oidc_callback_failure("missing_flow_cookie", global_settings)
+            return _login_redirect("oidc_failed")
 
-        flow = auth.parse_oidc_flow_cookie(flow_cookie)
+        try:
+            flow = auth.parse_oidc_flow_cookie(flow_cookie)
+        except Exception as exc:
+            _log_oidc_callback_failure("invalid_state", global_settings, exc=exc)
+            return _login_redirect("oidc_failed")
+
         state = request.query_params.get("state")
         code = request.query_params.get("code")
         if not state or state != flow.get("state"):
-            raise auth.JWTError("Invalid state")
+            _log_oidc_callback_failure("invalid_state", global_settings)
+            return _login_redirect("oidc_failed")
         if not code:
-            raise auth.JWTError("Missing authorization code")
+            _log_oidc_callback_failure("missing_code", global_settings)
+            return _login_redirect("oidc_failed")
 
-        metadata = await get_oidc_metadata(global_settings)
+        try:
+            metadata = await get_oidc_metadata(global_settings)
+        except Exception as exc:
+            _log_oidc_callback_failure("metadata_fetch_failed", global_settings, exc=exc)
+            return _login_redirect("oidc_failed")
+        discovery = metadata.discovery
         from authlib.integrations.httpx_client import AsyncOAuth2Client
         from joserfc import jwk, jwt
         from joserfc.jwt import JWTClaimsRegistry
@@ -129,47 +183,86 @@ async def oidc_callback(
             client_id=global_settings.oidc_client_id,
             client_secret=decrypt_secret(global_settings.oidc_client_secret),
         ) as client:
-            token = await client.fetch_token(
-                metadata.discovery["token_endpoint"],
-                grant_type="authorization_code",
-                code=code,
-                redirect_uri=redirect_uri,
-            )
+            try:
+                token_endpoint = metadata.discovery["token_endpoint"]
+                await validate_oidc_fetch_url(token_endpoint, purpose="OIDC token endpoint")
+                token = await client.fetch_token(
+                    token_endpoint,
+                    grant_type="authorization_code",
+                    code=code,
+                    redirect_uri=redirect_uri,
+                )
+            except Exception as exc:
+                _log_oidc_callback_failure(
+                    "token_exchange_failed",
+                    global_settings,
+                    discovery=discovery,
+                    exc=exc,
+                )
+                return _login_redirect("oidc_failed")
 
             id_token = token.get("id_token")
             if not id_token:
-                raise auth.JWTError("Missing ID token")
+                _log_oidc_callback_failure("missing_id_token", global_settings, discovery=discovery)
+                return _login_redirect("oidc_failed")
 
-            claims = jwt.decode(id_token, jwk.KeySet.import_key_set(metadata.jwks)).claims
-            JWTClaimsRegistry().validate(claims)
+            try:
+                claims = jwt.decode(id_token, jwk.KeySet.import_key_set(metadata.jwks)).claims
+                JWTClaimsRegistry().validate(claims)
+            except Exception as exc:
+                _log_oidc_callback_failure(
+                    "invalid_claims",
+                    global_settings,
+                    discovery=discovery,
+                    exc=exc,
+                )
+                return _login_redirect("oidc_failed")
             if claims.get("iss") != metadata.discovery.get("issuer"):
-                raise auth.JWTError("Unexpected token issuer")
+                _log_oidc_callback_failure("invalid_issuer", global_settings, discovery=discovery)
+                return _login_redirect("oidc_failed")
             audience = claims.get("aud")
             if isinstance(audience, str):
                 audience = [audience]
             if global_settings.oidc_client_id not in (audience or []):
-                raise auth.JWTError("Unexpected token audience")
+                _log_oidc_callback_failure("invalid_audience", global_settings, discovery=discovery)
+                return _login_redirect("oidc_failed")
             if claims.get("nonce") != flow.get("nonce"):
-                raise auth.JWTError("Invalid nonce")
+                _log_oidc_callback_failure("invalid_nonce", global_settings, discovery=discovery)
+                return _login_redirect("oidc_failed")
 
             email = claims.get("email")
             if not email and metadata.discovery.get("userinfo_endpoint"):
-                userinfo_response = await client.get(
-                    metadata.discovery["userinfo_endpoint"],
-                    headers={"Authorization": f"Bearer {token['access_token']}"},
-                )
-                userinfo_response.raise_for_status()
-                email = userinfo_response.json().get("email")
+                try:
+                    userinfo_endpoint = metadata.discovery["userinfo_endpoint"]
+                    await validate_oidc_fetch_url(userinfo_endpoint, purpose="OIDC userinfo endpoint")
+                    userinfo_response = await client.get(
+                        userinfo_endpoint,
+                        headers={"Authorization": f"Bearer {token['access_token']}"},
+                    )
+                    userinfo_response.raise_for_status()
+                    email = userinfo_response.json().get("email")
+                except Exception as exc:
+                    _log_oidc_callback_failure(
+                        "missing_email",
+                        global_settings,
+                        discovery=discovery,
+                        exc=exc,
+                    )
+                    return _login_redirect("oidc_failed")
 
         if not email:
-            raise auth.JWTError("No email claim available")
+            _log_oidc_callback_failure("missing_email", global_settings, discovery=discovery)
+            return _login_redirect("oidc_failed")
 
         user = await db.scalar(select(User).where(User.email == email))
         if user is None:
+            _log_oidc_callback_failure("user_not_provisioned", global_settings, discovery=discovery)
             return _login_redirect("not_provisioned")
         if user.auth_provider == AuthProvider.local:
+            _log_oidc_callback_failure("local_account", global_settings, discovery=discovery)
             return _login_redirect("local_account")
         if not user.is_active:
+            _log_oidc_callback_failure("inactive_user", global_settings, discovery=discovery)
             return _login_redirect("oidc_failed")
 
         ip = request.client.host if request.client else None
@@ -188,6 +281,11 @@ async def oidc_callback(
         auth.clear_oidc_flow_cookie(response)
         auth.set_session_cookie(response, auth.create_access_token(user.id, user.role))
         return response
-    except Exception:
-        logger.warning("OIDC callback failed", exc_info=True)
+    except Exception as exc:
+        _log_oidc_callback_failure(
+            "callback_failed",
+            global_settings,
+            discovery=discovery,
+            exc=exc,
+        )
         return _login_redirect("oidc_failed")

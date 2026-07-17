@@ -12,12 +12,12 @@ The Docker image serves the React frontend and FastAPI backend from the same ori
 The image is a standard OCI image and runs under Podman without changes. The most reliable path is a plain build and run (it avoids differences between compose providers):
 
 ```bash
-podman build -t license-lifecycle-system:1.0.7 .
+podman build -t license-lifecycle-system:1.0.8 .
 
 podman run -d --name licensetrack -p 8080:8000 \
   --env-file .env \
   -v license_lifecycle_data:/data \
-  license-lifecycle-system:1.0.7
+  license-lifecycle-system:1.0.8
 ```
 
 Notes:
@@ -55,6 +55,8 @@ All variables are read from `.env` at container start. Restart the container aft
 | `ADMIN_PASSWORD` | Operationally yes | none | Initial admin password for the seeded local `admin` account. Startup rejects blank/common defaults. |
 | `TOKEN_EXPIRY` | No | `1440` | JWT session lifetime in minutes. |
 | `OIDC_STATE_SECRET` | No | falls back to `JWT_SECRET` | Secret used for OIDC flow state. |
+| `ALLOW_HTTP_OIDC_DISCOVERY` | No | `false` | Unsafe testing-only allowance for plain-HTTP OIDC discovery. Leave disabled in production. |
+| `ALLOW_PRIVATE_OIDC_DISCOVERY` | No | `false` | Unsafe testing-only allowance for private, loopback, link-local, or reserved OIDC hosts. Leave disabled in production. |
 | `SESSION_COOKIE_NAME` | No | `license_lifecycle_session` | Browser session cookie name. |
 | `SESSION_COOKIE_SECURE` | No | `false` | Set to `true` behind HTTPS. |
 | `SMTP_HOST` | No | empty | Deployment placeholder. Configure active SMTP settings in the application Settings UI. |
@@ -69,6 +71,35 @@ All variables are read from `.env` at container start. Restart the container aft
 | `MAX_PLUGIN_PACKAGE_SIZE_MB` | No | `50` | Maximum plugin zip size in megabytes. |
 | `MAX_PLUGIN_DOCUMENT_SIZE_MB` | No | `10` | Maximum size of a single document a plugin may read at runtime. |
 | `PLUGIN_RUNTIME_LOG_MAX_BYTES` | No | `524288` | Maximum bytes returned when viewing plugin runtime logs (tail). |
+
+## Local Keycloak OIDC testing
+
+LicenseTrack requires HTTPS OIDC discovery and blocks private, loopback,
+link-local, and reserved discovery hosts by default. For isolated development or
+test networks only, you can allow a local Keycloak instance by setting both of
+these environment variables before starting the backend:
+
+```env
+ALLOW_HTTP_OIDC_DISCOVERY=true
+ALLOW_PRIVATE_OIDC_DISCOVERY=true
+```
+
+Do not enable these flags in production or on networks you do not fully trust.
+They intentionally relax OIDC discovery URL protections so a test IdP on plain
+HTTP or a private VM address can be reached.
+
+When testing Keycloak on a VM:
+
+- Make Keycloak advertise the VM or otherwise reachable hostname/IP as its
+  issuer, not `localhost`, unless LicenseTrack is running on the same host.
+- Set `CORS_ORIGINS` to the exact LicenseTrack frontend URL used in the browser.
+- The LicenseTrack OIDC user's email must match the email claim sent by the IdP.
+- An incorrect Keycloak client secret appears in LicenseTrack logs as an OIDC
+  token exchange/client credentials failure.
+- OIDC callback failures are logged with safe stage names. `callback_failed`
+  means an unexpected server-side callback step failed after provider
+  validation; auth codes, tokens, client secrets, and raw ID tokens are not
+  logged.
 
 ## Plugin runtime
 

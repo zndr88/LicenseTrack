@@ -7,9 +7,11 @@ import { getSourcingItems } from "../../../api/sourcing.js";
 import { listCustomFields } from "../../../api/settings.js";
 import { queryKeys } from "../../../queryKeys.js";
 import { normalizeLicense } from "../../../utils/helpers.js";
+import {
+  getCustomFieldValuesMapFromQueryData,
+  getLicensesFromQueryData,
+} from "../../../utils/licenseQueryData.js";
 
-const EMPTY_LICENSES = [];
-const EMPTY_MAP = new Map();
 const EMPTY_ARRAY = [];
 
 export async function fetchLicensesData() {
@@ -67,8 +69,8 @@ export function useLicensesPageData({ showError, includeContracts = false }) {
     if (error) showError(error.message);
   }, [error, showError]);
 
-  const licenses = data?.licenses ?? EMPTY_LICENSES;
-  const customFieldValuesMap = data?.customFieldValuesMap ?? EMPTY_MAP;
+  const licenses = getLicensesFromQueryData(data);
+  const customFieldValuesMap = getCustomFieldValuesMapFromQueryData(data);
 
   const { data: apiStats = null } = useQuery({
     queryKey: queryKeys.licenseStats,

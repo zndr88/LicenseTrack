@@ -60,7 +60,7 @@ const HELP_ARTICLES = [
       {
         heading: "How it works",
         body: [
-          "The License Overview table is the central portfolio registry. It supports search, status filters, configurable Standard, Advanced, and Computed columns, saved views, Current View and Full Data CSV exports, and inline edits for common fields.",
+          "The License Overview table is the central portfolio registry. It supports search, status filters, a toolbar column-category selector for Standard, Advanced, Computed, and Custom Field list columns, saved views, Current View and Full Data CSV exports, and inline edits for common fields.",
           "Opening a license shows the detail panel with fields, custom fields, documents, notes, maintenance actions, renewal actions, contract links, and a History section with creator and record timestamps.",
         ],
       },

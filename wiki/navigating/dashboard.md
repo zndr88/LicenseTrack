@@ -10,6 +10,8 @@ You can drag any column to a position you prefer and remove the ones you don't n
 
 ![Hovering a column header reveals an X to hide it](../assets/nav-01-hide-column.png)
 
+The toolbar's **Column categories** button also lets you show or hide Standard, Advanced, Computed, and Custom Field columns without leaving the dashboard.
+
 ## Save your views
 
 Once you've arranged the table, save it using the **Saved Views** menu (the bookmark icon in the toolbar):
@@ -28,6 +30,8 @@ Your personal user settings hold a large list of **35 categories**, each of whic
 
 ![The column categories in personal user settings](../assets/nav-04-column-settings.png)
 
+The dashboard toolbar exposes the list-view side for quick view building. My Settings remains the full editor, including fields that can also be toggled on or off for the License Details panel.
+
 !!! tip
     If you ever lose track of a column, or want to experiment with your views, this settings page is the place to do it — nothing is permanently gone, just toggled off.
 
@@ -43,6 +47,7 @@ The leftmost icon is the **Saved Views** bookmark covered above. The remaining b
 | **Full view** | Hides the pipeline section and collapses the side menu for a more full-screen view. *Saved.* |
 | **Inline Edit** | Quick-edit certain license details without opening the License Details panel. |
 | **Refresh view** | Refreshes the current view. |
+| **Column categories** | Shows or hides groups of list columns while you build a view. Changes are saved to your personal settings immediately. |
 | **Show column filters** | Enables the advanced filter, which can be combined with your saved views. |
 | **Export CSV** | Exports your license list — choose between your current view or the full data set. |
 

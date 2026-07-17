@@ -3,7 +3,10 @@ import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { useRenewalWorkflowActions } from "../hooks/useRenewalWorkflowActions.js";
+import {
+  updateLicensesQueryCache,
+  useRenewalWorkflowActions,
+} from "../hooks/useRenewalWorkflowActions.js";
 import { queryKeys } from "../queryKeys.js";
 import * as licensesApi from "../api/licenses.js";
 
@@ -53,6 +56,19 @@ beforeEach(() => {
 });
 
 describe("useRenewalWorkflowActions", () => {
+  test("updates the shared licenses cache when it still has the legacy array shape", () => {
+    const queryClient = makeQueryClient();
+    queryClient.setQueryData(queryKeys.licenses, [license]);
+
+    updateLicensesQueryCache(queryClient, (licenses) => licenses.map((item) => (
+      item.id === license.id ? { ...item, lifecycleStatus: "pending_renewal" } : item
+    )));
+
+    expect(queryClient.getQueryData(queryKeys.licenses)).toEqual([
+      { ...license, lifecycleStatus: "pending_renewal" },
+    ]);
+  });
+
   test("starts renewal, updates local caches, and invalidates workflow queries", async () => {
     const onSourcingCreated = vi.fn();
     const onRenewalStarted = vi.fn();

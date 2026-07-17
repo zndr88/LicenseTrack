@@ -218,6 +218,7 @@
   box-shadow: var(--shadow-sm);
 }
 .lp-view-menu { min-width: 232px; padding: 8px; }
+.lp-column-menu { width: min(320px, calc(100vw - 24px)); max-height: min(520px, calc(100vh - 120px)); overflow: auto; padding: 6px; }
 .lp-export-menu { min-width: 238px; padding: 4px; }
 .lp-menu-item,
 .lp-export-option,
@@ -255,6 +256,12 @@
 .lp-save-view-row { padding: 2px 4px; }
 .lp-save-view-input { font-size: 12px; padding: 4px 8px; flex: 1; }
 .lp-save-view-button { font-size: 11px; padding: 4px 8px; }
+.lp-column-group + .lp-column-group { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; }
+.lp-column-group-row,
+.lp-column-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 30px; padding: 3px 6px; }
+.lp-column-group-row { background: var(--bg-3); border-radius: 4px; }
+.lp-column-group-row strong { min-width: 0; font-family: var(--font-brand); font-size: 11px; color: var(--text-1); }
+.lp-column-option span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-2); }
 .lp-export-option { padding: 7px 8px; color: var(--text-1); }
 .lp-export-title { display: block; font-size: 12px; font-weight: 500; }
 .lp-export-subtitle { display: block; margin-top: 2px; font-size: 11px; color: var(--text-2); }
