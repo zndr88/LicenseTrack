@@ -273,10 +273,11 @@ test("license table supports publisher sorting and search", async ({ page }) => 
   const rows = page.locator(".license-table tbody tr");
   await expect(rows).toHaveCount(3);
 
-  await page.getByRole("columnheader", { name: /publisher/i }).click();
+  const publisherHeader = page.getByRole("columnheader", { name: /publisher/i });
+  await publisherHeader.press("Enter");
   await expect(rows.first()).toContainText("Acme Software");
 
-  await page.getByRole("columnheader", { name: /publisher/i }).click();
+  await publisherHeader.press("Enter");
   await expect(rows.first()).toContainText("Zeta Systems");
 
   await page.getByRole("textbox", { name: /search licenses/i }).fill("contoso");

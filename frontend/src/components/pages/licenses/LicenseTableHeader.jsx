@@ -88,11 +88,18 @@ export default function LicenseTableHeader({
               }}
               onMouseEnter={() => setHoveredCol(col.key)}
               onMouseLeave={() => setHoveredCol(null)}
+              tabIndex={0}
+              aria-sort={sortCol === col.key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
               onClick={() => {
                 if (dragHappenedRef.current) {
                   dragHappenedRef.current = false;
                   return;
                 }
+                handleSortCol(col.key);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
                 handleSortCol(col.key);
               }}
               style={{
