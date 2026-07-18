@@ -188,8 +188,8 @@ async def test_audit_sourcing_merged(
 ):
     # Create a second license for item2
     lic2 = License(
-        publisher_name="Pub",
-        software_description="License 2",
+        publisher_name=seeded_license.publisher_name,
+        software_description=seeded_license.software_description,
         license_type=LicenseType.subscription,
         license_metric=LicenseMetric.per_user,
         currency="EUR",
@@ -199,14 +199,14 @@ async def test_audit_sourcing_merged(
 
     # Create two renewal sourcing items to merge
     item1 = SourcingItem(
-        publisher_name="Pub",
-        software_description="Item 1",
+        publisher_name=seeded_license.publisher_name,
+        software_description=seeded_license.software_description,
         status=SourcingStatus.sourcing,
         renewal_for_license_id=seeded_license.id,
     )
     item2 = SourcingItem(
-        publisher_name="Pub",
-        software_description="Item 2",
+        publisher_name=seeded_license.publisher_name,
+        software_description=seeded_license.software_description,
         status=SourcingStatus.sourcing,
         renewal_for_license_id=lic2.id,
     )
