@@ -19,7 +19,7 @@ from app.services.csv_safety import safe_csv_row
 async def build_pending_orders_export_csv(db: AsyncSession) -> str:
     result = await db.execute(
         select(PendingOrder)
-        .where(PendingOrder.status != PendingOrderStatus.converted)
+        .where(PendingOrder.status.in_([PendingOrderStatus.pending, PendingOrderStatus.invoice_received]))
         .options(selectinload(PendingOrder.items))
         .order_by(PendingOrder.created_at.desc())
     )

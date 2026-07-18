@@ -60,10 +60,12 @@ function PendingOrderItemsRow({
   po,
   locale,
   perms,
+  readOnly = false,
   onAddItem,
   onDeleteItem,
   onEditItem,
   onDownloadQuote,
+  onNavigateToLicense,
 }) {
   return (
     <tr>
@@ -77,7 +79,7 @@ function PendingOrderItemsRow({
               <th scope="col">Est. Unit Price</th>
               <th scope="col">Est. Total</th>
               <th scope="col">Currency</th>
-              <th scope="col">Actions</th>
+              <th scope="col">{readOnly ? "Context" : "Actions"}</th>
             </tr>
           </thead>
           <tbody>
@@ -85,6 +87,9 @@ function PendingOrderItemsRow({
               <tr key={item.id} style={{ background: "var(--bg-2)" }}>
                 <td style={{ paddingLeft: 40, fontWeight: 600 }}>
                   {item.publisherName}
+                  <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
+                    Line #{item.id}
+                  </div>
                   {item.isRenewal && (
                     <span className="badge badge-pending po-inline-badge">
                       Renewal
@@ -106,12 +111,32 @@ function PendingOrderItemsRow({
                         labelPrefix="Quote: "
                       />
                     ))}
-                    {perms.canEdit && (
+                    {readOnly && (
+                      <span className={`badge ${item.isRenewal ? "badge-pending" : "badge-gray"}`}>
+                        {item.isRenewal ? "Renewal" : "New Purchase"}
+                      </span>
+                    )}
+                    {readOnly && item.convertedLicenseId && onNavigateToLicense && (
+                      <button
+                        className="btn btn-g"
+                        style={{ padding: "4px 8px", fontSize: 11 }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onNavigateToLicense(item.convertedLicenseId);
+                        }}
+                      >
+                        <Icon name="arrow-right" size={12} />View License
+                      </button>
+                    )}
+                    {readOnly && !item.convertedLicenseId && (item.convertedLicenseIds?.length ?? 0) > 1 && (
+                      <span style={{ color: "var(--text-3)", fontSize: 11 }}>Multiple license matches</span>
+                    )}
+                    {!readOnly && perms.canEdit && (
                       <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onEditItem(po, item)}>
                         <Icon name="edit" size={12} />Edit
                       </button>
                     )}
-                    {perms.canDelete && (
+                    {!readOnly && perms.canDelete && (
                       <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11, color: "var(--red)" }} onClick={() => onDeleteItem(po, item)}>
                         <Icon name="trash" size={12} />Delete
                       </button>
@@ -120,7 +145,7 @@ function PendingOrderItemsRow({
                 </td>
               </tr>
             ))}
-            {perms.canEdit && (
+            {!readOnly && perms.canEdit && (
               <tr style={{ background: "var(--bg-2)" }}>
                 <td colSpan={7} style={{ paddingLeft: 40 }}>
                   <button className="btn btn-g" style={{ padding: "5px 9px", fontSize: 11 }} onClick={() => onAddItem(po)}>
@@ -153,6 +178,7 @@ export default function PendingOrdersTable({
   expandedPendingOrderId,
   highlightedRowId,
   locale,
+  mode = "active",
   settings,
   onDelete,
   onEdit,
@@ -165,6 +191,9 @@ export default function PendingOrdersTable({
   onOpenAddItems,
   onOpenConvert,
   onOpenConvertAll,
+  onNavigateToLicense,
+  onRefetch,
+  onExportCsv,
   onRowToggle,
   perms,
   search,
@@ -173,6 +202,37 @@ export default function PendingOrdersTable({
   sortDir,
   onSort,
 }) {
+  const readOnly = mode === "history";
+  const emptyMessage = readOnly ? "No historical orders match your search." : "No orders match your search.";
+  const renderReferenceCell = (po) => {
+    if (po.status === "converted" && po.convertedLicenseId && onNavigateToLicense) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
+          <button
+            className="btn btn-g"
+            style={{ padding: "4px 8px", fontSize: 11 }}
+            onClick={() => onNavigateToLicense(po.convertedLicenseId)}
+          >
+            <Icon name="arrow-right" size={12} />View License
+          </button>
+          {po.convertedLicenseRef && (
+            <span style={{ color: "var(--text-3)", fontSize: 10 }}>{po.convertedLicenseRef}</span>
+          )}
+        </div>
+      );
+    }
+    if (po.status === "converted" && (po.convertedLicenseIds?.length ?? 0) > 1 && (po.items?.length ?? 0) > 0) {
+      return <span style={{ color: "var(--text-3)", fontSize: 11 }}>Open a line to view license</span>;
+    }
+    if (po.status === "converted") {
+      return <span style={{ color: "var(--text-3)", fontSize: 11 }}>Licenses created</span>;
+    }
+    if (po.status === "cancelled") {
+      return <span style={{ color: "var(--text-3)", fontSize: 11 }}>Reference only</span>;
+    }
+    return <span style={{ color: "var(--text-3)", fontSize: 11 }}>Open order</span>;
+  };
+
   return (
     <div className="tbl-wrap">
       <div className="tbl-bar">
@@ -180,8 +240,27 @@ export default function PendingOrdersTable({
           value={search}
           onChange={setSearch}
           placeholder="Search PO number, supplier, or line items..."
-          ariaLabel="Search pending orders"
+          ariaLabel={readOnly ? "Search pending order history" : "Search pending orders"}
         />
+        {readOnly && (
+          <>
+            <div style={{ flex: 1 }} />
+            <button className="btn btn-g" onClick={onRefetch} title="Refresh pending order history" style={{ fontSize: 12 }}>
+              <Icon name="refresh" size={13} />Refresh
+            </button>
+          </>
+        )}
+        {!readOnly && (
+          <>
+            <div style={{ flex: 1 }} />
+            <button className="btn btn-g" onClick={onRefetch} title="Refresh pending orders" style={{ fontSize: 12 }}>
+              <Icon name="refresh" size={13} />Refresh
+            </button>
+            <button type="button" onClick={onExportCsv} className="btn btn-g" style={{ fontSize: 12 }}>
+              <Icon name="download" size={13} />Export CSV
+            </button>
+          </>
+        )}
       </div>
       <div style={{ overflowX: "auto" }}>
         <table>
@@ -195,27 +274,31 @@ export default function PendingOrdersTable({
               <SortableHeader column="created" label="Created" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <th scope="col">PO</th>
               <SortableHeader column="status" label="Status" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
-              <th scope="col">Actions</th>
+              <th scope="col">{readOnly ? "Reference" : "Actions"}</th>
             </tr>
           </thead>
           <tbody>
             {displayed.length === 0 ? (
               <tr>
                 <td colSpan={9} style={{ textAlign: "center", color: "var(--text-3)", padding: "24px 0", fontSize: 13 }}>
-                  No orders match your search.
+                  {emptyMessage}
                 </td>
               </tr>
             ) : displayed.map((po) => {
               const isExpanded = expandedPendingOrderId === po.id;
-              const canDelete = po.status === "pending";
+              const canDelete = po.status === "pending" || po.status === "invoice_received";
               const isInvoiceReceived = po.status === "invoice_received";
               const evidenceStatus = po.evidenceTransferStatus ?? po.evidence_transfer_status;
               const evidenceDetail = po.evidenceTransferDetail ?? po.evidence_transfer_detail;
               const canRetryEvidence = po.status === "converted" && ["failed", "pending"].includes(evidenceStatus);
-              const statusLabel = po.status === "converted"
+              const statusLabel = po.status === "cancelled"
+                ? "Cancelled"
+                : po.status === "converted"
                 ? (evidenceStatus === "failed" ? "Evidence Failed" : evidenceStatus === "pending" ? "Evidence Pending" : evidenceStatus === "escalated" ? "Evidence Escalated" : "Converted")
                 : isInvoiceReceived ? "Invoice Received" : "Pending";
-              const statusClass = evidenceStatus === "failed" || evidenceStatus === "escalated"
+              const statusClass = po.status === "cancelled"
+                ? "badge-gray"
+                : evidenceStatus === "failed" || evidenceStatus === "escalated"
                 ? "badge-red"
                 : evidenceStatus === "pending"
                   ? "badge-pending"
@@ -236,7 +319,10 @@ export default function PendingOrdersTable({
                     <td style={{ color: "var(--text-3)", fontSize: 11, textAlign: "center" }}>
                       {po.items?.length > 0 ? (isExpanded ? "\u25be" : "\u25b8") : ""}
                     </td>
-                    <td className="mono" style={{ fontWeight: 600 }}>{po.poNumber}</td>
+                    <td>
+                      <div className="mono" style={{ fontWeight: 600 }}>{po.poNumber}</div>
+                      <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>Order #{po.id}</div>
+                    </td>
                     <td>{po.supplier || "-"}</td>
                     <td style={{ color: "var(--text-2)" }}>{po.items?.length ?? 0}</td>
                     <td className="mono" style={{ fontWeight: 600 }}>{formatPoTotal(po, locale)}</td>
@@ -262,7 +348,8 @@ export default function PendingOrdersTable({
                     </td>
                     <td onClick={(event) => event.stopPropagation()}>
                       <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", alignItems: "center", justifyContent: "flex-start" }}>
-                        {perms.canEdit && (
+                        {readOnly && renderReferenceCell(po)}
+                        {!readOnly && perms.canEdit && (
                           <button
                             className="btn btn-g"
                             style={{ padding: "4px 6px", fontSize: 11 }}
@@ -271,7 +358,7 @@ export default function PendingOrdersTable({
                             <Icon name="upload" size={12} />PO
                           </button>
                         )}
-                        {perms.canEdit && (
+                        {!readOnly && perms.canEdit && (
                           <button
                             className="btn btn-g"
                             style={{ padding: "4px 6px", fontSize: 11 }}
@@ -280,7 +367,7 @@ export default function PendingOrdersTable({
                             <Icon name="edit" size={12} />Edit
                           </button>
                         )}
-                        {perms.canEdit && po.status !== "converted" && po.items?.length === 0 && (
+                        {!readOnly && perms.canEdit && po.status !== "converted" && po.items?.length === 0 && (
                           <button
                             className="btn btn-p"
                             style={{ padding: "4px 6px", fontSize: 11 }}
@@ -289,7 +376,7 @@ export default function PendingOrdersTable({
                             <Icon name="plus" size={12} />Add License
                           </button>
                         )}
-                        {perms.canEdit && po.status !== "converted" && po.items?.length === 1 && (
+                        {!readOnly && perms.canEdit && po.status !== "converted" && po.items?.length === 1 && (
                           <button
                             className="btn btn-p"
                             style={{ padding: "4px 6px", fontSize: 11 }}
@@ -298,7 +385,7 @@ export default function PendingOrdersTable({
                             <Icon name="check" size={12} />Convert
                           </button>
                         )}
-                        {perms.canEdit && po.status !== "converted" && po.items?.length > 1 && (
+                        {!readOnly && perms.canEdit && po.status !== "converted" && po.items?.length > 1 && (
                           <button
                             className="btn btn-p"
                             style={{ padding: "4px 6px", fontSize: 11 }}
@@ -307,7 +394,7 @@ export default function PendingOrdersTable({
                             <Icon name="check" size={12} />Convert
                           </button>
                         )}
-                        {perms.canEdit && canRetryEvidence && (
+                        {!readOnly && perms.canEdit && canRetryEvidence && (
                           <button
                             className="btn btn-g"
                             style={{ padding: "4px 6px", fontSize: 11 }}
@@ -316,7 +403,7 @@ export default function PendingOrdersTable({
                             <Icon name="refresh" size={12} />Retry Evidence
                           </button>
                         )}
-                        {perms.canDelete && (
+                        {!readOnly && perms.canDelete && (
                           <button
                             className="btn btn-g"
                             style={{
@@ -326,10 +413,10 @@ export default function PendingOrdersTable({
                               cursor: canDelete ? "pointer" : "not-allowed",
                               opacity: canDelete ? 1 : 0.4,
                             }}
-                            title={canDelete ? "Delete this pending order" : "Cannot delete: invoice already received"}
+                            title={canDelete ? "Cancel this pending order" : "Cannot cancel this order"}
                             onClick={() => canDelete && onDelete(po.id)}
                           >
-                            <Icon name="trash" size={12} />Delete
+                            <Icon name="trash" size={12} />Cancel Order
                           </button>
                         )}
                       </div>
@@ -340,10 +427,12 @@ export default function PendingOrdersTable({
                       po={po}
                       locale={locale}
                       perms={perms}
+                      readOnly={readOnly}
                       onAddItem={onOpenAddItems}
                       onDeleteItem={onDeleteItem}
                       onEditItem={onEditItem}
                       onDownloadQuote={onDownloadQuote}
+                      onNavigateToLicense={onNavigateToLicense}
                     />
                   )}
                 </React.Fragment>

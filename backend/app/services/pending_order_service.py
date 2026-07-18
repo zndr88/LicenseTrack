@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.document import ProcurementDocument
+from app.models.license import License
 from app.models.pending_order import EvidenceTransferStatus, PendingOrder, PendingOrderStatus
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.schemas.document import ProcurementDocumentResponse
@@ -23,6 +24,14 @@ from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate
 def to_pending_order_response(order: PendingOrder) -> PendingOrderResponse:
     items = list(order.items) if "items" in order.__dict__ else []
     documents = list(order.documents) if "documents" in order.__dict__ else []
+    licenses = list(order.licenses) if "licenses" in order.__dict__ else []
+    converted_license_refs = _converted_license_refs_by_item(items, licenses)
+    active_license_refs = [license_obj for license_obj in licenses if not license_obj.is_retired]
+    order_license_ids = [license_obj.id for license_obj in active_license_refs]
+    order_license_payload: dict = {"converted_license_ids": order_license_ids}
+    if len(active_license_refs) == 1:
+        order_license_payload["converted_license_id"] = active_license_refs[0].id
+        order_license_payload["converted_license_ref"] = active_license_refs[0].license_ref
     return PendingOrderResponse.model_validate(
         {
             "id": order.id,
@@ -36,10 +45,46 @@ def to_pending_order_response(order: PendingOrder) -> PendingOrderResponse:
             "evidence_transfer_status": order.evidence_transfer_status,
             "evidence_transfer_detail": order.evidence_transfer_detail,
             "evidence_transfer_failed_at": order.evidence_transfer_failed_at,
-            "items": [SourcingItemSummary.model_validate(item) for item in items],
+            **order_license_payload,
+            "items": [
+                SourcingItemSummary.model_validate(
+                    {
+                        **{column.name: getattr(item, column.name) for column in item.__table__.columns},
+                        **converted_license_refs.get(item.id, {}),
+                    }
+                )
+                for item in items
+            ],
             "documents": [ProcurementDocumentResponse.model_validate(document) for document in documents],
         }
     )
+
+
+def _converted_license_refs_by_item(items: list[SourcingItem], licenses: list[License]) -> dict[int, dict]:
+    refs: dict[int, dict] = {}
+    if not items or not licenses:
+        return refs
+
+    active_licenses = [license_obj for license_obj in licenses if not license_obj.is_retired]
+    for item in items:
+        exact_matches = [
+            license_obj
+            for license_obj in active_licenses
+            if license_obj.source_sourcing_item_id == item.id
+        ]
+        matches = exact_matches or [
+            license_obj
+            for license_obj in active_licenses
+            if license_obj.publisher_name == item.publisher_name
+            and license_obj.software_description == item.software_description
+        ]
+        license_ids = [license_obj.id for license_obj in matches]
+        payload: dict = {"converted_license_ids": license_ids}
+        if len(matches) == 1:
+            payload["converted_license_id"] = matches[0].id
+            payload["converted_license_ref"] = matches[0].license_ref
+        refs[item.id] = payload
+    return refs
 
 
 async def get_pending_order_or_404(
@@ -55,7 +100,9 @@ async def get_pending_order_or_404(
             .selectinload(SourcingItem.sourcing_request)
             .selectinload(SourcingRequest.quote_documents),
             selectinload(PendingOrder.documents),
+            selectinload(PendingOrder.licenses),
         )
+    query = query.execution_options(populate_existing=True)
     result = await db.execute(query)
     order = result.scalar_one_or_none()
     if order is None:
@@ -70,7 +117,7 @@ async def list_pending_order_records(
     offset: int,
     include_evidence_issues: bool = False,
 ) -> list[PendingOrder]:
-    status_filter = PendingOrder.status != PendingOrderStatus.converted
+    status_filter = PendingOrder.status.in_([PendingOrderStatus.pending, PendingOrderStatus.invoice_received])
     if include_evidence_issues:
         status_filter = or_(
             status_filter,
@@ -94,8 +141,34 @@ async def list_pending_order_records(
             .selectinload(SourcingItem.sourcing_request)
             .selectinload(SourcingRequest.quote_documents),
             selectinload(PendingOrder.documents),
+            selectinload(PendingOrder.licenses),
         )
         .order_by(PendingOrder.created_at.desc())
+        .offset(offset)
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    result = await db.execute(query)
+    return list(result.scalars().all())
+
+
+async def list_pending_order_history_records(
+    db: AsyncSession,
+    *,
+    limit: int | None,
+    offset: int,
+) -> list[PendingOrder]:
+    query = (
+        select(PendingOrder)
+        .where(PendingOrder.status.in_([PendingOrderStatus.converted, PendingOrderStatus.cancelled]))
+        .options(
+            selectinload(PendingOrder.items)
+            .selectinload(SourcingItem.sourcing_request)
+            .selectinload(SourcingRequest.quote_documents),
+            selectinload(PendingOrder.documents),
+            selectinload(PendingOrder.licenses),
+        )
+        .order_by(PendingOrder.updated_at.desc(), PendingOrder.created_at.desc())
         .offset(offset)
     )
     if limit is not None:
@@ -154,6 +227,24 @@ async def delete_pending_order_record(db: AsyncSession, order_id: int) -> str:
     label = order.po_number or order.supplier or str(order_id)
     await db.delete(order)
     return label, stored_paths
+
+
+async def cancel_pending_order_record(db: AsyncSession, order_id: int) -> PendingOrder:
+    order = await get_pending_order_or_404(db, order_id, include_items=True)
+    ensure_pending_order_editable(order, action="cancel")
+
+    renewal_ids = [item.renewal_for_license_id for item in order.items if item.renewal_for_license_id]
+    order.status = PendingOrderStatus.cancelled
+    for item in order.items:
+        item.status = SourcingStatus.cancelled
+
+    await db.flush()
+    if renewal_ids:
+        from app.services.sourcing_service import clear_pending_renewal_if_no_open_sourcing
+
+        for renewal_id in renewal_ids:
+            await clear_pending_renewal_if_no_open_sourcing(db, renewal_id)
+    return order
 
 
 async def add_pending_order_item_record(
@@ -226,8 +317,8 @@ async def delete_pending_order_item_record(
 
 
 def ensure_pending_order_editable(order: PendingOrder, *, action: str = "modify") -> None:
-    if order.status == PendingOrderStatus.converted:
-        raise HTTPException(status_code=409, detail=f"Cannot {action} a converted order")
+    if order.status in {PendingOrderStatus.converted, PendingOrderStatus.cancelled}:
+        raise HTTPException(status_code=409, detail=f"Cannot {action} a {order.status.value} order")
 
 
 def _find_order_item(order: PendingOrder, item_id: int) -> SourcingItem:

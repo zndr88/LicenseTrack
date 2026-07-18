@@ -31,13 +31,14 @@ LicenseTrack is what I needed in both roles: a single source of truth for softwa
 - Promote sourcing items into pending purchase orders.
 - Group multiple items under the same purchase order.
 - Convert pending orders into live license records.
+- Keep converted and cancelled sourcing requests and pending orders in searchable history views for later price, quote, PO, invoice, and notes reference.
 - Detect renewal opportunities and support cotermed renewal workflows.
 
 ### License Registry
 
 - Maintain searchable, filterable license records with publisher, contract, purchase order, dates, quantities, costs, status, custom fields, and notes.
 - Preserve sourcing-request and purchase-order milestone dates on resulting license records, with manual enrichment for imported and legacy data.
-- Review record history in the license detail panel, including creator account, creation timestamp, and latest update timestamp.
+- Review record history in the license detail panel, including creator account, creation timestamp, latest update timestamp, and linked procurement trail records.
 - Use status filters for upcoming, active, expiring, expired, pending renewal, renewed, retired, legacy, complete, and incomplete records.
 - Configure visible columns from the Registry toolbar or user settings, reorder columns, save user display preferences, and export CSV data.
 - Create, edit, retire, renew, and link license records.

@@ -14,6 +14,7 @@ const HELP_ARTICLES = [
           "Sourcing is the quote-stage workspace. A sourcing request can hold one or more license lines, quote evidence, supplier details, notes, and renewal context.",
           "When a purchase is ready for a PO, convert the sourcing request to a pending order. Pending orders keep the PO-level context and editable line items until the order is fulfilled.",
           "When the licenses are ready to enter the portfolio, convert the pending order. Each line becomes a license record, procurement evidence is retained, request and purchase milestone dates are captured, and converted orders are locked.",
+          "History buttons on Sourcing Overview and Pending Orders open second, read-only tables below the active work. Converted and cancelled records stay searchable there without cluttering the live pipeline.",
         ],
       },
       {
@@ -22,6 +23,8 @@ const HELP_ARTICLES = [
           "Quote documents belong to sourcing until conversion, then become pending-order procurement evidence.",
           "PO documents and invoices are shared by licenses created from the same pending order.",
           "A reused PO number does not share documents across unrelated pending orders.",
+          "Sourcing history can link forward to the related pending order, including converted pending orders that now live in PO history.",
+          "Pending order history can link forward to created licenses. For multi-line orders, expand the order and use View License on the line.",
           "Maintenance lines require an explicit perpetual, OEM, or freeware/open-source parent during conversion.",
         ],
       },
@@ -61,7 +64,7 @@ const HELP_ARTICLES = [
         heading: "How it works",
         body: [
           "The License Overview table is the central portfolio registry. It supports search, status filters, a toolbar column-category selector for Standard, Advanced, Computed, and Custom Field list columns, saved views, Current View and Full Data CSV exports, and inline edits for common fields.",
-          "Opening a license shows the detail panel with fields, custom fields, documents, notes, maintenance actions, renewal actions, contract links, and a History section with creator and record timestamps.",
+          "Opening a license shows the detail panel with fields, custom fields, documents, notes, maintenance actions, renewal actions, contract links, and a History section with creator timestamps plus linked procurement trail records when available.",
         ],
       },
       {
@@ -111,7 +114,7 @@ const HELP_ARTICLES = [
           "Request Date and Purchase Date preserve sourcing-item and pending-order creation history. They are filled during procurement conversion and can also be edited to enrich imported or legacy records.",
           "Click the Invoice # value or add control in Key Dates & Contract to manage multiple invoice numbers. Reorder the list to choose which invoice appears as the primary invoice in the Registry and exports.",
           "The identity header shows the external reference next to the LT reference when an external reference exists.",
-          "The History section shows the creator account name, record creation timestamp, and last-update timestamp.",
+          "The History section shows the creator account name, record creation timestamp, last-update timestamp, and the Procurement Trail linking back to sourcing and pending-order history when those source records exist.",
           "Inline editing is for quick field corrections; use the detail panel for full review.",
           "Deleting a license permanently removes its license-owned documents.",
         ],
@@ -327,13 +330,16 @@ const HELP_ARTICLES = [
           "Predecessor: the existing license being renewed.",
           "Successor: the license record created by completing a renewal.",
           "Procurement bundle: pending-order-scoped evidence shared by licenses from the same pending order.",
+          "Procurement trail: the linked source records shown in License Details > History, connecting a license back to its sourcing request, sourcing line, pending order, and evidence context.",
         ],
       },
       {
         heading: "Workflow terms",
         bullets: [
           "Sourcing request: quote-stage procurement parent.",
+          "Sourcing history: the read-only converted/cancelled sourcing table shown below active sourcing when History is enabled.",
           "Pending order: PO-stage procurement parent.",
+          "Pending order history: the read-only converted/cancelled PO table shown below active pending orders when History is enabled.",
           "Coterm renewal: a renewal that aligns several predecessor licenses to one successor period.",
           "Break-glass admin: the protected local admin account retained for recovery.",
         ],

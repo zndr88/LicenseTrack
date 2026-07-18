@@ -7,12 +7,15 @@ const makeItem = (overrides = {}) => ({
   isRenewal: false,
   renewalForLicenseId: null,
   publisherName: "Adobe",
+  softwareDescription: "Adobe Creative Cloud",
   ...overrides,
 });
 
 const makeLicense = (overrides = {}) => ({
   id: 1,
   endDate: "2025-12-31",
+  licenseMetric: "per_user",
+  skuCode: "",
   ...overrides,
 });
 
@@ -61,7 +64,7 @@ describe("useCotermDetection", () => {
     expect(result.current).toEqual([]);
   });
 
-  it("detects a coterm group when 2 renewals share publisher and end date", () => {
+  it("detects a coterm group when 2 renewals share product, metric, and end date", () => {
     const items = [
       makeItem({ id: 1, isRenewal: true, renewalForLicenseId: 100, publisherName: "Adobe" }),
       makeItem({ id: 2, isRenewal: true, renewalForLicenseId: 101, publisherName: "Adobe" }),
@@ -75,6 +78,53 @@ describe("useCotermDetection", () => {
     expect(result.current[0].publisher).toBe("Adobe");
     expect(result.current[0].endDate).toBe("2025-12-31");
     expect(result.current[0].ids).toEqual([1, 2]);
+  });
+
+  it("does not group same-publisher renewals for different software descriptions", () => {
+    const items = [
+      makeItem({ id: 1, isRenewal: true, renewalForLicenseId: 100, publisherName: "Adobe", softwareDescription: "Photoshop" }),
+      makeItem({ id: 2, isRenewal: true, renewalForLicenseId: 101, publisherName: "Adobe", softwareDescription: "Illustrator" }),
+    ];
+    const licenses = [
+      makeLicense({ id: 100, endDate: "2025-12-31" }),
+      makeLicense({ id: 101, endDate: "2025-12-31" }),
+    ];
+    const { result } = renderHook(() => useCotermDetection(items, licenses));
+    expect(result.current).toEqual([]);
+  });
+
+  it("does not group same-product renewals with different metrics", () => {
+    const items = [
+      makeItem({ id: 1, isRenewal: true, renewalForLicenseId: 100 }),
+      makeItem({ id: 2, isRenewal: true, renewalForLicenseId: 101 }),
+    ];
+    const licenses = [
+      makeLicense({ id: 100, licenseMetric: "per_user" }),
+      makeLicense({ id: 101, licenseMetric: "site" }),
+    ];
+    const { result } = renderHook(() => useCotermDetection(items, licenses));
+    expect(result.current).toEqual([]);
+  });
+
+  it("allows blank SKUs but blocks conflicting present SKUs", () => {
+    const items = [
+      makeItem({ id: 1, isRenewal: true, renewalForLicenseId: 100 }),
+      makeItem({ id: 2, isRenewal: true, renewalForLicenseId: 101 }),
+      makeItem({ id: 3, isRenewal: true, renewalForLicenseId: 102 }),
+    ];
+    const compatibleLicenses = [
+      makeLicense({ id: 100, skuCode: "SKU-A" }),
+      makeLicense({ id: 101, skuCode: "" }),
+    ];
+    const incompatibleLicenses = [
+      makeLicense({ id: 100, skuCode: "SKU-A" }),
+      makeLicense({ id: 101, skuCode: "" }),
+      makeLicense({ id: 102, skuCode: "SKU-B" }),
+    ];
+
+    expect(renderHook(() => useCotermDetection(items.slice(0, 2), compatibleLicenses)).result.current).toHaveLength(1);
+    expect(renderHook(() => useCotermDetection(items, incompatibleLicenses)).result.current).toHaveLength(1);
+    expect(renderHook(() => useCotermDetection(items, incompatibleLicenses)).result.current[0].ids).toEqual([1, 2]);
   });
 
   it("is case-insensitive when matching publisher names", () => {

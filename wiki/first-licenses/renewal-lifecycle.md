@@ -37,6 +37,8 @@ When converting, you can attach the item to an **existing PO** or **create a new
 
 ![Converting the sourcing item to a purchase order](../assets/renewal-06-convert-to-po.png)
 
+After conversion, the sourcing request leaves the active Sourcing Overview table and remains available through the **History** button. Sourcing history opens as a second read-only table below active sourcing work. It keeps the old request id, line id, quote evidence, supplier, pricing, and notes, and it can link forward to the related pending order.
+
 ## Pending orders
 
 Once converted, the item clears out of sourcing and enters the **Pending Orders** phase.
@@ -49,6 +51,8 @@ You get a chance to review the purchase and upload the received invoice, if you 
 
 ![Reviewing the purchase and uploading the invoice](../assets/renewal-08-review-invoice.png)
 
+After conversion to licenses, the pending order leaves the active Pending Orders table and remains available through the **History** button. Pending-order history is also read-only. It keeps the PO id, line ids, PO document, carried-forward quote context, invoice evidence, and links to the license records created from each line.
+
 ## The lifecycle closes
 
 The new record becomes the **active** license. The previous record — which was in the pending state — is marked **renewed**.
@@ -56,6 +60,8 @@ The new record becomes the **active** license. The previous record — which was
 Looking the license up in the License Overview, you'll see the historical link back to the previous term via **View Previous**.
 
 ![The renewed license with a link back to the previous term](../assets/renewal-09-renewed-link.png)
+
+The renewed license's **History** section also shows the procurement trail when the renewal passed through LicenseTrack sourcing and pending orders. From there you can jump back to the historical sourcing item, then through to the historical PO, and finally back to the created license. This is useful when an old renewal is restarted months later and you need the previous quote, notes, or PO evidence for reference.
 
 !!! info "About the LT-Reference number"
     You might notice the LT-Reference number is unchanged. A license keeps a single unique identifier for its whole life — on renewal in future years the **year** in the reference changes, but the identifier number does not. Because this is an example renewal within the same year, both records show the same year.

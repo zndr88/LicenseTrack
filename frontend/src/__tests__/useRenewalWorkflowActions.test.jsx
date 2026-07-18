@@ -13,6 +13,7 @@ import * as licensesApi from "../api/licenses.js";
 vi.mock("../api/licenses.js", () => ({
   cancelRenewal: vi.fn(),
   initiateRenewal: vi.fn(),
+  initiateRenewalBundle: vi.fn(),
 }));
 
 const license = {
@@ -25,6 +26,20 @@ const license = {
 const renewalResponse = {
   license: { ...license, lifecycleStatus: "pending_renewal" },
   sourcingItem: { id: 7, renewalForLicenseId: 1 },
+};
+
+const bundleResponse = {
+  licenses: [
+    { ...license, lifecycleStatus: "pending_renewal" },
+    { ...license, id: 2, lifecycleStatus: "pending_renewal" },
+  ],
+  sourcingRequest: {
+    id: 20,
+    items: [
+      { id: 7, renewalForLicenseId: 1 },
+      { id: 8, renewalForLicenseId: 2 },
+    ],
+  },
 };
 
 function makeQueryClient() {
@@ -49,6 +64,7 @@ function renderRenewalActions(props = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   licensesApi.initiateRenewal.mockResolvedValue({ data: renewalResponse, error: null });
+  licensesApi.initiateRenewalBundle.mockResolvedValue({ data: bundleResponse, error: null });
   licensesApi.cancelRenewal.mockResolvedValue({
     data: { license, poWarning: false },
     error: null,
@@ -93,6 +109,28 @@ describe("useRenewalWorkflowActions", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.licenseStats });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.renewals });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.notifications });
+  });
+
+  test("starts a renewal bundle and stores all returned sourcing lines", async () => {
+    const { result, queryClient } = renderRenewalActions({
+      onSourcingCreated: vi.fn(),
+      onRenewalStarted: vi.fn(),
+    });
+    queryClient.setQueryData(queryKeys.licenses, {
+      licenses: [license, { ...license, id: 2 }],
+    });
+
+    await act(async () => {
+      const outcome = await result.current.startRenewalBundle([1, 2]);
+      expect(outcome.ok).toBe(true);
+    });
+
+    expect(licensesApi.initiateRenewalBundle).toHaveBeenCalledWith([1, 2]);
+    expect(queryClient.getQueryData(queryKeys.licenses).licenses).toEqual([
+      expect.objectContaining({ id: 1, lifecycleStatus: "pending_renewal" }),
+      expect.objectContaining({ id: 2, lifecycleStatus: "pending_renewal" }),
+    ]);
+    expect(queryClient.getQueryData(queryKeys.sourcingItems)).toEqual(bundleResponse.sourcingRequest.items);
   });
 
   test("cancels renewal and reports pending-order cleanup warnings", async () => {

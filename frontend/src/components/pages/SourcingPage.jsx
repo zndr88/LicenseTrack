@@ -55,9 +55,11 @@ function filterSourcingRequests(requests, search) {
   return requests.filter((request) =>
     (request.supplier ?? "").toLowerCase().includes(query) ||
     (request.contactEmail ?? "").toLowerCase().includes(query) ||
+    (request.notes ?? "").toLowerCase().includes(query) ||
     (request.items ?? []).some((item) =>
       (item.publisherName ?? "").toLowerCase().includes(query) ||
-      (item.softwareDescription ?? "").toLowerCase().includes(query)
+      (item.softwareDescription ?? "").toLowerCase().includes(query) ||
+      (item.notes ?? "").toLowerCase().includes(query)
     )
   );
 }
@@ -78,11 +80,16 @@ export default function SourcingPage({
   const [deleteSourcingRequestTarget, setDeleteSourcingRequestTarget] = useState(null);
   const [deleteSourcingId, setDeleteSourcingId] = useState(null);
   const [showConvertModal, setShowConvertModal] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [search, setSearch] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
+  const [historySortCol, setHistorySortCol] = useState("created");
+  const [historySortDir, setHistorySortDir] = useState("desc");
   const [highlightedRowId, setHighlightedRowId] = useState(null);
   const [expandedRequestId, setExpandedRequestId] = useState(null);
+  const [expandedHistoryRequestId, setExpandedHistoryRequestId] = useState(null);
   const [localToast, setLocalToast] = useState(null);
   const tableRef = useRef(null);
 
@@ -92,12 +99,15 @@ export default function SourcingPage({
   }, []);
 
   const {
+    historyLoading,
     licenses,
     sourcingItems,
+    sourcingHistoryRequests,
     sourcingLoading,
     sourcingRequests,
     refetch,
-  } = useSourcingPageData({ showToast });
+    refetchHistory,
+  } = useSourcingPageData({ showToast, includeHistory: showHistory });
 
   const {
     computedMergeQty,
@@ -113,7 +123,7 @@ export default function SourcingPage({
     setSelectedForMerge,
     showMergeModal,
     toggleSelect,
-  } = useSourcingMerge({ sourcingItems, queryClient, showToast });
+  } = useSourcingMerge({ sourcingItems, licenses, queryClient, showToast });
 
   const {
     quoteInputRef,
@@ -127,7 +137,7 @@ export default function SourcingPage({
     handleCreateSourcingRequest,
     handleUpdateSourcingItem,
     handleDeleteSourcingItem,
-    handleDeleteSourcingRequest,
+    handleCancelSourcingRequest,
     handleConvertSourcingRequest,
     handleExportSourcingCsv,
   } = useSourcingActions({
@@ -142,10 +152,15 @@ export default function SourcingPage({
 
   useEffect(() => {
     if (!highlightId) return;
+    if (sourcingLoading) return;
     const parentRequest = sourcingRequests.find((request) =>
       (request.items ?? []).some((item) => item.id === highlightId)
     );
-    if (parentRequest) setExpandedRequestId(parentRequest.id);
+    if (!parentRequest) {
+      setShowHistory(true);
+      return undefined;
+    }
+    setExpandedRequestId(parentRequest.id);
     const el = document.querySelector(`[data-sourcing-row="${highlightId}"]`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     setHighlightedRowId(highlightId);
@@ -154,18 +169,55 @@ export default function SourcingPage({
       if (onClearHighlight) onClearHighlight();
     }, 2000);
     return () => clearTimeout(t);
-  }, [highlightId, sourcingRequests, onClearHighlight]);
+  }, [highlightId, sourcingRequests, sourcingLoading, onClearHighlight]);
+
+  useEffect(() => {
+    if (!highlightId || !showHistory) return;
+    const parentRequest = sourcingHistoryRequests.find((request) =>
+      (request.items ?? []).some((item) => item.id === highlightId)
+    );
+    if (!parentRequest) return;
+
+    setExpandedHistoryRequestId(parentRequest.id);
+    const scrollTimer = setTimeout(() => {
+      const el = document.querySelector(`[data-sourcing-row="${highlightId}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+    setHighlightedRowId(highlightId);
+    const clearTimer = setTimeout(() => {
+      setHighlightedRowId(null);
+      if (onClearHighlight) onClearHighlight();
+    }, 2000);
+    return () => {
+      clearTimeout(scrollTimer);
+      clearTimeout(clearTimer);
+    };
+  }, [highlightId, showHistory, sourcingHistoryRequests, onClearHighlight]);
 
   const cotermGroups = useCotermDetection(sourcingItems, licenses);
   const displayed = useMemo(
     () => sortSourcingRequests(filterSourcingRequests(sourcingRequests, search), sortCol, sortDir),
     [sourcingRequests, search, sortCol, sortDir]
   );
+  const displayedHistory = useMemo(
+    () => sortSourcingRequests(
+      filterSourcingRequests(sourcingHistoryRequests, historySearch),
+      historySortCol,
+      historySortDir
+    ),
+    [sourcingHistoryRequests, historySearch, historySortCol, historySortDir]
+  );
 
   const handleSort = (col) => {
     if (sortCol !== col) { setSortCol(col); setSortDir("asc"); }
     else if (sortDir === "asc") { setSortDir("desc"); }
     else { setSortCol(null); setSortDir("asc"); }
+  };
+
+  const handleHistorySort = (col) => {
+    if (historySortCol !== col) { setHistorySortCol(col); setHistorySortDir("asc"); }
+    else if (historySortDir === "asc") { setHistorySortDir("desc"); }
+    else { setHistorySortCol(null); setHistorySortDir("asc"); }
   };
 
   const handleSelectGroup = (groupIds) => {
@@ -183,6 +235,9 @@ export default function SourcingPage({
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input ref={quoteInputRef} type="file" style={{ display: "none" }} onChange={handleQuoteSelected} />
+            <button className="btn btn-g" onClick={() => setShowHistory((value) => !value)}>
+              <Icon name="archive" size={13} />{showHistory ? "Hide History" : "History"}
+            </button>
             {perms.canEdit && (
               <button className="btn btn-p" onClick={() => setShowSourcingModal({ item: null })}>
                 <Icon name="plus" size={13} />Add Request
@@ -242,9 +297,60 @@ export default function SourcingPage({
             onUploadQuote={handleUploadQuote}
             onDownloadQuote={handleDownloadQuote}
             onDeleteRequest={setDeleteSourcingRequestTarget}
+            onNavigateToPendingOrder={onNavigateToPendingOrder}
             onRefetch={refetch}
             onExportCsv={handleExportSourcingCsv}
           />
+        )}
+
+        {showHistory && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 14, letterSpacing: 0, color: "var(--text-1)" }}>
+                  Sourcing History
+                </h3>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-3)" }}>
+                  Converted and cancelled requests kept for price, quote, and notes reference.
+                </p>
+              </div>
+              {historyLoading && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--text-3)", fontSize: 12 }}>
+                  <span className="spinner" style={{ margin: 0, width: 14, height: 14 }} />
+                  Loading history...
+                </span>
+              )}
+            </div>
+            <SourcingTable
+              displayed={displayedHistory}
+              licenses={licenses}
+              userSettings={userSettings}
+              perms={perms}
+              mode="history"
+              search={historySearch}
+              setSearch={setHistorySearch}
+              selectedForMerge={new Set()}
+              mergeEligible={false}
+              onOpenMerge={() => {}}
+              onSort={handleHistorySort}
+              sortCol={historySortCol}
+              sortDir={historySortDir}
+              highlightedRowId={highlightedRowId}
+              expandedRequestId={expandedHistoryRequestId}
+              onRowToggle={setExpandedHistoryRequestId}
+              onToggleSelect={() => {}}
+              onEditItem={() => {}}
+              onDeleteItem={() => {}}
+              onAddItem={() => {}}
+              onConvert={() => {}}
+              onUploadQuote={() => {}}
+              onDownloadQuote={handleDownloadQuote}
+              onDeleteRequest={() => {}}
+              onNavigateToPendingOrder={onNavigateToPendingOrder}
+              onRefetch={refetchHistory}
+              onExportCsv={() => {}}
+            />
+          </div>
         )}
       </div>
 
@@ -333,13 +439,13 @@ export default function SourcingPage({
 
       {deleteSourcingRequestTarget !== null && (
         <ConfirmDialog
-          title="Delete Sourcing Request"
-          message="Are you sure you want to delete this sourcing request and all of its license lines? Any linked license renewal process without another sourcing line will be cancelled. This action cannot be undone."
-          confirmLabel="Delete"
+          title="Cancel Sourcing Request"
+          message="Move this sourcing request and its license lines to history? It will leave the active queue, but its quote, prices, and notes stay available for reference."
+          confirmLabel="Cancel Request"
           danger
           onCancel={() => setDeleteSourcingRequestTarget(null)}
           onConfirm={async () => {
-            const success = await handleDeleteSourcingRequest(deleteSourcingRequestTarget);
+            const success = await handleCancelSourcingRequest(deleteSourcingRequestTarget);
             if (success) setDeleteSourcingRequestTarget(null);
           }}
         />

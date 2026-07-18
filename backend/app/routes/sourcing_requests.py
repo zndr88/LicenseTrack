@@ -16,9 +16,12 @@ from app.schemas.sourcing import (
 from app.services.audit_service import diff_fields, log_event
 from app.services.sourcing_service import (
     add_sourcing_request_item_record,
+    assert_sourcing_request_editable,
+    cancel_sourcing_request_record,
     create_sourcing_request_record,
     delete_sourcing_request_record,
     get_sourcing_request_or_404,
+    list_sourcing_request_history_records,
     list_sourcing_request_records,
 )
 
@@ -33,6 +36,16 @@ async def list_sourcing_requests(
     _editor: User = Depends(require_editor_or_admin),
 ) -> list[SourcingRequestResponse]:
     requests = await list_sourcing_request_records(db)
+    await db.commit()
+    return [SourcingRequestResponse.model_validate(request) for request in requests]
+
+
+@router.get("/requests/history", response_model=list[SourcingRequestResponse])
+async def list_sourcing_request_history(
+    db: DbSession,
+    _editor: User = Depends(require_editor_or_admin),
+) -> list[SourcingRequestResponse]:
+    requests = await list_sourcing_request_history_records(db)
     await db.commit()
     return [SourcingRequestResponse.model_validate(request) for request in requests]
 
@@ -80,6 +93,7 @@ async def update_sourcing_request(
     _editor: User = Depends(require_editor_or_admin),
 ) -> SourcingRequestResponse:
     sourcing_request = await get_sourcing_request_or_404(db, request_id)
+    assert_sourcing_request_editable(sourcing_request)
     before = {c.name: getattr(sourcing_request, c.name) for c in sourcing_request.__table__.columns}
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
     for field, value in update_data.items():
@@ -99,6 +113,29 @@ async def update_sourcing_request(
             target_label=sourcing_request.supplier or f"Sourcing request {request_id}",
             detail=diff,
         )
+    await db.commit()
+    sourcing_request = await get_sourcing_request_or_404(db, request_id)
+    return SourcingRequestResponse.model_validate(sourcing_request)
+
+
+@router.post("/requests/{request_id}/cancel", response_model=SourcingRequestResponse)
+async def cancel_sourcing_request(
+    request_id: int,
+    request: Request,
+    db: DbSession,
+    _editor: User = Depends(require_editor_or_admin),
+) -> SourcingRequestResponse:
+    sourcing_request = await cancel_sourcing_request_record(db, request_id)
+    ip = request.client.host if request.client else None
+    await log_event(
+        db,
+        "sourcing_request.cancelled",
+        actor=_editor,
+        ip_address=ip,
+        target_type="sourcing_request",
+        target_id=str(request_id),
+        target_label=sourcing_request.supplier or f"Sourcing request {request_id}",
+    )
     await db.commit()
     sourcing_request = await get_sourcing_request_or_404(db, request_id)
     return SourcingRequestResponse.model_validate(sourcing_request)

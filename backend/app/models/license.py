@@ -92,6 +92,12 @@ class License(Base):
     pending_order_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("pending_orders.id"), nullable=True, index=True
     )
+    source_sourcing_item_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("sourcing_items.id", use_alter=True, name="fk_license_source_sourcing_item"),
+        nullable=True,
+        index=True,
+    )
     request_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     purchase_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -218,6 +224,10 @@ class License(Base):
         foreign_keys=[active_maintenance_id],
         remote_side="License.id",
         post_update=True,
+    )
+    source_sourcing_item: Mapped["SourcingItem | None"] = relationship(  # noqa: F821
+        "SourcingItem",
+        foreign_keys=[source_sourcing_item_id],
     )
 
     @property

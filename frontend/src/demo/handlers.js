@@ -5,10 +5,10 @@ import {
   backfillMissingSourcingRequests, buildSourcingItem, buildSourcingRequestResponse,
   ensureSourcingRequestForItem, assertSourcingItemEditable, convertSourcingItemToOrder,
   convertSourcingRequestToOrder, mergeCotermSourcingItems, handleSourcingItemDeleteSideEffects,
-  ensurePendingOrderEditable, createPendingOrderRecord, deletePendingOrderRecord,
-  addPendingOrderItemsBulk, rebuildPendingOrderItems,
-  convertPendingOrderToLicenses, batchConvertPendingOrderToLicenses,
-  buildRenewalWorkbenchRows,
+  ensurePendingOrderEditable, createPendingOrderRecord, deletePendingOrderRecord, cancelPendingOrderRecord,
+  addPendingOrderItemsBulk, rebuildPendingOrderItems, withPendingOrderLicenseRefs,
+  convertPendingOrderToLicenses, batchConvertPendingOrderToLicenses, buildLicenseProcurementTrail,
+  buildRenewalWorkbenchRows, initiateRenewalBundleRecord,
 } from "./store.js";
 import { buildLicense } from "./fixtures.js";
 import { datetimeDaysAgo } from "./time.js";
@@ -454,6 +454,10 @@ export const routes = [
     },
   },
   {
+    method: "POST", pattern: /^\/api\/licenses\/renewal-bundle\/initiate$/,
+    handler: async ({ body }) => ({ data: initiateRenewalBundleRecord(body?.licenseIds ?? []), error: null }),
+  },
+  {
     // Mirrors backend/app/services/renewal_orchestrator.py:82-131.
     method: "POST", pattern: /^\/api\/licenses\/(?<id>\d+)\/cancel-renewal$/,
     handler: async ({ params }) => {
@@ -546,6 +550,10 @@ export const routes = [
   {
     method: "GET", pattern: /^\/api\/licenses\/(?<id>\d+)\/documents$/,
     handler: async () => ({ data: [], error: null }),
+  },
+  {
+    method: "GET", pattern: /^\/api\/licenses\/(?<id>\d+)\/procurement-trail$/,
+    handler: async ({ params }) => ({ data: buildLicenseProcurementTrail(findLicenseOr404(Number(params.id))), error: null }),
   },
   {
     method: "POST", pattern: /^\/api\/licenses\/(?<id>\d+)\/documents$/,
@@ -882,13 +890,25 @@ export const routes = [
   },
   {
     // Mirrors backend/app/services/pending_order_service.py:64-85 list_pending_order_records
-    // (converted orders filtered out, newest first).
+    // (only active orders, newest first).
     method: "GET", pattern: /^\/api\/pending-orders$/,
     handler: async () => ({
       data: store.pendingOrders
-        .filter((o) => o.status !== "converted")
+        .filter((o) => o.status === "pending" || o.status === "invoice_received")
         .slice()
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(withPendingOrderLicenseRefs),
+      error: null,
+    }),
+  },
+  {
+    method: "GET", pattern: /^\/api\/pending-orders\/history$/,
+    handler: async () => ({
+      data: store.pendingOrders
+        .filter((o) => o.status === "converted" || o.status === "cancelled")
+        .slice()
+        .sort((a, b) => new Date(b.updatedAt ?? b.createdAt) - new Date(a.updatedAt ?? a.createdAt))
+        .map(withPendingOrderLicenseRefs),
       error: null,
     }),
   },
@@ -906,7 +926,7 @@ export const routes = [
   },
   {
     method: "GET", pattern: /^\/api\/pending-orders\/(?<id>\d+)$/,
-    handler: async ({ params }) => ({ data: findPendingOrderOr404(Number(params.id)), error: null }),
+    handler: async ({ params }) => ({ data: withPendingOrderLicenseRefs(findPendingOrderOr404(Number(params.id))), error: null }),
   },
   {
     // Mirrors backend/app/services/pending_order_service.py:100-114 apply_pending_order_update
@@ -922,6 +942,13 @@ export const routes = [
       }
       order.updatedAt = new Date().toISOString();
       return { data: order, error: null };
+    },
+  },
+  {
+    method: "POST", pattern: /^\/api\/pending-orders\/(?<id>\d+)\/cancel$/,
+    handler: async ({ params }) => {
+      const order = findPendingOrderOr404(Number(params.id));
+      return { data: cancelPendingOrderRecord(order), error: null };
     },
   },
   {

@@ -8,7 +8,9 @@ The pipeline runs in three connected stages.
 
 The first stage is Sourcing. A sourcing request is the parent procurement container for quote-stage work. It can hold one or more license line items, and each child line item represents a license to buy or renew. This means a single supplier quote or buying motion can contain multiple license lines without duplicating parent-level context.
 
-On the Sourcing Overview page, request rows can be expanded to show their license line items. The parent request table shows request-level evidence inline, including uploaded quote downloads in the Quote column. The request row owns request-level actions such as quote upload, conversion to pending order, and deleting the full request. The child line rows own item-level actions such as edit, delete, and coterm merge selection. Quantity displays use your personal number-format setting.
+On the Sourcing Overview page, request rows can be expanded to show their license line items. The parent request table shows request-level evidence inline, including uploaded quote downloads in the Quote column. The request row owns request-level actions such as quote upload, conversion to pending order, and cancelling the full request. The child line rows own item-level actions such as edit, delete, and coterm merge selection. Quantity displays use your personal number-format setting.
+
+The History button on Sourcing Overview opens a second table below the active sourcing table. This history table contains converted and cancelled sourcing requests, has its own search box, and is read-only: users can download quote evidence and inspect request and line details, but cannot add, edit, merge, convert, or cancel history rows. Converted sourcing rows keep their request id and line ids. When a converted sourcing request is linked to a pending order, View PO opens the matching active or historical pending order; when several POs are linked, expand the sourcing request and choose the PO from the relevant line.
 
 Quote documents are uploaded against the sourcing request. They remain tied to the sourcing origin during sourcing and pending-order work, then become pending-order-scoped procurement documents when the pending order is converted into licenses.
 
@@ -18,7 +20,9 @@ When procurement is ready to raise a PO, the sourcing request is converted to a 
 
 The second stage is Pending Orders. A pending order is the PO-level parent container. It has one or more nested line items that came from sourcing or were added directly during the pending-order phase. Pending Orders is a continuation of the sourcing work, so line items remain actionable until the PO is fully converted into licenses.
 
-On the Pending Orders page, the PO parent table mirrors the sourcing overview layout: PO number, supplier, item count, total PO value, created date, purchase-order document, status, and actions. Uploaded PO documents are downloaded from the parent row's PO column and can be deleted while the pending order remains editable. The parent row owns PO-level actions such as edit, purchase-order document upload, convert, and delete. Expanded child rows own line-level actions such as quote download, edit, and delete. Users can also add forgotten license lines during this phase. Quotes remain owned by the originating sourcing request and are visible from the pending-order line when that line came from sourcing. Quantity displays use your personal number-format setting.
+On the Pending Orders page, the PO parent table mirrors the sourcing overview layout: PO number, supplier, item count, total PO value, created date, purchase-order document, status, and actions. Uploaded PO documents are downloaded from the parent row's PO column and can be deleted while the pending order remains editable. The parent row owns PO-level actions such as edit, purchase-order document upload, convert, and cancel. Expanded child rows own line-level actions such as quote download, edit, and delete. Users can also add forgotten license lines during this phase. Quotes remain owned by the originating sourcing request and are visible from the pending-order line when that line came from sourcing. Quantity displays use your personal number-format setting.
+
+The History button on Pending Orders opens a second table below the active pending-order table. Converted and cancelled POs are searchable there without cluttering active PO work. History rows are locked against ordinary PO and line edits, but they keep PO documents, carried-forward quote evidence, invoice evidence, order ids, line ids, and conversion references. If one license was created from the historical order, View License appears on the parent row. If multiple licenses were created from the order, expand the order and use View License on the individual line.
 
 The Pending Orders CSV export is flattened for spreadsheet and reporting use. Each pending-order line item becomes its own CSV row, and the parent PO metadata is repeated on every row for that PO. Pending orders with no line items are still exported as one row with blank line-item columns so the parent PO remains visible in reporting. The exported columns include PO number, supplier, status, created date, PO total value, currency, PO line number, publisher, description, quantity, estimated unit price, and estimated line total. PO number acts as the visible relational identifier across rows, while the line number distinguishes item order inside the PO.
 
@@ -34,9 +38,9 @@ After conversion, admins and editors may still add supporting documents to a lic
 
 If a converted line is a maintenance license, the user must explicitly choose its parent. The parent can be an existing active perpetual, OEM, or freeware/open-source license, or an eligible line being converted in the same pending order. LicenseTrack does not auto-link maintenance by PO number.
 
-Once conversion completes, the pending order status becomes converted and the resulting licenses appear in the License Registry. Converted pending orders and their line items are locked against further item-level edits.
+Once conversion completes, the pending order status becomes converted and the resulting licenses appear in the License Registry. Converted pending orders and their line items are locked against further item-level edits and move to the Pending Order History view.
 
-Each resulting license stores two procurement milestone timestamps. Request Date is copied from the sourcing item creation time when a source line exists. Purchase Date is copied from the pending order creation time. The timestamps remain visible under License Details > Key Dates & Contract after conversion. Admins and Editors can edit them later when enriching imported or legacy licenses. During database migration, historical Purchase Date values can be backfilled from the linked pending order. Historical Request Date values are backfilled only when a pending order has one unambiguous source line; multi-line historical orders are left blank rather than guessed.
+Each resulting license stores two procurement milestone timestamps. Request Date is copied from the sourcing item creation time when a source line exists. Purchase Date is copied from the pending order creation time. The timestamps remain visible under License Details > Key Dates & Contract after conversion. The License Details > History section also shows a Procurement Trail when source records are available. The trail links back to the originating sourcing history line and pending-order history record, shows the relevant supplier, description, value, status, and evidence counts, and lets users move from a converted license back through the historical procurement steps. Admins and Editors can edit Request Date and Purchase Date later when enriching imported or legacy licenses. During database migration, historical Purchase Date values can be backfilled from the linked pending order. Historical Request Date values are backfilled only when a pending order has one unambiguous source line; multi-line historical orders are left blank rather than guessed.
 
 Key concepts
 Sourcing request - the parent quote-stage procurement container. It holds supplier/contact/notes context, quote documents, and one or more sourcing items.
@@ -63,6 +67,12 @@ Batch conversion - converting multiple pending order line items into individual 
 
 Procurement milestones - Request Date and Purchase Date snapshots stored on resulting license records so sourcing and PO history remain visible after conversion.
 
+Sourcing history - the read-only converted/cancelled sourcing table shown below active sourcing when History is enabled. It keeps request ids, line ids, quotes, notes, and links to related pending orders.
+
+Pending order history - the read-only converted/cancelled PO table shown below active pending orders when History is enabled. It keeps order ids, line ids, PO documents, invoices, quote context, and links to resulting licenses.
+
+Procurement trail - the linked history shown in License Details > History. It connects the active or renewed license back to the source sourcing request/item, the pending order, and the procurement evidence bundle when those records exist.
+
 Who can use it
 Admins and Editors can create, edit, merge, upload quote documents, convert sourcing requests, manage pending order line items, upload invoices during conversion, and convert pending orders into licenses. Viewers have read-only access where their role and department scope allow it.
 
@@ -80,10 +90,12 @@ Invoice validation/write and quote-document carry-forward are owned by procureme
 File persistence is delegated to storage helpers. Route modules should stay thin: they handle auth, request parsing, response shaping, and audit log wiring while delegating business rules to services.
 
 Things to know
-- Sourcing requests and sourcing items become converted after they are moved into a pending order.
-- Deleting a sourcing request also removes its child line items. For renewal lines, the predecessor license's renewal process is cancelled when no other sourcing line still references it.
+- Sourcing requests and sourcing items become converted after they are moved into a pending order and remain available from Sourcing History.
+- Cancelling a sourcing request moves it and its child line items to Sourcing History. For renewal lines, the predecessor license's renewal process is cancelled when no other sourcing line still references it.
 - Pending order line items remain editable until the pending order is converted into active licenses.
-- Converted pending orders are locked against item-level edits and deletes.
+- Converted and cancelled pending orders are locked against item-level edits and appear in Pending Order History.
+- Sourcing and pending-order history tables are reference views. They preserve old context without reopening the workflow.
+- Click-through links use stored database relationships, not PO-number text matching. A reused PO number does not merge unrelated history.
 - Pending orders with no line items are included in the CSV export as parent-only rows.
 - Quote documents belong to sourcing requests until conversion, then copy once into the pending order's procurement document set. If that copy fails (for example due to a storage error), the pending order is still marked converted but its evidence_transfer_status is set to "failed". The background scheduler automatically retries failed and stuck transfers every 60 seconds, up to 5 attempts. After 5 failed sweep attempts the order is marked "escalated" and a po.evidence_transfer_escalated audit event is emitted; manual intervention is then required to resolve the transfer. Admins and Editors can also trigger a retry immediately using POST /api/pending-orders/{id}/retry-evidence-transfer without re-converting.
 - Quote, purchase-order, and invoice files are shared by licenses created from the same pending order, not by PO number alone.

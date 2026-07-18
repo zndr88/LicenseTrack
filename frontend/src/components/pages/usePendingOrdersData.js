@@ -3,12 +3,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addItemsToPendingOrderBulk,
   batchConvertPendingOrder,
+  cancelPendingOrder as apiCancelPendingOrder,
   convertPendingOrder,
   createPendingOrder as apiCreatePendingOrder,
   deletePendingOrder as apiDeletePendingOrder,
   deletePendingOrderItem as apiDeletePendingOrderItem,
   downloadPendingOrderDocument,
   exportPendingOrdersCsv,
+  getPendingOrderHistory,
   getPendingOrders,
   retryPendingOrderEvidenceTransfer,
   uploadPendingOrderDocument,
@@ -29,6 +31,12 @@ async function fetchPendingOrders() {
   return data ?? [];
 }
 
+async function fetchPendingOrderHistory() {
+  const { data, error } = await getPendingOrderHistory();
+  if (error) throw new Error(error);
+  return data ?? [];
+}
+
 export function usePendingOrdersData({
   showError,
   showSuccess,
@@ -38,6 +46,7 @@ export function usePendingOrdersData({
   onNotificationsReload,
   onNavigateToLicense,
   userSettings,
+  includeHistory = false,
 }) {
   const queryClient = useQueryClient();
   const { data, isLoading: pendingOrdersLoading, error: queryError, refetch } = useQuery({
@@ -45,6 +54,18 @@ export function usePendingOrdersData({
     queryFn: fetchPendingOrders,
   });
   const pendingOrders = data ?? EMPTY_PENDING_ORDERS;
+
+  const {
+    data: historyData,
+    isFetching: historyLoading,
+    error: historyError,
+    refetch: refetchHistory,
+  } = useQuery({
+    queryKey: queryKeys.pendingOrderHistory,
+    queryFn: fetchPendingOrderHistory,
+    enabled: includeHistory,
+  });
+  const pendingOrderHistory = historyData ?? EMPTY_PENDING_ORDERS;
 
   const { data: licensesData } = useQuery({
     queryKey: queryKeys.licenses,
@@ -58,6 +79,10 @@ export function usePendingOrdersData({
   useEffect(() => {
     if (queryError) showError(queryError.message);
   }, [queryError, showError]);
+
+  useEffect(() => {
+    if (historyError) showError(historyError.message);
+  }, [historyError, showError]);
 
   const handleCreatePendingOrder = useCallback(async (payload) => {
     const { items, quoteFile, ...headerPayload } = payload;
@@ -86,6 +111,7 @@ export function usePendingOrdersData({
       if (docError) showError(`PO created but document upload failed: ${docError}`);
     }
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
     onPortfolioStateChange?.();
     return true;
   }, [showError, queryClient, onPortfolioStateChange, userSettings]);
@@ -99,6 +125,19 @@ export function usePendingOrdersData({
     onPortfolioStateChange?.();
     return true;
   }, [showError, queryClient, onPortfolioStateChange]);
+
+  const handleCancelPendingOrder = useCallback(async (id) => {
+    const { error } = await apiCancelPendingOrder(id);
+    if (error) { showError(error); return false; }
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory }),
+    ]);
+    onPortfolioStateChange?.();
+    onRenewalsReload?.();
+    showSuccess("Pending order moved to history.");
+    return true;
+  }, [showError, showSuccess, queryClient, onPortfolioStateChange, onRenewalsReload]);
 
   const handleDeletePendingOrder = useCallback(async (id) => {
     const { error } = await apiDeletePendingOrder(id);
@@ -118,6 +157,7 @@ export function usePendingOrdersData({
     queryClient.setQueryData(queryKeys.pendingOrders, (prev) =>
       (prev ?? []).filter((o) => o.id !== orderId)
     );
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
     onLicensesReload?.();
     onRenewalsReload?.();
     onPortfolioStateChange?.();
@@ -183,6 +223,7 @@ export function usePendingOrdersData({
     const { error } = await uploadPendingOrderDocument(orderId, file);
     if (error) { showError(error); return false; }
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
     showSuccess("Purchase order uploaded.");
     return true;
   }, [showError, showSuccess, queryClient]);
@@ -209,6 +250,7 @@ export function usePendingOrdersData({
     const { error } = await retryPendingOrderEvidenceTransfer(orderId);
     if (error) { showError(error); return false; }
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
     showSuccess("Evidence transfer retry started.");
     return true;
   }, [showError, showSuccess, queryClient]);
@@ -220,6 +262,7 @@ export function usePendingOrdersData({
     queryClient.setQueryData(queryKeys.pendingOrders, (prev) =>
       (prev ?? []).filter((o) => o.id !== orderId)
     );
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
     onLicensesReload?.();
     onRenewalsReload?.();
     onPortfolioStateChange?.();
@@ -236,10 +279,14 @@ export function usePendingOrdersData({
 
   return {
     pendingOrders,
+    pendingOrderHistory,
     pendingOrdersLoading,
+    historyLoading,
     refetch,
+    refetchHistory,
     licenses,
     addingPOItems,
+    handleCancelPendingOrder,
     handleCreatePendingOrder,
     handleUpdatePendingOrder,
     handleDeletePendingOrder,

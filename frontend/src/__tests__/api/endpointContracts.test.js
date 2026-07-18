@@ -38,6 +38,12 @@ describe("frontend API endpoint contracts", () => {
     await licensesApi.getLicenses({ includeRetired: true });
     expect(client.get).toHaveBeenLastCalledWith("/api/licenses?include_retired=true");
 
+    await licensesApi.getLicenseProcurementTrail(7);
+    expect(client.get).toHaveBeenLastCalledWith("/api/licenses/7/procurement-trail");
+
+    await licensesApi.initiateRenewalBundle([7, 8]);
+    expect(client.post).toHaveBeenLastCalledWith("/api/licenses/renewal-bundle/initiate", { licenseIds: [7, 8] });
+
     await licensesApi.bulkDeleteLicenses([1, 2]);
     expect(client.request).toHaveBeenLastCalledWith("/api/licenses/bulk", {
       method: "DELETE",
@@ -165,12 +171,24 @@ describe("frontend API endpoint contracts", () => {
     await pendingOrdersApi.getPendingOrders({ includeEvidenceIssues: true });
     expect(client.get).toHaveBeenLastCalledWith("/api/pending-orders?include_evidence_issues=true");
 
+    await pendingOrdersApi.getPendingOrderHistory();
+    expect(client.get).toHaveBeenLastCalledWith("/api/pending-orders/history");
+
+    await pendingOrdersApi.cancelPendingOrder(4);
+    expect(client.post).toHaveBeenLastCalledWith("/api/pending-orders/4/cancel");
+
     await pendingOrdersApi.retryPendingOrderEvidenceTransfer(4);
     expect(client.post).toHaveBeenLastCalledWith("/api/pending-orders/4/retry-evidence-transfer");
 
     await sourcingApi.uploadSourcingQuoteDocument(5, file);
     expect(client.post.mock.calls.at(-1)[0]).toBe("/api/sourcing/requests/5/quote-documents");
     expect(client.post.mock.calls.at(-1)[1]).toBeInstanceOf(FormData);
+
+    await sourcingApi.getSourcingRequestHistory();
+    expect(client.get).toHaveBeenLastCalledWith("/api/sourcing/requests/history");
+
+    await sourcingApi.cancelSourcingRequest(5);
+    expect(client.post).toHaveBeenLastCalledWith("/api/sourcing/requests/5/cancel");
   });
 
   test("reports API throws query errors so React Query can surface failure state", async () => {

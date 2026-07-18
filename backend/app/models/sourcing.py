@@ -10,6 +10,7 @@ from app.database import Base
 class SourcingStatus(str, enum.Enum):
     sourcing = "sourcing"
     converted = "converted"
+    cancelled = "cancelled"
 
 
 class SourcingRequest(Base):
@@ -103,6 +104,20 @@ class SourcingItem(Base):
     pending_order: Mapped["PendingOrder | None"] = relationship(  # noqa: F821
         "PendingOrder", back_populates="items", foreign_keys=[pending_order_id]
     )
+
+    @property
+    def pending_order_status(self) -> str | None:
+        pending_order = self.__dict__.get("pending_order")
+        if pending_order is None:
+            return None
+        status = pending_order.status
+        return getattr(status, "value", status)
+
+    @property
+    def pending_order_po_number(self) -> str | None:
+        pending_order = self.__dict__.get("pending_order")
+        return pending_order.po_number if pending_order is not None else None
+
     renewal_for_license_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("licenses.id"), nullable=True)
     renewal_for_license: Mapped["License | None"] = relationship(  # noqa: F821
         "License", foreign_keys=[renewal_for_license_id]

@@ -2,10 +2,12 @@ import { del, get, post, put } from "./client.js";
 
 export const getSourcingItems = () => get("/api/sourcing");
 export const getSourcingRequests = () => get("/api/sourcing/requests");
+export const getSourcingRequestHistory = () => get("/api/sourcing/requests/history");
 export const getSourcingItem = (id) => get(`/api/sourcing/${id}`);
 export const createSourcingItem = (data) => post("/api/sourcing", data);
 export const createSourcingRequest = (data) => post("/api/sourcing/requests", data);
 export const updateSourcingRequest = (id, data) => put(`/api/sourcing/requests/${id}`, data);
+export const cancelSourcingRequest = (id) => post(`/api/sourcing/requests/${id}/cancel`);
 export const deleteSourcingRequest = (id) => del(`/api/sourcing/requests/${id}`);
 export const addSourcingRequestItem = (id, data) => post(`/api/sourcing/requests/${id}/items`, data);
 export const updateSourcingItem = (id, data) => put(`/api/sourcing/${id}`, data);

@@ -631,6 +631,144 @@ export function rebuildPendingOrderItems(order) {
   order.totalPoValue = computeTotalPoValue(order.items);
 }
 
+export function withPendingOrderLicenseRefs(order) {
+  const activeLicenses = store.licenses.filter((license) => license.pendingOrderId === order.id && !license.isRetired);
+  const convertedLicenseIds = activeLicenses.map((license) => license.id);
+  const payload = {
+    ...order,
+    convertedLicenseIds,
+    convertedLicenseId: activeLicenses.length === 1 ? activeLicenses[0].id : null,
+    convertedLicenseRef: activeLicenses.length === 1 ? activeLicenses[0].licenseRef ?? null : null,
+  };
+  payload.items = (order.items ?? []).map((item) => {
+    const exactMatches = activeLicenses.filter((license) => license.sourceSourcingItemId === item.id);
+    const matches = exactMatches.length > 0 ? exactMatches : activeLicenses.filter(
+      (license) =>
+        license.publisherName === item.publisherName &&
+        license.softwareDescription === item.softwareDescription
+    );
+    return {
+      ...item,
+      convertedLicenseIds: matches.map((license) => license.id),
+      convertedLicenseId: matches.length === 1 ? matches[0].id : null,
+      convertedLicenseRef: matches.length === 1 ? matches[0].licenseRef ?? null : null,
+    };
+  });
+  return payload;
+}
+
+function normalized(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function findLegacySourceItem(license, order) {
+  if (!order) return { item: null, matchType: "none" };
+  const items = store.sourcingItems.filter((item) => item.pendingOrderId === order.id);
+  const matches = items.filter(
+    (item) =>
+      normalized(item.publisherName) === normalized(license.publisherName) &&
+      normalized(item.softwareDescription) === normalized(license.softwareDescription)
+  );
+  if (matches.length === 1) return { item: matches[0], matchType: "matched" };
+  if (matches.length > 1) return { item: null, matchType: "ambiguous" };
+  return { item: null, matchType: "po_only" };
+}
+
+function buildTrailDocument(document) {
+  return {
+    id: document.id,
+    originalFilename: document.originalFilename,
+    category: document.category,
+    uploadedAt: document.uploadedAt,
+  };
+}
+
+function buildTrailSourcingRequest(request) {
+  if (!request) return null;
+  return {
+    id: request.id,
+    status: request.status,
+    supplier: request.supplier,
+    contactEmail: request.contactEmail,
+    notes: request.notes,
+    createdAt: request.createdAt,
+    updatedAt: request.updatedAt,
+    quoteDocuments: (request.quoteDocuments ?? []).map(buildTrailDocument),
+  };
+}
+
+function buildTrailSourcingItem(item) {
+  if (!item) return null;
+  return {
+    id: item.id,
+    status: item.status,
+    publisherName: item.publisherName,
+    softwareDescription: item.softwareDescription,
+    quantity: item.quantity,
+    estimatedUnitPrice: item.estimatedUnitPrice,
+    estimatedTotalPrice: item.estimatedTotalPrice,
+    currency: item.currency,
+    renewalForLicenseId: item.renewalForLicenseId,
+    cotermPredecessorIds: item.cotermPredecessorIds,
+  };
+}
+
+function buildTrailPendingOrder(order) {
+  if (!order) return null;
+  return {
+    id: order.id,
+    poNumber: order.poNumber,
+    status: order.status,
+    supplier: order.supplier,
+    notes: order.notes,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    documents: (order.documents ?? []).map(buildTrailDocument),
+  };
+}
+
+export function buildLicenseProcurementTrail(license) {
+  const pendingOrder = store.pendingOrders.find((order) => order.id === license.pendingOrderId) ?? null;
+  let sourceItem = store.sourcingItems.find((item) => item.id === license.sourceSourcingItemId) ?? null;
+  let sourceMatchType = sourceItem ? "exact" : "none";
+
+  if (!sourceItem) {
+    const legacyMatch = findLegacySourceItem(license, pendingOrder);
+    sourceItem = legacyMatch.item;
+    sourceMatchType = legacyMatch.matchType;
+  }
+
+  let sourcingRequest = sourceItem
+    ? store.sourcingRequests.find((request) => request.id === sourceItem.sourcingRequestId) ?? null
+    : null;
+
+  if (!sourcingRequest && pendingOrder) {
+    const sourcedItems = store.sourcingItems.filter((item) => item.pendingOrderId === pendingOrder.id && item.sourcingRequestId != null);
+    const requestIds = new Set(sourcedItems.map((item) => item.sourcingRequestId));
+    if (requestIds.size === 1) {
+      sourcingRequest = store.sourcingRequests.find((request) => request.id === sourcedItems[0].sourcingRequestId) ?? null;
+    }
+  }
+
+  return {
+    licenseId: license.id,
+    licenseRef: license.licenseRef,
+    sourcingRequest: buildTrailSourcingRequest(sourcingRequest),
+    sourcingItem: buildTrailSourcingItem(sourceItem),
+    pendingOrder: buildTrailPendingOrder(pendingOrder),
+    conversion: {
+      pendingOrderId: license.pendingOrderId,
+      sourceSourcingItemId: sourceItem?.id ?? license.sourceSourcingItemId ?? null,
+      sourceMatchType,
+      requestDate: license.requestDate,
+      purchaseDate: license.purchaseDate,
+      renewedFromId: license.renewedFromId,
+      predecessorId: license.predecessorId,
+      cotermFromIds: license.cotermFromIds,
+    },
+  };
+}
+
 /** Mirrors backend/app/services/sourcing_service.py:112-133 ensure_sourcing_request_for_item. */
 export function ensureSourcingRequestForItem(item) {
   if (item.sourcingRequestId != null) {
@@ -855,15 +993,37 @@ export function mergeCotermSourcingItems(ids) {
     throw new Error(`Sourcing item(s) are not renewal items: ${notRenewals.join(", ")}`);
   }
 
-  const predecessors = items
-    .map((i) => store.licenses.find((l) => l.id === i.renewalForLicenseId))
-    .filter(Boolean);
+  const predecessors = items.map((i) => store.licenses.find((l) => l.id === i.renewalForLicenseId));
+  const missingPredecessors = items
+    .filter((_, index) => !predecessors[index])
+    .map((i) => i.renewalForLicenseId);
+  if (missingPredecessors.length > 0) {
+    throw new Error(`Predecessor license(s) not found: ${missingPredecessors.join(", ")}`);
+  }
 
   const ineligible = predecessors
     .filter((l) => ["renewed", "legacy"].includes(l.lifecycleStatus) || l.isRetired)
     .map((l) => l.id);
   if (ineligible.length > 0) {
     throw new Error(`Predecessor license(s) are no longer eligible for renewal: ${[...ineligible].sort((a, b) => a - b).join(", ")}`);
+  }
+
+  const productValues = (field) => new Set([
+    ...predecessors.map((license) => normalized(license[field])),
+    ...items.map((item) => normalized(item[field])),
+  ]);
+  if (productValues("publisherName").size > 1) {
+    throw new Error("Coterm merge requires the same publisher.");
+  }
+  if (productValues("softwareDescription").size > 1) {
+    throw new Error("Coterm merge requires the same software description.");
+  }
+  if (productValues("licenseMetric").size > 1) {
+    throw new Error("Coterm merge requires the same license metric.");
+  }
+  const presentSkus = new Set(predecessors.map((license) => normalized(license.skuCode)).filter(Boolean));
+  if (presentSkus.size > 1) {
+    throw new Error("Coterm merge requires matching SKU codes when SKUs are present.");
   }
 
   const sortedPreds = [...predecessors].sort((a, b) => {
@@ -921,6 +1081,96 @@ export function mergeCotermSourcingItems(ids) {
   return merged;
 }
 
+export function initiateRenewalBundleRecord(licenseIds) {
+  const orderedIds = [...new Set((licenseIds ?? []).map(Number))];
+  if (orderedIds.length < 2) {
+    throw new Error("At least two license IDs are required for a renewal bundle");
+  }
+
+  const licenses = orderedIds.map((id) => {
+    const license = store.licenses.find((item) => item.id === id);
+    if (!license) throw new Error(`License(s) not found: ${id}`);
+    if (license.lifecycleStatus === "pending_renewal") {
+      throw new Error("Renewal already initiated for this license");
+    }
+    if (license.lifecycleStatus === "renewed") {
+      throw new Error("License has already been renewed");
+    }
+    if (license.renewedToId != null) {
+      throw new Error(`License ${license.id} has already been renewed`);
+    }
+    if (license.endDate == null) {
+      throw new Error("Cannot initiate renewal on a perpetual license (no end date)");
+    }
+    return license;
+  });
+
+  const poNumbers = new Set(licenses.map((license) => String(license.poNumber || "").trim()));
+  if (poNumbers.size !== 1 || ![...poNumbers][0]) {
+    throw new Error("Renewal bundle licenses must share the same PO number");
+  }
+  if (new Set(licenses.map((license) => license.endDate ?? null)).size !== 1) {
+    throw new Error("Renewal bundle licenses must share the same end date");
+  }
+
+  const commonValue = (field) => {
+    const values = new Set(licenses.map((license) => String(license[field] || "").trim()).filter(Boolean));
+    return values.size === 1 ? [...values][0] : null;
+  };
+  const now = new Date().toISOString();
+  const request = {
+    id: nextId(),
+    supplier: commonValue("supplier"),
+    contactEmail: commonValue("contactEmail"),
+    notes: null,
+    status: "sourcing",
+    createdAt: now,
+    updatedAt: now,
+    createdBy: 1,
+  };
+  store.sourcingRequests.push(request);
+
+  const items = [];
+  for (const license of licenses) {
+    license.lifecycleStatus = "pending_renewal";
+    decorateLicense(license);
+
+    const qty = license.quantity || null;
+    const unitPrice = license.unitPrice || null;
+    const lineTotal = qty && unitPrice ? (Number(qty) * Number(unitPrice)).toFixed(2) : null;
+    const sourcingItem = {
+      id: nextId(),
+      sourcingRequestId: request.id,
+      publisherName: license.publisherName,
+      softwareDescription: license.softwareDescription,
+      quantity: qty,
+      estimatedUnitPrice: unitPrice,
+      estimatedTotalPrice: lineTotal,
+      currency: license.currency,
+      startDate: null,
+      endDate: null,
+      supplier: license.supplier || null,
+      contactEmail: license.contactEmail || null,
+      notes: null,
+      status: "sourcing",
+      pendingOrderId: null,
+      renewalForLicenseId: license.id,
+      cotermPredecessorIds: null,
+      isRenewal: true,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: 1,
+    };
+    store.sourcingItems.push(sourcingItem);
+    items.push(sourcingItem);
+  }
+
+  return {
+    licenses: licenses.map(withComputedCompleteness),
+    sourcingRequest: buildSourcingRequestResponse({ ...request, items }),
+  };
+}
+
 // Pending-order lifecycle: CRUD, item management, and the decisive
 // PO -> license conversion (single and batch).
 // Mirrors backend/app/services/pending_order_service.py,
@@ -931,8 +1181,8 @@ export function mergeCotermSourcingItems(ids) {
 
 /** Mirrors backend/app/services/pending_order_service.py:213-215 ensure_pending_order_editable. */
 export function ensurePendingOrderEditable(order, action = "modify") {
-  if (order.status === "converted") {
-    throw new Error(`Cannot ${action} a converted order`);
+  if (order.status === "converted" || order.status === "cancelled") {
+    throw new Error(`Cannot ${action} a ${order.status} order`);
   }
 }
 
@@ -960,6 +1210,31 @@ export function deletePendingOrderRecord(order) {
     item.updatedAt = now;
   }
   store.pendingOrders = store.pendingOrders.filter((p) => p.id !== order.id);
+}
+
+export function cancelPendingOrderRecord(order) {
+  ensurePendingOrderEditable(order, "cancel");
+  const now = new Date().toISOString();
+  order.status = "cancelled";
+  order.updatedAt = now;
+  const renewalLicenseIds = [];
+  for (const item of store.sourcingItems.filter((i) => i.pendingOrderId === order.id)) {
+    if (item.renewalForLicenseId != null) renewalLicenseIds.push(item.renewalForLicenseId);
+    item.status = "cancelled";
+    item.updatedAt = now;
+  }
+  for (const licenseId of renewalLicenseIds) {
+    const license = store.licenses.find((l) => l.id === licenseId);
+    const openSiblings = store.sourcingItems.filter(
+      (i) => i.renewalForLicenseId === licenseId && i.status !== "cancelled"
+    ).length;
+    if (license && openSiblings === 0 && license.lifecycleStatus === "pending_renewal") {
+      license.lifecycleStatus = null;
+      decorateLicense(license);
+    }
+  }
+  rebuildPendingOrderItems(order);
+  return order;
 }
 
 /**
@@ -1182,6 +1457,9 @@ export function convertPendingOrderToLicenses(order, payload) {
   if (order.status === "converted") {
     throw new Error("Pending order has already been converted");
   }
+  if (order.status === "cancelled") {
+    throw new Error("Pending order has been cancelled");
+  }
 
   const formData = {
     ...normalizeConvertPayload(payload),
@@ -1203,11 +1481,13 @@ export function convertPendingOrderToLicenses(order, payload) {
           throw new Error(`License ${item.renewalForLicenseId} not found for renewal`);
         }
         const itemData = buildPendingOrderItemLicenseData(formData, item, oldLic);
+        itemData.sourceSourcingItemId = item.id;
         const { successor, predecessorIds: marked } = createRenewalSuccessorFromSourcingItem(item, itemData);
         newLicenseEntries.push([successor, "renewed"]);
         predecessorIds.push(...marked);
       } else {
         const itemData = buildPendingOrderItemLicenseData(formData, item, null);
+        itemData.sourceSourcingItemId = item.id;
         newLicenseEntries.push([createPurchaseLicense(itemData), "new_purchase"]);
       }
     }
@@ -1236,6 +1516,9 @@ export function batchConvertPendingOrderToLicenses(order, payload) {
   if (order.status === "converted") {
     throw new Error("Pending order has already been converted");
   }
+  if (order.status === "cancelled") {
+    throw new Error("Pending order has been cancelled");
+  }
   if (!payload || payload.length === 0) {
     throw new Error("Payload must contain at least one item");
   }
@@ -1260,6 +1543,7 @@ export function batchConvertPendingOrderToLicenses(order, payload) {
     const itemData = {
       ...normalizeConvertPayload(rest),
       pendingOrderId: order.id,
+      sourceSourcingItemId: sourcingItem.id,
       requestDate: sourcingItem.createdAt,
       purchaseDate: order.createdAt,
     };

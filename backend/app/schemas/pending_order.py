@@ -51,6 +51,9 @@ class SourcingItemSummary(BaseModel):
     coterm_predecessor_ids: Optional[list[int]] = None
     quote_documents: list[SourcingQuoteDocumentResponse] = []
     is_renewal: bool = False
+    converted_license_id: Optional[int] = None
+    converted_license_ref: Optional[str] = None
+    converted_license_ids: list[int] = []
 
     @model_validator(mode="after")
     def _set_is_renewal(self) -> "SourcingItemSummary":
@@ -102,6 +105,9 @@ class PendingOrderResponse(BaseModel):
     items: list[SourcingItemSummary] = []
     documents: list[ProcurementDocumentResponse] = []
     total_po_value: Optional[str] = None
+    converted_license_id: Optional[int] = None
+    converted_license_ref: Optional[str] = None
+    converted_license_ids: list[int] = []
 
     @model_validator(mode="after")
     def _compute_total_po_value(self) -> "PendingOrderResponse":

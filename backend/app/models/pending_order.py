@@ -11,6 +11,7 @@ class PendingOrderStatus(str, enum.Enum):
     pending = "pending"
     invoice_received = "invoice_received"
     converted = "converted"
+    cancelled = "cancelled"
 
 
 class EvidenceTransferStatus(str, enum.Enum):
@@ -52,3 +53,4 @@ class PendingOrder(Base):
         primaryjoin="PendingOrder.id == foreign(ProcurementDocument.pending_order_id)",
         viewonly=True,
     )
+    licenses: Mapped[list["License"]] = relationship("License", viewonly=True)  # noqa: F821

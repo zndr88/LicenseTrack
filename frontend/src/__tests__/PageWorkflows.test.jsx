@@ -52,12 +52,14 @@ vi.mock("recharts", () => {
 vi.mock("../api/licenses.js", () => ({
   getLicenses: vi.fn(),
   getLicense: vi.fn(),
+  getLicenseProcurementTrail: vi.fn().mockResolvedValue({ data: null, error: null }),
   updateLicense: vi.fn(),
   patchLicenseField: vi.fn(),
   deleteLicense: vi.fn(),
   bulkDeleteLicenses: vi.fn(),
   getStats: vi.fn(),
   initiateRenewal: vi.fn(),
+  initiateRenewalBundle: vi.fn(),
   cancelRenewal: vi.fn(),
   getAllCustomFieldValues: vi.fn(),
   getCustomFieldValues: vi.fn(),
@@ -135,7 +137,9 @@ vi.mock("../api/contracts.js", () => ({
 }));
 
 vi.mock("../api/sourcing.js", () => ({
+  cancelSourcingRequest: vi.fn(),
   getSourcingItems: vi.fn(),
+  getSourcingRequestHistory: vi.fn(),
   getSourcingRequests: vi.fn(),
   getSourcingItem: vi.fn(),
   createSourcingItem: vi.fn(),
@@ -151,11 +155,16 @@ vi.mock("../api/sourcing.js", () => ({
 }));
 
 vi.mock("../api/pendingOrders.js", () => ({
+  addItemsToPendingOrderBulk: vi.fn(),
+  cancelPendingOrder: vi.fn(),
+  deletePendingOrderItem: vi.fn(),
   getPendingOrders: vi.fn(),
+  getPendingOrderHistory: vi.fn(),
   getPendingOrder: vi.fn(),
   createPendingOrder: vi.fn(),
   updatePendingOrder: vi.fn(),
   deletePendingOrder: vi.fn(),
+  updatePendingOrderItem: vi.fn(),
   uploadPendingOrderDocument: vi.fn(),
   downloadPendingOrderDocument: vi.fn(),
   convertPendingOrder: vi.fn(),
@@ -278,11 +287,15 @@ function setupDefaultApiMocks() {
   licensesApi.getStats.mockResolvedValue({ data: { total: 0, active: 0, expiring: 0, expired: 0, renewed: 0 }, error: null });
   licensesApi.getAllCustomFieldValues.mockResolvedValue({ data: { values: [] }, error: null });
   sourcingApi.getSourcingItems.mockResolvedValue({ data: [], error: null });
+  sourcingApi.getSourcingRequestHistory.mockResolvedValue({ data: [], error: null });
   sourcingApi.getSourcingRequests.mockResolvedValue({ data: [], error: null });
+  sourcingApi.cancelSourcingRequest.mockResolvedValue({ error: null });
   sourcingApi.createSourcingRequest.mockResolvedValue({ data: { id: 99, items: [] }, error: null });
   sourcingApi.deleteSourcingRequest.mockResolvedValue({ error: null });
   sourcingApi.exportSourcingCsv.mockResolvedValue({ data: null, error: null });
   pendingOrdersApi.getPendingOrders.mockResolvedValue({ data: [], error: null });
+  pendingOrdersApi.getPendingOrderHistory.mockResolvedValue({ data: [], error: null });
+  pendingOrdersApi.cancelPendingOrder.mockResolvedValue({ data: null, error: null });
   pendingOrdersApi.retryPendingOrderEvidenceTransfer.mockResolvedValue({ data: null, error: null });
   pendingOrdersApi.exportPendingOrdersCsv.mockResolvedValue({ data: null, error: null });
   contractsApi.getContracts.mockResolvedValue({ data: [], error: null });
@@ -942,10 +955,14 @@ describe("SourcingPage workflows", () => {
       createdAt: "2026-01-01T00:00:00Z",
       quoteDocuments: [],
       items: [
-        { id: 11, publisherName: "Acme", softwareDescription: "Acme Renewal A", quantity: "2", currency: "EUR", isRenewal: true, renewalForLicenseId: 101 },
-        { id: 12, publisherName: "Acme", softwareDescription: "Acme Renewal B", quantity: "3", currency: "EUR", isRenewal: true, renewalForLicenseId: 102 },
+        { id: 11, publisherName: "Acme", softwareDescription: "Acme Suite", quantity: "2", currency: "EUR", isRenewal: true, renewalForLicenseId: 101 },
+        { id: 12, publisherName: "Acme", softwareDescription: "Acme Suite", quantity: "3", currency: "EUR", isRenewal: true, renewalForLicenseId: 102 },
       ],
     },
+  ];
+  const mergeLicenses = [
+    license({ id: 101, publisherName: "Acme", softwareDescription: "Acme Suite", endDate: "2026-12-31", skuCode: "ACME-SUITE" }),
+    license({ id: 102, publisherName: "Acme", softwareDescription: "Acme Suite", endDate: "2026-12-31", skuCode: "" }),
   ];
 
   test("covers loading, empty, error toast, search, and adding an item", async () => {
@@ -1041,12 +1058,13 @@ describe("SourcingPage workflows", () => {
 
   test("merge modal opens and cancel, close, and overlay dismiss it when not merging", async () => {
     const user = userEvent.setup();
+    licensesApi.getLicenses.mockResolvedValueOnce({ data: mergeLicenses, error: null });
     sourcingApi.getSourcingRequests.mockResolvedValueOnce({ data: mergeItems, error: null });
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
     await user.click(screen.getByText("Acme Corp"));
-    expect(screen.getByText("Acme Renewal A")).toBeInTheDocument();
+    expect(screen.getAllByText("Acme Suite").length).toBeGreaterThan(0);
     const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
     await user.click(checkboxes[0]);
     await user.click(checkboxes[1]);
@@ -1067,6 +1085,7 @@ describe("SourcingPage workflows", () => {
 
   test("merge confirm calls mergeSourcingItems with selected ids and patches changed target quantity", async () => {
     const user = userEvent.setup();
+    licensesApi.getLicenses.mockResolvedValueOnce({ data: mergeLicenses, error: null });
     sourcingApi.getSourcingRequests.mockResolvedValueOnce({ data: mergeItems, error: null });
     sourcingApi.mergeSourcingItems.mockResolvedValueOnce({ data: { id: 99 }, error: null });
     sourcingApi.updateSourcingItem.mockResolvedValueOnce({ data: { id: 99, quantity: "9" }, error: null });
@@ -1074,7 +1093,7 @@ describe("SourcingPage workflows", () => {
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
     await user.click(screen.getByText("Acme Corp"));
-    expect(screen.getByText("Acme Renewal A")).toBeInTheDocument();
+    expect(screen.getAllByText("Acme Suite").length).toBeGreaterThan(0);
     const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
     await user.click(checkboxes[0]);
     await user.click(checkboxes[1]);
@@ -1095,13 +1114,14 @@ describe("SourcingPage workflows", () => {
   test("merge modal cannot close while merging", async () => {
     const user = userEvent.setup();
     const pendingMerge = deferred();
+    licensesApi.getLicenses.mockResolvedValueOnce({ data: mergeLicenses, error: null });
     sourcingApi.getSourcingRequests.mockResolvedValueOnce({ data: mergeItems, error: null });
     sourcingApi.mergeSourcingItems.mockReturnValueOnce(pendingMerge.promise);
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
     await user.click(screen.getByText("Acme Corp"));
-    expect(screen.getByText("Acme Renewal A")).toBeInTheDocument();
+    expect(screen.getAllByText("Acme Suite").length).toBeGreaterThan(0);
     const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
     await user.click(checkboxes[0]);
     await user.click(checkboxes[1]);
@@ -1121,31 +1141,146 @@ describe("SourcingPage workflows", () => {
     });
   });
 
-  test("delete confirmation opens, cancels, and confirms with the same sourcing id", async () => {
+  test("cancel confirmation opens, dismisses, and confirms with the same sourcing request", async () => {
     const user = userEvent.setup();
     sourcingApi.getSourcingRequests.mockResolvedValueOnce({
-      data: [{ id: 7, supplier: "Delete Me Supplier", contactEmail: null, createdAt: "2026-01-01T00:00:00Z", quoteDocuments: [], items: [] }],
+      data: [{ id: 7, supplier: "Hold Supplier", contactEmail: null, createdAt: "2026-01-01T00:00:00Z", quoteDocuments: [], items: [] }],
       error: null,
     });
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
-    expect(await screen.findByText("Delete Me Supplier")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^delete$/i }));
-    let dialog = screen.getByRole("dialog", { name: /delete sourcing request/i });
-    expect(dialog).toHaveTextContent("Are you sure you want to delete this sourcing request");
+    expect(await screen.findByText("Hold Supplier")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /cancel request/i }));
+    let dialog = screen.getByRole("dialog", { name: /cancel sourcing request/i });
+    expect(dialog).toHaveTextContent("Move this sourcing request and its license lines to history");
 
     await user.click(within(dialog).getByRole("button", { name: /^cancel$/i }));
-    expect(screen.queryByRole("dialog", { name: /delete sourcing request/i })).not.toBeInTheDocument();
-    expect(sourcingApi.deleteSourcingRequest).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: /cancel sourcing request/i })).not.toBeInTheDocument();
+    expect(sourcingApi.cancelSourcingRequest).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: /^delete$/i }));
-    dialog = screen.getByRole("dialog", { name: /delete sourcing request/i });
-    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+    await user.click(screen.getByRole("button", { name: /cancel request/i }));
+    dialog = screen.getByRole("dialog", { name: /cancel sourcing request/i });
+    await user.click(within(dialog).getByRole("button", { name: /cancel request/i }));
 
     await waitFor(() => {
-      expect(sourcingApi.deleteSourcingRequest).toHaveBeenCalledWith(7);
-      expect(screen.queryByText("Delete Me Supplier")).not.toBeInTheDocument();
+      expect(sourcingApi.cancelSourcingRequest).toHaveBeenCalledWith(7);
+      expect(screen.queryByText("Hold Supplier")).not.toBeInTheDocument();
     });
+  });
+
+  test("history toggle renders a read-only searchable sourcing history table", async () => {
+    const user = userEvent.setup();
+    const onNavigateToPendingOrder = vi.fn();
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({
+      data: [{
+        id: 1,
+        supplier: "Active Supplier",
+        contactEmail: null,
+        status: "sourcing",
+        createdAt: "2026-01-01T00:00:00Z",
+        quoteDocuments: [],
+        items: [],
+      }],
+      error: null,
+    });
+    sourcingApi.getSourcingRequestHistory.mockResolvedValueOnce({
+      data: [{
+        id: 8,
+        supplier: "Old Budget Supplier",
+        contactEmail: null,
+        notes: "Budget not approved",
+        status: "converted",
+        createdAt: "2025-10-01T00:00:00Z",
+        quoteDocuments: [],
+        items: [{
+          id: 80,
+          pendingOrderId: 44,
+          pendingOrderStatus: "pending",
+          pendingOrderPoNumber: "PO-44",
+          publisherName: "Microsoft",
+          softwareDescription: "M365 Copilot",
+          quantity: "1",
+          currency: "EUR",
+          status: "converted",
+          isRenewal: false,
+        }],
+      }],
+      error: null,
+    });
+
+    wrapWithQueryClient(
+      <SourcingPage
+        user={admin}
+        userSettings={userSettings}
+        onNavigateToPendingOrder={onNavigateToPendingOrder}
+      />
+    );
+
+    expect(await screen.findByText("Active Supplier")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^history$/i }));
+    expect(await screen.findByText("Sourcing History")).toBeInTheDocument();
+    expect(await screen.findByText("Old Budget Supplier")).toBeInTheDocument();
+    expect(screen.getByText("Converted")).toBeInTheDocument();
+    expect(screen.getByText("Request #8")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /view po/i }));
+    expect(onNavigateToPendingOrder).toHaveBeenCalledWith(44);
+    expect(screen.getByText("PO-44")).toBeInTheDocument();
+
+    await user.type(screen.getAllByLabelText(/Search sourcing requests/i)[1], "copilot");
+    await user.click(screen.getByText("Old Budget Supplier"));
+    expect(screen.getByText("M365 Copilot")).toBeInTheDocument();
+    expect(screen.getByText("Line #80")).toBeInTheDocument();
+    expect(screen.getByText("New Purchase")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add License Line/i })).not.toBeInTheDocument();
+  });
+
+  test("history table links converted sourcing requests to converted PO history", async () => {
+    const user = userEvent.setup();
+    const onNavigateToPendingOrder = vi.fn();
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({ data: [], error: null });
+    sourcingApi.getSourcingRequestHistory.mockResolvedValueOnce({
+      data: [{
+        id: 9,
+        supplier: "Fully Converted Supplier",
+        contactEmail: null,
+        status: "converted",
+        createdAt: "2025-10-02T00:00:00Z",
+        quoteDocuments: [],
+        items: [{
+          id: 90,
+          pendingOrderId: 45,
+          pendingOrderStatus: "converted",
+          pendingOrderPoNumber: "PO-45",
+          publisherName: "Dropbox",
+          softwareDescription: "Dropbox Business Advanced",
+          quantity: "31",
+          currency: "EUR",
+          status: "converted",
+          isRenewal: true,
+          renewalForLicenseId: 4,
+        }],
+      }],
+      error: null,
+    });
+
+    wrapWithQueryClient(
+      <SourcingPage
+        user={admin}
+        userSettings={userSettings}
+        onNavigateToPendingOrder={onNavigateToPendingOrder}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /^history$/i }));
+    expect(await screen.findByText("Fully Converted Supplier")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /view po/i }));
+    expect(onNavigateToPendingOrder).toHaveBeenCalledWith(45);
+    expect(screen.getByText("PO-45")).toBeInTheDocument();
+    await user.click(screen.getByText("Fully Converted Supplier"));
+    const viewButtons = screen.getAllByRole("button", { name: /view po/i });
+    await user.click(viewButtons[1]);
+    expect(onNavigateToPendingOrder).toHaveBeenCalledTimes(2);
+    expect(onNavigateToPendingOrder).toHaveBeenLastCalledWith(45);
   });
 });
 
@@ -1184,7 +1319,7 @@ describe("PendingOrdersPage workflows", () => {
     expect(await screen.findByText("PO-NEW")).toBeInTheDocument();
   });
 
-  test("delete confirmation opens, cancels, and confirms with the same pending order id", async () => {
+  test("cancel confirmation opens, dismisses, and confirms with the same pending order id", async () => {
     const user = userEvent.setup();
     const onPortfolioStateChange = vi.fn();
     const onRenewalsReload = vi.fn();
@@ -1192,7 +1327,7 @@ describe("PendingOrdersPage workflows", () => {
       data: [{ id: 9, poNumber: "PO-DELETE", supplier: "Delete Supplier", status: "pending", items: [], createdAt: "2026-01-01T00:00:00Z" }],
       error: null,
     });
-    pendingOrdersApi.deletePendingOrder.mockResolvedValueOnce({ error: null });
+    pendingOrdersApi.cancelPendingOrder.mockResolvedValueOnce({ error: null });
     wrapWithQueryClient(
       <PendingOrdersPage
         user={admin}
@@ -1205,20 +1340,20 @@ describe("PendingOrdersPage workflows", () => {
     );
 
     expect(await screen.findByText("PO-DELETE")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^delete$/i }));
-    let dialog = screen.getByRole("dialog", { name: /delete pending order/i });
-    expect(dialog).toHaveTextContent("Are you sure you want to delete this pending order? Associated sourcing items will not be deleted.");
+    await user.click(screen.getByRole("button", { name: /cancel order/i }));
+    let dialog = screen.getByRole("dialog", { name: /cancel pending order/i });
+    expect(dialog).toHaveTextContent("Move this pending order and its line items to history");
 
     await user.click(within(dialog).getByRole("button", { name: /^cancel$/i }));
-    expect(screen.queryByRole("dialog", { name: /delete pending order/i })).not.toBeInTheDocument();
-    expect(pendingOrdersApi.deletePendingOrder).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: /cancel pending order/i })).not.toBeInTheDocument();
+    expect(pendingOrdersApi.cancelPendingOrder).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: /^delete$/i }));
-    dialog = screen.getByRole("dialog", { name: /delete pending order/i });
-    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+    await user.click(screen.getByRole("button", { name: /cancel order/i }));
+    dialog = screen.getByRole("dialog", { name: /cancel pending order/i });
+    await user.click(within(dialog).getByRole("button", { name: /cancel order/i }));
 
     await waitFor(() => {
-      expect(pendingOrdersApi.deletePendingOrder).toHaveBeenCalledWith(9);
+      expect(pendingOrdersApi.cancelPendingOrder).toHaveBeenCalledWith(9);
       expect(screen.queryByText("PO-DELETE")).not.toBeInTheDocument();
     });
     expect(onPortfolioStateChange).toHaveBeenCalled();
@@ -1258,6 +1393,85 @@ describe("PendingOrdersPage workflows", () => {
       expect(pendingOrdersApi.retryPendingOrderEvidenceTransfer).toHaveBeenCalledWith(12);
       expect(showSuccess).toHaveBeenCalledWith("Evidence transfer retry started.");
     });
+  });
+
+  test("history toggle renders a read-only searchable pending order history table", async () => {
+    const user = userEvent.setup();
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: [], error: null });
+    pendingOrdersApi.getPendingOrderHistory.mockResolvedValueOnce({
+      data: [
+        {
+          id: 22,
+          poNumber: "PO-HIST-22",
+          supplier: "History Supplier",
+          status: "converted",
+          items: [{
+            id: 220,
+            publisherName: "Adobe",
+            softwareDescription: "Creative Cloud All Apps",
+            quantity: "25",
+            estimatedUnitPrice: "57.78",
+            estimatedTotalPrice: "1444.50",
+            currency: "EUR",
+            status: "converted",
+            isRenewal: true,
+            convertedLicenseId: 501,
+            convertedLicenseRef: "LT-0501",
+            convertedLicenseIds: [501],
+            quoteDocuments: [],
+          }],
+          convertedLicenseId: 501,
+          convertedLicenseRef: "LT-0501",
+          convertedLicenseIds: [501],
+          documents: [{ id: 5, category: "purchase_order", originalFilename: "po-hist.pdf" }],
+          createdAt: "2026-01-02T00:00:00Z",
+        },
+        {
+          id: 23,
+          poNumber: "PO-CANCELLED",
+          supplier: "Cancelled Supplier",
+          status: "cancelled",
+          items: [],
+          documents: [],
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      ],
+      error: null,
+    });
+    const onNavigateToLicense = vi.fn();
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+        onNavigateToLicense={onNavigateToLicense}
+      />
+    );
+
+    expect(await screen.findByText(/No pending orders yet/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^history$/i }));
+    expect(await screen.findByText("Pending Order History")).toBeInTheDocument();
+    expect(await screen.findByText("PO-HIST-22")).toBeInTheDocument();
+    expect(screen.getByText("Order #22")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /view license/i })).toBeInTheDocument();
+    expect(screen.getByText("LT-0501")).toBeInTheDocument();
+    expect(screen.getByText("Reference only")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/Search pending order history/i), "creative");
+    expect(screen.getByText("PO-HIST-22")).toBeInTheDocument();
+    expect(screen.queryByText("PO-CANCELLED")).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("PO-HIST-22"));
+    expect(screen.getByText("Creative Cloud All Apps")).toBeInTheDocument();
+    expect(screen.getByText("Line #220")).toBeInTheDocument();
+    expect(screen.getAllByText("Renewal")).not.toHaveLength(0);
+    await user.click(screen.getAllByRole("button", { name: /view license/i }).at(-1));
+    expect(onNavigateToLicense).toHaveBeenCalledWith(501);
+    expect(screen.queryByRole("button", { name: /^edit$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^convert$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add license line/i })).not.toBeInTheDocument();
   });
 });
 

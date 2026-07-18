@@ -209,6 +209,7 @@ class LicenseResponse(LicenseBase):
     predecessor_id: Optional[int] = None
     request_date: Optional[datetime] = None
     purchase_date: Optional[datetime] = None
+    source_sourcing_item_id: Optional[int] = None
 
     # Computed fields - populated server-side, not stored in the database
     completeness_pct: Optional[int] = None
@@ -224,6 +225,98 @@ class LicenseResponse(LicenseBase):
         populate_by_name=True,
         from_attributes=True,
     )
+
+
+class ProcurementTrailDocument(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    id: int
+    original_filename: str
+    category: str
+    uploaded_at: datetime
+
+
+class ProcurementTrailSourcingRequest(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    id: int
+    status: str
+    supplier: Optional[str] = None
+    contact_email: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    quote_documents: list[ProcurementTrailDocument] = Field(default_factory=list)
+
+
+class ProcurementTrailSourcingItem(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    id: int
+    status: str
+    publisher_name: str
+    software_description: str
+    quantity: Optional[str] = None
+    estimated_unit_price: Optional[str] = None
+    estimated_total_price: Optional[str] = None
+    currency: str = "EUR"
+    renewal_for_license_id: Optional[int] = None
+    coterm_predecessor_ids: Optional[list[int]] = None
+
+
+class ProcurementTrailPendingOrder(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    id: int
+    po_number: str
+    status: str
+    supplier: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    documents: list[ProcurementTrailDocument] = Field(default_factory=list)
+
+
+class ProcurementTrailConversion(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    pending_order_id: Optional[int] = None
+    source_sourcing_item_id: Optional[int] = None
+    source_match_type: str = "none"
+    request_date: Optional[datetime] = None
+    purchase_date: Optional[datetime] = None
+    renewed_from_id: Optional[int] = None
+    predecessor_id: Optional[int] = None
+    coterm_from_ids: Optional[list[int]] = None
+
+
+class LicenseProcurementTrailResponse(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    license_id: int
+    license_ref: Optional[str] = None
+    sourcing_request: Optional[ProcurementTrailSourcingRequest] = None
+    sourcing_item: Optional[ProcurementTrailSourcingItem] = None
+    pending_order: Optional[ProcurementTrailPendingOrder] = None
+    conversion: ProcurementTrailConversion
 
 
 class FieldUpdateRequest(BaseModel):
@@ -259,7 +352,29 @@ class InitiateRenewalResponse(BaseModel):
     sourcing_item: "SourcingItemResponse"
 
 
+class InitiateRenewalBundleRequest(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    license_ids: list[int] = Field(min_length=2)
+
+
+class InitiateRenewalBundleResponse(BaseModel):
+    """Returned by POST /api/licenses/renewal-bundle/initiate."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    licenses: list[LicenseResponse]
+    sourcing_request: "SourcingRequestResponse"
+
+
 # Resolve forward reference - import after class definition to avoid circular imports
-from app.schemas.sourcing import SourcingItemResponse  # noqa: E402
+from app.schemas.sourcing import SourcingItemResponse, SourcingRequestResponse  # noqa: E402
 
 InitiateRenewalResponse.model_rebuild()
+InitiateRenewalBundleResponse.model_rebuild()

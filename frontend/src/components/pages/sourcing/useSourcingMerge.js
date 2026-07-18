@@ -5,7 +5,31 @@ import {
   updateSourcingItem as apiUpdateSourcingItem,
 } from "../../../api/sourcing.js";
 
-export function useSourcingMerge({ sourcingItems, queryClient, showToast }) {
+function normalize(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function mergeSelectionCompatible(items, licenses) {
+  if (items.length < 2) return false;
+  const predecessors = items.map((item) => licenses.find((license) => license.id === item.renewalForLicenseId));
+  if (predecessors.some((license) => !license)) return false;
+
+  const publishers = new Set(items.map((item) => normalize(item.publisherName)));
+  const descriptions = new Set(items.map((item) => normalize(item.softwareDescription)));
+  const metrics = new Set(predecessors.map((license) => normalize(license.licenseMetric)));
+  const endDates = new Set(predecessors.map((license) => license.endDate ?? null));
+  const presentSkus = new Set(predecessors.map((license) => normalize(license.skuCode)).filter(Boolean));
+
+  return (
+    publishers.size === 1 &&
+    descriptions.size === 1 &&
+    metrics.size === 1 &&
+    endDates.size === 1 &&
+    presentSkus.size <= 1
+  );
+}
+
+export function useSourcingMerge({ sourcingItems, licenses, queryClient, showToast }) {
   const [selectedForMerge, setSelectedForMerge] = useState(new Set());
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [mergeQuantity, setMergeQuantity] = useState("");
@@ -19,7 +43,7 @@ export function useSourcingMerge({ sourcingItems, queryClient, showToast }) {
     () => selectedItems.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0),
     [selectedItems]
   );
-  const mergeEligible = selectedForMerge.size >= 2;
+  const mergeEligible = mergeSelectionCompatible(selectedItems, licenses ?? []);
 
   const toggleSelect = (id) => {
     setSelectedForMerge((prev) => {
@@ -31,6 +55,7 @@ export function useSourcingMerge({ sourcingItems, queryClient, showToast }) {
   };
 
   const openMergeModal = () => {
+    if (!mergeEligible) return;
     setMergeQuantity(String(computedMergeQty));
     setShowMergeModal(true);
   };

@@ -1,5 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import DetailPanel from '../components/licenses/DetailPanel.jsx'
 
@@ -34,6 +35,17 @@ vi.mock('../api/settings.js', () => ({
 
 vi.mock('../api/licenses.js', () => ({
   getCustomFieldValues: vi.fn().mockResolvedValue({ data: { values: [] }, error: null }),
+  getLicenseProcurementTrail: vi.fn().mockResolvedValue({
+    data: {
+      licenseId: 1,
+      licenseRef: 'LT-2026-00001',
+      sourcingRequest: null,
+      sourcingItem: null,
+      pendingOrder: null,
+      conversion: { sourceMatchType: 'none' },
+    },
+    error: null,
+  }),
   getLicense: vi.fn(),
   upsertCustomFieldValues: vi.fn(),
   getAllCustomFieldValues: vi.fn(),
@@ -43,6 +55,7 @@ vi.mock('../api/licenses.js', () => ({
   deleteLicense: vi.fn(),
   getStats: vi.fn(),
   initiateRenewal: vi.fn(),
+  initiateRenewalBundle: vi.fn(),
   cancelRenewal: vi.fn(),
   getMaintenanceForParent: vi.fn(),
   disableMaintenance: vi.fn(),
@@ -51,6 +64,17 @@ vi.mock('../api/licenses.js', () => ({
 beforeEach(() => {
   vi.clearAllMocks()
 })
+
+function render(ui) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return rtlRender(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>
+  )
+}
 
 const baseLicense = {
   id: 1,
@@ -155,6 +179,47 @@ describe('DetailPanel procurement milestones', () => {
   })
 })
 
+describe('DetailPanel renewal bundles', () => {
+  it('initiates one bundle request for same-PO same-end-date siblings', async () => {
+    const user = userEvent.setup()
+    const onCreateRenewal = vi.fn()
+    const onCreateRenewalBundle = vi.fn().mockResolvedValue({ ok: true, data: {} })
+    const renewalLicense = {
+      ...baseLicense,
+      budgetOwnerEmail: 'owner@example.com',
+      poNumber: 'PO-BUNDLE-1',
+      endDate: '2026-01-01',
+    }
+    const sibling = {
+      ...baseLicense,
+      id: 2,
+      softwareDescription: 'Widget Add-on',
+      budgetOwnerEmail: 'owner@example.com',
+      poNumber: 'PO-BUNDLE-1',
+      endDate: '2026-01-01',
+    }
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        license={renewalLicense}
+        allLicenses={[renewalLicense, sibling]}
+        onCreateRenewal={onCreateRenewal}
+        onCreateRenewalBundle={onCreateRenewalBundle}
+      />
+    )
+
+    expect(screen.getByText(/One sourcing request with 2 license lines/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /initiate renewal \(2 licenses\)/i }))
+
+    await waitFor(() => {
+      expect(onCreateRenewalBundle).toHaveBeenCalledWith([1, 2])
+    })
+    expect(onCreateRenewal).not.toHaveBeenCalled()
+  })
+})
+
 describe('DetailPanel history', () => {
   it('shows creator and record timestamps in a history section', async () => {
     const user = userEvent.setup()
@@ -180,6 +245,72 @@ describe('DetailPanel history', () => {
     expect(screen.getByText('02/05/2026 13:45')).toBeInTheDocument()
     expect(screen.getByText('Last Updated')).toBeInTheDocument()
     expect(screen.getByText('04/05/2026 09:15')).toBeInTheDocument()
+  })
+
+  it('shows linked procurement trail records and navigation actions', async () => {
+    const user = userEvent.setup()
+    const { getLicenseProcurementTrail } = await import('../api/licenses.js')
+    getLicenseProcurementTrail.mockResolvedValueOnce({
+      data: {
+        licenseId: 1,
+        licenseRef: 'LT-2026-00001',
+        sourcingRequest: {
+          id: 42,
+          status: 'converted',
+          supplier: 'Reseller One',
+          contactEmail: 'sales@example.com',
+          notes: null,
+          createdAt: '2026-05-02T13:45:00Z',
+          updatedAt: '2026-05-03T13:45:00Z',
+          quoteDocuments: [{ id: 7, originalFilename: 'quote.pdf', category: 'quote', uploadedAt: '2026-05-02T14:00:00Z' }],
+        },
+        sourcingItem: {
+          id: 99,
+          status: 'converted',
+          publisherName: 'Acme Corp',
+          softwareDescription: 'Widget Pro',
+          quantity: '10',
+          estimatedUnitPrice: '50',
+          estimatedTotalPrice: '500',
+          currency: 'EUR',
+          renewalForLicenseId: null,
+          cotermPredecessorIds: null,
+        },
+        pendingOrder: {
+          id: 77,
+          poNumber: 'PO-001',
+          status: 'converted',
+          supplier: 'Reseller One',
+          notes: null,
+          createdAt: '2026-05-04T09:15:00Z',
+          updatedAt: '2026-05-05T09:15:00Z',
+          documents: [{ id: 8, originalFilename: 'invoice.pdf', category: 'invoice', uploadedAt: '2026-05-05T10:00:00Z' }],
+        },
+        conversion: {
+          pendingOrderId: 77,
+          sourceSourcingItemId: 99,
+          sourceMatchType: 'exact',
+          requestDate: '2026-05-02T13:45:00Z',
+          purchaseDate: '2026-05-04T09:15:00Z',
+        },
+      },
+      error: null,
+    })
+
+    render(<DetailPanel {...baseProps} />)
+
+    await user.click(screen.getByText('History'))
+
+    expect(await screen.findByText('Procurement Trail')).toBeInTheDocument()
+    expect(screen.getByText(/Request #42/)).toBeInTheDocument()
+    expect(screen.getByText(/PO-001/)).toBeInTheDocument()
+    expect(screen.getByText('Quote x1')).toBeInTheDocument()
+    expect(screen.getByText('Invoice x1')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /view sourcing/i }))
+    expect(baseProps.onNavigateToSourcing).toHaveBeenCalledWith(99)
+    await user.click(screen.getByRole('button', { name: /view po/i }))
+    expect(baseProps.onNavigateToPendingOrder).toHaveBeenCalledWith(77)
   })
 })
 

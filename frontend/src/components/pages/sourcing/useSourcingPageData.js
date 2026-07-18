@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getSourcingRequests } from "../../../api/sourcing.js";
+import { getSourcingRequestHistory, getSourcingRequests } from "../../../api/sourcing.js";
 import { queryKeys } from "../../../queryKeys.js";
 import { fetchLicensesData } from "../licenses/useLicensesPageData.js";
 import { getLicensesFromQueryData } from "../../../utils/licenseQueryData.js";
@@ -13,7 +13,13 @@ async function fetchSourcingRequests() {
   return data ?? [];
 }
 
-export function useSourcingPageData({ showToast }) {
+async function fetchSourcingRequestHistory() {
+  const { data, error } = await getSourcingRequestHistory();
+  if (error) throw new Error(error);
+  return data ?? [];
+}
+
+export function useSourcingPageData({ showToast, includeHistory = false }) {
   const { data, isLoading: sourcingLoading, error: queryError, refetch } = useQuery({
     queryKey: queryKeys.sourcing,
     queryFn: fetchSourcingRequests,
@@ -30,6 +36,18 @@ export function useSourcingPageData({ showToast }) {
   });
   const licenses = getLicensesFromQueryData(licensesData);
 
+  const {
+    data: historyData,
+    isFetching: historyLoading,
+    error: historyError,
+    refetch: refetchHistory,
+  } = useQuery({
+    queryKey: queryKeys.sourcingHistory,
+    queryFn: fetchSourcingRequestHistory,
+    enabled: includeHistory,
+  });
+  const sourcingHistoryRequests = historyData ?? EMPTY_SOURCING;
+
   useEffect(() => {
     if (queryError) showToast(queryError.message, "error");
   }, [queryError, showToast]);
@@ -38,9 +56,16 @@ export function useSourcingPageData({ showToast }) {
     if (licensesError) showToast(licensesError.message, "error");
   }, [licensesError, showToast]);
 
+  useEffect(() => {
+    if (historyError) showToast(historyError.message, "error");
+  }, [historyError, showToast]);
+
   return {
+    historyLoading,
     licenses,
+    refetchHistory,
     sourcingItems,
+    sourcingHistoryRequests,
     sourcingLoading,
     sourcingRequests,
     refetch,

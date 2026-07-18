@@ -57,6 +57,7 @@ export function buildLicense(overrides) {
     poNumber: "",
     invoiceNumber: "",
     pendingOrderId: null,
+    sourceSourcingItemId: null,
     contactEmail: "",
     supplier: "",
     costCentre: "",

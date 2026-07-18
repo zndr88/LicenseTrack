@@ -46,7 +46,7 @@ function DetailToast({ toast, onClose }) {
   );
 }
 
-export default function DetailPanel({ license, userSettings, globalSettings, user, allLicenses, sourcingItems, pendingOrders, contracts, onClose, onUpdate, onDelete, onCreateRenewal, onCancelRenewal, onNavigateToSourcing, onNavigateToPendingOrder, onNavigateToContract, onCreateContract, onNavigate }) {
+export default function DetailPanel({ license, userSettings, globalSettings, user, allLicenses, sourcingItems, pendingOrders, contracts, onClose, onUpdate, onDelete, onCreateRenewal, onCreateRenewalBundle, onCancelRenewal, onNavigateToSourcing, onNavigateToPendingOrder, onNavigateToContract, onCreateContract, onNavigate }) {
   const {
     confirmAction, setConfirmAction,
     showMaintenanceModal, setShowMaintenanceModal,
@@ -140,6 +140,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               globalSettings={globalSettings}
               userSettings={userSettings}
               onCreateRenewal={onCreateRenewal}
+              onCreateRenewalBundle={onCreateRenewalBundle}
               onCancelRenewal={onCancelRenewal}
               onNavigate={onNavigate}
               onNavigateToSourcing={onNavigateToSourcing}
@@ -326,6 +327,8 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               userSettings={userSettings}
               isOpen={openSections.history}
               onToggle={toggleSection}
+              onNavigateToSourcing={onNavigateToSourcing}
+              onNavigateToPendingOrder={onNavigateToPendingOrder}
             />
           </>
         )}

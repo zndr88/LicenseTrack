@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { queryKeys } from "../../../queryKeys.js";
 import {
   addSourcingRequestItem,
+  cancelSourcingRequest as apiCancelSourcingRequest,
   convertSourcingRequest as apiConvertSourcingRequest,
   createSourcingRequest,
   deleteSourcingItem as apiDeleteSourcingItem,
@@ -14,6 +15,7 @@ import {
 function invalidateSourcingCaches(queryClient) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: queryKeys.sourcing }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.sourcingHistory }),
     queryClient.invalidateQueries({ queryKey: queryKeys.sourcingItems }),
   ]);
 }
@@ -68,6 +70,16 @@ export function useSourcingActions({
     return true;
   }, [showToast, queryClient, onRenewalsReload, onPortfolioStateChange]);
 
+  const handleCancelSourcingRequest = useCallback(async (request) => {
+    const { error } = await apiCancelSourcingRequest(request.id);
+    if (error) { showToast(error, "error"); return false; }
+    await invalidateSourcingCaches(queryClient);
+    onRenewalsReload?.();
+    onPortfolioStateChange?.();
+    showToast("Sourcing request moved to history.", "success");
+    return true;
+  }, [showToast, queryClient, onRenewalsReload, onPortfolioStateChange]);
+
   const handleConvertSourcingRequest = useCallback(async (id, opts) => {
     const { data: order, error } = await apiConvertSourcingRequest(id, opts);
     if (error) { showToast(error, "error"); return false; }
@@ -112,6 +124,7 @@ export function useSourcingActions({
     handleUpdateSourcingItem,
     handleDeleteSourcingItem,
     handleDeleteSourcingRequest,
+    handleCancelSourcingRequest,
     handleConvertSourcingRequest,
     handleExportSourcingCsv,
   };

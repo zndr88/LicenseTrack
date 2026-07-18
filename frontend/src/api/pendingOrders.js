@@ -8,10 +8,18 @@ export function getPendingOrders(options = {}) {
   const query = params.toString();
   return get(`/api/pending-orders${query ? `?${query}` : ""}`);
 }
+export function getPendingOrderHistory(options = {}) {
+  const params = new URLSearchParams();
+  if (options.limit != null) params.set("limit", String(options.limit));
+  if (options.offset != null) params.set("offset", String(options.offset));
+  const query = params.toString();
+  return get(`/api/pending-orders/history${query ? `?${query}` : ""}`);
+}
 export const getPendingOrder = (id) => get(`/api/pending-orders/${id}`);
 export const createPendingOrder = (data) => post("/api/pending-orders", data);
 export const updatePendingOrder = (id, data) => put(`/api/pending-orders/${id}`, data);
 export const deletePendingOrder = (id) => del(`/api/pending-orders/${id}`);
+export const cancelPendingOrder = (id) => post(`/api/pending-orders/${id}/cancel`);
 export const updatePendingOrderItem = (poId, itemId, data) =>
   put(`/api/pending-orders/${poId}/items/${itemId}`, data);
 export const deletePendingOrderItem = (poId, itemId) =>

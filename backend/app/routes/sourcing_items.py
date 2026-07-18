@@ -30,6 +30,36 @@ router = APIRouter(prefix="/api/sourcing", tags=["sourcing"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
+def _norm(value: object) -> str:
+    return str(value or "").strip().casefold()
+
+
+def _enum_value(value: object) -> str:
+    return str(getattr(value, "value", value))
+
+
+def _validate_coterm_merge_compatibility(items: list[SourcingItem], predecessors: list[License]) -> None:
+    publishers = {
+        *(_norm(license_obj.publisher_name) for license_obj in predecessors),
+        *(_norm(item.publisher_name) for item in items),
+    }
+    descriptions = {
+        *(_norm(license_obj.software_description) for license_obj in predecessors),
+        *(_norm(item.software_description) for item in items),
+    }
+    metrics = {_enum_value(license_obj.license_metric) for license_obj in predecessors}
+    present_skus = {_norm(license_obj.sku_code) for license_obj in predecessors if _norm(license_obj.sku_code)}
+
+    if len(publishers) > 1:
+        raise HTTPException(status_code=400, detail="Coterm merge requires the same publisher.")
+    if len(descriptions) > 1:
+        raise HTTPException(status_code=400, detail="Coterm merge requires the same software description.")
+    if len(metrics) > 1:
+        raise HTTPException(status_code=400, detail="Coterm merge requires the same license metric.")
+    if len(present_skus) > 1:
+        raise HTTPException(status_code=400, detail="Coterm merge requires matching SKU codes when SKUs are present.")
+
+
 @router.get("", response_model=list[SourcingItemResponse])
 async def list_sourcing_items(
     db: DbSession,
@@ -84,11 +114,11 @@ async def merge_coterm_sourcing_items(
     if missing:
         raise HTTPException(status_code=404, detail=f"Sourcing item(s) not found: {sorted(missing)}")
 
-    already_converted = [item.id for item in items if item.status == SourcingStatus.converted]
-    if already_converted:
+    already_closed = [item.id for item in items if item.status != SourcingStatus.sourcing]
+    if already_closed:
         raise HTTPException(
             status_code=400,
-            detail=f"Sourcing item(s) already converted: {already_converted}",
+            detail=f"Sourcing item(s) are no longer open: {already_closed}",
         )
 
     not_renewals = [item.id for item in items if item.renewal_for_license_id is None]
@@ -102,6 +132,10 @@ async def merge_coterm_sourcing_items(
     predecessor_license_ids = [item.renewal_for_license_id for item in items]
     pred_result = await db.execute(select(License).where(License.id.in_(predecessor_license_ids)))
     predecessors = list(pred_result.scalars().all())
+    predecessor_ids = {lic.id for lic in predecessors}
+    missing_predecessors = sorted(set(predecessor_license_ids) - predecessor_ids)
+    if missing_predecessors:
+        raise HTTPException(status_code=404, detail=f"Predecessor license(s) not found: {missing_predecessors}")
     # Validate predecessor licenses are still eligible to be renewed.
     # A sourcing item can outlive a renewal window if the license was
     # renewed, retired, or marked legacy by another path after the item
@@ -112,6 +146,7 @@ async def merge_coterm_sourcing_items(
             status_code=400,
             detail=f"Predecessor license(s) are no longer eligible for renewal: {sorted(ineligible)}",
         )
+    _validate_coterm_merge_compatibility(items, predecessors)
 
     merged = build_merged_sourcing_item(items, predecessors, created_by=current_user.id)
     db.add(merged)

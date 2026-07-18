@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.document import Document
 from app.models.license import License
-from app.models.pending_order import PendingOrder
+from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.plugin import Plugin, PluginAction, PluginPermission
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
@@ -326,7 +326,7 @@ async def _build_sourcing_item_context(
         .options(selectinload(SourcingItem.sourcing_request).selectinload(SourcingRequest.quote_documents))
     )
     item = result.scalar_one_or_none()
-    if item is None or item.status == SourcingStatus.converted:
+    if item is None or item.status != SourcingStatus.sourcing:
         raise PluginActionError("Sourcing item not found")
     request = item.sourcing_request
     quote_documents = request.quote_documents if request is not None else []
@@ -361,7 +361,11 @@ async def _build_pending_order_item_context(
         )
     )
     item = result.scalar_one_or_none()
-    if item is None or item.pending_order is None:
+    if (
+        item is None
+        or item.pending_order is None
+        or item.pending_order.status not in {PendingOrderStatus.pending, PendingOrderStatus.invoice_received}
+    ):
         raise PluginActionError("Pending order item not found")
     quote_documents = item.sourcing_request.quote_documents if item.sourcing_request is not None else []
     return (
@@ -402,7 +406,7 @@ async def _build_pending_order_conversion_context(
         )
     )
     order = result.scalar_one_or_none()
-    if order is None:
+    if order is None or order.status not in {PendingOrderStatus.pending, PendingOrderStatus.invoice_received}:
         raise PluginActionError("Pending order not found")
     item_ids = {item.id for item in order.items if item.pending_order_id == order.id}
     requested_item_ids = _int_list(client_context.get("selectedLineItemIds"))

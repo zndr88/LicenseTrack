@@ -16,9 +16,11 @@ from app.services import storage
 from app.services.audit_service import diff_fields, log_event
 from app.services.pending_order_service import (
     apply_pending_order_update,
+    cancel_pending_order_record,
     create_pending_order_record,
     delete_pending_order_record,
     get_pending_order_or_404,
+    list_pending_order_history_records,
     list_pending_order_records,
     to_pending_order_response,
 )
@@ -42,6 +44,17 @@ async def list_pending_orders(
         offset=offset,
         include_evidence_issues=include_evidence_issues,
     )
+    return [to_pending_order_response(order) for order in orders]
+
+
+@router.get("/history", response_model=list[PendingOrderResponse])
+async def list_pending_order_history(
+    db: DbSession,
+    _editor: User = Depends(require_editor_or_admin),
+    limit: int | None = Query(default=None, ge=1),
+    offset: int = Query(default=0, ge=0),
+) -> list[PendingOrderResponse]:
+    orders = await list_pending_order_history_records(db, limit=limit, offset=offset)
     return [to_pending_order_response(order) for order in orders]
 
 
@@ -103,6 +116,30 @@ async def update_pending_order(
             detail=diff,
         )
 
+    await db.commit()
+    order = await get_pending_order_or_404(db, order_id, include_items=True)
+    return to_pending_order_response(order)
+
+
+@router.post("/{order_id}/cancel", response_model=PendingOrderResponse)
+async def cancel_pending_order(
+    order_id: int,
+    request: Request,
+    db: DbSession,
+    _editor: User = Depends(require_editor_or_admin),
+) -> PendingOrderResponse:
+    order = await cancel_pending_order_record(db, order_id)
+
+    ip = request.client.host if request.client else None
+    await log_event(
+        db,
+        "po.cancelled",
+        actor=_editor,
+        ip_address=ip,
+        target_type="pending_order",
+        target_id=str(order_id),
+        target_label=order.po_number or order.supplier or "",
+    )
     await db.commit()
     order = await get_pending_order_or_404(db, order_id, include_items=True)
     return to_pending_order_response(order)

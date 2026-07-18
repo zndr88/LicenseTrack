@@ -15,6 +15,7 @@ from app.schemas.license import (
     FieldUpdateRequest,
     LicenseCreate,
     LicenseLifecycleRepairRequest,
+    LicenseProcurementTrailResponse,
     LicenseResponse,
     LicenseUpdate,
 )
@@ -39,6 +40,7 @@ from app.services.license_write_service import (
     create_license_record,
     delete_license_record,
 )
+from app.services.license_procurement_trail_service import build_license_procurement_trail
 
 router = APIRouter(prefix="/api/licenses", tags=["licenses"])
 
@@ -132,6 +134,21 @@ async def list_licenses(
         )
         for lic in licenses
     ]
+
+
+@router.get("/{license_id}/procurement-trail", response_model=LicenseProcurementTrailResponse)
+async def get_license_procurement_trail(
+    license_id: int,
+    db: DbSession,
+    _current_user: CurrentUser,
+) -> LicenseProcurementTrailResponse:
+    result = await db.execute(select(License).where(License.id == license_id))
+    license_obj = result.scalar_one_or_none()
+    if license_obj is None:
+        raise HTTPException(status_code=404, detail="License not found")
+    if not await can_view_license(_current_user, license_obj, db):
+        raise HTTPException(status_code=404, detail="License not found")
+    return await build_license_procurement_trail(db, license_obj)
 
 
 @router.get("/{license_id}", response_model=LicenseResponse)

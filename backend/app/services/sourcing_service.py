@@ -16,11 +16,30 @@ def assert_sourcing_item_editable(item: SourcingItem) -> None:
         from fastapi import HTTPException
 
         raise HTTPException(status_code=409, detail="Cannot modify a converted sourcing item")
+    if item.status == SourcingStatus.cancelled:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=409, detail="Cannot modify a cancelled sourcing item")
     request = getattr(item, "sourcing_request", None)
     if request is not None and request.status == SourcingStatus.converted:
         from fastapi import HTTPException
 
         raise HTTPException(status_code=409, detail="Cannot modify an item in a converted sourcing request")
+    if request is not None and request.status == SourcingStatus.cancelled:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=409, detail="Cannot modify an item in a cancelled sourcing request")
+
+
+def assert_sourcing_request_editable(request: SourcingRequest) -> None:
+    if request.status == SourcingStatus.converted:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=409, detail="Cannot modify a converted sourcing request")
+    if request.status == SourcingStatus.cancelled:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=409, detail="Cannot modify a cancelled sourcing request")
 
 
 async def handle_delete_side_effects(
@@ -54,6 +73,22 @@ async def handle_delete_side_effects(
             )
             if sibling_count == 0:
                 clear_pending_renewal_if_current(linked_license)
+
+
+async def clear_pending_renewal_if_no_open_sourcing(db: AsyncSession, renewal_license_id: int) -> None:
+    linked_license = await db.get(License, renewal_license_id)
+    if linked_license is None:
+        return
+    sibling_count = await db.scalar(
+        select(func.count())
+        .select_from(SourcingItem)
+        .where(
+            SourcingItem.renewal_for_license_id == renewal_license_id,
+            SourcingItem.status != SourcingStatus.cancelled,
+        )
+    )
+    if sibling_count == 0:
+        clear_pending_renewal_if_current(linked_license)
 
 
 def build_merged_sourcing_item(
@@ -138,10 +173,24 @@ async def list_sourcing_request_records(db: AsyncSession) -> list[SourcingReques
         select(SourcingRequest)
         .where(SourcingRequest.status == SourcingStatus.sourcing)
         .options(
-            selectinload(SourcingRequest.items),
+            selectinload(SourcingRequest.items).selectinload(SourcingItem.pending_order),
             selectinload(SourcingRequest.quote_documents),
         )
         .order_by(SourcingRequest.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def list_sourcing_request_history_records(db: AsyncSession) -> list[SourcingRequest]:
+    await backfill_missing_sourcing_requests(db)
+    result = await db.execute(
+        select(SourcingRequest)
+        .where(SourcingRequest.status.in_([SourcingStatus.converted, SourcingStatus.cancelled]))
+        .options(
+            selectinload(SourcingRequest.items).selectinload(SourcingItem.pending_order),
+            selectinload(SourcingRequest.quote_documents),
+        )
+        .order_by(SourcingRequest.updated_at.desc(), SourcingRequest.created_at.desc())
     )
     return list(result.scalars().all())
 
@@ -151,7 +200,7 @@ async def get_sourcing_request_or_404(db: AsyncSession, request_id: int) -> Sour
         select(SourcingRequest)
         .where(SourcingRequest.id == request_id)
         .options(
-            selectinload(SourcingRequest.items),
+            selectinload(SourcingRequest.items).selectinload(SourcingItem.pending_order),
             selectinload(SourcingRequest.quote_documents),
         )
         .execution_options(populate_existing=True)
@@ -199,10 +248,7 @@ async def add_sourcing_request_item_record(
     created_by: int,
 ) -> SourcingRequest:
     request = await get_sourcing_request_or_404(db, request_id)
-    if request.status == SourcingStatus.converted:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=409, detail="Cannot add items to a converted sourcing request")
+    assert_sourcing_request_editable(request)
     db.add(_build_request_item(payload, request_id=request.id, created_by=created_by))
     await db.flush()
     return request
@@ -210,10 +256,7 @@ async def add_sourcing_request_item_record(
 
 async def delete_sourcing_request_record(db: AsyncSession, request_id: int) -> str:
     request = await get_sourcing_request_or_404(db, request_id)
-    if request.status == SourcingStatus.converted:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=409, detail="Cannot delete a converted sourcing request")
+    assert_sourcing_request_editable(request)
 
     label = request.supplier or f"Sourcing request {request.id}"
     renewal_ids = [item.renewal_for_license_id for item in request.items if item.renewal_for_license_id]
@@ -222,6 +265,20 @@ async def delete_sourcing_request_record(db: AsyncSession, request_id: int) -> s
     for renewal_id in renewal_ids:
         await handle_delete_side_effects(db, renewal_license_id=renewal_id, parent_order_id=None)
     return label
+
+
+async def cancel_sourcing_request_record(db: AsyncSession, request_id: int) -> SourcingRequest:
+    request = await get_sourcing_request_or_404(db, request_id)
+    assert_sourcing_request_editable(request)
+
+    renewal_ids = [item.renewal_for_license_id for item in request.items if item.renewal_for_license_id]
+    request.status = SourcingStatus.cancelled
+    for item in request.items:
+        item.status = SourcingStatus.cancelled
+    await db.flush()
+    for renewal_id in renewal_ids:
+        await clear_pending_renewal_if_no_open_sourcing(db, renewal_id)
+    return request
 
 
 async def backfill_missing_sourcing_requests(db: AsyncSession) -> None:

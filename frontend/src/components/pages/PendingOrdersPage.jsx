@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ROLE_PERMISSIONS } from "../../constants/permissions.js";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
@@ -8,7 +8,7 @@ import ConvertAllModal from "../procurement/ConvertAllModal.jsx";
 import AddPOLineItemsModal from "../procurement/AddPOLineItemsModal.jsx";
 import SourcingItemModal from "../procurement/SourcingItemModal.jsx";
 import PendingOrdersTable from "./pendingOrders/PendingOrdersTable.jsx";
-import { usePendingOrdersPageState } from "./pendingOrders/usePendingOrdersPageState.js";
+import { filterAndSortPendingOrders, usePendingOrdersPageState } from "./pendingOrders/usePendingOrdersPageState.js";
 import { usePendingOrdersData } from "./usePendingOrdersData.js";
 
 export default function PendingOrdersPage({
@@ -22,15 +22,33 @@ export default function PendingOrdersPage({
   showSuccess,
   highlightId, onClearHighlight,
 }) {
+  const [showPendingOrderModal, setShowPendingOrderModal] = useState(null);
+  const [showConvertToLicenseModal, setShowConvertToLicenseModal] = useState(null);
+  const [showConvertAllModal, setShowConvertAllModal] = useState(null);
+  const [showAddPOItemsModal, setShowAddPOItemsModal] = useState(null);
+  const [showEditPOItemModal, setShowEditPOItemModal] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historySortCol, setHistorySortCol] = useState("created");
+  const [historySortDir, setHistorySortDir] = useState("desc");
+  const [expandedHistoryPendingOrderId, setExpandedHistoryPendingOrderId] = useState(null);
+  const [highlightedHistoryRowId, setHighlightedHistoryRowId] = useState(null);
+  const [deletePOItemTarget, setDeletePOItemTarget] = useState(null);
+  const purchaseOrderInputRef = React.useRef(null);
+  const purchaseOrderTargetRef = React.useRef(null);
+
   const {
     pendingOrders,
+    pendingOrderHistory,
     pendingOrdersLoading,
+    historyLoading,
     refetch,
+    refetchHistory,
     licenses,
     addingPOItems,
+    handleCancelPendingOrder,
     handleCreatePendingOrder,
     handleUpdatePendingOrder,
-    handleDeletePendingOrder,
     handleConvertToLicense,
     handleAddPOItems,
     handleUpdatePOItem,
@@ -50,19 +68,11 @@ export default function PendingOrdersPage({
     onNotificationsReload,
     onNavigateToLicense,
     userSettings,
+    includeHistory: showHistory,
   });
 
   const perms = ROLE_PERMISSIONS[user.role];
   const locale = userSettings.numberFormatLocale ?? "en-US";
-
-  const [showPendingOrderModal, setShowPendingOrderModal] = useState(null);
-  const [showConvertToLicenseModal, setShowConvertToLicenseModal] = useState(null);
-  const [showConvertAllModal, setShowConvertAllModal] = useState(null);
-  const [showAddPOItemsModal, setShowAddPOItemsModal] = useState(null);
-  const [showEditPOItemModal, setShowEditPOItemModal] = useState(null);
-  const [deletePOItemTarget, setDeletePOItemTarget] = useState(null);
-  const purchaseOrderInputRef = React.useRef(null);
-  const purchaseOrderTargetRef = React.useRef(null);
 
   const handleOpenPurchaseOrderUpload = (po) => {
     purchaseOrderTargetRef.current = po;
@@ -79,13 +89,13 @@ export default function PendingOrdersPage({
 
   const {
     buildPrefillFromOrder,
-    deletePendingOrderId,
+    cancelPendingOrderId,
     displayed,
     expandedPendingOrderId,
     handleSort,
     highlightedRowId,
     search,
-    setDeletePendingOrderId,
+    setCancelPendingOrderId,
     setExpandedPendingOrderId,
     setSearch,
     sortCol,
@@ -97,6 +107,55 @@ export default function PendingOrdersPage({
     onClearHighlight,
   });
 
+  const displayedHistory = useMemo(
+    () => filterAndSortPendingOrders(pendingOrderHistory, historySearch, historySortCol, historySortDir),
+    [pendingOrderHistory, historySearch, historySortCol, historySortDir]
+  );
+
+  useEffect(() => {
+    if (!highlightId) return;
+    if (pendingOrdersLoading) return;
+    if (pendingOrders.some((po) => po.id === highlightId)) return;
+    setShowHistory(true);
+  }, [highlightId, pendingOrders, pendingOrdersLoading]);
+
+  useEffect(() => {
+    if (!highlightId || !showHistory) return;
+    if (!pendingOrderHistory.some((po) => po.id === highlightId)) return;
+
+    setExpandedHistoryPendingOrderId(highlightId);
+    const scrollTimer = setTimeout(() => {
+      const element = document.querySelector(`[data-po-row="${highlightId}"]`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 50);
+    setHighlightedHistoryRowId(highlightId);
+    const clearTimer = setTimeout(() => {
+      setHighlightedHistoryRowId(null);
+      onClearHighlight?.();
+    }, 2000);
+
+    return () => {
+      clearTimeout(scrollTimer);
+      clearTimeout(clearTimer);
+    };
+  }, [highlightId, showHistory, pendingOrderHistory, onClearHighlight]);
+
+  const handleHistorySort = (column) => {
+    if (historySortCol !== column) {
+      setHistorySortCol(column);
+      setHistorySortDir("asc");
+      return;
+    }
+    if (historySortDir === "asc") {
+      setHistorySortDir("desc");
+      return;
+    }
+    setHistorySortCol(null);
+    setHistorySortDir("asc");
+  };
+
   return (
     <>
       <div className="page-header">
@@ -107,16 +166,8 @@ export default function PendingOrdersPage({
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input ref={purchaseOrderInputRef} type="file" style={{ display: "none" }} onChange={handlePurchaseOrderSelected} />
-            <button className="btn btn-g" onClick={refetch} title="Refresh pending orders" style={{ fontSize: 12 }}>
-              <Icon name="refresh" size={13} />Refresh
-            </button>
-            <button
-              type="button"
-              onClick={handleExportPendingOrdersCsv}
-              className="btn btn-g"
-              style={{ fontSize: 12 }}
-            >
-              <Icon name="download" size={13} />Export CSV
+            <button className="btn btn-g" onClick={() => setShowHistory((value) => !value)}>
+              <Icon name="archive" size={13} />{showHistory ? "Hide History" : "History"}
             </button>
             {perms.canEdit && (
               <button className="btn btn-p" onClick={() => setShowPendingOrderModal({ order: null })}>
@@ -146,7 +197,7 @@ export default function PendingOrdersPage({
             highlightedRowId={highlightedRowId}
             locale={locale}
             settings={userSettings}
-            onDelete={setDeletePendingOrderId}
+            onDelete={setCancelPendingOrderId}
             onEdit={(po) => setShowPendingOrderModal({ order: po })}
             onEditItem={(po, item) => setShowEditPOItemModal({ order: po, item })}
             onDeleteItem={(po, item) => setDeletePOItemTarget({ order: po, item })}
@@ -160,6 +211,9 @@ export default function PendingOrdersPage({
               prefill: buildPrefillFromOrder(po),
             })}
             onOpenConvertAll={setShowConvertAllModal}
+            onNavigateToLicense={onNavigateToLicense}
+            onRefetch={refetch}
+            onExportCsv={handleExportPendingOrdersCsv}
             onRowToggle={setExpandedPendingOrderId}
             perms={perms}
             search={search}
@@ -168,6 +222,50 @@ export default function PendingOrdersPage({
             sortDir={sortDir}
             onSort={handleSort}
           />
+        )}
+        {showHistory && (
+          <div style={{ marginTop: 24 }}>
+            <h3 style={{ margin: "0 0 4px", fontSize: 14 }}>Pending Order History</h3>
+            <p style={{ margin: "0 0 8px", color: "var(--text-2)", fontSize: 12 }}>
+              Converted and cancelled purchase orders kept for PO documents, quote context, and notes reference.
+            </p>
+            {historyLoading && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0", color: "var(--text-2)", fontSize: 13 }}>
+                <div className="spinner" style={{ margin: 0, width: 16, height: 16 }} />
+                Loading pending order history...
+              </div>
+            )}
+            {!historyLoading && (
+              <PendingOrdersTable
+                displayed={displayedHistory}
+                expandedPendingOrderId={expandedHistoryPendingOrderId}
+                highlightedRowId={highlightedHistoryRowId}
+                locale={locale}
+                mode="history"
+                settings={userSettings}
+                onDelete={() => {}}
+                onEdit={() => {}}
+                onEditItem={() => {}}
+                onDeleteItem={() => {}}
+                onUploadPurchaseOrder={() => {}}
+                onDownloadPurchaseOrder={handleDownloadPurchaseOrderDocument}
+                onDownloadQuote={handleDownloadSourcingQuote}
+                onRetryEvidenceTransfer={() => {}}
+                onOpenAddItems={() => {}}
+                onOpenConvert={() => {}}
+                onOpenConvertAll={() => {}}
+                onNavigateToLicense={onNavigateToLicense}
+                onRefetch={refetchHistory}
+                onRowToggle={setExpandedHistoryPendingOrderId}
+                perms={perms}
+                search={historySearch}
+                setSearch={setHistorySearch}
+                sortCol={historySortCol}
+                sortDir={historySortDir}
+                onSort={handleHistorySort}
+              />
+            )}
+          </div>
         )}
       </div>
 
@@ -255,16 +353,16 @@ export default function PendingOrdersPage({
         />
       )}
 
-      {deletePendingOrderId !== null && (
+      {cancelPendingOrderId !== null && (
         <ConfirmDialog
-          title="Delete Pending Order"
-          message="Are you sure you want to delete this pending order? Associated sourcing items will not be deleted."
-          confirmLabel="Delete"
+          title="Cancel Pending Order"
+          message="Move this pending order and its line items to history. Attached PO documents and sourcing quote context will be kept for reference."
+          confirmLabel="Cancel Order"
           danger
-          onCancel={() => setDeletePendingOrderId(null)}
+          onCancel={() => setCancelPendingOrderId(null)}
           onConfirm={async () => {
-            const success = await handleDeletePendingOrder(deletePendingOrderId);
-            if (success) setDeletePendingOrderId(null);
+            const success = await handleCancelPendingOrder(cancelPendingOrderId);
+            if (success) setCancelPendingOrderId(null);
           }}
         />
       )}

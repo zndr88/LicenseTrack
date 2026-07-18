@@ -46,7 +46,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `RenewalWorkflowSection.jsx` | All renewal lifecycle state boxes (expiring, pending, renewed, draft, consolidated) |
 | `ContractDatesSection.jsx` | Start/end dates, editable request/purchase procurement milestones, contract #, PO #, invoice #, contract record link |
 | `MaintenanceSection.jsx` | Maintenance coverage dates, linked maintenance children, add/disable maintenance actions |
-| `HistorySection.jsx` | Read-only creator account label plus license-row creation and last-update timestamps |
+| `HistorySection.jsx` | Read-only creator account label, license-row creation and last-update timestamps, plus procurement-trail links to source sourcing and pending-order records |
 | `CommercialSection.jsx` | License type, metric, quantity, SKU, pricing, currency |
 | `PeopleSection.jsx` | Supplier, cost centre, publisher contact link, budget owner |
 | `EmailPublisherAction.jsx` | Bottom Email Publisher action, same-PO/same-publisher scope prompt, mailto construction |
@@ -81,16 +81,16 @@ The procurement pipeline is split across the sourcing and pending-order pages. K
 
 | Module | Owns |
 |--------|------|
-| `SourcingTable.jsx` | Parent sourcing request rows, inline quote download column, expandable license-line rows, search box, merge-selected action, sortable sourcing table, request actions, child line actions, and row badges |
+| `SourcingTable.jsx` | Parent sourcing request rows, inline quote download column, expandable license-line rows, search box, merge-selected action, sortable sourcing table, active request actions, read-only history reference actions, child line actions, and row badges |
 | `MergeSourcingModal.jsx` | Merge confirmation UI, selected item summary, final merged quantity input |
 | `CotermSuggestionBanner.jsx` | Coterm renewal opportunity banner and select-group action |
 | `SourcingToast.jsx` | Page-local success/error toast presentation |
-| `useSourcingPageData.js` | TanStack Query setup for sourcing requests plus license context load for coterm detection |
+| `useSourcingPageData.js` | TanStack Query setup for active and historical sourcing requests plus license context load for coterm detection |
 | `useSourcingActions.js` | Create/update/delete/convert/export mutation handlers and cross-page invalidation callbacks |
 | `useSourcingMerge.js` | Selected-for-merge state, merge quantity, merge submit lifecycle |
 | `useSourcingQuotes.js` | Quote upload file input state, quote upload, and quote download |
 
-`SourcingPage.jsx` owns page composition, page-level sort/search state, highlighted row state, modal open/close state, and wiring between the hooks and presentation components. Coterm grouping remains in `frontend/src/hooks/useCotermDetection.js`.
+`SourcingPage.jsx` owns page composition, active and history sort/search state, highlighted row state, modal open/close state, and wiring between the hooks and presentation components. The history table is a read-only second table used for converted and cancelled sourcing requests. Coterm grouping remains in `frontend/src/hooks/useCotermDetection.js`.
 
 ### PendingOrdersPage
 
@@ -98,11 +98,15 @@ The procurement pipeline is split across the sourcing and pending-order pages. K
 
 | Module | Owns |
 |--------|------|
-| `usePendingOrdersData.js` | Pending order query, shared licenses query context, create/update/delete/convert/batch-convert/add/update/delete-item handlers, purchase-order document upload/download, CSV export, related query invalidation |
-| `PendingOrdersPage.jsx` | Search/sort/expanded-row state, highlight behavior, table rendering, modal orchestration, conversion prefill builder, pending line-item edit/delete confirmation wiring |
-| `pendingOrders/PendingOrdersTable.jsx` | Pending-order parent rows, inline PO download column, expanded line-item rows, parent row actions, line-item quote/download action buttons, and status badges |
+| `usePendingOrdersData.js` | Active and historical pending-order queries, shared licenses query context, create/update/delete/convert/batch-convert/add/update/delete-item handlers, purchase-order document upload/download, CSV export, related query invalidation |
+| `PendingOrdersPage.jsx` | Active and history search/sort/expanded-row state, highlight behavior, table rendering, modal orchestration, conversion prefill builder, pending line-item edit/delete confirmation wiring |
+| `pendingOrders/PendingOrdersTable.jsx` | Pending-order parent rows, inline PO download column, expanded line-item rows, active parent row actions, read-only history reference actions, line-item quote/download action buttons, and status badges |
 
 Keep new pending-order API handlers in `usePendingOrdersData.js` unless they are purely local UI actions.
+
+The procurement history and trail linking contract is captured in
+`docs/maintainer/procurement-history-trail.md`. Keep those links based on stored
+ids and relationships, not PO-number text matching.
 
 ## Procurement Conversion Components
 
@@ -265,6 +269,8 @@ Current important service boundaries:
 - pending-order conversion helpers (new purchase license creation, maintenance parent resolution, status transitions): `backend/app/services/conversion/license_converter.py`, `backend/app/services/conversion/maintenance_linker.py`, and `backend/app/services/conversion/pending_order_status.py`;
 - pending-order conversion document transfer (invoice validation/write and quote carry-forward into pending-order-scoped procurement documents): `backend/app/services/procurement_document_transfer_service.py`;
 - pending-order conversion response enrichment: `backend/app/services/conversion_response_service.py`;
+- license procurement trail response assembly:
+  `backend/app/services/license_procurement_trail_service.py`;
 - custom field normalization/upsert: `backend/app/services/custom_fields_service.py`;
 - renewal read model (async DB queries): `backend/app/services/renewal_service.py`;
 - renewal workbench computation (pure, no DB): `backend/app/services/renewal_workbench_model.py`;

@@ -20,6 +20,8 @@ The Invoice # field can hold more than one invoice number. Click the invoice val
 
 The History section appears below Custom Fields. It shows the account name that created the license record, the record creation timestamp, and the most recent update timestamp. If the original account is no longer available, LicenseTrack falls back to the creator email, stored user ID, or a legacy-record label.
 
+When the license was created from the procurement pipeline, the History section also shows a Procurement Trail. The trail links the license back to the originating sourcing request and sourcing line, then to the pending order that created the license. It also summarizes useful reference data such as supplier, description, value, status, quote, PO, and invoice evidence counts. These links open the relevant history table when the source sourcing request or pending order has already been converted or cancelled.
+
 Admins and Editors can also use the inline edit toggle in the Registry toolbar to edit common license fields directly in the table, similar to a spreadsheet. Inline edit mode closes the detail panel and prevents row clicks from opening it while the mode is active. Changes save per field when you leave the cell or press Enter. Computed and document-related columns, such as status, expiration, document count, total PO price, and calculated total, remain read-only in the table.
 
 You can save your current combination of visible columns, column order, sort order, status filters, and column filter row values as a named view, then reload it later with one click. The column-category selector in the toolbar persists list-column visibility immediately, and saved views capture whichever visible columns are active when the view is saved. This includes manual text filters such as publisher and multi-select filters such as license type. Saved views are personal; each user manages their own. Newly released optional columns stay hidden until you deliberately enable them, including when you load an older saved view.
@@ -49,7 +51,8 @@ Predecessor link - a direct database reference (predecessor_id) on a renewal suc
 Procurement documents - Quote, Purchase Order, and Invoice files scoped to a license or to the pending order that created the license.
 Saved view - a named snapshot of column visibility, column order, sort order, status filters, and column filter row values that a user can restore at any time.
 Procurement milestones - Request Date and Purchase Date timestamps retained on the license record to preserve its sourcing and purchase-order history.
-History section - read-only record metadata showing who created a license record and when it was created or last updated.
+Procurement trail - linked source records shown in License Details > History when the license was created through sourcing and pending-order conversion.
+History section - read-only record metadata showing who created a license record, when it was created or last updated, and any linked procurement trail.
 
 Who can use it
 All roles. Admins and Editors can create, edit, bulk-delete, and export licenses. Viewers can browse and read records, but only for departments they have been assigned access to.
@@ -65,4 +68,5 @@ Things to know
 - The Registry Export menu provides Export Current View and Export Full Data. Export Current View writes every filtered row using the visible columns in their current order. Export Full Data writes every filtered row with every user-facing Registry column and every configured custom field, including hidden fields. Both exports keep full underlying values such as long notes. Canonical exports use ISO date/timestamp values and period decimal separators; the localized Current View option uses your personal date and number formats. The backend `/api/licenses/export` integration contract remains separate and continues to include database ID.
 - Inline editing is intended for quick corrections to visible table fields. Use the detail panel for documents, custom fields, notes, maintenance workflow, renewal actions, and full record review.
 - The Dates visibility preference controls both Start Date and End Date columns in the Registry table. Request Date and Purchase Date remain detail-panel history fields.
+- Use the History section to trace a license back to its sourcing request, quote evidence, pending order, PO document, invoice evidence, and related historical records when those records were created in LicenseTrack.
 - Use the Renewal notifications toggle when an active license should not send expiry emails, for example because renewal discussions have already started. This preserves ownership data and does not require marking the license retired or legacy.

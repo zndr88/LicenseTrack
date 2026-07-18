@@ -12,6 +12,7 @@ vi.mock("../api/licenses.js", () => ({
   deleteLicense: vi.fn(),
   getLicense: vi.fn(),
   initiateRenewal: vi.fn(),
+  initiateRenewalBundle: vi.fn(),
   updateLicense: vi.fn(),
 }));
 

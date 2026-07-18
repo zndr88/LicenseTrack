@@ -178,6 +178,7 @@ export default function LicensesPage({
     handleLicenseFieldPatch,
     handleLicenseDelete,
     handleCreateRenewal,
+    handleCreateRenewalBundle,
     handleCancelRenewal,
     handleBulkDelete,
   } = useLicenseActions({
@@ -387,6 +388,7 @@ export default function LicensesPage({
               onUpdate={handleLicenseUpdate}
               onDelete={handleLicenseDelete}
               onCreateRenewal={handleCreateRenewal}
+              onCreateRenewalBundle={handleCreateRenewalBundle}
               onCancelRenewal={handleCancelRenewal}
               onNavigate={(id) => setSelectedId(id)}
             />

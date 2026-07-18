@@ -43,6 +43,16 @@ export async function getLicense(id) {
 }
 
 /**
+ * Fetch the procurement trail for a license.
+ *
+ * @param {number} id
+ * @returns {Promise<{ data: object | null, error: string | null }>}
+ */
+export async function getLicenseProcurementTrail(id) {
+  return get(`/api/licenses/${id}/procurement-trail`);
+}
+
+/**
  * Create a new license.
  *
  * @param {object} licenseData - matches LicenseCreate schema
@@ -120,6 +130,16 @@ export async function disableMaintenance(licenseId) {
  */
 export async function initiateRenewal(id) {
   return post(`/api/licenses/${id}/initiate-renewal`, {});
+}
+
+/**
+ * Initiate one renewal sourcing request containing multiple license lines.
+ *
+ * @param {number[]} licenseIds
+ * @returns {Promise<{ data: { licenses: object[], sourcingRequest: object } | null, error: string | null }>}
+ */
+export async function initiateRenewalBundle(licenseIds) {
+  return post("/api/licenses/renewal-bundle/initiate", { licenseIds });
 }
 
 /**

@@ -47,6 +47,8 @@ The following route groups are candidates for stable integration contracts, subj
 | Document processing results | `/api/document-processing-results/*` | Experimental result intake and review surface for document processors |
 | Extension capabilities | `/api/extensions/capabilities/*` | Experimental declared-capability/status registry for integrations and sidecars; not a plugin loader |
 
+Procurement history reads are part of the sourcing and pending-order route families. `GET /api/sourcing/requests/history` and `GET /api/pending-orders/history` expose converted/cancelled reference records. `GET /api/licenses/{id}/procurement-trail` is part of the license route family and exposes the stored source sourcing and pending-order links for a converted license.
+
 The following areas should remain internal or carefully limited until explicitly documented:
 
 - admin-only global settings mutation shapes;

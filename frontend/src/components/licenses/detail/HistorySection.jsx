@@ -1,10 +1,163 @@
-import { formatDateTime } from "../../../utils/formatting.js";
+import { useQuery } from "@tanstack/react-query";
+import { getLicenseProcurementTrail } from "../../../api/licenses.js";
+import { queryKeys } from "../../../queryKeys.js";
+import { formatDateTime, formatMoney } from "../../../utils/formatting.js";
+import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 
-export default function HistorySection({ license, userSettings, isOpen, onToggle }) {
+function statusLabel(value) {
+  return String(value || "").replace(/_/g, " ").toUpperCase();
+}
+
+function documentCounts(documents = []) {
+  return documents.reduce((counts, document) => {
+    const category = document.category || "other";
+    counts[category] = (counts[category] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+function EvidenceChips({ sourcingRequest, pendingOrder }) {
+  const sourcingCounts = documentCounts(sourcingRequest?.quoteDocuments);
+  const poCounts = documentCounts(pendingOrder?.documents);
+  const chips = [
+    ["Quote", (sourcingCounts.quote ?? 0) + (poCounts.quote ?? 0)],
+    ["PO", poCounts.purchase_order ?? 0],
+    ["Invoice", poCounts.invoice ?? 0],
+  ].filter(([, count]) => count > 0);
+
+  if (!chips.length) return <span className="dp-not-set">No procurement documents linked</span>;
+
+  return (
+    <div className="dp-trail-chips">
+      {chips.map(([label, count]) => (
+        <span key={label} className="badge muted">{label} x{count}</span>
+      ))}
+    </div>
+  );
+}
+
+function TrailRow({ label, title, meta, children }) {
+  return (
+    <div className="dp-trail-row">
+      <div className="dp-trail-copy">
+        <label>{label}</label>
+        <div className="val">{title}</div>
+        {meta && <div className="dp-note">{meta}</div>}
+      </div>
+      {children && <div className="dp-trail-actions">{children}</div>}
+    </div>
+  );
+}
+
+function ProcurementTrail({ trail, loading, error, userSettings, onNavigateToSourcing, onNavigateToPendingOrder }) {
+  if (loading) {
+    return (
+      <div className="dp-trail-status">
+        <span className="spinner" style={{ margin: 0, width: 14, height: 14 }} />
+        Loading procurement trail...
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="dp-note">Procurement trail unavailable.</div>;
+  }
+
+  const sourcingRequest = trail?.sourcingRequest;
+  const sourcingItem = trail?.sourcingItem;
+  const pendingOrder = trail?.pendingOrder;
+  const conversion = trail?.conversion;
+  const hasTrail = sourcingRequest || sourcingItem || pendingOrder;
+
+  if (!hasTrail) {
+    return <div className="dp-note">No linked procurement trail.</div>;
+  }
+
+  const sourceMetaParts = [];
+  if (sourcingItem?.estimatedTotalPrice) {
+    sourceMetaParts.push(formatMoney(sourcingItem.estimatedTotalPrice, sourcingItem.currency, userSettings));
+  }
+  if (sourcingItem?.renewalForLicenseId) {
+    sourceMetaParts.push(`renewal of license #${sourcingItem.renewalForLicenseId}`);
+  }
+  if (conversion?.sourceMatchType === "matched") {
+    sourceMetaParts.push("legacy match by PO line");
+  }
+  if (conversion?.sourceMatchType === "ambiguous") {
+    sourceMetaParts.push("multiple PO lines match this license");
+  }
+
+  return (
+    <div className="dp-trail">
+      {sourcingRequest && (
+        <TrailRow
+          label="Sourcing Request"
+          title={`Request #${sourcingRequest.id} · ${sourcingRequest.supplier || "Unassigned supplier"}`}
+          meta={[
+            statusLabel(sourcingRequest.status),
+            sourcingRequest.createdAt ? formatDateTime(sourcingRequest.createdAt, userSettings) : null,
+          ].filter(Boolean).join(" · ")}
+        >
+          {sourcingItem?.id && onNavigateToSourcing && (
+            <button type="button" className="btn btn-g btn-sm" onClick={() => onNavigateToSourcing(sourcingItem.id)}>
+              <Icon name="arrow-right" size={12} />View Sourcing
+            </button>
+          )}
+        </TrailRow>
+      )}
+
+      {sourcingItem && (
+        <TrailRow
+          label="Sourcing Line"
+          title={`Line #${sourcingItem.id} · ${sourcingItem.publisherName}`}
+          meta={[sourcingItem.softwareDescription, ...sourceMetaParts].filter(Boolean).join(" · ")}
+        />
+      )}
+
+      {pendingOrder && (
+        <TrailRow
+          label="Pending Order"
+          title={`${pendingOrder.poNumber || `Order #${pendingOrder.id}`} · ${pendingOrder.supplier || "No supplier"}`}
+          meta={[
+            statusLabel(pendingOrder.status),
+            pendingOrder.createdAt ? formatDateTime(pendingOrder.createdAt, userSettings) : null,
+          ].filter(Boolean).join(" · ")}
+        >
+          {onNavigateToPendingOrder && (
+            <button type="button" className="btn btn-g btn-sm" onClick={() => onNavigateToPendingOrder(pendingOrder.id)}>
+              <Icon name="arrow-right" size={12} />View PO
+            </button>
+          )}
+        </TrailRow>
+      )}
+
+      <TrailRow label="Evidence" title={<EvidenceChips sourcingRequest={sourcingRequest} pendingOrder={pendingOrder} />} />
+    </div>
+  );
+}
+
+export default function HistorySection({
+  license,
+  userSettings,
+  isOpen,
+  onToggle,
+  onNavigateToSourcing,
+  onNavigateToPendingOrder,
+}) {
   const createdBy = license.createdByName
     || license.createdByEmail
     || (license.createdBy ? `User #${license.createdBy}` : "Unknown / legacy record");
+  const { data: trail, isFetching, error } = useQuery({
+    queryKey: queryKeys.licenseProcurementTrail(license.id),
+    queryFn: async () => {
+      const { data, error: requestError } = await getLicenseProcurementTrail(license.id);
+      if (requestError) throw new Error(requestError);
+      return data;
+    },
+    enabled: isOpen && Boolean(license.id),
+    staleTime: 30_000,
+  });
 
   return (
     <>
@@ -27,6 +180,15 @@ export default function HistorySection({ license, userSettings, isOpen, onToggle
               <div className="val mono">{license.updatedAt ? formatDateTime(license.updatedAt, userSettings) : "\u2014"}</div>
             </div>
           </div>
+          <div className="dp-trail-heading">Procurement Trail</div>
+          <ProcurementTrail
+            trail={trail}
+            loading={isFetching}
+            error={error}
+            userSettings={userSettings}
+            onNavigateToSourcing={onNavigateToSourcing}
+            onNavigateToPendingOrder={onNavigateToPendingOrder}
+          />
         </div>
       )}
       <div className="dp-section-divider" />

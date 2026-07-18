@@ -34,6 +34,7 @@ export function useLicenseActions({
 
   const {
     startRenewal,
+    startRenewalBundle,
     cancelRenewal: cancelRenewalWorkflow,
   } = useRenewalWorkflowActions({
     updateLicensesInCache,
@@ -108,6 +109,10 @@ export function useLicenseActions({
     return startRenewal(licenseId);
   }, [startRenewal]);
 
+  const handleCreateRenewalBundle = useCallback(async (licenseIds) => {
+    return startRenewalBundle(licenseIds);
+  }, [startRenewalBundle]);
+
   const handleCancelRenewal = useCallback(async (licenseId) => {
     const result = await cancelRenewalWorkflow(licenseId);
     return result.ok;
@@ -141,6 +146,7 @@ export function useLicenseActions({
     handleLicenseFieldPatch,
     handleLicenseDelete,
     handleCreateRenewal,
+    handleCreateRenewalBundle,
     handleCancelRenewal,
     handleBulkDelete,
   };

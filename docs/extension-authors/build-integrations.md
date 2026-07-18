@@ -93,6 +93,14 @@ License read responses also expose procurement and record-history metadata:
 
 `requestDate` and `purchaseDate` are optional. Treat a missing value as unknown rather than inferring one from unrelated fields such as start date or PO number.
 
+Procurement read integrations can also follow the stored procurement trail:
+
+- `GET /api/licenses/{id}/procurement-trail` returns the source sourcing request/item and pending order when the license was created through LicenseTrack procurement conversion;
+- `GET /api/sourcing/requests/history` returns converted and cancelled sourcing requests for reference;
+- `GET /api/pending-orders/history` returns converted and cancelled pending orders for reference.
+
+Use returned `id`, `sourcingRequestId`, `sourcingItemId`, `pendingOrderId`, and converted-license ids for reconciliation. PO number is commercial metadata and may be reused; it is not a relationship key.
+
 ## Operational Checklist
 
 - Store API tokens in a secret manager, not in source code.

@@ -145,6 +145,68 @@ async def test_sourcing_item_list_hides_items_under_converted_requests(test_app,
     assert "Floating App" not in descriptions
 
 
+async def test_cancelled_sourcing_request_moves_to_history(test_app, auth_headers, db_session):
+    item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        supplier="Paused Supplier",
+        softwareDescription="Paused App",
+    )
+    request_id = item["sourcingRequestId"]
+
+    cancel_resp = await test_app.post(f"/api/sourcing/requests/{request_id}/cancel", headers=auth_headers)
+    assert cancel_resp.status_code == 200, cancel_resp.text
+    assert cancel_resp.json()["status"] == "cancelled"
+    assert cancel_resp.json()["items"][0]["status"] == "cancelled"
+
+    active_resp = await test_app.get("/api/sourcing/requests", headers=auth_headers)
+    assert active_resp.status_code == 200, active_resp.text
+    assert request_id not in {request["id"] for request in active_resp.json()}
+
+    history_resp = await test_app.get("/api/sourcing/requests/history", headers=auth_headers)
+    assert history_resp.status_code == 200, history_resp.text
+    history = {request["id"]: request for request in history_resp.json()}
+    assert request_id in history
+    assert history[request_id]["supplier"] == "Paused Supplier"
+    assert history[request_id]["items"][0]["softwareDescription"] == "Paused App"
+
+    db_session.expire_all()
+    request_obj = await db_session.get(SourcingRequest, request_id)
+    item_obj = await db_session.get(SourcingItem, item["id"])
+    assert request_obj.status == SourcingStatus.cancelled
+    assert item_obj.status == SourcingStatus.cancelled
+
+
+async def test_sourcing_history_includes_pending_order_status(test_app, auth_headers):
+    sourcing_item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        softwareDescription="History PO Status App",
+    )
+    request_id = sourcing_item["sourcingRequestId"]
+    po = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+
+    history_resp = await test_app.get("/api/sourcing/requests/history", headers=auth_headers)
+    assert history_resp.status_code == 200, history_resp.text
+    history = {request["id"]: request for request in history_resp.json()}
+    history_item = history[request_id]["items"][0]
+    assert history_item["pendingOrderId"] == po["id"]
+    assert history_item["pendingOrderStatus"] == "pending"
+    assert history_item["pendingOrderPoNumber"] == po["poNumber"]
+
+    convert_resp = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber=po["poNumber"]))},
+        headers=auth_headers,
+    )
+    assert convert_resp.status_code == 200, convert_resp.text
+
+    history_resp = await test_app.get("/api/sourcing/requests/history", headers=auth_headers)
+    assert history_resp.status_code == 200, history_resp.text
+    history = {request["id"]: request for request in history_resp.json()}
+    assert history[request_id]["items"][0]["pendingOrderStatus"] == "converted"
+
+
 async def test_pending_order_list_can_include_converted_evidence_issues(
     test_app,
     auth_headers,
@@ -179,6 +241,132 @@ async def test_pending_order_list_can_include_converted_evidence_issues(
     assert issue_orders[order_id]["evidenceTransferDetail"] == "storage failed"
 
 
+async def test_cancelled_pending_order_moves_to_history(test_app, auth_headers, db_session, tmp_path, monkeypatch):
+    monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
+    order_resp = await test_app.post(
+        "/api/pending-orders",
+        json={"poNumber": "PO-PAUSED", "supplier": "Paused Supplier"},
+        headers=auth_headers,
+    )
+    assert order_resp.status_code == 201, order_resp.text
+    order_id = order_resp.json()["id"]
+
+    add_resp = await test_app.post(
+        f"/api/pending-orders/{order_id}/items/bulk",
+        json=[
+            {
+                "publisherName": "Paused Publisher",
+                "softwareDescription": "Paused Subscription",
+                "quantity": "3",
+                "estimatedUnitPrice": "20",
+                "estimatedTotalPrice": "60",
+                "currency": "EUR",
+            }
+        ],
+        headers=auth_headers,
+    )
+    assert add_resp.status_code == 201, add_resp.text
+    item_id = add_resp.json()["items"][0]["id"]
+
+    upload_resp = await test_app.post(
+        f"/api/pending-orders/{order_id}/documents",
+        files={"file": ("paused-po.pdf", b"purchase order", "application/pdf")},
+        headers=auth_headers,
+    )
+    assert upload_resp.status_code == 201, upload_resp.text
+
+    cancel_resp = await test_app.post(f"/api/pending-orders/{order_id}/cancel", headers=auth_headers)
+    assert cancel_resp.status_code == 200, cancel_resp.text
+    assert cancel_resp.json()["status"] == "cancelled"
+    assert cancel_resp.json()["items"][0]["status"] == "cancelled"
+    assert cancel_resp.json()["documents"][0]["original_filename"] == "paused-po.pdf"
+
+    active_resp = await test_app.get("/api/pending-orders", headers=auth_headers)
+    assert active_resp.status_code == 200, active_resp.text
+    assert order_id not in {order["id"] for order in active_resp.json()}
+
+    history_resp = await test_app.get("/api/pending-orders/history", headers=auth_headers)
+    assert history_resp.status_code == 200, history_resp.text
+    history = {order["id"]: order for order in history_resp.json()}
+    assert history[order_id]["poNumber"] == "PO-PAUSED"
+    assert history[order_id]["items"][0]["softwareDescription"] == "Paused Subscription"
+    assert history[order_id]["documents"][0]["original_filename"] == "paused-po.pdf"
+
+    convert_resp = await test_app.post(
+        f"/api/pending-orders/{order_id}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber="PO-PAUSED"))},
+        headers=auth_headers,
+    )
+    assert convert_resp.status_code == 409
+    assert convert_resp.json()["detail"] == "Pending order has been cancelled"
+
+    db_session.expire_all()
+    order_obj = await db_session.get(PendingOrder, order_id)
+    item_obj = await db_session.get(SourcingItem, item_id)
+    assert order_obj.status == PendingOrderStatus.cancelled
+    assert item_obj.status == SourcingStatus.cancelled
+
+
+async def test_converted_pending_order_moves_to_history(test_app, auth_headers):
+    sourcing_item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        publisherName="History Publisher",
+        softwareDescription="History Subscription",
+        estimatedTotalPrice="75",
+    )
+    po = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+    order_id = po["id"]
+
+    convert_resp = await test_app.post(
+        f"/api/pending-orders/{order_id}/convert",
+        data={
+            "data": json.dumps(
+                _single_convert_form(
+                    poNumber=po["poNumber"],
+                    publisherName="History Publisher",
+                    softwareDescription="History Subscription",
+                )
+            )
+        },
+        headers=auth_headers,
+    )
+    assert convert_resp.status_code == 200, convert_resp.text
+    created_license = convert_resp.json()[0]
+    assert created_license["sourceSourcingItemId"] == sourcing_item["id"]
+
+    active_resp = await test_app.get("/api/pending-orders", headers=auth_headers)
+    assert active_resp.status_code == 200, active_resp.text
+    assert order_id not in {order["id"] for order in active_resp.json()}
+
+    history_resp = await test_app.get("/api/pending-orders/history", headers=auth_headers)
+    assert history_resp.status_code == 200, history_resp.text
+    history = {order["id"]: order for order in history_resp.json()}
+    assert history[order_id]["status"] == "converted"
+    assert history[order_id]["poNumber"] == po["poNumber"]
+    assert history[order_id]["convertedLicenseId"] == created_license["id"]
+    assert history[order_id]["convertedLicenseIds"] == [created_license["id"]]
+    assert history[order_id]["convertedLicenseRef"] == created_license["licenseRef"]
+    assert history[order_id]["items"][0]["convertedLicenseId"] == created_license["id"]
+    assert history[order_id]["items"][0]["convertedLicenseIds"] == [created_license["id"]]
+    assert history[order_id]["items"][0]["convertedLicenseRef"] == created_license["licenseRef"]
+
+    trail_resp = await test_app.get(
+        f"/api/licenses/{created_license['id']}/procurement-trail",
+        headers=auth_headers,
+    )
+    assert trail_resp.status_code == 200, trail_resp.text
+    trail = trail_resp.json()
+    assert trail["licenseId"] == created_license["id"]
+    assert trail["pendingOrder"]["id"] == order_id
+    assert trail["pendingOrder"]["status"] == "converted"
+    assert trail["sourcingRequest"]["id"] == sourcing_item["sourcingRequestId"]
+    assert trail["sourcingItem"]["id"] == sourcing_item["id"]
+    assert trail["sourcingItem"]["estimatedTotalPrice"] == "75"
+    assert trail["conversion"]["sourceSourcingItemId"] == sourcing_item["id"]
+    assert trail["conversion"]["sourceMatchType"] == "exact"
+
+
 async def test_converted_sourcing_item_update_delete_and_reconvert_are_rejected(test_app, auth_headers):
     item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Locked Source App")
     await _convert_sourcing_to_po(test_app, auth_headers, item["id"])
@@ -201,6 +389,63 @@ async def test_converted_sourcing_item_update_delete_and_reconvert_are_rejected(
     assert update_resp.status_code == 409
     assert delete_resp.status_code == 409
     assert convert_resp.status_code == 409
+
+
+async def test_renewal_bundle_creates_one_request_with_distinct_lines(test_app, auth_headers, db_session):
+    first = await _create_license(
+        test_app,
+        auth_headers,
+        publisherName="SideFX",
+        softwareDescription="Houdini Indie Annual License",
+        poNumber="PO-BUNDLE-1",
+        endDate="2026-12-31",
+        skuCode="SIDEFX-INDIE",
+    )
+    second = await _create_license(
+        test_app,
+        auth_headers,
+        publisherName="SideFX",
+        softwareDescription="Houdini Pro Annual License",
+        poNumber="PO-BUNDLE-1",
+        endDate="2026-12-31",
+        skuCode="SIDEFX-PRO",
+    )
+
+    resp = await test_app.post(
+        "/api/licenses/renewal-bundle/initiate",
+        json={"licenseIds": [first["id"], second["id"]]},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert {license_row["id"] for license_row in body["licenses"]} == {first["id"], second["id"]}
+    assert {license_row["lifecycleStatus"] for license_row in body["licenses"]} == {"pending_renewal"}
+    request = body["sourcingRequest"]
+    assert len(request["items"]) == 2
+    assert {item["softwareDescription"] for item in request["items"]} == {
+        "Houdini Indie Annual License",
+        "Houdini Pro Annual License",
+    }
+    assert len({item["sourcingRequestId"] for item in request["items"]}) == 1
+    assert request["items"][0]["sourcingRequestId"] == request["id"]
+
+    db_session.expire_all()
+    db_items = (
+        await db_session.execute(
+            select(SourcingItem).where(SourcingItem.renewal_for_license_id.in_([first["id"], second["id"]]))
+        )
+    ).scalars().all()
+    assert len(db_items) == 2
+    assert len({item.sourcing_request_id for item in db_items}) == 1
+
+    merge_resp = await test_app.post(
+        "/api/sourcing/merge",
+        json={"sourcingItemIds": [item.id for item in db_items]},
+        headers=auth_headers,
+    )
+    assert merge_resp.status_code == 400
+    assert merge_resp.json()["detail"] == "Coterm merge requires the same software description."
 
 
 def _single_convert_form(**overrides) -> dict:

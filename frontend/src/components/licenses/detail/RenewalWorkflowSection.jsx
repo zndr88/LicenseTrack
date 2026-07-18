@@ -14,6 +14,7 @@ export default function RenewalWorkflowSection({
   globalSettings,
   userSettings,
   onCreateRenewal,
+  onCreateRenewalBundle,
   onCancelRenewal,
   onNavigate,
   onNavigateToSourcing,
@@ -35,7 +36,7 @@ export default function RenewalWorkflowSection({
           <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 10, lineHeight: 1.5 }}>
             {license.budgetOwnerEmail
               ? bundleCount > 1
-                ? `${bundleCount} licenses share PO ${license.poNumber}. ${bundleCount} sourcing records will be created to route through procurement.`
+                ? `${bundleCount} licenses share PO ${license.poNumber} and the same end date. One sourcing request with ${bundleCount} license lines will be created.`
                 : `Initiating renewal will create a sourcing record routed through procurement. This license will be retired once the renewal is complete and a successor license will be created with the new dates.`
               : "Set a budget owner email above to enable automated renewal notifications."}
           </div>
@@ -48,21 +49,15 @@ export default function RenewalWorkflowSection({
                 setInitiatingRenewal(true);
                 try {
                   const allToRenew = [license, ...poSiblings];
-                  let createdCount = 0;
-                  for (const lic of allToRenew) {
-                    const result = await onCreateRenewal(lic.id);
-                    if (!result?.ok) {
-                      if (createdCount > 0) {
-                        setToast(`Renewal partially initiated - ${createdCount} of ${bundleCount} sourcing records created`);
-                        setTimeout(() => setToast(null), 6000);
-                      }
-                      return;
-                    }
-                    createdCount += 1;
+                  const result = bundleCount > 1 && onCreateRenewalBundle
+                    ? await onCreateRenewalBundle(allToRenew.map((lic) => lic.id))
+                    : await onCreateRenewal(license.id);
+                  if (!result?.ok) {
+                    return;
                   }
                   setToast(
                     bundleCount > 1
-                      ? `Renewal initiated - ${bundleCount} sourcing records created`
+                      ? `Renewal initiated - one sourcing request with ${bundleCount} lines created`
                       : "Renewal initiated - sourcing record created"
                   );
                   setTimeout(() => setToast(null), 6000);

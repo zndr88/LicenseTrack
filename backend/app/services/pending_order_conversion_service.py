@@ -133,11 +133,13 @@ async def convert_pending_order_to_licenses(
         raise HTTPException(status_code=404, detail="Pending order not found")
     if order.status == PendingOrderStatus.converted:
         raise HTTPException(status_code=409, detail="Pending order has already been converted")
+    if order.status == PendingOrderStatus.cancelled:
+        raise HTTPException(status_code=409, detail="Pending order has been cancelled")
     # F5: Acquire a write lock before creating any licenses.
     _lock = await db.execute(
         update(PendingOrder)
         .where(PendingOrder.id == order_id)
-        .where(PendingOrder.status != PendingOrderStatus.converted)
+        .where(PendingOrder.status.in_([PendingOrderStatus.pending, PendingOrderStatus.invoice_received]))
         .values(notes=order.notes)
         .execution_options(synchronize_session=False)
     )
@@ -183,6 +185,7 @@ async def convert_pending_order_to_licenses(
                     )
 
                 item_data = build_pending_order_item_license_data(form_data, item, old_lic)
+                item_data["source_sourcing_item_id"] = item.id
 
                 renewal_result = await renewal_orchestrator.create_renewal_successor_from_sourcing_item(
                     db=db,
@@ -200,6 +203,7 @@ async def convert_pending_order_to_licenses(
                     evidence_transfer_required = True
             else:
                 item_data = build_pending_order_item_license_data(form_data, item, None)
+                item_data["source_sourcing_item_id"] = item.id
                 new_lic = await create_purchase_license(
                     db=db,
                     item_data=item_data,
@@ -287,11 +291,13 @@ async def batch_convert_pending_order_to_licenses(
         raise HTTPException(status_code=404, detail="Pending order not found")
     if order.status == PendingOrderStatus.converted:
         raise HTTPException(status_code=409, detail="Pending order has already been converted")
+    if order.status == PendingOrderStatus.cancelled:
+        raise HTTPException(status_code=409, detail="Pending order has been cancelled")
     # F5: Acquire a write lock before creating any licenses.
     _lock = await db.execute(
         update(PendingOrder)
         .where(PendingOrder.id == order_id)
-        .where(PendingOrder.status != PendingOrderStatus.converted)
+        .where(PendingOrder.status.in_([PendingOrderStatus.pending, PendingOrderStatus.invoice_received]))
         .values(notes=order.notes)
         .execution_options(synchronize_session=False)
     )
@@ -328,6 +334,7 @@ async def batch_convert_pending_order_to_licenses(
             )
 
         item_data = batch_item.model_dump(by_alias=False, exclude={"sourcing_item_id"})
+        item_data["source_sourcing_item_id"] = sourcing_item.id
         item_data["pending_order_id"] = order_id
         item_data["request_date"] = sourcing_item.created_at
         item_data["purchase_date"] = order.created_at

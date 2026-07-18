@@ -9,9 +9,16 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.dependencies import require_editor_or_admin
 from app.models.license import License
+from app.models.sourcing import SourcingRequest
 from app.models.user import User
-from app.schemas.license import CancelRenewalResponse, InitiateRenewalResponse, LicenseResponse
-from app.schemas.sourcing import SourcingItemResponse
+from app.schemas.license import (
+    CancelRenewalResponse,
+    InitiateRenewalBundleRequest,
+    InitiateRenewalBundleResponse,
+    InitiateRenewalResponse,
+    LicenseResponse,
+)
+from app.schemas.sourcing import SourcingItemResponse, SourcingRequestResponse
 from app.services import renewal_orchestrator
 from app.services.license_service import (
     compute_completeness,
@@ -118,4 +125,47 @@ async def initiate_renewal(
     return InitiateRenewalResponse(
         license=_enrich(license_obj, mandatory_fields),
         sourcing_item=SourcingItemResponse.model_validate(result.sourcing_item),
+    )
+
+
+@router.post("/renewal-bundle/initiate", response_model=InitiateRenewalBundleResponse)
+async def initiate_renewal_bundle(
+    payload: InitiateRenewalBundleRequest,
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_editor_or_admin),
+) -> InitiateRenewalBundleResponse:
+    """
+    Begin one renewal procurement request for multiple licenses.
+
+    Used for same-PO, same-end-date renewal bundles where products must remain
+    separate line items instead of being coterm-merged into one license.
+    """
+    mandatory_fields = await _get_global_settings(db)
+
+    result = await renewal_orchestrator.initiate_renewal_bundle(
+        db=db,
+        license_ids=payload.license_ids,
+        actor=current_user,
+        ip_address=request.client.host if request.client else None,
+    )
+    await db.commit()
+
+    license_result = await db.execute(
+        select(License)
+        .where(License.id.in_([license_obj.id for license_obj in result.licenses]))
+        .options(selectinload(License.documents))
+    )
+    licenses_by_id = {license_obj.id: license_obj for license_obj in license_result.scalars().all()}
+
+    request_result = await db.execute(
+        select(SourcingRequest)
+        .where(SourcingRequest.id == result.sourcing_request.id)
+        .options(selectinload(SourcingRequest.items), selectinload(SourcingRequest.quote_documents))
+    )
+    sourcing_request = request_result.scalar_one()
+
+    return InitiateRenewalBundleResponse(
+        licenses=[_enrich(licenses_by_id[license_obj.id], mandatory_fields) for license_obj in result.licenses],
+        sourcing_request=SourcingRequestResponse.model_validate(sourcing_request),
     )

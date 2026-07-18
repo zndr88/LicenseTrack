@@ -90,6 +90,8 @@ class SourcingItemResponse(BaseModel):
     notes: Optional[str] = None
     status: SourcingStatus
     pending_order_id: Optional[int] = None
+    pending_order_status: Optional[str] = None
+    pending_order_po_number: Optional[str] = None
     renewal_for_license_id: Optional[int] = None
     coterm_predecessor_ids: Optional[list[int]] = None
     is_renewal: bool = False

@@ -7,10 +7,11 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.custom_fields import CustomFieldDefinition, CustomFieldValue
 from app.models.license import License
-from app.models.pending_order import PendingOrder
+from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.plugin import Plugin, PluginPermission
 from app.models.plugin_suggestion import PluginSuggestion
 from app.models.sourcing import SourcingItem, SourcingStatus
@@ -197,15 +198,25 @@ async def _resolve_target_license_id(
         item = await db.get(
             SourcingItem, _parse_int_target_id(target_id, "Sourcing item suggestion targetId must be an integer")
         )
-        if item is None or item.status == SourcingStatus.converted:
+        if item is None or item.status != SourcingStatus.sourcing:
             raise PluginSuggestionError("Sourcing item suggestion target not found")
         return None
 
     if target_type == "pending_order_item":
-        item = await db.get(
-            SourcingItem, _parse_int_target_id(target_id, "Pending order item suggestion targetId must be an integer")
+        item_result = await db.execute(
+            select(SourcingItem)
+            .where(
+                SourcingItem.id
+                == _parse_int_target_id(target_id, "Pending order item suggestion targetId must be an integer")
+            )
+            .options(selectinload(SourcingItem.pending_order))
         )
-        if item is None or item.pending_order_id is None:
+        item = item_result.scalar_one_or_none()
+        if (
+            item is None
+            or item.pending_order is None
+            or item.pending_order.status not in {PendingOrderStatus.pending, PendingOrderStatus.invoice_received}
+        ):
             raise PluginSuggestionError("Pending order item suggestion target not found")
         return None
 
@@ -214,7 +225,7 @@ async def _resolve_target_license_id(
             PendingOrder,
             _parse_int_target_id(target_id, "Pending order conversion suggestion targetId must be an integer"),
         )
-        if order is None:
+        if order is None or order.status not in {PendingOrderStatus.pending, PendingOrderStatus.invoice_received}:
             raise PluginSuggestionError("Pending order conversion suggestion target not found")
         return None
 

@@ -30,6 +30,13 @@ class InitiateRenewalResult:
 
 
 @dataclass
+class InitiateRenewalBundleResult:
+    licenses: list[License]
+    sourcing_request: SourcingRequest
+    sourcing_items: list[SourcingItem]
+
+
+@dataclass
 class CancelRenewalResult:
     license: License
     po_warning: bool
@@ -77,6 +84,78 @@ async def initiate_renewal(
     )
 
     return InitiateRenewalResult(license=license_obj, sourcing_item=sourcing_item)
+
+
+def _common_or_none(values: list[str | None]) -> str | None:
+    normalized = {(value or "").strip() for value in values if (value or "").strip()}
+    return normalized.pop() if len(normalized) == 1 else None
+
+
+async def initiate_renewal_bundle(
+    *,
+    db: AsyncSession,
+    license_ids: list[int],
+    actor: User,
+    ip_address: str | None,
+) -> InitiateRenewalBundleResult:
+    """
+    Begin one procurement renewal request containing multiple license lines.
+
+    Bundle renewal is intentionally narrower than coterm merge: licenses must
+    share the same PO number and end date, but each product stays a distinct
+    sourcing line inside one request.
+    """
+    ordered_ids = list(dict.fromkeys(license_ids))
+    if len(ordered_ids) < 2:
+        raise HTTPException(status_code=400, detail="At least two license IDs are required for a renewal bundle")
+
+    result = await db.execute(select(License).where(License.id.in_(ordered_ids)).with_for_update())
+    by_id = {license_obj.id: license_obj for license_obj in result.scalars().all()}
+    missing = [license_id for license_id in ordered_ids if license_id not in by_id]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"License(s) not found: {missing}")
+
+    licenses = [by_id[license_id] for license_id in ordered_ids]
+    po_numbers = {(license_obj.po_number or "").strip() for license_obj in licenses}
+    if len(po_numbers) != 1 or not next(iter(po_numbers)):
+        raise HTTPException(status_code=400, detail="Renewal bundle licenses must share the same PO number")
+    end_dates = {license_obj.end_date for license_obj in licenses}
+    if len(end_dates) != 1:
+        raise HTTPException(status_code=400, detail="Renewal bundle licenses must share the same end date")
+
+    for license_obj in licenses:
+        mark_pending_renewal(license_obj)
+
+    request = SourcingRequest(
+        supplier=_common_or_none([license_obj.supplier for license_obj in licenses]),
+        contact_email=_common_or_none([license_obj.contact_email for license_obj in licenses]),
+        status=SourcingStatus.sourcing,
+        created_by=actor.id,
+    )
+    db.add(request)
+    await db.flush()
+
+    sourcing_items: list[SourcingItem] = []
+    for license_obj in licenses:
+        sourcing_item = build_renewal_sourcing_item(license_obj, created_by=actor.id)
+        sourcing_item.sourcing_request_id = request.id
+        db.add(sourcing_item)
+        sourcing_items.append(sourcing_item)
+    await db.flush()
+
+    for license_obj, sourcing_item in zip(licenses, sourcing_items):
+        await log_event(
+            db,
+            "license.renewal_initiated",
+            actor=actor,
+            ip_address=ip_address,
+            target_type="license",
+            target_id=str(license_obj.id),
+            target_label=license_obj.software_description,
+            detail=f"sourcing request {request.id}, item {sourcing_item.id} created",
+        )
+
+    return InitiateRenewalBundleResult(licenses=licenses, sourcing_request=request, sourcing_items=sourcing_items)
 
 
 async def cancel_renewal(

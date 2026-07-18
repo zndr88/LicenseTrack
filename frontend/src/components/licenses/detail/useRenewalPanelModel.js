@@ -6,6 +6,7 @@ export function useRenewalPanelModel({ license, allLicenses, globalSettings }) {
         .filter(
           (l) =>
             l.poNumber === license.poNumber &&
+            l.endDate === license.endDate &&
             l.id !== license.id &&
             !l.renewedToId &&
             !l.retired &&

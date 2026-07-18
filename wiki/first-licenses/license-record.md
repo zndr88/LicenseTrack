@@ -78,7 +78,9 @@ The **Renewal notifications** toggle controls expiry emails for this specific li
 
 - **Notes** — add custom messages to the license for follow-up.
 - **Custom Fields** — hold values that have no natural place in the other sections. You define a custom field and its section under the admin menu.
-- **History** — an audit trail of changes to the record.
+- **History** — an audit trail of changes to the record, plus links back to the sourcing request and pending order that created the license when the record came through the procurement pipeline.
+
+When a procurement trail exists, the History section can take you back to the original quote-stage sourcing line and the related pending order. Converted or cancelled procurement records open in their history tables, so you can inspect old quote, PO, invoice, price, and note context without reopening the workflow.
 
 ## Email & delete
 

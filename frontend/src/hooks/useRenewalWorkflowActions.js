@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { cancelRenewal, initiateRenewal } from "../api/licenses.js";
+import { cancelRenewal, initiateRenewal, initiateRenewalBundle } from "../api/licenses.js";
 import { queryKeys } from "../queryKeys.js";
 import { invalidateRenewalWorkflow } from "../queryInvalidation.js";
 import { updateLicensesInQueryData } from "../utils/licenseQueryData.js";
@@ -70,6 +70,42 @@ export function useRenewalWorkflowActions({
     updateLicenseCache,
   ]);
 
+  const startRenewalBundle = useCallback(async (licenseIds) => {
+    const { data, error } = await initiateRenewalBundle(licenseIds);
+    if (error) {
+      showError?.(error);
+      return { ok: false, error };
+    }
+
+    const updatedLicenses = data?.licenses ?? [];
+    if (updatedLicenses.length > 0) {
+      updateLicenseCache((licenses) => licenses.map((license) => {
+        const updated = updatedLicenses.find((item) => item.id === license.id);
+        return updated ? normalizeLicense(updated) : license;
+      }));
+    }
+
+    const sourcingItems = data?.sourcingRequest?.items ?? [];
+    if (sourcingItems.length > 0) {
+      queryClient.setQueryData(queryKeys.sourcingItems, (prev) => [...sourcingItems, ...(prev ?? [])]);
+      queryClient.setQueryData(queryKeys.sourcing, (prev) => (
+        Array.isArray(prev) && data?.sourcingRequest ? [data.sourcingRequest, ...prev] : prev
+      ));
+    }
+
+    onSourcingCreated?.(data?.sourcingRequest ?? sourcingItems[0]);
+    onRenewalStarted?.(data);
+    refreshWorkflow();
+    return { ok: true, data };
+  }, [
+    onRenewalStarted,
+    onSourcingCreated,
+    queryClient,
+    refreshWorkflow,
+    showError,
+    updateLicenseCache,
+  ]);
+
   const cancelRenewalWorkflow = useCallback(async (licenseId) => {
     const { data, error } = await cancelRenewal(licenseId);
     if (error) {
@@ -94,6 +130,7 @@ export function useRenewalWorkflowActions({
 
   return {
     startRenewal,
+    startRenewalBundle,
     cancelRenewal: cancelRenewalWorkflow,
   };
 }
