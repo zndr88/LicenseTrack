@@ -148,6 +148,20 @@ In Docker deployments the compiled frontend is served by the backend container a
 
 For full deployment guidance, see the [deployment guide](wiki/operations/deployment.md).
 
+### Native Linux installation
+
+LicenseTrack can also run directly on a systemd-based Linux host without Docker. The supported native baseline is Ubuntu 22.04 LTS, Python 3.12, and x86_64. Download the `licensetrack-native-<version>-linux-x86_64` archive attached to the GitHub release, extract it, and run:
+
+```bash
+sudo ./install.sh
+```
+
+Choose Standard mode for the recommended minimal setup, or run `sudo ./install.sh --advanced` to configure runtime, limit, cookie, API-documentation, and test-only OIDC network options. SMTP and OIDC credentials are configured in the application after first login.
+
+The native installer creates an unprivileged service account, a versioned application directory under `/opt/licensetrack`, persistent data under `/var/lib/licensetrack`, protected configuration under `/etc/licensetrack`, and a single-worker systemd service. Native release archives include the compiled frontend and Python wheelhouse, so Node.js is not required on the server.
+
+The automatic GitHub source archive also contains `install.sh`, but it must build the frontend locally and therefore requires Node.js 22 and network access. See the [native Linux installation guide](wiki/getting-started/native-installation.md) for prerequisites, filesystem layout, reverse-proxy guidance, and unattended installation.
+
 ## Configuration
 
 Core Docker configuration is loaded from `.env`.
@@ -190,7 +204,7 @@ Application database backups contain the SQLite database only. Uploaded document
 ## Documentation
 
 - Public operator docs: [LicenseTrack documentation](https://zndr88.github.io/LicenseTrack/docs/) and the source pages under [wiki/](wiki/).
-- Deployment and operations: [deployment](wiki/operations/deployment.md), [upgrade](wiki/operations/upgrade.md), [runbook](wiki/operations/runbook.md), and [backup/restore](wiki/operations/backup-restore.md).
+- Deployment and operations: [deployment](wiki/operations/deployment.md), [native installation](wiki/getting-started/native-installation.md), [upgrade](wiki/operations/upgrade.md), [native upgrade](wiki/operations/native-upgrade.md), [runbook](wiki/operations/runbook.md), and [backup/restore](wiki/operations/backup-restore.md).
 - Maintainer docs: [docs/maintainer/architecture.md](docs/maintainer/architecture.md) and [docs/maintainer/style-contract.md](docs/maintainer/style-contract.md).
 - Extension author docs: [docs/extension-authors/](docs/extension-authors/).
 - Plugin author docs: [docs/plugin-authors/](docs/plugin-authors/).

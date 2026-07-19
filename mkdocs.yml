@@ -39,6 +39,7 @@ nav:
   - Getting Started:
       - Prerequisites: getting-started/prerequisites.md
       - Installation: getting-started/installation.md
+      - Native Linux Installation: getting-started/native-installation.md
       - First Launch & Login: getting-started/first-login.md
   - Core Workflows:
       - Importing Licenses: first-licenses/importing.md
@@ -51,6 +52,7 @@ nav:
       - Overview: operations/index.md
       - Production Deployment & Hardening: operations/deployment.md
       - Upgrading LicenseTrack: operations/upgrade.md
+      - Native Linux Upgrades: operations/native-upgrade.md
       - Operations Runbook: operations/runbook.md
       - Backup & Restore: operations/backup-restore.md
   - Advanced:

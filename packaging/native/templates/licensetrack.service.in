@@ -1,0 +1,26 @@
+[Unit]
+Description=LicenseTrack license lifecycle service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@SERVICE_USER@
+Group=@SERVICE_GROUP@
+WorkingDirectory=@CURRENT_LINK@/backend
+EnvironmentFile=@CONFIG_FILE@
+Environment=PYTHONUNBUFFERED=1
+ExecStart=@CURRENT_LINK@/venv/bin/python -m uvicorn app.main:app --host @BIND_HOST@ --port @PORT@ --workers 1
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=120s
+TimeoutStopSec=90s
+KillMode=mixed
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

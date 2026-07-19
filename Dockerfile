@@ -17,9 +17,9 @@ FROM python:3.12-slim AS runtime
 
 WORKDIR /app
 
-# Install Python dependencies before copying source so layer is cached
-COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Install production dependencies before copying source so the layer is cached.
+COPY backend/requirements-runtime.txt ./
+RUN pip install --no-cache-dir -r requirements-runtime.txt
 
 # Copy backend source
 COPY backend/ ./

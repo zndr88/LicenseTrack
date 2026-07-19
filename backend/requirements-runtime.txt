@@ -17,10 +17,3 @@ aiosmtplib==5.1.2
 email-validator==2.3.0
 apscheduler==3.11.3
 httpx==0.28.1
-
-
-# Testing
-pytest==9.1.1
-pytest-asyncio==1.4.0
-respx==0.23.1
-ruff==0.15.20

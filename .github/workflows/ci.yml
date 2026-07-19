@@ -55,6 +55,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
@@ -83,6 +87,12 @@ jobs:
             echo "Demo marker leaked into the production build."
             exit 1
           fi
+
+      - name: Validate native installer shell entrypoints
+        run: bash -n ../install.sh ../upgrade.sh ../packaging/native/install.sh ../packaging/native/upgrade.sh
+
+      - name: Build native release archive
+        run: python ../scripts/build_native_release.py --skip-frontend-build --output-dir ../dist/native-test
 
   e2e:
     name: Frontend e2e (Playwright)

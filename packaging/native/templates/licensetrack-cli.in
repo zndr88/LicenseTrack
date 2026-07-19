@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SERVICE_NAME="@SERVICE_NAME@"
+CURRENT_LINK="@CURRENT_LINK@"
+STATE_FILE="@STATE_FILE@"
+
+usage() {
+  cat <<'EOF'
+Usage: sudo licensetrack <command>
+
+Commands:
+  start       Start LicenseTrack
+  stop        Stop LicenseTrack
+  restart     Restart LicenseTrack
+  status      Show systemd service status
+  logs        Follow LicenseTrack logs
+  doctor      Verify installation state, service, and health endpoint
+  backup      Create an online SQLite backup in the configured backup directory
+  version     Print the installed LicenseTrack version
+EOF
+}
+
+command_name="${1:-}"
+case "$command_name" in
+  start|stop|restart|status)
+    exec systemctl "$command_name" "$SERVICE_NAME"
+    ;;
+  logs)
+    exec journalctl -u "$SERVICE_NAME" -f
+    ;;
+  doctor|backup|version)
+    exec "$CURRENT_LINK/venv/bin/python" \
+      "$CURRENT_LINK/native/libexec/native_operator.py" \
+      "$command_name" --state-file "$STATE_FILE"
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac
