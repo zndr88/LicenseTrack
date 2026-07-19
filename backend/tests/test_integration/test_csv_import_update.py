@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
+from app.models.audit_log import AuditLog
+from app.models.custom_fields import CustomFieldValue
 from app.models.license import License
 from app.services.csv_importer import ParsedRow
 from app.services.import_.license_matcher import (
@@ -122,6 +124,7 @@ async def test_annotate_flags_ambiguous_row_as_error(test_app, auth_headers, db_
 from datetime import timezone
 
 from app.services.import_.import_update import apply_import_update
+from app.services.import_.import_workflow import run_import_rows
 
 
 def _full_row(license_ref, **overrides):
@@ -162,6 +165,31 @@ async def test_apply_update_sets_request_date(test_app, auth_headers, db_session
     )
     await apply_import_update(obj, row, {}, db_session, "en-US")
     assert (obj.request_date.year, obj.request_date.month, obj.request_date.day) == (2026, 1, 15)
+
+
+async def test_row_database_failure_does_not_poison_remaining_import_rows(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    invalid = _full_row(None, license_type="maintenance")
+    valid = _full_row(None, row_number=2, software_description="Surviving Row")
+
+    created, updated, skipped, errors, _cf_failures = await run_import_rows(
+        [invalid, valid],
+        [{}, {}],
+        set(),
+        1,
+        db_session,
+    )
+    await db_session.commit()
+
+    assert (created, updated, skipped) == (1, 0, 1)
+    assert len(errors) == 1
+    surviving = await db_session.scalar(
+        select(License).where(License.software_description == "Surviving Row")
+    )
+    assert surviving is not None
 
 
 import csv as _csv_mod
@@ -207,6 +235,135 @@ async def test_execute_update_reconciles_existing_by_ltref(test_app, auth_header
     matches = result.scalars().all()
     assert len(matches) == 1              # no duplicate created
     assert matches[0].supplier == "New Vendor"
+
+    audit = await db_session.scalar(select(AuditLog).where(AuditLog.action == "license.csv_imported"))
+    assert audit is not None
+    assert "insertedCount=0" in audit.detail
+    assert "updatedCount=1" in audit.detail
+
+
+async def test_native_confirm_update_reconciles_existing_by_ltref(test_app, auth_headers, db_session):
+    created = await _create_license(test_app, auth_headers, budgetOwnerEmail="old@example.com")
+    ref = created["licenseRef"]
+    headers = ["LT Ref", "Publisher", "Description", "Budget Owner"]
+    csv_bytes = _make_csv(headers, [{
+        "LT Ref": ref,
+        "Publisher": "Acme Corp",
+        "Description": "Acme Suite",
+        "Budget Owner": "new@example.com",
+    }])
+
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        data={"update_existing": "true"},
+        files={"file": ("native.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["updateCount"] == 1
+    assert preview.json()["createCount"] == 0
+    assert preview.json()["rows"][0]["importAction"] == "update"
+
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"update_existing": "true"},
+        files={"file": ("native.csv", csv_bytes, "text/csv")},
+    )
+    assert confirm.status_code == 200, confirm.text
+    assert confirm.json()["importedCount"] == 0
+    assert confirm.json()["updatedCount"] == 1
+
+    matches = (await db_session.execute(select(License).where(License.license_ref == ref))).scalars().all()
+    assert len(matches) == 1
+    assert matches[0].budget_owner_email == "new@example.com"
+
+
+async def test_native_confirm_updates_existing_custom_field_and_blank_preserves_value(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    created = await _create_license(test_app, auth_headers)
+    definition_response = await test_app.post(
+        "/api/custom-fields/",
+        headers=auth_headers,
+        json={"name": "Contract Owner", "fieldType": "text", "displayOrder": 0},
+    )
+    assert definition_response.status_code == 201, definition_response.text
+    definition = definition_response.json()
+    initial_response = await test_app.put(
+        f"/api/licenses/{created['id']}/custom-fields/",
+        headers=auth_headers,
+        json={"values": [{"customFieldDefId": definition["id"], "valueText": "Alice"}]},
+    )
+    assert initial_response.status_code == 200, initial_response.text
+
+    headers = ["LT Ref", "Publisher", "Description", "Contract Owner"]
+    update_csv = _make_csv(headers, [{
+        "LT Ref": created["licenseRef"],
+        "Publisher": "Acme Corp",
+        "Description": "Acme Suite",
+        "Contract Owner": "Bob",
+    }])
+    update_response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"update_existing": "true"},
+        files={"file": ("native-custom-update.csv", update_csv, "text/csv")},
+    )
+    assert update_response.status_code == 200, update_response.text
+    assert update_response.json()["updatedCount"] == 1
+
+    value = await db_session.scalar(
+        select(CustomFieldValue).where(
+            CustomFieldValue.license_id == created["id"],
+            CustomFieldValue.custom_field_def_id == definition["id"],
+        )
+    )
+    await db_session.refresh(value)
+    assert value.value_text == "Bob"
+
+    blank_csv = _make_csv(headers, [{
+        "LT Ref": created["licenseRef"],
+        "Publisher": "Acme Corp",
+        "Description": "Acme Suite",
+        "Contract Owner": "",
+    }])
+    blank_response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"update_existing": "true"},
+        files={"file": ("native-custom-blank.csv", blank_csv, "text/csv")},
+    )
+    assert blank_response.status_code == 200, blank_response.text
+    await db_session.refresh(value)
+    assert value.value_text == "Bob"
+
+
+async def test_native_confirm_without_update_flag_creates_new_license(test_app, auth_headers, db_session):
+    created = await _create_license(test_app, auth_headers)
+    ref = created["licenseRef"]
+    headers = ["LT Ref", "Publisher", "Description"]
+    csv_bytes = _make_csv(headers, [{
+        "LT Ref": ref,
+        "Publisher": "Acme Corp",
+        "Description": "Acme Suite",
+    }])
+
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"update_existing": "false", "acknowledge_warnings": "true"},
+        files={"file": ("native.csv", csv_bytes, "text/csv")},
+    )
+    assert confirm.status_code == 200, confirm.text
+    assert confirm.json()["importedCount"] == 1
+    assert confirm.json()["updatedCount"] == 0
+
+    all_licenses = (await db_session.execute(select(License))).scalars().all()
+    assert len(all_licenses) == 2
+    assert len([row for row in all_licenses if row.license_ref == ref]) == 1
 
 
 async def test_execute_without_update_flag_still_duplicates(test_app, auth_headers, db_session):

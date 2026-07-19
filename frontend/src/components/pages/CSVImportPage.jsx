@@ -4,8 +4,13 @@ import PreviewStep from "../csv-import/PreviewStep.jsx";
 import MappingStep from "../csv-import/MappingStep.jsx";
 import DoneStep from "../csv-import/DoneStep.jsx";
 
-const CSVImportPage = ({ onImportComplete, onGoToLicenses, userSettings }) => {
-  const state = useCSVImportState({ onImportComplete, userSettings });
+const CSVImportPage = ({
+  onImportComplete,
+  onGoToLicenses,
+  userSettings,
+  canManageImportMappings = false,
+}) => {
+  const state = useCSVImportState({ onImportComplete, userSettings, canManageImportMappings });
 
   return (
     <>
@@ -71,6 +76,7 @@ const CSVImportPage = ({ onImportComplete, onGoToLicenses, userSettings }) => {
             allUnrecognizedColumns={state.allUnrecognizedColumns}
             matchedInternalFields={state.matchedInternalFields}
             columnDecisions={state.columnDecisions}
+            customFieldDefs={state.customFieldDefs}
             allResolved={state.allResolved}
             updateDecision={state.updateDecision}
             handleUnmatch={state.handleUnmatch}
@@ -79,6 +85,8 @@ const CSVImportPage = ({ onImportComplete, onGoToLicenses, userSettings }) => {
             loading={state.loading}
             mappingName={state.mappingName}
             setMappingName={state.setMappingName}
+            canManageImportMappings={canManageImportMappings}
+            canCreateCustomFields={canManageImportMappings}
             handleMappedPreview={state.handleMappedPreview}
             reset={state.reset}
           />

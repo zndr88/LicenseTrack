@@ -87,6 +87,13 @@ def infer_batch_maintenance_parents(rows: list[ParsedRow]) -> None:
             continue
 
         parent = best_matches[0]
+        if parent.row_number > row.row_number:
+            _set_parent_error(
+                row,
+                f"Inferred maintenance parent row {parent.row_number} must appear before "
+                f"maintenance row {row.row_number} in the import file.",
+            )
+            continue
         row.parent_import_row_number = parent.row_number
         if parent.license_ref:
             row.parent_license_ref = parent.license_ref

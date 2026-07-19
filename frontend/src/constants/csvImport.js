@@ -23,6 +23,7 @@ export const NATIVE_FIELDS = [
   { value: "notes",                label: "Notes" },
   { value: "budget_owner_email",   label: "Budget Owner Email" },
   { value: "external_ref",         label: "External Reference" },
+  { value: "license_ref",          label: "LT Ref (match existing records)" },
   { value: "portal_url",           label: "Portal / Vendor Portal URL" },
   { value: "maintenance_coverage", label: "Maintenance Coverage" },
   { value: "__calc_total__",       label: "Calc. Total — derived from Qty × Unit Price, skip this column", disabled: true },

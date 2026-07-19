@@ -7,7 +7,8 @@ POST   /api/import/mappings           - create a new mapping
 PUT    /api/import/mappings/{id}      - update a mapping
 DELETE /api/import/mappings/{id}      - delete a mapping
 
-All endpoints are restricted to admin role.
+Listing is available to editors and admins so presets can be shared. Creating,
+replacing, renaming, and deleting presets remain admin-only operations.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_admin, require_editor_or_admin
 from app.models.import_mapping import ImportMapping
 from app.models.user import User
 from app.schemas.csv_import import ImportMappingCreate, ImportMappingResponse
@@ -38,9 +39,9 @@ def _utc_now() -> datetime:
 @router.get("/mappings", response_model=list[ImportMappingResponse])
 async def list_mappings(
     db: DbSession,
-    _admin: User = Depends(require_admin),
+    _editor: User = Depends(require_editor_or_admin),
 ) -> list[ImportMappingResponse]:
-    """Return all saved import mappings ordered by name."""
+    """Return all shared import mappings ordered by name."""
     result = await db.execute(sa_select(ImportMapping).order_by(asc(ImportMapping.name)))
     return result.scalars().all()
 

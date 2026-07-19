@@ -6,6 +6,7 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
   const [confirmResult, setConfirmResult] = useState(null);
   const [selectedRows, setSelectedRows] = useState(() => new Set());
   const [skippedRows, setSkippedRows] = useState(() => new Set());
+  const [updateExisting, setUpdateExisting] = useState(false);
 
   const duplicateWarningCount = previewData?.rows?.reduce(
     (count, row) => count + (row.duplicateWarnings?.length || 0), 0
@@ -33,11 +34,12 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     resetSelection();
   };
 
-  const handleFilePreview = async (file) => {
+  const handleFilePreview = async (file, updateExistingOverride = true) => {
     setLoading(true);
-    const { data, error: err } = await previewCsvImport(file, importFormats);
+    const { data, error: err } = await previewCsvImport(file, importFormats, updateExistingOverride);
     setLoading(false);
     if (err) { setError(err); return; }
+    setUpdateExisting((data?.headersFound || []).includes("license_ref") && updateExistingOverride);
     setPreviewData(data);
     resetSelection();
     setStep("preview");
@@ -47,7 +49,7 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     if (!csvFile) return;
     setStep("importing");
     const { data, error: err } = await confirmCsvImport(
-      csvFile, Array.from(skippedRows), acknowledgeWarnings, importFormats
+      csvFile, Array.from(skippedRows), acknowledgeWarnings, importFormats, updateExisting
     );
     if (err) { setError(err); setStep("preview"); return; }
     setConfirmResult(data);
@@ -87,6 +89,12 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     setPreviewData(null);
     setConfirmResult(null);
     resetSelection();
+    setUpdateExisting(false);
+  };
+
+  const handleUpdateExisting = async (csvFile, next) => {
+    setUpdateExisting(next);
+    await handleFilePreview(csvFile, next);
   };
 
   return {
@@ -102,12 +110,14 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     selectedImportableRows,
     selectedRowsToSkip,
     selectedRowsToRestore,
+    updateExisting,
     toggleSelectedRow,
     toggleAllSelectableRows,
     skipRows,
     restoreRows,
     handleFilePreview,
     handleConfirmImport,
+    handleUpdateExisting,
     setMappedPreviewData,
     resetPreview,
   };

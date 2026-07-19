@@ -10,7 +10,15 @@ function isRowResolved(decision) {
   return false;
 }
 
-export function useCSVImportAnalysis({ active, setStep, setLoading, setError, onImportComplete, importFormats }) {
+export function useCSVImportAnalysis({
+  active,
+  setStep,
+  setLoading,
+  setError,
+  onImportComplete,
+  importFormats,
+  canManageImportMappings = false,
+}) {
   const [analyzeData, setAnalyzeData] = useState(null);
   const [columnDecisions, setColumnDecisions] = useState({});
   const [mappingName, setMappingName] = useState("");
@@ -18,6 +26,7 @@ export function useCSVImportAnalysis({ active, setStep, setLoading, setError, on
   const [showMatched, setShowMatched] = useState(false);
   const [unmatchedColumns, setUnmatchedColumns] = useState([]);
   const [savedMappings, setSavedMappings] = useState([]);
+  const [customFieldDefs, setCustomFieldDefs] = useState([]);
   const [selectedMappingId, setSelectedMappingId] = useState(null);
   const [loadingMappings, setLoadingMappings] = useState(false);
   const [updateExisting, setUpdateExisting] = useState(false);
@@ -25,9 +34,10 @@ export function useCSVImportAnalysis({ active, setStep, setLoading, setError, on
   useEffect(() => {
     if (!active) return;
     setLoadingMappings(true);
-    listImportMappings().then(({ data, error: err }) => {
+    Promise.all([listImportMappings(), listCustomFields()]).then(([mappingsResult, customFieldsResult]) => {
       setLoadingMappings(false);
-      if (!err && data) setSavedMappings(data);
+      if (!mappingsResult.error && mappingsResult.data) setSavedMappings(mappingsResult.data);
+      if (!customFieldsResult.error && customFieldsResult.data) setCustomFieldDefs(customFieldsResult.data);
     });
   }, [active]);
 
@@ -63,7 +73,10 @@ export function useCSVImportAnalysis({ active, setStep, setLoading, setError, on
         mapping.push({ rawHeader, target: "skip" });
       }
     });
-    return { mapping, mappingName: mappingName.trim() || null };
+    return {
+      mapping,
+      mappingName: canManageImportMappings ? mappingName.trim() || null : null,
+    };
   };
 
   const handleAnalyze = async (file) => {
@@ -85,12 +98,16 @@ export function useCSVImportAnalysis({ active, setStep, setLoading, setError, on
           if (entry.target === "skip") {
             presetDecisions[entry.rawHeader] = { ...presetDecisions[entry.rawHeader], action: "skip" };
           } else if (entry.target.startsWith("cf_")) {
-            presetDecisions[entry.rawHeader] = { ...presetDecisions[entry.rawHeader], action: "create", cfKey: entry.target, cfName: entry.rawHeader, cfType: "text" };
+            presetDecisions[entry.rawHeader] = {
+              ...presetDecisions[entry.rawHeader],
+              action: "map",
+              targetField: entry.target,
+            };
           } else {
             presetDecisions[entry.rawHeader] = { ...presetDecisions[entry.rawHeader], action: "map", targetField: entry.target };
           }
         });
-        setMappingName(preset.name);
+        setMappingName(canManageImportMappings ? preset.name : "");
       }
     }
     setColumnDecisions(presetDecisions);
@@ -147,6 +164,7 @@ export function useCSVImportAnalysis({ active, setStep, setLoading, setError, on
     });
     setCreatingFields(false);
     if (err) { setError(err); return; }
+    setCustomFieldDefs(prev => [...prev.filter(definition => definition.id !== data.id), data]);
     updateDecision(rawHeader, { cfKey: data.fieldKey });
   };
 
@@ -163,6 +181,7 @@ export function useCSVImportAnalysis({ active, setStep, setLoading, setError, on
 
   return {
     savedMappings,
+    customFieldDefs,
     selectedMappingId,
     setSelectedMappingId,
     loadingMappings,

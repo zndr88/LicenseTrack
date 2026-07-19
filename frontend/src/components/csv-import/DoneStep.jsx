@@ -18,7 +18,7 @@ export default function DoneStep({ confirmResult, onGoToLicenses, reset }) {
         )}
         {confirmResult.skippedCount > 0 && (
           <div className="csv-skipped">
-            {confirmResult.skippedCount} {confirmResult.skippedCount === 1 ? "row was" : "rows were"} skipped due to errors.
+            {confirmResult.skippedCount} {confirmResult.skippedCount === 1 ? "row was" : "rows were"} skipped.
           </div>
         )}
       </div>

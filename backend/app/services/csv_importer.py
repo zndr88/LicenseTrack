@@ -241,6 +241,7 @@ class ParsedImportResult:
     rows: list[ParsedRow]
     headers_found: list[str]  # internal field names detected in the file
     headers_missing: list[str]  # recommended fields not present in the file
+    custom_rows: list[dict[str, str]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -255,6 +256,39 @@ def _normalise_header(raw: str) -> str:
     s = raw.strip().lower()
     s = re.sub(r"[^a-z0-9]+", "_", s)
     return s.strip("_")
+
+
+def build_custom_field_header_map(definitions: list[object]) -> dict[str, str]:
+    """Build safe normalized-header aliases for existing custom fields.
+
+    Stable field keys always resolve. Display names resolve only when their
+    normalized form is unique and does not conflict with a native or ignored
+    header. This keeps native fields authoritative and avoids guessing between
+    custom fields such as ``Asset Owner`` and ``Asset-Owner``.
+    """
+    aliases: dict[str, str] = {}
+    display_candidates: dict[str, list[str]] = {}
+
+    for definition in definitions:
+        field_key = str(getattr(definition, "field_key", "") or "")
+        name = str(getattr(definition, "name", "") or "")
+        key_header = _normalise_header(field_key)
+        name_header = _normalise_header(name)
+
+        if key_header:
+            aliases[key_header] = field_key
+        if name_header:
+            display_candidates.setdefault(name_header, []).append(field_key)
+
+    reserved_headers = set(_HEADER_MAP) | set(_IGNORED_HEADERS)
+    for normalized_name, field_keys in display_candidates.items():
+        if normalized_name in reserved_headers or normalized_name in aliases:
+            continue
+        unique_keys = list(dict.fromkeys(field_keys))
+        if len(unique_keys) == 1:
+            aliases[normalized_name] = unique_keys[0]
+
+    return aliases
 
 
 def _parse_localized_numeric_field(
@@ -588,6 +622,7 @@ def parse_csv(
     default_currency: str = "EUR",
     number_format_locale: str = "en-US",
     date_format: str = "DD/MM/YYYY",
+    custom_field_header_map: dict[str, str] | None = None,
 ) -> ParsedImportResult:
     """Parse *file_contents* (raw bytes of a CSV file) and return a
     ParsedImportResult describing every row.
@@ -603,14 +638,18 @@ def parse_csv(
     reader = csv.DictReader(io.StringIO(text))
     raw_headers: list[str] = list(reader.fieldnames or [])
 
-    # Build raw_header → internal_field mapping (first match wins for duplicates)
+    # Build raw_header → native/custom target mapping (first match wins for
+    # duplicates). Native and ignored headers take precedence over custom names.
     header_mapping: dict[str, str] = {}
     mapped_fields: set[str] = set()
     for raw_h in raw_headers:
-        internal = _HEADER_MAP.get(_normalise_header(raw_h))
-        if internal and internal not in mapped_fields:
-            header_mapping[raw_h] = internal
-            mapped_fields.add(internal)
+        normalized = _normalise_header(raw_h)
+        target = _HEADER_MAP.get(normalized)
+        if target is None and normalized not in _IGNORED_HEADERS:
+            target = (custom_field_header_map or {}).get(normalized)
+        if target and target not in mapped_fields:
+            header_mapping[raw_h] = target
+            mapped_fields.add(target)
 
     # Preserve order of first appearance for headers_found
     headers_found: list[str] = list(dict.fromkeys(header_mapping.values()))
@@ -618,8 +657,18 @@ def parse_csv(
 
     logger.info("CSV import: parsing started")
     rows: list[ParsedRow] = []
+    custom_rows: list[dict[str, str]] = []
     for row_idx, raw_row in enumerate(reader, start=1):
-        row_data: dict[str, str] = {internal: (raw_row.get(raw_h) or "") for raw_h, internal in header_mapping.items()}
+        row_data: dict[str, str] = {
+            target: (raw_row.get(raw_h) or "")
+            for raw_h, target in header_mapping.items()
+            if not target.startswith("cf_")
+        }
+        custom_data: dict[str, str] = {
+            target: (raw_row.get(raw_h) or "").strip()
+            for raw_h, target in header_mapping.items()
+            if target.startswith("cf_") and (raw_row.get(raw_h) or "").strip()
+        }
         rows.append(
             _parse_row(
                 row_idx,
@@ -629,6 +678,7 @@ def parse_csv(
                 date_format,
             )
         )
+        custom_rows.append(custom_data)
 
     error_count = sum(1 for r in rows if r.import_status == "error")
     logger.info(
@@ -641,4 +691,5 @@ def parse_csv(
         rows=rows,
         headers_found=headers_found,
         headers_missing=headers_missing,
+        custom_rows=custom_rows,
     )

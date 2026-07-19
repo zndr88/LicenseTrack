@@ -19,9 +19,13 @@ You have two ways to get your data in:
 - **Use this template** to migrate your own license data into the known default format, or
 - **Use the "External Tool Import" source** to bring in your own custom file, then save the configuration as a preset once you've mapped it.
 
+When a file contains an **LT Ref** column, either path offers an auto-enabled option to update the current matching license instead of creating a duplicate. This makes it safe to export a list, make small spreadsheet corrections, and re-import it. Turn the option off when you intentionally want new records.
+
+Native Import also recognizes existing custom fields. **Export Full Data** writes their stable `cf_*` keys as headers, so custom values round-trip automatically. Files that use the custom field's display name are also matched when that name identifies one field unambiguously. During an LT Ref update, a nonblank custom-field value is patched and a blank cell preserves the value already stored.
+
 ## Mapping a custom file
 
-Below is an example of a custom file that matches the template and also includes a unique field, which we map as a **custom field**:
+Below is an example of a custom file that matches the template and also includes a unique field. You can map it to an existing **custom field**; admins can create a new definition when one does not exist:
 
 ![Animated walkthrough of mapping a custom import file](../assets/import-03-custom-mapping.gif)
 

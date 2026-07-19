@@ -32,7 +32,8 @@ export default function ImportMappingsSection({ isOpen, isDirty, onToggle, onErr
   const handleRenameMapping = async (id) => {
     if (!mappingEditName.trim()) return;
     setMappingSaving(true);
-    const { data, error } = await putImportMapping(id, mappingEditName.trim());
+    const current = importMappings.find(m => m.id === id);
+    const { data, error } = await putImportMapping(id, mappingEditName.trim(), current?.mapping || []);
     setMappingSaving(false);
     if (error) { onError(error); return; }
     setImportMappings(prev => prev.map(m => m.id === id ? { ...m, name: data.name } : m));

@@ -174,6 +174,21 @@ describe('exportFilteredCsv', () => {
     expect(lines[1]).toBe('IT Dept')
   })
 
+  it('uses the stable custom field key for canonical full-data exports', () => {
+    const cfDef = { id: 1, fieldKey: 'cf_contract_owner', fieldType: 'text' }
+    const col = { key: 'cf_cf_contract_owner', label: 'Contract Owner', _cfDef: cfDef }
+    const row = makeRow({ id: 42 })
+    const valuesMap = new Map([[42, [{ customFieldDefId: 1, valueText: 'Alice' }]]])
+
+    exportFilteredCsv([row], [col], 'en-US', 'EUR', [row], valuesMap, {
+      stableCustomFieldHeaders: true,
+    })
+
+    const lines = capturedCsvContent.split('\n')
+    expect(lines[0]).toBe('cf_contract_owner')
+    expect(lines[1]).toBe('Alice')
+  })
+
   it('custom field column returns empty string when license id not in map', () => {
     const cfDef = { id: 1, fieldType: 'text' }
     const col = { key: 'cf_owner', label: 'Owner', _cfDef: cfDef }

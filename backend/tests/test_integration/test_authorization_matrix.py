@@ -163,7 +163,6 @@ ADMIN_ONLY_ROUTES = [
     RouteCase("PUT", "/api/settings/global", lambda: {"json": {"notification_days": 60}}),
     RouteCase("GET", "/api/backup/list"),
     RouteCase("GET", "/api/audit-log"),
-    RouteCase("GET", "/api/import/mappings"),
     RouteCase("POST", "/api/import/mappings", lambda: {"json": {
         "name": "Admin Mapping",
         "mapping": [{"rawHeader": "Publisher", "target": "publisher_name"}],
@@ -222,7 +221,7 @@ async def test_admins_can_reach_admin_only_routes(test_app, role_headers, case: 
     assert response.status_code not in (401, 403), response.text
 
 
-async def test_editors_can_execute_import_but_cannot_manage_saved_mappings(test_app, role_headers):
+async def test_editors_can_execute_import_and_read_but_cannot_manage_saved_mappings(test_app, role_headers):
     mapping_json = json.dumps({
         "mapping": [
             {"rawHeader": "Publisher", "target": "publisher_name"},
@@ -241,6 +240,25 @@ async def test_editors_can_execute_import_but_cannot_manage_saved_mappings(test_
         "/api/import/mappings",
         headers=role_headers[UserRole.editor],
     )
+    create_mapping_response = await test_app.post(
+        "/api/import/mappings",
+        headers=role_headers[UserRole.editor],
+        json={
+            "name": "Editor Mapping",
+            "mapping": [{"rawHeader": "Publisher", "target": "publisher_name"}],
+        },
+    )
+    named_execute_response = await test_app.post(
+        "/api/import/execute",
+        headers=role_headers[UserRole.editor],
+        files=_csv_file(),
+        data={"mapping_json": json.dumps({
+            "mapping": json.loads(mapping_json)["mapping"],
+            "mappingName": "Editor Mapping",
+        })},
+    )
 
     assert execute_response.status_code == 200
-    assert mappings_response.status_code == 403
+    assert mappings_response.status_code == 200
+    assert create_mapping_response.status_code == 403
+    assert named_execute_response.status_code == 403

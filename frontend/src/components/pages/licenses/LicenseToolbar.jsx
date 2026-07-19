@@ -149,7 +149,7 @@ export default function LicenseToolbar({
         displayCurrency,
         licenses,
         customFieldValuesMap,
-        { localized, userSettings },
+        { localized, userSettings, stableCustomFieldHeaders: fullData },
       );
       setExportMenuOpen(false);
     } catch (err) {

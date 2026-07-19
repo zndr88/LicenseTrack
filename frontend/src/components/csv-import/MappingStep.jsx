@@ -13,10 +13,12 @@ export default function MappingStep({
   error,
   showMatched, setShowMatched,
   activeMatchedColumns, allUnrecognizedColumns, matchedInternalFields,
-  columnDecisions, allResolved,
+  columnDecisions, customFieldDefs, allResolved,
   updateDecision, handleUnmatch, handleCreateField,
   creatingFields, loading,
   mappingName, setMappingName,
+  canManageImportMappings,
+  canCreateCustomFields,
   handleMappedPreview, reset,
 }) {
   if (!analyzeData) return null;
@@ -101,7 +103,9 @@ export default function MappingStep({
                     </div>
                     <div className="mapping-action-toggle" role="group" aria-label={`Action for ${col.rawHeader}`}>
                       <button type="button" className={`mapping-action-btn${decision.action === "map" ? " active" : ""}`} aria-pressed={decision.action === "map"} onClick={() => updateDecision(col.rawHeader, { action: "map" })}>Map to field</button>
-                      <button type="button" className={`mapping-action-btn${decision.action === "create" ? " active" : ""}`} aria-pressed={decision.action === "create"} onClick={() => updateDecision(col.rawHeader, { action: "create" })}>Create custom field</button>
+                      {canCreateCustomFields && (
+                        <button type="button" className={`mapping-action-btn${decision.action === "create" ? " active" : ""}`} aria-pressed={decision.action === "create"} onClick={() => updateDecision(col.rawHeader, { action: "create" })}>Create custom field</button>
+                      )}
                       <button type="button" className={`mapping-action-btn${decision.action === "skip" ? " active" : ""}`} aria-pressed={decision.action === "skip"} onClick={() => updateDecision(col.rawHeader, { action: "skip" })}>Skip</button>
                     </div>
                   </div>
@@ -113,6 +117,17 @@ export default function MappingStep({
                         {NATIVE_FIELDS.filter(f => !matchedInternalFields.has(f.value)).map(f => (
                           <option key={f.value} value={f.value} disabled={f.disabled ?? false}>{f.label}</option>
                         ))}
+                        {(customFieldDefs || []).length > 0 && (
+                          <optgroup label="Existing custom fields">
+                            {customFieldDefs
+                              .filter(definition => !matchedInternalFields.has(definition.fieldKey))
+                              .map(definition => (
+                                <option key={definition.fieldKey} value={definition.fieldKey}>
+                                  {definition.name}
+                                </option>
+                              ))}
+                          </optgroup>
+                        )}
                       </select>
                     </div>
                   )}
@@ -162,12 +177,14 @@ export default function MappingStep({
       </div>
 
       {/* PART C - Save mapping preset */}
-      <div className="mapping-preset-row">
-        <label className="mapping-preset-label" htmlFor="mapping-preset-name">
-          Save this mapping as a preset (optional)
-        </label>
-        <input id="mapping-preset-name" className="fi" type="text" placeholder="Import mapping name" value={mappingName} onChange={e => setMappingName(e.target.value)} />
-      </div>
+      {canManageImportMappings && (
+        <div className="mapping-preset-row">
+          <label className="mapping-preset-label" htmlFor="mapping-preset-name">
+            Save this mapping as a shared preset (optional)
+          </label>
+          <input id="mapping-preset-name" className="fi" type="text" placeholder="Import mapping name" value={mappingName} onChange={e => setMappingName(e.target.value)} />
+        </div>
+      )}
 
       {/* PART D - Actions */}
       {analyzeData.missingRequired && analyzeData.missingRequired.length > 0 && (

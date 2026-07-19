@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useCSVImportAnalysis } from "./useCSVImportAnalysis.js";
 import { useCSVImportPreview } from "./useCSVImportPreview.js";
 
-export function useCSVImportState({ onImportComplete, userSettings }) {
+export function useCSVImportState({ onImportComplete, userSettings, canManageImportMappings }) {
   const [step, setStep] = useState("upload");
   const [source, setSource] = useState("standard");
   const [csvFile, setCsvFile] = useState(null);
@@ -27,6 +27,7 @@ export function useCSVImportState({ onImportComplete, userSettings }) {
     setError,
     onImportComplete,
     importFormats,
+    canManageImportMappings,
   });
 
   const analysis = useCSVImportAnalysis({
@@ -36,6 +37,7 @@ export function useCSVImportState({ onImportComplete, userSettings }) {
     setError,
     onImportComplete,
     importFormats,
+    canManageImportMappings,
   });
 
   const handleFile = async (file) => {
@@ -67,8 +69,12 @@ export function useCSVImportState({ onImportComplete, userSettings }) {
   };
 
   const onToggleUpdateExisting = async (next) => {
-    analysis.setUpdateExisting(next);
-    await analysis.handleMappedPreview(csvFile, preview.setMappedPreviewData, next);
+    if (source === "external") {
+      analysis.setUpdateExisting(next);
+      await analysis.handleMappedPreview(csvFile, preview.setMappedPreviewData, next);
+      return;
+    }
+    await preview.handleUpdateExisting(csvFile, next);
   };
 
   const reset = () => {
@@ -112,13 +118,14 @@ export function useCSVImportState({ onImportComplete, userSettings }) {
     skipRows: preview.skipRows,
     restoreRows: preview.restoreRows,
     handleConfirm,
-    updateExisting: analysis.updateExisting,
+    updateExisting: source === "external" ? analysis.updateExisting : preview.updateExisting,
     onToggleUpdateExisting,
-    showUpdateControls: source === "external",
+    showUpdateControls: (preview.previewData?.headersFound || []).includes("license_ref"),
 
     // Mapping
     analyzeData: analysis.analyzeData,
     columnDecisions: analysis.columnDecisions,
+    customFieldDefs: analysis.customFieldDefs,
     mappingName: analysis.mappingName,
     setMappingName: analysis.setMappingName,
     creatingFields: analysis.creatingFields,

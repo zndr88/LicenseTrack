@@ -100,12 +100,6 @@ export default function PreviewStep({
           <div>
             <strong>Some rows have defaults or warnings that will be accepted on import:</strong>
             <ul style={{ margin: "4px 0 0 0", paddingLeft: 18, fontSize: 12 }}>
-              {previewData.warningSummary.defaultedEnumCount > 0 && (
-                <li>Defaulted license type / metric: <strong>{previewData.warningSummary.defaultedEnumCount}</strong> row{previewData.warningSummary.defaultedEnumCount !== 1 ? "s" : ""}</li>
-              )}
-              {previewData.warningSummary.ambiguousDateCount > 0 && (
-                <li>Ambiguous or unrecognised dates: <strong>{previewData.warningSummary.ambiguousDateCount}</strong> row{previewData.warningSummary.ambiguousDateCount !== 1 ? "s" : ""}</li>
-              )}
               {previewData.warningSummary.inferredParentCount > 0 && (
                 <li>Inferred maintenance parent: <strong>{previewData.warningSummary.inferredParentCount}</strong> row{previewData.warningSummary.inferredParentCount !== 1 ? "s" : ""}</li>
               )}

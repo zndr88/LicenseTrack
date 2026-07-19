@@ -60,6 +60,8 @@ async def annotate_update_targets(db: AsyncSession, rows: list[ParsedRow]) -> No
     for row in rows:
         if row.import_status == "error":
             continue
+        row.import_action = "create"
+        row.matched_license_id = None
         result = await resolve_update_target(db, row)
         if result.outcome == ResolveOutcome.MATCH:
             row.import_action = "update"

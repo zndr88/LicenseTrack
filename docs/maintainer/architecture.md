@@ -29,7 +29,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `LicenseBulkActions.jsx` | Bulk delete confirmation dialog |
 | `licenseColumns.js` | Column definitions and default visibility map |
 | `licenseColumns.js` | Shared Registry column catalog: user-facing static fields, visibility groups and defaults, custom-field column assembly, saved ordering helpers, and Full Data export selection |
-| `exportFilteredCsv.js` | Registry CSV export assembly: selected columns in supplied order, canonical ISO values by default, localized Current View formatting when requested, custom-field values, and spreadsheet-formula escaping |
+| `exportFilteredCsv.js` | Registry CSV export assembly: selected columns in supplied order, canonical ISO values by default, localized Current View formatting when requested, stable custom-field keys for Full Data round-trips, custom-field values, and spreadsheet-formula escaping |
 
 `LicensesPage.jsx` computes derived values (`activeColumns`, `visList`, `attentionItems`, `allFilteredSelected`) and wires navigation props through to `DetailPanel`. It also owns the inline edit mode toggle because that mode coordinates toolbar state, table row behavior, and detail-panel selection. Inline edits use the single-field patch path in `useLicenseActions.js`; computed columns, document counts, custom fields, and workflow actions stay outside the table editing surface. The `onStatsChange` effect that feeds the sidebar portfolio widget remains in `LicensesPage` because it depends on both the filtered stats and navigation callbacks that live at page level.
 
@@ -177,8 +177,8 @@ Keep backend permission invariants in the API/services and page-level mutation w
 
 | Module | Owns |
 |--------|------|
-| `useCSVImportPreview.js` | Standard import preview data, warning summary exposure, row selection, skipped rows, duplicate warning counts, acknowledgement-aware confirm import |
-| `useCSVImportAnalysis.js` | External/mapped import analysis, column decisions, saved mappings, mapping preview/execute, acknowledgement-aware mapped execute, and the `updateExisting` flag (auto-armed when a `license_ref` column is matched) forwarded to preview/execute |
+| `useCSVImportPreview.js` | Native import preview data, warning summary exposure, row selection, skipped rows, duplicate warning counts, acknowledgement-aware confirm import, and the native `updateExisting` flag |
+| `useCSVImportAnalysis.js` | External/mapped import analysis, native and existing-custom-field column decisions, admin-only custom-field creation, saved mappings, mapping preview/execute, acknowledgement-aware mapped execute, and the `updateExisting` flag (auto-armed when a `license_ref` column is matched) forwarded to preview/execute |
 
 `CSVImportPage.jsx` should remain a UI shell that wires `useCSVImportState` into `UploadStep`, `MappingStep`, `PreviewStep`, and `DoneStep`.
 
@@ -186,7 +186,13 @@ The frontend forwards the same declared number/date formats through native previ
 
 The backend is the source of truth for import warning summaries. Preview responses include `warningSummary`; execute/confirm requests must send `acknowledge_warnings=true` when that summary has acknowledgement-required warnings. The route rechecks the summary before writing so a stale or hand-built client cannot bypass the gate.
 
-The mapped flow (`/preview-mapped`, `/execute`) supports update-on-LT-Ref-match via the `update_existing` flag. `import_/license_matcher.py` resolves a row's `license_ref` to the current chain head (`is_retired = false AND renewed_to_id IS NULL`): exactly one match updates, none creates, two or more active heads is a row error. `annotate_update_targets` tags each row's `import_action` ("create"/"update") for both preview counts and execute; `import_/import_update.py` patches only non-empty importable fields, leaves `license_type`/`license_ref`/chain-lifecycle/maintenance-mirror fields immutable, and re-resolves `contract_id` on a contract-number change. When a row will update, `duplicate_detection` suppresses its "license ref matches" warning. The legacy `/confirm` auto-map path is always create-only. Preview responses carry `createCount`/`updateCount` and per-row `importAction`; execute responses add `updatedCount`.
+Both the native (`/preview`, `/confirm`) and mapped (`/preview-mapped`, `/execute`) flows support update-on-LT-Ref-match via the `update_existing` flag. The frontend auto-arms the option when a `license_ref` column is present and lets the user return to create-only behavior. `import_/license_matcher.py` resolves a row's `license_ref` to the current chain head (`is_retired = false AND renewed_to_id IS NULL`): exactly one match updates, none creates, two or more active heads is a row error. `annotate_update_targets` tags each row's `import_action` ("create"/"update") for preview counts and execution; `import_/import_update.py` patches only non-empty importable fields, leaves `license_type`/`license_ref`/chain-lifecycle/maintenance-mirror fields immutable, and re-resolves `contract_id` on a contract-number change. When a row will update, `duplicate_detection` suppresses its "license ref matches" warning. Preview responses carry `createCount`/`updateCount` and per-row `importAction`; confirm/execute responses add `updatedCount`.
+
+Both write paths rebuild maintenance inference, update-target annotations, duplicate warnings, and the warning summary before applying the acknowledgement gate. Row writes use nested transactions so a database failure on one row is reported without poisoning the rest of the batch. An inferred maintenance parent must appear before its maintenance child in the file.
+
+Import mapping presets are shared configuration. Editors may list and use presets; only admins may create, replace, rename, or delete them. The execute endpoint must not use its optional `mappingName` field to bypass that boundary.
+
+Existing custom fields participate in both import paths. Native preview/confirm loads definitions and resolves headers by immutable `field_key` first and by normalized display name only when that name is unambiguous; native and ignored headers retain precedence. External analysis reports those same matches automatically, and unresolved columns may be assigned to an existing definition. Only admins may create definitions. Native and mapped values share `custom_fields_service` validation/upsert behavior, including typed row errors and nonblank-only patches during LT-Ref updates.
 
 ## Forms And Validation
 
@@ -236,7 +242,7 @@ Custom field behavior has two sources of truth:
 Use `getCustomColumnId(def)` rather than manually building `cf_` keys. This prevents double-prefix values such as `cf_cf_contract_owner` and preserves compatibility with older field-key shapes.
 
 CSV import should create custom field values through the custom-fields service helpers, not by constructing `CustomFieldValue` rows directly.
-Mapped CSV preview and execute must validate typed custom fields through `custom_fields_service` before license rows are created. Currency custom fields use the same declared import number locale as native price fields. Invalid date, currency, boolean, or unknown custom-field mappings are row errors, not late persistence failures.
+Native and mapped CSV preview/execute must validate typed custom fields through `custom_fields_service` before license rows are created. Currency custom fields use the same declared import number locale as native price fields. Invalid date, currency, boolean, or unknown custom-field mappings are row errors, not late persistence failures. Full Data exports use immutable custom-field keys as headers so canonical Native round-trips do not depend on mutable display names.
 
 ## Backend Workflow Services
 

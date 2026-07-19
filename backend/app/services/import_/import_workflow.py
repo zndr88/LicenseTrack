@@ -54,8 +54,9 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
     """Compute per-category warning counts across all parsed rows.
 
     Only non-error rows are counted for rows_with_warnings_count.
-    Gating counts (defaulted_enum, ambiguous_date, inferred_parent,
-    duplicate_warning) drive has_warnings (computed automatically).
+    Inferred-parent and duplicate-warning counts drive has_warnings. The enum
+    and date fields remain zero-valued response compatibility fields because
+    invalid enums and dates are hard row errors.
     """
     defaulted_currency = 0
     defaulted_enum = 0
@@ -74,23 +75,9 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
             defaulted_currency += 1
             row_has_any_warning = True
 
-        has_enum_warning = False
-        has_date_warning = False
-
         for w in row.warnings:
-            if "Unrecognised license_type" in w or "Unrecognised license_metric" in w:
-                has_enum_warning = True
+            if w:
                 row_has_any_warning = True
-            elif "Unrecognised date format" in w or "treated as perpetual" in w:
-                has_date_warning = True
-                row_has_any_warning = True
-            elif w:
-                row_has_any_warning = True
-
-        if has_enum_warning:
-            defaulted_enum += 1
-        if has_date_warning:
-            ambiguous_date += 1
 
         if row.parent_import_row_number is not None:
             inferred_parent += 1
@@ -186,7 +173,7 @@ async def run_import_rows(
     custom_field_failure_count).
 
     custom_rows must be a parallel list to rows. Pass a list of empty dicts
-    (one per row) for the legacy flow where no custom field mapping exists.
+    (one per row) for callers that do not provide custom field values.
     When update_existing is True, rows whose LT Ref resolves to an active
     chain head patch that record instead of inserting a new one.
     """
@@ -212,50 +199,63 @@ async def run_import_rows(
             continue
 
         try:
-            if update_existing and parsed.import_action == "update" and parsed.matched_license_id is not None:
-                target = await db.get(License, parsed.matched_license_id)
-                if target is None:
-                    # Target vanished between preview and execute -> fall back to create.
-                    parsed.import_action = "create"
-                else:
-                    await apply_import_update(target, parsed, custom_data, db, number_format_locale)
-                    updated_count += 1
-                    inserted_by_row_number[parsed.row_number] = target.id
-                    continue
+            did_update = False
+            persisted_license_id: Optional[int] = None
+            missing_custom_keys: list[str] = []
 
-            parent_license_id: Optional[int] = (
-                inserted_by_row_number.get(parsed.parent_import_row_number)
-                if parsed.parent_import_row_number is not None
-                else None
-            )
-            license_obj = await build_license(parsed, user_id, db, parent_license_id)
-            db.add(license_obj)
-            await db.flush()
-            license_obj.license_ref = await generate_license_ref(db)
-            # F3: wire renewal chain - mark predecessor as renewed with back-link
-            if license_obj.predecessor_id is not None:
-                predecessor = await db.get(License, license_obj.predecessor_id)
-                if predecessor is not None:
-                    mark_predecessor_renewed(predecessor, license_obj.id)
-            if license_obj.license_type == LicenseType.maintenance and license_obj.parent_license_id is not None:
-                parent = await db.get(License, license_obj.parent_license_id)
-                if parent is not None:
-                    parent.active_maintenance_id = license_obj.id
-                    await sync_parent_mirror_fields(db, parent)
-            inserted_by_row_number[parsed.row_number] = license_obj.id
+            # A database-level failure on one row must not invalidate the
+            # outer batch transaction or discard earlier successful rows.
+            async with db.begin_nested():
+                if update_existing and parsed.import_action == "update" and parsed.matched_license_id is not None:
+                    target = await db.get(License, parsed.matched_license_id)
+                    if target is None:
+                        # Target vanished between preview and execute -> fall back to create.
+                        parsed.import_action = "create"
+                        parsed.matched_license_id = None
+                    else:
+                        await apply_import_update(target, parsed, custom_data, db, number_format_locale)
+                        did_update = True
+                        persisted_license_id = target.id
 
-            if custom_data:
-                missing_custom_keys = await upsert_imported_values_for_license(
-                    db,
-                    license_obj.id,
-                    custom_data,
-                    number_format_locale,
-                )
+                if not did_update:
+                    parent_license_id: Optional[int] = (
+                        inserted_by_row_number.get(parsed.parent_import_row_number)
+                        if parsed.parent_import_row_number is not None
+                        else None
+                    )
+                    license_obj = await build_license(parsed, user_id, db, parent_license_id)
+                    db.add(license_obj)
+                    await db.flush()
+                    license_obj.license_ref = await generate_license_ref(db)
+                    # F3: wire renewal chain - mark predecessor as renewed with back-link
+                    if license_obj.predecessor_id is not None:
+                        predecessor = await db.get(License, license_obj.predecessor_id)
+                        if predecessor is not None:
+                            mark_predecessor_renewed(predecessor, license_obj.id)
+                    if license_obj.license_type == LicenseType.maintenance and license_obj.parent_license_id is not None:
+                        parent = await db.get(License, license_obj.parent_license_id)
+                        if parent is not None:
+                            parent.active_maintenance_id = license_obj.id
+                            await sync_parent_mirror_fields(db, parent)
+                    persisted_license_id = license_obj.id
+
+                    if custom_data:
+                        missing_custom_keys = await upsert_imported_values_for_license(
+                            db,
+                            license_obj.id,
+                            custom_data,
+                            number_format_locale,
+                        )
+
+            if persisted_license_id is not None:
+                inserted_by_row_number[parsed.row_number] = persisted_license_id
+            if did_update:
+                updated_count += 1
+            else:
+                created_count += 1
                 custom_field_failure_count += len(missing_custom_keys)
                 for cf_key in missing_custom_keys:
                     log.warning("run_import_rows: custom field key %r not found, skipping", cf_key)
-
-            created_count += 1
 
         except Exception as exc:
             log.error("import failed on row %s: %s", parsed.row_number, exc, exc_info=True)

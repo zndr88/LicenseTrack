@@ -82,8 +82,10 @@ class ImportWarningSummary(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     defaulted_currency_count: int = 0  # rows where currency was absent/blank (info only, does not gate)
-    defaulted_enum_count: int = 0  # rows with unrecognised license_type or license_metric
-    ambiguous_date_count: int = 0  # rows where a date field could not be parsed
+    # Retained as zero-valued compatibility fields. Invalid enums and dates are
+    # hard row errors and are not accepted warning categories.
+    defaulted_enum_count: int = 0
+    ambiguous_date_count: int = 0
     inferred_parent_count: int = 0  # maintenance rows whose parent was inferred from batch
     duplicate_warning_count: int = 0  # rows with at least one duplicate warning
     rows_with_warnings_count: int = 0  # non-error rows accepted with any non-fatal warning
@@ -91,13 +93,8 @@ class ImportWarningSummary(BaseModel):
     @computed_field  # type: ignore[misc]
     @property
     def has_warnings(self) -> bool:
-        """True when any gating count > 0: defaulted_enum, ambiguous_date, inferred_parent, or duplicate_warning."""
-        return (
-            self.defaulted_enum_count > 0
-            or self.ambiguous_date_count > 0
-            or self.inferred_parent_count > 0
-            or self.duplicate_warning_count > 0
-        )
+        """True when inferred-parent or duplicate warnings require acknowledgement."""
+        return self.inferred_parent_count > 0 or self.duplicate_warning_count > 0
 
 
 class CSVImportPreviewRow(BaseModel):

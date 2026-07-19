@@ -105,6 +105,29 @@ async def test_analyze_import_returns_column_matches_and_samples(test_app, auth_
     assert body["missingRequired"] == []
 
 
+async def test_analyze_import_auto_matches_existing_custom_field(test_app, auth_headers):
+    definition = await _create_custom_field(test_app, auth_headers, "Renewal Owner", "text")
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Renewal Owner"],
+        [{
+            "Publisher": "Acme Corp",
+            "Description": "Acme Suite",
+            "Renewal Owner": "Alice",
+        }],
+    )
+
+    resp = await test_app.post(
+        "/api/import/analyze",
+        headers=auth_headers,
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    matched = {column["rawHeader"]: column["internalField"] for column in resp.json()["matchedColumns"]}
+    assert matched["Renewal Owner"] == definition["fieldKey"]
+    assert resp.json()["unrecognizedColumns"] == []
+
+
 async def test_analyze_import_rejects_non_csv_and_empty_files(test_app, auth_headers):
     non_csv = await test_app.post(
         "/api/import/analyze",
@@ -121,6 +144,14 @@ async def test_analyze_import_rejects_non_csv_and_empty_files(test_app, auth_hea
     assert non_csv.json()["detail"] == "Only CSV files are accepted (.csv extension required)"
     assert empty.status_code == 400
     assert empty.json()["detail"] == "The uploaded file is empty"
+
+    headerless = await test_app.post(
+        "/api/import/analyze",
+        headers=auth_headers,
+        files={"file": ("licenses.csv", b"\n", "text/csv")},
+    )
+    assert headerless.status_code == 400
+    assert "header row" in headerless.json()["detail"]
 
 
 async def test_confirm_import_maintenance_with_valid_parent_ref_links_license(
@@ -207,6 +238,63 @@ async def test_confirm_import_persists_request_and_purchase_dates(
     assert (license_obj.purchase_date.year, license_obj.purchase_date.month, license_obj.purchase_date.day) == (2026, 2, 20)
     # request_date must not leak into start_date, nor purchase_date either.
     assert license_obj.start_date is None
+
+
+async def test_native_confirm_imports_existing_typed_custom_field(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    definition = await _create_custom_field(test_app, auth_headers, "Review Date", "date")
+    invalid_csv = _make_csv(
+        ["Publisher", "Description", "Review Date"],
+        [{"Publisher": "Acme", "Description": "Invalid Native Custom", "Review Date": "tomorrow"}],
+    )
+    invalid_preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("invalid-native-custom.csv", invalid_csv, "text/csv")},
+    )
+    assert invalid_preview.status_code == 200, invalid_preview.text
+    assert invalid_preview.json()["rows"][0]["importStatus"] == "error"
+    assert any("Review Date" in error for error in invalid_preview.json()["rows"][0]["validationErrors"])
+
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", definition["fieldKey"]],
+        [{
+            "Publisher": "Acme",
+            "Description": "Native Custom Import",
+            definition["fieldKey"]: "2026-12-31",
+        }],
+    )
+
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("native-custom.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    assert definition["fieldKey"] in preview.json()["headersFound"]
+
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("native-custom.csv", csv_bytes, "text/csv")},
+    )
+    assert confirm.status_code == 200, confirm.text
+    assert confirm.json()["importedCount"] == 1
+
+    license_obj = await db_session.scalar(
+        select(License).where(License.software_description == "Native Custom Import")
+    )
+    value = await db_session.scalar(
+        select(CustomFieldValue).where(
+            CustomFieldValue.license_id == license_obj.id,
+            CustomFieldValue.custom_field_def_id == definition["id"],
+        )
+    )
+    assert value is not None
+    assert value.value_text == "2026-12-31"
 
 
 async def test_analyze_ignores_export_only_computed_columns(test_app, auth_headers):
@@ -311,6 +399,40 @@ async def test_preview_infers_maintenance_parent_from_same_import_batch(
     assert rows[1]["importStatus"] == "active"
     assert rows[1]["validationErrors"] == []
     assert any("parent row 1" in warning for warning in rows[1]["warnings"])
+
+
+async def test_preview_rejects_inferred_maintenance_parent_that_appears_later(
+    test_app,
+    auth_headers,
+):
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Type", "PO #"],
+        [
+            {
+                "Publisher": "Fortinet Inc.",
+                "Description": "FortiGate 200F UTM Bundle - Maintenance",
+                "Type": "Maintenance",
+                "PO #": "PO-2024-0166",
+            },
+            {
+                "Publisher": "Fortinet Inc.",
+                "Description": "FortiGate 200F UTM Bundle",
+                "Type": "Perpetual",
+                "PO #": "PO-2024-0166",
+            },
+        ],
+    )
+
+    resp = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("maintenance.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    row = resp.json()["rows"][0]
+    assert row["importStatus"] == "error"
+    assert any("must appear before" in error for error in row["validationErrors"])
 
 
 async def test_confirm_import_inferred_maintenance_parent_links_to_new_parent(
@@ -794,6 +916,112 @@ async def test_confirm_import_does_not_block_duplicate_warning_matches(
         select(License).where(License.contract_number == "C-500")
     )
     assert len(result.scalars().all()) == 2
+
+
+async def test_confirm_rechecks_duplicate_warnings_before_writing(
+    test_app,
+    auth_headers,
+):
+    existing = await _create_license(
+        test_app,
+        auth_headers,
+        publisherName="Acme Corp",
+        softwareDescription="Acme Suite",
+        contractNumber="C-ACK",
+        poNumber="PO-ACK",
+        startDate=_FUTURE_START,
+        endDate=_FUTURE_END,
+    )
+    csv_bytes = _make_csv(
+        ["LT Ref", "Publisher", "Description"],
+        [{
+            "LT Ref": existing["licenseRef"],
+            "Publisher": "Acme Corp",
+            "Description": "Acme Suite",
+        }],
+    )
+
+    resp = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("duplicate.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 409
+    assert resp.json()["detail"]["code"] == "warnings_require_acknowledgement"
+    assert resp.json()["detail"]["warningSummary"]["duplicateWarningCount"] == 1
+
+
+async def test_execute_rechecks_duplicate_warnings_before_writing(
+    test_app,
+    auth_headers,
+):
+    await _create_license(
+        test_app,
+        auth_headers,
+        publisherName="Acme Corp",
+        softwareDescription="Mapped Duplicate",
+        contractNumber="C-MAPPED-ACK",
+        startDate=_FUTURE_START,
+        endDate=_FUTURE_END,
+    )
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Contract", "Start", "End"],
+        [{
+            "Publisher": "Acme Corp",
+            "Description": "Mapped Duplicate",
+            "Contract": "C-MAPPED-ACK",
+            "Start": _FUTURE_START,
+            "End": _FUTURE_END,
+        }],
+    )
+    mapping = [
+        {"rawHeader": "Publisher", "target": "publisher_name"},
+        {"rawHeader": "Description", "target": "software_description"},
+        {"rawHeader": "Contract", "target": "contract_number"},
+        {"rawHeader": "Start", "target": "start_date"},
+        {"rawHeader": "End", "target": "end_date"},
+    ]
+
+    resp = await test_app.post(
+        "/api/import/execute",
+        headers=auth_headers,
+        data={"mapping_json": json.dumps({"mapping": mapping})},
+        files={"file": ("duplicate.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 409
+    assert resp.json()["detail"]["warningSummary"]["duplicateWarningCount"] == 1
+
+
+async def test_confirm_normalizes_end_date_for_perpetual_license(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type", "end_date"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Perpetual Suite",
+            "license_type": "perpetual",
+            "end_date": _FUTURE_END,
+        }],
+    )
+
+    resp = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("perpetual.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["importedCount"] == 1
+    license_obj = await db_session.scalar(
+        select(License).where(License.software_description == "Perpetual Suite")
+    )
+    assert license_obj is not None
+    assert license_obj.end_date is None
 
 
 async def test_confirm_import_skips_user_selected_rows(

@@ -9,6 +9,7 @@ import * as pluginActionsApi from "../../api/pluginActions.js";
 import * as pluginSuggestionsApi from "../../api/pluginSuggestions.js";
 import * as pendingOrdersApi from "../../api/pendingOrders.js";
 import * as sourcingApi from "../../api/sourcing.js";
+import * as csvImportApi from "../../api/csvImport.js";
 import { getPortfolioStats } from "../../api/reports.js";
 
 vi.mock("../../api/client.js", () => ({
@@ -97,6 +98,17 @@ describe("frontend API endpoint contracts", () => {
 
     await usersApi.updateUserDepartments(3, ["Finance", "IT"]);
     expect(client.put).toHaveBeenLastCalledWith("/api/users/3/departments", { departments: ["Finance", "IT"] });
+  });
+
+  test("import mapping updates preserve the complete mapping payload", async () => {
+    const mapping = [{ rawHeader: "Publisher", target: "publisher_name" }];
+
+    await csvImportApi.putImportMapping(7, "Renamed Mapping", mapping);
+
+    expect(client.put).toHaveBeenLastCalledWith("/api/import/mappings/7", {
+      name: "Renamed Mapping",
+      mapping,
+    });
   });
 
   test("document, pending-order, and sourcing APIs use multipart bodies for uploads and conversion attachments", async () => {

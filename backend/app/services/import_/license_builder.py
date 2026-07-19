@@ -99,7 +99,7 @@ async def build_license(
         total_po_price=row.total_po_price,
         currency=row.currency,
         start_date=row.db_start_date,
-        end_date=row.db_end_date,
+        end_date=None if license_type == LicenseType.perpetual else row.db_end_date,
         request_date=row.db_request_date,
         purchase_date=row.db_purchase_date,
         contract_number=row.contract_number,

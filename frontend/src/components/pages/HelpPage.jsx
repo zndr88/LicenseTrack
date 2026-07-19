@@ -130,21 +130,22 @@ const HELP_ARTICLES = [
       {
         heading: "How it works",
         body: [
-          "CSV Import analyzes headers and sample values before anything is written. If a file needs manual mapping, the mapping step lets you assign columns to known fields or custom fields.",
+          "CSV Import analyzes headers and sample values before anything is written. Native Import automatically recognizes existing custom fields by their stable cf_* key or an unambiguous field name. If a file needs manual mapping, the mapping step lets you assign columns to native or existing custom fields; admins can also create a new custom field.",
           "Preview classifies each row, surfaces warnings, checks for duplicates, and lets you skip or restore rows before confirmation.",
-          "When the preview contains defaulted license type or metric values, ambiguous dates, inferred maintenance parents, or possible duplicates, LicenseTrack shows a warning summary and requires explicit acknowledgement before importing.",
+          "When the preview contains inferred maintenance parents or possible duplicates, LicenseTrack shows a warning summary and requires explicit acknowledgement before importing. Invalid types, metrics, dates, and numeric values are row errors instead.",
         ],
       },
       {
         heading: "Things to know",
         bullets: [
-          "Import creates new records; it does not update existing licenses.",
+          "When an LT Ref column is present, Native and External Tool imports offer an auto-enabled option to update the current matching record instead of creating a duplicate. Turning it off keeps create-only behavior.",
           "Maintenance parent references must resolve before import, unless LicenseTrack can infer a clear parent from the same file.",
           "Currency defaults are reported as informational warnings; by themselves they do not require acknowledgement.",
-          "CSV imports are audited with inserted, skipped, error, warning-summary, custom-field failure, and acknowledgement details.",
+          "CSV imports are audited with inserted, updated, skipped, error, warning-summary, custom-field failure, and acknowledgement details.",
           "For non-maintenance rows, parent_license_ref is treated as a renewal predecessor reference.",
           "license_ref is a chain identity, not a unique row key. Renewal successors inherit the predecessor's reference, so the same license_ref can appear on more than one row across a renewal chain. Use the record id from exports or API responses when you need to identify a specific database row.",
-          "Saved mapping profiles are useful for recurring exports from the same source system.",
+          "Saved mapping profiles are shared: editors can load them, while admins can create, rename, replace, or delete them.",
+          "Export Full Data uses stable custom-field keys as CSV headers, so custom values can be edited and re-imported through Native Import even if a field's display name is later changed.",
         ],
       },
     ],

@@ -7,10 +7,11 @@ Pure-function tests — no fixtures required.
 import csv
 import io
 from datetime import date, timedelta
+from types import SimpleNamespace
 
 import pytest
 
-from app.services.csv_importer import parse_csv
+from app.services.csv_importer import build_custom_field_header_map, parse_csv
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -46,6 +47,41 @@ def test_valid_minimal_import():
     assert row.import_status == "active"
     assert row.validation_errors == []
     assert row.warnings == []
+
+
+def test_native_parser_extracts_existing_custom_fields_by_name_and_stable_key():
+    definitions = [SimpleNamespace(name="Contract Owner", field_key="cf_contract_owner")]
+    custom_headers = build_custom_field_header_map(definitions)
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "Contract Owner", "cf_contract_owner"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            "Contract Owner": "Alice",
+            "cf_contract_owner": "ignored duplicate",
+        }],
+    )
+
+    result = parse_csv(csv_bytes, custom_field_header_map=custom_headers)
+
+    assert result.headers_found == ["publisher_name", "software_description", "cf_contract_owner"]
+    assert result.custom_rows == [{"cf_contract_owner": "Alice"}]
+
+
+def test_custom_field_display_aliases_are_safe_and_do_not_override_native_fields():
+    definitions = [
+        SimpleNamespace(name="Publisher", field_key="cf_publisher"),
+        SimpleNamespace(name="Asset Owner", field_key="cf_asset_owner"),
+        SimpleNamespace(name="Asset-Owner", field_key="cf_asset_owner_alt"),
+    ]
+
+    aliases = build_custom_field_header_map(definitions)
+
+    assert aliases["cf_publisher"] == "cf_publisher"
+    assert aliases["cf_asset_owner"] == "cf_asset_owner"
+    assert aliases["cf_asset_owner_alt"] == "cf_asset_owner_alt"
+    assert "publisher" not in aliases
+    assert "asset_owner" not in aliases
 
 
 # ---------------------------------------------------------------------------
@@ -614,22 +650,24 @@ def test_build_warning_summary_defaulted_enum():
 
 
 def test_build_warning_summary_ambiguous_date():
+    # Invalid dates are hard row errors; the compatibility count remains zero.
     row = _make_row(warnings=["start_date: Unrecognised date format: '99-99-99'"])
     summary = build_warning_summary([row])
-    assert summary.ambiguous_date_count == 1
+    assert summary.ambiguous_date_count == 0
     assert summary.rows_with_warnings_count == 1
-    assert summary.has_warnings is True
+    assert summary.has_warnings is False
 
 
-def test_build_warning_summary_both_enum_and_date_counts_once_each():
-    """Row with ambiguous date warning: enum count is 0 (enums are now errors), date count is 1."""
+def test_build_warning_summary_legacy_date_warning_does_not_gate():
+    """Legacy warning text does not reactivate retired enum/date categories."""
     row = _make_row(warnings=[
         "start_date: Unrecognised date format: '99-99-99'",
     ])
     summary = build_warning_summary([row])
     assert summary.defaulted_enum_count == 0
-    assert summary.ambiguous_date_count == 1
+    assert summary.ambiguous_date_count == 0
     assert summary.rows_with_warnings_count == 1
+    assert summary.has_warnings is False
 
 
 def test_build_warning_summary_two_enum_warnings_counts_row_once():

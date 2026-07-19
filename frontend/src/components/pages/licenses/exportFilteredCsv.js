@@ -51,9 +51,9 @@ const IMPORTABLE_FIELD_NAMES = {
  * @param {string} displayCurrency - fallback currency
  * @param {object[]} allLicenses - full unfiltered license array (needed for PO totals)
  * @param {Map} customFieldValuesMap
- * @param {{ localized?: boolean, userSettings?: object }} [options]
+ * @param {{ localized?: boolean, userSettings?: object, stableCustomFieldHeaders?: boolean }} [options]
  */
-export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLicenses, customFieldValuesMap, { localized = false, userSettings = null } = {}) {
+export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLicenses, customFieldValuesMap, { localized = false, userSettings = null, stableCustomFieldHeaders = false } = {}) {
   const fmtDate = localized
     ? (val) => (val ? formatDate(val, userSettings) : "")
     : (val) => val ?? "";
@@ -82,7 +82,12 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
       }
     : (val) => val ?? "";
 
-  const headers = columns.map((c) => IMPORTABLE_FIELD_NAMES[c.key] ?? c.label);
+  const headers = columns.map((column) => {
+    if (stableCustomFieldHeaders && column.key.startsWith("cf_") && column._cfDef?.fieldKey) {
+      return column._cfDef.fieldKey;
+    }
+    return IMPORTABLE_FIELD_NAMES[column.key] ?? column.label;
+  });
 
   const dataRows = rows.map((l) => {
     return columns.map((col) => {

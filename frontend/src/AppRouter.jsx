@@ -193,6 +193,7 @@ export default function AppRouter({
         <Suspense fallback={<div className="page-loading">Loading...</div>}>
           <CSVImportPage
             userSettings={userSettings}
+            canManageImportMappings={currentUser.role === "admin"}
             onImportComplete={() => {
               queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
               queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });

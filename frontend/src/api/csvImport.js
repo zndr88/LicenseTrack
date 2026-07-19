@@ -21,9 +21,10 @@ function appendImportFormats(formData, formats = {}) {
   if (formats.dateFormat) formData.append("date_format", formats.dateFormat);
 }
 
-export async function previewCsvImport(file, formats) {
+export async function previewCsvImport(file, formats, updateExisting = false) {
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("update_existing", String(updateExisting));
   appendImportFormats(formData, formats);
   return post("/api/import/preview", formData);
 }
@@ -37,11 +38,18 @@ export async function previewCsvImport(file, formats) {
  * @param {boolean} acknowledgeWarnings - must be true when preview showed hasWarnings
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
-export async function confirmCsvImport(file, skippedRows = [], acknowledgeWarnings = false, formats) {
+export async function confirmCsvImport(
+  file,
+  skippedRows = [],
+  acknowledgeWarnings = false,
+  formats,
+  updateExisting = false,
+) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("skipped_rows_json", JSON.stringify(skippedRows));
   formData.append("acknowledge_warnings", String(acknowledgeWarnings));
+  formData.append("update_existing", String(updateExisting));
   appendImportFormats(formData, formats);
   return post("/api/import/confirm", formData);
 }
@@ -115,8 +123,8 @@ export async function deleteImportMapping(id) {
   return del(`/api/import/mappings/${id}`);
 }
 
-export async function putImportMapping(id, name) {
-  return put(`/api/import/mappings/${id}`, { name });
+export async function putImportMapping(id, name, mapping) {
+  return put(`/api/import/mappings/${id}`, { name, mapping });
 }
 
 /**

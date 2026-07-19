@@ -6,7 +6,7 @@ vi.mock("../../api/csvImport.js", () => ({
   confirmCsvImport: vi.fn(),
 }));
 
-import { confirmCsvImport } from "../../api/csvImport.js";
+import { confirmCsvImport, previewCsvImport } from "../../api/csvImport.js";
 import { useCSVImportPreview } from "../../hooks/useCSVImportPreview.js";
 
 describe("useCSVImportPreview — handleConfirmImport", () => {
@@ -34,6 +34,7 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
       [],
       false,
       undefined,
+      false,
     );
     expect(setStep).toHaveBeenCalledWith("done");
   });
@@ -53,6 +54,7 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
       [],
       true,
       undefined,
+      false,
     );
   });
 
@@ -72,6 +74,30 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
       [],
       false,
       importFormats,
+      false,
     );
+  });
+
+  it("auto-enables native LT Ref updates and forwards the choice on confirm", async () => {
+    previewCsvImport.mockResolvedValue({
+      data: { headersFound: ["license_ref"], rows: [], validRows: 0 },
+      error: null,
+    });
+    const setStep = vi.fn();
+    const file = new File(["LT Ref\nLT-2026-00001"], "native.csv");
+    const { result } = renderHook(() =>
+      useCSVImportPreview({ setStep, setLoading: vi.fn(), setError: vi.fn() })
+    );
+
+    await act(async () => {
+      await result.current.handleFilePreview(file);
+    });
+    expect(previewCsvImport).toHaveBeenCalledWith(file, undefined, true);
+    expect(result.current.updateExisting).toBe(true);
+
+    await act(async () => {
+      await result.current.handleConfirmImport(file);
+    });
+    expect(confirmCsvImport).toHaveBeenCalledWith(file, [], false, undefined, true);
   });
 });
