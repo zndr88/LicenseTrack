@@ -9,6 +9,98 @@ API stability levels and the breaking-change policy are defined in
 [docs/api-stability.md](docs/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
+## [1.0.9] - 2026-07-19
+
+### Added
+
+- Added native Linux release archives for systemd-based Ubuntu 22.04 LTS
+  x86_64 hosts, including checksum verification, a compiled frontend, an
+  offline Python wheelhouse, and Standard and Advanced installation modes.
+- Added native Linux upgrades with pre-upgrade backups, database migrations,
+  health verification, atomic release activation, automatic rollback, and an
+  installed operator CLI.
+- Added a tag-driven native packaging workflow that publishes `.tar.gz`,
+  `.zip`, and `SHA256SUMS` release assets.
+- Added optional LT-Ref replacement behavior to Native CSV Import, matching the
+  existing External Tool Import workflow. Exported licenses can now be edited
+  and re-imported without creating duplicates.
+- Added automatic Native Import matching for existing custom fields using their
+  stable `cf_*` key or an unambiguous display name.
+- Added existing custom fields to the External Import mapping selector.
+- Added searchable history sections for converted and cancelled sourcing
+  requests and pending orders.
+- Added click-through procurement trail links from license details to
+  historical sourcing records, pending orders, and created licenses.
+- Added license detail history context for sourcing request/item data,
+  pending-order data, procurement evidence counts, and related navigation.
+- Added support for bundled renewal initiation: licenses sharing the same PO
+  number and end date can create one sourcing request with multiple renewal
+  lines.
+
+### Changed
+
+- Full Data CSV exports now use stable custom-field keys as headers for reliable
+  export/edit/re-import round-tripping, including after a field is renamed.
+- Native and External imports now share typed custom-field validation and
+  nonblank update behavior. Blank cells preserve existing values.
+- Invalid enum, date, numeric, and typed custom-field values are consistently
+  treated as row errors instead of acknowledgement warnings.
+- Import mapping presets are shared configuration: editors can load and use
+  presets, while only admins can create, replace, rename, or delete them.
+- Custom-field definition creation during import is shown only to admins.
+- Converted and cancelled sourcing and pending-order records are now retained
+  as read-only reference history instead of cluttering active workflow tables.
+- Sourcing history can link forward to related pending orders, including
+  converted orders in pending-order history.
+- Pending-order history can link forward to created licenses, with line-level
+  license links for multi-line orders.
+- Tightened coterm renewal merge eligibility to require matching publisher,
+  software description, license metric, predecessor end date, and compatible
+  SKU when SKU values are present.
+- Updated procurement, registry, integration, API stability, wiki, maintainer,
+  Help Center, and glossary documentation for sourcing history, pending-order
+  history, and procurement trail behavior.
+- Made license table sortable headers keyboard-activatable and exposed
+  `aria-sort`.
+- Split native runtime dependencies from development and test dependencies so
+  release archives and container images install only production requirements.
+
+### Fixed
+
+- Fixed Native Import creating duplicate licenses when re-importing records
+  with matching LT references instead of offering the same replacement
+  behavior as External Import.
+- Fixed Native Import silently dropping recognized custom-field values during
+  preview, creation, and LT-Ref updates.
+- Fixed import confirmation trusting stale preview warnings by rebuilding
+  duplicate detection, maintenance inference, update targets, and warning
+  summaries immediately before writing.
+- Isolated each imported row in a database savepoint so one persistence failure
+  no longer invalidates successful rows in the same batch.
+- Fixed update-only CSV imports not producing an audit event or reporting their
+  updated count.
+- Rejected non-empty CSV uploads that do not contain a usable header row.
+- Rejected maintenance rows whose inferred parent appears later in the import
+  file, since the parent must be persisted first.
+- Normalized imported perpetual licenses so they cannot retain an end date.
+- Fixed import mapping renames replacing or losing the mapping payload.
+- Prevented non-admin mapped-import requests from saving or overwriting shared
+  mapping presets through the execute endpoint.
+- Clarified completion summaries so manually skipped rows are not incorrectly
+  described as validation errors.
+- Fixed renewal initiation for same-PO/same-end-date license groups creating
+  separate sourcing requests instead of one multi-line sourcing request.
+- Fixed misleading historical sourcing links that pointed only to active
+  pending orders when the related PO had already converted.
+- Fixed stale audit test coverage for coterm merge validation.
+- Stabilized the frontend Playwright smoke test for license table publisher
+  sorting.
+
+### Release
+
+- Version bumped to 1.0.9 across backend, frontend, README, Docker Compose,
+  frontend package metadata, and wiki installation/deployment examples.
+
 ## [1.0.8] - 2026-07-17
 
 ### Added
@@ -441,6 +533,7 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
+[1.0.9]: https://github.com/zndr88/LicenseTrack/compare/v1.0.8...v1.0.9
 [1.0.8]: https://github.com/zndr88/LicenseTrack/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/zndr88/LicenseTrack/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/zndr88/LicenseTrack/compare/v1.0.5...v1.0.6
