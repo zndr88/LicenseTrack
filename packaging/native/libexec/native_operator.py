@@ -8,13 +8,29 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
-import pwd
 import sqlite3
 import subprocess
 import sys
 import tempfile
 from urllib.request import urlopen
 import zipfile
+
+try:
+    import pwd
+except ImportError:  # pragma: no cover - importable for Windows-side unit tests
+    pwd = None  # type: ignore[assignment]
+
+
+PYTHON_METADATA_SCRIPT = """
+import json
+import sys
+print(json.dumps({
+    "python_implementation": sys.implementation.name,
+    "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+    "python_abi": f"cp{sys.version_info.major}{sys.version_info.minor}",
+    "python_executable": sys.executable,
+}))
+"""
 
 
 def parse_env_file(path: Path) -> dict[str, str]:
@@ -51,12 +67,60 @@ def command_version(args: argparse.Namespace) -> int:
     return 0
 
 
+def inspect_release_python(release: Path) -> tuple[dict[str, str] | None, str | None]:
+    python = release / "venv" / "bin" / "python"
+    if not python.is_file():
+        return None, f"release Python is missing: {python}"
+    try:
+        result = subprocess.run(
+            [python, "-c", PYTHON_METADATA_SCRIPT],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, f"release Python is not runnable: {exc}"
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"exit status {result.returncode}"
+        return None, f"release Python is not runnable: {detail}"
+    try:
+        metadata = json.loads(result.stdout)
+    except ValueError as exc:
+        return None, f"release Python returned invalid metadata: {exc}"
+    required = {"python_implementation", "python_version", "python_abi", "python_executable"}
+    if not isinstance(metadata, dict) or not required <= metadata.keys():
+        return None, "release Python returned incomplete metadata"
+    return {key: str(metadata[key]) for key in required}, None
+
+
+def runtime_state_problems(state: dict, runtime: dict[str, str]) -> list[str]:
+    problems: list[str] = []
+    state_implementation = state.get("python_implementation")
+    if state_implementation and runtime["python_implementation"] != state_implementation:
+        problems.append(
+            f"active Python implementation {runtime['python_implementation']} does not match "
+            f"installation state {state_implementation}"
+        )
+    state_abi = state.get("python_abi")
+    if state_abi and runtime["python_abi"] != state_abi:
+        problems.append(
+            f"active Python ABI {runtime['python_abi']} does not match installation state {state_abi}"
+        )
+    return problems
+
+
 def command_doctor(args: argparse.Namespace) -> int:
     state, environment = load(args)
     problems: list[str] = []
     release = Path(state["release_path"])
     if not release.is_dir():
         problems.append(f"release directory is missing: {release}")
+    runtime, runtime_problem = inspect_release_python(release)
+    if runtime_problem:
+        problems.append(runtime_problem)
+    elif runtime is not None:
+        problems.extend(runtime_state_problems(state, runtime))
     if not Path(state["data_root"]).is_dir():
         problems.append(f"data directory is missing: {state['data_root']}")
     db_path = database_path(environment["DATABASE_URL"], release / "backend")
@@ -83,7 +147,12 @@ def command_doctor(args: argparse.Namespace) -> int:
         for problem in problems:
             print(f"- {problem}")
         return 1
-    print(f"LicenseTrack {state['version']} is healthy at {url}.")
+    runtime_label = (
+        f"Python {runtime['python_version']} ({runtime['python_abi']})"
+        if runtime is not None
+        else "Python runtime unavailable"
+    )
+    print(f"LicenseTrack {state['version']} is healthy at {url}. {runtime_label}.")
     return 0
 
 
@@ -100,6 +169,8 @@ def configured_backup_location(db_path: Path, default: str, working_directory: P
 
 
 def command_backup(args: argparse.Namespace) -> int:
+    if pwd is None:
+        raise RuntimeError("Native backups require POSIX account support.")
     state, environment = load(args)
     release = Path(state["release_path"])
     db_path = database_path(environment["DATABASE_URL"], release / "backend")

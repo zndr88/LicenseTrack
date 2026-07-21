@@ -13,6 +13,7 @@ import ipaddress
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import secrets
 import shlex
@@ -34,7 +35,10 @@ except ImportError:  # pragma: no cover - importable for Windows-side unit tests
 
 
 STATE_SCHEMA_VERSION = 1
-MINIMUM_PYTHON = (3, 12)
+SUPPORTED_PYTHON_VERSIONS = ((3, 12), (3, 13), (3, 14))
+SUPPORTED_PYTHON_ABIS = ("cp312", "cp313", "cp314")
+SUPPORTED_PYTHON_RANGE = ">=3.12,<3.15"
+NATIVE_MANIFEST_FORMAT = "licensetrack-native-v2"
 DEFAULT_INSTALL_ROOT = Path("/opt/licensetrack")
 DEFAULT_DATA_ROOT = Path("/var/lib/licensetrack")
 DEFAULT_CONFIG_ROOT = Path("/etc/licensetrack")
@@ -113,11 +117,38 @@ def run(
     )
 
 
+def python_abi_for(implementation: str, version: tuple[int, int]) -> str:
+    if implementation != "cpython" or version not in SUPPORTED_PYTHON_VERSIONS:
+        raise InstallerError(
+            "LicenseTrack native installation requires CPython 3.12, 3.13, or 3.14."
+        )
+    return f"cp{version[0]}{version[1]}"
+
+
+def current_python_abi() -> str:
+    return python_abi_for(
+        sys.implementation.name,
+        (sys.version_info.major, sys.version_info.minor),
+    )
+
+
+def python_runtime_metadata() -> dict[str, str]:
+    return {
+        "python_implementation": sys.implementation.name,
+        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        "python_abi": current_python_abi(),
+        "python_executable": os.fspath(Path(sys.executable).resolve()),
+    }
+
+
+def host_architecture() -> str:
+    return platform.machine().lower().replace("amd64", "x86_64")
+
+
 def require_supported_host() -> None:
     if os.name != "posix" or not Path("/proc").exists():
         raise InstallerError("Native installation is supported only on Linux.")
-    if sys.version_info < MINIMUM_PYTHON:
-        raise InstallerError("Python 3.12 or newer is required.")
+    current_python_abi()
     if os.geteuid() != 0:
         raise InstallerError("Run the installer with sudo.")
     if shutil.which("systemctl") is None:
@@ -234,6 +265,85 @@ def verify_release_manifest(source_root: Path) -> None:
         if not secrets.compare_digest(actual_hash, str(expected_hash)):
             raise InstallerError(f"Release checksum mismatch: {relative}")
     info(f"Verified {len(files)} release file checksums.")
+
+
+def validate_release_compatibility(source_root: Path) -> Path | None:
+    """Validate the release envelope and select this interpreter's wheelhouse.
+
+    Source trees without a manifest and wheelhouse are allowed to install
+    dependencies online. A packaged release that contains wheelhouses must use
+    manifest v2 and contain the exact ABI selected by the launcher.
+    """
+    abi = current_python_abi()
+    manifest_path = source_root / "manifest.json"
+    wheelhouse_root = source_root / "wheelhouse"
+    if not manifest_path.exists():
+        if wheelhouse_root.exists():
+            raise InstallerError("An unmanifested release must not contain an offline wheelhouse.")
+        return None
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise InstallerError(f"Could not read native release manifest: {exc}") from exc
+    if manifest.get("format") != NATIVE_MANIFEST_FORMAT:
+        raise InstallerError(
+            f"Unsupported native release manifest format: {manifest.get('format')!r}."
+        )
+    if manifest.get("platform") != "linux":
+        raise InstallerError(f"Native release platform must be 'linux', not {manifest.get('platform')!r}.")
+    architecture = str(manifest.get("architecture", ""))
+    if architecture != host_architecture():
+        raise InstallerError(
+            f"Native release architecture {architecture!r} does not match host architecture "
+            f"{host_architecture()!r}."
+        )
+    if manifest.get("python") != SUPPORTED_PYTHON_RANGE:
+        raise InstallerError(
+            f"Native release Python range must be {SUPPORTED_PYTHON_RANGE}, "
+            f"not {manifest.get('python')!r}."
+        )
+    if manifest.get("python_implementation") != "cpython":
+        raise InstallerError("Native releases support only the CPython implementation.")
+
+    manifest_abis = manifest.get("python_abis")
+    if not isinstance(manifest_abis, list) or any(not isinstance(value, str) for value in manifest_abis):
+        raise InstallerError("Native release manifest must contain a python_abis list.")
+    if len(set(manifest_abis)) != len(manifest_abis):
+        raise InstallerError("Native release manifest contains duplicate Python ABIs.")
+    unsupported = sorted(set(manifest_abis) - set(SUPPORTED_PYTHON_ABIS))
+    if unsupported:
+        raise InstallerError(f"Native release contains unsupported Python ABIs: {', '.join(unsupported)}")
+    manifest_files = manifest.get("files")
+    if not isinstance(manifest_files, dict):
+        raise InstallerError("Native release manifest must contain file checksums.")
+
+    if not wheelhouse_root.exists():
+        if manifest_abis:
+            raise InstallerError("Native release manifest lists Python ABIs but wheelhouse is missing.")
+        return None
+    if not wheelhouse_root.is_dir():
+        raise InstallerError("Native release wheelhouse path is not a directory.")
+    for listed_abi in manifest_abis:
+        listed_wheelhouse = wheelhouse_root / listed_abi
+        if not listed_wheelhouse.is_dir():
+            raise InstallerError(f"Native release wheelhouse is missing listed ABI {listed_abi}.")
+        wheels = list(listed_wheelhouse.glob("*.whl"))
+        if not wheels:
+            raise InstallerError(f"Native release wheelhouse for {listed_abi} contains no wheel files.")
+        for wheel in wheels:
+            relative = wheel.relative_to(source_root).as_posix()
+            if relative not in manifest_files:
+                raise InstallerError(
+                    f"Wheel {relative} is not covered by the release manifest checksums."
+                )
+    if abi not in manifest_abis:
+        included = ", ".join(manifest_abis) if manifest_abis else "none"
+        raise InstallerError(
+            f"This native release does not include {abi}; included Python ABIs: {included}."
+        )
+    selected = wheelhouse_root / abi
+    return selected
 
 
 def encode_env_value(value: str) -> str:
@@ -472,6 +582,7 @@ def ensure_frontend(source_root: Path, backend_destination: Path) -> None:
 
 
 def stage_release(source_root: Path, paths: InstallPaths, version: str) -> Path:
+    selected_wheelhouse = validate_release_compatibility(source_root)
     target = paths.releases_root / version
     if target.exists():
         raise InstallerError(f"Release {version} is already installed at {target}.")
@@ -508,10 +619,9 @@ def stage_release(source_root: Path, paths: InstallPaths, version: str) -> Path:
         venv_path = stage / "venv"
         run([sys.executable, "-m", "venv", venv_path])
         pip = venv_path / "bin" / "python"
-        wheelhouse = source_root / "wheelhouse"
         pip_command: list[str | os.PathLike[str]] = [pip, "-m", "pip", "install"]
-        if wheelhouse.is_dir():
-            pip_command.extend(["--no-index", "--find-links", wheelhouse])
+        if selected_wheelhouse is not None:
+            pip_command.extend(["--no-index", "--find-links", selected_wheelhouse])
         pip_command.extend(["--requirement", requirements])
         run(pip_command)
         run(
@@ -735,6 +845,24 @@ def state_from_install(version: str, release: Path, paths: InstallPaths, args: a
         "bind_host": args.bind_host,
         "port": args.port,
         **asdict(paths),
+        **python_runtime_metadata(),
+    }
+
+
+def state_from_upgrade(
+    old_state: dict,
+    target_version: str,
+    candidate: Path,
+    backup_archive: Path,
+) -> dict:
+    return {
+        **old_state,
+        "version": target_version,
+        "release_path": os.fspath(candidate),
+        "upgraded_at": datetime.now(timezone.utc).isoformat(),
+        "previous_version": old_state["version"],
+        "last_upgrade_backup": os.fspath(backup_archive),
+        **python_runtime_metadata(),
     }
 
 
@@ -761,6 +889,7 @@ def install(args: argparse.Namespace) -> None:
     source_root = Path(args.source_root).resolve()
     verify_release_manifest(source_root)
     version = read_release_version(source_root)
+    validate_release_compatibility(source_root)
     if args.verify_only:
         info(f"Release {version} verification completed.")
         return
@@ -1025,6 +1154,7 @@ def upgrade(args: argparse.Namespace) -> None:
     source_root = Path(args.source_root).resolve()
     verify_release_manifest(source_root)
     target_version = read_release_version(source_root)
+    validate_release_compatibility(source_root)
     if args.verify_only:
         info(f"Release {target_version} verification completed.")
         return
@@ -1065,14 +1195,7 @@ def upgrade(args: argparse.Namespace) -> None:
             sqlite_integrity_check(db_path)
 
             atomic_symlink(candidate, paths.current_link)
-            new_state = {
-                **old_state,
-                "version": target_version,
-                "release_path": os.fspath(candidate),
-                "upgraded_at": datetime.now(timezone.utc).isoformat(),
-                "previous_version": old_state["version"],
-                "last_upgrade_backup": os.fspath(backup_archive),
-            }
+            new_state = state_from_upgrade(old_state, target_version, candidate, backup_archive)
             write_json(paths.state_file, new_state)
 
             if not args.no_start:

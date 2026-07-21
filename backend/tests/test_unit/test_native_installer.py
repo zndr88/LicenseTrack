@@ -109,6 +109,113 @@ def test_manifest_rejects_parent_traversal(tmp_path: Path):
         installer.verify_release_manifest(tmp_path)
 
 
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [((3, 12), "cp312"), ((3, 13), "cp313"), ((3, 14), "cp314")],
+)
+def test_python_abi_policy_accepts_supported_cpython_versions(version, expected):
+    assert installer.python_abi_for("cpython", version) == expected
+
+
+@pytest.mark.parametrize(
+    ("implementation", "version"),
+    [("cpython", (3, 11)), ("cpython", (3, 15)), ("pypy", (3, 12))],
+)
+def test_python_abi_policy_rejects_unsupported_runtimes(implementation, version):
+    with pytest.raises(installer.InstallerError, match="CPython 3.12, 3.13, or 3.14"):
+        installer.python_abi_for(implementation, version)
+
+
+def _write_v2_manifest(root: Path, abis: list[str], *, architecture: str | None = None):
+    files = {"payload/example": "not-used-by-compatibility-check"}
+    for abi in abis:
+        wheelhouse = root / "wheelhouse" / abi
+        wheelhouse.mkdir(parents=True, exist_ok=True)
+        wheel = wheelhouse / "example-1.0-py3-none-any.whl"
+        wheel.write_bytes(b"wheel")
+        files[wheel.relative_to(root).as_posix()] = "not-used-by-compatibility-check"
+    manifest = {
+        "format": "licensetrack-native-v2",
+        "version": "1.1.0-test",
+        "platform": "linux",
+        "architecture": architecture or installer.host_architecture(),
+        "python": ">=3.12,<3.15",
+        "python_implementation": "cpython",
+        "python_abis": abis,
+        "files": files,
+    }
+    (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def test_release_compatibility_selects_matching_nested_wheelhouse(tmp_path: Path, monkeypatch):
+    _write_v2_manifest(tmp_path, ["cp312", "cp313", "cp314"])
+    monkeypatch.setattr(installer, "current_python_abi", lambda: "cp313")
+
+    selected = installer.validate_release_compatibility(tmp_path)
+
+    assert selected == tmp_path / "wheelhouse" / "cp313"
+
+
+def test_release_compatibility_rejects_manifest_without_running_abi(tmp_path: Path, monkeypatch):
+    _write_v2_manifest(tmp_path, ["cp312"])
+    monkeypatch.setattr(installer, "current_python_abi", lambda: "cp314")
+
+    with pytest.raises(installer.InstallerError, match="does not include cp314"):
+        installer.validate_release_compatibility(tmp_path)
+
+
+def test_release_compatibility_rejects_unchecksummed_wheel(tmp_path: Path):
+    abi = installer.current_python_abi()
+    _write_v2_manifest(tmp_path, [abi])
+    manifest_path = tmp_path / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"].pop(f"wheelhouse/{abi}/example-1.0-py3-none-any.whl")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(installer.InstallerError, match="not covered by the release manifest"):
+        installer.validate_release_compatibility(tmp_path)
+
+
+def test_release_compatibility_rejects_architecture_mismatch(tmp_path: Path):
+    _write_v2_manifest(tmp_path, [installer.current_python_abi()], architecture="aarch64")
+
+    with pytest.raises(installer.InstallerError, match="architecture"):
+        installer.validate_release_compatibility(tmp_path)
+
+
+def test_source_tree_without_manifest_uses_online_dependency_install(tmp_path: Path):
+    assert installer.validate_release_compatibility(tmp_path) is None
+
+
+def test_install_rejects_incompatible_release_before_host_checks(tmp_path: Path, monkeypatch):
+    args = argparse.Namespace(source_root=str(tmp_path), verify_only=False)
+    host_check_called = False
+    stage_called = False
+
+    monkeypatch.setattr(installer, "verify_release_manifest", lambda _root: None)
+    monkeypatch.setattr(installer, "read_release_version", lambda _root: "1.1.0-test")
+
+    def reject(_root):
+        raise installer.InstallerError("incompatible runtime")
+
+    def host_check():
+        nonlocal host_check_called
+        host_check_called = True
+
+    def stage(*_args, **_kwargs):
+        nonlocal stage_called
+        stage_called = True
+
+    monkeypatch.setattr(installer, "validate_release_compatibility", reject)
+    monkeypatch.setattr(installer, "require_supported_host", host_check)
+    monkeypatch.setattr(installer, "stage_release", stage)
+
+    with pytest.raises(installer.InstallerError, match="incompatible runtime"):
+        installer.install(args)
+    assert host_check_called is False
+    assert stage_called is False
+
+
 @pytest.mark.skipif(os.name == "nt", reason="native database URLs use Linux absolute paths")
 def test_database_url_resolves_absolute_and_release_relative_paths(tmp_path: Path):
     working = tmp_path / "release" / "backend"
@@ -195,6 +302,43 @@ def test_standard_mode_resolves_safe_defaults():
     assert args.allow_http_oidc_discovery is False
     assert args.allow_private_oidc_discovery is False
     assert args.session_cookie_secure is False
+
+
+def test_install_state_records_runtime_metadata(tmp_path: Path, monkeypatch):
+    paths = install_paths(tmp_path)
+    args = configuration_args()
+    metadata = {
+        "python_implementation": "cpython",
+        "python_version": "3.14.4",
+        "python_abi": "cp314",
+        "python_executable": "/usr/bin/python3",
+    }
+    monkeypatch.setattr(installer, "python_runtime_metadata", lambda: metadata)
+
+    state = installer.state_from_install("1.1.0", tmp_path / "release", paths, args)
+
+    assert {key: state[key] for key in metadata} == metadata
+
+
+def test_upgrade_state_adds_runtime_metadata_to_legacy_state(tmp_path: Path, monkeypatch):
+    old_state = {"schema_version": 1, "version": "1.0.9", "release_path": "/old"}
+    metadata = {
+        "python_implementation": "cpython",
+        "python_version": "3.13.14",
+        "python_abi": "cp313",
+        "python_executable": "/usr/bin/python3",
+    }
+    monkeypatch.setattr(installer, "python_runtime_metadata", lambda: metadata)
+
+    state = installer.state_from_upgrade(
+        old_state,
+        "1.1.0",
+        tmp_path / "release",
+        tmp_path / "backup.tar.gz",
+    )
+
+    assert state["previous_version"] == "1.0.9"
+    assert {key: state[key] for key in metadata} == metadata
 
 
 def test_install_mode_menu_selects_advanced(monkeypatch):
@@ -351,7 +495,7 @@ def test_upgrade_backup_restores_database_data_config_and_state(tmp_path: Path, 
 
 
 @pytest.mark.skipif(os.name == "nt", reason="native ownership uses POSIX accounts")
-def test_recursive_chown_accepts_python_312_posix_api(tmp_path: Path):
+def test_recursive_chown_accepts_supported_posix_api(tmp_path: Path):
     import grp
     import pwd
 

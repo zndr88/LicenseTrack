@@ -13,6 +13,7 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import zipfile
@@ -20,6 +21,12 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_RE = re.compile(r'^APP_VERSION\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
+REQUIREMENT_RE = re.compile(
+    r"^\s*([A-Za-z0-9_.-]+)(?:\[[^]]+\])?\s*==\s*([^\s;]+)\s*$"
+)
+SUPPORTED_PYTHON_ABIS = ("cp312", "cp313", "cp314")
+SUPPORTED_PYTHON_RANGE = ">=3.12,<3.15"
+NATIVE_MANIFEST_FORMAT = "licensetrack-native-v2"
 IGNORED_NAMES = {
     ".pytest_cache",
     ".ruff_cache",
@@ -43,6 +50,125 @@ def version() -> str:
     if not match:
         raise RuntimeError("Could not read APP_VERSION.")
     return match.group(1)
+
+
+def normalize_distribution_name(value: str) -> str:
+    return re.sub(r"[-_.]+", "-", value).lower()
+
+
+def normalize_wheel_version(value: str) -> str:
+    return value.replace("_", "-").lower()
+
+
+def runtime_requirements() -> dict[str, str]:
+    requirements_path = ROOT / "backend" / "requirements-runtime.txt"
+    requirements: dict[str, str] = {}
+    for line_number, raw_line in enumerate(requirements_path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        match = REQUIREMENT_RE.fullmatch(line)
+        if not match:
+            raise RuntimeError(
+                f"Runtime requirement line {line_number} must be a direct == pin: {raw_line!r}"
+            )
+        name = normalize_distribution_name(match.group(1))
+        requirements[name] = match.group(2)
+    if not requirements:
+        raise RuntimeError("Runtime requirements are empty.")
+    return requirements
+
+
+def wheel_inventory(wheelhouse: Path) -> dict[str, set[str]]:
+    inventory: dict[str, set[str]] = {}
+    for wheel in wheelhouse.glob("*.whl"):
+        parts = wheel.name.split("-")
+        if len(parts) < 5:
+            continue
+        name = normalize_distribution_name(parts[0])
+        inventory.setdefault(name, set()).add(normalize_wheel_version(parts[1]))
+    return inventory
+
+
+def validate_wheelhouse(abi: str, wheelhouse: Path) -> None:
+    if abi not in SUPPORTED_PYTHON_ABIS:
+        raise RuntimeError(f"Unsupported Python ABI: {abi}")
+    if not wheelhouse.is_dir():
+        raise RuntimeError(f"Wheelhouse for {abi} was not found: {wheelhouse}")
+    inventory = wheel_inventory(wheelhouse)
+    if not inventory:
+        raise RuntimeError(f"Wheelhouse for {abi} contains no wheel files: {wheelhouse}")
+
+    missing = []
+    for name, version_value in runtime_requirements().items():
+        normalized_version = normalize_wheel_version(version_value)
+        if normalized_version not in inventory.get(name, set()):
+            missing.append(f"{name}=={version_value}")
+    if missing:
+        raise RuntimeError(
+            f"Wheelhouse {abi} is missing pinned runtime wheels: {', '.join(sorted(missing))}"
+        )
+
+
+def parse_wheelhouse_arguments(values: list[str]) -> dict[str, Path]:
+    wheelhouses: dict[str, Path] = {}
+    for value in values:
+        if "=" not in value:
+            raise ValueError(f"Wheelhouse must use ABI=PATH syntax: {value!r}")
+        abi, raw_path = value.split("=", 1)
+        abi = abi.strip().lower()
+        if abi not in SUPPORTED_PYTHON_ABIS:
+            raise ValueError(f"Unsupported Python ABI: {abi}")
+        if abi in wheelhouses:
+            raise ValueError(f"Python ABI {abi} was provided more than once.")
+        if not raw_path.strip():
+            raise ValueError(f"Wheelhouse path is empty for {abi}.")
+        wheelhouses[abi] = Path(raw_path).expanduser().resolve()
+    return wheelhouses
+
+
+def require_all_python_abis(wheelhouses: dict[str, Path]) -> None:
+    missing = [abi for abi in SUPPORTED_PYTHON_ABIS if abi not in wheelhouses]
+    if missing:
+        raise RuntimeError(f"Full native release is missing Python ABIs: {', '.join(missing)}")
+
+
+def current_python_abi() -> str:
+    if platform.python_implementation() != "CPython":
+        raise RuntimeError("Native release wheelhouses must be built with CPython.")
+    abi = f"cp{sys.version_info.major}{sys.version_info.minor}"
+    if abi not in SUPPORTED_PYTHON_ABIS:
+        raise RuntimeError(
+            "Native release wheelhouses require CPython 3.12, 3.13, or 3.14; "
+            f"the current interpreter is {platform.python_version()}."
+        )
+    return abi
+
+
+def download_current_wheelhouse(destination_root: Path) -> dict[str, Path]:
+    if platform.system() != "Linux":
+        raise RuntimeError(
+            "--download-wheels must run on Linux so the native archive cannot accidentally contain "
+            "wheels for another operating system."
+        )
+    abi = current_python_abi()
+    wheelhouse = destination_root / abi
+    wheelhouse.mkdir(parents=True)
+    run(
+        [
+            os.fspath(Path(sys.executable)),
+            "-m",
+            "pip",
+            "download",
+            "--only-binary=:all:",
+            "--dest",
+            os.fspath(wheelhouse),
+            "--requirement",
+            os.fspath(ROOT / "backend" / "requirements-runtime.txt"),
+        ]
+    )
+    validate_wheelhouse(abi, wheelhouse)
+    return {abi: wheelhouse}
 
 
 def ignore(_directory: str, names: list[str]) -> set[str]:
@@ -72,8 +198,17 @@ def build_frontend(skip_build: bool) -> Path:
     return output
 
 
-def assemble(stage: Path, frontend_dist: Path, include_wheels: bool, release_version: str) -> Path:
+def assemble(
+    stage: Path,
+    frontend_dist: Path,
+    release_version: str,
+    wheelhouses: dict[str, Path],
+) -> Path:
+    for abi, wheelhouse in wheelhouses.items():
+        validate_wheelhouse(abi, wheelhouse)
+
     architecture = platform.machine().lower().replace("amd64", "x86_64")
+    stage.mkdir(parents=True, exist_ok=True)
     bundle = stage / f"licensetrack-native-{release_version}-linux-{architecture}"
     bundle.mkdir()
 
@@ -102,22 +237,13 @@ def assemble(stage: Path, frontend_dist: Path, include_wheels: bool, release_ver
                     with asset.open("w", encoding="utf-8", newline="\n") as output:
                         output.write(content.replace(source_version, release_version))
 
-    if include_wheels:
-        wheelhouse = bundle / "wheelhouse"
-        wheelhouse.mkdir()
-        run(
-            [
-                os.fspath(Path(os.sys.executable)),
-                "-m",
-                "pip",
-                "download",
-                "--only-binary=:all:",
-                "--dest",
-                os.fspath(wheelhouse),
-                "--requirement",
-                os.fspath(ROOT / "backend" / "requirements-runtime.txt"),
-            ]
-        )
+    if wheelhouses:
+        wheelhouse_root = bundle / "wheelhouse"
+        wheelhouse_root.mkdir()
+        for abi in SUPPORTED_PYTHON_ABIS:
+            source = wheelhouses.get(abi)
+            if source is not None:
+                shutil.copytree(source, wheelhouse_root / abi)
 
     files = {
         path.relative_to(bundle).as_posix(): sha256(path)
@@ -125,11 +251,13 @@ def assemble(stage: Path, frontend_dist: Path, include_wheels: bool, release_ver
         if path.is_file()
     }
     manifest = {
-        "format": "licensetrack-native-v1",
+        "format": NATIVE_MANIFEST_FORMAT,
         "version": release_version,
         "platform": "linux",
         "architecture": architecture,
-        "python": ">=3.12,<3.13",
+        "python": SUPPORTED_PYTHON_RANGE,
+        "python_implementation": "cpython",
+        "python_abis": [abi for abi in SUPPORTED_PYTHON_ABIS if abi in wheelhouses],
         "built_at": datetime.now(timezone.utc).isoformat(),
         "files": files,
     }
@@ -174,7 +302,24 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", default=os.fspath(ROOT / "dist" / "native"))
     parser.add_argument("--skip-frontend-build", action="store_true")
-    parser.add_argument("--download-wheels", action="store_true")
+    wheelhouse_group = parser.add_mutually_exclusive_group()
+    wheelhouse_group.add_argument(
+        "--download-wheels",
+        action="store_true",
+        help="On Linux, download wheels for the executing supported CPython ABI.",
+    )
+    wheelhouse_group.add_argument(
+        "--wheelhouse",
+        action="append",
+        default=[],
+        metavar="ABI=PATH",
+        help="Include a prepared ABI wheelhouse; repeat for cp312, cp313, and cp314.",
+    )
+    parser.add_argument(
+        "--require-all-python-abis",
+        action="store_true",
+        help="Refuse the build unless cp312, cp313, and cp314 wheelhouses are supplied.",
+    )
     parser.add_argument(
         "--version-override",
         help="Build a non-release version for install/upgrade testing without changing tracked version files.",
@@ -186,8 +331,21 @@ def main() -> int:
         parser.error("--version-override must be a semantic version without a leading v")
 
     with tempfile.TemporaryDirectory(prefix="licensetrack-native-build-") as temp_name:
+        temporary_root = Path(temp_name)
+        try:
+            if args.download_wheels:
+                wheelhouses = download_current_wheelhouse(temporary_root / "prepared-wheelhouses")
+            else:
+                wheelhouses = parse_wheelhouse_arguments(args.wheelhouse)
+                for abi, wheelhouse in wheelhouses.items():
+                    validate_wheelhouse(abi, wheelhouse)
+            if args.require_all_python_abis:
+                require_all_python_abis(wheelhouses)
+        except (RuntimeError, ValueError) as exc:
+            parser.error(str(exc))
+
         frontend_dist = build_frontend(args.skip_frontend_build)
-        bundle = assemble(Path(temp_name), frontend_dist, args.download_wheels, release_version)
+        bundle = assemble(temporary_root / "bundle", frontend_dist, release_version, wheelhouses)
         archives = make_archives(bundle, Path(args.output_dir).resolve())
 
     checksum_path = Path(args.output_dir).resolve() / "SHA256SUMS"

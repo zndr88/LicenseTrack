@@ -7,7 +7,9 @@ if [[ $# -ne 1 ]]; then
 fi
 
 BUNDLE_ROOT="$(cd -- "$1" && pwd)"
-PYTHON_BIN="${PYTHON_BIN:-python3.12}"
+source "$BUNDLE_ROOT/packaging/native/libexec/select_python.sh"
+PYTHON_BIN="$(select_licensetrack_python "$BUNDLE_ROOT")"
+PYTHON_ABI="$(licensetrack_python_abi "$PYTHON_BIN")"
 TEST_PORT="${LT_NATIVE_TEST_PORT:-18080}"
 TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/licensetrack-native-smoke.XXXXXX")"
 SERVER_PID=""
@@ -35,7 +37,12 @@ test -f "$BUNDLE_ROOT/payload/backend/frontend/dist/index.html"
 "$PYTHON_BIN" -m venv "$TEST_ROOT/venv"
 PIP_COMMAND=("$TEST_ROOT/venv/bin/python" -m pip install)
 if [[ -d "$BUNDLE_ROOT/wheelhouse" ]]; then
-  PIP_COMMAND+=(--no-index --find-links "$BUNDLE_ROOT/wheelhouse")
+  SELECTED_WHEELHOUSE="$BUNDLE_ROOT/wheelhouse/$PYTHON_ABI"
+  if [[ ! -d "$SELECTED_WHEELHOUSE" ]]; then
+    echo "Bundle does not contain the selected $PYTHON_ABI wheelhouse." >&2
+    exit 1
+  fi
+  PIP_COMMAND+=(--no-index --find-links "$SELECTED_WHEELHOUSE")
 fi
 PIP_COMMAND+=(--requirement "$BUNDLE_ROOT/payload/backend/requirements-runtime.txt")
 "${PIP_COMMAND[@]}"
