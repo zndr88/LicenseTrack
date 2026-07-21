@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import stat
 import sys
 
 import pytest
@@ -185,6 +186,57 @@ def test_release_compatibility_rejects_architecture_mismatch(tmp_path: Path):
 
 def test_source_tree_without_manifest_uses_online_dependency_install(tmp_path: Path):
     assert installer.validate_release_compatibility(tmp_path) is None
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX umask and permission modes are required")
+def test_stage_release_normalizes_permissions_under_restrictive_umask(tmp_path: Path, monkeypatch):
+    source_root = tmp_path / "source"
+    backend = source_root / "payload" / "backend"
+    backend.mkdir(parents=True)
+    requirements = backend / "requirements-runtime.txt"
+    requirements.write_text("fastapi==0\n", encoding="utf-8")
+    native = source_root / "packaging" / "native"
+    native.mkdir(parents=True)
+    entrypoint = native / "install.sh"
+    entrypoint.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    os.chmod(entrypoint, 0o700)
+
+    monkeypatch.setattr(installer, "validate_release_compatibility", lambda _root: None)
+
+    def fake_run(command, **_kwargs):
+        arguments = [os.fspath(part) for part in command]
+        if arguments[1:3] == ["-m", "venv"]:
+            venv = Path(arguments[-1])
+            (venv / "bin").mkdir(parents=True)
+            python = venv / "bin" / "python"
+            python.write_text("python", encoding="utf-8")
+            os.chmod(python, 0o700)
+            private_file = venv / "private.txt"
+            private_file.write_text("runtime", encoding="utf-8")
+
+    monkeypatch.setattr(installer, "run", fake_run)
+    paths = install_paths(tmp_path)
+
+    previous_umask = os.umask(0o077)
+    try:
+        release = installer.stage_release(source_root, paths, "1.1.0-test")
+    finally:
+        os.umask(previous_umask)
+
+    directories = (
+        Path(paths.install_root),
+        paths.releases_root,
+        release,
+        release / "backend",
+        release / "venv",
+        release / "venv" / "bin",
+    )
+    for directory in directories:
+        assert stat.S_IMODE(directory.stat().st_mode) == 0o755
+
+    assert stat.S_IMODE((release / "venv" / "private.txt").stat().st_mode) == 0o644
+    assert stat.S_IMODE((release / "venv" / "bin" / "python").stat().st_mode) == 0o755
+    assert stat.S_IMODE((release / "native" / "install.sh").stat().st_mode) == 0o755
 
 
 def test_install_rejects_incompatible_release_before_host_checks(tmp_path: Path, monkeypatch):

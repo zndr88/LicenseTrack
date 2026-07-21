@@ -19,6 +19,7 @@ import secrets
 import shlex
 import shutil
 import sqlite3
+import stat
 import subprocess
 import sys
 import tarfile
@@ -581,17 +582,39 @@ def ensure_frontend(source_root: Path, backend_destination: Path) -> None:
     shutil.copytree(frontend_dist, target)
 
 
+def normalize_release_permissions(root: Path) -> None:
+    """Make root-owned release code readable and traversable by the service user."""
+    os.chmod(root, 0o755)
+    for directory, directories, files in os.walk(root, followlinks=False):
+        directory_path = Path(directory)
+        for name in directories:
+            child = directory_path / name
+            if not child.is_symlink():
+                os.chmod(child, 0o755)
+        for name in files:
+            child = directory_path / name
+            if child.is_symlink():
+                continue
+            mode = stat.S_IMODE(child.stat().st_mode)
+            os.chmod(child, 0o755 if mode & 0o111 else 0o644)
+
+
 def stage_release(source_root: Path, paths: InstallPaths, version: str) -> Path:
     selected_wheelhouse = validate_release_compatibility(source_root)
     target = paths.releases_root / version
     if target.exists():
         raise InstallerError(f"Release {version} is already installed at {target}.")
 
+    install_root = Path(paths.install_root)
+    install_root.mkdir(parents=True, exist_ok=True)
+    os.chmod(install_root, 0o755)
     paths.releases_root.mkdir(parents=True, exist_ok=True)
+    os.chmod(paths.releases_root, 0o755)
     stage = paths.releases_root / f".staging-{version}-{os.getpid()}"
     if stage.exists():
         shutil.rmtree(stage)
     stage.mkdir(mode=0o755)
+    os.chmod(stage, 0o755)
 
     try:
         payload_backend = source_root / "payload" / "backend"
@@ -632,6 +655,7 @@ def stage_release(source_root: Path, paths: InstallPaths, version: str) -> Path:
             ]
         )
 
+        normalize_release_permissions(stage)
         os.replace(stage, target)
     except Exception:
         shutil.rmtree(stage, ignore_errors=True)
