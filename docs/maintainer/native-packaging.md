@@ -48,11 +48,23 @@ official release bundle must list all three. The runtime smoke matrix remains
 responsible for proving that the complete transitive wheel set installs under
 each matching interpreter.
 
-The tag workflow currently verifies that `v<git-tag>` matches
-`backend/app/version.py`, builds the x86_64 bundle on Ubuntu 22.04, stores it as
-a workflow artifact, and attaches it to the GitHub release. It must be converted
-to the multi-interpreter wheelhouse/assembly/smoke pipeline before the expanded
-Python support is released.
+The tag workflow verifies that `v<git-tag>` matches `backend/app/version.py`,
+then prepares the `cp312`, `cp313`, and `cp314` wheelhouses independently under
+their matching interpreters. A single assembly job downloads those internal
+artifacts, builds the frontend once, and creates one combined x86_64 candidate.
+Python 3.12, 3.13, and 3.14 smoke jobs all install offline from that exact
+candidate and check the API health response plus frontend root. Only the
+publication job can write release assets, and it downloads the already-tested
+candidate rather than rebuilding it.
+
+Maintainers can run the workflow manually to exercise the complete wheelhouse,
+assembly, and smoke matrix without publishing a release. Only a `v*` tag push
+runs the tag/version check and publication job.
+
+Normal pull-request and main-branch CI builds a lighter source-style bundle
+without wheelhouses. It verifies `SHA256SUMS`, tests both archive formats, and
+runs `install.sh --verify-only` against the extracted manifest so structural
+packaging failures are caught before a release tag is created.
 
 ## Installer boundaries
 
@@ -78,7 +90,10 @@ Run the focused tests and build smoke check:
 cd backend
 python -m pytest tests/test_unit/test_native_installer.py
 cd ..
-bash -n install.sh upgrade.sh packaging/native/install.sh packaging/native/upgrade.sh
+for entrypoint in install.sh upgrade.sh packaging/native/install.sh \
+  packaging/native/upgrade.sh packaging/native/libexec/select_python.sh \
+  scripts/test_native_bundle_structure.sh scripts/test_native_runtime.sh \
+  scripts/test_native_python_selector.sh; do bash -n "$entrypoint"; done
 bash scripts/test_native_python_selector.sh . "$(command -v python3)" cpXY
 python scripts/build_native_release.py
 bash scripts/test_native_runtime.sh /path/to/extracted-native-bundle

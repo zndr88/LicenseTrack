@@ -10,6 +10,10 @@ BUNDLE_ROOT="$(cd -- "$1" && pwd)"
 source "$BUNDLE_ROOT/packaging/native/libexec/select_python.sh"
 PYTHON_BIN="$(select_licensetrack_python "$BUNDLE_ROOT")"
 PYTHON_ABI="$(licensetrack_python_abi "$PYTHON_BIN")"
+if [[ -n "${LT_NATIVE_EXPECTED_PYTHON_ABI:-}" && "$PYTHON_ABI" != "$LT_NATIVE_EXPECTED_PYTHON_ABI" ]]; then
+  echo "Expected native smoke ABI $LT_NATIVE_EXPECTED_PYTHON_ABI, selected $PYTHON_ABI." >&2
+  exit 1
+fi
 TEST_PORT="${LT_NATIVE_TEST_PORT:-18080}"
 TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/licensetrack-native-smoke.XXXXXX")"
 SERVER_PID=""

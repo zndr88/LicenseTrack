@@ -103,10 +103,27 @@ jobs:
           fi
 
       - name: Validate native installer shell entrypoints
-        run: bash -n ../install.sh ../upgrade.sh ../packaging/native/install.sh ../packaging/native/upgrade.sh
+        shell: bash
+        run: |
+          for entrypoint in \
+            ../install.sh \
+            ../upgrade.sh \
+            ../packaging/native/install.sh \
+            ../packaging/native/upgrade.sh \
+            ../packaging/native/libexec/select_python.sh \
+            ../scripts/test_native_bundle_structure.sh \
+            ../scripts/test_native_runtime.sh \
+            ../scripts/test_native_python_selector.sh
+          do
+            bash -n "$entrypoint"
+          done
 
       - name: Build native release archive
         run: python ../scripts/build_native_release.py --skip-frontend-build --output-dir ../dist/native-test
+
+      - name: Verify native bundle structure
+        shell: bash
+        run: PYTHON_BIN="$(command -v python)" bash ../scripts/test_native_bundle_structure.sh ../dist/native-test
 
   e2e:
     name: Frontend e2e (Playwright)
