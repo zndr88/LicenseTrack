@@ -76,7 +76,7 @@ describe("LoginScreen", () => {
     getAuthMode.mockResolvedValue({ oidc_enabled: true, oidc_available: false });
     render(<LoginScreen onLogin={vi.fn()} />);
     expect(await screen.findByText(/SSO is configured but currently unavailable/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /sign in locally/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /sign in locally/i })).toBeInTheDocument();
   });
 
   test("shows callback error from query params", async () => {

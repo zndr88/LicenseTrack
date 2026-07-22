@@ -65,6 +65,7 @@ async function renderLoadedModal(props = {}, mockOverrides = {}) {
   const result = renderModal(props);
   expect(screen.getByRole("dialog", { name: /loading/i })).toBeInTheDocument();
   expect(await screen.findByRole("dialog", { name: /acme corp/i })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /toggle invoices folder/i })).toBeInTheDocument();
   return result;
 }
 

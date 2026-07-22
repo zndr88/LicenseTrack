@@ -97,7 +97,7 @@ Start with [docs/extension-authors/overview.md](docs/extension-authors/overview.
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React 18, Vite, TanStack Query, React Hook Form, Zod, Recharts, Vitest, Playwright |
+| Frontend | React 19, Vite, TanStack Query, React Hook Form, Zod, Recharts, Vitest, Playwright |
 | Backend | FastAPI, SQLAlchemy async, Alembic, Pydantic |
 | Database | SQLite with `aiosqlite` |
 | Auth | JWT sessions, bcrypt password hashing, optional OIDC |
