@@ -19,7 +19,12 @@ It is an example scaffold, not a production parser or an Official Extension pack
 - A webhook endpoint in Admin Settings subscribed to `document_action.requested`.
 - The webhook signing secret copied when the webhook endpoint is created.
 
-For local testing, the sidecar must be reachable from the host running LicenseTrack via a non-loopback address. LicenseTrack's SSRF guard blocks `localhost`, `127.x.x.x`, and RFC-1918 ranges when delivering webhooks, so those URLs will be rejected. Use your machine's LAN IP (e.g. `http://192.168.1.50:9010/webhook`) or, if both processes run in Docker, a shared Docker network with service names.
+For local testing, the sidecar still listens on loopback, but LicenseTrack cannot
+deliver a webhook directly to it. The SSRF guard blocks loopback, link-local,
+RFC-1918/private, and reserved addresses, including Docker service names that
+resolve into private networks. Expose the receiver through an operator-approved
+HTTPS tunnel or public test reverse proxy and use that public URL as the webhook
+target.
 
 Check that the port is free before using it. Some desktop tools bind local ports for their own services. For example, if `http://127.0.0.1:9010/health` returns `426 Upgrade Required`, another process is answering on that port. Start the sidecar on another free port and update the webhook URL to match:
 
@@ -54,14 +59,18 @@ Confirm the health endpoint before creating or testing the webhook:
 Invoke-RestMethod "http://127.0.0.1:9010/health"
 ```
 
-If you started the sidecar with `--port 9011`, use `http://127.0.0.1:9011/health` and configure the webhook URL as `http://127.0.0.1:9011/webhook`.
+If you started the sidecar with `--port 9011`, use
+`http://127.0.0.1:9011/health` locally and configure your tunnel or test reverse
+proxy to forward to `http://127.0.0.1:9011/webhook`.
 
-If LicenseTrack is running in Docker or another host context, use a webhook URL that is reachable from that backend process.
+Configure LicenseTrack with the public HTTPS receiver URL, not the local forward
+target.
 
 ## Manual End-To-End Test
 
 1. In Admin Settings, create or edit a webhook endpoint:
-   - URL: `http://localhost:9010/webhook`
+   - URL: the public HTTPS endpoint that forwards to the local sidecar, such as
+     `https://processor-test.example.com/webhook`
    - Events: `document_action.requested`
    - Active: enabled
 2. Open a license with an uploaded document.

@@ -36,7 +36,12 @@ Add `licenses:read` if the processor needs current license state beyond the docu
 
 Create a webhook endpoint in Admin Settings:
 
-- URL: the processor receiver URL — must be reachable from the LicenseTrack backend via a non-loopback address. LicenseTrack's SSRF guard blocks `localhost`, `127.x.x.x`, and RFC-1918 ranges, so use your machine's LAN IP (e.g. `http://192.168.1.50:9011/webhook`) or a Docker service name if both run in the same network.
+- URL: a receiver URL reachable from the LicenseTrack backend at a public,
+  non-reserved address. LicenseTrack's SSRF guard blocks loopback, link-local,
+  RFC-1918/private, and reserved addresses, including Docker service names that
+  resolve into private networks. For development, expose the local receiver
+  through an operator-approved HTTPS tunnel or test reverse proxy and configure
+  that public URL.
 - Event: `document_action.requested`
 - Active: enabled
 
@@ -152,10 +157,13 @@ $env:LT_FAKE_QUANTITY = "42"
 py -3.12 .\examples\licensetrack-ai-sidecar.py --port 9011 --register-capability
 ```
 
-Then set the webhook URL to:
+The local process listens on `127.0.0.1`, but that address cannot be used as the
+LicenseTrack webhook target. Expose the receiver through an operator-approved
+HTTPS tunnel or public test reverse proxy, then set the webhook URL to the
+resulting public endpoint:
 
 ```text
-http://127.0.0.1:9011/webhook
+https://processor-test.example.com/webhook
 ```
 
 Submit a processing result without running a webhook receiver:
@@ -173,6 +181,9 @@ py -3.12 .\examples\submit-document-processing-result.py `
 
 - If the document action button is hidden, check both the active webhook subscription and the registered `document.processing` capability.
 - If the webhook delivery fails, inspect Admin Settings -> Integrations -> Webhooks -> Deliveries.
+- If delivery reports a blocked address, the receiver resolved to a loopback,
+  private, link-local, or reserved address. Use a public test endpoint; do not
+  weaken the SSRF guard for convenience.
 - If `/health` on a local sidecar returns `426 Upgrade Required` or another unexpected response, another process is listening on that port. Pick a free port and update the webhook URL.
 - If result submission returns `409`, the capability is missing or not `available`.
 - If accepting a result returns `422`, at least one accepted suggested field is unsupported or invalid.

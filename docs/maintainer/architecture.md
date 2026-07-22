@@ -41,7 +41,6 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `LicenseStatusFilter.jsx` | Status chip filters with complete↔incomplete mutual exclusivity |
 | `LicenseAttentionPanel.jsx` | Expiring/expired attention banner |
 | `LicenseBulkActions.jsx` | Bulk delete confirmation dialog |
-| `licenseColumns.js` | Column definitions and default visibility map |
 | `licenseColumns.js` | Shared Registry column catalog: user-facing static fields, visibility groups and defaults, custom-field column assembly, saved ordering helpers, and Full Data export selection |
 | `exportFilteredCsv.js` | Registry CSV export assembly: selected columns in supplied order, canonical ISO values by default, localized Current View formatting when requested, stable custom-field keys for Full Data round-trips, custom-field values, and spreadsheet-formula escaping |
 
@@ -164,7 +163,7 @@ Do not put payload normalization or invoice-file display logic back into `Conver
 
 The Help entry point lives in `TopBar.jsx` as a top-right utility button. Do not add Help to the main top navigation beside Overview, Import, Reports, or Admin, and do not add it to the sidebar reference group. The top navigation is for primary work areas; the sidebar is for operational pipeline and reference data. Help cuts across all work areas and should remain a utility-level route.
 
-`HelpPage.jsx` owns its local article catalog, category filtering, search ranking, selected article state, and article rendering. Keep the content user-facing and version-local: product workflows, feature behavior, caveats, troubleshooting, and glossary terms belong here. Deployment, compliance, release, security, and maintainer-only material should remain in repository or website documentation.
+`HelpPage.jsx` is the single source for its local article catalog and owns category filtering, search ranking, selected article state, and article rendering. Do not maintain a second article mirror under `docs/`. Keep the content user-facing and version-local: product workflows, feature behavior, caveats, troubleshooting, and glossary terms belong here. Deployment, compliance, release, security, and maintainer-only material should remain in repository or website documentation.
 
 If Help content grows large enough to require external data loading, preserve the same product boundary: authenticated users should be able to access help in a self-hosted install without depending on a public website.
 
@@ -385,6 +384,11 @@ Internal Official Extension implementation and signing guidance lives in
 ## Quality Gates
 
 Use these checks during normal development:
+
+```powershell
+python scripts/check_docs.py
+python -m mkdocs build --strict
+```
 
 ```powershell
 cd frontend

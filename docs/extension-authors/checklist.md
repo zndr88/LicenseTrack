@@ -60,6 +60,7 @@ maintained by its owner.
 
 - `overview.md`
 - `build-integrations.md`
+- `api-reference.md`
 - `api-auth.md`
 - `api-stability.md`
 - `webhooks.md`

@@ -1,9 +1,14 @@
-# In-App Help Source
+# In-App Help
 
-These text files are version-local Help Center source material. They explain
-LicenseTrack features from inside the installed application and may include
-workflow caveats that match the current app version.
+The canonical version-local Help Center catalog lives in
+`frontend/src/components/pages/HelpPage.jsx`. It is bundled into the self-hosted
+application so authenticated users can read it without reaching an external
+documentation site.
 
-They are intentionally separate from the published MkDocs site in `wiki/`.
-When content should become public operator documentation, promote it into
-`wiki/` rather than treating this folder as a second public manual.
+This directory intentionally contains no second copy of the articles. Keeping a
+text mirror beside the frontend catalog caused the two versions to drift and
+mixed maintainer implementation notes into user-facing material.
+
+Public operator guidance belongs in `wiki/`. Maintainer implementation notes
+belong in `docs/maintainer/`. When a Help article needs to change, edit the
+frontend catalog and update the matching public page when one exists.

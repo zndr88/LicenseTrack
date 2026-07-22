@@ -44,10 +44,17 @@ nav:
   - Core Workflows:
       - Importing Licenses: first-licenses/importing.md
       - Understanding the License Record: first-licenses/license-record.md
+      - Managing Licenses and Maintenance: first-licenses/managing-licenses.md
       - Renewal & Lifecycle: first-licenses/renewal-lifecycle.md
+      - Procurement from Sourcing to License: workflows/procurement.md
+      - Contracts and Documents: workflows/contracts-documents.md
+      - Reports and Calculations: workflows/reports.md
       - Dashboard & Key Views: navigating/dashboard.md
   - Administration:
       - Overview: administration/index.md
+      - Users, Roles, and Access: administration/users-access.md
+      - Settings, Notifications, and Email: administration/settings-notifications.md
+      - Audit Log: administration/audit-log.md
   - Operations:
       - Overview: operations/index.md
       - Production Deployment & Hardening: operations/deployment.md

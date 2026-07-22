@@ -75,6 +75,16 @@ npm audit
 python -m pip_audit -r backend/requirements.txt
 ```
 
+Documentation changes should also pass:
+
+```bash
+python scripts/check_docs.py
+python -m mkdocs build --strict
+```
+
+The documentation checker validates repository-relative links, current release
+references, and the single-source Help Center ownership contract.
+
 ## Current Architecture Conventions
 
 - Follow the repository style contract in `docs/maintainer/style-contract.md`. It is the source of truth for conservative backend, frontend, CSS, testing, and AI-assisted coding conventions.

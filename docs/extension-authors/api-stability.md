@@ -2,7 +2,10 @@
 
 LicenseTrack's integration story depends on predictable API behavior. This document defines how API routes should be treated by maintainers and integration authors.
 
-The policy is intentionally modest. It does not introduce a versioned `/api/v1` path yet, but it does define which surfaces are safe to build against and how breaking changes should be handled.
+The API is currently unversioned: routes use `/api/...`, not `/api/v1/...`.
+Integration compatibility is therefore declared against LicenseTrack application
+versions. This policy defines which unversioned surfaces are supported contracts
+and how breaking changes are handled.
 
 ## Stability Levels
 
@@ -32,29 +35,31 @@ Experimental routes should be marked as such in documentation before they are pr
 
 Internal routes or response fields are implementation details. They are not supported integration contracts. Frontend-only assumptions, private helper routes, compatibility aggregators, and undocumented fields should be treated as internal unless documented otherwise.
 
-## Initial Stable API Candidates
+## Current Contract Classification
 
-The following route groups are candidates for stable integration contracts, subject to detailed endpoint documentation:
+The supported route catalog lives in `docs/extension-authors/api-reference.md`.
+Within that catalog, the following route families are stable unless an endpoint
+is explicitly marked experimental or session-only:
 
-| Area | Route family | Stability intent |
+| Area | Route family | Stability |
 | --- | --- | --- |
-| Authentication/session | `/api/auth/*` | Stable for browser/session behavior; not sufficient for long-running integrations |
-| Licences | `/api/licenses` | Stable candidate for registry reads, writes, exports, and focused actions |
-| Licence documents | `/api/licenses/{id}/documents`, `/api/documents/{id}/download` | Stable candidate with strict permission and storage rules |
-| Procurement documents | `/api/procurement-documents/{id}/download`, pending-order document routes | Stable candidate for evidence workflows |
-| Sourcing | `/api/sourcing/*` | Stable candidate for sourcing request, quote, item, conversion, and export workflows |
-| Pending orders | `/api/pending-orders/*` | Stable candidate for purchase-order, line-item, document, conversion, and export workflows |
-| Contracts | `/api/contracts/*` | Stable candidate for contract and contract document workflows |
-| Reports | `/api/reports/*` | Stable candidate for read-only reporting surfaces |
-| Custom fields | `/api/custom-fields/*` | Stable candidate once field-key and value-normalization behavior is fully documented |
-| Webhooks | `/api/webhooks/*` | Experimental admin-managed event surface based on audit actions |
-| Document actions | `/api/document-actions/*` | Experimental operator-triggered integration point for document processors |
-| Document processing results | `/api/document-processing-results/*` | Experimental result intake and review surface for document processors |
-| Extension capabilities | `/api/extensions/capabilities/*` | Experimental declared-capability/status registry for integrations and sidecars; does not load runtime code |
+| Licences and renewals | `/api/licenses/*`, `/api/renewals/*` | Stable where listed in the API reference |
+| Licence and procurement documents | `/api/licenses/{id}/documents`, `/api/documents/*`, `/api/procurement-documents/*` | Stable with documented scope and permission rules |
+| Sourcing | `/api/sourcing/*` | Stable where listed in the API reference |
+| Pending orders | `/api/pending-orders/*` | Stable where listed in the API reference |
+| Contracts | `/api/contracts/*` | Stable where listed in the API reference |
+| Reports | `/api/reports/*` | Stable read-only contract |
+| Custom fields | `/api/custom-fields/*`, `/api/licenses/{id}/custom-fields/*` | Stable field-key and typed-value contract |
+| Import metadata and workflows | `/api/import/*` | Stable where listed in the API reference |
+| Extension capabilities | `/api/extensions/capabilities/*` | Experimental declaration/status registry |
+| Document actions | `/api/document-actions/*` | Experimental operator-triggered integration point |
+| Document processing results | `/api/document-processing-results/*` | Experimental result intake and review surface |
+| Webhook delivery | signed payload and headers | Experimental event surface; management routes remain session-only |
 
 Procurement history reads are part of the sourcing and pending-order route families. `GET /api/sourcing/requests/history` and `GET /api/pending-orders/history` expose converted/cancelled reference records. `GET /api/licenses/{id}/procurement-trail` is part of the license route family and exposes the stored source sourcing and pending-order links for a converted license.
 
-The following areas should remain internal or carefully limited until explicitly documented:
+The following areas are session-only or internal and are not public API-token
+contracts unless the API reference explicitly says otherwise:
 
 - admin-only global settings mutation shapes;
 - database backup and restore routes;
@@ -105,7 +110,7 @@ Compatible with LicenseTrack 1.0.x
 Requires stable license, document, and pending-order APIs
 ```
 
-If a future `/api/v1` path is introduced, this policy should be updated to define how long old API versions remain supported.
+If a future `/api/v1` path is introduced, this policy will define how long old API versions remain supported.
 
 ## Auth For Integrations
 

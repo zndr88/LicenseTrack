@@ -30,8 +30,8 @@ and does not make an unofficial in-process package supported.
 - Submit a core contribution when a feature is broadly useful and should be
   maintained as part of LicenseTrack.
 
-Start with `build-integrations.md`, `api-auth.md`, `api-stability.md`, and
-`webhooks.md`. Document processors should also read
+Start with `build-integrations.md`, `api-reference.md`, `api-auth.md`,
+`api-stability.md`, and `webhooks.md`. Document processors should also read
 `build-document-processor.md`, `document-actions.md`, and
 `document-processing-results.md`.
 

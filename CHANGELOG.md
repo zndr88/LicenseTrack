@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 API stability levels and the breaking-change policy are defined in
-[docs/api-stability.md](docs/api-stability.md). Changes that affect stable API
+[docs/extension-authors/api-stability.md](docs/extension-authors/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
 ## [1.1.0] - 2026-07-22
@@ -578,15 +578,16 @@ the release remains 1.0.0.
 
 ### Integration and extensibility
 
-- Documented, versioned API with token authentication and defined stability
-  levels (see [docs/api-auth.md](docs/api-auth.md) and
-  [docs/api-stability.md](docs/api-stability.md)).
+- Documented, unversioned API with token authentication, application-version
+  compatibility, and defined stability levels (see
+  [docs/extension-authors/api-auth.md](docs/extension-authors/api-auth.md) and
+  [docs/extension-authors/api-stability.md](docs/extension-authors/api-stability.md)).
 - Optional extension points: document actions, declared capabilities,
   document-processing results, and webhooks.
 - Author guides and copyable recipes for integrations and document processors
-  (see [docs/build-integrations.md](docs/build-integrations.md),
-  [docs/build-document-processor.md](docs/build-document-processor.md), and
-  [docs/integration-recipes.md](docs/integration-recipes.md)).
+  (see [docs/extension-authors/build-integrations.md](docs/extension-authors/build-integrations.md),
+  [docs/extension-authors/build-document-processor.md](docs/extension-authors/build-document-processor.md), and
+  [docs/extension-authors/integration-recipes.md](docs/extension-authors/integration-recipes.md)).
 
 ### Deployment and security
 

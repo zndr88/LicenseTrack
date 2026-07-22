@@ -1,0 +1,68 @@
+# Settings, notifications, and email
+
+**My Settings** contains personal display preferences. **Admin > Settings**
+contains installation-wide behavior and is divided into General, Integrations,
+and Operations sections. Each settings section saves independently.
+
+## Personal settings
+
+Users can control theme, UI size, currency display, number/date/time format,
+time zone, sidebar state, Registry column visibility, and saved views. These
+preferences do not change another user's display.
+
+## Completeness and custom fields
+
+Admins choose which supported fields and evidence categories contribute to
+license completeness. New requirements are disabled by default so an existing
+portfolio can be improved gradually.
+
+Changing mandatory fields recalculates completeness when records reload; it
+does not edit the stored license fields.
+
+Custom fields add installation-specific Text, Currency, Date, or True/False
+values to every license. Each definition has a stable key used by CSV and API
+integrations. Deleting a definition also deletes its stored values.
+
+## Notifications
+
+The scheduled notification run evaluates expiring and incomplete licenses. Admins
+configure:
+
+- the daily notification hour;
+- the expiry alert window;
+- the manager digest address;
+- allowed recipient domains; and
+- customizable email introduction and sign-off text.
+
+Budget-owner renewal email requires a valid owner address and the license's
+**Renewal notifications** flag. That flag is enabled by default and can suppress
+expiry email for one active license without retiring it.
+
+## SMTP
+
+Configure SMTP host, port, sender name/address, username, password, encryption
+mode, and the **Enable Email Notifications** switch inside Admin Settings.
+Credentials are encrypted at rest and returned to the browser as masked values.
+
+- **Send test email** validates SMTP by sending one message to the manager
+  address.
+- **Trigger notifications now** executes the real notification workflow and may
+  send messages to configured recipients.
+
+!!! warning
+    Use the test-email action while configuring SMTP. The manual notification
+    trigger is an operational retry and is not a harmless preview.
+
+## OIDC
+
+OIDC configuration includes the discovery URL, client ID, and client secret.
+LicenseTrack validates server-fetched discovery and key URLs against SSRF
+restrictions. Plain HTTP, loopback, private, link-local, and reserved hosts are
+blocked unless the server operator deliberately enables the documented unsafe
+development flags.
+
+Changing OIDC settings invalidates the availability cache, so the login page
+reflects the new provider state without an application restart.
+
+See [Production deployment](../operations/deployment.md) for HTTPS, cookies,
+CORS, and development-only OIDC network allowances.

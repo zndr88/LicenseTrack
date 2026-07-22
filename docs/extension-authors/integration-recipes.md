@@ -130,7 +130,7 @@ Quote documents are scoped to the sourcing request. When sourcing work is conver
 
 ## Upload Licence Evidence
 
-Required scopes: `documents:write` and `licenses:write`
+Required scope: `documents:write`
 
 ```bash
 curl -X POST https://licensetrack.example.com/api/licenses/42/documents \

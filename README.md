@@ -180,6 +180,7 @@ Core Docker configuration is loaded from `.env`.
 | `APP_PORT` | `8080` | Host port mapped to the application container. |
 | `HOST` | `0.0.0.0` | Backend bind host inside the container. |
 | `LOG_LEVEL` | `INFO` | Backend log level. |
+| `EXPOSE_API_DOCS` | `false` | Exposes `/docs`, `/redoc`, and `/openapi.json`. Enable only for local development. |
 | `CORS_ORIGINS` | `http://localhost:8080` | Exact browser origin allow-list. |
 | `DATABASE_URL` | `sqlite+aiosqlite:////data/licenses.db` | SQLite database connection string. |
 | `STORAGE_PATH` | `/data/storage` | Uploaded document storage path. |
@@ -188,6 +189,11 @@ Core Docker configuration is loaded from `.env`.
 | `PLUGIN_HOST_ENABLED` | `false` | Enables the internal Official Extensions host. Leave disabled unless installing an official signed extension. |
 | `PLUGIN_HOST_DEVELOPER_MODE` | `false` | Allows unsigned developer packages and marks them non-official. Unsupported for production. |
 | `OFFICIAL_EXTENSION_PUBLIC_KEYS` | `[]` | JSON trust store of pinned Ed25519 LicenseTrack release public keys (`keyId`, `signer`, `publicKey`). Official key material must come from a LicenseTrack release channel. |
+| `PLUGIN_STORAGE_PATH` | `/data/plugins` | Storage directory for installed Official Extension packages. |
+| `PLUGIN_HOST_BASE_URL` | `http://127.0.0.1:8000` | Internal callback URL used by managed extension runtimes. |
+| `MAX_PLUGIN_PACKAGE_SIZE_MB` | `50` | Maximum uploaded Official Extension package size. |
+| `MAX_PLUGIN_DOCUMENT_SIZE_MB` | `10` | Maximum document size delivered to an extension runtime. |
+| `PLUGIN_RUNTIME_LOG_MAX_BYTES` | `65536` | Maximum bytes returned when an admin reads an extension runtime log tail. |
 | `TOKEN_EXPIRY` | `1440` | JWT session lifetime in minutes. |
 | `OIDC_STATE_SECRET` | falls back to `JWT_SECRET` | Secret used for transient OIDC flow state cookies. |
 | `ALLOW_HTTP_OIDC_DISCOVERY` | `false` | Unsafe testing-only allowance for plain-HTTP OIDC discovery. Leave disabled in production. |
@@ -197,7 +203,7 @@ Core Docker configuration is loaded from `.env`.
 | `MAX_UPLOAD_SIZE_MB` | `20` | Maximum upload size. |
 | `ALLOWED_UPLOAD_EXTENSIONS` | common document formats | Comma-separated upload extension allow-list. |
 
-SMTP and OIDC are configured through application settings after startup. Deployment placeholders also exist in `.env.example`. OIDC callback logs use safe stage names for troubleshooting without logging auth codes, tokens, client secrets, or raw ID tokens.
+SMTP and OIDC credentials are configured through application settings after startup. OIDC callback logs use safe stage names for troubleshooting without logging auth codes, tokens, client secrets, or raw ID tokens.
 
 ## Persistent Data
 
@@ -220,7 +226,7 @@ Application database backups contain the SQLite database only. Uploaded document
 - Internal Official Extension maintainer docs: [docs/plugin-authors/](docs/plugin-authors/).
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): human-readable direct dependency license summary.
 
-Version-local Help Center source copy lives under [docs/in-app-help/](docs/in-app-help/). It is not the public documentation site.
+Version-local Help Center content is bundled in the frontend; [docs/in-app-help/](docs/in-app-help/) records its ownership and maintenance boundary. It is not the public documentation site.
 
 ## Maintainer Notes
 
@@ -238,6 +244,11 @@ See [docs/maintainer/architecture.md](docs/maintainer/architecture.md) for the f
 Backend dependencies are listed in `backend/requirements.txt`. Frontend dependencies and scripts are listed in `frontend/package.json`.
 
 Common verification commands:
+
+```bash
+python scripts/check_docs.py
+python -m mkdocs build --strict
+```
 
 ```bash
 cd backend

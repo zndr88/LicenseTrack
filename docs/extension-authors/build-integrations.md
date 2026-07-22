@@ -27,7 +27,7 @@ Do not depend on private frontend internals, database tables, or undocumented re
 | Create or update license records | `licenses:read`, `licenses:write` |
 | Export reports | `reports:read` |
 | Create sourcing requests or pending-order work | `procurement:read`, `procurement:write` |
-| Upload evidence to licenses | `licenses:read`, `licenses:write`, `documents:write` |
+| Upload evidence to licenses | `licenses:read`, `documents:write` |
 | Download or inspect documents | `documents:read` |
 | Register integration capability/status | `extensions:read`, `extensions:write` |
 | Submit document processing suggestions | `documents:read`, `documents:write`, `extensions:write` |
@@ -68,11 +68,11 @@ Detailed examples live in `docs/extension-authors/integration-recipes.md`:
 Before building an integration, read:
 
 - `docs/extension-authors/checklist.md` for the current integration boundaries and handoff checklist;
+- `docs/extension-authors/api-reference.md` for the supported route catalog, stability, scopes, and common errors;
 - `docs/extension-authors/api-auth.md` for API-token behavior and scope meaning;
 - `docs/extension-authors/api-stability.md` for stable, experimental, and internal route expectations;
 - `docs/extension-authors/webhooks.md` for signed event delivery and retry behavior;
 - `docs/extension-authors/overview.md` for current Integration Framework terminology and boundaries.
-- `docs/extension-authors/checklist.md` for the public integration handoff checklist.
 
 Private integrations are maintained by their owners. Test them before upgrading LicenseTrack, especially when they use experimental surfaces such as webhooks, document actions, extension capabilities, or document processing results.
 

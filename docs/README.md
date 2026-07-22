@@ -15,6 +15,6 @@ Use the folders here by audience:
   contracts for externally hosted automation.
 - `plugin-authors/` - internal package, signing, runtime, and release material
   for first-party Official Extension maintainers; not a public plugin SDK.
-- `in-app-help/` - source copy for version-local Help Center material. These
-  files are not the public docs site.
+- `in-app-help/` - locator and maintenance guidance for the version-local Help
+  Center catalog bundled in the frontend. It is not a second article source.
 - `images/` - README screenshots and related image guidance.

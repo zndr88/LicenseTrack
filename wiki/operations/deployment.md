@@ -47,6 +47,7 @@ All variables are read from `.env` at container start. Restart the container aft
 | `APP_PORT` | No | `8080` | Host port exposed by Docker Compose. |
 | `HOST` | No | `0.0.0.0` | Backend bind host inside the container. |
 | `LOG_LEVEL` | No | `INFO` | Backend log level. |
+| `EXPOSE_API_DOCS` | No | `false` | Exposes `/docs`, `/redoc`, and `/openapi.json`. Enable only for local development. |
 | `CORS_ORIGINS` | No | `http://localhost:8080` | Browser URL(s) allowed to call the API. Must match exactly. |
 | `DATABASE_URL` | No | `sqlite+aiosqlite:////data/licenses.db` | SQLite database connection string. |
 | `STORAGE_PATH` | No | `/data/storage` | Uploaded document storage path. |
@@ -59,21 +60,21 @@ All variables are read from `.env` at container start. Restart the container aft
 | `ALLOW_PRIVATE_OIDC_DISCOVERY` | No | `false` | Unsafe testing-only allowance for private, loopback, link-local, or reserved OIDC hosts. Leave disabled in production. |
 | `SESSION_COOKIE_NAME` | No | `license_lifecycle_session` | Browser session cookie name. |
 | `SESSION_COOKIE_SECURE` | No | `false` | Set to `true` behind HTTPS. |
-| `SMTP_HOST` | No | empty | Deployment placeholder. Configure active SMTP settings in the application Settings UI. |
-| `SMTP_PORT` | No | `587` | SMTP port. |
-| `SMTP_USERNAME` | No | empty | SMTP username. |
-| `SMTP_PASSWORD` | No | empty | SMTP password. |
-| `SMTP_FROM` | No | empty | Sender address for notification emails. |
 | `MAX_UPLOAD_SIZE_MB` | No | `20` | Maximum upload size in megabytes. |
 | `ALLOWED_UPLOAD_EXTENSIONS` | No | common office/document extensions | Comma-separated upload extension allow-list. |
 | `PLUGIN_HOST_ENABLED` | No | `false` | Enables the internal Official Extensions host. Leave disabled unless an official signed extension is required. |
 | `PLUGIN_HOST_DEVELOPER_MODE` | No | `false` | Allows unsigned developer packages and marks them non-official. Unsupported for production. |
 | `OFFICIAL_EXTENSION_PUBLIC_KEYS` | No | `[]` | JSON array of pinned Ed25519 release keys with `keyId`, `signer`, and base64 raw `publicKey`. Obtain values only from official LicenseTrack releases. |
 | `PLUGIN_STORAGE_PATH` | No | `/data/plugins` | Directory where Official Extension packages are extracted. |
-| `PLUGIN_HOST_BASE_URL` | No | `http://localhost:8000` | Internal callback base URL for managed Official Extension runtimes. |
+| `PLUGIN_HOST_BASE_URL` | No | `http://127.0.0.1:8000` | Internal callback base URL for managed Official Extension runtimes. |
 | `MAX_PLUGIN_PACKAGE_SIZE_MB` | No | `50` | Maximum Official Extension package size in megabytes. |
 | `MAX_PLUGIN_DOCUMENT_SIZE_MB` | No | `10` | Maximum document size delivered to an extension runtime. |
-| `PLUGIN_RUNTIME_LOG_MAX_BYTES` | No | `524288` | Maximum bytes returned from an extension runtime log tail. |
+| `PLUGIN_RUNTIME_LOG_MAX_BYTES` | No | `65536` | Maximum bytes returned from an extension runtime log tail. |
+
+SMTP and OIDC credentials are configured after startup in **Admin > Settings**;
+they are not container environment settings. The supplied Compose file passes
+every environment variable in the table above into the application container,
+so values placed in `.env` take effect after the container is recreated.
 
 ## Local Keycloak OIDC testing
 

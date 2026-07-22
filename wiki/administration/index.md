@@ -8,6 +8,12 @@ Most day-to-day admin work happens inside the application under **Admin**. The
 in-app Help Center is version-local and explains the exact controls available in
 your installed release.
 
+Use the focused administration guides for configuration and governance:
+
+- [Users, roles, and access](users-access.md)
+- [Settings, notifications, and email](settings-notifications.md)
+- [Audit log](audit-log.md)
+
 Use these public docs for operational setup and recovery:
 
 - [Production deployment & hardening](../operations/deployment.md)

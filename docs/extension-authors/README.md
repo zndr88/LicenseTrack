@@ -7,6 +7,7 @@ Start with:
 
 - `overview.md` for terminology and where an extension belongs.
 - `build-integrations.md` for the API/webhook integration path.
+- `api-reference.md` for supported route families, stability, scopes, and common errors.
 - `api-auth.md` for API-token behavior and scopes.
 - `api-stability.md` for stable, experimental, and internal route expectations.
 - `webhooks.md` for signed event delivery and retry behavior.

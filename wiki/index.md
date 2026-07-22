@@ -14,6 +14,14 @@ This guide takes you from a bare server to tracking your first licenses.
 
     Import a spreadsheet and learn the license record.
 
+- :material-cart-arrow-right: **[Procurement Workflow](workflows/procurement.md)**
+
+    Move purchases from sourcing and quotes through purchase orders into license records.
+
+- :material-shield-account: **[Administration](administration/index.md)**
+
+    Configure users, access, notifications, audit history, and operational settings.
+
 </div>
 
 ---

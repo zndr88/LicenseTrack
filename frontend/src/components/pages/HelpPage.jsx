@@ -177,6 +177,30 @@ const HELP_ARTICLES = [
     ],
   },
   {
+    id: "contracts",
+    category: "Feature reference",
+    title: "Contracts",
+    summary: "Group agreement records by publisher, link licenses, and organize contract documents.",
+    sections: [
+      {
+        heading: "How it works",
+        body: [
+          "Contracts keep agreement-level information separate from individual license evidence. Each contract records its publisher and contract number and can be linked to one or more license records.",
+          "Contract documents can be organized into folders so amendments, schedules, signatures, and supporting material remain grouped with the agreement rather than one license row.",
+        ],
+      },
+      {
+        heading: "Things to know",
+        bullets: [
+          "Contract files belong on the contract record; invoices, quotes, purchase orders, EULAs, and entitlement evidence normally belong to license or procurement document scopes.",
+          "Deleting a contract removes its stored contract documents and unlinks affected licenses; the license records themselves remain.",
+          "Contract document folders are organizational only and do not change record access permissions.",
+          "Viewer visibility follows the licenses and departments the viewer is allowed to see.",
+        ],
+      },
+    ],
+  },
+  {
     id: "reports",
     category: "Feature reference",
     title: "Reports",
@@ -228,6 +252,54 @@ const HELP_ARTICLES = [
           "Changing mandatory fields immediately changes completeness calculations when records are reloaded.",
           "Completeness requirements are opt-in. Admins can phase in ownership, commercial-reference, and evidence requirements as legacy records are improved.",
           "Completeness & Flags includes a per-license Renewal notifications toggle. It is enabled by default and can be turned off for active licenses that should not send expiry emails, without removing the budget owner email or marking the record retired or legacy.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "notifications",
+    category: "Admin and operations",
+    title: "Notifications and email",
+    summary: "Configure renewal alerts, recipients, delivery timing, and per-license suppression.",
+    sections: [
+      {
+        heading: "How it works",
+        body: [
+          "The daily notification run evaluates visible lifecycle and completeness conditions, creates in-app notifications, and optionally sends SMTP email when email notifications are enabled.",
+          "Admins configure the alert window, notification hour, manager digest recipient, allowed recipient domains, SMTP settings, and email template text. A test email checks SMTP without running the full notification workflow.",
+        ],
+      },
+      {
+        heading: "Things to know",
+        bullets: [
+          "Renewal emails require a budget-owner email and an enabled Renewal notifications flag on the license.",
+          "The per-license Renewal notifications toggle suppresses expiry email for that record without retiring it or removing its owner.",
+          "Trigger notifications now runs the real notification workflow and can send real messages; use Send test email for SMTP-only validation.",
+          "The allowed-domain list applies to scheduled and manually triggered notification recipients.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "audit-log",
+    category: "Admin and operations",
+    title: "Audit log",
+    summary: "Search and export authentication, configuration, document, and record-change history.",
+    sections: [
+      {
+        heading: "How it works",
+        body: [
+          "The audit log records security-sensitive and data-changing events, including authentication, user and settings changes, procurement and license mutations, document amendments, backup and restore actions, API-token activity, and webhook-related events.",
+          "Admins can search and filter the log, inspect structured event detail, and export results for investigation or retention outside LicenseTrack.",
+        ],
+      },
+      {
+        heading: "Things to know",
+        bullets: [
+          "API-token changes record both the owning admin and token identity so integration activity can be isolated.",
+          "Webhook events are derived from durable audited product events rather than UI clicks.",
+          "Audit retention is configurable. Export records before pruning when policy requires longer retention.",
+          "The audit log supports investigation but does not replace centralized application and reverse-proxy logs.",
         ],
       },
     ],
