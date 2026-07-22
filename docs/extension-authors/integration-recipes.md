@@ -2,7 +2,7 @@
 
 These recipes show common operator-built integrations using API tokens. They are intended as starting points for private scripts, CMDB syncs, reporting jobs, optional document processors, and first-party integration pilots.
 
-These recipes cover the API/webhook integration approach, not installable plugins. LicenseTrack does provide an installable **Plugin Host** (v1, shipped) with a package installer, plugin-owned settings panels, permissions, and UI slots — see `docs/plugin-authors/plugin-author-guide.md` if you want to build a packaged add-on instead. A marketplace flow and richer runtime UI remain post-v1 directions in `docs/plugin-authors/plugin-host-post-v1-notes.md`.
+These recipes cover the supported API/webhook integration approach for custom and third-party automation. LicenseTrack does not support arbitrary third-party in-process packages; the internal Official Extensions host is reserved for packages published and signed by the LicenseTrack project.
 
 Use an API token in the `Authorization` header:
 
@@ -31,7 +31,7 @@ curl -X PUT https://licensetrack.example.com/api/extensions/capabilities/license
   }'
 ```
 
-Capabilities are visible to admins in Admin Settings. They are status declarations, not frontend plugins or installed packages. Use `status: "misconfigured"` with `lastError` when an integration or sidecar exists but needs operator attention.
+Capabilities are visible to admins in Admin Settings. They are status declarations and do not install packages or load frontend/runtime code. Use `status: "misconfigured"` with `lastError` when an integration or sidecar exists but needs operator attention.
 
 ## List Licences With Custom Fields
 

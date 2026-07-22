@@ -7,9 +7,14 @@ from app.database import get_db
 from app.dependencies import CurrentUser
 from app.schemas.plugin import PluginActionInvokeRequest, PluginActionInvokeResponse, PluginActionsListResponse
 from app.services.audit_service import log_event
+from app.services.plugin_host_service import require_plugin_host_enabled
 from app.services.plugin_action_service import PluginActionError, invoke_plugin_action, list_plugin_actions
 
-router = APIRouter(prefix="/api/plugin-actions", tags=["plugin-actions"])
+router = APIRouter(
+    prefix="/api/plugin-actions",
+    tags=["official-extension-actions"],
+    dependencies=[Depends(require_plugin_host_enabled)],
+)
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 

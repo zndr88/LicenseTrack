@@ -259,10 +259,9 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               customFieldsLoading={customFieldsLoading}
             />
 
-            {/* Only render the review surface when a plugin has actually produced
-                suggestions. Rows are created solely by installed plugins submitting
-                action output, so an empty queue means no integrations are in play —
-                showing the section then just confuses operators with no plugins. */}
+            {/* Only render the review surface when an Official Extension has produced
+                suggestions. Rows are created solely by enabled extensions submitting
+                action output, so an empty queue means no extension workflow is active. */}
             {pluginSuggestions.length > 0 && (
               <PluginSuggestionsSection
                 license={license}

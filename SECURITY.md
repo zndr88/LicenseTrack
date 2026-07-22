@@ -56,8 +56,10 @@ The application ships with the following defenses enabled by default:
 - Uploaded file names are reduced to a safe basename, stored under a random
   identifier, and validated by size, extension, and MIME type. Download paths
   are confined to the storage root.
-- Plugin packages are extracted with zip-slip and symlink protection, and the
-  extraction path is confined to a staging directory.
+- The Official Extensions host is disabled by default. Outside explicit
+  developer mode, packages require an Ed25519 signature from a pinned
+  LicenseTrack release key. Package extraction rejects zip-slip paths and
+  symlinks and stays inside a staging directory.
 - Outbound requests built from operator-supplied URLs (OIDC discovery, webhook
   delivery) pass an SSRF guard that blocks loopback, private, link-local, and
   reserved addresses, re-checked on every redirect hop.
@@ -77,6 +79,9 @@ Some protections depend on correct deployment configuration:
 - Keep `EXPOSE_API_DOCS` unset (or `false`) in production.
 - Set a strong, unique `JWT_SECRET`; it also derives the encryption key for
   stored integration secrets.
+- Install Official Extensions only from official LicenseTrack release
+  channels. Do not add unreviewed keys to `OFFICIAL_EXTENSION_PUBLIC_KEYS`, and
+  never enable `PLUGIN_HOST_DEVELOPER_MODE` in production.
 
 ## Known limitations
 
@@ -85,6 +90,16 @@ Some protections depend on correct deployment configuration:
   and rotate `JWT_SECRET` to invalidate all outstanding sessions if needed. The
   session cookie is `HttpOnly`, which — together with the Content-Security-Policy
   — limits token theft via cross-site scripting.
+
+- Official Extensions are trusted application code. Managed processes,
+  declared permissions, callback tokens, environment allow-listing, and
+  process-tree shutdown reduce accidental exposure and improve lifecycle
+  control, but they do not provide a hostile-code sandbox. An enabled extension
+  runs under the LicenseTrack operating-system account and may access resources
+  available to that account, including application files and the database.
+- Unofficial or third-party in-process packages are outside the supported
+  security model. Use API tokens, webhooks, or externally hosted sidecars for
+  custom and third-party automation.
 
 ## Compliance posture
 

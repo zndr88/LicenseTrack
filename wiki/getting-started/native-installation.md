@@ -39,7 +39,7 @@ The installer offers two modes:
 | Mode | Intended use | Configuration |
 |------|--------------|---------------|
 | **Standard (recommended)** | Most production installations | Prompts only for the browser-facing URL and initial local admin password. Uses safe runtime defaults and binds to `127.0.0.1:8000`. |
-| **Advanced** | Custom ports, troubleshooting, larger limits, or isolated test environments | Also prompts for bind address, port, log level, session lifetime, upload/plugin limits, allowed extensions, API documentation exposure, session-cookie behavior, and test-only OIDC network allowances. |
+| **Advanced** | Custom ports, troubleshooting, larger limits, or isolated test environments | Also prompts for bind address, port, log level, session lifetime, upload/extension limits, allowed extensions, API documentation exposure, session-cookie behavior, and test-only OIDC network allowances. |
 
 Press Enter at the mode prompt to choose Standard, or select a mode explicitly:
 
@@ -113,7 +113,7 @@ Run `./install.sh --help` for every Advanced automation flag. Command-line flags
 | Active release link | `/opt/licensetrack/current` |
 | SQLite database | `/var/lib/licensetrack/licenses.db` |
 | Uploaded documents | `/var/lib/licensetrack/storage/` |
-| Installed plugins | `/var/lib/licensetrack/plugins/` |
+| Official Extension packages | `/var/lib/licensetrack/plugins/` |
 | Database backups | `/var/lib/licensetrack/backups/` |
 | Upgrade snapshots | `/var/backups/licensetrack/upgrades/` |
 | Protected environment | `/etc/licensetrack/licensetrack.env` |

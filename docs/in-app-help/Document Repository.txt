@@ -6,11 +6,11 @@ The Document Repository keeps supporting evidence connected to the right licensi
 How it works
 License documents attach to individual licenses and are managed through the license detail panel. When you open a license, the documents section loads automatically and groups files by category. From there you can upload new files, download existing ones, or delete files you no longer need. Downloading triggers a file save in your browser.
 
-Editors and admins can request processing for an uploaded document from the document row when an active document processor webhook is configured and a document.processing integration capability is available. This does not process the file inside LicenseTrack and it is not an installed plugin action; it emits an audited document_action.requested event for configured external processors.
+Editors and admins can request processing for an uploaded document from the document row when an active document processor webhook is configured and a document.processing integration capability is available. This does not process the file inside LicenseTrack and it is not an Official Extension action; it emits an audited document_action.requested event for configured external processors.
 
 External processors can return suggested values as document processing results. LicenseTrack shows pending suggestions in the Documents section, marks documents with recent processing status, preserves accepted/rejected/superseded history, and only applies selected suggestions after an editor or admin accepts them.
 
-Current document processing applies to supported license fields and existing custom fields through the license review flow. It does not yet support generic plugin buttons in sourcing or pending-order modals, automatic draft license creation, or multi-line quote creation before conversion.
+Current document processing applies to supported license fields and existing custom fields through the license review flow. It does not provide Official Extension actions in sourcing or pending-order modals, automatic draft license creation, or multi-line quote creation before conversion.
 
 Each document has a category. License-owned categories include EULA, entitlement, and other. Procurement categories are Quote, Purchase Order, and Invoice. The category helps you identify what a file represents without opening it.
 

@@ -21,7 +21,7 @@ The upgrader:
 
 1. Verifies every file listed in the native release manifest.
 2. Creates the candidate release and isolated Python environment while the current service is still running.
-3. Stops LicenseTrack and its managed plugin processes.
+3. Stops LicenseTrack and its managed Official Extension processes.
 4. Creates a restricted pre-upgrade archive under `/var/backups/licensetrack/upgrades`.
 5. Runs the candidate Alembic migrations against a SQLite snapshot and checks database integrity.
 6. Migrates the live database only after the snapshot migration succeeds.
@@ -31,7 +31,7 @@ The upgrader:
 The pre-upgrade archive includes:
 
 - a WAL-consistent SQLite snapshot;
-- the complete managed data directory, including documents and plugins;
+- the complete managed data directory, including documents and Official Extension packages;
 - `/etc/licensetrack/licensetrack.env` and installation state;
 - the managed `/usr/local/bin/licensetrack` operator wrapper when present;
 - any document-storage directory configured outside the managed data root;
@@ -100,7 +100,7 @@ restored service must remain stopped; in that mode, no post-restore health check
 is possible.
 
 !!! warning
-    A rollback replaces the database, documents, plugin data, configuration,
+    A rollback replaces the database, documents, Official Extension data, configuration,
     and configured external document storage with their archived state. Changes
     made after the selected archive was created are not retained in the rolled-
     back instance. Preserve the automatically created pre-rollback safety
@@ -115,7 +115,7 @@ sudo licensetrack status
 sudo journalctl -u licensetrack.service --since "15 minutes ago"
 ```
 
-Then sign in and verify license listing, document access, settings, database backup listing, configured plugins, SMTP, and OIDC behavior.
+Then sign in and verify license listing, document access, settings, database backup listing, configured Official Extensions, SMTP, and OIDC behavior.
 
 ## Existing manual or container deployments
 

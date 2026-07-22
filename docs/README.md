@@ -13,8 +13,8 @@ Use the folders here by audience:
   people changing the core application.
 - `extension-authors/` - API, webhook, document-processing, and integration
   contracts for externally hosted automation.
-- `plugin-authors/` - Plugin Host v1 package, manifest, runtime, and suggestion
-  contracts for installable plugins.
+- `plugin-authors/` - internal package, signing, runtime, and release material
+  for first-party Official Extension maintainers; not a public plugin SDK.
 - `in-app-help/` - source copy for version-local Help Center material. These
   files are not the public docs site.
 - `images/` - README screenshots and related image guidance.

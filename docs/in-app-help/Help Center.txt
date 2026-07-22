@@ -29,7 +29,7 @@ The initial Help Center content covers:
 - Reports - filtered lifecycle counters and budgets, historical PO spend, active recurring forecast, merged publisher/vendor overview, fiscal-quarter renewals, and PDF export caveats.
 - Admin and operations - users, global settings, SMTP, OIDC, audit log, and opt-in completeness requirements.
 - Database backup and restore - database snapshot behavior and document-storage backup responsibility.
-- API tokens and integrations - scoped bearer tokens, one-time token visibility, route limits, revocation, webhooks, integration capability declarations, current non-plugin limitations, and document processor review behavior.
+- API tokens and integrations - scoped bearer tokens, one-time token visibility, route limits, revocation, webhooks, integration capability declarations, supported external-integration boundaries, and document processor review behavior.
 - Roles and access - Admin, Editor, Viewer, department scope, downloads, and authentication.
 - Glossary - common workflow and portfolio terms.
 

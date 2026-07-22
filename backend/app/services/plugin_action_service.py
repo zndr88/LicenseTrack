@@ -32,6 +32,7 @@ from app.services.plugin_runtime_service import (
     unregister_runtime_action_scope,
 )
 from app.services.plugin_suggestion_service import PluginSuggestionError, create_plugin_suggestions_from_runtime_output
+from app.services.plugin_host_service import plugin_can_run
 
 
 class PluginActionError(ValueError):
@@ -92,10 +93,14 @@ async def list_plugin_actions(
         return PluginActionsListResponse(slot=slot, target_type=target_type, target_id=target_id, actions=[])
 
     try:
-        await _build_context(db, target_type=target_type, target_id=target_id, actor=actor, client_context={})
+        context, _target_label = await _build_context(
+            db, target_type=target_type, target_id=target_id, actor=actor, client_context={}
+        )
     except PluginActionError:
         return PluginActionsListResponse(slot=slot, target_type=target_type, target_id=target_id, actions=[])
-    required_permissions = TARGET_REQUIRED_PERMISSIONS[target_type]
+    required_permissions = set(TARGET_REQUIRED_PERMISSIONS[target_type])
+    if _context_contains_document_access(context):
+        required_permissions.add("documents:read")
     result = await db.execute(
         select(PluginAction)
         .join(Plugin)
@@ -115,6 +120,7 @@ async def list_plugin_actions(
         _list_item(action)
         for action in result.scalars().all()
         if _role_allows(actor, action.required_role)
+        and plugin_can_run(action.plugin)
         and _plugin_has_permissions(action.plugin, required_permissions)
         and action.plugin.runtime_status is not None
         and action.plugin.runtime_status.health == "healthy"
@@ -134,19 +140,18 @@ async def invoke_plugin_action(
 ) -> PluginActionInvocationResult:
     action = await _get_action(db, plugin_key, action_key)
     if action is None:
-        raise PluginActionError("Plugin action not found")
+        raise PluginActionError("Official Extension action not found")
     plugin = action.plugin
+    if not plugin_can_run(plugin):
+        raise PluginActionError("Official Extension is not verified or developer mode is unavailable")
     if not plugin.enabled or plugin.status != "enabled" or not action.enabled:
-        raise PluginActionError("Plugin action is not enabled")
+        raise PluginActionError("Official Extension action is not enabled")
     if target_type not in SLOT_TARGET_TYPES.get(action.slot, set()):
-        raise PluginActionError("Plugin action does not support this target")
+        raise PluginActionError("Official Extension action does not support this target")
     if not _role_allows(actor, action.required_role):
-        raise PluginActionError("User role cannot invoke this plugin action")
-    required_permissions = TARGET_REQUIRED_PERMISSIONS[target_type]
-    if not _plugin_has_permissions(plugin, required_permissions):
-        raise PluginActionError("Plugin is missing required permission(s)")
+        raise PluginActionError("User role cannot invoke this Official Extension action")
     if plugin.runtime_status is None or plugin.runtime_status.health != "healthy":
-        raise PluginActionError("Plugin runtime is not healthy")
+        raise PluginActionError("Official Extension runtime is not healthy")
 
     context, target_label = await _build_context(
         db,
@@ -155,6 +160,11 @@ async def invoke_plugin_action(
         actor=actor,
         client_context=client_context or {},
     )
+    required_permissions = set(TARGET_REQUIRED_PERMISSIONS[target_type])
+    if _context_contains_document_access(context):
+        required_permissions.add("documents:read")
+    if not _plugin_has_permissions(plugin, required_permissions):
+        raise PluginActionError("Official Extension is missing required permission(s)")
     request_id = uuid4()
     context = build_runtime_access_context(plugin.key, str(request_id), context)
     runtime_payload = PluginActionInvokeRuntimeRequest(
@@ -278,7 +288,7 @@ async def _build_context(
         return _build_sourcing_quote_draft_context(target_id=target_id, actor=actor, client_context=client_context)
     if target_type == "pending_order_draft":
         return _build_pending_order_draft_context(target_id=target_id, actor=actor, client_context=client_context)
-    raise PluginActionError("Unsupported plugin action target")
+    raise PluginActionError("Unsupported Official Extension action target")
 
 
 async def _build_license_document_context(
@@ -542,7 +552,7 @@ def _string_or_none(value: Any) -> str | None:
 
 def _require_procurement_access(actor: User) -> None:
     if _role_value(actor) == "viewer":
-        raise PluginActionError("User role cannot access procurement plugin actions")
+        raise PluginActionError("User role cannot access procurement Official Extension actions")
 
 
 def _list_item(action: PluginAction) -> PluginActionListItem:
@@ -585,3 +595,23 @@ def _plugin_has_permissions(plugin: Plugin, required: set[str]) -> bool:
         if isinstance(permission, PluginPermission) and permission.granted
     }
     return required.issubset(granted)
+
+
+def _context_contains_document_access(context: dict[str, Any]) -> bool:
+    if context.get("fileContentBase64") or context.get("stagedFileToken"):
+        return True
+    document_keys = ("documentId", "documentIds", "quoteDocumentIds", "purchaseOrderDocumentIds")
+    if any(context.get(key) for key in document_keys):
+        return True
+    linked = context.get("linkedSourcingContext")
+    if isinstance(linked, dict) and linked.get("quoteDocumentIds"):
+        return True
+    line_items = context.get("lineItems")
+    if isinstance(line_items, list):
+        return any(
+            isinstance(item, dict)
+            and isinstance(item.get("linkedSourcingContext"), dict)
+            and item["linkedSourcingContext"].get("quoteDocumentIds")
+            for item in line_items
+        )
+    return False

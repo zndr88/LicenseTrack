@@ -19,6 +19,12 @@ from app.services.plugin_runtime_service import stop_plugin_runtime
 
 
 @pytest.fixture(autouse=True)
+def enable_developer_plugin_host(monkeypatch):
+    monkeypatch.setattr("app.config.settings.PLUGIN_HOST_ENABLED", True)
+    monkeypatch.setattr("app.config.settings.PLUGIN_HOST_DEVELOPER_MODE", True)
+
+
+@pytest.fixture(autouse=True)
 def patch_plugin_storage(tmp_path, monkeypatch):
     plugin_storage = tmp_path / "plugins"
     monkeypatch.setattr(settings, "PLUGIN_STORAGE_PATH", str(plugin_storage))
@@ -526,7 +532,7 @@ async def test_enable_rejects_missing_required_settings(test_app, db_session, au
     response = await test_app.post("/api/plugins/lifecycle-plugin/enable", headers=auth_headers)
 
     assert response.status_code == 409
-    assert "Missing required plugin setting" in response.json()["detail"]
+    assert "Missing required Official Extension setting" in response.json()["detail"]
 
     plugin = await db_session.scalar(select(Plugin).where(Plugin.key == "lifecycle-plugin"))
     assert plugin is not None

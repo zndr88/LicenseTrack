@@ -2,7 +2,7 @@
 
 Document processing results are proposed extracted values submitted by an external processor after a document action is requested. LicenseTrack stores these results for review; it does not automatically mutate license or procurement records.
 
-This is the result-intake foundation for optional document processor sidecars such as an AI parser. It is part of the current Integration Framework, not an installable Plugin Host.
+This is the result-intake foundation for optional document processor sidecars such as an AI parser. It is part of the supported public Integration Framework and does not load code into LicenseTrack.
 
 ## Submit A Result
 

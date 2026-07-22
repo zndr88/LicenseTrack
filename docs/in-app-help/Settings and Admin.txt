@@ -19,8 +19,13 @@ Settings and Admin
 
   Admin groups
   General contains day-to-day system configuration: storage, notifications, SMTP, OIDC, completeness requirements, custom fields, and import mapping presets.
-  Integrations contains API tokens, webhooks, and integration capability declarations. These surfaces support technical integrations and sidecars; they are not a plugin marketplace or package installer.
+  Integrations contains API tokens, webhooks, integration capability declarations, and — only when the server enables the feature — Official Extensions. API, webhook, and sidecar surfaces support custom integrations maintained by their owners. Official Extensions are optional packages published and signed by the LicenseTrack project; LicenseTrack does not support arbitrary third-party in-process packages.
   Operations contains database backup and restore.
+
+  Official Extensions
+  The Official Extensions section is hidden when the internal host is unavailable. The host is disabled by default and must be enabled by the server operator. Outside developer mode, packages must verify against a pinned LicenseTrack release public key before installation or enablement. The install and detail views show the verified signer, signing key, SHA-256 checksum, declared access, and runtime state.
+
+  Enabling an Official Extension requires explicit confirmation because it runs trusted server code under the LicenseTrack operating-system account. Declared access and managed-process controls do not provide a hostile-code sandbox. Install only packages obtained from official LicenseTrack release channels. Developer packages are visibly marked, are never shown as official or verified, and are unsupported in production.
 
   Notifications
   Sets the hour at which the daily notification email run fires, the alert window (how many days before expiry a license is treated as expiring), the manager email address that receives the digest, and the allowed email domains whitelist. The intro and sign-off text in both the budget owner alert and manager digest emails can be customised here. A "Send test email" button sends a single test message to the manager email address using the current SMTP settings, without going through the full notification logic. A "Trigger notifications now" button runs the full daily notification flow immediately; it is subject to the same domain whitelist as the scheduled run, but it is an explicit admin retry path and is not blocked by the scheduled once-per-day guard. Individual licenses also have a Renewal notifications flag in their Completeness & Flags section; that flag is enabled by default and can suppress expiry emails for a specific active license.
@@ -56,7 +61,7 @@ Settings and Admin
   Lets admins create, test, disable, and delete webhook endpoints for audited LicenseTrack events. The signing secret is shown only once when the endpoint is created. Admins can inspect recent deliveries, see HTTP response/error details and next retry timing, and retry a delivery from the same section. Document-processing actions in license document rows are shown only when an active endpoint subscribes to document_action.requested or all events and an available document.processing capability is registered.
 
   Extension Capabilities
-  Shows declared optional capabilities from integrations and sidecars, such as document.processing. Capabilities are registered through the API with scoped tokens; the Settings section is a status and cleanup surface, not a plugin installer, marketplace, settings host, or runtime code loader.
+  Shows declared optional capabilities from integrations and sidecars, such as document.processing. Capabilities are registered through the API with scoped tokens; this capability list is a status and cleanup surface and does not load runtime code.
 
   Key concepts
   My Settings — per-user preferences that do not affect other users.
@@ -68,7 +73,7 @@ Settings and Admin
   SMTP password / OIDC client secret — sensitive credentials stored encrypted; masked in the UI and API responses.
   API token — a scoped bearer credential for machine-to-machine API access. Raw tokens must be stored by the operator because LicenseTrack cannot show them again after creation.
   Webhook signing secret — a per-endpoint HMAC secret used by receivers to verify LicenseTrack webhook deliveries. Raw signing secrets must be stored by the operator because LicenseTrack cannot show them again after creation.
-  Extension capability — a declared optional integration capability, such as document.processing, with status, version, last-seen time, and optional error details. It is not an installed plugin.
+  Extension capability — a declared optional integration capability, such as document.processing, with status, version, last-seen time, and optional error details. It does not install or load runtime code.
 
   Who can use it
   All users can access My Settings. Global settings are admin only.

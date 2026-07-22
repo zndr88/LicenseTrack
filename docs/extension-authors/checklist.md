@@ -1,78 +1,68 @@
 # Integration Author Checklist
 
-Use this checklist before building a private LicenseTrack API integration, webhook integration, or document processor sidecar. It captures the current Integration Framework and keeps external work aligned with core boundaries.
+Use this checklist before handing off a custom API integration, webhook
+receiver, or document processor sidecar. These are the supported public
+customization contracts. The integration remains operated, tested, and
+maintained by its owner.
 
-This checklist is for API/webhook-based integrations. LicenseTrack also ships Plugin Host v1 for installable packages; use `docs/plugin-authors/plugin-author-guide.md` if you want a packaged plugin with manifest-declared settings, permissions, UI slots, and a managed runtime.
+## Choose the right shape
 
-## Choose The Right Shape
+- Use an API integration for sync, reporting, import, export, or automation.
+- Use a webhook receiver when an external service should react to audited
+  events.
+- Use a document processor sidecar when a user should request inspection of an
+  uploaded document and review proposed values.
+- Submit a core contribution only when the feature is broadly useful and
+  maintainable inside LicenseTrack.
+- Do not build custom or third-party in-process packages. The internal Official
+  Extensions host is reserved for LicenseTrack project releases.
 
-- Use an API integration for private sync, reporting, import, export, or automation needs.
-- Use a webhook integration when an external service should react to audited LicenseTrack events.
-- Use a document processor sidecar when a user should intentionally ask an external service to inspect an uploaded document and return suggested values.
-- Use Plugin Host v1 when you need an installable package that LicenseTrack manages from Admin Settings.
-- Submit a core contribution only when the feature is broadly useful and should be maintained inside LicenseTrack.
-- Do not rely on runtime React plugin loading, remote frontend bundles, direct database writes, plugin-created migrations, or arbitrary UI injection. Plugin Host v1 supports core-rendered slots only.
-
-## Authentication And Scopes
+## Authentication and scopes
 
 - Create one API token per integration or processor.
-- Grant only the required scopes.
-- Store the raw token outside source control.
-- Expect API tokens to be rejected by admin settings, user management, database backup, restore, authentication, webhook-management, and token-management routes unless explicitly documented otherwise.
-- Use `docs/extension-authors/build-integrations.md` for scope selection.
+- Grant only the required scopes and store the raw token outside source
+  control.
+- Expect API tokens to be rejected by admin settings, user management, backup,
+  restore, authentication, webhook-management, and token-management routes
+  unless explicitly documented otherwise.
+- Handle authorization and validation errors as operator-facing failures.
 
-## Capability Declaration
+## Capabilities and webhooks
 
-- Register optional integration capabilities with `PUT /api/extensions/capabilities/{key}`.
-- Use stable, lowercase keys such as `licensetrack-ai` or `company-cmdb-sync`.
-- Use `status: "available"` only when the integration or sidecar is ready to handle work.
-- Use `status: "misconfigured"` or `status: "error"` with `lastError` when operator attention is needed.
-- Treat capability records as status/discovery declarations, not loaded plugin code.
+- Register optional capability status with
+  `PUT /api/extensions/capabilities/{key}`.
+- Treat capability rows as status/discovery declarations, not loaded code.
+- Verify `X-LicenseTrack-Signature` and `X-LicenseTrack-Timestamp` on webhook
+  delivery.
+- Treat webhook payloads as notifications and call the API for current state.
 
-## Webhooks
+## Document processors
 
-- Create webhook endpoints in Admin Settings.
-- Copy and store the signing secret when the endpoint is created.
-- Verify `X-LicenseTrack-Signature` and `X-LicenseTrack-Timestamp`.
-- Treat webhook payloads as notifications. Call the API for current state.
-- Inspect delivery history and response details in Admin Settings while testing.
+- Subscribe to `document_action.requested` and register an available
+  `document.processing` capability.
+- Download the selected document through the scoped LicenseTrack API.
+- Submit proposals to `POST /api/document-processing-results`.
+- Include confidence and source context where useful.
+- Assume reviewers may accept selected fields, reject the result, or see a
+  newer result supersede it.
 
-## Document Processor Contract
+## Core boundaries
 
-- Subscribe to `document_action.requested`.
-- Register a `document.processing` capability.
-- Download the selected document through the LicenseTrack API.
-- Submit suggestions to `POST /api/document-processing-results`.
-- Return proposed values only. Do not write license fields directly.
-- Include `confidence`, `source`, and `note` where useful so reviewers can understand the suggestion.
-- Assume users may accept only selected fields or reject the result.
-- Expect newer pending results from the same processor/document to supersede older pending results.
+- Core owns user authorization, viewer scope, document access, audit logging,
+  review UI, validation, and final writes.
+- Do not write directly to the database or depend on private frontend state,
+  internal routes, or undocumented response fields.
+- Use a row's `id` as its external identifier; `license_ref` is shared across a
+  renewal chain.
+- Test owner-maintained integrations before every LicenseTrack upgrade.
 
-## Core Boundaries
+## Read first
 
-- Core owns permissions, viewer department scoping, document access checks, audit logging, review UI, and final data mutation.
-- Integrations own external parsing, sync, transformation, and provider-specific behavior.
-- Do not bypass LicenseTrack services by writing directly to the database.
-- Do not depend on undocumented frontend state, internal helper APIs, or database schema details.
-- Do not add plugin-specific core code unless a generic extension point or Plugin Host slot exists first.
-
-## Documentation To Read First
-
-- `docs/extension-authors/overview.md`
-- `docs/plugin-authors/plugin-author-guide.md`
-- `docs/plugin-authors/plugin-host-v1-contract.md`
-- `docs/extension-authors/build-integrations.md`
-- `docs/extension-authors/build-document-processor.md`
-- `docs/extension-authors/api-auth.md`
-- `docs/extension-authors/api-stability.md`
-- `docs/extension-authors/webhooks.md`
-- `docs/extension-authors/document-actions.md`
-- `docs/extension-authors/document-processing-results.md`
-
-## Example Code
-
-- `examples/integration-quickstart.ps1`
-- `examples/api-token-smoke-test.py`
-- `examples/create-sourcing-request.py`
-- `examples/submit-document-processing-result.py`
-- `examples/licensetrack-ai-sidecar.py`
+- `overview.md`
+- `build-integrations.md`
+- `api-auth.md`
+- `api-stability.md`
+- `webhooks.md`
+- `document-actions.md`
+- `build-document-processor.md`
+- `document-processing-results.md`

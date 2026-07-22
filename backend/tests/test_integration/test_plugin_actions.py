@@ -15,6 +15,12 @@ from app.services.plugin_registry_service import create_plugin_registry_record
 
 
 @pytest.fixture(autouse=True)
+def enable_developer_plugin_host(monkeypatch):
+    monkeypatch.setattr("app.config.settings.PLUGIN_HOST_ENABLED", True)
+    monkeypatch.setattr("app.config.settings.PLUGIN_HOST_DEVELOPER_MODE", True)
+
+
+@pytest.fixture(autouse=True)
 def patch_storage(tmp_path, monkeypatch):
     monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
     (tmp_path / "documents").mkdir()
@@ -398,7 +404,7 @@ async def test_plugin_action_suggestions_reject_unknown_target(test_app, db_sess
     )
 
     assert response.status_code == 409
-    assert "unsupported plugin suggestion target" in response.json()["detail"].lower()
+    assert "unsupported official extension suggestion target" in response.json()["detail"].lower()
 
 
 async def test_plugin_action_suggestions_require_target_permission(test_app, db_session, auth_headers, monkeypatch):
@@ -640,7 +646,7 @@ async def test_sourcing_item_slot_sends_scoped_context(test_app, db_session, aut
         slot="sourcing.item.edit.actions",
         action_key="parseQuote",
         handler="parse_quote",
-        granted_permissions=["actions:invoke", "procurement:read"],
+        granted_permissions=["actions:invoke", "procurement:read", "documents:read"],
     )
     request = SourcingRequest(supplier="Scoped Supplier")
     db_session.add(request)
@@ -860,6 +866,38 @@ async def test_license_draft_slot_creates_pending_draft_suggestion_without_savin
     assert draft_suggestion["targetType"] == "license_draft"
     assert draft_suggestion["licenseId"] is None
     assert draft_suggestion["suggestedFields"][0]["field"] == "publisherName"
+
+
+async def test_draft_raw_file_content_requires_document_read_permission(
+    test_app,
+    db_session,
+    auth_headers,
+):
+    await _install_enabled_slot_plugin(
+        db_session,
+        key="under-permissioned-draft-parser",
+        slot="license.add.review.actions",
+        action_key="parseDraft",
+        handler="parse_draft",
+        granted_permissions=["actions:invoke", "suggestions:license_draft:write"],
+    )
+
+    response = await test_app.post(
+        "/api/plugin-actions/under-permissioned-draft-parser/parseDraft/invoke",
+        headers=auth_headers,
+        json={
+            "targetType": "license_draft",
+            "targetId": "manual",
+            "context": {
+                "fileContentBase64": "c2Vuc2l0aXZlIGRvY3VtZW50",
+                "fileName": "invoice.pdf",
+                "contentType": "application/pdf",
+            },
+        },
+    )
+
+    assert response.status_code == 409
+    assert "missing required permission" in response.json()["detail"].lower()
 
 
 @pytest.mark.parametrize(

@@ -6,24 +6,24 @@ LicenseTrack welcomes issues, pull requests, patches, integrations, extensions, 
 
 By submitting a pull request, patch, or suggested modification to this repository, you agree that your contribution may be incorporated into LicenseTrack and distributed under the LicenseTrack Source-Available License or other license terms chosen by the Licensor, including commercial terms. You retain ownership of any copyright you hold in your contribution, but you grant the Licensor the broad rights described in Section 7 of the LicenseTrack Source-Available License.
 
-If you want to keep an extension under your own separate terms, publish it as a standalone integration or extension instead of submitting it for inclusion in the main repository. Standalone integrations and extensions may be released under your own license terms as described in Section 2.2 of the LicenseTrack Source-Available License.
+If you want to keep an extension under your own separate terms, publish it as a standalone integration or sidecar instead of submitting it for inclusion in the main repository. Independent integrations may be released under your own license terms as described in Section 2.2 of the LicenseTrack Source-Available License. That legal permission does not imply LicenseTrack product support or compatibility for the integration.
 
 ## Integrations, Extensions, And Core Contributions
 
-LicenseTrack is intended to be extended through documented APIs, import/export contracts, and narrowly scoped extension points. It does not currently provide a runtime React plugin system or arbitrary frontend component injection.
+LicenseTrack is intended to be extended through documented APIs, import/export contracts, webhooks, and sidecars. It does not support arbitrary third-party in-process packages, runtime React loading, or arbitrary frontend component injection. The internal Official Extensions host is reserved for optional packages published and signed by the LicenseTrack project; those packages are maintained as trusted application code by project maintainers.
 
 Use this guide when deciding how to contribute or build on LicenseTrack:
 
 | Need | Recommended path |
 | --- | --- |
 | Company-specific automation or private system connection | Build an API integration outside this repository |
-| Optional capability with its own release cycle | Build an extension against documented extension contracts |
+| Optional first-party capability maintained by the LicenseTrack project | Propose an Official Extension and coordinate signing/release ownership with maintainers |
 | Broad feature that belongs in the main procurement workflow | Open an issue or pull request for core |
 | Experimental or customer-specific workflow | Keep it as a private integration until the contract is clear |
 
 Private integrations and extensions are maintained by their owners. When LicenseTrack changes, their owners are responsible for validating compatibility before upgrading production deployments.
 
-See `docs/extensions.md` and `docs/api-stability.md` for the current extension model and API stability expectations.
+Do not package custom or third-party automation for the internal host. Use the public API/webhook/sidecar framework instead. See `docs/extension-authors/overview.md` and `docs/extension-authors/api-stability.md` for the current integration model and compatibility expectations. Internal Official Extension maintainers use `docs/plugin-authors/`.
 
 ## Local Development
 
@@ -77,7 +77,7 @@ python -m pip_audit -r backend/requirements.txt
 
 ## Current Architecture Conventions
 
-- Follow the repository style contract in `docs/style-contract.md`. It is the source of truth for conservative backend, frontend, CSS, testing, and AI-assisted coding conventions.
+- Follow the repository style contract in `docs/maintainer/style-contract.md`. It is the source of truth for conservative backend, frontend, CSS, testing, and AI-assisted coding conventions.
 - Use TanStack Query for frontend server data. Add query keys to `frontend/src/queryKeys.js` and shared invalidation groups to `frontend/src/queryInvalidation.js` when repeated cross-page invalidation appears.
 - Keep backend route handlers thin. Workflow-heavy behavior belongs in services, such as pending-order conversion in `backend/app/services/pending_order_conversion_service.py`.
 - Use shared custom-field helpers rather than duplicating key, label, input, or formatting logic. Frontend presentation helpers live in `frontend/src/utils/customFieldPresentation.js`; backend value normalization lives in `backend/app/services/custom_fields_service.py`.

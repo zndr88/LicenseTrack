@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   disablePlugin,
   enablePlugin,
+  getPluginHostStatus,
   getPluginSettings,
   installPlugin,
   listPlugins,
@@ -11,6 +12,7 @@ import {
 } from "../../../api/plugins.js";
 import Icon from "../../ui/Icon.jsx";
 import Badge from "../../ui/Badge.jsx";
+import ConfirmDialog from "../../ui/ConfirmDialog.jsx";
 import ModalShell from "../../ui/ModalShell.jsx";
 import Toggle from "../../ui/Toggle.jsx";
 import { SectionHeader } from "../SectionShared.jsx";
@@ -21,6 +23,9 @@ function normalizePlugin(plugin) {
     installedVersion: plugin.installedVersion ?? plugin.installed_version,
     publisherName: plugin.publisherName ?? plugin.publisher_name,
     compatibilityStatus: plugin.compatibilityStatus ?? plugin.compatibility_status,
+    trustStatus: plugin.trustStatus ?? plugin.trust_status ?? "unverified",
+    signerKeyId: plugin.signerKeyId ?? plugin.signer_key_id,
+    signerIdentity: plugin.signerIdentity ?? plugin.signer_identity,
     lastError: plugin.lastError ?? plugin.last_error,
     runtimeStatus: plugin.runtimeStatus ?? plugin.runtime_status,
     settingDefinitions: plugin.settingDefinitions ?? plugin.setting_definitions ?? [],
@@ -56,7 +61,7 @@ function PreviewPill({ label, value }) {
   );
 }
 
-function PluginInstallModal({ onClose, onInstalled, onError, onToast }) {
+function PluginInstallModal({ hostStatus, onClose, onInstalled, onError, onToast }) {
   const fileInputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -89,13 +94,13 @@ function PluginInstallModal({ onClose, onInstalled, onError, onToast }) {
       onError(error);
       return;
     }
-    onToast(`Plugin "${data.name}" installed disabled.`, "info");
+    onToast(`Official Extension "${data.name}" installed disabled.`, "info");
     onInstalled(data);
   };
 
   return (
     <ModalShell
-      title="Install Plugin"
+      title="Install Official Extension"
       titleId="plugin-install-title"
       onClose={onClose}
       closeOnOverlayClick={!installing}
@@ -118,14 +123,14 @@ function PluginInstallModal({ onClose, onInstalled, onError, onToast }) {
             accept=".zip,application/zip"
             onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
             className="plugin-file-input"
-            aria-label="Plugin package zip"
+            aria-label="Official Extension package zip"
           />
           <button type="button" className="btn btn-g" onClick={() => fileInputRef.current?.click()} disabled={previewing || installing}>
             <Icon name="upload" size={13} /> Choose zip
           </button>
           <div className="plugin-file-meta">
             <strong>{file?.name || "No package selected"}</strong>
-            <span>{file ? formatBytes(file.size) : "Upload an offline plugin package."}</span>
+            <span>{file ? formatBytes(file.size) : "Choose a package from an official LicenseTrack release channel."}</span>
           </div>
         </div>
 
@@ -148,11 +153,27 @@ function PluginInstallModal({ onClose, onInstalled, onError, onToast }) {
             <div className="plugin-preview-grid">
               <PreviewPill label="Key" value={manifest?.key} />
               <PreviewPill label="Version" value={manifest?.version} />
-              <PreviewPill label="Publisher" value={manifest?.publisher?.name} />
+              <PreviewPill label="Declared publisher" value={manifest?.publisher?.name} />
               <PreviewPill label="Compatibility" value={preview.compatibilityStatus} />
-              <PreviewPill label="Checksum" value={preview.checksumSha256?.slice(0, 16)} />
+              <PreviewPill label="Trust" value={preview.trustStatus} />
+              <PreviewPill label="Verified signer" value={preview.signerIdentity} />
+              <PreviewPill label="Signing key" value={preview.signerKeyId} />
+              <PreviewPill label="SHA-256" value={preview.checksumSha256} />
               <PreviewPill label="Size" value={formatBytes(preview.packageSizeBytes)} />
             </div>
+
+            <div className={`plugin-trust-warning ${preview.trustStatus === "verified" ? "verified" : "developer"}`}>
+              <Icon name={preview.trustStatus === "verified" ? "check" : "alert"} size={14} />
+              <span>
+                {preview.trustStatus === "verified"
+                  ? "Signature verified against a pinned LicenseTrack release key. Enabling runs trusted server code with the declared access."
+                  : "Developer package: not verified or official. Developer mode is unsupported for production deployments."}
+              </span>
+            </div>
+
+            {hostStatus?.developerMode && (
+              <div className="plugin-issue-box warning">Developer mode is active for this deployment.</div>
+            )}
 
             {preview.issues?.length > 0 && (
               <div className={`plugin-issue-box ${hasErrors ? "error" : "warning"}`}>
@@ -167,7 +188,7 @@ function PluginInstallModal({ onClose, onInstalled, onError, onToast }) {
 
             <div className="plugin-preview-columns">
               <div>
-                <h5>Permissions</h5>
+                <h5>Declared access</h5>
                 {preview.permissions?.length ? (
                   <div className="plugin-chip-list">
                     {preview.permissions.map((permission) => (
@@ -179,7 +200,7 @@ function PluginInstallModal({ onClose, onInstalled, onError, onToast }) {
                     ))}
                   </div>
                 ) : (
-                  <p className="plugin-empty-text">No permissions declared.</p>
+                  <p className="plugin-empty-text">No access declared.</p>
                 )}
               </div>
               <div>
@@ -288,6 +309,7 @@ function PluginSettingField({ definition, value, masked, onChange }) {
 
 function PluginDetail({
   plugin,
+  hostStatus,
   settingsState,
   settingsLoading,
   settingsSaving,
@@ -301,7 +323,7 @@ function PluginDetail({
     return (
       <div className="plugin-detail-empty">
         <Icon name="archive" size={18} />
-        <span>Select a plugin to inspect its permissions, settings, and actions.</span>
+        <span>Select an Official Extension to inspect its access, settings, and actions.</span>
       </div>
     );
   }
@@ -317,16 +339,35 @@ function PluginDetail({
       </div>
       <div className="plugin-preview-grid compact">
         <PreviewPill label="Version" value={plugin.installedVersion} />
-        <PreviewPill label="Publisher" value={plugin.publisherName} />
+        <PreviewPill label="Declared publisher" value={plugin.publisherName} />
+        <PreviewPill label="Trust" value={plugin.trustStatus} />
+        <PreviewPill label="Verified signer" value={plugin.signerIdentity} />
+        <PreviewPill label="Signing key" value={plugin.signerKeyId} />
+        <PreviewPill label="SHA-256" value={plugin.versions?.find((version) => version.version === plugin.installedVersion)?.checksumSha256} />
         <PreviewPill label="Compatibility" value={plugin.compatibilityStatus} />
         <PreviewPill label="Runtime" value={plugin.runtimeStatus?.health ?? "unknown"} />
+      </div>
+      <div className={`plugin-trust-warning ${plugin.trustStatus === "verified" ? "verified" : "developer"}`}>
+        <Icon name={plugin.trustStatus === "verified" ? "check" : "alert"} size={14} />
+        <span>
+          {plugin.trustStatus === "verified"
+            ? `Verified Official Extension signed by ${plugin.signerIdentity}. Enabling runs trusted server code with the access listed below.`
+            : plugin.trustStatus === "developer"
+              ? "Developer package. It is not verified or official and can run only while developer mode remains enabled."
+              : "Unverified package. Reinstall a signed official release before enabling."}
+        </span>
       </div>
       {plugin.lastError && <div className="plugin-issue-box error">{plugin.lastError}</div>}
       <div className="plugin-detail-actions">
         <button
           type="button"
           className="btn btn-g btn-sm"
-          disabled={plugin.status === "enabled" || !!lifecycleBusy || settingsDirty}
+          disabled={
+            plugin.status === "enabled"
+            || !!lifecycleBusy
+            || settingsDirty
+            || (plugin.trustStatus !== "verified" && !(plugin.trustStatus === "developer" && hostStatus?.developerMode))
+          }
           title={settingsDirty ? "Save settings before enabling" : undefined}
           onClick={() => onLifecycle("enable", plugin)}
         >
@@ -351,7 +392,7 @@ function PluginDetail({
       </div>
       <div className="plugin-detail-sections">
         <section>
-          <h5>Permissions</h5>
+          <h5>Declared access</h5>
           {(plugin.permissions ?? []).length ? (
             <ul>
               {plugin.permissions.map((permission) => (
@@ -413,15 +454,30 @@ function PluginDetail({
 }
 
 export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, onError, onToast }) {
+  const [hostStatus, setHostStatus] = useState(null);
   const [plugins, setPlugins] = useState([]);
   const [selectedKey, setSelectedKey] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showInstall, setShowInstall] = useState(false);
   const [settingsState, setSettingsState] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [lifecycleBusy, setLifecycleBusy] = useState(null);
+  const [pendingEnable, setPendingEnable] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    getPluginHostStatus().then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        setHostStatus({ enabled: false, developerMode: false });
+        return;
+      }
+      setHostStatus(data);
+    });
+    return () => { active = false; };
+  }, []);
 
   const selectedPlugin = useMemo(
     () => plugins.find((plugin) => plugin.key === selectedKey) ?? plugins[0] ?? null,
@@ -444,9 +500,9 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
   }, [onError]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !hostStatus?.enabled) return;
     loadPlugins();
-  }, [isOpen, loadPlugins]);
+  }, [hostStatus?.enabled, isOpen, loadPlugins]);
 
   useEffect(() => {
     if (!isOpen || !selectedPluginSettingsKey) {
@@ -499,7 +555,7 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
     setSettingsState(normalizeSettingsPayload(data));
     setSettingsDirty(false);
     clearDirty?.("plugins");
-    onToast("Plugin settings saved.", "info");
+    onToast("Official Extension settings saved.", "info");
     loadPlugins();
   };
 
@@ -511,7 +567,7 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
 
   const handleLifecycle = async (action, plugin) => {
     if (!plugin) return;
-    if (action === "uninstall" && !window.confirm(`Uninstall "${plugin.name}"? Plugin files and active settings will be removed.`)) {
+    if (action === "uninstall" && !window.confirm(`Uninstall "${plugin.name}"? Extension files and active settings will be removed.`)) {
       return;
     }
 
@@ -536,26 +592,28 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
       setSettingsState(null);
       setSettingsDirty(false);
       clearDirty?.("plugins");
-      onToast(`Plugin "${plugin.name}" uninstalled.`, "info");
+      onToast(`Official Extension "${plugin.name}" uninstalled.`, "info");
       return;
     }
     if (!data) {
-      onError(`Plugin "${plugin.name}" ${action} failed without returning plugin details.`);
+      onError(`Official Extension "${plugin.name}" ${action} failed without returning details.`);
       loadPlugins();
       return;
     }
     updatePluginInList(data);
-    onToast(`Plugin "${plugin.name}" ${action === "enable" ? "enabled" : "disabled"}.`, "info");
+    onToast(`Official Extension "${plugin.name}" ${action === "enable" ? "enabled" : "disabled"}.`, "info");
   };
+
+  if (!hostStatus?.enabled) return null;
 
   return (
     <>
       <div className="setsec">
-        <SectionHeader sectionKey="plugins" icon="archive" title="Plugins" description="Install and inspect offline plugin packages." isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
+        <SectionHeader sectionKey="plugins" icon="archive" title="Official Extensions" description="Install signed extensions published by the LicenseTrack project." isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
         <div className={`setsec-body${isOpen ? " open" : ""}`}>
           <div className="setsec-inner">
             <div className="plugin-section-toolbar">
-              <p>Install offline plugin packages, configure settings, and control plugin runtime state.</p>
+              <p>Install packages only from official LicenseTrack release channels. Enabled extensions run as trusted server code.</p>
               <div>
                 <button type="button" className="btn btn-g btn-sm" onClick={loadPlugins} disabled={loading}>
                   <Icon name={loading ? "clock" : "refresh"} size={12} /> Refresh
@@ -567,12 +625,12 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
             </div>
 
             {loading ? (
-              <p className="plugin-empty-text">Loading plugins...</p>
+              <p className="plugin-empty-text">Loading Official Extensions...</p>
             ) : plugins.length === 0 ? (
               <div className="plugin-empty-state">
                 <Icon name="archive" size={22} />
-                <strong>No plugins installed</strong>
-                <span>Upload a validated plugin zip to create a disabled registry record.</span>
+                <strong>No Official Extensions installed</strong>
+                <span>Install a signed package from an official LicenseTrack release channel.</span>
                 <button type="button" className="btn btn-g btn-sm" onClick={() => setShowInstall(true)}>
                   <Icon name="upload" size={12} /> Choose package
                 </button>
@@ -583,7 +641,7 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
                   <table className="settings-table">
                     <thead>
                       <tr>
-                        <th>Plugin</th>
+                        <th>Extension</th>
                         <th>Status</th>
                         <th>Version</th>
                         <th>Runtime</th>
@@ -610,6 +668,7 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
                 </div>
                 <PluginDetail
                   plugin={selectedPlugin}
+                  hostStatus={hostStatus}
                   settingsState={settingsState}
                   settingsLoading={settingsLoading}
                   settingsSaving={settingsSaving}
@@ -617,7 +676,10 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
                   lifecycleBusy={lifecycleBusy}
                   onSettingChange={handleSettingChange}
                   onSaveSettings={handleSaveSettings}
-                  onLifecycle={handleLifecycle}
+                  onLifecycle={(action, plugin) => {
+                    if (action === "enable") setPendingEnable(plugin);
+                    else handleLifecycle(action, plugin);
+                  }}
                 />
               </div>
             )}
@@ -627,10 +689,25 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
 
       {showInstall && (
         <PluginInstallModal
+          hostStatus={hostStatus}
           onClose={() => setShowInstall(false)}
           onInstalled={handleInstalled}
           onError={onError}
           onToast={onToast}
+        />
+      )}
+      {pendingEnable && (
+        <ConfirmDialog
+          title={`Enable ${pendingEnable.name}?`}
+          message="This Official Extension runs trusted server code and receives the declared access listed in its details. Enable it only if the package came from an official LicenseTrack release channel."
+          confirmLabel="Enable extension"
+          cancelLabel="Cancel"
+          onConfirm={() => {
+            const plugin = pendingEnable;
+            setPendingEnable(null);
+            handleLifecycle("enable", plugin);
+          }}
+          onCancel={() => setPendingEnable(null)}
         />
       )}
     </>

@@ -6,7 +6,7 @@ The processor may use AI, OCR, deterministic parsing, or a private rules engine.
 
 Read `docs/extension-authors/checklist.md` first for the current framework boundaries and handoff checklist.
 
-This is the API/webhook document-processor flow: operators configure an API token, webhook endpoint, capability declaration, and externally hosted sidecar runtime. If you would rather ship an installable package that LicenseTrack manages - with plugin-owned settings, permissions, a managed runtime, and Parse actions in the UI - use the shipped **Plugin Host v1** instead; see `docs/plugin-authors/plugin-author-guide.md`. The first-party LicenseTrack AI companion plugin uses that model, but release of the AI plugin is pending and it is not bundled with baseline LicenseTrack. See `docs/plugin-authors/plugin-host-post-v1-notes.md` for post-v1 direction.
+This is the supported public document-processor flow: operators configure an API token, webhook endpoint, capability declaration, and externally hosted sidecar runtime. Custom and third-party processors should use this contract. The internal Official Extensions host is reserved for packages published and signed by the LicenseTrack project and is not a public packaging path.
 
 ## User Flow
 
@@ -60,7 +60,7 @@ Content-Type: application/json
 }
 ```
 
-Use `status: "misconfigured"` or `status: "error"` with `lastError` when operator action is needed. Admin Settings is the visibility surface for capability health; it is not a plugin installer or runtime loader.
+Use `status: "misconfigured"` or `status: "error"` with `lastError` when operator action is needed. Admin Settings is the visibility surface for capability health; capability declarations do not install or load runtime code.
 
 ## Webhook Contract
 

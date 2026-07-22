@@ -4,7 +4,7 @@ This guide is the starting point for operator-built integrations. Use it when yo
 
 LicenseTrack integrations should live outside core unless they are broadly useful product features. They authenticate with API tokens, use documented routes, and keep their own release and maintenance cycle.
 
-This guide describes the API/webhook Integration Framework, where you authenticate with an API token and drive LicenseTrack through documented routes from your own externally hosted code. It is distinct from the **Plugin Host**, which is now shipped (v1): installable `.ltplugin` packages with manifests, plugin-owned settings panels, permissions, UI slots, and a managed runtime. If you want a packaged, installable add-on, see `docs/plugin-authors/plugin-author-guide.md`. Use this API/webhook guide when you are building externally hosted automation rather than an installable package.
+This guide describes the public API/webhook Integration Framework, where you authenticate with an API token and drive LicenseTrack through documented routes from externally hosted code. This is the supported path for custom and third-party automation. The internal Official Extensions host is reserved for packages published and signed by the LicenseTrack project and is not a public plugin SDK.
 
 ## Integration Shape
 
@@ -72,7 +72,7 @@ Before building an integration, read:
 - `docs/extension-authors/api-stability.md` for stable, experimental, and internal route expectations;
 - `docs/extension-authors/webhooks.md` for signed event delivery and retry behavior;
 - `docs/extension-authors/overview.md` for current Integration Framework terminology and boundaries.
-- `docs/plugin-authors/plugin-author-guide.md` for the installable Plugin Host model (shipped) and `docs/plugin-authors/plugin-host-post-v1-notes.md` for post-v1 direction.
+- `docs/extension-authors/checklist.md` for the public integration handoff checklist.
 
 Private integrations are maintained by their owners. Test them before upgrading LicenseTrack, especially when they use experimental surfaces such as webhooks, document actions, extension capabilities, or document processing results.
 

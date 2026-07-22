@@ -1,6 +1,6 @@
 # Upgrading LicenseTrack
 
-This guide covers a Docker Compose upgrade while keeping the existing database, uploaded documents, database backups, and plugin storage intact.
+This guide covers a Docker Compose upgrade while keeping the existing database, uploaded documents, database backups, and Official Extension storage intact.
 
 !!! danger "Do not delete the data volume"
     Do not run `docker compose down -v` during an upgrade unless you intentionally want to delete LicenseTrack data. The `-v` flag removes named volumes, including the `/data` volume that stores the SQLite database and uploaded documents.

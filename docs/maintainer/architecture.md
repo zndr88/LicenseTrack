@@ -317,45 +317,70 @@ Document and procurement-document uploads/deletes are evidence amendments once t
 
 Renewal command side effects belong in `backend/app/services/renewal_orchestrator.py`, with chain invariants delegated to `backend/app/services/lifecycle_rules.py`. Do not spread renewal lifecycle mutations across pages or routes. Successor creation must validate every predecessor before creating a new license row so stale single or coterm pending-order work cannot fork a renewal chain.
 
-## Integration, Plugin, And API Boundaries
+## Integration, Official Extension, And API Boundaries
 
-LicenseTrack's extensibility model has two layers: the **Integration Framework** (API tokens, webhooks, declared capabilities, document actions, document processing) and the **Plugin Host v1** (installable zip packages, managed runtimes, core-rendered UI slots, generic suggestions).
+LicenseTrack has two distinct extension paths:
+
+- The public **Integration Framework** uses API tokens, webhooks, declared
+  capabilities, document actions, document-processing results, and external
+  sidecars. This is the supported path for custom and third-party automation.
+- The internal **Official Extensions host** is reserved for optional packages
+  published and signed by the LicenseTrack project. It is disabled by default
+  and runs verified packages as trusted application code when an operator
+  explicitly enables it.
 
 The integration foundation currently includes:
 
 - API tokens in `backend/app/routes/api_tokens.py`, authenticated through `backend/app/dependencies.py`, with hashes stored in `ApiToken` records and raw tokens shown once.
 - Webhook endpoints and deliveries in `backend/app/routes/webhooks.py`, backed by `WebhookEndpoint` and `WebhookDelivery`, with signing secrets encrypted and delivery retries dispatched by the scheduler.
-- Extension capability declarations in `backend/app/routes/extensions.py`, stored as `ExtensionCapability` records. Capabilities tell core that an external sidecar, connector, or installed plugin is available; they do not load third-party code into core.
+- Extension capability declarations in `backend/app/routes/extensions.py`, stored as `ExtensionCapability` records. Capabilities tell core that an external sidecar or connector is available; they do not load third-party code into core.
 - Document actions in `backend/app/routes/document_actions.py`, exposed to the frontend only when the required capability and webhook subscriber exist.
 - Document processing results in `backend/app/routes/document_processing.py`, where integrations can submit proposed extraction output for review. Core stores those results, supersedes older pending results for the same processor/document, lets editors/admins accept selected suggestions or reject the result, and applies accepted fields through normal license/custom-field update paths.
 
-The Plugin Host v1 foundation adds:
+The Official Extensions host uses the existing internal `plugin_*` names to
+avoid a broad implementation rename. Its foundation includes:
 
-- Plugin registry, package intake, manifest validation, and lifecycle management in `backend/app/routes/plugins.py`, backed by `backend/app/services/plugin_lifecycle_service.py`, `plugin_package_service.py`, `plugin_registry_service.py`, and `plugin_runtime_service.py`.
-- Plugin settings and encrypted secret storage in `backend/app/services/plugin_settings_service.py`.
-- Managed runtime start/stop/health/logs with a single-worker constraint (see `plugin_runtime_service.py` module docstring).
-- Plugin action discovery/invocation through `backend/app/routes/plugin_actions.py` and `backend/app/services/plugin_action_service.py`.
-- Generic plugin suggestions for `license`, `license_draft`, `sourcing_item`, `pending_order_item`, and `pending_order_conversion` targets in `backend/app/routes/plugin_suggestions.py`.
-- Frontend `PluginSlot` component at `frontend/src/components/plugins/PluginSlot.jsx` — the only surface for plugin-provided buttons; plugins cannot inject arbitrary React or DOM.
+- Package intake, registry, manifest validation, lifecycle management, and
+  managed runtimes in the existing plugin route/service modules.
+- Ed25519 verification against pinned LicenseTrack release public keys. The
+  verified signer identity comes from the configured trust store, never from
+  self-declared manifest metadata.
+- Persisted trust status, signer/key identity, signed digest, and verification
+  time. Legacy unsigned installations migrate to disabled and unverified while
+  their settings, versions, suggestions, and audit history remain intact.
+- Encrypted settings, core-rendered `PluginSlot` buttons, action invocation, and
+  generic suggestions for the existing supported target types.
+- Explicit environment inheritance and permission checks for settings,
+  documents, and draft contexts, plus process-tree cleanup on stop. These are
+  correctness and operational safeguards, not a hostile-code sandbox.
 
-Integration and plugin work should follow these boundaries:
+Integration and Official Extension work should follow these boundaries:
 
 - Treat documented API routes, import/export formats, and declared-capability integration points such as document actions as the supported integration surface.
 - Keep company-specific connectors, sidecars, and automation outside core unless they become broadly useful product features.
-- Do not add plugin-specific code paths to core workflows without first defining a generic extension point.
+- Do not add extension-specific code paths to core workflows without first defining a generic extension point.
 - Core owns authorization, viewer department scoping, document access checks, audit logging, and user confirmation for data-changing extension workflows.
-- Optional integrations and plugins return explicit results or proposed changes; core applies mutations only after user review and through normal services and route-level invariants.
-- Frontend-facing plugin work uses `PluginSlot` with core-defined context. Do not load arbitrary third-party React code.
-- Backend integration and plugin work must not bypass service boundaries for procurement conversion, document storage, custom fields, user invariants, or audit logging.
+- Optional integrations and Official Extensions return explicit results or proposed changes; core applies mutations only after user review and through normal services and route-level invariants.
+- Frontend-facing Official Extension work uses `PluginSlot` with core-defined context. Do not load extension-owned React or arbitrary DOM code.
+- Backend integration and Official Extension work must not bypass service boundaries for procurement conversion, document storage, custom fields, user invariants, or audit logging.
 - Document processing result acceptance is restricted to `ALLOWED_PATCH_FIELDS` from `license_write_service.py` plus existing custom fields. Lifecycle repair fields (`lifecycle_status`, `renewed_from_id`, `renewed_to_id`, `predecessor_id`, `coterm_from_ids`), procurement conversion state, and internal identity fields (`id`, `license_ref`) are explicitly excluded and will cause the accept call to fail without partial mutation.
 
-The Plugin Host v1 does not support arbitrary frontend JavaScript injection, plugin-created database migrations, direct plugin writes to the database, or plugin-defined arbitrary pages. See `docs/plugin-authors/plugin-host-v1-contract.md` for the v1 scope boundary and `docs/plugin-authors/plugin-author-guide.md` for the author contract.
+Official Extensions are trusted server code running under the LicenseTrack OS
+account. Access declarations and managed subprocesses do not prevent a malicious
+package from reading application-accessible files or opening the SQLite database.
+Install packages only from official LicenseTrack release channels. Arbitrary
+third-party in-process packages are unsupported; use the public Integration
+Framework instead. The internal contract and release checklist live under
+`docs/plugin-authors/` for LicenseTrack maintainers.
 
 API-token access is an alternative client authentication mechanism, not a replacement for human/browser authentication. Add new token access by explicitly mapping routes to scopes in `dependencies.py`; do not make API tokens implicitly valid for every authenticated route. Use narrow scopes first and add audit context for data-changing API-token requests.
 
 Webhook events should represent durable product events, not UI gestures. Emit them through audit-backed data changes or explicit extension action requests so event payloads stay stable and observable. Webhook signing and retry behavior belongs in `webhook_service.py`; route handlers should only create/update endpoints, enqueue test deliveries, or request retries.
 
-Stable API expectations live in `docs/extension-authors/api-stability.md`; integration positioning and Plugin Host guidance live in `docs/extension-authors/overview.md`, `docs/plugin-authors/plugin-host-post-v1-notes.md`, and `docs/plugin-authors/plugin-host-v1-contract.md`.
+Stable public API expectations live in `docs/extension-authors/api-stability.md`,
+and public integration positioning lives in `docs/extension-authors/overview.md`.
+Internal Official Extension implementation and signing guidance lives in
+`docs/plugin-authors/` and is not a frozen public package compatibility promise.
 
 ## Quality Gates
 

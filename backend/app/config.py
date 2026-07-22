@@ -13,6 +13,15 @@ class Settings(BaseSettings):
     MAX_PLUGIN_PACKAGE_SIZE_MB: int = 50
     PLUGIN_STORAGE_PATH: str = "./plugins"
     PLUGIN_HOST_BASE_URL: str = "http://127.0.0.1:8000"
+    # The managed extension host is an internal first-party feature boundary.
+    # Stable deployments leave it disabled unless explicitly opted in.
+    PLUGIN_HOST_ENABLED: bool = False
+    # Developer mode permits unsigned local packages, marks them as developer
+    # builds, and is unsupported for production use.
+    PLUGIN_HOST_DEVELOPER_MODE: bool = False
+    # JSON array of pinned Ed25519 release keys. Each entry contains keyId,
+    # signer, and publicKey (base64-encoded raw 32-byte public key).
+    OFFICIAL_EXTENSION_PUBLIC_KEYS: str = "[]"
     PLUGIN_RUNTIME_LOG_MAX_BYTES: int = 65536
     MAX_PLUGIN_DOCUMENT_SIZE_MB: int = 10
     ALLOWED_UPLOAD_EXTENSIONS: str = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx"

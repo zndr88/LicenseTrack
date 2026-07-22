@@ -7,14 +7,17 @@ import app.services.storage as _storage_module
 
 from app.models.document import Document, DocumentCategory
 from app.models.license import License, LicenseMetric, LicenseType
-from app.schemas.plugin import PluginRegistryCreate
+from app.schemas.plugin import PluginPermissionCreate, PluginRegistryCreate
 from app.services import storage
 from app.services.plugin_registry_service import create_plugin_registry_record
 from app.services.plugin_runtime_service import (
     DOCUMENT_TYPE_LICENSE,
     PluginRuntimeActionTimeout,
     PluginRuntimeError,
+    PopenManagedProcess,
+    _build_runtime_environment,
     _runtime_command,
+    _signal_process_tree,
     invoke_plugin_runtime_action,
     read_plugin_runtime_logs,
     read_scoped_runtime_document,
@@ -24,6 +27,12 @@ from app.services.plugin_runtime_service import (
     stop_plugin_runtime,
     unregister_runtime_action_scope,
 )
+
+
+@pytest.fixture(autouse=True)
+def enable_developer_plugin_host(monkeypatch):
+    monkeypatch.setattr("app.config.settings.PLUGIN_HOST_ENABLED", True)
+    monkeypatch.setattr("app.config.settings.PLUGIN_HOST_DEVELOPER_MODE", True)
 
 
 def _runtime_script(*, health_status: str = "ok", slow_action: bool = False) -> str:
@@ -76,6 +85,22 @@ def _runtime_script(*, health_status: str = "ok", slow_action: bool = False) -> 
         ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
         """
     ).strip()
+
+
+class _FakePopen:
+    pid = 2468
+
+    def poll(self):
+        return None
+
+    def terminate(self):
+        pass
+
+    def kill(self):
+        pass
+
+    def wait(self):
+        return 0
 
 
 def _payload(tmp_path: Path, *, script: str, key: str = "runtime-plugin", startup_timeout: int = 3) -> PluginRegistryCreate:
@@ -151,6 +176,42 @@ async def test_restart_runtime_starts_health_checks_logs_and_stops(db_session, t
     assert stopped.port is None
 
 
+async def test_runtime_environment_uses_explicit_allowlist(db_session, tmp_path, monkeypatch):
+    plugin = await create_plugin_registry_record(db_session, _payload(tmp_path, script=""))
+    monkeypatch.setenv("PATH", "runtime-path")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "must-not-leak")
+    monkeypatch.setenv("LICENSETRACK_PRIVATE_VALUE", "must-not-leak")
+
+    env = _build_runtime_environment(
+        plugin=plugin,
+        port=8123,
+        token="runtime-token",
+        log_dir=tmp_path / "logs",
+    )
+
+    assert env["PATH"] == "runtime-path"
+    assert env["LT_PLUGIN_TOKEN"] == "runtime-token"
+    assert "AWS_SECRET_ACCESS_KEY" not in env
+    assert "LICENSETRACK_PRIVATE_VALUE" not in env
+
+
+async def test_windows_process_shutdown_targets_full_process_tree(monkeypatch):
+    calls = []
+
+    def fake_run(command, **_kwargs):
+        calls.append(command)
+
+    monkeypatch.setattr("app.services.plugin_runtime_service.os.name", "nt")
+    monkeypatch.setattr("app.services.plugin_runtime_service.subprocess.run", fake_run)
+    process = PopenManagedProcess(_FakePopen())
+
+    await _signal_process_tree(process, force=False)
+    await _signal_process_tree(process, force=True)
+
+    assert calls[0] == ["taskkill", "/PID", "2468", "/T"]
+    assert calls[1] == ["taskkill", "/PID", "2468", "/T", "/F"]
+
+
 async def test_runtime_health_failure_marks_error(db_session, tmp_path):
     await create_plugin_registry_record(
         db_session,
@@ -213,6 +274,10 @@ async def test_read_scoped_document_rejects_oversized_file(db_session, tmp_path,
         category=DocumentCategory.other,
     )
     db_session.add(doc)
+    await db_session.flush()
+    plugin_payload = _payload(tmp_path, script="", key="test-plugin")
+    plugin_payload.permissions = [PluginPermissionCreate(permission="documents:read", granted=True)]
+    await create_plugin_registry_record(db_session, plugin_payload)
     await db_session.flush()
 
     register_runtime_action_scope("test-plugin", "req-1", {"documentId": doc.id})

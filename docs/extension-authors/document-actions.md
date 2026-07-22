@@ -2,7 +2,7 @@
 
 Document actions are the first generic core-rendered integration action in LicenseTrack. They let core expose a small, audited action on document rows without loading third-party frontend code.
 
-They are not browser-style plugin buttons. The action is built into LicenseTrack and is shown only when the required webhook subscriber and declared capability exist.
+They are built-in integration controls, shown only when the required webhook subscriber and declared capability exist.
 
 The current built-in action is:
 
@@ -99,5 +99,5 @@ When testing a local sidecar, verify that the configured port is actually servin
 
 - Actions are built into core rather than admin-defined.
 - The event payload is an audit notification, not a typed domain event.
-- Core does not load third-party React bundles, plugin-owned settings panels, or plugin UI.
+- Core does not load third-party React bundles or integration-owned settings panels and UI.
 - Document actions do not let integrations inject arbitrary buttons into unrelated modals or pages.

@@ -13,5 +13,6 @@ Start with:
 - `build-document-processor.md` for document-processing sidecars.
 - `checklist.md` before handing off a private integration.
 
-Installable plugin packages use the Plugin Host v1 contract in
-`../plugin-authors/`.
+The internal Official Extensions host is not the public customization path.
+Material in `../plugin-authors/` is for LicenseTrack release maintainers only.
+Custom and third-party automation should use the contracts in this directory.

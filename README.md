@@ -85,13 +85,20 @@ If you do not yet use a dedicated discovery tool, LicenseTrack works as your cen
 
 LicenseTrack does not scan networks, discover installed software, or reconcile installed deployments against entitlements. It tracks license lifecycle data entered manually, imported through CSV, or added through documented API integrations.
 
-## Advanced Integrations
+## Extensions And Integrations
 
-LicenseTrack is complete without extensions. Baseline deployments do not need plugins, AI provider credentials, webhooks, or external integrations.
+LicenseTrack is complete without extensions, AI provider credentials, webhooks, or external integrations. Its support boundary is:
 
-When an organisation does want to connect LicenseTrack to other systems, it can use API tokens, webhooks, document-processing sidecars, or installable Plugin Host v1 packages. These are advanced paths for technical operators and extension authors, not requirements for normal use.
+| Surface | Support status |
+| --- | --- |
+| Core LicenseTrack workflows | Supported as part of LicenseTrack. |
+| Official Extensions published and signed by the LicenseTrack project | Supported when installed from official LicenseTrack release channels. The host is disabled by default. |
+| Public API, webhook, and sidecar contracts | Supported integration contracts; each integration remains operated, tested, and maintained by its owner. |
+| Unofficial or third-party in-process packages | Not supported. LicenseTrack does not accept arbitrary third-party packages as trusted application code. |
 
-Start with [docs/extension-authors/overview.md](docs/extension-authors/overview.md) for API/webhook integrations and document processors. Use [docs/plugin-authors/plugin-author-guide.md](docs/plugin-authors/plugin-author-guide.md) for installable plugin packages. Plugin runtime deployment constraints are covered in [wiki/operations/deployment.md](wiki/operations/deployment.md).
+Official Extensions run as trusted server code. Package permissions describe intended host access; they are not a hostile-code sandbox or a security boundary. For custom or third-party automation, use the documented API, webhook, and sidecar framework in [docs/extension-authors/overview.md](docs/extension-authors/overview.md).
+
+The internal Official Extensions host is maintainer-facing and requires an explicit deployment opt-in plus pinned LicenseTrack release public keys. Its internal package contract is documented under [docs/plugin-authors/](docs/plugin-authors/) for first-party maintainers, not as a public third-party plugin SDK. Deployment constraints are covered in [wiki/operations/deployment.md](wiki/operations/deployment.md).
 
 ## Tech Stack
 
@@ -178,6 +185,9 @@ Core Docker configuration is loaded from `.env`.
 | `STORAGE_PATH` | `/data/storage` | Uploaded document storage path. |
 | `BACKUP_LOCATION` | `/data/backups` | Database backup output path. |
 | `RESTART_AFTER_RESTORE` | `true` in Docker Compose, `false` in direct backend runs | Exit the backend after database restore so a process manager can restart it. Set `false` for local development without a restart supervisor. |
+| `PLUGIN_HOST_ENABLED` | `false` | Enables the internal Official Extensions host. Leave disabled unless installing an official signed extension. |
+| `PLUGIN_HOST_DEVELOPER_MODE` | `false` | Allows unsigned developer packages and marks them non-official. Unsupported for production. |
+| `OFFICIAL_EXTENSION_PUBLIC_KEYS` | `[]` | JSON trust store of pinned Ed25519 LicenseTrack release public keys (`keyId`, `signer`, `publicKey`). Official key material must come from a LicenseTrack release channel. |
 | `TOKEN_EXPIRY` | `1440` | JWT session lifetime in minutes. |
 | `OIDC_STATE_SECRET` | falls back to `JWT_SECRET` | Secret used for transient OIDC flow state cookies. |
 | `ALLOW_HTTP_OIDC_DISCOVERY` | `false` | Unsafe testing-only allowance for plain-HTTP OIDC discovery. Leave disabled in production. |
@@ -207,7 +217,7 @@ Application database backups contain the SQLite database only. Uploaded document
 - Deployment and operations: [deployment](wiki/operations/deployment.md), [native installation](wiki/getting-started/native-installation.md), [upgrade](wiki/operations/upgrade.md), [native upgrade](wiki/operations/native-upgrade.md), [runbook](wiki/operations/runbook.md), and [backup/restore](wiki/operations/backup-restore.md).
 - Maintainer docs: [docs/maintainer/architecture.md](docs/maintainer/architecture.md) and [docs/maintainer/style-contract.md](docs/maintainer/style-contract.md).
 - Extension author docs: [docs/extension-authors/](docs/extension-authors/).
-- Plugin author docs: [docs/plugin-authors/](docs/plugin-authors/).
+- Internal Official Extension maintainer docs: [docs/plugin-authors/](docs/plugin-authors/).
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): human-readable direct dependency license summary.
 
 Version-local Help Center source copy lives under [docs/in-app-help/](docs/in-app-help/). It is not the public documentation site.

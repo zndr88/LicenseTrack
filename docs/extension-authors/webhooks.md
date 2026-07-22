@@ -2,7 +2,7 @@
 
 LicenseTrack webhooks let operators notify internal systems when audited business events occur. They are an integration primitive for CMDB syncs, ticket creation, workflow monitors, and document processor sidecars.
 
-Webhooks are not a plugin installation mechanism. They do not add UI, settings panels, or runtime code to LicenseTrack; they deliver signed event notifications to external receivers.
+Webhooks do not install code or add UI and settings panels to LicenseTrack; they deliver signed event notifications to external receivers.
 
 This is the v1 webhook foundation. It is intentionally conservative: webhooks are admin-managed, event delivery is best-effort with retries, and events are based on audit actions.
 

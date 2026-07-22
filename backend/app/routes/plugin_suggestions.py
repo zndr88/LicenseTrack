@@ -12,6 +12,7 @@ from app.schemas.plugin_suggestion import (
     PluginSuggestionReviewResponse,
 )
 from app.services.audit_service import format_audit_detail, log_event
+from app.services.plugin_host_service import require_plugin_host_enabled
 from app.services.plugin_suggestion_service import (
     PluginSuggestionError,
     accept_plugin_suggestion,
@@ -19,7 +20,11 @@ from app.services.plugin_suggestion_service import (
     reject_plugin_suggestion,
 )
 
-router = APIRouter(prefix="/api/plugin-suggestions", tags=["plugin-suggestions"])
+router = APIRouter(
+    prefix="/api/plugin-suggestions",
+    tags=["official-extension-suggestions"],
+    dependencies=[Depends(require_plugin_host_enabled)],
+)
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 

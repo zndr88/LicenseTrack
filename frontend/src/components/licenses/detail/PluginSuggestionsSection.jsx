@@ -60,7 +60,7 @@ function PluginSuggestionCard({
     <div className="doc-processing-card plugin-suggestion-card">
       <div className="doc-processing-summary">
         <div>
-          <strong>{suggestion.summary || "Plugin suggested changes"}</strong>
+          <strong>{suggestion.summary || "Official Extension suggested changes"}</strong>
           <span>{suggestion.pluginKey} / {suggestion.actionKey}</span>
         </div>
         <span className="doc-processing-status">
@@ -153,7 +153,7 @@ export default function PluginSuggestionsSection({
   return (
     <>
       <DetailSectionHeader sectionKey="pluginSuggestions" isOpen={isOpen} onToggle={onToggle}>
-        Plugin Suggestions{suggestions.length > 0 ? ` (${suggestions.length})` : ""}
+        Official Extension Suggestions{suggestions.length > 0 ? ` (${suggestions.length})` : ""}
       </DetailSectionHeader>
 
       {isOpen && (
@@ -167,7 +167,7 @@ export default function PluginSuggestionsSection({
               <div className="doc-processing-empty">Loading suggestions...</div>
             )}
             {!loading && suggestions.length === 0 && (
-              <div className="doc-processing-empty">No pending plugin suggestions</div>
+              <div className="doc-processing-empty">No pending Official Extension suggestions</div>
             )}
             {suggestions.map((suggestion) => (
               <PluginSuggestionCard
