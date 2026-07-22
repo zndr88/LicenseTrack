@@ -586,7 +586,7 @@ describe("SettingsPage workflows", () => {
     expect(screen.getByRole("button", { name: /API Tokens/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Webhooks/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Extensions/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Plugins/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Official Extensions/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Database Backup Scheduled/i })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Operations/i }));

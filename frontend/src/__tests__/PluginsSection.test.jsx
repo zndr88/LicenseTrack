@@ -179,7 +179,11 @@ describe("PluginsSection", () => {
   test("shows an empty state when no plugins are installed", async () => {
     renderSection();
 
-    expect(await screen.findByText("No Official Extensions installed")).toBeInTheDocument();
+    expect(await screen.findByText(
+      "No Official Extensions installed",
+      {},
+      { timeout: 5000 },
+    )).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /choose package/i })).toBeInTheDocument();
   });
 

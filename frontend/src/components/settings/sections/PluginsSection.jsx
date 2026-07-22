@@ -457,7 +457,7 @@ export default function PluginsSection({ isOpen, isDirty, onToggle, markDirty, c
   const [hostStatus, setHostStatus] = useState(null);
   const [plugins, setPlugins] = useState([]);
   const [selectedKey, setSelectedKey] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showInstall, setShowInstall] = useState(false);
   const [settingsState, setSettingsState] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
