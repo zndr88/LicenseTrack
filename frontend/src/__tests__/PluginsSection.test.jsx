@@ -6,6 +6,7 @@ import PluginsSection from "../components/settings/sections/PluginsSection.jsx";
 import {
   disablePlugin,
   enablePlugin,
+  getPluginHostStatus,
   getPluginSettings,
   installPlugin,
   listPlugins,
@@ -15,6 +16,7 @@ import {
 } from "../api/plugins.js";
 
 vi.mock("../api/plugins.js", () => ({
+  getPluginHostStatus: vi.fn(),
   listPlugins: vi.fn(),
   getPluginSettings: vi.fn(),
   updatePluginSettings: vi.fn(),
@@ -39,12 +41,15 @@ const installedPlugin = {
   status: "disabled",
   enabled: false,
   compatibilityStatus: "compatible",
+  trustStatus: "verified",
+  signerKeyId: "licensetrack-test-2026",
+  signerIdentity: "LicenseTrack Project",
   installPath: "/data/plugins/licensetrack-ai/0.1.0",
   manifest: {},
   lastError: null,
   createdAt: "2026-06-13T10:00:00Z",
   updatedAt: "2026-06-13T10:00:00Z",
-  versions: [],
+  versions: [{ version: "0.1.0", checksumSha256: "a".repeat(64) }],
   permissions: [
     { id: 1, permission: "documents:read", granted: false, grantedBy: null, grantedAt: null },
   ],
@@ -62,6 +67,9 @@ const preview = {
   checksumSha256: "a".repeat(64),
   packageSizeBytes: 1024,
   compatibilityStatus: "compatible",
+  trustStatus: "verified",
+  signerKeyId: "licensetrack-test-2026",
+  signerIdentity: "LicenseTrack Project",
   issues: [],
   permissions: [
     {
@@ -136,6 +144,7 @@ function renderSection(props = {}) {
 
 describe("PluginsSection", () => {
   beforeEach(() => {
+    getPluginHostStatus.mockReset();
     listPlugins.mockReset();
     getPluginSettings.mockReset();
     updatePluginSettings.mockReset();
@@ -144,6 +153,10 @@ describe("PluginsSection", () => {
     enablePlugin.mockReset();
     disablePlugin.mockReset();
     uninstallPlugin.mockReset();
+    getPluginHostStatus.mockResolvedValue({
+      data: { enabled: true, developerMode: false, trustedKeyCount: 1 },
+      error: null,
+    });
     listPlugins.mockResolvedValue({ data: [], error: null });
     getPluginSettings.mockResolvedValue({ data: pluginSettings, error: null });
     enablePlugin.mockResolvedValue({ data: { ...installedPlugin, status: "enabled", enabled: true }, error: null });
@@ -166,7 +179,7 @@ describe("PluginsSection", () => {
   test("shows an empty state when no plugins are installed", async () => {
     renderSection();
 
-    expect(await screen.findByText("No plugins installed")).toBeInTheDocument();
+    expect(await screen.findByText("No Official Extensions installed")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /choose package/i })).toBeInTheDocument();
   });
 
@@ -175,9 +188,9 @@ describe("PluginsSection", () => {
     previewPluginInstall.mockResolvedValue({ data: preview, error: null });
     renderSection();
 
-    await screen.findByText("No plugins installed");
+    await screen.findByText("No Official Extensions installed");
     await user.click(screen.getByRole("button", { name: /upload install/i }));
-    const input = screen.getByLabelText(/plugin package zip/i);
+    const input = screen.getByLabelText(/official extension package zip/i);
     const file = new File(["zip"], "plugin.zip", { type: "application/zip" });
     await user.upload(input, file);
 
@@ -185,6 +198,9 @@ describe("PluginsSection", () => {
     expect(screen.getAllByText("LicenseTrack AI").length).toBeGreaterThan(0);
     expect(screen.getByText("documents:read")).toBeInTheDocument();
     expect(screen.getByText("sourcing.item.edit.actions")).toBeInTheDocument();
+    expect(screen.getByText("LicenseTrack Project")).toBeInTheDocument();
+    expect(screen.getByText("licensetrack-test-2026")).toBeInTheDocument();
+    expect(screen.getByText("a".repeat(64))).toBeInTheDocument();
   });
 
   test("invalid preview disables install and shows validation issues", async () => {
@@ -200,9 +216,9 @@ describe("PluginsSection", () => {
     });
     renderSection();
 
-    await screen.findByText("No plugins installed");
+    await screen.findByText("No Official Extensions installed");
     await user.click(screen.getByRole("button", { name: /upload install/i }));
-    await user.upload(screen.getByLabelText(/plugin package zip/i), new File(["zip"], "bad.zip", { type: "application/zip" }));
+    await user.upload(screen.getByLabelText(/official extension package zip/i), new File(["zip"], "bad.zip", { type: "application/zip" }));
 
     expect(await screen.findByText("Blocked")).toBeInTheDocument();
     expect(screen.getByText("Package must contain plugin.ltplugin.")).toBeInTheDocument();
@@ -216,14 +232,14 @@ describe("PluginsSection", () => {
     installPlugin.mockResolvedValue({ data: installedPlugin, error: null });
     renderSection({ onToast });
 
-    await screen.findByText("No plugins installed");
+    await screen.findByText("No Official Extensions installed");
     await user.click(screen.getByRole("button", { name: /upload install/i }));
-    await user.upload(screen.getByLabelText(/plugin package zip/i), new File(["zip"], "plugin.zip", { type: "application/zip" }));
+    await user.upload(screen.getByLabelText(/official extension package zip/i), new File(["zip"], "plugin.zip", { type: "application/zip" }));
     await screen.findByText("Installable");
     fireEvent.click(screen.getByRole("button", { name: /install disabled/i }));
 
     await waitFor(() => expect(installPlugin).toHaveBeenCalled());
-    expect(onToast).toHaveBeenCalledWith('Plugin "LicenseTrack AI" installed disabled.', "info");
+    expect(onToast).toHaveBeenCalledWith('Official Extension "LicenseTrack AI" installed disabled.', "info");
     const table = screen.getByRole("table");
     expect(within(table).getByText("LicenseTrack AI")).toBeInTheDocument();
   });
@@ -262,7 +278,7 @@ describe("PluginsSection", () => {
     ]));
     expect(markDirty).toHaveBeenCalledWith("plugins");
     expect(clearDirty).toHaveBeenCalledWith("plugins");
-    expect(onToast).toHaveBeenCalledWith("Plugin settings saved.", "info");
+    expect(onToast).toHaveBeenCalledWith("Official Extension settings saved.", "info");
   });
 
   test("masked secret value is preserved on save", async () => {
@@ -305,14 +321,15 @@ describe("PluginsSection", () => {
 
     expect(await screen.findByRole("button", { name: /enable/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /enable/i }));
+    await user.click(screen.getByRole("button", { name: /enable extension/i }));
 
     await waitFor(() => expect(enablePlugin).toHaveBeenCalledWith("licensetrack-ai"));
-    expect(onToast).toHaveBeenCalledWith('Plugin "LicenseTrack AI" enabled.', "info");
+    expect(onToast).toHaveBeenCalledWith('Official Extension "LicenseTrack AI" enabled.', "info");
 
     await user.click(screen.getByRole("button", { name: /disable/i }));
 
     await waitFor(() => expect(disablePlugin).toHaveBeenCalledWith("licensetrack-ai"));
-    expect(onToast).toHaveBeenCalledWith('Plugin "LicenseTrack AI" disabled.', "info");
+    expect(onToast).toHaveBeenCalledWith('Official Extension "LicenseTrack AI" disabled.', "info");
   });
 
   test("confirms and uninstalls a plugin", async () => {
@@ -327,7 +344,54 @@ describe("PluginsSection", () => {
     await user.click(screen.getByRole("button", { name: /uninstall/i }));
 
     await waitFor(() => expect(uninstallPlugin).toHaveBeenCalledWith("licensetrack-ai"));
-    expect(onToast).toHaveBeenCalledWith('Plugin "LicenseTrack AI" uninstalled.', "info");
-    expect(await screen.findByText("No plugins installed")).toBeInTheDocument();
+    expect(onToast).toHaveBeenCalledWith('Official Extension "LicenseTrack AI" uninstalled.', "info");
+    expect(await screen.findByText("No Official Extensions installed")).toBeInTheDocument();
+  });
+
+  test("distinguishes developer packages and blocks unverified packages", async () => {
+    getPluginHostStatus.mockResolvedValue({
+      data: { enabled: true, developerMode: true, trustedKeyCount: 0 },
+      error: null,
+    });
+    listPlugins.mockResolvedValue({
+      data: [{ ...installedPlugin, trustStatus: "developer", signerKeyId: null, signerIdentity: null }],
+      error: null,
+    });
+
+    const { rerender } = renderSection();
+
+    expect(await screen.findByText(/Developer package\. It is not verified or official/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /enable$/i })).toBeEnabled();
+
+    listPlugins.mockResolvedValue({
+      data: [{ ...installedPlugin, trustStatus: "unverified", signerKeyId: null, signerIdentity: null }],
+      error: null,
+    });
+    rerender(
+      <PluginsSection
+        isOpen
+        isDirty={false}
+        onToggle={vi.fn()}
+        onError={vi.fn()}
+        onToast={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /refresh/i }));
+
+    await waitFor(() => expect(screen.getByText(/Unverified package\. Reinstall a signed official release/i)).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /enable$/i })).toBeDisabled();
+  });
+
+  test("hides the section when the Official Extension host is unavailable", async () => {
+    getPluginHostStatus.mockResolvedValue({
+      data: { enabled: false, developerMode: false, trustedKeyCount: 0 },
+      error: null,
+    });
+
+    renderSection();
+
+    await waitFor(() => expect(getPluginHostStatus).toHaveBeenCalled());
+    expect(screen.queryByText("Official Extensions")).not.toBeInTheDocument();
+    expect(listPlugins).not.toHaveBeenCalled();
   });
 });

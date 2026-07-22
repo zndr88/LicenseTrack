@@ -175,14 +175,14 @@ export function useDetailPanelState({
     }
     await refreshAfterPluginSuggestionReview();
     const fields = data?.appliedFields?.join(", ");
-    setToast(fields ? `Applied plugin suggestions: ${fields}.` : "Plugin suggestions applied.");
+    setToast(fields ? `Applied Official Extension suggestions: ${fields}.` : "Official Extension suggestions applied.");
     setTimeout(() => setToast(null), 5000);
   };
 
   const handleRejectPluginSuggestion = async (suggestion) => {
     setConfirmAction({
-      title: "Reject Plugin Suggestions",
-      message: "Reject these plugin suggestions? No license fields will be changed.",
+      title: "Reject Official Extension Suggestions",
+      message: "Reject these Official Extension suggestions? No license fields will be changed.",
       confirmLabel: "Reject",
       danger: true,
       onConfirm: async () => {
@@ -195,7 +195,7 @@ export function useDetailPanelState({
           return;
         }
         await loadPluginSuggestions();
-        setToast("Plugin suggestions rejected.");
+        setToast("Official Extension suggestions rejected.");
         setTimeout(() => setToast(null), 5000);
       },
     });

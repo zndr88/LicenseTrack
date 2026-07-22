@@ -1,5 +1,9 @@
 import { del, get, post, put } from "./client.js";
 
+export async function getPluginHostStatus() {
+  return get("/api/plugins/status");
+}
+
 export async function listPlugins() {
   return get("/api/plugins");
 }
