@@ -244,9 +244,9 @@ async def authenticate_plugin_runtime_request(db: AsyncSession, plugin_key: str,
     token = _runtime_token(plugin.key, status)
     expected = f"Bearer {token}" if token else None
     if not expected or authorization != expected:
-        raise PluginRuntimeAuthError("Plugin runtime token is invalid")
+        raise PluginRuntimeAuthError("Official Extension runtime token is invalid")
     if status.health not in {"starting", "healthy", "error"}:
-        raise PluginRuntimeAuthError(f"Plugin '{plugin_key}' runtime is not active")
+        raise PluginRuntimeAuthError(f"Official Extension '{plugin_key}' runtime is not active")
     return plugin
 
 
@@ -318,7 +318,7 @@ async def read_scoped_runtime_document(
     _require_granted_permission(plugin, "documents:read")
     scoped_refs = _action_document_scopes.get((plugin_key, request_id), set())
     if (document_type, document_id) not in scoped_refs:
-        raise PluginRuntimeError("Document is not available in this plugin action context")
+        raise PluginRuntimeError("Document is not available in this Official Extension action context")
 
     if document_type == DOCUMENT_TYPE_LICENSE:
         document = await db.get(Document, document_id)
@@ -402,14 +402,14 @@ async def invoke_plugin_runtime_action(
         token = _runtime_token(plugin.key, status)
         port = status.port
     if not token or not port or status.health != "healthy":
-        raise PluginRuntimeError(f"Plugin '{plugin_key}' runtime is not healthy")
+        raise PluginRuntimeError(f"Official Extension '{plugin_key}' runtime is not healthy")
 
     timeout = timeout_seconds or int(runtime.get("timeoutSeconds") or 30)
     try:
         return await _post_runtime_action(runtime, token, port, handler, payload, timeout)
     except httpx.TimeoutException as exc:
         status.health = "error"
-        status.last_error = f"Plugin action '{handler}' timed out after {timeout} second(s)"
+        status.last_error = f"Official Extension action '{handler}' timed out after {timeout} second(s)"
         await db.flush()
         raise PluginRuntimeActionTimeout(status.last_error) from exc
     except httpx.TransportError:
@@ -417,22 +417,22 @@ async def invoke_plugin_runtime_action(
         token = _runtime_token(plugin.key, status)
         port = status.port
         if not token or not port or status.health != "healthy":
-            raise PluginRuntimeError(f"Plugin '{plugin_key}' runtime is not healthy")
+            raise PluginRuntimeError(f"Official Extension '{plugin_key}' runtime is not healthy")
         try:
             return await _post_runtime_action(runtime, token, port, handler, payload, timeout)
         except httpx.TimeoutException as exc:
             status.health = "error"
-            status.last_error = f"Plugin action '{handler}' timed out after {timeout} second(s)"
+            status.last_error = f"Official Extension action '{handler}' timed out after {timeout} second(s)"
             await db.flush()
             raise PluginRuntimeActionTimeout(status.last_error) from exc
         except Exception as exc:
             status.health = "error"
-            status.last_error = f"Plugin action '{handler}' failed after runtime restart: {exc}"
+            status.last_error = f"Official Extension action '{handler}' failed after runtime restart: {exc}"
             await db.flush()
             raise PluginRuntimeError(status.last_error) from exc
     except Exception as exc:
         status.health = "error"
-        status.last_error = f"Plugin action '{handler}' failed: {exc}"
+        status.last_error = f"Official Extension action '{handler}' failed: {exc}"
         await db.flush()
         raise PluginRuntimeError(status.last_error) from exc
 
@@ -498,12 +498,12 @@ async def _health_check(runtime: dict, token: str, port: int) -> dict[str, Any]:
 
 async def _ensure_runtime_ready(db: AsyncSession, plugin: Plugin) -> None:
     if plugin.status in {"incompatible", "uninstalled"} or plugin.compatibility_status == "incompatible":
-        raise PluginRuntimeError(f"Plugin '{plugin.key}' cannot be started while {plugin.status}")
+        raise PluginRuntimeError(f"Official Extension '{plugin.key}' cannot be started while {plugin.status}")
     settings_response = await read_plugin_settings(db, plugin.key)
     if settings_response.missing_required:
         status = await _runtime_status_for(db, plugin.id)
         status.health = "error"
-        status.last_error = f"Missing required plugin setting(s): {', '.join(settings_response.missing_required)}"
+        status.last_error = f"Missing required Official Extension setting(s): {', '.join(settings_response.missing_required)}"
         plugin.status = "misconfigured"
         plugin.enabled = False
         plugin.last_error = status.last_error
@@ -514,7 +514,7 @@ async def _ensure_runtime_ready(db: AsyncSession, plugin: Plugin) -> None:
 async def _get_plugin(db: AsyncSession, plugin_key: str) -> Plugin:
     plugin = await _get_plugin_or_none(db, plugin_key)
     if plugin is None:
-        raise PluginRuntimeNotFoundError(f"Plugin '{plugin_key}' is not installed")
+        raise PluginRuntimeNotFoundError(f"Official Extension '{plugin_key}' is not installed")
     return plugin
 
 
@@ -543,7 +543,7 @@ async def _runtime_status_for(db: AsyncSession, plugin_id: int) -> PluginRuntime
 def _runtime_manifest(plugin: Plugin) -> dict:
     runtime = (plugin.manifest or {}).get("runtime") or {}
     if runtime.get("type") != "managedProcess":
-        raise PluginRuntimeError(f"Plugin '{plugin.key}' does not declare a managedProcess runtime")
+        raise PluginRuntimeError(f"Official Extension '{plugin.key}' does not declare a managedProcess runtime")
     return runtime
 
 
@@ -551,7 +551,7 @@ def _resolve_entrypoint(install_path: Path, runtime: dict) -> Path:
     raw_entrypoint = str(runtime.get("entrypoint") or "")
     entrypoint = (install_path / raw_entrypoint).resolve()
     if install_path not in entrypoint.parents:
-        raise PluginRuntimeError("Runtime entrypoint must stay inside the installed plugin directory")
+        raise PluginRuntimeError("Runtime entrypoint must stay inside the installed Official Extension directory")
     if not entrypoint.exists() or not entrypoint.is_file():
         raise PluginRuntimeError("Runtime entrypoint does not exist")
     return entrypoint

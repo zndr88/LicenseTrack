@@ -56,7 +56,7 @@ nav:
       - Operations Runbook: operations/runbook.md
       - Backup & Restore: operations/backup-restore.md
   - Advanced:
-      - Integrations & Plugins: advanced/index.md
+      - Integrations & Official Extensions: advanced/index.md
 
 markdown_extensions:
   - admonition

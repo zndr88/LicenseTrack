@@ -36,13 +36,13 @@ async def enable_plugin(db: AsyncSession, plugin_key: str, *, actor_id: int | No
         await db.flush()
         raise PluginLifecycleError(str(exc)) from exc
     if plugin.compatibility_status != "compatible":
-        raise PluginLifecycleError("Plugin is not compatible with this LicenseTrack version")
+        raise PluginLifecycleError("Official Extension is not compatible with this LicenseTrack version")
 
     settings_response = await read_plugin_settings(db, plugin.key)
     if settings_response.missing_required:
         plugin.status = "misconfigured"
         plugin.enabled = False
-        plugin.last_error = f"Missing required plugin setting(s): {', '.join(settings_response.missing_required)}"
+        plugin.last_error = f"Missing required Official Extension setting(s): {', '.join(settings_response.missing_required)}"
         await _set_actions_enabled(plugin, enabled=False)
         await db.flush()
         raise PluginLifecycleError(plugin.last_error)
@@ -148,7 +148,7 @@ async def _get_plugin(db: AsyncSession, plugin_key: str) -> Plugin:
     )
     plugin = result.scalar_one_or_none()
     if plugin is None:
-        raise PluginLifecycleError(f"Plugin '{plugin_key}' is not installed")
+        raise PluginLifecycleError(f"Official Extension '{plugin_key}' is not installed")
     return plugin
 
 
@@ -201,5 +201,5 @@ def _safe_install_path(raw_path: str) -> Path:
     storage_root = Path(settings.PLUGIN_STORAGE_PATH).resolve()
     install_path = Path(raw_path).resolve()
     if install_path == storage_root or storage_root not in install_path.parents:
-        raise PluginLifecycleError("Plugin install path is outside configured plugin storage")
+        raise PluginLifecycleError("Official Extension install path is outside configured extension storage")
     return install_path

@@ -140,18 +140,18 @@ async def invoke_plugin_action(
 ) -> PluginActionInvocationResult:
     action = await _get_action(db, plugin_key, action_key)
     if action is None:
-        raise PluginActionError("Plugin action not found")
+        raise PluginActionError("Official Extension action not found")
     plugin = action.plugin
     if not plugin_can_run(plugin):
         raise PluginActionError("Official Extension is not verified or developer mode is unavailable")
     if not plugin.enabled or plugin.status != "enabled" or not action.enabled:
-        raise PluginActionError("Plugin action is not enabled")
+        raise PluginActionError("Official Extension action is not enabled")
     if target_type not in SLOT_TARGET_TYPES.get(action.slot, set()):
-        raise PluginActionError("Plugin action does not support this target")
+        raise PluginActionError("Official Extension action does not support this target")
     if not _role_allows(actor, action.required_role):
-        raise PluginActionError("User role cannot invoke this plugin action")
+        raise PluginActionError("User role cannot invoke this Official Extension action")
     if plugin.runtime_status is None or plugin.runtime_status.health != "healthy":
-        raise PluginActionError("Plugin runtime is not healthy")
+        raise PluginActionError("Official Extension runtime is not healthy")
 
     context, target_label = await _build_context(
         db,
@@ -288,7 +288,7 @@ async def _build_context(
         return _build_sourcing_quote_draft_context(target_id=target_id, actor=actor, client_context=client_context)
     if target_type == "pending_order_draft":
         return _build_pending_order_draft_context(target_id=target_id, actor=actor, client_context=client_context)
-    raise PluginActionError("Unsupported plugin action target")
+    raise PluginActionError("Unsupported Official Extension action target")
 
 
 async def _build_license_document_context(
@@ -552,7 +552,7 @@ def _string_or_none(value: Any) -> str | None:
 
 def _require_procurement_access(actor: User) -> None:
     if _role_value(actor) == "viewer":
-        raise PluginActionError("User role cannot access procurement plugin actions")
+        raise PluginActionError("User role cannot access procurement Official Extension actions")
 
 
 def _list_item(action: PluginAction) -> PluginActionListItem:

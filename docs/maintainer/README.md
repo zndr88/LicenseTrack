@@ -9,5 +9,6 @@ These docs are for people changing LicenseTrack itself.
 - `procurement-history-trail.md` records the intended sourcing history, pending
   order history, and license detail procurement-trail navigation behavior.
 
-Operator documentation lives in `wiki/`. Extension and plugin author material
-lives in the neighboring `extension-authors/` and `plugin-authors/` folders.
+Operator documentation lives in `wiki/`. Public integration-author material
+lives in `extension-authors/`; internal first-party Official Extension
+maintenance material lives in `plugin-authors/`.

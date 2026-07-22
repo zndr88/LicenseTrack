@@ -23,7 +23,7 @@ class PluginRegistryError(ValueError):
 
 def _ensure_unique(values: list[str], label: str) -> None:
     if len(values) != len(set(values)):
-        raise PluginRegistryError(f"Duplicate plugin {label} declarations are not allowed")
+        raise PluginRegistryError(f"Duplicate Official Extension {label} declarations are not allowed")
 
 
 async def get_plugin(db: AsyncSession, plugin_key: str) -> Plugin | None:
@@ -59,7 +59,7 @@ async def list_plugins(db: AsyncSession) -> list[Plugin]:
 async def create_plugin_registry_record(db: AsyncSession, payload: PluginRegistryCreate) -> Plugin:
     existing = await db.scalar(select(Plugin.id).where(Plugin.key == payload.key))
     if existing is not None:
-        raise PluginRegistryError(f"Plugin '{payload.key}' is already installed")
+        raise PluginRegistryError(f"Official Extension '{payload.key}' is already installed")
 
     _ensure_unique([permission.permission for permission in payload.permissions], "permission")
     _ensure_unique([setting.key for setting in payload.settings], "setting")
@@ -145,7 +145,7 @@ async def create_plugin_registry_record(db: AsyncSession, payload: PluginRegistr
     await db.flush()
     created = await get_plugin(db, payload.key)
     if created is None:
-        raise PluginRegistryError("Created plugin could not be loaded")
+        raise PluginRegistryError("Created Official Extension could not be loaded")
     return created
 
 
@@ -156,7 +156,7 @@ async def update_plugin_registry_record(
 ) -> Plugin:
     plugin = await get_plugin(db, plugin_key)
     if plugin is None:
-        raise PluginRegistryError(f"Plugin '{plugin_key}' is not installed")
+        raise PluginRegistryError(f"Official Extension '{plugin_key}' is not installed")
 
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():

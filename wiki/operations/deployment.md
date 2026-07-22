@@ -1,6 +1,6 @@
 # Production deployment & hardening
 
-You've got a basic instance running from the [Installation guide](../getting-started/installation.md). This page is the production reference: running under Podman, hardening a network-reachable install, the full configuration variable list, the plugin runtime constraint, persistent data, and reverse-proxy setup.
+You've got a basic instance running from the [Installation guide](../getting-started/installation.md). This page is the production reference: running under Podman, hardening a network-reachable install, the full configuration variable list, the Official Extensions runtime constraint, persistent data, and reverse-proxy setup.
 
 !!! note "This page does not repeat the basics"
     For requirements and the initial `cp .env` → generate `JWT_SECRET` → `docker compose up` steps, see [Prerequisites](../getting-started/prerequisites.md) and [Installation](../getting-started/installation.md).
@@ -34,7 +34,7 @@ Notes:
 - **Serve over HTTPS behind a reverse proxy** (nginx, Caddy, Traefik) and set `SESSION_COOKIE_SECURE=true` so session cookies are only sent over TLS.
 - **Set `CORS_ORIGINS`** to the exact browser origin(s) you serve from — not the default localhost value.
 - **Do not expose the container port directly to an untrusted network.** Publish it only to the reverse proxy (e.g. bind to `127.0.0.1` on the host, or keep it on an internal network).
-- **Keep a single Uvicorn worker** (the default). The Plugin Host manages plugin subprocesses in the worker's memory; multiple workers break plugin runtime management.
+- **Keep a single Uvicorn worker** (the default) when the Official Extensions host is enabled. Managed extension subprocess state lives in the worker's memory.
 - The bundled `docker-compose.yml` already sets `no-new-privileges` and runs the app as a non-root user.
 
 ## Configuration
@@ -66,11 +66,14 @@ All variables are read from `.env` at container start. Restart the container aft
 | `SMTP_FROM` | No | empty | Sender address for notification emails. |
 | `MAX_UPLOAD_SIZE_MB` | No | `20` | Maximum upload size in megabytes. |
 | `ALLOWED_UPLOAD_EXTENSIONS` | No | common office/document extensions | Comma-separated upload extension allow-list. |
-| `PLUGIN_STORAGE_PATH` | No | `/data/plugins` | Directory where installed plugin packages are extracted. |
-| `PLUGIN_HOST_BASE_URL` | No | `http://localhost:8000` | Base URL the plugin runtime uses to call back into LicenseTrack. Set this to the internal URL the backend is reachable on from within the same host (not the browser-facing URL). |
-| `MAX_PLUGIN_PACKAGE_SIZE_MB` | No | `50` | Maximum plugin zip size in megabytes. |
-| `MAX_PLUGIN_DOCUMENT_SIZE_MB` | No | `10` | Maximum size of a single document a plugin may read at runtime. |
-| `PLUGIN_RUNTIME_LOG_MAX_BYTES` | No | `524288` | Maximum bytes returned when viewing plugin runtime logs (tail). |
+| `PLUGIN_HOST_ENABLED` | No | `false` | Enables the internal Official Extensions host. Leave disabled unless an official signed extension is required. |
+| `PLUGIN_HOST_DEVELOPER_MODE` | No | `false` | Allows unsigned developer packages and marks them non-official. Unsupported for production. |
+| `OFFICIAL_EXTENSION_PUBLIC_KEYS` | No | `[]` | JSON array of pinned Ed25519 release keys with `keyId`, `signer`, and base64 raw `publicKey`. Obtain values only from official LicenseTrack releases. |
+| `PLUGIN_STORAGE_PATH` | No | `/data/plugins` | Directory where Official Extension packages are extracted. |
+| `PLUGIN_HOST_BASE_URL` | No | `http://localhost:8000` | Internal callback base URL for managed Official Extension runtimes. |
+| `MAX_PLUGIN_PACKAGE_SIZE_MB` | No | `50` | Maximum Official Extension package size in megabytes. |
+| `MAX_PLUGIN_DOCUMENT_SIZE_MB` | No | `10` | Maximum document size delivered to an extension runtime. |
+| `PLUGIN_RUNTIME_LOG_MAX_BYTES` | No | `524288` | Maximum bytes returned from an extension runtime log tail. |
 
 ## Local Keycloak OIDC testing
 
@@ -101,16 +104,19 @@ When testing Keycloak on a VM:
   validation; auth codes, tokens, client secrets, and raw ID tokens are not
   logged.
 
-## Plugin runtime
+## Official Extensions runtime
 
-LicenseTrack v1 includes a Plugin Host that runs installable plugin packages as managed local processes.
+The internal host runs only packages published and signed by the LicenseTrack project. It is disabled by default. Enable it only when an official release provides both an extension package and its pinned public-key configuration. Custom and third-party automation belongs in the API, webhook, or sidecar framework.
+
+!!! danger "Trusted application code, not a sandbox"
+    Official Extensions run under the LicenseTrack operating-system account. Declared access, managed processes, callback tokens, environment allow-listing, and process-tree termination are lifecycle and least-exposure controls; they do not contain hostile code. An extension may access application files and the SQLite database wherever the LicenseTrack account can.
 
 !!! warning "Single-worker constraint"
-    Plugin subprocess state (process handles, bearer tokens, per-action document scopes) lives in the FastAPI process. You must run exactly one Uvicorn worker. Do not set `--workers N` with `N > 1` in any process manager. Running multiple workers silently partitions plugin state: worker A starts a subprocess and records its token; worker B cannot find it and rejects all runtime requests from that plugin with 401.
+    Extension subprocess state (process handles, bearer tokens, per-action document scopes) lives in the FastAPI process. When the host is enabled, run exactly one Uvicorn worker. Do not set `--workers N` with `N > 1`.
 
 The Docker Compose configuration uses the default of one worker. If you override the Uvicorn command in your deployment, do not add `--workers`.
 
-**Plugin storage volume.** Installed plugin packages are extracted to `PLUGIN_STORAGE_PATH` (default `/data/plugins`). Add this path to your volume or bind-mount alongside `/data/storage` and `/data/backups`. Without a persistent volume, installed plugins are lost on container restart.
+**Extension storage volume.** Installed packages are extracted to `PLUGIN_STORAGE_PATH` (default `/data/plugins`). Add this path to your volume or bind-mount alongside `/data/storage` and `/data/backups`.
 
 ```yaml
 volumes:
@@ -119,9 +125,11 @@ volumes:
 
 The named `license_lifecycle_data` volume covers `/data`, including `/data/plugins`, `/data/storage`, and `/data/backups`.
 
-**Plugin entrypoints.** Only Python (`.py`) entrypoints are supported in v1. The backend rejects a plugin runtime at enable time if the declared entrypoint does not end in `.py`.
+**Entrypoints.** Only Python (`.py`) entrypoints are supported. The backend rejects other runtime entrypoints.
 
-**Runtime callback URL.** `PLUGIN_RUNTIME_LOG_MAX_BYTES` controls how much log the admin can view. `PLUGIN_HOST_BASE_URL` controls the URL injected into plugin runtime env as `LT_PLUGIN_BASE_URL`. Set it to the internal URL the backend is reachable on from within the same host.
+**Runtime callback URL.** `PLUGIN_RUNTIME_LOG_MAX_BYTES` controls how much log an admin can view. `PLUGIN_HOST_BASE_URL` is injected as the runtime callback base URL. Set it to the internal URL on which the backend is reachable from the same host.
+
+**Upgrade migration.** Installations created before signature verification are retained but marked `unverified`, disabled, and prevented from starting. Settings, version records, audit history, and suggestions are preserved. Reinstall an official signed release to restore an extension; do not reclassify a legacy package by editing the database.
 
 ## Startup behavior
 

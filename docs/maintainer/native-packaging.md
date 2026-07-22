@@ -101,6 +101,6 @@ python scripts/build_native_release.py
 bash scripts/test_native_runtime.sh /path/to/extracted-native-bundle
 ```
 
-Final release verification must exercise fresh install, reboot persistence, upgrade, failed health-check rollback, database backup, document persistence, and plugin persistence on a clean Ubuntu 22.04 VM snapshot.
+Final release verification must exercise fresh install, reboot persistence, upgrade, failed health-check rollback, database backup, document persistence, and Official Extension persistence on a clean Ubuntu 22.04 VM snapshot.
 
 For upgrade-path testing without changing the tracked application version, the builder accepts `--version-override <next-version>-test`. Replace the placeholder with a semantic version newer than the installed release. This flag is for disposable VM artifacts only; the tag release workflow never uses it and independently requires the tag to match `APP_VERSION`.

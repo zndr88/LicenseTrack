@@ -404,7 +404,7 @@ async def test_plugin_action_suggestions_reject_unknown_target(test_app, db_sess
     )
 
     assert response.status_code == 409
-    assert "unsupported plugin suggestion target" in response.json()["detail"].lower()
+    assert "unsupported official extension suggestion target" in response.json()["detail"].lower()
 
 
 async def test_plugin_action_suggestions_require_target_permission(test_app, db_session, auth_headers, monkeypatch):

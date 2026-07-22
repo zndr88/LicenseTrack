@@ -7,7 +7,7 @@
 3. downloads the requested document through the LicenseTrack API;
 4. submits a fake `quantity` suggestion to `POST /api/document-processing-results`.
 
-It is an example scaffold, not a production parser and not an installable plugin. Operators still need to configure the API token, webhook endpoint, capability declaration, and sidecar runtime manually.
+It is an example scaffold, not a production parser or an Official Extension package. Operators still need to configure the API token, webhook endpoint, capability declaration, and sidecar runtime manually.
 
 ## Requirements
 

@@ -54,7 +54,7 @@ async def update_plugin_settings(
     for item in payload.values:
         definition = definitions_by_key.get(item.key)
         if definition is None:
-            raise PluginSettingsError(f"Unknown plugin setting: {item.key}")
+            raise PluginSettingsError(f"Unknown Official Extension setting: {item.key}")
         existing = values.get(item.key)
         normalized = _validate_setting_value(definition, item.value)
         is_secret = definition.setting_type == "secret"
@@ -86,11 +86,13 @@ async def update_plugin_settings(
     if missing_required:
         plugin.status = "misconfigured"
         plugin.enabled = False
-        plugin.last_error = f"Missing required plugin setting(s): {', '.join(missing_required)}"
+        plugin.last_error = f"Missing required Official Extension setting(s): {', '.join(missing_required)}"
     elif (
         plugin.status == "misconfigured"
         and plugin.last_error
-        and plugin.last_error.startswith("Missing required plugin setting")
+        and plugin.last_error.startswith(
+            ("Missing required Official Extension setting", "Missing required plugin setting")
+        )
     ):
         plugin.status = "disabled"
         plugin.last_error = None
@@ -103,7 +105,7 @@ async def update_plugin_settings(
 async def _get_plugin_by_key(db: AsyncSession, plugin_key: str) -> Plugin:
     plugin = await db.scalar(select(Plugin).where(Plugin.key == plugin_key))
     if plugin is None:
-        raise PluginSettingsError(f"Plugin '{plugin_key}' is not installed")
+        raise PluginSettingsError(f"Official Extension '{plugin_key}' is not installed")
     return plugin
 
 
@@ -228,4 +230,4 @@ def _validate_setting_value(definition: PluginSettingDefinition, value):
         if value and value not in options:
             raise PluginSettingsError(f"{definition.setting_key} must be one of the configured options")
         return value
-    raise PluginSettingsError(f"Unsupported plugin setting type: {setting_type}")
+    raise PluginSettingsError(f"Unsupported Official Extension setting type: {setting_type}")

@@ -42,11 +42,11 @@ PLUGIN_PERMISSION_CATALOG: dict[str, dict[str, str]] = {
         "risk": "medium",
     },
     "plugin:settings:read": {
-        "description": "Read this plugin's own configured settings.",
+        "description": "Read this Official Extension's own configured settings.",
         "risk": "medium",
     },
     "plugin:settings:write": {
-        "description": "Update this plugin's own settings through approved host APIs.",
+        "description": "Update this Official Extension's own settings through approved host APIs.",
         "risk": "high",
     },
     "suggestions:license:write": {
@@ -86,7 +86,7 @@ PLUGIN_PERMISSION_CATALOG: dict[str, dict[str, str]] = {
 PLUGIN_SLOT_CATALOG: dict[str, dict[str, str | bool]] = {
     "settings.plugins.panel": {
         "target_type": "plugin",
-        "description": "Host-rendered plugin settings and diagnostics.",
+        "description": "Host-rendered Official Extension settings and diagnostics.",
         "action_declarations_allowed": False,
     },
     "document.row.actions": {
@@ -215,7 +215,7 @@ class PluginActionManifest(BaseModel):
     def validate_action_slot(cls, value: str) -> str:
         slot = PLUGIN_SLOT_CATALOG.get(value)
         if not slot or not slot["action_declarations_allowed"]:
-            raise ValueError("Unknown or unsupported plugin action slot")
+            raise ValueError("Unknown or unsupported Official Extension action slot")
         return value
 
     @field_validator("handler")
@@ -245,7 +245,7 @@ class PluginManifest(BaseModel):
     @classmethod
     def validate_plugin_key(cls, value: str) -> str:
         if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{1,78}[a-z0-9])", value) or "--" in value:
-            raise ValueError("Plugin key must be a lowercase slug")
+            raise ValueError("Official Extension key must be a lowercase slug")
         return value
 
     @field_validator("permissions")
@@ -253,9 +253,9 @@ class PluginManifest(BaseModel):
     def validate_permissions(cls, value: list[str]) -> list[str]:
         unknown = sorted(set(value) - set(PLUGIN_PERMISSION_CATALOG))
         if unknown:
-            raise ValueError(f"Unknown plugin permission: {', '.join(unknown)}")
+            raise ValueError(f"Unknown Official Extension permission: {', '.join(unknown)}")
         if len(value) != len(set(value)):
-            raise ValueError("Plugin permissions must be unique")
+            raise ValueError("Official Extension permissions must be unique")
         return value
 
     @model_validator(mode="after")
@@ -276,7 +276,7 @@ class PluginManifest(BaseModel):
 
 def _require_unique(values: list[str], label: str) -> None:
     if len(values) != len(set(values)):
-        raise ValueError(f"Plugin {label} declarations must be unique")
+        raise ValueError(f"Official Extension {label} declarations must be unique")
 
 
 class PluginPackageIssue(BaseModel):
@@ -323,7 +323,7 @@ class PluginPermissionCreate(BaseModel):
     @classmethod
     def validate_known_permission(cls, value: str) -> str:
         if value not in PLUGIN_PERMISSION_CATALOG:
-            raise ValueError("Unknown plugin permission")
+            raise ValueError("Unknown Official Extension permission")
         return value
 
 
@@ -354,7 +354,7 @@ class PluginActionCreate(BaseModel):
     def validate_known_action_slot(cls, value: str) -> str:
         slot = PLUGIN_SLOT_CATALOG.get(value)
         if not slot or not slot["action_declarations_allowed"]:
-            raise ValueError("Unknown or unsupported plugin action slot")
+            raise ValueError("Unknown or unsupported Official Extension action slot")
         return value
 
 
@@ -610,7 +610,7 @@ class PluginSettingsUpdateRequest(BaseModel):
     def require_unique_keys(cls, value: list[PluginSettingValueUpdate]) -> list[PluginSettingValueUpdate]:
         keys = [item.key for item in value]
         if len(keys) != len(set(keys)):
-            raise ValueError("Plugin setting keys must be unique")
+            raise ValueError("Official Extension setting keys must be unique")
         return value
 
 

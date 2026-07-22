@@ -159,7 +159,7 @@ async def install_plugin(
 
     loaded = await get_plugin(db, plugin.key)
     if loaded is None:
-        raise HTTPException(status_code=500, detail="Installed plugin could not be loaded.")
+        raise HTTPException(status_code=500, detail="Installed Official Extension could not be loaded.")
     return PluginDetailResponse.model_validate(loaded)
 
 
@@ -364,5 +364,5 @@ async def get_installed_plugin(
 ) -> PluginDetailResponse:
     plugin = await get_plugin(db, plugin_key)
     if plugin is None:
-        raise HTTPException(status_code=404, detail="Plugin not found")
+        raise HTTPException(status_code=404, detail="Official Extension not found")
     return PluginDetailResponse.model_validate(plugin)

@@ -231,7 +231,7 @@ async def test_setting_and_action_keys_must_be_unique_per_plugin(db_session):
             label="Duplicate key",
         )
     )
-    with pytest.raises(PluginRegistryError, match="Duplicate plugin setting"):
+    with pytest.raises(PluginRegistryError, match="Duplicate Official Extension setting"):
         await create_plugin_registry_record(db_session, payload)
 
     payload = _payload("licensetrack-ai-actions")
@@ -244,7 +244,7 @@ async def test_setting_and_action_keys_must_be_unique_per_plugin(db_session):
             required_role="editor",
         )
     )
-    with pytest.raises(PluginRegistryError, match="Duplicate plugin action"):
+    with pytest.raises(PluginRegistryError, match="Duplicate Official Extension action"):
         await create_plugin_registry_record(db_session, payload)
 
 

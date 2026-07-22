@@ -130,7 +130,7 @@ async def _validate_license_suggestion_fields(
     fields: list[PluginSuggestedField],
 ) -> None:
     if not fields:
-        raise PluginSuggestionError("Plugin suggestions must include at least one field")
+        raise PluginSuggestionError("Official Extension suggestions must include at least one field")
 
     custom_by_key = await _custom_field_lookup(db)
     unknown_fields: list[str] = []
@@ -164,9 +164,9 @@ def _validate_allowlisted_fields(
 ) -> None:
     allowlist = TARGET_FIELD_ALLOWLISTS.get(target_type)
     if allowlist is None:
-        raise PluginSuggestionError(f"Plugin suggestion target '{target_type}' is not implemented yet")
+        raise PluginSuggestionError(f"Official Extension suggestion target '{target_type}' is not implemented yet")
     if not fields and not line_items:
-        raise PluginSuggestionError("Plugin suggestions must include at least one field or line item")
+        raise PluginSuggestionError("Official Extension suggestions must include at least one field or line item")
 
     unknown_fields = [suggestion.field.strip() for suggestion in fields if suggestion.field.strip() not in allowlist]
     for line_item in line_items:
@@ -237,7 +237,7 @@ async def _resolve_target_license_id(
     if target_type in {"sourcing_quote_draft", "pending_order_draft"}:
         return None
 
-    raise PluginSuggestionError(f"Plugin suggestion target '{target_type}' is not implemented yet")
+    raise PluginSuggestionError(f"Official Extension suggestion target '{target_type}' is not implemented yet")
 
 
 def _parse_int_target_id(value: str, message: str) -> int:
@@ -249,7 +249,7 @@ def _parse_int_target_id(value: str, message: str) -> int:
 
 def _parse_suggestion_fields(raw_fields: Any) -> list[PluginSuggestedField]:
     if not isinstance(raw_fields, list):
-        raise PluginSuggestionError("Plugin suggestion fields must be a list")
+        raise PluginSuggestionError("Official Extension suggestion fields must be a list")
     try:
         return [PluginSuggestedField.model_validate(item) for item in raw_fields]
     except ValueError as exc:
@@ -260,7 +260,7 @@ def _parse_line_items(raw_line_items: Any) -> list[PluginSuggestionLineItem]:
     if raw_line_items is None:
         return []
     if not isinstance(raw_line_items, list):
-        raise PluginSuggestionError("Plugin suggestion lineItems must be a list")
+        raise PluginSuggestionError("Official Extension suggestion lineItems must be a list")
     try:
         return [PluginSuggestionLineItem.model_validate(item) for item in raw_line_items]
     except ValueError as exc:
@@ -282,25 +282,25 @@ async def create_plugin_suggestions_from_runtime_output(
     if raw_suggestions in (None, []):
         return PluginSuggestionCreationResult()
     if not isinstance(raw_suggestions, list):
-        raise PluginSuggestionError("Plugin action suggestions must be a list")
+        raise PluginSuggestionError("Official Extension action suggestions must be a list")
 
     custom_now = datetime.now(timezone.utc)
     created: list[PluginSuggestion] = []
     superseded_count = 0
     for raw_suggestion in raw_suggestions:
         if not isinstance(raw_suggestion, dict):
-            raise PluginSuggestionError("Each plugin suggestion must be an object")
+            raise PluginSuggestionError("Each Official Extension suggestion must be an object")
 
         target_type = str(_payload_value(raw_suggestion, "targetType", "target_type") or "").strip()
         if target_type not in SUPPORTED_TARGET_TYPES:
-            raise PluginSuggestionError(f"Unsupported plugin suggestion target: {target_type or '(missing)'}")
+            raise PluginSuggestionError(f"Unsupported Official Extension suggestion target: {target_type or '(missing)'}")
         required_permission = SUGGESTION_PERMISSION_BY_TARGET[target_type]
         if not _plugin_has_permission(plugin, required_permission):
-            raise PluginSuggestionError(f"Plugin is missing required suggestion permission: {required_permission}")
+            raise PluginSuggestionError(f"Official Extension is missing required suggestion permission: {required_permission}")
 
         target_id = str(_payload_value(raw_suggestion, "targetId", "target_id") or "").strip()
         if not target_id:
-            raise PluginSuggestionError("Plugin suggestions must include targetId")
+            raise PluginSuggestionError("Official Extension suggestions must include targetId")
 
         fields = _parse_suggestion_fields(
             _payload_value(raw_suggestion, "fields", "suggestedFields", "suggested_fields", default=[])
@@ -395,13 +395,13 @@ async def _get_pending_suggestion(
 ) -> PluginSuggestion:
     suggestion = await db.get(PluginSuggestion, suggestion_id)
     if suggestion is None:
-        raise PluginSuggestionError("Plugin suggestion not found")
+        raise PluginSuggestionError("Official Extension suggestion not found")
     if suggestion.license_id is not None:
         license_obj = await db.get(License, suggestion.license_id)
         if license_obj is None or not await can_view_license(actor, license_obj, db):
-            raise PluginSuggestionError("Plugin suggestion not found")
+            raise PluginSuggestionError("Official Extension suggestion not found")
     if suggestion.status != "pending":
-        raise PluginSuggestionError(f"Plugin suggestion is already {suggestion.status}")
+        raise PluginSuggestionError(f"Official Extension suggestion is already {suggestion.status}")
     return suggestion
 
 
@@ -435,7 +435,7 @@ async def accept_plugin_suggestion(
 ) -> PluginSuggestionApplyResult:
     suggestion = await _get_pending_suggestion(db, suggestion_id=suggestion_id, actor=actor)
     if suggestion.target_type != "license" or suggestion.license_id is None:
-        raise PluginSuggestionError(f"Plugin suggestion target '{suggestion.target_type}' cannot be applied")
+        raise PluginSuggestionError(f"Official Extension suggestion target '{suggestion.target_type}' cannot be applied")
 
     selected_indexes: list[int] | None = None
     if suggested_field_indexes is not None:

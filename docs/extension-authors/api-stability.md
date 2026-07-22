@@ -8,7 +8,10 @@ The policy is intentionally modest. It does not introduce a versioned `/api/v1` 
 
 ### Stable
 
-Stable API routes are intended for operator-built integrations and first-party integration/plugin work. They should preserve request and response compatibility within a release line unless a security or data-integrity issue requires a breaking change.
+Stable API routes are intended for operator-built integrations and first-party
+clients. They should preserve request and response compatibility within a
+release line unless a security or data-integrity issue requires a breaking
+change.
 
 Stable routes should have:
 
@@ -19,7 +22,9 @@ Stable routes should have:
 
 ### Experimental
 
-Experimental routes are usable but may change while the workflow is still being shaped. They can support early first-party integrations, future plugin-host work, or internal pilots, but integration authors should expect compatibility churn.
+Experimental routes are usable but may change while the workflow is still being
+shaped. They can support early first-party integrations or internal pilots, but
+integration authors should expect compatibility churn.
 
 Experimental routes should be marked as such in documentation before they are promoted to stable.
 
@@ -45,7 +50,7 @@ The following route groups are candidates for stable integration contracts, subj
 | Webhooks | `/api/webhooks/*` | Experimental admin-managed event surface based on audit actions |
 | Document actions | `/api/document-actions/*` | Experimental operator-triggered integration point for document processors |
 | Document processing results | `/api/document-processing-results/*` | Experimental result intake and review surface for document processors |
-| Extension capabilities | `/api/extensions/capabilities/*` | Experimental declared-capability/status registry for integrations and sidecars; not a plugin loader |
+| Extension capabilities | `/api/extensions/capabilities/*` | Experimental declared-capability/status registry for integrations and sidecars; does not load runtime code |
 
 Procurement history reads are part of the sourcing and pending-order route families. `GET /api/sourcing/requests/history` and `GET /api/pending-orders/history` expose converted/cancelled reference records. `GET /api/licenses/{id}/procurement-trail` is part of the license route family and exposes the stored source sourcing and pending-order links for a converted license.
 
@@ -91,7 +96,7 @@ Security fixes, data-corruption fixes, and severe authorization bugs may require
 
 ## Versioning Expectations
 
-Until a versioned API path exists, integrations and future installable plugins should declare compatibility by LicenseTrack application version or release range.
+Until a versioned API path exists, integrations should declare compatibility by LicenseTrack application version or release range and be tested by their owners before upgrades.
 
 Example:
 

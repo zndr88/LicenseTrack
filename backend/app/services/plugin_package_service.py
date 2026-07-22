@@ -42,7 +42,7 @@ class PluginInstallFiles:
 
 class PluginPackageError(ValueError):
     def __init__(self, preview: PluginInstallPreview):
-        super().__init__("Plugin package is not installable")
+        super().__init__("Official Extension package is not installable")
         self.preview = preview
 
 
@@ -54,7 +54,7 @@ def inspect_plugin_package(content: bytes) -> PluginPackageInspection:
         issues.append(
             PluginPackageIssue(
                 code="package_too_large",
-                message=f"Plugin package exceeds the maximum allowed size of {settings.MAX_PLUGIN_PACKAGE_SIZE_MB} MB.",
+                message=f"Official Extension package exceeds the maximum allowed size of {settings.MAX_PLUGIN_PACKAGE_SIZE_MB} MB.",
                 severity="error",
             )
         )
@@ -223,7 +223,7 @@ def stage_and_extract_plugin_package(inspection: PluginPackageInspection) -> Plu
     final_path = storage_root / manifest.key / manifest.version
     package_path = final_path / "package.zip"
     if final_path.exists():
-        raise FileExistsError(f"Plugin version already exists at {final_path}")
+        raise FileExistsError(f"Official Extension version already exists at {final_path}")
 
     staging_root.mkdir(parents=True, exist_ok=True)
     storage_root.mkdir(parents=True, exist_ok=True)
@@ -274,7 +274,7 @@ def _inspect_zip_paths(infos: list[zipfile.ZipInfo]) -> tuple[dict[str, str], li
             issues.append(
                 PluginPackageIssue(
                     code="package_symlink_rejected",
-                    message="Symlinks are not allowed in plugin packages.",
+                    message="Symlinks are not allowed in Official Extension packages.",
                     severity="error",
                     path=normalized,
                 )

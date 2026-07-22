@@ -6,7 +6,7 @@ Running LicenseTrack in production - hardening, backups, upgrades, and day-to-da
 
 - :material-server: **[Production deployment & hardening](deployment.md)**
 
-    Podman, production hardening (HTTPS, reverse proxy, CORS), the full configuration reference, plugin runtime constraints, and persistent data.
+    Podman, production hardening (HTTPS, reverse proxy, CORS), the full configuration reference, Official Extensions runtime constraints, and persistent data.
 
 - :material-clipboard-check: **[Operations runbook](runbook.md)**
 
