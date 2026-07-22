@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.schemas.plugin import PluginRuntimeDocumentContentResponse, PluginRuntimeSettingsResponse
+from app.services.plugin_host_service import require_plugin_host_enabled
 from app.services.plugin_runtime_service import (
     PluginRuntimeAuthError,
     PluginRuntimeError,
@@ -14,7 +15,11 @@ from app.services.plugin_runtime_service import (
     read_scoped_runtime_document,
 )
 
-router = APIRouter(prefix="/api/plugin-runtime", tags=["plugin-runtime"])
+router = APIRouter(
+    prefix="/api/plugin-runtime",
+    tags=["official-extension-runtime"],
+    dependencies=[Depends(require_plugin_host_enabled)],
+)
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 

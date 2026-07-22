@@ -20,6 +20,7 @@ from app.schemas.plugin import (
     PluginSettingDefinitionCreate,
 )
 from app.services.plugin_manifest_service import get_compatibility_status, parse_manifest_json
+from app.services.plugin_signature_service import inspect_package_trust
 
 PLUGIN_MANIFEST_FILENAME = "plugin.ltplugin"
 REQUIRED_ROOT_ENTRIES = frozenset({PLUGIN_MANIFEST_FILENAME, "README.md", "LICENSE"})
@@ -122,6 +123,8 @@ def inspect_plugin_package(content: bytes) -> PluginPackageInspection:
             )
         )
 
+    trust = inspect_package_trust(content, safe_paths)
+    issues.extend(trust.issues)
     permission_previews: list[PluginPermissionPreview] = []
     compatibility_status = "unknown"
     if manifest is not None:
@@ -140,8 +143,14 @@ def inspect_plugin_package(content: bytes) -> PluginPackageInspection:
     preview = PluginInstallPreview(
         manifest=manifest,
         checksum_sha256=checksum,
+        signed_content_sha256=trust.signed_content_sha256,
         package_size_bytes=len(content),
         compatibility_status=compatibility_status,  # type: ignore[arg-type]
+        trust_status=trust.trust_status,  # type: ignore[arg-type]
+        signer_key_id=trust.signer_key_id,
+        signer_identity=trust.signer_identity,
+        verified_at=trust.verified_at,
+        developer_mode=bool(settings.PLUGIN_HOST_DEVELOPER_MODE),
         permissions=permission_previews,
         issues=issues,
         installable=installable,
@@ -165,6 +174,11 @@ def build_registry_payload(inspection: PluginPackageInspection, files: PluginIns
         install_path=str(files.install_path),
         package_path=str(files.package_path),
         checksum_sha256=inspection.preview.checksum_sha256,
+        signed_content_sha256=inspection.preview.signed_content_sha256,
+        trust_status=inspection.preview.trust_status,
+        signer_key_id=inspection.preview.signer_key_id,
+        signer_identity=inspection.preview.signer_identity,
+        verified_at=inspection.preview.verified_at,
         manifest=manifest.model_dump(mode="json"),
         permissions=[
             PluginPermissionCreate(permission=permission, granted=False) for permission in manifest.permissions

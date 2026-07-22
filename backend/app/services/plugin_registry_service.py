@@ -75,6 +75,10 @@ async def create_plugin_registry_record(db: AsyncSession, payload: PluginRegistr
         status="disabled",
         enabled=False,
         compatibility_status=payload.compatibility_status,
+        trust_status=payload.trust_status,
+        signer_key_id=payload.signer_key_id,
+        signer_identity=payload.signer_identity,
+        verified_at=payload.verified_at,
         install_path=payload.install_path,
         manifest=payload.manifest,
     )
@@ -87,6 +91,11 @@ async def create_plugin_registry_record(db: AsyncSession, payload: PluginRegistr
             version=payload.installed_version,
             package_path=payload.package_path,
             checksum_sha256=payload.checksum_sha256,
+            signed_content_sha256=payload.signed_content_sha256 or payload.checksum_sha256,
+            trust_status=payload.trust_status,
+            signer_key_id=payload.signer_key_id,
+            signer_identity=payload.signer_identity,
+            verified_at=payload.verified_at,
             manifest=payload.manifest,
         )
     )

@@ -7,8 +7,18 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from pydantic.alias_generators import to_camel
 
 
-PluginStatus = Literal["installed", "disabled", "misconfigured", "incompatible", "enabled", "error", "uninstalled"]
+PluginStatus = Literal[
+    "installed",
+    "disabled",
+    "misconfigured",
+    "incompatible",
+    "enabled",
+    "error",
+    "uninstalled",
+    "unverified",
+]
 PluginCompatibilityStatus = Literal["compatible", "incompatible", "unknown"]
+PluginTrustStatus = Literal["unverified", "verified", "developer"]
 PluginHealthStatus = Literal["unknown", "starting", "healthy", "unhealthy", "stopped", "error"]
 PluginSettingType = Literal["text", "secret", "boolean", "number", "select", "url", "textarea"]
 PluginRequiredRole = Literal["viewer", "editor", "admin"]
@@ -292,8 +302,14 @@ class PluginInstallPreview(BaseModel):
 
     manifest: PluginManifest | None = None
     checksum_sha256: str
+    signed_content_sha256: str
     package_size_bytes: int
     compatibility_status: PluginCompatibilityStatus
+    trust_status: PluginTrustStatus
+    signer_key_id: str | None = None
+    signer_identity: str | None = None
+    verified_at: datetime | None = None
+    developer_mode: bool = False
     permissions: list[PluginPermissionPreview] = Field(default_factory=list)
     issues: list[PluginPackageIssue] = Field(default_factory=list)
     installable: bool
@@ -353,6 +369,11 @@ class PluginRegistryCreate(BaseModel):
     install_path: str = Field(min_length=1)
     package_path: str = Field(min_length=1)
     checksum_sha256: str = Field(min_length=64, max_length=64)
+    signed_content_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    trust_status: PluginTrustStatus = "developer"
+    signer_key_id: str | None = Field(default=None, max_length=120)
+    signer_identity: str | None = Field(default=None, max_length=200)
+    verified_at: datetime | None = None
     manifest: dict
     permissions: list[PluginPermissionCreate] = Field(default_factory=list)
     settings: list[PluginSettingDefinitionCreate] = Field(default_factory=list)
@@ -377,6 +398,11 @@ class PluginVersionResponse(BaseModel):
     version: str
     package_path: str
     checksum_sha256: str
+    signed_content_sha256: str | None
+    trust_status: str
+    signer_key_id: str | None
+    signer_identity: str | None
+    verified_at: datetime | None
     manifest: dict
     installed_at: datetime
     activated_at: datetime | None
@@ -601,6 +627,10 @@ class PluginDetailResponse(BaseModel):
     status: str
     enabled: bool
     compatibility_status: str
+    trust_status: str
+    signer_key_id: str | None
+    signer_identity: str | None
+    verified_at: datetime | None
     install_path: str
     manifest: dict
     last_error: str | None
@@ -611,3 +641,11 @@ class PluginDetailResponse(BaseModel):
     setting_definitions: list[PluginSettingDefinitionResponse]
     actions: list[PluginActionResponse]
     runtime_status: PluginRuntimeStatusResponse | None
+
+
+class PluginHostStatusResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    enabled: bool
+    developer_mode: bool
+    trusted_key_count: int

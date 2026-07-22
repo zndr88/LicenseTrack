@@ -2,7 +2,14 @@ import io
 import stat
 import zipfile
 
+import pytest
+
 from app.services.plugin_package_service import _normalize_zip_path, inspect_plugin_package
+
+
+@pytest.fixture(autouse=True)
+def enable_plugin_developer_mode(monkeypatch):
+    monkeypatch.setattr("app.config.settings.PLUGIN_HOST_DEVELOPER_MODE", True)
 
 
 def _manifest(**overrides) -> dict:

@@ -9,6 +9,7 @@ from app.dependencies import require_admin
 from app.models.user import User
 from app.schemas.plugin import (
     PluginDetailResponse,
+    PluginHostStatusResponse,
     PluginInstallPreview,
     PluginRuntimeLogsResponse,
     PluginRuntimeStatusResponse,
@@ -29,6 +30,11 @@ from app.services.plugin_lifecycle_service import (
     enable_plugin,
     uninstall_plugin,
 )
+from app.services.plugin_host_service import (
+    plugin_developer_mode,
+    plugin_host_enabled,
+    require_plugin_host_enabled,
+)
 from app.services.plugin_registry_service import (
     PluginRegistryError,
     create_plugin_registry_record,
@@ -41,10 +47,28 @@ from app.services.plugin_runtime_service import (
     restart_plugin_runtime,
 )
 from app.services.plugin_settings_service import PluginSettingsError, read_plugin_settings, update_plugin_settings
+from app.services.plugin_signature_service import load_trusted_extension_keys
 
-router = APIRouter(prefix="/api/plugins", tags=["plugins"])
+status_router = APIRouter(prefix="/api/plugins", tags=["official-extensions"])
+router = APIRouter(
+    prefix="/api/plugins",
+    tags=["official-extensions"],
+    dependencies=[Depends(require_plugin_host_enabled)],
+)
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+
+@status_router.get("/status", response_model=PluginHostStatusResponse)
+async def get_plugin_host_status(
+    _admin: User = Depends(require_admin),
+) -> PluginHostStatusResponse:
+    trusted_keys, _issue = load_trusted_extension_keys()
+    return PluginHostStatusResponse(
+        enabled=plugin_host_enabled(),
+        developer_mode=plugin_developer_mode(),
+        trusted_key_count=len(trusted_keys),
+    )
 
 
 async def _read_plugin_upload(file: UploadFile, request: Request) -> bytes:

@@ -19,6 +19,12 @@ from app.services.plugin_runtime_service import stop_plugin_runtime
 
 
 @pytest.fixture(autouse=True)
+def enable_developer_plugin_host(monkeypatch):
+    monkeypatch.setattr("app.config.settings.PLUGIN_HOST_ENABLED", True)
+    monkeypatch.setattr("app.config.settings.PLUGIN_HOST_DEVELOPER_MODE", True)
+
+
+@pytest.fixture(autouse=True)
 def patch_plugin_storage(tmp_path, monkeypatch):
     plugin_storage = tmp_path / "plugins"
     monkeypatch.setattr(settings, "PLUGIN_STORAGE_PATH", str(plugin_storage))

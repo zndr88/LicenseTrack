@@ -15,6 +15,7 @@ from app.models.plugin import Plugin, PluginAction
 from app.models.plugin_suggestion import PluginSuggestion
 from app.services.plugin_runtime_service import restart_plugin_runtime, stop_plugin_runtime
 from app.services.plugin_settings_service import read_plugin_settings
+from app.services.plugin_host_service import ensure_plugin_can_run
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,15 @@ class PluginLifecycleError(ValueError):
 
 async def enable_plugin(db: AsyncSession, plugin_key: str, *, actor_id: int | None) -> Plugin:
     plugin = await _get_plugin(db, plugin_key)
+    try:
+        ensure_plugin_can_run(plugin)
+    except ValueError as exc:
+        plugin.enabled = False
+        plugin.status = "unverified" if plugin.trust_status == "unverified" else "disabled"
+        plugin.last_error = str(exc)
+        await _set_actions_enabled(plugin, enabled=False)
+        await db.flush()
+        raise PluginLifecycleError(str(exc)) from exc
     if plugin.compatibility_status != "compatible":
         raise PluginLifecycleError("Plugin is not compatible with this LicenseTrack version")
 

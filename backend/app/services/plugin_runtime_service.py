@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import os
 from pathlib import Path
 import secrets
+import signal
 import socket
 import subprocess
 import sys
@@ -31,6 +32,7 @@ from app.schemas.plugin import (
 from app.services import storage
 from app.services.crypto_service import decrypt_secret
 from app.services.plugin_settings_service import read_plugin_settings
+from app.services.plugin_host_service import ensure_plugin_can_run
 from app.services.plugin_utils import int_list as _int_list, int_or_none as _int_or_none
 
 
@@ -97,9 +99,34 @@ DOCUMENT_TYPE_LICENSE = "license_document"
 DOCUMENT_TYPE_PROCUREMENT = "procurement_document"
 DOCUMENT_TYPE_SOURCING_QUOTE = "sourcing_quote_document"
 
+RUNTIME_ENV_ALLOWLIST = frozenset(
+    {
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "WINDIR",
+        "COMSPEC",
+        "TEMP",
+        "TMP",
+        "TMPDIR",
+        "LANG",
+        "LC_ALL",
+        "PYTHONHOME",
+        "PYTHONPATH",
+        "SSL_CERT_FILE",
+        "SSL_CERT_DIR",
+        "LD_LIBRARY_PATH",
+        "DYLD_LIBRARY_PATH",
+    }
+)
+
 
 async def restart_plugin_runtime(db: AsyncSession, plugin_key: str) -> PluginRuntimeStatus:
     plugin = await _get_plugin(db, plugin_key)
+    try:
+        ensure_plugin_can_run(plugin)
+    except ValueError as exc:
+        raise PluginRuntimeError(str(exc)) from exc
     await stop_plugin_runtime(db, plugin_key, mark_stopped=False)
     await _ensure_runtime_ready(db, plugin)
 
@@ -114,18 +141,11 @@ async def restart_plugin_runtime(db: AsyncSession, plugin_key: str) -> PluginRun
     log_path = log_dir / "runtime.log"
     log_handle = log_path.open("ab")
 
-    env = os.environ.copy()
-    env.update(
-        {
-            "LT_PLUGIN_KEY": plugin.key,
-            "LT_PLUGIN_VERSION": plugin.installed_version,
-            "LT_PLUGIN_PORT": str(port),
-            "LT_PLUGIN_TOKEN": token,
-            "LT_PLUGIN_BASE_URL": settings.PLUGIN_HOST_BASE_URL.rstrip("/"),
-            "LT_PLUGIN_SETTINGS_URL": f"{settings.PLUGIN_HOST_BASE_URL.rstrip('/')}/api/plugin-runtime/{plugin.key}/settings",
-            "LT_PLUGIN_DOCUMENTS_BASE_URL": f"{settings.PLUGIN_HOST_BASE_URL.rstrip('/')}/api/plugin-runtime/{plugin.key}",
-            "LT_PLUGIN_LOG_DIR": str(log_dir),
-        }
+    env = _build_runtime_environment(
+        plugin=plugin,
+        port=port,
+        token=token,
+        log_dir=log_dir,
     )
 
     command = _runtime_command(entrypoint, runtime)
@@ -232,6 +252,7 @@ async def authenticate_plugin_runtime_request(db: AsyncSession, plugin_key: str,
 
 async def read_plugin_runtime_settings(db: AsyncSession, plugin_key: str) -> PluginRuntimeSettingsResponse:
     plugin = await _get_plugin(db, plugin_key)
+    _require_granted_permission(plugin, "plugin:settings:read")
     definitions = await _setting_definitions(db, plugin.id)
     values_by_key = await _setting_values(db, plugin.id)
     missing_required: list[str] = []
@@ -293,6 +314,8 @@ async def read_scoped_runtime_document(
     document_type: str,
     document_id: int,
 ) -> PluginRuntimeDocumentContentResponse:
+    plugin = await _get_plugin(db, plugin_key)
+    _require_granted_permission(plugin, "documents:read")
     scoped_refs = _action_document_scopes.get((plugin_key, request_id), set())
     if (document_type, document_id) not in scoped_refs:
         raise PluginRuntimeError("Document is not available in this plugin action context")
@@ -366,6 +389,10 @@ async def invoke_plugin_runtime_action(
     timeout_seconds: int | None = None,
 ) -> dict[str, Any]:
     plugin = await _get_plugin(db, plugin_key)
+    try:
+        ensure_plugin_can_run(plugin)
+    except ValueError as exc:
+        raise PluginRuntimeError(str(exc)) from exc
     status = await _runtime_status_for(db, plugin.id)
     runtime = _runtime_manifest(plugin)
     token = _runtime_token(plugin.key, status)
@@ -494,7 +521,11 @@ async def _get_plugin(db: AsyncSession, plugin_key: str) -> Plugin:
 async def _get_plugin_or_none(db: AsyncSession, plugin_key: str) -> Plugin | None:
     result = await db.execute(
         select(Plugin)
-        .options(selectinload(Plugin.runtime_status), selectinload(Plugin.setting_definitions))
+        .options(
+            selectinload(Plugin.runtime_status),
+            selectinload(Plugin.setting_definitions),
+            selectinload(Plugin.permissions),
+        )
         .where(Plugin.key == plugin_key)
     )
     return result.scalar_one_or_none()
@@ -536,12 +567,35 @@ def _runtime_command(entrypoint: Path, runtime: dict) -> list[str]:
     return [sys.executable, str(entrypoint), *args]
 
 
+def _build_runtime_environment(*, plugin: Plugin, port: int, token: str, log_dir: Path) -> dict[str, str]:
+    base_url = settings.PLUGIN_HOST_BASE_URL.rstrip("/")
+    env = {key: value for key, value in os.environ.items() if key.upper() in RUNTIME_ENV_ALLOWLIST}
+    env.update(
+        {
+            "LT_PLUGIN_KEY": plugin.key,
+            "LT_PLUGIN_VERSION": plugin.installed_version,
+            "LT_PLUGIN_PORT": str(port),
+            "LT_PLUGIN_TOKEN": token,
+            "LT_PLUGIN_BASE_URL": base_url,
+            "LT_PLUGIN_SETTINGS_URL": f"{base_url}/api/plugin-runtime/{plugin.key}/settings",
+            "LT_PLUGIN_DOCUMENTS_BASE_URL": f"{base_url}/api/plugin-runtime/{plugin.key}",
+            "LT_PLUGIN_LOG_DIR": str(log_dir),
+        }
+    )
+    return env
+
+
 async def _spawn_managed_process(
     command: list[str],
     install_path: Path,
     env: dict[str, str],
     log_handle: Any,
 ) -> Any:
+    process_group_options = (
+        {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+        if os.name == "nt"
+        else {"start_new_session": True}
+    )
     try:
         return await asyncio.create_subprocess_exec(
             *command,
@@ -549,6 +603,7 @@ async def _spawn_managed_process(
             env=env,
             stdout=log_handle,
             stderr=asyncio.subprocess.STDOUT,
+            **process_group_options,
         )
     except NotImplementedError:
         return PopenManagedProcess(
@@ -558,6 +613,7 @@ async def _spawn_managed_process(
                 env=env,
                 stdout=log_handle,
                 stderr=subprocess.STDOUT,
+                **process_group_options,
             )
         )
 
@@ -581,12 +637,43 @@ async def _terminate_process(plugin_key: str) -> None:
     process = managed.process
     if process.returncode is not None:
         return
-    process.terminate()
+    await _signal_process_tree(process, force=False)
     try:
         await asyncio.wait_for(process.wait(), timeout=5)
     except TimeoutError:
-        process.kill()
+        await _signal_process_tree(process, force=True)
         await process.wait()
+
+
+async def _signal_process_tree(process: Any, *, force: bool) -> None:
+    is_managed_process = isinstance(process, (asyncio.subprocess.Process, PopenManagedProcess))
+    if not is_managed_process:
+        process.kill() if force else process.terminate()
+        return
+
+    if os.name == "nt":
+        command = ["taskkill", "/PID", str(process.pid), "/T"]
+        if force:
+            command.append("/F")
+        try:
+            await asyncio.to_thread(
+                subprocess.run,
+                command,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return
+        except OSError:
+            process.kill() if force else process.terminate()
+            return
+
+    try:
+        os.killpg(process.pid, signal.SIGKILL if force else signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    except OSError:
+        process.kill() if force else process.terminate()
 
 
 async def _redaction_values(db: AsyncSession, plugin: Plugin, status: PluginRuntimeStatus) -> list[str]:
@@ -638,6 +725,16 @@ def _setting_is_configured(value: Any) -> bool:
     if isinstance(value, str):
         return bool(value.strip())
     return True
+
+
+def _require_granted_permission(plugin: Plugin, permission_name: str) -> None:
+    granted = {
+        permission.permission
+        for permission in plugin.permissions
+        if getattr(permission, "granted", False)
+    }
+    if permission_name not in granted:
+        raise PluginRuntimeError(f"Official Extension is missing required permission: {permission_name}")
 
 
 def _document_refs_from_context(context: dict[str, Any]) -> list[tuple[str, int]]:

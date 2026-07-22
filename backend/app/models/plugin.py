@@ -29,6 +29,12 @@ class Plugin(Base):
         default="unknown",
         server_default="unknown",
     )
+    trust_status: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="unverified", server_default="unverified"
+    )
+    signer_key_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    signer_identity: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     install_path: Mapped[str] = mapped_column(Text, nullable=False)
     manifest: Mapped[dict] = mapped_column(JSON, nullable=False)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -90,6 +96,13 @@ class PluginVersion(Base):
     version: Mapped[str] = mapped_column(String(80), nullable=False)
     package_path: Mapped[str] = mapped_column(Text, nullable=False)
     checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    signed_content_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    trust_status: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="unverified", server_default="unverified"
+    )
+    signer_key_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    signer_identity: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     manifest: Mapped[dict] = mapped_column(JSON, nullable=False)
     installed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

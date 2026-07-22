@@ -19,6 +19,12 @@ from app.services.plugin_settings_service import update_plugin_settings
 
 
 @pytest.fixture(autouse=True)
+def enable_developer_plugin_host(monkeypatch):
+    monkeypatch.setattr("app.config.settings.PLUGIN_HOST_ENABLED", True)
+    monkeypatch.setattr("app.config.settings.PLUGIN_HOST_DEVELOPER_MODE", True)
+
+
+@pytest.fixture(autouse=True)
 def patch_storage(tmp_path, monkeypatch):
     monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
     (tmp_path / "documents").mkdir()
@@ -50,7 +56,7 @@ def _plugin_payload() -> PluginRegistryCreate:
                 "healthPath": "/health",
                 "actionsBasePath": "/actions",
             },
-            "permissions": ["actions:invoke", "documents:read"],
+            "permissions": ["actions:invoke", "documents:read", "plugin:settings:read"],
             "settings": [
                 {
                     "key": "apiKey",
@@ -78,6 +84,7 @@ def _plugin_payload() -> PluginRegistryCreate:
         permissions=[
             PluginPermissionCreate(permission="actions:invoke", granted=True),
             PluginPermissionCreate(permission="documents:read", granted=True),
+            PluginPermissionCreate(permission="plugin:settings:read", granted=True),
         ],
         settings=[
             PluginSettingDefinitionCreate(key="apiKey", type="secret", label="API Key", required=True),
@@ -171,6 +178,22 @@ async def test_runtime_settings_endpoint_rejects_wrong_token(test_app, db_sessio
     )
 
     assert response.status_code == 401
+
+
+async def test_runtime_settings_endpoint_requires_declared_permission(test_app, db_session):
+    plugin = await _install_runtime_access_plugin(db_session)
+    for permission in plugin.permissions:
+        if permission.permission == "plugin:settings:read":
+            permission.granted = False
+    await db_session.commit()
+
+    response = await test_app.get(
+        "/api/plugin-runtime/runtime-access/settings",
+        headers={"Authorization": "Bearer runtime-token"},
+    )
+
+    assert response.status_code == 409
+    assert "plugin:settings:read" in response.json()["detail"]
 
 
 async def test_runtime_document_endpoint_returns_only_scoped_document_content(test_app, db_session):
