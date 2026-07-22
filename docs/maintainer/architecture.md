@@ -2,6 +2,20 @@
 
 This document records the current architecture conventions. It is not a full design specification; it is a short map for maintainers so future changes do not drift back into duplicated page and route logic.
 
+## Frontend Runtime Baseline
+
+The frontend runtime baseline is React 19 and ReactDOM 19. `frontend/src/main.jsx`
+uses `createRoot`, the Vite React plugin supplies the modern JSX transform, and
+development runs under `StrictMode`. Keep direct React integrations on versions
+whose peer ranges include React 19, and preserve npm 10 compatibility when the
+lockfile changes. Do not use `--force` or `--legacy-peer-deps` to hide an
+incompatible dependency tree.
+
+Frontend tests use React Testing Library. When component state is loaded by
+independent effects or lazy imports, wait for the specific user-visible state
+the test needs instead of assuming that an earlier parent render flushed all
+descendant work.
+
 ## Frontend Data Flow
 
 Server state is managed with TanStack Query.

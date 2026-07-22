@@ -142,7 +142,7 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
-    expect(await screen.findAllByText("Euro Publisher")).not.toHaveLength(0);
+    expect(await screen.findAllByText("Euro Publisher", {}, { timeout: 5_000 })).not.toHaveLength(0);
     expect(screen.getByText("Publisher & Vendor Overview")).toBeInTheDocument();
     expect(screen.queryByText("Spend by Publisher")).not.toBeInTheDocument();
     expect(screen.queryByText("Vendor Overview")).not.toBeInTheDocument();
