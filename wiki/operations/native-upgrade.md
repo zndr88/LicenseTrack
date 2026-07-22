@@ -33,6 +33,7 @@ The pre-upgrade archive includes:
 - a WAL-consistent SQLite snapshot;
 - the complete managed data directory, including documents and plugins;
 - `/etc/licensetrack/licensetrack.env` and installation state;
+- the managed `/usr/local/bin/licensetrack` operator wrapper when present;
 - any document-storage directory configured outside the managed data root;
 - a manifest recording the source version and restored paths.
 
@@ -51,6 +52,59 @@ If the live migration, service startup, or version health check fails, the upgra
 The command exits unsuccessfully after a successful rollback so monitoring and automation still report that the attempted upgrade failed.
 
 Do not use `alembic downgrade` as an operational rollback procedure. Restore the matched application release and pre-upgrade data snapshot together.
+
+## Operator-initiated rollback
+
+After a successful native upgrade, an administrator can deliberately return to
+the version captured by its pre-upgrade backup:
+
+```bash
+sudo licensetrack rollback
+```
+
+The default archive is the `last_upgrade_backup` recorded in
+`/etc/licensetrack/install.json`. To select a different archive, first place it
+under the configured upgrade-backup directory and pass its full path:
+
+```bash
+sudo licensetrack rollback \
+  --backup /var/backups/licensetrack/upgrades/licensetrack-pre-upgrade-<version>-<timestamp>.tar.gz
+```
+
+The command displays the current and target versions and requires you to type
+`ROLLBACK <target-version>`. For non-interactive automation, `--yes` accepts
+that confirmation. Use it only after independently confirming the archive and
+target version.
+
+Before making changes, the rollback command verifies that:
+
+- the archive is inside this installation's configured upgrade-backup directory;
+- the archived installation paths match the current managed installation;
+- the target version is older and its immutable release directory is still installed;
+- the archived configuration, database path, and backup manifest agree;
+- the SQLite snapshot passes an integrity check; and
+- all archive paths and external-storage entries are safe to restore.
+
+The service is stopped only after validation and confirmation. LicenseTrack
+then creates a separate `licensetrack-pre-rollback-*` safety archive of the
+current version, restores the selected application data and configuration,
+switches the active release, starts the service, and requires the target version
+to pass `/api/health`. New-format archives also restore the operator wrapper
+that belonged to the target installation, so commands do not dispatch into a
+mismatched release after rollback.
+
+If the manual rollback fails after restoration begins, LicenseTrack uses the
+pre-rollback safety archive to recover the version that was active when the
+command started. `--no-start` is available for maintenance situations where the
+restored service must remain stopped; in that mode, no post-restore health check
+is possible.
+
+!!! warning
+    A rollback replaces the database, documents, plugin data, configuration,
+    and configured external document storage with their archived state. Changes
+    made after the selected archive was created are not retained in the rolled-
+    back instance. Preserve the automatically created pre-rollback safety
+    archive until the rollback has been fully accepted.
 
 ## Post-upgrade checks
 

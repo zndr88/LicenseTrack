@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import sqlite3
 import stat
 import sys
+import tarfile
 
 import pytest
 
@@ -494,6 +497,27 @@ def test_service_and_cli_templates_resolve_all_placeholders(tmp_path: Path):
     assert "@" not in service
     assert "--workers 1" in service
     assert "native/libexec/native_operator.py" in cli
+    assert "native/libexec/installer.py" in cli
+    assert "rollback --state-file" in cli
+
+
+def test_install_operator_cli_publishes_rollback_dispatch_atomically(tmp_path: Path):
+    paths = install_paths(tmp_path)
+
+    installer.install_operator_cli(ROOT, paths)
+
+    content = Path(paths.cli_file).read_text(encoding="utf-8")
+    assert "rollback --state-file" in content
+    assert str(paths.current_link) in content
+    assert not Path(paths.cli_file + ".next").exists()
+
+
+def test_parser_exposes_noninteractive_manual_rollback():
+    args = installer.build_parser().parse_args(["rollback", "--yes", "--health-timeout", "15"])
+
+    assert args.func is installer.rollback
+    assert args.yes is True
+    assert args.health_timeout == 15
 
 
 def test_upgrade_backup_restores_database_data_config_and_state(tmp_path: Path, monkeypatch):
@@ -516,6 +540,8 @@ def test_upgrade_backup_restores_database_data_config_and_state(tmp_path: Path, 
     connection.close()
 
     paths.config_file.write_text("DATABASE_URL=test-before\n", encoding="utf-8")
+    Path(paths.cli_file).parent.mkdir(parents=True)
+    Path(paths.cli_file).write_text("cli-before\n", encoding="utf-8")
     old_state = {
         "schema_version": installer.STATE_SCHEMA_VERSION,
         "version": "1.0.8",
@@ -527,6 +553,7 @@ def test_upgrade_backup_restores_database_data_config_and_state(tmp_path: Path, 
 
     document.write_text("after", encoding="utf-8")
     paths.config_file.write_text("DATABASE_URL=test-after\n", encoding="utf-8")
+    Path(paths.cli_file).write_text("cli-after\n", encoding="utf-8")
     changed = sqlite3.connect(db_path)
     changed.execute("UPDATE records SET value = 'after'")
     changed.commit()
@@ -539,11 +566,235 @@ def test_upgrade_backup_restores_database_data_config_and_state(tmp_path: Path, 
     assert restored_state["version"] == "1.0.8"
     assert document.read_text(encoding="utf-8") == "before"
     assert paths.config_file.read_text(encoding="utf-8") == "DATABASE_URL=test-before\n"
+    assert Path(paths.cli_file).read_text(encoding="utf-8") == "cli-before\n"
     restored = sqlite3.connect(db_path)
     try:
         assert restored.execute("SELECT value FROM records").fetchone() == ("before",)
     finally:
         restored.close()
+
+
+def test_resolve_rollback_archive_uses_recorded_backup_and_confines_explicit_paths(tmp_path: Path):
+    paths = install_paths(tmp_path)
+    backup_root = Path(paths.upgrade_backup_root)
+    backup_root.mkdir(parents=True)
+    recorded = backup_root / "recorded.tar.gz"
+    recorded.write_bytes(b"backup")
+    state = {"last_upgrade_backup": str(recorded)}
+
+    assert installer.resolve_rollback_archive(None, state, paths) == recorded.resolve()
+
+    outside = tmp_path / "outside.tar.gz"
+    outside.write_bytes(b"backup")
+    with pytest.raises(installer.InstallerError, match="must be located under"):
+        installer.resolve_rollback_archive(str(outside), state, paths)
+
+
+def test_extract_upgrade_backup_rejects_parent_traversal(tmp_path: Path):
+    archive = tmp_path / "unsafe.tar.gz"
+    with tarfile.open(archive, "w:gz") as output:
+        member = tarfile.TarInfo("../outside")
+        payload = b"unsafe"
+        member.size = len(payload)
+        output.addfile(member, io.BytesIO(payload))
+
+    with pytest.raises(installer.InstallerError, match="Unsafe path"):
+        installer.extract_upgrade_backup(archive, tmp_path / "extract")
+
+
+def _rollback_archive_fixture(tmp_path: Path, monkeypatch):
+    paths = install_paths(tmp_path)
+    data_root = Path(paths.data_root)
+    data_root.mkdir(parents=True)
+    Path(paths.config_root).mkdir(parents=True)
+    Path(paths.upgrade_backup_root).mkdir(parents=True)
+    database = data_root / "licenses.db"
+    connection = sqlite3.connect(database)
+    connection.execute("CREATE TABLE global_settings (id INTEGER PRIMARY KEY, storage_path TEXT)")
+    connection.execute("INSERT INTO global_settings VALUES (1, '')")
+    connection.commit()
+    connection.close()
+    paths.config_file.write_text("DATABASE_URL=fixture\n", encoding="utf-8")
+    Path(paths.cli_file).parent.mkdir(parents=True)
+    Path(paths.cli_file).write_text("operator-cli\n", encoding="utf-8")
+
+    old_release = paths.releases_root / "1.0.9"
+    old_python = old_release / "venv" / "bin" / "python"
+    old_python.parent.mkdir(parents=True)
+    old_python.write_text("python", encoding="utf-8")
+    old_state = {
+        "schema_version": installer.STATE_SCHEMA_VERSION,
+        "version": "1.0.9",
+        "release_path": str(old_release),
+        "bind_host": "127.0.0.1",
+        "port": 8000,
+        **{field: getattr(paths, field) for field in installer.InstallPaths.__dataclass_fields__},
+    }
+    installer.write_json(paths.state_file, old_state)
+    archive = installer.create_upgrade_backup(paths, old_state, database)
+    monkeypatch.setattr(installer, "database_path_from_url", lambda *_args, **_kwargs: database.resolve())
+    return paths, database, old_state, archive
+
+
+def test_validate_rollback_target_accepts_matched_older_release(tmp_path: Path, monkeypatch):
+    paths, _database, old_state, archive = _rollback_archive_fixture(tmp_path, monkeypatch)
+    current_state = {**old_state, "version": "1.1.0", "release_path": str(paths.releases_root / "1.1.0")}
+
+    target = installer.validate_rollback_target(archive, paths, current_state)
+
+    assert target.archive == archive
+    assert target.state["version"] == "1.0.9"
+    assert target.release == Path(old_state["release_path"]).resolve()
+
+
+def test_validate_rollback_target_rejects_non_older_release(tmp_path: Path, monkeypatch):
+    paths, _database, old_state, archive = _rollback_archive_fixture(tmp_path, monkeypatch)
+    current_state = {**old_state, "version": "1.0.8", "release_path": str(paths.releases_root / "1.0.8")}
+
+    with pytest.raises(installer.InstallerError, match="must be older"):
+        installer.validate_rollback_target(archive, paths, current_state)
+
+
+def test_manual_rollback_requires_terminal_confirmation_without_yes(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(installer.sys.stdin, "isatty", lambda: False)
+
+    with pytest.raises(installer.InstallerError, match="interactive terminal or --yes"):
+        installer.confirm_manual_rollback("1.1.0", "1.0.9", tmp_path / "backup.tar.gz", False)
+
+
+def test_manual_rollback_restores_target_and_records_safety_backup(tmp_path: Path, monkeypatch):
+    paths = install_paths(tmp_path)
+    Path(paths.config_root).mkdir(parents=True)
+    paths.config_file.write_text("DATABASE_URL=current\n", encoding="utf-8")
+    current_release = paths.releases_root / "1.1.0"
+    target_release = paths.releases_root / "1.0.9"
+    current_release.mkdir(parents=True)
+    target_release.mkdir(parents=True)
+    database = Path(paths.data_root) / "licenses.db"
+    database.parent.mkdir(parents=True)
+    database.write_bytes(b"database")
+    selected_archive = Path(paths.upgrade_backup_root) / "selected.tar.gz"
+    safety_archive = Path(paths.upgrade_backup_root) / "safety.tar.gz"
+    current_state = {
+        "schema_version": 1,
+        "version": "1.1.0",
+        "release_path": str(current_release),
+        "bind_host": "127.0.0.1",
+        "port": 8000,
+        **{field: getattr(paths, field) for field in installer.InstallPaths.__dataclass_fields__},
+    }
+    target_state = {**current_state, "version": "1.0.9", "release_path": str(target_release)}
+    target = installer.RollbackTarget(selected_archive, target_state, target_release)
+    commands = []
+    symlinks = []
+    written_states = []
+
+    monkeypatch.setattr(installer, "require_supported_host", lambda: None)
+    monkeypatch.setattr(installer, "installer_lock", lambda _path: nullcontext())
+    monkeypatch.setattr(installer, "load_state", lambda _path: current_state)
+    monkeypatch.setattr(installer, "resolve_rollback_archive", lambda *_args: selected_archive)
+    monkeypatch.setattr(installer, "validate_rollback_target", lambda *_args: target)
+    monkeypatch.setattr(installer, "confirm_manual_rollback", lambda *_args: None)
+    monkeypatch.setattr(installer, "database_path_from_url", lambda *_args: database)
+    monkeypatch.setattr(installer, "is_service_active", lambda _name: True)
+    monkeypatch.setattr(
+        installer,
+        "create_upgrade_backup",
+        lambda *_args, **kwargs: safety_archive if kwargs["purpose"] == "rollback" else None,
+    )
+    monkeypatch.setattr(installer, "restore_upgrade_backup", lambda *_args: target_state)
+    monkeypatch.setattr(installer, "atomic_symlink", lambda target_path, link: symlinks.append((target_path, link)))
+    monkeypatch.setattr(installer, "write_json", lambda _path, value: written_states.append(value))
+    monkeypatch.setattr(installer, "run", lambda command, **_kwargs: commands.append(command))
+    monkeypatch.setattr(installer, "wait_for_health", lambda *_args: None)
+
+    installer.rollback(
+        argparse.Namespace(
+            state_file=str(paths.state_file),
+            lock_file=str(tmp_path / "installer.lock"),
+            backup=None,
+            yes=True,
+            no_start=False,
+            health_timeout=10,
+        )
+    )
+
+    assert commands == [
+        ["systemctl", "stop", paths.service_name],
+        ["systemctl", "start", paths.service_name],
+    ]
+    assert symlinks == [(target_release, paths.current_link)]
+    assert written_states[-1]["version"] == "1.0.9"
+    assert written_states[-1]["rolled_back_from_version"] == "1.1.0"
+    assert written_states[-1]["last_manual_rollback_backup"] == str(safety_archive)
+
+
+def test_manual_rollback_health_failure_recovers_original_version(tmp_path: Path, monkeypatch):
+    paths = install_paths(tmp_path)
+    Path(paths.config_root).mkdir(parents=True)
+    paths.config_file.write_text("DATABASE_URL=current\n", encoding="utf-8")
+    current_release = paths.releases_root / "1.1.0"
+    target_release = paths.releases_root / "1.0.9"
+    current_release.mkdir(parents=True)
+    target_release.mkdir(parents=True)
+    database = Path(paths.data_root) / "licenses.db"
+    database.parent.mkdir(parents=True)
+    database.write_bytes(b"database")
+    selected_archive = Path(paths.upgrade_backup_root) / "selected.tar.gz"
+    safety_archive = Path(paths.upgrade_backup_root) / "safety.tar.gz"
+    current_state = {
+        "schema_version": 1,
+        "version": "1.1.0",
+        "release_path": str(current_release),
+        "bind_host": "127.0.0.1",
+        "port": 8000,
+        **{field: getattr(paths, field) for field in installer.InstallPaths.__dataclass_fields__},
+    }
+    target_state = {**current_state, "version": "1.0.9", "release_path": str(target_release)}
+    target = installer.RollbackTarget(selected_archive, target_state, target_release)
+    restored_archives = []
+    health_versions = []
+
+    monkeypatch.setattr(installer, "require_supported_host", lambda: None)
+    monkeypatch.setattr(installer, "installer_lock", lambda _path: nullcontext())
+    monkeypatch.setattr(installer, "load_state", lambda _path: current_state)
+    monkeypatch.setattr(installer, "resolve_rollback_archive", lambda *_args: selected_archive)
+    monkeypatch.setattr(installer, "validate_rollback_target", lambda *_args: target)
+    monkeypatch.setattr(installer, "confirm_manual_rollback", lambda *_args: None)
+    monkeypatch.setattr(installer, "database_path_from_url", lambda *_args: database)
+    monkeypatch.setattr(installer, "is_service_active", lambda _name: True)
+    monkeypatch.setattr(installer, "create_upgrade_backup", lambda *_args, **_kwargs: safety_archive)
+
+    def restore(archive, _paths):
+        restored_archives.append(archive)
+        return target_state if archive == selected_archive else current_state
+
+    def health(_host, _port, version, _timeout):
+        health_versions.append(version)
+        if version == "1.0.9":
+            raise installer.InstallerError("target unhealthy")
+
+    monkeypatch.setattr(installer, "restore_upgrade_backup", restore)
+    monkeypatch.setattr(installer, "atomic_symlink", lambda *_args: None)
+    monkeypatch.setattr(installer, "write_json", lambda *_args: None)
+    monkeypatch.setattr(installer, "run", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(installer.subprocess, "run", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(installer, "wait_for_health", health)
+
+    with pytest.raises(installer.InstallerError, match="1.1.0 was restored successfully"):
+        installer.rollback(
+            argparse.Namespace(
+                state_file=str(paths.state_file),
+                lock_file=str(tmp_path / "installer.lock"),
+                backup=None,
+                yes=True,
+                no_start=False,
+                health_timeout=10,
+            )
+        )
+
+    assert restored_archives == [selected_archive, safety_archive]
+    assert health_versions == ["1.0.9", "1.1.0"]
 
 
 @pytest.mark.skipif(os.name == "nt", reason="native ownership uses POSIX accounts")

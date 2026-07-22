@@ -70,12 +70,14 @@ packaging failures are caught before a release tag is created.
 
 - `install.sh` and `upgrade.sh` are small Bash entrypoints.
 - `packaging/native/libexec/select_python.sh` discovers the distribution's supported CPython interpreter, honors an explicit `PYTHON_BIN`, verifies venv support, and rejects an offline bundle that lacks the selected ABI.
-- `packaging/native/libexec/installer.py` owns manifest/runtime compatibility validation, staging, configuration, service installation, backups, migrations, health checks, and rollback.
+- `packaging/native/libexec/installer.py` owns manifest/runtime compatibility validation, staging, configuration, service installation, backups, migrations, health checks, automatic rollback, and operator-initiated rollback.
 - Compatibility validation accepts exactly CPython 3.12, 3.13, and 3.14. For manifest v2 bundles it checks Linux/x86_64, the declared Python range, included ABI directories, and checksum coverage before any host mutation.
 - A fresh install defaults to Standard mode. Advanced mode changes only the initial questionnaire and the resulting protected environment; it does not create a separate installation layout or upgrade path.
 - Every Advanced questionnaire value has a non-interactive CLI equivalent. `--yes` must never cause a prompt and defaults to Standard unless `--advanced` is explicit.
 - SMTP and OIDC client credentials are application-managed encrypted settings. Do not add secret-bearing installer command-line flags; only deployment-level OIDC network allowances belong in the native environment.
 - `packaging/native/libexec/native_operator.py` owns `doctor`, `backup`, and `version` commands used by the installed wrapper.
+- The installed wrapper routes `licensetrack rollback` to the active release's installer module. A successful upgrade atomically refreshes that wrapper after the target health check so installations upgraded from older releases receive the new command without exposing it during a failed upgrade.
+- Manual rollback accepts only archives under the installation's configured upgrade-backup root. It validates archive/install identity, the older installed target release, archived configuration/database consistency, and SQLite integrity before stopping the service. New backups include the managed operator wrapper so it is restored atomically with the matched release. Rollback creates a pre-rollback safety archive and automatically recovers the starting version if target restoration or health verification fails.
 - New installation state records the selected Python implementation, version, ABI, and executable without changing state schema version 1. Upgrades accept older state without those optional keys. `licensetrack doctor` inspects the active release venv and reports missing, broken, or ABI-mismatched runtimes.
 - `backend/requirements-runtime.txt` contains production dependencies only. Keep every entry pinned and aligned with the corresponding entry in `backend/requirements.txt`.
 - Native releases are immutable under `/opt/licensetrack/releases`; mutable state belongs under `/var/lib/licensetrack` and `/etc/licensetrack`.

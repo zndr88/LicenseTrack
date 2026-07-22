@@ -7,7 +7,7 @@ STATE_FILE="@STATE_FILE@"
 
 usage() {
   cat <<'EOF'
-Usage: sudo licensetrack <command>
+Usage: sudo licensetrack <command> [options]
 
 Commands:
   start       Start LicenseTrack
@@ -17,6 +17,7 @@ Commands:
   logs        Follow LicenseTrack logs
   doctor      Verify installation state, service, and health endpoint
   backup      Create an online SQLite backup in the configured backup directory
+  rollback    Restore the matched application, data, and configuration from a pre-upgrade backup
   version     Print the installed LicenseTrack version
 EOF
 }
@@ -33,6 +34,12 @@ case "$command_name" in
     exec "$CURRENT_LINK/venv/bin/python" \
       "$CURRENT_LINK/native/libexec/native_operator.py" \
       "$command_name" --state-file "$STATE_FILE"
+    ;;
+  rollback)
+    shift
+    exec "$CURRENT_LINK/venv/bin/python" \
+      "$CURRENT_LINK/native/libexec/installer.py" \
+      rollback --state-file "$STATE_FILE" "$@"
     ;;
   *)
     usage

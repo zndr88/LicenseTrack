@@ -95,6 +95,13 @@ class InstallPaths:
         return Path(self.config_root) / "licensetrack.env"
 
 
+@dataclass(frozen=True)
+class RollbackTarget:
+    archive: Path
+    state: dict
+    release: Path
+
+
 def info(message: str) -> None:
     print(f"[LicenseTrack] {message}", flush=True)
 
@@ -737,6 +744,26 @@ def render_template(path: Path, replacements: dict[str, str]) -> str:
     return content
 
 
+def operator_cli_replacements(paths: InstallPaths) -> dict[str, str]:
+    return {
+        "CURRENT_LINK": os.fspath(paths.current_link),
+        "SERVICE_NAME": paths.service_name,
+        "STATE_FILE": os.fspath(paths.state_file),
+    }
+
+
+def install_operator_cli(source_root: Path, paths: InstallPaths) -> None:
+    template = source_root / "packaging" / "native" / "templates" / "licensetrack-cli.in"
+    content = render_template(template, operator_cli_replacements(paths))
+    cli_file = Path(paths.cli_file)
+    cli_file.parent.mkdir(parents=True, exist_ok=True)
+    temporary = cli_file.with_name(cli_file.name + ".next")
+    temporary.unlink(missing_ok=True)
+    temporary.write_text(content, encoding="utf-8")
+    os.chmod(temporary, 0o755)
+    os.replace(temporary, cli_file)
+
+
 def install_service_files(source_root: Path, paths: InstallPaths, bind_host: str, port: int) -> None:
     template_root = source_root / "packaging" / "native" / "templates"
     replacements = {
@@ -746,8 +773,6 @@ def install_service_files(source_root: Path, paths: InstallPaths, bind_host: str
         "CONFIG_FILE": os.fspath(paths.config_file),
         "PORT": str(port),
         "BIND_HOST": bind_host,
-        "SERVICE_NAME": paths.service_name,
-        "STATE_FILE": os.fspath(paths.state_file),
     }
 
     service_content = render_template(template_root / "licensetrack.service.in", replacements)
@@ -756,11 +781,7 @@ def install_service_files(source_root: Path, paths: InstallPaths, bind_host: str
     service_file.write_text(service_content, encoding="utf-8")
     os.chmod(service_file, 0o644)
 
-    cli_content = render_template(template_root / "licensetrack-cli.in", replacements)
-    cli_file = Path(paths.cli_file)
-    cli_file.parent.mkdir(parents=True, exist_ok=True)
-    cli_file.write_text(cli_content, encoding="utf-8")
-    os.chmod(cli_file, 0o755)
+    install_operator_cli(source_root, paths)
 
     run(["systemctl", "daemon-reload"])
     run(["systemctl", "enable", paths.service_name])
@@ -1027,15 +1048,27 @@ def ensure_backup_space(destination_root: Path, paths_to_archive: list[Path]) ->
         )
 
 
-def create_upgrade_backup(paths: InstallPaths, old_state: dict, db_path: Path) -> Path:
+def create_upgrade_backup(
+    paths: InstallPaths,
+    old_state: dict,
+    db_path: Path,
+    *,
+    purpose: str = "upgrade",
+) -> Path:
+    if purpose not in {"upgrade", "rollback"}:
+        raise InstallerError(f"Unsupported backup purpose: {purpose}")
     data_root = Path(paths.data_root).resolve()
     backup_root = Path(paths.upgrade_backup_root).resolve()
     backup_root.mkdir(parents=True, exist_ok=True)
     external_paths = configured_external_storage(db_path, data_root)
-    ensure_backup_space(backup_root, [data_root, paths.config_file, *external_paths])
+    cli_file = Path(paths.cli_file).resolve()
+    backup_sources = [data_root, paths.config_file, *external_paths]
+    if cli_file.is_file():
+        backup_sources.append(cli_file)
+    ensure_backup_space(backup_root, backup_sources)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    archive = backup_root / f"licensetrack-pre-upgrade-{old_state['version']}-{timestamp}.tar.gz"
+    archive = backup_root / f"licensetrack-pre-{purpose}-{old_state['version']}-{timestamp}.tar.gz"
     with tempfile.TemporaryDirectory(prefix="licensetrack-backup-") as temp_name:
         temp_root = Path(temp_name)
         db_snapshot = temp_root / "database-snapshot.db"
@@ -1043,11 +1076,13 @@ def create_upgrade_backup(paths: InstallPaths, old_state: dict, db_path: Path) -
         sqlite_integrity_check(db_snapshot)
         manifest = {
             "schema_version": 1,
+            "purpose": purpose,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "source_version": old_state["version"],
             "database_path": os.fspath(db_path),
             "data_root": os.fspath(data_root),
             "config_file": os.fspath(paths.config_file),
+            "cli_file": os.fspath(cli_file) if cli_file.is_file() else None,
             "external_paths": [os.fspath(path) for path in external_paths],
         }
         manifest_path = temp_root / "manifest.json"
@@ -1061,10 +1096,12 @@ def create_upgrade_backup(paths: InstallPaths, old_state: dict, db_path: Path) -
             tar.add(state_copy, arcname="state/install.json")
             tar.add(db_snapshot, arcname="database-snapshot.db")
             tar.add(manifest_path, arcname="manifest.json")
+            if cli_file.is_file():
+                tar.add(cli_file, arcname="operator/licensetrack")
             for index, external_path in enumerate(external_paths):
                 tar.add(external_path, arcname=f"external/{index}", recursive=True)
     os.chmod(archive, 0o600)
-    info(f"Created pre-upgrade backup: {archive}")
+    info(f"Created pre-{purpose} backup: {archive}")
     return archive
 
 
@@ -1112,19 +1149,146 @@ def _assert_safe_restore_root(path: Path) -> None:
         raise InstallerError(f"Refusing to restore unsafe data root: {resolved}")
 
 
+def extract_upgrade_backup(archive: Path, extraction_root: Path) -> None:
+    try:
+        with tarfile.open(archive, "r:gz") as tar:
+            members = tar.getmembers()
+            names: set[str] = set()
+            for member in members:
+                _validate_archive_member(member)
+                if member.name in names:
+                    raise InstallerError(f"Duplicate path in upgrade backup: {member.name}")
+                names.add(member.name)
+            required = {
+                "data",
+                "config/licensetrack.env",
+                "state/install.json",
+                "database-snapshot.db",
+                "manifest.json",
+            }
+            missing = sorted(required - names)
+            if missing:
+                raise InstallerError(f"Upgrade backup is missing: {', '.join(missing)}")
+            tar.extractall(extraction_root, filter="data")
+    except InstallerError:
+        raise
+    except (OSError, tarfile.TarError) as exc:
+        raise InstallerError(f"Could not read upgrade backup {archive}: {exc}") from exc
+
+
+def read_backup_json(path: Path, label: str) -> dict:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise InstallerError(f"Upgrade backup contains invalid {label}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise InstallerError(f"Upgrade backup {label} must be a JSON object.")
+    return value
+
+
+def resolve_rollback_archive(requested: str | None, state: dict, paths: InstallPaths) -> Path:
+    configured = requested or state.get("last_upgrade_backup")
+    if not configured:
+        raise InstallerError(
+            "No pre-upgrade backup is recorded. Supply one with --backup after copying it "
+            f"under {paths.upgrade_backup_root}."
+        )
+    archive = Path(str(configured)).expanduser().resolve()
+    backup_root = Path(paths.upgrade_backup_root).resolve()
+    if not _is_relative_to(archive, backup_root):
+        raise InstallerError(f"Rollback backups must be located under {backup_root}.")
+    if not archive.is_file():
+        raise InstallerError(f"Rollback backup was not found: {archive}")
+    return archive
+
+
+def validate_rollback_target(archive: Path, paths: InstallPaths, current_state: dict) -> RollbackTarget:
+    with tempfile.TemporaryDirectory(prefix="licensetrack-rollback-check-") as temp_name:
+        extraction_root = Path(temp_name)
+        extract_upgrade_backup(archive, extraction_root)
+        manifest = read_backup_json(extraction_root / "manifest.json", "manifest")
+        previous_state = read_backup_json(extraction_root / "state" / "install.json", "installation state")
+
+        if manifest.get("schema_version") != 1:
+            raise InstallerError("Unsupported upgrade backup manifest schema.")
+        if previous_state.get("schema_version") != STATE_SCHEMA_VERSION:
+            raise InstallerError("Unsupported installation state schema in upgrade backup.")
+        previous_paths = paths_from_state(previous_state)
+        if previous_paths != paths:
+            raise InstallerError("Upgrade backup belongs to a different managed installation.")
+        if Path(str(manifest.get("data_root", ""))).resolve() != Path(paths.data_root).resolve():
+            raise InstallerError("Upgrade backup data root does not match this installation.")
+        if Path(str(manifest.get("config_file", ""))).resolve() != paths.config_file.resolve():
+            raise InstallerError("Upgrade backup configuration path does not match this installation.")
+        archived_cli_path = manifest.get("cli_file")
+        if archived_cli_path is not None:
+            if Path(str(archived_cli_path)).resolve() != Path(paths.cli_file).resolve():
+                raise InstallerError("Upgrade backup operator CLI path does not match this installation.")
+            if not (extraction_root / "operator" / "licensetrack").is_file():
+                raise InstallerError("Upgrade backup is missing its recorded operator CLI.")
+        if str(manifest.get("source_version", "")) != str(previous_state.get("version", "")):
+            raise InstallerError("Upgrade backup version metadata is inconsistent.")
+
+        current_version = str(current_state.get("version", ""))
+        previous_version = str(previous_state.get("version", ""))
+        if parse_version(previous_version) >= parse_version(current_version):
+            raise InstallerError(
+                f"Rollback target {previous_version} must be older than installed version {current_version}."
+            )
+
+        release = Path(str(previous_state.get("release_path", ""))).resolve()
+        releases_root = paths.releases_root.resolve()
+        if release == releases_root or not _is_relative_to(release, releases_root):
+            raise InstallerError("Upgrade backup release path is outside the managed releases directory.")
+        if not release.is_dir():
+            raise InstallerError(f"Rollback release is not installed: {release}")
+        if not (release / "venv" / "bin" / "python").is_file():
+            raise InstallerError(f"Rollback release runtime is missing: {release}")
+
+        restored_data = extraction_root / "data"
+        snapshot = extraction_root / "database-snapshot.db"
+        archived_config = extraction_root / "config" / "licensetrack.env"
+        if not restored_data.is_dir() or not snapshot.is_file() or not archived_config.is_file():
+            raise InstallerError("Upgrade backup is missing required restore content.")
+        archived_environment = parse_env_file(archived_config)
+        archived_database_url = archived_environment.get("DATABASE_URL", "")
+        archived_database = database_path_from_url(archived_database_url, release / "backend")
+        if Path(str(manifest.get("database_path", ""))).resolve() != archived_database:
+            raise InstallerError("Upgrade backup database path does not match its archived configuration.")
+        sqlite_integrity_check(snapshot)
+
+        external_paths = manifest.get("external_paths", [])
+        if not isinstance(external_paths, list):
+            raise InstallerError("Upgrade backup external path metadata is invalid.")
+        for index, external_name in enumerate(external_paths):
+            external_path = Path(str(external_name)).resolve()
+            _assert_safe_restore_root(external_path)
+            if not (extraction_root / "external" / str(index)).is_dir():
+                raise InstallerError(f"Upgrade backup is missing external storage entry {index}.")
+
+    return RollbackTarget(archive=archive, state=previous_state, release=release)
+
+
 def restore_upgrade_backup(archive: Path, paths: InstallPaths) -> dict:
     data_root = Path(paths.data_root).resolve()
     _assert_safe_restore_root(data_root)
     with tempfile.TemporaryDirectory(prefix="licensetrack-rollback-") as temp_name:
         extraction_root = Path(temp_name)
-        with tarfile.open(archive, "r:gz") as tar:
-            for member in tar.getmembers():
-                _validate_archive_member(member)
-            tar.extractall(extraction_root, filter="data")
+        extract_upgrade_backup(archive, extraction_root)
 
-        manifest = json.loads((extraction_root / "manifest.json").read_text(encoding="utf-8"))
+        manifest = read_backup_json(extraction_root / "manifest.json", "manifest")
         if Path(manifest["data_root"]).resolve() != data_root:
             raise InstallerError("Upgrade backup data root does not match this installation.")
+        archived_cli: Path | None = None
+        cli_file: Path | None = None
+        archived_cli_path = manifest.get("cli_file")
+        if archived_cli_path is not None:
+            cli_file = Path(paths.cli_file).resolve()
+            if Path(str(archived_cli_path)).resolve() != cli_file:
+                raise InstallerError("Upgrade backup operator CLI path does not match this installation.")
+            archived_cli = extraction_root / "operator" / "licensetrack"
+            if not archived_cli.is_file():
+                raise InstallerError("Upgrade backup is missing its recorded operator CLI.")
 
         restored_data = extraction_root / "data"
         if not restored_data.is_dir():
@@ -1141,7 +1305,16 @@ def restore_upgrade_backup(archive: Path, paths: InstallPaths) -> dict:
         shutil.copy2(extraction_root / "config" / "licensetrack.env", paths.config_file)
         os.chmod(paths.config_file, 0o640)
         shutil.chown(paths.config_file, user="root", group=paths.service_group)
-        previous_state = json.loads((extraction_root / "state" / "install.json").read_text(encoding="utf-8"))
+        if archived_cli is not None and cli_file is not None:
+            temporary_cli = cli_file.with_name(cli_file.name + ".next")
+            temporary_cli.unlink(missing_ok=True)
+            shutil.copy2(archived_cli, temporary_cli)
+            os.chmod(temporary_cli, 0o755)
+            os.replace(temporary_cli, cli_file)
+        previous_state = read_backup_json(
+            extraction_root / "state" / "install.json",
+            "installation state",
+        )
         write_json(paths.state_file, previous_state)
 
         for index, external_name in enumerate(manifest.get("external_paths", [])):
@@ -1172,6 +1345,107 @@ def paths_from_state(state: dict) -> InstallPaths:
     if required:
         raise InstallerError(f"Installation state is missing: {', '.join(required)}")
     return InstallPaths(**{field: state[field] for field in InstallPaths.__dataclass_fields__})
+
+
+def confirm_manual_rollback(current_version: str, target_version: str, archive: Path, assume_yes: bool) -> None:
+    info(f"Rollback requested: {current_version} -> {target_version}.")
+    info(f"Restore archive: {archive}")
+    info("Changes made after that archive was created will be permanently replaced.")
+    if assume_yes:
+        return
+    if not sys.stdin.isatty():
+        raise InstallerError("Rollback confirmation requires an interactive terminal or --yes.")
+    expected = f"ROLLBACK {target_version}"
+    response = input(f"Type {expected} to continue: ").strip()
+    if response != expected:
+        raise InstallerError("Rollback cancelled; confirmation did not match.")
+
+
+def rollback(args: argparse.Namespace) -> None:
+    require_supported_host()
+    requested_state_file = Path(args.state_file).resolve()
+    with installer_lock(Path(args.lock_file)):
+        current_state = load_state(requested_state_file)
+        paths = paths_from_state(current_state)
+        validate_install_paths(paths)
+        if paths.state_file.resolve() != requested_state_file:
+            raise InstallerError("Requested state file does not match the managed installation.")
+
+        archive = resolve_rollback_archive(args.backup, current_state, paths)
+        target = validate_rollback_target(archive, paths, current_state)
+        current_version = str(current_state["version"])
+        target_version = str(target.state["version"])
+        confirm_manual_rollback(current_version, target_version, archive, args.yes)
+
+        environment = parse_env_file(paths.config_file)
+        database_url = environment.get("DATABASE_URL", "")
+        current_release = Path(str(current_state["release_path"])).resolve()
+        current_database = database_path_from_url(database_url, current_release / "backend")
+        if not current_database.is_file():
+            raise InstallerError(f"Installed database was not found: {current_database}")
+
+        was_active = is_service_active(paths.service_name)
+        safety_archive: Path | None = None
+        restore_started = False
+        try:
+            if was_active:
+                run(["systemctl", "stop", paths.service_name])
+            safety_archive = create_upgrade_backup(
+                paths,
+                current_state,
+                current_database,
+                purpose="rollback",
+            )
+            restore_started = True
+            restored_state = restore_upgrade_backup(archive, paths)
+            atomic_symlink(target.release, paths.current_link)
+            completed_state = {
+                **restored_state,
+                "last_manual_rollback_backup": os.fspath(safety_archive),
+                "rolled_back_at": datetime.now(timezone.utc).isoformat(),
+                "rolled_back_from_version": current_version,
+            }
+            write_json(paths.state_file, completed_state)
+
+            if not args.no_start:
+                run(["systemctl", "start", paths.service_name])
+                wait_for_health(
+                    str(target.state["bind_host"]),
+                    int(target.state["port"]),
+                    target_version,
+                    args.health_timeout,
+                )
+            info(f"LicenseTrack rollback completed: {current_version} -> {target_version}.")
+            info(f"Pre-rollback safety backup: {safety_archive}")
+        except Exception as exc:
+            if not restore_started:
+                if was_active:
+                    subprocess.run(["systemctl", "start", paths.service_name], check=False)
+                raise
+            info(f"Manual rollback failed: {exc}")
+            info("Restoring the pre-rollback safety backup.")
+            subprocess.run(["systemctl", "stop", paths.service_name], check=False)
+            if safety_archive is None:
+                raise InstallerError("Manual rollback failed and no safety backup is available.") from exc
+            try:
+                recovery_state = restore_upgrade_backup(safety_archive, paths)
+                atomic_symlink(Path(recovery_state["release_path"]), paths.current_link)
+                if was_active:
+                    run(["systemctl", "start", paths.service_name])
+                    wait_for_health(
+                        str(recovery_state["bind_host"]),
+                        int(recovery_state["port"]),
+                        str(recovery_state["version"]),
+                        args.health_timeout,
+                    )
+            except Exception as recovery_exc:
+                raise InstallerError(
+                    "Manual rollback failed and recovery of the original version also failed: "
+                    f"{recovery_exc}"
+                ) from recovery_exc
+            raise InstallerError(
+                f"Manual rollback failed; {current_version} was restored successfully: {exc}"
+            ) from exc
 
 
 def upgrade(args: argparse.Namespace) -> None:
@@ -1230,6 +1504,7 @@ def upgrade(args: argparse.Namespace) -> None:
                     target_version,
                     args.health_timeout,
                 )
+            install_operator_cli(source_root, paths)
             info(f"LicenseTrack upgrade completed: {old_state['version']} -> {target_version}.")
         except Exception as exc:
             if not live_migration_started:
@@ -1330,6 +1605,18 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_arguments(upgrade_parser)
     upgrade_parser.add_argument("--state-file", default=os.fspath(DEFAULT_CONFIG_ROOT / "install.json"))
     upgrade_parser.set_defaults(func=upgrade)
+
+    rollback_parser = subparsers.add_parser(
+        "rollback",
+        help="Restore a matched pre-upgrade backup and its installed release",
+    )
+    rollback_parser.add_argument("--state-file", default=os.fspath(DEFAULT_CONFIG_ROOT / "install.json"))
+    rollback_parser.add_argument("--backup")
+    rollback_parser.add_argument("--yes", action="store_true")
+    rollback_parser.add_argument("--lock-file", default=os.fspath(DEFAULT_LOCK_FILE))
+    rollback_parser.add_argument("--health-timeout", type=int, default=90)
+    rollback_parser.add_argument("--no-start", action="store_true")
+    rollback_parser.set_defaults(func=rollback)
     return parser
 
 
