@@ -9,6 +9,72 @@ API stability levels and the breaking-change policy are defined in
 [docs/api-stability.md](docs/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
+## [1.1.0] - 2026-07-22
+
+### Added
+
+- Added native CPython 3.13 and 3.14 support alongside Python 3.12, with
+  automatic runtime and ABI selection.
+- Added per-ABI offline dependency wheelhouses for `cp312`, `cp313`, and
+  `cp314` to the combined native Linux release.
+- Added native runtime metadata to installation state and runtime compatibility
+  checks to `licensetrack doctor`.
+- Added operator-initiated native rollback through
+  `sudo licensetrack rollback`, including explicit backup selection,
+  non-interactive confirmation, configurable health timeouts, and
+  maintenance-mode operation.
+- Added pre-rollback safety backups and automatic recovery of the original
+  installation if a manual rollback fails after restoration begins.
+
+### Changed
+
+- Replaced the public generic Plugin Host positioning with a trusted
+  first-party Official Extensions model. The host is disabled by default,
+  stable mode requires Ed25519 signatures from pinned LicenseTrack release
+  keys, and existing unsigned installations migrate to a disabled and
+  unverified state. Custom and third-party automation should use the public
+  API, webhook, and sidecar integration framework.
+- Updated the Official Extensions admin experience to show signer, checksum,
+  trust state, declared access, and trusted server-code warnings.
+- Upgraded the frontend runtime from React 18.3.1 to React and ReactDOM 19.2.8,
+  with aligned React 19 type definitions while preserving the existing product
+  behavior and visual design.
+- Native release publication is now gated by installation smoke tests across
+  Python 3.12, 3.13, and 3.14.
+- Native upgrades now refresh the installed `licensetrack` operator command
+  atomically after the upgraded application passes its health check.
+- Native upgrade and rollback backups now preserve the matching operator
+  command so application and management tooling remain aligned after
+  restoration.
+- Updated native deployment and maintainer documentation for the expanded
+  Python runtime matrix and operator-initiated rollback.
+- Updated audited frontend transitive dependencies while retaining npm 10
+  lockfile compatibility.
+
+### Fixed
+
+- Fixed native installations performed under restrictive umask settings
+  creating release paths that the system service account could not access.
+- Fixed the frontend package lock after dependency auditing so it remains
+  compatible with the npm 10 environment used by CI.
+- Stabilized the demo Playwright renewal-conversion workflow against retained
+  procurement-history behavior.
+- Prevented the Official Extensions settings surface from showing a transient
+  empty state before host discovery and package loading complete.
+
+### Security
+
+- Restricted Official Extension runtime environment inheritance, enforced
+  settings and document access declarations for runtime and draft contexts,
+  and terminated managed extension process trees during disable and uninstall.
+- Updated frontend transitive dependencies to resolve reported high-severity
+  npm audit findings.
+
+### Release
+
+- Version bumped to 1.1.0 across backend, frontend, README, Docker Compose,
+  frontend package metadata, and wiki installation/deployment examples.
+
 ## [1.0.9] - 2026-07-19
 
 ### Added
@@ -533,6 +599,7 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
+[1.1.0]: https://github.com/zndr88/LicenseTrack/compare/v1.0.9...v1.1.0
 [1.0.9]: https://github.com/zndr88/LicenseTrack/compare/v1.0.8...v1.0.9
 [1.0.8]: https://github.com/zndr88/LicenseTrack/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/zndr88/LicenseTrack/compare/v1.0.6...v1.0.7

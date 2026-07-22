@@ -6,16 +6,19 @@ LicenseTrack can run directly on a Linux host as a systemd service. This path do
 
 - Ubuntu 22.04 LTS, x86_64
 - systemd
-- Python 3.12 with the `venv`, SSL, and SQLite modules
+- CPython 3.12, 3.13, or 3.14 with the `venv`, SSL, and SQLite modules
 - `curl`, `tar`, and standard GNU/Linux user-management tools
 - A TLS-terminating reverse proxy for network-reachable production use
 
-The official native release archive contains the compiled frontend and an offline Python wheelhouse. Node.js is not required when using that archive.
+The official native release archive contains the compiled frontend and offline
+wheelhouses for all supported Python ABIs. The installer selects the matching
+runtime and wheelhouse automatically, so Node.js is not required when using
+that archive.
 
-!!! warning "Third-party Python packages on Ubuntu 22.04"
-    Ubuntu 22.04 does not ship Python 3.12 in its standard repositories. Install and maintain Python 3.12 according to your organisation's package policy before running the installer. Do not replace `/usr/bin/python3`; Ubuntu system tools should continue using the distribution Python.
+!!! warning "Supported Python on Ubuntu 22.04"
+    Ubuntu 22.04 does not ship a supported LicenseTrack Python version in its standard repositories. Install and maintain CPython 3.12, 3.13, or 3.14 according to your organisation's package policy before running the installer. Do not replace `/usr/bin/python3`; Ubuntu system tools should continue using the distribution Python.
 
-Verify the interpreter:
+Verify the interpreter you intend to use (this example uses Python 3.12):
 
 ```bash
 python3.12 --version

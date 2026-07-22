@@ -1,6 +1,6 @@
 # LicenseTrack
 
-Version 1.0.9.
+Version 1.1.0.
 
 LicenseTrack is a self-hosted software license procurement and lifecycle management system. It gives organisations a single Docker-deployed application for sourcing, purchase orders, active license records, renewals, contracts, documents, notifications, reporting, database backups, audit history, and user access control.
 
@@ -157,7 +157,7 @@ For full deployment guidance, see the [deployment guide](wiki/operations/deploym
 
 ### Native Linux installation
 
-LicenseTrack can also run directly on a systemd-based Linux host without Docker. The supported native baseline is Ubuntu 22.04 LTS, Python 3.12, and x86_64. Download the `licensetrack-native-<version>-linux-x86_64` archive attached to the GitHub release, extract it, and run:
+LicenseTrack can also run directly on a systemd-based Linux host without Docker. The supported native baseline is Ubuntu 22.04 LTS, x86_64, and CPython 3.12, 3.13, or 3.14. Download the `licensetrack-native-<version>-linux-x86_64` archive attached to the GitHub release, extract it, and run:
 
 ```bash
 sudo ./install.sh
