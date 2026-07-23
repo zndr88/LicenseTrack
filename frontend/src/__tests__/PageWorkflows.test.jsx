@@ -150,6 +150,8 @@ vi.mock("../api/sourcing.js", () => ({
   deleteSourcingRequest: vi.fn(),
   convertSourcingItem: vi.fn(),
   convertSourcingRequest: vi.fn(),
+  convertFreewareSourcingItem: vi.fn(),
+  convertFreewareSourcingRequest: vi.fn(),
   mergeSourcingItems: vi.fn(),
   exportSourcingCsv: vi.fn(),
 }));
@@ -290,6 +292,8 @@ function setupDefaultApiMocks() {
   sourcingApi.getSourcingRequestHistory.mockResolvedValue({ data: [], error: null });
   sourcingApi.getSourcingRequests.mockResolvedValue({ data: [], error: null });
   sourcingApi.cancelSourcingRequest.mockResolvedValue({ error: null });
+  sourcingApi.convertFreewareSourcingItem.mockResolvedValue({ data: null, error: null });
+  sourcingApi.convertFreewareSourcingRequest.mockResolvedValue({ data: [], error: null });
   sourcingApi.createSourcingRequest.mockResolvedValue({ data: { id: 99, items: [] }, error: null });
   sourcingApi.deleteSourcingRequest.mockResolvedValue({ error: null });
   sourcingApi.exportSourcingCsv.mockResolvedValue({ data: null, error: null });
@@ -364,6 +368,23 @@ describe("LicensesPage workflows", () => {
     await userEvent.type(screen.getByLabelText(/Search licenses/i), "Beta");
     expect(screen.getByText("Beta Tool")).toBeInTheDocument();
     expect(screen.queryByText("Acme Suite")).not.toBeInTheDocument();
+  });
+
+  test("keeps table headers and column filters available when no licenses match", async () => {
+    const user = userEvent.setup();
+    licensesApi.getLicenses.mockResolvedValueOnce({ data: [license()], error: null });
+
+    renderLicensesPage();
+
+    expect(await screen.findByText("Acme Suite")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /show column filters/i }));
+    await user.click(screen.getByRole("button", { name: "Type" }));
+    await user.click(screen.getByLabelText("Maintenance"));
+
+    expect(await screen.findByText("No licenses found")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Type" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1 selected" })).toBeInTheDocument();
+    expect(screen.getByText("1 / 1")).toBeInTheDocument();
   });
 
   test("renders licenses when the shared licenses cache contains the legacy array shape", async () => {
@@ -1054,6 +1075,57 @@ describe("SourcingPage workflows", () => {
     expect(await screen.findByText("Renewal Supplier")).toBeInTheDocument();
     await user.click(screen.getByText("Renewal Supplier"));
     expect(await screen.findByText("Renewing: Cache Publisher")).toBeInTheDocument();
+  });
+
+  test("converts an all-freeware request directly to the Registry", async () => {
+    const user = userEvent.setup();
+    const onNavigateToLicense = vi.fn();
+    const freewareRequest = {
+      id: 4,
+      supplier: "Direct",
+      contactEmail: null,
+      status: "sourcing",
+      createdAt: "2026-07-23T00:00:00Z",
+      quoteDocuments: [],
+      items: [{
+        id: 40,
+        publisherName: "The Document Foundation",
+        softwareDescription: "LibreOffice Calc",
+        licenseType: "freeware",
+        quantity: "1",
+        currency: "EUR",
+        status: "sourcing",
+        isRenewal: false,
+      }],
+    };
+    sourcingApi.getSourcingRequests
+      .mockResolvedValueOnce({ data: [freewareRequest], error: null })
+      .mockResolvedValue({ data: [], error: null });
+    sourcingApi.convertFreewareSourcingRequest.mockResolvedValueOnce({
+      data: [{ id: 501, licenseRef: "LT-2026-00501", licenseType: "freeware" }],
+      error: null,
+    });
+
+    wrapWithQueryClient(
+      <SourcingPage
+        user={admin}
+        userSettings={userSettings}
+        onNavigateToLicense={onNavigateToLicense}
+      />
+    );
+
+    expect(await screen.findByText("Direct")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /convert to registry/i }));
+    const dialog = screen.getByRole("dialog", { name: /convert to license registry/i });
+    expect(within(dialog).getByText("Create active Freeware / Open Source licenses for all 1 open line?")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: /convert to registry/i }));
+
+    await waitFor(() => {
+      expect(sourcingApi.convertFreewareSourcingRequest).toHaveBeenCalledWith(4);
+      expect(screen.getByText(/1 Freeware \/ Open Source license added to the Registry/i)).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /view license/i }));
+    expect(onNavigateToLicense).toHaveBeenCalledWith(501);
   });
 
   test("merge modal opens and cancel, close, and overlay dismiss it when not merging", async () => {

@@ -1,13 +1,20 @@
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
-from app.models.license import LicenseMetric, LicenseType, LifecycleStatus, MaintenanceCoverage
+from app.models.license import (
+    LicenseMetric,
+    LicenseType,
+    LifecycleStatus,
+    MaintenanceCoverage,
+    MaintenancePricingBasis,
+)
 from app.schemas.custom_fields import CustomFieldValueResponse
 from app.services.email_validation import reject_email_crlf
 from app.services.money import is_canonical_money
+from app.services.procurement_totals import calculate_per_unit_support_total
 
 
 def normalise_invoice_numbers(value: object) -> list[str]:
@@ -61,6 +68,9 @@ class LicenseBase(BaseModel):
     maintenance_coverage: Optional[MaintenanceCoverage] = None
     maintenance_start_date: Optional[date] = None
     maintenance_end_date: Optional[date] = None
+    maintenance_pricing_basis: Optional[MaintenancePricingBasis] = None
+    maintenance_quantity: Optional[str] = None
+    maintenance_unit_price: Optional[str] = None
     maintenance_cost: Optional[str] = None
     parent_license_id: Optional[int] = None
     active_maintenance_id: Optional[int] = None
@@ -83,7 +93,15 @@ class LicenseBase(BaseModel):
             return None
         return value
 
-    @field_validator("quantity", "unit_price", "total_po_price", "maintenance_cost", mode="before")
+    @field_validator(
+        "quantity",
+        "unit_price",
+        "total_po_price",
+        "maintenance_quantity",
+        "maintenance_unit_price",
+        "maintenance_cost",
+        mode="before",
+    )
     @classmethod
     def _validate_canonical_money(cls, v: object) -> object:
         if v is None or v == "":
@@ -103,6 +121,18 @@ class LicenseBase(BaseModel):
     @classmethod
     def _normalise_invoice_numbers(cls, value: object) -> list[str]:
         return normalise_invoice_numbers(value)
+
+    @model_validator(mode="after")
+    def _calculate_support_total(self) -> "LicenseBase":
+        if (
+            self.maintenance_coverage == MaintenanceCoverage.included
+            and self.maintenance_pricing_basis == MaintenancePricingBasis.per_unit
+        ):
+            self.maintenance_cost = calculate_per_unit_support_total(
+                self.maintenance_quantity,
+                self.maintenance_unit_price,
+            )
+        return self
 
 
 class LicenseCreate(LicenseBase):
@@ -217,7 +247,8 @@ class LicenseResponse(LicenseBase):
     expiration_status: Optional[str] = None
     document_count: int = 0
     custom_fields: list[CustomFieldValueResponse] = Field(default_factory=list)
-    # Set only in convert responses: "renewed" | "new_purchase" | "renewed_predecessor"
+    # Set only in convert responses: "renewed" | "new_purchase" |
+    # "direct_freeware" | "renewed_predecessor"
     conversion_type: Optional[str] = None
 
     model_config = ConfigDict(

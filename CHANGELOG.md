@@ -2,12 +2,93 @@
 
 All notable changes to LicenseTrack are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+LicenseTrack uses the three-part milestone and release-train policy described in
+[VERSIONING.md](VERSIONING.md). It is not strict Semantic Versioning: compatible
+features may ship in the third-number release train for the current milestone.
 
 API stability levels and the breaking-change policy are defined in
 [docs/extension-authors/api-stability.md](docs/extension-authors/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
+
+## [Unreleased]
+
+### Added
+
+- Added an optional license type to sourcing lines. Zero-cost
+  freeware/open-source lines can convert directly from sourcing to an active
+  Registry license without a pending order, purchase date, PO, invoice,
+  contract, or purchase price. Mixed requests now complete in one action: free
+  lines enter the Registry while paid lines enter the pending-order path.
+- Added maintenance/support classification to sourcing, pending-order
+  conversion, and direct license entry for perpetual, OEM, and
+  freeware/open-source records. Included support stores its coverage dates and
+  either a flat coverage fee or a covered quantity, unit price, and calculated
+  coverage-period total on the parent. Separately tracked support creates an
+  editable linked maintenance line and preserves that relationship through
+  conversion. Included support contributes to sourcing estimates and
+  pending-order totals exactly once.
+- Freeware/open-source records now treat contract, PO, invoice, quote, and
+  non-expiring end-date requirements as not applicable when no paid support is
+  included. EULA, proof-of-entitlement, and publisher-contact requirements
+  remain inapplicable; paid included support restores the purchase-evidence
+  requirements while preserving department and budget-owner checks.
+
+### Changed
+
+- Documented LicenseTrack's milestone and release-train versioning policy so
+  release numbers match the established practice of shipping backward-compatible
+  features, fixes, hardening, and documentation within an active `1.x` series.
+- Freeware/open-source forms now hide license acquisition pricing and persist
+  a zero acquisition cost. Perpetual and OEM acquisition pricing remains
+  separate from optional included-support pricing.
+- Reports now exclude zero-cost freeware/open-source records from monetary
+  totals. Current paid included support contributes its coverage-period total
+  to recurring cost and forecast calculations, while separately tracked
+  support continues to report through its maintenance license line.
+- Demo frontend builds now use `frontend/dist-demo` instead of replacing the
+  normal production bundle under `frontend/dist`.
+- Native installation now records and reports explicit local-only,
+  reverse-proxy, or direct-network reachability. Non-interactive installs must
+  confirm reverse-proxy intent when a non-local public URL uses the secure
+  loopback bind.
+- Documented the native runtime privilege boundary and a guarded removal
+  procedure with explicit data-retention, final-backup, service-account, and
+  external host-cleanup steps.
+- Settings and CSV Import now share the same pattern-based number-format
+  choices, removing duplicate and misleading country labels. Import defaults
+  to the user's number format but remains overridable per file when source data
+  uses a different convention.
+- Refocused the repository README on the product and the shortest installation
+  paths; configuration, persistence, hardening, native host, and maintainer
+  detail now point to their dedicated documentation.
+
+### Fixed
+
+- Native release assembly and installation now reject frontend bundles that
+  contain the demo-only marker, preventing a stale or contaminated demo build
+  from being installed as the production application.
+- Native release assembly now uses an explicit backend allow-list, preventing
+  local environment files, databases, backups, uploaded documents, coverage
+  data, and development plugin storage from entering release archives.
+- The SPA shell now requires browser revalidation while fingerprinted frontend
+  assets use explicit long-lived immutable caching, preventing stale HTML from
+  continuing to reference an obsolete application build.
+- `licensetrack doctor` now reports bind address, public URL, and effective
+  reachability, warns about unconfirmed legacy reverse-proxy arrangements, and
+  detects recorded network-mode mismatches.
+- Added a native permission-contract verifier for release validation, covering
+  service access to mutable data and denial of writes to application code,
+  configuration, systemd, operator tooling, and upgrade snapshots.
+- Suppressed Official Extension action and suggestion requests when the host is
+  unavailable, preventing expected disabled-host responses from appearing as
+  console errors in Sourcing, Pending Orders, Add License, and License Details.
+- Kept the License Overview table header and column filters available when the
+  active filters return no records, so users can broaden or clear the filter.
+- Simplified the direct freeware/open-source conversion confirmation without
+  repeating the pending-order rules already expressed by the workflow.
+- Updated the transitive DOMPurify dependency used by PDF export to the patched
+  `3.4.12` release.
 
 ## [1.1.0] - 2026-07-22
 

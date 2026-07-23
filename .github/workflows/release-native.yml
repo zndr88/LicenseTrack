@@ -51,6 +51,7 @@ jobs:
             packaging/native/upgrade.sh \
             packaging/native/libexec/select_python.sh \
             scripts/test_native_bundle_structure.sh \
+            scripts/test_native_permissions.sh \
             scripts/test_native_runtime.sh \
             scripts/test_native_python_selector.sh
           do

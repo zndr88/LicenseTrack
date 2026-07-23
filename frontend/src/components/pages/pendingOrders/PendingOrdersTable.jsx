@@ -5,6 +5,7 @@ import DocumentButton from "../../ui/DocumentButton.jsx";
 import { formatCost } from "../../../utils/helpers.js";
 import { formatPoTotal } from "./usePendingOrdersPageState.js";
 import { formatDateTime, formatNumber } from "../../../utils/formatting.js";
+import { procurementLineTotal } from "../../../utils/procurementTotals.js";
 
 function SortIndicator({ active, dir }) {
   if (!active) return null;
@@ -76,8 +77,8 @@ function PendingOrderItemsRow({
               <th scope="col" style={{ paddingLeft: 40 }}>Publisher</th>
               <th scope="col">Description</th>
               <th scope="col">Qty</th>
-              <th scope="col">Est. Unit Price</th>
-              <th scope="col">Est. Total</th>
+              <th scope="col">Licence Unit Price</th>
+              <th scope="col">Line Total</th>
               <th scope="col">Currency</th>
               <th scope="col">{readOnly ? "Context" : "Actions"}</th>
             </tr>
@@ -99,7 +100,7 @@ function PendingOrderItemsRow({
                 <td>{item.softwareDescription}</td>
                 <td>{(() => { const q = parseFloat(item.quantity); return isNaN(q) ? "-" : formatNumber(q, { numberFormatLocale: locale }); })()}</td>
                 <td>{formatCost(item.estimatedUnitPrice, item.currency, locale)}</td>
-                <td>{formatCost(item.estimatedTotalPrice, item.currency, locale)}</td>
+                <td>{formatCost(procurementLineTotal(item), item.currency, locale)}</td>
                 <td>{item.currency}</td>
                 <td>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>

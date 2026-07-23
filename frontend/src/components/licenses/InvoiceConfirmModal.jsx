@@ -8,6 +8,9 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
+import MaintenanceCoverageFields, {
+  isFreewareLicenseType,
+} from "../procurement/MaintenanceCoverageFields.jsx";
 
 const formatStrategyLabel = (data) => {
   if (data.strategyUsed === "manual") return "Manual entry";
@@ -37,6 +40,15 @@ const emptyAdditionalLine = (primaryForm) => ({
   currency: primaryForm.currency || "EUR",
   notes: "",
   portalUrl: "",
+  maintenanceCoverage: "unknown",
+  maintenanceStartDate: "",
+  maintenanceEndDate: "",
+  maintenancePricingBasis: "flat",
+  maintenanceQuantity: "",
+  maintenanceUnitPrice: "",
+  maintenanceCost: "",
+  parentLineIndex: null,
+  isMaintenanceCompanion: false,
 });
 
 const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
@@ -67,6 +79,13 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     quantity: data.quantity || "", skuCode: data.skuCode || "", unitPrice: data.unitPrice || "",
     totalPoPrice: data.totalPoPrice || "", currency: data.currency || "EUR", notes: data.notes || "",
     budgetOwnerEmail: data.budgetOwnerEmail || "",
+    maintenanceCoverage: data.maintenanceCoverage || "unknown",
+    maintenanceStartDate: data.maintenanceStartDate || "",
+    maintenanceEndDate: data.maintenanceEndDate || "",
+    maintenancePricingBasis: data.maintenancePricingBasis || "flat",
+    maintenanceQuantity: data.maintenanceQuantity || "",
+    maintenanceUnitPrice: data.maintenanceUnitPrice || "",
+    maintenanceCost: data.maintenanceCost || "",
   });
   const u = (k, v) => { setFormTouched(true); setForm((f) => ({ ...f, [k]: v })); };
   const vis = userSettings.visibleInDetail;
@@ -79,6 +98,25 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   );
 
   const addLine = () => { setFormTouched(true); setAdditionalLines((prev) => [...prev, emptyAdditionalLine(form)]); };
+  const maintenanceLineAdded = additionalLines.some((line) => line.isMaintenanceCompanion);
+  const addMaintenanceLine = () => {
+    if (maintenanceLineAdded) return;
+    setFormTouched(true);
+    setAdditionalLines((prev) => [
+      ...prev,
+      {
+        ...emptyAdditionalLine(form),
+        softwareDescription: `${form.softwareDescription || "Software"} maintenance/support`,
+        licenseType: "maintenance",
+        startDate: form.maintenanceStartDate || form.startDate || "",
+        endDate: form.maintenanceEndDate || form.endDate || "",
+        quantity: form.quantity || "1",
+        currency: form.currency || "EUR",
+        parentLineIndex: 0,
+        isMaintenanceCompanion: true,
+      },
+    ]);
+  };
   const removeLine = (id) => setAdditionalLines((prev) => prev.filter((l) => l.id !== id));
   const updateLine = (id, field, value) =>
     setAdditionalLines((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
@@ -99,7 +137,14 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
       budgetOwnerEmail: form.budgetOwnerEmail,
     };
     const allForms = [
-      form,
+      {
+        ...form,
+        unitPrice: isFreewareLicenseType(form.licenseType) ? "" : form.unitPrice,
+        totalPoPrice: isFreewareLicenseType(form.licenseType) ? "" : form.totalPoPrice,
+        maintenanceQuantity: (parseLocalizedNumber(form.maintenanceQuantity, userSettings) ?? form.maintenanceQuantity) || "",
+        maintenanceUnitPrice: (parseLocalizedNumber(form.maintenanceUnitPrice, userSettings) ?? form.maintenanceUnitPrice) || "",
+        maintenanceCost: (parseLocalizedNumber(form.maintenanceCost, userSettings) ?? form.maintenanceCost) || "",
+      },
       ...additionalLines.map((line) => ({
         ...sharedFields,
         softwareDescription: line.softwareDescription,
@@ -115,6 +160,14 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         currency: line.currency || form.currency,
         notes: line.notes,
         portalUrl: line.portalUrl,
+        maintenanceCoverage: line.maintenanceCoverage,
+        maintenanceStartDate: line.maintenanceStartDate,
+        maintenanceEndDate: line.maintenanceEndDate,
+        maintenancePricingBasis: line.maintenancePricingBasis,
+        maintenanceQuantity: (parseLocalizedNumber(line.maintenanceQuantity, userSettings) ?? line.maintenanceQuantity) || "",
+        maintenanceUnitPrice: (parseLocalizedNumber(line.maintenanceUnitPrice, userSettings) ?? line.maintenanceUnitPrice) || "",
+        maintenanceCost: (parseLocalizedNumber(line.maintenanceCost, userSettings) ?? line.maintenanceCost) || "",
+        parentLineIndex: line.parentLineIndex,
       })),
     ];
     onConfirm(allForms, attachedFile, attachedFileCategory);
@@ -267,7 +320,16 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 <div className="fg"><label htmlFor="inv-license-type">License Type</label>
                   <select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => {
                     const next = e.target.value;
-                    setForm((f) => ({ ...f, licenseType: next, ...(next !== "saas" ? { portalUrl: "" } : {}) }));
+                    setForm((f) => ({
+                      ...f,
+                      licenseType: next,
+                      ...(next !== "saas" ? { portalUrl: "" } : {}),
+                      ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}),
+                    }));
+                    if (isFreewareLicenseType(next)) {
+                      setDisplayUnitPrice("");
+                      setDisplayTotalPrice("");
+                    }
                   }}>
                     <option value="">Select...</option>
                     {LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -284,6 +346,23 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               )}
             </div>
           )}
+          <MaintenanceCoverageFields
+            idPrefix="inv"
+            licenseType={form.licenseType}
+            coverage={form.maintenanceCoverage}
+            startDate={form.maintenanceStartDate}
+            endDate={form.maintenanceEndDate}
+            pricingBasis={form.maintenancePricingBasis}
+            supportQuantity={form.maintenanceQuantity}
+            supportUnitPrice={form.maintenanceUnitPrice}
+            cost={form.maintenanceCost}
+            licenseQuantity={form.quantity}
+            currency={form.currency}
+            locale={locale}
+            onChange={u}
+            onAddSeparate={addMaintenanceLine}
+            separateLineAdded={maintenanceLineAdded}
+          />
           {form.licenseType === "saas" && (
             <div className="fg">
               <label htmlFor="inv-portal-url">Portal URL</label>
@@ -296,7 +375,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               {vis.skuCode && <div className="fg"><label htmlFor="inv-sku-code">SKU Code</label><input id="inv-sku-code" className="fi" value={form.skuCode} placeholder="SKU or product code" onChange={(e) => u("skuCode", e.target.value)} /></div>}
             </div>
           )}
-          {(vis.unitPrice || vis.totalPoPrice) && (
+          {!isFreewareLicenseType(form.licenseType) && (vis.unitPrice || vis.totalPoPrice) && (
             <div className="fr">
               {vis.unitPrice && (
                 <div className="fg">
@@ -332,7 +411,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               )}
             </div>
           )}
-          {(vis.unitPrice || vis.totalPoPrice) && (
+          {(isFreewareLicenseType(form.licenseType) || vis.unitPrice || vis.totalPoPrice) && (
             <div className="fg"><label htmlFor="inv-currency">Currency</label>
               <select id="inv-currency" className="fi fi-select" value={form.currency} onChange={(e) => u("currency", e.target.value)}>
                 {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -385,6 +464,10 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                       const next = e.target.value;
                       updateLine(line.id, "licenseType", next);
                       if (next !== "saas") updateLine(line.id, "portalUrl", "");
+                      if (isFreewareLicenseType(next)) {
+                        updateLine(line.id, "unitPrice", "");
+                        updateLine(line.id, "totalPoPrice", "");
+                      }
                     }}>
                       <option value="">Select...</option>
                       {LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -421,7 +504,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   </div>
                 )}
               </div>
-              {(vis.unitPrice || vis.totalPoPrice) && (
+              {!isFreewareLicenseType(line.licenseType) && (vis.unitPrice || vis.totalPoPrice) && (
                 <div className="fr">
                   {vis.unitPrice && (
                     <div className="fg">

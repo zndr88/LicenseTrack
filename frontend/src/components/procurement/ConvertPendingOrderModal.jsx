@@ -14,6 +14,9 @@ import PendingOrderInvoiceField from "./PendingOrderInvoiceField.jsx";
 import ParentLicensePicker from "./ParentLicensePicker.jsx";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
+import MaintenanceCoverageFields, {
+  isFreewareLicenseType,
+} from "./MaintenanceCoverageFields.jsx";
 
 const APPLYABLE_PLUGIN_FIELDS = new Set([
   "publisherName",
@@ -90,6 +93,7 @@ const ConvertPendingOrderModal = ({
       softwareDescription: prefill.softwareDescription || "",
       startDate:           prefill.startDate           || "",
       endDate:             prefill.endDate             || "",
+      purchaseDate:        prefill.purchaseDate        || "",
       isPerpetual:         false,
       contractNumber:      prefill.contractNumber      || "",
       poNumber:            prefill.poNumber            || "",
@@ -102,6 +106,13 @@ const ConvertPendingOrderModal = ({
       portalUrl:           prefill.portalUrl           || "",
       parentLicenseId:     "",
       parentSourcingItemId: "",
+      maintenanceCoverage: prefill.maintenanceCoverage || "unknown",
+      maintenanceStartDate: prefill.maintenanceStartDate || "",
+      maintenanceEndDate:  prefill.maintenanceEndDate || "",
+      maintenancePricingBasis: prefill.maintenancePricingBasis || "flat",
+      maintenanceQuantity: prefill.maintenanceQuantity || "",
+      maintenanceUnitPrice: prefill.maintenanceUnitPrice || "",
+      maintenanceCost:     prefill.maintenanceCost || "",
       quantity:            prefill.quantity            || "",
       skuCode:             prefill.skuCode             || "",
       unitPrice:           prefill.unitPrice           || "",
@@ -119,6 +130,14 @@ const ConvertPendingOrderModal = ({
   const isPerpetual  = watch("isPerpetual");
   const licenseType  = watch("licenseType");
   const parentLicenseId = watch("parentLicenseId");
+  const maintenanceCoverage = watch("maintenanceCoverage");
+  const maintenanceStartDate = watch("maintenanceStartDate");
+  const maintenanceEndDate = watch("maintenanceEndDate");
+  const maintenancePricingBasis = watch("maintenancePricingBasis");
+  const maintenanceQuantity = watch("maintenanceQuantity");
+  const maintenanceUnitPrice = watch("maintenanceUnitPrice");
+  const maintenanceCost = watch("maintenanceCost");
+  const currency = watch("currency");
   const publisherVal = watch("publisherName");
   const softwareVal  = watch("softwareDescription");
   const conversionDraftFields = watch();
@@ -143,12 +162,21 @@ const ConvertPendingOrderModal = ({
     }
   }, [quantity, unitPrice, totalManuallyEdited, setValue, userSettings, locale]);
 
+  useEffect(() => {
+    if (!isFreewareLicenseType(licenseType)) return;
+    setValue("unitPrice", "", { shouldDirty: true });
+    setValue("totalPoPrice", "", { shouldDirty: true });
+    setDisplayUnitPrice("");
+    setDisplayTotalPrice("");
+    setTotalManuallyEdited(false);
+  }, [licenseType, setValue]);
+
   const canSave =
     (publisherVal ?? "").trim() !== "" &&
     (softwareVal  ?? "").trim() !== "" &&
     (licenseType !== "maintenance" || parentLicenseId) &&
     String(quantity  ?? "").trim() !== "" &&
-    String(unitPrice ?? "").trim() !== "";
+    (isFreewareLicenseType(licenseType) || String(unitPrice ?? "").trim() !== "");
 
   const applyPluginResult = useCallback((result) => {
     const fields = pluginSuggestionFields(result);
@@ -276,6 +304,10 @@ const ConvertPendingOrderModal = ({
               </div>
             </div>
           </div>
+          <div className="fg">
+            <label htmlFor="cpo-purchase-date">Purchase Date</label>
+            <input id="cpo-purchase-date" type="date" className="fi" {...register("purchaseDate")} />
+          </div>
           <div className="fr">
             <div className="fg"><label htmlFor="cpo-contract-number">Contract Number</label><input id="cpo-contract-number" className="fi" {...register("contractNumber")} /></div>
             <div className="fg"><label htmlFor="cpo-po-number">PO Number</label><input id="cpo-po-number" className="fi" {...register("poNumber")} /></div>
@@ -350,13 +382,28 @@ const ConvertPendingOrderModal = ({
               error={errors.parentLicenseId?.message}
             />
           )}
+          <MaintenanceCoverageFields
+            idPrefix="cpo"
+            licenseType={licenseType}
+            coverage={maintenanceCoverage}
+            startDate={maintenanceStartDate}
+            endDate={maintenanceEndDate}
+            pricingBasis={maintenancePricingBasis}
+            supportQuantity={maintenanceQuantity}
+            supportUnitPrice={maintenanceUnitPrice}
+            cost={maintenanceCost}
+            licenseQuantity={quantity}
+            currency={currency}
+            locale={locale}
+            onChange={(field, value) => setValue(field, value, { shouldDirty: true })}
+          />
           {(vis.quantity || vis.skuCode) && (
             <div className="fr">
               {vis.quantity && <div className="fg"><label htmlFor="cpo-quantity">Purchase Quantity <span style={{ color: "var(--red)" }}>*</span></label><input id="cpo-quantity" className="fi" {...register("quantity")} /></div>}
               {vis.skuCode  && <div className="fg"><label htmlFor="cpo-sku-code">SKU Code</label><input id="cpo-sku-code" className="fi" placeholder="SKU or product code" {...register("skuCode")} /></div>}
             </div>
           )}
-          {(vis.unitPrice || vis.totalPoPrice) && (
+          {!isFreewareLicenseType(licenseType) && (vis.unitPrice || vis.totalPoPrice) && (
             <div className="fr">
               {vis.unitPrice && (
                 <div className="fg">
@@ -413,7 +460,7 @@ const ConvertPendingOrderModal = ({
               )}
             </div>
           )}
-          {(vis.unitPrice || vis.totalPoPrice) && (
+          {(isFreewareLicenseType(licenseType) || vis.unitPrice || vis.totalPoPrice) && (
             <div className="fg">
               <label htmlFor="cpo-currency">Currency</label>
               <select id="cpo-currency" className="fi fi-select" {...register("currency")}>

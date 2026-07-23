@@ -168,6 +168,13 @@ describe("useLicenseData", () => {
     expect(result.current.totalPages).toBe(4)
   })
 
+  test("keeps one pagination page when filters match no licenses", () => {
+    const { result } = renderHook(() => useLicenseData([], defaultOptions))
+
+    expect(result.current.totalPages).toBe(1)
+    expect(result.current.paginatedItems).toEqual([])
+  })
+
   // 4r
   test("departments derived from licenses (deduplicated and sorted)", () => {
     const licenses = [

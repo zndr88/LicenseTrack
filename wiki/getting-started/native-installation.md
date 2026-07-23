@@ -41,7 +41,7 @@ The installer offers two modes:
 
 | Mode | Intended use | Configuration |
 |------|--------------|---------------|
-| **Standard (recommended)** | Most production installations | Prompts only for the browser-facing URL and initial local admin password. Uses safe runtime defaults and binds to `127.0.0.1:8000`. |
+| **Standard (recommended)** | Most production installations | Prompts only for the browser-facing URL, reverse-proxy confirmation when needed, and initial local admin password. Uses safe runtime defaults and binds to `127.0.0.1:8000`. |
 | **Advanced** | Custom ports, troubleshooting, larger limits, or isolated test environments | Also prompts for bind address, port, log level, session lifetime, upload/extension limits, allowed extensions, API documentation exposure, session-cookie behavior, and test-only OIDC network allowances. |
 
 Press Enter at the mode prompt to choose Standard, or select a mode explicitly:
@@ -83,11 +83,17 @@ sudo editor /root/licensetrack-admin-password
 
 sudo ./install.sh \
   --yes \
+  --network-mode reverse-proxy \
   --public-url https://licenses.example.com \
   --admin-password-file /root/licensetrack-admin-password
 
 sudo rm /root/licensetrack-admin-password
 ```
+
+The explicit network mode confirms that an existing reverse proxy will forward
+the public URL to LicenseTrack's loopback listener. An unattended install
+rejects a non-local public URL with a loopback bind unless
+`--network-mode reverse-proxy` is present.
 
 The installer intentionally does not accept the password as a command-line argument, where it would be visible in process listings and shell history.
 
@@ -97,6 +103,7 @@ The installer intentionally does not accept the password as a command-line argum
 sudo ./install.sh \
   --advanced \
   --yes \
+  --network-mode direct-network \
   --bind-host 0.0.0.0 \
   --port 8000 \
   --public-url http://192.168.0.247:8000 \
@@ -105,6 +112,10 @@ sudo ./install.sh \
   --no-session-cookie-secure \
   --admin-password-file /root/licensetrack-admin-password
 ```
+
+`direct-network` defaults the bind address to `0.0.0.0` when
+`--bind-host` is omitted, but it never opens the host firewall. Restrict direct
+access to an isolated or otherwise trusted network.
 
 Run `./install.sh --help` for every Advanced automation flag. Command-line flags contain no secret values; application integration secrets are entered later through LicenseTrack's Settings UI.
 
@@ -125,9 +136,38 @@ Run `./install.sh --help` for every Advanced automation flag. Command-line flags
 
 Application files are root-owned. The service runs as the unprivileged `licensetrack` account and can write only its persistent data paths. Journald captures application output.
 
+Installation, upgrade, rollback, backup orchestration, and removal require root
+because they manage systemd, accounts, protected configuration, and
+root-owned application paths. The running web application does not run as
+root:
+
+- release code and its virtual environment are root-owned and not writable by
+  the service account;
+- `/etc/licensetrack/licensetrack.env` is root-owned, readable by the service
+  group, and not service-writable;
+- `/var/lib/licensetrack` is service-owned and contains the mutable database,
+  documents, application backups, and Official Extension data;
+- native upgrade snapshots under `/var/backups/licensetrack` are root-only; and
+- the systemd service uses `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem`,
+  `ProtectHome`, and a restrictive `UMask`.
+
+An application compromise can expose or alter LicenseTrack data and read the
+runtime secrets required by the service. These boundaries prevent that access
+from automatically granting permission to replace application code,
+configuration, the systemd unit, or the operator command; they are not a
+hostile-code sandbox.
+
 ## Reverse proxy and HTTPS
 
 The default loopback binding is deliberate. Put nginx, Caddy, or another TLS-terminating reverse proxy in front of `127.0.0.1:8000`. The public URL entered during installation becomes `CORS_ORIGINS`; HTTPS URLs also enable secure session cookies.
+
+When an interactive install combines a non-local public URL with the loopback
+bind, it explains that this is reverse-proxy mode and requires confirmation.
+For unattended installation, declare `--network-mode reverse-proxy`
+explicitly. `licensetrack doctor` reports the effective bind, public URL, and
+reachability mode; installations upgraded from an older state receive a
+warning until the operator confirms that the inferred reverse-proxy
+arrangement is intentional.
 
 Do not expose port 8000 directly to an untrusted network. Route both the SPA and `/api/*` paths through the same public origin.
 
@@ -145,6 +185,9 @@ sudo licensetrack version
 ```
 
 The `backup` command creates the same WAL-safe SQLite backup format used by the application. It does not include uploaded documents. Upgrade snapshots are separate and include the managed data directory, configuration, and any configured external document-storage path.
+
+For data-retention choices and complete host cleanup, see
+[Native Linux removal](../operations/native-uninstall.md).
 
 ## First login
 

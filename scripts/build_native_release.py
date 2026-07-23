@@ -27,6 +27,7 @@ REQUIREMENT_RE = re.compile(
 SUPPORTED_PYTHON_ABIS = ("cp312", "cp313", "cp314")
 SUPPORTED_PYTHON_RANGE = ">=3.12,<3.15"
 NATIVE_MANIFEST_FORMAT = "licensetrack-native-v2"
+DEMO_MARKER = b"LICENSETRACK_DEMO_MARKER"
 IGNORED_NAMES = {
     ".pytest_cache",
     ".ruff_cache",
@@ -37,11 +38,15 @@ IGNORED_NAMES = {
     "dist",
     "test-results",
 }
+BACKEND_RELEASE_DIRECTORIES = ("alembic", "app")
+BACKEND_RELEASE_FILES = ("alembic.ini", "requirements-runtime.txt")
 
 
 def run(command: list[str], *, cwd: Path | None = None) -> None:
     print("+", " ".join(command), flush=True)
-    subprocess.run(command, cwd=cwd, check=True)
+    executable = shutil.which(command[0])
+    resolved_command = [executable, *command[1:]] if executable else command
+    subprocess.run(resolved_command, cwd=cwd, check=True)
 
 
 def version() -> str:
@@ -187,14 +192,25 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def assert_production_frontend_bundle(bundle_root: Path) -> None:
+    index = bundle_root / "index.html"
+    if not index.is_file():
+        raise RuntimeError("Compiled frontend was not found. Run without --skip-frontend-build.")
+    for path in bundle_root.rglob("*"):
+        if path.is_file() and DEMO_MARKER in path.read_bytes():
+            raise RuntimeError(
+                "Refusing to package a demo frontend as a native production release: "
+                f"{path.relative_to(bundle_root)} contains LICENSETRACK_DEMO_MARKER."
+            )
+
+
 def build_frontend(skip_build: bool) -> Path:
     frontend = ROOT / "frontend"
     output = frontend / "dist"
     if not skip_build:
         run(["npm", "ci"], cwd=frontend)
         run(["npm", "run", "build"], cwd=frontend)
-    if not (output / "index.html").is_file():
-        raise RuntimeError("Compiled frontend was not found. Run without --skip-frontend-build.")
+    assert_production_frontend_bundle(output)
     return output
 
 
@@ -204,6 +220,7 @@ def assemble(
     release_version: str,
     wheelhouses: dict[str, Path],
 ) -> Path:
+    assert_production_frontend_bundle(frontend_dist)
     for abi, wheelhouse in wheelhouses.items():
         validate_wheelhouse(abi, wheelhouse)
 
@@ -216,13 +233,19 @@ def assemble(
         shutil.copy2(ROOT / name, bundle / name)
     shutil.copytree(ROOT / "packaging" / "native", bundle / "packaging" / "native", ignore=ignore)
 
+    backend_source = ROOT / "backend"
     backend_target = bundle / "payload" / "backend"
-    shutil.copytree(ROOT / "backend", backend_target, ignore=ignore)
-    tests = backend_target / "tests"
-    if tests.exists():
-        shutil.rmtree(tests)
-    full_requirements = backend_target / "requirements.txt"
-    full_requirements.unlink(missing_ok=True)
+    backend_target.mkdir(parents=True)
+    for name in BACKEND_RELEASE_DIRECTORIES:
+        source = backend_source / name
+        if not source.is_dir():
+            raise RuntimeError(f"Required backend release directory was not found: {source}")
+        shutil.copytree(source, backend_target / name, ignore=ignore)
+    for name in BACKEND_RELEASE_FILES:
+        source = backend_source / name
+        if not source.is_file():
+            raise RuntimeError(f"Required backend release file was not found: {source}")
+        shutil.copy2(source, backend_target / name)
     shutil.copytree(frontend_dist, backend_target / "frontend" / "dist")
 
     source_version = version()

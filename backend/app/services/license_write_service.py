@@ -166,6 +166,9 @@ async def create_license_record(
     create_data["maintenance_coverage"] = create_data.get("maintenance_coverage") or default_maintenance_coverage(
         payload.license_type
     )
+    if payload.license_type == LicenseType.freeware:
+        create_data["unit_price"] = ""
+        create_data["total_po_price"] = ""
 
     # F1: chain and lifecycle fields cannot be set at create time.
     _CREATE_CHAIN_FIELDS = REPAIR_ONLY_UPDATE_FIELDS
@@ -211,6 +214,9 @@ async def apply_license_update(
     ):
         update_data["maintenance_coverage"] = default_maintenance_coverage(update_data["license_type"])
     normalise_perpetual_end_date(update_data)
+    if update_data.get("license_type", license_obj.license_type) == LicenseType.freeware:
+        update_data["unit_price"] = ""
+        update_data["total_po_price"] = ""
 
     validate_general_license_update_fields(update_data, license_obj)
 
@@ -442,6 +448,9 @@ async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list
             has_maintenance=False,
             maintenance_start_date=None,
             maintenance_end_date=None,
+            maintenance_pricing_basis=None,
+            maintenance_quantity=None,
+            maintenance_unit_price=None,
             maintenance_cost=None,
         )
     )
@@ -497,6 +506,9 @@ def apply_license_type_patch(license_obj: License, value: str | None) -> None:
     license_obj.license_type = new_type
     if license_obj.active_maintenance_id is None:
         license_obj.maintenance_coverage = default_maintenance_coverage(new_type)
+    if new_type == LicenseType.freeware:
+        license_obj.unit_price = ""
+        license_obj.total_po_price = ""
     if new_type == LicenseType.perpetual:
         license_obj.end_date = None
 

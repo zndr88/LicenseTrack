@@ -15,10 +15,20 @@ Record the publisher and software description first, then add the commercial,
 ownership, date, and evidence fields available to you. LicenseTrack assigns the
 LT reference automatically. It cannot be supplied or edited manually.
 
+For freeware and open-source software, choose **Freeware / Open Source** in the
+ordinary **License Type** field. There is no separate acquisition mode. A
+directly created record can leave commercial references and prices empty.
+EULA, proof-of-entitlement, and publisher-contact completeness checks are not
+applicable to this type. Contract, PO, invoice, and quote checks are also not
+applicable while the record has no paid included support. Department and budget
+owner requirements still apply so the record retains useful organizational
+ownership.
+
 !!! tip
-    Use the [procurement workflow](../workflows/procurement.md) for new purchases
-    that still need quotes, approvals, a PO, or invoice evidence. Direct creation
-    records the entitlement but does not invent a sourcing or pending-order trail.
+    Use the [procurement workflow](../workflows/procurement.md) when a request
+    should remain traceable even though the resulting entitlement is free.
+    Freeware sourcing lines convert directly to the Registry without creating a
+    pending order.
 
 ## Edit and review
 
@@ -40,9 +50,20 @@ Separately purchased maintenance or support is represented by a maintenance
 license linked to an eligible parent. Eligible parents are active perpetual,
 OEM, or freeware/open-source records.
 
-You can create maintenance from the parent license or select its parent during
-pending-order conversion. The active maintenance child supplies the mirrored
-maintenance dates and cost shown on the parent.
+Choose **Included** when support belongs on the parent record. Its start/end
+dates define the coverage period. Its price can be a flat coverage fee or a
+covered quantity multiplied by a support unit price; LicenseTrack stores the
+resulting coverage-period total. That total is not annualized.
+
+Choose **Separately tracked** to add a real maintenance line with its own
+procurement evidence and renewal lifecycle. You can create that line while
+sourcing, while editing a pending-order line, during direct license entry, or
+later from the parent license. The active maintenance child supplies the
+mirrored maintenance dates and cost shown on the parent.
+
+When either kind of coverage is renewed, create a new line for the new coverage
+period. This preserves the cost and dates of the expired period instead of
+rewriting them.
 
 !!! warning
     A maintenance line is never linked by PO number alone. Select the intended

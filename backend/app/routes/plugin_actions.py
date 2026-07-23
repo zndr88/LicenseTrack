@@ -7,13 +7,12 @@ from app.database import get_db
 from app.dependencies import CurrentUser
 from app.schemas.plugin import PluginActionInvokeRequest, PluginActionInvokeResponse, PluginActionsListResponse
 from app.services.audit_service import log_event
-from app.services.plugin_host_service import require_plugin_host_enabled
 from app.services.plugin_action_service import PluginActionError, invoke_plugin_action, list_plugin_actions
+from app.services.plugin_host_service import plugin_host_enabled, require_plugin_host_enabled
 
 router = APIRouter(
     prefix="/api/plugin-actions",
     tags=["official-extension-actions"],
-    dependencies=[Depends(require_plugin_host_enabled)],
 )
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
@@ -27,6 +26,13 @@ async def list_available_plugin_actions(
     target_type: str = Query(..., alias="targetType", min_length=1, max_length=80),
     target_id: str = Query(..., alias="targetId", min_length=1, max_length=120),
 ) -> PluginActionsListResponse:
+    if not plugin_host_enabled():
+        return PluginActionsListResponse(
+            slot=slot,
+            target_type=target_type,
+            target_id=target_id,
+            actions=[],
+        )
     try:
         return await list_plugin_actions(
             db, slot=slot, target_type=target_type, target_id=target_id, actor=current_user
@@ -37,7 +43,11 @@ async def list_available_plugin_actions(
         raise HTTPException(status_code=status_code, detail=detail)
 
 
-@router.post("/{plugin_key}/{action_key}/invoke", response_model=PluginActionInvokeResponse)
+@router.post(
+    "/{plugin_key}/{action_key}/invoke",
+    response_model=PluginActionInvokeResponse,
+    dependencies=[Depends(require_plugin_host_enabled)],
+)
 async def invoke_available_plugin_action(
     plugin_key: str,
     action_key: str,

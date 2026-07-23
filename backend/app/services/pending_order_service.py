@@ -338,6 +338,7 @@ def _build_pending_order_item(
     item_data.pop("status", None)
     item_data.pop("renewal_for_license_id", None)
     item_data.pop("sourcing_request_id", None)
+    item_data.pop("parent_item_index", None)
 
     return SourcingItem(
         **item_data,

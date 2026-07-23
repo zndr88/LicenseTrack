@@ -52,6 +52,9 @@ async def sync_parent_mirror_fields(
         parent.has_maintenance = False
         parent.maintenance_start_date = None
         parent.maintenance_end_date = None
+        parent.maintenance_pricing_basis = None
+        parent.maintenance_quantity = None
+        parent.maintenance_unit_price = None
         parent.maintenance_cost = None
         return
 
@@ -66,6 +69,9 @@ async def sync_parent_mirror_fields(
         parent.has_maintenance = False
         parent.maintenance_start_date = None
         parent.maintenance_end_date = None
+        parent.maintenance_pricing_basis = None
+        parent.maintenance_quantity = None
+        parent.maintenance_unit_price = None
         parent.maintenance_cost = None
         return
 
@@ -73,6 +79,9 @@ async def sync_parent_mirror_fields(
     parent.maintenance_coverage = MaintenanceCoverage.separately_tracked
     parent.maintenance_start_date = active_child.start_date
     parent.maintenance_end_date = active_child.end_date
+    parent.maintenance_pricing_basis = None
+    parent.maintenance_quantity = None
+    parent.maintenance_unit_price = None
     # Mirror the child's own line total (qty × unit price), not the stored
     # total_po_price: that column is a deprecated whole-PO aggregate and would
     # attribute the entire PO's value to this one maintenance line.

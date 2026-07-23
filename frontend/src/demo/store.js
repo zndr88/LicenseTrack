@@ -217,6 +217,14 @@ const DOCUMENT_CATEGORIES = {
   purchaseOrder: "purchase_order",
   quote: "quote",
 };
+const FREEWARE_INAPPLICABLE_FIELDS = new Set([
+  "contractNumber",
+  "invoice",
+  "invoiceNumber",
+  "poNumber",
+  "purchaseOrder",
+  "quote",
+]);
 
 function hasDocumentCategory(license, category) {
   const documents = license.documents;
@@ -246,7 +254,8 @@ export function computeLicenseCompletenessPct(license) {
   const mandatoryFields = store.globalSettings.mandatory_fields ?? {};
   const enabledKeys = Object.entries(mandatoryFields)
     .filter(([, enabled]) => enabled)
-    .map(([key]) => key);
+    .map(([key]) => key)
+    .filter((key) => license.licenseType !== "freeware" || !FREEWARE_INAPPLICABLE_FIELDS.has(key));
   if (enabledKeys.length === 0) return 100;
 
   const met = enabledKeys.filter((key) => hasMandatoryField(license, key)).length;
@@ -573,10 +582,14 @@ function formatCurrency(amount, currency) {
 function sumByCurrency(items) {
   const totals = {};
   for (const item of items) {
-    if (item.estimatedTotalPrice == null) continue;
-    const val = Number(item.estimatedTotalPrice);
-    if (Number.isNaN(val)) continue;
-    totals[item.currency] = (totals[item.currency] || 0) + val;
+    const acquisition = item.estimatedTotalPrice == null ? null : Number(item.estimatedTotalPrice);
+    const support = item.maintenanceCoverage === "included" && item.maintenanceCost != null
+      ? Number(item.maintenanceCost)
+      : null;
+    const validAcquisition = acquisition !== null && !Number.isNaN(acquisition) ? acquisition : 0;
+    const validSupport = support !== null && !Number.isNaN(support) ? support : 0;
+    if (acquisition === null && support === null) continue;
+    totals[item.currency] = (totals[item.currency] || 0) + validAcquisition + validSupport;
   }
   return totals;
 }
@@ -704,6 +717,15 @@ function buildTrailSourcingItem(item) {
     status: item.status,
     publisherName: item.publisherName,
     softwareDescription: item.softwareDescription,
+    licenseType: item.licenseType,
+    maintenanceCoverage: item.maintenanceCoverage,
+    maintenanceStartDate: item.maintenanceStartDate,
+    maintenanceEndDate: item.maintenanceEndDate,
+    maintenancePricingBasis: item.maintenancePricingBasis,
+    maintenanceQuantity: item.maintenanceQuantity,
+    maintenanceUnitPrice: item.maintenanceUnitPrice,
+    maintenanceCost: item.maintenanceCost,
+    parentSourcingItemId: item.parentSourcingItemId,
     quantity: item.quantity,
     estimatedUnitPrice: item.estimatedUnitPrice,
     estimatedTotalPrice: item.estimatedTotalPrice,
@@ -813,7 +835,9 @@ export function assertSourcingItemEditable(item) {
 
 /** Mirrors backend/app/schemas/sourcing.py:159-195 SourcingRequestResponse shape. */
 export function buildSourcingRequestResponse(request) {
-  const items = store.sourcingItems.filter((i) => i.sourcingRequestId === request.id);
+  const items = store.sourcingItems
+    .filter((i) => i.sourcingRequestId === request.id)
+    .map(withSourcingItemLicenseRefs);
   return {
     ...request,
     items,
@@ -831,9 +855,18 @@ export function buildSourcingItem(payload, overrides = {}) {
     sourcingRequestId: overrides.sourcingRequestId ?? payload.sourcingRequestId ?? null,
     publisherName: payload.publisherName,
     softwareDescription: payload.softwareDescription,
+    licenseType: payload.licenseType ?? null,
+    maintenanceCoverage: payload.maintenanceCoverage ?? null,
+    maintenanceStartDate: payload.maintenanceStartDate ?? null,
+    maintenanceEndDate: payload.maintenanceEndDate ?? null,
+    maintenancePricingBasis: payload.maintenancePricingBasis ?? null,
+    maintenanceQuantity: payload.maintenanceQuantity ?? null,
+    maintenanceUnitPrice: payload.maintenanceUnitPrice ?? null,
+    maintenanceCost: payload.maintenanceCost ?? null,
+    parentSourcingItemId: payload.parentSourcingItemId ?? null,
     quantity: payload.quantity ?? null,
-    estimatedUnitPrice: payload.estimatedUnitPrice ?? null,
-    estimatedTotalPrice: payload.estimatedTotalPrice ?? null,
+    estimatedUnitPrice: payload.licenseType === "freeware" ? null : payload.estimatedUnitPrice ?? null,
+    estimatedTotalPrice: payload.licenseType === "freeware" ? null : payload.estimatedTotalPrice ?? null,
     currency: payload.currency || "EUR",
     startDate: payload.startDate ?? null,
     endDate: payload.endDate ?? null,
@@ -842,6 +875,9 @@ export function buildSourcingItem(payload, overrides = {}) {
     notes: payload.notes ?? null,
     status: overrides.status ?? "sourcing",
     pendingOrderId: overrides.pendingOrderId ?? null,
+    convertedLicenseId: null,
+    convertedLicenseRef: null,
+    convertedLicenseIds: [],
     renewalForLicenseId,
     cotermPredecessorIds: null,
     isRenewal: renewalForLicenseId != null,
@@ -902,6 +938,11 @@ function buildNewPendingOrder({ poNumber, supplier, notes }) {
 /** Mirrors backend/app/services/sourcing_service.py:257-303 convert_sourcing_item_to_order. */
 export function convertSourcingItemToOrder(item, { pendingOrderId, poNumber, supplier, notes }) {
   assertSourcingItemEditable(item);
+  const isDirectFreeware = item.licenseType === "freeware"
+    && !(item.maintenanceCoverage === "included" && Number(item.maintenanceCost) > 0);
+  if (isDirectFreeware) {
+    throw new Error("Freeware / Open Source items convert directly to the License Registry");
+  }
   ensureSourcingRequestForItem(item);
 
   let order;
@@ -941,6 +982,18 @@ export function convertSourcingRequestToOrder(request, { pendingOrderId, poNumbe
     throw new Error("Sourcing request has already been converted");
   }
 
+  const purchaseItems = store.sourcingItems.filter(
+    (item) => item.sourcingRequestId === request.id
+      && item.status === "sourcing"
+      && (
+        item.licenseType !== "freeware"
+        || (item.maintenanceCoverage === "included" && Number(item.maintenanceCost) > 0)
+      )
+  );
+  if (purchaseItems.length === 0) {
+    throw new Error("No purchase items are available to convert to a pending order");
+  }
+
   let order;
   if (pendingOrderId != null) {
     order = store.pendingOrders.find((p) => p.id === pendingOrderId);
@@ -956,13 +1009,14 @@ export function convertSourcingRequestToOrder(request, { pendingOrderId, poNumbe
   }
 
   const now = new Date().toISOString();
-  for (const item of store.sourcingItems.filter((i) => i.sourcingRequestId === request.id)) {
-    if (item.status === "converted") continue;
+  for (const item of purchaseItems) {
     item.pendingOrderId = order.id;
     item.status = "converted";
     item.updatedAt = now;
   }
-  request.status = "converted";
+  request.status = store.sourcingItems.some(
+    (item) => item.sourcingRequestId === request.id && item.status === "sourcing"
+  ) ? "sourcing" : "converted";
   request.updatedAt = now;
 
   rebuildPendingOrderItems(order);
@@ -1171,6 +1225,18 @@ export function initiateRenewalBundleRecord(licenseIds) {
   };
 }
 
+function withSourcingItemLicenseRefs(item) {
+  const matches = store.licenses.filter(
+    (license) => !license.isRetired && license.sourceSourcingItemId === item.id
+  );
+  return {
+    ...item,
+    convertedLicenseIds: matches.map((license) => license.id),
+    convertedLicenseId: matches.length === 1 ? matches[0].id : null,
+    convertedLicenseRef: matches.length === 1 ? matches[0].licenseRef : null,
+  };
+}
+
 // Pending-order lifecycle: CRUD, item management, and the decisive
 // PO -> license conversion (single and batch).
 // Mirrors backend/app/services/pending_order_service.py,
@@ -1235,6 +1301,74 @@ export function cancelPendingOrderRecord(order) {
   }
   rebuildPendingOrderItems(order);
   return order;
+}
+
+export function convertFreewareSourcingItems(items) {
+  if (!items.length) {
+    throw new Error("No Freeware / Open Source items are available to convert");
+  }
+
+  const now = new Date().toISOString();
+  const created = items.map((item) => {
+    assertSourcingItemEditable(item);
+    if (item.licenseType !== "freeware") {
+      throw new Error(`Sourcing item ${item.id} is not Freeware / Open Source`);
+    }
+    if (item.maintenanceCoverage === "included" && Number(item.maintenanceCost) > 0) {
+      throw new Error(`Sourcing item ${item.id} has paid included support and requires the purchase-order workflow`);
+    }
+    if (item.renewalForLicenseId != null) {
+      throw new Error(`Sourcing item ${item.id} is a renewal and must follow the purchase workflow`);
+    }
+
+    const request = store.sourcingRequests.find((candidate) => candidate.id === item.sourcingRequestId);
+    const id = nextId();
+    const license = buildLicense({
+      id,
+      publisherName: item.publisherName,
+      softwareDescription: item.softwareDescription,
+      licenseType: "freeware",
+      licenseMetric: "per_user",
+      quantity: item.quantity ?? "",
+      currency: item.currency || "EUR",
+      startDate: item.startDate ?? null,
+      endDate: item.endDate ?? null,
+      sourceSourcingItemId: item.id,
+      requestDate: item.createdAt,
+      purchaseDate: null,
+      maintenanceCoverage: item.maintenanceCoverage,
+      maintenanceStartDate: item.maintenanceStartDate,
+      maintenanceEndDate: item.maintenanceEndDate,
+      maintenancePricingBasis: item.maintenancePricingBasis,
+      maintenanceQuantity: item.maintenanceQuantity,
+      maintenanceUnitPrice: item.maintenanceUnitPrice,
+      maintenanceCost: item.maintenanceCost,
+      contactEmail: item.contactEmail || request?.contactEmail || "",
+      supplier: item.supplier || request?.supplier || "",
+      notes: item.notes ?? request?.notes ?? null,
+      licenseRef: `LT-2026-${String(id).padStart(4, "0")}`,
+      createdAt: now,
+      updatedAt: now,
+      conversionType: "direct_freeware",
+    });
+    store.licenses.push(license);
+    item.status = "converted";
+    item.updatedAt = now;
+    return withComputedCompleteness(license);
+  });
+
+  const requestIds = new Set(items.map((item) => item.sourcingRequestId).filter((id) => id != null));
+  for (const requestId of requestIds) {
+    const request = store.sourcingRequests.find((candidate) => candidate.id === requestId);
+    const hasOpenItems = store.sourcingItems.some(
+      (item) => item.sourcingRequestId === requestId && item.status === "sourcing"
+    );
+    if (request && !hasOpenItems) {
+      request.status = "converted";
+      request.updatedAt = now;
+    }
+  }
+  return created;
 }
 
 /**
@@ -1313,6 +1447,13 @@ function buildPendingOrderItemLicenseData(formData, item, oldLicense) {
   if (item.quantity != null) data.quantity = item.quantity;
   if (item.estimatedUnitPrice != null) data.unitPrice = item.estimatedUnitPrice;
   if (item.estimatedTotalPrice != null) data.totalPoPrice = item.estimatedTotalPrice;
+  if (item.maintenanceCoverage != null) data.maintenanceCoverage = item.maintenanceCoverage;
+  if (item.maintenanceStartDate != null) data.maintenanceStartDate = item.maintenanceStartDate;
+  if (item.maintenanceEndDate != null) data.maintenanceEndDate = item.maintenanceEndDate;
+  if (item.maintenancePricingBasis != null) data.maintenancePricingBasis = item.maintenancePricingBasis;
+  if (item.maintenanceQuantity != null) data.maintenanceQuantity = item.maintenanceQuantity;
+  if (item.maintenanceUnitPrice != null) data.maintenanceUnitPrice = item.maintenanceUnitPrice;
+  if (item.maintenanceCost != null) data.maintenanceCost = item.maintenanceCost;
   if (item.currency) data.currency = item.currency;
   if (item.supplier) data.supplier = item.supplier;
   if (item.contactEmail) data.contactEmail = item.contactEmail;
@@ -1364,6 +1505,10 @@ function createPurchaseLicense(itemData) {
   const data = { ...itemData };
   delete data.parentSourcingItemId;
   if (data.licenseType === "perpetual") data.endDate = null;
+  if (data.licenseType === "freeware") {
+    data.unitPrice = "";
+    data.totalPoPrice = "";
+  }
   if (data.licenseType !== "maintenance" && data.parentLicenseId != null) {
     throw new Error("parentLicenseId is only valid for maintenance licenses");
   }

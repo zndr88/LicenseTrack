@@ -116,6 +116,7 @@ export default function AppRouter({
               queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
             }}
             onNavigateToPendingOrder={(id) => { setPage("pending-orders"); setHighlightPendingOrderId(id); }}
+            onNavigateToLicense={(id) => { setPage("licenses"); handleSetSelectedId(id); }}
           />
         </Suspense>
       )}

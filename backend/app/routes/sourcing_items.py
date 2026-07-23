@@ -2,13 +2,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import require_editor_or_admin
-from app.models.license import License
+from app.models.license import License, LicenseType
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
 from app.schemas.sourcing import (
@@ -23,6 +23,7 @@ from app.services.sourcing_service import (
     assert_sourcing_item_editable,
     ensure_sourcing_request_for_item,
     handle_delete_side_effects,
+    refresh_sourcing_request_status,
 )
 
 router = APIRouter(prefix="/api/sourcing", tags=["sourcing"])
@@ -81,6 +82,7 @@ async def list_sourcing_items(
     )
     if limit is not None:
         query = query.limit(limit)
+    query = query.options(selectinload(SourcingItem.converted_licenses))
     result = await db.execute(query)
     items = list(result.scalars().all())
     return [SourcingItemResponse.model_validate(item) for item in items]
@@ -179,7 +181,11 @@ async def get_sourcing_item(
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> SourcingItemResponse:
-    result = await db.execute(select(SourcingItem).where(SourcingItem.id == item_id))
+    result = await db.execute(
+        select(SourcingItem)
+        .where(SourcingItem.id == item_id)
+        .options(selectinload(SourcingItem.converted_licenses))
+    )
     item = result.scalar_one_or_none()
     if item is None:
         raise HTTPException(status_code=404, detail="Sourcing item not found")
@@ -193,7 +199,9 @@ async def create_sourcing_item(
     db: DbSession,
     current_user: User = Depends(require_editor_or_admin),
 ) -> SourcingItemResponse:
-    item = SourcingItem(**payload.model_dump(by_alias=False), created_by=current_user.id)
+    item_data = payload.model_dump(by_alias=False)
+    item_data.pop("parent_item_index", None)
+    item = SourcingItem(**item_data, created_by=current_user.id)
     db.add(item)
     await db.flush()
     await ensure_sourcing_request_for_item(db, item, created_by=current_user.id)
@@ -234,6 +242,9 @@ async def update_sourcing_item(
 
     before = {c.name: getattr(item, c.name) for c in item.__table__.columns}
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+    if update_data.get("license_type", item.license_type) == LicenseType.freeware:
+        update_data["estimated_unit_price"] = None
+        update_data["estimated_total_price"] = None
     for field, value in update_data.items():
         setattr(item, field, value)
     after = {c.name: getattr(item, c.name) for c in item.__table__.columns}
@@ -277,6 +288,7 @@ async def delete_sourcing_item(
 
     renewal_license_id = item.renewal_for_license_id
     parent_order_id = item.pending_order_id
+    sourcing_request = item.sourcing_request
     label = item.software_description
     await db.delete(item)
 
@@ -292,5 +304,16 @@ async def delete_sourcing_item(
     )
 
     await handle_delete_side_effects(db, renewal_license_id=renewal_license_id, parent_order_id=parent_order_id)
+    if sourcing_request is not None:
+        converted_siblings = await db.scalar(
+            select(func.count())
+            .select_from(SourcingItem)
+            .where(
+                SourcingItem.sourcing_request_id == sourcing_request.id,
+                SourcingItem.status == SourcingStatus.converted,
+            )
+        )
+        if converted_siblings:
+            await refresh_sourcing_request_status(db, sourcing_request)
     await db.commit()
     return Response(status_code=204)

@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License
@@ -29,13 +30,25 @@ async def create_maintenance_purchase(
     elif parent_sourcing_item_id is not None:
         parent = created_parent_by_sourcing_item_id.get(parent_sourcing_item_id)
         if parent is None:
+            result = await db.execute(
+                select(License).where(
+                    License.source_sourcing_item_id == parent_sourcing_item_id,
+                    License.is_retired.is_(False),
+                )
+            )
+            parent = result.scalars().first()
+        if parent is None:
             raise HTTPException(
                 status_code=400,
                 detail=(
                     f"Item {item_id}: parentSourcingItemId {parent_sourcing_item_id} "
-                    "does not refer to a perpetual/OEM/freeware license in this conversion"
+                    "does not refer to an active perpetual/OEM/freeware license"
                 ),
             )
+        try:
+            parent = await validate_parent_license(db, parent.id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Item {item_id}: {exc}")
     else:
         raise HTTPException(
             status_code=400,

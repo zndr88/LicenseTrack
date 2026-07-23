@@ -214,6 +214,30 @@ def test_completeness_with_new_record_fields():
     ) == 100
 
 
+def test_completeness_excludes_inapplicable_requirements_for_freeware():
+    lic = make_license(
+        license_type="freeware",
+        cost_centre="Finance",
+    )
+    assert compute_completeness(
+        lic,
+        [],
+        {
+            "invoice": True,
+            "invoiceNumber": True,
+            "contractNumber": True,
+            "poNumber": True,
+            "purchaseOrder": True,
+            "quote": True,
+            "costCentre": True,
+            "budgetOwnerEmail": True,
+            "eula": True,
+            "entitlement": True,
+            "contactEmail": True,
+        },
+    ) == 50
+
+
 # ---------------------------------------------------------------------------
 # 2d — compute_stats
 # ---------------------------------------------------------------------------

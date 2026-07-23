@@ -65,6 +65,25 @@ export const getPoTotal = (poNumber, allLicenses) => {
     .reduce((sum, l) => sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0), 0);
 };
 
+const FREEWARE_ALWAYS_INAPPLICABLE_FIELDS = new Set([
+  "contactEmail",
+  "entitlement",
+  "eula",
+]);
+
+const FREEWARE_PURCHASE_FIELDS = new Set([
+  "invoice",
+  "invoiceNumber",
+  "contractNumber",
+  "poNumber",
+  "purchaseOrder",
+  "quote",
+]);
+
+const hasPaidIncludedSupport = (license) =>
+  license.maintenanceCoverage === "included" &&
+  Number(license.maintenanceCost) > 0;
+
 export const getCompleteness = (license, mandatoryFields) => {
   const fieldMap = {
     invoice: { label: "Invoice document", check: () => license.documents?.invoice?.length > 0 },
@@ -83,7 +102,14 @@ export const getCompleteness = (license, mandatoryFields) => {
   };
   const checks = [];
   for (const [key, { label, check }] of Object.entries(fieldMap)) {
-    if (mandatoryFields[key]) checks.push({ field: label, met: check(), mandatory: true });
+    const applies = license.licenseType !== "freeware" ||
+      (
+        !FREEWARE_ALWAYS_INAPPLICABLE_FIELDS.has(key) &&
+        (!FREEWARE_PURCHASE_FIELDS.has(key) || hasPaidIncludedSupport(license))
+      );
+    if (mandatoryFields[key] && applies) {
+      checks.push({ field: label, met: check(), mandatory: true });
+    }
   }
   const met = checks.filter((c) => c.met);
   return { percentage: checks.length > 0 ? Math.round((met.length / checks.length) * 100) : 100, checks, isComplete: met.length === checks.length };

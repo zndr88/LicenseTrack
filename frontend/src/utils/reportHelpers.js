@@ -59,6 +59,15 @@ function roundMoney(value) {
 }
 
 function getCalculatedLicenseValue(license) {
+  if (license.licenseType === "freeware") {
+    if (license.maintenanceCoverage === "included") {
+      const maintenanceCost = parsePrice(license.maintenanceCost);
+      if (maintenanceCost !== null && maintenanceCost > 0) {
+        return { amount: maintenanceCost, source: "included_support" };
+      }
+    }
+    return { amount: 0, source: "excluded" };
+  }
   const quantity = parsePrice(license.quantity);
   const unitPrice = parsePrice(license.unitPrice);
 
@@ -84,7 +93,32 @@ function getCalculatedLicenseValue(license) {
 }
 
 function isRecurringLicense(license) {
-  return ["subscription", "saas", "maintenance"].includes(license.licenseType);
+  return ["subscription", "saas", "maintenance"].includes(license.licenseType) ||
+    (
+      ["freeware", "perpetual", "oem"].includes(license.licenseType) &&
+      license.maintenanceCoverage === "included" &&
+      parsePrice(license.maintenanceCost) > 0
+    );
+}
+
+function getRecurringLicenseValue(license) {
+  if (
+    ["freeware", "perpetual", "oem"].includes(license.licenseType) &&
+    license.maintenanceCoverage === "included"
+  ) {
+    const maintenanceCost = parsePrice(license.maintenanceCost);
+    return maintenanceCost !== null
+      ? { amount: maintenanceCost, source: "included_support" }
+      : { amount: 0, source: "missing" };
+  }
+  return getCalculatedLicenseValue(license);
+}
+
+function isCurrentMaintenanceCoverage(license) {
+  const today = new Date();
+  const starts = !license.maintenanceStartDate || new Date(license.maintenanceStartDate) <= today;
+  const ends = !license.maintenanceEndDate || new Date(license.maintenanceEndDate) >= today;
+  return starts && ends;
 }
 
 function isForecastActive(license) {
@@ -147,7 +181,10 @@ function getHistoricalTotalSpend(licenses) {
   let unpricedCount = 0;
 
   for (const l of licenses) {
-    const price = parsePrice(l.totalPoPrice);
+    if (l.licenseType === "freeware" && l.maintenanceCoverage !== "included") continue;
+    const price = l.licenseType === "freeware"
+      ? parsePrice(l.maintenanceCost)
+      : parsePrice(l.totalPoPrice);
     if (price === null) {
       unpricedCount += 1;
       continue;
@@ -175,8 +212,13 @@ function getRecurringRecords(licenses) {
 
   for (const l of licenses) {
     if (!isForecastActive(l) || !isRecurringLicense(l)) continue;
+    if (
+      ["freeware", "perpetual", "oem"].includes(l.licenseType) &&
+      l.maintenanceCoverage === "included" &&
+      !isCurrentMaintenanceCoverage(l)
+    ) continue;
 
-    const cost = getCalculatedLicenseValue(l);
+    const cost = getRecurringLicenseValue(l);
     records.push({
       id: l.id,
       publisher: l.publisherName || "Unknown",

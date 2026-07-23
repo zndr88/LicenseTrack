@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urlparse
 from urllib.request import urlopen
 import zipfile
 
@@ -110,9 +112,75 @@ def runtime_state_problems(state: dict, runtime: dict[str, str]) -> list[str]:
     return problems
 
 
+def is_loopback_public_url(public_url: str) -> bool:
+    hostname = urlparse(public_url).hostname
+    if hostname is None:
+        return False
+    normalized = hostname.rstrip(".").casefold()
+    if normalized == "localhost" or normalized.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(normalized).is_loopback
+    except ValueError:
+        return False
+
+
+def network_diagnostics(
+    state: dict,
+    environment: dict[str, str],
+) -> tuple[str, list[str], list[str]]:
+    bind_host = str(state["bind_host"])
+    port = int(state["port"])
+    public_url = str(state.get("public_url") or environment.get("CORS_ORIGINS") or "").split(",", 1)[0].strip()
+    if not public_url:
+        return f"bind {bind_host}:{port}; public URL unavailable", [], []
+
+    try:
+        bind_is_loopback = ipaddress.ip_address(bind_host).is_loopback
+    except ValueError:
+        return (
+            f"bind {bind_host}:{port}; public {public_url}",
+            [f"bind address is not a numeric IPv4 or IPv6 address: {bind_host}"],
+            [],
+        )
+
+    public_is_loopback = is_loopback_public_url(public_url)
+    if bind_is_loopback and public_is_loopback:
+        inferred_mode = "local-only"
+        detail = "clients can connect only from this host"
+    elif bind_is_loopback:
+        inferred_mode = "reverse-proxy"
+        detail = "an existing reverse proxy must forward the public URL to the loopback bind"
+    elif not public_is_loopback:
+        inferred_mode = "direct-network"
+        detail = "host firewall rules control remote access"
+    else:
+        return (
+            f"bind {bind_host}:{port}; public {public_url}",
+            [],
+            ["non-loopback bind address is paired with a localhost public URL"],
+        )
+
+    recorded_mode = state.get("network_mode")
+    problems = []
+    warnings = []
+    if recorded_mode is not None and recorded_mode != inferred_mode:
+        problems.append(
+            f"recorded network mode {recorded_mode!r} does not match effective mode {inferred_mode!r}"
+        )
+    elif recorded_mode is None and inferred_mode == "reverse-proxy":
+        warnings.append(
+            "non-local public URL uses a loopback bind; confirm that a reverse proxy is configured"
+        )
+
+    summary = f"{inferred_mode}; bind {bind_host}:{port}; public {public_url}; {detail}"
+    return summary, problems, warnings
+
+
 def command_doctor(args: argparse.Namespace) -> int:
     state, environment = load(args)
     problems: list[str] = []
+    warnings: list[str] = []
     release = Path(state["release_path"])
     if not release.is_dir():
         problems.append(f"release directory is missing: {release}")
@@ -142,17 +210,30 @@ def command_doctor(args: argparse.Namespace) -> int:
     except Exception as exc:
         problems.append(f"health request failed: {exc}")
 
+    network_summary, network_problems, network_warnings = network_diagnostics(state, environment)
+    problems.extend(network_problems)
+    warnings.extend(network_warnings)
+
     if problems:
         print("LicenseTrack doctor found problems:")
         for problem in problems:
             print(f"- {problem}")
+        if warnings:
+            print("LicenseTrack doctor warnings:")
+            for warning in warnings:
+                print(f"- {warning}")
         return 1
+    if warnings:
+        print("LicenseTrack doctor warnings:")
+        for warning in warnings:
+            print(f"- {warning}")
     runtime_label = (
         f"Python {runtime['python_version']} ({runtime['python_abi']})"
         if runtime is not None
         else "Python runtime unavailable"
     )
     print(f"LicenseTrack {state['version']} is healthy at {url}. {runtime_label}.")
+    print(f"Network: {network_summary}.")
     return 0
 
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import csv
 import io
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.services.csv_safety import safe_csv_row
+from app.services.procurement_totals import procurement_line_total
 
 
 async def build_pending_orders_export_csv(db: AsyncSession) -> str:
@@ -39,8 +40,8 @@ async def build_pending_orders_export_csv(db: AsyncSession) -> str:
             "Publisher",
             "Description",
             "Purchase Quantity",
-            "Estimated Unit Price",
-            "Estimated Line Total",
+            "License Unit Price",
+            "Line Total",
         ]
     )
 
@@ -89,7 +90,11 @@ def _build_export_rows(
                 item.software_description,
                 item.quantity or "",
                 item.estimated_unit_price or "",
-                item.estimated_total_price or "",
+                (
+                    format(line_total, "f")
+                    if (line_total := procurement_line_total(item)) is not None
+                    else ""
+                ),
             ]
         )
 
@@ -100,13 +105,12 @@ def _format_total_po_value(items, currency: str) -> str:
     total = Decimal("0")
     has_total = False
     for item in items:
-        if (item.currency or "EUR") != currency or not item.estimated_total_price:
+        if (item.currency or "EUR") != currency:
             continue
-        try:
-            total += Decimal(str(item.estimated_total_price))
+        line_total = procurement_line_total(item)
+        if line_total is not None:
+            total += line_total
             has_total = True
-        except (InvalidOperation, TypeError, ValueError):
-            pass
 
     if not has_total:
         return ""

@@ -85,6 +85,14 @@ function buildLicensePayload(form) {
     currency: form.currency || "EUR",
     notes: form.notes || null,
     budgetOwnerEmail: form.budgetOwnerEmail || "",
+    maintenanceCoverage: form.maintenanceCoverage || null,
+    maintenanceStartDate: form.maintenanceStartDate || null,
+    maintenanceEndDate: form.maintenanceEndDate || null,
+    maintenancePricingBasis: form.maintenancePricingBasis || null,
+    maintenanceQuantity: form.maintenanceQuantity || null,
+    maintenanceUnitPrice: form.maintenanceUnitPrice || null,
+    maintenanceCost: form.maintenanceCost || "",
+    ...(form.parentLicenseId ? { parentLicenseId: form.parentLicenseId } : {}),
     isRetired: false,
   };
 }
@@ -169,10 +177,15 @@ export default function App() {
   const handleConfirm = useCallback(async (forms, attachedFile, attachedFileCategory) => {
     const formList = Array.isArray(forms) ? forms : [forms];
     let firstCreatedId = null;
+    const createdIds = [];
     for (const f of formList) {
-      const payload = buildLicensePayload(f);
+      const parentLicenseId = Number.isInteger(f.parentLineIndex)
+        ? createdIds[f.parentLineIndex]
+        : f.parentLicenseId;
+      const payload = buildLicensePayload({ ...f, parentLicenseId });
       const { data: created, error } = await createLicense(payload);
       if (error) { showError(error); return; }
+      createdIds.push(created?.id ?? null);
       if (!firstCreatedId && created?.id) firstCreatedId = created.id;
     }
     if (attachedFile && firstCreatedId) {

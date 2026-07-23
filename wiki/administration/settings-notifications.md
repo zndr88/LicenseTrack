@@ -10,6 +10,11 @@ Users can control theme, UI size, currency display, number/date/time format,
 time zone, sidebar state, Registry column visibility, and saved views. These
 preferences do not change another user's display.
 
+Number formats are identified by their rendered pattern (`1,234.50`,
+`1.234,50`, or `1 234,50`) instead of country names. CSV Import uses the
+personal number format as its default while allowing a per-file override for
+source data that uses another separator convention.
+
 ## Completeness and custom fields
 
 Admins choose which supported fields and evidence categories contribute to

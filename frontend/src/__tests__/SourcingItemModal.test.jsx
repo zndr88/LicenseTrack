@@ -116,6 +116,69 @@ describe("contact email validation", () => {
 // ─── Payload shape ────────────────────────────────────────────────────────────
 
 describe("onSave payload shape", () => {
+  test("freeware hides acquisition pricing and saves it as zero-cost", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderModal({ item: VALID_ITEM });
+
+    expect(screen.getByLabelText(/est\. unit price/i)).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText(/license type/i), "freeware");
+
+    expect(screen.queryByLabelText(/est\. unit price/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/est\. total price/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].items[0]).toEqual(expect.objectContaining({
+      licenseType: "freeware",
+      estimatedUnitPrice: null,
+      estimatedTotalPrice: null,
+    }));
+  });
+
+  test("included support can calculate a per-unit coverage total", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderModal({
+      item: { ...VALID_ITEM, licenseType: "freeware" },
+    });
+
+    await user.selectOptions(screen.getByLabelText(/^coverage$/i), "included");
+    await user.selectOptions(screen.getByLabelText(/pricing basis/i), "per_unit");
+    expect(screen.getByLabelText(/covered quantity/i)).toHaveValue("10");
+
+    await user.type(screen.getByLabelText(/support unit price/i), "12.50");
+    expect(screen.getByLabelText(/^total support cost$/i)).toHaveValue("125.00");
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].items[0]).toEqual(expect.objectContaining({
+      maintenancePricingBasis: "per_unit",
+      maintenanceQuantity: "10",
+      maintenanceUnitPrice: "12.50",
+      maintenanceCost: "125.00",
+    }));
+  });
+
+  test("separately tracked support adds a linked maintenance line", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderModal({
+      item: { ...VALID_ITEM, licenseType: "freeware" },
+    });
+
+    await user.selectOptions(screen.getByLabelText(/^coverage$/i), "separately_tracked");
+    await user.click(screen.getByRole("button", { name: /add maintenance line/i }));
+
+    expect(screen.getByDisplayValue("Acme Suite maintenance/support")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /save 2 lines/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].items[1]).toEqual(expect.objectContaining({
+      licenseType: "maintenance",
+      parentItemIndex: 0,
+      publisherName: "Acme Corp",
+      quantity: "10",
+    }));
+  });
+
   test("new request onSave emits a request payload wrapping a single item line", async () => {
     const { onSave } = renderModal({ item: VALID_ITEM });
 
@@ -134,6 +197,14 @@ describe("onSave payload shape", () => {
       [
         "publisherName",
         "softwareDescription",
+        "licenseType",
+        "maintenanceCoverage",
+        "maintenanceStartDate",
+        "maintenanceEndDate",
+        "maintenancePricingBasis",
+        "maintenanceQuantity",
+        "maintenanceUnitPrice",
+        "maintenanceCost",
         "quantity",
         "estimatedUnitPrice",
         "estimatedTotalPrice",

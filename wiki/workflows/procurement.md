@@ -1,11 +1,12 @@
 # Procurement from sourcing to license
 
-LicenseTrack separates purchasing into three stages so quotes, purchase orders,
-invoices, and the final entitlements remain traceable.
+LicenseTrack keeps requests traceable while allowing the route to match what is
+actually being acquired.
 
 ```text
-Sourcing request → Pending order → License record
-       quote            PO             invoice and entitlement
+Sourcing request -- paid purchase --> Pending order --> License record
+        |
+        +-- zero-cost freeware/open source ----------> License record
 ```
 
 Admins and Editors can work the pipeline. Viewers do not have access to the
@@ -15,8 +16,8 @@ procurement workspaces.
 
 A sourcing request is the quote-stage parent. It stores supplier and contact
 context, notes, quote evidence, and one or more planned license lines. Each line
-holds the publisher, description, quantity, estimated pricing, currency, dates,
-and renewal context for one intended entitlement.
+holds the publisher, description, optional license type, quantity, estimated
+pricing, currency, dates, and renewal context for one intended entitlement.
 
 Use multiple lines when one supplier quote covers several products. Expand the
 request row to edit individual lines. Request-level actions manage the quote,
@@ -25,6 +26,43 @@ conversion, or cancellation of the whole request.
 Renewal sourcing records are created automatically when a renewal begins. When
 several renewal lines should end on the same date, coterm merge combines them
 while preserving their predecessor relationships.
+
+For freeware or open-source requests, set the line's optional **License Type**
+to **Freeware / Open Source**. Converting that line creates an active Registry
+license directly. It preserves the sourcing relationship and Request Date but
+does not create a pending order, Purchase Date, PO, invoice, contract, or
+purchase price. In a mixed request, one conversion action sends the free lines
+to the Registry and the paid lines to the pending order.
+
+Freeware/open-source lines do not show license acquisition-price fields because
+their acquisition cost is zero. Perpetual and OEM lines retain their acquisition
+pricing independently of support.
+
+Perpetual, OEM, and freeware/open-source lines also expose
+**Maintenance / Support**:
+
+- **Included** keeps support on the parent line and records the coverage dates.
+  Support can be entered as a flat coverage fee or as covered quantity times
+  support unit price. The calculated coverage-period total contributes to the
+  sourcing estimate and pending-order total exactly once.
+- **Separately tracked** offers an explicit **Add maintenance line** action. The
+  new line is prefilled but editable, follows the paid PO path, and retains its
+  parent relationship during conversion. A different support supplier creates
+  a separate linked sourcing request.
+- **Unknown** and **Not applicable** do not create another line.
+
+Freeware with a positive included-support cost follows the PO path because the
+support purchase needs normal procurement evidence.
+
+Support prices always describe the displayed coverage period. LicenseTrack
+does not convert a multi-year coverage total into an annualized figure. When
+coverage is renewed, the new coverage becomes a new procurement/license line
+instead of overwriting the expired period.
+
+Dates entered during sourcing and pending-order work are planning values. The
+license manager confirms the delivered entitlement and support start/end dates
+during final conversion because publisher dates can change between quote,
+order, and delivery.
 
 ## 2. Pending orders
 
@@ -50,8 +88,10 @@ During conversion you can:
 - select explicit parents for maintenance lines; and
 - confirm renewal successors and coterm relationships.
 
-Conversion captures Request Date from the sourcing line and Purchase Date from
-the pending order. Those milestones remain editable for imported or legacy data.
+Conversion captures Request Date from the sourcing line. The license manager
+confirms the actual Purchase Date during conversion; it is not inferred from
+the pending-order creation timestamp. Those milestones remain editable for
+imported or legacy data.
 
 ## Evidence ownership
 
@@ -71,7 +111,8 @@ numbers match.
 
 Converted and cancelled sourcing requests and pending orders move to searchable,
 read-only history tables. History rows retain identifiers, notes, prices, and
-evidence links. A converted sourcing line can link forward to its pending order;
+evidence links. A converted sourcing line can link forward to its pending order
+or directly created freeware license;
 a converted pending-order line can link to its resulting license.
 
 The License Details **History** section exposes the same procurement trail in

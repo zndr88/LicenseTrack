@@ -391,6 +391,7 @@ async def test_sourcing_export_headers_and_representative_csv_content(
     item = SourcingItem(
         publisher_name="Northwind",
         software_description="Northwind CRM",
+        license_type=LicenseType.freeware,
         quantity="5",
         estimated_unit_price="20.00",
         estimated_total_price="100.00",
@@ -416,6 +417,7 @@ async def test_sourcing_export_headers_and_representative_csv_content(
     row = rows[0]
     assert row["Publisher"] == "Northwind"
     assert row["Software Description"] == "Northwind CRM"
+    assert row["License Type"] == "freeware"
     assert row["Purchase Quantity"] == "5"
     assert row["Est. Total Price"] == "100.00"
     assert row["Status"] == "sourcing"

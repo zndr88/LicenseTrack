@@ -82,16 +82,6 @@ export default function LicenseTable({
     }
   }, [someFilteredSelected, allFilteredSelected]);
 
-  if (filtered.length === 0) {
-    return (
-      <div className="empty">
-        <Icon name="file" size={32} color="var(--text-3)" />
-        <h3>No licenses found</h3>
-        <p>Adjust search/filters or add a license.</p>
-      </div>
-    );
-  }
-
   const renderRow = (license) => (
     <tr
       key={license.id}
@@ -153,7 +143,17 @@ export default function LicenseTable({
             datesToOptions={datesToOptions}
           />
           <tbody>
-            {useVirtual ? (() => {
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={visibleColumns.length}>
+                  <div className="empty">
+                    <Icon name="file" size={32} color="var(--text-3)" />
+                    <h3>No licenses found</h3>
+                    <p>Adjust search/filters or add a license.</p>
+                  </div>
+                </td>
+              </tr>
+            ) : useVirtual ? (() => {
               const virtualItems = rowVirtualizer.getVirtualItems();
               const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
               const paddingBottom = virtualItems.length > 0

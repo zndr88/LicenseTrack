@@ -5,6 +5,7 @@ import {
   backfillMissingSourcingRequests, buildSourcingItem, buildSourcingRequestResponse,
   ensureSourcingRequestForItem, assertSourcingItemEditable, convertSourcingItemToOrder,
   convertSourcingRequestToOrder, mergeCotermSourcingItems, handleSourcingItemDeleteSideEffects,
+  convertFreewareSourcingItems,
   ensurePendingOrderEditable, createPendingOrderRecord, deletePendingOrderRecord, cancelPendingOrderRecord,
   addPendingOrderItemsBulk, rebuildPendingOrderItems, withPendingOrderLicenseRefs,
   convertPendingOrderToLicenses, batchConvertPendingOrderToLicenses, buildLicenseProcurementTrail,
@@ -88,7 +89,10 @@ function buildDemoDownloadResponse(document) {
 // Fields a PO line-item update may touch. Mirrors backend/app/schemas/sourcing.py:44-61
 // SourcingItemUpdate minus status (the route pops status - pending_order_service.py:188).
 const PO_ITEM_UPDATE_FIELDS = [
-  "publisherName", "softwareDescription", "quantity", "estimatedUnitPrice", "estimatedTotalPrice",
+  "publisherName", "softwareDescription", "licenseType", "maintenanceCoverage",
+  "maintenanceStartDate", "maintenanceEndDate", "maintenancePricingBasis",
+  "maintenanceQuantity", "maintenanceUnitPrice", "maintenanceCost",
+  "quantity", "estimatedUnitPrice", "estimatedTotalPrice",
   "currency", "startDate", "endDate", "supplier", "contactEmail", "notes",
 ];
 
@@ -513,6 +517,9 @@ export const routes = [
       license.hasMaintenance = false;
       license.maintenanceStartDate = null;
       license.maintenanceEndDate = null;
+      license.maintenancePricingBasis = null;
+      license.maintenanceQuantity = null;
+      license.maintenanceUnitPrice = null;
       license.maintenanceCost = null;
       decorateLicense(license);
 
@@ -627,6 +634,17 @@ export const routes = [
   // and CSV export routes are intentionally left unregistered (stub toast).
 
   {
+    method: "GET", pattern: /^\/api\/sourcing\/requests\/history$/,
+    handler: async () => ({
+      data: store.sourcingRequests
+        .filter((request) => ["converted", "cancelled"].includes(request.status))
+        .slice()
+        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+        .map(buildSourcingRequestResponse),
+      error: null,
+    }),
+  },
+  {
     // Mirrors backend/app/services/sourcing_service.py:136-147 list_sourcing_request_records
     // (backfills a SourcingRequest for any orphaned item first, then lists status="sourcing").
     method: "GET", pattern: /^\/api\/sourcing\/requests$/,
@@ -679,6 +697,41 @@ export const routes = [
     },
   },
   {
+    method: "POST", pattern: /^\/api\/sourcing\/requests\/(?<id>\d+)\/cancel$/,
+    handler: async ({ params }) => {
+      const request = findSourcingRequestOr404(Number(params.id));
+      if (request.status !== "sourcing") {
+        throw new Error(`Cannot modify a ${request.status} sourcing request`);
+      }
+      const now = new Date().toISOString();
+      request.status = "cancelled";
+      request.updatedAt = now;
+      for (const item of store.sourcingItems.filter((candidate) => candidate.sourcingRequestId === request.id)) {
+        if (item.status === "sourcing") {
+          item.status = "cancelled";
+          item.updatedAt = now;
+        }
+      }
+      return { data: buildSourcingRequestResponse(request), error: null };
+    },
+  },
+  {
+    method: "POST", pattern: /^\/api\/sourcing\/requests\/(?<id>\d+)\/convert-freeware$/,
+    handler: async ({ params }) => {
+      const request = findSourcingRequestOr404(Number(params.id));
+      const items = store.sourcingItems.filter(
+        (item) => item.sourcingRequestId === request.id && item.status === "sourcing"
+      );
+      if (items.some((item) => (
+        item.licenseType !== "freeware"
+        || (item.maintenanceCoverage === "included" && Number(item.maintenanceCost) > 0)
+      ))) {
+        throw new Error("Convert purchase lines to a pending order before converting this request directly");
+      }
+      return { data: convertFreewareSourcingItems(items), error: null };
+    },
+  },
+  {
     // Mirrors backend/app/routes/sourcing_conversion.py:29-77 convert_sourcing_request.
     method: "POST", pattern: /^\/api\/sourcing\/requests\/(?<id>\d+)\/convert$/,
     handler: async ({ params, body }) => {
@@ -712,11 +765,11 @@ export const routes = [
     method: "DELETE", pattern: /^\/api\/sourcing\/requests\/(?<id>\d+)$/,
     handler: async ({ params }) => {
       const id = Number(params.id);
-      const request = findSourcingRequestOr404(id);
-      if (request.status === "converted") {
-        throw new Error("Cannot delete a converted sourcing request");
-      }
+      findSourcingRequestOr404(id);
       const items = store.sourcingItems.filter((i) => i.sourcingRequestId === id);
+      if (items.some((item) => item.status === "converted")) {
+        throw new Error("Cannot delete a sourcing request after any line has been converted");
+      }
       const renewalIds = items.filter((i) => i.renewalForLicenseId != null).map((i) => i.renewalForLicenseId);
 
       store.sourcingItems = store.sourcingItems.filter((i) => i.sourcingRequestId !== id);
@@ -734,6 +787,13 @@ export const routes = [
     handler: async ({ body }) => {
       const merged = mergeCotermSourcingItems(body?.sourcingItemIds ?? []);
       return { data: merged, error: null };
+    },
+  },
+  {
+    method: "POST", pattern: /^\/api\/sourcing\/(?<id>\d+)\/convert-freeware$/,
+    handler: async ({ params }) => {
+      const item = findSourcingItemOr404(Number(params.id));
+      return { data: convertFreewareSourcingItems([item])[0], error: null };
     },
   },
   {
@@ -763,7 +823,7 @@ export const routes = [
       const item = findSourcingItemOr404(Number(params.id));
       assertSourcingItemEditable(item);
       const allowed = [
-        "publisherName", "softwareDescription", "quantity", "estimatedUnitPrice", "estimatedTotalPrice",
+        "publisherName", "softwareDescription", "licenseType", "quantity", "estimatedUnitPrice", "estimatedTotalPrice",
         "currency", "startDate", "endDate", "supplier", "contactEmail", "notes", "status",
       ];
       for (const field of allowed) {
@@ -864,6 +924,10 @@ export const routes = [
         if (body && Object.prototype.hasOwnProperty.call(body, field)) {
           item[field] = body[field];
         }
+      }
+      if (item.licenseType === "freeware") {
+        item.estimatedUnitPrice = null;
+        item.estimatedTotalPrice = null;
       }
       item.updatedAt = new Date().toISOString();
       rebuildPendingOrderItems(order);

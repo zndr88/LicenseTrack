@@ -25,6 +25,59 @@ describe("getCompleteness", () => {
     expect(result.percentage).toBe(100);
     expect(result.isComplete).toBe(true);
   });
+
+  it("excludes inapplicable requirements from freeware records", () => {
+    const result = getCompleteness(
+      {
+        licenseType: "freeware",
+        costCentre: "Finance",
+        documents: {},
+      },
+      {
+        invoice: true,
+        invoiceNumber: true,
+        contractNumber: true,
+        poNumber: true,
+        purchaseOrder: true,
+        quote: true,
+        costCentre: true,
+        budgetOwnerEmail: true,
+        eula: true,
+        entitlement: true,
+        contactEmail: true,
+      },
+    );
+
+    expect(result.percentage).toBe(50);
+    expect(result.checks.map((check) => check.field)).toEqual([
+      "Department / Cost Centre",
+      "Budget owner email",
+    ]);
+  });
+
+  it("restores purchase evidence checks for freeware with paid included support", () => {
+    const result = getCompleteness(
+      {
+        licenseType: "freeware",
+        maintenanceCoverage: "included",
+        maintenanceCost: "2500",
+        documents: {},
+      },
+      {
+        poNumber: true,
+        invoice: true,
+        eula: true,
+        entitlement: true,
+        contactEmail: true,
+      },
+    );
+
+    expect(result.checks.map((check) => check.field)).toEqual([
+      "Invoice document",
+      "PO number",
+    ]);
+    expect(result.percentage).toBe(0);
+  });
 });
 
 describe("normalizeLicense", () => {

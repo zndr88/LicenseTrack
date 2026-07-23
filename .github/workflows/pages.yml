@@ -66,7 +66,7 @@ jobs:
         run: npm run build -- --mode demo
 
       - name: Copy demo frontend
-        run: cp -R frontend/dist pages-artifact/demo
+        run: cp -R frontend/dist-demo pages-artifact/demo
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

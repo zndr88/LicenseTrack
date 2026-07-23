@@ -4,8 +4,10 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
+from app.models.license import LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.models.sourcing import SourcingStatus
 from app.services.money import is_canonical_money
+from app.services.procurement_totals import calculate_per_unit_support_total
 
 
 class SourcingItemCreate(BaseModel):
@@ -16,6 +18,16 @@ class SourcingItemCreate(BaseModel):
 
     publisher_name: str
     software_description: str
+    license_type: Optional[LicenseType] = None
+    maintenance_coverage: Optional[MaintenanceCoverage] = None
+    maintenance_start_date: Optional[date] = None
+    maintenance_end_date: Optional[date] = None
+    maintenance_pricing_basis: Optional[MaintenancePricingBasis] = None
+    maintenance_quantity: Optional[str] = None
+    maintenance_unit_price: Optional[str] = None
+    maintenance_cost: Optional[str] = None
+    parent_sourcing_item_id: Optional[int] = None
+    parent_item_index: Optional[int] = None
     quantity: Optional[str] = None
     estimated_unit_price: Optional[str] = None
     estimated_total_price: Optional[str] = None
@@ -29,7 +41,15 @@ class SourcingItemCreate(BaseModel):
     renewal_for_license_id: Optional[int] = None
     sourcing_request_id: Optional[int] = None
 
-    @field_validator("quantity", "estimated_unit_price", "estimated_total_price", mode="before")
+    @field_validator(
+        "quantity",
+        "estimated_unit_price",
+        "estimated_total_price",
+        "maintenance_quantity",
+        "maintenance_unit_price",
+        "maintenance_cost",
+        mode="before",
+    )
     @classmethod
     def _validate_canonical_money(cls, v: object) -> object:
         if v is None or v == "":
@@ -37,6 +57,18 @@ class SourcingItemCreate(BaseModel):
         if isinstance(v, str) and not is_canonical_money(v):
             raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
+
+    @model_validator(mode="after")
+    def _calculate_support_total(self) -> "SourcingItemCreate":
+        if (
+            self.maintenance_coverage == MaintenanceCoverage.included
+            and self.maintenance_pricing_basis == MaintenancePricingBasis.per_unit
+        ):
+            self.maintenance_cost = calculate_per_unit_support_total(
+                self.maintenance_quantity,
+                self.maintenance_unit_price,
+            )
+        return self
 
 
 class SourcingItemUpdate(BaseModel):
@@ -47,6 +79,15 @@ class SourcingItemUpdate(BaseModel):
 
     publisher_name: Optional[str] = None
     software_description: Optional[str] = None
+    license_type: Optional[LicenseType] = None
+    maintenance_coverage: Optional[MaintenanceCoverage] = None
+    maintenance_start_date: Optional[date] = None
+    maintenance_end_date: Optional[date] = None
+    maintenance_pricing_basis: Optional[MaintenancePricingBasis] = None
+    maintenance_quantity: Optional[str] = None
+    maintenance_unit_price: Optional[str] = None
+    maintenance_cost: Optional[str] = None
+    parent_sourcing_item_id: Optional[int] = None
     quantity: Optional[str] = None
     estimated_unit_price: Optional[str] = None
     estimated_total_price: Optional[str] = None
@@ -58,7 +99,15 @@ class SourcingItemUpdate(BaseModel):
     notes: Optional[str] = None
     status: Optional[SourcingStatus] = None
 
-    @field_validator("quantity", "estimated_unit_price", "estimated_total_price", mode="before")
+    @field_validator(
+        "quantity",
+        "estimated_unit_price",
+        "estimated_total_price",
+        "maintenance_quantity",
+        "maintenance_unit_price",
+        "maintenance_cost",
+        mode="before",
+    )
     @classmethod
     def _validate_canonical_money(cls, v: object) -> object:
         if v is None or v == "":
@@ -66,6 +115,18 @@ class SourcingItemUpdate(BaseModel):
         if isinstance(v, str) and not is_canonical_money(v):
             raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
+
+    @model_validator(mode="after")
+    def _calculate_support_total(self) -> "SourcingItemUpdate":
+        if (
+            self.maintenance_coverage == MaintenanceCoverage.included
+            and self.maintenance_pricing_basis == MaintenancePricingBasis.per_unit
+        ):
+            self.maintenance_cost = calculate_per_unit_support_total(
+                self.maintenance_quantity,
+                self.maintenance_unit_price,
+            )
+        return self
 
 
 class SourcingItemResponse(BaseModel):
@@ -79,6 +140,15 @@ class SourcingItemResponse(BaseModel):
     sourcing_request_id: Optional[int] = None
     publisher_name: str
     software_description: str
+    license_type: Optional[LicenseType] = None
+    maintenance_coverage: Optional[MaintenanceCoverage] = None
+    maintenance_start_date: Optional[date] = None
+    maintenance_end_date: Optional[date] = None
+    maintenance_pricing_basis: Optional[MaintenancePricingBasis] = None
+    maintenance_quantity: Optional[str] = None
+    maintenance_unit_price: Optional[str] = None
+    maintenance_cost: Optional[str] = None
+    parent_sourcing_item_id: Optional[int] = None
     quantity: Optional[str] = None
     estimated_unit_price: Optional[str] = None
     estimated_total_price: Optional[str] = None
@@ -92,6 +162,9 @@ class SourcingItemResponse(BaseModel):
     pending_order_id: Optional[int] = None
     pending_order_status: Optional[str] = None
     pending_order_po_number: Optional[str] = None
+    converted_license_id: Optional[int] = None
+    converted_license_ref: Optional[str] = None
+    converted_license_ids: list[int] = []
     renewal_for_license_id: Optional[int] = None
     coterm_predecessor_ids: Optional[list[int]] = None
     is_renewal: bool = False
@@ -175,15 +248,14 @@ class SourcingRequestResponse(BaseModel):
 
     @model_validator(mode="after")
     def _compute_total_estimated_value(self) -> "SourcingRequestResponse":
+        from app.services.procurement_totals import procurement_line_total
+
         totals: dict[str, float] = {}
         for item in self.items:
-            if item.estimated_total_price is None:
+            line_total = procurement_line_total(item)
+            if line_total is None:
                 continue
-            try:
-                val = float(item.estimated_total_price)
-            except (ValueError, TypeError):
-                continue
-            totals[item.currency] = totals.get(item.currency, 0.0) + val
+            totals[item.currency] = totals.get(item.currency, 0.0) + float(line_total)
         if totals:
             self.total_estimated_value = " + ".join(f"{currency} {amount:,.2f}" for currency, amount in totals.items())
         else:

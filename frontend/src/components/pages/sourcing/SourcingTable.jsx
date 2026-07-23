@@ -4,6 +4,7 @@ import SearchBox from "../../ui/SearchBox.jsx";
 import DocumentButton from "../../ui/DocumentButton.jsx";
 import { formatCost, formatPriceInput } from "../../../utils/helpers.js";
 import { formatDateTime, formatNumber } from "../../../utils/formatting.js";
+import { procurementLineTotal } from "../../../utils/procurementTotals.js";
 
 function SortIndicator({ col, sortCol, sortDir }) {
   return sortCol === col ? (
@@ -16,8 +17,8 @@ function SortIndicator({ col, sortCol, sortDir }) {
 function requestTotal(request, locale) {
   const totals = {};
   for (const item of request.items ?? []) {
-    const value = parseFloat(item.estimatedTotalPrice);
-    if (!Number.isNaN(value)) totals[item.currency] = (totals[item.currency] ?? 0) + value;
+    const value = procurementLineTotal(item);
+    if (value != null) totals[item.currency] = (totals[item.currency] ?? 0) + value;
   }
   const entries = Object.entries(totals);
   if (!entries.length) return "-";
@@ -55,6 +56,23 @@ function hasLinkedPendingOrder(item) {
   return Boolean(item.pendingOrderId);
 }
 
+function isOpenSourcingItem(item) {
+  return item.status == null || item.status === "sourcing";
+}
+
+export function isDirectFreewareItem(item) {
+  if (item.licenseType !== "freeware") return false;
+  return !(
+    item.maintenanceCoverage === "included" &&
+    Number(item.maintenanceCost) > 0
+  );
+}
+
+function isDirectFreewareRequest(request) {
+  const openItems = (request.items ?? []).filter(isOpenSourcingItem);
+  return openItems.length > 0 && openItems.every(isDirectFreewareItem);
+}
+
 function pendingOrderLabel(item) {
   return item.pendingOrderPoNumber || (item.pendingOrderId ? `Order #${item.pendingOrderId}` : null);
 }
@@ -68,6 +86,8 @@ function SourcingItemsRow({
   highlightedRowId,
   selectedForMerge,
   onNavigateToPendingOrder,
+  onNavigateToLicense,
+  onConvertFreeware,
   onToggleSelect,
   onEditItem,
   onDeleteItem,
@@ -83,8 +103,8 @@ function SourcingItemsRow({
               <th scope="col">Publisher</th>
               <th scope="col">Description</th>
               <th scope="col">Qty</th>
-              <th scope="col">Est. Unit Price</th>
-              <th scope="col">Est. Total</th>
+              <th scope="col">Est. Licence Unit Price</th>
+              <th scope="col">Est. Line Total</th>
               <th scope="col">Currency</th>
               <th scope="col">{readOnly ? "Context" : "Actions"}</th>
             </tr>
@@ -96,7 +116,7 @@ function SourcingItemsRow({
               return (
                 <tr key={si.id} data-sourcing-row={si.id} style={highlightedRowId === si.id ? { background: "var(--accent-m)", transition: "background 0.3s" } : { background: "var(--bg-2)" }}>
                   <td style={{ paddingLeft: 40, textAlign: "center", verticalAlign: "middle" }}>
-                    {!readOnly && si.isRenewal ? (
+                    {!readOnly && isOpenSourcingItem(si) && si.isRenewal ? (
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -128,16 +148,29 @@ function SourcingItemsRow({
                   </td>
                   <td>{(() => { const q = parseFloat(si.quantity); return isNaN(q) ? "-" : formatNumber(q, { numberFormatLocale: locale }); })()}</td>
                   <td>{si.estimatedUnitPrice ? formatPriceInput(si.estimatedUnitPrice, locale) : "-"}</td>
-                  <td>{si.estimatedTotalPrice ? formatPriceInput(si.estimatedTotalPrice, locale) : "-"}</td>
+                  <td>{procurementLineTotal(si) != null ? formatPriceInput(procurementLineTotal(si), locale) : "-"}</td>
                   <td>{si.currency}</td>
                   <td>
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       {si.isRenewal ? (
                         <SourcingStatusBadges item={si} />
+                      ) : si.licenseType === "freeware" ? (
+                        <span className="badge badge-blue">Freeware / Open Source</span>
+                      ) : !readOnly && hasLinkedPendingOrder(si) ? (
+                        <span className="badge badge-pending">Pending Order</span>
                       ) : readOnly ? (
                         <span className="badge badge-gray">New Purchase</span>
                       ) : null}
-                      {readOnly && hasLinkedPendingOrder(si) && onNavigateToPendingOrder && (
+                      {readOnly && si.convertedLicenseId && onNavigateToLicense && (
+                        <button
+                          className="btn btn-g"
+                          style={{ padding: "4px 8px", fontSize: 11 }}
+                          onClick={() => onNavigateToLicense(si.convertedLicenseId)}
+                        >
+                          <Icon name="arrow-right" size={12} />View License
+                        </button>
+                      )}
+                      {hasLinkedPendingOrder(si) && onNavigateToPendingOrder && (
                         <button
                           className="btn btn-g"
                           style={{ padding: "4px 8px", fontSize: 11 }}
@@ -154,12 +187,17 @@ function SourcingItemsRow({
                           PO converted
                         </span>
                       )}
-                      {!readOnly && perms.canEdit && (
+                      {!readOnly && isOpenSourcingItem(si) && isDirectFreewareItem(si) && perms.canEdit && (
+                        <button className="btn btn-p" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onConvertFreeware(si)}>
+                          <Icon name="check" size={12} />Convert to Registry
+                        </button>
+                      )}
+                      {!readOnly && isOpenSourcingItem(si) && perms.canEdit && (
                         <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onEditItem(si, request)}>
                           <Icon name="edit" size={12} />Edit
                         </button>
                       )}
-                      {!readOnly && perms.canDelete && (
+                      {!readOnly && isOpenSourcingItem(si) && perms.canDelete && (
                         <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11, color: "var(--red)" }} onClick={() => onDeleteItem(si.id)}>
                           <Icon name="trash" size={12} />Delete
                         </button>
@@ -212,6 +250,8 @@ export default function SourcingTable({
   onDownloadQuote,
   onDeleteRequest,
   onNavigateToPendingOrder,
+  onNavigateToLicense,
+  onConvertFreeware,
   onRefetch,
   onExportCsv,
 }) {
@@ -275,6 +315,21 @@ export default function SourcingTable({
       (request.items ?? []).some((item) => item.pendingOrderStatus === "converted")
     ) {
       return <span style={{ color: "var(--text-3)", fontSize: 11 }}>PO converted</span>;
+    }
+    const directLicenses = (request.items ?? []).filter((item) => item.convertedLicenseId);
+    if (request.status === "converted" && directLicenses.length === 1 && onNavigateToLicense) {
+      return (
+        <button
+          className="btn btn-g"
+          style={{ padding: "4px 8px", fontSize: 11 }}
+          onClick={() => onNavigateToLicense(directLicenses[0].convertedLicenseId)}
+        >
+          <Icon name="arrow-right" size={12} />View License
+        </button>
+      );
+    }
+    if (request.status === "converted" && directLicenses.length > 1) {
+      return <span style={{ color: "var(--text-3)", fontSize: 11 }}>Open a line to choose license</span>;
     }
     return <span style={{ color: "var(--text-3)", fontSize: 11 }}>No linked PO</span>;
   };
@@ -373,7 +428,10 @@ export default function SourcingTable({
                           )}
                           {perms.canEdit && (
                             <button className="btn btn-p" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onConvert(request)}>
-                              <Icon name="check" size={12} />Convert
+                              <Icon name="check" size={12} />
+                              {isDirectFreewareRequest(request)
+                                ? "Convert to Registry"
+                                : "Convert"}
                             </button>
                           )}
                           {perms.canDelete && (
@@ -395,6 +453,8 @@ export default function SourcingTable({
                       highlightedRowId={highlightedRowId}
                       selectedForMerge={selectedForMerge}
                       onNavigateToPendingOrder={onNavigateToPendingOrder}
+                      onNavigateToLicense={onNavigateToLicense}
+                      onConvertFreeware={onConvertFreeware}
                       onToggleSelect={onToggleSelect}
                       onEditItem={onEditItem}
                       onDeleteItem={onDeleteItem}

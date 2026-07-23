@@ -114,7 +114,7 @@ export default function MaintenanceCreateModal({
         </div>
 
         <div className="fg">
-          <label htmlFor="maint-cost">Annual Cost</label>
+          <label htmlFor="maint-cost">Support Cost (coverage period)</label>
           <input
             id="maint-cost"
             className="fi"
