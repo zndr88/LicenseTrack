@@ -117,6 +117,12 @@ sudo journalctl -u licensetrack.service --since "15 minutes ago"
 
 Then sign in and verify license listing, document access, settings, database backup listing, configured Official Extensions, SMTP, and OIDC behavior.
 
+When upgrading from 1.1.0 or earlier, a browser may still hold the old SPA shell
+under its previous cache policy. If the health endpoint reports the new version
+but the interface still looks or behaves like the old release, perform one hard
+refresh or clear that site's cached files. Releases from 1.1.1 onward require
+the SPA shell to revalidate, so this should be a one-time transition.
+
 ## Existing manual or container deployments
 
 A release installed manually from source has no `/etc/licensetrack/install.json`, so the upgrader cannot safely infer its database, storage, service, or configuration paths. Container volumes also have different ownership and lifecycle rules.

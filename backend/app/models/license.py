@@ -23,6 +23,11 @@ class MaintenanceCoverage(str, enum.Enum):
     separately_tracked = "separately_tracked"
 
 
+class MaintenancePricingBasis(str, enum.Enum):
+    flat = "flat"
+    per_unit = "per_unit"
+
+
 class LicenseMetric(str, enum.Enum):
     per_user = "per_user"
     per_device = "per_device"
@@ -122,6 +127,11 @@ class License(Base):
     )
     maintenance_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     maintenance_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    maintenance_pricing_basis: Mapped[MaintenancePricingBasis | None] = mapped_column(
+        Enum(MaintenancePricingBasis), nullable=True
+    )
+    maintenance_quantity: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    maintenance_unit_price: Mapped[str | None] = mapped_column(String(50), nullable=True)
     maintenance_cost: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Lifecycle-stable reference - assigned once at creation,
@@ -228,6 +238,7 @@ class License(Base):
     source_sourcing_item: Mapped["SourcingItem | None"] = relationship(  # noqa: F821
         "SourcingItem",
         foreign_keys=[source_sourcing_item_id],
+        back_populates="converted_licenses",
     )
 
     @property

@@ -119,6 +119,20 @@ def build_pending_order_item_license_data(
         data["unit_price"] = item.estimated_unit_price
     if item.estimated_total_price is not None:
         data["total_po_price"] = item.estimated_total_price
+    if item.maintenance_coverage is not None:
+        data["maintenance_coverage"] = item.maintenance_coverage
+    if item.maintenance_start_date is not None:
+        data["maintenance_start_date"] = item.maintenance_start_date
+    if item.maintenance_end_date is not None:
+        data["maintenance_end_date"] = item.maintenance_end_date
+    if item.maintenance_pricing_basis is not None:
+        data["maintenance_pricing_basis"] = item.maintenance_pricing_basis
+    if item.maintenance_quantity is not None:
+        data["maintenance_quantity"] = item.maintenance_quantity
+    if item.maintenance_unit_price is not None:
+        data["maintenance_unit_price"] = item.maintenance_unit_price
+    if item.maintenance_cost is not None:
+        data["maintenance_cost"] = item.maintenance_cost
     if item.currency:
         data["currency"] = item.currency
     if item.supplier:

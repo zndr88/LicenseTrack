@@ -1,5 +1,9 @@
 import { useState } from "react";
 import { updateSettings } from "../../../api/settings.js";
+import {
+  NUMBER_FORMAT_OPTIONS,
+  normalizeNumberFormatOptionValue,
+} from "../../../constants/numberFormats.js";
 import { SectionHeader } from "../SectionShared.jsx";
 import { formatDate, formatMoney, formatDateTime } from "../../../utils/formatting.js";
 
@@ -95,10 +99,12 @@ export default function AppearanceSection({ isOpen, isDirty, onToggle, markDirty
               </div>
               <div className="fg">
                 <label htmlFor="settings-number-format">Number Format</label>
-                <select id="settings-number-format" className="fi fi-select" value={userSettings.numberFormatLocale ?? "en-US"} onChange={(e) => set("numberFormatLocale", e.target.value)}>
-                  <option value="en-US">1,000,000.00  (US / UK)</option>
-                  <option value="de-DE">1.000.000,00  (European)</option>
-                  <option value="fr-FR">1 000 000,00  (French / Swiss)</option>
+                <select id="settings-number-format" className="fi fi-select" value={normalizeNumberFormatOptionValue(userSettings.numberFormatLocale)} onChange={(e) => set("numberFormatLocale", e.target.value)}>
+                  {NUMBER_FORMAT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

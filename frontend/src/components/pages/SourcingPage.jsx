@@ -8,7 +8,7 @@ import SourcingItemModal from "../procurement/SourcingItemModal.jsx";
 import ConvertSourcingModal from "../procurement/ConvertSourcingModal.jsx";
 import CotermSuggestionBanner from "./sourcing/CotermSuggestionBanner.jsx";
 import MergeSourcingModal from "./sourcing/MergeSourcingModal.jsx";
-import SourcingTable from "./sourcing/SourcingTable.jsx";
+import SourcingTable, { isDirectFreewareItem } from "./sourcing/SourcingTable.jsx";
 import SourcingToast from "./sourcing/SourcingToast.jsx";
 import { useSourcingActions } from "./sourcing/useSourcingActions.js";
 import { useSourcingMerge } from "./sourcing/useSourcingMerge.js";
@@ -64,6 +64,10 @@ function filterSourcingRequests(requests, search) {
   );
 }
 
+function isOpenSourcingItem(item) {
+  return item.status == null || item.status === "sourcing";
+}
+
 export default function SourcingPage({
   user,
   userSettings,
@@ -72,6 +76,7 @@ export default function SourcingPage({
   onRenewalsReload,
   onPortfolioStateChange,
   onNavigateToPendingOrder,
+  onNavigateToLicense,
 }) {
   const queryClient = useQueryClient();
   const perms = ROLE_PERMISSIONS[user.role];
@@ -80,6 +85,7 @@ export default function SourcingPage({
   const [deleteSourcingRequestTarget, setDeleteSourcingRequestTarget] = useState(null);
   const [deleteSourcingId, setDeleteSourcingId] = useState(null);
   const [showConvertModal, setShowConvertModal] = useState(null);
+  const [directConversionTarget, setDirectConversionTarget] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [search, setSearch] = useState("");
   const [historySearch, setHistorySearch] = useState("");
@@ -139,6 +145,7 @@ export default function SourcingPage({
     handleDeleteSourcingItem,
     handleCancelSourcingRequest,
     handleConvertSourcingRequest,
+    handleConvertFreeware,
     handleExportSourcingCsv,
   } = useSourcingActions({
     queryClient,
@@ -148,6 +155,7 @@ export default function SourcingPage({
     onRenewalsReload,
     onPortfolioStateChange,
     onNavigateToPendingOrder,
+    onNavigateToLicense,
   });
 
   useEffect(() => {
@@ -207,6 +215,8 @@ export default function SourcingPage({
     ),
     [sourcingHistoryRequests, historySearch, historySortCol, historySortDir]
   );
+  const directConversionOpenCount = directConversionTarget?.request?.items
+    .filter(isOpenSourcingItem).length ?? 0;
 
   const handleSort = (col) => {
     if (sortCol !== col) { setSortCol(col); setSortDir("asc"); }
@@ -293,11 +303,20 @@ export default function SourcingPage({
               setExpandedRequestId(request.id);
               setShowSourcingModal({ item: null, request });
             }}
-            onConvert={(request) => setShowConvertModal({ request })}
+            onConvert={(request) => {
+              const openItems = (request.items ?? []).filter(isOpenSourcingItem);
+              if (openItems.length > 0 && openItems.every(isDirectFreewareItem)) {
+                setDirectConversionTarget({ request });
+              } else {
+                setShowConvertModal({ request });
+              }
+            }}
+            onConvertFreeware={(item) => setDirectConversionTarget({ item })}
             onUploadQuote={handleUploadQuote}
             onDownloadQuote={handleDownloadQuote}
             onDeleteRequest={setDeleteSourcingRequestTarget}
             onNavigateToPendingOrder={onNavigateToPendingOrder}
+            onNavigateToLicense={onNavigateToLicense}
             onRefetch={refetch}
             onExportCsv={handleExportSourcingCsv}
           />
@@ -347,6 +366,8 @@ export default function SourcingPage({
               onDownloadQuote={handleDownloadQuote}
               onDeleteRequest={() => {}}
               onNavigateToPendingOrder={onNavigateToPendingOrder}
+              onNavigateToLicense={onNavigateToLicense}
+              onConvertFreeware={() => {}}
               onRefetch={refetchHistory}
               onExportCsv={() => {}}
             />
@@ -391,6 +412,14 @@ export default function SourcingPage({
             const payload = {
               publisherName: form.publisherName,
               softwareDescription: form.softwareDescription,
+              licenseType: form.licenseType || null,
+              maintenanceCoverage: form.maintenanceCoverage || null,
+              maintenanceStartDate: form.maintenanceStartDate || null,
+              maintenanceEndDate: form.maintenanceEndDate || null,
+              maintenancePricingBasis: form.maintenancePricingBasis || null,
+              maintenanceQuantity: form.maintenanceQuantity || null,
+              maintenanceUnitPrice: form.maintenanceUnitPrice || null,
+              maintenanceCost: form.maintenanceCost || null,
               quantity: form.quantity || null,
               estimatedUnitPrice: form.estimatedUnitPrice || null,
               estimatedTotalPrice: form.estimatedTotalPrice || null,
@@ -433,6 +462,26 @@ export default function SourcingPage({
           onConfirm={async () => {
             const success = await handleDeleteSourcingItem(deleteSourcingId);
             if (success) setDeleteSourcingId(null);
+          }}
+        />
+      )}
+
+      {directConversionTarget !== null && (
+        <ConfirmDialog
+          title="Convert to License Registry"
+          message={
+            directConversionTarget.item
+              ? `Create an active Freeware / Open Source license for ${directConversionTarget.item.softwareDescription}?`
+              : `Create active Freeware / Open Source licenses for all ${directConversionOpenCount} open ${directConversionOpenCount === 1 ? "line" : "lines"}?`
+          }
+          confirmLabel="Convert to Registry"
+          onCancel={() => setDirectConversionTarget(null)}
+          onConfirm={async () => {
+            const success = await handleConvertFreeware({
+              itemId: directConversionTarget.item?.id ?? null,
+              requestId: directConversionTarget.request?.id ?? null,
+            });
+            if (success) setDirectConversionTarget(null);
           }}
         />
       )}

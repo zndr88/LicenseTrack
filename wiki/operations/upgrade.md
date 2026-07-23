@@ -203,3 +203,9 @@ docker inspect <old-container-name-or-id> --format '{{json .Mounts}}'
 - Log in with an admin account.
 - Smoke-test license listing, document access, settings, backup listing, and configured integrations.
 - Confirm scheduled database backup and notification settings remain as expected.
+
+When upgrading from 1.1.0 or earlier, a browser may still hold the old SPA shell
+under its previous cache policy. If `/api/health` reports the new version but
+the interface still looks or behaves like the old release, perform one hard
+refresh or clear that site's cached files. Releases from 1.1.1 onward require
+the SPA shell to revalidate, so this should be a one-time transition.

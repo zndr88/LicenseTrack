@@ -64,7 +64,7 @@ describe("MaintenanceCreateModal", () => {
 
     fireEvent.change(screen.getByLabelText(/end date/i), { target: { value: "2026-12-31" } });
     fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: "2026-01-01" } });
-    await user.type(screen.getByLabelText(/annual cost/i), "2500.50");
+    await user.type(screen.getByLabelText(/support cost/i), "2500.50");
     await user.type(screen.getByLabelText(/po number/i), "PO-123");
     await user.type(screen.getByLabelText(/contract number/i), "C-123");
     await user.clear(screen.getByLabelText(/supplier/i));

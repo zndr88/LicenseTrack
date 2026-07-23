@@ -60,6 +60,7 @@ nav:
       - Production Deployment & Hardening: operations/deployment.md
       - Upgrading LicenseTrack: operations/upgrade.md
       - Native Linux Upgrades: operations/native-upgrade.md
+      - Native Linux Removal: operations/native-uninstall.md
       - Operations Runbook: operations/runbook.md
       - Backup & Restore: operations/backup-restore.md
   - Advanced:

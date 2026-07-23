@@ -5,6 +5,9 @@ import Checkbox from "../ui/Checkbox.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import ParentLicensePicker from "./ParentLicensePicker.jsx";
+import MaintenanceCoverageFields, {
+  isFreewareLicenseType,
+} from "./MaintenanceCoverageFields.jsx";
 
 /**
  * Determines whether a watched form item has all required fields filled.
@@ -19,7 +22,7 @@ export function isItemReady(item) {
     (item.isPerpetual || item.endDate) &&
     (item.licenseType !== "maintenance" || item.parentLicenseId || item.parentSourcingItemId) &&
     item.quantity?.toString().trim() !== "" &&
-    item.unitPrice?.toString().trim() !== ""
+    (isFreewareLicenseType(item.licenseType) || item.unitPrice?.toString().trim() !== "")
   );
 }
 
@@ -140,6 +143,15 @@ export default function ConvertItemForm({
               </div>
             </div>
           </div>
+          <div className="fg">
+            <label htmlFor={`ca-purchase-date-${idx}`}>Purchase Date</label>
+            <input
+              id={`ca-purchase-date-${idx}`}
+              type="date"
+              className="fi"
+              {...register(`items.${idx}.purchaseDate`)}
+            />
+          </div>
           <div className="fr">
             <div className="fg">
               <label htmlFor={`ca-contract-number-${idx}`}>Contract Number</label>
@@ -193,6 +205,12 @@ export default function ConvertItemForm({
                     } else if (wi.isPerpetual) {
                       setValue(`items.${idx}.isPerpetual`, false, { shouldDirty: true });
                     }
+                    if (isFreewareLicenseType(nextType)) {
+                      setValue(`items.${idx}.unitPrice`, "", { shouldDirty: true });
+                      setValue(`items.${idx}.totalPoPrice`, "", { shouldDirty: true });
+                      setUnitPriceDisplay("");
+                      setTotalPriceDisplay("");
+                    }
                   },
                 })}
               >
@@ -232,6 +250,21 @@ export default function ConvertItemForm({
               error={itemErrors?.parentLicenseId?.message || itemErrors?.parentSourcingItemId?.message}
             />
           )}
+          <MaintenanceCoverageFields
+            idPrefix={`ca-${idx}`}
+            licenseType={wi.licenseType}
+            coverage={wi.maintenanceCoverage}
+            startDate={wi.maintenanceStartDate}
+            endDate={wi.maintenanceEndDate}
+            pricingBasis={wi.maintenancePricingBasis}
+            supportQuantity={wi.maintenanceQuantity}
+            supportUnitPrice={wi.maintenanceUnitPrice}
+            cost={wi.maintenanceCost}
+            licenseQuantity={wi.quantity}
+            currency={wi.currency}
+            locale={locale}
+            onChange={(field, value) => setValue(`items.${idx}.${field}`, value, { shouldDirty: true })}
+          />
           <div className="fr">
             <div className="fg">
               <label htmlFor={`ca-quantity-${idx}`}>Purchase Quantity <span style={{ color: "var(--red)" }}>*</span></label>
@@ -242,6 +275,7 @@ export default function ConvertItemForm({
               <input id={`ca-sku-code-${idx}`} className="fi" placeholder="SKU or product code" {...register(`items.${idx}.skuCode`)} />
             </div>
           </div>
+          {!isFreewareLicenseType(wi.licenseType) && (
           <div className="fr">
             <div className="fg">
               <label htmlFor={`ca-unit-price-${idx}`}>Unit Price <span style={{ color: "var(--red)" }}>*</span></label>
@@ -284,6 +318,7 @@ export default function ConvertItemForm({
               />
             </div>
           </div>
+          )}
           <div className="fr">
             <div className="fg">
               <label htmlFor={`ca-currency-${idx}`}>Currency</label>

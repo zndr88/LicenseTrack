@@ -165,6 +165,13 @@ export function usePendingOrdersPageState({
         contactEmail: item.contactEmail || "",
         licenseType: item.licenseType || "subscription",
         licenseMetric: item.licenseMetric || "per_user",
+        maintenanceCoverage: item.maintenanceCoverage || "unknown",
+        maintenanceStartDate: item.maintenanceStartDate || "",
+        maintenanceEndDate: item.maintenanceEndDate || "",
+        maintenancePricingBasis: item.maintenancePricingBasis || "flat",
+        maintenanceQuantity: item.maintenanceQuantity || "",
+        maintenanceUnitPrice: item.maintenanceUnitPrice || "",
+        maintenanceCost: item.maintenanceCost || "",
       };
     }
 

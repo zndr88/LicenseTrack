@@ -14,6 +14,18 @@ Select your desired settings, download the template, and review it:
 
 As you can see, it comes with three pre-filled lines that give you an idea of how LicenseTrack handles its data.
 
+The import number format defaults to your personal **Number Format** setting.
+Leave it unchanged when the file uses the same separators, or select the
+matching example for this file:
+
+- `1,234.50`
+- `1.234,50`
+- `1 234,50`
+
+The override belongs to the import, not to your account. This lets you import a
+supplier or legacy spreadsheet that uses different separators without changing
+how LicenseTrack displays numbers elsewhere.
+
 You have two ways to get your data in:
 
 - **Use this template** to migrate your own license data into the known default format, or

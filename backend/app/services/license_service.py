@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.license import LicenseType
+from app.models.license import LicenseType, MaintenanceCoverage
 from app.models.license_ref_seq import LicenseRefSequence
 from app.services.money import MoneyParseError, parse_money
 
@@ -61,6 +61,45 @@ _DOCUMENT_CATEGORIES = {
     "quote": "quote",
 }
 
+_FREEWARE_ALWAYS_INAPPLICABLE_FIELDS = frozenset(
+    {
+        "contactEmail",
+        "entitlement",
+        "eula",
+    }
+)
+
+_FREEWARE_PURCHASE_FIELDS = frozenset(
+    {
+        "invoice",
+        "invoiceNumber",
+        "contractNumber",
+        "poNumber",
+        "purchaseOrder",
+        "quote",
+    }
+)
+
+
+def _has_paid_included_support(license: "License") -> bool:
+    if getattr(license, "maintenance_coverage", None) != MaintenanceCoverage.included:
+        return False
+    try:
+        return (parse_money(getattr(license, "maintenance_cost", None)) or Decimal("0")) > 0
+    except MoneyParseError:
+        return False
+
+
+def _is_applicable_mandatory_field(key: str, license: "License") -> bool:
+    """Return whether a configured completeness field applies to this record."""
+    if license.license_type != LicenseType.freeware:
+        return True
+    if key in _FREEWARE_ALWAYS_INAPPLICABLE_FIELDS:
+        return False
+    if key in _FREEWARE_PURCHASE_FIELDS:
+        return _has_paid_included_support(license)
+    return True
+
 
 # Maps mandatory_fields JSON key → how to check it on a license/docs pair
 def _check_mandatory_field(
@@ -106,7 +145,11 @@ def compute_completeness(
     if license.is_completeness_exempt:
         return None
 
-    enabled_keys = [key for key, enabled in mandatory_fields.items() if enabled]
+    enabled_keys = [
+        key
+        for key, enabled in mandatory_fields.items()
+        if enabled and _is_applicable_mandatory_field(key, license)
+    ]
     if not enabled_keys:
         return 100
 
@@ -273,7 +316,25 @@ def compute_stats(
                         lic.unit_price,
                     )
                     excluded_from_totals += 1
-            # Perpetual, OEM, Freeware contribute zero
+            elif (
+                lic.license_type in (LicenseType.freeware, LicenseType.perpetual, LicenseType.oem)
+                and _has_paid_included_support(lic)
+                and (
+                    getattr(lic, "maintenance_start_date", None) is None
+                    or lic.maintenance_start_date <= today
+                )
+                and (
+                    getattr(lic, "maintenance_end_date", None) is None
+                    or lic.maintenance_end_date >= today
+                )
+            ):
+                try:
+                    support_cost = parse_money(getattr(lic, "maintenance_cost", None)) or Decimal("0")
+                    cur = lic.currency or "USD"
+                    annual_cost_by_currency[cur] = annual_cost_by_currency.get(cur, Decimal("0")) + support_cost
+                except MoneyParseError:
+                    excluded_from_totals += 1
+            # Perpetual and OEM base purchase cost contributes zero here.
 
     return {
         "total": total,

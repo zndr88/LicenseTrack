@@ -16,6 +16,7 @@ The record is organized into the following sections:
 
 - Key Dates & Contract
 - Details
+- Maintenance & Support
 - Relationships
 - Documents
 - Completeness & Flags
@@ -29,7 +30,11 @@ Let's walk through each one.
 
 ![Key Dates & Contract section](../assets/record-03-key-dates-contract.png)
 
-Here you'll find the important dates for your license purchase. The **start** and **end** dates represent the license lifecycle. The **request date** and **purchase date** are filled in automatically: the request date when you create a sourcing request for the renewal, and the purchase date when you convert a pending order into an active license. Together these give you a clear reading of the order process.
+Here you'll find the important dates for your license purchase. The **start**
+and **end** dates represent the license lifecycle. **Request date** is filled
+when a license originates from sourcing, including direct freeware conversion.
+**Purchase date** is filled only when a pending order exists. Together they give
+you a clear reading of the path the entitlement followed.
 
 Your **PO number**, **invoice number**, and — if required — **contract number** are shown in this section. You can also link the license to a dedicated contract from here. More on that later.
 
@@ -41,7 +46,24 @@ A license can have more than one invoice number. Click the invoice number or the
 
 Here you'll find more detail about the license record: the **license type**, **metric**, **quantity**, **SKU code**, and **pricing**.
 
-The **calculated total** is quantity × unit price, computed automatically. The **total PO price** is the value of the whole purchase order, which may span multiple lines in a single PO.
+The **calculated total** is quantity × unit price, computed automatically. The
+**total PO price** is the acquisition value of the whole purchase order, which
+may span multiple lines in a single PO. Freeware/open-source records have no
+acquisition price; paid support is recorded in **Maintenance & Support**.
+
+## Maintenance & Support
+
+Perpetual, OEM, and freeware/open-source records classify support as
+**Unknown**, **Not applicable**, **Included**, or **Separately tracked**.
+
+Included support stays on the parent license. Its start/end dates define the
+coverage period, and its price is either one flat fee or a covered quantity
+multiplied by a support unit price. The resulting support cost is the total for
+that coverage period, not an automatically annualized amount.
+
+Separately tracked support uses its own linked maintenance license, procurement
+evidence, cost, dates, and renewal lifecycle. The parent shows the active
+maintenance line's current dates and cost for convenient review.
 
 ## Relationships
 
@@ -66,6 +88,12 @@ In this section you can upload any document related to the purchase cycle of a s
 
 Each purchase has a **completeness score**. The completeness requirements are defined by the admin under settings. In this example, the invoice, proof of entitlement, start and end date, contract number, and PO number are all required for a license to count as **complete**.
 
+For a freeware/open-source record, EULA, proof-of-entitlement, and
+publisher-contact requirements do not apply. Contract, PO, invoice, and quote
+requirements also do not apply unless the record includes paid support.
+Department and budget-owner requirements remain useful and continue to apply
+when enabled.
+
 Licenses that are not marked complete generate email notifications, and you'll see alerts in the top-right menu.
 
 You can also mark a license as **retired** or **legacy**, or **exempt** it from completeness entirely to suppress the alerts.
@@ -78,7 +106,7 @@ The **Renewal notifications** toggle controls expiry emails for this specific li
 
 - **Notes** — add custom messages to the license for follow-up.
 - **Custom Fields** — hold values that have no natural place in the other sections. You define a custom field and its section under the admin menu.
-- **History** — an audit trail of changes to the record, plus links back to the sourcing request and pending order that created the license when the record came through the procurement pipeline.
+- **History** — an audit trail of changes to the record, plus links back to the sourcing request and, when one exists, the pending order that created the license.
 
 When a procurement trail exists, the History section can take you back to the original quote-stage sourcing line and the related pending order. Converted or cancelled procurement records open in their history tables, so you can inspect old quote, PO, invoice, price, and note context without reopening the workflow.
 

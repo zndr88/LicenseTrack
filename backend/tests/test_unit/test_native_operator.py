@@ -104,3 +104,51 @@ def test_runtime_state_problems_detects_abi_mismatch():
     assert operator.runtime_state_problems(state, runtime) == [
         "active Python ABI cp314 does not match installation state cp312"
     ]
+
+
+def test_network_diagnostics_warns_for_legacy_reverse_proxy_state():
+    state = {
+        "bind_host": "127.0.0.1",
+        "port": 8000,
+    }
+    environment = {"CORS_ORIGINS": "https://licenses.example.test"}
+
+    summary, problems, warnings = operator.network_diagnostics(state, environment)
+
+    assert "reverse-proxy" in summary
+    assert problems == []
+    assert warnings == [
+        "non-local public URL uses a loopback bind; confirm that a reverse proxy is configured"
+    ]
+
+
+def test_network_diagnostics_accepts_confirmed_reverse_proxy_state():
+    state = {
+        "bind_host": "127.0.0.1",
+        "port": 8000,
+        "network_mode": "reverse-proxy",
+        "public_url": "https://licenses.example.test",
+    }
+
+    summary, problems, warnings = operator.network_diagnostics(state, {})
+
+    assert "reverse proxy must forward" in summary
+    assert problems == []
+    assert warnings == []
+
+
+def test_network_diagnostics_reports_recorded_mode_mismatch():
+    state = {
+        "bind_host": "0.0.0.0",
+        "port": 8000,
+        "network_mode": "reverse-proxy",
+        "public_url": "http://192.168.0.247:8000",
+    }
+
+    summary, problems, warnings = operator.network_diagnostics(state, {})
+
+    assert "direct-network" in summary
+    assert problems == [
+        "recorded network mode 'reverse-proxy' does not match effective mode 'direct-network'"
+    ]
+    assert warnings == []

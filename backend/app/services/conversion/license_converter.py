@@ -20,6 +20,9 @@ async def create_purchase_license(
 
     if license_type == LicenseType.perpetual:
         item_data["end_date"] = None
+    if license_type == LicenseType.freeware:
+        item_data["unit_price"] = ""
+        item_data["total_po_price"] = ""
 
     if license_type == LicenseType.maintenance:
         if parent_sourcing_item_id is not None:

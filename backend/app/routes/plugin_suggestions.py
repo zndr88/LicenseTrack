@@ -12,7 +12,7 @@ from app.schemas.plugin_suggestion import (
     PluginSuggestionReviewResponse,
 )
 from app.services.audit_service import format_audit_detail, log_event
-from app.services.plugin_host_service import require_plugin_host_enabled
+from app.services.plugin_host_service import plugin_host_enabled, require_plugin_host_enabled
 from app.services.plugin_suggestion_service import (
     PluginSuggestionError,
     accept_plugin_suggestion,
@@ -23,7 +23,6 @@ from app.services.plugin_suggestion_service import (
 router = APIRouter(
     prefix="/api/plugin-suggestions",
     tags=["official-extension-suggestions"],
-    dependencies=[Depends(require_plugin_host_enabled)],
 )
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
@@ -36,6 +35,8 @@ async def list_pending_plugin_suggestions(
     license_id: int | None = Query(default=None, alias="licenseId"),
     status_filter: str | None = Query(default=None, alias="status"),
 ) -> list[PluginSuggestionResponse]:
+    if not plugin_host_enabled():
+        return []
     try:
         suggestions = await list_plugin_suggestions(
             db,
@@ -48,7 +49,11 @@ async def list_pending_plugin_suggestions(
     return [PluginSuggestionResponse.model_validate(row) for row in suggestions]
 
 
-@router.post("/{suggestion_id}/accept", response_model=PluginSuggestionReviewResponse)
+@router.post(
+    "/{suggestion_id}/accept",
+    response_model=PluginSuggestionReviewResponse,
+    dependencies=[Depends(require_plugin_host_enabled)],
+)
 async def accept_pending_plugin_suggestion(
     suggestion_id: int,
     request: Request,
@@ -112,7 +117,11 @@ async def accept_pending_plugin_suggestion(
     )
 
 
-@router.post("/{suggestion_id}/reject", response_model=PluginSuggestionReviewResponse)
+@router.post(
+    "/{suggestion_id}/reject",
+    response_model=PluginSuggestionReviewResponse,
+    dependencies=[Depends(require_plugin_host_enabled)],
+)
 async def reject_pending_plugin_suggestion(
     suggestion_id: int,
     request: Request,

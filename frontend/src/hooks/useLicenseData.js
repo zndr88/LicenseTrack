@@ -297,7 +297,10 @@ export function useLicenseData(licenses, {
     };
   }, [apiStats, enriched, licenses]);
 
-  const totalPages = useMemo(() => Math.ceil(sorted.length / pageSize), [sorted, pageSize]);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(sorted.length / pageSize)),
+    [sorted, pageSize],
+  );
 
   const paginatedItems = useMemo(
     () => sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize),

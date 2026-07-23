@@ -5,6 +5,7 @@ from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, JSON, String, 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.license import LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 
 
 class SourcingStatus(str, enum.Enum):
@@ -70,6 +71,24 @@ class SourcingItem(Base):
     )
     publisher_name: Mapped[str] = mapped_column(String(255), nullable=False)
     software_description: Mapped[str] = mapped_column(String(500), nullable=False)
+    license_type: Mapped[LicenseType | None] = mapped_column(Enum(LicenseType), nullable=True)
+    maintenance_coverage: Mapped[MaintenanceCoverage | None] = mapped_column(
+        Enum(MaintenanceCoverage), nullable=True
+    )
+    maintenance_start_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
+    maintenance_end_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
+    maintenance_pricing_basis: Mapped[MaintenancePricingBasis | None] = mapped_column(
+        Enum(MaintenancePricingBasis), nullable=True
+    )
+    maintenance_quantity: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    maintenance_unit_price: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    maintenance_cost: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    parent_sourcing_item_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("sourcing_items.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     quantity: Mapped[str | None] = mapped_column(String(100), nullable=True)
     estimated_unit_price: Mapped[str | None] = mapped_column(String(50), nullable=True)
     estimated_total_price: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -104,6 +123,40 @@ class SourcingItem(Base):
     pending_order: Mapped["PendingOrder | None"] = relationship(  # noqa: F821
         "PendingOrder", back_populates="items", foreign_keys=[pending_order_id]
     )
+    parent_sourcing_item: Mapped["SourcingItem | None"] = relationship(
+        "SourcingItem",
+        remote_side="SourcingItem.id",
+        foreign_keys=[parent_sourcing_item_id],
+    )
+    converted_licenses: Mapped[list["License"]] = relationship(  # noqa: F821
+        "License",
+        back_populates="source_sourcing_item",
+        foreign_keys="[License.source_sourcing_item_id]",
+        viewonly=True,
+    )
+
+    @property
+    def converted_license_ids(self) -> list[int]:
+        licenses = self.__dict__.get("converted_licenses", [])
+        return [license_obj.id for license_obj in licenses if not license_obj.is_retired]
+
+    @property
+    def converted_license_id(self) -> int | None:
+        licenses = [
+            license_obj
+            for license_obj in self.__dict__.get("converted_licenses", [])
+            if not license_obj.is_retired
+        ]
+        return licenses[0].id if len(licenses) == 1 else None
+
+    @property
+    def converted_license_ref(self) -> str | None:
+        licenses = [
+            license_obj
+            for license_obj in self.__dict__.get("converted_licenses", [])
+            if not license_obj.is_retired
+        ]
+        return licenses[0].license_ref if len(licenses) == 1 else None
 
     @property
     def pending_order_status(self) -> str | None:

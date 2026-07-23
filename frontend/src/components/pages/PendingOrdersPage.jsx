@@ -331,22 +331,34 @@ export default function PendingOrdersPage({
           title="Edit PO Line Item"
           onCancel={() => setShowEditPOItemModal(null)}
           onSave={async (form) => {
+            const { maintenanceCompanion, ...itemForm } = form;
             const payload = {
-              publisherName: form.publisherName,
-              softwareDescription: form.softwareDescription,
-              quantity: form.quantity || null,
-              estimatedUnitPrice: form.estimatedUnitPrice || null,
-              estimatedTotalPrice: form.estimatedTotalPrice || null,
-              currency: form.currency || "EUR",
-              supplier: form.supplier || null,
-              contactEmail: form.contactEmail || null,
-              notes: form.notes || null,
+              publisherName: itemForm.publisherName,
+              softwareDescription: itemForm.softwareDescription,
+              licenseType: itemForm.licenseType || null,
+              maintenanceCoverage: itemForm.maintenanceCoverage || null,
+              maintenanceStartDate: itemForm.maintenanceStartDate || null,
+              maintenanceEndDate: itemForm.maintenanceEndDate || null,
+              maintenancePricingBasis: itemForm.maintenancePricingBasis || null,
+              maintenanceQuantity: itemForm.maintenanceQuantity || null,
+              maintenanceUnitPrice: itemForm.maintenanceUnitPrice || null,
+              maintenanceCost: itemForm.maintenanceCost || null,
+              quantity: itemForm.quantity || null,
+              estimatedUnitPrice: itemForm.estimatedUnitPrice || null,
+              estimatedTotalPrice: itemForm.estimatedTotalPrice || null,
+              currency: itemForm.currency || "EUR",
+              supplier: itemForm.supplier || null,
+              contactEmail: itemForm.contactEmail || null,
+              notes: itemForm.notes || null,
             };
-            const success = await handleUpdatePOItem(
+            let success = await handleUpdatePOItem(
               showEditPOItemModal.order.id,
               showEditPOItemModal.item.id,
               payload,
             );
+            if (success && maintenanceCompanion) {
+              success = await handleAddPOItems(showEditPOItemModal.order.id, [maintenanceCompanion]);
+            }
             if (success) setShowEditPOItemModal(null);
             return success;
           }}

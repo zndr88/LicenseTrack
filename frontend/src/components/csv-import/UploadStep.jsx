@@ -1,4 +1,5 @@
 import { downloadCsvTemplate } from "../../api/csvImport.js";
+import { NUMBER_FORMAT_OPTIONS } from "../../constants/numberFormats.js";
 import Icon from "../ui/Icon.jsx";
 
 export default function UploadStep({
@@ -47,10 +48,11 @@ export default function UploadStep({
             value={importNumberFormatLocale}
             onChange={(e) => setImportNumberFormatLocale(e.target.value)}
           >
-            <option value="en-US">1,234.50 (US / UK)</option>
-            <option value="nl-BE">1.234,50 (Belgian / Dutch)</option>
-            <option value="de-DE">1.234,50 (German)</option>
-            <option value="fr-FR">1 234,50 (French)</option>
+            {NUMBER_FORMAT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
           <select
             aria-label="Date format in this file"

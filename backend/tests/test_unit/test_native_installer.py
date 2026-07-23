@@ -43,6 +43,7 @@ def configuration_args(**overrides):
     defaults = {
         "mode": "standard",
         "yes": True,
+        "network_mode": None,
         "public_url": "http://localhost:8000",
         "admin_password_file": None,
         "port": 8000,
@@ -191,6 +192,28 @@ def test_source_tree_without_manifest_uses_online_dependency_install(tmp_path: P
     assert installer.validate_release_compatibility(tmp_path) is None
 
 
+def test_frontend_bundle_integrity_rejects_demo_marker(tmp_path: Path):
+    frontend = tmp_path / "frontend" / "dist"
+    assets = frontend / "assets"
+    assets.mkdir(parents=True)
+    (frontend / "index.html").write_text("<div>LicenseTrack</div>", encoding="utf-8")
+    (assets / "app.js").write_text(
+        'console.info("LICENSETRACK_DEMO_MARKER");',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(installer.InstallerError, match="demo frontend"):
+        installer.assert_production_frontend_bundle(frontend)
+
+
+def test_frontend_bundle_integrity_accepts_production_bundle(tmp_path: Path):
+    frontend = tmp_path / "frontend" / "dist"
+    frontend.mkdir(parents=True)
+    (frontend / "index.html").write_text("<div>LicenseTrack</div>", encoding="utf-8")
+
+    installer.assert_production_frontend_bundle(frontend)
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX umask and permission modes are required")
 def test_stage_release_normalizes_permissions_under_restrictive_umask(tmp_path: Path, monkeypatch):
     source_root = tmp_path / "source"
@@ -198,6 +221,9 @@ def test_stage_release_normalizes_permissions_under_restrictive_umask(tmp_path: 
     backend.mkdir(parents=True)
     requirements = backend / "requirements-runtime.txt"
     requirements.write_text("fastapi==0\n", encoding="utf-8")
+    frontend = backend / "frontend" / "dist"
+    frontend.mkdir(parents=True)
+    (frontend / "index.html").write_text("<div>LicenseTrack</div>", encoding="utf-8")
     native = source_root / "packaging" / "native"
     native.mkdir(parents=True)
     entrypoint = native / "install.sh"
@@ -320,6 +346,7 @@ def test_native_configuration_uses_persistent_paths(tmp_path: Path, monkeypatch)
     paths = install_paths(tmp_path)
     monkeypatch.setenv("LT_ADMIN_PASSWORD", "test-password-long-enough")
     args = configuration_args(
+        network_mode="reverse-proxy",
         public_url="https://licenses.example.test",
         session_cookie_secure=True,
     )
@@ -353,15 +380,97 @@ def test_standard_mode_resolves_safe_defaults():
     assert args.bind_host == "127.0.0.1"
     assert args.port == 8000
     assert args.public_url == "http://localhost:8000"
+    assert args.network_mode == "local-only"
     assert args.expose_api_docs is False
     assert args.allow_http_oidc_discovery is False
     assert args.allow_private_oidc_discovery is False
     assert args.session_cookie_secure is False
 
 
+def test_unattended_reverse_proxy_requires_explicit_network_mode():
+    args = configuration_args(
+        mode="standard",
+        yes=True,
+        network_mode=None,
+        public_url="https://licenses.example.test",
+        bind_host=None,
+        port=None,
+    )
+
+    with pytest.raises(installer.InstallerError, match="--network-mode reverse-proxy"):
+        installer.resolve_install_options(args)
+
+
+def test_unattended_reverse_proxy_accepts_explicit_network_mode():
+    args = configuration_args(
+        mode="standard",
+        yes=True,
+        network_mode="reverse-proxy",
+        public_url="https://licenses.example.test",
+        bind_host=None,
+        port=None,
+    )
+
+    installer.resolve_install_options(args)
+
+    assert args.bind_host == "127.0.0.1"
+    assert args.network_mode == "reverse-proxy"
+
+
+def test_direct_network_mode_defaults_to_wildcard_bind():
+    args = configuration_args(
+        mode="standard",
+        yes=True,
+        network_mode="direct-network",
+        public_url="http://192.168.0.247:8000",
+        bind_host=None,
+        port=None,
+    )
+
+    installer.resolve_install_options(args)
+
+    assert args.bind_host == "0.0.0.0"
+    assert args.network_mode == "direct-network"
+
+
+def test_network_mode_rejects_mismatched_bind_and_public_url():
+    args = configuration_args(
+        mode="standard",
+        yes=True,
+        network_mode="direct-network",
+        public_url="https://licenses.example.test",
+        bind_host="127.0.0.1",
+    )
+
+    with pytest.raises(installer.InstallerError, match="effective mode is 'reverse-proxy'"):
+        installer.resolve_install_options(args)
+
+
+def test_interactive_reverse_proxy_requires_confirmation(monkeypatch):
+    args = configuration_args(
+        mode="standard",
+        yes=False,
+        network_mode=None,
+        public_url="https://licenses.example.test",
+        bind_host=None,
+        port=None,
+    )
+    monkeypatch.setattr("builtins.input", lambda _prompt: "yes")
+
+    installer.resolve_install_options(args)
+
+    assert args.network_mode == "reverse-proxy"
+
+
+def test_network_mode_summary_explains_reachability():
+    assert "connect from this host" in installer.network_mode_summary("local-only")
+    assert "proxy must forward" in installer.network_mode_summary("reverse-proxy")
+    assert "firewall" in installer.network_mode_summary("direct-network")
+
+
 def test_install_state_records_runtime_metadata(tmp_path: Path, monkeypatch):
     paths = install_paths(tmp_path)
-    args = configuration_args()
+    args = configuration_args(network_mode="local-only")
     metadata = {
         "python_implementation": "cpython",
         "python_version": "3.14.4",
@@ -373,6 +482,8 @@ def test_install_state_records_runtime_metadata(tmp_path: Path, monkeypatch):
     state = installer.state_from_install("1.1.0", tmp_path / "release", paths, args)
 
     assert {key: state[key] for key in metadata} == metadata
+    assert state["network_mode"] == "local-only"
+    assert state["public_url"] == "http://localhost:8000"
 
 
 def test_upgrade_state_adds_runtime_metadata_to_legacy_state(tmp_path: Path, monkeypatch):
@@ -401,6 +512,20 @@ def test_install_mode_menu_selects_advanced(monkeypatch):
     answers = iter(["invalid", "2"])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
     assert installer.select_install_mode(args) == "advanced"
+
+
+def test_parser_exposes_network_mode():
+    args = installer.build_parser().parse_args(
+        [
+            "install",
+            "--source-root",
+            ".",
+            "--network-mode",
+            "direct-network",
+        ]
+    )
+
+    assert args.network_mode == "direct-network"
 
 
 def test_advanced_questionnaire_accepts_safe_defaults(monkeypatch):
@@ -499,6 +624,50 @@ def test_service_and_cli_templates_resolve_all_placeholders(tmp_path: Path):
     assert "native/libexec/native_operator.py" in cli
     assert "native/libexec/installer.py" in cli
     assert "rollback --state-file" in cli
+
+
+def test_service_template_preserves_runtime_privilege_boundary(tmp_path: Path):
+    paths = install_paths(tmp_path)
+    replacements = {
+        "SERVICE_USER": paths.service_user,
+        "SERVICE_GROUP": paths.service_group,
+        "CURRENT_LINK": str(paths.current_link),
+        "CONFIG_FILE": str(paths.config_file),
+        "PORT": "8000",
+        "BIND_HOST": "127.0.0.1",
+    }
+    template = ROOT / "packaging" / "native" / "templates" / "licensetrack.service.in"
+
+    service = installer.render_template(template, replacements)
+
+    assert "User=licensetrack" in service
+    assert "Group=licensetrack" in service
+    assert "UMask=0077" in service
+    assert "NoNewPrivileges=true" in service
+    assert "PrivateTmp=true" in service
+    assert "ProtectSystem=full" in service
+    assert "ProtectHome=true" in service
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes are required")
+def test_installed_control_files_are_not_service_writable(tmp_path: Path, monkeypatch):
+    paths = install_paths(tmp_path)
+    monkeypatch.setattr(installer.shutil, "chown", lambda *args, **kwargs: None)
+    monkeypatch.setattr(installer, "run", lambda *args, **kwargs: None)
+
+    installer.write_env_file(
+        paths.config_file,
+        {"JWT_SECRET": "test-secret"},
+        paths.service_group,
+    )
+    installer.install_service_files(ROOT, paths, "127.0.0.1", 8000)
+
+    assert stat.S_IMODE(paths.config_file.stat().st_mode) == 0o640
+    assert stat.S_IMODE(Path(paths.service_file).stat().st_mode) == 0o644
+    assert stat.S_IMODE(Path(paths.cli_file).stat().st_mode) == 0o755
+    assert stat.S_IMODE(paths.config_file.stat().st_mode) & 0o020 == 0
+    assert stat.S_IMODE(Path(paths.service_file).stat().st_mode) & 0o022 == 0
+    assert stat.S_IMODE(Path(paths.cli_file).stat().st_mode) & 0o022 == 0
 
 
 def test_install_operator_cli_publishes_rollback_dispatch_atomically(tmp_path: Path):

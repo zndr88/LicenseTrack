@@ -95,7 +95,7 @@ export default function MaintenanceSection({
             </div>
           )}
 
-          {license.hasMaintenance && (
+          {(license.hasMaintenance || coverage === "included") && (
             <>
               <div className="fr dp-data-row">
                 <div className="dp-field">
@@ -108,7 +108,7 @@ export default function MaintenanceSection({
                 </div>
               </div>
               <div className="dp-field">
-                <label>Annual Maintenance Cost</label>
+                <label>Total Support Cost (coverage period)</label>
                 <div className="val dp-mono-val">
                   {license.maintenanceCost
                     ? formatCost(
@@ -118,13 +118,28 @@ export default function MaintenanceSection({
                       )
                     : "—"}
                 </div>
+                {coverage === "included" &&
+                  license.maintenancePricingBasis === "per_unit" &&
+                  license.maintenanceQuantity &&
+                  license.maintenanceUnitPrice && (
+                    <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 4 }}>
+                      {license.maintenanceQuantity} covered units x{" "}
+                      {formatCost(
+                        license.maintenanceUnitPrice,
+                        license.currency || userSettings?.displayCurrency || "EUR",
+                        userSettings?.numberFormatLocale ?? "en-US"
+                      )} per unit
+                    </div>
+                  )}
               </div>
-              <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 4, fontFamily: "var(--font-mono)", letterSpacing: "0.04em", lineHeight: 1.5 }}>
-                Values mirror the currently active maintenance / support contract record.
-                Edit them by opening that record.
-              </div>
+              {license.hasMaintenance && (
+                <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 4, fontFamily: "var(--font-mono)", letterSpacing: "0.04em", lineHeight: 1.5 }}>
+                  Values mirror the currently active maintenance / support contract record.
+                  Edit them by opening that record.
+                </div>
+              )}
 
-              <div className="dp-btn-row" style={{ marginTop: 12 }}>
+              {license.hasMaintenance && <div className="dp-btn-row" style={{ marginTop: 12 }}>
                 {license.activeMaintenanceId && (
                   <button type="button" className="btn btn-g btn-sm" onClick={() => onNavigate?.(license.activeMaintenanceId)}>
                     <Icon name="edit" size={12} /> Edit Maintenance / Support Record
@@ -135,7 +150,7 @@ export default function MaintenanceSection({
                     <Icon name="x" size={12} /> Disable linked contract
                   </button>
                 )}
-              </div>
+              </div>}
             </>
           )}
 

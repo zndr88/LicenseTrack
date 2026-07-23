@@ -4,10 +4,11 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
-from app.models.license import LicenseMetric, LicenseType
+from app.models.license import LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.models.pending_order import EvidenceTransferStatus, PendingOrderStatus
 from app.services.email_validation import reject_email_crlf
 from app.services.money import is_canonical_money
+from app.services.procurement_totals import calculate_per_unit_support_total
 from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.sourcing import SourcingQuoteDocumentResponse
 
@@ -37,6 +38,15 @@ class SourcingItemSummary(BaseModel):
     sourcing_request_id: Optional[int] = None
     publisher_name: str
     software_description: str
+    license_type: Optional[LicenseType] = None
+    maintenance_coverage: Optional[MaintenanceCoverage] = None
+    maintenance_start_date: Optional[date] = None
+    maintenance_end_date: Optional[date] = None
+    maintenance_pricing_basis: Optional[MaintenancePricingBasis] = None
+    maintenance_quantity: Optional[str] = None
+    maintenance_unit_price: Optional[str] = None
+    maintenance_cost: Optional[str] = None
+    parent_sourcing_item_id: Optional[int] = None
     quantity: Optional[str] = None
     estimated_unit_price: Optional[str] = None
     estimated_total_price: Optional[str] = None
@@ -108,17 +118,17 @@ class PendingOrderResponse(BaseModel):
     converted_license_id: Optional[int] = None
     converted_license_ref: Optional[str] = None
     converted_license_ids: list[int] = []
+    direct_registry_count: int = 0
 
     @model_validator(mode="after")
     def _compute_total_po_value(self) -> "PendingOrderResponse":
+        from app.services.procurement_totals import procurement_line_total
+
         totals: dict[str, float] = {}
         for item in self.items:
-            if item.estimated_total_price is not None:
-                try:
-                    val = float(item.estimated_total_price)
-                    totals[item.currency] = totals.get(item.currency, 0.0) + val
-                except (ValueError, TypeError):
-                    pass
+            line_total = procurement_line_total(item)
+            if line_total is not None:
+                totals[item.currency] = totals.get(item.currency, 0.0) + float(line_total)
         if not totals:
             self.total_po_value = None
         else:
@@ -144,6 +154,13 @@ class PendingOrderConvertRequest(BaseModel):
     license_metric: LicenseMetric = LicenseMetric.per_user
     portal_url: Optional[str] = None
     parent_license_id: Optional[int] = None
+    maintenance_coverage: Optional[MaintenanceCoverage] = None
+    maintenance_start_date: Optional[date] = None
+    maintenance_end_date: Optional[date] = None
+    maintenance_pricing_basis: Optional[MaintenancePricingBasis] = None
+    maintenance_quantity: Optional[str] = None
+    maintenance_unit_price: Optional[str] = None
+    maintenance_cost: Optional[str] = None
 
     # Pricing / quantity
     quantity: str = ""
@@ -155,6 +172,7 @@ class PendingOrderConvertRequest(BaseModel):
     # Dates
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    purchase_date: Optional[date] = None
 
     # References
     contract_number: str = ""
@@ -169,7 +187,7 @@ class PendingOrderConvertRequest(BaseModel):
 
     notes: Optional[str] = None
 
-    @field_validator("start_date", "end_date", mode="before")
+    @field_validator("start_date", "end_date", "purchase_date", mode="before")
     @classmethod
     def _normalise_date(cls, v: object) -> object:
         """Accept ISO dates, DD/MM/YYYY strings, empty strings, and None."""
@@ -187,7 +205,15 @@ class PendingOrderConvertRequest(BaseModel):
             return f"{slash_parts[2]}-{slash_parts[1].zfill(2)}-{slash_parts[0].zfill(2)}"
         return v
 
-    @field_validator("quantity", "unit_price", "total_po_price", mode="before")
+    @field_validator(
+        "quantity",
+        "unit_price",
+        "total_po_price",
+        "maintenance_quantity",
+        "maintenance_unit_price",
+        "maintenance_cost",
+        mode="before",
+    )
     @classmethod
     def _coerce_none_to_empty(cls, v: object) -> object:
         """Coerce None → empty string, numbers → string."""
@@ -198,7 +224,15 @@ class PendingOrderConvertRequest(BaseModel):
             return str(int(v)) if isinstance(v, float) and v == int(v) else str(v)
         return v
 
-    @field_validator("quantity", "unit_price", "total_po_price", mode="after")
+    @field_validator(
+        "quantity",
+        "unit_price",
+        "total_po_price",
+        "maintenance_quantity",
+        "maintenance_unit_price",
+        "maintenance_cost",
+        mode="after",
+    )
     @classmethod
     def _validate_canonical_money(cls, v: str) -> str:
         if v == "":
@@ -206,6 +240,18 @@ class PendingOrderConvertRequest(BaseModel):
         if not is_canonical_money(v):
             raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
+
+    @model_validator(mode="after")
+    def _calculate_support_total(self) -> "PendingOrderConvertRequest":
+        if (
+            self.maintenance_coverage == MaintenanceCoverage.included
+            and self.maintenance_pricing_basis == MaintenancePricingBasis.per_unit
+        ):
+            self.maintenance_cost = calculate_per_unit_support_total(
+                self.maintenance_quantity,
+                self.maintenance_unit_price,
+            )
+        return self
 
     @field_validator("budget_owner_email", mode="before")
     @classmethod
@@ -247,6 +293,13 @@ class BatchConvertItem(BaseModel):
     portal_url: Optional[str] = None
     parent_license_id: Optional[int] = None
     parent_sourcing_item_id: Optional[int] = None
+    maintenance_coverage: Optional[MaintenanceCoverage] = None
+    maintenance_start_date: Optional[date] = None
+    maintenance_end_date: Optional[date] = None
+    maintenance_pricing_basis: Optional[MaintenancePricingBasis] = None
+    maintenance_quantity: Optional[str] = None
+    maintenance_unit_price: Optional[str] = None
+    maintenance_cost: Optional[str] = None
 
     # Pricing / quantity
     quantity: str = ""
@@ -258,6 +311,7 @@ class BatchConvertItem(BaseModel):
     # Dates
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    purchase_date: Optional[date] = None
 
     # References
     contract_number: str = ""
@@ -272,7 +326,15 @@ class BatchConvertItem(BaseModel):
 
     notes: Optional[str] = None
 
-    @field_validator("quantity", "unit_price", "total_po_price", mode="before")
+    @field_validator(
+        "quantity",
+        "unit_price",
+        "total_po_price",
+        "maintenance_quantity",
+        "maintenance_unit_price",
+        "maintenance_cost",
+        mode="before",
+    )
     @classmethod
     def _coerce_none_to_empty(cls, v: object) -> object:
         """Coerce None → empty string, numbers → string."""
@@ -283,7 +345,15 @@ class BatchConvertItem(BaseModel):
             return str(int(v)) if isinstance(v, float) and v == int(v) else str(v)
         return v
 
-    @field_validator("quantity", "unit_price", "total_po_price", mode="after")
+    @field_validator(
+        "quantity",
+        "unit_price",
+        "total_po_price",
+        "maintenance_quantity",
+        "maintenance_unit_price",
+        "maintenance_cost",
+        mode="after",
+    )
     @classmethod
     def _validate_canonical_money(cls, v: str) -> str:
         if v == "":
@@ -291,6 +361,18 @@ class BatchConvertItem(BaseModel):
         if not is_canonical_money(v):
             raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
+
+    @model_validator(mode="after")
+    def _calculate_support_total(self) -> "BatchConvertItem":
+        if (
+            self.maintenance_coverage == MaintenanceCoverage.included
+            and self.maintenance_pricing_basis == MaintenancePricingBasis.per_unit
+        ):
+            self.maintenance_cost = calculate_per_unit_support_total(
+                self.maintenance_quantity,
+                self.maintenance_unit_price,
+            )
+        return self
 
     @field_validator("budget_owner_email", mode="before")
     @classmethod

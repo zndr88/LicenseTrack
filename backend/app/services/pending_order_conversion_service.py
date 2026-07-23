@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from types import SimpleNamespace
 from typing import Awaitable, Callable, Optional
 
@@ -157,7 +157,8 @@ async def convert_pending_order_to_licenses(
         )
     form_data = convert_payload.model_dump(by_alias=False)
     form_data["pending_order_id"] = order_id
-    form_data["purchase_date"] = order.created_at
+    if form_data.get("purchase_date") is not None:
+        form_data["purchase_date"] = datetime.combine(form_data["purchase_date"], time.min)
 
     new_license_entries: list[tuple[int, str]] = []
     predecessor_ids: list[int] = []
@@ -337,7 +338,8 @@ async def batch_convert_pending_order_to_licenses(
         item_data["source_sourcing_item_id"] = sourcing_item.id
         item_data["pending_order_id"] = order_id
         item_data["request_date"] = sourcing_item.created_at
-        item_data["purchase_date"] = order.created_at
+        if item_data.get("purchase_date") is not None:
+            item_data["purchase_date"] = datetime.combine(item_data["purchase_date"], time.min)
 
         if sourcing_item.renewal_for_license_id is not None:
             item_data.pop("parent_sourcing_item_id", None)

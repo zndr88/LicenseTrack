@@ -27,6 +27,7 @@ import tempfile
 import time
 from typing import Iterator
 from urllib.error import URLError
+from urllib.parse import urlparse
 from urllib.request import urlopen
 
 try:
@@ -40,6 +41,7 @@ SUPPORTED_PYTHON_VERSIONS = ((3, 12), (3, 13), (3, 14))
 SUPPORTED_PYTHON_ABIS = ("cp312", "cp313", "cp314")
 SUPPORTED_PYTHON_RANGE = ">=3.12,<3.15"
 NATIVE_MANIFEST_FORMAT = "licensetrack-native-v2"
+DEMO_MARKER = b"LICENSETRACK_DEMO_MARKER"
 DEFAULT_INSTALL_ROOT = Path("/opt/licensetrack")
 DEFAULT_DATA_ROOT = Path("/var/lib/licensetrack")
 DEFAULT_CONFIG_ROOT = Path("/etc/licensetrack")
@@ -51,6 +53,7 @@ WEAK_PASSWORDS = {"", "admin", "password", "changeme", "changeme_required"}
 VERSION_RE = re.compile(r'^APP_VERSION\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
 SAFE_ENV_VALUE_RE = re.compile(r"^[A-Za-z0-9_./:@,+%=-]*$")
 INSTALL_MODES = ("standard", "advanced")
+NETWORK_MODES = ("local-only", "reverse-proxy", "direct-network")
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 DEFAULT_BIND_HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
@@ -477,23 +480,106 @@ def default_public_url(bind_host: str, port: int) -> str:
     return f"http://{host}:{port}"
 
 
+def validate_public_url(public_url: str) -> None:
+    if not re.fullmatch(r"https?://[^\s/]+(?::\d+)?(?:/[^\s]*)?", public_url):
+        raise InstallerError("Public URL must start with http:// or https:// and contain no spaces.")
+
+
+def is_loopback_public_url(public_url: str) -> bool:
+    hostname = urlparse(public_url).hostname
+    if hostname is None:
+        return False
+    normalized = hostname.rstrip(".").casefold()
+    if normalized == "localhost" or normalized.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(normalized).is_loopback
+    except ValueError:
+        return False
+
+
+def inferred_network_mode(bind_host: str, public_url: str) -> str:
+    try:
+        bind_is_loopback = ipaddress.ip_address(bind_host).is_loopback
+    except ValueError as exc:
+        raise InstallerError("Bind host must be a numeric IPv4 or IPv6 address.") from exc
+    public_is_loopback = is_loopback_public_url(public_url)
+    if bind_is_loopback and public_is_loopback:
+        return "local-only"
+    if bind_is_loopback:
+        return "reverse-proxy"
+    if not public_is_loopback:
+        return "direct-network"
+    raise InstallerError(
+        "A non-loopback bind address cannot use a localhost public URL. "
+        "Set the LAN-facing public URL or bind to 127.0.0.1."
+    )
+
+
+def validate_network_mode(bind_host: str, public_url: str, network_mode: str) -> None:
+    inferred = inferred_network_mode(bind_host, public_url)
+    if network_mode != inferred:
+        raise InstallerError(
+            f"Network mode {network_mode!r} does not match bind address {bind_host!r} "
+            f"and public URL {public_url!r}; their effective mode is {inferred!r}."
+        )
+
+
+def resolve_network_mode(args: argparse.Namespace) -> None:
+    inferred = inferred_network_mode(args.bind_host, args.public_url)
+    if args.network_mode is not None:
+        validate_network_mode(args.bind_host, args.public_url, args.network_mode)
+        return
+    if inferred == "reverse-proxy":
+        explanation = (
+            f"Public URL {args.public_url} is non-local, but LicenseTrack will bind only to "
+            f"{args.bind_host}:{args.port}. This requires an existing reverse proxy on this host."
+        )
+        if args.yes:
+            raise InstallerError(
+                f"{explanation} For unattended installation, explicitly add "
+                "--network-mode reverse-proxy. For isolated LAN/testing access, use "
+                "--network-mode direct-network --bind-host 0.0.0.0."
+            )
+        info(explanation)
+        if not prompt_yes_no("Confirm that the reverse proxy is already configured", False):
+            raise InstallerError(
+                "Installation cancelled before exposing an unreachable public URL. "
+                "Configure a reverse proxy, or rerun with --network-mode direct-network "
+                "--bind-host 0.0.0.0 for isolated LAN/testing access."
+            )
+    args.network_mode = inferred
+
+
+def network_mode_summary(network_mode: str) -> str:
+    descriptions = {
+        "local-only": "Local only; connect from this host.",
+        "reverse-proxy": "Reverse proxy; the proxy must forward the public URL to the loopback bind.",
+        "direct-network": "Direct network; host firewall rules control remote access.",
+    }
+    return descriptions[network_mode]
+
+
 def resolve_install_options(args: argparse.Namespace) -> None:
     args.mode = select_install_mode(args)
     is_advanced_prompt = args.mode == "advanced" and not args.yes
+    default_bind_host = "0.0.0.0" if args.network_mode == "direct-network" else DEFAULT_BIND_HOST
 
     if is_advanced_prompt:
         info("Advanced mode selected. Press Enter to accept each displayed default.")
         if args.bind_host is None:
-            args.bind_host = prompt_text("Backend bind address", DEFAULT_BIND_HOST)
+            args.bind_host = prompt_text("Backend bind address", default_bind_host)
         if args.port is None:
             args.port = prompt_integer("Backend port", DEFAULT_PORT, maximum=65535)
     else:
-        args.bind_host = args.bind_host or DEFAULT_BIND_HOST
+        args.bind_host = args.bind_host or default_bind_host
         args.port = args.port or DEFAULT_PORT
 
     if args.public_url is None and not args.yes:
         args.public_url = prompt_text("Public LicenseTrack URL", default_public_url(args.bind_host, args.port))
     args.public_url = args.public_url or default_public_url(args.bind_host, args.port)
+    validate_public_url(args.public_url)
+    resolve_network_mode(args)
 
     if is_advanced_prompt:
         if args.log_level is None:
@@ -559,6 +645,18 @@ def copy_backend_source(source_root: Path, destination: Path) -> None:
     shutil.copytree(backend_source, destination, ignore=ignore)
 
 
+def assert_production_frontend_bundle(bundle_root: Path) -> None:
+    index = bundle_root / "index.html"
+    if not index.is_file():
+        raise InstallerError("Release is missing a compiled production frontend.")
+    for path in bundle_root.rglob("*"):
+        if path.is_file() and DEMO_MARKER in path.read_bytes():
+            raise InstallerError(
+                "Refusing to install a demo frontend as the production application: "
+                f"{path.relative_to(bundle_root)} contains LICENSETRACK_DEMO_MARKER."
+            )
+
+
 def ensure_frontend(source_root: Path, backend_destination: Path) -> None:
     prebuilt = source_root / "payload" / "backend" / "frontend" / "dist"
     source_dist = source_root / "frontend" / "dist"
@@ -587,6 +685,7 @@ def ensure_frontend(source_root: Path, backend_destination: Path) -> None:
     target = backend_destination / "frontend" / "dist"
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(frontend_dist, target)
+    assert_production_frontend_bundle(target)
 
 
 def normalize_release_permissions(root: Path) -> None:
@@ -631,6 +730,7 @@ def stage_release(source_root: Path, paths: InstallPaths, version: str) -> Path:
         else:
             copy_backend_source(source_root, backend_destination)
             ensure_frontend(source_root, backend_destination)
+        assert_production_frontend_bundle(backend_destination / "frontend" / "dist")
 
         native_source = source_root / "packaging" / "native"
         if not native_source.is_dir():
@@ -795,8 +895,8 @@ def configuration_values(args: argparse.Namespace, paths: InstallPaths) -> dict[
     except ValueError as exc:
         raise InstallerError("Bind host must be a numeric IPv4 or IPv6 address.") from exc
     public_url = args.public_url
-    if not re.fullmatch(r"https?://[^\s/]+(?::\d+)?(?:/[^\s]*)?", public_url):
-        raise InstallerError("Public URL must start with http:// or https:// and contain no spaces.")
+    validate_public_url(public_url)
+    validate_network_mode(args.bind_host, public_url, args.network_mode)
     if args.log_level not in LOG_LEVELS:
         raise InstallerError(f"Log level must be one of: {', '.join(LOG_LEVELS)}.")
     positive_settings = {
@@ -887,7 +987,9 @@ def state_from_install(version: str, release: Path, paths: InstallPaths, args: a
         "release_path": os.fspath(release),
         "installed_at": datetime.now(timezone.utc).isoformat(),
         "install_mode": args.mode,
+        "network_mode": args.network_mode,
         "bind_host": args.bind_host,
+        "public_url": args.public_url,
         "port": args.port,
         **asdict(paths),
         **python_runtime_metadata(),
@@ -967,6 +1069,9 @@ def install(args: argparse.Namespace) -> None:
                 raise
         info(f"LicenseTrack {version} native installation completed.")
         info(f"Installation mode: {args.mode.capitalize()}")
+        info(f"Bind address: {args.bind_host}:{args.port}")
+        info(f"Public URL: {args.public_url}")
+        info(f"Reachability: {network_mode_summary(args.network_mode)}")
         info(f"Configuration: {paths.config_file}")
         info(f"Data: {paths.data_root}")
 
@@ -1586,6 +1691,14 @@ def build_parser() -> argparse.ArgumentParser:
     install_parser.add_argument("--bind-host")
     install_parser.add_argument("--port", type=int)
     install_parser.add_argument("--public-url")
+    install_parser.add_argument(
+        "--network-mode",
+        choices=NETWORK_MODES,
+        help=(
+            "Declare local-only, reverse-proxy, or direct-network reachability. "
+            "Direct-network defaults --bind-host to 0.0.0.0."
+        ),
+    )
     install_parser.add_argument("--admin-password-file")
     install_parser.add_argument("--log-level", choices=LOG_LEVELS)
     install_parser.add_argument("--token-expiry", type=int)

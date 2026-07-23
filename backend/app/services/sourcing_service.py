@@ -3,11 +3,23 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.license import License
+from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.schemas.sourcing import SourcingItemCreate, SourcingRequestCreate
 from app.services.lifecycle_rules import clear_pending_renewal_if_current
+from app.services.money import MoneyParseError, parse_money
+
+
+def is_direct_freeware_item(item: SourcingItem) -> bool:
+    if item.license_type != LicenseType.freeware:
+        return False
+    if item.maintenance_coverage != MaintenanceCoverage.included:
+        return True
+    try:
+        return not bool(parse_money(item.maintenance_cost))
+    except MoneyParseError:
+        return True
 
 
 def assert_sourcing_item_editable(item: SourcingItem) -> None:
@@ -174,6 +186,7 @@ async def list_sourcing_request_records(db: AsyncSession) -> list[SourcingReques
         .where(SourcingRequest.status == SourcingStatus.sourcing)
         .options(
             selectinload(SourcingRequest.items).selectinload(SourcingItem.pending_order),
+            selectinload(SourcingRequest.items).selectinload(SourcingItem.converted_licenses),
             selectinload(SourcingRequest.quote_documents),
         )
         .order_by(SourcingRequest.created_at.desc())
@@ -188,6 +201,7 @@ async def list_sourcing_request_history_records(db: AsyncSession) -> list[Sourci
         .where(SourcingRequest.status.in_([SourcingStatus.converted, SourcingStatus.cancelled]))
         .options(
             selectinload(SourcingRequest.items).selectinload(SourcingItem.pending_order),
+            selectinload(SourcingRequest.items).selectinload(SourcingItem.converted_licenses),
             selectinload(SourcingRequest.quote_documents),
         )
         .order_by(SourcingRequest.updated_at.desc(), SourcingRequest.created_at.desc())
@@ -201,6 +215,7 @@ async def get_sourcing_request_or_404(db: AsyncSession, request_id: int) -> Sour
         .where(SourcingRequest.id == request_id)
         .options(
             selectinload(SourcingRequest.items).selectinload(SourcingItem.pending_order),
+            selectinload(SourcingRequest.items).selectinload(SourcingItem.converted_licenses),
             selectinload(SourcingRequest.quote_documents),
         )
         .execution_options(populate_existing=True)
@@ -234,9 +249,43 @@ async def create_sourcing_request_record(
     db.add(request)
     await db.flush()
 
-    for item_payload in payload.items:
-        db.add(_build_request_item(item_payload, request_id=request.id, created_by=created_by))
-    await db.flush()
+    created_items: list[SourcingItem] = []
+    for index, item_payload in enumerate(payload.items):
+        parent_index = item_payload.parent_item_index
+        if parent_index is not None and not 0 <= parent_index < index:
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=422,
+                detail=f"Item {index + 1} has an invalid maintenance parent",
+            )
+
+        target_request = request
+        parent_item = created_items[parent_index] if parent_index is not None else None
+        if parent_item is not None:
+            parent_supplier = (parent_item.supplier or request.supplier or "").strip().casefold()
+            child_supplier = (item_payload.supplier or request.supplier or "").strip().casefold()
+            if child_supplier and child_supplier != parent_supplier:
+                target_request = SourcingRequest(
+                    supplier=item_payload.supplier,
+                    contact_email=item_payload.contact_email or payload.contact_email,
+                    notes=payload.notes,
+                    status=SourcingStatus.sourcing,
+                    created_by=created_by,
+                )
+                db.add(target_request)
+                await db.flush()
+
+        item = _build_request_item(
+            item_payload,
+            request_id=target_request.id,
+            created_by=created_by,
+        )
+        if parent_item is not None:
+            item.parent_sourcing_item_id = parent_item.id
+        db.add(item)
+        await db.flush()
+        created_items.append(item)
     return request
 
 
@@ -257,9 +306,20 @@ async def add_sourcing_request_item_record(
 async def delete_sourcing_request_record(db: AsyncSession, request_id: int) -> str:
     request = await get_sourcing_request_or_404(db, request_id)
     assert_sourcing_request_editable(request)
+    if any(item.status == SourcingStatus.converted for item in request.items):
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete a sourcing request after any line has been converted",
+        )
 
     label = request.supplier or f"Sourcing request {request.id}"
-    renewal_ids = [item.renewal_for_license_id for item in request.items if item.renewal_for_license_id]
+    renewal_ids = [
+        item.renewal_for_license_id
+        for item in request.items
+        if item.status == SourcingStatus.sourcing and item.renewal_for_license_id
+    ]
     await db.delete(request)
     await db.flush()
     for renewal_id in renewal_ids:
@@ -271,10 +331,15 @@ async def cancel_sourcing_request_record(db: AsyncSession, request_id: int) -> S
     request = await get_sourcing_request_or_404(db, request_id)
     assert_sourcing_request_editable(request)
 
-    renewal_ids = [item.renewal_for_license_id for item in request.items if item.renewal_for_license_id]
+    renewal_ids = [
+        item.renewal_for_license_id
+        for item in request.items
+        if item.status == SourcingStatus.sourcing and item.renewal_for_license_id
+    ]
     request.status = SourcingStatus.cancelled
     for item in request.items:
-        item.status = SourcingStatus.cancelled
+        if item.status == SourcingStatus.sourcing:
+            item.status = SourcingStatus.cancelled
     await db.flush()
     for renewal_id in renewal_ids:
         await clear_pending_renewal_if_no_open_sourcing(db, renewal_id)
@@ -300,6 +365,10 @@ def _build_request_item(
     item_data = payload.model_dump(by_alias=False)
     item_data.pop("sourcing_request_id", None)
     item_data.pop("status", None)
+    item_data.pop("parent_item_index", None)
+    if item_data.get("license_type") == LicenseType.freeware:
+        item_data["estimated_unit_price"] = None
+        item_data["estimated_total_price"] = None
     return SourcingItem(
         **item_data,
         sourcing_request_id=request_id,
@@ -326,6 +395,9 @@ async def convert_sourcing_item_to_order(
     - pending_order_id is given but the order doesn't exist
     - pending_order_id is None and po_number is empty/None
     """
+    if is_direct_freeware_item(item):
+        raise ValueError("Freeware / Open Source items convert directly to the License Registry")
+
     if pending_order_id is not None:
         order = await db.get(PendingOrder, pending_order_id)
         if order is None:
@@ -346,16 +418,7 @@ async def convert_sourcing_item_to_order(
     item.status = SourcingStatus.converted
     if item.sourcing_request_id is not None:
         request = await db.get(SourcingRequest, item.sourcing_request_id)
-        remaining = await db.scalar(
-            select(func.count())
-            .select_from(SourcingItem)
-            .where(
-                SourcingItem.sourcing_request_id == item.sourcing_request_id,
-                SourcingItem.status != SourcingStatus.converted,
-            )
-        )
-        if request is not None and remaining == 0:
-            request.status = SourcingStatus.converted
+        await refresh_sourcing_request_status(db, request)
     return order
 
 
@@ -368,9 +431,17 @@ async def convert_sourcing_request_to_order(
     notes: str | None,
     created_by: int | None,
 ) -> PendingOrder:
-    """Attach all sourcing request items to a PendingOrder."""
+    """Attach the open purchase items in a sourcing request to a PendingOrder."""
     if request.status == SourcingStatus.converted:
         raise ValueError("Sourcing request has already been converted")
+
+    purchase_items = [
+        item
+        for item in request.items
+        if item.status == SourcingStatus.sourcing and not is_direct_freeware_item(item)
+    ]
+    if not purchase_items:
+        raise ValueError("No purchase items are available to convert to a pending order")
 
     if pending_order_id is not None:
         order = await db.get(PendingOrder, pending_order_id)
@@ -388,10 +459,26 @@ async def convert_sourcing_request_to_order(
         db.add(order)
         await db.flush()
 
-    for item in request.items:
-        if item.status == SourcingStatus.converted:
-            continue
+    for item in purchase_items:
         item.pending_order_id = order.id
         item.status = SourcingStatus.converted
-    request.status = SourcingStatus.converted
+    await refresh_sourcing_request_status(db, request)
     return order
+
+
+async def refresh_sourcing_request_status(
+    db: AsyncSession,
+    request: SourcingRequest,
+) -> None:
+    """Close a request only after every line has completed its own path."""
+    await db.flush()
+    remaining = await db.scalar(
+        select(func.count())
+        .select_from(SourcingItem)
+        .where(
+            SourcingItem.sourcing_request_id == request.id,
+            SourcingItem.status == SourcingStatus.sourcing,
+        )
+    )
+    if remaining == 0:
+        request.status = SourcingStatus.converted

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CURRENCIES } from "../../constants/licenseData.js";
+import { CURRENCIES, LICENSE_TYPES } from "../../constants/licenseData.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
@@ -10,10 +10,22 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import Icon from "../ui/Icon.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import PluginSlot from "../plugins/PluginSlot.jsx";
+import MaintenanceCoverageFields, {
+  isFreewareLicenseType,
+  supportsMaintenanceCoverage,
+} from "./MaintenanceCoverageFields.jsx";
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
   softwareDescription: z.string().min(1, "Software description is required."),
+  licenseType:         z.string(),
+  maintenanceCoverage: z.string(),
+  maintenanceStartDate: z.string(),
+  maintenanceEndDate:  z.string(),
+  maintenancePricingBasis: z.string(),
+  maintenanceQuantity: z.string(),
+  maintenanceUnitPrice: z.string(),
+  maintenanceCost:     z.string(),
   quantity:            z.string(),
   estimatedUnitPrice:  z.string(),
   estimatedTotalPrice: z.string(),
@@ -37,14 +49,23 @@ const computeInitialTotal = (itemData) => {
   return itemData.estimatedTotalPrice ?? "";
 };
 
-const emptyAdditionalLine = () => ({
+const emptyAdditionalLine = (overrides = {}) => ({
   id: `${Date.now()}-${Math.random()}`,
   publisherName: "",
   softwareDescription: "",
+  licenseType: "",
   quantity: "",
   estimatedUnitPrice: "",
   estimatedTotalPrice: "",
   currency: "EUR",
+  startDate: "",
+  endDate: "",
+  supplier: "",
+  contactEmail: "",
+  notes: "",
+  parentItemIndex: null,
+  isMaintenanceCompanion: false,
+  ...overrides,
 });
 
 function normalizeOptionalNumber(value, settings) {
@@ -67,6 +88,7 @@ const SourcingItemModal = ({
 
   // "new request" mode: add mode with no parent request - supports multi-line and quote parse
   const isNewRequest = !item?.id && !requestId;
+  const canAddMaintenanceCompanion = isNewRequest || !!pendingOrderId;
 
   const {
     register,
@@ -81,6 +103,14 @@ const SourcingItemModal = ({
     defaultValues: {
       publisherName:       item?.publisherName ?? "",
       softwareDescription: item?.softwareDescription ?? "",
+      licenseType:         item?.licenseType ?? "",
+      maintenanceCoverage: item?.maintenanceCoverage ?? "unknown",
+      maintenanceStartDate: item?.maintenanceStartDate ?? "",
+      maintenanceEndDate:  item?.maintenanceEndDate ?? "",
+      maintenancePricingBasis: item?.maintenancePricingBasis ?? "flat",
+      maintenanceQuantity: item?.maintenanceQuantity ?? "",
+      maintenanceUnitPrice: item?.maintenanceUnitPrice ?? "",
+      maintenanceCost:     item?.maintenanceCost ?? "",
       quantity:            item?.quantity ?? "",
       estimatedUnitPrice:  item?.estimatedUnitPrice ?? "",
       estimatedTotalPrice: computeInitialTotal(item),
@@ -124,6 +154,14 @@ const SourcingItemModal = ({
 
   const quantity = watch("quantity");
   const estimatedUnitPrice = watch("estimatedUnitPrice");
+  const licenseType = watch("licenseType");
+  const maintenanceCoverage = watch("maintenanceCoverage");
+  const maintenanceStartDate = watch("maintenanceStartDate");
+  const maintenanceEndDate = watch("maintenanceEndDate");
+  const maintenancePricingBasis = watch("maintenancePricingBasis");
+  const maintenanceQuantity = watch("maintenanceQuantity");
+  const maintenanceUnitPrice = watch("maintenanceUnitPrice");
+  const maintenanceCost = watch("maintenanceCost");
 
   useEffect(() => {
     const qtyStr = (quantity ?? "").trim();
@@ -144,12 +182,41 @@ const SourcingItemModal = ({
     }
   }, [quantity, estimatedUnitPrice, totalManuallyEdited, setValue, userSettings, locale]);
 
+  useEffect(() => {
+    if (!isFreewareLicenseType(licenseType)) return;
+    setValue("estimatedUnitPrice", "", { shouldDirty: true });
+    setValue("estimatedTotalPrice", "", { shouldDirty: true });
+    setDisplayUnitPrice("");
+    setDisplayTotalPrice("");
+    setTotalManuallyEdited(false);
+  }, [licenseType, setValue]);
+
   const publisherVal = watch("publisherName");
   const softwareVal = watch("softwareDescription");
   const currentFields = watch();
   const additionalLinesValid = additionalLines.every(
     (l) => (l.publisherName ?? "").trim() !== "" && (l.softwareDescription ?? "").trim() !== ""
   );
+  const maintenanceLineAdded = additionalLines.some((line) => line.isMaintenanceCompanion);
+  const addMaintenanceLine = () => {
+    if (maintenanceLineAdded) return;
+    setAdditionalLines((prev) => [
+      ...prev,
+      emptyAdditionalLine({
+        publisherName: publisherVal || "",
+        softwareDescription: `${softwareVal || "Software"} maintenance/support`,
+        licenseType: "maintenance",
+        quantity: quantity || "1",
+        currency: watch("currency") || "EUR",
+        startDate: maintenanceStartDate || watch("startDate") || "",
+        endDate: maintenanceEndDate || watch("endDate") || "",
+        supplier: watch("supplier") || "",
+        contactEmail: watch("contactEmail") || "",
+        parentItemIndex: 0,
+        isMaintenanceCompanion: true,
+      }),
+    ]);
+  };
   const canSave =
     (publisherVal ?? "").trim() !== "" &&
     (softwareVal ?? "").trim() !== "" &&
@@ -168,6 +235,7 @@ const SourcingItemModal = ({
     const first = items[0];
     if (first.publisherName) setValue("publisherName", first.publisherName, { shouldDirty: true });
     if (first.softwareDescription) setValue("softwareDescription", first.softwareDescription, { shouldDirty: true });
+    if (first.licenseType) setValue("licenseType", first.licenseType, { shouldDirty: true });
     if (first.quantity != null) setValue("quantity", String(first.quantity), { shouldDirty: true });
     if (first.estimatedUnitPrice != null) {
       const uv = String(first.estimatedUnitPrice);
@@ -192,6 +260,7 @@ const SourcingItemModal = ({
           id: `${Date.now()}-${Math.random()}`,
           publisherName: it.publisherName ?? "",
           softwareDescription: it.softwareDescription ?? "",
+          licenseType: it.licenseType ?? "",
           quantity: it.quantity != null ? String(it.quantity) : "",
           estimatedUnitPrice: it.estimatedUnitPrice != null ? String(it.estimatedUnitPrice) : "",
           estimatedTotalPrice: it.estimatedTotalPrice != null ? String(it.estimatedTotalPrice) : "",
@@ -211,9 +280,35 @@ const SourcingItemModal = ({
         const primaryItem = {
           publisherName: data.publisherName,
           softwareDescription: data.softwareDescription,
+          licenseType: data.licenseType || null,
+          maintenanceCoverage: supportsMaintenanceCoverage(data.licenseType)
+            ? (data.maintenanceCoverage || "unknown")
+            : null,
+          maintenanceStartDate: data.maintenanceCoverage === "included"
+            ? (data.maintenanceStartDate || null)
+            : null,
+          maintenanceEndDate: data.maintenanceCoverage === "included"
+            ? (data.maintenanceEndDate || null)
+            : null,
+          maintenancePricingBasis: data.maintenanceCoverage === "included"
+            ? (data.maintenancePricingBasis || "flat")
+            : null,
+          maintenanceQuantity: data.maintenanceCoverage === "included"
+            ? normalizeOptionalNumber(data.maintenanceQuantity, userSettings)
+            : null,
+          maintenanceUnitPrice: data.maintenanceCoverage === "included"
+            ? normalizeOptionalNumber(data.maintenanceUnitPrice, userSettings)
+            : null,
+          maintenanceCost: data.maintenanceCoverage === "included"
+            ? normalizeOptionalNumber(data.maintenanceCost, userSettings)
+            : null,
           quantity: (parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity) || null,
-          estimatedUnitPrice: (parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice) || null,
-          estimatedTotalPrice: (parseLocalizedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice) || null,
+          estimatedUnitPrice: isFreewareLicenseType(data.licenseType)
+            ? null
+            : (parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice) || null,
+          estimatedTotalPrice: isFreewareLicenseType(data.licenseType)
+            ? null
+            : (parseLocalizedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice) || null,
           currency: data.currency || "EUR",
           startDate: data.startDate || null,
           endDate: data.endDate || null,
@@ -224,10 +319,17 @@ const SourcingItemModal = ({
             ...additionalLines.map((l) => ({
               publisherName: l.publisherName,
               softwareDescription: l.softwareDescription,
+              licenseType: l.licenseType || null,
               quantity: normalizeOptionalNumber(l.quantity, userSettings),
               estimatedUnitPrice: normalizeOptionalNumber(l.estimatedUnitPrice, userSettings),
               estimatedTotalPrice: normalizeOptionalNumber(l.estimatedTotalPrice, userSettings),
               currency: l.currency || "EUR",
+              startDate: l.startDate || null,
+              endDate: l.endDate || null,
+              supplier: l.supplier || null,
+              contactEmail: l.contactEmail || null,
+              notes: l.notes || null,
+              parentItemIndex: l.parentItemIndex,
             })),
           ],
           supplier: data.supplier || null,
@@ -241,11 +343,35 @@ const SourcingItemModal = ({
           handleFileChange(null);
         }
       } else {
+        const maintenanceCompanion = additionalLines.find((line) => line.isMaintenanceCompanion);
         const saved = await onSave({
           ...data,
           quantity: parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity,
-          estimatedUnitPrice: parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice,
-          estimatedTotalPrice: parseLocalizedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice,
+          estimatedUnitPrice: isFreewareLicenseType(data.licenseType)
+            ? null
+            : parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice,
+          estimatedTotalPrice: isFreewareLicenseType(data.licenseType)
+            ? null
+            : parseLocalizedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice,
+          maintenanceQuantity: normalizeOptionalNumber(data.maintenanceQuantity, userSettings),
+          maintenanceUnitPrice: normalizeOptionalNumber(data.maintenanceUnitPrice, userSettings),
+          maintenanceCost: normalizeOptionalNumber(data.maintenanceCost, userSettings),
+          ...(maintenanceCompanion ? {
+            maintenanceCompanion: {
+              publisherName: maintenanceCompanion.publisherName,
+              softwareDescription: maintenanceCompanion.softwareDescription,
+              licenseType: "maintenance",
+              quantity: normalizeOptionalNumber(maintenanceCompanion.quantity, userSettings),
+              estimatedUnitPrice: normalizeOptionalNumber(maintenanceCompanion.estimatedUnitPrice, userSettings),
+              estimatedTotalPrice: normalizeOptionalNumber(maintenanceCompanion.estimatedTotalPrice, userSettings),
+              currency: maintenanceCompanion.currency || "EUR",
+              startDate: maintenanceCompanion.startDate || null,
+              endDate: maintenanceCompanion.endDate || null,
+              supplier: maintenanceCompanion.supplier || null,
+              contactEmail: maintenanceCompanion.contactEmail || null,
+              parentSourcingItemId: item.id,
+            },
+          } : {}),
         });
         if (saved) reset();
       }
@@ -322,6 +448,34 @@ const SourcingItemModal = ({
             <input id="si-software-desc" className="fi" placeholder="Product or service name" {...register("softwareDescription")} />
             {errors.softwareDescription && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.softwareDescription.message}</span>}
           </div>
+          <div className="fg">
+            <label htmlFor="si-license-type">
+              License Type <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span>
+            </label>
+            <select id="si-license-type" className="fi fi-select" {...register("licenseType")}>
+              <option value="">Not specified</option>
+              {LICENSE_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>{type.label}</option>
+              ))}
+            </select>
+          </div>
+          <MaintenanceCoverageFields
+            idPrefix="si"
+            licenseType={licenseType}
+            coverage={maintenanceCoverage}
+            startDate={maintenanceStartDate}
+            endDate={maintenanceEndDate}
+            pricingBasis={maintenancePricingBasis}
+            supportQuantity={maintenanceQuantity}
+            supportUnitPrice={maintenanceUnitPrice}
+            cost={maintenanceCost}
+            licenseQuantity={quantity}
+            currency={watch("currency")}
+            locale={locale}
+            onChange={(field, value) => setValue(field, value, { shouldDirty: true })}
+            onAddSeparate={canAddMaintenanceCompanion ? addMaintenanceLine : undefined}
+            separateLineAdded={maintenanceLineAdded}
+          />
           <div className="fr">
             <div className="fg" style={{ flex: 1 }}>
               <label htmlFor="si-quantity">Purchase Quantity</label>
@@ -334,6 +488,7 @@ const SourcingItemModal = ({
               </select>
             </div>
           </div>
+          {!isFreewareLicenseType(licenseType) && (
           <div className="fr">
             <div className="fg" style={{ flex: 1 }}>
               <label htmlFor="si-unit-price">Est. Unit Price <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(excl. tax)</span></label>
@@ -387,6 +542,7 @@ const SourcingItemModal = ({
               />
             </div>
           </div>
+          )}
           <div className="fr">
             <div className="fg" style={{ flex: 1 }}>
               <label htmlFor="si-start-date">Start Date</label>
@@ -414,7 +570,7 @@ const SourcingItemModal = ({
           </div>
 
           {/* Additional lines (new-request mode only) */}
-          {isNewRequest && additionalLines.map((line, idx) => (
+          {canAddMaintenanceCompanion && additionalLines.map((line, idx) => (
             <div key={line.id} style={{ borderTop: "1px solid var(--border-lt)", paddingTop: 12, marginTop: 4 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)" }}>Line {idx + 2}</span>
@@ -447,6 +603,26 @@ const SourcingItemModal = ({
                   placeholder="Product or service name"
                 />
               </div>
+              <div className="fg">
+                <label>License Type <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></label>
+                <select
+                  className="fi fi-select"
+                  value={line.licenseType}
+                  onChange={(e) => {
+                    const nextType = e.target.value;
+                    updateAdditionalLine(line.id, "licenseType", nextType);
+                    if (isFreewareLicenseType(nextType)) {
+                      updateAdditionalLine(line.id, "estimatedUnitPrice", "");
+                      updateAdditionalLine(line.id, "estimatedTotalPrice", "");
+                    }
+                  }}
+                >
+                  <option value="">Not specified</option>
+                  {LICENSE_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>{type.label}</option>
+                  ))}
+                </select>
+              </div>
               <div className="fr">
                 <div className="fg" style={{ flex: 1 }}>
                   <label>Purchase Quantity</label>
@@ -468,6 +644,7 @@ const SourcingItemModal = ({
                   </select>
                 </div>
               </div>
+              {!isFreewareLicenseType(line.licenseType) && (
               <div className="fr">
                 <div className="fg" style={{ flex: 1 }}>
                   <label>Est. Unit Price</label>
@@ -488,6 +665,49 @@ const SourcingItemModal = ({
                   />
                 </div>
               </div>
+              )}
+              <div className="fr">
+                <div className="fg" style={{ flex: 1 }}>
+                  <label>Start Date</label>
+                  <input
+                    className="fi"
+                    type="date"
+                    value={line.startDate}
+                    onChange={(e) => updateAdditionalLine(line.id, "startDate", e.target.value)}
+                  />
+                </div>
+                <div className="fg" style={{ flex: 1 }}>
+                  <label>End Date</label>
+                  <input
+                    className="fi"
+                    type="date"
+                    value={line.endDate}
+                    onChange={(e) => updateAdditionalLine(line.id, "endDate", e.target.value)}
+                  />
+                </div>
+              </div>
+              {line.isMaintenanceCompanion && (
+                <>
+                  <div className="fg">
+                    <label>Supplier</label>
+                    <input
+                      className="fi"
+                      value={line.supplier}
+                      onChange={(e) => updateAdditionalLine(line.id, "supplier", e.target.value)}
+                      placeholder="Same supplier or a support provider"
+                    />
+                  </div>
+                  <div className="fg">
+                    <label>Supplier Contact</label>
+                    <input
+                      className="fi"
+                      value={line.contactEmail}
+                      onChange={(e) => updateAdditionalLine(line.id, "contactEmail", e.target.value)}
+                      placeholder="support@example.com"
+                    />
+                  </div>
+                </>
+              )}
             </div>
           ))}
 

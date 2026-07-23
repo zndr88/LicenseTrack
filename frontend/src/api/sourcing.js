@@ -14,6 +14,8 @@ export const updateSourcingItem = (id, data) => put(`/api/sourcing/${id}`, data)
 export const deleteSourcingItem = (id) => del(`/api/sourcing/${id}`);
 export const convertSourcingItem = (id, data) => post(`/api/sourcing/${id}/convert`, data);
 export const convertSourcingRequest = (id, data) => post(`/api/sourcing/requests/${id}/convert`, data);
+export const convertFreewareSourcingItem = (id) => post(`/api/sourcing/${id}/convert-freeware`);
+export const convertFreewareSourcingRequest = (id) => post(`/api/sourcing/requests/${id}/convert-freeware`);
 export const mergeSourcingItems = (sourcingItemIds) => post("/api/sourcing/merge", { sourcingItemIds });
 
 export function uploadSourcingQuoteDocument(requestId, file) {

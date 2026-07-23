@@ -116,6 +116,18 @@ document operations also require the matching document scope.
 | `/api/sourcing/{item_id}/convert` | Convert a supported individual line |
 | `/api/sourcing/export` | Export sourcing rows to CSV |
 
+Sourcing and license payloads expose the optional camel-case fields
+`licenseType`, `maintenanceCoverage`, `maintenanceStartDate`,
+`maintenanceEndDate`, `maintenancePricingBasis`, `maintenanceQuantity`,
+`maintenanceUnitPrice`, and `maintenanceCost`. Supported pricing-basis values
+are `flat` and `per_unit`. For `per_unit`, the server calculates
+`maintenanceCost` from quantity and unit price.
+
+A zero-cost `freeware` sourcing line converts directly to a license. A
+freeware line with positive included support follows the pending-order route,
+and a separately tracked maintenance line remains a distinct paid line.
+Freeware acquisition-price fields are normalized to zero/empty values.
+
 ### Pending orders
 
 Reads require `procurement:read`; writes require `procurement:write`. Document
@@ -137,6 +149,11 @@ operations also require the matching document scope.
 
 Conversion is concurrency protected and non-idempotent after success: retry a
 failed request only after checking the current order status.
+
+Pending-order totals include paid support with
+`maintenanceCoverage: "included"` once on the parent line. A separately
+tracked maintenance line contributes through its own acquisition fields and is
+not added again to the parent.
 
 ### Contracts
 

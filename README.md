@@ -28,6 +28,10 @@ LicenseTrack is what I needed in both roles: a single source of truth for softwa
 
 - Track sourcing requests while license purchases are still being evaluated.
 - Record publisher, supplier, contact, quantity, estimated cost, status, renewal context, and quote documents.
+- Route zero-cost freeware and open-source requests directly into the Registry
+  while retaining the sourcing trail.
+- Record included support as a flat coverage fee or per covered unit, or create
+  separately tracked maintenance that follows its own purchasing lifecycle.
 - Promote sourcing items into pending purchase orders.
 - Group multiple items under the same purchase order.
 - Convert pending orders into live license records.
@@ -37,6 +41,8 @@ LicenseTrack is what I needed in both roles: a single source of truth for softwa
 ### License Registry
 
 - Maintain searchable, filterable license records with publisher, contract, purchase order, dates, quantities, costs, status, custom fields, and notes.
+- Distinguish zero-cost entitlements from paid support without inventing
+  acquisition prices or unnecessary purchase evidence.
 - Preserve sourcing-request and purchase-order milestone dates on resulting license records, with manual enrichment for imported and legacy data.
 - Review record history in the license detail panel, including creator account, creation timestamp, latest update timestamp, and linked procurement trail records.
 - Use status filters for upcoming, active, expiring, expired, pending renewal, renewed, retired, legacy, complete, and incomplete records.
@@ -114,157 +120,61 @@ The internal Official Extensions host is maintainer-facing and requires an expli
 
 ## Quick Start
 
-Production-style local startup uses Docker Compose.
-
-1. Copy the example environment file:
+The shortest production-style local setup uses Docker Compose:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Set required secrets in `.env`:
-
-```env
-JWT_SECRET=<long random secret>
-ADMIN_PASSWORD=<strong initial admin password>
-```
-
-Generate a `JWT_SECRET` with one of these commands:
-
-```bash
-openssl rand -hex 32
-```
-
-```powershell
--join ((0..31) | ForEach-Object { '{0:x2}' -f (Get-Random -Max 256) })
-```
-
-3. Start the application:
+Set a strong `JWT_SECRET` and `ADMIN_PASSWORD` in `.env`, then start LicenseTrack:
 
 ```bash
 docker compose up -d --build
 ```
 
-4. Open `http://localhost:8080`.
+Open `http://localhost:8080` and sign in as `admin` with the password from
+`.env`. LicenseTrack rejects blank or common default secrets.
 
-Log in with username `admin` and the password configured in `ADMIN_PASSWORD`. Change and store the break-glass admin password according to your operational policy.
-
-The backend refuses to start with blank or common default values for `JWT_SECRET` and `ADMIN_PASSWORD`.
-
-In Docker deployments the compiled frontend is served by the backend container and calls the API through same-origin `/api` URLs. `VITE_API_URL` is only needed for development or custom split-host deployments where the browser must call a separate API origin.
-
-For full deployment guidance, see the [deployment guide](wiki/operations/deployment.md).
+See the [installation guide](wiki/getting-started/installation.md) for secret
+generation and first-login guidance. Before exposing an instance to a network,
+follow the [deployment and hardening guide](wiki/operations/deployment.md).
 
 ### Native Linux installation
 
-LicenseTrack can also run directly on a systemd-based Linux host without Docker. The supported native baseline is Ubuntu 22.04 LTS, x86_64, and CPython 3.12, 3.13, or 3.14. Download the `licensetrack-native-<version>-linux-x86_64` archive attached to the GitHub release, extract it, and run:
+LicenseTrack can also run directly on a supported systemd-based Linux host
+without Docker. Download and extract the
+`licensetrack-native-<version>-linux-x86_64` release archive, then run:
 
 ```bash
 sudo ./install.sh
 ```
 
-Choose Standard mode for the recommended minimal setup, or run `sudo ./install.sh --advanced` to configure runtime, limit, cookie, API-documentation, and test-only OIDC network options. SMTP and OIDC credentials are configured in the application after first login.
-
-The native installer creates an unprivileged service account, a versioned application directory under `/opt/licensetrack`, persistent data under `/var/lib/licensetrack`, protected configuration under `/etc/licensetrack`, and a single-worker systemd service. Native release archives include the compiled frontend and Python wheelhouse, so Node.js is not required on the server.
-
-The automatic GitHub source archive also contains `install.sh`, but it must build the frontend locally and therefore requires Node.js 22 and network access. See the [native Linux installation guide](wiki/getting-started/native-installation.md) for prerequisites, filesystem layout, reverse-proxy guidance, and unattended installation.
-
-## Configuration
-
-Core Docker configuration is loaded from `.env`.
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `JWT_SECRET` | none | Required secret for signing sessions and deriving encryption keys for stored integration secrets. |
-| `ADMIN_PASSWORD` | none | Required initial password for the local `admin` account. |
-| `APP_PORT` | `8080` | Host port mapped to the application container. |
-| `HOST` | `0.0.0.0` | Backend bind host inside the container. |
-| `LOG_LEVEL` | `INFO` | Backend log level. |
-| `EXPOSE_API_DOCS` | `false` | Exposes `/docs`, `/redoc`, and `/openapi.json`. Enable only for local development. |
-| `CORS_ORIGINS` | `http://localhost:8080` | Exact browser origin allow-list. |
-| `DATABASE_URL` | `sqlite+aiosqlite:////data/licenses.db` | SQLite database connection string. |
-| `STORAGE_PATH` | `/data/storage` | Uploaded document storage path. |
-| `BACKUP_LOCATION` | `/data/backups` | Database backup output path. |
-| `RESTART_AFTER_RESTORE` | `true` in Docker Compose, `false` in direct backend runs | Exit the backend after database restore so a process manager can restart it. Set `false` for local development without a restart supervisor. |
-| `PLUGIN_HOST_ENABLED` | `false` | Enables the internal Official Extensions host. Leave disabled unless installing an official signed extension. |
-| `PLUGIN_HOST_DEVELOPER_MODE` | `false` | Allows unsigned developer packages and marks them non-official. Unsupported for production. |
-| `OFFICIAL_EXTENSION_PUBLIC_KEYS` | `[]` | JSON trust store of pinned Ed25519 LicenseTrack release public keys (`keyId`, `signer`, `publicKey`). Official key material must come from a LicenseTrack release channel. |
-| `PLUGIN_STORAGE_PATH` | `/data/plugins` | Storage directory for installed Official Extension packages. |
-| `PLUGIN_HOST_BASE_URL` | `http://127.0.0.1:8000` | Internal callback URL used by managed extension runtimes. |
-| `MAX_PLUGIN_PACKAGE_SIZE_MB` | `50` | Maximum uploaded Official Extension package size. |
-| `MAX_PLUGIN_DOCUMENT_SIZE_MB` | `10` | Maximum document size delivered to an extension runtime. |
-| `PLUGIN_RUNTIME_LOG_MAX_BYTES` | `65536` | Maximum bytes returned when an admin reads an extension runtime log tail. |
-| `TOKEN_EXPIRY` | `1440` | JWT session lifetime in minutes. |
-| `OIDC_STATE_SECRET` | falls back to `JWT_SECRET` | Secret used for transient OIDC flow state cookies. |
-| `ALLOW_HTTP_OIDC_DISCOVERY` | `false` | Unsafe testing-only allowance for plain-HTTP OIDC discovery. Leave disabled in production. |
-| `ALLOW_PRIVATE_OIDC_DISCOVERY` | `false` | Unsafe testing-only allowance for private, loopback, link-local, or reserved OIDC hosts. Leave disabled in production. |
-| `SESSION_COOKIE_NAME` | `license_lifecycle_session` | Browser session cookie name. |
-| `SESSION_COOKIE_SECURE` | `false` | Set to `true` behind HTTPS. |
-| `MAX_UPLOAD_SIZE_MB` | `20` | Maximum upload size. |
-| `ALLOWED_UPLOAD_EXTENSIONS` | common document formats | Comma-separated upload extension allow-list. |
-
-SMTP and OIDC credentials are configured through application settings after startup. OIDC callback logs use safe stage names for troubleshooting without logging auth codes, tokens, client secrets, or raw ID tokens.
-
-## Persistent Data
-
-Docker Compose creates the `license_lifecycle_data` volume and mounts it at `/data`.
-
-The volume contains:
-
-- `/data/licenses.db`
-- `/data/storage/`
-- `/data/backups/`
-
-Application database backups contain the SQLite database only. Uploaded documents are data files that live separately under `/data/storage`; operators must back them up separately, usually by backing up the full `/data` volume.
+The [native installation guide](wiki/getting-started/native-installation.md)
+contains the supported host matrix, network modes, filesystem and privilege
+model, unattended options, and source-archive prerequisites. Upgrade, backup,
+diagnostic, and removal procedures live in the operator documentation rather
+than on this landing page.
 
 ## Documentation
 
 - Public operator docs: [LicenseTrack documentation](https://zndr88.github.io/LicenseTrack/docs/) and the source pages under [wiki/](wiki/).
 - Deployment and operations: [deployment](wiki/operations/deployment.md), [native installation](wiki/getting-started/native-installation.md), [upgrade](wiki/operations/upgrade.md), [native upgrade](wiki/operations/native-upgrade.md), [runbook](wiki/operations/runbook.md), and [backup/restore](wiki/operations/backup-restore.md).
+- Release numbering: [versioning policy](VERSIONING.md).
 - Maintainer docs: [docs/maintainer/architecture.md](docs/maintainer/architecture.md) and [docs/maintainer/style-contract.md](docs/maintainer/style-contract.md).
 - Extension author docs: [docs/extension-authors/](docs/extension-authors/).
 - Internal Official Extension maintainer docs: [docs/plugin-authors/](docs/plugin-authors/).
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): human-readable direct dependency license summary.
 
-Version-local Help Center content is bundled in the frontend; [docs/in-app-help/](docs/in-app-help/) records its ownership and maintenance boundary. It is not the public documentation site.
-
-## Maintainer Notes
-
-- Frontend server-state query keys live in `frontend/src/queryKeys.js`; shared invalidation helpers live in `frontend/src/queryInvalidation.js`.
-- Active modals use `frontend/src/components/ui/ModalShell.jsx`, with `ConfirmDialog` and `DiscardChangesDialog` as focused wrappers.
-- Custom-field presentation rules are centralized in `frontend/src/utils/customFieldPresentation.js`.
-- Backend custom-field value normalization is centralized in `backend/app/services/custom_fields_service.py`.
-- Pending-order conversion behavior is coordinated by `backend/app/services/pending_order_conversion_service.py`; route handlers should remain thin.
-- Procurement forms use React Hook Form and Zod schemas.
-
-See [docs/maintainer/architecture.md](docs/maintainer/architecture.md) for the fuller maintainer map.
+Version-local Help Center content is bundled in the frontend;
+[docs/in-app-help/](docs/in-app-help/) records its ownership and maintenance
+boundary. It is not the public documentation site.
 
 ## Development
 
-Backend dependencies are listed in `backend/requirements.txt`. Frontend dependencies and scripts are listed in `frontend/package.json`.
-
-Common verification commands:
-
-```bash
-python scripts/check_docs.py
-python -m mkdocs build --strict
-```
-
-```bash
-cd backend
-pytest -q
-```
-
-```bash
-cd frontend
-npm run lint
-npm run test:run
-npm run test:coverage
-npm run test:e2e
-npm run build
-```
-
-Release verification should also include dependency audits (`npm audit`, `python -m pip_audit`), a Docker build, and container/image vulnerability scans.
+Start with the [maintainer documentation](docs/maintainer/README.md), especially
+the [architecture map](docs/maintainer/architecture.md) and
+[style contract](docs/maintainer/style-contract.md). Backend and frontend
+dependencies and scripts are recorded beside their respective projects.
 
 ## Licensing
 

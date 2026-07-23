@@ -116,6 +116,46 @@ describe("renewal golden path transitions", () => {
     expect(store.sourcingItems.find((s) => s.id === itemId).status).toBe("converted");
   });
 
+  it("converts freeware sourcing directly without purchase metadata", async () => {
+    const created = await demoRequest("/api/sourcing/requests", {
+      method: "POST",
+      body: JSON.stringify({
+        supplier: "Direct",
+        items: [{
+          publisherName: "The Document Foundation",
+          softwareDescription: "LibreOffice Calc",
+          licenseType: "freeware",
+          quantity: "1",
+          startDate: "2026-07-23",
+          currency: "EUR",
+        }],
+      }),
+    });
+    const request = created.data;
+
+    const { data, error } = await demoRequest(
+      `/api/sourcing/requests/${request.id}/convert-freeware`,
+      { method: "POST" }
+    );
+
+    expect(error).toBeNull();
+    expect(data).toHaveLength(1);
+    expect(data[0]).toMatchObject({
+      licenseType: "freeware",
+      sourceSourcingItemId: request.items[0].id,
+      purchaseDate: null,
+      pendingOrderId: null,
+      poNumber: "",
+      invoiceNumber: "",
+      contractNumber: "",
+      unitPrice: "",
+      totalPoPrice: "",
+      conversionType: "direct_freeware",
+    });
+    expect(store.pendingOrders).toHaveLength(1);
+    expect(store.sourcingRequests.find((candidate) => candidate.id === request.id).status).toBe("converted");
+  });
+
   it("converting a sourcing item to an existing pending order attaches it", async () => {
     // Sourcing item 102 (Datadog) is a standalone, unconverted item; PO 201 is seeded pending.
     const { data, error } = await demoRequest("/api/sourcing/102/convert", {

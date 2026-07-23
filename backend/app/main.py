@@ -80,6 +80,24 @@ from app.routes import (
 from app.services.notification_scheduler import start_scheduler
 from app.version import APP_VERSION
 
+SPA_INDEX_CACHE_CONTROL = "no-cache, must-revalidate"
+IMMUTABLE_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
+
+
+class ImmutableStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope: dict):
+        response = await super().get_response(path, scope)
+        if response.status_code in {200, 304}:
+            response.headers["Cache-Control"] = IMMUTABLE_ASSET_CACHE_CONTROL
+        return response
+
+
+def spa_index_response(frontend_dist: str) -> FileResponse:
+    return FileResponse(
+        os.path.join(frontend_dist, "index.html"),
+        headers={"Cache-Control": SPA_INDEX_CACHE_CONTROL},
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -319,7 +337,7 @@ _frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist
 if os.path.exists(_frontend_dist):
     app.mount(
         "/assets",
-        StaticFiles(directory=os.path.join(_frontend_dist, "assets")),
+        ImmutableStaticFiles(directory=os.path.join(_frontend_dist, "assets")),
         name="assets",
     )
     _frontend_fonts = os.path.join(_frontend_dist, "fonts")
@@ -332,4 +350,4 @@ if os.path.exists(_frontend_dist):
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str) -> FileResponse:
-        return FileResponse(os.path.join(_frontend_dist, "index.html"))
+        return spa_index_response(_frontend_dist)

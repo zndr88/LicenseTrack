@@ -24,11 +24,23 @@ def _fake_repository(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[P
     (root / "packaging" / "native" / "marker.txt").write_text("native", encoding="utf-8")
     (root / "backend" / "app").mkdir(parents=True)
     (root / "backend" / "app" / "version.py").write_text('APP_VERSION = "1.0.9"\n', encoding="utf-8")
+    (root / "backend" / "alembic" / "versions").mkdir(parents=True)
+    (root / "backend" / "alembic" / "env.py").write_text("# migration environment\n", encoding="utf-8")
+    (root / "backend" / "alembic.ini").write_text("[alembic]\n", encoding="utf-8")
     requirements = "alpha==1.0\nbravo-package[asyncio]==2.0\n"
     (root / "backend" / "requirements-runtime.txt").write_text(requirements, encoding="utf-8")
     (root / "backend" / "requirements.txt").write_text(requirements + "pytest==9.1.1\n", encoding="utf-8")
     (root / "backend" / "tests").mkdir()
     (root / "backend" / "tests" / "not-packaged.txt").write_text("test", encoding="utf-8")
+    (root / "backend" / ".env").write_text("JWT_SECRET=local-secret\n", encoding="utf-8")
+    (root / "backend" / ".coverage").write_text("local coverage\n", encoding="utf-8")
+    (root / "backend" / "licenses.db").write_bytes(b"local database")
+    (root / "backend" / "backups").mkdir()
+    (root / "backend" / "backups" / "local.zip").write_bytes(b"local backup")
+    (root / "backend" / "storage").mkdir()
+    (root / "backend" / "storage" / "document.pdf").write_bytes(b"local document")
+    (root / "backend" / "plugins").mkdir()
+    (root / "backend" / "plugins" / "local-package.zip").write_bytes(b"local plugin")
     for name in ("install.sh", "upgrade.sh", "LICENSE", "THIRD_PARTY_NOTICES.md"):
         (root / name).write_text(name, encoding="utf-8")
 
@@ -47,6 +59,20 @@ def _complete_wheelhouse(parent: Path, abi: str) -> Path:
     (wheelhouse / "alpha-1.0-py3-none-any.whl").write_bytes(b"alpha")
     (wheelhouse / "bravo_package-2.0-py3-none-any.whl").write_bytes(b"bravo")
     return wheelhouse
+
+
+def test_run_resolves_platform_command_shims(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    calls: list[tuple[list[str], Path | None, bool]] = []
+    monkeypatch.setattr(builder.shutil, "which", lambda command: f"/resolved/{command}")
+    monkeypatch.setattr(
+        builder.subprocess,
+        "run",
+        lambda command, *, cwd, check: calls.append((command, cwd, check)),
+    )
+
+    builder.run(["npm", "ci"], cwd=tmp_path)
+
+    assert calls == [(["/resolved/npm", "ci"], tmp_path, True)]
 
 
 def test_validate_wheelhouse_rejects_missing_direct_requirement(
@@ -138,6 +164,30 @@ def test_assemble_writes_v2_manifest_and_nested_wheelhouses(
         assert manifest["files"][relative] == builder.sha256(bundle / relative)
     assert not (bundle / "payload" / "backend" / "requirements.txt").exists()
     assert not (bundle / "payload" / "backend" / "tests").exists()
+    for local_artifact in (
+        ".coverage",
+        ".env",
+        "backups",
+        "licenses.db",
+        "plugins",
+        "storage",
+    ):
+        assert not (bundle / "payload" / "backend" / local_artifact).exists()
+
+
+def test_assemble_rejects_demo_frontend_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    _root, frontend = _fake_repository(tmp_path, monkeypatch)
+    assets = frontend / "assets"
+    assets.mkdir()
+    (assets / "app.js").write_text(
+        'console.info("LICENSETRACK_DEMO_MARKER");',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="demo frontend"):
+        builder.assemble(tmp_path / "stage", frontend, "1.1.0-test", {})
 
 
 def test_archive_names_remain_operator_facing_and_stable(

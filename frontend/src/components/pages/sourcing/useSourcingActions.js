@@ -3,6 +3,8 @@ import { queryKeys } from "../../../queryKeys.js";
 import {
   addSourcingRequestItem,
   cancelSourcingRequest as apiCancelSourcingRequest,
+  convertFreewareSourcingItem as apiConvertFreewareSourcingItem,
+  convertFreewareSourcingRequest as apiConvertFreewareSourcingRequest,
   convertSourcingRequest as apiConvertSourcingRequest,
   createSourcingRequest,
   deleteSourcingItem as apiDeleteSourcingItem,
@@ -28,6 +30,7 @@ export function useSourcingActions({
   onRenewalsReload,
   onPortfolioStateChange,
   onNavigateToPendingOrder,
+  onNavigateToLicense,
 }) {
   const handleCreateSourcingItem = useCallback(async (payload, requestId = null) => {
     const { data: created, error } = requestId
@@ -87,8 +90,11 @@ export function useSourcingActions({
     onPendingOrdersReload?.();
     onRenewalsReload?.();
     onPortfolioStateChange?.();
+    const directCount = order.directRegistryCount ?? 0;
     showToast(
-      `Converted to Pending Order ${order.poNumber}`,
+      directCount
+        ? `${directCount} line${directCount === 1 ? "" : "s"} added to the Registry; purchase lines moved to Pending Order ${order.poNumber}.`
+        : `Converted to Pending Order ${order.poNumber}`,
       "success",
       onNavigateToPendingOrder
         ? { label: "View Order", onClick: () => onNavigateToPendingOrder(order.id) }
@@ -96,6 +102,29 @@ export function useSourcingActions({
     );
     return true;
   }, [showToast, queryClient, onPendingOrdersReload, onRenewalsReload, onPortfolioStateChange, onNavigateToPendingOrder]);
+
+  const handleConvertFreeware = useCallback(async ({ itemId = null, requestId = null }) => {
+    const { data, error } = itemId
+      ? await apiConvertFreewareSourcingItem(itemId)
+      : await apiConvertFreewareSourcingRequest(requestId);
+    if (error) { showToast(error, "error"); return false; }
+
+    const licenses = Array.isArray(data) ? data : [data];
+    await invalidateSourcingCaches(queryClient);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
+    onRenewalsReload?.();
+    onPortfolioStateChange?.();
+
+    const first = licenses[0];
+    showToast(
+      `${licenses.length} Freeware / Open Source license${licenses.length === 1 ? "" : "s"} added to the Registry.`,
+      "success",
+      licenses.length === 1 && onNavigateToLicense
+        ? { label: "View License", onClick: () => onNavigateToLicense(first.id) }
+        : null
+    );
+    return true;
+  }, [showToast, queryClient, onRenewalsReload, onPortfolioStateChange, onNavigateToLicense]);
 
   const handleExportSourcingCsv = useCallback(async () => {
     const { error } = await exportSourcingCsv();
@@ -126,6 +155,7 @@ export function useSourcingActions({
     handleDeleteSourcingRequest,
     handleCancelSourcingRequest,
     handleConvertSourcingRequest,
+    handleConvertFreeware,
     handleExportSourcingCsv,
   };
 }

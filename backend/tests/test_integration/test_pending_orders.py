@@ -207,6 +207,160 @@ async def test_sourcing_history_includes_pending_order_status(test_app, auth_hea
     assert history[request_id]["items"][0]["pendingOrderStatus"] == "converted"
 
 
+async def test_freeware_sourcing_item_converts_directly_to_registry(test_app, auth_headers):
+    sourcing_item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        publisherName="The Document Foundation",
+        softwareDescription="LibreOffice Calc",
+        licenseType="freeware",
+        quantity="1",
+        estimatedUnitPrice=None,
+        estimatedTotalPrice=None,
+        startDate="2026-07-23",
+        supplier="Direct",
+    )
+
+    resp = await test_app.post(
+        f"/api/sourcing/{sourcing_item['id']}/convert-freeware",
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    license_obj = resp.json()
+    assert license_obj["licenseType"] == "freeware"
+    assert license_obj["sourceSourcingItemId"] == sourcing_item["id"]
+    assert license_obj["requestDate"] == sourcing_item["createdAt"]
+    assert license_obj["purchaseDate"] is None
+    assert license_obj["pendingOrderId"] is None
+    assert license_obj["poNumber"] == ""
+    assert license_obj["invoiceNumber"] == ""
+    assert license_obj["contractNumber"] == ""
+    assert license_obj["unitPrice"] == ""
+    assert license_obj["totalPoPrice"] == ""
+    assert license_obj["conversionType"] == "direct_freeware"
+
+    history_resp = await test_app.get("/api/sourcing/requests/history", headers=auth_headers)
+    assert history_resp.status_code == 200, history_resp.text
+    history_item = next(
+        request["items"][0]
+        for request in history_resp.json()
+        if request["id"] == sourcing_item["sourcingRequestId"]
+    )
+    assert history_item["convertedLicenseId"] == license_obj["id"]
+    assert history_item["convertedLicenseRef"] == license_obj["licenseRef"]
+    assert history_item["convertedLicenseIds"] == [license_obj["id"]]
+
+
+async def test_non_freeware_sourcing_item_cannot_bypass_pending_orders(test_app, auth_headers):
+    sourcing_item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        licenseType="oem",
+    )
+
+    resp = await test_app.post(
+        f"/api/sourcing/{sourcing_item['id']}/convert-freeware",
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 422
+    assert "is not Freeware / Open Source" in resp.json()["detail"]
+
+
+async def test_mixed_sourcing_request_splits_freeware_to_registry_and_paid_line_to_po(test_app, auth_headers):
+    request_resp = await test_app.post(
+        "/api/sourcing/requests",
+        json={
+            "supplier": "Mixed Supplier",
+            "items": [
+                {
+                    "publisherName": "Paid Publisher",
+                    "softwareDescription": "Paid App",
+                    "licenseType": "subscription",
+                    "quantity": "2",
+                    "currency": "EUR",
+                },
+                {
+                    "publisherName": "Community Publisher",
+                    "softwareDescription": "Community App",
+                    "licenseType": "freeware",
+                    "quantity": "1",
+                    "currency": "EUR",
+                },
+            ],
+        },
+        headers=auth_headers,
+    )
+    assert request_resp.status_code == 201, request_resp.text
+    request = request_resp.json()
+    paid_item, freeware_item = request["items"]
+
+    po_resp = await test_app.post(
+        f"/api/sourcing/requests/{request['id']}/convert",
+        json={"poNumber": "PO-MIXED"},
+        headers=auth_headers,
+    )
+    assert po_resp.status_code == 200, po_resp.text
+    assert [item["id"] for item in po_resp.json()["items"]] == [paid_item["id"]]
+    assert po_resp.json()["directRegistryCount"] == 1
+
+    active_resp = await test_app.get(f"/api/sourcing/requests/{request['id']}", headers=auth_headers)
+    assert active_resp.status_code == 200, active_resp.text
+    active = active_resp.json()
+    assert active["status"] == "converted"
+    assert next(item for item in active["items"] if item["id"] == freeware_item["id"])["status"] == "converted"
+
+    history_resp = await test_app.get("/api/sourcing/requests/history", headers=auth_headers)
+    history = {item["id"]: item for item in history_resp.json()}
+    assert history[request["id"]]["status"] == "converted"
+
+
+async def test_coordinated_mixed_conversion_closes_request(test_app, auth_headers):
+    request_resp = await test_app.post(
+        "/api/sourcing/requests",
+        json={
+            "items": [
+                {
+                    "publisherName": "Paid Publisher",
+                    "softwareDescription": "Paid App",
+                    "licenseType": "subscription",
+                },
+                {
+                    "publisherName": "Community Publisher",
+                    "softwareDescription": "Community App",
+                    "licenseType": "freeware",
+                },
+            ],
+        },
+        headers=auth_headers,
+    )
+    request = request_resp.json()
+    paid_item, freeware_item = request["items"]
+    po_resp = await test_app.post(
+        f"/api/sourcing/requests/{request['id']}/convert",
+        json={"poNumber": "PO-MIXED-CANCEL"},
+        headers=auth_headers,
+    )
+    assert po_resp.status_code == 200, po_resp.text
+
+    cancel_resp = await test_app.post(
+        f"/api/sourcing/requests/{request['id']}/cancel",
+        headers=auth_headers,
+    )
+
+    assert cancel_resp.status_code == 409, cancel_resp.text
+
+    request_state = await test_app.get(
+        f"/api/sourcing/requests/{request['id']}",
+        headers=auth_headers,
+    )
+    items = {item["id"]: item for item in request_state.json()["items"]}
+    assert items[paid_item["id"]]["status"] == "converted"
+    assert items[paid_item["id"]]["pendingOrderId"] == po_resp.json()["id"]
+    assert items[freeware_item["id"]]["status"] == "converted"
+
+
 async def test_pending_order_list_can_include_converted_evidence_issues(
     test_app,
     auth_headers,
@@ -460,6 +614,7 @@ def _single_convert_form(**overrides) -> dict:
         "currency": "EUR",
         "startDate": "2026-01-01",
         "endDate": "2026-12-31",
+        "purchaseDate": "2026-02-01",
         "poNumber": "PO-RENEW",
         "supplier": "Renewal Supplier",
     }
@@ -480,6 +635,7 @@ def _batch_convert_item(sourcing_item_id: int, **overrides) -> dict:
         "currency": "EUR",
         "startDate": "2026-01-01",
         "endDate": "2026-12-31",
+        "purchaseDate": "2026-02-01",
         "poNumber": "PO-BATCH",
         "supplier": "Batch Supplier",
     }
@@ -520,7 +676,7 @@ async def test_convert_pending_order_without_items_creates_license(test_app, aut
     assert converted[0]["conversionType"] == "new_purchase"
     assert converted[0]["poNumber"] == "PO-NORMAL"
     assert converted[0]["requestDate"] is None
-    assert converted[0]["purchaseDate"] == order_resp.json()["createdAt"]
+    assert converted[0]["purchaseDate"] == "2026-02-01T00:00:00"
 
     second_resp = await test_app.post(
         f"/api/pending-orders/{order_resp.json()['id']}/convert",
@@ -637,7 +793,7 @@ async def test_batch_convert_all_new_purchase_items(test_app, auth_headers):
     by_description = {item["softwareDescription"]: item for item in converted}
     assert by_description["Batch App One"]["requestDate"] == first["createdAt"]
     assert by_description["Batch App Two"]["requestDate"] == second["createdAt"]
-    assert {item["purchaseDate"] for item in converted} == {po["createdAt"]}
+    assert {item["purchaseDate"] for item in converted} == {"2026-02-01T00:00:00"}
 
 
 async def test_batch_convert_links_new_maintenance_to_same_purchase_perpetual(

@@ -1,5 +1,6 @@
 node_modules
 dist
+frontend/dist-demo/
 frontend/coverage/
 frontend/test-results/
 .DS_Store

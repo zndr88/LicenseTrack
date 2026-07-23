@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { normalizeNumberFormatOptionValue } from "../constants/numberFormats.js";
 import { useCSVImportAnalysis } from "./useCSVImportAnalysis.js";
 import { useCSVImportPreview } from "./useCSVImportPreview.js";
 
@@ -10,7 +11,7 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
   const [error, setError] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [importNumberFormatLocale, setImportNumberFormatLocale] = useState(
-    userSettings?.numberFormatLocale ?? "en-US"
+    normalizeNumberFormatOptionValue(userSettings?.numberFormatLocale)
   );
   const [importDateFormat, setImportDateFormat] = useState(
     userSettings?.dateFormat ?? "DD/MM/YYYY"
