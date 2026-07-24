@@ -1,4 +1,9 @@
-"""Lifecycle and renewal-chain invariants for license mutations."""
+"""Lifecycle and renewal-chain invariants for license mutations.
+
+An intermediate license may have both an incoming and an outgoing link.
+Each predecessor has at most one successor; coterm successors may have
+multiple predecessors recorded in ``coterm_from_ids``.
+"""
 
 from __future__ import annotations
 
@@ -123,12 +128,6 @@ async def validate_lifecycle_repair_update(
         "coterm_from_ids": update_data.get("coterm_from_ids", license_obj.coterm_from_ids),
     }
 
-    if proposed["renewed_from_id"] is not None and proposed["renewed_to_id"] is not None:
-        raise HTTPException(
-            status_code=400,
-            detail="A license cannot have both renewed_from_id and renewed_to_id set simultaneously.",
-        )
-
     await _validate_repair_targets(db, license_obj, proposed)
     await _validate_reciprocal_chain_links(db, license_obj, proposed)
 
@@ -170,11 +169,27 @@ async def _validate_reciprocal_chain_links(db: AsyncSession, license_obj: Licens
                 allowed_successor_id=license_obj.id,
                 status_code=400,
             )
-        await _assert_no_successor_cycle(db, start_id=renewed_from_id, blocked_id=license_obj.id)
+        # The reciprocal predecessor -> current edge is expected. A cycle exists
+        # only when the current node's outgoing path reaches that predecessor.
+        await _assert_no_successor_cycle(
+            db,
+            start_id=renewed_to_id,
+            blocked_id=renewed_from_id,
+        )
 
     if renewed_to_id is not None:
+        assert_predecessor_has_no_successor(
+            license_obj,
+            allowed_successor_id=renewed_to_id,
+            status_code=400,
+        )
         successor = await db.get(License, renewed_to_id)
-        if successor is not None and successor.renewed_from_id not in (None, license_obj.id):
+        successor_predecessor_ids = set(successor.coterm_from_ids or []) if successor is not None else set()
+        if (
+            successor is not None
+            and successor.renewed_from_id not in (None, license_obj.id)
+            and license_obj.id not in successor_predecessor_ids
+        ):
             raise HTTPException(
                 status_code=400,
                 detail="renewed_to_id target already points to a different predecessor.",
@@ -182,7 +197,7 @@ async def _validate_reciprocal_chain_links(db: AsyncSession, license_obj: Licens
         await _assert_no_successor_cycle(db, start_id=renewed_to_id, blocked_id=license_obj.id)
 
 
-async def _assert_no_successor_cycle(db: AsyncSession, *, start_id: int, blocked_id: int) -> None:
+async def _assert_no_successor_cycle(db: AsyncSession, *, start_id: int | None, blocked_id: int) -> None:
     seen: set[int] = set()
     current_id: int | None = start_id
     while current_id is not None:
@@ -196,8 +211,4 @@ async def _assert_no_successor_cycle(db: AsyncSession, *, start_id: int, blocked
 
 
 def validate_renewal_link_invariants(license_obj: License) -> None:
-    if license_obj.renewed_from_id is not None and license_obj.renewed_to_id is not None:
-        raise HTTPException(
-            status_code=400,
-            detail="A license cannot have both renewed_from_id and renewed_to_id set simultaneously.",
-        )
+    """Validate renewal links that can be checked without loading related rows."""

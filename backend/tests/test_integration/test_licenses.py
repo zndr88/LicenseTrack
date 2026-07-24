@@ -40,6 +40,27 @@ async def _create_license(client, headers, **overrides) -> dict:
     return resp.json()
 
 
+async def _create_three_generation_chain(client, headers, db_session) -> tuple[dict, dict, dict]:
+    first = await _create_license(client, headers, softwareDescription="First")
+    intermediate = await _create_license(client, headers, softwareDescription="Intermediate")
+    successor = await _create_license(client, headers, softwareDescription="Successor")
+
+    first_row = await db_session.get(License, first["id"])
+    intermediate_row = await db_session.get(License, intermediate["id"])
+    successor_row = await db_session.get(License, successor["id"])
+    first_row.lifecycle_status = LifecycleStatus.renewed
+    first_row.renewed_to_id = intermediate_row.id
+    intermediate_row.lifecycle_status = LifecycleStatus.renewed
+    intermediate_row.renewed_from_id = first_row.id
+    intermediate_row.predecessor_id = first_row.id
+    intermediate_row.renewed_to_id = successor_row.id
+    successor_row.renewed_from_id = intermediate_row.id
+    successor_row.predecessor_id = intermediate_row.id
+    await db_session.commit()
+
+    return first, intermediate, successor
+
+
 # ---------------------------------------------------------------------------
 # 2a — GET /api/licenses with empty DB returns []
 # ---------------------------------------------------------------------------
@@ -398,6 +419,57 @@ async def test_lifecycle_repair_rejects_successor_cycle(test_app, auth_headers):
 
     assert cycle_resp.status_code == 400
     assert "cycle" in cycle_resp.json()["detail"]
+
+
+async def test_non_lifecycle_update_accepts_intermediate_renewal_node(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    first, intermediate, successor = await _create_three_generation_chain(
+        test_app,
+        auth_headers,
+        db_session,
+    )
+
+    resp = await test_app.put(
+        f"/api/licenses/{intermediate['id']}",
+        json={"notes": "Updated without changing lifecycle links"},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["renewedFromId"] == first["id"]
+    assert body["renewedToId"] == successor["id"]
+    assert body["notes"] == "Updated without changing lifecycle links"
+
+
+async def test_lifecycle_repair_accepts_existing_intermediate_renewal_node(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    first, intermediate, successor = await _create_three_generation_chain(
+        test_app,
+        auth_headers,
+        db_session,
+    )
+
+    resp = await test_app.post(
+        f"/api/licenses/{intermediate['id']}/repair-lifecycle",
+        json={
+            "lifecycleStatus": "renewed",
+            "reason": "Validate the existing intermediate renewal node",
+        },
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["renewedFromId"] == first["id"]
+    assert body["predecessorId"] == first["id"]
+    assert body["renewedToId"] == successor["id"]
 
 
 async def test_general_update_rejects_renewal_chain_fields(test_app, auth_headers):

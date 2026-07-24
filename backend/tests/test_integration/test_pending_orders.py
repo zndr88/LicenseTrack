@@ -656,6 +656,18 @@ def _new_successor(converted: list[dict], predecessor_id: int) -> dict:
     raise AssertionError(f"No successor found for predecessor {predecessor_id}: {converted}")
 
 
+async def _complete_single_renewal(client, headers, predecessor_id: int, **form_overrides) -> dict:
+    sourcing_item = await _initiate_renewal(client, headers, predecessor_id)
+    order = await _convert_sourcing_to_po(client, headers, sourcing_item["id"])
+    response = await client.post(
+        f"/api/pending-orders/{order['id']}/convert",
+        data={"data": json.dumps(_single_convert_form(**form_overrides))},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    return _new_successor(response.json(), predecessor_id)
+
+
 async def test_convert_pending_order_without_items_creates_license(test_app, auth_headers):
     order_resp = await test_app.post(
         "/api/pending-orders",
@@ -1559,6 +1571,64 @@ async def test_convert_subscription_renewal_unaffected(test_app, auth_headers):
     predecessor = await _get_license(test_app, auth_headers, subscription["id"])
     assert predecessor["lifecycleStatus"] == "renewed"
     assert predecessor["renewedToId"] == new_license["id"]
+
+
+async def test_coterm_successor_can_be_renewed_as_next_generation(test_app, auth_headers):
+    first = await _create_license(
+        test_app,
+        auth_headers,
+        startDate="2024-01-01",
+        endDate="2025-12-31",
+    )
+    second = await _create_license(
+        test_app,
+        auth_headers,
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+    )
+    sourcing_first = await _initiate_renewal(test_app, auth_headers, first["id"])
+    sourcing_second = await _initiate_renewal(test_app, auth_headers, second["id"])
+
+    merge_response = await test_app.post(
+        "/api/sourcing/merge",
+        json={"sourcingItemIds": [sourcing_second["id"], sourcing_first["id"]]},
+        headers=auth_headers,
+    )
+    assert merge_response.status_code == 201, merge_response.text
+    order = await _convert_sourcing_to_po(test_app, auth_headers, merge_response.json()["id"])
+    conversion_response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert",
+        data={
+            "data": json.dumps(
+                _single_convert_form(
+                    startDate="2026-01-01",
+                    endDate="2026-12-31",
+                )
+            )
+        },
+        headers=auth_headers,
+    )
+    assert conversion_response.status_code == 200, conversion_response.text
+    coterm_successor = _new_successor(conversion_response.json(), first["id"])
+
+    next_successor = await _complete_single_renewal(
+        test_app,
+        auth_headers,
+        coterm_successor["id"],
+        startDate="2027-01-01",
+        endDate="2027-12-31",
+    )
+
+    first_after = await _get_license(test_app, auth_headers, first["id"])
+    second_after = await _get_license(test_app, auth_headers, second["id"])
+    coterm_after = await _get_license(test_app, auth_headers, coterm_successor["id"])
+    assert first_after["renewedToId"] == coterm_successor["id"]
+    assert second_after["renewedToId"] == coterm_successor["id"]
+    assert coterm_after["renewedFromId"] == first["id"]
+    assert coterm_after["predecessorId"] == first["id"]
+    assert coterm_after["cotermFromIds"] == [first["id"], second["id"]]
+    assert coterm_after["renewedToId"] == next_successor["id"]
+    assert next_successor["renewedFromId"] == coterm_successor["id"]
 
 
 async def test_renewed_license_cannot_start_second_renewal(test_app, auth_headers):
