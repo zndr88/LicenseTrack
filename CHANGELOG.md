@@ -13,6 +13,8 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-07-24
+
 ### Added
 
 - Added an optional license type to sourcing lines. Zero-cost
@@ -64,6 +66,8 @@ contracts will be called out under a **Breaking** heading in future releases.
   reverse-proxy, or direct-network reachability. Non-interactive installs must
   confirm reverse-proxy intent when a non-local public URL uses the secure
   loopback bind.
+- Validated native installation, upgrade, portfolio-recovery restore, and
+  automatic post-restore restart behavior on Debian 13 (Trixie).
 - Documented the native runtime privilege boundary and a guarded removal
   procedure with explicit data-retention, final-backup, service-account, and
   external host-cleanup steps.
@@ -702,6 +706,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/zndr88/LicenseTrack/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/zndr88/LicenseTrack/compare/v1.0.9...v1.1.0
 [1.0.9]: https://github.com/zndr88/LicenseTrack/compare/v1.0.8...v1.0.9
 [1.0.8]: https://github.com/zndr88/LicenseTrack/compare/v1.0.7...v1.0.8

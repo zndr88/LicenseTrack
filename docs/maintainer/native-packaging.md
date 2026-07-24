@@ -1,7 +1,8 @@
 # Native Linux packaging
 
-Native packaging supports systemd-based Ubuntu 22.04 hosts with CPython 3.12,
-3.13, or 3.14. It is intentionally separate from Docker packaging.
+Native packaging supports systemd-based Debian 13 and Ubuntu 22.04 hosts with
+CPython 3.12, 3.13, or 3.14. It is intentionally separate from Docker
+packaging.
 
 ## Build
 
