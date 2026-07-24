@@ -337,6 +337,13 @@ Document and procurement-document uploads/deletes are evidence amendments once t
 
 Renewal command side effects belong in `backend/app/services/renewal_orchestrator.py`, with chain invariants delegated to `backend/app/services/lifecycle_rules.py`. Do not spread renewal lifecycle mutations across pages or routes. Successor creation must validate every predecessor before creating a new license row so stale single or coterm pending-order work cannot fork a renewal chain.
 
+The renewal graph permits an intermediate license to have both incoming and
+outgoing renewal links, but each predecessor may have at most one immediate
+successor. Coterm successors may have multiple immediate predecessors:
+`renewed_from_id` and `predecessor_id` identify the deterministic primary
+predecessor, while `coterm_from_ids` contains the complete ordered predecessor
+set, including that primary predecessor.
+
 ## Integration, Official Extension, And API Boundaries
 
 LicenseTrack has two distinct extension paths:

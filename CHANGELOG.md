@@ -13,6 +13,17 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-07-24
+
+### Fixed
+
+- Corrected renewal-chain validation so intermediate licenses may retain both
+  incoming and outgoing links, while administrative repair accepts secondary
+  coterm predecessors and continues to reject cycles and conflicting
+  one-to-many successor relationships.
+- Removed empty original sourcing requests after coterm merge while preserving
+  requests that still contain unrelated sourcing items.
+
 ## [1.1.1] - 2026-07-24
 
 ### Added
@@ -706,7 +717,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/zndr88/LicenseTrack/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/zndr88/LicenseTrack/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/zndr88/LicenseTrack/compare/v1.0.9...v1.1.0
 [1.0.9]: https://github.com/zndr88/LicenseTrack/compare/v1.0.8...v1.0.9
