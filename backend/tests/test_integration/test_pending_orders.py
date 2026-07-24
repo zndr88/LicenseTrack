@@ -602,6 +602,127 @@ async def test_renewal_bundle_creates_one_request_with_distinct_lines(test_app, 
     assert merge_resp.json()["detail"] == "Coterm merge requires the same software description."
 
 
+async def test_coterm_merge_deletes_empty_original_sourcing_requests(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    first = await _create_license(
+        test_app,
+        auth_headers,
+        startDate="2024-01-01",
+        endDate="2025-12-31",
+    )
+    second = await _create_license(
+        test_app,
+        auth_headers,
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+    )
+    sourcing_first = await _initiate_renewal(test_app, auth_headers, first["id"])
+    sourcing_second = await _initiate_renewal(test_app, auth_headers, second["id"])
+    original_request_ids = {
+        sourcing_first["sourcingRequestId"],
+        sourcing_second["sourcingRequestId"],
+    }
+    assert len(original_request_ids) == 2
+
+    merge_resp = await test_app.post(
+        "/api/sourcing/merge",
+        json={"sourcingItemIds": [sourcing_first["id"], sourcing_second["id"]]},
+        headers=auth_headers,
+    )
+
+    assert merge_resp.status_code == 201, merge_resp.text
+    merged = merge_resp.json()
+    assert merged["sourcingRequestId"] not in original_request_ids
+    db_session.expire_all()
+    assert await db_session.get(SourcingItem, sourcing_first["id"]) is None
+    assert await db_session.get(SourcingItem, sourcing_second["id"]) is None
+    for request_id in original_request_ids:
+        assert await db_session.get(SourcingRequest, request_id) is None
+    assert await db_session.get(SourcingItem, merged["id"]) is not None
+    assert await db_session.get(SourcingRequest, merged["sourcingRequestId"]) is not None
+
+    active_resp = await test_app.get("/api/sourcing/requests", headers=auth_headers)
+    history_resp = await test_app.get("/api/sourcing/requests/history", headers=auth_headers)
+    assert active_resp.status_code == 200, active_resp.text
+    assert history_resp.status_code == 200, history_resp.text
+    active_ids = {request["id"] for request in active_resp.json()}
+    history_ids = {request["id"] for request in history_resp.json()}
+    assert merged["sourcingRequestId"] in active_ids
+    assert original_request_ids.isdisjoint(active_ids)
+    assert original_request_ids.isdisjoint(history_ids)
+
+
+async def test_coterm_merge_preserves_original_request_with_unrelated_item(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    first = await _create_license(
+        test_app,
+        auth_headers,
+        startDate="2024-01-01",
+        endDate="2025-12-31",
+    )
+    second = await _create_license(
+        test_app,
+        auth_headers,
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+    )
+    sourcing_first = await _initiate_renewal(test_app, auth_headers, first["id"])
+    sourcing_second = await _initiate_renewal(test_app, auth_headers, second["id"])
+    retained_request_id = sourcing_first["sourcingRequestId"]
+    empty_request_id = sourcing_second["sourcingRequestId"]
+    assert retained_request_id != empty_request_id
+
+    unrelated = SourcingItem(
+        sourcing_request_id=retained_request_id,
+        publisher_name="Unrelated Publisher",
+        software_description="Unrelated Item",
+        quantity="7",
+        currency="USD",
+        notes="Must survive coterm merge",
+        status=SourcingStatus.sourcing,
+    )
+    db_session.add(unrelated)
+    await db_session.commit()
+    unrelated_id = unrelated.id
+
+    merge_resp = await test_app.post(
+        "/api/sourcing/merge",
+        json={"sourcingItemIds": [sourcing_first["id"], sourcing_second["id"]]},
+        headers=auth_headers,
+    )
+
+    assert merge_resp.status_code == 201, merge_resp.text
+    merged = merge_resp.json()
+    db_session.expire_all()
+    assert await db_session.get(SourcingItem, sourcing_first["id"]) is None
+    assert await db_session.get(SourcingItem, sourcing_second["id"]) is None
+    retained_request = await db_session.get(SourcingRequest, retained_request_id)
+    assert retained_request is not None
+    assert retained_request.status == SourcingStatus.sourcing
+    assert await db_session.get(SourcingRequest, empty_request_id) is None
+    retained_item = await db_session.get(SourcingItem, unrelated_id)
+    assert retained_item is not None
+    assert retained_item.sourcing_request_id == retained_request_id
+    assert retained_item.software_description == "Unrelated Item"
+    assert retained_item.quantity == "7"
+    assert retained_item.currency == "USD"
+    assert retained_item.notes == "Must survive coterm merge"
+    assert await db_session.get(SourcingRequest, merged["sourcingRequestId"]) is not None
+
+    active_resp = await test_app.get("/api/sourcing/requests", headers=auth_headers)
+    assert active_resp.status_code == 200, active_resp.text
+    active_ids = {request["id"] for request in active_resp.json()}
+    assert retained_request_id in active_ids
+    assert empty_request_id not in active_ids
+    assert merged["sourcingRequestId"] in active_ids
+
+
 def _single_convert_form(**overrides) -> dict:
     base = {
         "publisherName": "Shared Publisher",

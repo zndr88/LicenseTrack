@@ -19,8 +19,9 @@ from app.schemas.sourcing import (
 )
 from app.services.audit_service import diff_fields, log_event
 from app.services.sourcing_service import (
-    build_merged_sourcing_item,
     assert_sourcing_item_editable,
+    build_merged_sourcing_item,
+    delete_empty_sourcing_requests,
     ensure_sourcing_request_for_item,
     handle_delete_side_effects,
     refresh_sourcing_request_status,
@@ -149,6 +150,9 @@ async def merge_coterm_sourcing_items(
             detail=f"Predecessor license(s) are no longer eligible for renewal: {sorted(ineligible)}",
         )
     _validate_coterm_merge_compatibility(items, predecessors)
+    original_request_ids = {
+        item.sourcing_request_id for item in items if item.sourcing_request_id is not None
+    }
 
     merged = build_merged_sourcing_item(items, predecessors, created_by=current_user.id)
     db.add(merged)
@@ -157,6 +161,8 @@ async def merge_coterm_sourcing_items(
     # Delete original sourcing items
     for item in items:
         await db.delete(item)
+    await db.flush()
+    await delete_empty_sourcing_requests(db, original_request_ids)
 
     ip = request.client.host if request.client else None
     await log_event(

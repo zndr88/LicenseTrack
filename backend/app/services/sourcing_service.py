@@ -103,6 +103,28 @@ async def clear_pending_renewal_if_no_open_sourcing(db: AsyncSession, renewal_li
         clear_pending_renewal_if_current(linked_license)
 
 
+async def delete_empty_sourcing_requests(
+    db: AsyncSession,
+    request_ids: set[int],
+) -> None:
+    """Delete candidate sourcing requests that are still open and have no items."""
+    if not request_ids:
+        return
+
+    result = await db.execute(
+        select(SourcingRequest)
+        .outerjoin(SourcingItem, SourcingItem.sourcing_request_id == SourcingRequest.id)
+        .where(
+            SourcingRequest.id.in_(request_ids),
+            SourcingRequest.status == SourcingStatus.sourcing,
+        )
+        .group_by(SourcingRequest.id)
+        .having(func.count(SourcingItem.id) == 0)
+    )
+    for request in result.scalars().all():
+        await db.delete(request)
+
+
 def build_merged_sourcing_item(
     items: list[SourcingItem],
     predecessors: list[License],

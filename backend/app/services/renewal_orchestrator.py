@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType
@@ -20,7 +20,10 @@ from app.services.lifecycle_rules import (
 from app.services.maintenance_service import sync_parent_mirror_fields, validate_parent_license
 from app.services.maintenance_rules import default_maintenance_coverage
 from app.services.renewal_workflow import build_renewal_sourcing_item
-from app.services.sourcing_service import ensure_sourcing_request_for_item
+from app.services.sourcing_service import (
+    delete_empty_sourcing_requests,
+    ensure_sourcing_request_for_item,
+)
 
 
 @dataclass
@@ -193,19 +196,7 @@ async def cancel_renewal(
     if sourcing_only_items:
         await db.flush()
 
-    if affected_request_ids:
-        empty_request_result = await db.execute(
-            select(SourcingRequest)
-            .outerjoin(SourcingItem, SourcingItem.sourcing_request_id == SourcingRequest.id)
-            .where(
-                SourcingRequest.id.in_(affected_request_ids),
-                SourcingRequest.status == SourcingStatus.sourcing,
-            )
-            .group_by(SourcingRequest.id)
-            .having(func.count(SourcingItem.id) == 0)
-        )
-        for request_obj in empty_request_result.scalars().all():
-            await db.delete(request_obj)
+    await delete_empty_sourcing_requests(db, affected_request_ids)
 
     po_result = await db.execute(
         select(SourcingItem.id)
