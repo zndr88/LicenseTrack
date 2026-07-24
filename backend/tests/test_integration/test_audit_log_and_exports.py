@@ -479,8 +479,8 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
         "Publisher",
         "Description",
         "Purchase Quantity",
-        "Estimated Unit Price",
-        "Estimated Line Total",
+        "License Unit Price",
+        "Line Total",
     ]
     rows = _csv_dicts(response)
     assert len(rows) == 2
