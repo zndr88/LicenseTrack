@@ -33,6 +33,18 @@ contracts will be called out under a **Breaking** heading in future releases.
   included. EULA, proof-of-entitlement, and publisher-contact requirements
   remain inapplicable; paid included support restores the purchase-evidence
   requirements while preserving department and budget-owner checks.
+- Added an admin-only portfolio reset for clean pre-production starts. It
+  removes current and historical licenses, sourcing requests, pending orders,
+  contracts, documents, processing results, delivery history, and prior audit
+  events while preserving users and application configuration. A verified
+  database-and-document recovery archive is required before deletion, and the
+  next generated license reference restarts at `LT-REF-00001`.
+- Added server-side archive selection to Database Restore while retaining local
+  file upload. Routine database backups leave managed documents unchanged;
+  portfolio-recovery and pre-restore safety archives restore both the database
+  and managed documents after creating a new database-and-document safety
+  archive. Server selections are restricted to validated archives in the
+  configured backup directory.
 
 ### Changed
 
@@ -85,6 +97,15 @@ contracts will be called out under a **Breaking** heading in future releases.
   console errors in Sourcing, Pending Orders, Add License, and License Details.
 - Kept the License Overview table header and column filters available when the
   active filters return no records, so users can broaden or clear the filter.
+- Preserved sourcing-line start and end dates when editing the line from
+  Pending Orders instead of dropping both fields from the update request.
+- Interpreted offsetless SQLite API timestamps as UTC before applying the
+  user's configured time zone, fixing history times that appeared one or two
+  hours behind the server's local time.
+- Ensured native Linux installations restart automatically after a successful
+  database restore. The systemd unit now restarts after clean application exits,
+  and native upgrades refresh the installed unit so the policy reaches existing
+  deployments.
 - Simplified the direct freeware/open-source conversion confirmation without
   repeating the pending-order rules already expressed by the workflow.
 - Updated the transitive DOMPurify dependency used by PDF export to the patched

@@ -26,7 +26,8 @@ The upgrader:
 5. Runs the candidate Alembic migrations against a SQLite snapshot and checks database integrity.
 6. Migrates the live database only after the snapshot migration succeeds.
 7. Atomically switches `/opt/licensetrack/current` to the candidate release.
-8. Starts the service and requires `/api/health` to report the exact target version.
+8. Refreshes the managed systemd unit and operator CLI from the target release.
+9. Starts the service and requires `/api/health` to report the exact target version.
 
 The pre-upgrade archive includes:
 

@@ -173,6 +173,7 @@ export default function AppRouter({
             onRefreshNotifications={() => invalidateNotifications(queryClient)}
             onCompletenessRulesChanged={() => invalidateCompletenessRules(queryClient)}
             onCustomFieldsChanged={() => invalidateCustomFieldDefinitions(queryClient)}
+            onPortfolioReset={() => queryClient.invalidateQueries()}
             navGuard={{
               navigate: setPage,
               registerNavGuard: handleRegisterNavGuard,

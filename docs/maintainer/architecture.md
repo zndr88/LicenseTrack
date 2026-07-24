@@ -223,7 +223,28 @@ Admin settings are grouped into three product areas:
 - Integrations: API tokens, webhooks, and integration capability declarations.
 - Operations: database backup and restore.
 
-The restore flow in `backend/app/routes/backup.py` must quiesce all database connections before swapping the file: `await db.close()` closes the request-scoped session, then `await engine.dispose()` drains the connection pool, then `backup_service.restore_backup()` deletes stale `-wal`/`-shm` files and replaces the `.db` file. When `RESTART_AFTER_RESTORE=true`, the route schedules `os.kill(SIGTERM)` after the response so a process manager can restart the API. Do not reorder or remove these steps - out-of-order execution leaves file handles open (Windows) or stale WAL pages that corrupt the restored database on restart.
+The restore flow in `backend/app/routes/backup.py` must quiesce all database connections before swapping the file: `await db.close()` closes the request-scoped session, then `await engine.dispose()` drains the connection pool, then `backup_service.restore_backup()` deletes stale `-wal`/`-shm` files and replaces the `.db` file. When `RESTART_AFTER_RESTORE=true`, the route schedules `os.kill(SIGTERM)` after the response so a process manager can restart the API. The native systemd unit deliberately uses `Restart=always`: SIGTERM is a clean process exit, so `Restart=on-failure` leaves the service stopped after a successful restore. Native upgrades must republish and reload the current service template so lifecycle-policy fixes reach existing installs. Do not reorder or remove these steps - out-of-order execution leaves file handles open (Windows) or stale WAL pages that corrupt the restored database on restart.
+
+Restore accepts either an uploaded archive or an exact allow-listed filename
+returned by the configured server backup directory. `backup_service` classifies
+routine database backups separately from portfolio-recovery and
+document-restore safety archives. Routine restores validate and replace only
+SQLite. Document-aware restores first create a new database-and-document safety
+archive, stage only the four managed storage directories, swap those
+directories, and restore SQLite; a database failure rolls the storage swap
+back. Never accept arbitrary server paths or use a generic zip extraction
+operation here.
+
+The clean-start portfolio reset is separate from database restore.
+`backend/app/routes/operations.py` owns its admin-only preview and execution
+endpoints, while `backend/app/services/portfolio_reset_service.py` owns the
+fixed deletion scope and transaction. The service takes a SQLite immediate
+write reservation, requires `backup_service.create_portfolio_reset_archive()`
+to capture both the database and managed document directories, and only then
+deletes portfolio, procurement, contract, document, delivery, and old audit
+rows. Keep accounts and configuration outside this deletion list. The public
+license reference sequence is reset to zero; internal database sequences are
+not.
 
 Upload size enforcement uses a two-layer defence. An HTTP middleware in `main.py` (`reject_oversized_uploads`) inspects the `Content-Length` header before FastAPI's body parser runs, returning 413 for declared sizes above `MAX_UPLOAD_SIZE_MB` on document and backup restore upload paths. The route handlers (`documents.py`, `backup.py`) repeat the same check inline before `await file.read()` as a second layer. The post-read check in `storage.validate_upload` remains as the authoritative gate for uploads that arrive without a `Content-Length` header.
 
@@ -306,7 +327,7 @@ SQLite foreign-key enforcement is enabled at the connection level via `enable_sq
 
 `backend/app/routes/licenses.py` is now a thin route module. It should own auth, request parsing, query composition for reads, and audit-log wiring. It should not reintroduce field-level patch validation, maintenance-parent invariants, or response enrichment logic that now live in the license services.
 
-Settings routes are split by responsibility while preserving existing API paths. `backend/app/routes/user_settings.py` owns `GET/PUT /api/settings`; `backend/app/routes/global_settings.py` owns global settings read/update endpoints; `backend/app/routes/integrations.py` owns admin integration actions such as test email and manual notification trigger; `backend/app/routes/backup.py` owns database backup/restore. `backend/app/routes/settings.py` remains only as a compatibility aggregator for older imports.
+Settings routes are split by responsibility while preserving existing API paths. `backend/app/routes/user_settings.py` owns `GET/PUT /api/settings`; `backend/app/routes/global_settings.py` owns global settings read/update endpoints; `backend/app/routes/integrations.py` owns admin integration actions such as test email and manual notification trigger; `backend/app/routes/backup.py` owns database backup/restore; and `backend/app/routes/operations.py` owns destructive operational maintenance such as the fixed-scope portfolio reset. `backend/app/routes/settings.py` remains only as a compatibility aggregator for older imports.
 
 File I/O in `procurement_document_transfer_service` follows a two-phase pattern coordinated by `pending_order_conversion_service`: file validation happens before any DB work; the actual disk write happens only after `db.commit()` succeeds. This prevents orphaned files when a DB transaction fails. After the conversion commit, evidence transfer records `pending`, `complete`, or `failed` on the pending order; a transfer failure is retryable/recoverable state and must not roll back the created licenses.
 

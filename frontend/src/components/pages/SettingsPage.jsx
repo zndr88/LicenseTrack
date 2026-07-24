@@ -22,6 +22,7 @@ import ExtensionsSection from "../settings/sections/ExtensionsSection.jsx";
 import PluginsSection from "../settings/sections/PluginsSection.jsx";
 import BackupSection from "../settings/sections/BackupSection.jsx";
 import RestoreSection from "../settings/sections/RestoreSection.jsx";
+import PortfolioResetSection from "../settings/sections/PortfolioResetSection.jsx";
 import RenewalsSection from "../settings/sections/RenewalsSection.jsx";
 
 const ADMIN_GROUPS = [
@@ -37,6 +38,7 @@ export default function SettingsPage({
   onRefreshLicenses, onRefreshNotifications: _onRefreshNotifications,
   onCompletenessRulesChanged,
   onCustomFieldsChanged,
+  onPortfolioReset,
   navGuard,
   _adminOnly = false,
   _hideHeader = false,
@@ -55,6 +57,7 @@ export default function SettingsPage({
     storage: false, notifications: false, renewals: false, smtp: false, oidc: false,
     completeness: false, customFields: false, importMappings: false,
     apiTokens: false, webhooks: false, extensions: false, plugins: false, backup: false, restore: false,
+    portfolioReset: false,
   });
 
   const savedVisibleRef = useRef({
@@ -130,7 +133,18 @@ export default function SettingsPage({
             {adminGroup === "operations" && (
               <>
                 <BackupSection {...sharedDirty("backup")} {...sharedAdmin} userSettings={userSettings} />
-                <RestoreSection {...sharedDirty("restore")} onError={onError} onToast={onToast} />
+                <RestoreSection
+                  {...sharedDirty("restore")}
+                  onError={onError}
+                  onToast={onToast}
+                  userSettings={userSettings}
+                />
+                <PortfolioResetSection
+                  {...sharedDirty("portfolioReset")}
+                  onError={onError}
+                  onToast={onToast}
+                  onPortfolioReset={onPortfolioReset}
+                />
               </>
             )}
           </>

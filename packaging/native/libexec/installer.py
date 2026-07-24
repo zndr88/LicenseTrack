@@ -878,8 +878,11 @@ def install_service_files(source_root: Path, paths: InstallPaths, bind_host: str
     service_content = render_template(template_root / "licensetrack.service.in", replacements)
     service_file = Path(paths.service_file)
     service_file.parent.mkdir(parents=True, exist_ok=True)
-    service_file.write_text(service_content, encoding="utf-8")
-    os.chmod(service_file, 0o644)
+    temporary = service_file.with_name(service_file.name + ".next")
+    temporary.unlink(missing_ok=True)
+    temporary.write_text(service_content, encoding="utf-8")
+    os.chmod(temporary, 0o644)
+    os.replace(temporary, service_file)
 
     install_operator_cli(source_root, paths)
 
@@ -1600,6 +1603,12 @@ def upgrade(args: argparse.Namespace) -> None:
             atomic_symlink(candidate, paths.current_link)
             new_state = state_from_upgrade(old_state, target_version, candidate, backup_archive)
             write_json(paths.state_file, new_state)
+            install_service_files(
+                source_root,
+                paths,
+                str(old_state["bind_host"]),
+                int(old_state["port"]),
+            )
 
             if not args.no_start:
                 run(["systemctl", "start", paths.service_name])
@@ -1609,7 +1618,6 @@ def upgrade(args: argparse.Namespace) -> None:
                     target_version,
                     args.health_timeout,
                 )
-            install_operator_cli(source_root, paths)
             info(f"LicenseTrack upgrade completed: {old_state['version']} -> {target_version}.")
         except Exception as exc:
             if not live_migration_started:

@@ -12,6 +12,7 @@ export default function AdminPage({
   onRefreshLicenses, onRefreshNotifications,
   onCompletenessRulesChanged,
   onCustomFieldsChanged,
+  onPortfolioReset,
   navGuard,
   currentUserId,
 }) {
@@ -58,6 +59,7 @@ export default function AdminPage({
             onRefreshNotifications={onRefreshNotifications}
             onCompletenessRulesChanged={onCompletenessRulesChanged}
             onCustomFieldsChanged={onCustomFieldsChanged}
+            onPortfolioReset={onPortfolioReset}
             navGuard={navGuard}
             _adminOnly={true}
             _hideHeader={true}

@@ -75,6 +75,10 @@ LicenseTrack is what I needed in both roles: a single source of truth for softwa
 - Send in-app notifications and optional SMTP email alerts.
 - Create manual and scheduled database backups.
 - Restore the database with a pre-restore database safety snapshot.
+- Restore a validated server-side archive directly or upload an off-host
+  archive; portfolio recovery archives restore managed documents as well.
+- Reset test portfolio data before go-live while preserving users and
+  configuration, with an automatic database-and-document recovery archive.
 - Manage users with Admin, Editor, and Viewer roles.
 - Use optional OIDC/SSO with a protected local break-glass admin account.
 - Review audit history for authentication, settings, user, database backup, document, and data-changing actions.

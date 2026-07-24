@@ -5,6 +5,7 @@ Uses tmp_path (pytest built-in) for all filesystem operations and monkeypatch
 to redirect get_db_path away from the dev environment.
 """
 
+import json
 import os
 import sqlite3
 import zipfile
@@ -12,7 +13,17 @@ from pathlib import Path
 
 import pytest
 
-from app.services.backup_service import create_backup, prune_backups, restore_backup
+from app.services.backup_service import (
+    create_backup,
+    create_document_restore_safety_archive,
+    create_portfolio_reset_archive,
+    inspect_backup_archive,
+    list_server_backup_archives,
+    prune_backups,
+    resolve_server_backup_archive,
+    restore_backup,
+    restore_backup_archive,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -22,6 +33,14 @@ from app.services.backup_service import create_backup, prune_backups, restore_ba
 def _make_db(path) -> None:
     """Create a minimal (empty) SQLite database file at *path*."""
     conn = sqlite3.connect(str(path))
+    conn.close()
+
+
+def _make_marker_db(path, marker: str) -> None:
+    conn = sqlite3.connect(str(path))
+    conn.execute("CREATE TABLE marker (value TEXT)")
+    conn.execute("INSERT INTO marker (value) VALUES (?)", (marker,))
+    conn.commit()
     conn.close()
 
 
@@ -57,6 +76,197 @@ def test_create_backup_missing_db(tmp_path, monkeypatch):
 
     with pytest.raises(FileNotFoundError):
         create_backup(str(tmp_path / "backups"))
+
+
+def test_create_portfolio_reset_archive_includes_database_documents_and_manifest(
+    tmp_path,
+    monkeypatch,
+):
+    db_path = tmp_path / "licenses.db"
+    _make_db(db_path)
+    storage = tmp_path / "storage"
+    document = storage / "documents" / "7" / "eula.pdf"
+    document.parent.mkdir(parents=True)
+    document.write_bytes(b"eula")
+    plugin_file = storage / "plugins" / "kept.bin"
+    plugin_file.parent.mkdir(parents=True)
+    plugin_file.write_bytes(b"plugin")
+    monkeypatch.setattr("app.services.backup_service.get_db_path", lambda: db_path)
+
+    archive = create_portfolio_reset_archive(
+        str(tmp_path / "backups"),
+        str(storage),
+        {"licenses": 1},
+        ["documents/7/eula.pdf"],
+    )
+
+    with zipfile.ZipFile(archive) as zf:
+        names = zf.namelist()
+        assert "database/licenses.db" in names
+        assert "storage/documents/7/eula.pdf" in names
+        assert "storage/plugins/kept.bin" not in names
+        manifest = json.loads(zf.read("portfolio_reset_manifest.json"))
+        assert manifest["archive_type"] == "portfolio_reset_recovery"
+        assert manifest["record_counts"] == {"licenses": 1}
+        assert manifest["required_document_count"] == 1
+
+
+def test_create_portfolio_reset_archive_rejects_missing_required_document(
+    tmp_path,
+    monkeypatch,
+):
+    db_path = tmp_path / "licenses.db"
+    _make_db(db_path)
+    monkeypatch.setattr("app.services.backup_service.get_db_path", lambda: db_path)
+
+    with pytest.raises(FileNotFoundError):
+        create_portfolio_reset_archive(
+            str(tmp_path / "backups"),
+            str(tmp_path / "storage"),
+            {"documents": 1},
+            ["documents/7/missing.pdf"],
+        )
+
+
+def test_server_archive_listing_and_resolution_are_typed_and_path_safe(
+    tmp_path,
+):
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    database = tmp_path / "source.db"
+    _make_db(database)
+    routine = backup_dir / "license_lifecycle_backup_20260724_010203.zip"
+    recovery = backup_dir / "license_lifecycle_pre_portfolio_reset_20260724_010204_000001.zip"
+    with zipfile.ZipFile(routine, "w") as zf:
+        zf.write(database, "licenses.db")
+    with zipfile.ZipFile(recovery, "w") as zf:
+        zf.write(database, "database/licenses.db")
+        zf.writestr(
+            "portfolio_reset_manifest.json",
+            json.dumps({"archive_type": "portfolio_reset_recovery"}),
+        )
+
+    archives = list_server_backup_archives(str(backup_dir))
+
+    assert {item["archive_type"] for item in archives} == {
+        "database_backup",
+        "portfolio_reset_recovery",
+    }
+    assert next(item for item in archives if item["filename"] == recovery.name)["includes_documents"] is True
+    assert resolve_server_backup_archive(str(backup_dir), routine.name) == routine
+    with pytest.raises(ValueError):
+        resolve_server_backup_archive(str(backup_dir), "../outside.zip")
+    with pytest.raises(FileNotFoundError):
+        resolve_server_backup_archive(str(backup_dir), "license_lifecycle_backup_missing.zip")
+
+
+def test_document_recovery_archive_restores_database_and_managed_storage(
+    tmp_path,
+    monkeypatch,
+):
+    live_db = tmp_path / "live.db"
+    target_db = tmp_path / "target.db"
+    _make_marker_db(live_db, "current")
+    _make_marker_db(target_db, "recovered")
+    storage = tmp_path / "storage"
+    current_document = storage / "documents" / "1" / "current.txt"
+    current_document.parent.mkdir(parents=True)
+    current_document.write_text("current", encoding="utf-8")
+    monkeypatch.setattr("app.services.backup_service.get_db_path", lambda: live_db)
+
+    safety_archive = create_document_restore_safety_archive(
+        str(tmp_path / "backups"),
+        str(storage),
+        {"documents": 1},
+        ["documents/1/current.txt"],
+    )
+    recovery_archive = tmp_path / "recovery.zip"
+    with zipfile.ZipFile(recovery_archive, "w") as zf:
+        zf.write(target_db, "database/live.db")
+        zf.writestr(
+            "portfolio_reset_manifest.json",
+            json.dumps({"archive_type": "portfolio_reset_recovery"}),
+        )
+        zf.writestr("storage/documents/9/recovered.txt", "recovered")
+
+    result = restore_backup_archive(
+        recovery_archive,
+        storage_location=str(storage),
+        safety_archive=safety_archive,
+    )
+
+    connection = sqlite3.connect(str(live_db))
+    marker = connection.execute("SELECT value FROM marker").fetchone()[0]
+    connection.close()
+    assert marker == "recovered"
+    assert result == {
+        "archive_type": "portfolio_reset_recovery",
+        "restored_documents": True,
+    }
+    assert not current_document.exists()
+    assert (storage / "documents" / "9" / "recovered.txt").read_text(encoding="utf-8") == "recovered"
+
+
+def test_document_recovery_rolls_storage_back_when_database_is_invalid(
+    tmp_path,
+    monkeypatch,
+):
+    live_db = tmp_path / "live.db"
+    _make_marker_db(live_db, "current")
+    storage = tmp_path / "storage"
+    current_document = storage / "documents" / "1" / "current.txt"
+    current_document.parent.mkdir(parents=True)
+    current_document.write_text("current", encoding="utf-8")
+    monkeypatch.setattr("app.services.backup_service.get_db_path", lambda: live_db)
+    safety_archive = create_document_restore_safety_archive(
+        str(tmp_path / "backups"),
+        str(storage),
+        {"documents": 1},
+        ["documents/1/current.txt"],
+    )
+    invalid_archive = tmp_path / "invalid-recovery.zip"
+    with zipfile.ZipFile(invalid_archive, "w") as zf:
+        zf.writestr("database/live.db", b"not sqlite")
+        zf.writestr(
+            "portfolio_reset_manifest.json",
+            json.dumps({"archive_type": "portfolio_reset_recovery"}),
+        )
+        zf.writestr("storage/documents/9/bad.txt", "bad")
+
+    with pytest.raises(ValueError):
+        restore_backup_archive(
+            invalid_archive,
+            storage_location=str(storage),
+            safety_archive=safety_archive,
+        )
+
+    connection = sqlite3.connect(str(live_db))
+    marker = connection.execute("SELECT value FROM marker").fetchone()[0]
+    connection.close()
+    assert marker == "current"
+    assert current_document.read_text(encoding="utf-8") == "current"
+    assert not (storage / "documents" / "9" / "bad.txt").exists()
+
+
+def test_recovery_archive_rejects_unsafe_storage_entries(tmp_path):
+    database = tmp_path / "source.db"
+    _make_db(database)
+    archive = tmp_path / "unsafe.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.write(database, "database/source.db")
+        zf.writestr(
+            "portfolio_reset_manifest.json",
+            json.dumps({"archive_type": "portfolio_reset_recovery"}),
+        )
+        zf.writestr("storage/../escape.txt", "escape")
+
+    assert inspect_backup_archive(archive)["includes_documents"] is True
+    with pytest.raises(ValueError):
+        restore_backup_archive(
+            archive,
+            storage_location=str(tmp_path / "storage"),
+            safety_archive=archive,
+        )
 
 
 # ---------------------------------------------------------------------------

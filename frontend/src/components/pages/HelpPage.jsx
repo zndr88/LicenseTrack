@@ -242,13 +242,13 @@ const HELP_ARTICLES = [
     id: "admin-operations",
     category: "Admin and operations",
     title: "Admin and operations",
-    summary: "Configure users, settings, notifications, authentication, database backup, restore, and audit controls.",
+    summary: "Configure users, settings, notifications, authentication, database backup, restore, portfolio reset, and audit controls.",
     sections: [
       {
         heading: "Admin areas",
         body: [
-          "Admins manage users, roles, viewer department scope, download permission, global settings, SMTP, OIDC, mandatory fields, database backup settings, restore, and audit history.",
-          "Admin Settings is grouped into General, Integrations, and Operations so routine configuration stays separate from API, webhook, integration capability, database backup, and restore work.",
+          "Admins manage users, roles, viewer department scope, download permission, global settings, SMTP, OIDC, mandatory fields, database backup settings, restore, portfolio reset, and audit history.",
+          "Admin Settings is grouped into General, Integrations, and Operations so routine configuration stays separate from API, webhook, integration capability, database backup, restore, and reset work.",
           "My Settings remains user-specific and covers personal preferences such as display currency, number/date/time formats, time zone, session timeout, appearance, and saved license views.",
         ],
       },
@@ -324,15 +324,31 @@ const HELP_ARTICLES = [
         heading: "How it works",
         body: [
           "LicenseTrack uses SQLite online backup to create a consistent database snapshot, compresses it, stores it in the configured database backup directory, and prunes old database backups according to retention settings.",
-          "During restore, LicenseTrack validates the uploaded database backup, creates a pre-restore safety snapshot, replaces the live database, and may restart the process depending on server configuration.",
+          "Restore offers two sources: select a validated archive already stored in the configured server backup directory, or upload an off-host archive from the administrator's computer.",
+          "During a routine database restore, LicenseTrack validates the SQLite database, creates a pre-restore database safety snapshot, replaces the live database, and may restart the process depending on server configuration.",
+          "Portfolio-recovery and pre-restore safety archives contain managed documents as well. LicenseTrack creates a fresh database-and-document safety archive, restores both data stores, and rolls document folders back if database restoration fails.",
         ],
       },
       {
         heading: "Important",
         bullets: [
-          "Application database backups include the database only.",
+          "Routine application database backups include the database only.",
           "Uploaded documents are data files on disk and must be backed up separately from the storage directory or full data volume.",
           "The database backup directory must exist or have a creatable parent path.",
+          "Server restore accepts only archives listed from the configured backup directory; arbitrary server paths are never accepted.",
+        ],
+      },
+      {
+        heading: "Reset portfolio data",
+        body: [
+          "Reset Portfolio Data is intended for clearing imports and test activity before go-live. It deletes current and historical licenses, sourcing requests and items, pending orders, contracts, associated documents, processing results, webhook delivery history, and prior audit events.",
+          "Before deletion, LicenseTrack creates and verifies a separate recovery archive containing a WAL-safe database snapshot plus managed license, sourcing, procurement, and contract documents. The reset is blocked if this archive cannot be created. That server-side archive can later be selected in Restore Database to recover both database rows and managed documents.",
+        ],
+        bullets: [
+          "Users, roles, personal and global settings, custom-field definitions, import mappings, API tokens, webhook definitions, integrations, Official Extensions, and existing backup files are preserved.",
+          "The next generated license reference restarts at LT-REF-00001. Internal database IDs are not reset.",
+          "The prior audit log is replaced by one system.portfolio_reset event containing the archive name and deleted record counts.",
+          "Only an admin session can execute the reset, and the exact RESET PORTFOLIO confirmation phrase is required.",
         ],
       },
     ],

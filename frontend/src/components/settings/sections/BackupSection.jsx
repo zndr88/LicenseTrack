@@ -7,6 +7,12 @@ import Icon from "../../ui/Icon.jsx";
 import Toggle from "../../ui/Toggle.jsx";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
 
+function archiveTypeLabel(archive) {
+  if (archive.archive_type === "portfolio_reset_recovery") return "Portfolio recovery";
+  if (archive.archive_type === "document_restore_safety") return "Pre-restore safety";
+  return "Database";
+}
+
 export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, onError, onToast, navGuard, userSettings }) {
   const [saving, setSaving] = useState(false);
   const [backupList, setBackupList] = useState([]);
@@ -118,11 +124,12 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
               <p className="set-muted-text">Loading database backups...</p>
             ) : backupList.length > 0 ? (
               <div className="set-backup-list">
-                <p className="set-backup-title">Recent Database Backups</p>
+                <p className="set-backup-title">Available Server Archives</p>
                 <table className="set-backup-table">
                   <thead>
                     <tr>
                       <th scope="col">Filename</th>
+                      <th scope="col">Type</th>
                       <th scope="col">Size</th>
                       <th scope="col">Created</th>
                     </tr>
@@ -131,6 +138,7 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
                     {backupList.map((b) => (
                       <tr key={b.filename}>
                         <td className="set-backup-filename">{b.filename}</td>
+                        <td>{archiveTypeLabel(b)}</td>
                         <td>{formatFileSize(b.size_bytes, userSettings)}</td>
                         <td>{formatDateTime(new Date(b.created_at * 1000).toISOString(), userSettings)}</td>
                       </tr>
@@ -139,7 +147,7 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
                 </table>
               </div>
             ) : (
-              <p className="set-muted-text">No database backups found in the configured location.</p>
+              <p className="set-muted-text">No restorable server archives found in the configured location.</p>
             )}
           </div>
         </div>

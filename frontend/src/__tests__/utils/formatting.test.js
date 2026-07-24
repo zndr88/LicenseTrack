@@ -196,6 +196,14 @@ describe("formatDateTime", () => {
       timeZone: "Europe/Brussels",
     })).toBe("01/01/2026 00:30");
   });
+
+  it("treats offsetless server timestamps as UTC before applying the user time zone", () => {
+    expect(formatDateTime("2026-07-23T15:53:00", {
+      dateFormat: "DD/MM/YYYY",
+      timeFormat: "24h",
+      timeZone: "Europe/Amsterdam",
+    })).toBe("23/07/2026 17:53");
+  });
 });
 
 // ── formatNumber ─────────────────────────────────────────────────────────────

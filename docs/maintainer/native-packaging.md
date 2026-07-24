@@ -84,7 +84,7 @@ packaging failures are caught before a release tag is created.
 
 - `install.sh` and `upgrade.sh` are small Bash entrypoints.
 - `packaging/native/libexec/select_python.sh` discovers the distribution's supported CPython interpreter, honors an explicit `PYTHON_BIN`, verifies venv support, and rejects an offline bundle that lacks the selected ABI.
-- `packaging/native/libexec/installer.py` owns manifest/runtime compatibility validation, staging, configuration, service installation, backups, migrations, health checks, automatic rollback, and operator-initiated rollback.
+- `packaging/native/libexec/installer.py` owns manifest/runtime compatibility validation, staging, configuration, service installation and upgrade refresh, backups, migrations, health checks, automatic rollback, and operator-initiated rollback.
 - Compatibility validation accepts exactly CPython 3.12, 3.13, and 3.14. For manifest v2 bundles it checks Linux/x86_64, the declared Python range, included ABI directories, and checksum coverage before any host mutation.
 - A fresh install defaults to Standard mode. Advanced mode changes only the initial questionnaire and the resulting protected environment; it does not create a separate installation layout or upgrade path.
 - Every Advanced questionnaire value has a non-interactive CLI equivalent. `--yes` must never cause a prompt and defaults to Standard unless `--advanced` is explicit.

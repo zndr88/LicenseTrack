@@ -169,7 +169,12 @@ export function formatDate(isoDate, settings) {
  */
 export function formatDateTime(iso, settings) {
   if (!iso) return "";
-  const d = new Date(iso);
+  const text = String(iso).trim();
+  const offsetlessServerDateTime = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(text);
+  const normalizedIso = offsetlessServerDateTime
+    ? `${text.replace(" ", "T")}Z`
+    : text;
+  const d = new Date(normalizedIso);
   if (isNaN(d.getTime())) return iso;
 
   const timeZone = settings?.timeZone || "UTC";

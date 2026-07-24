@@ -36,6 +36,12 @@ Suggested reviews include:
 ## Retention and operational logs
 
 Audit retention is configured in Admin Settings and pruned by background work.
+
+Reset Portfolio Data is the deliberate exception to ordinary retention. It
+clears the pre-reset audit history together with the test portfolio and then
+writes one new `system.portfolio_reset` event containing the recovery archive
+name and deleted record counts. The recovery archive retains the pre-reset
+database and managed documents.
 Reducing retention can remove older audit rows after the next prune cycle.
 
 !!! note

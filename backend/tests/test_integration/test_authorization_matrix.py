@@ -97,6 +97,12 @@ UNAUTHENTICATED_READ_ROUTES = [
     RouteCase("GET", "/api/users"),
     RouteCase("GET", "/api/settings/global"),
     RouteCase("GET", "/api/backup/list"),
+    RouteCase(
+        "POST",
+        "/api/backup/restore-server",
+        lambda: {"json": {"filename": "license_lifecycle_backup_missing.zip"}},
+    ),
+    RouteCase("GET", "/api/operations/portfolio-reset/preview"),
     RouteCase("GET", "/api/contracts"),
     RouteCase("GET", "/api/licenses/1/documents"),
     RouteCase("GET", "/api/sourcing"),
@@ -162,6 +168,12 @@ ADMIN_ONLY_ROUTES = [
     RouteCase("GET", "/api/settings/global"),
     RouteCase("PUT", "/api/settings/global", lambda: {"json": {"notification_days": 60}}),
     RouteCase("GET", "/api/backup/list"),
+    RouteCase(
+        "POST",
+        "/api/backup/restore-server",
+        lambda: {"json": {"filename": "license_lifecycle_backup_missing.zip"}},
+    ),
+    RouteCase("GET", "/api/operations/portfolio-reset/preview"),
     RouteCase("GET", "/api/audit-log"),
     RouteCase("POST", "/api/import/mappings", lambda: {"json": {
         "name": "Admin Mapping",

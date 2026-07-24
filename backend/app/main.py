@@ -68,6 +68,7 @@ from app.routes import (
     plugin_suggestions,
     licenses,
     notifications,
+    operations,
     pending_orders,
     plugins,
     renewals,
@@ -313,6 +314,7 @@ app.include_router(renewals.router)
 app.include_router(csv_import.router)
 app.include_router(import_mappings.router)
 app.include_router(backup.router)
+app.include_router(operations.router)
 app.include_router(contracts.router)
 app.include_router(contract_folders.router)
 app.include_router(contract_documents.router)

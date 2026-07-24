@@ -11,8 +11,8 @@ WorkingDirectory=@CURRENT_LINK@/backend
 EnvironmentFile=@CONFIG_FILE@
 Environment=PYTHONUNBUFFERED=1
 ExecStart=@CURRENT_LINK@/venv/bin/python -m uvicorn app.main:app --host @BIND_HOST@ --port @PORT@ --workers 1
-Restart=on-failure
-RestartSec=5s
+Restart=always
+RestartSec=2s
 TimeoutStartSec=120s
 TimeoutStopSec=90s
 KillMode=mixed

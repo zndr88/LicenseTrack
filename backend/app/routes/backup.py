@@ -3,9 +3,11 @@ Backup and restore endpoints (admin only).
 
 POST /api/backup/trigger   - create a backup immediately
 POST /api/backup/restore   - upload a .zip and restore the database
+POST /api/backup/restore-server - restore an allow-listed server archive
 GET  /api/backup/list      - list available backup files
 """
 
+import asyncio
 import logging
 import os
 import signal
@@ -17,6 +19,7 @@ log = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTask
@@ -27,10 +30,21 @@ from app.dependencies import require_admin
 from app.models.settings import GlobalSettings
 from app.models.user import User
 from app.services.audit_service import log_event
+from app.services.backup_service import (
+    create_document_restore_safety_archive,
+    inspect_backup_archive,
+    list_server_backup_archives,
+    resolve_server_backup_archive,
+    restore_backup_archive,
+)
 
 router = APIRouter(prefix="/api/backup", tags=["backup"])
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+
+class ServerRestoreRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=500)
 
 
 def _terminate_process_after_restore() -> None:
@@ -87,9 +101,6 @@ async def restore_backup(
     When configured, the process is sent SIGTERM after the response so the
     process manager restarts it.
     """
-    import zipfile as zipmod
-    from app.services.backup_service import restore_backup as do_restore
-
     if not (file.filename or "").lower().endswith(".zip"):
         raise HTTPException(status_code=422, detail="File must be a .zip archive.")
 
@@ -115,29 +126,83 @@ async def restore_backup(
             detail=f"File exceeds the maximum allowed size of {_settings.MAX_UPLOAD_SIZE_MB} MB.",
         )
 
-    # Validate the zip contains a .db file before touching anything
-    try:
-        import io
-
-        with zipmod.ZipFile(io.BytesIO(content), "r") as zf:
-            db_files = [n for n in zf.namelist() if n.endswith(".db")]
-        if not db_files:
-            raise HTTPException(status_code=422, detail="No .db file found inside the backup zip.")
-    except zipmod.BadZipFile:
-        raise HTTPException(status_code=422, detail="Uploaded file is not a valid zip archive.")
-
     # Write to a temp file and restore
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
         tmp.write(content)
         tmp_path = Path(tmp.name)
 
-    # Log the restore event BEFORE overwriting the database file.
-    # Use a separate session so the audit row is committed independently
-    # (do_restore replaces the DB file on disk, so the main session is unusable afterwards).
+    try:
+        return await _perform_restore(tmp_path, request, db, _admin)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+@router.post("/restore-server", status_code=200)
+async def restore_server_backup(
+    payload: ServerRestoreRequest,
+    request: Request,
+    db: DbSession,
+    _admin: User = Depends(require_admin),
+):
+    """Restore an exact archive selected from the configured server backup directory."""
+    gs = await _get_global_settings(db)
+    try:
+        archive_path = resolve_server_backup_archive(gs.backup_location, payload.filename)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Server backup archive was not found.")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid server backup selection.")
+    return await _perform_restore(archive_path, request, db, _admin)
+
+
+async def _perform_restore(
+    archive_path: Path,
+    request: Request,
+    db: AsyncSession,
+    admin: User,
+):
+    try:
+        archive_info = inspect_backup_archive(archive_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    gs = await _get_global_settings(db)
+    storage_location = gs.storage_path or settings.STORAGE_PATH
+    safety_archive = None
+    if archive_info["includes_documents"]:
+        from app.services.portfolio_reset_service import (
+            portfolio_counts,
+            portfolio_document_paths,
+        )
+
+        counts = await portfolio_counts(db)
+        document_paths = await portfolio_document_paths(db)
+        try:
+            safety_archive = await asyncio.to_thread(
+                create_document_restore_safety_archive,
+                gs.backup_location,
+                storage_location,
+                counts,
+                document_paths,
+            )
+        except Exception as exc:
+            log.error("Pre-restore database-and-document archive failed: %s", exc, exc_info=True)
+            raise HTTPException(status_code=500, detail="Restore safety archive failed. Check server logs.")
+
+    # Log before replacing the database. Use a separate session because the
+    # request session and engine are closed immediately afterward.
     ip = request.client.host if request.client else None
     try:
         async with AsyncSessionLocal() as audit_db:
-            await log_event(audit_db, "system.backup_restored", actor=_admin, ip_address=ip)
+            await log_event(
+                audit_db,
+                "system.backup_restored",
+                actor=admin,
+                ip_address=ip,
+                target_type="backup",
+                target_label=archive_path.name,
+                detail=f"archiveType={archive_info['archive_type']}",
+            )
             await audit_db.commit()
     except Exception as exc:
         log.warning("Could not audit database restore before overwrite: %s", exc, exc_info=True)
@@ -147,22 +212,28 @@ async def restore_backup(
     await db.close()
     try:
         await _engine.dispose()
-        do_restore(tmp_path)
+        restore_result = restore_backup_archive(
+            archive_path,
+            storage_location=storage_location,
+            safety_archive=safety_archive,
+        )
     except Exception as exc:
         log.error("Backup restore failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="Restore failed. Check server logs.")
-    finally:
-        tmp_path.unlink(missing_ok=True)
 
+    response_data = {
+        "status": "restore_completed",
+        "restart_scheduled": False,
+        **restore_result,
+    }
     if not settings.RESTART_AFTER_RESTORE:
         log.info("Restore complete; RESTART_AFTER_RESTORE=false, keeping the API process running.")
-        return {"status": "restore_completed", "restart_scheduled": False}
+        return response_data
 
+    response_data.update(status="restore_initiated", restart_scheduled=True)
     # Signal the process manager only after the response body has been sent.
-    # Killing the process inline can reset the HTTP connection, making a
-    # successful restore look like a 502/ECONNRESET to the browser.
     return JSONResponse(
-        {"status": "restore_initiated", "restart_scheduled": True},
+        response_data,
         background=BackgroundTask(_terminate_process_after_restore),
     )
 
@@ -174,22 +245,4 @@ async def list_backups(
 ) -> list[dict]:
     """List all backup zip files in the configured backup location (admin only)."""
     gs = await _get_global_settings(db)
-    backup_dir = Path(gs.backup_location).resolve()
-
-    if not backup_dir.exists():
-        return []
-
-    backups = sorted(
-        backup_dir.glob("license_lifecycle_backup_*.zip"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-
-    return [
-        {
-            "filename": p.name,
-            "size_bytes": p.stat().st_size,
-            "created_at": p.stat().st_mtime,
-        }
-        for p in backups[:10]
-    ]
+    return list_server_backup_archives(gs.backup_location)[:25]

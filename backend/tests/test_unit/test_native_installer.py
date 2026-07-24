@@ -621,6 +621,8 @@ def test_service_and_cli_templates_resolve_all_placeholders(tmp_path: Path):
     cli = installer.render_template(template_root / "licensetrack-cli.in", replacements)
     assert "@" not in service
     assert "--workers 1" in service
+    assert "Restart=always" in service
+    assert "RestartSec=2s" in service
     assert "native/libexec/native_operator.py" in cli
     assert "native/libexec/installer.py" in cli
     assert "rollback --state-file" in cli
@@ -647,6 +649,7 @@ def test_service_template_preserves_runtime_privilege_boundary(tmp_path: Path):
     assert "PrivateTmp=true" in service
     assert "ProtectSystem=full" in service
     assert "ProtectHome=true" in service
+    assert "Restart=always" in service
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX file modes are required")

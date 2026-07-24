@@ -66,6 +66,21 @@ describe("frontend API endpoint contracts", () => {
     expect(client.post.mock.calls.at(-1)[0]).toBe("/api/backup/restore");
     expect(client.post.mock.calls.at(-1)[1]).toBeInstanceOf(FormData);
 
+    await settingsApi.restoreServerBackup("license_lifecycle_backup_20260724.zip");
+    expect(client.post).toHaveBeenLastCalledWith(
+      "/api/backup/restore-server",
+      { filename: "license_lifecycle_backup_20260724.zip" },
+    );
+
+    await settingsApi.previewPortfolioReset();
+    expect(client.get).toHaveBeenLastCalledWith("/api/operations/portfolio-reset/preview");
+
+    await settingsApi.resetPortfolio("RESET PORTFOLIO");
+    expect(client.post).toHaveBeenLastCalledWith(
+      "/api/operations/portfolio-reset",
+      { confirmation: "RESET PORTFOLIO" },
+    );
+
     await settingsApi.createApiToken({ name: "CMDB", scopes: ["licenses:read"] });
     expect(client.post).toHaveBeenLastCalledWith("/api/api-tokens", { name: "CMDB", scopes: ["licenses:read"] });
 

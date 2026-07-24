@@ -347,6 +347,8 @@ export default function PendingOrdersPage({
               estimatedUnitPrice: itemForm.estimatedUnitPrice || null,
               estimatedTotalPrice: itemForm.estimatedTotalPrice || null,
               currency: itemForm.currency || "EUR",
+              startDate: itemForm.startDate || null,
+              endDate: itemForm.endDate || null,
               supplier: itemForm.supplier || null,
               contactEmail: itemForm.contactEmail || null,
               notes: itemForm.notes || null,

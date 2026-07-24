@@ -88,6 +88,9 @@ vi.mock("../api/settings.js", () => ({
   triggerBackup: vi.fn(),
   listBackups: vi.fn(),
   restoreBackup: vi.fn(),
+  restoreServerBackup: vi.fn(),
+  previewPortfolioReset: vi.fn(),
+  resetPortfolio: vi.fn(),
   listCustomFields: vi.fn(),
   createCustomField: vi.fn(),
   updateCustomField: vi.fn(),
@@ -184,13 +187,15 @@ vi.mock("../components/contracts/ContractModal.jsx", () => ({
 }));
 
 vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
-  default: ({ onSave, onCancel }) => (
+  default: ({ item, onSave, onCancel }) => (
     <div role="dialog" aria-label="Sourcing item form">
       <button onClick={() => onSave({
         publisherName: "Created Publisher",
         softwareDescription: "Created Sourcing App",
         quantity: "3",
         currency: "EUR",
+        startDate: item?.startDate,
+        endDate: item?.endDate,
       })}>
         Save sourcing item
       </button>
@@ -305,6 +310,40 @@ function setupDefaultApiMocks() {
   contractsApi.getContracts.mockResolvedValue({ data: [], error: null });
   settingsApi.listCustomFields.mockResolvedValue({ data: [], error: null });
   settingsApi.listBackups.mockResolvedValue({ data: [], error: null });
+  settingsApi.previewPortfolioReset.mockResolvedValue({
+    data: {
+      counts: {
+        licenses: 0,
+        sourcing_requests: 0,
+        sourcing_items: 0,
+        pending_orders: 0,
+        contracts: 0,
+        documents: 0,
+        audit_events: 0,
+      },
+      confirmation: "RESET PORTFOLIO",
+      next_license_ref: "LT-REF-00001",
+    },
+    error: null,
+  });
+  settingsApi.resetPortfolio.mockResolvedValue({
+    data: {
+      status: "completed",
+      archive_filename: "license_lifecycle_pre_portfolio_reset_test.zip",
+      storage_cleanup_failed: false,
+      next_license_ref: "LT-REF-00001",
+    },
+    error: null,
+  });
+  settingsApi.restoreServerBackup.mockResolvedValue({
+    data: {
+      status: "restore_initiated",
+      restart_scheduled: true,
+      archive_type: "portfolio_reset_recovery",
+      restored_documents: true,
+    },
+    error: null,
+  });
   csvImportApi.listImportMappings.mockResolvedValue({ data: [], error: null });
   usersApi.getUsers.mockResolvedValue({ data: [], error: null });
   usersApi.getDepartments.mockResolvedValue({ data: [], error: null });
@@ -613,6 +652,106 @@ describe("SettingsPage workflows", () => {
     await user.click(screen.getByRole("button", { name: /Operations/i }));
     expect(screen.getByRole("button", { name: /^Database Backup Scheduled/i })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Restore Database/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Reset Portfolio Data/i }).length).toBeGreaterThan(0);
+  });
+
+  test("requires the typed phrase before resetting the complete portfolio", async () => {
+    const user = userEvent.setup();
+    const onToast = vi.fn();
+    const onPortfolioReset = vi.fn();
+
+    render(
+      <SettingsPage
+        userSettings={userSettings}
+        setUserSettings={vi.fn()}
+        globalSettings={globalSettings}
+        setGlobalSettings={vi.fn()}
+        user={admin}
+        onError={vi.fn()}
+        onToast={onToast}
+        onPortfolioReset={onPortfolioReset}
+        _adminOnly
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Operations/i }));
+    await user.click(screen.getByRole("button", { name: /Reset Portfolio Data Start/i }));
+    await user.click(screen.getByRole("button", { name: /Review Portfolio Reset/i }));
+
+    expect(await screen.findByText(/including completed and cancelled history/i)).toBeInTheDocument();
+    const resetButton = screen.getByRole("button", { name: /^Reset Portfolio Data$/i });
+    expect(resetButton).toBeDisabled();
+
+    await user.type(screen.getByLabelText(/Type RESET PORTFOLIO to confirm/i), "RESET PORTFOLIO");
+    expect(resetButton).toBeEnabled();
+    await user.click(resetButton);
+
+    await waitFor(() => {
+      expect(settingsApi.resetPortfolio).toHaveBeenCalledWith("RESET PORTFOLIO");
+    });
+    expect(onPortfolioReset).toHaveBeenCalled();
+    expect(onToast).toHaveBeenCalledWith(
+      expect.stringContaining("license_lifecycle_pre_portfolio_reset_test.zip"),
+      "success",
+    );
+  });
+
+  test("restores a selected server archive while keeping file upload available", async () => {
+    const user = userEvent.setup();
+    const onToast = vi.fn();
+    settingsApi.listBackups.mockResolvedValue({
+      data: [
+        {
+          filename: "license_lifecycle_pre_portfolio_reset_20260724.zip",
+          size_bytes: 2048,
+          created_at: 1784880000,
+          archive_type: "portfolio_reset_recovery",
+          includes_documents: true,
+        },
+        {
+          filename: "license_lifecycle_backup_20260723.zip",
+          size_bytes: 1024,
+          created_at: 1784793600,
+          archive_type: "database_backup",
+          includes_documents: false,
+        },
+      ],
+      error: null,
+    });
+
+    render(
+      <SettingsPage
+        userSettings={userSettings}
+        setUserSettings={vi.fn()}
+        globalSettings={globalSettings}
+        setGlobalSettings={vi.fn()}
+        user={admin}
+        onError={vi.fn()}
+        onToast={onToast}
+        _adminOnly
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Operations/i }));
+    await user.click(screen.getAllByRole("button", { name: /Restore Database/i })[0]);
+
+    expect(await screen.findByLabelText(/Server Archive/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Backup File \(\.zip\)/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Portfolio recovery/i).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: /Restore Selected Archive/i }));
+    expect(await screen.findByText(/database and managed documents/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Restore Archive$/i }));
+
+    await waitFor(() => {
+      expect(settingsApi.restoreServerBackup).toHaveBeenCalledWith(
+        "license_lifecycle_pre_portfolio_reset_20260724.zip",
+      );
+    });
+    expect(onToast).toHaveBeenCalledWith(
+      "Database and document restore initiated - the server is restarting and may be unavailable for about 10 seconds.",
+      "info",
+    );
   });
 
   test("saves appearance settings and reports API errors through toast callbacks", async () => {
@@ -1357,6 +1496,56 @@ describe("SourcingPage workflows", () => {
 });
 
 describe("PendingOrdersPage workflows", () => {
+  test("preserves start and end dates when editing a pending-order line", async () => {
+    const user = userEvent.setup();
+    const item = {
+      id: 41,
+      publisherName: "Dated Publisher",
+      softwareDescription: "Dated App",
+      quantity: "3",
+      currency: "EUR",
+      startDate: "2026-03-01",
+      endDate: "2027-02-28",
+      status: "converted",
+      quoteDocuments: [],
+    };
+    const order = {
+      id: 4,
+      poNumber: "PO-DATED",
+      supplier: "Dated Supplier",
+      status: "pending",
+      items: [item],
+      documents: [],
+      createdAt: "2026-02-01T00:00:00Z",
+    };
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: [order], error: null });
+    pendingOrdersApi.updatePendingOrderItem.mockResolvedValueOnce({ data: order, error: null });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    await user.click(await screen.findByText("PO-DATED"));
+    await user.click(screen.getAllByRole("button", { name: /^edit$/i })[1]);
+    await user.click(screen.getByRole("button", { name: /save sourcing item/i }));
+
+    await waitFor(() => {
+      expect(pendingOrdersApi.updatePendingOrderItem).toHaveBeenCalledWith(
+        4,
+        41,
+        expect.objectContaining({
+          startDate: "2026-03-01",
+          endDate: "2027-02-28",
+        }),
+      );
+    });
+  });
+
   test("covers loading, empty, error callback, search, and adding a PO", async () => {
     const user = userEvent.setup();
     const pending = deferred();

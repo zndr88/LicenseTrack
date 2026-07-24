@@ -88,9 +88,9 @@ export async function triggerBackup() {
 }
 
 /**
- * List available database backup files (admin only).
+ * List restorable archives in the configured server backup directory (admin only).
  *
- * @returns {Promise<{ data: Array<{ filename: string, size_bytes: number, created_at: number }> | null, error: string | null }>}
+ * @returns {Promise<{ data: Array<{ filename: string, size_bytes: number, created_at: number, archive_type: string, includes_documents: boolean }> | null, error: string | null }>}
  */
 export async function listBackups() {
   return get("/api/backup/list");
@@ -100,13 +100,31 @@ export async function listBackups() {
  * Upload a database backup zip and restore the database (admin only).
  * Depending on backend configuration, the server may restart after a successful restore.
  *
- * @param {File} file - .zip database backup file
- * @returns {Promise<{ data: { status: string, restart_scheduled?: boolean } | null, error: string | null }>}
+ * @param {File} file - .zip database backup or recovery archive
+ * @returns {Promise<{ data: { status: string, restart_scheduled?: boolean, archive_type?: string, restored_documents?: boolean } | null, error: string | null }>}
  */
 export async function restoreBackup(file) {
   const formData = new FormData();
   formData.append("file", file);
   return post("/api/backup/restore", formData);
+}
+
+/** Restore an exact archive selected from the configured server backup directory. */
+export async function restoreServerBackup(filename) {
+  return post("/api/backup/restore-server", { filename });
+}
+
+/** Review the fixed scope and affected record counts for a portfolio reset. */
+export async function previewPortfolioReset() {
+  return get("/api/operations/portfolio-reset/preview");
+}
+
+/**
+ * Delete portfolio, procurement, contract, document, and audit data while
+ * preserving users and application configuration.
+ */
+export async function resetPortfolio(confirmation) {
+  return post("/api/operations/portfolio-reset", { confirmation });
 }
 
 // Custom field definitions (admin only)
