@@ -19,6 +19,7 @@ import {
 } from "../../api/pendingOrders.js";
 import { downloadSourcingQuoteDocument } from "../../api/sourcing.js";
 import { queryKeys } from "../../queryKeys.js";
+import { invalidateProcurementRenewalState } from "../../queryInvalidation.js";
 import { fetchLicensesData } from "./licenses/useLicensesPageData.js";
 import { getLicensesFromQueryData } from "../../utils/licenseQueryData.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
@@ -129,10 +130,7 @@ export function usePendingOrdersData({
   const handleCancelPendingOrder = useCallback(async (id) => {
     const { error } = await apiCancelPendingOrder(id);
     if (error) { showError(error); return false; }
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory }),
-    ]);
+    await invalidateProcurementRenewalState(queryClient);
     onPortfolioStateChange?.();
     onRenewalsReload?.();
     showSuccess("Pending order moved to history.");
@@ -223,10 +221,7 @@ export function usePendingOrdersData({
     const { data, error } = await apiDeletePendingOrderItem(orderId, itemId);
     if (error) { showError(error); return false; }
     if (data?.status === "cancelled") {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory }),
-      ]);
+      await invalidateProcurementRenewalState(queryClient);
       onPortfolioStateChange?.();
       onRenewalsReload?.();
       showSuccess("Last PO line deleted. Pending order moved to history.");
@@ -235,6 +230,7 @@ export function usePendingOrdersData({
     queryClient.setQueryData(queryKeys.pendingOrders, (prev) =>
       (prev ?? []).map((order) => order.id === data.id ? data : order)
     );
+    await invalidateProcurementRenewalState(queryClient);
     onPortfolioStateChange?.();
     onRenewalsReload?.();
     return true;

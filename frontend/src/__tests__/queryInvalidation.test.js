@@ -5,6 +5,7 @@ import {
   invalidateContracts,
   invalidateCustomFieldDefinitions,
   invalidateNotifications,
+  invalidateProcurementRenewalState,
   invalidateRenewalWorkflow,
 } from "../queryInvalidation.js";
 import { queryKeys } from "../queryKeys.js";
@@ -29,8 +30,30 @@ describe("query invalidation helpers", () => {
 
     expect(queryClient.invalidateQueries.mock.calls.map(([arg]) => arg.queryKey)).toEqual([
       queryKeys.licenses,
+      queryKeys.licenseStats,
       queryKeys.sourcing,
+      queryKeys.sourcingHistory,
       queryKeys.sourcingItems,
+      queryKeys.renewals,
+      queryKeys.portfolioStats,
+      queryKeys.reportsPortfolioStats,
+      queryKeys.notifications,
+    ]);
+  });
+
+  test("invalidates every cache touched by procurement lifecycle mutations", async () => {
+    const queryClient = makeQueryClient();
+
+    await invalidateProcurementRenewalState(queryClient);
+
+    expect(queryClient.invalidateQueries.mock.calls.map(([arg]) => arg.queryKey)).toEqual([
+      queryKeys.licenses,
+      queryKeys.licenseStats,
+      queryKeys.sourcing,
+      queryKeys.sourcingHistory,
+      queryKeys.sourcingItems,
+      queryKeys.pendingOrders,
+      queryKeys.pendingOrderHistory,
       queryKeys.renewals,
       queryKeys.portfolioStats,
       queryKeys.reportsPortfolioStats,

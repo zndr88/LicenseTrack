@@ -13,6 +13,7 @@ import {
   updateSourcingItem as apiUpdateSourcingItem,
   uploadSourcingQuoteDocument,
 } from "../../../api/sourcing.js";
+import { invalidateProcurementRenewalState } from "../../../queryInvalidation.js";
 
 function invalidateSourcingCaches(queryClient) {
   return Promise.all([
@@ -57,7 +58,7 @@ export function useSourcingActions({
   const handleDeleteSourcingItem = useCallback(async (id) => {
     const { error } = await apiDeleteSourcingItem(id);
     if (error) { showToast(error, "error"); return false; }
-    await invalidateSourcingCaches(queryClient);
+    await invalidateProcurementRenewalState(queryClient);
     onRenewalsReload?.();
     onPortfolioStateChange?.();
     return true;
@@ -66,7 +67,7 @@ export function useSourcingActions({
   const handleDeleteSourcingRequest = useCallback(async (request) => {
     const { error } = await apiDeleteSourcingRequest(request.id);
     if (error) { showToast(error, "error"); return false; }
-    await invalidateSourcingCaches(queryClient);
+    await invalidateProcurementRenewalState(queryClient);
     onRenewalsReload?.();
     onPortfolioStateChange?.();
     showToast("Sourcing request deleted. Linked renewal processing was cancelled where applicable.", "success");
@@ -76,7 +77,7 @@ export function useSourcingActions({
   const handleCancelSourcingRequest = useCallback(async (request) => {
     const { error } = await apiCancelSourcingRequest(request.id);
     if (error) { showToast(error, "error"); return false; }
-    await invalidateSourcingCaches(queryClient);
+    await invalidateProcurementRenewalState(queryClient);
     onRenewalsReload?.();
     onPortfolioStateChange?.();
     showToast("Sourcing request moved to history.", "success");
