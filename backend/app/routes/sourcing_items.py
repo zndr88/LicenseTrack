@@ -20,10 +20,12 @@ from app.schemas.sourcing import (
 from app.services.audit_service import diff_fields, log_event
 from app.services.money import MoneyParseError
 from app.services.sourcing_service import (
+    apply_sourcing_item_update,
     assert_sourcing_item_editable,
     build_merged_sourcing_item,
     delete_empty_sourcing_requests,
     ensure_sourcing_request_for_item,
+    get_sourcing_request_for_update_or_404,
     handle_delete_side_effects,
     refresh_sourcing_request_status,
 )
@@ -109,7 +111,10 @@ async def merge_coterm_sourcing_items(
         raise HTTPException(status_code=400, detail="At least two sourcing item IDs are required to merge")
 
     result = await db.execute(
-        select(SourcingItem).where(SourcingItem.id.in_(payload.sourcing_item_ids)).with_for_update()
+        select(SourcingItem)
+        .where(SourcingItem.id.in_(payload.sourcing_item_ids))
+        .options(selectinload(SourcingItem.sourcing_request))
+        .with_for_update()
     )
     items = list(result.scalars().all())
 
@@ -250,16 +255,44 @@ async def update_sourcing_item(
         raise HTTPException(status_code=404, detail="Sourcing item not found")
     assert_sourcing_item_editable(item)
 
+    sourcing_request = (
+        await get_sourcing_request_for_update_or_404(db, item.sourcing_request_id)
+        if item.sourcing_request_id is not None
+        else None
+    )
     before = {c.name: getattr(item, c.name) for c in item.__table__.columns}
+    request_before = (
+        {c.name: getattr(sourcing_request, c.name) for c in sourcing_request.__table__.columns}
+        if sourcing_request is not None
+        else None
+    )
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
     if update_data.get("license_type", item.license_type) == LicenseType.freeware:
         update_data["estimated_unit_price"] = None
         update_data["estimated_total_price"] = None
-    for field, value in update_data.items():
-        setattr(item, field, value)
+    apply_sourcing_item_update(item, sourcing_request, update_data)
     after = {c.name: getattr(item, c.name) for c in item.__table__.columns}
 
-    diff = diff_fields(before, after)
+    diff = diff_fields(
+        before,
+        after,
+        exclude={"supplier", "contact_email"} if sourcing_request is not None else None,
+    )
+    if request_before is not None:
+        request_after = {c.name: getattr(sourcing_request, c.name) for c in sourcing_request.__table__.columns}
+        request_diff = diff_fields(request_before, request_after)
+        if request_diff:
+            ip = request.client.host if request.client else None
+            await log_event(
+                db,
+                "sourcing_request.updated",
+                actor=_editor,
+                ip_address=ip,
+                target_type="sourcing_request",
+                target_id=str(sourcing_request.id),
+                target_label=sourcing_request.supplier or f"Sourcing request {sourcing_request.id}",
+                detail=request_diff,
+            )
     if diff:
         ip = request.client.host if request.client else None
         await log_event(

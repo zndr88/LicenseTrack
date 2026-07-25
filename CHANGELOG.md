@@ -33,6 +33,11 @@ contracts will be called out under a **Breaking** heading in future releases.
   and backend persistence contract, explicit conversion-time overrides remain
   authoritative, and maintenance type, metric, and parent requirements continue
   to be enforced.
+- Enforced one human-editable target supplier across each sourcing request and
+  pending order. Renewal history remains unchanged when procurement selects a
+  different supplier, unresolved renewal bundles and coterm merges remain
+  unassigned, and resulting licenses use the actual pending-order supplier
+  instead of stale sourcing or predecessor values.
 - Standardized renewal workbench, coterm, and procurement calculations on
   Decimal arithmetic. Fractional quantities and configured precision are
   retained, invalid numeric values are reported or rejected instead of silently

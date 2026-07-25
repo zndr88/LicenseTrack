@@ -313,11 +313,35 @@ def test_merged_item_inherits_fields_from_primary_item():
     assert merged.software_description == "Primary Suite"
     assert merged.license_type == LicenseType.saas
     assert merged.currency == "USD"
-    assert merged.supplier == "Primary Vendor"
-    assert merged.contact_email == "primary@example.com"
+    assert merged.supplier is None
+    assert merged.contact_email is None
     assert merged.estimated_unit_price == "100.00"
     assert merged.created_by == 7
     assert merged.status == SourcingStatus.sourcing
+
+
+def test_merged_item_retains_common_request_supplier_and_contact():
+    pred_primary = make_pred(id=1, start_date=date(2020, 1, 1))
+    pred_other = make_pred(id=2, start_date=date(2022, 1, 1))
+    primary_item = make_item_for(pred_primary, supplier="Stale line supplier")
+    other_item = make_item_for(pred_other, supplier="Another stale line supplier")
+    primary_item.sourcing_request = SourcingRequest(
+        supplier="Common Reseller",
+        contact_email="buyer@example.com",
+    )
+    other_item.sourcing_request = SourcingRequest(
+        supplier="common reseller",
+        contact_email="BUYER@example.com",
+    )
+
+    merged = build_merged_sourcing_item(
+        [primary_item, other_item],
+        [pred_primary, pred_other],
+        created_by=7,
+    )
+
+    assert merged.supplier == "Common Reseller"
+    assert merged.contact_email == "buyer@example.com"
 
 
 def test_merged_item_falls_back_to_deterministic_primary_predecessor_type():
@@ -501,7 +525,7 @@ async def test_creates_new_pending_order_when_none_provided(db_session):
 
 @pytest.mark.asyncio
 async def test_attaches_to_existing_pending_order(db_session):
-    po = make_pending_order(po_number="PO-EXISTING")
+    po = make_pending_order(po_number="PO-EXISTING", supplier="Acme Supplier")
     item = make_sourcing_item()
     db_session.add_all([po, item])
     await db_session.flush()

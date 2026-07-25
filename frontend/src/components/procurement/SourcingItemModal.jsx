@@ -79,6 +79,7 @@ function normalizeOptionalNumber(value, settings) {
 const SourcingItemModal = ({
   item,
   requestId,
+  sourcingRequest,
   userSettings,
   title,
   onSave,
@@ -86,7 +87,12 @@ const SourcingItemModal = ({
 }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const pendingOrderId = item?.pendingOrderId ?? item?.pending_order_id ?? null;
-  const sourcingRequestId = item?.sourcingRequestId ?? item?.sourcing_request_id ?? null;
+  const sourcingRequestId = item?.sourcingRequestId
+    ?? item?.sourcing_request_id
+    ?? sourcingRequest?.id
+    ?? null;
+  const effectiveSupplier = item?.supplier || sourcingRequest?.supplier || "";
+  const effectiveContactEmail = item?.contactEmail || sourcingRequest?.contactEmail || "";
   const pluginSlot = pendingOrderId ? "pendingOrder.line.edit.actions" : "sourcing.item.edit.actions";
   const pluginTargetType = pendingOrderId ? "pending_order_item" : "sourcing_item";
 
@@ -121,8 +127,8 @@ const SourcingItemModal = ({
       currency:            item?.currency ?? "EUR",
       startDate:           item?.startDate ?? "",
       endDate:             item?.endDate ?? "",
-      supplier:            item?.supplier ?? "",
-      contactEmail:        item?.contactEmail ?? "",
+      supplier:            effectiveSupplier,
+      contactEmail:        effectiveContactEmail,
       notes:               item?.notes ?? "",
     },
   });
@@ -201,6 +207,7 @@ const SourcingItemModal = ({
   const publisherVal = watch("publisherName");
   const softwareVal = watch("softwareDescription");
   const currentFields = watch();
+  const supplierRegistration = register("supplier");
   const additionalLinesValid = additionalLines.every(
     (l) => (l.publisherName ?? "").trim() !== "" && (l.softwareDescription ?? "").trim() !== ""
   );
@@ -592,8 +599,24 @@ const SourcingItemModal = ({
           </div>
           <div className="fr">
             <div className="fg" style={{ flex: 1 }}>
-              <label htmlFor="si-supplier">Supplier</label>
-              <input id="si-supplier" className="fi" placeholder="Reseller or direct supplier" {...register("supplier")} />
+              <label htmlFor="si-supplier">Request supplier</label>
+              <input
+                id="si-supplier"
+                className="fi"
+                placeholder="Reseller or direct supplier"
+                {...supplierRegistration}
+                onChange={(event) => {
+                  const previousSupplier = watch("supplier");
+                  supplierRegistration.onChange(event);
+                  if (
+                    String(previousSupplier || "").trim().toLocaleLowerCase()
+                    !== event.target.value.trim().toLocaleLowerCase()
+                  ) {
+                    setValue("contactEmail", "", { shouldDirty: true });
+                  }
+                }}
+              />
+              <span className="field-hint">Applies to every line in this sourcing request.</span>
             </div>
             <div className="fg" style={{ flex: 1 }}>
               <label htmlFor="si-contact-email">Contact Email</label>

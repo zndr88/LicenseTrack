@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import ROUND_HALF_EVEN, Decimal
 
+from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -11,6 +12,92 @@ from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.schemas.sourcing import SourcingItemCreate, SourcingRequestCreate
 from app.services.lifecycle_rules import clear_pending_renewal_if_current
 from app.services.money import MoneyParseError, parse_money
+
+
+_IDENTITY_UNSET = object()
+
+
+def clean_procurement_identity(value: str | None) -> str | None:
+    """Trim free-form procurement identity values while preserving display casing."""
+    cleaned = (value or "").strip()
+    return cleaned or None
+
+
+def procurement_identities_match(left: str | None, right: str | None) -> bool:
+    return (clean_procurement_identity(left) or "").casefold() == (
+        clean_procurement_identity(right) or ""
+    ).casefold()
+
+
+def _common_nonblank_identity(values: list[str | None]) -> str | None:
+    cleaned = [clean_procurement_identity(value) for value in values]
+    if not cleaned or any(value is None for value in cleaned):
+        return None
+    first = cleaned[0]
+    return first if all(procurement_identities_match(first, value) for value in cleaned[1:]) else None
+
+
+def synchronize_open_request_identity(
+    request: SourcingRequest,
+    *,
+    supplier: str | None | object = _IDENTITY_UNSET,
+    contact_email: str | None | object = _IDENTITY_UNSET,
+) -> None:
+    """Apply request-owned supplier context to every open compatibility line."""
+    supplier_changed = False
+    if supplier is not _IDENTITY_UNSET:
+        normalized_supplier = clean_procurement_identity(supplier)
+        supplier_changed = not procurement_identities_match(request.supplier, normalized_supplier)
+        request.supplier = normalized_supplier
+
+    if contact_email is not _IDENTITY_UNSET:
+        request.contact_email = clean_procurement_identity(contact_email)
+    elif supplier_changed:
+        request.contact_email = None
+
+    for item in request.items:
+        if item.status == SourcingStatus.sourcing:
+            item.supplier = request.supplier
+            item.contact_email = request.contact_email
+
+
+def apply_sourcing_item_update(
+    item: SourcingItem,
+    request: SourcingRequest | None,
+    update_data: dict,
+) -> None:
+    """Apply a line edit while keeping request-owned identity atomic."""
+    supplier = update_data.pop("supplier", _IDENTITY_UNSET)
+    contact_email = update_data.pop("contact_email", _IDENTITY_UNSET)
+    for field, value in update_data.items():
+        setattr(item, field, value)
+
+    if request is None:
+        if supplier is not _IDENTITY_UNSET:
+            item.supplier = clean_procurement_identity(supplier)
+        if contact_email is not _IDENTITY_UNSET:
+            item.contact_email = clean_procurement_identity(contact_email)
+        elif supplier is not _IDENTITY_UNSET:
+            item.contact_email = None
+        return
+
+    synchronize_open_request_identity(
+        request,
+        supplier=supplier,
+        contact_email=contact_email,
+    )
+
+
+def apply_sourcing_request_update(request: SourcingRequest, update_data: dict) -> None:
+    supplier = update_data.pop("supplier", _IDENTITY_UNSET)
+    contact_email = update_data.pop("contact_email", _IDENTITY_UNSET)
+    if "notes" in update_data:
+        request.notes = update_data["notes"]
+    synchronize_open_request_identity(
+        request,
+        supplier=supplier,
+        contact_email=contact_email,
+    )
 
 
 def is_direct_freeware_item(item: SourcingItem) -> bool:
@@ -164,6 +251,17 @@ def build_merged_sourcing_item(
         else None
     )
 
+    source_suppliers = [
+        item.sourcing_request.supplier if item.sourcing_request is not None else item.supplier
+        for item in items
+    ]
+    target_supplier = _common_nonblank_identity(source_suppliers)
+    source_contacts = [
+        item.sourcing_request.contact_email if item.sourcing_request is not None else item.contact_email
+        for item in items
+    ]
+    target_contact = _common_nonblank_identity(source_contacts) if target_supplier is not None else None
+
     return SourcingItem(
         publisher_name=primary_item.publisher_name,
         software_description=primary_item.software_description,
@@ -172,8 +270,8 @@ def build_merged_sourcing_item(
         estimated_unit_price=primary_item.estimated_unit_price,
         estimated_total_price=merged_total_price,
         currency=primary_item.currency,
-        supplier=primary_item.supplier,
-        contact_email=primary_item.contact_email,
+        supplier=target_supplier,
+        contact_email=target_contact,
         status=SourcingStatus.sourcing,
         renewal_for_license_id=primary_pred.id,
         coterm_predecessor_ids=[lic.id for lic in sorted_preds],
@@ -192,6 +290,8 @@ async def ensure_sourcing_request_for_item(
         if request is not None:
             return request
 
+    item.supplier = clean_procurement_identity(item.supplier)
+    item.contact_email = clean_procurement_identity(item.contact_email)
     request = SourcingRequest(
         supplier=item.supplier,
         contact_email=item.contact_email,
@@ -254,6 +354,42 @@ async def get_sourcing_request_or_404(db: AsyncSession, request_id: int) -> Sour
     return request
 
 
+async def get_sourcing_request_for_update_or_404(
+    db: AsyncSession,
+    request_id: int,
+) -> SourcingRequest:
+    result = await db.execute(
+        select(SourcingRequest)
+        .where(SourcingRequest.id == request_id)
+        .options(selectinload(SourcingRequest.items))
+        .with_for_update()
+    )
+    request = result.scalar_one_or_none()
+    if request is None:
+        raise HTTPException(status_code=404, detail="Sourcing request not found")
+    return request
+
+
+def _adopt_or_validate_identity(
+    current: str | None,
+    proposed: str | None,
+    *,
+    field_label: str,
+    status_code: int,
+) -> str | None:
+    proposed = clean_procurement_identity(proposed)
+    if proposed is None:
+        return clean_procurement_identity(current)
+    if current is None:
+        return proposed
+    if not procurement_identities_match(current, proposed):
+        raise HTTPException(
+            status_code=status_code,
+            detail=f"All lines in a sourcing request must use the same {field_label}",
+        )
+    return clean_procurement_identity(current)
+
+
 async def create_sourcing_request_record(
     db: AsyncSession,
     payload: SourcingRequestCreate,
@@ -261,13 +397,29 @@ async def create_sourcing_request_record(
     created_by: int,
 ) -> SourcingRequest:
     if not payload.items:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=422, detail="At least one sourcing item is required")
 
+    request_supplier = clean_procurement_identity(payload.supplier)
+    request_contact = clean_procurement_identity(payload.contact_email)
+    for item_payload in payload.items:
+        if item_payload.parent_item_index is not None:
+            continue
+        request_supplier = _adopt_or_validate_identity(
+            request_supplier,
+            item_payload.supplier,
+            field_label="request supplier",
+            status_code=422,
+        )
+        request_contact = _adopt_or_validate_identity(
+            request_contact,
+            item_payload.contact_email,
+            field_label="supplier contact",
+            status_code=422,
+        )
+
     request = SourcingRequest(
-        supplier=payload.supplier,
-        contact_email=payload.contact_email,
+        supplier=request_supplier,
+        contact_email=request_contact,
         notes=payload.notes,
         status=SourcingStatus.sourcing,
         created_by=created_by,
@@ -279,8 +431,6 @@ async def create_sourcing_request_record(
     for index, item_payload in enumerate(payload.items):
         parent_index = item_payload.parent_item_index
         if parent_index is not None and not 0 <= parent_index < index:
-            from fastapi import HTTPException
-
             raise HTTPException(
                 status_code=422,
                 detail=f"Item {index + 1} has an invalid maintenance parent",
@@ -289,23 +439,32 @@ async def create_sourcing_request_record(
         target_request = request
         parent_item = created_items[parent_index] if parent_index is not None else None
         if parent_item is not None:
-            parent_supplier = (parent_item.supplier or request.supplier or "").strip().casefold()
-            child_supplier = (item_payload.supplier or request.supplier or "").strip().casefold()
-            if child_supplier and child_supplier != parent_supplier:
+            child_supplier = clean_procurement_identity(item_payload.supplier) or request.supplier
+            if child_supplier and not procurement_identities_match(child_supplier, request.supplier):
                 target_request = SourcingRequest(
-                    supplier=item_payload.supplier,
-                    contact_email=item_payload.contact_email or payload.contact_email,
+                    supplier=child_supplier,
+                    contact_email=clean_procurement_identity(item_payload.contact_email) or request.contact_email,
                     notes=payload.notes,
                     status=SourcingStatus.sourcing,
                     created_by=created_by,
                 )
                 db.add(target_request)
                 await db.flush()
+            elif item_payload.contact_email and not procurement_identities_match(
+                item_payload.contact_email,
+                request.contact_email,
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail="All lines in a sourcing request must use the same supplier contact",
+                )
 
         item = _build_request_item(
             item_payload,
             request_id=target_request.id,
             created_by=created_by,
+            supplier=target_request.supplier,
+            contact_email=target_request.contact_email,
         )
         if parent_item is not None:
             item.parent_sourcing_item_id = parent_item.id
@@ -322,9 +481,45 @@ async def add_sourcing_request_item_record(
     *,
     created_by: int,
 ) -> SourcingRequest:
-    request = await get_sourcing_request_or_404(db, request_id)
+    request = await get_sourcing_request_for_update_or_404(db, request_id)
     assert_sourcing_request_editable(request)
-    db.add(_build_request_item(payload, request_id=request.id, created_by=created_by))
+    proposed_supplier = clean_procurement_identity(payload.supplier)
+    proposed_contact = clean_procurement_identity(payload.contact_email)
+    if request.supplier is not None and proposed_supplier is not None and not procurement_identities_match(
+        request.supplier,
+        proposed_supplier,
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="The line supplier conflicts with the sourcing request supplier",
+        )
+    if request.contact_email is not None and proposed_contact is not None and not procurement_identities_match(
+        request.contact_email,
+        proposed_contact,
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="The line contact conflicts with the sourcing request contact",
+        )
+
+    if request.supplier is None and proposed_supplier is not None:
+        synchronize_open_request_identity(
+            request,
+            supplier=proposed_supplier,
+            contact_email=proposed_contact if proposed_contact is not None else _IDENTITY_UNSET,
+        )
+    elif request.contact_email is None and proposed_contact is not None:
+        synchronize_open_request_identity(request, contact_email=proposed_contact)
+
+    db.add(
+        _build_request_item(
+            payload,
+            request_id=request.id,
+            created_by=created_by,
+            supplier=request.supplier,
+            contact_email=request.contact_email,
+        )
+    )
     await db.flush()
     return request
 
@@ -387,6 +582,8 @@ def _build_request_item(
     *,
     request_id: int,
     created_by: int,
+    supplier: str | None,
+    contact_email: str | None,
 ) -> SourcingItem:
     item_data = payload.model_dump(by_alias=False)
     item_data.pop("sourcing_request_id", None)
@@ -395,6 +592,8 @@ def _build_request_item(
     if item_data.get("license_type") == LicenseType.freeware:
         item_data["estimated_unit_price"] = None
         item_data["estimated_total_price"] = None
+    item_data["supplier"] = supplier
+    item_data["contact_email"] = contact_email
     return SourcingItem(
         **item_data,
         sourcing_request_id=request_id,
@@ -424,16 +623,44 @@ async def convert_sourcing_item_to_order(
     if is_direct_freeware_item(item):
         raise ValueError("Freeware / Open Source items convert directly to the License Registry")
 
+    request = item.sourcing_request
+    if request is None and item.sourcing_request_id is not None:
+        request = await get_sourcing_request_for_update_or_404(db, item.sourcing_request_id)
+
     if pending_order_id is not None:
         order = await db.get(PendingOrder, pending_order_id)
         if order is None:
             raise ValueError("Pending order not found")
+        order_supplier = clean_procurement_identity(order.supplier)
+        if order_supplier is None:
+            raise HTTPException(status_code=422, detail="The selected pending order must have a supplier")
+        if request is not None and request.supplier is not None and not procurement_identities_match(
+            request.supplier,
+            order_supplier,
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="The sourcing request supplier conflicts with the selected pending order supplier",
+            )
+        if request is not None:
+            synchronize_open_request_identity(request, supplier=order_supplier)
     else:
         if not po_number:
             raise ValueError("po_number is required when pending_order_id is not provided")
+        target_supplier = clean_procurement_identity(supplier) or (
+            clean_procurement_identity(request.supplier)
+            if request is not None
+            else clean_procurement_identity(item.supplier)
+        )
+        if target_supplier is None:
+            raise HTTPException(status_code=422, detail="Supplier is required to create a pending order")
+        if request is not None:
+            synchronize_open_request_identity(request, supplier=target_supplier)
+        else:
+            item.supplier = target_supplier
         order = PendingOrder(
             po_number=po_number,
-            supplier=supplier,
+            supplier=target_supplier,
             notes=notes,
             created_by=created_by,
         )
@@ -442,8 +669,7 @@ async def convert_sourcing_item_to_order(
 
     item.pending_order_id = order.id
     item.status = SourcingStatus.converted
-    if item.sourcing_request_id is not None:
-        request = await db.get(SourcingRequest, item.sourcing_request_id)
+    if request is not None:
         await refresh_sourcing_request_status(db, request)
     return order
 
@@ -473,12 +699,28 @@ async def convert_sourcing_request_to_order(
         order = await db.get(PendingOrder, pending_order_id)
         if order is None:
             raise ValueError("Pending order not found")
+        order_supplier = clean_procurement_identity(order.supplier)
+        if order_supplier is None:
+            raise HTTPException(status_code=422, detail="The selected pending order must have a supplier")
+        if request.supplier is not None and not procurement_identities_match(
+            request.supplier,
+            order_supplier,
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="The sourcing request supplier conflicts with the selected pending order supplier",
+            )
+        synchronize_open_request_identity(request, supplier=order_supplier)
     else:
         if not po_number:
             raise ValueError("po_number is required when pending_order_id is not provided")
+        target_supplier = clean_procurement_identity(supplier) or clean_procurement_identity(request.supplier)
+        if target_supplier is None:
+            raise HTTPException(status_code=422, detail="Supplier is required to create a pending order")
+        synchronize_open_request_identity(request, supplier=target_supplier)
         order = PendingOrder(
             po_number=po_number,
-            supplier=supplier or request.supplier,
+            supplier=target_supplier,
             notes=notes if notes is not None else request.notes,
             created_by=created_by,
         )

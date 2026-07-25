@@ -32,6 +32,30 @@ from app.services.renewal_workflow import build_pending_order_item_license_data
 log = logging.getLogger(__name__)
 
 
+def _enforce_order_supplier(
+    data: dict,
+    submitted_fields: set[str],
+    order_supplier: str | None,
+    *,
+    detail_prefix: str = "",
+) -> None:
+    """Make a nonblank PO supplier authoritative for every resulting license."""
+    canonical_supplier = (order_supplier or "").strip()
+    if not canonical_supplier:
+        return
+    submitted_supplier = str(data.get("supplier") or "").strip()
+    if (
+        "supplier" in submitted_fields
+        and submitted_supplier
+        and submitted_supplier.casefold() != canonical_supplier.casefold()
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail=f"{detail_prefix}License supplier must match the pending order supplier",
+        )
+    data["supplier"] = canonical_supplier
+
+
 def _cleanup_written_procurement_files(paths: list[StoredProcurementPath]) -> None:
     for path, storage_base in paths:
         try:
@@ -160,6 +184,7 @@ async def convert_pending_order_to_licenses(
     if form_data.get("purchase_date") is not None:
         form_data["purchase_date"] = datetime.combine(form_data["purchase_date"], time.min)
     submitted_fields = convert_payload.model_fields_set
+    _enforce_order_supplier(form_data, submitted_fields, order.supplier)
     if len(order.items) > 1:
         # This compatibility endpoint accepts one shared form for every order
         # item. Fields that have a per-line carrier must therefore remain
@@ -361,6 +386,13 @@ async def batch_convert_pending_order_to_licenses(
         raise HTTPException(status_code=422, detail="Payload must contain at least one item")
 
     order_item_map = {si.id: si for si in order.items}
+    for batch_item in payload:
+        _enforce_order_supplier(
+            batch_item.model_dump(by_alias=False),
+            batch_item.model_fields_set,
+            order.supplier,
+            detail_prefix=f"Item {batch_item.sourcing_item_id}: ",
+        )
 
     new_license_entries: list[tuple[int, str]] = []
     predecessor_ids: list[int] = []
@@ -377,6 +409,12 @@ async def batch_convert_pending_order_to_licenses(
             )
 
         item_data = batch_item.model_dump(by_alias=False, exclude={"sourcing_item_id"})
+        _enforce_order_supplier(
+            item_data,
+            batch_item.model_fields_set,
+            order.supplier,
+            detail_prefix=f"Item {batch_item.sourcing_item_id}: ",
+        )
         old_lic: License | None = None
         if sourcing_item.renewal_for_license_id is not None:
             old_result = await db.execute(select(License).where(License.id == sourcing_item.renewal_for_license_id))

@@ -1,5 +1,6 @@
 import { buildLicense, buildSeedData, computeExpirationStatus } from "./fixtures.js";
 import { daysUntil } from "./time.js";
+import { sumCanonicalQuantities } from "../utils/quantity.js";
 
 /** Module-level in-memory state. Refresh or logout wipes it - that IS the reset story. */
 export const store = {
@@ -813,6 +814,33 @@ export function ensureSourcingRequestForItem(item) {
   return request;
 }
 
+export function cleanProcurementIdentity(value) {
+  const cleaned = String(value ?? "").trim();
+  return cleaned || null;
+}
+
+export function procurementIdentitiesMatch(left, right) {
+  return normalized(left) === normalized(right);
+}
+
+export function synchronizeOpenSourcingRequestIdentity(request, changes = {}) {
+  const hasSupplier = Object.prototype.hasOwnProperty.call(changes, "supplier");
+  const hasContact = Object.prototype.hasOwnProperty.call(changes, "contactEmail");
+  const nextSupplier = hasSupplier ? cleanProcurementIdentity(changes.supplier) : request.supplier;
+  const supplierChanged = hasSupplier && !procurementIdentitiesMatch(request.supplier, nextSupplier);
+
+  if (hasSupplier) request.supplier = nextSupplier;
+  if (hasContact) request.contactEmail = cleanProcurementIdentity(changes.contactEmail);
+  else if (supplierChanged) request.contactEmail = null;
+
+  for (const item of store.sourcingItems.filter(
+    (candidate) => candidate.sourcingRequestId === request.id && candidate.status === "sourcing"
+  )) {
+    item.supplier = request.supplier;
+    item.contactEmail = request.contactEmail;
+  }
+}
+
 /** Mirrors backend/app/services/sourcing_service.py:228-237 backfill_missing_sourcing_requests. */
 export function backfillMissingSourcingRequests() {
   for (const item of store.sourcingItems.filter((i) => i.sourcingRequestId == null)) {
@@ -944,14 +972,25 @@ export function convertSourcingItemToOrder(item, { pendingOrderId, poNumber, sup
     throw new Error("Freeware / Open Source items convert directly to the License Registry");
   }
   ensureSourcingRequestForItem(item);
+  const request = store.sourcingRequests.find((candidate) => candidate.id === item.sourcingRequestId);
 
   let order;
   if (pendingOrderId != null) {
     order = store.pendingOrders.find((p) => p.id === pendingOrderId);
     if (!order) throw new Error("Pending order not found");
+    if (!cleanProcurementIdentity(order.supplier)) {
+      throw new Error("The selected pending order must have a supplier");
+    }
+    if (request.supplier && !procurementIdentitiesMatch(request.supplier, order.supplier)) {
+      throw new Error("The sourcing request supplier conflicts with the selected pending order supplier");
+    }
+    synchronizeOpenSourcingRequestIdentity(request, { supplier: order.supplier });
   } else {
     if (!poNumber) throw new Error("po_number is required when pending_order_id is not provided");
-    order = buildNewPendingOrder({ poNumber, supplier, notes });
+    const targetSupplier = cleanProcurementIdentity(supplier) || cleanProcurementIdentity(request.supplier);
+    if (!targetSupplier) throw new Error("Supplier is required to create a pending order");
+    synchronizeOpenSourcingRequestIdentity(request, { supplier: targetSupplier });
+    order = buildNewPendingOrder({ poNumber, supplier: targetSupplier, notes });
     store.pendingOrders.push(order);
   }
 
@@ -998,11 +1037,21 @@ export function convertSourcingRequestToOrder(request, { pendingOrderId, poNumbe
   if (pendingOrderId != null) {
     order = store.pendingOrders.find((p) => p.id === pendingOrderId);
     if (!order) throw new Error("Pending order not found");
+    if (!cleanProcurementIdentity(order.supplier)) {
+      throw new Error("The selected pending order must have a supplier");
+    }
+    if (request.supplier && !procurementIdentitiesMatch(request.supplier, order.supplier)) {
+      throw new Error("The sourcing request supplier conflicts with the selected pending order supplier");
+    }
+    synchronizeOpenSourcingRequestIdentity(request, { supplier: order.supplier });
   } else {
     if (!poNumber) throw new Error("po_number is required when pending_order_id is not provided");
+    const targetSupplier = cleanProcurementIdentity(supplier) || cleanProcurementIdentity(request.supplier);
+    if (!targetSupplier) throw new Error("Supplier is required to create a pending order");
+    synchronizeOpenSourcingRequestIdentity(request, { supplier: targetSupplier });
     order = buildNewPendingOrder({
       poNumber,
-      supplier: supplier || request.supplier,
+      supplier: targetSupplier,
       notes: notes != null ? notes : request.notes,
     });
     store.pendingOrders.push(order);
@@ -1089,19 +1138,29 @@ export function mergeCotermSourcingItems(ids) {
   const primaryPred = sortedPreds[0];
   const primaryItem = items.find((i) => i.renewalForLicenseId === primaryPred.id);
 
-  const parseQty = (q) => {
-    const n = parseInt(q, 10);
-    return Number.isNaN(n) ? 0 : n;
-  };
-  const totalQuantity = items.reduce((sum, i) => sum + parseQty(i.quantity), 0);
+  const totalQuantity = sumCanonicalQuantities(items.map((item) => item.quantity));
+  if (totalQuantity == null) {
+    throw new Error("Coterm merge requires valid positive quantities.");
+  }
 
   let mergedTotalPrice = null;
   if (primaryItem.estimatedUnitPrice && primaryItem.estimatedUnitPrice.trim() !== "") {
     const unit = Number(primaryItem.estimatedUnitPrice);
     if (!Number.isNaN(unit)) {
-      mergedTotalPrice = (unit * totalQuantity).toFixed(2);
+      mergedTotalPrice = (unit * Number(totalQuantity)).toFixed(2);
     }
   }
+
+  const commonTarget = (field) => {
+    const values = items.map((item) => {
+      const request = store.sourcingRequests.find((candidate) => candidate.id === item.sourcingRequestId);
+      return cleanProcurementIdentity(request?.[field] ?? item[field]);
+    });
+    if (values.some((value) => value == null)) return null;
+    return values.every((value) => normalized(value) === normalized(values[0])) ? values[0] : null;
+  };
+  const targetSupplier = commonTarget("supplier");
+  const targetContact = targetSupplier ? commonTarget("contactEmail") : null;
 
   const now = new Date().toISOString();
   const merged = {
@@ -1109,14 +1168,14 @@ export function mergeCotermSourcingItems(ids) {
     sourcingRequestId: null,
     publisherName: primaryItem.publisherName,
     softwareDescription: primaryItem.softwareDescription,
-    quantity: totalQuantity ? String(totalQuantity) : null,
+    quantity: totalQuantity,
     estimatedUnitPrice: primaryItem.estimatedUnitPrice,
     estimatedTotalPrice: mergedTotalPrice,
     currency: primaryItem.currency,
     startDate: null,
     endDate: null,
-    supplier: primaryItem.supplier,
-    contactEmail: primaryItem.contactEmail,
+    supplier: targetSupplier,
+    contactEmail: targetContact,
     notes: null,
     status: "sourcing",
     pendingOrderId: null,
@@ -1168,14 +1227,17 @@ export function initiateRenewalBundleRecord(licenseIds) {
   }
 
   const commonValue = (field) => {
-    const values = new Set(licenses.map((license) => String(license[field] || "").trim()).filter(Boolean));
-    return values.size === 1 ? [...values][0] : null;
+    const values = licenses.map((license) => cleanProcurementIdentity(license[field]));
+    if (values.some((value) => value == null)) return null;
+    return values.every((value) => normalized(value) === normalized(values[0])) ? values[0] : null;
   };
+  const targetSupplier = commonValue("supplier");
+  const targetContact = targetSupplier ? commonValue("contactEmail") : null;
   const now = new Date().toISOString();
   const request = {
     id: nextId(),
-    supplier: commonValue("supplier"),
-    contactEmail: commonValue("contactEmail"),
+    supplier: targetSupplier,
+    contactEmail: targetContact,
     notes: null,
     status: "sourcing",
     createdAt: now,
@@ -1203,8 +1265,8 @@ export function initiateRenewalBundleRecord(licenseIds) {
       currency: license.currency,
       startDate: null,
       endDate: null,
-      supplier: license.supplier || null,
-      contactEmail: license.contactEmail || null,
+      supplier: targetSupplier,
+      contactEmail: targetContact,
       notes: null,
       status: "sourcing",
       pendingOrderId: null,
@@ -1455,7 +1517,7 @@ function buildPendingOrderItemLicenseData(formData, item, oldLicense) {
   if (item.maintenanceUnitPrice != null) data.maintenanceUnitPrice = item.maintenanceUnitPrice;
   if (item.maintenanceCost != null) data.maintenanceCost = item.maintenanceCost;
   if (item.currency) data.currency = item.currency;
-  if (item.supplier) data.supplier = item.supplier;
+  if (!data.supplier && item.supplier) data.supplier = item.supplier;
   if (item.contactEmail) data.contactEmail = item.contactEmail;
 
   if (oldLicense != null) {
@@ -1606,10 +1668,16 @@ export function convertPendingOrderToLicenses(order, payload) {
     throw new Error("Pending order has been cancelled");
   }
 
+  const orderSupplier = cleanProcurementIdentity(order.supplier);
+  const submittedSupplier = cleanProcurementIdentity(payload?.supplier);
+  if (orderSupplier && submittedSupplier && !procurementIdentitiesMatch(orderSupplier, submittedSupplier)) {
+    throw new Error("License supplier must match the pending order supplier");
+  }
   const formData = {
     ...normalizeConvertPayload(payload),
     pendingOrderId: order.id,
     purchaseDate: order.createdAt,
+    ...(orderSupplier ? { supplier: orderSupplier } : {}),
   };
 
   const items = store.sourcingItems.filter((i) => i.pendingOrderId === order.id);
@@ -1667,6 +1735,13 @@ export function batchConvertPendingOrderToLicenses(order, payload) {
   if (!payload || payload.length === 0) {
     throw new Error("Payload must contain at least one item");
   }
+  const orderSupplier = cleanProcurementIdentity(order.supplier);
+  for (const item of payload) {
+    const submittedSupplier = cleanProcurementIdentity(item.supplier);
+    if (orderSupplier && submittedSupplier && !procurementIdentitiesMatch(orderSupplier, submittedSupplier)) {
+      throw new Error(`Item ${item.sourcingItemId}: License supplier must match the pending order supplier`);
+    }
+  }
 
   const orderItems = store.sourcingItems.filter((i) => i.pendingOrderId === order.id);
   const itemById = new Map(orderItems.map((i) => [i.id, i]));
@@ -1691,6 +1766,7 @@ export function batchConvertPendingOrderToLicenses(order, payload) {
       sourceSourcingItemId: sourcingItem.id,
       requestDate: sourcingItem.createdAt,
       purchaseDate: order.createdAt,
+      ...(orderSupplier ? { supplier: orderSupplier } : {}),
     };
 
     if (sourcingItem.renewalForLicenseId != null) {

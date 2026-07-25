@@ -187,20 +187,34 @@ vi.mock("../components/contracts/ContractModal.jsx", () => ({
 }));
 
 vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
-  default: ({ item, onSave, onCancel }) => (
-    <div role="dialog" aria-label="Sourcing item form">
-      <button onClick={() => onSave({
-        publisherName: "Created Publisher",
-        softwareDescription: "Created Sourcing App",
-        quantity: "3",
-        currency: "EUR",
-        startDate: item?.startDate,
-        endDate: item?.endDate,
-      })}>
-        Save sourcing item
-      </button>
-      <button onClick={onCancel}>Cancel</button>
-    </div>
+  default: ({ item, sourcingRequest, onSave, onCancel }) => (
+    <form
+      role="dialog"
+      aria-label="Sourcing item form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const formData = new FormData(event.currentTarget);
+        onSave({
+          publisherName: "Created Publisher",
+          softwareDescription: "Created Sourcing App",
+          quantity: "3",
+          currency: "EUR",
+          startDate: item?.startDate,
+          endDate: item?.endDate,
+          supplier: formData.get("supplier"),
+        });
+      }}
+    >
+      <label>
+        Request supplier
+        <input
+          name="supplier"
+          defaultValue={item?.supplier ?? sourcingRequest?.supplier ?? ""}
+        />
+      </label>
+      <button type="submit">Save sourcing item</button>
+      <button type="button" onClick={onCancel}>Cancel</button>
+    </form>
   ),
 }));
 
@@ -288,6 +302,8 @@ function license(overrides = {}) {
 }
 
 function setupDefaultApiMocks() {
+  sourcingApi.updateSourcingItem.mockReset();
+  sourcingApi.mergeSourcingItems.mockReset();
   licensesApi.getLicenses.mockResolvedValue({ data: [], error: null });
   licensesApi.getLicense.mockResolvedValue({ data: null, error: null });
   licensesApi.getCustomFieldValues.mockResolvedValue({ data: { values: [] }, error: null });
@@ -1221,6 +1237,52 @@ describe("SourcingPage workflows", () => {
     expect(await screen.findByText("Renewal Supplier")).toBeInTheDocument();
     await user.click(screen.getByText("Renewal Supplier"));
     expect(await screen.findByText("Renewing: Cache Publisher")).toBeInTheDocument();
+  });
+
+  test("reloads request-level supplier after a line edit and uses it for search", async () => {
+    const user = userEvent.setup();
+    const unassigned = {
+      id: 7,
+      supplier: null,
+      contactEmail: null,
+      status: "sourcing",
+      createdAt: "2026-01-07T00:00:00Z",
+      quoteDocuments: [],
+      items: [{
+        id: 70,
+        publisherName: "Adobe",
+        softwareDescription: "Creative Cloud",
+        quantity: "1",
+        currency: "EUR",
+        supplier: null,
+        contactEmail: null,
+        status: "sourcing",
+        isRenewal: false,
+      }],
+    };
+    const assigned = {
+      ...unassigned,
+      supplier: "Adobe Direct",
+      items: unassigned.items.map((item) => ({ ...item, supplier: "Adobe Direct" })),
+    };
+    sourcingApi.getSourcingRequests
+      .mockResolvedValueOnce({ data: [unassigned], error: null })
+      .mockResolvedValue({ data: [assigned], error: null });
+    sourcingApi.updateSourcingItem.mockResolvedValueOnce({
+      data: assigned.items[0],
+      error: null,
+    });
+
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+    await user.click(await screen.findByText("Unassigned supplier"));
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+    await user.type(screen.getByLabelText(/request supplier/i), "Adobe Direct");
+    await user.click(screen.getByRole("button", { name: /save sourcing item/i }));
+
+    expect(await screen.findByText("Adobe Direct")).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/search sourcing requests/i), "Adobe Direct");
+    expect(screen.getByText("Adobe Direct")).toBeInTheDocument();
+    expect(screen.queryByText("Unassigned supplier")).not.toBeInTheDocument();
   });
 
   test("converts an all-freeware request directly to the Registry", async () => {

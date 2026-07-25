@@ -394,6 +394,7 @@ export default function SourcingPage({
           key={showSourcingModal.item?.id ?? "new"}
           item={showSourcingModal.item}
           requestId={showSourcingModal.request?.id ?? null}
+          sourcingRequest={showSourcingModal.request}
           userSettings={userSettings}
           onCancel={() => setShowSourcingModal(null)}
           onSave={async (form) => {

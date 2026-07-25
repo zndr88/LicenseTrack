@@ -23,9 +23,17 @@ Use multiple lines when one supplier quote covers several products. Expand the
 request row to edit individual lines. Request-level actions manage the quote,
 conversion, or cancellation of the whole request.
 
+The request supplier is the proposed target for the complete purchase, not a
+copy of historical supplier ownership. It can remain unassigned while sourcing
+is unresolved and is human-editable across renewals, but paid lines cannot move
+to a pending order until one supplier is selected. Changing it updates the
+compatible open lines; converted and cancelled history is left unchanged.
+
 Renewal sourcing records are created automatically when a renewal begins. When
 several renewal lines should end on the same date, coterm merge combines them
-while preserving their predecessor relationships.
+while preserving their predecessor relationships. If the historical supplier
+suggestions differ, the new request remains unassigned until procurement chooses
+one target supplier.
 
 For freeware or open-source requests, set the line's optional **License Type**
 to **Freeware / Open Source**. Converting that line creates an active Registry
@@ -70,6 +78,10 @@ Convert sourcing when the purchase is ready for a PO. The sourcing lines become
 editable pending-order lines under one PO-level record. You can attach the PO,
 adjust lines, or add a forgotten line before final conversion.
 
+One pending order has one supplier. An unassigned sourcing request adopts the
+supplier of an existing PO; a conflicting request is rejected instead of being
+combined with that PO.
+
 Quote evidence remains connected to its sourcing origin and is visible from the
 pending order. The PO number is commercial metadata; the pending-order database
 relationship—not matching PO text—connects evidence and history.
@@ -92,6 +104,10 @@ Conversion captures Request Date from the sourcing line. The license manager
 confirms the actual Purchase Date during conversion; it is not inferred from
 the pending-order creation timestamp. Those milestones remain editable for
 imported or legacy data.
+
+The pending-order supplier is the final procurement supplier used by each
+resulting license. Earlier license suppliers remain historical context and are
+not overwritten or enforced on the renewal.
 
 ## Evidence ownership
 

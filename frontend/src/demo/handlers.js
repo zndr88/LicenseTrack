@@ -5,6 +5,7 @@ import {
   backfillMissingSourcingRequests, buildSourcingItem, buildSourcingRequestResponse,
   ensureSourcingRequestForItem, assertSourcingItemEditable, convertSourcingItemToOrder,
   convertSourcingRequestToOrder, mergeCotermSourcingItems, handleSourcingItemDeleteSideEffects,
+  cleanProcurementIdentity, procurementIdentitiesMatch, synchronizeOpenSourcingRequestIdentity,
   convertFreewareSourcingItems,
   ensurePendingOrderEditable, createPendingOrderRecord, deletePendingOrderRecord, cancelPendingOrderRecord,
   addPendingOrderItemsBulk, rebuildPendingOrderItems, withPendingOrderLicenseRefs,
@@ -665,11 +666,25 @@ export const routes = [
       if (itemPayloads.length === 0) {
         throw new Error("At least one sourcing item is required");
       }
+      let requestSupplier = cleanProcurementIdentity(body?.supplier);
+      let requestContact = cleanProcurementIdentity(body?.contactEmail);
+      for (const itemPayload of itemPayloads.filter((item) => item.parentItemIndex == null)) {
+        const itemSupplier = cleanProcurementIdentity(itemPayload.supplier);
+        const itemContact = cleanProcurementIdentity(itemPayload.contactEmail);
+        if (requestSupplier && itemSupplier && !procurementIdentitiesMatch(requestSupplier, itemSupplier)) {
+          throw new Error("All lines in a sourcing request must use the same request supplier");
+        }
+        if (requestContact && itemContact && !procurementIdentitiesMatch(requestContact, itemContact)) {
+          throw new Error("All lines in a sourcing request must use the same supplier contact");
+        }
+        requestSupplier ||= itemSupplier;
+        requestContact ||= itemContact;
+      }
       const now = new Date().toISOString();
       const request = {
         id: nextId(),
-        supplier: body?.supplier ?? null,
-        contactEmail: body?.contactEmail ?? null,
+        supplier: requestSupplier,
+        contactEmail: requestContact,
         notes: body?.notes ?? null,
         status: "sourcing",
         createdAt: now,
@@ -677,8 +692,36 @@ export const routes = [
         createdBy: 1,
       };
       store.sourcingRequests.push(request);
+      const createdItems = [];
       for (const itemPayload of itemPayloads) {
-        store.sourcingItems.push(buildSourcingItem(itemPayload, { sourcingRequestId: request.id }));
+        let targetRequest = request;
+        const parentItem = itemPayload.parentItemIndex != null
+          ? createdItems[itemPayload.parentItemIndex]
+          : null;
+        const childSupplier = cleanProcurementIdentity(itemPayload.supplier) || request.supplier;
+        if (parentItem && childSupplier && !procurementIdentitiesMatch(childSupplier, request.supplier)) {
+          targetRequest = {
+            ...request,
+            id: nextId(),
+            supplier: childSupplier,
+            contactEmail: cleanProcurementIdentity(itemPayload.contactEmail) || request.contactEmail,
+          };
+          store.sourcingRequests.push(targetRequest);
+        } else if (
+          parentItem
+          && itemPayload.contactEmail
+          && !procurementIdentitiesMatch(itemPayload.contactEmail, request.contactEmail)
+        ) {
+          throw new Error("All lines in a sourcing request must use the same supplier contact");
+        }
+        const item = buildSourcingItem({
+          ...itemPayload,
+          supplier: targetRequest.supplier,
+          contactEmail: targetRequest.contactEmail,
+          parentSourcingItemId: parentItem?.id ?? itemPayload.parentSourcingItemId,
+        }, { sourcingRequestId: targetRequest.id });
+        store.sourcingItems.push(item);
+        createdItems.push(item);
       }
       return { data: buildSourcingRequestResponse(request), error: null };
     },
@@ -691,7 +734,27 @@ export const routes = [
       if (request.status === "converted") {
         throw new Error("Cannot add items to a converted sourcing request");
       }
-      store.sourcingItems.push(buildSourcingItem(body ?? {}, { sourcingRequestId: request.id, status: "sourcing" }));
+      const proposedSupplier = cleanProcurementIdentity(body?.supplier);
+      const proposedContact = cleanProcurementIdentity(body?.contactEmail);
+      if (request.supplier && proposedSupplier && !procurementIdentitiesMatch(request.supplier, proposedSupplier)) {
+        throw new Error("The line supplier conflicts with the sourcing request supplier");
+      }
+      if (request.contactEmail && proposedContact && !procurementIdentitiesMatch(request.contactEmail, proposedContact)) {
+        throw new Error("The line contact conflicts with the sourcing request contact");
+      }
+      if (!request.supplier && proposedSupplier) {
+        synchronizeOpenSourcingRequestIdentity(request, {
+          supplier: proposedSupplier,
+          ...(proposedContact ? { contactEmail: proposedContact } : {}),
+        });
+      } else if (!request.contactEmail && proposedContact) {
+        synchronizeOpenSourcingRequestIdentity(request, { contactEmail: proposedContact });
+      }
+      store.sourcingItems.push(buildSourcingItem({
+        ...(body ?? {}),
+        supplier: request.supplier,
+        contactEmail: request.contactEmail,
+      }, { sourcingRequestId: request.id, status: "sourcing" }));
       return { data: buildSourcingRequestResponse(request), error: null };
     },
   },
@@ -750,8 +813,12 @@ export const routes = [
     method: "PUT", pattern: /^\/api\/sourcing\/requests\/(?<id>\d+)$/,
     handler: async ({ params, body }) => {
       const request = findSourcingRequestOr404(Number(params.id));
-      if (body && Object.prototype.hasOwnProperty.call(body, "supplier")) request.supplier = body.supplier;
-      if (body && Object.prototype.hasOwnProperty.call(body, "contactEmail")) request.contactEmail = body.contactEmail;
+      synchronizeOpenSourcingRequestIdentity(request, {
+        ...(body && Object.prototype.hasOwnProperty.call(body, "supplier") ? { supplier: body.supplier } : {}),
+        ...(body && Object.prototype.hasOwnProperty.call(body, "contactEmail")
+          ? { contactEmail: body.contactEmail }
+          : {}),
+      });
       if (body && Object.prototype.hasOwnProperty.call(body, "notes")) request.notes = body.notes;
       request.updatedAt = new Date().toISOString();
       return { data: buildSourcingRequestResponse(request), error: null };
@@ -823,11 +890,31 @@ export const routes = [
       assertSourcingItemEditable(item);
       const allowed = [
         "publisherName", "softwareDescription", "licenseType", "quantity", "estimatedUnitPrice", "estimatedTotalPrice",
-        "currency", "startDate", "endDate", "supplier", "contactEmail", "notes", "status",
+        "currency", "startDate", "endDate", "notes", "status",
       ];
       for (const field of allowed) {
         if (body && Object.prototype.hasOwnProperty.call(body, field)) {
           item[field] = body[field];
+        }
+      }
+      const sourcingRequest = store.sourcingRequests.find(
+        (candidate) => candidate.id === item.sourcingRequestId
+      );
+      if (sourcingRequest) {
+        synchronizeOpenSourcingRequestIdentity(sourcingRequest, {
+          ...(body && Object.prototype.hasOwnProperty.call(body, "supplier")
+            ? { supplier: body.supplier }
+            : {}),
+          ...(body && Object.prototype.hasOwnProperty.call(body, "contactEmail")
+            ? { contactEmail: body.contactEmail }
+            : {}),
+        });
+      } else {
+        if (body && Object.prototype.hasOwnProperty.call(body, "supplier")) {
+          item.supplier = cleanProcurementIdentity(body.supplier);
+        }
+        if (body && Object.prototype.hasOwnProperty.call(body, "contactEmail")) {
+          item.contactEmail = cleanProcurementIdentity(body.contactEmail);
         }
       }
       item.updatedAt = new Date().toISOString();

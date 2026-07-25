@@ -90,8 +90,11 @@ async def initiate_renewal(
 
 
 def _common_or_none(values: list[str | None]) -> str | None:
-    normalized = {(value or "").strip() for value in values if (value or "").strip()}
-    return normalized.pop() if len(normalized) == 1 else None
+    cleaned = [(value or "").strip() for value in values]
+    if not cleaned or any(not value for value in cleaned):
+        return None
+    first = cleaned[0]
+    return first if all(value.casefold() == first.casefold() for value in cleaned[1:]) else None
 
 
 async def initiate_renewal_bundle(
@@ -129,9 +132,15 @@ async def initiate_renewal_bundle(
     for license_obj in licenses:
         mark_pending_renewal(license_obj)
 
+    target_supplier = _common_or_none([license_obj.supplier for license_obj in licenses])
+    target_contact = (
+        _common_or_none([license_obj.contact_email for license_obj in licenses])
+        if target_supplier is not None
+        else None
+    )
     request = SourcingRequest(
-        supplier=_common_or_none([license_obj.supplier for license_obj in licenses]),
-        contact_email=_common_or_none([license_obj.contact_email for license_obj in licenses]),
+        supplier=target_supplier,
+        contact_email=target_contact,
         status=SourcingStatus.sourcing,
         created_by=actor.id,
     )
@@ -142,6 +151,8 @@ async def initiate_renewal_bundle(
     for license_obj in licenses:
         sourcing_item = build_renewal_sourcing_item(license_obj, created_by=actor.id)
         sourcing_item.sourcing_request_id = request.id
+        sourcing_item.supplier = target_supplier
+        sourcing_item.contact_email = target_contact
         db.add(sourcing_item)
         sourcing_items.append(sourcing_item)
     await db.flush()

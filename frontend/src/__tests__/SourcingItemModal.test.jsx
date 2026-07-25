@@ -115,6 +115,45 @@ describe("contact email validation", () => {
 
 // ─── Payload shape ────────────────────────────────────────────────────────────
 
+describe("request supplier context", () => {
+  test("falls back to request supplier and contact when compatibility line fields are blank", () => {
+    renderModal({
+      item: { ...VALID_ITEM, id: 42, supplier: null, contactEmail: null },
+      requestId: 7,
+      sourcingRequest: {
+        id: 7,
+        supplier: "Request Reseller",
+        contactEmail: "request@example.test",
+      },
+    });
+
+    expect(screen.getByLabelText(/request supplier/i)).toHaveValue("Request Reseller");
+    expect(screen.getByLabelText(/contact email/i)).toHaveValue("request@example.test");
+    expect(screen.getByText(/applies to every line/i)).toBeInTheDocument();
+  });
+
+  test("clears a stale contact when the request supplier changes", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderModal({
+      item: { ...VALID_ITEM, id: 42 },
+      requestId: 7,
+      sourcingRequest: { id: 7, supplier: "SoftwareOne", contactEmail: "sales@softwareone.com" },
+    });
+
+    const supplier = screen.getByLabelText(/request supplier/i);
+    await user.clear(supplier);
+    await user.type(supplier, "Adobe Direct");
+    expect(screen.getByLabelText(/contact email/i)).toHaveValue("");
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({
+      supplier: "Adobe Direct",
+      contactEmail: "",
+    }));
+  });
+});
+
 describe("onSave payload shape", () => {
   test("displays and saves a stored fractional quantity using the selected locale", async () => {
     const user = userEvent.setup();

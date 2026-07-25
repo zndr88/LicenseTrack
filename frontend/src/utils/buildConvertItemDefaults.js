@@ -45,7 +45,7 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       poNumber:            order.poNumber || "",
       invoiceNumber:       "",
       contactEmail:        si.contactEmail || renewal?.contactEmail || "",
-      supplier:            si.supplier || order.supplier || renewal?.supplier || "",
+      supplier:            order.supplier || si.supplier || renewal?.supplier || "",
       costCentre:          renewal?.costCentre || "",
       licenseType,
       licenseMetric:       renewal?.licenseMetric || "per_user",

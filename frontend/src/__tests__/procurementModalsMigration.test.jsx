@@ -703,7 +703,7 @@ describe("ConvertAllModal", () => {
       quantity: "12",
       unitPrice: "55.00",
       totalPoPrice: "660.00",
-      supplier: "Line Supplier",
+      supplier: "PO Supplier",
       contactEmail: "line@example.com",
       currency: "USD",
       notes:

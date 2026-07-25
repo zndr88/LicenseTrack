@@ -85,7 +85,7 @@ describe("buildConvertItemDefaults", () => {
     expect(d.totalPoPrice).toBe("660.00");
     expect(d.startDate).toBe("2026-03-01");
     expect(d.endDate).toBe("2027-02-28");
-    expect(d.supplier).toBe("Current Line Supplier");
+    expect(d.supplier).toBe("Default Supplier");
     expect(d.contactEmail).toBe("current-line@example.com");
     expect(d.currency).toBe("USD");
   });
@@ -113,7 +113,7 @@ describe("buildConvertItemDefaults", () => {
     expect(fallback.softwareDescription).toBe("Legacy Creative Cloud");
   });
 
-  it("uses line supplier, then PO supplier, then predecessor supplier", () => {
+  it("uses PO supplier, then line supplier, then predecessor supplier", () => {
     const predecessor = makeLicense({ supplier: "Previous Supplier" });
     const lineOrder = {
       ...baseOrder,
@@ -124,7 +124,7 @@ describe("buildConvertItemDefaults", () => {
         supplier: "Line Supplier",
       })],
     };
-    expect(buildConvertItemDefaults(lineOrder, [predecessor])[0].supplier).toBe("Line Supplier");
+    expect(buildConvertItemDefaults(lineOrder, [predecessor])[0].supplier).toBe("PO Supplier");
 
     const poOrder = {
       ...lineOrder,

@@ -147,11 +147,11 @@ def build_pending_order_item_license_data(
     apply_fallback("end_date", item.end_date)
     apply_fallback(
         "supplier",
-        item.supplier,
         order_supplier,
+        item.supplier,
         getattr(old_license, "supplier", None),
     )
-    apply_fallback("contact_email", item.contact_email, getattr(old_license, "contact_email", None))
+    apply_fallback("contact_email", item.contact_email)
     apply_fallback("contract_number", getattr(old_license, "contract_number", None))
     apply_fallback("po_number", order_po_number)
     apply_fallback("sku_code", getattr(old_license, "sku_code", None))

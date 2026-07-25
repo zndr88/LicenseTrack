@@ -16,11 +16,13 @@ from app.schemas.sourcing import (
 from app.services.audit_service import diff_fields, log_event
 from app.services.sourcing_service import (
     add_sourcing_request_item_record,
+    apply_sourcing_request_update,
     assert_sourcing_request_editable,
     cancel_sourcing_request_record,
     create_sourcing_request_record,
     delete_sourcing_request_record,
     get_sourcing_request_or_404,
+    get_sourcing_request_for_update_or_404,
     list_sourcing_request_history_records,
     list_sourcing_request_records,
 )
@@ -92,12 +94,11 @@ async def update_sourcing_request(
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> SourcingRequestResponse:
-    sourcing_request = await get_sourcing_request_or_404(db, request_id)
+    sourcing_request = await get_sourcing_request_for_update_or_404(db, request_id)
     assert_sourcing_request_editable(sourcing_request)
     before = {c.name: getattr(sourcing_request, c.name) for c in sourcing_request.__table__.columns}
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(sourcing_request, field, value)
+    apply_sourcing_request_update(sourcing_request, update_data)
     after = {c.name: getattr(sourcing_request, c.name) for c in sourcing_request.__table__.columns}
 
     diff = diff_fields(before, after)

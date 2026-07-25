@@ -218,7 +218,7 @@ def test_build_pending_order_item_license_data_fills_only_omitted_fields():
     assert data["currency"] == "USD"
     assert data["start_date"] == date(2027, 2, 1)
     assert data["end_date"] == date(2028, 1, 31)
-    assert data["supplier"] == "Renewals Ltd"
+    assert data["supplier"] == "Order Supplier"
     assert data["contact_email"] == "renewals@example.com"
     assert data["license_type"] == LicenseType.saas
     assert data["license_metric"] == LicenseMetric.enterprise

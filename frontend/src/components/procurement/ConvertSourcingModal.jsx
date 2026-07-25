@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { getPendingOrders } from "../../api/pendingOrders.js";
 import { poFormSchema } from "../../utils/procurementSchemas.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
+
+const sourcingPoFormSchema = poFormSchema.extend({
+  supplier: z.string().trim().min(1, "Supplier is required."),
+});
 
 const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
   const [mode, setMode] = useState("new"); // "new" | "existing"
@@ -22,7 +27,7 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
     watch,
     reset,
   } = useForm({
-    resolver: zodResolver(poFormSchema),
+    resolver: zodResolver(sourcingPoFormSchema),
     defaultValues: {
       poNumber: "",
       supplier: item.supplier ?? "",
@@ -37,7 +42,7 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
 
   useEffect(() => {
     getPendingOrders().then(({ data }) => {
-      const orders = data ?? [];
+      const orders = (data ?? []).filter((order) => (order.supplier ?? "").trim() !== "");
       setLocalOrders(orders);
       if (orders.length > 0) setSelectedOrderId(orders[0].id);
       setLoadingOrders(false);
@@ -50,8 +55,9 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
   };
 
   const poNumberVal = watch("poNumber");
+  const supplierVal = watch("supplier");
   const canConfirm = mode === "new"
-    ? (poNumberVal ?? "").trim() !== ""
+    ? (poNumberVal ?? "").trim() !== "" && (supplierVal ?? "").trim() !== ""
     : selectedOrderId !== "";
 
   const handleConfirm = () => {
@@ -109,7 +115,7 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
                 <input id="cs-po-number" className="fi" placeholder="e.g. PO-2026-0042" {...register("poNumber")} />
               </div>
               <div className="fg">
-                <label htmlFor="cs-supplier">Supplier</label>
+                <label htmlFor="cs-supplier">Supplier <span style={{ color: "var(--red)" }}>*</span></label>
                 <input id="cs-supplier" className="fi" placeholder="Reseller or direct supplier" {...register("supplier")} />
               </div>
               <div className="fg">

@@ -83,6 +83,15 @@ async def _convert_sourcing_to_po(client, headers, sourcing_item_id: int) -> dic
 
 
 async def _attach_sourcing_to_po(client, headers, sourcing_item_id: int, order_id: int) -> dict:
+    item_resp = await client.get(f"/api/sourcing/{sourcing_item_id}", headers=headers)
+    assert item_resp.status_code == 200, item_resp.text
+    request_id = item_resp.json()["sourcingRequestId"]
+    request_update = await client.put(
+        f"/api/sourcing/requests/{request_id}",
+        json={"supplier": "Renewal Supplier"},
+        headers=headers,
+    )
+    assert request_update.status_code == 200, request_update.text
     resp = await client.post(
         f"/api/sourcing/{sourcing_item_id}/convert",
         json={
@@ -339,7 +348,7 @@ async def test_coordinated_mixed_conversion_closes_request(test_app, auth_header
     paid_item, freeware_item = request["items"]
     po_resp = await test_app.post(
         f"/api/sourcing/requests/{request['id']}/convert",
-        json={"poNumber": "PO-MIXED-CANCEL"},
+        json={"poNumber": "PO-MIXED-CANCEL", "supplier": "Mixed Supplier"},
         headers=auth_headers,
     )
     assert po_resp.status_code == 200, po_resp.text
@@ -765,7 +774,6 @@ def _single_convert_form(**overrides) -> dict:
         "endDate": "2026-12-31",
         "purchaseDate": "2026-02-01",
         "poNumber": "PO-RENEW",
-        "supplier": "Renewal Supplier",
     }
     base.update(overrides)
     return base
@@ -786,7 +794,6 @@ def _batch_convert_item(sourcing_item_id: int, **overrides) -> dict:
         "endDate": "2026-12-31",
         "purchaseDate": "2026-02-01",
         "poNumber": "PO-BATCH",
-        "supplier": "Batch Supplier",
     }
     base.update(overrides)
     return base
@@ -1434,6 +1441,349 @@ async def test_add_sourcing_request_item_and_convert_request(test_app, auth_head
     assert duplicate_resp.status_code == 409
 
 
+async def test_line_edit_updates_request_supplier_contact_and_preserves_them_on_unrelated_edit(
+    test_app,
+    auth_headers,
+):
+    item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        supplier=None,
+        contactEmail=None,
+    )
+    request_id = item["sourcingRequestId"]
+
+    update_resp = await test_app.put(
+        f"/api/sourcing/{item['id']}",
+        json={"supplier": "  Adobe Direct  ", "contactEmail": "buyer@adobe.example"},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200, update_resp.text
+    assert update_resp.json()["supplier"] == "Adobe Direct"
+    assert update_resp.json()["contactEmail"] == "buyer@adobe.example"
+
+    quantity_resp = await test_app.put(
+        f"/api/sourcing/{item['id']}",
+        json={"quantity": "3.75"},
+        headers=auth_headers,
+    )
+    assert quantity_resp.status_code == 200, quantity_resp.text
+
+    reloaded = await test_app.get(f"/api/sourcing/requests/{request_id}", headers=auth_headers)
+    assert reloaded.status_code == 200, reloaded.text
+    request = reloaded.json()
+    assert request["supplier"] == "Adobe Direct"
+    assert request["contactEmail"] == "buyer@adobe.example"
+    assert request["items"][0]["supplier"] == "Adobe Direct"
+    assert request["items"][0]["contactEmail"] == "buyer@adobe.example"
+    assert request["items"][0]["quantity"] == "3.75"
+
+    clear_resp = await test_app.put(
+        f"/api/sourcing/{item['id']}",
+        json={"supplier": None},
+        headers=auth_headers,
+    )
+    assert clear_resp.status_code == 200, clear_resp.text
+    cleared = await test_app.get(f"/api/sourcing/requests/{request_id}", headers=auth_headers)
+    assert cleared.json()["supplier"] is None
+    assert cleared.json()["contactEmail"] is None
+    assert cleared.json()["items"][0]["supplier"] is None
+    assert cleared.json()["items"][0]["contactEmail"] is None
+
+
+async def test_multi_line_request_identity_is_mirrored_and_conflicting_add_is_atomic(
+    test_app,
+    auth_headers,
+):
+    create_resp = await test_app.post(
+        "/api/sourcing/requests",
+        json={
+            "supplier": "Common Reseller",
+            "contactEmail": "sales@reseller.example",
+            "items": [
+                {
+                    "publisherName": "Microsoft",
+                    "softwareDescription": "Microsoft 365",
+                    "quantity": "10",
+                    "currency": "EUR",
+                },
+                {
+                    "publisherName": "Adobe",
+                    "softwareDescription": "Creative Cloud",
+                    "quantity": "5",
+                    "currency": "EUR",
+                },
+            ],
+        },
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201, create_resp.text
+    request = create_resp.json()
+    assert {item["supplier"] for item in request["items"]} == {"Common Reseller"}
+    assert {item["contactEmail"] for item in request["items"]} == {"sales@reseller.example"}
+
+    change_resp = await test_app.put(
+        f"/api/sourcing/{request['items'][0]['id']}",
+        json={"supplier": "New Reseller"},
+        headers=auth_headers,
+    )
+    assert change_resp.status_code == 200, change_resp.text
+    reloaded = await test_app.get(f"/api/sourcing/requests/{request['id']}", headers=auth_headers)
+    assert reloaded.json()["supplier"] == "New Reseller"
+    assert reloaded.json()["contactEmail"] is None
+    assert {item["supplier"] for item in reloaded.json()["items"]} == {"New Reseller"}
+    assert {item["contactEmail"] for item in reloaded.json()["items"]} == {None}
+
+    conflict_resp = await test_app.post(
+        f"/api/sourcing/requests/{request['id']}/items",
+        json={
+            "publisherName": "Autodesk",
+            "softwareDescription": "AutoCAD",
+            "quantity": "2",
+            "currency": "EUR",
+            "supplier": "Conflicting Direct Supplier",
+        },
+        headers=auth_headers,
+    )
+    assert conflict_resp.status_code == 409
+    after_conflict = await test_app.get(f"/api/sourcing/requests/{request['id']}", headers=auth_headers)
+    assert len(after_conflict.json()["items"]) == 2
+    assert {item["supplier"] for item in after_conflict.json()["items"]} == {"New Reseller"}
+
+
+async def test_request_creation_rejects_conflicting_line_suppliers(test_app, auth_headers):
+    response = await test_app.post(
+        "/api/sourcing/requests",
+        json={
+            "supplier": "Request Supplier",
+            "items": [
+                {
+                    "publisherName": "Publisher A",
+                    "softwareDescription": "App A",
+                    "currency": "EUR",
+                },
+                {
+                    "publisherName": "Publisher B",
+                    "softwareDescription": "App B",
+                    "currency": "EUR",
+                    "supplier": "Other Supplier",
+                },
+            ],
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+
+    active = await test_app.get("/api/sourcing/requests", headers=auth_headers)
+    assert active.status_code == 200
+    assert active.json() == []
+
+
+async def test_sourcing_conversion_requires_and_reconciles_one_supplier(test_app, auth_headers):
+    unassigned = await _create_sourcing_item(test_app, auth_headers, supplier=None)
+    missing_supplier = await test_app.post(
+        f"/api/sourcing/requests/{unassigned['sourcingRequestId']}/convert",
+        json={"poNumber": "PO-NO-SUPPLIER"},
+        headers=auth_headers,
+    )
+    assert missing_supplier.status_code == 422
+
+    existing_order = await test_app.post(
+        "/api/pending-orders",
+        json={"poNumber": "PO-EXISTING-SUPPLIER", "supplier": "Existing Supplier"},
+        headers=auth_headers,
+    )
+    adopt_resp = await test_app.post(
+        f"/api/sourcing/requests/{unassigned['sourcingRequestId']}/convert",
+        json={"pendingOrderId": existing_order.json()["id"]},
+        headers=auth_headers,
+    )
+    assert adopt_resp.status_code == 200, adopt_resp.text
+    adopted = await test_app.get(
+        f"/api/sourcing/requests/{unassigned['sourcingRequestId']}",
+        headers=auth_headers,
+    )
+    assert adopted.json()["supplier"] == "Existing Supplier"
+    assert adopted.json()["items"][0]["supplier"] == "Existing Supplier"
+
+    conflicting = await _create_sourcing_item(test_app, auth_headers, supplier="Different Supplier")
+    conflict_resp = await test_app.post(
+        f"/api/sourcing/requests/{conflicting['sourcingRequestId']}/convert",
+        json={"pendingOrderId": existing_order.json()["id"]},
+        headers=auth_headers,
+    )
+    assert conflict_resp.status_code == 409
+    still_open = await test_app.get(
+        f"/api/sourcing/requests/{conflicting['sourcingRequestId']}",
+        headers=auth_headers,
+    )
+    assert still_open.json()["status"] == "sourcing"
+    assert still_open.json()["supplier"] == "Different Supplier"
+
+
+async def test_pending_order_supplier_is_authoritative_for_resulting_license(test_app, auth_headers):
+    order_resp = await test_app.post(
+        "/api/pending-orders",
+        json={"poNumber": "PO-AUTHORITATIVE", "supplier": "Actual PO Supplier"},
+        headers=auth_headers,
+    )
+    order_id = order_resp.json()["id"]
+
+    conflict = await test_app.post(
+        f"/api/pending-orders/{order_id}/convert",
+        data={
+            "data": json.dumps(
+                _single_convert_form(
+                    poNumber="PO-AUTHORITATIVE",
+                    supplier="Contradictory License Supplier",
+                )
+            )
+        },
+        headers=auth_headers,
+    )
+    assert conflict.status_code == 422
+
+    success = await test_app.post(
+        f"/api/pending-orders/{order_id}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber="PO-AUTHORITATIVE"))},
+        headers=auth_headers,
+    )
+    assert success.status_code == 200, success.text
+    created = next(row for row in success.json() if row["conversionType"] == "new_purchase")
+    assert created["supplier"] == "Actual PO Supplier"
+
+
+async def test_renewal_target_supplier_can_change_without_rewriting_historical_supplier(
+    test_app,
+    auth_headers,
+):
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Supplier-flexible renewal",
+        supplier="Historical Reseller A",
+        contactEmail="historical@example.test",
+        endDate="2026-12-31",
+    )
+    renewal_item = await _initiate_renewal(test_app, auth_headers, predecessor["id"])
+
+    choose_direct = await test_app.put(
+        f"/api/sourcing/{renewal_item['id']}",
+        json={"supplier": "Publisher Direct"},
+        headers=auth_headers,
+    )
+    assert choose_direct.status_code == 200, choose_direct.text
+    assert choose_direct.json()["supplier"] == "Publisher Direct"
+    assert choose_direct.json()["contactEmail"] is None
+
+    choose_reseller = await test_app.put(
+        f"/api/sourcing/{renewal_item['id']}",
+        json={"supplier": "Reseller B", "contactEmail": "renewals@reseller-b.example"},
+        headers=auth_headers,
+    )
+    assert choose_reseller.status_code == 200, choose_reseller.text
+    request = await test_app.get(
+        f"/api/sourcing/requests/{renewal_item['sourcingRequestId']}",
+        headers=auth_headers,
+    )
+    assert request.status_code == 200, request.text
+    assert request.json()["supplier"] == "Reseller B"
+    assert request.json()["contactEmail"] == "renewals@reseller-b.example"
+    assert request.json()["items"][0]["supplier"] == "Reseller B"
+
+    historical = await _get_license(test_app, auth_headers, predecessor["id"])
+    assert historical["supplier"] == "Historical Reseller A"
+    assert historical["contactEmail"] == "historical@example.test"
+
+
+async def test_renewal_bundle_with_historical_supplier_variation_starts_unassigned(
+    test_app,
+    auth_headers,
+):
+    first = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Bundle App A",
+        poNumber="PO-HISTORICAL-MIX",
+        endDate="2026-12-31",
+        supplier="Historical Reseller",
+        contactEmail="first@example.test",
+    )
+    second = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Bundle App B",
+        poNumber="PO-HISTORICAL-MIX",
+        endDate="2026-12-31",
+        supplier="Historical Direct",
+        contactEmail="second@example.test",
+    )
+
+    response = await test_app.post(
+        "/api/licenses/renewal-bundle/initiate",
+        json={"licenseIds": [first["id"], second["id"]]},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200, response.text
+    request = response.json()["sourcingRequest"]
+    assert request["supplier"] is None
+    assert request["contactEmail"] is None
+    assert {item["supplier"] for item in request["items"]} == {None}
+    assert {item["contactEmail"] for item in request["items"]} == {None}
+
+    select_target = await test_app.put(
+        f"/api/sourcing/{request['items'][0]['id']}",
+        json={"supplier": "New Common Reseller", "contactEmail": "renewals@example.test"},
+        headers=auth_headers,
+    )
+    assert select_target.status_code == 200, select_target.text
+    reloaded = await test_app.get(f"/api/sourcing/requests/{request['id']}", headers=auth_headers)
+    assert reloaded.json()["supplier"] == "New Common Reseller"
+    assert {item["supplier"] for item in reloaded.json()["items"]} == {"New Common Reseller"}
+
+    first_after = await _get_license(test_app, auth_headers, first["id"])
+    second_after = await _get_license(test_app, auth_headers, second["id"])
+    assert first_after["supplier"] == "Historical Reseller"
+    assert second_after["supplier"] == "Historical Direct"
+
+
+async def test_coterm_merge_with_conflicting_request_suppliers_starts_unassigned(
+    test_app,
+    auth_headers,
+):
+    first = await _create_license(
+        test_app,
+        auth_headers,
+        supplier="Historical A",
+        startDate="2024-01-01",
+        endDate="2025-12-31",
+    )
+    second = await _create_license(
+        test_app,
+        auth_headers,
+        supplier="Historical B",
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+    )
+    first_item = await _initiate_renewal(test_app, auth_headers, first["id"])
+    second_item = await _initiate_renewal(test_app, auth_headers, second["id"])
+
+    merge_resp = await test_app.post(
+        "/api/sourcing/merge",
+        json={"sourcingItemIds": [first_item["id"], second_item["id"]]},
+        headers=auth_headers,
+    )
+    assert merge_resp.status_code == 201, merge_resp.text
+    merged = merge_resp.json()
+    assert merged["supplier"] is None
+    assert merged["contactEmail"] is None
+    request = await test_app.get(
+        f"/api/sourcing/requests/{merged['sourcingRequestId']}",
+        headers=auth_headers,
+    )
+    assert request.json()["supplier"] is None
+
+
 async def test_batch_convert_all_preserves_saas_portal_url(test_app, auth_headers):
     item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Batch SaaS App")
     po = await _convert_sourcing_to_po(test_app, auth_headers, item["id"])
@@ -1659,7 +2009,7 @@ async def test_single_saas_renewal_persists_confirmed_conversion_values(test_app
     order = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
     order_update = await test_app.put(
         f"/api/pending-orders/{order['id']}",
-        json={"supplier": "Stale Order Supplier", "notes": "Stale order notes"},
+        json={"supplier": "Confirmed Supplier", "notes": "Stale order notes"},
         headers=auth_headers,
     )
     assert order_update.status_code == 200, order_update.text
@@ -1783,8 +2133,8 @@ async def test_single_saas_renewal_uses_line_and_predecessor_fallbacks_when_omit
         "startDate": "2027-03-04",
         "endDate": "2028-03-03",
         "contractNumber": "FALLBACK-CONTRACT",
-        "contactEmail": "current-line@example.test",
-        "supplier": "Current Line Supplier",
+        "contactEmail": "",
+        "supplier": "Renewal Supplier",
         "costCentre": "FALLBACK-COST",
         "budgetOwnerEmail": "fallback-budget@example.test",
         "portalUrl": "https://fallback.example.test",
@@ -1848,7 +2198,7 @@ async def test_batch_subscription_renewal_persists_confirmed_conversion_values(
         currency="GBP",
         startDate="2027-04-05",
         endDate="2028-04-04",
-        supplier="Confirmed Batch Supplier",
+        supplier="Renewal Supplier",
         contactEmail="confirmed-batch@example.test",
         notes="Confirmed batch notes",
     )
@@ -1901,7 +2251,7 @@ async def test_convert_po_with_maintenance_renewal_succeeds(test_app, auth_heade
                     currency="USD",
                     startDate="2027-05-06",
                     endDate="2028-05-05",
-                    supplier="Confirmed Maintenance Supplier",
+                    supplier="Renewal Supplier",
                     contactEmail="confirmed-maintenance@example.test",
                     notes="Confirmed maintenance notes",
                 )
@@ -1925,7 +2275,7 @@ async def test_convert_po_with_maintenance_renewal_succeeds(test_app, auth_heade
             "currency": "USD",
             "startDate": "2027-05-06",
             "endDate": "2028-05-05",
-            "supplier": "Confirmed Maintenance Supplier",
+            "supplier": "Renewal Supplier",
             "contactEmail": "confirmed-maintenance@example.test",
             "notes": "Confirmed maintenance notes",
         },
@@ -1940,7 +2290,7 @@ async def test_convert_po_with_maintenance_renewal_succeeds(test_app, auth_heade
             "currency": "USD",
             "startDate": "2027-05-06",
             "endDate": "2028-05-05",
-            "supplier": "Confirmed Maintenance Supplier",
+            "supplier": "Renewal Supplier",
             "contactEmail": "confirmed-maintenance@example.test",
             "notes": "Confirmed maintenance notes",
         },
@@ -2067,7 +2417,7 @@ async def test_coterm_successor_can_be_renewed_as_next_generation(test_app, auth
                     currency="GBP",
                     startDate="2026-01-01",
                     endDate="2026-12-31",
-                    supplier="Confirmed Coterm Supplier",
+                    supplier="Renewal Supplier",
                     contactEmail="confirmed-coterm@example.test",
                     notes="Confirmed coterm notes",
                 )
@@ -2106,7 +2456,7 @@ async def test_coterm_successor_can_be_renewed_as_next_generation(test_app, auth
             "currency": "GBP",
             "startDate": "2026-01-01",
             "endDate": "2026-12-31",
-            "supplier": "Confirmed Coterm Supplier",
+            "supplier": "Renewal Supplier",
             "contactEmail": "confirmed-coterm@example.test",
             "notes": "Confirmed coterm notes",
         },
@@ -2364,6 +2714,7 @@ async def test_convert_maintenance_renewal_with_missing_parent_raises(
     )
     await db_session.execute(text("PRAGMA foreign_keys=ON"))
     await db_session.commit()
+    db_session.expire_all()
 
     sourcing_item = await _initiate_renewal(test_app, auth_headers, maintenance["id"])
     po = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
@@ -2574,12 +2925,16 @@ async def test_convert_renewal_item_with_missing_predecessor_returns_404(
 
     # Bypass FK enforcement to simulate a dangling renewal_for_license_id reference.
     await db_session.execute(text("PRAGMA foreign_keys=OFF"))
-    await db_session.execute(
+    await db_session.commit()
+    update_result = await db_session.execute(
         text("UPDATE sourcing_items SET renewal_for_license_id=999999 WHERE id=:id"),
         {"id": sourcing_item["id"]},
     )
+    assert update_result.rowcount == 1
+    await db_session.commit()
     await db_session.execute(text("PRAGMA foreign_keys=ON"))
     await db_session.commit()
+    db_session.expire_all()
 
     resp = await test_app.post(
         f"/api/pending-orders/{po['id']}/convert",
@@ -2606,12 +2961,16 @@ async def test_batch_convert_renewal_item_with_missing_predecessor_returns_404(
 
     # Bypass FK enforcement to simulate a dangling renewal_for_license_id reference.
     await db_session.execute(text("PRAGMA foreign_keys=OFF"))
-    await db_session.execute(
+    await db_session.commit()
+    update_result = await db_session.execute(
         text("UPDATE sourcing_items SET renewal_for_license_id=999999 WHERE id=:id"),
         {"id": sourcing_item["id"]},
     )
+    assert update_result.rowcount == 1
+    await db_session.commit()
     await db_session.execute(text("PRAGMA foreign_keys=ON"))
     await db_session.commit()
+    db_session.expire_all()
 
     resp = await test_app.post(
         f"/api/pending-orders/{po['id']}/convert-all",

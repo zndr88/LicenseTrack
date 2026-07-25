@@ -193,6 +193,11 @@ describe("renewal golden path transitions", () => {
 
   it("converting a sourcing item to an existing pending order attaches it", async () => {
     // Sourcing item 102 (Datadog) is a standalone, unconverted item; PO 201 is seeded pending.
+    await demoRequest("/api/sourcing/requests", { method: "GET" });
+    const source = store.sourcingItems.find((item) => item.id === 102);
+    await demoRequest(`/api/sourcing/requests/${source.sourcingRequestId}`, {
+      method: "PUT", body: JSON.stringify({ supplier: null }),
+    });
     const { data, error } = await demoRequest("/api/sourcing/102/convert", {
       method: "POST", body: JSON.stringify({ pendingOrderId: 201 }),
     });
@@ -201,6 +206,7 @@ describe("renewal golden path transitions", () => {
     expect(data.items.some((i) => i.id === 102)).toBe(true);
     expect(store.sourcingItems.find((s) => s.id === 102).pendingOrderId).toBe(201);
     expect(store.sourcingItems.find((s) => s.id === 102).status).toBe("converted");
+    expect(store.sourcingRequests.find((r) => r.id === source.sourcingRequestId).supplier).toBe(data.supplier);
   });
 
   it("sourcing item update (PUT) persists changes and bumps updatedAt", async () => {
@@ -213,6 +219,66 @@ describe("renewal golden path transitions", () => {
     expect(data.notes).toBe("Budget approved.");
     expect(store.sourcingItems.find((s) => s.id === 102).notes).toBe("Budget approved.");
     expect(data.updatedAt).not.toBe(prevUpdatedAt);
+  });
+
+  it("sourcing line edits synchronize request-owned supplier context", async () => {
+    const created = await demoRequest("/api/sourcing/requests", {
+      method: "POST",
+      body: JSON.stringify({
+        supplier: "Original Reseller",
+        contactEmail: "sales@original.example",
+        items: [
+          { publisherName: "Microsoft", softwareDescription: "Microsoft 365", quantity: "2" },
+          { publisherName: "Adobe", softwareDescription: "Creative Cloud", quantity: "3" },
+        ],
+      }),
+    });
+    const request = created.data;
+
+    const update = await demoRequest(`/api/sourcing/${request.items[0].id}`, {
+      method: "PUT",
+      body: JSON.stringify({ supplier: "New Reseller" }),
+    });
+    expect(update.error).toBeNull();
+
+    const storedRequest = store.sourcingRequests.find((candidate) => candidate.id === request.id);
+    const storedItems = store.sourcingItems.filter((item) => item.sourcingRequestId === request.id);
+    expect(storedRequest.supplier).toBe("New Reseller");
+    expect(storedRequest.contactEmail).toBeNull();
+    expect(new Set(storedItems.map((item) => item.supplier))).toEqual(new Set(["New Reseller"]));
+    expect(new Set(storedItems.map((item) => item.contactEmail))).toEqual(new Set([null]));
+
+    const conflict = await demoRequest(`/api/sourcing/requests/${request.id}/items`, {
+      method: "POST",
+      body: JSON.stringify({
+        publisherName: "Autodesk",
+        softwareDescription: "AutoCAD",
+        supplier: "Conflicting Supplier",
+      }),
+    });
+    expect(conflict.error).toMatch(/conflicts/i);
+    expect(store.sourcingItems.filter((item) => item.sourcingRequestId === request.id)).toHaveLength(2);
+  });
+
+  it("renewal bundles with different historical suppliers start unassigned", async () => {
+    const candidates = store.licenses.filter((license) => !license.isRetired).slice(0, 2);
+    for (const [index, license] of candidates.entries()) {
+      license.poNumber = "PO-DEMO-BUNDLE";
+      license.endDate = "2027-12-31";
+      license.supplier = index === 0 ? "Historical Direct" : "Historical Reseller";
+      license.contactEmail = index === 0 ? "direct@example.test" : "reseller@example.test";
+      license.lifecycleStatus = null;
+      license.renewedToId = null;
+    }
+
+    const response = await demoRequest("/api/licenses/renewal-bundle/initiate", {
+      method: "POST",
+      body: JSON.stringify({ licenseIds: candidates.map((license) => license.id) }),
+    });
+    expect(response.error).toBeNull();
+    expect(response.data.sourcingRequest.supplier).toBeNull();
+    expect(response.data.sourcingRequest.contactEmail).toBeNull();
+    expect(new Set(response.data.sourcingRequest.items.map((item) => item.supplier))).toEqual(new Set([null]));
   });
 
   it("delete removes a sourcing item", async () => {
