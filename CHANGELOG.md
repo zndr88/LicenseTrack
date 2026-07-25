@@ -38,6 +38,8 @@ contracts will be called out under a **Breaking** heading in future releases.
   different supplier, unresolved renewal bundles and coterm merges remain
   unassigned, and resulting licenses use the actual pending-order supplier
   instead of stale sourcing or predecessor values.
+- Cleared pending renewal state from every coterm predecessor when merged
+  sourcing or pending-order renewal work is cancelled or deleted.
 - Standardized renewal workbench, coterm, and procurement calculations on
   Decimal arithmetic. Fractional quantities and configured precision are
   retained, invalid numeric values are reported or rejected instead of silently

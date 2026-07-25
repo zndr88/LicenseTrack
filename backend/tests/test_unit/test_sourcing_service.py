@@ -13,16 +13,24 @@ attachment, and error paths.
 import pytest
 from datetime import date
 
+from sqlalchemy import func, select
+
 from app.models.license import License, LicenseMetric, LicenseType
-from app.models.pending_order import PendingOrder
+from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.services.money import MoneyParseError
+from app.services.pending_order_service import (
+    cancel_pending_order_record,
+    delete_pending_order_item_record,
+)
 from app.services.sourcing_service import (
     assert_sourcing_item_editable,
     build_merged_sourcing_item,
+    cancel_sourcing_request_record,
     convert_sourcing_item_to_order,
     delete_sourcing_request_record,
     handle_delete_side_effects,
+    sourcing_item_predecessor_ids,
 )
 
 
@@ -54,7 +62,7 @@ def make_sourcing_item(**overrides) -> SourcingItem:
 
 
 def make_pending_order(**overrides) -> PendingOrder:
-    defaults = dict(po_number="PO-001")
+    defaults = dict(po_number="PO-001", status=PendingOrderStatus.pending)
     defaults.update(overrides)
     return PendingOrder(**defaults)
 
@@ -216,6 +224,169 @@ async def test_delete_sourcing_request_cancels_linked_renewal_when_last_referenc
     assert label == "Acme Vendor"
     assert lic.lifecycle_status is None
     assert await db_session.get(SourcingRequest, request.id) is None
+
+
+def test_sourcing_item_predecessor_ids_dedupes_primary_coterm_overlap():
+    item = make_sourcing_item(renewal_for_license_id=16, coterm_predecessor_ids=[16, None, 30, 16])
+
+    assert sourcing_item_predecessor_ids(item) == [16, 30]
+
+
+@pytest.mark.asyncio
+async def test_cancel_merged_sourcing_request_clears_all_coterm_predecessors(db_session):
+    ancestor = make_license()
+    primary = make_license(lifecycle_status="pending_renewal")
+    secondary = make_license(lifecycle_status="pending_renewal")
+    request = SourcingRequest(supplier="Acme Vendor", status=SourcingStatus.sourcing)
+    db_session.add_all([ancestor, primary, secondary, request])
+    await db_session.flush()
+
+    primary.renewed_from_id = ancestor.id
+    primary.predecessor_id = ancestor.id
+    primary.coterm_from_ids = [ancestor.id]
+    item = make_sourcing_item(
+        sourcing_request_id=request.id,
+        renewal_for_license_id=primary.id,
+        coterm_predecessor_ids=[primary.id, secondary.id],
+    )
+    db_session.add(item)
+    await db_session.flush()
+    license_count = await db_session.scalar(select(func.count()).select_from(License))
+
+    cancelled = await cancel_sourcing_request_record(db_session, request.id)
+    await db_session.commit()
+
+    await db_session.refresh(primary)
+    await db_session.refresh(secondary)
+    assert cancelled.status == SourcingStatus.cancelled
+    assert item.status == SourcingStatus.cancelled
+    assert primary.lifecycle_status is None
+    assert secondary.lifecycle_status is None
+    assert primary.renewed_from_id == ancestor.id
+    assert primary.predecessor_id == ancestor.id
+    assert primary.coterm_from_ids == [ancestor.id]
+    assert await db_session.scalar(select(func.count()).select_from(License)) == license_count
+
+
+@pytest.mark.asyncio
+async def test_cancel_merged_sourcing_request_keeps_predecessor_pending_when_other_work_exists(db_session):
+    primary = make_license(lifecycle_status="pending_renewal")
+    secondary = make_license(lifecycle_status="pending_renewal")
+    request = SourcingRequest(supplier="Acme Vendor", status=SourcingStatus.sourcing)
+    other_request = SourcingRequest(supplier="Other Vendor", status=SourcingStatus.sourcing)
+    db_session.add_all([primary, secondary, request, other_request])
+    await db_session.flush()
+
+    merged_item = make_sourcing_item(
+        sourcing_request_id=request.id,
+        renewal_for_license_id=primary.id,
+        coterm_predecessor_ids=[primary.id, secondary.id],
+    )
+    other_active_item = make_sourcing_item(
+        sourcing_request_id=other_request.id,
+        renewal_for_license_id=secondary.id,
+    )
+    db_session.add_all([merged_item, other_active_item])
+    await db_session.flush()
+
+    await cancel_sourcing_request_record(db_session, request.id)
+    await db_session.commit()
+
+    await db_session.refresh(primary)
+    await db_session.refresh(secondary)
+    assert primary.lifecycle_status is None
+    assert secondary.lifecycle_status == "pending_renewal"
+
+
+@pytest.mark.asyncio
+async def test_delete_sourcing_item_clears_all_coterm_predecessors(db_session):
+    primary = make_license(lifecycle_status="pending_renewal")
+    secondary = make_license(lifecycle_status="pending_renewal")
+    db_session.add_all([primary, secondary])
+    await db_session.flush()
+
+    item = make_sourcing_item(
+        renewal_for_license_id=primary.id,
+        coterm_predecessor_ids=[primary.id, secondary.id],
+    )
+    db_session.add(item)
+    await db_session.flush()
+
+    renewal_license_ids = sourcing_item_predecessor_ids(item)
+    await db_session.delete(item)
+    await db_session.flush()
+    await handle_delete_side_effects(
+        db_session,
+        renewal_license_id=item.renewal_for_license_id,
+        parent_order_id=None,
+        renewal_license_ids=renewal_license_ids,
+    )
+    await db_session.commit()
+
+    await db_session.refresh(primary)
+    await db_session.refresh(secondary)
+    assert primary.lifecycle_status is None
+    assert secondary.lifecycle_status is None
+
+
+@pytest.mark.asyncio
+async def test_cancel_pending_order_clears_all_coterm_predecessors(db_session):
+    primary = make_license(lifecycle_status="pending_renewal")
+    secondary = make_license(lifecycle_status="pending_renewal")
+    order = make_pending_order()
+    db_session.add_all([primary, secondary, order])
+    await db_session.flush()
+
+    item = make_sourcing_item(
+        pending_order_id=order.id,
+        status=SourcingStatus.converted,
+        renewal_for_license_id=primary.id,
+        coterm_predecessor_ids=[primary.id, secondary.id],
+    )
+    db_session.add(item)
+    await db_session.flush()
+
+    await cancel_pending_order_record(db_session, order.id)
+    await db_session.commit()
+
+    await db_session.refresh(primary)
+    await db_session.refresh(secondary)
+    assert order.status == PendingOrderStatus.cancelled
+    assert item.status == SourcingStatus.cancelled
+    assert primary.lifecycle_status is None
+    assert secondary.lifecycle_status is None
+
+
+@pytest.mark.asyncio
+async def test_delete_pending_order_item_clears_all_coterm_predecessors(db_session):
+    primary = make_license(lifecycle_status="pending_renewal")
+    secondary = make_license(lifecycle_status="pending_renewal")
+    order = make_pending_order()
+    db_session.add_all([primary, secondary, order])
+    await db_session.flush()
+
+    item = make_sourcing_item(
+        pending_order_id=order.id,
+        status=SourcingStatus.converted,
+        renewal_for_license_id=primary.id,
+        coterm_predecessor_ids=[primary.id, secondary.id],
+    )
+    db_session.add(item)
+    await db_session.flush()
+
+    _, _, renewal_license_ids = await delete_pending_order_item_record(db_session, order.id, item.id)
+    await handle_delete_side_effects(
+        db_session,
+        renewal_license_id=None,
+        parent_order_id=None,
+        renewal_license_ids=renewal_license_ids,
+    )
+    await db_session.commit()
+
+    await db_session.refresh(primary)
+    await db_session.refresh(secondary)
+    assert primary.lifecycle_status is None
+    assert secondary.lifecycle_status is None
 
 
 # ---------------------------------------------------------------------------

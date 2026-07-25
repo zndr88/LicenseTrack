@@ -98,6 +98,17 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+export function sourcingItemPredecessorIds(item) {
+  const ids = [];
+  const seen = new Set();
+  for (const id of [item.renewalForLicenseId, ...(item.cotermPredecessorIds ?? [])]) {
+    if (id == null || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
 export function resetSettings() {
   store.userSettings = clone(DEFAULT_USER_SETTINGS);
   store.globalSettings = clone(DEFAULT_GLOBAL_SETTINGS);
@@ -438,7 +449,7 @@ function computeRenewalRiskFlags({
 
 function selectRenewalSourcingItem(licenseId) {
   const items = store.sourcingItems
-    .filter((item) => item.renewalForLicenseId === licenseId)
+    .filter((item) => sourcingItemPredecessorIds(item).includes(licenseId))
     .sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
   return items.find((item) => item.pendingOrderId != null) ?? items[0] ?? null;
 }
@@ -907,7 +918,7 @@ export function buildSourcingItem(payload, overrides = {}) {
     convertedLicenseRef: null,
     convertedLicenseIds: [],
     renewalForLicenseId,
-    cotermPredecessorIds: null,
+    cotermPredecessorIds: payload.cotermPredecessorIds ?? null,
     isRenewal: renewalForLicenseId != null,
     createdAt: now,
     updatedAt: now,
@@ -922,18 +933,24 @@ export function buildSourcingItem(payload, overrides = {}) {
  * sourcing-request delete path, which only performs the renewal cleanup
  * see delete_sourcing_request_record, sourcing_service.py:212-225).
  */
-export function handleSourcingItemDeleteSideEffects({ renewalLicenseId, parentOrderId }) {
+function hasOpenRenewalWork(licenseId) {
+  return store.sourcingItems.some(
+    (item) => item.status !== "cancelled" && sourcingItemPredecessorIds(item).includes(licenseId)
+  );
+}
+
+export function handleSourcingItemDeleteSideEffects({ renewalLicenseId, parentOrderId, renewalLicenseIds = [] }) {
   if (parentOrderId != null) {
     const remaining = store.sourcingItems.filter((i) => i.pendingOrderId === parentOrderId).length;
     if (remaining === 0) {
       store.pendingOrders = store.pendingOrders.filter((p) => p.id !== parentOrderId);
     }
   }
-  if (renewalLicenseId != null) {
-    const license = store.licenses.find((l) => l.id === renewalLicenseId);
+  const predecessorIds = [...new Set([renewalLicenseId, ...renewalLicenseIds].filter((id) => id != null))];
+  for (const predecessorId of predecessorIds) {
+    const license = store.licenses.find((l) => l.id === predecessorId);
     if (license) {
-      const siblingCount = store.sourcingItems.filter((i) => i.renewalForLicenseId === renewalLicenseId).length;
-      if (siblingCount === 0 && license.lifecycleStatus === "pending_renewal") {
+      if (!hasOpenRenewalWork(predecessorId) && license.lifecycleStatus === "pending_renewal") {
         license.lifecycleStatus = null;
         // Recompute cached expirationStatus (the backend derives it at read
         // time; the demo caches it on the object) and bump updatedAt.
@@ -1345,18 +1362,15 @@ export function cancelPendingOrderRecord(order) {
   const now = new Date().toISOString();
   order.status = "cancelled";
   order.updatedAt = now;
-  const renewalLicenseIds = [];
+  const renewalLicenseIds = new Set();
   for (const item of store.sourcingItems.filter((i) => i.pendingOrderId === order.id)) {
-    if (item.renewalForLicenseId != null) renewalLicenseIds.push(item.renewalForLicenseId);
+    for (const predecessorId of sourcingItemPredecessorIds(item)) renewalLicenseIds.add(predecessorId);
     item.status = "cancelled";
     item.updatedAt = now;
   }
   for (const licenseId of renewalLicenseIds) {
     const license = store.licenses.find((l) => l.id === licenseId);
-    const openSiblings = store.sourcingItems.filter(
-      (i) => i.renewalForLicenseId === licenseId && i.status !== "cancelled"
-    ).length;
-    if (license && openSiblings === 0 && license.lifecycleStatus === "pending_renewal") {
+    if (license && !hasOpenRenewalWork(licenseId) && license.lifecycleStatus === "pending_renewal") {
       license.lifecycleStatus = null;
       decorateLicense(license);
     }

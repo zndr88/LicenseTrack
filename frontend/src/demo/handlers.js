@@ -5,6 +5,7 @@ import {
   backfillMissingSourcingRequests, buildSourcingItem, buildSourcingRequestResponse,
   ensureSourcingRequestForItem, assertSourcingItemEditable, convertSourcingItemToOrder,
   convertSourcingRequestToOrder, mergeCotermSourcingItems, handleSourcingItemDeleteSideEffects,
+  sourcingItemPredecessorIds,
   cleanProcurementIdentity, procurementIdentitiesMatch, synchronizeOpenSourcingRequestIdentity,
   convertFreewareSourcingItems,
   ensurePendingOrderEditable, createPendingOrderRecord, deletePendingOrderRecord, cancelPendingOrderRecord,
@@ -766,13 +767,18 @@ export const routes = [
         throw new Error(`Cannot modify a ${request.status} sourcing request`);
       }
       const now = new Date().toISOString();
+      const renewalIds = new Set();
       request.status = "cancelled";
       request.updatedAt = now;
       for (const item of store.sourcingItems.filter((candidate) => candidate.sourcingRequestId === request.id)) {
         if (item.status === "sourcing") {
+          for (const predecessorId of sourcingItemPredecessorIds(item)) renewalIds.add(predecessorId);
           item.status = "cancelled";
           item.updatedAt = now;
         }
+      }
+      for (const renewalLicenseId of renewalIds) {
+        handleSourcingItemDeleteSideEffects({ renewalLicenseId, parentOrderId: null });
       }
       return { data: buildSourcingRequestResponse(request), error: null };
     },
@@ -836,7 +842,7 @@ export const routes = [
       if (items.some((item) => item.status === "converted")) {
         throw new Error("Cannot delete a sourcing request after any line has been converted");
       }
-      const renewalIds = items.filter((i) => i.renewalForLicenseId != null).map((i) => i.renewalForLicenseId);
+      const renewalIds = [...new Set(items.flatMap((item) => sourcingItemPredecessorIds(item)))];
 
       store.sourcingItems = store.sourcingItems.filter((i) => i.sourcingRequestId !== id);
       store.sourcingRequests = store.sourcingRequests.filter((r) => r.id !== id);
@@ -930,9 +936,10 @@ export const routes = [
       assertSourcingItemEditable(item);
 
       const renewalLicenseId = item.renewalForLicenseId;
+      const renewalLicenseIds = sourcingItemPredecessorIds(item);
       const parentOrderId = item.pendingOrderId;
       store.sourcingItems = store.sourcingItems.filter((i) => i.id !== id);
-      handleSourcingItemDeleteSideEffects({ renewalLicenseId, parentOrderId });
+      handleSourcingItemDeleteSideEffects({ renewalLicenseId, parentOrderId, renewalLicenseIds });
 
       return { data: null, error: null };
     },
@@ -1032,8 +1039,9 @@ export const routes = [
       const item = store.sourcingItems.find((i) => i.id === itemId && i.pendingOrderId === order.id);
       if (!item) throw new Error("Pending order item not found");
       const renewalLicenseId = item.renewalForLicenseId;
+      const renewalLicenseIds = sourcingItemPredecessorIds(item);
       store.sourcingItems = store.sourcingItems.filter((i) => i.id !== itemId);
-      handleSourcingItemDeleteSideEffects({ renewalLicenseId, parentOrderId: null });
+      handleSourcingItemDeleteSideEffects({ renewalLicenseId, parentOrderId: null, renewalLicenseIds });
       rebuildPendingOrderItems(order);
       return { data: order, error: null };
     },

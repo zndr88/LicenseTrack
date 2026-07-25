@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from datetime import date
 from decimal import ROUND_HALF_EVEN, Decimal
 
@@ -15,6 +16,17 @@ from app.services.money import MoneyParseError, parse_money
 
 
 _IDENTITY_UNSET = object()
+
+
+def sourcing_item_predecessor_ids(item: SourcingItem) -> list[int]:
+    predecessor_ids = []
+    seen = set()
+    for predecessor_id in [item.renewal_for_license_id, *(item.coterm_predecessor_ids or [])]:
+        if predecessor_id is None or predecessor_id in seen:
+            continue
+        seen.add(predecessor_id)
+        predecessor_ids.append(predecessor_id)
+    return predecessor_ids
 
 
 def clean_procurement_identity(value: str | None) -> str | None:
@@ -147,6 +159,8 @@ async def handle_delete_side_effects(
     db: AsyncSession,
     renewal_license_id: int | None,
     parent_order_id: int | None,
+    *,
+    renewal_license_ids: Iterable[int] | None = None,
 ) -> None:
     """Apply side effects after a SourcingItem has been deleted from the session.
 
@@ -164,31 +178,35 @@ async def handle_delete_side_effects(
             if orphaned_po is not None:
                 await db.delete(orphaned_po)
 
-    if renewal_license_id is not None:
-        linked_license = await db.get(License, renewal_license_id)
-        if linked_license is not None:
-            sibling_count = await db.scalar(
-                select(func.count())
-                .select_from(SourcingItem)
-                .where(SourcingItem.renewal_for_license_id == renewal_license_id)
-            )
-            if sibling_count == 0:
-                clear_pending_renewal_if_current(linked_license)
+    predecessor_ids = []
+    seen = set()
+    for predecessor_id in [renewal_license_id, *(renewal_license_ids or [])]:
+        if predecessor_id is None or predecessor_id in seen:
+            continue
+        seen.add(predecessor_id)
+        predecessor_ids.append(predecessor_id)
+
+    for predecessor_id in predecessor_ids:
+        await clear_pending_renewal_if_no_open_sourcing(db, predecessor_id)
+
+
+def _item_represents_predecessor(item: SourcingItem, renewal_license_id: int) -> bool:
+    return renewal_license_id in sourcing_item_predecessor_ids(item)
 
 
 async def clear_pending_renewal_if_no_open_sourcing(db: AsyncSession, renewal_license_id: int) -> None:
     linked_license = await db.get(License, renewal_license_id)
     if linked_license is None:
         return
-    sibling_count = await db.scalar(
-        select(func.count())
-        .select_from(SourcingItem)
-        .where(
-            SourcingItem.renewal_for_license_id == renewal_license_id,
-            SourcingItem.status != SourcingStatus.cancelled,
-        )
+
+    result = await db.execute(
+        select(SourcingItem).where(SourcingItem.status != SourcingStatus.cancelled)
     )
-    if sibling_count == 0:
+    has_open_work = any(
+        _item_represents_predecessor(item, renewal_license_id)
+        for item in result.scalars().all()
+    )
+    if not has_open_work:
         clear_pending_renewal_if_current(linked_license)
 
 
@@ -537,9 +555,10 @@ async def delete_sourcing_request_record(db: AsyncSession, request_id: int) -> s
 
     label = request.supplier or f"Sourcing request {request.id}"
     renewal_ids = [
-        item.renewal_for_license_id
+        predecessor_id
         for item in request.items
-        if item.status == SourcingStatus.sourcing and item.renewal_for_license_id
+        if item.status == SourcingStatus.sourcing
+        for predecessor_id in sourcing_item_predecessor_ids(item)
     ]
     await db.delete(request)
     await db.flush()
@@ -552,11 +571,12 @@ async def cancel_sourcing_request_record(db: AsyncSession, request_id: int) -> S
     request = await get_sourcing_request_or_404(db, request_id)
     assert_sourcing_request_editable(request)
 
-    renewal_ids = [
-        item.renewal_for_license_id
+    renewal_ids = {
+        predecessor_id
         for item in request.items
-        if item.status == SourcingStatus.sourcing and item.renewal_for_license_id
-    ]
+        if item.status == SourcingStatus.sourcing
+        for predecessor_id in sourcing_item_predecessor_ids(item)
+    }
     request.status = SourcingStatus.cancelled
     for item in request.items:
         if item.status == SourcingStatus.sourcing:

@@ -127,7 +127,7 @@ async def delete_pending_order_item(
     _editor: User = Depends(require_editor_or_admin),
 ) -> PendingOrderResponse:
     """Delete a pending-order line item before the PO is converted to licenses."""
-    order, label, renewal_license_id = await delete_pending_order_item_record(db, order_id, item_id)
+    order, label, renewal_license_ids = await delete_pending_order_item_record(db, order_id, item_id)
 
     ip = request.client.host if request.client else None
     await log_event(
@@ -140,7 +140,12 @@ async def delete_pending_order_item(
         target_label=order.po_number or order.supplier or "",
         detail=label,
     )
-    await handle_delete_side_effects(db, renewal_license_id=renewal_license_id, parent_order_id=None)
+    await handle_delete_side_effects(
+        db,
+        renewal_license_id=None,
+        parent_order_id=None,
+        renewal_license_ids=renewal_license_ids,
+    )
     await db.commit()
     order = await get_pending_order_or_404(db, order_id, include_items=True)
     return to_pending_order_response(order)

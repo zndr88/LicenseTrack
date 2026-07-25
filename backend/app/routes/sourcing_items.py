@@ -28,6 +28,7 @@ from app.services.sourcing_service import (
     get_sourcing_request_for_update_or_404,
     handle_delete_side_effects,
     refresh_sourcing_request_status,
+    sourcing_item_predecessor_ids,
 )
 
 router = APIRouter(prefix="/api/sourcing", tags=["sourcing"])
@@ -330,6 +331,7 @@ async def delete_sourcing_item(
     assert_sourcing_item_editable(item)
 
     renewal_license_id = item.renewal_for_license_id
+    renewal_license_ids = sourcing_item_predecessor_ids(item)
     parent_order_id = item.pending_order_id
     sourcing_request = item.sourcing_request
     label = item.software_description
@@ -346,7 +348,12 @@ async def delete_sourcing_item(
         target_label=label,
     )
 
-    await handle_delete_side_effects(db, renewal_license_id=renewal_license_id, parent_order_id=parent_order_id)
+    await handle_delete_side_effects(
+        db,
+        renewal_license_id=renewal_license_id,
+        parent_order_id=parent_order_id,
+        renewal_license_ids=renewal_license_ids,
+    )
     if sourcing_request is not None:
         converted_siblings = await db.scalar(
             select(func.count())

@@ -6,6 +6,47 @@ async function login() {
   await demoRequest("/api/auth/login", { method: "POST", body: JSON.stringify({ username: "demo", password: "demo" }) });
 }
 
+function addMergedRenewalItem({ requestId = 9001, pendingOrderId = null } = {}) {
+  const [primary, secondary] = store.licenses.slice(0, 2);
+  primary.lifecycleStatus = "pending_renewal";
+  secondary.lifecycleStatus = "pending_renewal";
+  const now = new Date().toISOString();
+  if (pendingOrderId == null) {
+    store.sourcingRequests.push({
+      id: requestId,
+      supplier: "Merged Vendor",
+      contactEmail: null,
+      notes: null,
+      status: "sourcing",
+      createdAt: now,
+      updatedAt: now,
+      createdBy: 1,
+    });
+  }
+  store.sourcingItems.push({
+    id: 9002,
+    sourcingRequestId: pendingOrderId == null ? requestId : null,
+    publisherName: primary.publisherName,
+    softwareDescription: primary.softwareDescription,
+    quantity: "2",
+    estimatedUnitPrice: "10.00",
+    estimatedTotalPrice: "20.00",
+    currency: "EUR",
+    supplier: "Merged Vendor",
+    contactEmail: null,
+    notes: null,
+    status: pendingOrderId == null ? "sourcing" : "converted",
+    pendingOrderId,
+    renewalForLicenseId: primary.id,
+    cotermPredecessorIds: [primary.id, secondary.id, primary.id],
+    isRenewal: true,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: 1,
+  });
+  return { primary, secondary };
+}
+
 describe("renewal golden path transitions", () => {
   beforeEach(async () => { resetStore(); await login(); });
 
@@ -279,6 +320,50 @@ describe("renewal golden path transitions", () => {
     expect(response.data.sourcingRequest.supplier).toBeNull();
     expect(response.data.sourcingRequest.contactEmail).toBeNull();
     expect(new Set(response.data.sourcingRequest.items.map((item) => item.supplier))).toEqual(new Set([null]));
+  });
+
+  it("demo sourcing request cancel clears all merged coterm predecessors", async () => {
+    const { primary, secondary } = addMergedRenewalItem();
+    const licenseCount = store.licenses.length;
+
+    const { error } = await demoRequest("/api/sourcing/requests/9001/cancel", { method: "POST" });
+
+    expect(error).toBeNull();
+    expect(primary.lifecycleStatus).toBeNull();
+    expect(secondary.lifecycleStatus).toBeNull();
+    expect(store.licenses).toHaveLength(licenseCount);
+    expect(store.sourcingItems.find((item) => item.id === 9002).status).toBe("cancelled");
+  });
+
+  it("demo pending order cancel clears all merged coterm predecessors unless other work remains", async () => {
+    store.pendingOrders.push({
+      id: 9010,
+      poNumber: "PO-DEMO-MERGED",
+      supplier: "Merged Vendor",
+      notes: null,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: 1,
+      items: [],
+      documents: [],
+      totalPoValue: null,
+    });
+    const { primary, secondary } = addMergedRenewalItem({ pendingOrderId: 9010 });
+    store.sourcingItems.push({
+      ...store.sourcingItems.find((item) => item.id === 9002),
+      id: 9003,
+      status: "sourcing",
+      pendingOrderId: null,
+      renewalForLicenseId: secondary.id,
+      cotermPredecessorIds: null,
+    });
+
+    const { error } = await demoRequest("/api/pending-orders/9010/cancel", { method: "POST" });
+
+    expect(error).toBeNull();
+    expect(primary.lifecycleStatus).toBeNull();
+    expect(secondary.lifecycleStatus).toBe("pending_renewal");
   });
 
   it("delete removes a sourcing item", async () => {

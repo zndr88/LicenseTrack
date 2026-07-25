@@ -233,7 +233,13 @@ async def cancel_pending_order_record(db: AsyncSession, order_id: int) -> Pendin
     order = await get_pending_order_or_404(db, order_id, include_items=True)
     ensure_pending_order_editable(order, action="cancel")
 
-    renewal_ids = [item.renewal_for_license_id for item in order.items if item.renewal_for_license_id]
+    from app.services.sourcing_service import sourcing_item_predecessor_ids
+
+    renewal_ids = {
+        predecessor_id
+        for item in order.items
+        for predecessor_id in sourcing_item_predecessor_ids(item)
+    }
     order.status = PendingOrderStatus.cancelled
     for item in order.items:
         item.status = SourcingStatus.cancelled
@@ -303,17 +309,19 @@ async def delete_pending_order_item_record(
     db: AsyncSession,
     order_id: int,
     item_id: int,
-) -> tuple[PendingOrder, str, int | None]:
+) -> tuple[PendingOrder, str, list[int]]:
     order = await get_pending_order_or_404(db, order_id, include_items=True)
     ensure_pending_order_editable(order, action="delete items from")
 
     item = _find_order_item(order, item_id)
     label = f"{item.publisher_name} - {item.software_description}"
-    renewal_license_id = item.renewal_for_license_id
+    from app.services.sourcing_service import sourcing_item_predecessor_ids
+
+    renewal_license_ids = sourcing_item_predecessor_ids(item)
     await db.delete(item)
     order.items = [existing for existing in order.items if existing.id != item_id]
     await db.flush()
-    return order, label, renewal_license_id
+    return order, label, renewal_license_ids
 
 
 def ensure_pending_order_editable(order: PendingOrder, *, action: str = "modify") -> None:
