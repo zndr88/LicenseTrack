@@ -93,13 +93,21 @@ def test_compute_workbench_renewal_status_preserves_existing_labels():
     )
 
 
-def test_build_renewal_sourcing_item_prefills_from_license():
-    license_obj = make_license(id=42, created_by=7)
+@pytest.mark.parametrize("license_type", [LicenseType.subscription, LicenseType.saas])
+def test_build_renewal_sourcing_item_prefills_from_license_without_reusing_term(license_type):
+    license_obj = make_license(
+        id=42,
+        created_by=7,
+        license_type=license_type,
+        start_date=date(2025, 1, 1),
+        end_date=date(2025, 12, 31),
+    )
 
     sourcing_item = build_renewal_sourcing_item(license_obj, created_by=99)
 
     assert sourcing_item.publisher_name == "Acme"
     assert sourcing_item.software_description == "Acme Suite"
+    assert sourcing_item.license_type == license_type
     assert sourcing_item.quantity == "25"
     assert sourcing_item.estimated_unit_price == "100"
     assert sourcing_item.estimated_total_price == "2500"
@@ -109,6 +117,8 @@ def test_build_renewal_sourcing_item_prefills_from_license():
     assert sourcing_item.status == SourcingStatus.sourcing
     assert sourcing_item.renewal_for_license_id == 42
     assert sourcing_item.created_by == 99
+    assert sourcing_item.start_date is None
+    assert sourcing_item.end_date is None
 
 
 def test_build_pending_order_item_license_data_overlays_item_and_old_license():

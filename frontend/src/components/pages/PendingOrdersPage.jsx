@@ -10,6 +10,7 @@ import SourcingItemModal from "../procurement/SourcingItemModal.jsx";
 import PendingOrdersTable from "./pendingOrders/PendingOrdersTable.jsx";
 import { filterAndSortPendingOrders, usePendingOrdersPageState } from "./pendingOrders/usePendingOrdersPageState.js";
 import { usePendingOrdersData } from "./usePendingOrdersData.js";
+import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
 
 export default function PendingOrdersPage({
   user, userSettings,
@@ -88,7 +89,6 @@ export default function PendingOrdersPage({
   };
 
   const {
-    buildPrefillFromOrder,
     cancelPendingOrderId,
     displayed,
     expandedPendingOrderId,
@@ -102,7 +102,6 @@ export default function PendingOrdersPage({
     sortDir,
   } = usePendingOrdersPageState({
     pendingOrders,
-    licenses,
     highlightId,
     onClearHighlight,
   });
@@ -208,7 +207,11 @@ export default function PendingOrdersPage({
             onOpenAddItems={(po) => setShowAddPOItemsModal({ order: po })}
             onOpenConvert={(po) => setShowConvertToLicenseModal({
               order: po,
-              prefill: buildPrefillFromOrder(po),
+              prefill: buildConvertItemDefaults(
+                po,
+                licenses,
+                userSettings?.displayCurrency,
+              )[0] ?? {},
             })}
             onOpenConvertAll={setShowConvertAllModal}
             onNavigateToLicense={onNavigateToLicense}

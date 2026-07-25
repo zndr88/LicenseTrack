@@ -80,6 +80,7 @@ def build_renewal_sourcing_item(
     return SourcingItem(
         publisher_name=license_obj.publisher_name,
         software_description=license_obj.software_description,
+        license_type=license_obj.license_type,
         quantity=license_obj.quantity or None,
         estimated_unit_price=license_obj.unit_price or None,
         # Seed with this license's own line total (qty × unit price), not the

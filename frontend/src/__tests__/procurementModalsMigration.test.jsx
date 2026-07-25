@@ -7,6 +7,7 @@ import ConvertSourcingModal from "../components/procurement/ConvertSourcingModal
 import ConvertPendingOrderModal from "../components/procurement/ConvertPendingOrderModal.jsx";
 import ConvertAllModal from "../components/procurement/ConvertAllModal.jsx";
 import * as pendingOrdersApi from "../api/pendingOrders.js";
+import { buildConvertItemDefaults } from "../utils/buildConvertItemDefaults.js";
 
 vi.mock("../api/pendingOrders.js", () => ({
   getPendingOrders: vi.fn().mockResolvedValue({ data: [] }),
@@ -618,6 +619,100 @@ describe("ConvertAllModal", () => {
     expect(screen.getByRole("button", { name: /confirm & create licenses/i })).toBeDisabled();
   });
 
+  test("single and batch conversion show equivalent defaults for a one-line coterm order", () => {
+    const cotermOrder = {
+      id: 3,
+      poNumber: "PO-COTERM",
+      supplier: "PO Supplier",
+      notes: "PO note",
+      items: [{
+        id: 31,
+        publisherName: "Current Publisher",
+        softwareDescription: "Current Product",
+        licenseType: "saas",
+        quantity: "12",
+        estimatedUnitPrice: "55.00",
+        estimatedTotalPrice: "660.00",
+        currency: "USD",
+        startDate: "2026-03-01",
+        endDate: "2027-02-28",
+        supplier: "Line Supplier",
+        contactEmail: "line@example.com",
+        notes: "Line note",
+        isRenewal: true,
+        renewalForLicenseId: 101,
+        cotermPredecessorIds: [101, 102],
+      }],
+    };
+    const licenses = [{
+      ...RENEWAL_LICENSES[0],
+      notes: "Previous note",
+    }];
+    const [singleDefaults] = buildConvertItemDefaults(cotermOrder, licenses);
+
+    render(
+      <ConvertPendingOrderModal
+        order={cotermOrder}
+        prefill={singleDefaults}
+        licenses={licenses}
+        userSettings={USER_SETTINGS}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    const singleValues = {
+      publisherName: screen.getByLabelText(/publisher name/i).value,
+      softwareDescription: screen.getByLabelText(/software description/i).value,
+      startDate: screen.getByLabelText(/start date/i).value,
+      endDate: screen.getByLabelText(/^end date/i).value,
+      contactEmail: screen.getByLabelText(/^contact email$/i).value,
+      supplier: screen.getByLabelText(/^supplier$/i).value,
+      licenseType: screen.getByLabelText(/license type/i).value,
+      licenseMetric: screen.getByLabelText(/license metric/i).value,
+      quantity: screen.getByLabelText(/purchase quantity/i).value,
+      unitPrice: screen.getByLabelText(/^unit price/i).value,
+      totalPoPrice: screen.getByLabelText(/total po price/i).value,
+      currency: screen.getByLabelText(/^currency$/i).value,
+      notes: screen.getByLabelText(/notes \/ comments/i).value,
+    };
+
+    cleanup();
+    renderModal({ order: cotermOrder, licenses });
+    const batchValues = {
+      publisherName: screen.getByLabelText(/publisher name/i).value,
+      softwareDescription: screen.getByLabelText(/software description/i).value,
+      startDate: screen.getByLabelText(/start date/i).value,
+      endDate: screen.getByLabelText(/^end date/i).value,
+      contactEmail: screen.getByLabelText(/^contact email$/i).value,
+      supplier: screen.getByLabelText(/^supplier$/i).value,
+      licenseType: screen.getByLabelText(/license type/i).value,
+      licenseMetric: screen.getByLabelText(/license metric/i).value,
+      quantity: screen.getByLabelText(/purchase quantity/i).value,
+      unitPrice: screen.getByLabelText(/^unit price/i).value,
+      totalPoPrice: screen.getByLabelText(/total po price/i).value,
+      currency: screen.getByLabelText(/^currency$/i).value,
+      notes: screen.getByLabelText(/notes \/ comments/i).value,
+    };
+
+    expect(batchValues).toEqual(singleValues);
+    expect(batchValues).toEqual(expect.objectContaining({
+      startDate: "2026-03-01",
+      endDate: "2027-02-28",
+      licenseType: "saas",
+      licenseMetric: "per_device",
+      quantity: "12",
+      unitPrice: "55.00",
+      totalPoPrice: "660.00",
+      supplier: "Line Supplier",
+      contactEmail: "line@example.com",
+      currency: "USD",
+      notes:
+        "Purchase order notes:\nPO note\n\n" +
+        "Line item notes:\nLine note\n\n" +
+        "Previous license notes:\nPrevious note",
+    }));
+  });
+
   test("copies shared fields from the first item across the remaining conversion items", async () => {
     const user = userEvent.setup();
     renderModal({ order: MULTI_ORDER, licenses: RENEWAL_LICENSES });
@@ -644,7 +739,7 @@ describe("ConvertAllModal", () => {
 
     expect(contractNumbers[1]).toHaveValue("CN-OLD");
     expect(contactEmails[1]).toHaveValue("renew@example.com");
-    expect(suppliers[1]).toHaveValue("Renew Supplier");
+    expect(suppliers[1]).toHaveValue("Order Supplier");
 
     await user.click(copyButton);
 
@@ -828,7 +923,7 @@ describe("ConvertAllModal", () => {
         poNumber: "PO-2",
         invoiceNumber: "",
         contactEmail: "renew@example.com",
-        supplier: "Renew Supplier",
+        supplier: "Order Supplier",
         costCentre: "Renewals",
         licenseType: "saas",
         licenseMetric: "per_device",

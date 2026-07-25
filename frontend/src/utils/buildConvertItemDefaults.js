@@ -1,9 +1,10 @@
 /**
- * Builds the useForm defaultValues array for ConvertAllModal.
+ * Builds conversion form defaults for pending-order items.
  * Pure function - no React, safe to call outside components or in tests.
  *
  * @param {object} order - pending order (must have .poNumber, .supplier, .items[])
  * @param {Array}  licenses - full license list used to prefill renewal fields
+ * @param {string} defaultCurrency - configured currency used as the final fallback
  * @returns {Array<object>} - one default-value object per order item
  */
 function buildNotes(orderNotes, itemNotes, renewalNotes) {
@@ -25,30 +26,31 @@ function buildNotes(orderNotes, itemNotes, renewalNotes) {
     .join("\n\n");
 }
 
-export function buildConvertItemDefaults(order, licenses) {
+export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR") {
   const items = order?.items ?? [];
   return items.map((si) => {
     const renewal =
       si.isRenewal && si.renewalForLicenseId
         ? licenses.find((l) => l.id === si.renewalForLicenseId)
         : null;
+    const licenseType = si.licenseType || renewal?.licenseType || "subscription";
     return {
-      publisherName:       si.publisherName || "",
-      softwareDescription: si.softwareDescription || "",
+      publisherName:       si.publisherName || renewal?.publisherName || "",
+      softwareDescription: si.softwareDescription || renewal?.softwareDescription || "",
       startDate:           si.startDate || "",
       endDate:             si.endDate || "",
       purchaseDate:        "",
-      isPerpetual:         false,
+      isPerpetual:         licenseType === "perpetual",
       contractNumber:      renewal?.contractNumber || "",
       poNumber:            order.poNumber || "",
       invoiceNumber:       "",
-      contactEmail:        renewal?.contactEmail || "",
-      supplier:            renewal?.supplier || order.supplier || "",
+      contactEmail:        si.contactEmail || renewal?.contactEmail || "",
+      supplier:            si.supplier || order.supplier || renewal?.supplier || "",
       costCentre:          renewal?.costCentre || "",
-      licenseType:         renewal?.licenseType || "subscription",
+      licenseType,
       licenseMetric:       renewal?.licenseMetric || "per_user",
       portalUrl:           renewal?.portalUrl || "",
-      parentLicenseId:     "",
+      parentLicenseId:     si.parentSourcingItemId ? "" : renewal?.parentLicenseId || "",
       parentSourcingItemId: si.parentSourcingItemId || "",
       maintenanceCoverage: si.maintenanceCoverage || renewal?.maintenanceCoverage || "unknown",
       maintenanceStartDate: si.maintenanceStartDate || renewal?.maintenanceStartDate || "",
@@ -61,7 +63,7 @@ export function buildConvertItemDefaults(order, licenses) {
       skuCode:             renewal?.skuCode || "",
       unitPrice:           si.estimatedUnitPrice || renewal?.unitPrice || "",
       totalPoPrice:        si.estimatedTotalPrice || renewal?.totalPoPrice || "",
-      currency:            si.currency || renewal?.currency || "EUR",
+      currency:            si.currency || renewal?.currency || defaultCurrency,
       budgetOwnerEmail:    renewal?.budgetOwnerEmail || "",
       notes:               buildNotes(order.notes, si.notes, renewal?.notes),
     };

@@ -297,6 +297,7 @@ def test_merged_item_inherits_fields_from_primary_item():
         pred_primary,
         publisher_name="Primary Corp",
         software_description="Primary Suite",
+        license_type=LicenseType.saas,
         currency="USD",
         supplier="Primary Vendor",
         contact_email="primary@example.com",
@@ -309,12 +310,35 @@ def test_merged_item_inherits_fields_from_primary_item():
 
     assert merged.publisher_name == "Primary Corp"
     assert merged.software_description == "Primary Suite"
+    assert merged.license_type == LicenseType.saas
     assert merged.currency == "USD"
     assert merged.supplier == "Primary Vendor"
     assert merged.contact_email == "primary@example.com"
     assert merged.estimated_unit_price == "100.00"
     assert merged.created_by == 7
     assert merged.status == SourcingStatus.sourcing
+
+
+def test_merged_item_falls_back_to_deterministic_primary_predecessor_type():
+    pred_primary = make_pred(
+        id=1,
+        start_date=date(2020, 1, 1),
+        license_type=LicenseType.saas,
+    )
+    pred_other = make_pred(
+        id=2,
+        start_date=date(2022, 1, 1),
+        license_type=LicenseType.subscription,
+    )
+    items = [
+        make_item_for(pred_primary, license_type=None),
+        make_item_for(pred_other, license_type=LicenseType.subscription),
+    ]
+
+    merged = build_merged_sourcing_item(items, [pred_other, pred_primary], created_by=7)
+
+    assert merged.renewal_for_license_id == pred_primary.id
+    assert merged.license_type == LicenseType.saas
 
 
 def test_quantity_is_sum_of_all_items():

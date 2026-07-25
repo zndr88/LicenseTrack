@@ -40,7 +40,9 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
     formState: { isDirty, errors },
   } = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: { items: buildConvertItemDefaults(order, licenses) },
+    defaultValues: {
+      items: buildConvertItemDefaults(order, licenses, userSettings?.displayCurrency),
+    },
   });
 
   const { fields } = useFieldArray({ control, name: "items" });

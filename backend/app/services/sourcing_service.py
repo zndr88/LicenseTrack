@@ -164,6 +164,7 @@ def build_merged_sourcing_item(
     return SourcingItem(
         publisher_name=primary_item.publisher_name,
         software_description=primary_item.software_description,
+        license_type=primary_item.license_type or primary_pred.license_type,
         quantity=str(total_quantity) if total_quantity else None,
         estimated_unit_price=primary_item.estimated_unit_price,
         estimated_total_price=merged_total_price,

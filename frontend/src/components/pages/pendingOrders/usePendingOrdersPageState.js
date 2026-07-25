@@ -86,7 +86,6 @@ export function filterAndSortPendingOrders(pendingOrders, search, sortCol, sortD
 
 export function usePendingOrdersPageState({
   pendingOrders,
-  licenses,
   highlightId,
   onClearHighlight,
 }) {
@@ -116,68 +115,6 @@ export function usePendingOrdersPageState({
     return () => clearTimeout(timeoutId);
   }, [highlightId, pendingOrders, onClearHighlight]);
 
-  const buildPrefillFromOrder = useCallback((po) => {
-    const base = {
-      poNumber: po.poNumber || "",
-      supplier: po.supplier || "",
-      notes: po.notes || "",
-      currency: "EUR",
-    };
-
-    const renewalItem = po.items?.find((item) => item.isRenewal && item.renewalForLicenseId);
-    if (renewalItem) {
-      const license = licenses.find((entry) => entry.id === renewalItem.renewalForLicenseId);
-      if (license) {
-        return {
-          ...base,
-          publisherName: license.publisherName || "",
-          softwareDescription: license.softwareDescription || "",
-          quantity: renewalItem.quantity || "",
-          currency: license.currency || "EUR",
-          unitPrice: license.unitPrice || "",
-          totalPoPrice: license.totalPoPrice || "",
-          contractNumber: license.contractNumber || "",
-          invoiceNumber: "",
-          contactEmail: license.contactEmail || "",
-          supplier: license.supplier || base.supplier,
-          costCentre: license.costCentre || "",
-          licenseType: license.licenseType || "subscription",
-          licenseMetric: license.licenseMetric || "per_user",
-          portalUrl: license.portalUrl || "",
-          skuCode: license.skuCode || "",
-          budgetOwnerEmail: license.budgetOwnerEmail || "",
-          notes: license.notes || "",
-        };
-      }
-    }
-
-    if (po.items?.length === 1) {
-      const item = po.items[0];
-      return {
-        ...base,
-        publisherName: item.publisherName || "",
-        softwareDescription: item.softwareDescription || "",
-        quantity: item.quantity || "",
-        currency: item.currency || "EUR",
-        unitPrice: item.estimatedUnitPrice || "",
-        totalPoPrice: item.estimatedTotalPrice || "",
-        supplier: item.supplier || base.supplier || "",
-        contactEmail: item.contactEmail || "",
-        licenseType: item.licenseType || "subscription",
-        licenseMetric: item.licenseMetric || "per_user",
-        maintenanceCoverage: item.maintenanceCoverage || "unknown",
-        maintenanceStartDate: item.maintenanceStartDate || "",
-        maintenanceEndDate: item.maintenanceEndDate || "",
-        maintenancePricingBasis: item.maintenancePricingBasis || "flat",
-        maintenanceQuantity: item.maintenanceQuantity || "",
-        maintenanceUnitPrice: item.maintenanceUnitPrice || "",
-        maintenanceCost: item.maintenanceCost || "",
-      };
-    }
-
-    return base;
-  }, [licenses]);
-
   const handleSort = useCallback((column) => {
     if (sortCol !== column) {
       setSortCol(column);
@@ -197,7 +134,6 @@ export function usePendingOrdersPageState({
   }, [pendingOrders, search, sortCol, sortDir]);
 
   return {
-    buildPrefillFromOrder,
     cancelPendingOrderId,
     displayed,
     expandedPendingOrderId,
