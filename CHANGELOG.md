@@ -21,6 +21,10 @@ contracts will be called out under a **Breaking** heading in future releases.
   incoming and outgoing links, while administrative repair accepts secondary
   coterm predecessors and continues to reject cycles and conflicting
   one-to-many successor relationships.
+- Preserved established renewal ancestry when cancelling an unfinished
+  successor renewal from either License Details or Sourcing. Cancellation now
+  targets only the pending procurement workflow while retaining reciprocal
+  navigation across the completed predecessor and successor.
 - Removed empty original sourcing requests after coterm merge while preserving
   requests that still contain unrelated sourcing items.
 - Aligned renewal sourcing and pending-order conversion so license type, metric,
@@ -29,6 +33,10 @@ contracts will be called out under a **Breaking** heading in future releases.
   and backend persistence contract, explicit conversion-time overrides remain
   authoritative, and maintenance type, metric, and parent requirements continue
   to be enforced.
+- Standardized renewal workbench, coterm, and procurement calculations on
+  Decimal arithmetic. Fractional quantities and configured precision are
+  retained, invalid numeric values are reported or rejected instead of silently
+  becoming zero, and existing API response formatting remains compatible.
 - Kept normal and consolidated renewal ancestry visible while a successor has a
   subsequent renewal in progress, alongside the current sourcing or
   pending-order progress actions.
@@ -38,6 +46,12 @@ contracts will be called out under a **Breaking** heading in future releases.
   transfer behavior are unchanged.
 - Prevented modal focus management from overriding an already-focused form
   control, avoiding dropped input during rapid custom-field editing.
+- Moved scheduled and manually triggered routine backup creation, integrity
+  checks, and retention pruning off the async API event loop while preserving
+  serialized execution and existing backup behavior.
+- Hardened server-side restore selection so request filenames are used only to
+  select an inspected archive returned by trusted directory enumeration, rather
+  than to construct a filesystem path.
 
 ## [1.1.1] - 2026-07-24
 
