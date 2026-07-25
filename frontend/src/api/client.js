@@ -122,11 +122,11 @@ export async function request(path, options = {}) {
 
   // Non-JSON response (file download of any MIME type) - return the raw Response
   if (!response.ok) {
-    let text = "";
+    let text;
     try {
       text = await response.text();
     } catch {
-      text = "";
+      // Fall back to the generic status message below.
     }
     return { data: null, error: text || `Request failed: ${response.status}` };
   }
