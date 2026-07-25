@@ -302,10 +302,15 @@ describe('DetailPanel history', () => {
     await user.click(screen.getByText('History'))
 
     expect(await screen.findByText('Procurement Trail')).toBeInTheDocument()
+    expect(screen.getByText('Sourcing Request')).toBeInTheDocument()
     expect(screen.getByText(/Request #42/)).toBeInTheDocument()
+    expect(screen.getByText('Sourcing Line')).toBeInTheDocument()
+    expect(screen.getByText(/Line #99/)).toBeInTheDocument()
+    expect(screen.getByText('Pending Order')).toBeInTheDocument()
     expect(screen.getByText(/PO-001/)).toBeInTheDocument()
-    expect(screen.getByText('Quote x1')).toBeInTheDocument()
-    expect(screen.getByText('Invoice x1')).toBeInTheDocument()
+    expect(screen.queryByText('Evidence')).not.toBeInTheDocument()
+    expect(screen.queryByText('Quote x1')).not.toBeInTheDocument()
+    expect(screen.queryByText('Invoice x1')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /view sourcing/i }))
     expect(baseProps.onNavigateToSourcing).toHaveBeenCalledWith(99)

@@ -9,40 +9,12 @@ function statusLabel(value) {
   return String(value || "").replace(/_/g, " ").toUpperCase();
 }
 
-function documentCounts(documents = []) {
-  return documents.reduce((counts, document) => {
-    const category = document.category || "other";
-    counts[category] = (counts[category] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
-function EvidenceChips({ sourcingRequest, pendingOrder }) {
-  const sourcingCounts = documentCounts(sourcingRequest?.quoteDocuments);
-  const poCounts = documentCounts(pendingOrder?.documents);
-  const chips = [
-    ["Quote", (sourcingCounts.quote ?? 0) + (poCounts.quote ?? 0)],
-    ["PO", poCounts.purchase_order ?? 0],
-    ["Invoice", poCounts.invoice ?? 0],
-  ].filter(([, count]) => count > 0);
-
-  if (!chips.length) return <span className="dp-not-set">No procurement documents linked</span>;
-
-  return (
-    <div className="dp-trail-chips">
-      {chips.map(([label, count]) => (
-        <span key={label} className="badge muted">{label} x{count}</span>
-      ))}
-    </div>
-  );
-}
-
 function TrailRow({ label, title, meta, children }) {
   return (
-    <div className="dp-trail-row">
+    <div className="dp-neutral-box dp-trail-row">
       <div className="dp-trail-copy">
-        <label>{label}</label>
-        <div className="val">{title}</div>
+        <div className="dp-trail-title">{label}</div>
+        <div className="dp-toggle-desc dp-trail-description">{title}</div>
         {meta && <div className="dp-note">{meta}</div>}
       </div>
       {children && <div className="dp-trail-actions">{children}</div>}
@@ -50,7 +22,14 @@ function TrailRow({ label, title, meta, children }) {
   );
 }
 
-function ProcurementTrail({ trail, loading, error, userSettings, onNavigateToSourcing, onNavigateToPendingOrder }) {
+export function ProcurementTrail({
+  trail,
+  loading,
+  error,
+  userSettings,
+  onNavigateToSourcing,
+  onNavigateToPendingOrder,
+}) {
   if (loading) {
     return (
       <div className="dp-trail-status">
@@ -131,8 +110,6 @@ function ProcurementTrail({ trail, loading, error, userSettings, onNavigateToSou
           )}
         </TrailRow>
       )}
-
-      <TrailRow label="Evidence" title={<EvidenceChips sourcingRequest={sourcingRequest} pendingOrder={pendingOrder} />} />
     </div>
   );
 }
