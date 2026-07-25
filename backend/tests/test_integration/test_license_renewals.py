@@ -111,8 +111,11 @@ async def test_cancel_successor_renewal_from_license_preserves_established_ances
     assert predecessor_row.renewed_to_id == successor_row.id
     assert successor_row.renewed_from_id == predecessor_row.id
     assert successor_row.predecessor_id == predecessor_row.id
-    assert await db_session.get(SourcingItem, pending_item["id"]) is None
-    assert await db_session.get(SourcingRequest, pending_item["sourcingRequestId"]) is None
+    request_row = await db_session.get(SourcingRequest, pending_item["sourcingRequestId"])
+    item_row = await db_session.get(SourcingItem, pending_item["id"])
+    assert request_row.status == SourcingStatus.cancelled
+    assert item_row.status == SourcingStatus.cancelled
+    assert item_row.sourcing_request_id == request_row.id
     assert await db_session.get(SourcingItem, unrelated_item["id"]) is not None
     assert await db_session.get(SourcingRequest, unrelated_item["sourcingRequestId"]) is not None
     assert (
@@ -130,8 +133,8 @@ async def test_cancel_successor_renewal_from_license_preserves_established_ances
     audit_rows = (
         await db_session.execute(
             select(AuditLog).where(
-                AuditLog.action == "license.renewal_cancelled",
-                AuditLog.target_id == str(successor["id"]),
+                AuditLog.action == "sourcing_request.cancelled",
+                AuditLog.target_id == str(request_row.id),
             )
         )
     ).scalars().all()
@@ -197,7 +200,7 @@ async def test_cancel_successor_renewal_from_sourcing_preserves_established_ance
     assert len(audit_rows) == 1
 
 
-async def test_cancel_renewal_deletes_multiple_sourcing_only_items(
+async def test_cancel_renewal_cancels_multiple_sourcing_only_items(
     test_app,
     db_session,
     auth_headers,
@@ -258,11 +261,9 @@ async def test_cancel_renewal_deletes_multiple_sourcing_only_items(
     )
     assert remaining_items == 0
 
-    empty_sourcing_requests = await db_session.scalar(
-        select(func.count(SourcingRequest.id))
-        .outerjoin(SourcingItem, SourcingItem.sourcing_request_id == SourcingRequest.id)
-        .where(SourcingRequest.status == SourcingStatus.sourcing)
-        .group_by(SourcingRequest.id)
-        .having(func.count(SourcingItem.id) == 0)
+    cancelled_requests = await db_session.scalar(
+        select(func.count(SourcingRequest.id)).where(
+            SourcingRequest.status == SourcingStatus.cancelled,
+        )
     )
-    assert empty_sourcing_requests is None
+    assert cancelled_requests == 2

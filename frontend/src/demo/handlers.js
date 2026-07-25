@@ -458,6 +458,7 @@ export const routes = [
         updatedAt: now,
         createdBy: 1,
       };
+      ensureSourcingRequestForItem(sourcingItem);
       store.sourcingItems.push(sourcingItem);
 
       return { data: { license: withComputedCompleteness(license), sourcingItem }, error: null };
@@ -468,7 +469,7 @@ export const routes = [
     handler: async ({ body }) => ({ data: initiateRenewalBundleRecord(body?.licenseIds ?? []), error: null }),
   },
   {
-    // Mirrors backend/app/services/renewal_orchestrator.py:82-131.
+    // Mirrors backend/app/services/renewal_orchestrator.py cancel_renewal.
     method: "POST", pattern: /^\/api\/licenses\/(?<id>\d+)\/cancel-renewal$/,
     handler: async ({ params }) => {
       const id = Number(params.id);
@@ -478,19 +479,43 @@ export const routes = [
         throw new Error("License is not in pending_renewal status");
       }
 
-      license.lifecycleStatus = null;
-      decorateLicense(license);
-
-      const sourcingOnlyIdx = store.sourcingItems.findIndex(
-        (s) => s.renewalForLicenseId === id && s.status === "sourcing"
+      const now = new Date().toISOString();
+      const sourcingOnlyItems = store.sourcingItems.filter(
+        (s) => s.status === "sourcing" && sourcingItemPredecessorIds(s).includes(id)
       );
-      if (sourcingOnlyIdx !== -1) {
-        store.sourcingItems.splice(sourcingOnlyIdx, 1);
+      for (const item of sourcingOnlyItems) {
+        if (item.sourcingRequestId == null) {
+          ensureSourcingRequestForItem(item);
+        }
       }
-
+      const requestIds = [...new Set(sourcingOnlyItems.map((item) => item.sourcingRequestId).filter(Boolean))];
+      for (const requestId of requestIds) {
+        const request = findSourcingRequestOr404(requestId);
+        if (request.status !== "sourcing") {
+          throw new Error(`Cannot modify a ${request.status} sourcing request`);
+        }
+        const renewalIds = new Set();
+        request.status = "cancelled";
+        request.updatedAt = now;
+        for (const item of store.sourcingItems.filter((candidate) => candidate.sourcingRequestId === request.id)) {
+          if (item.status === "sourcing") {
+            for (const predecessorId of sourcingItemPredecessorIds(item)) renewalIds.add(predecessorId);
+            item.status = "cancelled";
+            item.updatedAt = now;
+          }
+        }
+        for (const renewalLicenseId of renewalIds) {
+          handleSourcingItemDeleteSideEffects({ renewalLicenseId, parentOrderId: null });
+        }
+      }
       const poWarning = store.sourcingItems.some(
-        (s) => s.renewalForLicenseId === id && s.status === "converted"
+        (s) => s.status === "converted" && sourcingItemPredecessorIds(s).includes(id)
       );
+
+      if (license.lifecycleStatus === "pending_renewal") {
+        license.lifecycleStatus = null;
+        decorateLicense(license);
+      }
 
       return { data: { license: withComputedCompleteness(license), poWarning }, error: null };
     },

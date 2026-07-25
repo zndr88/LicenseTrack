@@ -12,6 +12,7 @@ from app.models.user import User
 from app.services.audit_service import log_event
 from app.services.license_service import generate_license_ref
 from app.services.lifecycle_rules import (
+    assert_can_cancel_renewal,
     assert_predecessor_has_no_successor,
     clear_pending_renewal,
     mark_pending_renewal,
@@ -21,8 +22,9 @@ from app.services.maintenance_service import sync_parent_mirror_fields, validate
 from app.services.maintenance_rules import default_maintenance_coverage
 from app.services.renewal_workflow import build_renewal_sourcing_item
 from app.services.sourcing_service import (
-    delete_empty_sourcing_requests,
+    cancel_sourcing_request_record,
     ensure_sourcing_request_for_item,
+    sourcing_item_predecessor_ids,
 )
 
 
@@ -190,45 +192,49 @@ async def cancel_renewal(
     license_obj = result.scalar_one_or_none()
     if license_obj is None:
         raise HTTPException(status_code=404, detail="License not found")
-    clear_pending_renewal(license_obj)
+    assert_can_cancel_renewal(license_obj)
 
     sourcing_result = await db.execute(
-        select(SourcingItem).where(
-            SourcingItem.renewal_for_license_id == license_id,
-            SourcingItem.status == SourcingStatus.sourcing,
-        )
+        select(SourcingItem).where(SourcingItem.status == SourcingStatus.sourcing)
     )
-    sourcing_only_items = list(sourcing_result.scalars().all())
-    affected_request_ids = {
-        item.sourcing_request_id for item in sourcing_only_items if item.sourcing_request_id is not None
-    }
+    sourcing_only_items = [
+        item
+        for item in sourcing_result.scalars().all()
+        if license_id in sourcing_item_predecessor_ids(item)
+    ]
     for item in sourcing_only_items:
-        await db.delete(item)
-    if sourcing_only_items:
-        await db.flush()
+        if item.sourcing_request_id is None:
+            await ensure_sourcing_request_for_item(db, item, created_by=actor.id)
+    affected_request_ids = sorted(
+        {
+            item.sourcing_request_id
+            for item in sourcing_only_items
+            if item.sourcing_request_id is not None
+        }
+    )
 
-    await delete_empty_sourcing_requests(db, affected_request_ids)
+    for request_id in affected_request_ids:
+        cancelled_request = await cancel_sourcing_request_record(db, request_id)
+        await log_event(
+            db,
+            "sourcing_request.cancelled",
+            actor=actor,
+            ip_address=ip_address,
+            target_type="sourcing_request",
+            target_id=str(request_id),
+            target_label=cancelled_request.supplier or f"Sourcing request {request_id}",
+        )
 
     po_result = await db.execute(
-        select(SourcingItem.id)
-        .where(
-            SourcingItem.renewal_for_license_id == license_id,
-            SourcingItem.status == SourcingStatus.converted,
-        )
-        .limit(1)
+        select(SourcingItem).where(SourcingItem.status == SourcingStatus.converted)
     )
-    po_warning = po_result.scalar_one_or_none() is not None
+    po_warning = any(
+        license_id in sourcing_item_predecessor_ids(item)
+        for item in po_result.scalars().all()
+    )
 
-    await log_event(
-        db,
-        "license.renewal_cancelled",
-        actor=actor,
-        ip_address=ip_address,
-        target_type="license",
-        target_id=str(license_id),
-        target_label=license_obj.software_description,
-        detail="sourcing item deleted" if sourcing_only_items else None,
-    )
+    if license_obj.lifecycle_status == "pending_renewal":
+        clear_pending_renewal(license_obj)
 
     return CancelRenewalResult(license=license_obj, po_warning=po_warning)
 

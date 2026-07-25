@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from app.models.audit_log import AuditLog
 from app.models.license import License, LicenseType, LicenseMetric
-from app.models.sourcing import SourcingItem, SourcingStatus
+from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.pending_order import PendingOrder
 from app.models.user import User, UserRole
 
@@ -94,10 +94,10 @@ async def test_audit_license_renewal_initiated(
 
 
 # ---------------------------------------------------------------------------
-# 2 — license.renewal_cancelled
+# 2 — sourcing_request.cancelled from license renewal cancellation
 # ---------------------------------------------------------------------------
 
-async def test_audit_license_renewal_cancelled(
+async def test_audit_license_renewal_cancelled_logs_sourcing_request_cancelled(
     test_app, db_session, auth_headers, seeded_license
 ):
     # First initiate so cancel has something to cancel
@@ -110,9 +110,14 @@ async def test_audit_license_renewal_cancelled(
         headers=auth_headers,
     )
     assert resp.status_code == 200
-    rows = await get_audit_rows(db_session, "license.renewal_cancelled")
+    request_id = await db_session.scalar(
+        select(SourcingRequest.id)
+        .join(SourcingItem, SourcingItem.sourcing_request_id == SourcingRequest.id)
+        .where(SourcingItem.renewal_for_license_id == seeded_license.id)
+    )
+    rows = await get_audit_rows(db_session, "sourcing_request.cancelled")
     assert len(rows) == 1
-    assert rows[0].target_id == str(seeded_license.id)
+    assert rows[0].target_id == str(request_id)
 
 
 # ---------------------------------------------------------------------------

@@ -60,7 +60,7 @@ describe("renewal golden path transitions", () => {
     expect(store.sourcingItems.some((s) => s.id === data.sourcingItem.id)).toBe(true);
   });
 
-  it("cancel-renewal restores lifecycle and removes the un-converted sourcing item", async () => {
+  it("cancel-renewal restores lifecycle and moves the un-converted sourcing item to history", async () => {
     // License 14 (VMware) is seeded pending_renewal, linked to sourcing item 101.
     const license = store.licenses.find((l) => l.id === 14);
     expect(license.lifecycleStatus).toBe("pending_renewal");
@@ -70,7 +70,10 @@ describe("renewal golden path transitions", () => {
     expect(error).toBeNull();
     expect(data.license.lifecycleStatus).toBeNull();
     expect(data.poWarning).toBe(false);
-    expect(store.sourcingItems.some((s) => s.id === 101)).toBe(false);
+    const cancelledItem = store.sourcingItems.find((s) => s.id === 101);
+    expect(cancelledItem.status).toBe("cancelled");
+    expect(store.sourcingRequests.find((request) => request.id === cancelledItem.sourcingRequestId).status)
+      .toBe("cancelled");
   });
 
   it("cancel-renewal preserves a successor license's established ancestry", async () => {
@@ -93,6 +96,7 @@ describe("renewal golden path transitions", () => {
     });
     expect(initiate.error).toBeNull();
     const pendingItemId = initiate.data.sourcingItem.id;
+    const pendingRequestId = initiate.data.sourcingItem.sourcingRequestId;
     const licenseCount = store.licenses.length;
 
     const { data, error } = await demoRequest(`/api/licenses/${successor.id}/cancel-renewal`, {
@@ -104,7 +108,8 @@ describe("renewal golden path transitions", () => {
     expect(data.license.renewedFromId).toBe(predecessor.id);
     expect(data.license.predecessorId).toBe(predecessor.id);
     expect(predecessor.renewedToId).toBe(successor.id);
-    expect(store.sourcingItems.some((item) => item.id === pendingItemId)).toBe(false);
+    expect(store.sourcingItems.find((item) => item.id === pendingItemId).status).toBe("cancelled");
+    expect(store.sourcingRequests.find((request) => request.id === pendingRequestId).status).toBe("cancelled");
     expect(store.licenses).toHaveLength(licenseCount);
   });
 

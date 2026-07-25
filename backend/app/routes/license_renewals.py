@@ -64,8 +64,8 @@ async def cancel_renewal(
     """
     Cancel a pending renewal for a license.
 
-    Clears lifecycle_status back to active (null) and deletes the associated
-    SourcingItem if it has not yet been promoted to a PO.  If a PO already
+    Clears lifecycle_status back to active (null) and cancels the associated
+    sourcing request if it has not yet been promoted to a PO. If a PO already
     exists (sourcing item status == "converted"), a po_warning flag is set in
     the response so the frontend can prompt the user to clean it up manually.
     """
