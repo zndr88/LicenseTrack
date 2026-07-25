@@ -32,6 +32,7 @@ export function useFocusTrap(isOpen) {
     // Move focus to the first focusable child
     const frameId = requestAnimationFrame(() => {
       if (!modalRef.current) return;
+      if (modalRef.current.contains(document.activeElement)) return;
       const focusable = modalRef.current.querySelectorAll(FOCUSABLE_SELECTORS);
       if (focusable.length > 0) {
         focusable[0].focus();

@@ -13,7 +13,7 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
-## [1.1.2] - 2026-07-24
+## [1.1.2] - 2026-07-25
 
 ### Fixed
 
@@ -23,6 +23,21 @@ contracts will be called out under a **Breaking** heading in future releases.
   one-to-many successor relationships.
 - Removed empty original sourcing requests after coterm merge while preserving
   requests that still contain unrelated sourcing items.
+- Aligned renewal sourcing and pending-order conversion so license type, metric,
+  pricing, quantity, currency, dates, supplier/contact details, and notes carry
+  forward consistently. Single and batch conversion now share the same defaults
+  and backend persistence contract, explicit conversion-time overrides remain
+  authoritative, and maintenance type, metric, and parent requirements continue
+  to be enforced.
+- Kept normal and consolidated renewal ancestry visible while a successor has a
+  subsequent renewal in progress, alongside the current sourcing or
+  pending-order progress actions.
+- Removed the misleading Procurement Trail evidence counter and aligned its
+  sourcing request, sourcing line, and pending-order links with the existing
+  neutral renewal-lineage card presentation. Procurement documents and evidence
+  transfer behavior are unchanged.
+- Prevented modal focus management from overriding an already-focused form
+  control, avoiding dropped input during rapid custom-field editing.
 
 ## [1.1.1] - 2026-07-24
 

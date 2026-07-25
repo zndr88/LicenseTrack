@@ -512,6 +512,7 @@ describe('DetailPanel — custom fields section', () => {
     const input = screen.getByDisplayValue('Alice')
     await user.clear(input)
     await user.type(input, 'Bob')
+    expect(input).toHaveValue('Bob')
     await user.click(screen.getByRole('button', { name: /^save$/i }))
 
     await waitFor(() => {
@@ -627,6 +628,7 @@ describe('DetailPanel — custom fields section', () => {
     expect(input).toHaveAttribute('type', 'number')
     await user.clear(input)
     await user.type(input, '24')
+    expect(input).toHaveValue(24)
     await user.click(screen.getByRole('button', { name: /^save$/i }))
 
     await waitFor(() => {

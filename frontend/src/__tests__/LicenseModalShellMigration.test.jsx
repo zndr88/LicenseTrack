@@ -51,6 +51,7 @@ describe("license modal shell migration", () => {
     );
 
     const input = screen.getByDisplayValue("Old Supplier");
+    await waitFor(() => expect(input).toHaveFocus());
     await user.clear(input);
     await user.type(input, "New Supplier");
     await user.click(screen.getByRole("button", { name: /^save$/i }));

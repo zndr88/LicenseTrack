@@ -430,7 +430,7 @@ const HELP_ARTICLES = [
           "Predecessor: the existing license being renewed.",
           "Successor: the license record created by completing a renewal.",
           "Procurement bundle: pending-order-scoped evidence shared by licenses from the same pending order.",
-          "Procurement trail: the linked source records shown in License Details > History, connecting a license back to its sourcing request, sourcing line, pending order, and evidence context.",
+          "Procurement trail: the linked source records shown in License Details > History, connecting a license back to its sourcing request, sourcing line, and pending order. Procurement documents remain available in their dedicated document and workflow-history views.",
         ],
       },
       {
