@@ -49,6 +49,8 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Kept normal and consolidated renewal ancestry visible while a successor has a
   subsequent renewal in progress, alongside the current sourcing or
   pending-order progress actions.
+- Prioritized outgoing renewal sourcing and pending-order progress in the
+  Renewal Workbench when a successor license also has incoming ancestry.
 - Removed the misleading Procurement Trail evidence counter and aligned its
   sourcing request, sourcing line, and pending-order links with the existing
   neutral renewal-lineage card presentation. Procurement documents and evidence

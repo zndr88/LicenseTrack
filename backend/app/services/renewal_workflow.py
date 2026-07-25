@@ -38,14 +38,18 @@ def derive_renewal_workflow_state(
         return "legacy"
     if license_obj.lifecycle_status == "renewed":
         return "renewed"
-    if license_obj.renewed_from_id is not None:
-        return "successor"
-    if sourcing_item is not None and sourcing_item.pending_order_id is not None:
+    if (
+        sourcing_item is not None
+        and sourcing_item.status != SourcingStatus.cancelled
+        and sourcing_item.pending_order_id is not None
+    ):
         return "pending_order"
-    if sourcing_item is not None:
+    if sourcing_item is not None and sourcing_item.status != SourcingStatus.cancelled:
         return "in_sourcing"
     if license_obj.lifecycle_status == "pending_renewal":
         return "pending_renewal"
+    if license_obj.renewed_from_id is not None:
+        return "successor"
     return "active"
 
 

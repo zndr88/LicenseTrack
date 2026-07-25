@@ -69,6 +69,32 @@ def test_derive_renewal_workflow_state_uses_sourcing_and_pending_order_links():
     )
 
 
+def test_derive_renewal_workflow_state_prefers_outgoing_work_over_incoming_ancestry():
+    license_obj = make_license(lifecycle_status="pending_renewal", renewed_from_id=1)
+
+    assert derive_renewal_workflow_state(license_obj) == "pending_renewal"
+    assert derive_renewal_workflow_state(license_obj, make_sourcing_item()) == "in_sourcing"
+    assert (
+        derive_renewal_workflow_state(
+            license_obj,
+            make_sourcing_item(pending_order_id=30),
+        )
+        == "pending_order"
+    )
+
+
+def test_derive_renewal_workflow_state_ignores_cancelled_sourcing_item():
+    license_obj = make_license(renewed_from_id=1)
+
+    assert (
+        derive_renewal_workflow_state(
+            license_obj,
+            make_sourcing_item(status=SourcingStatus.cancelled, pending_order_id=30),
+        )
+        == "successor"
+    )
+
+
 def test_compute_workbench_renewal_status_preserves_existing_labels():
     license_obj = make_license()
 

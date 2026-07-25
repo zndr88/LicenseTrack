@@ -5,6 +5,7 @@ import bcrypt
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import License
 from app.models.settings import GlobalSettings
+from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
 
@@ -64,6 +65,20 @@ async def _initiate_renewal(client, headers, license_id: int) -> dict:
     resp = await client.post(f"/api/licenses/{license_id}/initiate-renewal", headers=headers)
     assert resp.status_code == 200, resp.text
     return resp.json()["sourcingItem"]
+
+
+async def _link_successor(db_session, predecessor_id: int, successor_id: int) -> None:
+    predecessor = await db_session.get(License, predecessor_id)
+    successor = await db_session.get(License, successor_id)
+    predecessor.lifecycle_status = "renewed"
+    predecessor.renewed_to_id = successor_id
+    successor.renewed_from_id = predecessor_id
+    successor.predecessor_id = predecessor_id
+    await db_session.commit()
+
+
+def _row_for(rows: list[dict], license_id: int) -> dict:
+    return next(row for row in rows if row["licenseId"] == license_id)
 
 
 async def test_workbench_returns_expired_unresolved_row(test_app, auth_headers):
@@ -150,6 +165,39 @@ async def test_workbench_links_pending_renewal_sourcing_item(test_app, auth_head
     assert row["pendingOrderId"] is None
 
 
+async def test_workbench_prioritizes_outgoing_sourcing_for_intermediate_successor(
+    db_session,
+    test_app,
+    auth_headers,
+):
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Original Subscription",
+        endDate=(date.today() - timedelta(days=365)).isoformat(),
+    )
+    successor = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Intermediate Subscription",
+        endDate=(date.today() + timedelta(days=20)).isoformat(),
+    )
+    await _link_successor(db_session, predecessor["id"], successor["id"])
+    sourcing_item = await _initiate_renewal(test_app, auth_headers, successor["id"])
+
+    resp = await test_app.get("/api/renewals/workbench?view=in_progress", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    row = _row_for(resp.json(), successor["id"])
+    assert row["renewalStatus"] == "in_sourcing"
+    assert row["sourcingItemId"] == sourcing_item["id"]
+    assert row["pendingOrderId"] is None
+    assert "renewal_not_started" not in {flag["code"] for flag in row["riskFlags"]}
+    refreshed_successor = await db_session.get(License, successor["id"])
+    assert refreshed_successor.renewed_from_id == predecessor["id"]
+    assert refreshed_successor.predecessor_id == predecessor["id"]
+
+
 async def test_workbench_links_pending_order(test_app, auth_headers):
     license_data = await _create_license(
         test_app,
@@ -173,6 +221,150 @@ async def test_workbench_links_pending_order(test_app, auth_headers):
     assert row["pendingOrderId"] == pending_order["id"]
     assert row["pendingOrderNumber"] == "PO-RENEW-1"
     assert any(flag["code"] == "pending_order" for flag in row["riskFlags"])
+
+
+async def test_workbench_prioritizes_outgoing_pending_order_for_intermediate_successor(
+    db_session,
+    test_app,
+    auth_headers,
+):
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Original PO Subscription",
+        endDate=(date.today() - timedelta(days=365)).isoformat(),
+    )
+    successor = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Intermediate PO Subscription",
+        endDate=(date.today() + timedelta(days=20)).isoformat(),
+    )
+    await _link_successor(db_session, predecessor["id"], successor["id"])
+    sourcing_item = await _initiate_renewal(test_app, auth_headers, successor["id"])
+    po_resp = await test_app.post(
+        f"/api/sourcing/{sourcing_item['id']}/convert",
+        json={"poNumber": "PO-INTERMEDIATE-1", "supplier": "Renewal Supplier"},
+        headers=auth_headers,
+    )
+    assert po_resp.status_code == 200, po_resp.text
+    pending_order = po_resp.json()
+
+    db_session.add(
+        SourcingItem(
+            publisher_name="Acme Corp",
+            software_description="Intermediate PO Subscription",
+            quantity="10",
+            estimated_unit_price="100",
+            estimated_total_price="1000",
+            currency="EUR",
+            status=SourcingStatus.sourcing,
+            renewal_for_license_id=successor["id"],
+        )
+    )
+    await db_session.commit()
+
+    resp = await test_app.get("/api/renewals/workbench?view=in_progress", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    row = _row_for(resp.json(), successor["id"])
+    assert row["renewalStatus"] == "pending_order"
+    assert row["sourcingItemId"] == sourcing_item["id"]
+    assert row["pendingOrderId"] == pending_order["id"]
+    assert row["pendingOrderNumber"] == "PO-INTERMEDIATE-1"
+    assert "renewal_not_started" not in {flag["code"] for flag in row["riskFlags"]}
+    refreshed_successor = await db_session.get(License, successor["id"])
+    assert refreshed_successor.renewed_from_id == predecessor["id"]
+    assert refreshed_successor.predecessor_id == predecessor["id"]
+
+
+async def test_workbench_ignores_cancelled_attempts_for_successor_date_classification(
+    db_session,
+    test_app,
+    auth_headers,
+):
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Original Cancelled Subscription",
+        endDate=(date.today() - timedelta(days=365)).isoformat(),
+    )
+    successor = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Intermediate Cancelled Subscription",
+        endDate=(date.today() + timedelta(days=20)).isoformat(),
+    )
+    await _link_successor(db_session, predecessor["id"], successor["id"])
+    db_session.add(
+        SourcingItem(
+            publisher_name="Acme Corp",
+            software_description="Intermediate Cancelled Subscription",
+            quantity="10",
+            estimated_unit_price="100",
+            estimated_total_price="1000",
+            currency="EUR",
+            status=SourcingStatus.cancelled,
+            renewal_for_license_id=successor["id"],
+        )
+    )
+    await db_session.commit()
+
+    resp = await test_app.get("/api/renewals/workbench?view=due_30", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    row = _row_for(resp.json(), successor["id"])
+    assert row["renewalStatus"] == "due_soon"
+    assert row["sourcingItemId"] is None
+    assert row["pendingOrderId"] is None
+    assert "renewal_not_started" in {flag["code"] for flag in row["riskFlags"]}
+
+
+async def test_workbench_links_coterm_item_to_all_predecessors(
+    db_session,
+    test_app,
+    auth_headers,
+):
+    primary = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Primary Coterm Subscription",
+        endDate=(date.today() + timedelta(days=20)).isoformat(),
+    )
+    secondary = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Secondary Coterm Subscription",
+        endDate=(date.today() + timedelta(days=20)).isoformat(),
+    )
+    primary_row = await db_session.get(License, primary["id"])
+    secondary_row = await db_session.get(License, secondary["id"])
+    primary_row.lifecycle_status = "pending_renewal"
+    secondary_row.lifecycle_status = "pending_renewal"
+    merged_item = SourcingItem(
+        publisher_name="Acme Corp",
+        software_description="Merged Coterm Renewal",
+        quantity="20",
+        estimated_unit_price="100",
+        estimated_total_price="2000",
+        currency="EUR",
+        status=SourcingStatus.sourcing,
+        renewal_for_license_id=primary["id"],
+        coterm_predecessor_ids=[primary["id"], secondary["id"]],
+    )
+    db_session.add(merged_item)
+    await db_session.commit()
+
+    resp = await test_app.get("/api/renewals/workbench?view=in_progress", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    rows = resp.json()
+    primary_workbench_row = _row_for(rows, primary["id"])
+    secondary_workbench_row = _row_for(rows, secondary["id"])
+    assert primary_workbench_row["renewalStatus"] == "in_sourcing"
+    assert secondary_workbench_row["renewalStatus"] == "in_sourcing"
+    assert primary_workbench_row["sourcingItemId"] == merged_item.id
+    assert secondary_workbench_row["sourcingItemId"] == merged_item.id
 
 
 async def test_workbench_respects_viewer_department_scope(db_session, test_app, auth_headers):

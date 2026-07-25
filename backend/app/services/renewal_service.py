@@ -12,7 +12,7 @@ from app.models.custom_fields import CustomFieldValue
 from app.models.document import ProcurementDocument
 from app.models.license import License
 from app.models.settings import GlobalSettings
-from app.models.sourcing import SourcingItem
+from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User
 from app.schemas.renewal import (
     RenewalCustomFieldValue,
@@ -27,6 +27,7 @@ from app.services.renewal_workbench_model import (
     estimate_annual_value,
     matches_workbench_view,
 )
+from app.services.sourcing_service import sourcing_item_predecessor_ids
 
 
 async def get_renewal_workbench_rows(
@@ -99,17 +100,25 @@ async def _load_renewal_sourcing_items(
     db: AsyncSession,
     license_ids: list[int],
 ) -> dict[int, SourcingItem]:
+    license_id_set = set(license_ids)
     result = await db.execute(
         select(SourcingItem)
-        .where(SourcingItem.renewal_for_license_id.in_(license_ids))
+        .where(SourcingItem.status != SourcingStatus.cancelled)
+        .where(
+            or_(
+                SourcingItem.renewal_for_license_id.isnot(None),
+                SourcingItem.coterm_predecessor_ids.isnot(None),
+            )
+        )
         .options(selectinload(SourcingItem.pending_order))
         .order_by(SourcingItem.id.desc())
     )
 
     grouped: dict[int, list[SourcingItem]] = defaultdict(list)
     for item in result.scalars().all():
-        if item.renewal_for_license_id is not None:
-            grouped[item.renewal_for_license_id].append(item)
+        for predecessor_id in sourcing_item_predecessor_ids(item):
+            if predecessor_id in license_id_set:
+                grouped[predecessor_id].append(item)
 
     selected: dict[int, SourcingItem] = {}
     for license_id, items in grouped.items():
