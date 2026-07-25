@@ -17,6 +17,17 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- Aligned License Details renewal cancellation with sourcing-request
+  cancellation: unfinished renewal sourcing requests now move to cancelled
+  history instead of being deleted, and audit history uses the same
+  `sourcing_request.cancelled` event as the Sourcing page.
+- Cancelled a pending order automatically when its final license line is
+  deleted, with a stronger frontend warning and history-preserving audit trail
+  so empty active purchase orders no longer linger.
+- Refreshed procurement-related query state more broadly after sourcing and
+  pending-order lifecycle changes so portfolio numbers, pipeline counts,
+  renewal workbench rows, and License Overview renewal statuses update without
+  waiting for stale cached data.
 - Corrected renewal-chain validation so intermediate licenses may retain both
   incoming and outgoing links, while administrative repair accepts secondary
   coterm predecessors and continues to reject cycles and conflicting
