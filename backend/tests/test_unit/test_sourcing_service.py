@@ -16,6 +16,7 @@ from datetime import date
 from app.models.license import License, LicenseMetric, LicenseType
 from app.models.pending_order import PendingOrder
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
+from app.services.money import MoneyParseError
 from app.services.sourcing_service import (
     assert_sourcing_item_editable,
     build_merged_sourcing_item,
@@ -361,14 +362,36 @@ def test_null_quantity_treated_as_zero():
     assert merged.quantity == "8"
 
 
-def test_non_numeric_quantity_treated_as_zero():
+def test_non_numeric_quantity_is_rejected():
     pred_a = make_pred(id=1, start_date=date(2020, 1, 1))
     pred_b = make_pred(id=2, start_date=date(2021, 1, 1))
     items = [make_item_for(pred_a, quantity="bad"), make_item_for(pred_b, quantity="12")]
 
+    with pytest.raises(MoneyParseError, match="bad"):
+        build_merged_sourcing_item(items, [pred_a, pred_b], created_by=1)
+
+
+def test_localized_quantity_is_rejected():
+    pred_a = make_pred(id=1, start_date=date(2020, 1, 1))
+    pred_b = make_pred(id=2, start_date=date(2021, 1, 1))
+    items = [make_item_for(pred_a, quantity="1,5"), make_item_for(pred_b, quantity="2.5")]
+
+    with pytest.raises(MoneyParseError, match="1,5"):
+        build_merged_sourcing_item(items, [pred_a, pred_b], created_by=1)
+
+
+def test_fractional_quantities_are_summed_exactly():
+    pred_a = make_pred(id=1, start_date=date(2020, 1, 1))
+    pred_b = make_pred(id=2, start_date=date(2021, 1, 1))
+    items = [
+        make_item_for(pred_a, quantity="1.5", estimated_unit_price="19.99"),
+        make_item_for(pred_b, quantity="2.25"),
+    ]
+
     merged = build_merged_sourcing_item(items, [pred_a, pred_b], created_by=1)
 
-    assert merged.quantity == "12"
+    assert merged.quantity == "3.75"
+    assert merged.estimated_total_price == "74.96"
 
 
 def test_total_quantity_zero_gives_none_quantity():
@@ -394,7 +417,7 @@ def test_estimated_total_price_is_unit_price_times_merged_quantity():
     assert merged.estimated_total_price == "300.00"
 
 
-def test_invalid_unit_price_gives_none_total():
+def test_invalid_unit_price_is_rejected():
     pred_a = make_pred(id=1, start_date=date(2020, 1, 1))
     pred_b = make_pred(id=2, start_date=date(2021, 1, 1))
     items = [
@@ -402,9 +425,21 @@ def test_invalid_unit_price_gives_none_total():
         make_item_for(pred_b, quantity="10"),
     ]
 
+    with pytest.raises(MoneyParseError, match="not-a-number"):
+        build_merged_sourcing_item(items, [pred_a, pred_b], created_by=1)
+
+
+def test_estimated_total_price_rounds_half_even_at_two_decimals():
+    pred_a = make_pred(id=1, start_date=date(2020, 1, 1))
+    pred_b = make_pred(id=2, start_date=date(2021, 1, 1))
+    items = [
+        make_item_for(pred_a, quantity="1", estimated_unit_price="0.335"),
+        make_item_for(pred_b, quantity="2"),
+    ]
+
     merged = build_merged_sourcing_item(items, [pred_a, pred_b], created_by=1)
 
-    assert merged.estimated_total_price is None
+    assert merged.estimated_total_price == "1.00"
 
 
 def test_none_unit_price_gives_none_total():

@@ -62,7 +62,7 @@ async def get_renewal_workbench_rows(
         )
         for lic in licenses
     ]
-    return [row for row in rows if matches_workbench_view(row, view, high_value_threshold)]
+    return [row for row in rows if matches_workbench_view(row, view)]
 
 
 async def _get_global_settings(db: AsyncSession) -> tuple[dict[str, bool], Decimal]:
@@ -199,7 +199,7 @@ def _build_row(
         currency=license_obj.currency,
         quantity=license_obj.quantity,
         unit_price=license_obj.unit_price,
-        estimated_annual_value=float(estimated_annual_value),
+        estimated_annual_value=estimated_annual_value or Decimal("0"),
         completeness_pct=completeness_pct,
         document_count=len(docs),
         risk_flags=risk_flags,

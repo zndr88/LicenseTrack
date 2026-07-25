@@ -3,6 +3,7 @@ from datetime import date, timedelta
 import bcrypt
 
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
+from app.models.license import License
 from app.models.settings import GlobalSettings
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
@@ -345,3 +346,27 @@ async def test_workbench_high_value_flag_respects_configured_threshold(
     assert view_resp.status_code == 200, view_resp.text
     view_ids = {r["licenseId"] for r in view_resp.json()}
     assert license_data["id"] in view_ids
+
+
+async def test_workbench_flags_invalid_legacy_numeric_data_without_changing_response_type(
+    db_session,
+    test_app,
+    auth_headers,
+):
+    license_data = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Legacy Free-form Quantity",
+        endDate=(date.today() + timedelta(days=45)).isoformat(),
+    )
+    license_row = await db_session.get(License, license_data["id"])
+    license_row.quantity = "25 seats"
+    await db_session.commit()
+
+    resp = await test_app.get("/api/renewals/workbench", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    row = next(item for item in resp.json() if item["licenseId"] == license_data["id"])
+    assert row["estimatedAnnualValue"] == 0.0
+    assert isinstance(row["estimatedAnnualValue"], float)
+    assert "invalid_numeric" in {flag["code"] for flag in row["riskFlags"]}

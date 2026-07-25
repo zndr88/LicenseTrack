@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -20,7 +21,7 @@ _CURRENCY_SYMBOLS: dict[str, str] = {
 }
 
 
-def _format_currency(amount: float, currency: str) -> str:
+def _format_currency(amount: Decimal, currency: str) -> str:
     symbol = _CURRENCY_SYMBOLS.get(currency, currency + "\u00a0")
     return f"{symbol}{amount:,.2f}"
 
@@ -124,11 +125,11 @@ class PendingOrderResponse(BaseModel):
     def _compute_total_po_value(self) -> "PendingOrderResponse":
         from app.services.procurement_totals import procurement_line_total
 
-        totals: dict[str, float] = {}
+        totals: dict[str, Decimal] = {}
         for item in self.items:
             line_total = procurement_line_total(item)
             if line_total is not None:
-                totals[item.currency] = totals.get(item.currency, 0.0) + float(line_total)
+                totals[item.currency] = totals.get(item.currency, Decimal("0")) + line_total
         if not totals:
             self.total_po_value = None
         else:

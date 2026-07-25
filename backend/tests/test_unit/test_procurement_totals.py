@@ -1,7 +1,11 @@
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from app.models.license import MaintenanceCoverage, MaintenancePricingBasis
-from app.schemas.sourcing import SourcingItemCreate
+from app.models.pending_order import PendingOrderStatus
+from app.models.sourcing import SourcingStatus
+from app.schemas.pending_order import PendingOrderResponse
+from app.schemas.sourcing import SourcingItemCreate, SourcingRequestResponse
 from app.services.procurement_totals import procurement_line_total
 
 
@@ -55,3 +59,70 @@ def test_per_unit_support_total_is_derived_server_side() -> None:
     )
 
     assert item.maintenance_cost == "37.50"
+
+
+def test_sourcing_response_total_preserves_decimal_precision_and_string_contract() -> None:
+    now = datetime.now(timezone.utc)
+    response = SourcingRequestResponse(
+        id=1,
+        status=SourcingStatus.sourcing,
+        created_at=now,
+        updated_at=now,
+        items=[
+            {
+                "id": 1,
+                "publisher_name": "Acme",
+                "software_description": "Suite A",
+                "estimated_total_price": "9007199254740992.01",
+                "currency": "USD",
+                "status": SourcingStatus.sourcing,
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "id": 2,
+                "publisher_name": "Acme",
+                "software_description": "Suite B",
+                "estimated_total_price": "0.01",
+                "currency": "USD",
+                "status": SourcingStatus.sourcing,
+                "created_at": now,
+                "updated_at": now,
+            },
+        ],
+    )
+
+    assert response.total_estimated_value == "USD 9,007,199,254,740,992.02"
+    assert isinstance(response.total_estimated_value, str)
+
+
+def test_pending_order_response_total_preserves_decimal_precision_and_string_contract() -> None:
+    now = datetime.now(timezone.utc)
+    response = PendingOrderResponse(
+        id=1,
+        po_number="PO-1",
+        status=PendingOrderStatus.pending,
+        created_at=now,
+        updated_at=now,
+        items=[
+            {
+                "id": 1,
+                "publisher_name": "Acme",
+                "software_description": "Suite A",
+                "estimated_total_price": "9007199254740992.01",
+                "currency": "USD",
+                "status": SourcingStatus.converted,
+            },
+            {
+                "id": 2,
+                "publisher_name": "Acme",
+                "software_description": "Suite B",
+                "estimated_total_price": "0.01",
+                "currency": "USD",
+                "status": SourcingStatus.converted,
+            },
+        ],
+    )
+
+    assert response.total_po_value == "$9,007,199,254,740,992.02"
+    assert isinstance(response.total_po_value, str)

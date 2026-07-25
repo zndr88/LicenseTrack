@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -250,12 +251,12 @@ class SourcingRequestResponse(BaseModel):
     def _compute_total_estimated_value(self) -> "SourcingRequestResponse":
         from app.services.procurement_totals import procurement_line_total
 
-        totals: dict[str, float] = {}
+        totals: dict[str, Decimal] = {}
         for item in self.items:
             line_total = procurement_line_total(item)
             if line_total is None:
                 continue
-            totals[item.currency] = totals.get(item.currency, 0.0) + float(line_total)
+            totals[item.currency] = totals.get(item.currency, Decimal("0")) + line_total
         if totals:
             self.total_estimated_value = " + ".join(f"{currency} {amount:,.2f}" for currency, amount in totals.items())
         else:

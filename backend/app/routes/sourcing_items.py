@@ -18,6 +18,7 @@ from app.schemas.sourcing import (
     SourcingItemUpdate,
 )
 from app.services.audit_service import diff_fields, log_event
+from app.services.money import MoneyParseError
 from app.services.sourcing_service import (
     assert_sourcing_item_editable,
     build_merged_sourcing_item,
@@ -154,7 +155,10 @@ async def merge_coterm_sourcing_items(
         item.sourcing_request_id for item in items if item.sourcing_request_id is not None
     }
 
-    merged = build_merged_sourcing_item(items, predecessors, created_by=current_user.id)
+    try:
+        merged = build_merged_sourcing_item(items, predecessors, created_by=current_user.id)
+    except MoneyParseError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.add(merged)
     await ensure_sourcing_request_for_item(db, merged, created_by=current_user.id)
 

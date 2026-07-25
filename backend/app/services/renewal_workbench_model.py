@@ -7,10 +7,11 @@ imported and unit-tested without standing up a database session.
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from app.models.license import License, LicenseType
 from app.schemas.renewal import RenewalRiskFlag, RenewalStatus, RenewalWorkbenchRow
+from app.services.money import MoneyParseError, parse_money
 
 
 # ---------------------------------------------------------------------------
@@ -43,21 +44,16 @@ RECURRING_LICENSE_TYPES = {
 # ---------------------------------------------------------------------------
 
 
-def parse_decimal(value: str | None) -> Decimal:
-    """Parse a string to Decimal; return Decimal('0') for blank or invalid input."""
-    if value is None or not str(value).strip():
-        return Decimal("0")
-    try:
-        return Decimal(str(value).strip().replace(",", ""))
-    except (InvalidOperation, ValueError):
-        return Decimal("0")
-
-
-def estimate_annual_value(license_obj: License) -> Decimal:
-    """Return quantity × unit_price for recurring license types; Decimal('0') for others."""
+def estimate_annual_value(license_obj: License) -> Decimal | None:
+    """Return the recurring annual estimate, or None for invalid numeric data."""
     if license_obj.license_type not in RECURRING_LICENSE_TYPES:
         return Decimal("0")
-    return parse_decimal(license_obj.quantity) * parse_decimal(license_obj.unit_price)
+    try:
+        quantity = parse_money(str(license_obj.quantity) if license_obj.quantity is not None else None)
+        unit_price = parse_money(str(license_obj.unit_price) if license_obj.unit_price is not None else None)
+    except MoneyParseError:
+        return None
+    return (quantity or Decimal("0")) * (unit_price or Decimal("0"))
 
 
 def compute_risk_flags(
@@ -66,7 +62,7 @@ def compute_risk_flags(
     days_until_expiry: int | None,
     completeness_pct: int | None,
     document_count: int,
-    estimated_annual_value: Decimal,
+    estimated_annual_value: Decimal | None,
     window_days: int,
     high_value_threshold: Decimal | None = None,
 ) -> list[RenewalRiskFlag]:
@@ -93,7 +89,9 @@ def compute_risk_flags(
         flags.append(_flag("no_documents", "No documents", "medium"))
     if completeness_pct is not None and completeness_pct < 100:
         flags.append(_flag("incomplete", "Incomplete mandatory fields", "medium"))
-    if estimated_annual_value >= threshold:
+    if estimated_annual_value is None:
+        flags.append(_flag("invalid_numeric", "Invalid quantity or unit price", "medium"))
+    elif estimated_annual_value >= threshold:
         flags.append(_flag("high_value", "High value", "high"))
     if renewal_status in ("expired_unresolved", "due_soon"):
         flags.append(
@@ -111,10 +109,8 @@ def compute_risk_flags(
 def matches_workbench_view(
     row: RenewalWorkbenchRow,
     view: str,
-    high_value_threshold: Decimal | None = None,
 ) -> bool:
     """Return True if the workbench row should be included in the given view."""
-    threshold = high_value_threshold if high_value_threshold is not None else HIGH_VALUE_THRESHOLD
     if view == "all":
         return True
     if view == "needs_action":
@@ -132,7 +128,7 @@ def matches_workbench_view(
     if view == "missing_docs":
         return row.document_count == 0
     if view == "high_value":
-        return Decimal(str(row.estimated_annual_value)) >= threshold
+        return any(flag.code == "high_value" for flag in row.risk_flags)
     return True
 
 

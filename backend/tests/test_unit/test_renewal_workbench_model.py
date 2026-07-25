@@ -15,7 +15,6 @@ from app.services.renewal_workbench_model import (
     compute_risk_flags,
     estimate_annual_value,
     matches_workbench_view,
-    parse_decimal,
 )
 from app.models.license import LicenseMetric, LicenseType
 from app.schemas.renewal import RenewalWorkbenchRow
@@ -75,27 +74,6 @@ def _make_row(**overrides) -> RenewalWorkbenchRow:
 
 
 # ---------------------------------------------------------------------------
-# parse_decimal
-# ---------------------------------------------------------------------------
-
-class TestParseDecimal:
-    def test_plain_number(self):
-        assert parse_decimal("1500.00") == Decimal("1500.00")
-
-    def test_number_with_commas(self):
-        assert parse_decimal("1,500.00") == Decimal("1500.00")
-
-    def test_none_returns_zero(self):
-        assert parse_decimal(None) == Decimal("0")
-
-    def test_invalid_string_returns_zero(self):
-        assert parse_decimal("not-a-number") == Decimal("0")
-
-    def test_empty_string_returns_zero(self):
-        assert parse_decimal("") == Decimal("0")
-
-
-# ---------------------------------------------------------------------------
 # estimate_annual_value
 # ---------------------------------------------------------------------------
 
@@ -115,6 +93,30 @@ class TestEstimateAnnualValue:
     def test_maintenance(self):
         lic = _make_license(LicenseType.maintenance, quantity="3", unit_price="50.00")
         assert estimate_annual_value(lic) == Decimal("150.00")
+
+    def test_fractional_quantity_uses_exact_decimal_arithmetic(self):
+        lic = _make_license(LicenseType.subscription, quantity="2.5", unit_price="19.99")
+        assert estimate_annual_value(lic) == Decimal("49.975")
+
+    def test_blank_quantity_returns_zero(self):
+        lic = _make_license(LicenseType.subscription, quantity="", unit_price="19.99")
+        assert estimate_annual_value(lic) == Decimal("0")
+
+    def test_blank_unit_price_returns_zero(self):
+        lic = _make_license(LicenseType.subscription, quantity="2.5", unit_price="")
+        assert estimate_annual_value(lic) == Decimal("0")
+
+    def test_localized_quantity_is_invalid(self):
+        lic = _make_license(LicenseType.subscription, quantity="1,5", unit_price="19.99")
+        assert estimate_annual_value(lic) is None
+
+    def test_free_form_quantity_is_invalid(self):
+        lic = _make_license(LicenseType.subscription, quantity="25 seats", unit_price="19.99")
+        assert estimate_annual_value(lic) is None
+
+    def test_invalid_unit_price_is_invalid(self):
+        lic = _make_license(LicenseType.subscription, quantity="2.5", unit_price="EUR 19.99")
+        assert estimate_annual_value(lic) is None
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +184,11 @@ class TestComputeRiskFlags:
         flags = self._call(estimated_annual_value=Decimal("49999"))
         assert "high_value" not in _flag_codes(flags)
 
+    def test_invalid_numeric_value_is_flagged_instead_of_treated_as_zero(self):
+        flags = self._call(estimated_annual_value=None)
+        assert "invalid_numeric" in _flag_codes(flags)
+        assert "high_value" not in _flag_codes(flags)
+
     def test_no_documents_flag(self):
         flags = self._call(document_count=0)
         assert "no_documents" in _flag_codes(flags)
@@ -239,3 +246,14 @@ class TestMatchesWorkbenchView:
     def test_missing_docs_nonzero(self):
         row = _make_row(document_count=2)
         assert matches_workbench_view(row, "missing_docs") is False
+
+    def test_high_value_uses_decimal_risk_result(self):
+        row = _make_row(
+            estimated_annual_value=0.0,
+            risk_flags=[{"code": "high_value", "label": "High value", "severity": "high"}],
+        )
+        assert matches_workbench_view(row, "high_value") is True
+
+    def test_high_value_excludes_rows_without_high_value_flag(self):
+        row = _make_row(estimated_annual_value=999999.0, risk_flags=[])
+        assert matches_workbench_view(row, "high_value") is False

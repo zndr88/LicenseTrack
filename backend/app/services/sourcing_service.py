@@ -1,4 +1,6 @@
 from datetime import date
+from decimal import ROUND_HALF_EVEN, Decimal
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -144,28 +146,29 @@ def build_merged_sourcing_item(
     primary_pred = sorted_preds[0]
     primary_item = next(item for item in items if item.renewal_for_license_id == primary_pred.id)
 
-    def _parse_qty(q: str | None) -> int:
-        try:
-            return int(q) if q else 0
-        except (ValueError, TypeError):
-            return 0
+    total_quantity = sum(
+        (parse_money(item.quantity) or Decimal("0") for item in items),
+        start=Decimal("0"),
+    )
 
-    total_quantity = sum(_parse_qty(item.quantity) for item in items)
-
-    unit_price_str = primary_item.estimated_unit_price
-    if unit_price_str and unit_price_str.strip():
-        try:
-            merged_total_price = f"{float(unit_price_str) * total_quantity:.2f}"
-        except (ValueError, TypeError):
-            merged_total_price = None
-    else:
-        merged_total_price = None
+    unit_price = parse_money(primary_item.estimated_unit_price)
+    merged_total_price = (
+        format(
+            (unit_price * total_quantity).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_EVEN,
+            ),
+            "f",
+        )
+        if unit_price is not None
+        else None
+    )
 
     return SourcingItem(
         publisher_name=primary_item.publisher_name,
         software_description=primary_item.software_description,
         license_type=primary_item.license_type or primary_pred.license_type,
-        quantity=str(total_quantity) if total_quantity else None,
+        quantity=format(total_quantity, "f") if total_quantity else None,
         estimated_unit_price=primary_item.estimated_unit_price,
         estimated_total_price=merged_total_price,
         currency=primary_item.currency,

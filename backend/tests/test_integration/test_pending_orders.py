@@ -723,6 +723,34 @@ async def test_coterm_merge_preserves_original_request_with_unrelated_item(
     assert merged["sourcingRequestId"] in active_ids
 
 
+async def test_coterm_merge_rejects_free_form_quantity_without_deleting_source_work(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    first = await _create_license(test_app, auth_headers, endDate="2025-12-31")
+    second = await _create_license(test_app, auth_headers, endDate="2025-12-31")
+    sourcing_first = await _initiate_renewal(test_app, auth_headers, first["id"])
+    sourcing_second = await _initiate_renewal(test_app, auth_headers, second["id"])
+    first_item = await db_session.get(SourcingItem, sourcing_first["id"])
+    first_item.quantity = "25 seats"
+    await db_session.commit()
+
+    merge_resp = await test_app.post(
+        "/api/sourcing/merge",
+        json={"sourcingItemIds": [sourcing_first["id"], sourcing_second["id"]]},
+        headers=auth_headers,
+    )
+
+    assert merge_resp.status_code == 400, merge_resp.text
+    assert "25 seats" in merge_resp.json()["detail"]
+    db_session.expire_all()
+    assert await db_session.get(SourcingItem, sourcing_first["id"]) is not None
+    assert await db_session.get(SourcingItem, sourcing_second["id"]) is not None
+    assert await db_session.get(SourcingRequest, sourcing_first["sourcingRequestId"]) is not None
+    assert await db_session.get(SourcingRequest, sourcing_second["sourcingRequestId"]) is not None
+
+
 def _single_convert_form(**overrides) -> dict:
     base = {
         "publisherName": "Shared Publisher",
