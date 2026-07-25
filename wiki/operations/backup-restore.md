@@ -46,6 +46,12 @@ current database using SQLite's backup API, named with a `pre_restore`
 timestamp. It then replaces the live database file. Managed document files are
 left unchanged.
 
+A database-only restore preserves document records and configuration in the
+database, but it does not guarantee that the referenced managed files are
+present in the current storage path. If document storage has not yet been
+restored, is unavailable, or is misconfigured, LicenseTrack keeps the metadata
+visible and reports the affected files as missing or unavailable.
+
 Portfolio-reset recovery and document-restore safety archives contain both a
 database and managed documents. Before restoring either type, LicenseTrack
 creates a fresh database-and-document safety archive in the configured backup
@@ -116,6 +122,7 @@ Admins only.
     Database restore is irreversible once the restored database is in place. All database rows written between the backup's timestamp and the moment of restore will be gone. The safety snapshot created before overwrite is a raw `.db` file saved next to the database, not a numbered database backup - it will not appear in the database backup list and is not managed by the retention policy.
 
 - The database backup covers the database file only. Uploaded documents (license attachments, contract files, sourcing documents, and procurement documents) are stored on the filesystem separately and are not included in the database backup zip. You must back up the document storage directory - shown in the Storage settings - independently using your own backup tooling. A warning banner on the database backup admin page makes this explicit.
+- After a database-only restore, document counters distinguish records from currently available files. Missing files are warnings, not database corruption, and records are not deleted automatically.
 - In Docker Compose and native deployment, database restore exits the backend process so the process manager can restart it. The native systemd service uses `Restart=always`, because a successful restore exits cleanly and is not considered a failure by systemd. An explicit `licensetrack stop` remains stopped. For direct local development, leave `RESTART_AFTER_RESTORE=false` to keep the backend running after restore. Users may need to sign in again if their restored database no longer matches the current session.
 - The database backup directory must be writable by the LicenseTrack process. LicenseTrack attempts to create the configured directory, including missing parent directories, when a backup runs. If the process cannot create or write to that path, the backup fails.
 - LicenseTrack verifies the integrity of a newly created database backup zip before returning success. If the zip is corrupt, it is deleted and the database backup is reported as failed.

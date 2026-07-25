@@ -11,6 +11,7 @@ from app.schemas.pending_order import (
 )
 from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate
 from app.services.audit_service import log_event
+from app.services.document_availability_service import get_document_storage_base
 from app.services.pending_order_service import (
     add_pending_order_item_record,
     add_pending_order_items_bulk_record,
@@ -55,7 +56,8 @@ async def add_pending_order_item(
     )
     await db.commit()
     order = await get_pending_order_or_404(db, order_id, include_items=True)
-    return to_pending_order_response(order)
+    storage_base = await get_document_storage_base(db)
+    return to_pending_order_response(order, storage_base)
 
 
 @router.post("/{order_id}/items/bulk", response_model=PendingOrderResponse, status_code=201)
@@ -87,7 +89,8 @@ async def add_pending_order_items_bulk(
     )
     await db.commit()
     order = await get_pending_order_or_404(db, order_id, include_items=True)
-    return to_pending_order_response(order)
+    storage_base = await get_document_storage_base(db)
+    return to_pending_order_response(order, storage_base)
 
 
 @router.put("/{order_id}/items/{item_id}", response_model=PendingOrderResponse)
@@ -115,7 +118,8 @@ async def update_pending_order_item(
     )
     await db.commit()
     order = await get_pending_order_or_404(db, order_id, include_items=True)
-    return to_pending_order_response(order)
+    storage_base = await get_document_storage_base(db)
+    return to_pending_order_response(order, storage_base)
 
 
 @router.delete("/{order_id}/items/{item_id}", response_model=PendingOrderResponse)
@@ -148,4 +152,5 @@ async def delete_pending_order_item(
     )
     await db.commit()
     order = await get_pending_order_or_404(db, order_id, include_items=True)
-    return to_pending_order_response(order)
+    storage_base = await get_document_storage_base(db)
+    return to_pending_order_response(order, storage_base)

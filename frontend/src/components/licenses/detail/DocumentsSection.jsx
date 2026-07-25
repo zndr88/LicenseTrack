@@ -4,6 +4,11 @@ import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
 import PluginSlot from "../../plugins/PluginSlot.jsx";
+import {
+  documentAvailabilityHelp,
+  documentAvailabilityLabel,
+  isFileAvailable,
+} from "../../../utils/documentAvailability.js";
 
 const DOC_CATEGORIES = [
   { key: "quote", label: "Quote", icon: "file", color: "var(--purple-text)" },
@@ -219,12 +224,19 @@ export default function DocumentsSection({
                   </div>
 
                   {files.map((doc) => (
-                    <div key={doc.id} className="doc-file">
+                    <div key={doc.id} className={`doc-file ${isFileAvailable(doc) ? "" : "is-missing"}`}>
                       <div className="doc-file-icon" style={{ background: "var(--bg-3)" }}>
                         <Icon name="file" size={15} color={fileIconColor(doc.original_filename)} />
                       </div>
                       <div className="doc-file-info">
-                        <div className="doc-file-name">{doc.original_filename}</div>
+                        <div className="doc-file-title-row">
+                          <div className="doc-file-name">{doc.original_filename}</div>
+                          {!isFileAvailable(doc) && (
+                            <span className="badge badge-orange doc-availability-badge" title={documentAvailabilityHelp(doc)}>
+                              {documentAvailabilityLabel(doc)}
+                            </span>
+                          )}
+                        </div>
                         <div className="doc-file-meta">
                           {formatFileSize(doc.file_size, userSettings)} · {formatDateTime(doc.uploaded_at, userSettings)}
                           {latestProcessingByDocument.has(`${documentTypeFor(doc)}:${doc.id}`) && (
@@ -236,7 +248,13 @@ export default function DocumentsSection({
                       </div>
                       <div className="doc-file-actions">
                         {canDownloadDocuments && (
-                          <button className="doc-action-btn download" title="Download" aria-label="Download" onClick={() => handleFileDownload(doc)}>
+                          <button
+                            className="doc-action-btn download"
+                            title={isFileAvailable(doc) ? "Download" : documentAvailabilityHelp(doc)}
+                            aria-label="Download"
+                            disabled={!isFileAvailable(doc)}
+                            onClick={() => handleFileDownload(doc)}
+                          >
                             <Icon name="download" size={14} />
                           </button>
                         )}

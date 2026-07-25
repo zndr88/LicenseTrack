@@ -21,6 +21,7 @@ from app.schemas.license import (
 )
 from app.services.access_service import apply_department_filter, can_view_license, get_viewer_departments
 from app.services.audit_service import diff_fields, format_audit_detail, log_event
+from app.services.document_availability_service import get_document_storage_base
 from app.services.license_service import (
     compute_stats,
     generate_license_ref,
@@ -121,6 +122,7 @@ async def list_licenses(
     result = await db.execute(query)
     licenses = list(result.scalars().all())
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, licenses)
+    storage_base = await get_document_storage_base(db)
     custom_field_values_by_license_id = await get_custom_field_values_by_license_id(
         db,
         [lic.id for lic in licenses],
@@ -131,6 +133,7 @@ async def list_licenses(
             mandatory_fields,
             procurement_documents=procurement_documents_by_license_id.get(lic.id, []),
             custom_field_values=custom_field_values_by_license_id.get(lic.id, []),
+            storage_base=storage_base,
         )
         for lic in licenses
     ]
@@ -167,11 +170,13 @@ async def get_license(license_id: int, db: DbSession, _current_user: CurrentUser
         raise HTTPException(status_code=404, detail="License not found")
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
     custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, [license_obj.id])
+    storage_base = await get_document_storage_base(db)
     return enrich_license_response(
         license_obj,
         mandatory_fields,
         procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
+        storage_base=storage_base,
     )
 
 
@@ -210,11 +215,13 @@ async def create_license(
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
     custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, [license_obj.id])
+    storage_base = await get_document_storage_base(db)
     return enrich_license_response(
         license_obj,
         mandatory_fields,
         procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
+        storage_base=storage_base,
     )
 
 
@@ -264,11 +271,13 @@ async def repair_license_lifecycle(
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
     custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, [license_obj.id])
+    storage_base = await get_document_storage_base(db)
     return enrich_license_response(
         license_obj,
         mandatory_fields,
         procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
+        storage_base=storage_base,
     )
 
 
@@ -307,11 +316,13 @@ async def update_license(
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
     custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, [license_obj.id])
+    storage_base = await get_document_storage_base(db)
     return enrich_license_response(
         license_obj,
         mandatory_fields,
         procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
+        storage_base=storage_base,
     )
 
 
@@ -349,11 +360,13 @@ async def patch_license_field(
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
     custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, [license_obj.id])
+    storage_base = await get_document_storage_base(db)
     return enrich_license_response(
         license_obj,
         mandatory_fields,
         procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
+        storage_base=storage_base,
     )
 
 

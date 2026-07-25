@@ -13,6 +13,7 @@ from app.models.user import User
 from app.schemas.license import LicenseResponse
 from app.schemas.pending_order import ConvertSourcingItemRequest, PendingOrderResponse
 from app.services.audit_service import diff_fields, log_event
+from app.services.document_availability_service import get_document_storage_base
 from app.services.pending_order_service import to_pending_order_response
 from app.services.conversion_response_service import build_conversion_response
 from app.services.sourcing_license_conversion_service import convert_freeware_sourcing_items
@@ -212,7 +213,8 @@ async def convert_sourcing_request(
         )
     )
     order = po_result.scalar_one()
-    response = to_pending_order_response(order)
+    storage_base = await get_document_storage_base(db)
+    response = to_pending_order_response(order, storage_base)
     response.direct_registry_count = len(direct_licenses)
     return response
 
@@ -304,4 +306,5 @@ async def convert_sourcing_item(
         )
     )
     order = po_result.scalar_one()
-    return to_pending_order_response(order)
+    storage_base = await get_document_storage_base(db)
+    return to_pending_order_response(order, storage_base)

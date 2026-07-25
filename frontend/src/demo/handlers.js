@@ -268,7 +268,9 @@ export const routes = [
       const contractId = Number(params.id);
       findContractOr404(contractId);
       return {
-        data: store.contractDocuments.filter((doc) => doc.contractId === contractId),
+        data: store.contractDocuments
+          .filter((doc) => doc.contractId === contractId)
+          .map((doc) => ({ ...doc, fileAvailability: doc.fileAvailability ?? "available" })),
         error: null,
       };
     },
@@ -288,6 +290,7 @@ export const routes = [
         originalFilename: filename,
         fileSize: file?.size ?? null,
         createdAt: new Date().toISOString(),
+        fileAvailability: "available",
       };
       store.contractDocuments.push(document);
       return { data: document, error: null };
@@ -309,6 +312,7 @@ export const routes = [
         originalFilename: filename,
         fileSize: file?.size ?? null,
         createdAt: new Date().toISOString(),
+        fileAvailability: "available",
       };
       store.contractDocuments.push(document);
       return { data: document, error: null };

@@ -63,6 +63,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Hardened server-side restore selection so request filenames are used only to
   select an inspected archive returned by trusted directory enumeration, rather
   than to construct a filesystem path.
+- Preserved document metadata after database-only restores while marking
+  missing or unavailable managed files in document lists, counters, restore
+  warnings, and native doctor output.
 
 ## [1.1.1] - 2026-07-24
 

@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pydantic.alias_generators import to_camel
@@ -226,6 +226,7 @@ class SourcingQuoteDocumentResponse(BaseModel):
     mime_type: str
     uploaded_at: datetime
     uploaded_by: Optional[int] = None
+    file_availability: Literal["available", "missing", "unavailable"] = "available"
 
 
 class SourcingRequestResponse(BaseModel):

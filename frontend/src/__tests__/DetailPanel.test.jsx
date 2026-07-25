@@ -725,9 +725,80 @@ describe('DetailPanel documents', () => {
       expect(deleteDocument).toHaveBeenCalledWith(9)
       expect(onUpdate).toHaveBeenCalledWith(1, {
         documentCount: 0,
+        availableDocumentCount: 0,
+        missingDocumentCount: 0,
+        unavailableDocumentCount: 0,
         completenessPct: 100,
       })
     })
+  })
+
+  it('keeps missing document rows visible and disables download', async () => {
+    const user = userEvent.setup()
+    const { getDocuments, downloadDocument } = await import('../api/documents.js')
+    getDocuments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 9,
+          category: 'invoice',
+          original_filename: 'invoice.pdf',
+          file_size: 2048,
+          uploaded_at: '2026-01-01T00:00:00Z',
+          file_availability: 'missing',
+        },
+      ],
+      error: null,
+    })
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin', allowDownloads: true }}
+      />
+    )
+
+    await user.click(await screen.findByRole('button', { name: /^documents/i }))
+    expect(await screen.findByText('invoice.pdf')).toBeInTheDocument()
+    expect(screen.getByText('File missing')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^download$/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^documents/i })).toHaveTextContent('Documents (1)')
+
+    await user.click(screen.getByRole('button', { name: /^download$/i }))
+    expect(downloadDocument).not.toHaveBeenCalled()
+  })
+
+  it('shows the specific missing-file error when a download fails after load', async () => {
+    const user = userEvent.setup()
+    const { getDocuments, downloadDocument } = await import('../api/documents.js')
+    getDocuments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 9,
+          category: 'invoice',
+          original_filename: 'invoice.pdf',
+          file_size: 2048,
+          uploaded_at: '2026-01-01T00:00:00Z',
+          file_availability: 'available',
+        },
+      ],
+      error: null,
+    })
+    downloadDocument.mockResolvedValueOnce({
+      error: 'The document record exists, but the file is missing from managed storage.',
+    })
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin', allowDownloads: true }}
+      />
+    )
+
+    await user.click(await screen.findByRole('button', { name: /^documents/i }))
+    await user.click(await screen.findByRole('button', { name: /^download$/i }))
+
+    expect(await screen.findByText('The document record exists, but the file is missing from managed storage.')).toBeInTheDocument()
+    expect(downloadDocument).toHaveBeenCalledWith(9, 'invoice.pdf')
   })
 
   it('refreshes processing suggestions after requesting document processing', async () => {

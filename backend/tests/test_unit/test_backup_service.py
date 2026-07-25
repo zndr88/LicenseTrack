@@ -19,6 +19,7 @@ from app.services.backup_service import (
     create_backup,
     create_document_restore_safety_archive,
     create_portfolio_reset_archive,
+    document_storage_reconciliation,
     inspect_backup_archive,
     list_server_backup_archives,
     prune_backups,
@@ -325,6 +326,33 @@ def test_document_recovery_archive_restores_database_and_managed_storage(
     }
     assert not current_document.exists()
     assert (storage / "documents" / "9" / "recovered.txt").read_text(encoding="utf-8") == "recovered"
+
+
+def test_document_storage_reconciliation_counts_available_and_missing_files(tmp_path, monkeypatch):
+    db_path = tmp_path / "licenses.db"
+    storage = tmp_path / "storage"
+    stored = storage / "documents" / "1" / "available.pdf"
+    stored.parent.mkdir(parents=True)
+    stored.write_bytes(b"%PDF-1.4")
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute("CREATE TABLE documents (filename TEXT NOT NULL)")
+        connection.execute("CREATE TABLE procurement_documents (filename TEXT NOT NULL)")
+        connection.execute("CREATE TABLE sourcing_quote_documents (filename TEXT NOT NULL)")
+        connection.execute("CREATE TABLE contract_documents (filename TEXT NOT NULL)")
+        connection.execute("INSERT INTO documents (filename) VALUES (?)", ("documents/1/available.pdf",))
+        connection.execute("INSERT INTO contract_documents (filename) VALUES (?)", ("contracts/1/missing.pdf",))
+        connection.commit()
+    finally:
+        connection.close()
+    monkeypatch.setattr("app.services.backup_service.get_db_path", lambda: db_path)
+
+    assert document_storage_reconciliation(str(storage)) == {
+        "document_records": 2,
+        "available_files": 1,
+        "missing_files": 1,
+        "unavailable_files": 0,
+    }
 
 
 def test_document_recovery_rolls_storage_back_when_database_is_invalid(

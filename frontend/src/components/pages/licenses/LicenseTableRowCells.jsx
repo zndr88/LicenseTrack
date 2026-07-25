@@ -281,12 +281,22 @@ export default function LicenseTableRowCells({
             <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{license.notes || "-"}</div>
           </td>
         );
-      case "docs":
+      case "docs": {
+        const totalDocuments = license.documentCount ?? 0;
+        const missingDocuments = (license.missingDocumentCount ?? 0) + (license.unavailableDocumentCount ?? 0);
+        const documentLabel = `${totalDocuments}${missingDocuments ? "*" : ""}`;
         return (
           <td key="docs" className="td-center">
-            <span className="mono" style={{ fontSize: 11, color: license.documentCount ? "var(--text-2)" : "var(--text-3)" }}>{license.documentCount ?? 0}</span>
+            <span
+              className="mono"
+              title={missingDocuments ? `${missingDocuments} document file(s) missing or unavailable` : `${totalDocuments} document record(s)`}
+              style={{ fontSize: 11, color: missingDocuments ? "var(--orange-text)" : totalDocuments ? "var(--text-2)" : "var(--text-3)" }}
+            >
+              {documentLabel}
+            </span>
           </td>
         );
+      }
       case "expiration":
         return <td key="expiration"><ExpirationCell license={license} /></td>;
       case "complete":

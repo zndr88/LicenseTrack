@@ -15,6 +15,7 @@ from app.schemas.document import ProcurementDocumentResponse
 from app.services import storage
 from app.services.audit_contracts import format_document_amendment_detail
 from app.services.audit_service import log_event
+from app.services.document_availability_service import get_document_storage_base, with_file_availability
 from app.services.pending_order_service import get_pending_order_or_404
 
 router = APIRouter(prefix="/api/pending-orders", tags=["pending-orders"])
@@ -73,7 +74,8 @@ async def upload_pending_order_document(
     )
     await db.commit()
     await db.refresh(document)
-    return ProcurementDocumentResponse.model_validate(document)
+    response = ProcurementDocumentResponse.model_validate(document)
+    return with_file_availability(response, document, storage_base)
 
 
 @router.get("/{order_id}/documents", response_model=list[ProcurementDocumentResponse])
@@ -83,7 +85,11 @@ async def list_pending_order_documents(
     _editor: User = Depends(require_editor_or_admin),
 ) -> list[ProcurementDocumentResponse]:
     result = await db.execute(select(ProcurementDocument).where(ProcurementDocument.pending_order_id == order_id))
-    return [ProcurementDocumentResponse.model_validate(doc) for doc in result.scalars().all()]
+    storage_base = await get_document_storage_base(db)
+    return [
+        with_file_availability(ProcurementDocumentResponse.model_validate(doc), doc, storage_base)
+        for doc in result.scalars().all()
+    ]
 
 
 @router.get("/documents/{document_id}/download")
@@ -96,10 +102,8 @@ async def download_pending_order_document(
     document = result.scalar_one_or_none()
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
-    storage_base = await storage.resolve_storage_path(db)
-    file_path = storage.get_file_path(document.filename, storage_base)
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File not found on disk")
+    storage_base = await get_document_storage_base(db)
+    file_path = storage.require_available_file(document.filename, storage_base)
     return FileResponse(
         path=str(file_path),
         media_type=document.mime_type,

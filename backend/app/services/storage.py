@@ -15,7 +15,7 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import HTTPException, UploadFile
 
@@ -25,6 +25,10 @@ from app.config import settings
 from app.models.settings import GlobalSettings
 
 logger = logging.getLogger("license_lifecycle.storage")
+
+DocumentFileAvailability = Literal["available", "missing", "unavailable"]
+MISSING_FILE_DETAIL = "The document record exists, but the file is missing from managed storage."
+UNAVAILABLE_STORAGE_DETAIL = "The document record exists, but managed storage is unavailable."
 
 
 @dataclass(frozen=True)
@@ -286,6 +290,34 @@ def get_file_path(stored_path: str, storage_base: Optional[str] = None) -> Path:
     """Return the absolute Path for a stored_path relative to storage_base."""
     base = _resolve_base(storage_base)
     return _path_within_base(base / stored_path, base, stored_path)
+
+
+def get_file_availability(stored_path: str, storage_base: Optional[str] = None) -> DocumentFileAvailability:
+    """Return present file availability without reading file contents."""
+    try:
+        base = _resolve_base(storage_base)
+        if not base.is_dir():
+            return "unavailable"
+        file_path = _path_within_base(base / stored_path, base, stored_path)
+        return "available" if _backend.exists(file_path) else "missing"
+    except Exception:
+        logger.warning("Document file availability check failed.", exc_info=True)
+        return "unavailable"
+
+
+def require_available_file(stored_path: str, storage_base: Optional[str] = None) -> Path:
+    """Resolve a stored file for download and raise a clear error if unavailable."""
+    base = _resolve_base(storage_base)
+    if not base.is_dir():
+        raise HTTPException(status_code=404, detail=UNAVAILABLE_STORAGE_DETAIL)
+    file_path = _path_within_base(base / stored_path, base, stored_path)
+    try:
+        if _backend.exists(file_path):
+            return file_path
+    except Exception as exc:
+        logger.warning("Document storage availability check failed for download.", exc_info=True)
+        raise HTTPException(status_code=404, detail=UNAVAILABLE_STORAGE_DETAIL) from exc
+    raise HTTPException(status_code=404, detail=MISSING_FILE_DETAIL)
 
 
 def validate_upload(

@@ -516,3 +516,39 @@ def restore_backup_archive(
         "archive_type": info["archive_type"],
         "restored_documents": info["includes_documents"],
     }
+
+
+def document_storage_reconciliation(storage_location: str) -> dict[str, int]:
+    """Report managed document metadata records against files currently on disk."""
+    db_path = get_db_path()
+    storage_root = Path(storage_location).resolve()
+    counts = {
+        "document_records": 0,
+        "available_files": 0,
+        "missing_files": 0,
+        "unavailable_files": 0,
+    }
+    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        for table in ("documents", "procurement_documents", "sourcing_quote_documents", "contract_documents"):
+            try:
+                rows = connection.execute(f"SELECT filename FROM {table}").fetchall()
+            except sqlite3.DatabaseError:
+                continue
+            for (stored_path,) in rows:
+                counts["document_records"] += 1
+                try:
+                    if not storage_root.is_dir():
+                        counts["unavailable_files"] += 1
+                        continue
+                    candidate = (storage_root / str(stored_path)).resolve()
+                    candidate.relative_to(storage_root)
+                    if candidate.is_file():
+                        counts["available_files"] += 1
+                    else:
+                        counts["missing_files"] += 1
+                except (OSError, ValueError):
+                    counts["unavailable_files"] += 1
+    finally:
+        connection.close()
+    return counts

@@ -96,6 +96,7 @@ export function useDetailPanelState({
     uploadingCategory,
     liveDocs,
     docCount,
+    docAvailabilitySummary,
     documentActions,
     documentActionBusy,
     processingResults,
@@ -336,7 +337,7 @@ export function useDetailPanelState({
     fetchMaintenanceHistory,
 
     // Documents (from useLicenseDocuments)
-    documents, docsLoading, uploadingCategory, liveDocs, docCount,
+    documents, docsLoading, uploadingCategory, liveDocs, docCount, docAvailabilitySummary,
     documentActions, documentActionBusy,
     processingResults, processingResultHistory, processingResultsLoading, processingRequestPending, processingReviewBusy,
     handleFileUpload, handleFileRemove, handleFileDownload, handleDocumentAction,

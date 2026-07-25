@@ -27,6 +27,7 @@ from app.services import storage
 from app.services.access_service import can_download_documents, can_view_license
 from app.services.audit_contracts import format_document_amendment_detail
 from app.services.audit_service import log_event
+from app.services.document_availability_service import get_document_storage_base, with_file_availability
 
 router = APIRouter(tags=["documents"])
 
@@ -140,7 +141,8 @@ async def upload_document(
         )
         await db.commit()
         await db.refresh(procurement_document)
-        return ProcurementDocumentResponse.model_validate(procurement_document)
+        response = ProcurementDocumentResponse.model_validate(procurement_document)
+        return with_file_availability(response, procurement_document, storage_base)
 
     stored_path, file_size = await storage.save_file(file, license_id, storage_base)
     document = Document(
@@ -179,7 +181,8 @@ async def upload_document(
     )
     await db.commit()
     await db.refresh(document)
-    return DocumentResponse.model_validate(document)
+    response = DocumentResponse.model_validate(document)
+    return with_file_availability(response, document, storage_base)
 
 
 # ---------------------------------------------------------------------------
@@ -206,8 +209,9 @@ async def list_documents(
 
     docs_result = await db.execute(select(Document).where(Document.license_id == license_id))
     documents = list(docs_result.scalars().all())
+    storage_base = await get_document_storage_base(db)
     responses: list[DocumentResponse | ProcurementDocumentResponse] = [
-        DocumentResponse.model_validate(doc) for doc in documents
+        with_file_availability(DocumentResponse.model_validate(doc), doc, storage_base) for doc in documents
     ]
     procurement_conditions = [ProcurementDocument.license_id == license_id]
     if license_obj.pending_order_id is not None:
@@ -216,7 +220,10 @@ async def list_documents(
     if len(procurement_conditions) > 1:
         procurement_query = select(ProcurementDocument).where(procurement_conditions[0] | procurement_conditions[1])
     procurement_result = await db.execute(procurement_query)
-    responses.extend(ProcurementDocumentResponse.model_validate(doc) for doc in procurement_result.scalars().all())
+    responses.extend(
+        with_file_availability(ProcurementDocumentResponse.model_validate(doc), doc, storage_base)
+        for doc in procurement_result.scalars().all()
+    )
     return responses
 
 
@@ -245,10 +252,8 @@ async def download_document(document_id: int, db: DbSession, current_user: Curre
     if not can_download_documents(current_user):
         raise HTTPException(status_code=403, detail="Downloads are disabled for this viewer")
 
-    storage_base = await storage.resolve_storage_path(db)
-    file_path = storage.get_file_path(document.filename, storage_base)
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File not found on disk")
+    storage_base = await get_document_storage_base(db)
+    file_path = storage.require_available_file(document.filename, storage_base)
 
     return FileResponse(
         path=str(file_path),
@@ -277,10 +282,8 @@ async def download_procurement_document(document_id: int, db: DbSession, current
     if not can_download_documents(current_user):
         raise HTTPException(status_code=403, detail="Downloads are disabled for this viewer")
 
-    storage_base = await storage.resolve_storage_path(db)
-    file_path = storage.get_file_path(document.filename, storage_base)
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File not found on disk")
+    storage_base = await get_document_storage_base(db)
+    file_path = storage.require_available_file(document.filename, storage_base)
 
     return FileResponse(
         path=str(file_path),

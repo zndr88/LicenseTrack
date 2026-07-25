@@ -497,7 +497,106 @@ async def test_download_missing_file_on_disk_returns_404(
     )
 
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "File not found on disk"
+    assert resp.json()["detail"] == "The document record exists, but the file is missing from managed storage."
+
+
+async def test_list_documents_reports_file_availability_and_preserves_missing_metadata(
+    db_session,
+    test_app,
+    auth_headers,
+    existing_license,
+    patch_storage,
+):
+    available_path = f"documents/{existing_license}/available.pdf"
+    missing_path = f"documents/{existing_license}/missing.pdf"
+    (patch_storage / available_path).parent.mkdir(parents=True, exist_ok=True)
+    (patch_storage / available_path).write_bytes(b"%PDF-1.4 available")
+    available = Document(
+        license_id=existing_license,
+        filename=available_path,
+        original_filename="available.pdf",
+        file_size=18,
+        mime_type="application/pdf",
+        category=DocumentCategory.invoice,
+    )
+    missing = Document(
+        license_id=existing_license,
+        filename=missing_path,
+        original_filename="missing.pdf",
+        file_size=17,
+        mime_type="application/pdf",
+        category=DocumentCategory.eula,
+    )
+    db_session.add_all([available, missing])
+    await db_session.commit()
+
+    list_resp = await test_app.get(f"/api/licenses/{existing_license}/documents", headers=auth_headers)
+    license_resp = await test_app.get(f"/api/licenses/{existing_license}", headers=auth_headers)
+
+    assert list_resp.status_code == 200, list_resp.text
+    by_name = {doc["original_filename"]: doc for doc in list_resp.json()}
+    assert by_name["available.pdf"]["file_availability"] == "available"
+    assert by_name["missing.pdf"]["file_availability"] == "missing"
+    assert await db_session.get(Document, missing.id) is not None
+    assert license_resp.status_code == 200, license_resp.text
+    license_body = license_resp.json()
+    assert license_body["documentCount"] == 2
+    assert license_body["availableDocumentCount"] == 1
+    assert license_body["missingDocumentCount"] == 1
+
+
+async def test_list_documents_reports_unavailable_when_storage_check_fails(
+    db_session,
+    test_app,
+    auth_headers,
+    existing_license,
+    patch_storage,
+    monkeypatch,
+):
+    stored_path = f"documents/{existing_license}/unstable.pdf"
+    document = Document(
+        license_id=existing_license,
+        filename=stored_path,
+        original_filename="unstable.pdf",
+        file_size=18,
+        mime_type="application/pdf",
+        category=DocumentCategory.invoice,
+    )
+    db_session.add(document)
+    await db_session.commit()
+
+    def fail_exists(_path):
+        raise OSError("storage backend unavailable")
+
+    monkeypatch.setattr(_storage_module._backend, "exists", fail_exists)
+
+    resp = await test_app.get(f"/api/licenses/{existing_license}/documents", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()[0]["file_availability"] == "unavailable"
+
+
+async def test_list_documents_does_not_escape_storage_for_unsafe_metadata(
+    db_session,
+    test_app,
+    auth_headers,
+    existing_license,
+):
+    document = Document(
+        license_id=existing_license,
+        filename="../outside.pdf",
+        original_filename="outside.pdf",
+        file_size=1,
+        mime_type="application/pdf",
+        category=DocumentCategory.invoice,
+    )
+    db_session.add(document)
+    await db_session.commit()
+
+    resp = await test_app.get(f"/api/licenses/{existing_license}/documents", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()[0]["file_availability"] == "unavailable"
 
 
 async def test_download_rejects_traversal_stored_path(

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from datetime import datetime
@@ -61,6 +63,7 @@ class ContractDocumentResponse(BaseModel):
     original_filename: str
     file_size: int | None
     created_at: datetime
+    file_availability: Literal["available", "missing", "unavailable"] = "available"
 
 
 class LinkedLicenseResponse(BaseModel):

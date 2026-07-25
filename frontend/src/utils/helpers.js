@@ -149,6 +149,9 @@ export const normalizeLicense = (l) => ({
   startDate: l.startDate ?? "",
   // Documents are not in the license list response (separate endpoint)
   documents: l.documents ?? { invoice: [], eula: [], entitlement: [], purchase_order: [], quote: [] },
+  availableDocumentCount: l.availableDocumentCount ?? l.available_document_count ?? l.documentCount ?? 0,
+  missingDocumentCount: l.missingDocumentCount ?? l.missing_document_count ?? 0,
+  unavailableDocumentCount: l.unavailableDocumentCount ?? l.unavailable_document_count ?? 0,
   maintenanceCoverage: l.maintenanceCoverage ?? (
     l.licenseType === "maintenance"
       ? "not_applicable"

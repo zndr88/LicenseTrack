@@ -14,6 +14,7 @@ from app.schemas.sourcing import (
     SourcingRequestUpdate,
 )
 from app.services.audit_service import diff_fields, log_event
+from app.services.document_availability_service import get_document_storage_base, with_file_availability
 from app.services.sourcing_service import (
     add_sourcing_request_item_record,
     apply_sourcing_request_update,
@@ -32,6 +33,14 @@ router = APIRouter(prefix="/api/sourcing", tags=["sourcing"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
+def _sourcing_request_response(sourcing_request, storage_base: str | None = None) -> SourcingRequestResponse:
+    response = SourcingRequestResponse.model_validate(sourcing_request)
+    quote_documents = list(sourcing_request.quote_documents) if "quote_documents" in sourcing_request.__dict__ else []
+    for document_response, document in zip(response.quote_documents, quote_documents, strict=False):
+        with_file_availability(document_response, document, storage_base)
+    return response
+
+
 @router.get("/requests", response_model=list[SourcingRequestResponse])
 async def list_sourcing_requests(
     db: DbSession,
@@ -39,7 +48,8 @@ async def list_sourcing_requests(
 ) -> list[SourcingRequestResponse]:
     requests = await list_sourcing_request_records(db)
     await db.commit()
-    return [SourcingRequestResponse.model_validate(request) for request in requests]
+    storage_base = await get_document_storage_base(db)
+    return [_sourcing_request_response(request, storage_base) for request in requests]
 
 
 @router.get("/requests/history", response_model=list[SourcingRequestResponse])
@@ -49,7 +59,8 @@ async def list_sourcing_request_history(
 ) -> list[SourcingRequestResponse]:
     requests = await list_sourcing_request_history_records(db)
     await db.commit()
-    return [SourcingRequestResponse.model_validate(request) for request in requests]
+    storage_base = await get_document_storage_base(db)
+    return [_sourcing_request_response(request, storage_base) for request in requests]
 
 
 @router.post("/requests", response_model=SourcingRequestResponse, status_code=201)
@@ -73,7 +84,8 @@ async def create_sourcing_request(
     )
     await db.commit()
     sourcing_request = await get_sourcing_request_or_404(db, sourcing_request.id)
-    return SourcingRequestResponse.model_validate(sourcing_request)
+    storage_base = await get_document_storage_base(db)
+    return _sourcing_request_response(sourcing_request, storage_base)
 
 
 @router.get("/requests/{request_id}", response_model=SourcingRequestResponse)
@@ -83,7 +95,8 @@ async def get_sourcing_request(
     _editor: User = Depends(require_editor_or_admin),
 ) -> SourcingRequestResponse:
     sourcing_request = await get_sourcing_request_or_404(db, request_id)
-    return SourcingRequestResponse.model_validate(sourcing_request)
+    storage_base = await get_document_storage_base(db)
+    return _sourcing_request_response(sourcing_request, storage_base)
 
 
 @router.put("/requests/{request_id}", response_model=SourcingRequestResponse)
@@ -116,7 +129,8 @@ async def update_sourcing_request(
         )
     await db.commit()
     sourcing_request = await get_sourcing_request_or_404(db, request_id)
-    return SourcingRequestResponse.model_validate(sourcing_request)
+    storage_base = await get_document_storage_base(db)
+    return _sourcing_request_response(sourcing_request, storage_base)
 
 
 @router.post("/requests/{request_id}/cancel", response_model=SourcingRequestResponse)
@@ -139,7 +153,8 @@ async def cancel_sourcing_request(
     )
     await db.commit()
     sourcing_request = await get_sourcing_request_or_404(db, request_id)
-    return SourcingRequestResponse.model_validate(sourcing_request)
+    storage_base = await get_document_storage_base(db)
+    return _sourcing_request_response(sourcing_request, storage_base)
 
 
 @router.delete("/requests/{request_id}", status_code=204, response_class=Response)
@@ -191,4 +206,5 @@ async def add_sourcing_request_item(
     )
     await db.commit()
     sourcing_request = await get_sourcing_request_or_404(db, request_id)
-    return SourcingRequestResponse.model_validate(sourcing_request)
+    storage_base = await get_document_storage_base(db)
+    return _sourcing_request_response(sourcing_request, storage_base)

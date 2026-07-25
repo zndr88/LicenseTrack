@@ -152,3 +152,32 @@ def test_network_diagnostics_reports_recorded_mode_mismatch():
         "recorded network mode 'reverse-proxy' does not match effective mode 'direct-network'"
     ]
     assert warnings == []
+
+
+def test_document_storage_diagnostics_reports_available_and_missing_files(tmp_path: Path):
+    database = tmp_path / "licenses.db"
+    storage = tmp_path / "storage"
+    stored = storage / "documents" / "1" / "available.pdf"
+    stored.parent.mkdir(parents=True)
+    stored.write_bytes(b"%PDF-1.4")
+    connection = operator.sqlite3.connect(database)
+    try:
+        connection.execute("CREATE TABLE documents (filename TEXT NOT NULL)")
+        connection.execute("CREATE TABLE procurement_documents (filename TEXT NOT NULL)")
+        connection.execute("CREATE TABLE sourcing_quote_documents (filename TEXT NOT NULL)")
+        connection.execute("CREATE TABLE contract_documents (filename TEXT NOT NULL)")
+        connection.execute("INSERT INTO documents (filename) VALUES (?)", ("documents/1/available.pdf",))
+        connection.execute("INSERT INTO procurement_documents (filename) VALUES (?)", ("procurement/missing.pdf",))
+        connection.commit()
+    finally:
+        connection.close()
+
+    counts, warnings = operator.document_storage_diagnostics(database, storage)
+
+    assert counts == {
+        "document_records": 2,
+        "available_files": 1,
+        "missing_files": 1,
+        "unavailable_files": 0,
+    }
+    assert warnings == ["1 managed document file(s) are missing from storage"]

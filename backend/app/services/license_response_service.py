@@ -17,6 +17,7 @@ from app.models.custom_fields import CustomFieldValue
 from app.models.document import ProcurementDocument
 from app.schemas.custom_fields import CustomFieldValueResponse
 from app.schemas.license import LicenseResponse
+from app.services.document_availability_service import count_file_availability
 from app.services.license_service import (
     compute_completeness,
     compute_days_until_expiry,
@@ -91,6 +92,7 @@ def enrich_license_response(
     notification_days: int = DEFAULT_NOTIFICATION_DAYS,
     procurement_documents: list[ProcurementDocument] | None = None,
     custom_field_values: list[CustomFieldValue] | None = None,
+    storage_base: str | None = None,
 ) -> LicenseResponse:
     """Convert an ORM License (with documents loaded) into an enriched response."""
     today = date.today()
@@ -105,6 +107,10 @@ def enrich_license_response(
     response.completeness_pct = compute_completeness(license_obj, documents, mandatory_fields)
     response.days_until_expiry = compute_days_until_expiry(license_obj, today)
     response.expiration_status = compute_expiration_status(license_obj, today, notification_days)
-    response.document_count = len(documents)
+    document_counts = count_file_availability(documents, storage_base)
+    response.document_count = document_counts["total"]
+    response.available_document_count = document_counts["available"]
+    response.missing_document_count = document_counts["missing"]
+    response.unavailable_document_count = document_counts["unavailable"]
     response.custom_fields = [CustomFieldValueResponse.model_validate(value) for value in custom_field_values or []]
     return response

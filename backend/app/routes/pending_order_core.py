@@ -14,6 +14,7 @@ from app.schemas.pending_order import (
 )
 from app.services import storage
 from app.services.audit_service import diff_fields, log_event
+from app.services.document_availability_service import get_document_storage_base
 from app.services.pending_order_service import (
     apply_pending_order_update,
     cancel_pending_order_record,
@@ -44,7 +45,8 @@ async def list_pending_orders(
         offset=offset,
         include_evidence_issues=include_evidence_issues,
     )
-    return [to_pending_order_response(order) for order in orders]
+    storage_base = await get_document_storage_base(db)
+    return [to_pending_order_response(order, storage_base) for order in orders]
 
 
 @router.get("/history", response_model=list[PendingOrderResponse])
@@ -55,7 +57,8 @@ async def list_pending_order_history(
     offset: int = Query(default=0, ge=0),
 ) -> list[PendingOrderResponse]:
     orders = await list_pending_order_history_records(db, limit=limit, offset=offset)
-    return [to_pending_order_response(order) for order in orders]
+    storage_base = await get_document_storage_base(db)
+    return [to_pending_order_response(order, storage_base) for order in orders]
 
 
 @router.get("/{order_id}", response_model=PendingOrderResponse)
@@ -65,7 +68,8 @@ async def get_pending_order(
     _editor: User = Depends(require_editor_or_admin),
 ) -> PendingOrderResponse:
     order = await get_pending_order_or_404(db, order_id, include_items=True)
-    return to_pending_order_response(order)
+    storage_base = await get_document_storage_base(db)
+    return to_pending_order_response(order, storage_base)
 
 
 @router.post("", response_model=PendingOrderResponse, status_code=201)
@@ -89,7 +93,8 @@ async def create_pending_order(
     )
     await db.commit()
     await db.refresh(order, ["items"])
-    return to_pending_order_response(order)
+    storage_base = await get_document_storage_base(db)
+    return to_pending_order_response(order, storage_base)
 
 
 @router.put("/{order_id}", response_model=PendingOrderResponse)
@@ -118,7 +123,8 @@ async def update_pending_order(
 
     await db.commit()
     order = await get_pending_order_or_404(db, order_id, include_items=True)
-    return to_pending_order_response(order)
+    storage_base = await get_document_storage_base(db)
+    return to_pending_order_response(order, storage_base)
 
 
 @router.post("/{order_id}/cancel", response_model=PendingOrderResponse)
@@ -142,7 +148,8 @@ async def cancel_pending_order(
     )
     await db.commit()
     order = await get_pending_order_or_404(db, order_id, include_items=True)
-    return to_pending_order_response(order)
+    storage_base = await get_document_storage_base(db)
+    return to_pending_order_response(order, storage_base)
 
 
 @router.delete("/{order_id}", status_code=204, response_class=Response)

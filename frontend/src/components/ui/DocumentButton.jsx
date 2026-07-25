@@ -1,5 +1,10 @@
 import React from "react";
 import Icon from "./Icon.jsx";
+import {
+  documentAvailabilityHelp,
+  documentAvailabilityLabel,
+  isFileAvailable,
+} from "../../utils/documentAvailability.js";
 
 /**
  * Standard document download button - a compact grey pill with a download icon
@@ -14,13 +19,17 @@ import Icon from "./Icon.jsx";
  */
 export default function DocumentButton({ document, onDownload, labelPrefix = "" }) {
   const filename = document.originalFilename ?? document.original_filename;
+  const available = isFileAvailable(document);
+  const title = available ? `Download ${filename}` : documentAvailabilityHelp(document);
   return (
     <button
       type="button"
       className="btn btn-g document-button"
-      title={`Download ${filename}`}
+      title={title}
+      disabled={!available}
       onClick={(event) => {
         event.stopPropagation();
+        if (!available) return;
         onDownload(document);
       }}
     >
@@ -28,6 +37,7 @@ export default function DocumentButton({ document, onDownload, labelPrefix = "" 
       <span className="document-button-label">
         {labelPrefix}{filename}
       </span>
+      {!available && <span className="badge badge-orange">{documentAvailabilityLabel(document)}</span>}
     </button>
   );
 }

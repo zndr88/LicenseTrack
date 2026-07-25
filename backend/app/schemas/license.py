@@ -246,6 +246,9 @@ class LicenseResponse(LicenseBase):
     days_until_expiry: Optional[int] = None
     expiration_status: Optional[str] = None
     document_count: int = 0
+    available_document_count: int = 0
+    missing_document_count: int = 0
+    unavailable_document_count: int = 0
     custom_fields: list[CustomFieldValueResponse] = Field(default_factory=list)
     # Set only in convert responses: "renewed" | "new_purchase" |
     # "direct_freeware" | "renewed_predecessor"

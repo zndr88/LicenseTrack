@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -19,6 +19,7 @@ class DocumentResponse(BaseModel):
     uploaded_at: datetime
     uploaded_by: Optional[int] = None
     scope: str = "license"
+    file_availability: Literal["available", "missing", "unavailable"] = "available"
 
 
 class ProcurementDocumentResponse(BaseModel):
@@ -36,3 +37,4 @@ class ProcurementDocumentResponse(BaseModel):
     uploaded_at: datetime
     uploaded_by: Optional[int] = None
     scope: str = "po"
+    file_availability: Literal["available", "missing", "unavailable"] = "available"

@@ -26,6 +26,8 @@ from starlette.requests import Request
 import app.routes.backup as backup_module
 from app.config import settings
 from app.models.settings import GlobalSettings
+from app.models.document import Document, DocumentCategory
+from app.models.license import License, LicenseMetric, LicenseType
 from app.models.user import User, UserRole
 
 
@@ -249,6 +251,16 @@ async def test_restore_success_can_skip_process_restart(test_app, auth_headers, 
 
     monkeypatch.setattr(settings, "RESTART_AFTER_RESTORE", False)
     monkeypatch.setattr("app.services.backup_service.restore_backup", _restore)
+    monkeypatch.setattr(
+        backup_module,
+        "document_storage_reconciliation",
+        lambda _storage_location: {
+            "document_records": 0,
+            "available_files": 0,
+            "missing_files": 0,
+            "unavailable_files": 0,
+        },
+    )
     monkeypatch.setattr(backup_module.os, "kill", _kill)
 
     files = {"file": ("backup.zip", _make_zip_with_db(), "application/zip")}
@@ -260,6 +272,13 @@ async def test_restore_success_can_skip_process_restart(test_app, auth_headers, 
         "restart_scheduled": False,
         "archive_type": "database_backup",
         "restored_documents": False,
+        "document_storage": {
+            "document_records": 0,
+            "available_files": 0,
+            "missing_files": 0,
+            "unavailable_files": 0,
+        },
+        "warnings": [],
     }
     assert len(restored_paths) == 1
     assert killed == []
@@ -277,6 +296,16 @@ async def test_restore_success_returns_before_scheduled_restart(test_app, auth_h
 
     monkeypatch.setattr(settings, "RESTART_AFTER_RESTORE", True)
     monkeypatch.setattr("app.services.backup_service.restore_backup", _restore)
+    monkeypatch.setattr(
+        backup_module,
+        "document_storage_reconciliation",
+        lambda _storage_location: {
+            "document_records": 0,
+            "available_files": 0,
+            "missing_files": 0,
+            "unavailable_files": 0,
+        },
+    )
     monkeypatch.setattr(backup_module.os, "kill", _kill)
 
     files = {"file": ("backup.zip", _make_zip_with_db(), "application/zip")}
@@ -288,6 +317,13 @@ async def test_restore_success_returns_before_scheduled_restart(test_app, auth_h
         "restart_scheduled": True,
         "archive_type": "database_backup",
         "restored_documents": False,
+        "document_storage": {
+            "document_records": 0,
+            "available_files": 0,
+            "missing_files": 0,
+            "unavailable_files": 0,
+        },
+        "warnings": [],
     }
     assert len(restored_paths) == 1
     assert killed == [(backup_module.os.getpid(), backup_module.signal.SIGTERM)]
@@ -357,6 +393,72 @@ async def test_restore_server_uses_exact_allow_listed_archive(
     assert response.status_code == 200, response.text
     assert response.json()["archive_type"] == "database_backup"
     assert restored == [(archive, settings.STORAGE_PATH, None)]
+
+
+async def test_database_restore_reports_missing_document_files_without_deleting_metadata(
+    db_session,
+    test_app,
+    auth_headers,
+    tmp_path,
+    monkeypatch,
+):
+    storage_root = tmp_path / "storage"
+    storage_root.mkdir()
+    db_session.add(GlobalSettings(id=1, storage_path=str(storage_root)))
+    license_obj = License(
+        publisher_name="Acme",
+        software_description="Restore Document Suite",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+    )
+    db_session.add(license_obj)
+    await db_session.flush()
+    document = Document(
+        license_id=license_obj.id,
+        filename=f"documents/{license_obj.id}/missing.pdf",
+        original_filename="missing.pdf",
+        file_size=10,
+        mime_type="application/pdf",
+        category=DocumentCategory.invoice,
+    )
+    db_session.add(document)
+    await db_session.commit()
+
+    restored_paths = []
+
+    def _restore(path, *, storage_location, safety_archive):
+        restored_paths.append(path)
+        return {"archive_type": "database_backup", "restored_documents": False}
+
+    monkeypatch.setattr(settings, "RESTART_AFTER_RESTORE", False)
+    monkeypatch.setattr(backup_module, "restore_backup_archive", _restore)
+    monkeypatch.setattr(
+        backup_module,
+        "document_storage_reconciliation",
+        lambda _storage_location: {
+            "document_records": 1,
+            "available_files": 0,
+            "missing_files": 1,
+            "unavailable_files": 0,
+        },
+    )
+
+    files = {"file": ("backup.zip", _make_zip_with_db(), "application/zip")}
+    resp = await test_app.post("/api/backup/restore", files=files, headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["document_storage"] == {
+        "document_records": 1,
+        "available_files": 0,
+        "missing_files": 1,
+        "unavailable_files": 0,
+    }
+    assert body["warnings"] == [
+        "Managed document storage does not currently contain every document file referenced by the restored database."
+    ]
+    assert await db_session.get(Document, document.id) is not None
 
 
 async def test_restore_server_rejects_paths_and_unlisted_files(

@@ -236,6 +236,23 @@ describe("ContractModal", () => {
     expect(contractsApi.downloadContractDocument).not.toHaveBeenCalled();
   });
 
+  test("missing contract document rows remain visible with downloads disabled", async () => {
+    const user = userEvent.setup();
+    await renderLoadedModal({}, {
+      documents: [
+        { id: 21, originalFilename: "general.pdf", folderId: null, fileAvailability: "missing" },
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: /toggle general folder/i }));
+    const documentButton = screen.getByRole("button", { name: /general\.pdf/i });
+
+    expect(documentButton).toBeDisabled();
+    expect(screen.getByText("File missing")).toBeInTheDocument();
+    await user.click(documentButton);
+    expect(contractsApi.downloadContractDocument).not.toHaveBeenCalled();
+  });
+
   test("folder rename Escape cancels rename without closing modal", async () => {
     const user = userEvent.setup();
     const { onClose } = await renderLoadedModal();

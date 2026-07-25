@@ -32,6 +32,7 @@ from app.models.user import User
 from app.services.audit_service import log_event
 from app.services.backup_service import (
     create_document_restore_safety_archive,
+    document_storage_reconciliation,
     inspect_backup_archive,
     list_server_backup_archives,
     resolve_server_backup_archive,
@@ -223,10 +224,28 @@ async def _perform_restore(
         log.error("Backup restore failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="Restore failed. Check server logs.")
 
+    warnings = []
+    try:
+        reconciliation = document_storage_reconciliation(storage_location)
+    except Exception as exc:
+        log.warning("Document storage reconciliation after restore failed: %s", exc, exc_info=True)
+        reconciliation = {
+            "document_records": 0,
+            "available_files": 0,
+            "missing_files": 0,
+            "unavailable_files": 0,
+        }
+        warnings.append("Managed document storage reconciliation could not be completed.")
+    if reconciliation["missing_files"] or reconciliation["unavailable_files"]:
+        warnings.append(
+            "Managed document storage does not currently contain every document file referenced by the restored database."
+        )
     response_data = {
         "status": "restore_completed",
         "restart_scheduled": False,
         **restore_result,
+        "document_storage": reconciliation,
+        "warnings": warnings,
     }
     if not settings.RESTART_AFTER_RESTORE:
         log.info("Restore complete; RESTART_AFTER_RESTORE=false, keeping the API process running.")

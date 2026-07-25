@@ -13,6 +13,7 @@ import {
   rejectDocumentProcessingResult,
 } from "../api/documents.js";
 import { getLicense } from "../api/licenses.js";
+import { documentAvailabilityHelp, documentAvailabilitySummary, isFileAvailable } from "../utils/documentAvailability.js";
 
 export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setToast, onProcessingAccepted }) {
   const [documents, setDocuments] = useState(null);
@@ -110,7 +111,14 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     await loadProcessingResults();
     if (data) {
       setDocuments(data);
-      onUpdate(license.id, { documentCount: data.length, completenessPct: freshLicense?.completenessPct });
+      const summary = documentAvailabilitySummary(data);
+      onUpdate(license.id, {
+        documentCount: summary.total,
+        availableDocumentCount: summary.available,
+        missingDocumentCount: summary.missing,
+        unavailableDocumentCount: summary.unavailable,
+        completenessPct: freshLicense?.completenessPct,
+      });
     }
   };
 
@@ -163,10 +171,16 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
   };
 
   const handleFileDownload = async (doc) => {
+    if (!isFileAvailable(doc)) {
+      setToast(documentAvailabilityHelp(doc));
+      return;
+    }
     const { error } = doc.scope === "po"
       ? await downloadProcurementDocument(doc.id, doc.original_filename)
       : await downloadDocument(doc.id, doc.original_filename);
-    if (error) setToast(`Download failed: ${error}`);
+    if (error) {
+      setToast(String(error).includes("document record exists") ? error : `Download failed: ${error}`);
+    }
   };
 
   const handleDocumentAction = async (action, doc) => {
@@ -246,6 +260,7 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
         }
       : license.documents,
     docCount: documents?.length ?? 0,
+    docAvailabilitySummary: documentAvailabilitySummary(documents ?? []),
     handleFileUpload,
     handleFileRemove,
     handleFileDownload,

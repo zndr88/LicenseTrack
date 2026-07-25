@@ -31,6 +31,7 @@ from app.services.contract_storage_service import (
     require_storage_base,
     validate_contract_upload,
 )
+from app.services.document_availability_service import get_document_storage_base, with_file_availability
 
 router = APIRouter(tags=["contract-documents"])
 logger = logging.getLogger(__name__)
@@ -73,7 +74,8 @@ async def upload_contract_document(
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
-    return ContractDocumentResponse.model_validate(doc)
+    response = ContractDocumentResponse.model_validate(doc)
+    return with_file_availability(response, doc, storage_base)
 
 
 @router.post(
@@ -116,7 +118,8 @@ async def upload_contract_folder_document(
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
-    return ContractDocumentResponse.model_validate(doc)
+    response = ContractDocumentResponse.model_validate(doc)
+    return with_file_availability(response, doc, storage_base)
 
 
 @router.get(
@@ -141,7 +144,11 @@ async def list_contract_documents(
         .order_by(ContractDocument.created_at.asc())
     )
     docs = docs_result.scalars().all()
-    return [ContractDocumentResponse.model_validate(doc) for doc in docs]
+    storage_base = await get_document_storage_base(db)
+    return [
+        with_file_availability(ContractDocumentResponse.model_validate(doc), doc, storage_base)
+        for doc in docs
+    ]
 
 
 @router.get("/api/contracts/{contract_id}/documents/{doc_id}/download")
@@ -169,9 +176,7 @@ async def download_contract_document(
         raise HTTPException(status_code=403, detail="Downloads are disabled for this viewer")
 
     storage_base = await get_storage_base(db)
-    file_path = storage.get_file_path(doc.filename, storage_base)
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File not found on disk")
+    file_path = storage.require_available_file(doc.filename, storage_base)
 
     media_type = mimetypes.guess_type(doc.original_filename)[0] or "application/octet-stream"
     return FileResponse(

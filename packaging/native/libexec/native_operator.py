@@ -177,10 +177,68 @@ def network_diagnostics(
     return summary, problems, warnings
 
 
+def configured_storage_location(db_path: Path, default: str, working_directory: Path) -> Path:
+    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        row = connection.execute("SELECT storage_path FROM global_settings WHERE id = 1").fetchone()
+    except sqlite3.DatabaseError:
+        row = None
+    finally:
+        connection.close()
+    configured = Path(str(row[0]) if row and row[0] else default)
+    return configured.resolve() if configured.is_absolute() else (working_directory / configured).resolve()
+
+
+def document_storage_diagnostics(db_path: Path, storage_root: Path) -> tuple[dict[str, int], list[str]]:
+    counts = {
+        "document_records": 0,
+        "available_files": 0,
+        "missing_files": 0,
+        "unavailable_files": 0,
+    }
+    warnings: list[str] = []
+    if not storage_root.is_dir():
+        warnings.append(f"document storage root is unavailable: {storage_root}")
+    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        for table in ("documents", "procurement_documents", "sourcing_quote_documents", "contract_documents"):
+            try:
+                rows = connection.execute(f"SELECT filename FROM {table}").fetchall()
+            except sqlite3.DatabaseError:
+                continue
+            for (stored_path,) in rows:
+                counts["document_records"] += 1
+                try:
+                    if not storage_root.is_dir():
+                        counts["unavailable_files"] += 1
+                        continue
+                    candidate = (storage_root / str(stored_path)).resolve()
+                    candidate.relative_to(storage_root)
+                    if candidate.is_file():
+                        counts["available_files"] += 1
+                    else:
+                        counts["missing_files"] += 1
+                except (OSError, ValueError):
+                    counts["unavailable_files"] += 1
+    finally:
+        connection.close()
+    if counts["missing_files"]:
+        warnings.append(f"{counts['missing_files']} managed document file(s) are missing from storage")
+    if counts["unavailable_files"]:
+        warnings.append(f"{counts['unavailable_files']} managed document file(s) could not be checked")
+    return counts, warnings
+
+
 def command_doctor(args: argparse.Namespace) -> int:
     state, environment = load(args)
     problems: list[str] = []
     warnings: list[str] = []
+    document_counts = {
+        "document_records": 0,
+        "available_files": 0,
+        "missing_files": 0,
+        "unavailable_files": 0,
+    }
     release = Path(state["release_path"])
     if not release.is_dir():
         problems.append(f"release directory is missing: {release}")
@@ -194,6 +252,10 @@ def command_doctor(args: argparse.Namespace) -> int:
     db_path = database_path(environment["DATABASE_URL"], release / "backend")
     if not db_path.is_file():
         problems.append(f"database is missing: {db_path}")
+    else:
+        storage_root = configured_storage_location(db_path, environment.get("STORAGE_PATH", "./storage"), release / "backend")
+        document_counts, document_warnings = document_storage_diagnostics(db_path, storage_root)
+        warnings.extend(document_warnings)
     service_result = subprocess.run(
         ["systemctl", "is-active", "--quiet", state["service_name"]],
         check=False,
@@ -234,6 +296,11 @@ def command_doctor(args: argparse.Namespace) -> int:
     )
     print(f"LicenseTrack {state['version']} is healthy at {url}. {runtime_label}.")
     print(f"Network: {network_summary}.")
+    if db_path.is_file():
+        print(f"Document records: {document_counts['document_records']}")
+        print(f"Available files: {document_counts['available_files']}")
+        print(f"Missing files: {document_counts['missing_files']}")
+        print(f"Unavailable files: {document_counts['unavailable_files']}")
     return 0
 
 

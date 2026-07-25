@@ -2,6 +2,11 @@ import React, { useState, useEffect } from "react";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import {
+  documentAvailabilityHelp,
+  documentAvailabilityLabel,
+  isFileAvailable,
+} from "../../utils/documentAvailability.js";
+import {
   createFolder,
   updateFolder,
   deleteFolder,
@@ -117,6 +122,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
   };
 
   const handleDownload = async (doc) => {
+    if (!isFileAvailable(doc)) return;
     setDownloadingId(doc.id);
     await downloadContractDocument(contractId, doc.id, doc.originalFilename);
     setDownloadingId(null);
@@ -348,12 +354,17 @@ function DocSection({ docs, canEdit, canDownload = true, hideUpload, uploading, 
               <Icon name="file" size={13} color="var(--text-3)" />
               <button
                 onClick={() => canDownload && onDownload(doc)}
-                disabled={!canDownload || downloadingId === doc.id}
-                style={{ background: "none", border: "none", cursor: canDownload ? "pointer" : "default", color: canDownload ? "var(--accent)" : "var(--text-2)", fontSize: 12, padding: 0, textAlign: "left", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                title={doc.originalFilename}
+                disabled={!canDownload || !isFileAvailable(doc) || downloadingId === doc.id}
+                style={{ background: "none", border: "none", cursor: canDownload && isFileAvailable(doc) ? "pointer" : "default", color: canDownload && isFileAvailable(doc) ? "var(--accent)" : "var(--text-2)", fontSize: 12, padding: 0, textAlign: "left", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                title={isFileAvailable(doc) ? doc.originalFilename : documentAvailabilityHelp(doc)}
               >
                 {downloadingId === doc.id ? "Downloading..." : doc.originalFilename}
               </button>
+              {!isFileAvailable(doc) && (
+                <span className="badge badge-orange" title={documentAvailabilityHelp(doc)}>
+                  {documentAvailabilityLabel(doc)}
+                </span>
+              )}
               {canEdit && (
                 <button
                   onClick={() => onDeleteRequest(doc)}

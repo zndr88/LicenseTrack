@@ -184,7 +184,7 @@ sudo licensetrack backup
 sudo licensetrack version
 ```
 
-The `backup` command creates the same WAL-safe SQLite backup format used by the application. It does not include uploaded documents. Upgrade snapshots are separate and include the managed data directory, configuration, and any configured external document-storage path.
+The `backup` command creates the same WAL-safe SQLite backup format used by the application. It does not include uploaded documents. Upgrade snapshots are separate and include the managed data directory, configuration, and any configured external document-storage path. The `doctor` command reports document record, available-file, and missing-file counts so a database-only restore can be reconciled with managed storage without deleting metadata.
 
 For data-retention choices and complete host cleanup, see
 [Native Linux removal](../operations/native-uninstall.md).

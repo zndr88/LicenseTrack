@@ -19,9 +19,10 @@ from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.pending_order import PendingOrderCreate, PendingOrderResponse, PendingOrderUpdate, SourcingItemSummary
 from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate
+from app.services.document_availability_service import with_file_availability
 
 
-def to_pending_order_response(order: PendingOrder) -> PendingOrderResponse:
+def to_pending_order_response(order: PendingOrder, storage_base: str | None = None) -> PendingOrderResponse:
     items = list(order.items) if "items" in order.__dict__ else []
     documents = list(order.documents) if "documents" in order.__dict__ else []
     licenses = list(order.licenses) if "licenses" in order.__dict__ else []
@@ -55,7 +56,10 @@ def to_pending_order_response(order: PendingOrder) -> PendingOrderResponse:
                 )
                 for item in items
             ],
-            "documents": [ProcurementDocumentResponse.model_validate(document) for document in documents],
+            "documents": [
+                with_file_availability(ProcurementDocumentResponse.model_validate(document), document, storage_base)
+                for document in documents
+            ],
         }
     )
 
