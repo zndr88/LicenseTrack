@@ -1124,6 +1124,13 @@ describe("SourcingPage workflows", () => {
     license({ id: 101, publisherName: "Acme", softwareDescription: "Acme Suite", endDate: "2026-12-31", skuCode: "ACME-SUITE" }),
     license({ id: 102, publisherName: "Acme", softwareDescription: "Acme Suite", endDate: "2026-12-31", skuCode: "" }),
   ];
+  const fractionalMergeItems = [{
+    ...mergeItems[0],
+    items: [
+      { ...mergeItems[0].items[0], quantity: "1.25" },
+      { ...mergeItems[0].items[1], quantity: "2.5" },
+    ],
+  }];
 
   test("covers loading, empty, error toast, search, and adding an item", async () => {
     const user = userEvent.setup();
@@ -1320,6 +1327,135 @@ describe("SourcingPage workflows", () => {
       expect(sourcingApi.mergeSourcingItems).toHaveBeenCalledWith([11, 12]);
       expect(sourcingApi.updateSourcingItem).toHaveBeenCalledWith(99, { quantity: "9" });
     });
+  });
+
+  test("keeps fractional quantities exact across the table, merge modal, API, and success text", async () => {
+    const user = userEvent.setup();
+    licensesApi.getLicenses.mockResolvedValueOnce({ data: mergeLicenses, error: null });
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({ data: fractionalMergeItems, error: null });
+    sourcingApi.mergeSourcingItems.mockResolvedValueOnce({
+      data: { id: 99, quantity: "3.75" },
+      error: null,
+    });
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+
+    expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
+    await user.click(screen.getByText("Acme Corp"));
+    expect(screen.getByText("1.25")).toBeInTheDocument();
+    expect(screen.getByText("2.5")).toBeInTheDocument();
+
+    const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
+    await user.click(checkboxes[0]);
+    await user.click(checkboxes[1]);
+    await user.click(screen.getByRole("button", { name: /merge selected \(2\)/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /merge renewal sourcing items/i });
+    expect(within(dialog).getByText("1.25")).toBeInTheDocument();
+    expect(within(dialog).getByText("2.5")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/final quantity/i)).toHaveValue("3.75");
+    expect(within(dialog).getByText("Combined quantity:")).toHaveTextContent("3.75");
+    await user.click(within(dialog).getByRole("button", { name: /^merge$/i }));
+
+    await waitFor(() => {
+      expect(sourcingApi.mergeSourcingItems).toHaveBeenCalledWith([11, 12]);
+      expect(sourcingApi.updateSourcingItem).not.toHaveBeenCalled();
+      expect(screen.getByText(/one renewal for 3\.75 seats/i)).toBeInTheDocument();
+    });
+  });
+
+  test("canonicalizes a comma-decimal final override exactly for the update and success text", async () => {
+    const user = userEvent.setup();
+    const commaSettings = { ...userSettings, numberFormatLocale: "de-DE" };
+    licensesApi.getLicenses.mockResolvedValueOnce({ data: mergeLicenses, error: null });
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({ data: fractionalMergeItems, error: null });
+    sourcingApi.mergeSourcingItems.mockResolvedValueOnce({
+      data: { id: 99, quantity: "3.75" },
+      error: null,
+    });
+    sourcingApi.updateSourcingItem.mockResolvedValueOnce({
+      data: { id: 99, quantity: "4.125" },
+      error: null,
+    });
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={commaSettings} />);
+
+    expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
+    await user.click(screen.getByText("Acme Corp"));
+    expect(screen.getByText("1,25")).toBeInTheDocument();
+    expect(screen.getByText("2,5")).toBeInTheDocument();
+
+    const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
+    await user.click(checkboxes[0]);
+    await user.click(checkboxes[1]);
+    await user.click(screen.getByRole("button", { name: /merge selected \(2\)/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /merge renewal sourcing items/i });
+    expect(within(dialog).getByText("1,25")).toBeInTheDocument();
+    expect(within(dialog).getByText("2,5")).toBeInTheDocument();
+    const quantityInput = within(dialog).getByLabelText(/final quantity/i);
+    expect(quantityInput).toHaveValue("3,75");
+    expect(within(dialog).getByText("Combined quantity:")).toHaveTextContent("3,75");
+    await user.clear(quantityInput);
+    await user.type(quantityInput, "4,1250");
+    await user.click(within(dialog).getByRole("button", { name: /^merge$/i }));
+
+    await waitFor(() => {
+      expect(sourcingApi.updateSourcingItem).toHaveBeenCalledWith(99, { quantity: "4.125" });
+      expect(screen.getByText(/one renewal for 4,125 seats/i)).toBeInTheDocument();
+    });
+  });
+
+  test("rejects blank, invalid, zero, and negative final merge quantities", async () => {
+    const user = userEvent.setup();
+    licensesApi.getLicenses.mockResolvedValueOnce({ data: mergeLicenses, error: null });
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({ data: mergeItems, error: null });
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+
+    expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
+    await user.click(screen.getByText("Acme Corp"));
+    const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
+    await user.click(checkboxes[0]);
+    await user.click(checkboxes[1]);
+    await user.click(screen.getByRole("button", { name: /merge selected \(2\)/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /merge renewal sourcing items/i });
+    const quantityInput = within(dialog).getByLabelText(/final quantity/i);
+    const mergeButton = within(dialog).getByRole("button", { name: /^merge$/i });
+
+    for (const value of ["", "invalid", "0", "-1"]) {
+      await user.clear(quantityInput);
+      if (value) await user.type(quantityInput, value);
+      expect(mergeButton).toBeDisabled();
+      expect(quantityInput).toHaveAttribute("aria-invalid", "true");
+    }
+    expect(sourcingApi.mergeSourcingItems).not.toHaveBeenCalled();
+  });
+
+  test("displays a stored fractional sourcing quantity without integer rounding", async () => {
+    const user = userEvent.setup();
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({
+      data: [{
+        id: 8,
+        supplier: "Fractional Supplier",
+        contactEmail: null,
+        createdAt: "2026-07-25T00:00:00Z",
+        quoteDocuments: [],
+        items: [{
+          id: 80,
+          publisherName: "Fractional Publisher",
+          softwareDescription: "Fractional Product",
+          quantity: "3.75",
+          currency: "EUR",
+          isRenewal: false,
+        }],
+      }],
+      error: null,
+    });
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+
+    await user.click(await screen.findByText("Fractional Supplier"));
+    const row = document.querySelector('[data-sourcing-row="80"]');
+    expect(within(row).getByText("3.75")).toBeInTheDocument();
+    expect(within(row).queryByText("4")).not.toBeInTheDocument();
   });
 
   test("merge modal cannot close while merging", async () => {

@@ -36,7 +36,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Standardized renewal workbench, coterm, and procurement calculations on
   Decimal arithmetic. Fractional quantities and configured precision are
   retained, invalid numeric values are reported or rejected instead of silently
-  becoming zero, and existing API response formatting remains compatible.
+  becoming zero, sourcing merge quantities remain exact and locale-aware
+  throughout the frontend workflow, and existing API response formatting
+  remains compatible.
 - Kept normal and consolidated renewal ancestry visible while a successor has a
   subsequent renewal in progress, alongside the current sourcing or
   pending-order progress actions.

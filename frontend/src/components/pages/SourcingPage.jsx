@@ -129,7 +129,7 @@ export default function SourcingPage({
     setSelectedForMerge,
     showMergeModal,
     toggleSelect,
-  } = useSourcingMerge({ sourcingItems, licenses, queryClient, showToast });
+  } = useSourcingMerge({ sourcingItems, licenses, queryClient, showToast, userSettings });
 
   const {
     quoteInputRef,
@@ -385,6 +385,7 @@ export default function SourcingPage({
           merging={merging}
           onClose={requestCloseMergeModal}
           onMerge={handleMerge}
+          userSettings={userSettings}
         />
       )}
 

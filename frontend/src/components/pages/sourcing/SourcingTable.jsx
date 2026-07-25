@@ -3,8 +3,9 @@ import Icon from "../../ui/Icon.jsx";
 import SearchBox from "../../ui/SearchBox.jsx";
 import DocumentButton from "../../ui/DocumentButton.jsx";
 import { formatCost, formatPriceInput } from "../../../utils/helpers.js";
-import { formatDateTime, formatNumber } from "../../../utils/formatting.js";
+import { formatDateTime } from "../../../utils/formatting.js";
 import { procurementLineTotal } from "../../../utils/procurementTotals.js";
+import { formatQuantity } from "../../../utils/quantity.js";
 
 function SortIndicator({ col, sortCol, sortDir }) {
   return sortCol === col ? (
@@ -146,7 +147,7 @@ function SourcingItemsRow({
                       </div>
                     )}
                   </td>
-                  <td>{(() => { const q = parseFloat(si.quantity); return isNaN(q) ? "-" : formatNumber(q, { numberFormatLocale: locale }); })()}</td>
+                  <td>{formatQuantity(si.quantity, { numberFormatLocale: locale }) || "-"}</td>
                   <td>{si.estimatedUnitPrice ? formatPriceInput(si.estimatedUnitPrice, locale) : "-"}</td>
                   <td>{procurementLineTotal(si) != null ? formatPriceInput(procurementLineTotal(si), locale) : "-"}</td>
                   <td>{si.currency}</td>

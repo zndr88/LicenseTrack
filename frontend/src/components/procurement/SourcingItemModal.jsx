@@ -5,6 +5,10 @@ import { z } from "zod";
 import { CURRENCIES, LICENSE_TYPES } from "../../constants/licenseData.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
+import {
+  canonicalizeQuantityInput,
+  formatQuantity,
+} from "../../utils/quantity.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import Icon from "../ui/Icon.jsx";
@@ -143,6 +147,9 @@ const SourcingItemModal = ({
     setAdditionalLines((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
 
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
+  const [displayQuantity, setDisplayQuantity] = useState(
+    formatQuantity(item?.quantity, userSettings) || item?.quantity || ""
+  );
   const [displayUnitPrice, setDisplayUnitPrice] = useState(
     formatPriceInput(item?.estimatedUnitPrice ?? "", locale)
   );
@@ -236,7 +243,11 @@ const SourcingItemModal = ({
     if (first.publisherName) setValue("publisherName", first.publisherName, { shouldDirty: true });
     if (first.softwareDescription) setValue("softwareDescription", first.softwareDescription, { shouldDirty: true });
     if (first.licenseType) setValue("licenseType", first.licenseType, { shouldDirty: true });
-    if (first.quantity != null) setValue("quantity", String(first.quantity), { shouldDirty: true });
+    if (first.quantity != null) {
+      const value = String(first.quantity);
+      setValue("quantity", value, { shouldDirty: true });
+      setDisplayQuantity(formatQuantity(value, userSettings) || value);
+    }
     if (first.estimatedUnitPrice != null) {
       const uv = String(first.estimatedUnitPrice);
       setValue("estimatedUnitPrice", uv, { shouldDirty: true });
@@ -479,7 +490,33 @@ const SourcingItemModal = ({
           <div className="fr">
             <div className="fg" style={{ flex: 1 }}>
               <label htmlFor="si-quantity">Purchase Quantity</label>
-              <input id="si-quantity" className="fi" placeholder="e.g. 25" {...register("quantity")} />
+              <Controller
+                name="quantity"
+                control={control}
+                render={({ field }) => (
+                  <input
+                    id="si-quantity"
+                    className="fi"
+                    inputMode="decimal"
+                    placeholder="e.g. 25"
+                    value={displayQuantity}
+                    onChange={(event) => {
+                      const raw = event.target.value;
+                      const canonical = canonicalizeQuantityInput(raw, userSettings);
+                      setDisplayQuantity(raw);
+                      field.onChange(canonical ?? raw);
+                    }}
+                    onBlur={() => {
+                      const canonical = canonicalizeQuantityInput(field.value, userSettings);
+                      if (canonical != null) {
+                        field.onChange(canonical);
+                        setDisplayQuantity(formatQuantity(canonical, userSettings));
+                      }
+                      field.onBlur();
+                    }}
+                  />
+                )}
+              />
             </div>
             <div className="fg" style={{ flex: 1 }}>
               <label htmlFor="si-currency">Currency</label>

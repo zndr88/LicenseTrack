@@ -2,6 +2,10 @@ import Icon from "../../ui/Icon.jsx";
 import ModalShell from "../../ui/ModalShell.jsx";
 import DiscardChangesDialog from "../../ui/DiscardChangesDialog.jsx";
 import { useModalGuard } from "../../../hooks/useModalGuard.js";
+import {
+  canonicalizePositiveQuantityInput,
+  formatQuantity,
+} from "../../../utils/quantity.js";
 
 export default function MergeSourcingModal({
   selectedItems,
@@ -12,8 +16,11 @@ export default function MergeSourcingModal({
   merging,
   onClose,
   onMerge,
+  userSettings,
 }) {
-  const isDirty = !merging && mergeQuantity !== String(computedMergeQty);
+  const canonicalMergeQuantity = canonicalizePositiveQuantityInput(mergeQuantity, userSettings);
+  const mergeQuantityValid = canonicalMergeQuantity != null;
+  const isDirty = !merging && canonicalMergeQuantity !== computedMergeQty;
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose });
 
   return (
@@ -34,7 +41,7 @@ export default function MergeSourcingModal({
             className="btn btn-p"
             style={{ background: "var(--purple-dim)", borderColor: "var(--purple-border)", color: "var(--purple-text)" }}
             onClick={onMerge}
-            disabled={merging || !mergeQuantity || parseInt(mergeQuantity) < 1}
+            disabled={merging || !mergeQuantityValid}
           >
             {merging ? (
               <><div className="spinner" style={{ margin: 0, width: 13, height: 13 }} /> Merging...</>
@@ -66,7 +73,7 @@ export default function MergeSourcingModal({
                   )}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-2)", whiteSpace: "nowrap", textAlign: "right" }}>
-                  <div>Qty: <strong>{si.quantity || "-"}</strong></div>
+                  <div>Qty: <strong>{formatQuantity(si.quantity, userSettings) || "-"}</strong></div>
                 </div>
               </div>
             );
@@ -74,21 +81,29 @@ export default function MergeSourcingModal({
         </div>
 
         <div style={{ fontSize: 13, color: "var(--text-2)", padding: "8px 12px", background: "var(--bg-2)", borderRadius: "var(--r)", border: "1px solid var(--border)" }}>
-          Combined quantity: <strong>{computedMergeQty}</strong>
+          Combined quantity: <strong>{formatQuantity(computedMergeQty, userSettings) || "-"}</strong>
         </div>
 
         <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 4 }}>
+          <label htmlFor="merge-final-quantity" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 4 }}>
             Final quantity for merged item
           </label>
           <input
+            id="merge-final-quantity"
             className="fi"
-            type="number"
-            min="1"
+            type="text"
+            inputMode="decimal"
             value={mergeQuantity}
             onChange={(e) => setMergeQuantity(e.target.value)}
+            aria-invalid={!mergeQuantityValid}
+            aria-describedby={!mergeQuantityValid ? "merge-final-quantity-error" : undefined}
             style={{ width: 120, fontSize: 13 }}
           />
+          {!mergeQuantityValid && (
+            <div id="merge-final-quantity-error" style={{ fontSize: 11, color: "var(--red)", marginTop: 4 }}>
+              Enter a valid quantity greater than zero.
+            </div>
+          )}
           <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>
             Adjust if the renewal includes a seat count change.
           </div>

@@ -116,6 +116,23 @@ describe("contact email validation", () => {
 // ─── Payload shape ────────────────────────────────────────────────────────────
 
 describe("onSave payload shape", () => {
+  test("displays and saves a stored fractional quantity using the selected locale", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderModal({
+      item: { ...VALID_ITEM, id: 42, quantity: "3.75" },
+      requestId: 7,
+      userSettings: { numberFormatLocale: "de-DE" },
+    });
+
+    expect(screen.getByLabelText(/purchase quantity/i)).toHaveValue("3,75");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({
+      quantity: "3.75",
+    }));
+  });
+
   test("freeware hides acquisition pricing and saves it as zero-cost", async () => {
     const user = userEvent.setup();
     const { onSave } = renderModal({ item: VALID_ITEM });

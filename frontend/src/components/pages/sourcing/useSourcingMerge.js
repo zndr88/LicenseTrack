@@ -4,6 +4,12 @@ import {
   mergeSourcingItems,
   updateSourcingItem as apiUpdateSourcingItem,
 } from "../../../api/sourcing.js";
+import {
+  canonicalizePositiveQuantityInput,
+  formatQuantity,
+  normalizeCanonicalQuantity,
+  sumCanonicalQuantities,
+} from "../../../utils/quantity.js";
 
 function normalize(value) {
   return String(value ?? "").trim().toLowerCase();
@@ -29,7 +35,7 @@ function mergeSelectionCompatible(items, licenses) {
   );
 }
 
-export function useSourcingMerge({ sourcingItems, licenses, queryClient, showToast }) {
+export function useSourcingMerge({ sourcingItems, licenses, queryClient, showToast, userSettings }) {
   const [selectedForMerge, setSelectedForMerge] = useState(new Set());
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [mergeQuantity, setMergeQuantity] = useState("");
@@ -40,7 +46,7 @@ export function useSourcingMerge({ sourcingItems, licenses, queryClient, showToa
     [sourcingItems, selectedForMerge]
   );
   const computedMergeQty = useMemo(
-    () => selectedItems.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0),
+    () => sumCanonicalQuantities(selectedItems.map((item) => item.quantity)),
     [selectedItems]
   );
   const mergeEligible = mergeSelectionCompatible(selectedItems, licenses ?? []);
@@ -56,7 +62,7 @@ export function useSourcingMerge({ sourcingItems, licenses, queryClient, showToa
 
   const openMergeModal = () => {
     if (!mergeEligible) return;
-    setMergeQuantity(String(computedMergeQty));
+    setMergeQuantity(formatQuantity(computedMergeQty, userSettings));
     setShowMergeModal(true);
   };
 
@@ -65,6 +71,12 @@ export function useSourcingMerge({ sourcingItems, licenses, queryClient, showToa
   };
 
   const handleMerge = useCallback(async () => {
+    const finalQty = canonicalizePositiveQuantityInput(mergeQuantity, userSettings);
+    if (finalQty == null) {
+      showToast("Enter a valid final quantity greater than zero.", "error");
+      return;
+    }
+
     setMerging(true);
     const ids = Array.from(selectedForMerge);
     const { data: merged, error } = await mergeSourcingItems(ids);
@@ -74,9 +86,22 @@ export function useSourcingMerge({ sourcingItems, licenses, queryClient, showToa
       return;
     }
 
-    const finalQty = parseInt(mergeQuantity) || 0;
+    let actualQty = normalizeCanonicalQuantity(merged?.quantity) ?? computedMergeQty ?? finalQty;
     if (merged && finalQty !== computedMergeQty) {
-      await apiUpdateSourcingItem(merged.id, { quantity: String(finalQty) });
+      const { data: updated, error: updateError } = await apiUpdateSourcingItem(
+        merged.id,
+        { quantity: finalQty }
+      );
+      if (updateError) {
+        setMerging(false);
+        setShowMergeModal(false);
+        setSelectedForMerge(new Set());
+        await queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.sourcingItems });
+        showToast(`Sourcing items merged, but the final quantity update failed: ${updateError}`, "error");
+        return;
+      }
+      actualQty = normalizeCanonicalQuantity(updated?.quantity) ?? finalQty;
     }
 
     setMerging(false);
@@ -85,10 +110,10 @@ export function useSourcingMerge({ sourcingItems, licenses, queryClient, showToa
     await queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
     await queryClient.invalidateQueries({ queryKey: queryKeys.sourcingItems });
     showToast(
-      `Sourcing items merged - ${ids.length} licenses combined into one renewal for ${finalQty} seats.`,
+      `Sourcing items merged - ${ids.length} licenses combined into one renewal for ${formatQuantity(actualQty, userSettings)} seats.`,
       "success"
     );
-  }, [selectedForMerge, mergeQuantity, computedMergeQty, queryClient, showToast]);
+  }, [selectedForMerge, mergeQuantity, computedMergeQty, queryClient, showToast, userSettings]);
 
   return {
     computedMergeQty,
