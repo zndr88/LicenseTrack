@@ -121,42 +121,114 @@ def test_build_renewal_sourcing_item_prefills_from_license_without_reusing_term(
     assert sourcing_item.end_date is None
 
 
-def test_build_pending_order_item_license_data_overlays_item_and_old_license():
+def test_build_pending_order_item_license_data_preserves_submitted_values():
     form_data = {
         "publisher_name": "Form Publisher",
         "software_description": "Form Software",
         "quantity": "1",
-        "unit_price": "1",
-        "total_po_price": "1",
-        "currency": "EUR",
+        "unit_price": "11",
+        "total_po_price": "11",
+        "currency": "GBP",
+        "start_date": date(2027, 1, 1),
+        "end_date": None,
         "supplier": "Form Supplier",
         "contact_email": "form@example.com",
-        "notes": "keep for new purchases only",
+        "license_type": LicenseType.saas,
+        "license_metric": LicenseMetric.concurrent,
+        "portal_url": None,
+        "notes": "",
     }
     old_license = make_license(
         license_type=LicenseType.maintenance,
         license_metric=LicenseMetric.enterprise,
         parent_license_id=77,
+        notes="Previous notes",
     )
-    item = make_sourcing_item()
+    item = make_sourcing_item(start_date=date(2026, 1, 1), end_date=date(2026, 12, 31), notes="Line notes")
 
-    data = build_pending_order_item_license_data(form_data, item, old_license)
+    data = build_pending_order_item_license_data(
+        form_data,
+        set(form_data),
+        item,
+        old_license,
+        order_po_number="PO-STALE",
+        order_supplier="Order Supplier",
+        order_notes="Order notes",
+    )
 
-    assert data["publisher_name"] == "Acme"
-    assert data["software_description"] == "Acme Suite"
+    assert data["publisher_name"] == "Form Publisher"
+    assert data["software_description"] == "Form Software"
+    assert data["quantity"] == "1"
+    assert data["unit_price"] == "11"
+    assert data["total_po_price"] == "11"
+    assert data["currency"] == "GBP"
+    assert data["start_date"] == date(2027, 1, 1)
+    assert data["end_date"] is None
+    assert data["supplier"] == "Form Supplier"
+    assert data["contact_email"] == "form@example.com"
+    assert data["notes"] == ""
+    assert data["license_type"] == LicenseType.saas
+    assert data["license_metric"] == LicenseMetric.concurrent
+    assert data["portal_url"] is None
+    assert data["parent_license_id"] == 77
+
+
+def test_build_pending_order_item_license_data_fills_only_omitted_fields():
+    form_data = {
+        "publisher_name": "Form Publisher",
+        "software_description": "Form Software",
+        "license_type": LicenseType.subscription,
+        "license_metric": LicenseMetric.per_user,
+        "quantity": "",
+        "unit_price": "",
+        "total_po_price": "",
+        "currency": "EUR",
+        "supplier": "",
+        "contact_email": "",
+        "notes": None,
+    }
+    old_license = make_license(
+        license_type=LicenseType.saas,
+        license_metric=LicenseMetric.enterprise,
+        contract_number="CONTRACT-OLD",
+        portal_url="https://old.example.test",
+        notes="Shared note",
+    )
+    item = make_sourcing_item(
+        start_date=date(2027, 2, 1),
+        end_date=date(2028, 1, 31),
+        notes="Shared note",
+    )
+
+    data = build_pending_order_item_license_data(
+        form_data,
+        {"publisher_name", "software_description"},
+        item,
+        old_license,
+        order_po_number="PO-NEW",
+        order_supplier="Order Supplier",
+        order_notes="PO note",
+    )
+
+    assert data["publisher_name"] == "Form Publisher"
+    assert data["software_description"] == "Form Software"
     assert data["quantity"] == "10"
     assert data["unit_price"] == "95"
     assert data["total_po_price"] == "950"
     assert data["currency"] == "USD"
+    assert data["start_date"] == date(2027, 2, 1)
+    assert data["end_date"] == date(2028, 1, 31)
     assert data["supplier"] == "Renewals Ltd"
     assert data["contact_email"] == "renewals@example.com"
-    assert data["notes"] is None
-    assert data["license_type"] == LicenseType.maintenance
+    assert data["license_type"] == LicenseType.saas
     assert data["license_metric"] == LicenseMetric.enterprise
-    assert data["parent_license_id"] == 77
+    assert data["contract_number"] == "CONTRACT-OLD"
+    assert data["portal_url"] == "https://old.example.test"
+    assert data["po_number"] == "PO-NEW"
     assert data["sku_code"] == "SKU-1"
     assert data["cost_centre"] == "IT"
     assert data["budget_owner_email"] == "budget@example.com"
+    assert data["notes"] == "Purchase order notes:\nPO note\n\nLine item notes:\nShared note"
 
 
 def test_mark_pending_renewal_rejects_license_with_existing_successor():

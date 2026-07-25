@@ -101,57 +101,111 @@ def build_renewal_sourcing_item(
 
 def build_pending_order_item_license_data(
     form_data: dict,
+    submitted_fields: set[str],
     item: SourcingItem,
     old_license: License | None,
+    *,
+    order_po_number: str | None = None,
+    order_supplier: str | None = None,
+    order_notes: str | None = None,
 ) -> dict:
     """
-    Build per-item license data by overlaying sourcing item fields onto shared
-    pending-order conversion data.
+    Build per-item license data without overriding explicitly submitted fields.
+
+    Pending-order and predecessor values are fallbacks only. Membership in
+    ``submitted_fields`` distinguishes an omitted field from an explicit null
+    or blank value.
     """
     data = dict(form_data)
 
-    data["publisher_name"] = item.publisher_name
-    data["software_description"] = item.software_description
+    def apply_fallback(field: str, *values: object) -> None:
+        if field in submitted_fields:
+            return
+        for value in values:
+            if value is not None and value != "":
+                data[field] = value
+                return
+
+    apply_fallback("publisher_name", item.publisher_name, getattr(old_license, "publisher_name", None))
+    apply_fallback(
+        "software_description",
+        item.software_description,
+        getattr(old_license, "software_description", None),
+    )
+    apply_fallback("license_type", item.license_type, getattr(old_license, "license_type", None))
+    apply_fallback("license_metric", getattr(old_license, "license_metric", None))
+    apply_fallback("portal_url", getattr(old_license, "portal_url", None))
+    apply_fallback("quantity", item.quantity, getattr(old_license, "quantity", None))
+    apply_fallback("unit_price", item.estimated_unit_price, getattr(old_license, "unit_price", None))
+    apply_fallback(
+        "total_po_price",
+        item.estimated_total_price,
+        getattr(old_license, "total_po_price", None),
+    )
+    apply_fallback("currency", item.currency, getattr(old_license, "currency", None))
+    apply_fallback("start_date", item.start_date)
+    apply_fallback("end_date", item.end_date)
+    apply_fallback(
+        "supplier",
+        item.supplier,
+        order_supplier,
+        getattr(old_license, "supplier", None),
+    )
+    apply_fallback("contact_email", item.contact_email, getattr(old_license, "contact_email", None))
+    apply_fallback("contract_number", getattr(old_license, "contract_number", None))
+    apply_fallback("po_number", order_po_number)
+    apply_fallback("sku_code", getattr(old_license, "sku_code", None))
+    apply_fallback("cost_centre", getattr(old_license, "cost_centre", None))
+    apply_fallback("budget_owner_email", getattr(old_license, "budget_owner_email", None))
+    apply_fallback("parent_sourcing_item_id", item.parent_sourcing_item_id)
+    apply_fallback("maintenance_coverage", item.maintenance_coverage, getattr(old_license, "maintenance_coverage", None))
+    apply_fallback(
+        "maintenance_start_date",
+        item.maintenance_start_date,
+        getattr(old_license, "maintenance_start_date", None),
+    )
+    apply_fallback(
+        "maintenance_end_date",
+        item.maintenance_end_date,
+        getattr(old_license, "maintenance_end_date", None),
+    )
+    apply_fallback(
+        "maintenance_pricing_basis",
+        item.maintenance_pricing_basis,
+        getattr(old_license, "maintenance_pricing_basis", None),
+    )
+    apply_fallback(
+        "maintenance_quantity",
+        item.maintenance_quantity,
+        getattr(old_license, "maintenance_quantity", None),
+    )
+    apply_fallback(
+        "maintenance_unit_price",
+        item.maintenance_unit_price,
+        getattr(old_license, "maintenance_unit_price", None),
+    )
+    apply_fallback("maintenance_cost", item.maintenance_cost, getattr(old_license, "maintenance_cost", None))
+
+    if old_license is not None and old_license.license_type == LicenseType.maintenance:
+        apply_fallback("parent_license_id", old_license.parent_license_id)
+
+    if "notes" not in submitted_fields:
+        note_sections = (
+            ("Purchase order notes", order_notes),
+            ("Line item notes", item.notes),
+            ("Previous license notes", getattr(old_license, "notes", None)),
+        )
+        seen: set[str] = set()
+        notes: list[str] = []
+        for label, value in note_sections:
+            note = str(value or "").strip()
+            if not note or note in seen:
+                continue
+            seen.add(note)
+            notes.append(f"{label}:\n{note}")
+        if notes:
+            data["notes"] = "\n\n".join(notes)
+
     data["request_date"] = item.created_at
-
-    if item.quantity is not None:
-        data["quantity"] = item.quantity
-    if item.estimated_unit_price is not None:
-        data["unit_price"] = item.estimated_unit_price
-    if item.estimated_total_price is not None:
-        data["total_po_price"] = item.estimated_total_price
-    if item.maintenance_coverage is not None:
-        data["maintenance_coverage"] = item.maintenance_coverage
-    if item.maintenance_start_date is not None:
-        data["maintenance_start_date"] = item.maintenance_start_date
-    if item.maintenance_end_date is not None:
-        data["maintenance_end_date"] = item.maintenance_end_date
-    if item.maintenance_pricing_basis is not None:
-        data["maintenance_pricing_basis"] = item.maintenance_pricing_basis
-    if item.maintenance_quantity is not None:
-        data["maintenance_quantity"] = item.maintenance_quantity
-    if item.maintenance_unit_price is not None:
-        data["maintenance_unit_price"] = item.maintenance_unit_price
-    if item.maintenance_cost is not None:
-        data["maintenance_cost"] = item.maintenance_cost
-    if item.currency:
-        data["currency"] = item.currency
-    if item.supplier:
-        data["supplier"] = item.supplier
-    if item.contact_email:
-        data["contact_email"] = item.contact_email
-
-    if old_license is not None:
-        data["notes"] = None
-        data["license_type"] = old_license.license_type
-        data["license_metric"] = old_license.license_metric
-        if old_license.license_type == LicenseType.maintenance:
-            data["parent_license_id"] = old_license.parent_license_id
-        if old_license.sku_code:
-            data["sku_code"] = old_license.sku_code
-        if old_license.cost_centre:
-            data["cost_centre"] = old_license.cost_centre
-        if old_license.budget_owner_email:
-            data["budget_owner_email"] = old_license.budget_owner_email
 
     return data

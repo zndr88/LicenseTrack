@@ -159,6 +159,32 @@ async def convert_pending_order_to_licenses(
     form_data["pending_order_id"] = order_id
     if form_data.get("purchase_date") is not None:
         form_data["purchase_date"] = datetime.combine(form_data["purchase_date"], time.min)
+    submitted_fields = convert_payload.model_fields_set
+    if len(order.items) > 1:
+        # This compatibility endpoint accepts one shared form for every order
+        # item. Fields that have a per-line carrier must therefore remain
+        # line-specific; use /convert-all for individual submitted overrides.
+        submitted_fields = submitted_fields - {
+            "publisher_name",
+            "software_description",
+            "license_type",
+            "quantity",
+            "unit_price",
+            "total_po_price",
+            "currency",
+            "start_date",
+            "end_date",
+            "supplier",
+            "contact_email",
+            "notes",
+            "maintenance_coverage",
+            "maintenance_start_date",
+            "maintenance_end_date",
+            "maintenance_pricing_basis",
+            "maintenance_quantity",
+            "maintenance_unit_price",
+            "maintenance_cost",
+        }
 
     new_license_entries: list[tuple[int, str]] = []
     predecessor_ids: list[int] = []
@@ -185,7 +211,15 @@ async def convert_pending_order_to_licenses(
                         detail=f"License {item.renewal_for_license_id} not found for renewal",
                     )
 
-                item_data = build_pending_order_item_license_data(form_data, item, old_lic)
+                item_data = build_pending_order_item_license_data(
+                    form_data,
+                    submitted_fields,
+                    item,
+                    old_lic,
+                    order_po_number=order.po_number,
+                    order_supplier=order.supplier,
+                    order_notes=order.notes,
+                )
                 item_data["source_sourcing_item_id"] = item.id
 
                 renewal_result = await renewal_orchestrator.create_renewal_successor_from_sourcing_item(
@@ -203,7 +237,15 @@ async def convert_pending_order_to_licenses(
                     quote_request_ids.append(item.sourcing_request_id)
                     evidence_transfer_required = True
             else:
-                item_data = build_pending_order_item_license_data(form_data, item, None)
+                item_data = build_pending_order_item_license_data(
+                    form_data,
+                    submitted_fields,
+                    item,
+                    None,
+                    order_po_number=order.po_number,
+                    order_supplier=order.supplier,
+                    order_notes=order.notes,
+                )
                 item_data["source_sourcing_item_id"] = item.id
                 new_lic = await create_purchase_license(
                     db=db,
@@ -335,21 +377,33 @@ async def batch_convert_pending_order_to_licenses(
             )
 
         item_data = batch_item.model_dump(by_alias=False, exclude={"sourcing_item_id"})
-        item_data["source_sourcing_item_id"] = sourcing_item.id
-        item_data["pending_order_id"] = order_id
-        item_data["request_date"] = sourcing_item.created_at
-        if item_data.get("purchase_date") is not None:
-            item_data["purchase_date"] = datetime.combine(item_data["purchase_date"], time.min)
-
+        old_lic: License | None = None
         if sourcing_item.renewal_for_license_id is not None:
-            item_data.pop("parent_sourcing_item_id", None)
             old_result = await db.execute(select(License).where(License.id == sourcing_item.renewal_for_license_id))
             old_lic = old_result.scalar_one_or_none()
             if old_lic is None:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Item {batch_item.sourcing_item_id}: license {sourcing_item.renewal_for_license_id} not found for renewal",
+                    detail=f"Item {batch_item.sourcing_item_id}: license "
+                    f"{sourcing_item.renewal_for_license_id} not found for renewal",
                 )
+
+        item_data = build_pending_order_item_license_data(
+            item_data,
+            batch_item.model_fields_set,
+            sourcing_item,
+            old_lic,
+            order_po_number=order.po_number,
+            order_supplier=order.supplier,
+            order_notes=order.notes,
+        )
+        item_data["source_sourcing_item_id"] = sourcing_item.id
+        item_data["pending_order_id"] = order_id
+        if item_data.get("purchase_date") is not None:
+            item_data["purchase_date"] = datetime.combine(item_data["purchase_date"], time.min)
+
+        if sourcing_item.renewal_for_license_id is not None:
+            item_data.pop("parent_sourcing_item_id", None)
 
             renewal_result = await renewal_orchestrator.create_renewal_successor_from_sourcing_item(
                 db=db,

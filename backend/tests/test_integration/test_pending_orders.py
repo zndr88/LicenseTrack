@@ -777,6 +777,11 @@ def _new_successor(converted: list[dict], predecessor_id: int) -> dict:
     raise AssertionError(f"No successor found for predecessor {predecessor_id}: {converted}")
 
 
+def _assert_license_fields(license_data: dict, expected: dict) -> None:
+    for field, value in expected.items():
+        assert license_data[field] == value, field
+
+
 async def _complete_single_renewal(client, headers, predecessor_id: int, **form_overrides) -> dict:
     sourcing_item = await _initiate_renewal(client, headers, predecessor_id)
     order = await _convert_sourcing_to_po(client, headers, sourcing_item["id"])
@@ -1581,6 +1586,264 @@ async def test_pending_order_conversion_error_cases(test_app, auth_headers):
     assert empty_payload.status_code == 422
 
 
+async def test_single_saas_renewal_persists_confirmed_conversion_values(test_app, auth_headers):
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        publisherName="Predecessor Publisher",
+        softwareDescription="Predecessor SaaS",
+        licenseType="saas",
+        licenseMetric="enterprise",
+        quantity="41",
+        unitPrice="410",
+        totalPoPrice="16810",
+        currency="EUR",
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+        contractNumber="PREDECESSOR-CONTRACT",
+        skuCode="PREDECESSOR-SKU",
+        contactEmail="predecessor@example.test",
+        supplier="Predecessor Supplier",
+        costCentre="PREDECESSOR-COST",
+        budgetOwnerEmail="predecessor-budget@example.test",
+        portalUrl="https://predecessor.example.test",
+        notes="Predecessor notes",
+    )
+    sourcing_item = await _initiate_renewal(test_app, auth_headers, predecessor["id"])
+    line_update = await test_app.put(
+        f"/api/sourcing/{sourcing_item['id']}",
+        json={
+            "publisherName": "Stale Line Publisher",
+            "softwareDescription": "Stale Line SaaS",
+            "quantity": "51",
+            "estimatedUnitPrice": "510",
+            "estimatedTotalPrice": "26010",
+            "currency": "USD",
+            "startDate": "2026-01-01",
+            "endDate": "2026-12-31",
+            "supplier": "Stale Line Supplier",
+            "contactEmail": "stale-line@example.test",
+            "notes": "Stale line notes",
+        },
+        headers=auth_headers,
+    )
+    assert line_update.status_code == 200, line_update.text
+    order = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+    order_update = await test_app.put(
+        f"/api/pending-orders/{order['id']}",
+        json={"supplier": "Stale Order Supplier", "notes": "Stale order notes"},
+        headers=auth_headers,
+    )
+    assert order_update.status_code == 200, order_update.text
+
+    expected = {
+        "publisherName": "Confirmed Publisher",
+        "softwareDescription": "Confirmed SaaS",
+        "licenseType": "subscription",
+        "licenseMetric": "concurrent",
+        "quantity": "61",
+        "skuCode": "CONFIRMED-SKU",
+        "unitPrice": "610.25",
+        "totalPoPrice": "37225.25",
+        "currency": "GBP",
+        "startDate": "2027-02-03",
+        "endDate": "2028-02-02",
+        "contractNumber": "",
+        "poNumber": "PO-CONFIRMED",
+        "invoiceNumber": "INV-CONFIRMED",
+        "contactEmail": "confirmed@example.test",
+        "supplier": "Confirmed Supplier",
+        "costCentre": "CONFIRMED-COST",
+        "budgetOwnerEmail": "confirmed-budget@example.test",
+        "portalUrl": None,
+        "notes": "Confirmed final notes",
+    }
+    response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert",
+        data={"data": json.dumps(expected)},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    successor = _new_successor(response.json(), predecessor["id"])
+    _assert_license_fields(successor, expected)
+    assert successor["renewedFromId"] == predecessor["id"]
+    assert successor["predecessorId"] == predecessor["id"]
+    assert successor["licenseRef"] == predecessor["licenseRef"]
+
+    stored = await _get_license(test_app, auth_headers, successor["id"])
+    _assert_license_fields(stored, expected)
+    assert stored["renewedFromId"] == predecessor["id"]
+
+
+async def test_single_saas_renewal_uses_line_and_predecessor_fallbacks_when_omitted(
+    test_app,
+    auth_headers,
+):
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        publisherName="Fallback Publisher",
+        softwareDescription="Fallback SaaS",
+        licenseType="saas",
+        licenseMetric="enterprise",
+        quantity="71",
+        skuCode="FALLBACK-SKU",
+        unitPrice="710",
+        totalPoPrice="50410",
+        currency="EUR",
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+        contractNumber="FALLBACK-CONTRACT",
+        contactEmail="predecessor-fallback@example.test",
+        supplier="Predecessor Fallback Supplier",
+        costCentre="FALLBACK-COST",
+        budgetOwnerEmail="fallback-budget@example.test",
+        portalUrl="https://fallback.example.test",
+        notes="Previous fallback note",
+    )
+    sourcing_item = await _initiate_renewal(test_app, auth_headers, predecessor["id"])
+    line_update = await test_app.put(
+        f"/api/sourcing/{sourcing_item['id']}",
+        json={
+            "quantity": "72",
+            "estimatedUnitPrice": "720.50",
+            "estimatedTotalPrice": "51876",
+            "currency": "USD",
+            "startDate": "2027-03-04",
+            "endDate": "2028-03-03",
+            "supplier": "Current Line Supplier",
+            "contactEmail": "current-line@example.test",
+            "notes": "Current line note",
+        },
+        headers=auth_headers,
+    )
+    assert line_update.status_code == 200, line_update.text
+    order = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+    order_update = await test_app.put(
+        f"/api/pending-orders/{order['id']}",
+        json={"notes": "Current PO note"},
+        headers=auth_headers,
+    )
+    assert order_update.status_code == 200, order_update.text
+
+    response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert",
+        data={
+            "data": json.dumps(
+                {
+                    "publisherName": "Submitted Required Publisher",
+                    "softwareDescription": "Submitted Required SaaS",
+                }
+            )
+        },
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    successor = _new_successor(response.json(), predecessor["id"])
+    expected = {
+        "publisherName": "Submitted Required Publisher",
+        "softwareDescription": "Submitted Required SaaS",
+        "licenseType": "saas",
+        "licenseMetric": "enterprise",
+        "quantity": "72",
+        "skuCode": "FALLBACK-SKU",
+        "unitPrice": "720.50",
+        "totalPoPrice": "51876",
+        "currency": "USD",
+        "startDate": "2027-03-04",
+        "endDate": "2028-03-03",
+        "contractNumber": "FALLBACK-CONTRACT",
+        "contactEmail": "current-line@example.test",
+        "supplier": "Current Line Supplier",
+        "costCentre": "FALLBACK-COST",
+        "budgetOwnerEmail": "fallback-budget@example.test",
+        "portalUrl": "https://fallback.example.test",
+        "notes": (
+            "Purchase order notes:\nCurrent PO note\n\n"
+            "Line item notes:\nCurrent line note\n\n"
+            "Previous license notes:\nPrevious fallback note"
+        ),
+    }
+    _assert_license_fields(successor, expected)
+    stored = await _get_license(test_app, auth_headers, successor["id"])
+    _assert_license_fields(stored, expected)
+
+
+async def test_batch_subscription_renewal_persists_confirmed_conversion_values(
+    test_app,
+    auth_headers,
+):
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        publisherName="Batch Predecessor Publisher",
+        softwareDescription="Batch Predecessor App",
+        licenseType="subscription",
+        licenseMetric="per_device",
+        quantity="81",
+        unitPrice="810",
+        totalPoPrice="65610",
+        currency="EUR",
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+        notes="Batch predecessor notes",
+    )
+    sourcing_item = await _initiate_renewal(test_app, auth_headers, predecessor["id"])
+    line_update = await test_app.put(
+        f"/api/sourcing/{sourcing_item['id']}",
+        json={
+            "quantity": "82",
+            "estimatedUnitPrice": "820",
+            "estimatedTotalPrice": "67240",
+            "currency": "USD",
+            "startDate": "2026-01-01",
+            "endDate": "2026-12-31",
+            "supplier": "Stale Batch Line Supplier",
+            "contactEmail": "stale-batch@example.test",
+            "notes": "Stale batch line notes",
+        },
+        headers=auth_headers,
+    )
+    assert line_update.status_code == 200, line_update.text
+    order = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+    submitted = _batch_convert_item(
+        sourcing_item["id"],
+        publisherName="Confirmed Batch Publisher",
+        softwareDescription="Confirmed Batch App",
+        licenseType="subscription",
+        licenseMetric="site",
+        quantity="83",
+        unitPrice="830.75",
+        totalPoPrice="68952.25",
+        currency="GBP",
+        startDate="2027-04-05",
+        endDate="2028-04-04",
+        supplier="Confirmed Batch Supplier",
+        contactEmail="confirmed-batch@example.test",
+        notes="Confirmed batch notes",
+    )
+    response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert-all",
+        json=[submitted],
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    successor = _new_successor(response.json(), predecessor["id"])
+    expected = {
+        field: value
+        for field, value in submitted.items()
+        if field not in {"sourcingItemId", "purchaseDate"}
+    }
+    _assert_license_fields(successor, expected)
+    assert successor["renewedFromId"] == predecessor["id"]
+    assert successor["licenseRef"] == predecessor["licenseRef"]
+    stored = await _get_license(test_app, auth_headers, successor["id"])
+    _assert_license_fields(stored, expected)
+
+
 async def test_convert_po_with_maintenance_renewal_succeeds(test_app, auth_headers):
     parent, maintenance = await _create_parent_with_maintenance(test_app, auth_headers)
     parent_before = await _get_license(test_app, auth_headers, parent["id"])
@@ -1599,15 +1862,61 @@ async def test_convert_po_with_maintenance_renewal_succeeds(test_app, auth_heade
 
     resp = await test_app.post(
         f"/api/pending-orders/{po['id']}/convert",
-        data={"data": json.dumps(_single_convert_form())},
+        data={
+            "data": json.dumps(
+                _single_convert_form(
+                    licenseType="subscription",
+                    licenseMetric="site",
+                    quantity="2",
+                    unitPrice="1800.50",
+                    totalPoPrice="3601.00",
+                    currency="USD",
+                    startDate="2027-05-06",
+                    endDate="2028-05-05",
+                    supplier="Confirmed Maintenance Supplier",
+                    contactEmail="confirmed-maintenance@example.test",
+                    notes="Confirmed maintenance notes",
+                )
+            )
+        },
         headers=auth_headers,
     )
 
     assert resp.status_code == 200, resp.text
     new_license = _new_successor(resp.json(), maintenance["id"])
     assert new_license["licenseType"] == "maintenance"
+    assert new_license["licenseMetric"] == maintenance["licenseMetric"]
     assert new_license["parentLicenseId"] == parent["id"]
     assert new_license["renewedFromId"] == maintenance["id"]
+    _assert_license_fields(
+        new_license,
+        {
+            "quantity": "2",
+            "unitPrice": "1800.50",
+            "totalPoPrice": "3601.00",
+            "currency": "USD",
+            "startDate": "2027-05-06",
+            "endDate": "2028-05-05",
+            "supplier": "Confirmed Maintenance Supplier",
+            "contactEmail": "confirmed-maintenance@example.test",
+            "notes": "Confirmed maintenance notes",
+        },
+    )
+    stored = await _get_license(test_app, auth_headers, new_license["id"])
+    _assert_license_fields(
+        stored,
+        {
+            "quantity": "2",
+            "unitPrice": "1800.50",
+            "totalPoPrice": "3601.00",
+            "currency": "USD",
+            "startDate": "2027-05-06",
+            "endDate": "2028-05-05",
+            "supplier": "Confirmed Maintenance Supplier",
+            "contactEmail": "confirmed-maintenance@example.test",
+            "notes": "Confirmed maintenance notes",
+        },
+    )
 
     old_maintenance = await _get_license(test_app, auth_headers, maintenance["id"])
     assert old_maintenance["lifecycleStatus"] == "renewed"
@@ -1616,8 +1925,8 @@ async def test_convert_po_with_maintenance_renewal_succeeds(test_app, auth_heade
     parent_after = await _get_license(test_app, auth_headers, parent["id"])
     assert parent_after["activeMaintenanceId"] == new_license["id"]
     assert parent_after["maintenanceEndDate"] == new_license["endDate"]
-    assert parent_after["maintenanceCost"] == "3400"
-    assert new_license["totalPoPrice"] == "3400"
+    assert parent_after["maintenanceCost"] == "3601.00"
+    assert new_license["totalPoPrice"] == "3601.00"
     assert parent_after["lifecycleStatus"] == parent_before["lifecycleStatus"]
 
 
@@ -1722,8 +2031,17 @@ async def test_coterm_successor_can_be_renewed_as_next_generation(test_app, auth
         data={
             "data": json.dumps(
                 _single_convert_form(
+                    publisherName="Confirmed Coterm Publisher",
+                    softwareDescription="Confirmed Coterm App",
+                    quantity="91",
+                    unitPrice="910.25",
+                    totalPoPrice="82832.75",
+                    currency="GBP",
                     startDate="2026-01-01",
                     endDate="2026-12-31",
+                    supplier="Confirmed Coterm Supplier",
+                    contactEmail="confirmed-coterm@example.test",
+                    notes="Confirmed coterm notes",
                 )
             )
         },
@@ -1749,6 +2067,22 @@ async def test_coterm_successor_can_be_renewed_as_next_generation(test_app, auth
     assert coterm_after["predecessorId"] == first["id"]
     assert coterm_after["cotermFromIds"] == [first["id"], second["id"]]
     assert coterm_after["renewedToId"] == next_successor["id"]
+    _assert_license_fields(
+        coterm_after,
+        {
+            "publisherName": "Confirmed Coterm Publisher",
+            "softwareDescription": "Confirmed Coterm App",
+            "quantity": "91",
+            "unitPrice": "910.25",
+            "totalPoPrice": "82832.75",
+            "currency": "GBP",
+            "startDate": "2026-01-01",
+            "endDate": "2026-12-31",
+            "supplier": "Confirmed Coterm Supplier",
+            "contactEmail": "confirmed-coterm@example.test",
+            "notes": "Confirmed coterm notes",
+        },
+    )
     assert next_successor["renewedFromId"] == coterm_successor["id"]
 
 
@@ -1936,6 +2270,7 @@ async def test_coterm_renewal_of_maintenance_updates_parent_active_maintenance(
         data={"data": json.dumps(_single_convert_form(
             startDate="2026-01-01",
             endDate="2026-12-31",
+            unitPrice="2500",
             totalPoPrice="2500",
         ))},
         headers=auth_headers,
@@ -2099,38 +2434,58 @@ async def test_convert_order_with_bulk_items_creates_one_license_per_item(test_a
     """Single /convert endpoint processes direct order items (no renewal) as new purchases."""
     order_resp = await test_app.post(
         "/api/pending-orders",
-        json={"poNumber": "PO-BULK-ITEMS", "supplier": "Bulk Supplier"},
+        json={
+            "poNumber": "PO-BULK-ITEMS",
+            "supplier": "Bulk Supplier",
+            "notes": "Bulk PO note",
+        },
         headers=auth_headers,
     )
     assert order_resp.status_code == 201, order_resp.text
     order_id = order_resp.json()["id"]
 
-    await test_app.post(
+    bulk_resp = await test_app.post(
         f"/api/pending-orders/{order_id}/items/bulk",
         json=[
             {
                 "publisherName": "Bulk Publisher A",
                 "softwareDescription": "Bulk App A",
+                "licenseType": "subscription",
                 "quantity": "2",
                 "estimatedUnitPrice": "50",
                 "estimatedTotalPrice": "100",
                 "currency": "EUR",
+                "startDate": "2027-01-01",
+                "endDate": "2027-12-31",
+                "notes": "Line A note",
             },
             {
                 "publisherName": "Bulk Publisher B",
                 "softwareDescription": "Bulk App B",
+                "licenseType": "saas",
                 "quantity": "3",
                 "estimatedUnitPrice": "30",
                 "estimatedTotalPrice": "90",
-                "currency": "EUR",
+                "currency": "GBP",
+                "startDate": "2027-02-01",
+                "endDate": "2028-01-31",
+                "notes": "Line B note",
             },
         ],
         headers=auth_headers,
     )
+    assert bulk_resp.status_code == 201, bulk_resp.text
 
     resp = await test_app.post(
         f"/api/pending-orders/{order_id}/convert",
-        data={"data": json.dumps(_single_convert_form(poNumber="PO-BULK-ITEMS"))},
+        data={
+            "data": json.dumps(
+                _single_convert_form(
+                    poNumber="PO-BULK-ITEMS",
+                    notes="Shared form note must not replace line notes",
+                )
+            )
+        },
         headers=auth_headers,
     )
 
@@ -2138,7 +2493,42 @@ async def test_convert_order_with_bulk_items_creates_one_license_per_item(test_a
     converted = resp.json()
     assert len(converted) == 2
     assert all(item["conversionType"] == "new_purchase" for item in converted)
-    assert {item["publisherName"] for item in converted} == {"Bulk Publisher A", "Bulk Publisher B"}
+    converted_by_description = {item["softwareDescription"]: item for item in converted}
+    expected_by_description = {
+        "Bulk App A": {
+            "publisherName": "Bulk Publisher A",
+            "licenseType": "subscription",
+            "quantity": "2",
+            "unitPrice": "50",
+            "totalPoPrice": "100",
+            "currency": "EUR",
+            "startDate": "2027-01-01",
+            "endDate": "2027-12-31",
+            "notes": "Purchase order notes:\nBulk PO note\n\nLine item notes:\nLine A note",
+        },
+        "Bulk App B": {
+            "publisherName": "Bulk Publisher B",
+            "licenseType": "saas",
+            "quantity": "3",
+            "unitPrice": "30",
+            "totalPoPrice": "90",
+            "currency": "GBP",
+            "startDate": "2027-02-01",
+            "endDate": "2028-01-31",
+            "notes": "Purchase order notes:\nBulk PO note\n\nLine item notes:\nLine B note",
+        },
+    }
+    assert converted_by_description.keys() == expected_by_description.keys()
+
+    for description, expected in expected_by_description.items():
+        converted_license = converted_by_description[description]
+        _assert_license_fields(converted_license, expected)
+        stored_license = await _get_license(
+            test_app,
+            auth_headers,
+            converted_license["id"],
+        )
+        _assert_license_fields(stored_license, expected)
 
 
 async def test_convert_renewal_item_with_missing_predecessor_returns_404(
