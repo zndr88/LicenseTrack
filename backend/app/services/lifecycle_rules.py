@@ -77,14 +77,14 @@ def mark_pending_renewal(license_obj: License) -> None:
 
 
 def clear_pending_renewal(license_obj: License) -> None:
+    """Clear only the unfinished outgoing renewal state."""
     assert_can_cancel_renewal(license_obj)
     license_obj.lifecycle_status = None
-    license_obj.renewed_from_id = None
 
 
 def clear_pending_renewal_if_current(license_obj: License) -> None:
     if license_obj.lifecycle_status == "pending_renewal":
-        license_obj.lifecycle_status = None
+        clear_pending_renewal(license_obj)
 
 
 def assert_predecessor_has_no_successor(

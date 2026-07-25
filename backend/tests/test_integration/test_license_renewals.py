@@ -2,6 +2,8 @@ from datetime import date, timedelta
 
 from sqlalchemy import func, select
 
+from app.models.audit_log import AuditLog
+from app.models.license import License, LifecycleStatus
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 
 
@@ -24,6 +26,175 @@ async def _create_license(client, headers, **overrides) -> dict:
     resp = await client.post("/api/licenses", json=_license_payload(**overrides), headers=headers)
     assert resp.status_code == 201, resp.text
     return resp.json()
+
+
+async def _create_established_renewal_chain(client, headers, db_session) -> tuple[dict, dict]:
+    predecessor = await _create_license(
+        client,
+        headers,
+        softwareDescription="Established predecessor",
+    )
+    successor = await _create_license(
+        client,
+        headers,
+        softwareDescription="Established successor",
+    )
+
+    predecessor_row = await db_session.get(License, predecessor["id"])
+    successor_row = await db_session.get(License, successor["id"])
+    predecessor_row.lifecycle_status = LifecycleStatus.renewed
+    predecessor_row.renewed_to_id = successor_row.id
+    successor_row.renewed_from_id = predecessor_row.id
+    successor_row.predecessor_id = predecessor_row.id
+    await db_session.commit()
+
+    return predecessor, successor
+
+
+async def _assert_reloaded_ancestry(client, headers, predecessor_id: int, successor_id: int) -> None:
+    predecessor_resp = await client.get(f"/api/licenses/{predecessor_id}", headers=headers)
+    successor_resp = await client.get(f"/api/licenses/{successor_id}", headers=headers)
+
+    assert predecessor_resp.status_code == 200, predecessor_resp.text
+    assert successor_resp.status_code == 200, successor_resp.text
+    assert predecessor_resp.json()["renewedToId"] == successor_id
+    assert successor_resp.json()["renewedFromId"] == predecessor_id
+    assert successor_resp.json()["predecessorId"] == predecessor_id
+    assert successor_resp.json()["lifecycleStatus"] is None
+
+
+async def test_cancel_successor_renewal_from_license_preserves_established_ancestry(
+    test_app,
+    db_session,
+    auth_headers,
+):
+    predecessor, successor = await _create_established_renewal_chain(test_app, auth_headers, db_session)
+    initiate_resp = await test_app.post(
+        f"/api/licenses/{successor['id']}/initiate-renewal",
+        headers=auth_headers,
+    )
+    assert initiate_resp.status_code == 200, initiate_resp.text
+    pending_item = initiate_resp.json()["sourcingItem"]
+
+    unrelated = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Unrelated pending renewal",
+    )
+    unrelated_initiate = await test_app.post(
+        f"/api/licenses/{unrelated['id']}/initiate-renewal",
+        headers=auth_headers,
+    )
+    assert unrelated_initiate.status_code == 200, unrelated_initiate.text
+    unrelated_item = unrelated_initiate.json()["sourcingItem"]
+
+    cancel_resp = await test_app.post(
+        f"/api/licenses/{successor['id']}/cancel-renewal",
+        headers=auth_headers,
+    )
+
+    assert cancel_resp.status_code == 200, cancel_resp.text
+    cancelled_license = cancel_resp.json()["license"]
+    assert cancelled_license["renewedFromId"] == predecessor["id"]
+    assert cancelled_license["predecessorId"] == predecessor["id"]
+    assert cancelled_license["lifecycleStatus"] is None
+    await _assert_reloaded_ancestry(
+        test_app,
+        auth_headers,
+        predecessor["id"],
+        successor["id"],
+    )
+
+    db_session.expire_all()
+    predecessor_row = await db_session.get(License, predecessor["id"])
+    successor_row = await db_session.get(License, successor["id"])
+    assert predecessor_row.renewed_to_id == successor_row.id
+    assert successor_row.renewed_from_id == predecessor_row.id
+    assert successor_row.predecessor_id == predecessor_row.id
+    assert await db_session.get(SourcingItem, pending_item["id"]) is None
+    assert await db_session.get(SourcingRequest, pending_item["sourcingRequestId"]) is None
+    assert await db_session.get(SourcingItem, unrelated_item["id"]) is not None
+    assert await db_session.get(SourcingRequest, unrelated_item["sourcingRequestId"]) is not None
+    assert (
+        await db_session.scalar(
+            select(func.count(License.id)).where(
+                (License.renewed_from_id == successor["id"]) | (License.predecessor_id == successor["id"])
+            )
+        )
+        == 0
+    )
+
+    unrelated_resp = await test_app.get(f"/api/licenses/{unrelated['id']}", headers=auth_headers)
+    assert unrelated_resp.status_code == 200, unrelated_resp.text
+    assert unrelated_resp.json()["lifecycleStatus"] == "pending_renewal"
+    audit_rows = (
+        await db_session.execute(
+            select(AuditLog).where(
+                AuditLog.action == "license.renewal_cancelled",
+                AuditLog.target_id == str(successor["id"]),
+            )
+        )
+    ).scalars().all()
+    assert len(audit_rows) == 1
+
+
+async def test_cancel_successor_renewal_from_sourcing_preserves_established_ancestry(
+    test_app,
+    db_session,
+    auth_headers,
+):
+    predecessor, successor = await _create_established_renewal_chain(test_app, auth_headers, db_session)
+    initiate_resp = await test_app.post(
+        f"/api/licenses/{successor['id']}/initiate-renewal",
+        headers=auth_headers,
+    )
+    assert initiate_resp.status_code == 200, initiate_resp.text
+    pending_item = initiate_resp.json()["sourcingItem"]
+
+    cancel_resp = await test_app.post(
+        f"/api/sourcing/requests/{pending_item['sourcingRequestId']}/cancel",
+        headers=auth_headers,
+    )
+
+    assert cancel_resp.status_code == 200, cancel_resp.text
+    assert cancel_resp.json()["status"] == "cancelled"
+    assert cancel_resp.json()["items"][0]["status"] == "cancelled"
+    await _assert_reloaded_ancestry(
+        test_app,
+        auth_headers,
+        predecessor["id"],
+        successor["id"],
+    )
+
+    db_session.expire_all()
+    predecessor_row = await db_session.get(License, predecessor["id"])
+    successor_row = await db_session.get(License, successor["id"])
+    request_row = await db_session.get(SourcingRequest, pending_item["sourcingRequestId"])
+    item_row = await db_session.get(SourcingItem, pending_item["id"])
+    assert predecessor_row.renewed_to_id == successor_row.id
+    assert successor_row.renewed_from_id == predecessor_row.id
+    assert successor_row.predecessor_id == predecessor_row.id
+    assert request_row.status == SourcingStatus.cancelled
+    assert item_row.status == SourcingStatus.cancelled
+    assert item_row.sourcing_request_id == request_row.id
+    assert (
+        await db_session.scalar(
+            select(func.count(License.id)).where(
+                (License.renewed_from_id == successor["id"]) | (License.predecessor_id == successor["id"])
+            )
+        )
+        == 0
+    )
+
+    audit_rows = (
+        await db_session.execute(
+            select(AuditLog).where(
+                AuditLog.action == "sourcing_request.cancelled",
+                AuditLog.target_id == str(request_row.id),
+            )
+        )
+    ).scalars().all()
+    assert len(audit_rows) == 1
 
 
 async def test_cancel_renewal_deletes_multiple_sourcing_only_items(

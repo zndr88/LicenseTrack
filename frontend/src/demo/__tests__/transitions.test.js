@@ -32,6 +32,41 @@ describe("renewal golden path transitions", () => {
     expect(store.sourcingItems.some((s) => s.id === 101)).toBe(false);
   });
 
+  it("cancel-renewal preserves a successor license's established ancestry", async () => {
+    const predecessor = store.licenses.find((l) => l.daysUntilExpiry === 20);
+    const successor = {
+      ...predecessor,
+      id: 999,
+      softwareDescription: "Established successor",
+      lifecycleStatus: null,
+      renewedFromId: predecessor.id,
+      renewedToId: null,
+      predecessorId: predecessor.id,
+    };
+    predecessor.lifecycleStatus = "renewed";
+    predecessor.renewedToId = successor.id;
+    store.licenses.push(successor);
+
+    const initiate = await demoRequest(`/api/licenses/${successor.id}/initiate-renewal`, {
+      method: "POST", body: JSON.stringify({}),
+    });
+    expect(initiate.error).toBeNull();
+    const pendingItemId = initiate.data.sourcingItem.id;
+    const licenseCount = store.licenses.length;
+
+    const { data, error } = await demoRequest(`/api/licenses/${successor.id}/cancel-renewal`, {
+      method: "POST", body: JSON.stringify({}),
+    });
+
+    expect(error).toBeNull();
+    expect(data.license.lifecycleStatus).toBeNull();
+    expect(data.license.renewedFromId).toBe(predecessor.id);
+    expect(data.license.predecessorId).toBe(predecessor.id);
+    expect(predecessor.renewedToId).toBe(successor.id);
+    expect(store.sourcingItems.some((item) => item.id === pendingItemId)).toBe(false);
+    expect(store.licenses).toHaveLength(licenseCount);
+  });
+
   it("cancel-renewal sets poWarning when the linked sourcing item was already converted", async () => {
     const target = store.licenses.find((l) => l.daysUntilExpiry === 20);
     const { data: initiateData } = await demoRequest(`/api/licenses/${target.id}/initiate-renewal`, { method: "POST", body: JSON.stringify({}) });

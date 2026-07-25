@@ -473,7 +473,6 @@ export const routes = [
       }
 
       license.lifecycleStatus = null;
-      license.renewedFromId = null;
       decorateLicense(license);
 
       const sourcingOnlyIdx = store.sourcingItems.findIndex(

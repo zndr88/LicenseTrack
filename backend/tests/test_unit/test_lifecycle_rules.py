@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from app.models.license import License, LicenseMetric, LicenseType
 from app.services.lifecycle_rules import (
+    clear_pending_renewal,
     validate_lifecycle_repair_update,
     validate_renewal_link_invariants,
 )
@@ -36,6 +37,21 @@ def test_intermediate_license_may_have_incoming_and_outgoing_links():
     intermediate.renewed_to_id = 3
 
     validate_renewal_link_invariants(intermediate)
+
+
+def test_clear_pending_renewal_preserves_existing_coterm_ancestry():
+    successor = _license("Coterm successor")
+    successor.lifecycle_status = "pending_renewal"
+    successor.renewed_from_id = 1
+    successor.predecessor_id = 1
+    successor.coterm_from_ids = [1, 2]
+
+    clear_pending_renewal(successor)
+
+    assert successor.lifecycle_status is None
+    assert successor.renewed_from_id == 1
+    assert successor.predecessor_id == 1
+    assert successor.coterm_from_ids == [1, 2]
 
 
 async def test_repair_accepts_existing_reciprocal_three_generation_chain(db_session):
