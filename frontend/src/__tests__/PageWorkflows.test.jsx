@@ -1819,6 +1819,63 @@ describe("PendingOrdersPage workflows", () => {
     expect(onRenewalsReload).toHaveBeenCalled();
   });
 
+  test("last PO line delete warns that the pending order will move to history", async () => {
+    const user = userEvent.setup();
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({
+      data: [{
+        id: 9,
+        poNumber: "PO-LAST",
+        supplier: "Last Supplier",
+        status: "pending",
+        items: [{
+          id: 91,
+          publisherName: "Figma",
+          softwareDescription: "Professional Seats",
+          quantity: "10",
+          estimatedTotalPrice: "1200",
+          currency: "EUR",
+          status: "converted",
+        }],
+        documents: [],
+        createdAt: "2026-01-01T00:00:00Z",
+      }],
+      error: null,
+    });
+    pendingOrdersApi.deletePendingOrderItem.mockResolvedValueOnce({
+      data: {
+        id: 9,
+        poNumber: "PO-LAST",
+        supplier: "Last Supplier",
+        status: "cancelled",
+        items: [],
+        documents: [],
+        createdAt: "2026-01-01T00:00:00Z",
+      },
+      error: null,
+    });
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText("PO-LAST")).toBeInTheDocument();
+    await user.click(screen.getByText("PO-LAST"));
+    await user.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /delete po line item/i });
+    expect(dialog).toHaveTextContent("This is the last line on PO-LAST");
+    expect(dialog).toHaveTextContent("will cancel the pending order and move it to history");
+
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+    await waitFor(() => {
+      expect(pendingOrdersApi.deletePendingOrderItem).toHaveBeenCalledWith(9, 91);
+    });
+  });
+
   test("surfaces retry for converted pending orders with failed evidence transfer", async () => {
     const user = userEvent.setup();
     const showSuccess = vi.fn();

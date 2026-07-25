@@ -313,7 +313,7 @@ async def delete_pending_order_item_record(
     db: AsyncSession,
     order_id: int,
     item_id: int,
-) -> tuple[PendingOrder, str, list[int]]:
+) -> tuple[PendingOrder, str, list[int], bool]:
     order = await get_pending_order_or_404(db, order_id, include_items=True)
     ensure_pending_order_editable(order, action="delete items from")
 
@@ -324,8 +324,11 @@ async def delete_pending_order_item_record(
     renewal_license_ids = sourcing_item_predecessor_ids(item)
     await db.delete(item)
     order.items = [existing for existing in order.items if existing.id != item_id]
+    order_cancelled = len(order.items) == 0
+    if order_cancelled:
+        order.status = PendingOrderStatus.cancelled
     await db.flush()
-    return order, label, renewal_license_ids
+    return order, label, renewal_license_ids, order_cancelled
 
 
 def ensure_pending_order_editable(order: PendingOrder, *, action: str = "modify") -> None:

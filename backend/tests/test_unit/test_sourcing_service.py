@@ -374,7 +374,7 @@ async def test_delete_pending_order_item_clears_all_coterm_predecessors(db_sessi
     db_session.add(item)
     await db_session.flush()
 
-    _, _, renewal_license_ids = await delete_pending_order_item_record(db_session, order.id, item.id)
+    _, _, renewal_license_ids, _ = await delete_pending_order_item_record(db_session, order.id, item.id)
     await handle_delete_side_effects(
         db_session,
         renewal_license_id=None,

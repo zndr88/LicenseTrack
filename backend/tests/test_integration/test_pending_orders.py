@@ -1895,6 +1895,39 @@ async def test_pending_order_line_item_can_be_deleted_before_conversion(test_app
     assert remaining[0]["id"] == first["id"]
 
 
+async def test_deleting_last_pending_order_line_cancels_order(test_app, auth_headers, db_session):
+    item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Only App")
+    po = await _convert_sourcing_to_po(test_app, auth_headers, item["id"])
+
+    resp = await test_app.delete(
+        f"/api/pending-orders/{po['id']}/items/{item['id']}",
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "cancelled"
+    assert body["items"] == []
+
+    db_session.expire_all()
+    order = await db_session.get(PendingOrder, po["id"])
+    assert order.status == PendingOrderStatus.cancelled
+
+    active_resp = await test_app.get("/api/pending-orders", headers=auth_headers)
+    assert active_resp.status_code == 200, active_resp.text
+    assert all(order["id"] != po["id"] for order in active_resp.json())
+
+    history_resp = await test_app.get("/api/pending-orders/history", headers=auth_headers)
+    assert history_resp.status_code == 200, history_resp.text
+    history_order = next(order for order in history_resp.json() if order["id"] == po["id"])
+    assert history_order["status"] == "cancelled"
+    assert history_order["items"] == []
+
+    audit_resp = await test_app.get("/api/audit-log?action=po.cancelled", headers=auth_headers)
+    assert audit_resp.status_code == 200, audit_resp.text
+    assert any(row["targetId"] == str(po["id"]) and row["detail"] == "last line deleted" for row in audit_resp.json()["results"])
+
+
 async def test_pending_order_can_be_deleted_with_empty_204(test_app, auth_headers):
     order_resp = await test_app.post(
         "/api/pending-orders",

@@ -1057,9 +1057,7 @@ export const routes = [
     },
   },
   {
-    // Mirrors backend/app/routes/pending_order_items.py:122-147 delete_pending_order_item
-    // (runs handle_delete_side_effects with parent_order_id=None - renewal cleanup only,
-    // no orphaned-PO cleanup; the order survives even with zero items).
+    // Mirrors backend/app/routes/pending_order_items.py delete_pending_order_item.
     method: "DELETE", pattern: /^\/api\/pending-orders\/(?<id>\d+)\/items\/(?<itemId>\d+)$/,
     handler: async ({ params }) => {
       const order = findPendingOrderOr404(Number(params.id));
@@ -1072,6 +1070,10 @@ export const routes = [
       store.sourcingItems = store.sourcingItems.filter((i) => i.id !== itemId);
       handleSourcingItemDeleteSideEffects({ renewalLicenseId, parentOrderId: null, renewalLicenseIds });
       rebuildPendingOrderItems(order);
+      if (order.items.length === 0) {
+        order.status = "cancelled";
+        order.updatedAt = new Date().toISOString();
+      }
       return { data: order, error: null };
     },
   },

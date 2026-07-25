@@ -222,13 +222,23 @@ export function usePendingOrdersData({
   const handleDeletePOItem = useCallback(async (orderId, itemId) => {
     const { data, error } = await apiDeletePendingOrderItem(orderId, itemId);
     if (error) { showError(error); return false; }
+    if (data?.status === "cancelled") {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory }),
+      ]);
+      onPortfolioStateChange?.();
+      onRenewalsReload?.();
+      showSuccess("Last PO line deleted. Pending order moved to history.");
+      return true;
+    }
     queryClient.setQueryData(queryKeys.pendingOrders, (prev) =>
       (prev ?? []).map((order) => order.id === data.id ? data : order)
     );
     onPortfolioStateChange?.();
     onRenewalsReload?.();
     return true;
-  }, [showError, queryClient, onPortfolioStateChange, onRenewalsReload]);
+  }, [showError, showSuccess, queryClient, onPortfolioStateChange, onRenewalsReload]);
 
   const handleUploadPurchaseOrderDocument = useCallback(async (orderId, file) => {
     const { error } = await uploadPendingOrderDocument(orderId, file);

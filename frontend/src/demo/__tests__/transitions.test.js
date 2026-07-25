@@ -468,6 +468,24 @@ describe("renewal golden path transitions", () => {
     expect(store.sourcingItems.some((s) => s.id === 104)).toBe(false);
   });
 
+  it("PO item delete cancels the pending order when the last line is removed", async () => {
+    await demoRequest("/api/sourcing/102/convert", {
+      method: "POST",
+      body: JSON.stringify({ poNumber: "PO-LAST-LINE" }),
+    });
+    const order = store.pendingOrders.find((p) => p.poNumber === "PO-LAST-LINE");
+    const itemId = order.items[0].id;
+
+    const { data, error } = await demoRequest(`/api/pending-orders/${order.id}/items/${itemId}`, {
+      method: "DELETE",
+    });
+
+    expect(error).toBeNull();
+    expect(data.status).toBe("cancelled");
+    expect(data.items).toHaveLength(0);
+    expect(store.pendingOrders.find((p) => p.id === order.id).status).toBe("cancelled");
+  });
+
   it("PO item update recomputes totalPoValue", async () => {
     const { data, error } = await demoRequest("/api/pending-orders/201/items/104", {
       method: "PUT", body: JSON.stringify({ estimatedTotalPrice: "6000.00" }),

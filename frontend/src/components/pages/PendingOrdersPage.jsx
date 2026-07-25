@@ -155,6 +155,14 @@ export default function PendingOrdersPage({
     setHistorySortDir("asc");
   };
 
+  const deletePOItemIsLastLine = (deletePOItemTarget?.order.items?.length ?? 0) <= 1;
+  const deletePOItemLabel = deletePOItemTarget
+    ? `${deletePOItemTarget.item.publisherName} - ${deletePOItemTarget.item.softwareDescription}`
+    : "";
+  const deletePOItemMessage = deletePOItemIsLastLine
+    ? `This is the last line on ${deletePOItemTarget?.order.poNumber || `Order #${deletePOItemTarget?.order.id}`}. Deleting "${deletePOItemLabel}" will cancel the pending order and move it to history. Attached PO documents and sourcing quote context will be kept for reference.`
+    : `Delete "${deletePOItemLabel}" from this pending order?`;
+
   return (
     <>
       <div className="page-header">
@@ -387,7 +395,7 @@ export default function PendingOrdersPage({
       {deletePOItemTarget !== null && (
         <ConfirmDialog
           title="Delete PO Line Item"
-          message={`Delete "${deletePOItemTarget.item.publisherName} - ${deletePOItemTarget.item.softwareDescription}" from this pending order?`}
+          message={deletePOItemMessage}
           confirmLabel="Delete"
           danger
           onCancel={() => setDeletePOItemTarget(null)}
