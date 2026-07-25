@@ -105,7 +105,7 @@ export default function RenewalWorkflowSection({
       })()}
 
       {/* Pending Renewal (pipeline flow) */}
-      {exp.status === "pending_renewal" && !license.renewedFromId && (() => {
+      {exp.status === "pending_renewal" && (() => {
         const linkedSI = (sourcingItems ?? []).find(
           (si) =>
             si.renewalForLicenseId === license.id ||
@@ -145,7 +145,7 @@ export default function RenewalWorkflowSection({
       })()}
 
       {/* Renewed From (successor links back to predecessor) */}
-      {license.renewedFromId && license.lifecycleStatus !== "pending_renewal" && (() => {
+      {license.renewedFromId && (() => {
         const isCoterm = license.cotermFromIds?.length > 0;
         if (!isCoterm) {
           return (
