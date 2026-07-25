@@ -81,14 +81,23 @@ async def test_run_backup_records_success(db_session, monkeypatch, tmp_path):
     await db_session.commit()
 
     created = tmp_path / "backup.zip"
-    monkeypatch.setattr("app.services.backup_service.create_backup", lambda _location: created)
-    monkeypatch.setattr("app.services.backup_service.prune_backups", lambda _location, _keep: None)
+    calls = []
+
+    async def fake_run_routine_backup(location, keep):
+        calls.append((location, keep))
+        return created
+
+    monkeypatch.setattr(
+        "app.services.backup_service.run_routine_backup",
+        fake_run_routine_backup,
+    )
     gs = GlobalSettings(id=1, backup_enabled=True, backup_location=str(tmp_path), backup_keep=2)
 
     await notification_scheduler._run_backup(gs)
 
     settings = await db_session.scalar(select(GlobalSettings).where(GlobalSettings.id == 1))
     assert settings.last_backup_status == "success"
+    assert calls == [(str(tmp_path), 2)]
 
 
 async def test_run_backup_records_failure(db_session, monkeypatch, tmp_path):
@@ -96,10 +105,10 @@ async def test_run_backup_records_failure(db_session, monkeypatch, tmp_path):
     db_session.add(GlobalSettings(id=1))
     await db_session.commit()
 
-    def fail_backup(_location):
+    async def fail_backup(_location, _keep):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("app.services.backup_service.create_backup", fail_backup)
+    monkeypatch.setattr("app.services.backup_service.run_routine_backup", fail_backup)
     gs = GlobalSettings(id=1, backup_enabled=True, backup_location=str(tmp_path), backup_keep=2)
 
     await notification_scheduler._run_backup(gs)

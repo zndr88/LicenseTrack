@@ -367,6 +367,12 @@ async def test_restore_server_rejects_paths_and_unlisted_files(
 ):
     backup_dir = tmp_path / "backups"
     backup_dir.mkdir()
+    outside = tmp_path / "license_lifecycle_backup_outside.zip"
+    outside.write_bytes(_make_zip_with_db())
+    symlink = backup_dir / "license_lifecycle_backup_symlink.zip"
+    symlink.symlink_to(outside)
+    unlisted = backup_dir / "manually_named_backup.zip"
+    unlisted.write_bytes(_make_zip_with_db())
     db_session.add(GlobalSettings(id=1, backup_location=str(backup_dir)))
     await db_session.commit()
 
@@ -375,14 +381,32 @@ async def test_restore_server_rejects_paths_and_unlisted_files(
         headers=auth_headers,
         json={"filename": "../outside.zip"},
     )
+    absolute = await test_app.post(
+        "/api/backup/restore-server",
+        headers=auth_headers,
+        json={"filename": str(outside.resolve())},
+    )
     missing = await test_app.post(
         "/api/backup/restore-server",
         headers=auth_headers,
         json={"filename": "license_lifecycle_backup_missing.zip"},
     )
+    symlinked = await test_app.post(
+        "/api/backup/restore-server",
+        headers=auth_headers,
+        json={"filename": symlink.name},
+    )
+    not_enumerated = await test_app.post(
+        "/api/backup/restore-server",
+        headers=auth_headers,
+        json={"filename": unlisted.name},
+    )
 
     assert traversal.status_code == 422
+    assert absolute.status_code == 422
     assert missing.status_code == 404
+    assert symlinked.status_code == 404
+    assert not_enumerated.status_code == 404
 
 
 # ---------------------------------------------------------------------------

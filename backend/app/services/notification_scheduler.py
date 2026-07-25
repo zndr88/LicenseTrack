@@ -52,11 +52,12 @@ async def _run_backup(gs: GlobalSettings) -> None:
     """Run create_backup + prune_backups if backup is enabled. Logs but never raises."""
     if not gs.backup_enabled:
         return
-    from app.services.backup_service import create_backup, prune_backups
+    from app.services.backup_service import run_routine_backup
 
     try:
-        zip_path = create_backup(gs.backup_location)
-        prune_backups(gs.backup_location, gs.backup_keep)
+        backup_location = str(gs.backup_location)
+        backup_keep = int(gs.backup_keep)
+        zip_path = await run_routine_backup(backup_location, backup_keep)
         log.info(f"Scheduled backup created: {zip_path}")
         await _write_backup_status("success")
     except Exception as exc:

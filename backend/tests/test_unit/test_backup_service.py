@@ -5,6 +5,7 @@ Uses tmp_path (pytest built-in) for all filesystem operations and monkeypatch
 to redirect get_db_path away from the dev environment.
 """
 
+import asyncio
 import json
 import os
 import sqlite3
@@ -13,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from app.services import backup_service
 from app.services.backup_service import (
     create_backup,
     create_document_restore_safety_archive,
@@ -76,6 +78,92 @@ def test_create_backup_missing_db(tmp_path, monkeypatch):
 
     with pytest.raises(FileNotFoundError):
         create_backup(str(tmp_path / "backups"))
+
+
+async def test_run_routine_backup_delegates_create_and_prune_to_thread(
+    tmp_path,
+    monkeypatch,
+):
+    created = tmp_path / "backup.zip"
+    inner_calls = []
+    thread_calls = []
+
+    def fake_create_backup(location):
+        inner_calls.append(("create", location))
+        return created
+
+    def fake_prune_backups(location, keep):
+        inner_calls.append(("prune", location, keep))
+
+    async def fake_to_thread(func, *args):
+        thread_calls.append((func, args))
+        return func(*args)
+
+    monkeypatch.setattr(backup_service, "_routine_backup_lock", asyncio.Lock())
+    monkeypatch.setattr(backup_service, "create_backup", fake_create_backup)
+    monkeypatch.setattr(backup_service, "prune_backups", fake_prune_backups)
+    monkeypatch.setattr(backup_service.asyncio, "to_thread", fake_to_thread)
+
+    result = await backup_service.run_routine_backup(str(tmp_path), 3)
+
+    assert result == created
+    assert thread_calls == [
+        (backup_service._create_and_prune_backup, (str(tmp_path), 3)),
+    ]
+    assert inner_calls == [
+        ("create", str(tmp_path)),
+        ("prune", str(tmp_path), 3),
+    ]
+
+
+async def test_run_routine_backup_propagates_worker_failure(tmp_path, monkeypatch):
+    def fail_backup(_location):
+        raise RuntimeError("backup failed")
+
+    async def fake_to_thread(func, *args):
+        return func(*args)
+
+    monkeypatch.setattr(backup_service, "_routine_backup_lock", asyncio.Lock())
+    monkeypatch.setattr(backup_service, "create_backup", fail_backup)
+    monkeypatch.setattr(backup_service.asyncio, "to_thread", fake_to_thread)
+
+    with pytest.raises(RuntimeError, match="backup failed"):
+        await backup_service.run_routine_backup(str(tmp_path), 3)
+
+
+async def test_run_routine_backup_serializes_concurrent_calls(tmp_path, monkeypatch):
+    first_started = asyncio.Event()
+    release_first = asyncio.Event()
+    calls = []
+    active_calls = 0
+    max_active_calls = 0
+
+    async def fake_to_thread(_func, location, keep):
+        nonlocal active_calls, max_active_calls
+        calls.append((location, keep))
+        active_calls += 1
+        max_active_calls = max(max_active_calls, active_calls)
+        if len(calls) == 1:
+            first_started.set()
+            await release_first.wait()
+        active_calls -= 1
+        return tmp_path / f"backup-{len(calls)}.zip"
+
+    monkeypatch.setattr(backup_service, "_routine_backup_lock", asyncio.Lock())
+    monkeypatch.setattr(backup_service.asyncio, "to_thread", fake_to_thread)
+
+    first = asyncio.create_task(backup_service.run_routine_backup(str(tmp_path), 2))
+    await first_started.wait()
+    second = asyncio.create_task(backup_service.run_routine_backup(str(tmp_path), 2))
+    await asyncio.sleep(0)
+
+    assert calls == [(str(tmp_path), 2)]
+
+    release_first.set()
+    await asyncio.gather(first, second)
+
+    assert len(calls) == 2
+    assert max_active_calls == 1
 
 
 def test_create_portfolio_reset_archive_includes_database_documents_and_manifest(
@@ -154,10 +242,42 @@ def test_server_archive_listing_and_resolution_are_typed_and_path_safe(
     }
     assert next(item for item in archives if item["filename"] == recovery.name)["includes_documents"] is True
     assert resolve_server_backup_archive(str(backup_dir), routine.name) == routine
+    assert resolve_server_backup_archive(str(backup_dir), recovery.name) == recovery
+
+
+def test_server_archive_resolution_rejects_untrusted_selections(tmp_path):
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    outside = tmp_path / "license_lifecycle_backup_outside.zip"
+    unlisted = backup_dir / "manually_named_backup.zip"
+    invalid = backup_dir / "license_lifecycle_backup_invalid.zip"
+    symlink = backup_dir / "license_lifecycle_backup_symlink.zip"
+    for archive in (outside, unlisted):
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("licenses.db", b"database placeholder")
+    invalid.write_text("not a zip", encoding="utf-8")
+    symlink.symlink_to(outside)
+
     with pytest.raises(ValueError):
         resolve_server_backup_archive(str(backup_dir), "../outside.zip")
+    with pytest.raises(ValueError):
+        resolve_server_backup_archive(str(backup_dir), str(outside.resolve()))
+    with pytest.raises(ValueError):
+        resolve_server_backup_archive(str(backup_dir), "/tmp/outside.zip")
+    with pytest.raises(ValueError):
+        resolve_server_backup_archive(str(backup_dir), r"C:\backups\outside.zip")
+    with pytest.raises(ValueError):
+        resolve_server_backup_archive(str(backup_dir), "unsupported.txt")
+    with pytest.raises(ValueError):
+        resolve_server_backup_archive(str(backup_dir), "\x00invalid.zip")
     with pytest.raises(FileNotFoundError):
         resolve_server_backup_archive(str(backup_dir), "license_lifecycle_backup_missing.zip")
+    with pytest.raises(FileNotFoundError):
+        resolve_server_backup_archive(str(backup_dir), unlisted.name)
+    with pytest.raises(FileNotFoundError):
+        resolve_server_backup_archive(str(backup_dir), invalid.name)
+    with pytest.raises(FileNotFoundError):
+        resolve_server_backup_archive(str(backup_dir), symlink.name)
 
 
 def test_document_recovery_archive_restores_database_and_managed_storage(

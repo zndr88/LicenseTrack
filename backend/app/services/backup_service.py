@@ -1,4 +1,6 @@
+import asyncio
 import json
+import ntpath
 import os
 import shutil
 import sqlite3
@@ -24,6 +26,7 @@ PORTFOLIO_STORAGE_DIRECTORIES = (
 DATABASE_BACKUP_PREFIX = "license_lifecycle_backup_"
 PORTFOLIO_RESET_ARCHIVE_PREFIX = "license_lifecycle_pre_portfolio_reset_"
 RESTORE_SAFETY_ARCHIVE_PREFIX = "license_lifecycle_pre_document_restore_"
+_routine_backup_lock = asyncio.Lock()
 
 
 def get_db_path() -> Path:
@@ -86,6 +89,22 @@ def create_backup(backup_location: str) -> Path:
 
     logger.info("Backup created: %s (%.1f KB)", zip_path.name, zip_path.stat().st_size / 1024)
     return zip_path
+
+
+def _create_and_prune_backup(backup_location: str, keep: int) -> Path:
+    zip_path = create_backup(backup_location)
+    prune_backups(backup_location, keep)
+    return zip_path
+
+
+async def run_routine_backup(backup_location: str, keep: int) -> Path:
+    """Create and prune a routine backup without blocking the async event loop."""
+    async with _routine_backup_lock:
+        return await asyncio.to_thread(
+            _create_and_prune_backup,
+            backup_location,
+            keep,
+        )
 
 
 def _create_database_and_storage_archive(
@@ -253,8 +272,10 @@ def inspect_backup_archive(zip_path: Path) -> dict:
         raise ValueError("File is not a valid zip archive.") from exc
 
 
-def list_server_backup_archives(backup_location: str) -> list[dict]:
-    """List restorable archives from the configured server backup directory."""
+def _enumerate_server_backup_archives(
+    backup_location: str,
+) -> list[tuple[Path, dict]]:
+    """Return trusted archive paths and their inspected restore metadata."""
     backup_dir = Path(backup_location).resolve()
     if not backup_dir.is_dir():
         return []
@@ -274,29 +295,41 @@ def list_server_backup_archives(backup_location: str) -> list[dict]:
             logger.warning("Skipping invalid server backup archive: %s", path.name)
             continue
         archives.append(
-            {
-                "filename": path.name,
-                "size_bytes": path.stat().st_size,
-                "created_at": path.stat().st_mtime,
-                "archive_type": info["archive_type"],
-                "includes_documents": info["includes_documents"],
-            }
+            (
+                path,
+                {
+                    "filename": path.name,
+                    "size_bytes": path.stat().st_size,
+                    "created_at": path.stat().st_mtime,
+                    "archive_type": info["archive_type"],
+                    "includes_documents": info["includes_documents"],
+                },
+            )
         )
-    return sorted(archives, key=lambda item: item["created_at"], reverse=True)
+    return sorted(archives, key=lambda item: item[1]["created_at"], reverse=True)
+
+
+def list_server_backup_archives(backup_location: str) -> list[dict]:
+    """List restorable archives from the configured server backup directory."""
+    return [
+        metadata
+        for _path, metadata in _enumerate_server_backup_archives(backup_location)
+    ]
 
 
 def resolve_server_backup_archive(backup_location: str, filename: str) -> Path:
     """Resolve an exact allow-listed server archive filename without path access."""
-    if not filename or Path(filename).name != filename or not filename.lower().endswith(".zip"):
+    if (
+        not filename
+        or "\x00" in filename
+        or ntpath.basename(filename) != filename
+        or not filename.lower().endswith(".zip")
+    ):
         raise ValueError("Invalid server backup filename.")
-    allowed = {item["filename"] for item in list_server_backup_archives(backup_location)}
-    if filename not in allowed:
-        raise FileNotFoundError("Server backup archive was not found.")
-    backup_dir = Path(backup_location).resolve()
-    resolved = (backup_dir / filename).resolve()
-    if resolved.parent != backup_dir:
-        raise ValueError("Invalid server backup filename.")
-    return resolved
+    for path, metadata in _enumerate_server_backup_archives(backup_location):
+        if metadata["filename"] == filename:
+            return path
+    raise FileNotFoundError("Server backup archive was not found.")
 
 
 def prune_backups(backup_location: str, keep: int) -> None:

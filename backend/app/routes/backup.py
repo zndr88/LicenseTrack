@@ -71,12 +71,14 @@ async def trigger_backup(
     _admin: User = Depends(require_admin),
 ) -> dict:
     """Immediately create a backup using current GlobalSettings (admin only)."""
-    from app.services.backup_service import create_backup, prune_backups
+    from app.services.backup_service import run_routine_backup
 
     gs = await _get_global_settings(db)
     try:
-        zip_path = create_backup(gs.backup_location)
-        prune_backups(gs.backup_location, gs.backup_keep)
+        zip_path = await run_routine_backup(
+            str(gs.backup_location),
+            int(gs.backup_keep),
+        )
     except Exception as exc:
         log.error("Backup creation failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="Backup failed. Check server logs.")
