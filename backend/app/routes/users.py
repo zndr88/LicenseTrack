@@ -411,10 +411,10 @@ async def update_user_departments(
         .order_by(UserDepartmentAccess.department)
     )
     before_departments = sorted([row[0] for row in before_result.all()])
-    after_departments = sorted(payload.departments)
+    after_departments = list(dict.fromkeys(payload.departments))
 
     await db.execute(delete(UserDepartmentAccess).where(UserDepartmentAccess.user_id == user_id))
-    for dept in payload.departments:
+    for dept in after_departments:
         db.add(UserDepartmentAccess(user_id=user_id, department=dept))
 
     ip = request.client.host if request.client else None
@@ -429,4 +429,4 @@ async def update_user_departments(
         detail=f"departments: {before_departments} → {after_departments}",
     )
     await db.commit()
-    return {"departments": payload.departments}
+    return {"departments": after_departments}

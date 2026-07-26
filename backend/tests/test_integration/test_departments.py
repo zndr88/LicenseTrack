@@ -235,3 +235,36 @@ async def test_put_departments_saves_and_replaces(db_session, test_app, auth_hea
     )
     saved = sorted([r[0] for r in result.all()])
     assert saved == ["Finance", "HR"]
+
+
+async def test_put_departments_deduplicates_exact_duplicates(db_session, test_app, auth_headers):
+    viewer, _ = await _create_viewer(db_session, "viewer_department_duplicates", [])
+
+    resp = await test_app.put(
+        f"/api/users/{viewer.id}/departments",
+        json={"departments": ["IT", "IT", "HR", "IT"]},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["departments"] == ["IT", "HR"]
+
+    result = await db_session.execute(
+        __import__("sqlalchemy", fromlist=["select"]).select(UserDepartmentAccess.department)
+        .where(UserDepartmentAccess.user_id == viewer.id)
+    )
+    saved = sorted([r[0] for r in result.all()])
+    assert saved == ["HR", "IT"]
+
+
+async def test_put_departments_keeps_different_casing_as_distinct(db_session, test_app, auth_headers):
+    viewer, _ = await _create_viewer(db_session, "viewer_department_casing", [])
+
+    resp = await test_app.put(
+        f"/api/users/{viewer.id}/departments",
+        json={"departments": ["ART", "art"]},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["departments"] == ["ART", "art"]
