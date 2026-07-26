@@ -56,6 +56,9 @@ describe("frontend API endpoint contracts", () => {
       method: "PATCH",
       body: JSON.stringify({ field: "publisherName", value: "Acme" }),
     });
+
+    await licensesApi.markLicenseNoticeHandled(7);
+    expect(client.post).toHaveBeenLastCalledWith("/api/licenses/7/notice/handled", {});
   });
 
   test("settings and user APIs preserve backend route and payload shape", async () => {

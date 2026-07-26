@@ -52,6 +52,9 @@ the configured value.
 
 The notice deadline alert window is separate. Notice deadline reminders are
 sent to the configured manager digest address and do not email the budget owner.
+Once a notice deadline has been reviewed, editors and admins can mark it
+handled from the license detail panel. Handled notice dates are suppressed from
+future notice alerts until the notice date is changed.
 
 ## SMTP
 

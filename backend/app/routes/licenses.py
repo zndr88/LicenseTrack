@@ -40,6 +40,7 @@ from app.services.license_write_service import (
     bulk_delete_license_records,
     create_license_record,
     delete_license_record,
+    mark_license_notice_handled,
 )
 from app.services.license_procurement_trail_service import build_license_procurement_trail
 
@@ -313,6 +314,56 @@ async def update_license(
             "license.updated",
             actor=_editor,
             ip_address=ip,
+            target_type="license",
+            target_id=str(license_id),
+            target_label=license_obj.software_description,
+            detail=diff,
+        )
+
+    await db.commit()
+
+    result = await db.execute(
+        select(License)
+        .where(License.id == license_id)
+        .options(selectinload(License.documents), selectinload(License.creator))
+    )
+    license_obj = result.scalar_one()
+    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
+    custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, [license_obj.id])
+    storage_base = await get_document_storage_base(db)
+    return enrich_license_response(
+        license_obj,
+        mandatory_fields,
+        notification_days,
+        procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
+        custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
+        storage_base=storage_base,
+    )
+
+
+@router.post("/{license_id}/notice/handled", response_model=LicenseResponse)
+async def mark_notice_handled(
+    license_id: int,
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_editor_or_admin),
+) -> LicenseResponse:
+    """Mark a license notice deadline as handled for reminder suppression."""
+    mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
+    license_obj, before, after = await mark_license_notice_handled(
+        db,
+        license_id,
+        handled_by_user_id=current_user.id,
+    )
+
+    diff = diff_fields(before, after)
+    if diff:
+        await log_event(
+            db,
+            "license.notice_handled",
+            actor=current_user,
+            ip_address=request.client.host if request.client else None,
             target_type="license",
             target_id=str(license_id),
             target_label=license_obj.software_description,

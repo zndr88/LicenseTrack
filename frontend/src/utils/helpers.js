@@ -149,6 +149,8 @@ export const normalizeLicense = (l) => ({
   endDate: l.endDate ?? "",
   startDate: l.startDate ?? "",
   noticeDate: l.noticeDate ?? "",
+  noticeHandledAt: l.noticeHandledAt ?? "",
+  noticeHandledByUserId: l.noticeHandledByUserId ?? null,
   // Documents are not in the license list response (separate endpoint)
   documents: l.documents ?? { invoice: [], eula: [], entitlement: [], purchase_order: [], quote: [] },
   availableDocumentCount: l.availableDocumentCount ?? l.available_document_count ?? l.documentCount ?? 0,

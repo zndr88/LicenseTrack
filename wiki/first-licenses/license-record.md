@@ -40,6 +40,9 @@ you a clear reading of the path the entitlement followed.
 for example the last date to cancel or change renewal terms. It is independent
 from the license end date and is not calculated automatically. LicenseTrack
 warns if the notice date is after the end date, but it does not block saving.
+When the deadline has been reviewed, editors and admins can mark the notice as
+handled. That stops further notice-deadline reminders for the current notice
+date; changing the notice date clears the handled state.
 
 Your **PO number**, **invoice number**, and — if required — **contract number** are shown in this section. You can also link the license to a dedicated contract from here. More on that later.
 

@@ -52,6 +52,7 @@ vi.mock('../api/licenses.js', () => ({
   getLicenses: vi.fn(),
   updateLicense: vi.fn(),
   patchLicenseField: vi.fn(),
+  markLicenseNoticeHandled: vi.fn(),
   deleteLicense: vi.fn(),
   getStats: vi.fn(),
   initiateRenewal: vi.fn(),
@@ -176,6 +177,41 @@ describe('DetailPanel procurement milestones', () => {
     expect(screen.getByText('02/05/2026 13:45')).toBeInTheDocument()
     expect(screen.getByText('Purchase Date')).toBeInTheDocument()
     expect(screen.getByText('04/05/2026 09:15')).toBeInTheDocument()
+  })
+
+  it('marks a notice deadline handled from the key dates section', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn()
+    const { markLicenseNoticeHandled } = await import('../api/licenses.js')
+    markLicenseNoticeHandled.mockResolvedValue({
+      data: {
+        ...baseLicense,
+        noticeDate: '2026-07-26',
+        noticeHandledAt: '2026-06-26T07:00:00Z',
+        noticeHandledByUserId: 2,
+      },
+      error: null,
+    })
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        license={{ ...baseLicense, noticeDate: '2026-07-26' }}
+        onUpdate={onUpdate}
+      />
+    )
+
+    await user.click(screen.getByText('Key Dates & Contract'))
+    await user.click(screen.getByRole('button', { name: /mark handled/i }))
+
+    await waitFor(() => {
+      expect(markLicenseNoticeHandled).toHaveBeenCalledWith(1)
+    })
+    expect(onUpdate).toHaveBeenCalledWith(1, expect.objectContaining({
+      noticeHandledAt: '2026-06-26T07:00:00Z',
+      noticeHandledByUserId: 2,
+    }))
   })
 })
 

@@ -132,6 +132,38 @@ async def test_create_perpetual_license_clears_end_date(test_app, auth_headers):
     assert resp.json()["endDate"] is None
 
 
+async def test_mark_notice_handled_sets_state_and_notice_date_change_clears_it(test_app, auth_headers):
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        noticeDate=(date.today() + timedelta(days=30)).isoformat(),
+    )
+
+    handled_resp = await test_app.post(
+        f"/api/licenses/{created['id']}/notice/handled",
+        headers=auth_headers,
+    )
+
+    assert handled_resp.status_code == 200, handled_resp.text
+    handled = handled_resp.json()
+    assert handled["noticeHandledAt"] is not None
+    assert handled["noticeHandledByUserId"] is not None
+
+    changed_resp = await test_app.patch(
+        f"/api/licenses/{created['id']}/field",
+        json={
+            "field": "noticeDate",
+            "value": (date.today() + timedelta(days=45)).isoformat(),
+        },
+        headers=auth_headers,
+    )
+
+    assert changed_resp.status_code == 200, changed_resp.text
+    changed = changed_resp.json()
+    assert changed["noticeHandledAt"] is None
+    assert changed["noticeHandledByUserId"] is None
+
+
 async def test_get_license_by_id(test_app, auth_headers):
     created = await _create_license(test_app, auth_headers)
     license_id = created["id"]

@@ -57,7 +57,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `CustomFieldRows.jsx` | Shared custom field row renderer used by all sections |
 | `IdentitySection.jsx` | Publisher, description, badge row, parent/maintenance navigation, maintenance expiry alert |
 | `RenewalWorkflowSection.jsx` | All renewal lifecycle state boxes (expiring, pending, renewed, draft, consolidated) |
-| `ContractDatesSection.jsx` | Start/end/notice dates, editable request/purchase procurement milestones, contract #, PO #, invoice #, contract record link |
+| `ContractDatesSection.jsx` | Start/end/notice dates, notice handled action/status, editable request/purchase procurement milestones, contract #, PO #, invoice #, contract record link |
 | `MaintenanceSection.jsx` | Maintenance coverage dates, linked maintenance children, add/disable maintenance actions |
 | `HistorySection.jsx` | Read-only creator account label, license-row creation and last-update timestamps, plus procurement-trail links to source sourcing and pending-order records |
 | `CommercialSection.jsx` | License type, metric, quantity, SKU, pricing, currency |

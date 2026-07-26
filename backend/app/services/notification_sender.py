@@ -106,7 +106,7 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
 
         # Check notice deadline. These are manager-only reminders; they do
         # not enter the budget-owner email grouping.
-        if lic.notice_date is not None:
+        if lic.notice_date is not None and lic.notice_handled_at is None:
             days_left = (lic.notice_date - today).days
             if days_left <= notice_notification_days:
                 all_notifications.append(_build_license_entry(lic, "notice_due", days_left, parent_map=parent_map))

@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import bcrypt
 
@@ -148,6 +148,33 @@ async def test_notifications_include_notice_deadlines_with_configured_window(
     }
     assert "Notice Inside Window" in notice_names
     assert "Notice Outside Window" not in notice_names
+
+
+async def test_notifications_exclude_handled_notice_deadlines(
+    db_session, test_app, auth_headers
+):
+    db_session.add(GlobalSettings(id=1, notice_notification_days=7))
+    handled = _license(
+        software_description="Handled Notice",
+        notice_date=date.today() + timedelta(days=7),
+        notice_handled_at=datetime.now(timezone.utc),
+    )
+    active = _license(
+        software_description="Active Notice",
+        notice_date=date.today() + timedelta(days=7),
+    )
+    db_session.add_all([handled, active])
+    await db_session.commit()
+    invalidate_global_settings_cache()
+
+    response = await test_app.get("/api/notifications", headers=auth_headers)
+
+    assert response.status_code == 200
+    notice_names = {
+        row["software_name"] for row in response.json() if row["type"] == "notice_due"
+    }
+    assert "Active Notice" in notice_names
+    assert "Handled Notice" not in notice_names
 
 
 async def test_notifications_exclude_legacy_renewed_retired_and_exempt_records(

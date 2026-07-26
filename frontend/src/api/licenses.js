@@ -157,6 +157,16 @@ export async function patchLicenseField(id, field, value) {
   });
 }
 
+/**
+ * Mark the current notice deadline as handled for reminder suppression.
+ *
+ * @param {number} id
+ * @returns {Promise<{ data: object | null, error: string | null }>}
+ */
+export async function markLicenseNoticeHandled(id) {
+  return post(`/api/licenses/${id}/notice/handled`, {});
+}
+
 
 /**
  * Fetch dashboard statistics (counts, expiration breakdown, etc.).

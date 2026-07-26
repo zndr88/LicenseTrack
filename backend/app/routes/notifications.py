@@ -132,7 +132,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
         # ------------------------------------------------------------------
         # Notice deadline - internal manager reminder, independent of expiry
         # ------------------------------------------------------------------
-        if lic.notice_date is not None and not is_renewed and not is_upcoming:
+        if lic.notice_date is not None and lic.notice_handled_at is None and not is_renewed and not is_upcoming:
             notice_days_left = _days_until(lic.notice_date, today)
             if notice_days_left < 0:
                 days_overdue = abs(notice_days_left)

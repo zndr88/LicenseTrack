@@ -55,9 +55,9 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     toast, setToast,
     editingLicense, setEditingLicense,
     editFields, setEditFields,
-    savingLicense, editError,
+    savingLicense, noticeActionBusy, editError,
     displayUnitPrice, setDisplayUnitPrice,
-    handleFullEditSave, handleStartFullEdit,
+    handleFullEditSave, handleStartFullEdit, handleMarkNoticeHandled,
     openSections, setOpenSections, toggleSection,
     maintenanceHistory, setMaintenanceHistory,
     historyLoading,
@@ -158,6 +158,8 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               onNavigateToContract={onNavigateToContract}
               onCreateContract={onCreateContract}
               openFieldEdit={openFieldEdit}
+              onMarkNoticeHandled={handleMarkNoticeHandled}
+              noticeActionBusy={noticeActionBusy}
               openInvoiceNumbersEdit={openInvoiceNumbersEdit}
               cfBySection={cfBySection}
               customFieldValues={customFieldValues}

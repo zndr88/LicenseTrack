@@ -10,7 +10,7 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -381,6 +381,33 @@ async def test_run_daily_notifications_sends_notice_deadline_only_to_manager(
     assert result["digest_sent"] is True
     assert result["total_notifications"] == 1
     assert recipients == ["manager@example.com"]
+
+
+async def test_run_daily_notifications_skips_handled_notice_deadline(
+    db_session, smtp_settings
+):
+    smtp_settings.notice_notification_days = 14
+    handled = License(
+        publisher_name="Vendor",
+        software_description="Handled Notice",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        notice_date=date.today() + timedelta(days=10),
+        notice_handled_at=datetime.now(timezone.utc),
+        is_retired=False,
+    )
+    db_session.add(handled)
+    await db_session.commit()
+
+    with patch(
+        "app.services.notification_sender.send_email", new_callable=AsyncMock
+    ) as mock_send:
+        result = await run_daily_notifications(db_session)
+
+    assert result["digest_sent"] is False
+    assert result["total_notifications"] == 0
+    mock_send.assert_not_called()
 
 
 async def test_run_daily_notifications_skips_domain_not_in_whitelist(

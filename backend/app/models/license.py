@@ -86,6 +86,8 @@ class License(Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     notice_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notice_handled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    notice_handled_by_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 
     # Contract & procurement references
     contract_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")

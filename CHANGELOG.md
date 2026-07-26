@@ -22,6 +22,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Added a separate global notice-deadline alert window. Notice deadline
   reminders appear in notifications and manager digests, while expiry emails
   continue to use the budget-owner recipient flow.
+- Added a `Mark Handled` action for notice deadlines. Handled notice dates are
+  excluded from in-app notice alerts and manager digests, and the handled state
+  clears automatically when the notice date changes.
 
 ### Fixed
 

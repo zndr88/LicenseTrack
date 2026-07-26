@@ -14,6 +14,8 @@ export default function ContractDatesSection({
   onNavigateToContract,
   onCreateContract,
   openFieldEdit,
+  onMarkNoticeHandled,
+  noticeActionBusy,
   openInvoiceNumbersEdit,
   cfBySection,
   customFieldValues,
@@ -28,6 +30,7 @@ export default function ContractDatesSection({
   const invoiceCount = invoiceNumbers.length;
   const primaryInvoiceNumber = license.invoiceNumber || invoiceNumbers[0] || "";
   const noticeAfterEnd = Boolean(license.noticeDate && license.endDate && license.noticeDate > license.endDate);
+  const noticeHandled = Boolean(license.noticeHandledAt);
   const matchedContract = license.contractNumber
     ? (contracts ?? []).find(
         (c) => c.contractNumber?.toLowerCase() === license.contractNumber?.toLowerCase()
@@ -110,6 +113,24 @@ export default function ContractDatesSection({
               </div>
               {noticeAfterEnd && (
                 <div className="dp-field-warning">Notice date is after the license end date.</div>
+              )}
+              {license.noticeDate && (
+                <div className="dp-notice-handled-row">
+                  {noticeHandled ? (
+                    <span>Handled {formatDateTime(license.noticeHandledAt, userSettings)}</span>
+                  ) : perms.canEdit ? (
+                    <button
+                      type="button"
+                      className="btn btn-g btn-sm"
+                      disabled={noticeActionBusy}
+                      onClick={onMarkNoticeHandled}
+                    >
+                      <Icon name="check" size={12} /> {noticeActionBusy ? "Marking..." : "Mark Handled"}
+                    </button>
+                  ) : (
+                    <span>Not handled</span>
+                  )}
+                </div>
               )}
             </div>
             <div className="dp-field">

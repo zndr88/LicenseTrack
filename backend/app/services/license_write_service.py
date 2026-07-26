@@ -123,6 +123,16 @@ def normalise_perpetual_end_date(update_data: dict) -> None:
         update_data["end_date"] = None
 
 
+def _clear_notice_handled_if_date_changed(license_obj: License, update_data: dict) -> None:
+    """Treat a changed notice date as a new reminder obligation."""
+    if "notice_date" not in update_data:
+        return
+    if update_data.get("notice_date") == license_obj.notice_date:
+        return
+    license_obj.notice_handled_at = None
+    license_obj.notice_handled_by_user_id = None
+
+
 async def create_license_record(
     db: AsyncSession,
     payload: LicenseCreate,
@@ -218,6 +228,7 @@ async def apply_license_update(
     await _validate_maintenance_parent_transition(db, new_type, new_parent_id)
 
     before = {column.name: getattr(license_obj, column.name) for column in license_obj.__table__.columns}
+    _clear_notice_handled_if_date_changed(license_obj, update_data)
     for field, value in update_data.items():
         setattr(license_obj, field, value)
 
@@ -239,6 +250,9 @@ async def apply_license_update(
     for field, value in update_data.items():
         if field in after:
             after[field] = value
+    if "notice_date" in update_data and update_data.get("notice_date") != before.get("notice_date"):
+        after["notice_handled_at"] = None
+        after["notice_handled_by_user_id"] = None
     if "contract_number" in update_data:
         # contract_id is derived from contract_number but set separately above;
         # read from instance __dict__ to avoid any instrumentation lazy-load path
@@ -327,7 +341,11 @@ async def apply_license_field_patch(
 
     snake_field = ALLOWED_PATCH_FIELDS[field]
     if field in DATE_PATCH_FIELDS:
-        setattr(license_obj, snake_field, date.fromisoformat(value) if value else None)
+        parsed_value = date.fromisoformat(value) if value else None
+        if field == "noticeDate" and parsed_value != license_obj.notice_date:
+            license_obj.notice_handled_at = None
+            license_obj.notice_handled_by_user_id = None
+        setattr(license_obj, snake_field, parsed_value)
     elif field in DATETIME_PATCH_FIELDS:
         setattr(license_obj, snake_field, _parse_procurement_milestone_datetime(value) if value else None)
     elif field == "licenseType":
@@ -351,6 +369,31 @@ async def apply_license_field_patch(
 
     await _sync_active_maintenance_parent_if_needed(db, license_obj)
     return license_obj
+
+
+async def mark_license_notice_handled(
+    db: AsyncSession,
+    license_id: int,
+    *,
+    handled_by_user_id: int,
+) -> tuple[License, dict, dict]:
+    """Mark the current notice date as handled for reminder suppression."""
+    result = await db.execute(select(License).where(License.id == license_id))
+    license_obj = result.scalar_one_or_none()
+    if license_obj is None:
+        raise HTTPException(status_code=404, detail="License not found")
+    if license_obj.notice_date is None:
+        raise HTTPException(status_code=400, detail="License has no notice date to mark handled")
+
+    before = {column.name: getattr(license_obj, column.name) for column in license_obj.__table__.columns}
+    handled_at = datetime.now(timezone.utc)
+    license_obj.notice_handled_at = handled_at
+    license_obj.notice_handled_by_user_id = handled_by_user_id
+
+    after = dict(before)
+    after["notice_handled_at"] = handled_at
+    after["notice_handled_by_user_id"] = handled_by_user_id
+    return license_obj, before, after
 
 
 async def bulk_delete_license_records(db: AsyncSession, license_ids: list[int]) -> list[int]:

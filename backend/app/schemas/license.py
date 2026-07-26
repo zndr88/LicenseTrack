@@ -242,6 +242,8 @@ class LicenseResponse(LicenseBase):
     request_date: Optional[datetime] = None
     purchase_date: Optional[datetime] = None
     source_sourcing_item_id: Optional[int] = None
+    notice_handled_at: Optional[datetime] = None
+    notice_handled_by_user_id: Optional[int] = None
 
     # Computed fields - populated server-side, not stored in the database
     completeness_pct: Optional[int] = None

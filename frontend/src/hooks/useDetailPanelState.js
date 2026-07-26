@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { formatPriceInput, getCompleteness, getExpirationStatus, normalizeLicense } from "../utils/helpers.js";
 import { ROLE_PERMISSIONS } from "../constants/permissions.js";
-import { upsertCustomFieldValues, getMaintenanceForParent, getLicense } from "../api/licenses.js";
+import {
+  getLicense,
+  getMaintenanceForParent,
+  markLicenseNoticeHandled,
+  upsertCustomFieldValues,
+} from "../api/licenses.js";
 import {
   acceptPluginSuggestion,
   listPluginSuggestions,
@@ -29,6 +34,7 @@ export function useDetailPanelState({
   const [editingLicense, setEditingLicense] = useState(false);
   const [editFields, setEditFields] = useState({});
   const [savingLicense, setSavingLicense] = useState(false);
+  const [noticeActionBusy, setNoticeActionBusy] = useState(false);
   const [editError, setEditError] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -233,6 +239,19 @@ export function useDetailPanelState({
     closeFieldEdit();
   };
 
+  const handleMarkNoticeHandled = async () => {
+    setNoticeActionBusy(true);
+    const { data, error } = await markLicenseNoticeHandled(license.id);
+    setNoticeActionBusy(false);
+    if (error) {
+      setToast(`Notice update failed: ${error}`);
+      return;
+    }
+    onUpdate(license.id, normalizeLicense(data));
+    setToast("Notice deadline marked handled.");
+    setTimeout(() => setToast(null), 5000);
+  };
+
   // Full edit
   const handleFullEditSave = async () => {
     setSavingLicense(true);
@@ -325,9 +344,11 @@ export function useDetailPanelState({
     editingLicense, setEditingLicense,
     editFields, setEditFields,
     savingLicense,
+    noticeActionBusy,
     editError,
     displayUnitPrice, setDisplayUnitPrice,
     handleFullEditSave, handleStartFullEdit,
+    handleMarkNoticeHandled,
 
     // Sections
     openSections, setOpenSections, toggleSection,
