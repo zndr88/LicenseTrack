@@ -30,14 +30,14 @@ export function filterLicenses(licenses, { includeRetired = false, dateRange = "
       from = new Date(now);
       from.setMonth(from.getMonth() - 12);
     } else if (typeof dateRange === "object" && dateRange.from && dateRange.to) {
-      from = new Date(dateRange.from);
-      to = new Date(dateRange.to);
+      from = parseReportDate(dateRange.from);
+      to = endOfReportDate(dateRange.to);
     }
 
     if (from && to) {
       result = result.filter((l) => {
         if (!l.startDate) return true; // no start date → always include
-        const sd = new Date(l.startDate);
+        const sd = parseReportDate(l.startDate);
         return sd >= from && sd <= to;
       });
     }
@@ -56,6 +56,20 @@ function parsePrice(val) {
 
 function roundMoney(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function parseReportDate(value) {
+  if (typeof value !== "string") return new Date(value);
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return new Date(value);
+  const [, year, month, day] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day));
+}
+
+function endOfReportDate(value) {
+  const date = parseReportDate(value);
+  date.setHours(23, 59, 59, 999);
+  return date;
 }
 
 function getCalculatedLicenseValue(license) {
@@ -431,7 +445,7 @@ export function getRenewalCalendar(licenses, fiscalYearStartMonth = 1) {
   );
 
   for (const l of eligible) {
-    const end = new Date(l.endDate);
+    const end = parseReportDate(l.endDate);
     for (const qtr of quarters) {
       if (end >= qtr.from && end <= qtr.to) {
         qtr.count += 1;

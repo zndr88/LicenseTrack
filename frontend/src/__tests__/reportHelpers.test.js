@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  filterLicenses,
   getBudgetForecast,
   getCostOverview,
   getLifecycleCounts,
@@ -24,6 +25,40 @@ function license(overrides = {}) {
     isRetired: false,
     ...overrides,
   };
+}
+
+function withNegativeOffsetDateOnlyParsing(callback) {
+  const realDate = Date;
+  globalThis.Date = class extends realDate {
+    constructor(...args) {
+      if (args.length === 0) {
+        super(2026, 4, 15);
+      } else if (args.length === 1 && typeof args[0] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args[0])) {
+        const [year, month, day] = args[0].split("-").map(Number);
+        super(year, month - 1, day - 1, 17, 0, 0);
+      } else {
+        super(...args);
+      }
+    }
+
+    static now() {
+      return new realDate(2026, 4, 15).getTime();
+    }
+
+    static parse(value) {
+      return realDate.parse(value);
+    }
+
+    static UTC(...args) {
+      return realDate.UTC(...args);
+    }
+  };
+
+  try {
+    callback();
+  } finally {
+    globalThis.Date = realDate;
+  }
 }
 
 describe("report cost helpers", () => {
@@ -196,6 +231,36 @@ describe("report cost helpers", () => {
 
     expect(getSpendByPublisher(licenses)[0].totalSpendByCurrency).toEqual({ EUR: 50000 });
     expect(getVendorTable(licenses)[0].totalSpendByCurrency).toEqual({ EUR: 50000 });
+  });
+});
+
+describe("report date-only handling", () => {
+  test("this-year filtering keeps licenses that start on the first local day of the year", () => {
+    withNegativeOffsetDateOnlyParsing(() => {
+      const filtered = filterLicenses([
+        license({ id: 1, startDate: "2026-01-01" }),
+      ], { dateRange: "thisYear" });
+
+      expect(filtered.map((item) => item.id)).toEqual([1]);
+    });
+  });
+
+  test("renewal calendar counts date-only expiries on the first day of a quarter", () => {
+    withNegativeOffsetDateOnlyParsing(() => {
+      const quarters = getRenewalCalendar([
+        license({
+          id: 1,
+          endDate: "2026-07-01",
+          expirationStatus: "active",
+          totalPoPrice: "1000",
+          quantity: "",
+          unitPrice: "",
+        }),
+      ], 1);
+
+      const q3 = quarters.find((quarter) => quarter.quarterLabel === "Q3 2026");
+      expect(q3.count).toBe(1);
+    });
   });
 });
 
