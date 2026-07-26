@@ -1,10 +1,11 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.contract import Contract
 from app.models.user_department_access import UserDepartmentAccess
 from app.models.license import License
 from app.models.user import User
+from app.services.contract_identity_service import normalize_contract_number
 
 
 def is_viewer(user: User) -> bool:
@@ -66,7 +67,7 @@ async def can_view_contract(user: User, contract: Contract, db: AsyncSession) ->
     result = await db.execute(
         select(License.id)
         .where(
-            License.contract_number == contract.contract_number,
+            func.lower(func.trim(License.contract_number)) == normalize_contract_number(contract.contract_number),
             License.cost_centre.in_(departments),
         )
         .limit(1)

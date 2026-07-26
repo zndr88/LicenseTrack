@@ -13,7 +13,6 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.contract import Contract
 from app.models.document import Document, ProcurementDocument
 from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.sourcing import SourcingItem
@@ -37,6 +36,7 @@ from app.services.lifecycle_rules import (
     validate_lifecycle_repair_update,
     validate_renewal_link_invariants,
 )
+from app.services.contract_identity_service import resolve_contract_id_for_number
 from app.services.money import is_canonical_money
 
 ALLOWED_PATCH_FIELDS: dict[str, str] = {
@@ -113,15 +113,7 @@ def _parse_procurement_milestone_datetime(value: str) -> datetime:
 
 async def _resolve_contract_id(db: AsyncSession, contract_number: str | None) -> int | None:
     """Return the Contract.id matching contract_number (case-insensitive), or None."""
-    if not contract_number:
-        return None
-    from sqlalchemy import func as sa_func
-
-    result = await db.execute(
-        select(Contract).where(sa_func.lower(Contract.contract_number) == contract_number.lower())
-    )
-    contract = result.scalar_one_or_none()
-    return contract.id if contract is not None else None
+    return await resolve_contract_id_for_number(db, contract_number)
 
 
 def normalise_perpetual_end_date(update_data: dict) -> None:

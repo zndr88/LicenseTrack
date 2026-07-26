@@ -23,7 +23,7 @@ import bcrypt
 from sqlalchemy import select
 
 import app.services.storage as _storage_module
-from app.models.contract import ContractDocument
+from app.models.contract import Contract, ContractDocument
 from app.models.license import License, LicenseType, LicenseMetric
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
@@ -226,6 +226,55 @@ async def test_update_nonexistent_contract_returns_404(test_app, auth_headers):
 async def test_delete_nonexistent_contract_returns_404(test_app, auth_headers):
     resp = await test_app.delete("/api/contracts/999999", headers=auth_headers)
     assert resp.status_code == 404
+
+
+async def test_create_contract_rejects_case_insensitive_duplicate(test_app, auth_headers, contract):
+    resp = await test_app.post(
+        "/api/contracts",
+        json={"contract_number": "cn-2024-001", "publisher_name": "Duplicate Acme"},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 409
+    assert "already exists" in resp.json()["detail"]
+
+
+async def test_update_contract_rejects_case_insensitive_duplicate(test_app, auth_headers, contract):
+    create_resp = await test_app.post(
+        "/api/contracts",
+        json={"contract_number": "CN-OTHER", "publisher_name": "Other"},
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+
+    resp = await test_app.put(
+        f"/api/contracts/{create_resp.json()['id']}",
+        json={"contract_number": "cn-2024-001"},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 409
+    assert "already exists" in resp.json()["detail"]
+
+
+async def test_update_contract_rejects_rename_when_current_number_is_ambiguous(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    first = Contract(contract_number="CN-DUP", publisher_name="Acme")
+    second = Contract(contract_number="cn-dup", publisher_name="Acme Duplicate")
+    db_session.add_all([first, second])
+    await db_session.commit()
+
+    resp = await test_app.put(
+        f"/api/contracts/{first.id}",
+        json={"contract_number": "CN-RENAMED"},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 409
+    assert "duplicated" in resp.json()["detail"]
 
 
 # ---------------------------------------------------------------------------
@@ -541,6 +590,55 @@ async def test_viewer_with_matching_department_sees_contract(
     resp = await test_app.get("/api/contracts", headers=viewer_headers)
     assert resp.status_code == 200
     assert any(c["id"] == contract["id"] for c in resp.json())
+
+
+async def test_viewer_contract_visibility_matches_contract_number_case_insensitively(
+    test_app,
+    db_session,
+    contract,
+):
+    lic = License(
+        publisher_name="Acme",
+        software_description="App",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        contract_number="cn-2024-001",
+        cost_centre="IT",
+        is_retired=False,
+    )
+    db_session.add(lic)
+    await db_session.flush()
+
+    hashed = bcrypt.hashpw(b"pass123456789", bcrypt.gensalt()).decode()
+    viewer = User(
+        username="viewer_contract_case",
+        email="viewer_contract_case@test.local",
+        hashed_password=hashed,
+        role=UserRole.viewer,
+        is_active=True,
+        must_change_password=False,
+    )
+    db_session.add(viewer)
+    await db_session.flush()
+    db_session.add(UserDepartmentAccess(user_id=viewer.id, department="IT"))
+    await db_session.commit()
+
+    login = await test_app.post(
+        "/api/auth/login",
+        json={"username": "viewer_contract_case", "password": "pass123456789"},
+    )
+    viewer_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    list_resp = await test_app.get("/api/contracts", headers=viewer_headers)
+    contract_resp = await test_app.get(f"/api/contracts/{contract['id']}", headers=viewer_headers)
+    licenses_resp = await test_app.get(f"/api/contracts/{contract['id']}/licenses", headers=viewer_headers)
+
+    assert list_resp.status_code == 200
+    assert any(c["id"] == contract["id"] for c in list_resp.json())
+    assert contract_resp.status_code == 200
+    assert licenses_resp.status_code == 200
+    assert [item["id"] for item in licenses_resp.json()] == [lic.id]
 
 
 async def test_viewer_cannot_access_contract_direct_routes_outside_department(

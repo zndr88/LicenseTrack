@@ -42,6 +42,10 @@ from app.services.access_service import (
 from app.services.audit_service import diff_fields, log_event
 from app.services.contract_response_service import build_contract_response
 from app.services.contract_storage_service import get_storage_base
+from app.services.contract_identity_service import (
+    assert_contract_number_unambiguous,
+    assert_unique_contract_number,
+)
 from app.services.license_service import compute_expiration_status
 
 router = APIRouter(tags=["contracts"])
@@ -77,13 +81,12 @@ async def list_contracts(
         if not departments:
             return []
         visible_contract_numbers = (
-            select(License.contract_number)
+            select(func.lower(func.trim(License.contract_number)))
             .where(License.contract_number.isnot(None))
             .where(License.cost_centre.in_(departments))
             .distinct()
-            .scalar_subquery()
         )
-        query = query.where(Contract.contract_number.in_(visible_contract_numbers))
+        query = query.where(func.lower(func.trim(Contract.contract_number)).in_(visible_contract_numbers))
 
     query = query.offset(offset)
     if limit is not None:
@@ -129,8 +132,10 @@ async def create_contract(
     db: DbSession,
     current_user: User = Depends(require_editor_or_admin),
 ) -> ContractResponse:
+    contract_number = body.contract_number.strip()
+    await assert_unique_contract_number(db, contract_number)
     contract = Contract(
-        contract_number=body.contract_number,
+        contract_number=contract_number,
         publisher_name=body.publisher_name,
         notes=body.notes,
         created_by=current_user.id,
@@ -180,7 +185,19 @@ async def update_contract(
     before = {c.name: getattr(contract, c.name) for c in contract.__table__.columns}
 
     if body.contract_number is not None:
-        contract.contract_number = body.contract_number
+        new_contract_number = body.contract_number.strip()
+        if contract.contract_number != new_contract_number:
+            await assert_contract_number_unambiguous(
+                db,
+                contract.contract_number,
+                current_contract_id=contract.id,
+            )
+        await assert_unique_contract_number(
+            db,
+            new_contract_number,
+            exclude_contract_id=contract.id,
+        )
+        contract.contract_number = new_contract_number
     if body.publisher_name is not None:
         contract.publisher_name = body.publisher_name
     if body.notes is not None:

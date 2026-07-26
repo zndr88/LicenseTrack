@@ -13,6 +13,7 @@ from datetime import date, timedelta
 import bcrypt
 from sqlalchemy import select
 
+from app.models.contract import Contract
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import License, LicenseMetric, LicenseType, LifecycleStatus
 from app.models.pending_order import PendingOrder
@@ -322,6 +323,53 @@ async def test_update_license_with_nonempty_contract_number_does_not_crash(test_
     body = resp.json()
     assert body["softwareDescription"] == "Panel Edited Suite"
     assert body["contractNumber"] == "LIC-2024-001"
+
+
+async def test_create_license_with_ambiguous_contract_number_returns_409(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    db_session.add_all(
+        [
+            Contract(contract_number="LIC-AMBIGUOUS", publisher_name="Acme"),
+            Contract(contract_number="lic-ambiguous", publisher_name="Acme Duplicate"),
+        ]
+    )
+    await db_session.commit()
+
+    resp = await test_app.post(
+        "/api/licenses",
+        json=_minimal_payload(contractNumber="LIC-AMBIGUOUS"),
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 409
+    assert "multiple contract records" in resp.json()["detail"]
+
+
+async def test_update_license_with_ambiguous_contract_number_returns_409(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    created = await _create_license(test_app, auth_headers)
+    db_session.add_all(
+        [
+            Contract(contract_number="LIC-AMBIGUOUS", publisher_name="Acme"),
+            Contract(contract_number="lic-ambiguous", publisher_name="Acme Duplicate"),
+        ]
+    )
+    await db_session.commit()
+
+    resp = await test_app.put(
+        f"/api/licenses/{created['id']}",
+        json=_minimal_payload(contractNumber="LIC-AMBIGUOUS"),
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 409
+    assert "multiple contract records" in resp.json()["detail"]
 
 
 async def test_general_update_rejects_non_legacy_lifecycle_status(test_app, auth_headers):
