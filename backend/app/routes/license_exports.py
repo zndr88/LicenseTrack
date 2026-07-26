@@ -21,24 +21,18 @@ from app.services.license_service import (
     compute_expiration_status,
 )
 from app.services.csv_safety import safe_csv_row
-from app.services.settings_service import get_global_settings as _get_cached_global_settings
+from app.services.license_response_service import get_mandatory_fields, get_notification_days
 
 router = APIRouter(prefix="/api/licenses", tags=["license-exports"])
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
-_DEFAULT_NOTIFICATION_DAYS = 30
-
-
-async def _get_global_settings(db: AsyncSession) -> dict:
-    gs = await _get_cached_global_settings(db)
-    return gs.mandatory_fields or {} if gs else {}
-
 
 @router.get("/export")
 async def export_licenses(db: DbSession, _current_user: CurrentUser) -> StreamingResponse:
     """Download all active (non-retired) licenses as a CSV file."""
-    mandatory_fields = await _get_global_settings(db)
+    mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
 
     departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
     query = select(License).where(License.is_retired.is_(False)).options(selectinload(License.documents))
@@ -119,7 +113,7 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
                     lic.budget_owner_email,
                     lic.lifecycle_status or "",
                     compute_completeness(lic, docs, mandatory_fields),
-                    compute_expiration_status(lic, today, _DEFAULT_NOTIFICATION_DAYS),
+                    compute_expiration_status(lic, today, notification_days),
                     compute_days_until_expiry(lic, today) if lic.end_date else "",
                     lic.notes or "",
                 ]

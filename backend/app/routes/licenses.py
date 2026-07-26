@@ -27,10 +27,10 @@ from app.services.license_service import (
     generate_license_ref,
 )
 from app.services.license_response_service import (
-    DEFAULT_NOTIFICATION_DAYS,
     get_custom_field_values_by_license_id,
     enrich_license_response,
     get_mandatory_fields,
+    get_notification_days,
     get_procurement_documents_by_scope,
 )
 from app.services.license_write_service import (
@@ -78,6 +78,7 @@ async def list_departments(db: DbSession, _current_user: CurrentUser) -> list[st
 async def get_stats(db: DbSession, _current_user: CurrentUser) -> dict:
     """Dashboard statistics derived from all licenses."""
     mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
 
     departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
     query = select(License).options(selectinload(License.documents))
@@ -93,7 +94,7 @@ async def get_stats(db: DbSession, _current_user: CurrentUser) -> dict:
             *procurement_documents_by_license_id.get(lic.id, []),
         ]
 
-    return compute_stats(all_licenses, documents_by_license_id, mandatory_fields, DEFAULT_NOTIFICATION_DAYS)
+    return compute_stats(all_licenses, documents_by_license_id, mandatory_fields, notification_days)
 
 
 @router.get("", response_model=list[LicenseResponse])
@@ -106,6 +107,7 @@ async def list_licenses(
     offset: int = Query(default=0, ge=0),
 ) -> list[LicenseResponse]:
     mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
 
     departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
 
@@ -131,6 +133,7 @@ async def list_licenses(
         enrich_license_response(
             lic,
             mandatory_fields,
+            notification_days,
             procurement_documents=procurement_documents_by_license_id.get(lic.id, []),
             custom_field_values=custom_field_values_by_license_id.get(lic.id, []),
             storage_base=storage_base,
@@ -157,6 +160,7 @@ async def get_license_procurement_trail(
 @router.get("/{license_id}", response_model=LicenseResponse)
 async def get_license(license_id: int, db: DbSession, _current_user: CurrentUser) -> LicenseResponse:
     mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
 
     result = await db.execute(
         select(License)
@@ -174,6 +178,7 @@ async def get_license(license_id: int, db: DbSession, _current_user: CurrentUser
     return enrich_license_response(
         license_obj,
         mandatory_fields,
+        notification_days,
         procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
         storage_base=storage_base,
@@ -188,6 +193,7 @@ async def create_license(
     current_user: User = Depends(require_editor_or_admin),
 ) -> LicenseResponse:
     mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
     license_obj = await create_license_record(
         db,
         payload,
@@ -219,6 +225,7 @@ async def create_license(
     return enrich_license_response(
         license_obj,
         mandatory_fields,
+        notification_days,
         procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
         storage_base=storage_base,
@@ -235,6 +242,7 @@ async def repair_license_lifecycle(
 ) -> LicenseResponse:
     """Admin-only repair endpoint for lifecycle and renewal-chain fields."""
     mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
     payload_data = payload.model_dump(by_alias=False, exclude_unset=True)
     reason = payload_data.pop("reason")
     update_data = payload_data
@@ -275,6 +283,7 @@ async def repair_license_lifecycle(
     return enrich_license_response(
         license_obj,
         mandatory_fields,
+        notification_days,
         procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
         storage_base=storage_base,
@@ -290,6 +299,7 @@ async def update_license(
     _editor: User = Depends(require_editor_or_admin),
 ) -> LicenseResponse:
     mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
     license_obj, before, after = await apply_license_update(db, license_id, payload)
 
     diff = diff_fields(before, after)
@@ -320,6 +330,7 @@ async def update_license(
     return enrich_license_response(
         license_obj,
         mandatory_fields,
+        notification_days,
         procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
         storage_base=storage_base,
@@ -338,6 +349,7 @@ async def patch_license_field(
     field = payload.field
     value = payload.value
     mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
     license_obj = await apply_license_field_patch(db, license_id, field=field, value=value)
 
     await log_event(
@@ -364,6 +376,7 @@ async def patch_license_field(
     return enrich_license_response(
         license_obj,
         mandatory_fields,
+        notification_days,
         procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
         storage_base=storage_base,

@@ -34,9 +34,11 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 _DEFAULT_NOTIFICATION_DAYS = 30
 
 
-async def _get_global_settings(db: AsyncSession) -> dict:
+async def _get_global_settings(db: AsyncSession) -> tuple[dict, int]:
     gs = await _get_cached_global_settings(db)
-    return gs.mandatory_fields or {} if gs else {}
+    if gs is None:
+        return {}, _DEFAULT_NOTIFICATION_DAYS
+    return (gs.mandatory_fields or {}, int(gs.notification_days))
 
 
 def _enrich(
@@ -69,7 +71,7 @@ async def cancel_renewal(
     exists (sourcing item status == "converted"), a po_warning flag is set in
     the response so the frontend can prompt the user to clean it up manually.
     """
-    mandatory_fields = await _get_global_settings(db)
+    mandatory_fields, notification_days = await _get_global_settings(db)
 
     result = await renewal_orchestrator.cancel_renewal(
         db=db,
@@ -85,7 +87,7 @@ async def cancel_renewal(
     license_obj = reload_result.scalar_one()
 
     return CancelRenewalResponse(
-        license=_enrich(license_obj, mandatory_fields),
+        license=_enrich(license_obj, mandatory_fields, notification_days),
         po_warning=result.po_warning,
     )
 
@@ -106,7 +108,7 @@ async def initiate_renewal(
     the backend will UPDATE this license with the new dates/contract details instead
     of creating a new record.
     """
-    mandatory_fields = await _get_global_settings(db)
+    mandatory_fields, notification_days = await _get_global_settings(db)
 
     result = await renewal_orchestrator.initiate_renewal(
         db=db,
@@ -123,7 +125,7 @@ async def initiate_renewal(
     license_obj = reload_result.scalar_one()
 
     return InitiateRenewalResponse(
-        license=_enrich(license_obj, mandatory_fields),
+        license=_enrich(license_obj, mandatory_fields, notification_days),
         sourcing_item=SourcingItemResponse.model_validate(result.sourcing_item),
     )
 
@@ -141,7 +143,7 @@ async def initiate_renewal_bundle(
     Used for same-PO, same-end-date renewal bundles where products must remain
     separate line items instead of being coterm-merged into one license.
     """
-    mandatory_fields = await _get_global_settings(db)
+    mandatory_fields, notification_days = await _get_global_settings(db)
 
     result = await renewal_orchestrator.initiate_renewal_bundle(
         db=db,
@@ -166,6 +168,9 @@ async def initiate_renewal_bundle(
     sourcing_request = request_result.scalar_one()
 
     return InitiateRenewalBundleResponse(
-        licenses=[_enrich(licenses_by_id[license_obj.id], mandatory_fields) for license_obj in result.licenses],
+        licenses=[
+            _enrich(licenses_by_id[license_obj.id], mandatory_fields, notification_days)
+            for license_obj in result.licenses
+        ],
         sourcing_request=SourcingRequestResponse.model_validate(sourcing_request),
     )

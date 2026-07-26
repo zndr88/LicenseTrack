@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -14,6 +14,7 @@ from app.services.license_response_service import (
     enrich_license_response,
     get_procurement_documents_by_scope,
 )
+from app.services.settings_service import invalidate_global_settings_cache
 
 
 def _license(**overrides) -> License:
@@ -182,6 +183,27 @@ async def test_build_conversion_response_includes_pending_order_procurement_docu
     response = responses[0]
     assert response.document_count == 1
     assert response.completeness_pct == 100
+
+
+async def test_build_conversion_response_respects_configured_expiry_window(db_session):
+    db_session.add(GlobalSettings(id=1, notification_days=10))
+    new_license = _license(
+        software_description="Converted Soon License",
+        start_date=date.today(),
+        end_date=date.today() + timedelta(days=20),
+    )
+    db_session.add(new_license)
+    await db_session.commit()
+    invalidate_global_settings_cache()
+
+    responses = await build_conversion_response(
+        db_session,
+        [(new_license.id, "new_purchase")],
+        [],
+    )
+
+    assert responses[0].expiration_status == "active"
+    invalidate_global_settings_cache()
 
 
 async def test_build_contract_response_counts_licenses_documents_and_folder_documents(db_session):

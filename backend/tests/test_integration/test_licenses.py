@@ -6,14 +6,20 @@ response shape, and permission enforcement. Business logic is tested in
 the B1 unit tests, not here.
 """
 
+import csv
+import io
+from datetime import date, timedelta
+
 import bcrypt
 from sqlalchemy import select
 
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import License, LicenseMetric, LicenseType, LifecycleStatus
 from app.models.pending_order import PendingOrder
+from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User, UserRole
+from app.services.settings_service import invalidate_global_settings_cache
 
 
 # ---------------------------------------------------------------------------
@@ -1055,6 +1061,50 @@ async def test_get_stats(test_app, auth_headers):
 
     assert resp.status_code == 200
     assert "total" in resp.json()
+
+
+async def test_license_responses_and_stats_respect_configured_expiry_window(
+    db_session,
+    test_app,
+    auth_headers,
+):
+    db_session.add(GlobalSettings(id=1, notification_days=10))
+    await db_session.commit()
+    invalidate_global_settings_cache()
+
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Twenty Day License",
+        startDate=date.today().isoformat(),
+        endDate=(date.today() + timedelta(days=20)).isoformat(),
+    )
+
+    assert created["expirationStatus"] == "active"
+
+    detail_resp = await test_app.get(f"/api/licenses/{created['id']}", headers=auth_headers)
+    assert detail_resp.status_code == 200, detail_resp.text
+    assert detail_resp.json()["expirationStatus"] == "active"
+
+    list_resp = await test_app.get("/api/licenses", headers=auth_headers)
+    assert list_resp.status_code == 200, list_resp.text
+    listed = next(item for item in list_resp.json() if item["id"] == created["id"])
+    assert listed["expirationStatus"] == "active"
+
+    stats_resp = await test_app.get("/api/licenses/stats", headers=auth_headers)
+    assert stats_resp.status_code == 200, stats_resp.text
+    assert stats_resp.json()["total_expiring"] == 0
+
+    report_stats_resp = await test_app.get("/api/reports/portfolio-stats", headers=auth_headers)
+    assert report_stats_resp.status_code == 200, report_stats_resp.text
+    assert report_stats_resp.json()["total_expiring"] == 0
+
+    export_resp = await test_app.get("/api/licenses/export", headers=auth_headers)
+    assert export_resp.status_code == 200, export_resp.text
+    rows = list(csv.DictReader(io.StringIO(export_resp.text)))
+    exported = next(row for row in rows if row["ID"] == str(created["id"]))
+    assert exported["Expiration Status"] == "active"
+    invalidate_global_settings_cache()
 
 
 # ---------------------------------------------------------------------------

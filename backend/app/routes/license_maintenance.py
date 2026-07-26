@@ -28,9 +28,11 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 _DEFAULT_NOTIFICATION_DAYS = 30
 
 
-async def _get_global_settings(db: AsyncSession) -> dict:
+async def _get_global_settings(db: AsyncSession) -> tuple[dict, int]:
     gs = await _get_cached_global_settings(db)
-    return gs.mandatory_fields or {} if gs else {}
+    if gs is None:
+        return {}, _DEFAULT_NOTIFICATION_DAYS
+    return (gs.mandatory_fields or {}, int(gs.notification_days))
 
 
 def _enrich(
@@ -56,7 +58,7 @@ async def disable_maintenance(
     current_user: User = Depends(require_editor_or_admin),
 ) -> LicenseResponse:
     """Disable linked maintenance/support tracking on an eligible parent License."""
-    mandatory_fields = await _get_global_settings(db)
+    mandatory_fields, notification_days = await _get_global_settings(db)
 
     result = await db.execute(select(License).where(License.id == license_id).options(selectinload(License.documents)))
     license_obj = result.scalar_one_or_none()
@@ -70,7 +72,7 @@ async def disable_maintenance(
         )
 
     if not license_obj.has_maintenance:
-        return _enrich(license_obj, mandatory_fields)
+        return _enrich(license_obj, mandatory_fields, notification_days)
 
     await disable_maintenance_for_parent(db, license_obj)
 
@@ -90,4 +92,4 @@ async def disable_maintenance(
         select(License).where(License.id == license_id).options(selectinload(License.documents))
     )
     license_obj = reload_result.scalar_one()
-    return _enrich(license_obj, mandatory_fields)
+    return _enrich(license_obj, mandatory_fields, notification_days)

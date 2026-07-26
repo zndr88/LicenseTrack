@@ -34,6 +34,12 @@ async def get_mandatory_fields(db: AsyncSession) -> dict:
     return global_settings.mandatory_fields or {} if global_settings else {}
 
 
+async def get_notification_days(db: AsyncSession) -> int:
+    """Return the configured expiration warning window in days."""
+    global_settings = await _get_cached_global_settings(db)
+    return int(global_settings.notification_days) if global_settings else DEFAULT_NOTIFICATION_DAYS
+
+
 async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -> dict[int, list[ProcurementDocument]]:
     """Return procurement documents keyed by license id using explicit record scope."""
     pending_order_ids = {lic.pending_order_id for lic in licenses if lic.pending_order_id is not None}

@@ -21,8 +21,8 @@ from app.models.document import Document
 from app.models.license import License, LicenseType
 from app.services.access_service import apply_department_filter, get_viewer_departments
 from app.services.license_response_service import (
-    DEFAULT_NOTIFICATION_DAYS,
     get_mandatory_fields,
+    get_notification_days,
     get_procurement_documents_by_scope,
 )
 from app.services.license_service import compute_stats
@@ -39,6 +39,7 @@ async def get_portfolio_stats(
 ) -> dict:
     """Return server-side computed portfolio summary stats for the reports page."""
     mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
 
     departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
 
@@ -56,7 +57,7 @@ async def get_portfolio_stats(
             *procurement_documents_by_license_id.get(lic.id, []),
         ]
 
-    stats = compute_stats(all_licenses, documents_by_license_id, mandatory_fields, DEFAULT_NOTIFICATION_DAYS)
+    stats = compute_stats(all_licenses, documents_by_license_id, mandatory_fields, notification_days)
 
     # Count active (non-retired) licenses by type
     by_license_type: dict[str, int] = {t.value: 0 for t in LicenseType}
