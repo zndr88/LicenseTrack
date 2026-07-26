@@ -32,6 +32,9 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
   const processingRequestRef = useRef(0);
   latestLicenseIdRef.current = license.id;
 
+  const isStaleDocumentRequest = (licenseId, requestId) =>
+    requestId !== documentsRequestRef.current || latestLicenseIdRef.current !== licenseId;
+
   const stopProcessingPoll = () => {
     if (processingPollRef.current) {
       clearInterval(processingPollRef.current);
@@ -44,7 +47,7 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     const requestId = ++documentsRequestRef.current;
     setDocsLoading(true);
     const { data } = await getDocuments(licenseId);
-    if (requestId !== documentsRequestRef.current || latestLicenseIdRef.current !== licenseId) return;
+    if (isStaleDocumentRequest(licenseId, requestId)) return;
     setDocsLoading(false);
     if (data) setDocuments(data);
   };
@@ -106,13 +109,17 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
   };
 
   const refreshDocumentsAndLicense = async () => {
-    const { data } = await getDocuments(license.id);
-    const { data: freshLicense } = await getLicense(license.id);
+    const licenseId = license.id;
+    const requestId = ++documentsRequestRef.current;
+    const { data } = await getDocuments(licenseId);
+    const { data: freshLicense } = await getLicense(licenseId);
+    if (isStaleDocumentRequest(licenseId, requestId)) return;
     await loadProcessingResults();
+    if (isStaleDocumentRequest(licenseId, requestId)) return;
     if (data) {
       setDocuments(data);
       const summary = documentAvailabilitySummary(data);
-      onUpdate(license.id, {
+      onUpdate(licenseId, {
         documentCount: summary.total,
         availableDocumentCount: summary.available,
         missingDocumentCount: summary.missing,
@@ -123,9 +130,12 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
   };
 
   const refreshAfterProcessingReview = async () => {
-    const { data: freshLicense } = await getLicense(license.id);
-    if (freshLicense) onUpdate(license.id, freshLicense);
+    const licenseId = license.id;
+    const { data: freshLicense } = await getLicense(licenseId);
+    if (latestLicenseIdRef.current !== licenseId) return;
+    if (freshLicense) onUpdate(licenseId, freshLicense);
     await loadProcessingResults();
+    if (latestLicenseIdRef.current !== licenseId) return;
     await onProcessingAccepted?.();
   };
 

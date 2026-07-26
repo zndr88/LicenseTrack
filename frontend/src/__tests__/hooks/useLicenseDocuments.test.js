@@ -20,9 +20,11 @@ vi.mock("../../api/licenses.js", () => ({
 }));
 
 import {
+  deleteDocument,
   getDocuments,
   listDocumentProcessingResults,
 } from "../../api/documents.js";
+import { getLicense } from "../../api/licenses.js";
 import { useLicenseDocuments } from "../../hooks/useLicenseDocuments.js";
 
 function deferred() {
@@ -95,5 +97,74 @@ describe("useLicenseDocuments", () => {
 
     expect(result.current.documents).toEqual([{ id: 20, category: "invoice", original_filename: "current.pdf" }]);
     expect(result.current.processingResults).toEqual([{ id: 21, status: "pending" }]);
+  });
+
+  test("ignores stale document refreshes after a delete finishes on a previous license", async () => {
+    const initialDocs1 = deferred();
+    const initialProcessing1 = deferred();
+    const refreshDocs1 = deferred();
+    const refreshLicense1 = deferred();
+    const refreshProcessing1 = deferred();
+    const docs2 = deferred();
+    const processing2 = deferred();
+    const onUpdate = vi.fn();
+    const setConfirmAction = vi.fn();
+
+    getDocuments
+      .mockReturnValueOnce(initialDocs1.promise)
+      .mockReturnValueOnce(refreshDocs1.promise)
+      .mockReturnValueOnce(docs2.promise);
+    listDocumentProcessingResults
+      .mockReturnValueOnce(initialProcessing1.promise)
+      .mockReturnValueOnce(processing2.promise)
+      .mockReturnValueOnce(refreshProcessing1.promise);
+    deleteDocument.mockResolvedValueOnce({ error: null });
+    getLicense.mockReturnValueOnce(refreshLicense1.promise);
+
+    const { result, rerender } = renderHook(
+      (props) => useLicenseDocuments(props),
+      { initialProps: { ...renderForLicense(1), onUpdate, setConfirmAction } },
+    );
+
+    await act(async () => {
+      initialDocs1.resolve({ data: [{ id: 10, category: "invoice", original_filename: "stale.pdf" }], error: null });
+      initialProcessing1.resolve({ data: [], error: null });
+      await Promise.all([initialDocs1.promise, initialProcessing1.promise]);
+    });
+
+    await waitFor(() => {
+      expect(result.current.documents).toEqual([{ id: 10, category: "invoice", original_filename: "stale.pdf" }]);
+    });
+
+    act(() => {
+      result.current.handleFileRemove({ id: 10, original_filename: "stale.pdf" });
+    });
+
+    let confirmPromise;
+    await act(async () => {
+      confirmPromise = setConfirmAction.mock.calls[0][0].onConfirm();
+      await Promise.resolve();
+    });
+
+    rerender({ ...renderForLicense(2), onUpdate, setConfirmAction });
+
+    await act(async () => {
+      docs2.resolve({ data: [{ id: 20, category: "invoice", original_filename: "current.pdf" }], error: null });
+      processing2.resolve({ data: [], error: null });
+      await Promise.all([docs2.promise, processing2.promise]);
+    });
+
+    await waitFor(() => {
+      expect(result.current.documents).toEqual([{ id: 20, category: "invoice", original_filename: "current.pdf" }]);
+    });
+
+    await act(async () => {
+      refreshDocs1.resolve({ data: [{ id: 11, category: "invoice", original_filename: "old-refresh.pdf" }], error: null });
+      refreshLicense1.resolve({ data: { completenessPct: 100 }, error: null });
+      await Promise.all([refreshDocs1.promise, refreshLicense1.promise, confirmPromise]);
+    });
+
+    expect(result.current.documents).toEqual([{ id: 20, category: "invoice", original_filename: "current.pdf" }]);
+    expect(onUpdate).not.toHaveBeenCalledWith(1, expect.any(Object));
   });
 });
