@@ -186,6 +186,32 @@ async def test_list_departments_distinct_sorted(test_app, auth_headers):
     assert resp.json() == ["HR", "IT"]
 
 
+async def test_viewer_list_departments_respects_assigned_scope(db_session, test_app, auth_headers):
+    await _create_license(test_app, auth_headers, costCentre="HR")
+    await _create_license(test_app, auth_headers, costCentre="IT")
+
+    _, password = await _create_viewer(db_session, "viewer_departments_it", ["IT"])
+    headers = await _viewer_headers(test_app, "viewer_departments_it", password)
+
+    resp = await test_app.get("/api/licenses/departments", headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json() == ["IT"]
+
+
+async def test_viewer_list_departments_without_assignments_returns_empty(db_session, test_app, auth_headers):
+    await _create_license(test_app, auth_headers, costCentre="HR")
+    await _create_license(test_app, auth_headers, costCentre="IT")
+
+    _, password = await _create_viewer(db_session, "viewer_departments_empty", [])
+    headers = await _viewer_headers(test_app, "viewer_departments_empty", password)
+
+    resp = await test_app.get("/api/licenses/departments", headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
 # ---------------------------------------------------------------------------
 # 2u — PUT /api/users/{id}/departments saves and replaces
 # ---------------------------------------------------------------------------

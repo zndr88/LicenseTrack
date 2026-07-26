@@ -64,13 +64,16 @@ def _repair_diff(before: dict, after: dict, fields: set[str]) -> str | None:
 @router.get("/departments")
 async def list_departments(db: DbSession, _current_user: CurrentUser) -> list[str]:
     """Return distinct non-null, non-empty cost_centre values sorted alphabetically."""
-    result = await db.execute(
+    departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
+    query = (
         select(License.cost_centre)
         .where(License.cost_centre.isnot(None))
         .where(License.cost_centre != "")
         .distinct()
         .order_by(License.cost_centre)
     )
+    query = apply_department_filter(query, departments)
+    result = await db.execute(query)
     return [row[0] for row in result.all()]
 
 
