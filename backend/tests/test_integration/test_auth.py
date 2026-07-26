@@ -241,9 +241,9 @@ async def test_password_spray_across_usernames_blocked_by_ip(test_app):
     assert last_status == 429
 
 
-async def test_successful_login_clears_ip_counter(db_session, test_app):
-    """A successful login resets the IP counter so a user's own earlier typos do
-    not lock them (or their NAT neighbours) out afterwards."""
+async def test_successful_login_clears_username_counter_but_preserves_ip_counter(db_session, test_app):
+    """A successful login clears that account's typo history without resetting
+    the source-IP spray limiter for other usernames."""
     password = "correctpassword123"
     db_session.add(_make_user("clearcounter", password, UserRole.admin))
     await db_session.commit()
@@ -258,6 +258,48 @@ async def test_successful_login_clears_ip_counter(db_session, test_app):
     # Counter cleared: a subsequent wrong attempt is a plain 401, not a 429.
     again = await test_app.post("/api/auth/login", json={"username": "clearcounter", "password": "wrong"})
     assert again.status_code == 401
+
+
+async def test_successful_login_does_not_reset_ip_spray_counter(db_session, test_app):
+    password = "correctpassword123"
+    db_session.add(_make_user("sprayclear", password, UserRole.viewer))
+    await db_session.commit()
+
+    for i in range(auth_module._MAX_ATTEMPTS_PER_IP - 1):
+        resp = await test_app.post(
+            "/api/auth/login",
+            json={"username": f"spray_clear_{i}", "password": "wrong"},
+        )
+        assert resp.status_code == 401
+
+    ok = await test_app.post("/api/auth/login", json={"username": "sprayclear", "password": password})
+    assert ok.status_code == 200
+
+    last_allowed = await test_app.post(
+        "/api/auth/login",
+        json={"username": "spray_clear_last", "password": "wrong"},
+    )
+    assert last_allowed.status_code == 401
+
+    blocked = await test_app.post(
+        "/api/auth/login",
+        json={"username": "spray_clear_blocked", "password": "wrong"},
+    )
+    assert blocked.status_code == 429
+
+
+def test_login_attempt_key_cap_evicts_active_oldest_entries(monkeypatch):
+    monkeypatch.setattr(auth_module, "_MAX_TRACKED_KEYS", 2)
+    auth_module._login_attempts_by_user["oldest"] = [time.time()]
+    auth_module._login_attempts_by_user["middle"] = [time.time()]
+    auth_module._login_attempts_by_user["newest"] = [time.time()]
+
+    assert "oldest" in auth_module._login_attempts_by_user
+
+    auth_module._check_rate_limit("incoming", None)
+
+    assert "oldest" not in auth_module._login_attempts_by_user
+    assert len(auth_module._login_attempts_by_user) <= 2
 
 
 async def test_nonexistent_user_returns_401_not_error(test_app):

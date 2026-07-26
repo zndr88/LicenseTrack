@@ -47,14 +47,21 @@ def _prune_expired(store: dict[str, list[float]], now: float) -> None:
         _recent(store, key, now)
 
 
+def _enforce_key_cap(store: dict[str, list[float]], now: float) -> None:
+    """Drop expired keys, then evict the oldest active keys until the cap holds."""
+    if len(store) <= _MAX_TRACKED_KEYS:
+        return
+    _prune_expired(store, now)
+    while len(store) > _MAX_TRACKED_KEYS:
+        store.pop(next(iter(store)), None)
+
+
 def _check_rate_limit(username: str, ip: str | None) -> bool:
     """Return False when either the username or the source IP is over its threshold."""
     now = time()
     # Bound memory before doing any per-key work.
-    if len(_login_attempts_by_user) > _MAX_TRACKED_KEYS:
-        _prune_expired(_login_attempts_by_user, now)
-    if len(_login_attempts_by_ip) > _MAX_TRACKED_KEYS:
-        _prune_expired(_login_attempts_by_ip, now)
+    _enforce_key_cap(_login_attempts_by_user, now)
+    _enforce_key_cap(_login_attempts_by_ip, now)
 
     if len(_recent(_login_attempts_by_user, username, now)) >= _MAX_ATTEMPTS_PER_USER:
         return False
@@ -68,13 +75,13 @@ def _record_attempt(username: str, ip: str | None) -> None:
     _login_attempts_by_user[username].append(now)
     if ip is not None:
         _login_attempts_by_ip[ip].append(now)
+    _enforce_key_cap(_login_attempts_by_user, now)
+    _enforce_key_cap(_login_attempts_by_ip, now)
 
 
 def _clear_attempts(username: str, ip: str | None) -> None:
-    """Reset both counters after a successful login."""
+    """Reset the successful username counter without clearing the IP spray bucket."""
     _login_attempts_by_user.pop(username, None)
-    if ip is not None:
-        _login_attempts_by_ip.pop(ip, None)
 
 
 # Pre-computed bcrypt hash used to equalise response timing when the supplied

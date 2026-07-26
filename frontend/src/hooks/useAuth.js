@@ -20,7 +20,8 @@ export function useAuth({ sessionTimeout, showToast }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [authBootstrapping, setAuthBootstrapping] = useState(true);
 
-  const handleSessionTimeout = useCallback(() => {
+  const handleSessionTimeout = useCallback(async () => {
+    await logoutSession();
     apiLogout();
     setCurrentUser(null);
     showToast("Session expired due to inactivity.", "info");
