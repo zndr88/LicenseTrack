@@ -13,11 +13,14 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
     const validation = notificationsSaveSchema.safeParse({
       managerEmail: globalSettings.managerEmail,
       notificationSendHour: globalSettings.notificationSendHour,
+      notificationDays: globalSettings.notificationDays ?? 30,
+      noticeNotificationDays: globalSettings.noticeNotificationDays ?? 30,
     });
     if (!validation.success) { onError(validation.error.issues[0].message); return; }
     setSaving(true);
     const { data, error } = await updateGlobalSettings({
       notification_days: globalSettings.notificationDays,
+      notice_notification_days: globalSettings.noticeNotificationDays ?? 30,
       manager_email: globalSettings.managerEmail,
       notification_send_hour: globalSettings.notificationSendHour,
       allowed_email_domains: globalSettings.allowedEmailDomains.join(","),
@@ -43,21 +46,25 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
 
   return (
     <div className="setsec">
-      <SectionHeader sectionKey="notifications" icon="bell" title="Notifications" description="Expiration alert configuration (global)" iconColor="var(--orange)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
+      <SectionHeader sectionKey="notifications" icon="bell" title="Notifications" description="Alert windows and report recipients (global)" iconColor="var(--orange)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
           <div className="set-section-stack">
             <div className="fr">
               <div className="fg">
-                <label htmlFor="settings-alert-window">Alert Window (days)</label>
+                <label htmlFor="settings-alert-window">Expiration Alert Window (days)</label>
                 <input id="settings-alert-window" className="fi" type="number" value={globalSettings.notificationDays} onChange={(e) => { setGlobalSettings(s => ({ ...s, notificationDays: parseInt(e.target.value) || 30 })); markDirty("notifications"); }} />
               </div>
+      <div className="fg">
+                <label htmlFor="settings-notice-alert-window">Notice Deadline Lead Time (days)</label>
+                <input id="settings-notice-alert-window" className="fi" type="number" value={globalSettings.noticeNotificationDays ?? 30} onChange={(e) => { setGlobalSettings(s => ({ ...s, noticeNotificationDays: parseInt(e.target.value) || 30 })); markDirty("notifications"); }} />
+              </div>
+            </div>
+            <div className="fr">
               <div className="fg">
                 <label htmlFor="settings-manager-email">Manager Email</label>
                 <input id="settings-manager-email" className="fi" value={globalSettings.managerEmail} onChange={(e) => { setGlobalSettings(s => ({ ...s, managerEmail: e.target.value })); markDirty("notifications"); }} />
               </div>
-            </div>
-            <div className="fr">
               <div className="fg">
                 <label htmlFor="settings-send-hour">Daily Send Time (hour, 0-23)</label>
                 <input id="settings-send-hour" className="fi" type="number" min="0" max="23" value={globalSettings.notificationSendHour} onChange={(e) => { setGlobalSettings(s => ({ ...s, notificationSendHour: parseInt(e.target.value) || 7 })); markDirty("notifications"); }} />

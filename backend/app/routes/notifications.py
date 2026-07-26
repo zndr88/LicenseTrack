@@ -1,15 +1,16 @@
 """
 Notifications endpoint - aggregated license alerts.
 
-GET /api/notifications returns three alert categories for all non-retired licenses:
+GET /api/notifications returns four alert categories for all non-retired licenses:
   - expiring: end_date within 90 days, grouped into 30/60/90-day urgency bands
   - expired:  end_date in the past (and not renewed)
+  - notice_due: notice_date within the configured notice deadline window
   - incomplete: completeness_pct below 80 %
 
 Severity mapping
-  critical  - expired, or expiring within 30 days
-  warning   - expiring within 31-60 days
-  info      - expiring within 61-90 days, or incomplete
+  critical  - expired, overdue notice dates, or alerts due within 7 days
+  warning   - expiring or notice alerts due within 8-30 days
+  info      - later configured-window alerts, or incomplete
 
 Sort order: severity (critical first), then relevant_date ascending (None last).
 """
@@ -54,6 +55,11 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
     mandatory_fields = gs.mandatory_fields if gs and gs.mandatory_fields else {}
     expiry_window_days = (
         gs.notification_days if gs and gs.notification_days and 1 <= gs.notification_days <= 365 else 90
+    )
+    notice_window_days = (
+        gs.notice_notification_days
+        if gs and gs.notice_notification_days and 1 <= gs.notice_notification_days <= 365
+        else 30
     )
 
     query = select(License).where(License.is_retired.is_(False)).options(selectinload(License.documents))
@@ -120,6 +126,45 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
                         detail=(f"Expires in {days_left} {day_word} on {lic.end_date.isoformat()}"),
                         severity=severity,
                         relevant_date=lic.end_date,
+                    )
+                )
+
+        # ------------------------------------------------------------------
+        # Notice deadline - internal manager reminder, independent of expiry
+        # ------------------------------------------------------------------
+        if lic.notice_date is not None and not is_renewed and not is_upcoming:
+            notice_days_left = _days_until(lic.notice_date, today)
+            if notice_days_left < 0:
+                days_overdue = abs(notice_days_left)
+                day_word = "day" if days_overdue == 1 else "days"
+                notifications.append(
+                    NotificationItem(
+                        license_id=lic.id,
+                        software_name=lic.software_description,
+                        publisher=lic.publisher_name,
+                        type="notice_due",
+                        detail=(f"Notice deadline passed {days_overdue} {day_word} ago on {lic.notice_date.isoformat()}"),
+                        severity="critical",
+                        relevant_date=lic.notice_date,
+                    )
+                )
+            elif notice_days_left <= notice_window_days:
+                if notice_days_left <= 7:
+                    severity = "critical"
+                elif notice_days_left <= 30:
+                    severity = "warning"
+                else:
+                    severity = "info"
+                day_word = "day" if notice_days_left == 1 else "days"
+                notifications.append(
+                    NotificationItem(
+                        license_id=lic.id,
+                        software_name=lic.software_description,
+                        publisher=lic.publisher_name,
+                        type="notice_due",
+                        detail=(f"Notice deadline in {notice_days_left} {day_word} on {lic.notice_date.isoformat()}"),
+                        severity=severity,
+                        relevant_date=lic.notice_date,
                     )
                 )
 

@@ -30,11 +30,13 @@ integrations. Deleting a definition also deletes its stored values.
 
 ## Notifications
 
-The scheduled notification run evaluates expiring and incomplete licenses. Admins
+The scheduled notification run evaluates expiring licenses, notice deadlines,
+and incomplete licenses. Admins
 configure:
 
 - the daily notification hour;
 - the expiry alert window;
+- the notice deadline alert window;
 - the manager digest address;
 - allowed recipient domains; and
 - customizable email introduction and sign-off text.
@@ -47,6 +49,9 @@ The expiry alert window is the shared definition of "expiring soon" throughout
 the app. Registry badges and statistics, license detail calculations, exports,
 reports, contracts, renewal and maintenance responses, and notifications all use
 the configured value.
+
+The notice deadline alert window is separate. Notice deadline reminders are
+sent to the configured manager digest address and do not email the budget owner.
 
 ## SMTP
 

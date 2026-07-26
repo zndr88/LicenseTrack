@@ -8,6 +8,7 @@ from app.models.pending_order import PendingOrder
 from app.models.settings import GlobalSettings
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
+from app.services.settings_service import invalidate_global_settings_cache
 
 
 async def _create_viewer(db_session, username: str, departments: list[str]) -> dict:
@@ -121,6 +122,32 @@ async def test_notifications_respect_notification_day_setting(
     }
     assert "Inside Window" in expiring_names
     assert "Outside Window" not in expiring_names
+
+
+async def test_notifications_include_notice_deadlines_with_configured_window(
+    db_session, test_app, auth_headers
+):
+    db_session.add(GlobalSettings(id=1, notice_notification_days=7))
+    inside_window = _license(
+        software_description="Notice Inside Window",
+        notice_date=date.today() + timedelta(days=7),
+    )
+    outside_window = _license(
+        software_description="Notice Outside Window",
+        notice_date=date.today() + timedelta(days=8),
+    )
+    db_session.add_all([inside_window, outside_window])
+    await db_session.commit()
+    invalidate_global_settings_cache()
+
+    response = await test_app.get("/api/notifications", headers=auth_headers)
+
+    assert response.status_code == 200
+    notice_names = {
+        row["software_name"] for row in response.json() if row["type"] == "notice_due"
+    }
+    assert "Notice Inside Window" in notice_names
+    assert "Notice Outside Window" not in notice_names
 
 
 async def test_notifications_exclude_legacy_renewed_retired_and_exempt_records(

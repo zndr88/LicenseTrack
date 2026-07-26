@@ -43,6 +43,7 @@ def _make_license_entry(
         "publisher_name": "Acme Corp",
         "start_date": "2024-01-01",
         "end_date": "2025-01-01",
+        "notice_date": "2024-11-01",
         "days_until_expiry": days_until_expiry,
         "quantity": "10",
         "cost_centre": "IT",
@@ -180,11 +181,13 @@ def test_manager_digest_counts_expired_expiring_incomplete():
     notifications = [
         _make_license_entry(alert_type="expired", days_until_expiry=-10),
         _make_license_entry(alert_type="expiring", days_until_expiry=5),
+        _make_license_entry(alert_type="notice_due", days_until_expiry=12),
         _make_license_entry(alert_type="incomplete", completeness_pct=50),
     ]
     html = email_templates.manager_digest(notifications)
     assert "Expired Licenses" in html
     assert "Expiring Soon" in html
+    assert "Notice Deadlines" in html
     assert "Incomplete Records" in html
 
 
@@ -207,6 +210,12 @@ def test_manager_digest_incomplete_shows_completeness_percentage():
     entry = _make_license_entry(alert_type="incomplete", completeness_pct=42)
     html = email_templates.manager_digest([entry])
     assert "42% complete" in html
+
+
+def test_manager_digest_notice_due_shows_notice_copy():
+    entry = _make_license_entry(alert_type="notice_due", days_until_expiry=8)
+    html = email_templates.manager_digest([entry])
+    assert "Notice deadline in 8 days" in html
 
 
 def test_manager_digest_maintenance_shows_parent_reference():
@@ -343,6 +352,35 @@ async def test_run_daily_notifications_sends_digest_to_manager(
     assert result["digest_sent"] is True
     recipients = [call[0][1] for call in mock_send.call_args_list]
     assert "manager@example.com" in recipients
+
+
+async def test_run_daily_notifications_sends_notice_deadline_only_to_manager(
+    db_session, smtp_settings
+):
+    smtp_settings.notice_notification_days = 14
+    notice = License(
+        publisher_name="Vendor",
+        software_description="Notice App",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        notice_date=date.today() + timedelta(days=10),
+        budget_owner_email="owner@example.com",
+        is_retired=False,
+    )
+    db_session.add(notice)
+    await db_session.commit()
+
+    with patch(
+        "app.services.notification_sender.send_email", new_callable=AsyncMock
+    ) as mock_send:
+        result = await run_daily_notifications(db_session)
+
+    recipients = [call[0][1] for call in mock_send.call_args_list]
+    assert result["budget_owner_emails_sent"] == 0
+    assert result["digest_sent"] is True
+    assert result["total_notifications"] == 1
+    assert recipients == ["manager@example.com"]
 
 
 async def test_run_daily_notifications_skips_domain_not_in_whitelist(

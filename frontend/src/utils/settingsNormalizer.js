@@ -22,6 +22,7 @@ export function normalizeGlobalSettings(data, current) {
     passwordMinLength: data.password_min_length ?? current.passwordMinLength,
     storagePath: data.storage_path ?? current.storagePath,
     notificationDays: data.notification_days ?? current.notificationDays,
+    noticeNotificationDays: data.notice_notification_days ?? current.noticeNotificationDays,
     managerEmail: data.manager_email ?? current.managerEmail,
     smtpHost: data.smtp_host ?? current.smtpHost,
     smtpPort: data.smtp_port ?? current.smtpPort,
@@ -68,6 +69,7 @@ export function normalizePublicGlobalSettings(data, current) {
     ...current,
     mandatoryFields: data.mandatory_fields ?? current.mandatoryFields,
     notificationDays: data.notification_days ?? current.notificationDays,
+    noticeNotificationDays: data.notice_notification_days ?? current.noticeNotificationDays,
     oidcEnabled: data.oidc_enabled ?? current.oidcEnabled,
     oidcAvailable: data.oidc_available ?? current.oidcAvailable,
   };

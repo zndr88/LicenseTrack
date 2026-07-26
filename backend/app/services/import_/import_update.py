@@ -76,6 +76,8 @@ async def apply_import_update(
         license_obj.start_date = row.db_start_date
     if row.db_end_date is not None and license_obj.license_type != LicenseType.perpetual:
         license_obj.end_date = row.db_end_date
+    if row.db_notice_date is not None:
+        license_obj.notice_date = row.db_notice_date
     if row.db_request_date is not None:
         license_obj.request_date = row.db_request_date
     if row.db_purchase_date is not None:

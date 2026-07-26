@@ -29,7 +29,7 @@ export default function CompletenessSection({ isOpen, isDirty, onToggle, markDir
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
           <div className="set-section-stack">
-            {Object.entries({ invoice: "Invoice attached", purchaseOrder: "Purchase Order attached", quote: "Quote attached", eula: "EULA attached", entitlement: "Proof of entitlement", startDate: "Start date", endDate: "End date / Perpetual", contractNumber: "Contract number", poNumber: "PO number", invoiceNumber: "Invoice Number", contactEmail: "Publisher contact", costCentre: "Department / Cost Centre", budgetOwnerEmail: "Budget Owner Email" }).map(([k, label]) => (
+            {Object.entries({ invoice: "Invoice attached", purchaseOrder: "Purchase Order attached", quote: "Quote attached", eula: "EULA attached", entitlement: "Proof of entitlement", startDate: "Start date", endDate: "End date / Perpetual", noticeDate: "Notice date", contractNumber: "Contract number", poNumber: "PO number", invoiceNumber: "Invoice Number", contactEmail: "Publisher contact", costCentre: "Department / Cost Centre", budgetOwnerEmail: "Budget Owner Email" }).map(([k, label]) => (
               <div className="trow" key={k}>
                 <span>{label}</span>
                 <Toggle value={globalSettings.mandatoryFields[k]} onChange={(v) => { setGlobalSettings(s => ({ ...s, mandatoryFields: { ...s.mandatoryFields, [k]: v } })); markDirty("completeness"); }} />

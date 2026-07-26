@@ -69,6 +69,7 @@ function buildLicensePayload(form) {
     softwareDescription: form.softwareDescription,
     startDate: form.startDate || null,
     endDate: form.isPerpetual ? null : (form.endDate || null),
+    noticeDate: form.noticeDate || null,
     contractNumber: form.contractNumber || "",
     poNumber: form.poNumber || "",
     invoiceNumber: form.invoiceNumber || "",

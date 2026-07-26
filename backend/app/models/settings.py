@@ -24,6 +24,7 @@ _DEFAULT_VISIBLE_IN_LIST: dict = {
     "dates": True,
     "startDate": True,
     "endDate": True,
+    "noticeDate": False,
     "supplier": True,
     "costCentre": True,
     "contactEmail": False,
@@ -87,6 +88,7 @@ _DEFAULT_MANDATORY_FIELDS: dict = {
     "quote": False,
     "startDate": False,
     "endDate": False,
+    "noticeDate": False,
     "contractNumber": False,
     "poNumber": False,
     "invoiceNumber": False,
@@ -162,6 +164,7 @@ class GlobalSettings(Base):
 
     # Notifications (global)
     notification_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    notice_notification_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30, server_default="30")
     manager_email: Mapped[str] = mapped_column(String(255), nullable=False, default="")
 
     # SMTP / email

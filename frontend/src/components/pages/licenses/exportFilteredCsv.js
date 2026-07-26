@@ -25,6 +25,7 @@ const IMPORTABLE_FIELD_NAMES = {
   notes:            "notes",
   startDate:           "start_date",
   endDate:             "end_date",
+  noticeDate:          "notice_date",
   requestDate:         "request_date",
   purchaseDate:        "purchase_date",
   portalUrl:           "portal_url",
@@ -121,6 +122,7 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         }
         case "startDate": return fmtDate(l.startDate);
         case "endDate": return fmtDate(l.endDate);
+        case "noticeDate": return fmtDate(l.noticeDate);
         case "requestDate": return fmtDateTime(l.requestDate);
         case "purchaseDate": return fmtDateTime(l.purchaseDate);
         case "portalUrl": return l.portalUrl ?? "";

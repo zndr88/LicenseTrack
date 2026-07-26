@@ -28,6 +28,7 @@ export const COLUMN_DEFS = [
   { key: "currency", label: "Currency", width: 85, group: "standard", defaultVisible: false },
   { key: "startDate", label: "Start Date", width: 100, group: "standard", defaultVisible: true, settingsKey: "dates", settingsLabel: "Dates", grouped: true },
   { key: "endDate", label: "End Date", width: 100, group: "standard", defaultVisible: true, settingsKey: "dates", grouped: true },
+  { key: "noticeDate", label: "Notice Date", width: 110, group: "standard", defaultVisible: false },
   { key: "requestDate", label: "Request Date", width: 145, group: "standard", defaultVisible: false },
   { key: "purchaseDate", label: "Purchase Date", width: 145, group: "standard", defaultVisible: false },
   { key: "portalUrl", label: "Portal URL", width: 190, group: "standard", defaultVisible: false },

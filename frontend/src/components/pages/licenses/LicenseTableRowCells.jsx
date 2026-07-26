@@ -19,6 +19,7 @@ const INLINE_EDIT_CONFIG = {
   unitPrice: { fieldKey: "unitPrice", inputType: "text", className: "mono lp-mono-bold" },
   startDate: { fieldKey: "startDate", inputType: "date", className: "mono", style: { width: 100 } },
   endDate: { fieldKey: "endDate", inputType: "date", className: "mono", style: { width: 100 } },
+  noticeDate: { fieldKey: "noticeDate", inputType: "date", className: "mono", style: { width: 110 } },
 };
 
 function normalizeInlineValue(fieldKey, value, userSettings) {
@@ -269,6 +270,8 @@ export default function LicenseTableRowCells({
         return <td key="startDate" className="mono" style={{ width: 100 }}>{license.startDate ? formatDate(license.startDate, userSettings) : "-"}</td>;
       case "endDate":
         return <td key="endDate" className="mono" style={{ width: 100 }}>{license.endDate ? formatDate(license.endDate, userSettings) : "-"}</td>;
+      case "noticeDate":
+        return <td key="noticeDate" className="mono" style={{ width: 110 }}>{license.noticeDate ? formatDate(license.noticeDate, userSettings) : "-"}</td>;
       case "requestDate":
         return <td key="requestDate" className="mono">{license.requestDate ? formatDateTime(license.requestDate, userSettings) : "-"}</td>;
       case "purchaseDate":

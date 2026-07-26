@@ -36,6 +36,7 @@ _HEADER_MAP: dict[str, str] = {
     "description": "software_description",
     "start_date": "start_date",
     "end_date": "end_date",
+    "notice_date": "notice_date",
     "contract_number": "contract_number",
     "contract": "contract_number",
     "po_number": "po_number",
@@ -88,6 +89,7 @@ _HEADER_MAP: dict[str, str] = {
     "lt_ref": "license_ref",  # "LT Ref"
     "publisher_contact": "contact_email",  # "Publisher Contact"
     "budget_owner": "budget_owner_email",  # "Budget Owner"
+    "notice_deadline": "notice_date",  # "Notice Deadline"
     "portal_url": "portal_url",  # "Portal URL"
     "maintenance_coverage": "maintenance_coverage",
     "maintenance_support_coverage": "maintenance_coverage",  # "Maintenance / Support Coverage"
@@ -134,6 +136,7 @@ _RECOMMENDED_FIELDS = [
     "software_description",
     "start_date",
     "end_date",
+    "notice_date",
     "contract_number",
     "po_number",
     "license_type",
@@ -226,6 +229,7 @@ class ParsedRow:
     # DB insertion values - not exposed in the preview response
     db_start_date: Optional[date] = field(default=None, repr=False)
     db_end_date: Optional[date] = field(default=None, repr=False)
+    db_notice_date: Optional[date] = field(default=None, repr=False)
     db_request_date: Optional[datetime] = field(default=None, repr=False)
     db_purchase_date: Optional[datetime] = field(default=None, repr=False)
 
@@ -234,6 +238,7 @@ class ParsedRow:
     matched_license_id: Optional[int] = field(default=None)
     is_completeness_exempt: bool = field(default=False, repr=False)
     lifecycle_status: Optional[str] = field(default=None, repr=False)
+    notice_date: Optional[str] = None  # ISO string or None
 
 
 @dataclass
@@ -461,8 +466,10 @@ def _parse_row(
     # -- Date fields ------------------------------------------------------
     db_start_date: Optional[date] = None
     db_end_date: Optional[date] = None
+    db_notice_date: Optional[date] = None
     start_date_str: Optional[str] = None
     end_date_str: Optional[str] = None
+    notice_date_str: Optional[str] = None
     is_perpetual = False
 
     start_raw = data.get("start_date", "").strip()
@@ -488,6 +495,19 @@ def _parse_row(
                 db_end_date = ed
                 end_date_str = ed.isoformat()
             # perpetual → db_end_date stays None, end_date_str stays None
+
+    notice_raw = data.get("notice_date", "").strip()
+    if notice_raw:
+        nd, _, nd_err = _parse_date(notice_raw, date_format)
+        if nd_err:
+            errors.append(f"notice_date: {nd_err}")
+            has_parse_error = True
+        else:
+            if nd is not None:
+                db_notice_date = nd
+                notice_date_str = nd.isoformat()
+                if db_end_date is not None and nd > db_end_date:
+                    warnings.append("notice_date falls after end_date")
 
     # -- Procurement milestone datetimes ----------------------------------
     db_request_date, request_err = _parse_datetime(data.get("request_date", ""), date_format)
@@ -579,6 +599,7 @@ def _parse_row(
         software_description=software_description,
         start_date=start_date_str,
         end_date=end_date_str,
+        notice_date=notice_date_str,
         contract_number=data.get("contract_number", "").strip(),
         po_number=data.get("po_number", "").strip(),
         invoice_number=data.get("invoice_number", "").strip(),
@@ -605,6 +626,7 @@ def _parse_row(
         currency_defaulted=currency_defaulted,
         db_start_date=db_start_date,
         db_end_date=db_end_date,
+        db_notice_date=db_notice_date,
         db_request_date=db_request_date,
         db_purchase_date=db_purchase_date,
         is_completeness_exempt=is_completeness_exempt,

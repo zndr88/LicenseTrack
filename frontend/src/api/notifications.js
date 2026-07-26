@@ -2,7 +2,8 @@
  * Notifications API - aggregated license alerts.
  *
  * Endpoint:
- *   GET /api/notifications - returns expiring, expired, and incomplete alerts
+ *   GET /api/notifications - returns expiring, expired, notice deadline,
+ *                            and incomplete alerts
  *                            sorted by severity (critical -> warning -> info)
  *                            then by relevant date ascending
  */
@@ -17,7 +18,7 @@ import { get } from "./client.js";
  *     license_id:    number,
  *     software_name: string,
  *     publisher:     string,
- *     type:          "expired" | "expiring" | "incomplete",
+ *     type:          "expired" | "expiring" | "notice_due" | "incomplete",
  *     detail:        string,
  *     severity:      "critical" | "warning" | "info",
  *     relevant_date: string | null,   // ISO date string

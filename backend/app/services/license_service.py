@@ -118,6 +118,8 @@ def _check_mandatory_field(
             LicenseType.oem,
             LicenseType.freeware,
         )
+    if key == "noticeDate":
+        return license.notice_date is not None
     if key == "contractNumber":
         return bool(license.contract_number)
     if key == "poNumber":

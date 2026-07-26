@@ -30,6 +30,7 @@ export function getSortValue(license, colKey) {
     case "dates":          return license.startDate ?? null;
     case "endDate":
     case "expiration":     return license.endDate ?? null;
+    case "noticeDate":     return license.noticeDate ?? null;
     case "requestDate":    return license.requestDate ?? null;
     case "purchaseDate":   return license.purchaseDate ?? null;
     case "portalUrl":      return license.portalUrl ?? null;

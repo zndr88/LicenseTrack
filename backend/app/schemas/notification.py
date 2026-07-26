@@ -9,7 +9,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel
 
-NotificationType = Literal["expiring", "expired", "incomplete"]
+NotificationType = Literal["expiring", "expired", "incomplete", "notice_due"]
 NotificationSeverity = Literal["critical", "warning", "info"]
 
 

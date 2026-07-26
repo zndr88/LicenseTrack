@@ -24,6 +24,12 @@ export const notificationsSaveSchema = z.object({
   notificationSendHour: z.number().int()
     .min(0, { message: "Must be an hour between 0 and 23." })
     .max(23, { message: "Must be an hour between 0 and 23." }),
+  notificationDays: z.number().int()
+    .min(1, { message: "Expiration alert window must be between 1 and 365 days." })
+    .max(365, { message: "Expiration alert window must be between 1 and 365 days." }),
+  noticeNotificationDays: z.number().int()
+    .min(1, { message: "Notice deadline alert window must be between 1 and 365 days." })
+    .max(365, { message: "Notice deadline alert window must be between 1 and 365 days." }),
 });
 
 /** SmtpSection - sender only; used when emailEnabled is false. */

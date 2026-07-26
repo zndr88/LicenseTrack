@@ -20,12 +20,13 @@ export default function NotificationsPage({ notifications, globalSettings, setSe
         ) : (
           <div className="notifs">
             <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 6 }}>
-              In production, expiration alerts emailed directly to budget owners. Daily summaries to: <strong style={{ color: "var(--text-2)" }}>{globalSettings.managerEmail}</strong>
+              In production, expiration alerts emailed directly to budget owners. Notice deadline reminders and daily summaries go to: <strong style={{ color: "var(--text-2)" }}>{globalSettings.managerEmail}</strong>
             </div>
             {notifications.map((n, i) => {
               const colors = {
                 expired: { bg: "var(--red-m)", fg: "var(--red)", label: "var(--red-text)", title: "Expired" },
                 expiring: { bg: "var(--orange-m)", fg: "var(--orange)", label: "var(--orange-text)", title: "Expiring Soon" },
+                notice_due: { bg: "var(--purple-dim)", fg: "var(--purple)", label: "var(--purple-text)", title: "Notice Deadline" },
                 incomplete: { bg: "var(--orange-m)", fg: "var(--orange)", label: "var(--orange-text)", title: "Incomplete" },
               };
               const c = colors[n.type] || colors.incomplete;

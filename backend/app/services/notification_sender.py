@@ -52,6 +52,7 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
         return {"skipped": True, "reason": "email_disabled"}
 
     notification_days = gs.notification_days or 30
+    notice_notification_days = gs.notice_notification_days or 30
     mandatory_fields = gs.mandatory_fields or {}
     today = date.today()
     allowed_domains = [d.strip() for d in (gs.allowed_email_domains or "").split(",") if d.strip()]
@@ -103,6 +104,13 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
                 if lic.budget_owner_email:
                     expiring_by_owner.setdefault(lic.budget_owner_email, []).append(entry)
 
+        # Check notice deadline. These are manager-only reminders; they do
+        # not enter the budget-owner email grouping.
+        if lic.notice_date is not None:
+            days_left = (lic.notice_date - today).days
+            if days_left <= notice_notification_days:
+                all_notifications.append(_build_license_entry(lic, "notice_due", days_left, parent_map=parent_map))
+
         # Check completeness
         if not lic.is_completeness_exempt:
             completeness = compute_completeness(lic, docs, mandatory_fields)
@@ -151,8 +159,8 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
     digest_sent = False
     if gs.manager_email and not _is_domain_allowed(gs.manager_email, allowed_domains):
         log.warning(f"Skipping digest to {gs.manager_email} - domain not in whitelist")
-    has_expiry_notifications = any(n["type"] in ("expired", "expiring") for n in all_notifications)
-    if gs.manager_email and has_expiry_notifications and _is_domain_allowed(gs.manager_email, allowed_domains):
+    has_manager_notifications = any(n["type"] in ("expired", "expiring", "notice_due") for n in all_notifications)
+    if gs.manager_email and has_manager_notifications and _is_domain_allowed(gs.manager_email, allowed_domains):
         try:
             html = manager_digest(
                 all_notifications,
@@ -160,11 +168,13 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
             )
             expired_count = sum(1 for n in all_notifications if n["type"] == "expired")
             expiring_count = sum(1 for n in all_notifications if n["type"] == "expiring")
+            notice_count = sum(1 for n in all_notifications if n["type"] == "notice_due")
             incomplete_count = sum(1 for n in all_notifications if n["type"] == "incomplete")
             subject = (
                 f"License Lifecycle Daily Summary: "
                 f"{expired_count} expired, "
                 f"{expiring_count} expiring, "
+                f"{notice_count} notice deadline, "
                 f"{incomplete_count} incomplete"
             )
             await send_email(gs, gs.manager_email, subject, html)
@@ -198,6 +208,7 @@ def _build_license_entry(
         "publisher_name": lic.publisher_name,
         "start_date": lic.start_date.isoformat() if lic.start_date else "",
         "end_date": lic.end_date.isoformat() if lic.end_date else "",
+        "notice_date": lic.notice_date.isoformat() if lic.notice_date else "",
         "days_until_expiry": days_left,
         "quantity": lic.quantity or "",
         "cost_centre": lic.cost_centre or "",

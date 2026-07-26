@@ -31,6 +31,7 @@
 .dp-edit-form .fg { margin-bottom: 8px; }
 .dp-edit-title { font-family: var(--font-mono); font-size: 9px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-2); margin-bottom: 10px; }
 .dp-data-row { margin-bottom: 10px; }
+.dp-field-warning { margin-top: 4px; font-size: 11px; color: var(--orange-text); }
 .dp-btn-row { display: flex; gap: 6px; justify-content: flex-end; }
 .dp-btn-wrap { display: flex; gap: 6px; flex-wrap: wrap; }
 .dp-mono-val { font-family: var(--font-mono); font-weight: 500; }

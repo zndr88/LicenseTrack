@@ -5,6 +5,7 @@ export const NATIVE_FIELDS = [
   { value: "software_description", label: "Software / Description" },
   { value: "start_date",           label: "Start Date" },
   { value: "end_date",             label: "End Date" },
+  { value: "notice_date",          label: "Notice Date" },
   { value: "request_date",         label: "Request Date" },
   { value: "purchase_date",        label: "Purchase Date" },
   { value: "contract_number",      label: "Contract Number" },

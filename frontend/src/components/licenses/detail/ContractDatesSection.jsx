@@ -27,6 +27,12 @@ export default function ContractDatesSection({
     : (license.invoiceNumber ? [license.invoiceNumber] : []);
   const invoiceCount = invoiceNumbers.length;
   const primaryInvoiceNumber = license.invoiceNumber || invoiceNumbers[0] || "";
+  const noticeAfterEnd = Boolean(license.noticeDate && license.endDate && license.noticeDate > license.endDate);
+  const matchedContract = license.contractNumber
+    ? (contracts ?? []).find(
+        (c) => c.contractNumber?.toLowerCase() === license.contractNumber?.toLowerCase()
+      )
+    : null;
 
   return (
     <>
@@ -91,17 +97,20 @@ export default function ContractDatesSection({
           </div>
           <div className="fr dp-data-row">
             <div className="dp-field">
-              <label>Contract #</label>
+              <label>Notice Date</label>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val mono">{license.contractNumber || "\u2014"}</div>
+                <div className="val mono">{license.noticeDate ? formatDate(license.noticeDate, userSettings) : "\u2014"}</div>
                 {perms.canEdit && (
-                  <button type="button" className="dp-field-edit-icon" aria-label="Edit contract number"
-                    onClick={() => openFieldEdit({ fieldKey: "contractNumber", fieldLabel: "Contract #", currentValue: license.contractNumber || "", inputType: "text" })}
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit notice date"
+                    onClick={() => openFieldEdit({ fieldKey: "noticeDate", fieldLabel: "Notice Date", currentValue: license.noticeDate || "", inputType: "date" })}
                     onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
                     <Icon name="edit" size={11} />
                   </button>
                 )}
               </div>
+              {noticeAfterEnd && (
+                <div className="dp-field-warning">Notice date is after the license end date.</div>
+              )}
             </div>
             <div className="dp-field">
               <label>PO #</label>
@@ -117,15 +126,25 @@ export default function ContractDatesSection({
               </div>
             </div>
           </div>
-          {license.contractNumber && (() => {
-            const matched = (contracts ?? []).find(
-              (c) => c.contractNumber?.toLowerCase() === license.contractNumber?.toLowerCase()
-            );
-            return (
-              <div className="dp-field" style={{ marginBottom: 4 }}>
+          <div className="fr dp-data-row">
+            <div className="dp-field">
+              <label>Contract #</label>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div className="val mono">{license.contractNumber || "\u2014"}</div>
+                {perms.canEdit && (
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit contract number"
+                    onClick={() => openFieldEdit({ fieldKey: "contractNumber", fieldLabel: "Contract #", currentValue: license.contractNumber || "", inputType: "text" })}
+                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                    <Icon name="edit" size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+            {license.contractNumber && (
+              <div className="dp-field">
                 <label>Contract Record</label>
-                {matched ? (
-                  <button className="btn btn-g btn-sm" onClick={() => onNavigateToContract?.(matched.id)} style={{ marginTop: 2 }}>
+                {matchedContract ? (
+                  <button className="btn btn-g btn-sm" onClick={() => onNavigateToContract?.(matchedContract.id)} style={{ marginTop: 2 }}>
                     <Icon name="file" size={12} /> Open Contract
                   </button>
                 ) : (
@@ -136,8 +155,8 @@ export default function ContractDatesSection({
                   </button>
                 )}
               </div>
-            );
-          })()}
+            )}
+          </div>
           <div className="dp-field">
             <label>Invoice #</label>
             <div style={{ display: "flex", alignItems: "center" }}>

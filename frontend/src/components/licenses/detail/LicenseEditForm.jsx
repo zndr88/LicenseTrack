@@ -18,6 +18,8 @@ export default function LicenseEditForm({
   onSave,
   onCancel,
 }) {
+  const noticeAfterEnd = Boolean(editFields.noticeDate && editFields.endDate && editFields.noticeDate > editFields.endDate);
+
   return (
     <div className="dp-edit-form">
       <div className="dp-edit-title">Edit License Details</div>
@@ -43,6 +45,11 @@ export default function LicenseEditForm({
           <label>End Date</label>
           <input className="fi" type={editFields.endDate === "Perpetual" ? "text" : "date"} value={editFields.endDate} onChange={(e) => setEditFields((p) => ({ ...p, endDate: e.target.value }))} />
         </div>
+      </div>
+      <div className="fg">
+        <label>Notice Date</label>
+        <input className="fi" type="date" value={editFields.noticeDate || ""} onChange={(e) => setEditFields((p) => ({ ...p, noticeDate: e.target.value }))} />
+        {noticeAfterEnd && <div className="dp-field-warning">Notice date is after the license end date.</div>}
       </div>
       <div className="fr">
         <div className="fg">

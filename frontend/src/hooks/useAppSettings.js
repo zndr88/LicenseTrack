@@ -37,12 +37,13 @@ const DEFAULT_USER_SETTINGS = {
 };
 
 const DEFAULT_GLOBAL_SETTINGS = {
-  mandatoryFields: { invoice: false, eula: false, entitlement: false, purchaseOrder: false, quote: false, startDate: false, endDate: false, contractNumber: false, poNumber: false, invoiceNumber: false, contactEmail: false, costCentre: false, budgetOwnerEmail: false },
+  mandatoryFields: { invoice: false, eula: false, entitlement: false, purchaseOrder: false, quote: false, startDate: false, endDate: false, noticeDate: false, contractNumber: false, poNumber: false, invoiceNumber: false, contactEmail: false, costCentre: false, budgetOwnerEmail: false },
   authMethod: "mfa",
   sessionTimeout: 30,
   passwordMinLength: 12,
   storagePath: "",
   notificationDays: 30,
+  noticeNotificationDays: 30,
   managerEmail: "",
   smtpHost: "",
   smtpPort: 587,

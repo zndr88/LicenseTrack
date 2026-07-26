@@ -36,6 +36,11 @@ when a license originates from sourcing, including direct freeware conversion.
 **Purchase date** is filled only when a pending order exists. Together they give
 you a clear reading of the path the entitlement followed.
 
+**Notice date** is an optional manually entered contractual notice deadline,
+for example the last date to cancel or change renewal terms. It is independent
+from the license end date and is not calculated automatically. LicenseTrack
+warns if the notice date is after the end date, but it does not block saving.
+
 Your **PO number**, **invoice number**, and — if required — **contract number** are shown in this section. You can also link the license to a dedicated contract from here. More on that later.
 
 A license can have more than one invoice number. Click the invoice number or the add control to manage the invoice-number list. The first invoice number is the primary invoice shown in the overview table and exports.
@@ -86,7 +91,7 @@ In this section you can upload any document related to the purchase cycle of a s
 
 ![Completeness & Flags section](../assets/record-07-completeness-flags.png)
 
-Each purchase has a **completeness score**. The completeness requirements are defined by the admin under settings. In this example, the invoice, proof of entitlement, start and end date, contract number, and PO number are all required for a license to count as **complete**.
+Each purchase has a **completeness score**. The completeness requirements are defined by the admin under settings. In this example, the invoice, proof of entitlement, start and end date, contract number, and PO number are all required for a license to count as **complete**. Admins can also include notice date when contractual notice tracking is part of their housekeeping goals.
 
 For a freeware/open-source record, EULA, proof-of-entitlement, and
 publisher-contact requirements do not apply. Contract, PO, invoice, and quote

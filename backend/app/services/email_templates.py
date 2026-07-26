@@ -206,6 +206,7 @@ def manager_digest(
     """
     expired = [n for n in notifications if n.get("type") == "expired"]
     expiring = [n for n in notifications if n.get("type") == "expiring"]
+    notice_due = [n for n in notifications if n.get("type") == "notice_due"]
     incomplete = [n for n in notifications if n.get("type") == "incomplete"]
 
     total = len(notifications)
@@ -221,6 +222,7 @@ def manager_digest(
     summary_row = (
         _chip(len(expired), "Expired", "#ef4444")
         + _chip(len(expiring), "Expiring Soon", "#f59e0b")
+        + _chip(len(notice_due), "Notice Deadlines", "#7c3aed")
         + _chip(len(incomplete), "Incomplete", "#3b82f6")
     )
 
@@ -235,6 +237,14 @@ def manager_digest(
             detail = f"Expired {abs(days)} days ago"
         elif notif_type == "expiring":
             detail = f"Expires in {days} days"
+        elif notif_type == "notice_due":
+            notice_date = n.get("notice_date", "")
+            if days < 0:
+                detail = f"Notice deadline passed {abs(days)} days ago"
+            else:
+                detail = f"Notice deadline in {days} days"
+            if notice_date:
+                detail = f"{detail} ({notice_date})"
         elif notif_type == "incomplete":
             detail = f"{completeness_pct}% complete"
         else:
@@ -294,6 +304,7 @@ def manager_digest(
 <div style="margin-bottom: 20px;">{summary_row}</div>
 {_section("Expired Licenses", expired, "#ef4444")}
 {_section("Expiring Soon", expiring, "#f59e0b")}
+{_section("Notice Deadlines", notice_due, "#7c3aed")}
 {_section("Incomplete Records", incomplete, "#3b82f6")}
 """
 

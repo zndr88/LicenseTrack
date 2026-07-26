@@ -123,6 +123,7 @@ class GlobalSettingsUpdate(BaseModel):
     password_min_length: Optional[int] = Field(default=None, ge=6, le=128)
     storage_path: Optional[str] = Field(default=None, max_length=500)
     notification_days: Optional[int] = Field(default=None, ge=1, le=365)
+    notice_notification_days: Optional[int] = Field(default=None, ge=1, le=365)
     manager_email: Optional[str] = Field(default=None, max_length=255)
     smtp_host: Optional[str] = Field(default=None, max_length=255)
     smtp_port: Optional[int] = Field(default=None, ge=1, le=65535)
@@ -167,6 +168,7 @@ class GlobalSettingsResponse(BaseModel):
     password_min_length: int
     storage_path: str
     notification_days: int
+    notice_notification_days: int = 30
     manager_email: str
     smtp_host: str
     smtp_port: int
@@ -213,5 +215,6 @@ class GlobalSettingsPublicResponse(BaseModel):
 
     mandatory_fields: dict
     notification_days: int
+    notice_notification_days: int = 30
     oidc_enabled: bool = False
     oidc_available: bool = False

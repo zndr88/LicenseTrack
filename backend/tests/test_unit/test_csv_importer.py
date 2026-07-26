@@ -597,6 +597,7 @@ def _make_row(**kwargs) -> ParsedRow:
         software_description="Widget",
         start_date=None,
         end_date=None,
+        notice_date=None,
         contract_number="",
         po_number="",
         invoice_number="",
@@ -621,6 +622,7 @@ def _make_row(**kwargs) -> ParsedRow:
         currency_defaulted=False,
         db_start_date=None,
         db_end_date=None,
+        db_notice_date=None,
         is_completeness_exempt=False,
         lifecycle_status=None,
     )

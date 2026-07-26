@@ -13,6 +13,16 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+### Added
+
+- Added an optional license `notice_date` for manually tracked contractual
+  notice deadlines. Notice dates can be shown, edited, imported, exported,
+  included in completeness goals, and warned on when they fall after the
+  license end date.
+- Added a separate global notice-deadline alert window. Notice deadline
+  reminders appear in notifications and manager digests, while expiry emails
+  continue to use the budget-owner recipient flow.
+
 ### Fixed
 
 - Enforced real browser-session logout for the inactivity timeout so an expired

@@ -85,6 +85,7 @@ class License(Base):
     # Dates - end_date nullable (perpetual licenses have none)
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notice_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     # Contract & procurement references
     contract_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")

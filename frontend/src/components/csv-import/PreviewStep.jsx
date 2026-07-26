@@ -148,6 +148,7 @@ export default function PreviewStep({
               <th scope="col">Total Price</th>
               <th scope="col">Start Date</th>
               <th scope="col">End Date</th>
+              <th scope="col">Notice Date</th>
               <th scope="col">Contract #</th>
               <th scope="col">PO #</th>
               <th scope="col">Supplier</th>
@@ -178,6 +179,7 @@ export default function PreviewStep({
                     <td className="mono csv-mono-sm">{row.totalPoPrice || empty}</td>
                     <td className="mono csv-mono-sm">{row.startDate || empty}</td>
                     <td className="mono csv-mono-sm">{row.endDate || (row.importStatus !== "error" ? <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>Perpetual</span> : empty)}</td>
+                    <td className="mono csv-mono-sm">{row.noticeDate || empty}</td>
                     <td className="mono csv-mono-sm">{row.contractNumber || empty}</td>
                     <td className="mono csv-mono-sm">{row.poNumber || empty}</td>
                     <td>{row.supplier || empty}</td>

@@ -88,6 +88,7 @@ const HELP_ARTICLES = [
           "SKU: the publisher or supplier product code used to identify the purchased item.",
           "Unit Price, Total PO Value, and Currency: retain acquisition values. Unit Price is line-level acquisition pricing; Total PO Value is computed from license rows sharing a PO number. Freeware/open-source acquisition pricing is zero, while paid support remains separately visible under Maintenance / Support.",
           "Start Date and End Date: the active entitlement period. Perpetual licenses deliberately have no end date.",
+          "Notice Date: an optional manually entered contractual notice deadline, such as the last date to cancel or change renewal terms. It is not calculated from the end date.",
           "Request Date: when the originating sourcing item was created. It marks the beginning of the procurement request.",
           "Purchase Date: the actual purchase milestone confirmed by the license manager during pending-order conversion. It is not inferred from the date the pending order was created.",
           "Portal URL: the service or administration URL for a SaaS license.",
@@ -120,6 +121,7 @@ const HELP_ARTICLES = [
           "For a direct freeware or open-source record, use the ordinary Add License form and choose Freeware / Open Source as the License Type. EULA, proof-of-entitlement, and publisher-contact completeness checks do not apply. Contract, PO, invoice, and quote checks also do not apply unless paid included support is present. Department and budget owner requirements still apply.",
           "Annual cost totals are active recurring-cost rollups: active, perpetual-status, and expiring subscription, SaaS, maintenance, and current paid included-support costs are included; zero-cost freeware and upcoming, expired, retired, renewed, and legacy records are excluded.",
           "Request Date preserves sourcing-item creation history, including direct freeware conversion. Purchase Date is added only when a pending order exists. Both can also be edited to enrich imported or legacy records.",
+          "If Notice Date falls after End Date, LicenseTrack warns but still allows the value to be saved.",
           "Click the Invoice # value or add control in Key Dates & Contract to manage multiple invoice numbers. Reorder the list to choose which invoice appears as the primary invoice in the Registry and exports.",
           "The identity header shows the external reference next to the LT reference when an external reference exists.",
           "The History section shows the creator account name, record creation timestamp, last-update timestamp, and the Procurement Trail linking back to sourcing and pending-order history when those source records exist.",
@@ -263,6 +265,7 @@ const HELP_ARTICLES = [
           "SMTP passwords and OIDC client secrets are stored encrypted and returned as masked placeholders.",
           "Changing mandatory fields immediately changes completeness calculations when records are reloaded.",
           "The expiry alert window is shared by Registry badges, statistics, exports, reports, contracts, renewal and maintenance responses, and notifications.",
+          "The notice deadline alert window is separate and controls manager reminders for manually entered license notice dates.",
           "Completeness requirements are opt-in. Admins can phase in ownership, commercial-reference, and evidence requirements as legacy records are improved.",
           "Completeness & Flags includes a per-license Renewal notifications toggle. It is enabled by default and can be turned off for active licenses that should not send expiry emails, without removing the budget owner email or marking the record retired or legacy.",
           "Number-format choices are labeled by the rendered pattern instead of a country. CSV Import starts with that personal choice but can override it for one source file.",
@@ -279,14 +282,15 @@ const HELP_ARTICLES = [
       {
         heading: "How it works",
         body: [
-          "The daily notification run evaluates visible lifecycle and completeness conditions, creates in-app notifications, and optionally sends SMTP email when email notifications are enabled.",
-          "Admins configure the alert window, notification hour, manager digest recipient, allowed recipient domains, SMTP settings, and email template text. A test email checks SMTP without running the full notification workflow.",
+          "The daily notification run evaluates visible lifecycle, notice deadline, and completeness conditions, creates in-app notifications, and optionally sends SMTP email when email notifications are enabled.",
+          "Admins configure the expiration alert window, notice deadline alert window, notification hour, manager digest recipient, allowed recipient domains, SMTP settings, and email template text. A test email checks SMTP without running the full notification workflow.",
         ],
       },
       {
         heading: "Things to know",
         bullets: [
           "Renewal emails require a budget-owner email and an enabled Renewal notifications flag on the license.",
+          "Notice deadline reminders go to the configured manager digest recipient, not the budget owner.",
           "The per-license Renewal notifications toggle suppresses expiry email for that record without retiring it or removing its owner.",
           "Trigger notifications now runs the real notification workflow and can send real messages; use Send test email for SMTP-only validation.",
           "The allowed-domain list applies to scheduled and manually triggered notification recipients.",

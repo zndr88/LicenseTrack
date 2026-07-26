@@ -52,6 +52,7 @@ ALLOWED_PATCH_FIELDS: dict[str, str] = {
     "currency": "currency",
     "startDate": "start_date",
     "endDate": "end_date",
+    "noticeDate": "notice_date",
     "requestDate": "request_date",
     "purchaseDate": "purchase_date",
     "contractNumber": "contract_number",
@@ -64,7 +65,7 @@ ALLOWED_PATCH_FIELDS: dict[str, str] = {
     "notes": "notes",
     "maintenanceCoverage": "maintenance_coverage",
 }
-DATE_PATCH_FIELDS = {"startDate", "endDate"}
+DATE_PATCH_FIELDS = {"startDate", "endDate", "noticeDate"}
 DATETIME_PATCH_FIELDS = {"requestDate", "purchaseDate"}
 EMAIL_PATCH_FIELDS = {"contactEmail", "budgetOwnerEmail"}
 NUMERIC_PATCH_FIELDS = {"quantity", "unitPrice", "totalPoPrice"}

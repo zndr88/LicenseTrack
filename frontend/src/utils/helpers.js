@@ -93,6 +93,7 @@ export const getCompleteness = (license, mandatoryFields) => {
     quote: { label: "Quote document", check: () => license.documents?.quote?.length > 0 },
     startDate: { label: "Start date", check: () => !!license.startDate },
     endDate: { label: "End date / Non-expiring type", check: () => !!license.endDate || ["perpetual", "oem", "freeware"].includes(license.licenseType) },
+    noticeDate: { label: "Notice date", check: () => !!license.noticeDate },
     contractNumber: { label: "Contract number", check: () => !!license.contractNumber },
     poNumber: { label: "PO number", check: () => !!license.poNumber },
     invoiceNumber: { label: "Invoice number", check: () => !!license.invoiceNumber },
@@ -147,6 +148,7 @@ export const normalizeLicense = (l) => ({
   // API returns null for no end date; frontend uses "" for perpetual display
   endDate: l.endDate ?? "",
   startDate: l.startDate ?? "",
+  noticeDate: l.noticeDate ?? "",
   // Documents are not in the license list response (separate endpoint)
   documents: l.documents ?? { invoice: [], eula: [], entitlement: [], purchase_order: [], quote: [] },
   availableDocumentCount: l.availableDocumentCount ?? l.available_document_count ?? l.documentCount ?? 0,

@@ -252,6 +252,7 @@ export function useDetailPanelState({
       softwareDescription: license.softwareDescription || "",
       startDate: license.startDate || "",
       endDate: license.endDate || "",
+      noticeDate: license.noticeDate || "",
       contractNumber: license.contractNumber || "",
       poNumber: license.poNumber || "",
       invoiceNumber: license.invoiceNumber || "",

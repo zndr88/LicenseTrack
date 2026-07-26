@@ -32,6 +32,7 @@ const emptyAdditionalLine = (primaryForm) => ({
   licenseMetric: primaryForm.licenseMetric || "",
   startDate: primaryForm.startDate || "",
   endDate: primaryForm.endDate || "",
+  noticeDate: primaryForm.noticeDate || "",
   isPerpetual: primaryForm.isPerpetual || false,
   quantity: "",
   skuCode: "",
@@ -69,7 +70,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
 
   const [form, setForm] = useState({
     publisherName: data.publisherName || "", softwareDescription: data.softwareDescription || "",
-    startDate: data.startDate || "", endDate: data.endDate || "",
+    startDate: data.startDate || "", endDate: data.endDate || "", noticeDate: data.noticeDate || "",
     contractNumber: data.contractNumber || "", poNumber: data.poNumber || "",
     invoiceNumber: data.invoiceNumber || "", contactEmail: data.contactEmail || "",
     isPerpetual: data.endDate === "Perpetual",
@@ -240,7 +241,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 // Multi-item parse: fill primary form + create additional lines
                 if (Array.isArray(result?.multiItems) && result.multiItems.length > 0) {
                   const ITEM_FIELDS = [
-                    "publisherName", "softwareDescription", "startDate", "endDate",
+                    "publisherName", "softwareDescription", "startDate", "endDate", "noticeDate",
                     "contractNumber", "poNumber", "invoiceNumber", "contactEmail",
                     "supplier", "costCentre", "licenseType", "licenseMetric",
                     "quantity", "skuCode", "unitPrice", "totalPoPrice", "currency",
@@ -258,6 +259,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                       licenseMetric: item.licenseMetric ?? "",
                       startDate: item.startDate ?? first.startDate ?? "",
                       endDate: item.endDate ?? first.endDate ?? "",
+                      noticeDate: item.noticeDate ?? first.noticeDate ?? "",
                       isPerpetual: false,
                       quantity: item.quantity ?? "",
                       skuCode: item.skuCode ?? "",
@@ -274,7 +276,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 const suggestions = result?.draftSuggestions;
                 if (!Array.isArray(suggestions)) return;
                 const FORM_FIELDS = new Set([
-                  "publisherName", "softwareDescription", "startDate", "endDate",
+                  "publisherName", "softwareDescription", "startDate", "endDate", "noticeDate",
                   "contractNumber", "poNumber", "invoiceNumber", "contactEmail",
                   "supplier", "costCentre", "licenseType", "licenseMetric",
                   "quantity", "skuCode", "unitPrice", "totalPoPrice", "currency",
@@ -298,6 +300,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               <div style={{ marginTop: 5 }}><Checkbox checked={form.isPerpetual} onChange={(v) => { u("isPerpetual", v); if (v) u("endDate", "Perpetual"); else u("endDate", ""); }} label="Perpetual license" /></div>
             </div>
           </div>
+          <div className="fg"><label htmlFor="inv-notice-date">Notice Date</label><input id="inv-notice-date" type="date" className="fi" value={form.noticeDate || ""} onChange={(e) => u("noticeDate", e.target.value)} />{form.noticeDate && form.endDate && form.endDate !== "Perpetual" && form.noticeDate > form.endDate && <div className="dp-field-warning">Notice date is after the license end date.</div>}</div>
           <div className="fr">
             <div className="fg"><label htmlFor="inv-contract-number">Contract Number</label><input id="inv-contract-number" className="fi" value={form.contractNumber} onChange={(e) => u("contractNumber", e.target.value)} /></div>
             <div className="fg"><label htmlFor="inv-po-number">PO Number</label><input id="inv-po-number" className="fi" value={form.poNumber} onChange={(e) => u("poNumber", e.target.value)} /></div>
@@ -454,6 +457,11 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                       label="Perpetual license"
                     />
                   </div>
+                </div>
+                <div className="fg">
+                  <label>Notice Date</label>
+                  <input type="date" className="fi" value={line.noticeDate || ""} onChange={(e) => updateLine(line.id, "noticeDate", e.target.value)} />
+                  {line.noticeDate && line.endDate && line.endDate !== "Perpetual" && line.noticeDate > line.endDate && <div className="dp-field-warning">Notice date is after the license end date.</div>}
                 </div>
               </div>
               <div className="fr">

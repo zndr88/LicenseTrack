@@ -105,6 +105,7 @@ class CSVImportPreviewRow(BaseModel):
     software_description: str
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    notice_date: Optional[str] = None
     contract_number: str = ""
     po_number: str = ""
     invoice_number: str = ""

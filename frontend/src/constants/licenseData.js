@@ -30,7 +30,7 @@ export const DEFAULT_STATUS_FILTERS = ["active", "expiring", "expired"];
 
 // Blank form used when adding a license manually (no invoice upload).
 export const createManualEntryData = () => ({
-  publisherName: "", softwareDescription: "", startDate: "", endDate: "",
+  publisherName: "", softwareDescription: "", startDate: "", endDate: "", noticeDate: "",
   contractNumber: "", poNumber: "", invoiceNumber: "", contactEmail: "",
   supplier: "", costCentre: "", licenseType: "", licenseMetric: "",
   portalUrl: "", quantity: "", skuCode: "", unitPrice: "", totalPoPrice: "", currency: "EUR", notes: "", budgetOwnerEmail: "", fileName: "manual-entry",

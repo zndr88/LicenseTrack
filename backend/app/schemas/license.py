@@ -53,6 +53,7 @@ class LicenseBase(BaseModel):
     currency: str = "EUR"
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    notice_date: Optional[date] = None
     contract_number: str = ""
     po_number: str = ""
     invoice_number: str = ""
@@ -86,7 +87,7 @@ class LicenseBase(BaseModel):
     renewed_to_id: Optional[int] = None
     coterm_from_ids: Optional[list[int]] = None
 
-    @field_validator("start_date", "end_date", mode="before")
+    @field_validator("start_date", "end_date", "notice_date", mode="before")
     @classmethod
     def _normalise_blank_dates(cls, value: object) -> object:
         if value == "" or value == "Perpetual":
@@ -158,6 +159,7 @@ class LicenseUpdate(BaseModel):
     currency: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    notice_date: Optional[date] = None
     request_date: Optional[datetime] = None
     purchase_date: Optional[datetime] = None
     contract_number: Optional[str] = None
@@ -184,7 +186,7 @@ class LicenseUpdate(BaseModel):
     predecessor_id: Optional[int] = None
     coterm_from_ids: Optional[list[int]] = None
 
-    @field_validator("start_date", "end_date", mode="before")
+    @field_validator("start_date", "end_date", "notice_date", mode="before")
     @classmethod
     def _normalise_blank_dates(cls, value: object) -> object:
         if value == "" or value == "Perpetual":
