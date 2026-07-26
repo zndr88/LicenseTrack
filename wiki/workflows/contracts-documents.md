@@ -10,6 +10,12 @@ Create a contract for an agreement that applies across one or more licenses.
 Contracts are identified by publisher and contract number and can be linked from
 license records.
 
+Contract numbers are treated as case-insensitive identifiers. For example,
+`CN-123` and `cn-123` refer to the same contract identity and cannot be created
+as separate contract records through the normal UI/API. If older data already
+contains duplicate contract numbers with different casing, LicenseTrack returns
+a conflict instead of guessing which contract a license should link to.
+
 Use folders inside the contract to organize signed agreements, amendments,
 schedules, data-processing terms, or other agreement-level material. Folder
 names organize files; they do not create separate permission boundaries.
@@ -43,8 +49,10 @@ amendments in the audit log.
 ## Access and downloads
 
 Editors and Admins can upload and manage documents. Viewer access is constrained
-by department scope, and document download permission can be disabled per user.
-Possession of a direct download URL does not bypass those checks.
+by department scope on the licenses linked to the contract. Contract-number
+matching for this visibility check is case-insensitive, and document download
+permission can be disabled per user. Possession of a direct download URL does
+not bypass those checks.
 
 ## Backup responsibility
 

@@ -13,6 +13,33 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- Enforced real browser-session logout for the inactivity timeout so an expired
+  frontend session cannot be immediately restored from the still-valid session
+  cookie.
+- Hardened login throttling so a successful username login no longer clears
+  the source-IP password-spray limiter, and active limiter entries are capped
+  after expired entries are pruned.
+- Prevented stale document refreshes from replacing the currently selected
+  license's document list after uploads, deletes, or processing-review actions
+  resolve out of order.
+- Honored the configured expiry alert window consistently across Registry
+  statistics, license responses, exports, reports, renewal and maintenance
+  responses, pending-order conversion responses, contracts, and notifications.
+- Treated contract numbers as case-insensitive contract identities for contract
+  create/update validation, license linking, linked-license counts, and viewer
+  contract access, while returning clear conflicts for pre-existing duplicate
+  contract records instead of server errors.
+- Scoped `GET /api/licenses/departments` to the caller's visible license
+  departments so viewers cannot enumerate departments outside their assignment.
+- Parsed report `YYYY-MM-DD` values as local calendar dates in date-range
+  filters and the renewal calendar, avoiding off-by-one quarter results in
+  negative UTC offsets.
+- Deduplicated exact duplicate viewer department assignments before saving so
+  repeated values no longer trigger a database integrity error, while preserving
+  manually distinct casing such as `ART` and `art`.
+
 ## [1.1.2] - 2026-07-25
 
 ### Fixed

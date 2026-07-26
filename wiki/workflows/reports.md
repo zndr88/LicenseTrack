@@ -10,6 +10,10 @@ The report filter bar can include or exclude retired records, restrict licenses
 by start date, and select one or more departments. Filters update the report
 sections below the portfolio summary.
 
+Date-only values from license records and report filters are evaluated as local
+calendar dates. A license dated `2026-07-01` is treated as July 1 in the user's
+calendar, so negative UTC offsets do not move it into the previous quarter.
+
 The Upcoming, Active, Expiring, and Expired counters reflect the filtered rows.
 The portfolio-wide annual-cost chip comes from a separate server rollup and is
 not narrowed by those local report filters.

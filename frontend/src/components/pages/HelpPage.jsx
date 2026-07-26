@@ -196,6 +196,7 @@ const HELP_ARTICLES = [
         heading: "How it works",
         body: [
           "Contracts keep agreement-level information separate from individual license evidence. Each contract records its publisher and contract number and can be linked to one or more license records.",
+          "Contract numbers are matched case-insensitively, so CN-123 and cn-123 are treated as the same contract identity.",
           "Contract documents can be organized into folders so amendments, schedules, signatures, and supporting material remain grouped with the agreement rather than one license row.",
         ],
       },
@@ -205,7 +206,7 @@ const HELP_ARTICLES = [
           "Contract files belong on the contract record; invoices, quotes, purchase orders, EULAs, and entitlement evidence normally belong to license or procurement document scopes.",
           "Deleting a contract removes its stored contract documents and unlinks affected licenses; the license records themselves remain.",
           "Contract document folders are organizational only and do not change record access permissions.",
-          "Viewer visibility follows the licenses and departments the viewer is allowed to see.",
+          "Viewer visibility follows the licenses and departments the viewer is allowed to see, using case-insensitive contract-number matching.",
         ],
       },
     ],
@@ -221,6 +222,7 @@ const HELP_ARTICLES = [
         body: [
           "Reports combines a server-computed portfolio annual-cost rollup with client-side analysis of visible license records. Viewer users only see reporting data for their assigned departments.",
           "The date-range filter is based on license start dates. Filters apply across spend, publisher and vendor overview, portfolio health, forecast, and renewal calendar.",
+          "Date-only license values are treated as local calendar dates, so records on quarter or year boundaries stay in the expected period regardless of browser UTC offset.",
           "The Upcoming, Active, Expiring, and Expired counters reflect the currently filtered report rows. Upcoming is separate from Active. The portfolio annual-cost chip remains a portfolio-wide active recurring-cost rollup.",
         ],
       },
@@ -260,6 +262,7 @@ const HELP_ARTICLES = [
           "The first admin is the protected break-glass admin.",
           "SMTP passwords and OIDC client secrets are stored encrypted and returned as masked placeholders.",
           "Changing mandatory fields immediately changes completeness calculations when records are reloaded.",
+          "The expiry alert window is shared by Registry badges, statistics, exports, reports, contracts, renewal and maintenance responses, and notifications.",
           "Completeness requirements are opt-in. Admins can phase in ownership, commercial-reference, and evidence requirements as legacy records are improved.",
           "Completeness & Flags includes a per-license Renewal notifications toggle. It is enabled by default and can be turned off for active licenses that should not send expiry emails, without removing the budget owner email or marking the record retired or legacy.",
           "Number-format choices are labeled by the rendered pattern instead of a country. CSV Import starts with that personal choice but can override it for one source file.",
@@ -410,6 +413,7 @@ const HELP_ARTICLES = [
         heading: "Things to know",
         bullets: [
           "A viewer with no departments assigned sees no records.",
+          "Viewer department options are limited to assigned departments that have visible licenses. Exact duplicate department assignments are removed when saved, while different casing remains distinct.",
           "Download permission is controlled per user.",
           "OIDC and local login can coexist.",
           "OIDC users do not have a usable local password unless converted by an admin.",

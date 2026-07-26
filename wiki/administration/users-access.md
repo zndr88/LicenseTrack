@@ -13,7 +13,13 @@ and password recovery from **Admin > Users**.
 | Viewer | Read-only access to assigned departments |
 
 A Viewer with no assigned departments sees no license data. Department scope is
-also applied to related reporting and document access.
+also applied to related reporting, department filter options, contract access,
+and document access.
+
+Department names are matched exactly, including casing. Admins can intentionally
+keep `ART` and `art` as separate assignments if their portfolio uses both forms.
+When saving assignments, LicenseTrack removes exact duplicate entries from the
+submitted list before storing them.
 
 ## Download permission
 
