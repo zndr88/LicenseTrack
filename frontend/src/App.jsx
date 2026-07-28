@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContract } from "./api/contracts.js";
-import { createLicense, getStats } from "./api/licenses.js";
+import { createLicenseBatch, getStats } from "./api/licenses.js";
 import { uploadDocument } from "./api/documents.js";
 import { getNotifications } from "./api/notifications.js";
 import { getPendingOrders } from "./api/pendingOrders.js";
@@ -177,21 +177,32 @@ export default function App() {
 
   const handleConfirm = useCallback(async (forms, attachedFile, attachedFileCategory) => {
     const formList = Array.isArray(forms) ? forms : [forms];
-    let firstCreatedId = null;
-    const createdIds = [];
-    for (const f of formList) {
-      const parentLicenseId = Number.isInteger(f.parentLineIndex)
-        ? createdIds[f.parentLineIndex]
-        : f.parentLicenseId;
-      const payload = buildLicensePayload({ ...f, parentLicenseId });
-      const { data: created, error } = await createLicense(payload);
-      if (error) { showError(error); return; }
-      createdIds.push(created?.id ?? null);
-      if (!firstCreatedId && created?.id) firstCreatedId = created.id;
+    const items = formList.map((form) => {
+      const hasBatchParent = Number.isInteger(form.parentLineIndex);
+      return {
+        license: buildLicensePayload({
+          ...form,
+          parentLicenseId: hasBatchParent ? null : form.parentLicenseId,
+        }),
+        ...(hasBatchParent ? { parentLineIndex: form.parentLineIndex } : {}),
+      };
+    });
+    const { data: created = [], error } = await createLicenseBatch(items);
+    if (error) {
+      showError(error);
+      return false;
     }
+
+    const firstCreatedId = created[0]?.id ?? null;
     if (attachedFile && firstCreatedId) {
       const { error: docError } = await uploadDocument(firstCreatedId, attachedFile, attachedFileCategory);
-      if (docError) showError(`License${formList.length > 1 ? "s" : ""} saved, but document upload failed: ${docError}`);
+      if (docError) {
+        setSelectedId(firstCreatedId);
+        showError(
+          `License${formList.length > 1 ? "s" : ""} saved, but document upload failed: ${docError}. `
+          + "Retry the attachment from the first license's Documents section; do not resubmit the licenses."
+        );
+      }
     }
     setConfirmData(null);
     setPage("licenses");
@@ -199,7 +210,8 @@ export default function App() {
     queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
     queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
     invalidateNotifications(queryClient);
-  }, [showError, queryClient, setConfirmData, setPage]);
+    return true;
+  }, [showError, queryClient, setConfirmData, setPage, setSelectedId]);
 
   const handleCreateContract = useCallback(async ({ contractNumber, publisherName }) => {
     const { data, error } = await createContract({ contract_number: contractNumber, publisher_name: publisherName });

@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.document import Document, ProcurementDocument
 from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.sourcing import SourcingItem
-from app.schemas.license import LicenseCreate, LicenseUpdate
+from app.schemas.license import LicenseBatchCreateItem, LicenseCreate, LicenseUpdate
 from app.services import storage
 from app.services.contract_identity_service import resolve_contract_id_for_number
 from app.services.lifecycle_rules import (
@@ -214,6 +214,32 @@ async def create_license_record(
     await db.flush()
     license_obj.license_ref = await generate_license_ref(db)
     return license_obj
+
+
+async def create_license_batch_records(
+    db: AsyncSession,
+    items: list[LicenseBatchCreateItem],
+    *,
+    created_by: int,
+    generate_license_ref,
+) -> list[License]:
+    """Create an ordered license batch inside the caller's transaction."""
+    created: list[License] = []
+    for item in items:
+        payload = item.license
+        if item.parent_line_index is not None:
+            payload = payload.model_copy(
+                update={"parent_license_id": created[item.parent_line_index].id},
+            )
+        created.append(
+            await create_license_record(
+                db,
+                payload,
+                created_by=created_by,
+                generate_license_ref=generate_license_ref,
+            )
+        )
+    return created
 
 
 async def apply_license_update(

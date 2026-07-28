@@ -140,6 +140,38 @@ class LicenseCreate(LicenseBase):
     pass
 
 
+class LicenseBatchCreateItem(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    license: LicenseCreate
+    parent_line_index: Optional[int] = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _reject_ambiguous_parent(self) -> "LicenseBatchCreateItem":
+        if self.parent_line_index is not None and self.license.parent_license_id is not None:
+            raise ValueError("Use parentLineIndex or parentLicenseId, not both.")
+        return self
+
+
+class LicenseBatchCreateRequest(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    items: list[LicenseBatchCreateItem] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def _validate_parent_line_indexes(self) -> "LicenseBatchCreateRequest":
+        for index, item in enumerate(self.items):
+            if item.parent_line_index is not None and item.parent_line_index >= index:
+                raise ValueError("parentLineIndex must refer to an earlier item in the same batch.")
+        return self
+
+
 class LicenseUpdate(BaseModel):
     """Partial update - all fields optional."""
 

@@ -13,6 +13,7 @@ from app.models.user import User
 from app.schemas.license import (
     BulkDeleteRequest,
     FieldUpdateRequest,
+    LicenseBatchCreateRequest,
     LicenseCreate,
     LicenseLifecycleRepairRequest,
     LicenseProcurementTrailResponse,
@@ -38,6 +39,7 @@ from app.services.license_write_service import (
     apply_license_lifecycle_repair,
     apply_license_update,
     bulk_delete_license_records,
+    create_license_batch_records,
     create_license_record,
     delete_license_document_files,
     delete_license_record,
@@ -235,6 +237,63 @@ async def create_license(
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
         storage_base=storage_base,
     )
+
+
+@router.post("/batch", response_model=list[LicenseResponse], status_code=201)
+async def create_license_batch(
+    payload: LicenseBatchCreateRequest,
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_editor_or_admin),
+) -> list[LicenseResponse]:
+    """Create a manual license batch atomically, including intra-batch maintenance links."""
+    try:
+        created = await create_license_batch_records(
+            db,
+            payload.items,
+            created_by=current_user.id,
+            generate_license_ref=generate_license_ref,
+        )
+        ip = request.client.host if request.client else None
+        for license_obj in created:
+            await log_event(
+                db,
+                "license.created",
+                actor=current_user,
+                ip_address=ip,
+                target_type="license",
+                target_id=str(license_obj.id),
+                target_label=license_obj.software_description,
+            )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    created_ids = [license_obj.id for license_obj in created]
+    result = await db.execute(
+        select(License)
+        .where(License.id.in_(created_ids))
+        .options(selectinload(License.documents), selectinload(License.creator))
+    )
+    created_by_id = {license_obj.id: license_obj for license_obj in result.scalars().all()}
+    ordered = [created_by_id[license_id] for license_id in created_ids]
+    mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
+    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, ordered)
+    custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, created_ids)
+    storage_base = await get_document_storage_base(db)
+    return [
+        enrich_license_response(
+            license_obj,
+            mandatory_fields,
+            notification_days,
+            procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
+            custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
+            storage_base=storage_base,
+        )
+        for license_obj in ordered
+    ]
 
 
 @router.post("/{license_id}/repair-lifecycle", response_model=LicenseResponse)

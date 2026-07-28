@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
 import Checkbox from "../ui/Checkbox.jsx";
 import Icon from "../ui/Icon.jsx";
@@ -59,6 +59,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const [attachedFileBase64, setAttachedFileBase64] = useState(null);
   const [additionalLines, setAdditionalLines] = useState([]);
   const [formTouched, setFormTouched] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
 
   const handleFileChange = (file) => {
     setAttachedFile(file);
@@ -125,7 +127,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const isDirty = formTouched || additionalLines.length > 0 || !!attachedFile;
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose: onCancel });
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (submitLockRef.current) return;
+
     // Merge each additional line with shared fields from primary form
     const sharedFields = {
       publisherName: form.publisherName,
@@ -171,7 +175,18 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         parentLineIndex: line.parentLineIndex,
       })),
     ];
-    onConfirm(allForms, attachedFile, attachedFileCategory);
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+    try {
+      const completed = await onConfirm(allForms, attachedFile, attachedFileCategory);
+      if (completed === false) {
+        submitLockRef.current = false;
+        setIsSubmitting(false);
+      }
+    } catch {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   const lineCount = 1 + additionalLines.length;
@@ -181,12 +196,19 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     <ModalShell
       title="Review License Data"
       titleId="dialog-title-invoice-confirm"
-      onClose={requestClose}
+      onClose={() => {
+        if (!submitLockRef.current) requestClose();
+      }}
+      closeButtonDisabled={isSubmitting}
+      closeOnOverlayClick={!isSubmitting}
       footer={(
         <>
-          <button className="btn btn-g" onClick={requestClose}>Cancel</button>
-          <button className="btn btn-p" onClick={handleSave}>
-            <Icon name="check" size={14} />{lineCount > 1 ? `Save ${lineCount} Licenses` : "Save License"}
+          <button className="btn btn-g" onClick={requestClose} disabled={isSubmitting}>Cancel</button>
+          <button className="btn btn-p" onClick={handleSave} disabled={isSubmitting}>
+            <Icon name="check" size={14} />
+            {isSubmitting
+              ? "Saving..."
+              : (lineCount > 1 ? `Save ${lineCount} Licenses` : "Save License")}
           </button>
         </>
       )}

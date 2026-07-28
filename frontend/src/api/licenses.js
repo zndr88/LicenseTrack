@@ -63,6 +63,16 @@ export async function createLicense(licenseData) {
 }
 
 /**
+ * Atomically create an ordered manual license batch.
+ *
+ * @param {{ license: object, parentLineIndex?: number }[]} items
+ * @returns {Promise<{ data: object[] | null, error: string | null }>}
+ */
+export async function createLicenseBatch(items) {
+  return post("/api/licenses/batch", { items });
+}
+
+/**
  * Update an existing license (partial updates supported).
  *
  * @param {number} id
