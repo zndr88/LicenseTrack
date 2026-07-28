@@ -1371,7 +1371,7 @@ async def test_sourcing_quote_upload_rejects_oversized_content_length(
 ):
     sourcing_item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Large Quote App")
     request_id = sourcing_item["sourcingRequestId"]
-    oversized_cl = str(settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024 + 1)
+    oversized_cl = str((settings.MAX_UPLOAD_SIZE_MB + 1) * 1024 * 1024 + 1)
 
     resp = await test_app.post(
         f"/api/sourcing/requests/{request_id}/quote-documents",

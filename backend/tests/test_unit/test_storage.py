@@ -178,14 +178,14 @@ def test_validate_upload_passes_for_valid_file(monkeypatch):
 
 
 def test_validate_upload_rejects_oversized_file(monkeypatch):
-    """Raises HTTP 422 when file exceeds MAX_UPLOAD_SIZE_MB."""
+    """Raises HTTP 413 when file exceeds MAX_UPLOAD_SIZE_MB."""
     from fastapi import HTTPException
     monkeypatch.setattr(_storage_module.settings, "MAX_UPLOAD_SIZE_MB", 1)
     monkeypatch.setattr(_storage_module.settings, "ALLOWED_UPLOAD_EXTENSIONS", ".pdf")
     content = b"x" * (1 * 1024 * 1024 + 1)
     with pytest.raises(HTTPException) as exc_info:
         validate_upload(_make_upload_file("big.pdf"), content)
-    assert exc_info.value.status_code == 422
+    assert exc_info.value.status_code == 413
     assert "maximum allowed size" in exc_info.value.detail
 
 

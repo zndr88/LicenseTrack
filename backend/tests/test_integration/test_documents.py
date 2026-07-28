@@ -21,6 +21,7 @@ from app.models.document import Document, DocumentCategory, ProcurementDocument,
 from app.models.license import License, LicenseMetric, LicenseType
 from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.settings import GlobalSettings
+from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
 
@@ -880,13 +881,139 @@ async def test_delete_document_succeeds_when_file_is_already_missing(
 
 
 # ---------------------------------------------------------------------------
-# F10 — Content-Length pre-check: oversized header must be rejected with 413
+# License deletion cleans up managed document files after a successful commit
 # ---------------------------------------------------------------------------
+
+async def test_delete_license_removes_its_managed_document_file(
+    test_app, auth_headers, existing_license, patch_storage
+):
+    upload_resp = await test_app.post(
+        f"/api/licenses/{existing_license}/documents",
+        files={"file": ("license-owned.pdf", b"%PDF-1.4 managed", "application/pdf")},
+        data={"category": "invoice"},
+        headers=auth_headers,
+    )
+    assert upload_resp.status_code == 201
+    target = patch_storage / upload_resp.json()["filename"]
+    assert target.is_file()
+
+    delete_resp = await test_app.delete(
+        f"/api/licenses/{existing_license}",
+        headers=auth_headers,
+    )
+
+    assert delete_resp.status_code == 204
+    assert not target.exists()
+
+
+async def test_bulk_delete_licenses_removes_all_managed_document_files(
+    test_app, auth_headers, existing_license, patch_storage
+):
+    second_resp = await test_app.post(
+        "/api/licenses",
+        json={
+            "publisherName": "Acme Corp",
+            "softwareDescription": "Second Managed License",
+            "licenseType": "subscription",
+            "licenseMetric": "per_user",
+            "quantity": "1",
+            "currency": "EUR",
+        },
+        headers=auth_headers,
+    )
+    assert second_resp.status_code == 201
+    second_license_id = second_resp.json()["id"]
+
+    targets = []
+    for license_id, filename in (
+        (existing_license, "first-managed.pdf"),
+        (second_license_id, "second-managed.pdf"),
+    ):
+        upload_resp = await test_app.post(
+            f"/api/licenses/{license_id}/documents",
+            files={"file": (filename, b"%PDF-1.4 managed", "application/pdf")},
+            data={"category": "invoice"},
+            headers=auth_headers,
+        )
+        assert upload_resp.status_code == 201
+        targets.append(patch_storage / upload_resp.json()["filename"])
+
+    delete_resp = await test_app.request(
+        "DELETE",
+        "/api/licenses/bulk",
+        json={"ids": [existing_license, second_license_id]},
+        headers=auth_headers,
+    )
+
+    assert delete_resp.status_code == 200
+    assert delete_resp.json()["deleted"] == 2
+    assert all(not target.exists() for target in targets)
+
+
+async def test_rejected_license_delete_keeps_managed_document_file(
+    test_app, auth_headers, existing_license, db_session, patch_storage
+):
+    upload_resp = await test_app.post(
+        f"/api/licenses/{existing_license}/documents",
+        files={"file": ("kept-after-rollback.pdf", b"%PDF-1.4 kept", "application/pdf")},
+        data={"category": "invoice"},
+        headers=auth_headers,
+    )
+    assert upload_resp.status_code == 201
+    target = patch_storage / upload_resp.json()["filename"]
+
+    db_session.add(
+        SourcingItem(
+            publisher_name="Acme Corp",
+            software_description="Blocked renewal",
+            status=SourcingStatus.sourcing,
+            renewal_for_license_id=existing_license,
+        )
+    )
+    await db_session.commit()
+
+    delete_resp = await test_app.delete(
+        f"/api/licenses/{existing_license}",
+        headers=auth_headers,
+    )
+
+    assert delete_resp.status_code == 409
+    assert target.is_file()
+
+
+# ---------------------------------------------------------------------------
+# F10 — payload and Content-Length upload boundaries
+# ---------------------------------------------------------------------------
+
+async def test_document_upload_accepts_exact_limit_and_rejects_one_byte_over(
+    test_app, auth_headers, existing_license, monkeypatch
+):
+    monkeypatch.setattr(_storage_module.settings, "MAX_UPLOAD_SIZE_MB", 1)
+    max_bytes = 1024 * 1024
+    pdf_header = b"%PDF-1.4\n"
+    exact_payload = pdf_header + b"0" * (max_bytes - len(pdf_header))
+
+    exact_resp = await test_app.post(
+        f"/api/licenses/{existing_license}/documents",
+        files={"file": ("exact.pdf", exact_payload, "application/pdf")},
+        data={"category": "invoice"},
+        headers=auth_headers,
+    )
+    over_resp = await test_app.post(
+        f"/api/licenses/{existing_license}/documents",
+        files={"file": ("over.pdf", exact_payload + b"0", "application/pdf")},
+        data={"category": "invoice"},
+        headers=auth_headers,
+    )
+
+    assert exact_resp.status_code == 201
+    assert over_resp.status_code == 413
+
 
 async def test_document_upload_rejects_oversized_content_length(
     test_app, auth_headers, existing_license
 ):
-    oversized_cl = str(settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024 + 1)
+    oversized_cl = str((settings.MAX_UPLOAD_SIZE_MB + 1) * 1024 * 1024 + 1)
     url = f"/api/licenses/{existing_license}/documents"
 
     resp = await test_app.post(

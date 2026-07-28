@@ -518,7 +518,7 @@ async def test_restore_server_rejects_paths_and_unlisted_files(
 async def test_backup_restore_rejects_oversized_content_length(
     test_app, auth_headers
 ):
-    oversized_cl = str(settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024 + 1)
+    oversized_cl = str((settings.MAX_UPLOAD_SIZE_MB + 1) * 1024 * 1024 + 1)
 
     resp = await test_app.post(
         "/api/backup/restore",

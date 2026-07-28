@@ -39,7 +39,7 @@ async def test_validate_invoice_file_rejects_oversized_file(monkeypatch):
     file = make_upload_file(b"x" * (2 * 1024 * 1024), "big.pdf")
     with pytest.raises(HTTPException) as exc_info:
         await _validate_invoice_file(file)
-    assert exc_info.value.status_code == 422
+    assert exc_info.value.status_code == 413
     assert "maximum allowed size" in exc_info.value.detail
 
 

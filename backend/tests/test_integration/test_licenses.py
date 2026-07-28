@@ -9,10 +9,12 @@ the B1 unit tests, not here.
 import csv
 import io
 from datetime import date, timedelta
+from unittest.mock import AsyncMock
 
 import bcrypt
 from sqlalchemy import select
 
+import app.routes.licenses as licenses_routes
 from app.models.contract import Contract
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import License, LicenseMetric, LicenseType, LifecycleStatus
@@ -103,6 +105,93 @@ async def test_create_license_valid(test_app, auth_headers):
 # ---------------------------------------------------------------------------
 # 2c — GET by ID returns the correct record
 # ---------------------------------------------------------------------------
+
+async def test_create_license_batch_preserves_order_and_links_prior_parent(
+    test_app, auth_headers
+):
+    resp = await test_app.post(
+        "/api/licenses/batch",
+        json={
+            "items": [
+                {
+                    "license": _minimal_payload(
+                        softwareDescription="Perpetual Parent",
+                        licenseType="perpetual",
+                        startDate="2026-01-01",
+                        endDate=None,
+                    )
+                },
+                {
+                    "license": _minimal_payload(
+                        softwareDescription="Maintenance Child",
+                        licenseType="maintenance",
+                        startDate="2026-01-01",
+                        endDate="2026-12-31",
+                    ),
+                    "parentLineIndex": 0,
+                },
+            ]
+        },
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 201, resp.text
+    created = resp.json()
+    assert [item["softwareDescription"] for item in created] == [
+        "Perpetual Parent",
+        "Maintenance Child",
+    ]
+    assert created[1]["parentLicenseId"] == created[0]["id"]
+
+
+async def test_create_license_batch_rolls_back_when_a_later_item_is_invalid(
+    test_app, auth_headers, db_session
+):
+    resp = await test_app.post(
+        "/api/licenses/batch",
+        json={
+            "items": [
+                {"license": _minimal_payload(softwareDescription="Would Roll Back")},
+                {
+                    "license": _minimal_payload(
+                        softwareDescription="Missing Parent",
+                        licenseType="maintenance",
+                    )
+                },
+            ]
+        },
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 400
+    result = await db_session.execute(select(License))
+    assert list(result.scalars()) == []
+
+
+async def test_create_license_batch_rolls_back_when_audit_logging_fails(
+    test_app, auth_headers, db_session, monkeypatch
+):
+    monkeypatch.setattr(
+        licenses_routes,
+        "log_event",
+        AsyncMock(side_effect=RuntimeError("audit unavailable")),
+    )
+
+    resp = await test_app.post(
+        "/api/licenses/batch",
+        json={
+            "items": [
+                {"license": _minimal_payload(softwareDescription="Audit Rollback A")},
+                {"license": _minimal_payload(softwareDescription="Audit Rollback B")},
+            ]
+        },
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 500
+    result = await db_session.execute(select(License))
+    assert list(result.scalars()) == []
+
 
 async def test_create_saas_license_with_portal_url(test_app, auth_headers):
     resp = await test_app.post(
