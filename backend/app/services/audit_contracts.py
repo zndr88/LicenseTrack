@@ -17,6 +17,8 @@ def format_document_amendment_detail(
     related_license_id: int | None = None,
     pending_order_id: int | None = None,
     po_number: str | None = None,
+    contract_id: int | None = None,
+    folder_id: int | None = None,
     reason: str | None = None,
 ) -> str:
     """Build structured audit detail for document evidence amendments."""
@@ -32,6 +34,8 @@ def format_document_amendment_detail(
             "relatedLicenseId": str(related_license_id) if related_license_id is not None else None,
             "pendingOrderId": str(pending_order_id) if pending_order_id is not None else None,
             "poNumber": po_number,
+            "contractId": str(contract_id) if contract_id is not None else None,
+            "folderId": str(folder_id) if folder_id is not None else None,
             "actorEmail": actor_email,
             "amendmentTimestamp": datetime.now(timezone.utc).isoformat(),
             "reason": reason,

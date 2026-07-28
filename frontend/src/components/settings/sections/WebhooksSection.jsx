@@ -18,10 +18,13 @@ const WEBHOOK_EVENTS = [
   ["license.created", "License created"],
   ["license.updated", "License updated"],
   ["license.deleted", "License deleted"],
+  ["license.custom_fields_updated", "License custom fields updated"],
   ["sourcing_request.created", "Sourcing request created"],
   ["po.created", "Pending order created"],
   ["document.uploaded", "Document uploaded"],
   ["procurement_document.uploaded", "Procurement document uploaded"],
+  ["contract_document.uploaded", "Contract document uploaded"],
+  ["contract_document.deleted", "Contract document deleted"],
   ["document_action.requested", "Document action requested"],
 ];
 
