@@ -78,21 +78,6 @@ async def upload_document(
     if lic is None:
         raise HTTPException(status_code=404, detail="License not found")
 
-    # F10: reject oversized uploads before buffering the full body.
-    from app.config import settings as _settings
-
-    _max_bytes = _settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
-    _cl = request.headers.get("content-length")
-    try:
-        _cl_int = int(_cl) if _cl is not None else 0
-    except ValueError:
-        _cl_int = 0
-    if _cl_int > _max_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File exceeds the maximum allowed size of {_settings.MAX_UPLOAD_SIZE_MB} MB.",
-        )
-
     # Read content once for validation; storage.save_file will seek(0) to re-read
     content = await file.read()
     storage.validate_upload(file, content, allowed_mimes=_ALLOWED_MIME_TYPES)

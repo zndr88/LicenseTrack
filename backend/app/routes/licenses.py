@@ -39,6 +39,7 @@ from app.services.license_write_service import (
     apply_license_update,
     bulk_delete_license_records,
     create_license_record,
+    delete_license_document_files,
     delete_license_record,
     mark_license_notice_handled,
 )
@@ -449,8 +450,9 @@ async def bulk_delete_licenses(
     Missing IDs are silently skipped - concurrent deletes should not cause failures.
     Returns { deleted: N } where N is the number of records actually deleted.
     """
-    found_ids = await bulk_delete_license_records(db, payload.ids)
-    if not found_ids:
+    storage_base = await get_document_storage_base(db)
+    deletion = await bulk_delete_license_records(db, payload.ids)
+    if not deletion.ids:
         return {"deleted": 0}
 
     # Single audit log entry for the batch
@@ -461,11 +463,12 @@ async def bulk_delete_licenses(
         actor=current_user,
         ip_address=ip,
         target_type="license",
-        detail=f"Bulk delete: {len(found_ids)} license(s) deleted. IDs: {found_ids}",
+        detail=f"Bulk delete: {len(deletion.ids)} license(s) deleted. IDs: {list(deletion.ids)}",
     )
 
     await db.commit()
-    return {"deleted": len(found_ids)}
+    delete_license_document_files(deletion.document_paths, storage_base)
+    return {"deleted": len(deletion.ids)}
 
 
 @router.delete("/{license_id}", status_code=204, response_class=Response)
@@ -475,7 +478,8 @@ async def delete_license(
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> Response:
-    label = await delete_license_record(db, license_id)
+    storage_base = await get_document_storage_base(db)
+    deletion = await delete_license_record(db, license_id)
 
     ip = request.client.host if request.client else None
     await log_event(
@@ -485,7 +489,8 @@ async def delete_license(
         ip_address=ip,
         target_type="license",
         target_id=str(license_id),
-        target_label=label,
+        target_label=deletion.label,
     )
     await db.commit()
+    delete_license_document_files(deletion.document_paths, storage_base)
     return Response(status_code=204)

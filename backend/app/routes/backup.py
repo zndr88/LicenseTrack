@@ -107,26 +107,12 @@ async def restore_backup(
     if not (file.filename or "").lower().endswith(".zip"):
         raise HTTPException(status_code=422, detail="File must be a .zip archive.")
 
-    # F10: reject oversized uploads before buffering the full body.
-    from app.config import settings as _settings
-
-    _max_bytes = _settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
-    _cl = request.headers.get("content-length")
-    try:
-        _cl_int = int(_cl) if _cl is not None else 0
-    except ValueError:
-        _cl_int = 0
-    if _cl_int > _max_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File exceeds the maximum allowed size of {_settings.MAX_UPLOAD_SIZE_MB} MB.",
-        )
-
     content = await file.read()
-    if len(content) > _max_bytes:
+    max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    if len(content) > max_bytes:
         raise HTTPException(
             status_code=413,
-            detail=f"File exceeds the maximum allowed size of {_settings.MAX_UPLOAD_SIZE_MB} MB.",
+            detail=f"File exceeds the maximum allowed size of {settings.MAX_UPLOAD_SIZE_MB} MB.",
         )
 
     # Write to a temp file and restore

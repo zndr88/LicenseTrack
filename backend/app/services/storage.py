@@ -334,7 +334,7 @@ def validate_upload(
     max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     if len(content) > max_bytes:
         raise HTTPException(
-            status_code=422,
+            status_code=413,
             detail=f"File exceeds the maximum allowed size of {settings.MAX_UPLOAD_SIZE_MB} MB.",
         )
     ext = Path(file.filename or "").suffix.lower()
