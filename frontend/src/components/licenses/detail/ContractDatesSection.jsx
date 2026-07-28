@@ -44,7 +44,7 @@ export default function ContractDatesSection({
         <div className="dp-section-body" id="dp-section-dates">
           <div className="fr dp-data-row">
             <div className="dp-field">
-              <label>Start Date</label>
+              <span className="dp-field-label">Start Date</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.startDate ? formatDate(license.startDate, userSettings) : "\u2014"}</div>
                 {perms.canEdit && (
@@ -57,7 +57,7 @@ export default function ContractDatesSection({
               </div>
             </div>
             <div className="dp-field">
-              <label>End Date</label>
+              <span className="dp-field-label">End Date</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.endDate ? formatDate(license.endDate, userSettings) : "\u2014"}</div>
                 {perms.canEdit && (
@@ -72,7 +72,7 @@ export default function ContractDatesSection({
           </div>
           <div className="fr dp-data-row">
             <div className="dp-field">
-              <label>Request Date</label>
+              <span className="dp-field-label">Request Date</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.requestDate ? formatDateTime(license.requestDate, userSettings) : "\u2014"}</div>
                 {perms.canEdit && (
@@ -85,7 +85,7 @@ export default function ContractDatesSection({
               </div>
             </div>
             <div className="dp-field">
-              <label>Purchase Date</label>
+              <span className="dp-field-label">Purchase Date</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.purchaseDate ? formatDateTime(license.purchaseDate, userSettings) : "\u2014"}</div>
                 {perms.canEdit && (
@@ -100,7 +100,7 @@ export default function ContractDatesSection({
           </div>
           <div className="fr dp-data-row">
             <div className="dp-field">
-              <label>Notice Date</label>
+              <span className="dp-field-label">Notice Date</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.noticeDate ? formatDate(license.noticeDate, userSettings) : "\u2014"}</div>
                 {perms.canEdit && (
@@ -134,7 +134,7 @@ export default function ContractDatesSection({
               )}
             </div>
             <div className="dp-field">
-              <label>PO #</label>
+              <span className="dp-field-label">PO #</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.poNumber || "\u2014"}</div>
                 {perms.canEdit && (
@@ -149,7 +149,7 @@ export default function ContractDatesSection({
           </div>
           <div className="fr dp-data-row">
             <div className="dp-field">
-              <label>Contract #</label>
+              <span className="dp-field-label">Contract #</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.contractNumber || "\u2014"}</div>
                 {perms.canEdit && (
@@ -163,7 +163,7 @@ export default function ContractDatesSection({
             </div>
             {license.contractNumber && (
               <div className="dp-field">
-                <label>Contract Record</label>
+                <span className="dp-field-label">Contract Record</span>
                 {matchedContract ? (
                   <button className="btn btn-g btn-sm" onClick={() => onNavigateToContract?.(matchedContract.id)} style={{ marginTop: 2 }}>
                     <Icon name="file" size={12} /> Open Contract
@@ -179,7 +179,7 @@ export default function ContractDatesSection({
             )}
           </div>
           <div className="dp-field">
-            <label>Invoice #</label>
+            <span className="dp-field-label">Invoice #</span>
             <div style={{ display: "flex", alignItems: "center" }}>
               {perms.canEdit ? (
                 <button

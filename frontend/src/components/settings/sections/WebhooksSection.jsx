@@ -348,7 +348,7 @@ export default function WebhooksSection({ isOpen, isDirty, onToggle, onError, on
                     </div>
                   </div>
                   <div className="fg">
-                    <label>Events</label>
+                    <div className="fg-label">Events</div>
                     <div className="set-webhook-create-events">
                       {WEBHOOK_EVENTS.map(([event, label]) => (
                         <label key={event} className={`set-webhook-create-chip${events.includes(event) ? " selected" : ""}`}>

@@ -30,7 +30,7 @@ export default function CommercialSection({
         <div className="dp-section-body" id="dp-section-commercial">
           {vis.licenseType && (
             <div className="dp-field">
-              <label>License Type</label>
+              <span className="dp-field-label">License Type</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val">
                   {license.licenseType
@@ -49,7 +49,7 @@ export default function CommercialSection({
           )}
           {license.licenseType === "saas" && (
             <div className="dp-field">
-              <label>Portal URL</label>
+              <span className="dp-field-label">Portal URL</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val">
                   {license.portalUrl
@@ -68,7 +68,7 @@ export default function CommercialSection({
           )}
           {vis.licenseMetric && (
             <div className="dp-field">
-              <label>License Metric</label>
+              <span className="dp-field-label">License Metric</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val">
                   {license.licenseMetric
@@ -87,7 +87,7 @@ export default function CommercialSection({
           )}
           {vis.quantity && (
             <div className="dp-field">
-              <label>Purchase Quantity</label>
+              <span className="dp-field-label">Purchase Quantity</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.quantity || "—"}</div>
                 {perms.canEdit && (
@@ -102,7 +102,7 @@ export default function CommercialSection({
           )}
           {vis.skuCode && (
             <div className="dp-field">
-              <label>SKU Code</label>
+              <span className="dp-field-label">SKU Code</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono" style={{ fontSize: 12 }}>{license.skuCode || "—"}</div>
                 {perms.canEdit && (
@@ -117,7 +117,7 @@ export default function CommercialSection({
           )}
           {vis.unitPrice && (
             <div className="dp-field">
-              <label>Unit Price</label>
+              <span className="dp-field-label">Unit Price</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val dp-mono-val">{license.unitPrice ? fmtCost(license.unitPrice) : "—"}</div>
                 {perms.canEdit && (
@@ -132,13 +132,13 @@ export default function CommercialSection({
           )}
           {Number(license.quantity) > 0 && Number(license.unitPrice) > 0 && (
             <div className="dp-field">
-              <label>Calculated total</label>
+              <span className="dp-field-label">Calculated total</span>
               <div className="val dp-mono-val">{fmtCost(Number(license.quantity) * Number(license.unitPrice))}</div>
             </div>
           )}
           {vis.totalPoPrice && (
             <div className="dp-field">
-              <label>Total PO Value</label>
+              <span className="dp-field-label">Total PO Value</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val dp-mono-val">
                   {license.poNumber ? fmtCost(getPoTotal(license.poNumber, allLicenses)) : "—"}
@@ -148,7 +148,7 @@ export default function CommercialSection({
           )}
           {(vis.unitPrice || vis.totalPoPrice || perms.canEdit) && (
             <div className="dp-field">
-              <label>Currency</label>
+              <span className="dp-field-label">Currency</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.currency || "—"}</div>
                 {perms.canEdit && (

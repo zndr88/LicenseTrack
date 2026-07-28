@@ -143,17 +143,17 @@ export default function HistorySection({
         <div className="dp-section-body" id="dp-section-history">
           <div className="fr dp-data-row">
             <div className="dp-field">
-              <label>Created By</label>
+              <span className="dp-field-label">Created By</span>
               <div className="val">{createdBy}</div>
             </div>
           </div>
           <div className="fr dp-data-row">
             <div className="dp-field">
-              <label>Created</label>
+              <span className="dp-field-label">Created</span>
               <div className="val mono">{license.createdAt ? formatDateTime(license.createdAt, userSettings) : "\u2014"}</div>
             </div>
             <div className="dp-field">
-              <label>Last Updated</label>
+              <span className="dp-field-label">Last Updated</span>
               <div className="val mono">{license.updatedAt ? formatDateTime(license.updatedAt, userSettings) : "\u2014"}</div>
             </div>
           </div>

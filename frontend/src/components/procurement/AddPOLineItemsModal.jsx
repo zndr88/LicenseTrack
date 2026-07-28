@@ -108,8 +108,9 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
             )}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" }}>
               <div className="fg" style={{ gridColumn: "1 / -1" }}>
-                <label>Publisher <span style={{ color: "var(--red)" }}>*</span></label>
+                <label htmlFor={`po-line-${idx}-publisher`}>Publisher <span style={{ color: "var(--red)" }}>*</span></label>
                 <input
+                  id={`po-line-${idx}-publisher`}
                   className="fi"
                   placeholder="Software publisher"
                   value={item.publisherName}
@@ -117,8 +118,9 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 />
               </div>
               <div className="fg" style={{ gridColumn: "1 / -1" }}>
-                <label>Software Description <span style={{ color: "var(--red)" }}>*</span></label>
+                <label htmlFor={`po-line-${idx}-software`}>Software Description <span style={{ color: "var(--red)" }}>*</span></label>
                 <input
+                  id={`po-line-${idx}-software`}
                   className="fi"
                   placeholder="Product or service name"
                   value={item.softwareDescription}
@@ -126,8 +128,9 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 />
               </div>
               <div className="fg">
-                <label>Purchase Quantity</label>
+                <label htmlFor={`po-line-${idx}-quantity`}>Purchase Quantity</label>
                 <input
+                  id={`po-line-${idx}-quantity`}
                   className="fi"
                   inputMode="decimal"
                   placeholder="e.g. 10"
@@ -136,8 +139,9 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 />
               </div>
               <div className="fg">
-                <label>Currency</label>
+                <label htmlFor={`po-line-${idx}-currency`}>Currency</label>
                 <select
+                  id={`po-line-${idx}-currency`}
                   className="fi"
                   value={item.currency}
                   onChange={(e) => update(idx, "currency", e.target.value)}
@@ -146,8 +150,9 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 </select>
               </div>
               <div className="fg">
-                <label>Est. Unit Price</label>
+                <label htmlFor={`po-line-${idx}-unit-price`}>Est. Unit Price</label>
                 <input
+                  id={`po-line-${idx}-unit-price`}
                   className="fi"
                   inputMode="decimal"
                   placeholder={`e.g. ${formatPriceInput("500", locale)}`}
@@ -156,8 +161,9 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 />
               </div>
               <div className="fg">
-                <label>Est. Total Price</label>
+                <label htmlFor={`po-line-${idx}-total-price`}>Est. Total Price</label>
                 <input
+                  id={`po-line-${idx}-total-price`}
                   className="fi"
                   inputMode="decimal"
                   placeholder={`e.g. ${formatPriceInput("5000", locale)}`}
@@ -166,8 +172,9 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 />
               </div>
               <div className="fg">
-                <label>Supplier</label>
+                <label htmlFor={`po-line-${idx}-supplier`}>Supplier</label>
                 <input
+                  id={`po-line-${idx}-supplier`}
                   className="fi"
                   placeholder="Reseller or direct supplier"
                   value={item.supplier}
@@ -175,8 +182,9 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 />
               </div>
               <div className="fg">
-                <label>Contact Email</label>
+                <label htmlFor={`po-line-${idx}-contact`}>Contact Email</label>
                 <input
+                  id={`po-line-${idx}-contact`}
                   className="fi"
                   type="email"
                   placeholder="contact@example.com"

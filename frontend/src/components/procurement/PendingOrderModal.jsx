@@ -160,7 +160,11 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
           {/* Document upload - always shown in new-PO mode */}
           {isNewOrder && (
             <div className="fg" style={{ marginBottom: 4 }}>
-              <label>Upload Purchase Order Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></label>
+              {attachedFile ? (
+                <div className="fg-label">Upload Purchase Order Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></div>
+              ) : (
+                <label htmlFor="pending-order-file">Upload Purchase Order Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></label>
+              )}
               {attachedFile ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
                   <Icon name="file" size={14} color="var(--text-2)" />
@@ -168,7 +172,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
                   <button type="button" className="btn btn-g" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => handleFileChange(null)}>Remove</button>
                 </div>
               ) : (
-                <input type="file" className="fi" style={{ marginTop: 4 }} accept=".pdf,.png,.jpg,.jpeg,.txt" onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)} />
+                <input id="pending-order-file" type="file" className="fi" style={{ marginTop: 4 }} accept=".pdf,.png,.jpg,.jpeg,.txt" onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)} />
               )}
             </div>
           )}
@@ -205,30 +209,30 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
                   )}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 10px" }}>
                     <div className="fg" style={{ gridColumn: "1 / -1" }}>
-                      <label>Publisher</label>
-                      <input className="fi" placeholder="Software publisher" value={item.publisherName} onChange={(e) => updateItem(item.id, "publisherName", e.target.value)} />
+                      <label htmlFor={`pending-item-${item.id}-publisher`}>Publisher</label>
+                      <input id={`pending-item-${item.id}-publisher`} className="fi" placeholder="Software publisher" value={item.publisherName} onChange={(e) => updateItem(item.id, "publisherName", e.target.value)} />
                     </div>
                     <div className="fg" style={{ gridColumn: "1 / -1" }}>
-                      <label>Software Description</label>
-                      <input className="fi" placeholder="Product or service name" value={item.softwareDescription} onChange={(e) => updateItem(item.id, "softwareDescription", e.target.value)} />
+                      <label htmlFor={`pending-item-${item.id}-software`}>Software Description</label>
+                      <input id={`pending-item-${item.id}-software`} className="fi" placeholder="Product or service name" value={item.softwareDescription} onChange={(e) => updateItem(item.id, "softwareDescription", e.target.value)} />
                     </div>
                     <div className="fg">
-                      <label>Qty</label>
-                      <input className="fi" inputMode="decimal" placeholder="e.g. 10" value={item.quantity} onChange={(e) => updateItem(item.id, "quantity", e.target.value)} />
+                      <label htmlFor={`pending-item-${item.id}-quantity`}>Qty</label>
+                      <input id={`pending-item-${item.id}-quantity`} className="fi" inputMode="decimal" placeholder="e.g. 10" value={item.quantity} onChange={(e) => updateItem(item.id, "quantity", e.target.value)} />
                     </div>
                     <div className="fg">
-                      <label>Currency</label>
-                      <select className="fi fi-select" value={item.currency} onChange={(e) => updateItem(item.id, "currency", e.target.value)}>
+                      <label htmlFor={`pending-item-${item.id}-currency`}>Currency</label>
+                      <select id={`pending-item-${item.id}-currency`} className="fi fi-select" value={item.currency} onChange={(e) => updateItem(item.id, "currency", e.target.value)}>
                         {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
                     <div className="fg">
-                      <label>Unit Price</label>
-                      <input className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("500", locale)}`} value={item.estimatedUnitPrice} onChange={(e) => updateItem(item.id, "estimatedUnitPrice", e.target.value)} />
+                      <label htmlFor={`pending-item-${item.id}-unit-price`}>Unit Price</label>
+                      <input id={`pending-item-${item.id}-unit-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("500", locale)}`} value={item.estimatedUnitPrice} onChange={(e) => updateItem(item.id, "estimatedUnitPrice", e.target.value)} />
                     </div>
                     <div className="fg">
-                      <label>Total Price</label>
-                      <input className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("5000", locale)}`} value={item.estimatedTotalPrice} onChange={(e) => updateItem(item.id, "estimatedTotalPrice", e.target.value)} />
+                      <label htmlFor={`pending-item-${item.id}-total-price`}>Total Price</label>
+                      <input id={`pending-item-${item.id}-total-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("5000", locale)}`} value={item.estimatedTotalPrice} onChange={(e) => updateItem(item.id, "estimatedTotalPrice", e.target.value)} />
                     </div>
                   </div>
                 </div>

@@ -149,12 +149,12 @@ const LoginScreen = ({ onLogin }) => {
                 </>
               )}
               <div className="fg">
-                <label>Username</label>
-                <input className="fi" type="text" value={username} autoComplete="username" onChange={(e) => setUsername(e.target.value)} disabled={loading} />
+                <label htmlFor="login-username">Username</label>
+                <input id="login-username" className="fi" type="text" value={username} autoComplete="username" onChange={(e) => setUsername(e.target.value)} disabled={loading} />
               </div>
               <div className="fg">
-                <label>Password</label>
-                <input className="fi" type="password" value={password} placeholder="••••••••••••" autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} disabled={loading} />
+                <label htmlFor="login-password">Password</label>
+                <input id="login-password" className="fi" type="password" value={password} placeholder="••••••••••••" autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} disabled={loading} />
               </div>
               <button className="btn btn-g btn-full" type="submit" disabled={loading} style={{ marginTop: 4 }}>
                 {loading ? "Signing in..." : "Sign in locally"}

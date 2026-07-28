@@ -88,35 +88,39 @@ function ContractTile({ contract, onOpen, onDelete, canEdit, userSettings }) {
   return (
     <>
       <div
-        role="button"
-        tabIndex={0}
-        onClick={() => onOpen(contract.id)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onOpen(contract.id);
-          }
-        }}
-        aria-label={`Open contract ${contract.contractNumber} — ${contract.publisherName}`}
         style={{
-          background: "var(--bg-1)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--rl)",
-          padding: 18,
-          cursor: "pointer",
-          transition: "border-color 0.15s ease",
           position: "relative",
           width: "100%",
-          textAlign: "left",
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
-        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
       >
-        {/* Top row */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-          <div style={{ minWidth: 0 }}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onOpen(contract.id)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onOpen(contract.id);
+            }
+          }}
+          aria-label={`Open contract ${contract.contractNumber} — ${contract.publisherName}`}
+          style={{
+            background: "var(--bg-1)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--rl)",
+            padding: 18,
+            paddingRight: canEdit ? 52 : 18,
+            cursor: "pointer",
+            transition: "border-color 0.15s ease",
+            width: "100%",
+            textAlign: "left",
+          }}
+          onMouseEnter={(event) => { event.currentTarget.style.borderColor = "var(--accent)"; }}
+          onMouseLeave={(event) => { event.currentTarget.style.borderColor = "var(--border)"; }}
+          onFocus={(event) => { event.currentTarget.style.borderColor = "var(--accent)"; }}
+          onBlur={(event) => { event.currentTarget.style.borderColor = "var(--border)"; }}
+        >
+          <div style={{ minWidth: 0, marginBottom: 8 }}>
             <div style={{ fontWeight: 600, color: "var(--text)", fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {contract.publisherName}
             </div>
@@ -124,38 +128,38 @@ function ContractTile({ contract, onOpen, onDelete, canEdit, userSettings }) {
               {contract.contractNumber}
             </div>
           </div>
-          {canEdit && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }}
-              title="Delete contract"
-              aria-label="Delete contract"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", padding: "2px 4px", borderRadius: 4, flexShrink: 0 }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--red)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-3)"; }}
-              onFocus={(e) => { e.currentTarget.style.color = "var(--red)"; }}
-              onBlur={(e) => { e.currentTarget.style.color = "var(--text-3)"; }}
-            >
-              <Icon name="trash" size={14} />
-            </button>
-          )}
+
+          <div style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--text-2)", marginBottom: 8 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <Icon name="list" size={12} color="var(--text-3)" />
+              {contract.licenseCount} license{contract.licenseCount !== 1 ? "s" : ""}
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <Icon name="file" size={12} color="var(--text-3)" />
+              {contract.documentCount} document{contract.documentCount !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          <div style={{ fontSize: 11, color: "var(--text-3)" }}>
+            Added {formatDateTime(contract.createdAt, userSettings)}
+          </div>
         </div>
 
-        {/* Counts */}
-        <div style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--text-2)", marginBottom: 8 }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <Icon name="list" size={12} color="var(--text-3)" />
-            {contract.licenseCount} license{contract.licenseCount !== 1 ? "s" : ""}
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <Icon name="file" size={12} color="var(--text-3)" />
-            {contract.documentCount} document{contract.documentCount !== 1 ? "s" : ""}
-          </span>
-        </div>
-
-        {/* Date */}
-        <div style={{ fontSize: 11, color: "var(--text-3)" }}>
-          Added {formatDateTime(contract.createdAt, userSettings)}
-        </div>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setShowConfirm(true)}
+            title="Delete contract"
+            aria-label={`Delete contract ${contract.contractNumber}`}
+            style={{ position: "absolute", top: 16, right: 14, background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", padding: "4px 6px", borderRadius: 4 }}
+            onMouseEnter={(event) => { event.currentTarget.style.color = "var(--red)"; }}
+            onMouseLeave={(event) => { event.currentTarget.style.color = "var(--text-3)"; }}
+            onFocus={(event) => { event.currentTarget.style.color = "var(--red)"; }}
+            onBlur={(event) => { event.currentTarget.style.color = "var(--text-3)"; }}
+          >
+            <Icon name="trash" size={14} />
+          </button>
+        )}
       </div>
 
       {showConfirm && (

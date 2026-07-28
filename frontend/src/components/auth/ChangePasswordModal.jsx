@@ -33,18 +33,18 @@ const ChangePasswordModal = ({ onSuccess }) => {
         </div>
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="fg">
-            <label>Current Password</label>
-            <input className="fi" type="password" value={currentPwd} autoComplete="current-password"
+            <label htmlFor="change-password-current">Current Password</label>
+            <input id="change-password-current" className="fi" type="password" value={currentPwd} autoComplete="current-password"
               placeholder="••••••••" onChange={(e) => setCurrentPwd(e.target.value)} disabled={saving} />
           </div>
           <div className="fg">
-            <label>New Password</label>
-            <input className="fi" type="password" value={newPwd} autoComplete="new-password"
+            <label htmlFor="change-password-new">New Password</label>
+            <input id="change-password-new" className="fi" type="password" value={newPwd} autoComplete="new-password"
               placeholder="••••••••" onChange={(e) => setNewPwd(e.target.value)} disabled={saving} />
           </div>
           <div className="fg">
-            <label>Confirm New Password</label>
-            <input className="fi" type="password" value={confirmPwd} autoComplete="new-password"
+            <label htmlFor="change-password-confirm">Confirm New Password</label>
+            <input id="change-password-confirm" className="fi" type="password" value={confirmPwd} autoComplete="new-password"
               placeholder="••••••••" onChange={(e) => setConfirmPwd(e.target.value)} disabled={saving} />
           </div>
           {error && (
