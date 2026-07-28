@@ -3,6 +3,7 @@ import { updateGlobalSettings, triggerBackup, listBackups } from "../../../api/s
 import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { backupSaveSchema } from "../../../utils/settingsSchemas.js";
 import { formatDateTime, formatFileSize } from "../../../utils/formatting.js";
+import { parseIntegerInput } from "../../../utils/validation.js";
 import Icon from "../../ui/Icon.jsx";
 import Toggle from "../../ui/Toggle.jsx";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
@@ -84,7 +85,7 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
             <div className="fr">
               <div className="fg">
                 <label htmlFor="settings-backup-hour">Daily Database Backup Hour (0-23)</label>
-                <input id="settings-backup-hour" className="fi" type="number" min="0" max="23" value={globalSettings.backupHour} onChange={(e) => { setGlobalSettings(s => ({ ...s, backupHour: parseInt(e.target.value) || 2 })); markDirty("backup"); }} />
+                <input id="settings-backup-hour" className="fi" type="number" min="0" max="23" value={globalSettings.backupHour} onChange={(e) => { setGlobalSettings(s => ({ ...s, backupHour: parseIntegerInput(e.target.value) })); markDirty("backup"); }} />
               </div>
               <div className="fg">
                 <label htmlFor="settings-backup-keep">Keep (number of database backups)</label>

@@ -65,6 +65,13 @@ export function hourRange(value) {
   return null;
 }
 
+/** Preserve valid integer input, including zero, and leave invalid/blank text for schema validation. */
+export function parseIntegerInput(value) {
+  if (value === "") return "";
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : value;
+}
+
 /** Integer in the 1-100 range. */
 export function keepRange(value) {
   const n = typeof value === "number" ? value : parseInt(value, 10);
