@@ -10,7 +10,7 @@ from app import auth
 from app.models.audit_log import AuditLog
 from app.models.license import License, LicenseMetric, LicenseType
 from app.models.pending_order import PendingOrder, PendingOrderStatus
-from app.models.sourcing import SourcingItem, SourcingStatus
+from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User, UserRole
 
 
@@ -315,6 +315,7 @@ async def test_licenses_export_headers_and_representative_csv_content(
     rows = _csv_dicts(response)
     assert len(rows) == 1
     row = rows[0]
+    assert row["License Record ID"] == str(active.id)
     assert row["License Ref"] == "LT-2026-00001"
     assert row["External Ref"] == "ERP-1"
     assert row["Publisher"] == "Contoso"
@@ -388,7 +389,14 @@ async def test_sourcing_export_headers_and_representative_csv_content(
     auth_headers,
     db_session,
 ):
+    request = SourcingRequest(
+        supplier="Northwind Sales",
+        status=SourcingStatus.sourcing,
+    )
+    db_session.add(request)
+    await db_session.flush()
     item = SourcingItem(
+        sourcing_request_id=request.id,
         publisher_name="Northwind",
         software_description="Northwind CRM",
         license_type=LicenseType.freeware,
@@ -415,6 +423,8 @@ async def test_sourcing_export_headers_and_representative_csv_content(
     rows = _csv_dicts(response)
     assert len(rows) == 1
     row = rows[0]
+    assert row["Sourcing Request ID"] == str(request.id)
+    assert row["Sourcing Line ID"] == str(item.id)
     assert row["Publisher"] == "Northwind"
     assert row["Software Description"] == "Northwind CRM"
     assert row["License Type"] == "freeware"
@@ -469,6 +479,8 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
 
     _assert_csv_download(response, "pending_orders_export.csv")
     assert _csv_lines(response)[0] == [
+        "Pending Order ID",
+        "Pending Order Line ID",
         "PO Number",
         "Supplier",
         "Status",
@@ -484,6 +496,8 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
     ]
     rows = _csv_dicts(response)
     assert len(rows) == 2
+    assert [row["Pending Order ID"] for row in rows] == [str(order.id), str(order.id)]
+    assert [row["Pending Order Line ID"] for row in rows] == [str(first_item.id), str(second_item.id)]
     assert [row["PO Number"] for row in rows] == ["PO-EXPORT-1", "PO-EXPORT-1"]
     assert [row["PO Line #"] for row in rows] == ["1", "2"]
     assert [row["Description"] for row in rows] == [
@@ -559,6 +573,8 @@ async def test_pending_orders_export_includes_empty_orders_and_currency_totals(
     ]
 
     empty_row = rows[0]
+    assert empty_row["Pending Order ID"] == str(empty_order.id)
+    assert empty_row["Pending Order Line ID"] == ""
     assert empty_row["Supplier"] == "No Items Ltd"
     assert empty_row["Created Date"] == "2026-04-02"
     assert empty_row["PO Line #"] == ""

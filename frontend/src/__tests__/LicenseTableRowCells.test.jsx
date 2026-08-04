@@ -2,14 +2,14 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import LicenseTableRowCells from "../components/pages/licenses/LicenseTableRowCells.jsx";
 
-function renderCells(license) {
+function renderCells(license, visibleColumns = [{ key: "docs" }]) {
   render(
     <table>
       <tbody>
         <tr>
           <LicenseTableRowCells
             license={license}
-            visibleColumns={[{ key: "docs" }]}
+            visibleColumns={visibleColumns}
             selectedIds={new Set()}
             setSelectedIds={vi.fn()}
             licenses={[license]}
@@ -53,5 +53,16 @@ describe("LicenseTableRowCells document count", () => {
     });
 
     expect(screen.getByText("2")).toHaveAttribute("title", "2 document record(s)");
+  });
+});
+
+describe("LicenseTableRowCells record identity", () => {
+  test("renders the canonical License Record ID column", () => {
+    renderCells({
+      id: 42,
+      expiration: { status: "active", label: "Active" },
+    }, [{ key: "recordId" }]);
+
+    expect(screen.getByText("42")).toBeInTheDocument();
   });
 });

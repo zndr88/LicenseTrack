@@ -104,6 +104,8 @@ _HEADER_MAP: dict[str, str] = {
 # listed so either survives a round-trip.
 _IGNORED_HEADERS: frozenset[str] = frozenset(
     {
+        "id",
+        "license_record_id",
         "docs",
         "calc_total",
         "expiration",

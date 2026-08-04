@@ -96,6 +96,16 @@ const HELP_ARTICLES = [
         ],
       },
       {
+        heading: "Record identifiers",
+        bullets: [
+          "License Record ID: the immutable database ID for one exact license row. It is distinct from LT Ref, which identifies the entitlement chain and is retained by renewal successors.",
+          "Sourcing Request ID: the database ID for the parent sourcing request that groups one or more sourcing lines.",
+          "Sourcing Line ID: the database ID for one requested license line within a sourcing request.",
+          "Pending Order ID: the database ID for the pending purchase order, independent of its commercial PO Number.",
+          "Pending Order Line ID: the persistent database ID for one license line attached to a pending order. When a sourcing line moves into a pending order, the same line record is carried forward, so its Sourcing Line ID and Pending Order Line ID intentionally have the same numeric value. It is distinct from the display-only PO Line # used to show row order.",
+        ],
+      },
+      {
         heading: "Advanced and computed fields",
         bullets: [
           "Created By: the account that created the license record. It can fall back to email, user ID, or a legacy label when the original account is unavailable.",
@@ -125,7 +135,7 @@ const HELP_ARTICLES = [
           "Marking a notice date handled suppresses future notice deadline reminders for that date. Changing the notice date clears the handled state.",
           "Click the Invoice # value or add control in Key Dates & Contract to manage multiple invoice numbers. Reorder the list to choose which invoice appears as the primary invoice in the Registry and exports.",
           "The identity header shows the external reference next to the LT reference when an external reference exists.",
-          "The History section shows the creator account name, record creation timestamp, last-update timestamp, and the Procurement Trail linking back to sourcing and pending-order history when those source records exist.",
+          "The History section shows the License Record ID, creator account name, record creation timestamp, last-update timestamp, and the Procurement Trail linking back to sourcing and pending-order history when those source records exist.",
           "Inline editing is for quick field corrections; use the detail panel for full review.",
           "Deleting a license permanently removes its license-owned documents.",
         ],

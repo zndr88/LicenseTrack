@@ -224,6 +224,8 @@ export default function LicenseTableRowCells({
         );
       case "publisher":
         return <td key="publisher" className="pub-cell">{license.publisherName}</td>;
+      case "recordId":
+        return <td key="recordId" className="mono">{license.id}</td>;
       case "licenseRef":
         return <td key="licenseRef" className="mono">{license.licenseRef || "-"}</td>;
       case "externalRef":

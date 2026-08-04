@@ -275,6 +275,8 @@ describe('DetailPanel history', () => {
 
     await user.click(screen.getByText('History'))
 
+    const recordIdLabel = screen.getByText('License Record ID')
+    expect(recordIdLabel.parentElement).toHaveTextContent('1')
     expect(screen.getByText('Created By')).toBeInTheDocument()
     expect(screen.getByText('creator-account')).toBeInTheDocument()
     expect(screen.getByText('Created')).toBeInTheDocument()
@@ -339,11 +341,12 @@ describe('DetailPanel history', () => {
 
     expect(await screen.findByText('Procurement Trail')).toBeInTheDocument()
     expect(screen.getByText('Sourcing Request')).toBeInTheDocument()
-    expect(screen.getByText(/Request #42/)).toBeInTheDocument()
+    expect(screen.getByText(/Sourcing Request ID #42/)).toBeInTheDocument()
     expect(screen.getByText('Sourcing Line')).toBeInTheDocument()
-    expect(screen.getByText(/Line #99/)).toBeInTheDocument()
+    expect(screen.getByText(/Sourcing Line ID #99/)).toBeInTheDocument()
     expect(screen.getByText('Pending Order')).toBeInTheDocument()
     expect(screen.getByText(/PO-001/)).toBeInTheDocument()
+    expect(screen.getByText(/Pending Order ID #77/)).toBeInTheDocument()
     expect(screen.queryByText('Evidence')).not.toBeInTheDocument()
     expect(screen.queryByText('Quote x1')).not.toBeInTheDocument()
     expect(screen.queryByText('Invoice x1')).not.toBeInTheDocument()

@@ -30,6 +30,8 @@ async def build_pending_orders_export_csv(db: AsyncSession) -> str:
     writer = csv.writer(output)
     writer.writerow(
         [
+            "Pending Order ID",
+            "Pending Order Line ID",
             "PO Number",
             "Supplier",
             "Status",
@@ -59,6 +61,8 @@ def _build_export_rows(
     if not items:
         return [
             [
+                order.id,
+                "",
                 order.po_number,
                 order.supplier or "",
                 order.status.value,
@@ -79,6 +83,8 @@ def _build_export_rows(
         currency = item.currency or "EUR"
         rows.append(
             [
+                order.id,
+                item.id,
                 order.po_number,
                 order.supplier or "",
                 order.status.value,

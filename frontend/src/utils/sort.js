@@ -1,5 +1,6 @@
 export function getSortValue(license, colKey) {
   switch (colKey) {
+    case "recordId":      return license.id ?? null;
     case "licenseRef":     return license.licenseRef ?? null;
     case "externalRef":    return license.externalRef ?? null;
     case "publisher":      return license.publisherName ?? null;

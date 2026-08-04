@@ -34,7 +34,8 @@ async def build_sourcing_export_csv(db: AsyncSession) -> str:
 
     writer.writerow(
         [
-            "ID",
+            "Sourcing Request ID",
+            "Sourcing Line ID",
             "License Ref",
             "External Ref",
             "Publisher",
@@ -48,7 +49,7 @@ async def build_sourcing_export_csv(db: AsyncSession) -> str:
             "Contact Email",
             "Status",
             "Is Renewal",
-            "Renewal For License ID",
+            "Renewal For License Record ID",
             "Created At",
         ]
     )
@@ -58,6 +59,7 @@ async def build_sourcing_export_csv(db: AsyncSession) -> str:
         writer.writerow(
             safe_csv_row(
                 [
+                    item.sourcing_request_id or "",
                     item.id,
                     pred.license_ref if pred else "",
                     pred.external_ref if pred else "",

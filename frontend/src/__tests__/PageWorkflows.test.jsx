@@ -1661,7 +1661,7 @@ describe("SourcingPage workflows", () => {
     expect(await screen.findByText("Sourcing History")).toBeInTheDocument();
     expect(await screen.findByText("Old Budget Supplier")).toBeInTheDocument();
     expect(screen.getByText("Converted")).toBeInTheDocument();
-    expect(screen.getByText("Request #8")).toBeInTheDocument();
+    expect(screen.getByText(/Sourcing Request ID #8/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /view po/i }));
     expect(onNavigateToPendingOrder).toHaveBeenCalledWith(44);
     expect(screen.getByText("PO-44")).toBeInTheDocument();
@@ -1669,7 +1669,7 @@ describe("SourcingPage workflows", () => {
     await user.type(screen.getAllByLabelText(/Search sourcing requests/i)[1], "copilot");
     await user.click(screen.getByText("Old Budget Supplier"));
     expect(screen.getByText("M365 Copilot")).toBeInTheDocument();
-    expect(screen.getByText("Line #80")).toBeInTheDocument();
+    expect(screen.getByText("Sourcing Line ID #80")).toBeInTheDocument();
     expect(screen.getByText("New Purchase")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Add License Line/i })).not.toBeInTheDocument();
   });
@@ -2001,7 +2001,7 @@ describe("PendingOrdersPage workflows", () => {
     await user.click(screen.getByRole("button", { name: /^history$/i }));
     expect(await screen.findByText("Pending Order History")).toBeInTheDocument();
     expect(await screen.findByText("PO-HIST-22")).toBeInTheDocument();
-    expect(screen.getByText("Order #22")).toBeInTheDocument();
+    expect(screen.getByText("Pending Order ID #22")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /view license/i })).toBeInTheDocument();
     expect(screen.getByText("LT-0501")).toBeInTheDocument();
     expect(screen.getByText("Reference only")).toBeInTheDocument();
@@ -2012,7 +2012,7 @@ describe("PendingOrdersPage workflows", () => {
 
     await user.click(screen.getByText("PO-HIST-22"));
     expect(screen.getByText("Creative Cloud All Apps")).toBeInTheDocument();
-    expect(screen.getByText("Line #220")).toBeInTheDocument();
+    expect(screen.getByText("Pending Order Line ID #220")).toBeInTheDocument();
     expect(screen.getAllByText("Renewal")).not.toHaveLength(0);
     await user.click(screen.getAllByRole("button", { name: /view license/i }).at(-1));
     expect(onNavigateToLicense).toHaveBeenCalledWith(501);

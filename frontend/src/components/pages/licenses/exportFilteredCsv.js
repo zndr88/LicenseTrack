@@ -1,9 +1,10 @@
 import { getPoTotal } from "../../../utils/helpers.js";
 import { formatDate, formatDateTime } from "../../../utils/formatting.js";
 
-// Maps export column key -> importable snake_case field name.
-// Columns absent from this map are computed/metadata - they keep their display label.
-const IMPORTABLE_FIELD_NAMES = {
+// Maps export column keys to stable CSV headers. Importable native fields use
+// snake_case; read-only metadata may also opt in when the importer ignores it.
+const STABLE_EXPORT_FIELD_NAMES = {
+  recordId:         "license_record_id",
   licenseRef:       "license_ref",
   externalRef:      "external_ref",
   publisher:        "publisher_name",
@@ -87,12 +88,13 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
     if (stableCustomFieldHeaders && column.key.startsWith("cf_") && column._cfDef?.fieldKey) {
       return column._cfDef.fieldKey;
     }
-    return IMPORTABLE_FIELD_NAMES[column.key] ?? column.label;
+    return STABLE_EXPORT_FIELD_NAMES[column.key] ?? column.label;
   });
 
   const dataRows = rows.map((l) => {
     return columns.map((col) => {
       switch (col.key) {
+        case "recordId": return l.id ?? "";
         case "licenseRef": return l.licenseRef ?? "";
         case "externalRef": return l.externalRef ?? "";
         case "publisher": return l.publisherName ?? "";

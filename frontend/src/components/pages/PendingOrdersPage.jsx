@@ -160,7 +160,7 @@ export default function PendingOrdersPage({
     ? `${deletePOItemTarget.item.publisherName} - ${deletePOItemTarget.item.softwareDescription}`
     : "";
   const deletePOItemMessage = deletePOItemIsLastLine
-    ? `This is the last line on ${deletePOItemTarget?.order.poNumber || `Order #${deletePOItemTarget?.order.id}`}. Deleting "${deletePOItemLabel}" will cancel the pending order and move it to history. Attached PO documents and sourcing quote context will be kept for reference.`
+    ? `This is the last line on ${deletePOItemTarget?.order.poNumber || `Pending Order ID #${deletePOItemTarget?.order.id}`}. Deleting "${deletePOItemLabel}" will cancel the pending order and move it to history. Attached PO documents and sourcing quote context will be kept for reference.`
     : `Delete "${deletePOItemLabel}" from this pending order?`;
 
   return (

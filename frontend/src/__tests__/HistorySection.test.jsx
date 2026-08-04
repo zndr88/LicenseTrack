@@ -61,11 +61,12 @@ describe('ProcurementTrail', () => {
     const handlers = renderTrail()
 
     expect(screen.getByText('Sourcing Request')).toBeInTheDocument()
-    expect(screen.getByText(/Request #42/)).toBeInTheDocument()
+    expect(screen.getByText(/Sourcing Request ID #42/)).toBeInTheDocument()
     expect(screen.getByText('Sourcing Line')).toBeInTheDocument()
-    expect(screen.getByText(/Line #99/)).toBeInTheDocument()
+    expect(screen.getByText(/Sourcing Line ID #99/)).toBeInTheDocument()
     expect(screen.getByText('Pending Order')).toBeInTheDocument()
     expect(screen.getByText(/PO-WITH-A-DELIBERATELY-LONG-REFERENCE-001/)).toBeInTheDocument()
+    expect(screen.getByText(/Pending Order ID #77/)).toBeInTheDocument()
 
     const cards = document.querySelectorAll('.dp-neutral-box.dp-trail-row')
     expect(cards).toHaveLength(3)

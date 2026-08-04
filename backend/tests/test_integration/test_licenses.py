@@ -1273,7 +1273,7 @@ async def test_license_responses_and_stats_respect_configured_expiry_window(
     export_resp = await test_app.get("/api/licenses/export", headers=auth_headers)
     assert export_resp.status_code == 200, export_resp.text
     rows = list(csv.DictReader(io.StringIO(export_resp.text)))
-    exported = next(row for row in rows if row["ID"] == str(created["id"]))
+    exported = next(row for row in rows if row["License Record ID"] == str(created["id"]))
     assert exported["Expiration Status"] == "active"
     invalidate_global_settings_cache()
 

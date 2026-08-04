@@ -37,6 +37,7 @@ export const COLUMN_DEFS = [
   { key: "calcTotal", label: "Calc. Total", width: 110, group: "computed", defaultVisible: false, computed: true },
   { key: "expiration", label: "Expiration", width: 140, group: "computed", defaultVisible: true, always: true, computed: true },
   { key: "complete", label: "Complete", width: 100, group: "computed", defaultVisible: true, always: true, computed: true },
+  { key: "recordId", label: "License Record ID", width: 135, group: "advanced", defaultVisible: false },
   { key: "createdBy", label: "Created By", width: 150, group: "advanced", defaultVisible: false },
   { key: "createdAt", label: "Created", width: 145, group: "advanced", defaultVisible: false },
   { key: "updatedAt", label: "Last Updated", width: 145, group: "advanced", defaultVisible: false },

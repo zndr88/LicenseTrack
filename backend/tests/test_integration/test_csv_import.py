@@ -301,11 +301,22 @@ async def test_analyze_ignores_export_only_computed_columns(test_app, auth_heade
     # Round-tripping a full LicenseTrack export must not prompt custom-field
     # creation for computed/metadata columns or the maintenance mirror fields.
     csv_bytes = _make_csv(
-        ["Publisher", "Description", "Maintenance Cost", "Created", "Expiration", "Docs"],
+        [
+            "Publisher",
+            "Description",
+            "License Record ID",
+            "ID",
+            "Maintenance Cost",
+            "Created",
+            "Expiration",
+            "Docs",
+        ],
         [
             {
                 "Publisher": "Acme",
                 "Description": "Widget",
+                "License Record ID": "101",
+                "ID": "101",
                 "Maintenance Cost": "100.00",
                 "Created": "2026-01-01T00:00:00Z",
                 "Expiration": "Active",
@@ -327,7 +338,7 @@ async def test_analyze_ignores_export_only_computed_columns(test_app, auth_heade
 
     assert matched_fields == {"publisher_name", "software_description"}
     # None of the export-only columns should appear as needing a decision.
-    for ignored in ("Maintenance Cost", "Created", "Expiration", "Docs"):
+    for ignored in ("License Record ID", "ID", "Maintenance Cost", "Created", "Expiration", "Docs"):
         assert ignored not in unrecognized
 
 

@@ -205,6 +205,21 @@ describe("useLicenseData", () => {
 })
 
 describe("useLicenseData — columnFilters", () => {
+  test("columnFilters: License Record ID matches the immutable row id", () => {
+    const licenses = [
+      makeLicense({ id: 101 }),
+      makeLicense({ id: 202 }),
+    ]
+    const { result } = renderHook(() =>
+      useLicenseData(licenses, {
+        ...defaultOptions,
+        columnFilters: { recordId: "202" },
+      })
+    )
+
+    expect(result.current.filtered.map((license) => license.id)).toEqual([202])
+  })
+
   test("columnFilters: text substring match on publisher", () => {
     const licenses = [
       makeLicense({ publisherName: "Acme Corp" }),

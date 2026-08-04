@@ -60,6 +60,7 @@ describe("getVisibleColumns", () => {
 
 describe("license column registry", () => {
   test("keeps newly added advanced columns hidden by default", () => {
+    expect(VISIBLE_IN_LIST_DEFAULTS.recordId).toBe(false);
     expect(VISIBLE_IN_LIST_DEFAULTS.createdAt).toBe(false);
     expect(VISIBLE_IN_LIST_DEFAULTS.updatedAt).toBe(false);
     expect(VISIBLE_IN_LIST_DEFAULTS.notes).toBe(false);
@@ -70,6 +71,7 @@ describe("license column registry", () => {
     const fullExportKeys = getFullExportColumns([...COLUMN_DEFS, ...custom]).map((column) => column.key);
 
     expect(fullExportKeys).not.toContain("select");
+    expect(fullExportKeys).toContain("recordId");
     expect(fullExportKeys).toContain("notes");
     expect(fullExportKeys).toContain("createdAt");
     expect(fullExportKeys).toContain("cf_owner");

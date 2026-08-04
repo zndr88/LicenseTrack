@@ -14,6 +14,7 @@ from app.models.sourcing import SourcingStatus
 def _make_item(**kwargs) -> MagicMock:
     defaults = dict(
         id=1,
+        sourcing_request_id=10,
         publisher_name="Acme",
         software_description="Widget Pro",
         quantity=5,
@@ -46,8 +47,9 @@ async def test_build_sourcing_export_csv_returns_csv_with_header():
 
     assert isinstance(result, str)
     rows = list(csv.reader(io.StringIO(result)))
-    assert rows[0][0] == "ID"
-    assert rows[0][3] == "Publisher"
+    assert rows[0][0] == "Sourcing Request ID"
+    assert rows[0][1] == "Sourcing Line ID"
+    assert rows[0][4] == "Publisher"
 
 
 @pytest.mark.asyncio
@@ -64,8 +66,9 @@ async def test_build_sourcing_export_csv_includes_item_data():
 
     rows = list(csv.reader(io.StringIO(result)))
     assert len(rows) == 2  # header + 1 item
-    assert rows[1][0] == "42"
-    assert rows[1][3] == "Adobe"
+    assert rows[1][0] == "10"
+    assert rows[1][1] == "42"
+    assert rows[1][4] == "Adobe"
 
 
 @pytest.mark.asyncio
@@ -96,5 +99,5 @@ async def test_build_sourcing_export_csv_resolves_predecessor_license():
     result = await build_sourcing_export_csv(db)
 
     rows = list(csv.reader(io.StringIO(result)))
-    assert rows[1][1] == "L-2024-099"  # License Ref column (index 1)
-    assert rows[1][2] == "EXT-099"     # External Ref column (index 2)
+    assert rows[1][2] == "L-2024-099"  # License Ref column (index 2)
+    assert rows[1][3] == "EXT-099"     # External Ref column (index 3)

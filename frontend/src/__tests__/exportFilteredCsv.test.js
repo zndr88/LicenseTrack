@@ -51,6 +51,17 @@ afterEach(() => {
 })
 
 describe('exportFilteredCsv', () => {
+  it('exports the immutable license row identifier with its canonical header', () => {
+    const row = makeRow({ id: 42 })
+    const cols = [{ key: 'recordId', label: 'License Record ID' }]
+
+    exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
+
+    const lines = capturedCsvContent.split('\n')
+    expect(lines[0]).toBe('license_record_id')
+    expect(lines[1]).toBe('42')
+  })
+
   it('produces correct header row from column definitions', () => {
     const cols = [
       { key: 'publisher', label: 'Publisher' },

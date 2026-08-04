@@ -75,7 +75,7 @@ function isDirectFreewareRequest(request) {
 }
 
 function pendingOrderLabel(item) {
-  return item.pendingOrderPoNumber || (item.pendingOrderId ? `Order #${item.pendingOrderId}` : null);
+  return item.pendingOrderPoNumber || (item.pendingOrderId ? `Pending Order ID #${item.pendingOrderId}` : null);
 }
 
 function SourcingItemsRow({
@@ -131,7 +131,7 @@ function SourcingItemsRow({
                   <td style={{ fontWeight: 600 }}>
                     {si.publisherName}
                     <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
-                      Line #{si.id}
+                      Sourcing Line ID #{si.id}
                     </div>
                     {renewalLicense && (
                       <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
@@ -404,7 +404,7 @@ export default function SourcingTable({
                     <td style={{ fontWeight: 600 }}>
                       {request.supplier || "Unassigned supplier"}
                       <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
-                        Request #{request.id}
+                        Sourcing Request ID #{request.id}
                         {request.contactEmail ? ` · ${request.contactEmail}` : ""}
                       </div>
                     </td>

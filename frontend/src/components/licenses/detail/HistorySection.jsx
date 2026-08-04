@@ -58,7 +58,7 @@ export function ProcurementTrail({
     sourceMetaParts.push(formatMoney(sourcingItem.estimatedTotalPrice, sourcingItem.currency, userSettings));
   }
   if (sourcingItem?.renewalForLicenseId) {
-    sourceMetaParts.push(`renewal of license #${sourcingItem.renewalForLicenseId}`);
+    sourceMetaParts.push(`renewal of License Record ID #${sourcingItem.renewalForLicenseId}`);
   }
   if (conversion?.sourceMatchType === "matched") {
     sourceMetaParts.push("legacy match by PO line");
@@ -72,7 +72,7 @@ export function ProcurementTrail({
       {sourcingRequest && (
         <TrailRow
           label="Sourcing Request"
-          title={`Request #${sourcingRequest.id} · ${sourcingRequest.supplier || "Unassigned supplier"}`}
+          title={`Sourcing Request ID #${sourcingRequest.id} · ${sourcingRequest.supplier || "Unassigned supplier"}`}
           meta={[
             statusLabel(sourcingRequest.status),
             sourcingRequest.createdAt ? formatDateTime(sourcingRequest.createdAt, userSettings) : null,
@@ -89,7 +89,7 @@ export function ProcurementTrail({
       {sourcingItem && (
         <TrailRow
           label="Sourcing Line"
-          title={`Line #${sourcingItem.id} · ${sourcingItem.publisherName}`}
+          title={`Sourcing Line ID #${sourcingItem.id} · ${sourcingItem.publisherName}`}
           meta={[sourcingItem.softwareDescription, ...sourceMetaParts].filter(Boolean).join(" · ")}
         />
       )}
@@ -97,7 +97,7 @@ export function ProcurementTrail({
       {pendingOrder && (
         <TrailRow
           label="Pending Order"
-          title={`${pendingOrder.poNumber || `Order #${pendingOrder.id}`} · ${pendingOrder.supplier || "No supplier"}`}
+          title={`${pendingOrder.poNumber ? `${pendingOrder.poNumber} · ` : ""}Pending Order ID #${pendingOrder.id} · ${pendingOrder.supplier || "No supplier"}`}
           meta={[
             statusLabel(pendingOrder.status),
             pendingOrder.createdAt ? formatDateTime(pendingOrder.createdAt, userSettings) : null,
@@ -142,6 +142,10 @@ export default function HistorySection({
       {isOpen && (
         <div className="dp-section-body" id="dp-section-history">
           <div className="fr dp-data-row">
+            <div className="dp-field">
+              <span className="dp-field-label">License Record ID</span>
+              <div className="val mono">{license.id ?? "\u2014"}</div>
+            </div>
             <div className="dp-field">
               <span className="dp-field-label">Created By</span>
               <div className="val">{createdBy}</div>

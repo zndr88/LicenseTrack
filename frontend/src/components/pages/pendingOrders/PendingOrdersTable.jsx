@@ -89,7 +89,7 @@ function PendingOrderItemsRow({
                 <td style={{ paddingLeft: 40, fontWeight: 600 }}>
                   {item.publisherName}
                   <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
-                    Line #{item.id}
+                    Pending Order Line ID #{item.id}
                   </div>
                   {item.isRenewal && (
                     <span className="badge badge-pending po-inline-badge">
@@ -322,7 +322,7 @@ export default function PendingOrdersTable({
                     </td>
                     <td>
                       <div className="mono" style={{ fontWeight: 600 }}>{po.poNumber}</div>
-                      <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>Order #{po.id}</div>
+                      <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>Pending Order ID #{po.id}</div>
                     </td>
                     <td>{po.supplier || "-"}</td>
                     <td style={{ color: "var(--text-2)" }}>{po.items?.length ?? 0}</td>

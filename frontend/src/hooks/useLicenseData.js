@@ -8,6 +8,7 @@ function statNumber(value, fallback = 0) {
 }
 
 const FILTER_FIELD_BY_COLUMN = {
+  recordId: "id",
   licenseRef: "licenseRef",
   externalRef: "externalRef",
   invoiceNumber: "invoiceNumber",

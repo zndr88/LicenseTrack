@@ -44,7 +44,7 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
     writer = csv.writer(output)
 
     headers = [
-        "ID",
+        "License Record ID",
         "License Ref",
         "External Ref",
         "Publisher",
