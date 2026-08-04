@@ -11,7 +11,7 @@ alembic==1.18.5
 pydantic==2.13.4
 pydantic-settings==2.14.2
 bcrypt==5.0.0
-cryptography==49.0.0
+cryptography==50.0.0
 
 aiosmtplib==5.1.2
 email-validator==2.3.0
@@ -23,4 +23,4 @@ httpx==0.28.1
 pytest==9.1.1
 pytest-asyncio==1.4.0
 respx==0.23.1
-ruff==0.16.0
+ruff==0.16.1
