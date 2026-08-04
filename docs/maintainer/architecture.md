@@ -59,7 +59,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `RenewalWorkflowSection.jsx` | All renewal lifecycle state boxes (expiring, pending, renewed, draft, consolidated) |
 | `ContractDatesSection.jsx` | Start/end/notice dates, notice handled action/status, editable request/purchase procurement milestones, contract #, PO #, invoice #, contract record link |
 | `MaintenanceSection.jsx` | Maintenance coverage dates, linked maintenance children, add/disable maintenance actions |
-| `HistorySection.jsx` | Read-only creator account label, license-row creation and last-update timestamps, plus procurement-trail links to source sourcing and pending-order records |
+| `HistorySection.jsx` | Read-only License Record ID, creator account label, license-row creation and last-update timestamps, plus procurement-trail links to source sourcing and pending-order records |
 | `CommercialSection.jsx` | License type, metric, quantity, SKU, pricing, currency |
 | `PeopleSection.jsx` | Supplier, cost centre, publisher contact link, budget owner |
 | `EmailPublisherAction.jsx` | Bottom Email Publisher action, same-PO/same-publisher scope prompt, mailto construction |
@@ -219,6 +219,13 @@ New or migrated complex forms should use React Hook Form and Zod.
 
 Settings still use the existing dirty-section navigation guard. Do not replace that globally unless the whole Settings flow is deliberately redesigned.
 
+Notification and backup schedule inputs use the shared `0..23` hour contract.
+Frontend parsing must preserve integer zero as midnight and leave blank or
+invalid input for schema validation; do not use truthiness-based fallbacks for
+these fields. Manager-digest eligibility includes `incomplete` as well as
+`expired`, `expiring`, and `notice_due`, so an incomplete-only run still sends
+the configured digest.
+
 Admin settings are grouped into three product areas:
 
 - General: storage, notifications, SMTP, OIDC, completeness, custom fields, and import mappings.
@@ -248,9 +255,39 @@ rows. Keep accounts and configuration outside this deletion list. The public
 license reference sequence is reset to zero; internal database sequences are
 not.
 
-Upload size enforcement uses a two-layer defence. An HTTP middleware in `main.py` (`reject_oversized_uploads`) inspects the `Content-Length` header before FastAPI's body parser runs, returning 413 for declared sizes above `MAX_UPLOAD_SIZE_MB` on document and backup restore upload paths. The route handlers (`documents.py`, `backup.py`) repeat the same check inline before `await file.read()` as a second layer. The post-read check in `storage.validate_upload` remains as the authoritative gate for uploads that arrive without a `Content-Length` header.
+Upload size enforcement uses a two-layer defence. The HTTP middleware in
+`main.py` (`reject_oversized_uploads`) bounds the complete multipart request
+before FastAPI's body parser runs. Its ceiling is the applicable configured
+payload limit plus `MULTIPART_ENVELOPE_ALLOWANCE_BYTES`; do not compare the
+complete `Content-Length` directly with the file-payload limit. The measured
+payload checks in `storage.validate_upload`, `validate_contract_upload`, the
+invoice transfer validator, backup restore, and Official Extension package
+intake are authoritative: a payload equal to its configured limit is valid and
+only `len(content) > max_bytes` returns 413. The transport allowance remains
+bounded so excessive multipart metadata cannot bypass the early defence.
 
 Pending-order conversion uses a conditional UPDATE write-lock to prevent duplicate license creation from concurrent requests. Both `convert_pending_order_to_licenses` and `batch_convert_pending_order_to_licenses` execute `UPDATE pending_orders SET notes=notes WHERE id=? AND status != converted` immediately after the status guard. Because SQLite serialises writers, the second concurrent request sees `rowcount == 0` and raises 409 before any license rows are created. Do not remove this UPDATE or reorder it after any license creation - the lock must be acquired before the first license write. Conversion also snapshots `request_date` from the sourcing item and `purchase_date` from the pending order onto each resulting license. These are editable afterwards so imported and legacy records can be enriched through the normal write path.
+
+Direct multi-license creation uses the additive `POST /api/licenses/batch`
+contract. `create_license_batch_records` creates the ordered rows and resolves
+`parent_line_index` links to an earlier row inside the caller's single database
+transaction; route-level `license.created` audits commit with the same
+transaction. Any validation, write, or audit failure rolls the whole batch
+back. The Review License Data modal holds a synchronous submit lock until the
+request settles. Optional filesystem attachment is deliberately post-commit:
+failure leaves the batch intact and the UI directs the operator to retry from
+the first license rather than resubmit. Batches containing more than one row
+receive a `procurement_bundle_id`; Quote, Purchase Order, and Invoice uploads
+use that scope so every batch member sees the same evidence without matching on
+PO text. Other document categories remain license-owned.
+
+Single and bulk license deletion collect only license-owned `Document` paths
+inside the transaction, commit database and audit changes first, then remove
+those paths through the storage abstraction. Missing files are idempotent and
+post-commit cleanup failures are logged without rolling back the already valid
+database deletion. Pending-order procurement evidence remains in its owning
+scope. A manual procurement-bundle document is removed only when deletion
+leaves no license in that bundle.
 
 New admin sections should be added to the group that matches the operator's intent, not simply appended to the page. Integration-facing features should default to the Integrations group unless they are clearly general product configuration or operational recovery tooling.
 
@@ -298,7 +335,7 @@ Do not add new procurement endpoints to the aggregator files.
 Current important service boundaries:
 
 - license response assembly (mandatory fields, completeness/expiry enrichment, creator account labels, scoped procurement document lookup): `backend/app/services/license_response_service.py`;
-- license write workflow (create/update/patch/delete invariants, editable procurement milestone parsing, maintenance-parent validation, contract_id resolution from contract_number through `contract_identity_service.py`, predecessor_id wiring on renewal successors, create-time rejection of lifecycle chain fields via `REPAIR_ONLY_UPDATE_FIELDS`): `backend/app/services/license_write_service.py`;
+- license write workflow (single and atomic batch create, update/patch/delete invariants, post-commit managed-file cleanup inputs, editable procurement milestone parsing, maintenance-parent validation, manual procurement-bundle assignment, contract_id resolution from contract_number through `contract_identity_service.py`, predecessor_id wiring on renewal successors, create-time rejection of lifecycle chain fields via `REPAIR_ONLY_UPDATE_FIELDS`): `backend/app/services/license_write_service.py`;
 - contract-number identity checks (case-insensitive duplicate detection and unambiguous license `contract_id` resolution): `backend/app/services/contract_identity_service.py`;
 - lifecycle rules (ordinary update guardrails, pending-renewal transitions, single-successor predecessor enforcement, renewed predecessor marking, admin repair target/cycle validation, and the canonical `REPAIR_ONLY_UPDATE_FIELDS` set that gates both the update and create paths): `backend/app/services/lifecycle_rules.py`;
 - maintenance invariants (parent type eligibility, parent retirement checks, non-maintenance parent guard, active-maintenance type-change and retirement guards): `backend/app/services/maintenance_rules.py` — all call sites import from here; no inline maintenance checks outside this module;
@@ -334,9 +371,22 @@ Settings routes are split by responsibility while preserving existing API paths.
 
 File I/O in `procurement_document_transfer_service` follows a two-phase pattern coordinated by `pending_order_conversion_service`: file validation happens before any DB work; the actual disk write happens only after `db.commit()` succeeds. This prevents orphaned files when a DB transaction fails. After the conversion commit, evidence transfer records `pending`, `complete`, or `failed` on the pending order; a transfer failure is retryable/recoverable state and must not roll back the created licenses.
 
-Procurement documents must be resolved by explicit scope. Use `pending_order_id` for documents shared by licenses created from one pending order, and `license_id` for procurement-category documents uploaded directly from a license. Do not use PO number as the document sharing key; PO number is metadata and may be reused intentionally or accidentally.
+Procurement documents must be resolved by explicit scope. Use
+`pending_order_id` for documents shared by licenses created from one pending
+order, `procurement_bundle_id` for Quote, Purchase Order, and Invoice evidence
+shared by one direct multi-license creation batch, and `license_id` for
+procurement-category documents uploaded directly to a single license. Do not
+use PO number as the document sharing key; PO number is metadata and may be
+reused intentionally or accidentally.
 
-Document and procurement-document uploads/deletes are evidence amendments once they happen outside the original conversion transaction. Their audit detail should use `mutationType=document_amendment` and include operation, post-conversion flag, category, scope, related license/order/PO, actor email, timestamp, and optional deletion reason.
+Document, procurement-document, and contract-document uploads/deletes are
+evidence amendments once they happen outside the original conversion
+transaction. Their audit detail should use `mutationType=document_amendment`
+and include operation, post-conversion flag, category, scope, related
+license/order/PO or contract/folder identifiers, actor email, timestamp, and
+optional deletion reason. Direct license custom-field upserts emit
+`license.custom_fields_updated` with normalized before/after field diffs only
+when at least one value changes; definition auditing remains separate.
 
 Renewal command side effects belong in `backend/app/services/renewal_orchestrator.py`, with chain invariants delegated to `backend/app/services/lifecycle_rules.py`. Do not spread renewal lifecycle mutations across pages or routes. Successor creation must validate every predecessor before creating a new license row so stale single or coterm pending-order work cannot fork a renewal chain.
 

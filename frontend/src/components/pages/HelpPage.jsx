@@ -71,6 +71,7 @@ const HELP_ARTICLES = [
         body: [
           "The License Overview table is the central portfolio registry. It supports search, status filters, a toolbar column-category selector for Standard, Advanced, Computed, and Custom Field list columns, saved views, Current View and Full Data CSV exports, and inline edits for common fields.",
           "Opening a license shows the detail panel with fields, custom fields, documents, notes, maintenance actions, renewal actions, contract links, and a History section with creator timestamps plus linked procurement trail records when available.",
+          "Add License opens Review License Data. You can add several license lines, configure maintenance or separately tracked support on each eligible line, and save the complete batch in one operation. If any line fails validation, none of the licenses are created.",
         ],
       },
       {
@@ -136,6 +137,7 @@ const HELP_ARTICLES = [
           "Click the Invoice # value or add control in Key Dates & Contract to manage multiple invoice numbers. Reorder the list to choose which invoice appears as the primary invoice in the Registry and exports.",
           "The identity header shows the external reference next to the LT reference when an external reference exists.",
           "The History section shows the License Record ID, creator account name, record creation timestamp, last-update timestamp, and the Procurement Trail linking back to sourcing and pending-order history when those source records exist.",
+          "Prices on every line in Review License Data use your configured number format.",
           "Inline editing is for quick field corrections; use the detail panel for full review.",
           "Deleting a license permanently removes its license-owned documents.",
         ],
@@ -190,6 +192,9 @@ const HELP_ARTICLES = [
         bullets: [
           "PO number is metadata, not the document-sharing key.",
           "Procurement documents are shared across licenses from the same pending order.",
+          "When several licenses are saved together through Add License, an uploaded Quote, Purchase Order, or Invoice is shared across that created batch. Other document categories attach only to the first license.",
+          "If the optional document upload fails after a manual batch is saved, retry the attachment from the first license's Documents section; do not submit the licenses again.",
+          "A file payload may be exactly as large as the configured upload limit. Anything larger is rejected; multipart request overhead is checked separately.",
           "Documents are stored on the server filesystem under the configured storage path.",
           "If a database-only restore is used before document storage is restored, document records remain visible and affected rows are marked File missing or Storage unavailable until the managed files are available again.",
           "Editors and admins can request document processing from the document row when an active document processor webhook is configured and a document.processing integration capability is available. This sends an audited event for configured integrations; LicenseTrack does not process the document by itself, and this is not an Official Extension action.",
@@ -302,7 +307,9 @@ const HELP_ARTICLES = [
         bullets: [
           "Renewal emails require a budget-owner email and an enabled Renewal notifications flag on the license.",
           "Notice deadline reminders go to the configured manager digest recipient, not the budget owner.",
+          "The manager digest is sent when it contains incomplete-license items, even when there are no expiry or notice items in that run.",
           "Handled notice dates are excluded from notice alerts and manager digests until the notice date changes.",
+          "Notification hour 0 means midnight; it is a valid setting rather than a fallback to the default hour.",
           "The per-license Renewal notifications toggle suppresses expiry email for that record without retiring it or removing its owner.",
           "Trigger notifications now runs the real notification workflow and can send real messages; use Send test email for SMTP-only validation.",
           "The allowed-domain list applies to scheduled and manually triggered notification recipients.",
@@ -327,6 +334,8 @@ const HELP_ARTICLES = [
         heading: "Things to know",
         bullets: [
           "API-token changes record both the owning admin and token identity so integration activity can be isolated.",
+          "Contract-document uploads and deletions are audited with the contract, document, folder when applicable, filename, and actor context.",
+          "Direct license custom-field changes are audited with normalized before-and-after values. Submitting the same values does not add a misleading event.",
           "Webhook events are derived from durable audited product events rather than UI clicks.",
           "Audit retention is configurable. Export records before pruning when policy requires longer retention.",
           "The audit log supports investigation but does not replace centralized application and reverse-proxy logs.",
@@ -354,6 +363,7 @@ const HELP_ARTICLES = [
         heading: "Important",
         bullets: [
           "Routine application database backups include the database only.",
+          "Daily database backup hour 0 means midnight; it is a valid setting rather than a fallback to the default hour.",
           "Uploaded documents are data files on disk and must be backed up separately from the storage directory or full data volume.",
           "The database backup directory must exist or have a creatable parent path.",
           "Server restore accepts only archives listed from the configured backup directory; arbitrary server paths are never accepted.",

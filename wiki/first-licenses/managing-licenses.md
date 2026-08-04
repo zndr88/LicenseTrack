@@ -15,6 +15,19 @@ Record the publisher and software description first, then add the commercial,
 ownership, date, and evidence fields available to you. LicenseTrack assigns the
 LT reference automatically. It cannot be supplied or edited manually.
 
+The **Review License Data** step can create several license lines together.
+Use **Add License** inside that review to add another entitlement. Each eligible
+perpetual, OEM, or freeware/open-source line has the same included or separately
+tracked maintenance choices as the first line, and price fields use your
+personal number format. LicenseTrack saves all lines as one database operation:
+if any line fails, no part of the batch is created.
+
+An optional Quote, Purchase Order, or Invoice selected for a multi-license batch
+is shared across the licenses created in that batch. Other document categories
+attach only to the first license. The document upload happens after the license
+batch is committed; if it fails, open the first created license and retry the
+attachment from **Documents** instead of submitting the licenses again.
+
 For freeware and open-source software, choose **Freeware / Open Source** in the
 ordinary **License Type** field. There is no separate acquisition mode. A
 directly created record can leave commercial references and prices empty.
@@ -86,9 +99,12 @@ and completeness calculations.
 
 ## Delete a license
 
-Deletion permanently removes the license and its license-owned documents. It
-may be blocked when the record participates in procurement, renewal, maintenance,
-or other protected relationships.
+Deletion permanently removes the license, its license-owned document rows, and
+the corresponding managed files after the database deletion commits. Shared
+procurement evidence remains available while another license in its order or
+manual creation batch still owns that scope. It may be blocked when the record
+participates in procurement, renewal, maintenance, or other protected
+relationships.
 
 !!! danger
     There is no recycle bin. Confirm your database and document-storage backups

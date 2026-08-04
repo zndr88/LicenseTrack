@@ -87,6 +87,16 @@ The budget owner receives automated renewal notifications, if enabled.
 
 In this section you can upload any document related to the purchase cycle of a software license — quick, easy access to the quote, PO, invoice, entitlements, and EULA files.
 
+Quote, Purchase Order, and Invoice files can be procurement evidence shared by
+licenses created from the same pending order or the same direct multi-license
+batch. Sharing follows that internal relationship, never matching PO-number
+text. License-specific evidence such as an EULA or entitlement certificate
+remains attached to one license.
+
+The configured upload maximum applies to the file payload. A file exactly at
+that limit is accepted; a file one byte over it is rejected. LicenseTrack also
+keeps a separate bounded allowance for multipart request metadata.
+
 !!! note
     Keep more detailed contract data out of this section. Upload contract files to the dedicated **Contracts** page instead.
 
@@ -114,9 +124,17 @@ The **Renewal notifications** toggle controls expiry emails for this specific li
 
 - **Notes** — add custom messages to the license for follow-up.
 - **Custom Fields** — hold values that have no natural place in the other sections. You define a custom field and its section under the admin menu.
-- **History** — an audit trail of changes to the record, plus links back to the sourcing request and, when one exists, the pending order that created the license.
+- **History** — the unique **License Record ID**, creator, creation and update
+  timestamps, an audit trail of changes to the record, and links back to the
+  sourcing request and, when one exists, the pending order that created the
+  license. The License Record ID identifies this exact database row; it differs
+  from the LT Ref retained across a renewal chain.
 
 When a procurement trail exists, the History section can take you back to the original quote-stage sourcing line and the related pending order. Converted or cancelled procurement records open in their history tables, so you can inspect old quote, PO, invoice, price, and note context without reopening the workflow.
+
+Registry CSV exports use **License Record ID** for this unique row identifier.
+Use it when an integration or investigation must distinguish individual rows in
+a renewal chain that share the same LT Ref.
 
 ## Email & delete
 
@@ -125,7 +143,11 @@ When a procurement trail exists, the History section can take you back to the or
 At the bottom of the panel are the **Email Publisher** and **Delete** buttons.
 
 !!! danger "Delete is permanent"
-    Delete removes the license. There is no recovering a deleted license unless you have made a database backup.
+    Delete removes the license and its license-owned files after the database
+    deletion succeeds. Shared procurement evidence remains while another
+    license is still linked to its order or manual creation batch. There is no
+    recovering deleted data unless you have backed up both the database and
+    document storage.
 
 The **Email Publisher** button opens your default email program and pre-fills the message with the important license data:
 

@@ -11,6 +11,43 @@ API stability levels and the breaking-change policy are defined in
 [docs/extension-authors/api-stability.md](docs/extension-authors/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
+## [Unreleased]
+
+### Added
+
+- Standardized exported record identifiers as **Sourcing Request ID**,
+  **Sourcing Line ID**, **Pending Order ID**, **Pending Order Line ID**, and
+  **License Record ID**. License Details now shows the exact License Record ID
+  alongside creator and timestamp history.
+- Expanded direct multi-license entry so every eligible line can configure
+  included or separately tracked maintenance. Quote, purchase-order, and
+  invoice evidence uploaded with a multi-license batch is shared across that
+  batch without using PO-number text as the sharing key.
+
+### Fixed
+
+- Made direct multi-license creation atomic and protected it from repeated
+  submission. A failed row or audit write creates no licenses, while a
+  post-create attachment failure is reported separately so operators can retry
+  the document without recreating the batch.
+- Removed managed license-document files only after a successful single or bulk
+  license deletion commit, while preserving procurement evidence that is still
+  shared by surviving licenses.
+- Included incomplete-license items in manager-digest eligibility and preserved
+  notification and backup hour `0` as midnight.
+- Added structured audit events for contract-document uploads/deletions and
+  changed license custom-field values, without adding no-op custom-field events.
+- Accepted a file payload exactly equal to the configured upload maximum while
+  continuing to reject larger payloads and excessively large multipart
+  requests.
+- Corrected gray-theme contrast, programmatic form-label associations, and
+  desktop keyboard isolation so activating a contract tile's delete control no
+  longer opens the contract.
+- Preserved localized number formatting for added manual license lines and gave
+  those lines the same maintenance/support choices as the first line.
+- Refreshed supported backend, frontend, and GitHub Actions dependencies,
+  including current security fixes for audited transitive packages.
+
 ## [1.1.3] - 2026-07-26
 
 ### Added

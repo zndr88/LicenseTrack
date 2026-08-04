@@ -32,9 +32,24 @@ contract later.
 | License | EULA, entitlement certificate, license-specific evidence | One license |
 | Sourcing | Supplier quote and quote-stage evidence | Sourcing request and its history |
 | Pending order | PO and invoice evidence | Pending order and licenses created from it |
+| Manual creation batch | Quote, PO, and invoice evidence selected while creating several licenses | Licenses created in that batch |
 
 Procurement documents shared after conversion are keyed by pending-order
-relationship. PO number is metadata and is not a sharing key.
+relationship. Direct multi-license procurement evidence is keyed by its manual
+creation batch. PO number is metadata and is not a sharing key.
+
+Deleting a license removes its license-owned document rows and managed files
+after the database deletion commits. Shared procurement evidence remains until
+its owning workflow says it can be removed: pending-order evidence remains with
+the order, while manual-batch evidence is removed only after the final license
+in that batch is deleted.
+
+## Upload limits
+
+The configured upload limit applies to the file payload. A payload exactly at
+the limit is valid, while a payload one byte over it is rejected. LicenseTrack
+also applies a bounded transport-level ceiling that allows ordinary multipart
+metadata without treating it as part of the file size.
 
 ## Completeness
 
@@ -45,6 +60,10 @@ license-owned and procurement evidence against those requirements.
 Adding evidence after conversion updates completeness without reopening the
 procurement workflow. These late uploads and deletions are recorded as evidence
 amendments in the audit log.
+
+Contract-document uploads and deletions are also recorded with the contract,
+document, optional folder, filename, and actor context. File contents are not
+written to audit detail.
 
 ## Access and downloads
 

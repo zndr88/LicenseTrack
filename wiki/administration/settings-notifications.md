@@ -41,6 +41,16 @@ configure:
 - allowed recipient domains; and
 - customizable email introduction and sign-off text.
 
+The manager digest is eligible whenever the run contains an expired, expiring,
+notice-due, or incomplete-license item. An incomplete-only run therefore sends
+the configured manager digest; a run with no eligible items sends no empty
+digest.
+
+Notification and daily database-backup hours use the full `0..23` range. Hour
+`0` is midnight and is preserved as entered. Blank, non-numeric, and
+out-of-range values fail validation instead of silently becoming a default
+hour.
+
 Budget-owner renewal email requires a valid owner address and the license's
 **Renewal notifications** flag. That flag is enabled by default and can suppress
 expiry email for one active license without retiring it.

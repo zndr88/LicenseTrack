@@ -18,6 +18,12 @@ API-token activity records token ID and name alongside the owning Admin account.
 This lets operators isolate one integration even when several tokens share an
 owner.
 
+Contract-document uploads and deletions record the contract and document IDs,
+the folder ID when applicable, the original filename, and actor context without
+storing file contents. Direct changes to a license's custom-field values record
+normalized before-and-after values on the license event. Submitting unchanged
+custom-field values does not create a no-op event.
+
 ## Search and export
 
 Admins can filter and search the audit table and export the matching result to
@@ -30,7 +36,9 @@ Suggested reviews include:
 - Admin, Editor, department, and download-permission changes;
 - OIDC, SMTP, storage, and mandatory-field configuration;
 - database restore and backup failures;
-- document uploads, deletions, and post-conversion amendments; and
+- license, procurement, and contract document uploads, deletions, and
+  post-conversion amendments;
+- direct license custom-field value changes; and
 - API-token, webhook, and integration activity.
 
 ## Retention and operational logs

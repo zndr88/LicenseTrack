@@ -118,10 +118,12 @@ Evidence is scoped to the workflow record that owns it:
 | Quote | Sourcing request | Copied into the pending-order procurement bundle |
 | Purchase order | Pending order | Shared by licenses created from that order |
 | Invoice uploaded during conversion | Pending order | Shared by licenses created from that order |
+| Quote, PO, or invoice uploaded during direct multi-license entry | Manual creation batch | Shared by licenses created in that batch |
 | EULA or entitlement | License | Remains attached to that license |
 
-Two unrelated pending orders do not share documents merely because their PO
-numbers match.
+Two unrelated pending orders or direct-creation batches do not share documents
+merely because their PO numbers match. The pending-order relationship or manual
+batch identifier is the sharing key.
 
 ## History and recovery
 
@@ -130,6 +132,13 @@ read-only history tables. History rows retain identifiers, notes, prices, and
 evidence links. A converted sourcing line can link forward to its pending order
 or directly created freeware license;
 a converted pending-order line can link to its resulting license.
+
+CSV exports name these internal row identifiers explicitly: **Sourcing Request
+ID**, **Sourcing Line ID**, **Pending Order ID**, and **Pending Order Line ID**.
+They are distinct from commercial PO numbers and display-only line ordering. A
+sourcing line carried into a pending order retains the same line row, so its
+Sourcing Line ID and Pending Order Line ID intentionally have the same numeric
+value.
 
 The License Details **History** section exposes the same procurement trail in
 reverse, letting you navigate from an entitlement back to its quote and PO work.
