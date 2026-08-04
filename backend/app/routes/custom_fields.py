@@ -33,7 +33,7 @@ from app.schemas.custom_fields import (
 )
 from app.services import custom_fields_service
 from app.services.access_service import can_view_license, get_user_departments_for_scope
-from app.services.audit_service import log_event
+from app.services.audit_service import format_audit_detail, log_event
 
 # ---------------------------------------------------------------------------
 # Definitions router
@@ -185,12 +185,42 @@ async def get_values(license_id: int, current_user: CurrentUser, db: DbSession):
 async def upsert_values(
     license_id: int,
     data: CustomFieldValuesUpsert,
+    request: Request,
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ):
     license_obj = await db.scalar(select(License).where(License.id == license_id))
     if license_obj is None:
         raise HTTPException(status_code=404, detail="License not found")
-    values = await custom_fields_service.upsert_values_for_license(db, license_id, data)
+    values, changes = await custom_fields_service.upsert_values_for_license(db, license_id, data)
+    if changes:
+        field_diffs = []
+        for change in changes:
+            before = _format_custom_field_audit_value(change.before_text, change.before_currency)
+            after = _format_custom_field_audit_value(change.after_text, change.after_currency)
+            field_diffs.append(f"{change.field_key} ({change.field_name}): {before} → {after}")
+        await log_event(
+            db,
+            "license.custom_fields_updated",
+            actor=_editor,
+            ip_address=request.client.host if request.client else None,
+            target_type="license",
+            target_id=str(license_id),
+            target_label=license_obj.software_description,
+            detail=format_audit_detail(
+                "license_custom_fields_update",
+                {
+                    "licenseId": str(license_id),
+                    "changedFieldCount": str(len(changes)),
+                },
+                field_diffs=field_diffs,
+            ),
+        )
     await db.commit()
     return CustomFieldValuesResponse(values=values)
+
+
+def _format_custom_field_audit_value(value_text: str | None, value_currency: str | None) -> str:
+    value = (value_text or "").replace("\r", "\\r").replace("\n", "\\n")
+    rendered = f"{value} {value_currency or ''}".strip()
+    return rendered or "(empty)"

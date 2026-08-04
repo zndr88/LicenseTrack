@@ -71,22 +71,11 @@ async def get_plugin_host_status(
     )
 
 
-async def _read_plugin_upload(file: UploadFile, request: Request) -> bytes:
+async def _read_plugin_upload(file: UploadFile) -> bytes:
     if not (file.filename or "").lower().endswith(".zip"):
         raise HTTPException(status_code=422, detail="File must be a .zip archive.")
 
     max_bytes = settings.MAX_PLUGIN_PACKAGE_SIZE_MB * 1024 * 1024
-    content_length = request.headers.get("content-length")
-    try:
-        content_length_int = int(content_length) if content_length is not None else 0
-    except ValueError:
-        content_length_int = 0
-    if content_length_int > max_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File exceeds the maximum allowed size of {settings.MAX_PLUGIN_PACKAGE_SIZE_MB} MB.",
-        )
-
     content = await file.read()
     if len(content) > max_bytes:
         raise HTTPException(
@@ -99,10 +88,9 @@ async def _read_plugin_upload(file: UploadFile, request: Request) -> bytes:
 @router.post("/preview-install", response_model=PluginInstallPreview)
 async def preview_plugin_install(
     file: UploadFile,
-    request: Request,
     _admin: User = Depends(require_admin),
 ) -> PluginInstallPreview:
-    content = await _read_plugin_upload(file, request)
+    content = await _read_plugin_upload(file)
     return inspect_plugin_package(content).preview
 
 
@@ -113,7 +101,7 @@ async def install_plugin(
     db: DbSession,
     admin: User = Depends(require_admin),
 ) -> PluginDetailResponse:
-    content = await _read_plugin_upload(file, request)
+    content = await _read_plugin_upload(file)
     inspection = inspect_plugin_package(content)
     if not inspection.preview.installable:
         raise HTTPException(

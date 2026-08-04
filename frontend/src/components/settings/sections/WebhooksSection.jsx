@@ -18,10 +18,13 @@ const WEBHOOK_EVENTS = [
   ["license.created", "License created"],
   ["license.updated", "License updated"],
   ["license.deleted", "License deleted"],
+  ["license.custom_fields_updated", "License custom fields updated"],
   ["sourcing_request.created", "Sourcing request created"],
   ["po.created", "Pending order created"],
   ["document.uploaded", "Document uploaded"],
   ["procurement_document.uploaded", "Procurement document uploaded"],
+  ["contract_document.uploaded", "Contract document uploaded"],
+  ["contract_document.deleted", "Contract document deleted"],
   ["document_action.requested", "Document action requested"],
 ];
 
@@ -345,7 +348,7 @@ export default function WebhooksSection({ isOpen, isDirty, onToggle, onError, on
                     </div>
                   </div>
                   <div className="fg">
-                    <label>Events</label>
+                    <div className="fg-label">Events</div>
                     <div className="set-webhook-create-events">
                       {WEBHOOK_EVENTS.map(([event, label]) => (
                         <label key={event} className={`set-webhook-create-chip${events.includes(event) ? " selected" : ""}`}>

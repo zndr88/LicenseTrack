@@ -147,6 +147,32 @@ describe("license modal shell migration", () => {
     expect(category).toBe("invoice");
   });
 
+  test("InvoiceConfirmModal synchronously locks repeated submissions", () => {
+    const onConfirm = vi.fn(() => new Promise(() => {}));
+    render(
+      <InvoiceConfirmModal
+        data={{
+          publisherName: "Acme",
+          softwareDescription: "Acme Suite",
+          fileName: "invoice.pdf",
+          strategyUsed: "manual",
+        }}
+        userSettings={userSettings}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const saveButton = screen.getByRole("button", { name: /save license/i });
+    fireEvent.click(saveButton);
+    fireEvent.click(saveButton);
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(saveButton).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^cancel$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^close$/i })).toBeDisabled();
+  });
+
   test("InvoiceConfirmModal cancel, close, and overlay still cancel", async () => {
     const user = userEvent.setup();
     const onCancel = vi.fn();

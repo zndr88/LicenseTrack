@@ -252,8 +252,9 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
 
                   <div className="fr">
                     <div className="fg">
-                      <label>Username</label>
+                      <label htmlFor={`user-${user.id}-username`}>Username</label>
                       <input
+                        id={`user-${user.id}-username`}
                         className="fi"
                         value={draft.username}
                         disabled={isProtected}
@@ -261,9 +262,11 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
                       />
                     </div>
                     <div className="fg">
-                      <label>Email</label>
+                      <label htmlFor={`user-${user.id}-email`}>Email</label>
                       <input
+                        id={`user-${user.id}-email`}
                         className="fi"
+                        type="email"
                         value={draft.email}
                         onChange={(e) => handleInlineChange(user.id, "email", e.target.value)}
                       />
@@ -272,8 +275,9 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
 
                   <div className="fr">
                     <div className="fg">
-                      <label>Role</label>
+                      <label htmlFor={`user-${user.id}-role`}>Role</label>
                       <select
+                        id={`user-${user.id}-role`}
                         className="fi fi-select"
                         value={draft.role}
                         disabled={isProtected}
@@ -285,8 +289,9 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
                       </select>
                     </div>
                     <div className="fg">
-                      <label>Auth Provider</label>
+                      <label htmlFor={`user-${user.id}-auth-provider`}>Auth Provider</label>
                       <select
+                        id={`user-${user.id}-auth-provider`}
                         className="fi fi-select"
                         value={draft.auth_provider}
                         disabled={isProtected}
@@ -297,8 +302,9 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
                       </select>
                     </div>
                     <div className="fg">
-                      <label>Status</label>
+                      <label htmlFor={`user-${user.id}-status`}>Status</label>
                       <select
+                        id={`user-${user.id}-status`}
                         className="fi fi-select"
                         value={draft.is_active ? "active" : "disabled"}
                         disabled={isProtected}
@@ -315,6 +321,7 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
                       <div className="fg" style={{ flex: 1 }}>
                         <label htmlFor={`dept-access-${user.id}`}>Department access</label>
                         <DepartmentMultiSelect
+                          id={`dept-access-${user.id}`}
                           available={availableDepts}
                           selected={deptAssignments[user.id] ?? []}
                           onChange={(deps) =>
@@ -327,7 +334,7 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
                         </div>
                       </div>
                       <div className="fg" style={{ minWidth: 180 }}>
-                        <label>Downloads</label>
+                        <div className="fg-label">Downloads</div>
                         <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-2)", minHeight: 32 }}>
                           <input
                             type="checkbox"
@@ -342,10 +349,12 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
 
                   {draft.auth_provider === "local" && (
                     <div className="fg">
-                      <label>Set New Password (optional)</label>
+                      <label htmlFor={`user-${user.id}-password`}>Set New Password (optional)</label>
                       <input
+                        id={`user-${user.id}-password`}
                         className="fi"
                         type="password"
+                        autoComplete="new-password"
                         value={draft.password}
                         onChange={(e) => handleInlineChange(user.id, "password", e.target.value)}
                         placeholder="Leave blank to keep current password"

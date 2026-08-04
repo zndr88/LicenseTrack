@@ -12,6 +12,8 @@ from app.services.email_templates import budget_owner_alert, manager_digest
 
 log = logging.getLogger(__name__)
 
+_MANAGER_DIGEST_TYPES = frozenset({"expired", "expiring", "notice_due", "incomplete"})
+
 
 def notification_run_succeeded(summary: dict) -> bool:
     """Return True if a notification run reached a conclusive, non-failing outcome.
@@ -159,7 +161,7 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
     digest_sent = False
     if gs.manager_email and not _is_domain_allowed(gs.manager_email, allowed_domains):
         log.warning(f"Skipping digest to {gs.manager_email} - domain not in whitelist")
-    has_manager_notifications = any(n["type"] in ("expired", "expiring", "notice_due") for n in all_notifications)
+    has_manager_notifications = any(n["type"] in _MANAGER_DIGEST_TYPES for n in all_notifications)
     if gs.manager_email and has_manager_notifications and _is_domain_allowed(gs.manager_email, allowed_domains):
         try:
             html = manager_digest(

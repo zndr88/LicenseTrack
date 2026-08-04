@@ -7,7 +7,9 @@ Covers:
 """
 
 import bcrypt
+from sqlalchemy import select
 
+from app.models.audit_log import AuditLog
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
 
@@ -310,6 +312,43 @@ async def test_upsert_updates_existing_value(test_app, auth_headers):
     matching = [v for v in values if v["customFieldDefId"] == defn["id"]]
     assert len(matching) == 1
     assert matching[0]["valueText"] == "second"
+
+
+async def test_custom_field_value_changes_are_audited_but_no_ops_are_not(
+    test_app, auth_headers, db_session
+):
+    defn = await _create_definition(test_app, auth_headers, name="Audit Notes")
+    license_data = await _create_license(test_app, auth_headers)
+    url = f"/api/licenses/{license_data['id']}/custom-fields/"
+
+    for value in ("first", "second", "second"):
+        resp = await test_app.put(
+            url,
+            json={
+                "values": [
+                    {
+                        "customFieldDefId": defn["id"],
+                        "valueText": value,
+                    }
+                ]
+            },
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200
+
+    rows = (
+        await db_session.execute(
+            select(AuditLog)
+            .where(AuditLog.action == "license.custom_fields_updated")
+            .order_by(AuditLog.id)
+        )
+    ).scalars().all()
+
+    assert len(rows) == 2
+    assert all(row.target_id == str(license_data["id"]) for row in rows)
+    assert "cf_audit_notes (Audit Notes): (empty)" in rows[0].detail
+    assert "cf_audit_notes (Audit Notes): first" in rows[1].detail
+    assert "second" in rows[1].detail
 
 
 async def test_upsert_unknown_def_id_returns_422(test_app, auth_headers):

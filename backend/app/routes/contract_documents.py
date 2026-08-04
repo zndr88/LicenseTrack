@@ -14,7 +14,7 @@ import logging
 import mimetypes
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +26,8 @@ from app.models.user import User
 from app.schemas.contract import ContractDocumentResponse
 from app.services import storage
 from app.services.access_service import can_download_documents, can_view_contract
+from app.services.audit_contracts import format_document_amendment_detail
+from app.services.audit_service import log_event
 from app.services.contract_storage_service import (
     get_storage_base,
     require_storage_base,
@@ -39,6 +41,67 @@ logger = logging.getLogger(__name__)
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
+async def _save_contract_document(
+    *,
+    contract_id: int,
+    folder_id: int | None,
+    db: AsyncSession,
+    file: UploadFile,
+    request: Request,
+    current_user: User,
+) -> ContractDocumentResponse:
+    content = await file.read()
+    validate_contract_upload(file, content)
+    await file.seek(0)
+
+    storage_base = await require_storage_base(db)
+    stored_path, file_size = await storage.save_contract_file(file, contract_id, storage_base)
+    original_filename = file.filename or "upload"
+    doc = ContractDocument(
+        contract_id=contract_id,
+        folder_id=folder_id,
+        filename=stored_path,
+        original_filename=original_filename,
+        file_size=file_size,
+        created_by=current_user.id,
+    )
+    try:
+        db.add(doc)
+        await db.flush()
+        await log_event(
+            db,
+            "contract_document.uploaded",
+            actor=current_user,
+            ip_address=request.client.host if request.client else None,
+            target_type="contract_document",
+            target_id=str(doc.id),
+            target_label=original_filename,
+            detail=format_document_amendment_detail(
+                operation="upload",
+                post_conversion=False,
+                document_category="contract",
+                document_scope="contract",
+                document_id=doc.id,
+                filename=original_filename,
+                contract_id=contract_id,
+                folder_id=folder_id,
+                actor_email=current_user.email,
+            ),
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        try:
+            storage.delete_file(stored_path, storage_base)
+        except Exception:
+            logger.warning("Could not clean up failed contract document upload %s", stored_path, exc_info=True)
+        raise
+
+    await db.refresh(doc)
+    response = ContractDocumentResponse.model_validate(doc)
+    return with_file_availability(response, doc, storage_base)
+
+
 @router.post(
     "/api/contracts/{contract_id}/documents",
     response_model=ContractDocumentResponse,
@@ -46,6 +109,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 )
 async def upload_contract_document(
     contract_id: int,
+    request: Request,
     db: DbSession,
     file: UploadFile,
     current_user: User = Depends(require_editor_or_admin),
@@ -54,28 +118,14 @@ async def upload_contract_document(
     contract = result.scalar_one_or_none()
     if contract is None:
         raise HTTPException(status_code=404, detail="Contract not found")
-
-    content = await file.read()
-    validate_contract_upload(file, content)
-    await file.seek(0)
-
-    storage_base = await require_storage_base(db)
-    stored_path, file_size = await storage.save_contract_file(file, contract_id, storage_base)
-
-    original_filename = file.filename or "upload"
-    doc = ContractDocument(
+    return await _save_contract_document(
         contract_id=contract_id,
         folder_id=None,
-        filename=stored_path,
-        original_filename=original_filename,
-        file_size=file_size,
-        created_by=current_user.id,
+        db=db,
+        file=file,
+        request=request,
+        current_user=current_user,
     )
-    db.add(doc)
-    await db.commit()
-    await db.refresh(doc)
-    response = ContractDocumentResponse.model_validate(doc)
-    return with_file_availability(response, doc, storage_base)
 
 
 @router.post(
@@ -86,6 +136,7 @@ async def upload_contract_document(
 async def upload_contract_folder_document(
     contract_id: int,
     folder_id: int,
+    request: Request,
     db: DbSession,
     file: UploadFile,
     current_user: User = Depends(require_editor_or_admin),
@@ -98,28 +149,14 @@ async def upload_contract_folder_document(
     )
     if folder_result.scalar_one_or_none() is None:
         raise HTTPException(status_code=404, detail="Folder not found")
-
-    content = await file.read()
-    validate_contract_upload(file, content)
-    await file.seek(0)
-
-    storage_base = await require_storage_base(db)
-    stored_path, file_size = await storage.save_contract_file(file, contract_id, storage_base)
-
-    original_filename = file.filename or "upload"
-    doc = ContractDocument(
+    return await _save_contract_document(
         contract_id=contract_id,
         folder_id=folder_id,
-        filename=stored_path,
-        original_filename=original_filename,
-        file_size=file_size,
-        created_by=current_user.id,
+        db=db,
+        file=file,
+        request=request,
+        current_user=current_user,
     )
-    db.add(doc)
-    await db.commit()
-    await db.refresh(doc)
-    response = ContractDocumentResponse.model_validate(doc)
-    return with_file_availability(response, doc, storage_base)
 
 
 @router.get(
@@ -194,6 +231,7 @@ async def download_contract_document(
 async def delete_contract_document(
     contract_id: int,
     doc_id: int,
+    request: Request,
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> Response:
@@ -208,10 +246,32 @@ async def delete_contract_document(
         raise HTTPException(status_code=404, detail="Document not found")
 
     stored_path = doc.filename
+    original_filename = doc.original_filename
+    folder_id = doc.folder_id
+    storage_base = await get_storage_base(db)
     await db.delete(doc)
+    await log_event(
+        db,
+        "contract_document.deleted",
+        actor=_editor,
+        ip_address=request.client.host if request.client else None,
+        target_type="contract_document",
+        target_id=str(doc_id),
+        target_label=original_filename,
+        detail=format_document_amendment_detail(
+            operation="delete",
+            post_conversion=False,
+            document_category="contract",
+            document_scope="contract",
+            document_id=doc_id,
+            filename=original_filename,
+            contract_id=contract_id,
+            folder_id=folder_id,
+            actor_email=_editor.email,
+        ),
+    )
     await db.commit()
 
-    storage_base = await get_storage_base(db)
     try:
         storage.delete_file(stored_path, storage_base)
     except Exception:

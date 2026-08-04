@@ -7,6 +7,9 @@ focus on HTTP concerns, auth, and response wiring.
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
@@ -16,7 +19,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.document import Document, ProcurementDocument
 from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.sourcing import SourcingItem
-from app.schemas.license import LicenseCreate, LicenseUpdate
+from app.schemas.license import LicenseBatchCreateItem, LicenseCreate, LicenseUpdate
+from app.services import storage
+from app.services.contract_identity_service import resolve_contract_id_for_number
+from app.services.lifecycle_rules import (
+    REPAIR_ONLY_UPDATE_FIELDS,
+    validate_general_license_update_fields,
+    validate_lifecycle_repair_update,
+    validate_renewal_link_invariants,
+)
 from app.services.maintenance_rules import (
     assert_active_maintenance_allows_retirement,
     assert_active_maintenance_allows_coverage_change,
@@ -30,14 +41,22 @@ from app.services.maintenance_service import (
     sync_parent_mirror_fields,
     validate_parent_license,
 )
-from app.services.lifecycle_rules import (
-    REPAIR_ONLY_UPDATE_FIELDS,
-    validate_general_license_update_fields,
-    validate_lifecycle_repair_update,
-    validate_renewal_link_invariants,
-)
-from app.services.contract_identity_service import resolve_contract_id_for_number
 from app.services.money import is_canonical_money
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class DeletedLicenseRecord:
+    label: str
+    document_paths: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DeletedLicenseBatch:
+    ids: tuple[int, ...]
+    document_paths: tuple[str, ...]
+
 
 ALLOWED_PATCH_FIELDS: dict[str, str] = {
     "publisherName": "publisher_name",
@@ -195,6 +214,32 @@ async def create_license_record(
     await db.flush()
     license_obj.license_ref = await generate_license_ref(db)
     return license_obj
+
+
+async def create_license_batch_records(
+    db: AsyncSession,
+    items: list[LicenseBatchCreateItem],
+    *,
+    created_by: int,
+    generate_license_ref,
+) -> list[License]:
+    """Create an ordered license batch inside the caller's transaction."""
+    created: list[License] = []
+    for item in items:
+        payload = item.license
+        if item.parent_line_index is not None:
+            payload = payload.model_copy(
+                update={"parent_license_id": created[item.parent_line_index].id},
+            )
+        created.append(
+            await create_license_record(
+                db,
+                payload,
+                created_by=created_by,
+                generate_license_ref=generate_license_ref,
+            )
+        )
+    return created
 
 
 async def apply_license_update(
@@ -396,15 +441,15 @@ async def mark_license_notice_handled(
     return license_obj, before, after
 
 
-async def bulk_delete_license_records(db: AsyncSession, license_ids: list[int]) -> list[int]:
-    """Delete multiple licenses and return the IDs actually removed."""
+async def bulk_delete_license_records(db: AsyncSession, license_ids: list[int]) -> DeletedLicenseBatch:
+    """Delete multiple licenses and return their IDs and managed document paths."""
     if not license_ids:
-        return []
+        return DeletedLicenseBatch(ids=(), document_paths=())
 
     result = await db.execute(select(License).where(License.id.in_(license_ids)))
     found = list(result.scalars().all())
     if not found:
-        return []
+        return DeletedLicenseBatch(ids=(), document_paths=())
 
     await _assert_license_delete_allowed(db, found)
 
@@ -428,15 +473,15 @@ async def bulk_delete_license_records(db: AsyncSession, license_ids: list[int]) 
         if license_obj.license_type == LicenseType.maintenance:
             license_obj.is_retired = True
 
-    await _cleanup_license_delete_references(db, found_ids)
+    document_paths = await _cleanup_license_delete_references(db, found_ids)
     for license_obj in found:
         await db.delete(license_obj)
 
-    return found_ids
+    return DeletedLicenseBatch(ids=tuple(found_ids), document_paths=document_paths)
 
 
-async def delete_license_record(db: AsyncSession, license_id: int) -> str:
-    """Delete a single license and return its audit label."""
+async def delete_license_record(db: AsyncSession, license_id: int) -> DeletedLicenseRecord:
+    """Delete a single license and return its audit label and managed document paths."""
     result = await db.execute(select(License).where(License.id == license_id))
     license_obj = result.scalar_one_or_none()
     if license_obj is None:
@@ -459,16 +504,18 @@ async def delete_license_record(db: AsyncSession, license_id: int) -> str:
         license_obj.is_retired = True
 
     label = license_obj.software_description
-    await _cleanup_license_delete_references(db, [license_id])
+    document_paths = await _cleanup_license_delete_references(db, [license_id])
     await db.delete(license_obj)
-    return label
+    return DeletedLicenseRecord(label=label, document_paths=document_paths)
 
 
-async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list[int]) -> None:
+async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list[int]) -> tuple[str, ...]:
     """Detach rows that may legitimately outlive deleted license records."""
     if not license_ids:
-        return
+        return ()
 
+    document_result = await db.execute(select(Document.filename).where(Document.license_id.in_(license_ids)))
+    document_paths = tuple(document_result.scalars().all())
     await db.execute(delete(Document).where(Document.license_id.in_(license_ids)))
     await db.execute(
         sa_update(ProcurementDocument).where(ProcurementDocument.license_id.in_(license_ids)).values(license_id=None)
@@ -490,6 +537,26 @@ async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list
             maintenance_cost=None,
         )
     )
+    return document_paths
+
+
+def delete_license_document_files(
+    stored_paths: Iterable[str],
+    storage_base: str | None,
+) -> int:
+    """Delete committed license-owned document files without failing the HTTP deletion."""
+    deleted = 0
+    for stored_path in dict.fromkeys(stored_paths):
+        try:
+            storage.delete_file(stored_path, storage_base)
+            deleted += 1
+        except Exception:
+            logger.warning(
+                "Could not delete stored license document file %s after license deletion",
+                stored_path,
+                exc_info=True,
+            )
+    return deleted
 
 
 async def _assert_license_delete_allowed(db: AsyncSession, licenses: list[License]) -> None:

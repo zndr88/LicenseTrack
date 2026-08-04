@@ -177,6 +177,25 @@ describe("NotificationsSection validation", () => {
     expect(updateGlobalSettings).not.toHaveBeenCalled();
   });
 
+  test("preserves midnight when the notification hour input changes to zero", () => {
+    const settings = baseNotificationsSettings({ notificationSendHour: 7 });
+    let nextSettings = settings;
+    const setGlobalSettings = vi.fn((updater) => {
+      nextSettings = updater(nextSettings);
+    });
+    render(
+      <NotificationsSection
+        {...sectionProps(settings, { setGlobalSettings })}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/Daily Send Time/i), {
+      target: { value: "0" },
+    });
+
+    expect(nextSettings.notificationSendHour).toBe(0);
+  });
+
   test("rejects invalid allowed domain and does not add it to the list", () => {
     const onError = vi.fn();
     const setGlobalSettings = vi.fn();
@@ -572,6 +591,25 @@ describe("BackupSection validation", () => {
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     expect(updateGlobalSettings).toHaveBeenCalled();
+  });
+
+  test("preserves midnight when the backup hour input changes to zero", () => {
+    const settings = baseBackupSettings({ backupHour: 2 });
+    let nextSettings = settings;
+    const setGlobalSettings = vi.fn((updater) => {
+      nextSettings = updater(nextSettings);
+    });
+    render(
+      <BackupSection
+        {...sectionProps(settings, { setGlobalSettings })}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/Daily Database Backup Hour/i), {
+      target: { value: "0" },
+    });
+
+    expect(nextSettings.backupHour).toBe(0);
   });
 
   test("accepts hour boundary value 23", () => {

@@ -69,7 +69,7 @@ def validate_contract_upload(file: UploadFile, content: bytes) -> None:
     max_bytes = app_settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     if len(content) > max_bytes:
         raise HTTPException(
-            status_code=422,
+            status_code=413,
             detail=f"File exceeds the maximum allowed size of {app_settings.MAX_UPLOAD_SIZE_MB} MB.",
         )
     filename = file.filename or ""

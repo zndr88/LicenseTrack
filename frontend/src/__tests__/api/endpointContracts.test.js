@@ -42,6 +42,10 @@ describe("frontend API endpoint contracts", () => {
     await licensesApi.getLicenseProcurementTrail(7);
     expect(client.get).toHaveBeenLastCalledWith("/api/licenses/7/procurement-trail");
 
+    const batch = [{ license: { publisherName: "Acme" } }];
+    await licensesApi.createLicenseBatch(batch);
+    expect(client.post).toHaveBeenLastCalledWith("/api/licenses/batch", { items: batch });
+
     await licensesApi.initiateRenewalBundle([7, 8]);
     expect(client.post).toHaveBeenLastCalledWith("/api/licenses/renewal-bundle/initiate", { licenseIds: [7, 8] });
 

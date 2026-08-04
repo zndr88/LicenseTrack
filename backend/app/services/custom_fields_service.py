@@ -5,6 +5,7 @@ Service layer for custom field definitions and per-license values.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import date
 
 from fastapi import HTTPException, status
@@ -16,6 +17,16 @@ from app.models.custom_fields import CustomFieldDefinition, CustomFieldValue
 from app.models.license import License
 from app.schemas.custom_fields import CustomFieldDefinitionCreate, CustomFieldDefinitionUpdate, CustomFieldValuesUpsert
 from app.services.money import MoneyParseError, parse_localized_money, parse_money
+
+
+@dataclass(frozen=True)
+class CustomFieldValueChange:
+    field_key: str
+    field_name: str
+    before_text: str | None
+    before_currency: str | None
+    after_text: str | None
+    after_currency: str | None
 
 
 async def generate_field_key(name: str) -> str:
@@ -351,7 +362,7 @@ async def get_values_for_license(db: AsyncSession, license_id: int) -> list[Cust
 
 async def upsert_values_for_license(
     db: AsyncSession, license_id: int, data: CustomFieldValuesUpsert
-) -> list[CustomFieldValue]:
+) -> tuple[list[CustomFieldValue], list[CustomFieldValueChange]]:
     """
     For each item in data.values:
     - If a row exists for (license_id, custom_field_def_id): update it.
@@ -361,7 +372,7 @@ async def upsert_values_for_license(
     Return updated rows with definitions loaded.
     """
     if not data.values:
-        return await get_values_for_license(db, license_id)
+        return await get_values_for_license(db, license_id), []
 
     # Validate all def IDs exist
     def_ids = [item.custom_field_def_id for item in data.values]
@@ -375,6 +386,7 @@ async def upsert_values_for_license(
             detail=f"Unknown custom_field_def_id(s): {missing}",
         )
 
+    changes: list[CustomFieldValueChange] = []
     for item in data.values:
         definition = definitions_by_id[item.custom_field_def_id]
         value_text, value_currency = normalize_custom_field_value(
@@ -390,9 +402,13 @@ async def upsert_values_for_license(
             )
         )
         if existing is not None:
+            before_text = existing.value_text
+            before_currency = existing.value_currency
             existing.value_text = value_text
             existing.value_currency = value_currency
         else:
+            before_text = None
+            before_currency = None
             new_value = CustomFieldValue(
                 license_id=license_id,
                 custom_field_def_id=item.custom_field_def_id,
@@ -401,4 +417,16 @@ async def upsert_values_for_license(
             )
             db.add(new_value)
 
-    return await get_values_for_license(db, license_id)
+        if (before_text, before_currency) != (value_text, value_currency):
+            changes.append(
+                CustomFieldValueChange(
+                    field_key=definition.field_key,
+                    field_name=definition.name,
+                    before_text=before_text,
+                    before_currency=before_currency,
+                    after_text=value_text,
+                    after_currency=value_currency,
+                )
+            )
+
+    return await get_values_for_license(db, license_id), changes

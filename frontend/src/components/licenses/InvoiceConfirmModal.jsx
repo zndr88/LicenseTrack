@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
 import Checkbox from "../ui/Checkbox.jsx";
 import Icon from "../ui/Icon.jsx";
@@ -59,6 +59,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const [attachedFileBase64, setAttachedFileBase64] = useState(null);
   const [additionalLines, setAdditionalLines] = useState([]);
   const [formTouched, setFormTouched] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
 
   const handleFileChange = (file) => {
     setAttachedFile(file);
@@ -125,7 +127,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const isDirty = formTouched || additionalLines.length > 0 || !!attachedFile;
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose: onCancel });
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (submitLockRef.current) return;
+
     // Merge each additional line with shared fields from primary form
     const sharedFields = {
       publisherName: form.publisherName,
@@ -171,7 +175,18 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         parentLineIndex: line.parentLineIndex,
       })),
     ];
-    onConfirm(allForms, attachedFile, attachedFileCategory);
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+    try {
+      const completed = await onConfirm(allForms, attachedFile, attachedFileCategory);
+      if (completed === false) {
+        submitLockRef.current = false;
+        setIsSubmitting(false);
+      }
+    } catch {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   const lineCount = 1 + additionalLines.length;
@@ -181,12 +196,19 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     <ModalShell
       title="Review License Data"
       titleId="dialog-title-invoice-confirm"
-      onClose={requestClose}
+      onClose={() => {
+        if (!submitLockRef.current) requestClose();
+      }}
+      closeButtonDisabled={isSubmitting}
+      closeOnOverlayClick={!isSubmitting}
       footer={(
         <>
-          <button className="btn btn-g" onClick={requestClose}>Cancel</button>
-          <button className="btn btn-p" onClick={handleSave}>
-            <Icon name="check" size={14} />{lineCount > 1 ? `Save ${lineCount} Licenses` : "Save License"}
+          <button className="btn btn-g" onClick={requestClose} disabled={isSubmitting}>Cancel</button>
+          <button className="btn btn-p" onClick={handleSave} disabled={isSubmitting}>
+            <Icon name="check" size={14} />
+            {isSubmitting
+              ? "Saving..."
+              : (lineCount > 1 ? `Save ${lineCount} Licenses` : "Save License")}
           </button>
         </>
       )}
@@ -199,7 +221,11 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           {/* Attach document - kept at the top so it sits with the Parse Document
               action it feeds, matching the sourcing and pending-order modals. */}
           <div className="fg" style={{ borderBottom: "1px solid var(--border-lt)", paddingBottom: 12, marginBottom: 4 }}>
-            <label>Attach Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional — attached to first license)</span></label>
+            {attachedFile ? (
+              <div className="fg-label">Attach Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional — attached to first license)</span></div>
+            ) : (
+              <label htmlFor="inv-attach-file">Attach Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional — attached to first license)</span></label>
+            )}
             {attachedFile ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
                 <Icon name="file" size={14} color="var(--text-2)" />
@@ -296,7 +322,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             <div className="fg"><label htmlFor="inv-start-date">Start Date</label><input id="inv-start-date" type="date" className="fi" value={form.startDate} onChange={(e) => u("startDate", e.target.value)} /></div>
             <div className="fg">
               <label htmlFor="inv-end-date">End Date</label>
-              {form.isPerpetual ? <input className="fi" value="Perpetual" disabled /> : <input id="inv-end-date" type="date" className="fi" value={form.endDate} onChange={(e) => u("endDate", e.target.value)} />}
+              {form.isPerpetual ? <input id="inv-end-date" className="fi" value="Perpetual" disabled /> : <input id="inv-end-date" type="date" className="fi" value={form.endDate} onChange={(e) => u("endDate", e.target.value)} />}
               <div style={{ marginTop: 5 }}><Checkbox checked={form.isPerpetual} onChange={(v) => { u("isPerpetual", v); if (v) u("endDate", "Perpetual"); else u("endDate", ""); }} label="Perpetual license" /></div>
             </div>
           </div>
@@ -436,19 +462,19 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 </button>
               </div>
               <div className="fg">
-                <label>Software Description <span style={{ color: "var(--red)" }}>*</span></label>
-                <input className="fi" value={line.softwareDescription} onChange={(e) => updateLine(line.id, "softwareDescription", e.target.value)} placeholder="Product or service name" />
+                <label htmlFor={`inv-line-${line.id}-software`}>Software Description <span style={{ color: "var(--red)" }}>*</span></label>
+                <input id={`inv-line-${line.id}-software`} className="fi" value={line.softwareDescription} onChange={(e) => updateLine(line.id, "softwareDescription", e.target.value)} placeholder="Product or service name" />
               </div>
               <div className="fr">
                 <div className="fg">
-                  <label>Start Date</label>
-                  <input type="date" className="fi" value={line.startDate} onChange={(e) => updateLine(line.id, "startDate", e.target.value)} />
+                  <label htmlFor={`inv-line-${line.id}-start-date`}>Start Date</label>
+                  <input id={`inv-line-${line.id}-start-date`} type="date" className="fi" value={line.startDate} onChange={(e) => updateLine(line.id, "startDate", e.target.value)} />
                 </div>
                 <div className="fg">
-                  <label>End Date</label>
+                  <label htmlFor={`inv-line-${line.id}-end-date`}>End Date</label>
                   {line.isPerpetual
-                    ? <input className="fi" value="Perpetual" disabled />
-                    : <input type="date" className="fi" value={line.endDate} onChange={(e) => updateLine(line.id, "endDate", e.target.value)} />
+                    ? <input id={`inv-line-${line.id}-end-date`} className="fi" value="Perpetual" disabled />
+                    : <input id={`inv-line-${line.id}-end-date`} type="date" className="fi" value={line.endDate} onChange={(e) => updateLine(line.id, "endDate", e.target.value)} />
                   }
                   <div style={{ marginTop: 5 }}>
                     <Checkbox
@@ -459,16 +485,16 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   </div>
                 </div>
                 <div className="fg">
-                  <label>Notice Date</label>
-                  <input type="date" className="fi" value={line.noticeDate || ""} onChange={(e) => updateLine(line.id, "noticeDate", e.target.value)} />
+                  <label htmlFor={`inv-line-${line.id}-notice-date`}>Notice Date</label>
+                  <input id={`inv-line-${line.id}-notice-date`} type="date" className="fi" value={line.noticeDate || ""} onChange={(e) => updateLine(line.id, "noticeDate", e.target.value)} />
                   {line.noticeDate && line.endDate && line.endDate !== "Perpetual" && line.noticeDate > line.endDate && <div className="dp-field-warning">Notice date is after the license end date.</div>}
                 </div>
               </div>
               <div className="fr">
                 {vis.licenseType && (
                   <div className="fg">
-                    <label>License Type</label>
-                    <select className="fi fi-select" value={line.licenseType} onChange={(e) => {
+                    <label htmlFor={`inv-line-${line.id}-license-type`}>License Type</label>
+                    <select id={`inv-line-${line.id}-license-type`} className="fi fi-select" value={line.licenseType} onChange={(e) => {
                       const next = e.target.value;
                       updateLine(line.id, "licenseType", next);
                       if (next !== "saas") updateLine(line.id, "portalUrl", "");
@@ -484,8 +510,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 )}
                 {vis.licenseMetric && (
                   <div className="fg">
-                    <label>License Metric</label>
-                    <select className="fi fi-select" value={line.licenseMetric} onChange={(e) => updateLine(line.id, "licenseMetric", e.target.value)}>
+                    <label htmlFor={`inv-line-${line.id}-license-metric`}>License Metric</label>
+                    <select id={`inv-line-${line.id}-license-metric`} className="fi fi-select" value={line.licenseMetric} onChange={(e) => updateLine(line.id, "licenseMetric", e.target.value)}>
                       <option value="">Select...</option>
                       {LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
@@ -494,21 +520,21 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               </div>
               {line.licenseType === "saas" && (
                 <div className="fg">
-                  <label>Portal URL</label>
-                  <input className="fi" value={line.portalUrl} onChange={(e) => updateLine(line.id, "portalUrl", e.target.value)} placeholder="https://..." />
+                  <label htmlFor={`inv-line-${line.id}-portal-url`}>Portal URL</label>
+                  <input id={`inv-line-${line.id}-portal-url`} className="fi" value={line.portalUrl} onChange={(e) => updateLine(line.id, "portalUrl", e.target.value)} placeholder="https://..." />
                 </div>
               )}
               <div className="fr">
                 {vis.quantity && (
                   <div className="fg">
-                    <label>Purchase Quantity</label>
-                    <input type="number" className="fi" value={line.quantity} onChange={(e) => updateLine(line.id, "quantity", e.target.value)} />
+                    <label htmlFor={`inv-line-${line.id}-quantity`}>Purchase Quantity</label>
+                    <input id={`inv-line-${line.id}-quantity`} type="number" className="fi" value={line.quantity} onChange={(e) => updateLine(line.id, "quantity", e.target.value)} />
                   </div>
                 )}
                 {vis.skuCode && (
                   <div className="fg">
-                    <label>SKU Code</label>
-                    <input className="fi" value={line.skuCode} onChange={(e) => updateLine(line.id, "skuCode", e.target.value)} placeholder="SKU or product code" />
+                    <label htmlFor={`inv-line-${line.id}-sku-code`}>SKU Code</label>
+                    <input id={`inv-line-${line.id}-sku-code`} className="fi" value={line.skuCode} onChange={(e) => updateLine(line.id, "skuCode", e.target.value)} placeholder="SKU or product code" />
                   </div>
                 )}
               </div>
@@ -516,19 +542,19 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 <div className="fr">
                   {vis.unitPrice && (
                     <div className="fg">
-                      <label>Unit Price</label>
-                      <input className="fi" value={line.unitPrice} onChange={(e) => updateLine(line.id, "unitPrice", e.target.value)} placeholder="0.00" />
+                      <label htmlFor={`inv-line-${line.id}-unit-price`}>Unit Price</label>
+                      <input id={`inv-line-${line.id}-unit-price`} className="fi" value={line.unitPrice} onChange={(e) => updateLine(line.id, "unitPrice", e.target.value)} placeholder="0.00" />
                     </div>
                   )}
                   {vis.totalPoPrice && (
                     <div className="fg">
-                      <label>Total PO Price</label>
-                      <input className="fi" value={line.totalPoPrice} onChange={(e) => updateLine(line.id, "totalPoPrice", e.target.value)} placeholder="0.00" />
+                      <label htmlFor={`inv-line-${line.id}-total-price`}>Total PO Price</label>
+                      <input id={`inv-line-${line.id}-total-price`} className="fi" value={line.totalPoPrice} onChange={(e) => updateLine(line.id, "totalPoPrice", e.target.value)} placeholder="0.00" />
                     </div>
                   )}
                   <div className="fg" style={{ flex: "0 0 90px" }}>
-                    <label>Currency</label>
-                    <select className="fi fi-select" value={line.currency} onChange={(e) => updateLine(line.id, "currency", e.target.value)}>
+                    <label htmlFor={`inv-line-${line.id}-currency`}>Currency</label>
+                    <select id={`inv-line-${line.id}-currency`} className="fi fi-select" value={line.currency} onChange={(e) => updateLine(line.id, "currency", e.target.value)}>
                       {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
@@ -536,8 +562,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               )}
               {vis.notes && (
                 <div className="fg">
-                  <label>Notes</label>
-                  <textarea className="fi" rows={2} value={line.notes} onChange={(e) => updateLine(line.id, "notes", e.target.value)} style={{ resize: "vertical" }} />
+                  <label htmlFor={`inv-line-${line.id}-notes`}>Notes</label>
+                  <textarea id={`inv-line-${line.id}-notes`} className="fi" rows={2} value={line.notes} onChange={(e) => updateLine(line.id, "notes", e.target.value)} style={{ resize: "vertical" }} />
                 </div>
               )}
             </div>

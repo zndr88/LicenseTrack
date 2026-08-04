@@ -52,7 +52,7 @@ export default function MaintenanceSection({
         <div className="dp-section-body" id="dp-section-maintenance">
           <div className="dp-field" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div>
-              <label>Coverage</label>
+              <span className="dp-field-label">Coverage</span>
               <div className="val">{coverageLabel}</div>
             </div>
             {perms.canEdit && (
@@ -99,16 +99,16 @@ export default function MaintenanceSection({
             <>
               <div className="fr dp-data-row">
                 <div className="dp-field">
-                  <label>Maintenance Start</label>
+                  <span className="dp-field-label">Maintenance Start</span>
                   <div className="val mono">{license.maintenanceStartDate ? formatDate(license.maintenanceStartDate, userSettings) : "—"}</div>
                 </div>
                 <div className="dp-field">
-                  <label>Maintenance End</label>
+                  <span className="dp-field-label">Maintenance End</span>
                   <div className="val mono">{license.maintenanceEndDate ? formatDate(license.maintenanceEndDate, userSettings) : "—"}</div>
                 </div>
               </div>
               <div className="dp-field">
-                <label>Total Support Cost (coverage period)</label>
+                <span className="dp-field-label">Total Support Cost (coverage period)</span>
                 <div className="val dp-mono-val">
                   {license.maintenanceCost
                     ? formatCost(

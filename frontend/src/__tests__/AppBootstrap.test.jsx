@@ -54,7 +54,7 @@ vi.mock("../api/auth.js", () => ({
 }));
 
 vi.mock("../api/licenses.js", () => ({
-  createLicense: vi.fn(),
+  createLicenseBatch: vi.fn(),
   getLicenseProcurementTrail: vi.fn().mockResolvedValue({ data: null, error: null }),
   getStats: vi.fn(),
 }));

@@ -203,6 +203,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 _UPLOAD_PATHS = ("/api/backup/restore", "/api/plugins/preview-install", "/api/plugins/install")
 _UPLOAD_PATH_SUFFIXES = ("/documents", "/quote-documents")
+MULTIPART_ENVELOPE_ALLOWANCE_BYTES = 1024 * 1024
 
 
 @app.middleware("http")
@@ -219,12 +220,12 @@ async def reject_oversized_uploads(request: Request, call_next):
                     if path.startswith("/api/plugins/")
                     else settings.MAX_UPLOAD_SIZE_MB
                 )
-                max_bytes = max_upload_mb * 1024 * 1024
+                max_request_bytes = max_upload_mb * 1024 * 1024 + MULTIPART_ENVELOPE_ALLOWANCE_BYTES
                 try:
                     cl_value = int(cl_header)
                 except ValueError:
                     cl_value = 0
-                if cl_value > max_bytes:
+                if cl_value > max_request_bytes:
                     return JSONResponse(
                         status_code=413,
                         content={"detail": f"File exceeds the maximum allowed size of {max_upload_mb} MB."},

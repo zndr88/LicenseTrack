@@ -520,6 +520,39 @@ async def test_run_daily_notifications_no_emails_sent_when_no_expiring(
     mock_send.assert_not_called()
 
 
+async def test_run_daily_notifications_sends_digest_for_incomplete_only_run(
+    db_session, smtp_settings
+):
+    smtp_settings.mandatory_fields = {"poNumber": True}
+    db_session.add(
+        License(
+            publisher_name="Vendor",
+            software_description="Incomplete Only",
+            license_type=LicenseType.subscription,
+            license_metric=LicenseMetric.per_user,
+            currency="EUR",
+            end_date=date.today() + timedelta(days=180),
+            is_retired=False,
+        )
+    )
+    await db_session.commit()
+
+    with patch(
+        "app.services.notification_sender.send_email", new_callable=AsyncMock
+    ) as mock_send:
+        result = await run_daily_notifications(db_session)
+
+    assert result == {
+        "budget_owner_emails_sent": 0,
+        "digest_sent": True,
+        "total_notifications": 1,
+        "errors": [],
+    }
+    mock_send.assert_awaited_once()
+    assert mock_send.await_args.args[1] == "manager@example.com"
+    assert "1 incomplete" in mock_send.await_args.args[2]
+
+
 async def test_run_daily_notifications_counts_procurement_documents_for_completeness(
     db_session, smtp_settings
 ):

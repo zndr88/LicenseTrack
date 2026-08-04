@@ -965,7 +965,7 @@ describe('DetailPanel field editing', () => {
     )
 
     await user.click(await screen.findByRole('button', { name: /^edit$/i }))
-    const descriptionInput = screen.getByDisplayValue('Widget Pro')
+    const descriptionInput = screen.getByLabelText('Software Description')
     await user.clear(descriptionInput)
     await user.type(descriptionInput, 'Panel Edited Suite')
     await user.click(screen.getByRole('button', { name: /save changes/i }))

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { updateGlobalSettings } from "../../../api/settings.js";
 import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
-import { allowedEmailDomain } from "../../../utils/validation.js";
+import { allowedEmailDomain, parseIntegerInput } from "../../../utils/validation.js";
 import { notificationsSaveSchema } from "../../../utils/settingsSchemas.js";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
 
@@ -67,7 +67,7 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
               </div>
               <div className="fg">
                 <label htmlFor="settings-send-hour">Daily Send Time (hour, 0-23)</label>
-                <input id="settings-send-hour" className="fi" type="number" min="0" max="23" value={globalSettings.notificationSendHour} onChange={(e) => { setGlobalSettings(s => ({ ...s, notificationSendHour: parseInt(e.target.value) || 7 })); markDirty("notifications"); }} />
+                <input id="settings-send-hour" className="fi" type="number" min="0" max="23" value={globalSettings.notificationSendHour} onChange={(e) => { setGlobalSettings(s => ({ ...s, notificationSendHour: parseIntegerInput(e.target.value) })); markDirty("notifications"); }} />
               </div>
             </div>
             <div className="fg set-spaced-field">

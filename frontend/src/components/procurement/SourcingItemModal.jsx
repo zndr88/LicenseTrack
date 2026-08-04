@@ -422,7 +422,11 @@ const SourcingItemModal = ({
           {isNewRequest && (
             <>
               <div className="fg" style={{ borderBottom: "1px solid var(--border-lt)", paddingBottom: 12, marginBottom: 4 }}>
-                <label>Upload Quote <span style={{ fontWeight: 400, color: "var(--text-3)" }}>{slotHasActions ? "(optional — use Parse Quote to auto-fill)" : "(optional)"}</span></label>
+                {attachedFile ? (
+                  <div className="fg-label">Upload Quote <span style={{ fontWeight: 400, color: "var(--text-3)" }}>{slotHasActions ? "(optional — use Parse Quote to auto-fill)" : "(optional)"}</span></div>
+                ) : (
+                  <label htmlFor="sourcing-quote-file">Upload Quote <span style={{ fontWeight: 400, color: "var(--text-3)" }}>{slotHasActions ? "(optional — use Parse Quote to auto-fill)" : "(optional)"}</span></label>
+                )}
                 {attachedFile ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
                     <Icon name="file" size={14} color="var(--text-2)" />
@@ -430,7 +434,7 @@ const SourcingItemModal = ({
                     <button type="button" className="btn btn-g" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => handleFileChange(null)}>Remove</button>
                   </div>
                 ) : (
-                  <input type="file" className="fi" style={{ marginTop: 4 }} accept=".pdf,.png,.jpg,.jpeg,.txt" onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)} />
+                  <input id="sourcing-quote-file" type="file" className="fi" style={{ marginTop: 4 }} accept=".pdf,.png,.jpg,.jpeg,.txt" onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)} />
                 )}
               </div>
               {/* PluginSlot always mounted to discover actions; hidden via CSS when empty */}
@@ -645,8 +649,9 @@ const SourcingItemModal = ({
               </div>
               <div className="fr">
                 <div className="fg" style={{ flex: 1 }}>
-                  <label>Publisher <span style={{ color: "var(--red)" }}>*</span></label>
+                  <label htmlFor={`sourcing-line-${line.id}-publisher`}>Publisher <span style={{ color: "var(--red)" }}>*</span></label>
                   <input
+                    id={`sourcing-line-${line.id}-publisher`}
                     className="fi"
                     value={line.publisherName}
                     onChange={(e) => updateAdditionalLine(line.id, "publisherName", e.target.value)}
@@ -655,8 +660,9 @@ const SourcingItemModal = ({
                 </div>
               </div>
               <div className="fg">
-                <label>Software Description <span style={{ color: "var(--red)" }}>*</span></label>
+                <label htmlFor={`sourcing-line-${line.id}-software`}>Software Description <span style={{ color: "var(--red)" }}>*</span></label>
                 <input
+                  id={`sourcing-line-${line.id}-software`}
                   className="fi"
                   value={line.softwareDescription}
                   onChange={(e) => updateAdditionalLine(line.id, "softwareDescription", e.target.value)}
@@ -664,8 +670,9 @@ const SourcingItemModal = ({
                 />
               </div>
               <div className="fg">
-                <label>License Type <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></label>
+                <label htmlFor={`sourcing-line-${line.id}-license-type`}>License Type <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></label>
                 <select
+                  id={`sourcing-line-${line.id}-license-type`}
                   className="fi fi-select"
                   value={line.licenseType}
                   onChange={(e) => {
@@ -685,8 +692,9 @@ const SourcingItemModal = ({
               </div>
               <div className="fr">
                 <div className="fg" style={{ flex: 1 }}>
-                  <label>Purchase Quantity</label>
+                  <label htmlFor={`sourcing-line-${line.id}-quantity`}>Purchase Quantity</label>
                   <input
+                    id={`sourcing-line-${line.id}-quantity`}
                     className="fi"
                     value={line.quantity}
                     onChange={(e) => updateAdditionalLine(line.id, "quantity", e.target.value)}
@@ -694,8 +702,9 @@ const SourcingItemModal = ({
                   />
                 </div>
                 <div className="fg" style={{ flex: 1 }}>
-                  <label>Currency</label>
+                  <label htmlFor={`sourcing-line-${line.id}-currency`}>Currency</label>
                   <select
+                    id={`sourcing-line-${line.id}-currency`}
                     className="fi"
                     value={line.currency}
                     onChange={(e) => updateAdditionalLine(line.id, "currency", e.target.value)}
@@ -707,8 +716,9 @@ const SourcingItemModal = ({
               {!isFreewareLicenseType(line.licenseType) && (
               <div className="fr">
                 <div className="fg" style={{ flex: 1 }}>
-                  <label>Est. Unit Price</label>
+                  <label htmlFor={`sourcing-line-${line.id}-unit-price`}>Est. Unit Price</label>
                   <input
+                    id={`sourcing-line-${line.id}-unit-price`}
                     className="fi"
                     value={line.estimatedUnitPrice}
                     onChange={(e) => updateAdditionalLine(line.id, "estimatedUnitPrice", e.target.value)}
@@ -716,8 +726,9 @@ const SourcingItemModal = ({
                   />
                 </div>
                 <div className="fg" style={{ flex: 1 }}>
-                  <label>Est. Total Price</label>
+                  <label htmlFor={`sourcing-line-${line.id}-total-price`}>Est. Total Price</label>
                   <input
+                    id={`sourcing-line-${line.id}-total-price`}
                     className="fi"
                     value={line.estimatedTotalPrice}
                     onChange={(e) => updateAdditionalLine(line.id, "estimatedTotalPrice", e.target.value)}
@@ -728,8 +739,9 @@ const SourcingItemModal = ({
               )}
               <div className="fr">
                 <div className="fg" style={{ flex: 1 }}>
-                  <label>Start Date</label>
+                  <label htmlFor={`sourcing-line-${line.id}-start-date`}>Start Date</label>
                   <input
+                    id={`sourcing-line-${line.id}-start-date`}
                     className="fi"
                     type="date"
                     value={line.startDate}
@@ -737,8 +749,9 @@ const SourcingItemModal = ({
                   />
                 </div>
                 <div className="fg" style={{ flex: 1 }}>
-                  <label>End Date</label>
+                  <label htmlFor={`sourcing-line-${line.id}-end-date`}>End Date</label>
                   <input
+                    id={`sourcing-line-${line.id}-end-date`}
                     className="fi"
                     type="date"
                     value={line.endDate}
@@ -749,8 +762,9 @@ const SourcingItemModal = ({
               {line.isMaintenanceCompanion && (
                 <>
                   <div className="fg">
-                    <label>Supplier</label>
+                    <label htmlFor={`sourcing-line-${line.id}-supplier`}>Supplier</label>
                     <input
+                      id={`sourcing-line-${line.id}-supplier`}
                       className="fi"
                       value={line.supplier}
                       onChange={(e) => updateAdditionalLine(line.id, "supplier", e.target.value)}
@@ -758,8 +772,9 @@ const SourcingItemModal = ({
                     />
                   </div>
                   <div className="fg">
-                    <label>Supplier Contact</label>
+                    <label htmlFor={`sourcing-line-${line.id}-contact`}>Supplier Contact</label>
                     <input
+                      id={`sourcing-line-${line.id}-contact`}
                       className="fi"
                       value={line.contactEmail}
                       onChange={(e) => updateAdditionalLine(line.id, "contactEmail", e.target.value)}

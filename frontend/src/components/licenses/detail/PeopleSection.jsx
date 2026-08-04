@@ -27,7 +27,7 @@ export default function PeopleSection({
         <div className="dp-section-body" id="dp-section-people">
           {vis.supplier && (
             <div className="dp-field">
-              <label>Supplier</label>
+              <span className="dp-field-label">Supplier</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val">{license.supplier || "—"}</div>
                 {perms.canEdit && (
@@ -42,7 +42,7 @@ export default function PeopleSection({
           )}
           {vis.costCentre && (
             <div className="dp-field">
-              <label>Cost Centre / Dept</label>
+              <span className="dp-field-label">Cost Centre / Dept</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val">{license.costCentre || "—"}</div>
                 {perms.canEdit && (
@@ -57,7 +57,7 @@ export default function PeopleSection({
           )}
           {license.lifecycleStatus !== "pending_renewal" ? (
             <div className="dp-field">
-              <label>Publisher Contact</label>
+              <span className="dp-field-label">Publisher Contact</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <a href={mailto} className="email-link dp-fieldval-sm">
                   <Icon name="mail" size={12} color="var(--accent)" /> {license.contactEmail || "—"}
@@ -74,7 +74,7 @@ export default function PeopleSection({
             </div>
           ) : (
             <div className="dp-field">
-              <label>Publisher Contact</label>
+              <span className="dp-field-label">Publisher Contact</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val dp-fieldval-sm">{license.contactEmail || "—"}</div>
                 {perms.canEdit && (
@@ -89,7 +89,7 @@ export default function PeopleSection({
             </div>
           )}
           <div className="dp-field">
-            <label>Budget Owner (Dept.)</label>
+            <span className="dp-field-label">Budget Owner (Dept.)</span>
             <div className="dp-budget-row">
               {license.budgetOwnerEmail ? (
                 <a href={`mailto:${license.budgetOwnerEmail}`} className="email-link dp-fieldval-sm">

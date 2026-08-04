@@ -184,7 +184,7 @@ td {
 .discard-dialog-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .discard-dialog-confirm { background: var(--red); color: var(--bg-0); border: none; }
 .fg { margin-bottom: 14px; }
-.fg label { display: block; font-family: var(--font-mono); font-size: 9px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.12em; }
+.fg label, .fg-label { display: block; font-family: var(--font-mono); font-size: 9px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.12em; }
 .fg-hint { font-family: var(--font-mono); font-size: 9px; color: var(--text-3); margin-top: 3px; display: block; }
 .fg label .req { color: var(--red-text); font-weight: 400; }
 .fi { width: 100%; padding: 8px 11px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px; color: var(--text-1); font-family: var(--font-sans); font-size: 12px; outline: none; transition: border-color .15s; }
@@ -221,7 +221,7 @@ textarea.fi { min-height: 80px; resize: vertical; }
 .dp-hd { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--bg-1); z-index: 1; }
 .dp-bd { padding: 22px; }
 .dp-field { margin-bottom: 14px; }
-.dp-field label { font-family: var(--font-mono); font-size: 9px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); display: block; margin-bottom: 3px; }
+.dp-field label, .dp-field-label { font-family: var(--font-mono); font-size: 9px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); display: block; margin-bottom: 3px; }
 .dp-field .val { font-family: var(--font-sans); font-size: 12px; color: var(--text-1); }
 .dp-docs { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
 .doc-item { display: flex; align-items: center; justify-content: space-between; padding: 9px 11px; background: var(--bg-2); border-radius: var(--r); border: 1px solid var(--border); transition: border-color .15s; }

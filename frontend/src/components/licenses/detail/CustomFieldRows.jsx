@@ -46,7 +46,7 @@ export default function CustomFieldRows({
 
     return (
       <div key={fieldDef.id} className="dp-field">
-        <label>{fieldDef.name}</label>
+        <span className="dp-field-label">{fieldDef.name}</span>
         <div style={{ display: "flex", alignItems: "center" }}>
           <div className={`val${fieldDef.fieldType === "currency" ? " dp-mono-val" : ""}`}>
             {displayValue ?? "—"}

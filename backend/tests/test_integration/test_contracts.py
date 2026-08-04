@@ -23,6 +23,7 @@ import bcrypt
 from sqlalchemy import select
 
 import app.services.storage as _storage_module
+from app.models.audit_log import AuditLog
 from app.models.contract import Contract, ContractDocument
 from app.models.license import License, LicenseType, LicenseMetric
 from app.models.user import User, UserRole
@@ -418,7 +419,47 @@ async def test_delete_contract_document_returns_204(test_app, auth_headers, cont
     assert len(list_resp.json()) == 0
 
 
-async def test_upload_invalid_extension_rejected(test_app, auth_headers, contract):
+async def test_contract_document_upload_and_delete_are_audited(
+    test_app, auth_headers, contract, db_session
+):
+    upload_resp = await test_app.post(
+        f"/api/contracts/{contract['id']}/documents",
+        files={"file": ("audited.pdf", b"%PDF-1.4", "application/pdf")},
+        headers=auth_headers,
+    )
+    assert upload_resp.status_code == 201
+    document_id = upload_resp.json()["id"]
+
+    upload_audit = (
+        await db_session.execute(
+            select(AuditLog).where(AuditLog.action == "contract_document.uploaded")
+        )
+    ).scalar_one()
+    assert upload_audit.target_id == str(document_id)
+    assert upload_audit.target_label == "audited.pdf"
+    assert f"contractId={contract['id']}" in upload_audit.detail
+    assert "operation=upload" in upload_audit.detail
+
+    delete_resp = await test_app.delete(
+        f"/api/contracts/{contract['id']}/documents/{document_id}",
+        headers=auth_headers,
+    )
+    assert delete_resp.status_code == 204
+
+    delete_audit = (
+        await db_session.execute(
+            select(AuditLog).where(AuditLog.action == "contract_document.deleted")
+        )
+    ).scalar_one()
+    assert delete_audit.target_id == str(document_id)
+    assert delete_audit.target_label == "audited.pdf"
+    assert f"contractId={contract['id']}" in delete_audit.detail
+    assert "operation=delete" in delete_audit.detail
+
+
+async def test_upload_invalid_extension_rejected(
+    test_app, auth_headers, contract, db_session
+):
     files = {"file": ("virus.exe", b"MZ\x90", "application/octet-stream")}
     resp = await test_app.post(
         f"/api/contracts/{contract['id']}/documents",
@@ -426,6 +467,10 @@ async def test_upload_invalid_extension_rejected(test_app, auth_headers, contrac
         headers=auth_headers,
     )
     assert resp.status_code == 422
+    audit_rows = await db_session.execute(
+        select(AuditLog).where(AuditLog.action == "contract_document.uploaded")
+    )
+    assert list(audit_rows.scalars()) == []
 
 
 async def test_document_count_in_contract_response(test_app, auth_headers, contract):

@@ -159,7 +159,7 @@ export default function ApiTokensSection({ isOpen, isDirty, onToggle, onError, o
                     <input id="api-token-name" className="fi" value={name} onChange={(event) => setName(event.target.value)} placeholder="CMDB sync" onKeyDown={(event) => { if (event.key === "Enter") handleCreate(); }} autoFocus />
                   </div>
                   <div className="fg">
-                    <label>Scopes</label>
+                    <div className="fg-label">Scopes</div>
                     <div className="set-token-scopes">
                       {API_TOKEN_SCOPES.map(([scope, label]) => (
                         <label key={scope} className={`set-token-scope${scopes.includes(scope) ? " selected" : ""}`}>

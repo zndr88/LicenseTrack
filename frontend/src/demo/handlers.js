@@ -618,6 +618,31 @@ export const routes = [
     },
   },
   {
+    method: "POST", pattern: /^\/api\/licenses\/batch$/,
+    handler: async ({ body }) => {
+      const pending = [];
+      for (const item of body?.items ?? []) {
+        const parentLineIndex = item.parentLineIndex;
+        if (parentLineIndex != null && (parentLineIndex < 0 || parentLineIndex >= pending.length)) {
+          throw new Error("parentLineIndex must refer to an earlier item in the same batch.");
+        }
+        const now = new Date().toISOString();
+        const id = nextId();
+        const license = buildLicense({
+          ...item.license,
+          ...(parentLineIndex == null ? {} : { parentLicenseId: pending[parentLineIndex].id }),
+          id,
+          licenseRef: `LT-2026-${String(id).padStart(4, "0")}`,
+          createdAt: now,
+          updatedAt: now,
+        });
+        pending.push(license);
+      }
+      store.licenses.push(...pending);
+      return { data: pending.map(withComputedCompleteness), error: null };
+    },
+  },
+  {
     method: "POST", pattern: /^\/api\/licenses$/,
     handler: async ({ body }) => {
       const now = new Date().toISOString();

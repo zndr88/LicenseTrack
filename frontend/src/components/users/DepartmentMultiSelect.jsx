@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 
-const DepartmentMultiSelect = ({ available, selected, onChange, disabled }) => {
+const DepartmentMultiSelect = ({ available, selected, onChange, disabled, id }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -39,6 +39,7 @@ const DepartmentMultiSelect = ({ available, selected, onChange, disabled }) => {
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button
+        id={id}
         type="button"
         onClick={() => !disabled && setOpen((o) => !o)}
         aria-haspopup="listbox"

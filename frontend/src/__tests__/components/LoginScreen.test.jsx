@@ -33,6 +33,13 @@ describe("LoginScreen", () => {
     expect(input.value).toBe("");
   });
 
+  test("local login controls expose their programmatic labels", async () => {
+    render(<LoginScreen onLogin={vi.fn()} />);
+
+    expect(await screen.findByLabelText("Username")).toHaveAttribute("id", "login-username");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("id", "login-password");
+  });
+
   test("submit with empty fields shows error and does not call login API", async () => {
     render(<LoginScreen onLogin={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: /sign in locally/i }));

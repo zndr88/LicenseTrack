@@ -89,10 +89,11 @@ export default function FieldEditModal({
     >
       <div className="modal-bd" style={{ paddingBottom: 8 }}>
         <div className="fg" style={{ marginBottom: 0 }}>
-          <label>{fieldLabel}</label>
+          <label htmlFor="field-edit-value">{fieldLabel}</label>
 
           {inputType === "textarea" ? (
             <textarea
+              id="field-edit-value"
               className="fi"
               value={value}
               onChange={(e) => setValue(e.target.value)}
@@ -102,6 +103,7 @@ export default function FieldEditModal({
             />
           ) : inputType === "select" ? (
             <select
+              id="field-edit-value"
               className="fi fi-select"
               value={value}
               onChange={(e) => setValue(e.target.value)}
@@ -115,6 +117,7 @@ export default function FieldEditModal({
             </select>
           ) : (
             <input
+              id="field-edit-value"
               className="fi"
               type={inputType}
               value={value}

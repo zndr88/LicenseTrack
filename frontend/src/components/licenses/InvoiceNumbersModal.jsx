@@ -103,8 +103,9 @@ export default function InvoiceNumbersModal({
             {rows.map((row, index) => (
               <div className="invoice-number-row" key={index}>
                 <div className="fg invoice-number-input">
-                  <label>{index === 0 ? "Primary invoice" : "Additional invoice"}</label>
+                  <label htmlFor={`invoice-number-${index}`}>{index === 0 ? "Primary invoice" : "Additional invoice"}</label>
                   <input
+                    id={`invoice-number-${index}`}
                     className="fi mono"
                     value={row}
                     onChange={(event) => setRow(index, event.target.value)}

@@ -988,8 +988,8 @@ describe("UsersPage workflows", () => {
     });
     render(<UsersPage currentUserId={1} onError={onError} onToast={vi.fn()} />);
     await screen.findByText(/Add New User/i);
-    await user.type(screen.getByPlaceholderText("username"), "newuser");
-    await user.type(screen.getByPlaceholderText("user@example.com"), "new@example.com");
+    await user.type(screen.getByLabelText(/^Username$/i), "newuser");
+    await user.type(screen.getByLabelText(/^Email$/i), "new@example.com");
     await user.type(screen.getByPlaceholderText("••••••••"), "password123");
     await user.click(screen.getByRole("button", { name: /Add User/i }));
     expect(await screen.findByText("newuser")).toBeInTheDocument();
@@ -1063,6 +1063,37 @@ describe("ContractsPage workflows", () => {
     wrapWithQueryClient(<ContractsPage user={admin} userSettings={userSettings} showError={vi.fn()} />);
     await userEvent.click(await screen.findByRole("button", { name: /Open contract CN-4/i }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Contract 4 opened");
+  });
+
+  test("keeps the contract delete control isolated from tile activation", async () => {
+    const user = userEvent.setup();
+    contractsApi.getContracts.mockResolvedValue({
+      data: [{
+        id: 4,
+        publisherName: "Acme",
+        contractNumber: "CN-4",
+        licenseCount: 1,
+        documentCount: 0,
+        createdAt: "2026-01-01T00:00:00Z",
+      }],
+      error: null,
+    });
+    wrapWithQueryClient(
+      <ContractsPage user={admin} userSettings={userSettings} showError={vi.fn()} />
+    );
+
+    const deleteButton = await screen.findByRole("button", { name: /Delete contract CN-4/i });
+    deleteButton.focus();
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("dialog", { name: /Delete Contract/i })).toBeInTheDocument();
+    expect(screen.queryByText("Contract 4 opened")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Cancel$/i }));
+    const tile = screen.getByRole("button", { name: /Open contract CN-4/i });
+    tile.focus();
+    await user.keyboard(" ");
+    expect(screen.getByText("Contract 4 opened")).toBeInTheDocument();
   });
 
   test("validates required fields in the new contract modal before creating", async () => {
