@@ -100,6 +100,7 @@ class License(Base):
     pending_order_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("pending_orders.id"), nullable=True, index=True
     )
+    procurement_bundle_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     source_sourcing_item_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("sourcing_items.id", use_alter=True, name="fk_license_source_sourcing_item"),

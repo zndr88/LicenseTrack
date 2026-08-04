@@ -10,7 +10,11 @@ import { parseLocalizedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
+  supportsMaintenanceCoverage,
 } from "../procurement/MaintenanceCoverageFields.jsx";
+
+const PRIMARY_LINE_ID = "primary";
+const PROCUREMENT_DOCUMENT_CATEGORIES = new Set(["invoice", "quote", "purchase_order"]);
 
 const formatStrategyLabel = (data) => {
   if (data.strategyUsed === "manual") return "Manual entry";
@@ -48,9 +52,18 @@ const emptyAdditionalLine = (primaryForm) => ({
   maintenanceQuantity: "",
   maintenanceUnitPrice: "",
   maintenanceCost: "",
-  parentLineIndex: null,
+  parentLineId: null,
   isMaintenanceCompanion: false,
 });
+
+const normalizeLocalizedValue = (value, userSettings) => (
+  (parseLocalizedNumber(value, userSettings) ?? value) || ""
+);
+
+const formatLocalizedPriceInput = (value, userSettings) => {
+  const locale = userSettings?.numberFormatLocale ?? "en-US";
+  return formatPriceInput(normalizeLocalizedValue(value, userSettings), locale);
+};
 
 const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
@@ -100,29 +113,57 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     formatPriceInput(data.totalPoPrice || "", locale)
   );
 
-  const addLine = () => { setFormTouched(true); setAdditionalLines((prev) => [...prev, emptyAdditionalLine(form)]); };
-  const maintenanceLineAdded = additionalLines.some((line) => line.isMaintenanceCompanion);
-  const addMaintenanceLine = () => {
-    if (maintenanceLineAdded) return;
+  const addLine = () => {
     setFormTouched(true);
-    setAdditionalLines((prev) => [
-      ...prev,
-      {
-        ...emptyAdditionalLine(form),
-        softwareDescription: `${form.softwareDescription || "Software"} maintenance/support`,
-        licenseType: "maintenance",
-        startDate: form.maintenanceStartDate || form.startDate || "",
-        endDate: form.maintenanceEndDate || form.endDate || "",
-        quantity: form.quantity || "1",
-        currency: form.currency || "EUR",
-        parentLineIndex: 0,
-        isMaintenanceCompanion: true,
-      },
-    ]);
+    setAdditionalLines((prev) => [...prev, emptyAdditionalLine(form)]);
   };
-  const removeLine = (id) => setAdditionalLines((prev) => prev.filter((l) => l.id !== id));
+  const hasMaintenanceCompanion = (parentLineId) => additionalLines.some(
+    (line) => line.isMaintenanceCompanion && line.parentLineId === parentLineId
+  );
+  const addMaintenanceLine = (parentLineId, parentForm) => {
+    setFormTouched(true);
+    setAdditionalLines((prev) => {
+      if (prev.some((line) => line.isMaintenanceCompanion && line.parentLineId === parentLineId)) {
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          ...emptyAdditionalLine(parentForm),
+          softwareDescription: `${parentForm.softwareDescription || "Software"} maintenance/support`,
+          licenseType: "maintenance",
+          startDate: parentForm.maintenanceStartDate || parentForm.startDate || "",
+          endDate: parentForm.maintenanceEndDate || parentForm.endDate || "",
+          quantity: parentForm.quantity || "1",
+          currency: parentForm.currency || "EUR",
+          parentLineId,
+          isMaintenanceCompanion: true,
+        },
+      ];
+    });
+  };
+  const removeMaintenanceCompanion = (parentLineId) => {
+    setAdditionalLines((prev) => prev.filter(
+      (line) => !(line.isMaintenanceCompanion && line.parentLineId === parentLineId)
+    ));
+  };
+  const removeLine = (id) => setAdditionalLines((prev) => prev.filter(
+    (line) => line.id !== id && line.parentLineId !== id
+  ));
   const updateLine = (id, field, value) =>
     setAdditionalLines((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
+  const updatePrimaryMaintenance = (field, value) => {
+    u(field, value);
+    if (field === "maintenanceCoverage" && value !== "separately_tracked") {
+      removeMaintenanceCompanion(PRIMARY_LINE_ID);
+    }
+  };
+  const updateLineMaintenance = (lineId, field, value) => {
+    updateLine(lineId, field, value);
+    if (field === "maintenanceCoverage" && value !== "separately_tracked") {
+      removeMaintenanceCompanion(lineId);
+    }
+  };
 
   const isDirty = formTouched || additionalLines.length > 0 || !!attachedFile;
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose: onCancel });
@@ -141,14 +182,15 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
       invoiceNumber: form.invoiceNumber,
       budgetOwnerEmail: form.budgetOwnerEmail,
     };
+    const lineIndexById = new Map(additionalLines.map((line, index) => [line.id, index + 1]));
     const allForms = [
       {
         ...form,
         unitPrice: isFreewareLicenseType(form.licenseType) ? "" : form.unitPrice,
         totalPoPrice: isFreewareLicenseType(form.licenseType) ? "" : form.totalPoPrice,
-        maintenanceQuantity: (parseLocalizedNumber(form.maintenanceQuantity, userSettings) ?? form.maintenanceQuantity) || "",
-        maintenanceUnitPrice: (parseLocalizedNumber(form.maintenanceUnitPrice, userSettings) ?? form.maintenanceUnitPrice) || "",
-        maintenanceCost: (parseLocalizedNumber(form.maintenanceCost, userSettings) ?? form.maintenanceCost) || "",
+        maintenanceQuantity: normalizeLocalizedValue(form.maintenanceQuantity, userSettings),
+        maintenanceUnitPrice: normalizeLocalizedValue(form.maintenanceUnitPrice, userSettings),
+        maintenanceCost: normalizeLocalizedValue(form.maintenanceCost, userSettings),
       },
       ...additionalLines.map((line) => ({
         ...sharedFields,
@@ -160,8 +202,12 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         isPerpetual: line.isPerpetual,
         quantity: line.quantity,
         skuCode: line.skuCode,
-        unitPrice: line.unitPrice,
-        totalPoPrice: line.totalPoPrice,
+        unitPrice: isFreewareLicenseType(line.licenseType)
+          ? ""
+          : normalizeLocalizedValue(line.unitPrice, userSettings),
+        totalPoPrice: isFreewareLicenseType(line.licenseType)
+          ? ""
+          : normalizeLocalizedValue(line.totalPoPrice, userSettings),
         currency: line.currency || form.currency,
         notes: line.notes,
         portalUrl: line.portalUrl,
@@ -169,10 +215,12 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         maintenanceStartDate: line.maintenanceStartDate,
         maintenanceEndDate: line.maintenanceEndDate,
         maintenancePricingBasis: line.maintenancePricingBasis,
-        maintenanceQuantity: (parseLocalizedNumber(line.maintenanceQuantity, userSettings) ?? line.maintenanceQuantity) || "",
-        maintenanceUnitPrice: (parseLocalizedNumber(line.maintenanceUnitPrice, userSettings) ?? line.maintenanceUnitPrice) || "",
-        maintenanceCost: (parseLocalizedNumber(line.maintenanceCost, userSettings) ?? line.maintenanceCost) || "",
-        parentLineIndex: line.parentLineIndex,
+        maintenanceQuantity: normalizeLocalizedValue(line.maintenanceQuantity, userSettings),
+        maintenanceUnitPrice: normalizeLocalizedValue(line.maintenanceUnitPrice, userSettings),
+        maintenanceCost: normalizeLocalizedValue(line.maintenanceCost, userSettings),
+        parentLineIndex: line.isMaintenanceCompanion
+          ? (line.parentLineId === PRIMARY_LINE_ID ? 0 : lineIndexById.get(line.parentLineId))
+          : null,
       })),
     ];
     submitLockRef.current = true;
@@ -190,6 +238,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   };
 
   const lineCount = 1 + additionalLines.length;
+  const attachmentScopeHint = lineCount > 1 && PROCUREMENT_DOCUMENT_CATEGORIES.has(attachedFileCategory)
+    ? `shared across all ${lineCount} licenses in this batch`
+    : "attached to first license";
 
   return (
     <>
@@ -222,9 +273,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               action it feeds, matching the sourcing and pending-order modals. */}
           <div className="fg" style={{ borderBottom: "1px solid var(--border-lt)", paddingBottom: 12, marginBottom: 4 }}>
             {attachedFile ? (
-              <div className="fg-label">Attach Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional — attached to first license)</span></div>
+              <div className="fg-label">Attach Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional — {attachmentScopeHint})</span></div>
             ) : (
-              <label htmlFor="inv-attach-file">Attach Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional — attached to first license)</span></label>
+              <label htmlFor="inv-attach-file">Attach Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional — {attachmentScopeHint})</span></label>
             )}
             {attachedFile ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
@@ -279,7 +330,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   });
                   if (result.multiItems.length > 1) {
                     setAdditionalLines(result.multiItems.slice(1).map((item) => ({
-                      id: `${Date.now()}-${Math.random()}`,
+                      ...emptyAdditionalLine({ ...form, ...first, ...item }),
                       softwareDescription: item.softwareDescription ?? "",
                       licenseType: item.licenseType ?? "",
                       licenseMetric: item.licenseMetric ?? "",
@@ -294,6 +345,13 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                       currency: item.currency ?? first.currency ?? "EUR",
                       notes: item.notes ?? "",
                       portalUrl: item.portalUrl ?? "",
+                      maintenanceCoverage: item.maintenanceCoverage ?? "unknown",
+                      maintenanceStartDate: item.maintenanceStartDate ?? "",
+                      maintenanceEndDate: item.maintenanceEndDate ?? "",
+                      maintenancePricingBasis: item.maintenancePricingBasis ?? "flat",
+                      maintenanceQuantity: item.maintenanceQuantity ?? "",
+                      maintenanceUnitPrice: item.maintenanceUnitPrice ?? "",
+                      maintenanceCost: item.maintenanceCost ?? "",
                     })));
                   }
                   return;
@@ -349,6 +407,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 <div className="fg"><label htmlFor="inv-license-type">License Type</label>
                   <select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => {
                     const next = e.target.value;
+                    setFormTouched(true);
                     setForm((f) => ({
                       ...f,
                       licenseType: next,
@@ -358,6 +417,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                     if (isFreewareLicenseType(next)) {
                       setDisplayUnitPrice("");
                       setDisplayTotalPrice("");
+                    }
+                    if (!supportsMaintenanceCoverage(next)) {
+                      removeMaintenanceCompanion(PRIMARY_LINE_ID);
                     }
                   }}>
                     <option value="">Select...</option>
@@ -388,9 +450,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             licenseQuantity={form.quantity}
             currency={form.currency}
             locale={locale}
-            onChange={u}
-            onAddSeparate={addMaintenanceLine}
-            separateLineAdded={maintenanceLineAdded}
+            onChange={updatePrimaryMaintenance}
+            onAddSeparate={() => addMaintenanceLine(PRIMARY_LINE_ID, form)}
+            separateLineAdded={hasMaintenanceCompanion(PRIMARY_LINE_ID)}
           />
           {form.licenseType === "saas" && (
             <div className="fg">
@@ -413,7 +475,6 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                     id="inv-unit-price"
                     className="fi"
                     value={displayUnitPrice}
-                    onFocus={() => setDisplayUnitPrice(form.unitPrice)}
                     onChange={(e) => {
                       setDisplayUnitPrice(e.target.value);
                       u("unitPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value);
@@ -429,7 +490,6 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                     id="inv-total-price"
                     className="fi"
                     value={displayTotalPrice}
-                    onFocus={() => setDisplayTotalPrice(form.totalPoPrice)}
                     onChange={(e) => {
                       setDisplayTotalPrice(e.target.value);
                       u("totalPoPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value);
@@ -502,6 +562,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                         updateLine(line.id, "unitPrice", "");
                         updateLine(line.id, "totalPoPrice", "");
                       }
+                      if (!supportsMaintenanceCoverage(next)) {
+                        removeMaintenanceCompanion(line.id);
+                      }
                     }}>
                       <option value="">Select...</option>
                       {LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -518,6 +581,23 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   </div>
                 )}
               </div>
+              <MaintenanceCoverageFields
+                idPrefix={`inv-line-${line.id}`}
+                licenseType={line.licenseType}
+                coverage={line.maintenanceCoverage}
+                startDate={line.maintenanceStartDate}
+                endDate={line.maintenanceEndDate}
+                pricingBasis={line.maintenancePricingBasis}
+                supportQuantity={line.maintenanceQuantity}
+                supportUnitPrice={line.maintenanceUnitPrice}
+                cost={line.maintenanceCost}
+                licenseQuantity={line.quantity}
+                currency={line.currency}
+                locale={locale}
+                onChange={(field, value) => updateLineMaintenance(line.id, field, value)}
+                onAddSeparate={() => addMaintenanceLine(line.id, line)}
+                separateLineAdded={hasMaintenanceCompanion(line.id)}
+              />
               {line.licenseType === "saas" && (
                 <div className="fg">
                   <label htmlFor={`inv-line-${line.id}-portal-url`}>Portal URL</label>
@@ -543,13 +623,35 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   {vis.unitPrice && (
                     <div className="fg">
                       <label htmlFor={`inv-line-${line.id}-unit-price`}>Unit Price</label>
-                      <input id={`inv-line-${line.id}-unit-price`} className="fi" value={line.unitPrice} onChange={(e) => updateLine(line.id, "unitPrice", e.target.value)} placeholder="0.00" />
+                      <input
+                        id={`inv-line-${line.id}-unit-price`}
+                        className="fi"
+                        value={line.unitPrice}
+                        onChange={(e) => updateLine(line.id, "unitPrice", e.target.value)}
+                        onBlur={(e) => updateLine(
+                          line.id,
+                          "unitPrice",
+                          formatLocalizedPriceInput(e.target.value, userSettings)
+                        )}
+                        placeholder={formatPriceInput("0.00", locale)}
+                      />
                     </div>
                   )}
                   {vis.totalPoPrice && (
                     <div className="fg">
                       <label htmlFor={`inv-line-${line.id}-total-price`}>Total PO Price</label>
-                      <input id={`inv-line-${line.id}-total-price`} className="fi" value={line.totalPoPrice} onChange={(e) => updateLine(line.id, "totalPoPrice", e.target.value)} placeholder="0.00" />
+                      <input
+                        id={`inv-line-${line.id}-total-price`}
+                        className="fi"
+                        value={line.totalPoPrice}
+                        onChange={(e) => updateLine(line.id, "totalPoPrice", e.target.value)}
+                        onBlur={(e) => updateLine(
+                          line.id,
+                          "totalPoPrice",
+                          formatLocalizedPriceInput(e.target.value, userSettings)
+                        )}
+                        placeholder={formatPriceInput("0.00", locale)}
+                      />
                     </div>
                   )}
                   <div className="fg" style={{ flex: "0 0 90px" }}>

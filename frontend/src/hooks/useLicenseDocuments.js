@@ -163,9 +163,12 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
   };
 
   const handleFileRemove = (doc) => {
+    const sharedBundleWarning = doc?.procurement_bundle_id
+      ? " It will be removed from every license in this manual batch."
+      : "";
     setConfirmAction({
       title: "Remove Document",
-      message: `Are you sure you want to remove "${doc.original_filename}"? This action cannot be undone.`,
+      message: `Are you sure you want to remove "${doc.original_filename}"?${sharedBundleWarning} This action cannot be undone.`,
       confirmLabel: "Remove",
       danger: true,
       onConfirm: async () => {

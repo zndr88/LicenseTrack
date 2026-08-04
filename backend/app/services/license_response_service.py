@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -43,8 +43,11 @@ async def get_notification_days(db: AsyncSession) -> int:
 async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -> dict[int, list[ProcurementDocument]]:
     """Return procurement documents keyed by license id using explicit record scope."""
     pending_order_ids = {lic.pending_order_id for lic in licenses if lic.pending_order_id is not None}
+    procurement_bundle_ids = {
+        lic.procurement_bundle_id for lic in licenses if lic.procurement_bundle_id is not None
+    }
     license_ids = {lic.id for lic in licenses if lic.id is not None}
-    if not pending_order_ids and not license_ids:
+    if not pending_order_ids and not procurement_bundle_ids and not license_ids:
         return {}
 
     conditions = []
@@ -52,24 +55,29 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
         conditions.append(ProcurementDocument.pending_order_id.in_(pending_order_ids))
     if license_ids:
         conditions.append(ProcurementDocument.license_id.in_(license_ids))
+    if procurement_bundle_ids:
+        conditions.append(ProcurementDocument.procurement_bundle_id.in_(procurement_bundle_ids))
 
-    result = await db.execute(
-        select(ProcurementDocument).where(*conditions)
-        if len(conditions) == 1
-        else select(ProcurementDocument).where(conditions[0] | conditions[1])
-    )
+    result = await db.execute(select(ProcurementDocument).where(or_(*conditions)))
     documents_by_license_id: dict[int, list[ProcurementDocument]] = {lic.id: [] for lic in licenses}
     pending_to_license_ids: dict[int, list[int]] = {}
+    bundle_to_license_ids: dict[str, list[int]] = {}
     for lic in licenses:
         if lic.pending_order_id is not None:
             pending_to_license_ids.setdefault(lic.pending_order_id, []).append(lic.id)
+        if lic.procurement_bundle_id is not None:
+            bundle_to_license_ids.setdefault(lic.procurement_bundle_id, []).append(lic.id)
 
     for document in result.scalars().all():
+        target_license_ids: set[int] = set()
         if document.license_id is not None and document.license_id in documents_by_license_id:
-            documents_by_license_id[document.license_id].append(document)
+            target_license_ids.add(document.license_id)
         if document.pending_order_id is not None:
-            for license_id in pending_to_license_ids.get(document.pending_order_id, []):
-                documents_by_license_id[license_id].append(document)
+            target_license_ids.update(pending_to_license_ids.get(document.pending_order_id, []))
+        if document.procurement_bundle_id is not None:
+            target_license_ids.update(bundle_to_license_ids.get(document.procurement_bundle_id, []))
+        for license_id in target_license_ids:
+            documents_by_license_id[license_id].append(document)
     return documents_by_license_id
 
 

@@ -29,6 +29,7 @@ class ProcurementDocumentResponse(BaseModel):
     po_number: str
     pending_order_id: Optional[int] = None
     license_id: Optional[int] = None
+    procurement_bundle_id: Optional[str] = None
     filename: str
     original_filename: str
     file_size: int

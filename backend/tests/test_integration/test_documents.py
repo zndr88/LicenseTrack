@@ -24,6 +24,7 @@ from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
+from app.services.settings_service import invalidate_global_settings_cache
 
 
 # ---------------------------------------------------------------------------
@@ -249,6 +250,106 @@ async def test_license_overview_counts_license_scoped_procurement_documents(test
         first_id: 2,
         second_id: 0,
     }
+
+
+async def test_manual_batch_procurement_document_is_shared_without_po_number_fallback(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}))
+    await db_session.commit()
+    invalidate_global_settings_cache()
+
+    license_payload = {
+        "publisherName": "Acme Corp",
+        "licenseType": "subscription",
+        "licenseMetric": "per_user",
+        "quantity": "1",
+        "currency": "EUR",
+        "poNumber": "PO-MANUAL-SHARED",
+    }
+    batch_resp = await test_app.post(
+        "/api/licenses/batch",
+        json={
+            "items": [
+                {"license": {**license_payload, "softwareDescription": "Manual Bundle A"}},
+                {"license": {**license_payload, "softwareDescription": "Manual Bundle B"}},
+            ]
+        },
+        headers=auth_headers,
+    )
+    unrelated_resp = await test_app.post(
+        "/api/licenses/batch",
+        json={
+            "items": [
+                {"license": {**license_payload, "softwareDescription": "Unrelated A"}},
+                {"license": {**license_payload, "softwareDescription": "Unrelated B"}},
+            ]
+        },
+        headers=auth_headers,
+    )
+    assert batch_resp.status_code == 201, batch_resp.text
+    assert unrelated_resp.status_code == 201, unrelated_resp.text
+    created = batch_resp.json()
+    unrelated = unrelated_resp.json()
+    bundle_id = created[0]["procurementBundleId"]
+    assert bundle_id
+    assert created[1]["procurementBundleId"] == bundle_id
+    assert unrelated[0]["procurementBundleId"] != bundle_id
+
+    upload_resp = await test_app.post(
+        f"/api/licenses/{created[0]['id']}/documents",
+        files={"file": ("shared-invoice.pdf", b"%PDF-1.4 shared", "application/pdf")},
+        data={"category": "invoice"},
+        headers=auth_headers,
+    )
+    assert upload_resp.status_code == 201, upload_resp.text
+    document = upload_resp.json()
+    assert document["license_id"] is None
+    assert document["procurement_bundle_id"] == bundle_id
+
+    eula_resp = await test_app.post(
+        f"/api/licenses/{created[0]['id']}/documents",
+        files={"file": ("license-eula.pdf", b"%PDF-1.4 eula", "application/pdf")},
+        data={"category": "eula"},
+        headers=auth_headers,
+    )
+    assert eula_resp.status_code == 201, eula_resp.text
+    eula_document = eula_resp.json()
+    assert eula_document["scope"] == "license"
+
+    first_docs = await test_app.get(f"/api/licenses/{created[0]['id']}/documents", headers=auth_headers)
+    second_docs = await test_app.get(f"/api/licenses/{created[1]['id']}/documents", headers=auth_headers)
+    unrelated_docs = await test_app.get(
+        f"/api/licenses/{unrelated[0]['id']}/documents",
+        headers=auth_headers,
+    )
+    assert {doc["id"] for doc in first_docs.json()} == {document["id"], eula_document["id"]}
+    assert [doc["id"] for doc in second_docs.json()] == [document["id"]]
+    assert unrelated_docs.json() == []
+
+    list_resp = await test_app.get("/api/licenses?include_retired=true", headers=auth_headers)
+    rows = {row["id"]: row for row in list_resp.json()}
+    assert rows[created[0]["id"]]["documentCount"] == 2
+    assert rows[created[0]["id"]]["completenessPct"] == 100
+    assert rows[created[1]["id"]]["documentCount"] == 1
+    assert rows[created[1]["id"]]["completenessPct"] == 100
+    assert rows[unrelated[0]["id"]]["documentCount"] == 0
+    assert rows[unrelated[0]["id"]]["completenessPct"] == 0
+
+    first_delete = await test_app.delete(f"/api/licenses/{created[0]['id']}", headers=auth_headers)
+    assert first_delete.status_code == 204
+    surviving_docs = await test_app.get(
+        f"/api/licenses/{created[1]['id']}/documents",
+        headers=auth_headers,
+    )
+    assert [doc["id"] for doc in surviving_docs.json()] == [document["id"]]
+
+    second_delete = await test_app.delete(f"/api/licenses/{created[1]['id']}", headers=auth_headers)
+    assert second_delete.status_code == 204
+    assert await db_session.get(ProcurementDocument, document["id"]) is None
+    invalidate_global_settings_cache()
 
 
 async def test_procurement_document_download_and_delete(test_app, auth_headers):

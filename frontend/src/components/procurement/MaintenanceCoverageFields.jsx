@@ -20,6 +20,11 @@ function multiplyCanonical(left, right, locale) {
   return (Number(quantity) * Number(unitPrice)).toFixed(2);
 }
 
+function formatLocalizedPrice(value, locale) {
+  const canonical = parseLocalizedNumber(value, { numberFormatLocale: locale });
+  return formatPriceInput(canonical ?? value, locale);
+}
+
 export default function MaintenanceCoverageFields({
   idPrefix,
   licenseType,
@@ -130,7 +135,10 @@ export default function MaintenanceCoverageFields({
                 className="fi"
                 value={cost ?? ""}
                 onChange={(event) => onChange("maintenanceCost", event.target.value)}
-                onBlur={(event) => onChange("maintenanceCost", formatPriceInput(event.target.value, locale))}
+                onBlur={(event) => onChange(
+                  "maintenanceCost",
+                  formatLocalizedPrice(event.target.value, locale)
+                )}
                 placeholder={formatPriceInput("2500.00", locale)}
               />
             </div>
@@ -163,7 +171,7 @@ export default function MaintenanceCoverageFields({
                     }}
                     onBlur={(event) => onChange(
                       "maintenanceUnitPrice",
-                      formatPriceInput(event.target.value, locale)
+                      formatLocalizedPrice(event.target.value, locale)
                     )}
                     placeholder={formatPriceInput("250.00", locale)}
                   />

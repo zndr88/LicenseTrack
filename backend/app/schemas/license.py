@@ -265,6 +265,7 @@ class LicenseLifecycleRepairRequest(BaseModel):
 
 class LicenseResponse(LicenseBase):
     id: int
+    procurement_bundle_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     created_by: Optional[int] = None

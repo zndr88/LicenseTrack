@@ -141,6 +141,8 @@ async def test_create_license_batch_preserves_order_and_links_prior_parent(
         "Perpetual Parent",
         "Maintenance Child",
     ]
+    assert created[0]["procurementBundleId"] is not None
+    assert created[1]["procurementBundleId"] == created[0]["procurementBundleId"]
     assert created[1]["parentLicenseId"] == created[0]["id"]
 
 

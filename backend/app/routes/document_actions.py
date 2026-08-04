@@ -17,6 +17,7 @@ from app.schemas.document_action import (
 )
 from app.services.access_service import can_view_license
 from app.services.audit_service import log_event
+from app.services.procurement_document_scope_service import get_procurement_document_licenses
 from app.services.webhook_service import has_active_subscriber
 
 router = APIRouter(prefix="/api/document-actions", tags=["document-actions"])
@@ -77,17 +78,7 @@ async def _get_procurement_document_or_404(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    license_query = None
-    if document.license_id is not None:
-        license_query = select(License).where(License.id == document.license_id)
-    elif document.pending_order_id is not None:
-        license_query = select(License).where(License.pending_order_id == document.pending_order_id)
-
-    if license_query is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    result = await db.execute(license_query)
-    licenses = list(result.scalars().all())
+    licenses = await get_procurement_document_licenses(db, document)
     visible = [license_obj for license_obj in licenses if await can_view_license(current_user, license_obj, db)]
     if not visible:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -131,6 +122,8 @@ async def invoke_document_action(
             detail_parts.append(f"licenseId={license_obj.id}")
         if document.pending_order_id is not None:
             detail_parts.append(f"pendingOrderId={document.pending_order_id}")
+        if document.procurement_bundle_id is not None:
+            detail_parts.append(f"procurementBundleId={document.procurement_bundle_id}")
         if document.po_number:
             detail_parts.append(f"poNumber={document.po_number}")
 

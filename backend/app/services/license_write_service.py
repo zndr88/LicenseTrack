@@ -11,6 +11,7 @@ import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from uuid import uuid4
 
 from fastapi import HTTPException
 from sqlalchemy import delete, select, update as sa_update
@@ -158,6 +159,7 @@ async def create_license_record(
     *,
     created_by: int,
     generate_license_ref,
+    procurement_bundle_id: str | None = None,
 ) -> License:
     """Create a license ORM record, including maintenance-parent invariants."""
     parent_license = None
@@ -175,6 +177,7 @@ async def create_license_record(
     if payload.license_type == LicenseType.maintenance:
         create_data = payload.model_dump(by_alias=False)
         _sync_invoice_numbers(create_data)
+        create_data["procurement_bundle_id"] = procurement_bundle_id
         create_data["contract_id"] = await _resolve_contract_id(db, create_data.get("contract_number"))
         return await create_maintenance_for_parent(
             db,
@@ -185,6 +188,7 @@ async def create_license_record(
 
     create_data = payload.model_dump(by_alias=False)
     _sync_invoice_numbers(create_data)
+    create_data["procurement_bundle_id"] = procurement_bundle_id
     create_data["maintenance_coverage"] = create_data.get("maintenance_coverage") or default_maintenance_coverage(
         payload.license_type
     )
@@ -225,6 +229,7 @@ async def create_license_batch_records(
 ) -> list[License]:
     """Create an ordered license batch inside the caller's transaction."""
     created: list[License] = []
+    procurement_bundle_id = str(uuid4()) if len(items) > 1 else None
     for item in items:
         payload = item.license
         if item.parent_line_index is not None:
@@ -237,6 +242,7 @@ async def create_license_batch_records(
                 payload,
                 created_by=created_by,
                 generate_license_ref=generate_license_ref,
+                procurement_bundle_id=procurement_bundle_id,
             )
         )
     return created
@@ -515,8 +521,37 @@ async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list
         return ()
 
     document_result = await db.execute(select(Document.filename).where(Document.license_id.in_(license_ids)))
-    document_paths = tuple(document_result.scalars().all())
+    document_paths = list(document_result.scalars().all())
     await db.execute(delete(Document).where(Document.license_id.in_(license_ids)))
+
+    bundle_result = await db.execute(
+        select(License.procurement_bundle_id).where(
+            License.id.in_(license_ids),
+            License.procurement_bundle_id.is_not(None),
+        )
+    )
+    bundle_ids = set(bundle_result.scalars().all())
+    if bundle_ids:
+        remaining_result = await db.execute(
+            select(License.procurement_bundle_id).where(
+                License.procurement_bundle_id.in_(bundle_ids),
+                License.id.not_in(license_ids),
+            )
+        )
+        orphaned_bundle_ids = bundle_ids - set(remaining_result.scalars().all())
+        if orphaned_bundle_ids:
+            procurement_document_result = await db.execute(
+                select(ProcurementDocument.filename).where(
+                    ProcurementDocument.procurement_bundle_id.in_(orphaned_bundle_ids)
+                )
+            )
+            document_paths.extend(procurement_document_result.scalars().all())
+            await db.execute(
+                delete(ProcurementDocument).where(
+                    ProcurementDocument.procurement_bundle_id.in_(orphaned_bundle_ids)
+                )
+            )
+
     await db.execute(
         sa_update(ProcurementDocument).where(ProcurementDocument.license_id.in_(license_ids)).values(license_id=None)
     )
@@ -537,7 +572,7 @@ async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list
             maintenance_cost=None,
         )
     )
-    return document_paths
+    return tuple(document_paths)
 
 
 def delete_license_document_files(

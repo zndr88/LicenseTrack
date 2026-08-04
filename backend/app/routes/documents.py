@@ -14,7 +14,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -28,6 +28,7 @@ from app.services.access_service import can_download_documents, can_view_license
 from app.services.audit_contracts import format_document_amendment_detail
 from app.services.audit_service import log_event
 from app.services.document_availability_service import get_document_storage_base, with_file_availability
+from app.services.procurement_document_scope_service import get_procurement_document_licenses
 
 router = APIRouter(tags=["documents"])
 
@@ -87,12 +88,16 @@ async def upload_document(
     mime_type = file.content_type or mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
 
     storage_base = await storage.resolve_storage_path(db)
-    if category.value in {member.value for member in ProcurementDocumentCategory} and lic.po_number:
-        stored_path, file_size = await storage.save_procurement_document_file(file, lic.po_number, storage_base)
+    is_procurement_category = category.value in {member.value for member in ProcurementDocumentCategory}
+    if is_procurement_category and (lic.po_number or lic.procurement_bundle_id):
+        storage_scope = lic.po_number or f"manual-{lic.procurement_bundle_id}"
+        stored_path, file_size = await storage.save_procurement_document_file(file, storage_scope, storage_base)
+        is_bundle_document = lic.procurement_bundle_id is not None
         procurement_document = ProcurementDocument(
             po_number=lic.po_number,
             pending_order_id=None,
-            license_id=license_id,
+            license_id=None if is_bundle_document else license_id,
+            procurement_bundle_id=lic.procurement_bundle_id,
             filename=stored_path,
             original_filename=original_filename,
             file_size=file_size,
@@ -115,11 +120,12 @@ async def upload_document(
                 operation="upload",
                 post_conversion=lic.pending_order_id is not None,
                 document_category=procurement_document.category.value,
-                document_scope="procurement",
+                document_scope="procurement_bundle" if is_bundle_document else "procurement",
                 document_id=procurement_document.id,
                 filename=procurement_document.original_filename,
                 related_license_id=license_id,
                 pending_order_id=lic.pending_order_id,
+                procurement_bundle_id=lic.procurement_bundle_id,
                 po_number=lic.po_number,
                 actor_email=current_user.email,
             ),
@@ -201,9 +207,11 @@ async def list_documents(
     procurement_conditions = [ProcurementDocument.license_id == license_id]
     if license_obj.pending_order_id is not None:
         procurement_conditions.append(ProcurementDocument.pending_order_id == license_obj.pending_order_id)
-    procurement_query = select(ProcurementDocument).where(procurement_conditions[0])
-    if len(procurement_conditions) > 1:
-        procurement_query = select(ProcurementDocument).where(procurement_conditions[0] | procurement_conditions[1])
+    if license_obj.procurement_bundle_id is not None:
+        procurement_conditions.append(
+            ProcurementDocument.procurement_bundle_id == license_obj.procurement_bundle_id
+        )
+    procurement_query = select(ProcurementDocument).where(or_(*procurement_conditions))
     procurement_result = await db.execute(procurement_query)
     responses.extend(
         with_file_availability(ProcurementDocumentResponse.model_validate(doc), doc, storage_base)
@@ -254,13 +262,9 @@ async def download_procurement_document(document_id: int, db: DbSession, current
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if document.license_id is not None:
-        license_result = await db.execute(select(License).where(License.id == document.license_id))
-    elif document.pending_order_id is not None:
-        license_result = await db.execute(select(License).where(License.pending_order_id == document.pending_order_id))
-    else:
+    licenses = await get_procurement_document_licenses(db, document)
+    if not licenses:
         raise HTTPException(status_code=404, detail="Document not found")
-    licenses = list(license_result.scalars().all())
     can_view_any = any([await can_view_license(current_user, license_obj, db) for license_obj in licenses])
     if not can_view_any:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -353,9 +357,9 @@ async def delete_procurement_document(
     category = document.category.value
     license_id = document.license_id
     pending_order_id = document.pending_order_id
-    related_license = await db.get(License, license_id) if license_id is not None else None
-    if related_license is None and pending_order_id is not None:
-        related_license = await db.scalar(select(License).where(License.pending_order_id == pending_order_id))
+    procurement_bundle_id = document.procurement_bundle_id
+    related_licenses = await get_procurement_document_licenses(db, document)
+    related_license = related_licenses[0] if related_licenses else None
     storage_base = await storage.resolve_storage_path(db)
 
     await db.delete(document)
@@ -375,11 +379,12 @@ async def delete_procurement_document(
                 else pending_order_id is not None
             ),
             document_category=category,
-            document_scope="procurement",
+            document_scope="procurement_bundle" if procurement_bundle_id is not None else "procurement",
             document_id=document_id,
             filename=filename,
             related_license_id=related_license.id if related_license is not None else license_id,
             pending_order_id=(related_license.pending_order_id if related_license is not None else pending_order_id),
+            procurement_bundle_id=procurement_bundle_id,
             po_number=po_number,
             actor_email=_editor.email,
             reason=reason,

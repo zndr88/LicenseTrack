@@ -147,6 +147,86 @@ describe("license modal shell migration", () => {
     expect(category).toBe("invoice");
   });
 
+  test("additional perpetual lines can add their own linked maintenance companion", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(
+      <InvoiceConfirmModal
+        data={{
+          publisherName: "Acme",
+          softwareDescription: "Subscription Suite",
+          licenseType: "subscription",
+          licenseMetric: "per_user",
+          poNumber: "PO-MANUAL-1",
+          currency: "EUR",
+          fileName: "manual-entry",
+          strategyUsed: "manual",
+        }}
+        userSettings={userSettings}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /add additional license line/i }));
+    await user.type(screen.getAllByLabelText(/software description/i)[1], "Perpetual Add-on");
+    await user.selectOptions(screen.getAllByLabelText(/^license type$/i)[1], "perpetual");
+    await user.selectOptions(screen.getByLabelText(/^coverage$/i), "separately_tracked");
+    await user.click(screen.getByRole("button", { name: /^add maintenance line$/i }));
+    await user.click(screen.getByRole("button", { name: /save 3 licenses/i }));
+
+    const [allForms] = onConfirm.mock.calls[0];
+    expect(allForms[1]).toEqual(expect.objectContaining({
+      softwareDescription: "Perpetual Add-on",
+      licenseType: "perpetual",
+      maintenanceCoverage: "separately_tracked",
+    }));
+    expect(allForms[2]).toEqual(expect.objectContaining({
+      licenseType: "maintenance",
+      parentLineIndex: 1,
+    }));
+  });
+
+  test("additional-line prices use the selected number locale and submit canonical decimals", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(
+      <InvoiceConfirmModal
+        data={{
+          publisherName: "Acme",
+          softwareDescription: "Localized Suite",
+          licenseType: "subscription",
+          licenseMetric: "per_user",
+          poNumber: "PO-MANUAL-2",
+          currency: "EUR",
+          fileName: "manual-entry",
+          strategyUsed: "manual",
+        }}
+        userSettings={{ ...userSettings, numberFormatLocale: "nl-BE" }}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /add additional license line/i }));
+    expect(screen.getByText(/shared across all 2 licenses in this batch/i)).toBeInTheDocument();
+
+    const additionalUnitPrice = screen.getAllByLabelText(/^unit price$/i)[1];
+    const additionalTotalPrice = screen.getAllByLabelText(/^total po price$/i)[1];
+    expect(additionalUnitPrice).toHaveAttribute("placeholder", "0,00");
+    expect(additionalTotalPrice).toHaveAttribute("placeholder", "0,00");
+
+    await user.type(additionalUnitPrice, "1.234,50");
+    await user.type(additionalTotalPrice, "2.469,00");
+    await user.click(screen.getByRole("button", { name: /save 2 licenses/i }));
+
+    const [allForms] = onConfirm.mock.calls[0];
+    expect(allForms[1]).toEqual(expect.objectContaining({
+      unitPrice: "1234.50",
+      totalPoPrice: "2469.00",
+    }));
+  });
+
   test("InvoiceConfirmModal synchronously locks repeated submissions", () => {
     const onConfirm = vi.fn(() => new Promise(() => {}));
     render(

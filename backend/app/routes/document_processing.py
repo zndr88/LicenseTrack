@@ -27,6 +27,7 @@ from app.services.license_write_service import (
     apply_license_field_patch,
     validate_patch_field_input,
 )
+from app.services.procurement_document_scope_service import get_procurement_document_licenses
 
 router = APIRouter(prefix="/api/document-processing-results", tags=["document-processing"])
 
@@ -192,17 +193,7 @@ async def _resolve_document_context(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    license_query = None
-    if document.license_id is not None:
-        license_query = select(License).where(License.id == document.license_id)
-    elif document.pending_order_id is not None:
-        license_query = select(License).where(License.pending_order_id == document.pending_order_id)
-
-    if license_query is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    result = await db.execute(license_query)
-    licenses = list(result.scalars().all())
+    licenses = await get_procurement_document_licenses(db, document)
     visible = [license_obj for license_obj in licenses if await can_view_license(current_user, license_obj, db)]
     if not visible:
         raise HTTPException(status_code=404, detail="Document not found")

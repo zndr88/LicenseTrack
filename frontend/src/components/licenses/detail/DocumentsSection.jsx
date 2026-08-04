@@ -18,6 +18,8 @@ const DOC_CATEGORIES = [
   { key: "entitlement", label: "Proof of Entitlement / Serial Keys", icon: "key", color: "var(--orange)" },
 ];
 
+const PROCUREMENT_CATEGORIES = new Set(["quote", "purchase_order", "invoice"]);
+
 function fileIconColor(name) {
   if (name.endsWith(".pdf")) return "var(--red)";
   if (name.endsWith(".txt") || name.endsWith(".lic")) return "var(--text-2)";
@@ -210,6 +212,9 @@ export default function DocumentsSection({
             {DOC_CATEGORIES.map((cat) => {
               const files = (documents || []).filter((d) => d.category === cat.key);
               const isUploading = uploadingCategory === cat.key;
+              const isSharedManualProcurementCategory = Boolean(
+                license.procurementBundleId && PROCUREMENT_CATEGORIES.has(cat.key)
+              );
               return (
                 <div key={cat.key} className="doc-cat">
                   <div className="doc-cat-hd">
@@ -300,7 +305,9 @@ export default function DocumentsSection({
                   {perms.canEdit && (
                     <button className="doc-upload-btn" disabled={!!uploadingCategory} onClick={() => handleFileUpload(cat.key)}>
                       <Icon name={isUploading ? "clock" : "upload"} size={13} />
-                      {isUploading ? "Uploading..." : `Upload ${cat.label.toLowerCase()}`}
+                      {isUploading
+                        ? "Uploading..."
+                        : `Upload ${cat.label.toLowerCase()}${isSharedManualProcurementCategory ? " (shared)" : ""}`}
                     </button>
                   )}
                 </div>
