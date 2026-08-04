@@ -141,9 +141,9 @@ describe("LicenseToolbar", () => {
     fireEvent.click(screen.getByLabelText("Export CSV"));
 
     expect(screen.getByRole("menu", { name: "CSV export options" })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: /Export Current View Filtered rows and visible columns/ })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: /Export Full Data Filtered rows and every available column/ })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: /Export Current View \(localized\) Use your date and number formats/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Export Current View\s*Filtered rows and visible columns/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Export Full Data\s*Filtered rows and every available column/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Export Current View \(localized\)\s*Use your date and number formats/ })).toBeTruthy();
   });
 
   test("CSV export options close when clicking outside the menu", () => {
