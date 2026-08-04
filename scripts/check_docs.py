@@ -64,6 +64,15 @@ def check_release_references() -> list[str]:
     if package_version != version:
         errors.append(f"frontend/package.json: version {package_version} does not match {version}")
 
+    frontend_version_source = (ROOT / "frontend" / "src" / "version.js").read_text(encoding="utf-8")
+    frontend_match = re.search(r'APP_VERSION = "([^"]+)"', frontend_version_source)
+    if frontend_match is None:
+        errors.append("frontend/src/version.js: APP_VERSION was not found")
+    elif frontend_match.group(1) != version:
+        errors.append(
+            f"frontend/src/version.js: version {frontend_match.group(1)} does not match {version}"
+        )
+
     required_fragments = {
         "README.md": [f"Version {version}."],
         "docker-compose.yml": [f"image: license-lifecycle-system:{version}"],
