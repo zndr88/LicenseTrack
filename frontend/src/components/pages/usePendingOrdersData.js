@@ -104,12 +104,12 @@ export function usePendingOrdersData({
         }));
       if (normalized.length > 0) {
         const { error: itemsError } = await addItemsToPendingOrderBulk(data.id, normalized);
-        if (itemsError) showError(`PO created but items could not be saved: ${itemsError}`);
+        if (itemsError) showError(`Pending order created but items could not be saved: ${itemsError}`);
       }
     }
     if (quoteFile) {
       const { error: docError } = await uploadPendingOrderDocument(data.id, quoteFile);
-      if (docError) showError(`PO created but document upload failed: ${docError}`);
+      if (docError) showError(`Pending order created but document upload failed: ${docError}`);
     }
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
@@ -214,7 +214,7 @@ export function usePendingOrdersData({
     setAddingPOItems(false);
     if (error) { showError(error); return false; }
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
-    showSuccess(`${items.length} item${items.length > 1 ? "s" : ""} added to PO`);
+    showSuccess(`${items.length} item${items.length > 1 ? "s" : ""} added to pending order`);
     return true;
   }, [showError, showSuccess, queryClient, userSettings]);
 
@@ -295,7 +295,7 @@ export function usePendingOrdersData({
     onRenewalsReload?.();
     onPortfolioStateChange?.();
     const newCount = affectedLicenses.filter((al) => al.conversionType !== "renewed_predecessor").length;
-    showSuccess(`${newCount} license${newCount !== 1 ? "s" : ""} created from PO ${poNumber ?? orderId}`);
+    showSuccess(`${newCount} license${newCount !== 1 ? "s" : ""} created from ${poNumber ?? `Pending Order #${orderId}`}`);
     onNotificationsReload?.();
     return true;
   }, [showError, showSuccess, queryClient, onLicensesReload, onRenewalsReload, onPortfolioStateChange, onNotificationsReload]);

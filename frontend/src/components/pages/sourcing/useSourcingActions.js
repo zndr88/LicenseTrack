@@ -14,6 +14,7 @@ import {
   uploadSourcingQuoteDocument,
 } from "../../../api/sourcing.js";
 import { invalidateProcurementRenewalState } from "../../../queryInvalidation.js";
+import { pendingOrderLabel } from "../../../utils/procurementLabels.js";
 
 function invalidateSourcingCaches(queryClient) {
   return Promise.all([
@@ -92,10 +93,11 @@ export function useSourcingActions({
     onRenewalsReload?.();
     onPortfolioStateChange?.();
     const directCount = order.directRegistryCount ?? 0;
+    const orderLabel = pendingOrderLabel(order);
     showToast(
       directCount
-        ? `${directCount} line${directCount === 1 ? "" : "s"} added to the Registry; purchase lines moved to Pending Order ${order.poNumber}.`
-        : `Converted to Pending Order ${order.poNumber}`,
+        ? `${directCount} line${directCount === 1 ? "" : "s"} added to the Registry; purchase lines moved to ${orderLabel}.`
+        : `Converted to ${orderLabel}`,
       "success",
       onNavigateToPendingOrder
         ? { label: "View Order", onClick: () => onNavigateToPendingOrder(order.id) }

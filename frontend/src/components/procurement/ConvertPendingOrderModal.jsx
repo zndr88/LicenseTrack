@@ -17,6 +17,7 @@ import PluginSlot from "../plugins/PluginSlot.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
 } from "./MaintenanceCoverageFields.jsx";
+import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 
 const APPLYABLE_PLUGIN_FIELDS = new Set([
   "publisherName",
@@ -25,6 +26,7 @@ const APPLYABLE_PLUGIN_FIELDS = new Set([
   "endDate",
   "contractNumber",
   "poNumber",
+  "procurementReference",
   "invoiceNumber",
   "contactEmail",
   "supplier",
@@ -97,6 +99,7 @@ const ConvertPendingOrderModal = ({
       isPerpetual:         prefill.licenseType === "perpetual",
       contractNumber:      prefill.contractNumber      || "",
       poNumber:            prefill.poNumber            || "",
+      procurementReference: prefill.procurementReference || "",
       invoiceNumber:       prefill.invoiceNumber       || "",
       contactEmail:        prefill.contactEmail        || "",
       supplier:            prefill.supplier            || "",
@@ -219,7 +222,7 @@ const ConvertPendingOrderModal = ({
   return (
     <>
       <ModalShell
-        title={`${isRenewal ? "Renew License" : "Convert to License"} - ${order.poNumber}`}
+        title={`${isRenewal ? "Renew License" : "Convert to License"} - ${pendingOrderLabel(order)}`}
         titleId="dialog-title-convert-po"
         onClose={requestClose}
         onEscape={requestClose}
@@ -313,6 +316,10 @@ const ConvertPendingOrderModal = ({
           <div className="fr">
             <div className="fg"><label htmlFor="cpo-contract-number">Contract Number</label><input id="cpo-contract-number" className="fi" {...register("contractNumber")} /></div>
             <div className="fg"><label htmlFor="cpo-po-number">PO Number</label><input id="cpo-po-number" className="fi" {...register("poNumber")} /></div>
+          </div>
+          <div className="fg">
+            <label htmlFor="cpo-procurement-reference">Procurement reference</label>
+            <input id="cpo-procurement-reference" className="fi" {...register("procurementReference")} />
           </div>
           <div className="fr">
             <div className="fg">

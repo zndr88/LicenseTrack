@@ -162,6 +162,10 @@ export default function ConvertItemForm({
               <input id={`ca-po-number-${idx}`} className="fi" value={wi.poNumber ?? ""} disabled style={{ opacity: 0.6 }} />
             </div>
           </div>
+          <div className="fg">
+            <label htmlFor={`ca-procurement-reference-${idx}`}>Procurement reference</label>
+            <input id={`ca-procurement-reference-${idx}`} className="fi" value={wi.procurementReference ?? ""} disabled style={{ opacity: 0.6 }} />
+          </div>
           <div className="fr">
             <div className="fg">
               <label htmlFor={`ca-invoice-number-${idx}`}>Invoice Number</label>

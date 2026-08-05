@@ -4,6 +4,7 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -73,14 +74,14 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
         <>
           <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
           <button className="btn btn-p" onClick={handleSubmit} disabled={!canSave || saving}>
-            {saving ? "Saving..." : "Save to PO"}
+            {saving ? "Saving..." : "Save to Pending Order"}
           </button>
         </>
       )}
     >
       <div className="modal-bd">
         <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 12px" }}>
-          Adding items to <strong>{po.poNumber}</strong>. The PO will not be converted yet — use the Convert button when ready.
+          Adding items to <strong>{pendingOrderLabel(po)}</strong>. The pending order will not be converted yet - use Convert when ready.
         </p>
         {items.map((item, idx) => (
           <div

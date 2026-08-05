@@ -78,7 +78,8 @@ class PendingOrderCreate(BaseModel):
         populate_by_name=True,
     )
 
-    po_number: str
+    po_number: str = ""
+    procurement_reference: str = ""
     supplier: Optional[str] = None
     notes: Optional[str] = None
 
@@ -90,6 +91,7 @@ class PendingOrderUpdate(BaseModel):
     )
 
     po_number: Optional[str] = None
+    procurement_reference: Optional[str] = None
     supplier: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[PendingOrderStatus] = None
@@ -104,6 +106,7 @@ class PendingOrderResponse(BaseModel):
 
     id: int
     po_number: str
+    procurement_reference: str = ""
     supplier: Optional[str] = None
     notes: Optional[str] = None
     status: PendingOrderStatus
@@ -178,6 +181,7 @@ class PendingOrderConvertRequest(BaseModel):
     # References
     contract_number: str = ""
     po_number: str = ""
+    procurement_reference: str = ""
     invoice_number: str = ""
 
     # Contact / ownership
@@ -269,6 +273,7 @@ class ConvertSourcingItemRequest(BaseModel):
     )
 
     po_number: Optional[str] = None
+    procurement_reference: Optional[str] = None
     pending_order_id: Optional[int] = None
     supplier: Optional[str] = None
     notes: Optional[str] = None
@@ -317,6 +322,7 @@ class BatchConvertItem(BaseModel):
     # References
     contract_number: str = ""
     po_number: str = ""
+    procurement_reference: str = ""
     invoice_number: str = ""
 
     # Contact / ownership

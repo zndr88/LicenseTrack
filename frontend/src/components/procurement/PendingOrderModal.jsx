@@ -32,13 +32,13 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
     register,
     handleSubmit,
     formState: { isDirty },
-    watch,
     reset,
     setValue,
   } = useForm({
     resolver: zodResolver(poFormSchema),
     defaultValues: {
       poNumber: order?.poNumber ?? "",
+      procurementReference: order?.procurementReference ?? "",
       supplier: order?.supplier ?? "",
       notes:    order?.notes    ?? "",
     },
@@ -51,9 +51,6 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
   const [saving, setSaving] = useState(false);
 
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose: onCancel });
-
-  const poNumberVal = watch("poNumber");
-  const canSave = (poNumberVal ?? "").trim() !== "";
 
   const handleFileChange = (file) => {
     setAttachedFile(file);
@@ -111,9 +108,9 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
         footer={(
           <>
             <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
-            <button className="btn btn-p" disabled={!canSave || saving} onClick={handleSubmit(onSubmit)}>
+            <button className="btn btn-p" disabled={saving} onClick={handleSubmit(onSubmit)}>
               {saving ? "Saving..." : isNewOrder && items.filter((i) => i.publisherName.trim()).length > 0
-                ? `Save PO + ${items.filter((i) => i.publisherName.trim()).length} Item${items.filter((i) => i.publisherName.trim()).length > 1 ? "s" : ""}`
+                ? `Save Pending Order + ${items.filter((i) => i.publisherName.trim()).length} Item${items.filter((i) => i.publisherName.trim()).length > 1 ? "s" : ""}`
                 : "Save"}
             </button>
           </>
@@ -140,6 +137,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
                   if (!Array.isArray(mis) || mis.length === 0) return;
                   const first = mis[0];
                   if (first.poNumber) setValue("poNumber", first.poNumber, { shouldDirty: true });
+                  if (first.procurementReference) setValue("procurementReference", first.procurementReference, { shouldDirty: true });
                   if (first.supplier) setValue("supplier", first.supplier, { shouldDirty: true });
                   setItems(mis.map((item) => ({
                     id: `${Date.now()}-${Math.random()}`,
@@ -177,10 +175,14 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
             </div>
           )}
 
-          {/* PO header fields */}
+          {/* Pending order header fields */}
           <div className="fg">
-            <label htmlFor="po-number">PO Number <span style={{ color: "var(--red)" }}>*</span></label>
+            <label htmlFor="po-number">PO Number</label>
             <input id="po-number" className="fi" placeholder="e.g. PO-2026-0042" {...register("poNumber")} />
+          </div>
+          <div className="fg">
+            <label htmlFor="po-procurement-reference">Procurement reference</label>
+            <input id="po-procurement-reference" className="fi" placeholder="e.g. REQ-2026-0042" {...register("procurementReference")} />
           </div>
           <div className="fg">
             <label htmlFor="po-supplier">Supplier</label>

@@ -11,6 +11,7 @@ import PendingOrdersTable from "./pendingOrders/PendingOrdersTable.jsx";
 import { filterAndSortPendingOrders, usePendingOrdersPageState } from "./pendingOrders/usePendingOrdersPageState.js";
 import { usePendingOrdersData } from "./usePendingOrdersData.js";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
+import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 
 export default function PendingOrdersPage({
   user, userSettings,
@@ -161,7 +162,7 @@ export default function PendingOrdersPage({
     ? `${deletePOItemTarget.item.publisherName} - ${deletePOItemTarget.item.softwareDescription}`
     : "";
   const deletePOItemMessage = deletePOItemIsLastLine
-    ? `This is the last line on ${deletePOItemTarget?.order.poNumber || `Pending Order ID #${deletePOItemTarget?.order.id}`}. Deleting "${deletePOItemLabel}" will cancel the pending order and move it to history. Attached PO documents and sourcing quote context will be kept for reference.`
+    ? `This is the last line on ${pendingOrderLabel(deletePOItemTarget?.order)}. Deleting "${deletePOItemLabel}" will cancel the pending order and move it to history. Attached PO documents and sourcing quote context will be kept for reference.`
     : `Delete "${deletePOItemLabel}" from this pending order?`;
 
   return (
@@ -170,7 +171,7 @@ export default function PendingOrdersPage({
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <h2>Pending Orders</h2>
-            <p>Purchase orders approved for procurement, pending invoice</p>
+            <p>Procurement orders waiting for PO, invoice, or license activation</p>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input ref={purchaseOrderInputRef} type="file" style={{ display: "none" }} onChange={handlePurchaseOrderSelected} />
@@ -179,7 +180,7 @@ export default function PendingOrdersPage({
             </button>
             {perms.canEdit && (
               <button className="btn btn-p" onClick={() => setShowPendingOrderModal({ order: null })}>
-                <Icon name="plus" size={13} />Add PO
+                <Icon name="plus" size={13} />Add Pending Order
               </button>
             )}
           </div>
@@ -196,7 +197,7 @@ export default function PendingOrdersPage({
           <div className="empty">
             <Icon name="clock" size={32} color="var(--text-3)" />
             <h3>No pending orders yet</h3>
-            <p>Convert a sourcing item or add a PO directly.</p>
+            <p>Convert a sourcing item or add a pending order directly.</p>
           </div>
         ) : (
           <PendingOrdersTable
@@ -290,7 +291,7 @@ export default function PendingOrdersPage({
           licenses={licenses}
           userSettings={userSettings}
           onConfirm={async (orderId, payload, file = null) => {
-            const ok = await handleBatchConvert(orderId, payload, showConvertAllModal?.poNumber, file);
+            const ok = await handleBatchConvert(orderId, payload, pendingOrderLabel(showConvertAllModal), file);
             if (ok) setShowConvertAllModal(null);
             return ok;
           }}
@@ -307,13 +308,19 @@ export default function PendingOrdersPage({
           onSave={async (form) => {
             const payload = {
               poNumber: form.poNumber.trim(),
+              procurementReference: form.procurementReference.trim(),
               supplier: form.supplier || null,
               notes: form.notes || null,
               items: form.items,
               quoteFile: form.quoteFile,
             };
             const success = showPendingOrderModal.order
-              ? await handleUpdatePendingOrder(showPendingOrderModal.order.id, { poNumber: payload.poNumber, supplier: payload.supplier, notes: payload.notes })
+              ? await handleUpdatePendingOrder(showPendingOrderModal.order.id, {
+                poNumber: payload.poNumber,
+                procurementReference: payload.procurementReference,
+                supplier: payload.supplier,
+                notes: payload.notes,
+              })
               : await handleCreatePendingOrder(payload);
             if (success) setShowPendingOrderModal(null);
             return success;

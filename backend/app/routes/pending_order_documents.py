@@ -23,6 +23,10 @@ router = APIRouter(prefix="/api/pending-orders", tags=["pending-orders"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
+def _pending_order_document_storage_scope(order) -> str:
+    return order.po_number or f"pending-order-{order.id}"
+
+
 @router.post("/{order_id}/documents", response_model=ProcurementDocumentResponse, status_code=201)
 async def upload_pending_order_document(
     order_id: int,
@@ -37,7 +41,11 @@ async def upload_pending_order_document(
     await file.seek(0)
 
     storage_base = await storage.resolve_storage_path(db)
-    stored_path, file_size = await storage.save_procurement_document_file(file, order.po_number, storage_base)
+    stored_path, file_size = await storage.save_procurement_document_file(
+        file,
+        _pending_order_document_storage_scope(order),
+        storage_base,
+    )
     original_filename = file.filename or "purchase-order"
     mime_type = file.content_type or mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
     document = ProcurementDocument(

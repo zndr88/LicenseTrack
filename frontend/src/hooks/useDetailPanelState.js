@@ -274,6 +274,7 @@ export function useDetailPanelState({
       noticeDate: license.noticeDate || "",
       contractNumber: license.contractNumber || "",
       poNumber: license.poNumber || "",
+      procurementReference: license.procurementReference || "",
       invoiceNumber: license.invoiceNumber || "",
       contactEmail: license.contactEmail || "",
       budgetOwnerEmail: license.budgetOwnerEmail || "",

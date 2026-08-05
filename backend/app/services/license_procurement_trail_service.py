@@ -66,6 +66,7 @@ def _pending_order_response(order: PendingOrder | None) -> ProcurementTrailPendi
     return ProcurementTrailPendingOrder(
         id=order.id,
         po_number=order.po_number,
+        procurement_reference=order.procurement_reference,
         status=_enum_value(order.status),
         supplier=order.supplier,
         notes=order.notes,

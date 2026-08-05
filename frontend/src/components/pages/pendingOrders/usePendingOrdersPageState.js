@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatCost } from "../../../utils/helpers.js";
+import { pendingOrderLabel } from "../../../utils/procurementLabels.js";
 
 export function formatPoTotal(po, locale) {
   if (!po.items?.length) return "-";
@@ -26,6 +27,8 @@ export function filterAndSortPendingOrders(pendingOrders, search, sortCol, sortD
     const query = search.trim().toLowerCase();
     orders = orders.filter((po) =>
       (po.poNumber ?? "").toLowerCase().includes(query) ||
+      pendingOrderLabel(po).toLowerCase().includes(query) ||
+      (po.procurementReference ?? "").toLowerCase().includes(query) ||
       (po.supplier ?? "").toLowerCase().includes(query) ||
       (po.items ?? []).some((item) =>
         (item.publisherName ?? "").toLowerCase().includes(query) ||
@@ -42,8 +45,8 @@ export function filterAndSortPendingOrders(pendingOrders, search, sortCol, sortD
 
     switch (sortCol) {
       case "poNumber":
-        aVal = a.poNumber ?? "";
-        bVal = b.poNumber ?? "";
+        aVal = pendingOrderLabel(a);
+        bVal = pendingOrderLabel(b);
         break;
       case "supplier":
         aVal = a.supplier ?? "";

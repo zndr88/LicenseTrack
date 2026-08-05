@@ -11,6 +11,7 @@ const STABLE_EXPORT_FIELD_NAMES = {
   description:      "software_description",
   contractNumber:   "contract_number",
   poNumber:         "po_number",
+  procurementReference: "procurement_reference",
   invoiceNumber:    "invoice_number",
   contactEmail:     "contact_email",
   supplier:         "supplier",
@@ -101,6 +102,7 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "description": return l.softwareDescription ?? "";
         case "contractNumber": return l.contractNumber ?? "";
         case "poNumber": return l.poNumber ?? "";
+        case "procurementReference": return l.procurementReference ?? "";
         case "invoiceNumber": return l.invoiceNumber ?? "";
         case "costCentre": return l.costCentre ?? "";
         case "supplier": return l.supplier ?? "";

@@ -95,6 +95,7 @@ class License(Base):
         Integer, ForeignKey("contracts.id", use_alter=True, name="fk_license_contract"), nullable=True, index=True
     )
     po_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    procurement_reference: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     invoice_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     invoice_numbers: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     pending_order_id: Mapped[int | None] = mapped_column(

@@ -11,7 +11,8 @@ const optionalEmail = z.string().refine(
 
 /** PendingOrderModal + ConvertSourcingModal (new-PO mode). */
 export const poFormSchema = z.object({
-  poNumber: z.string().min(1, "PO Number is required."),
+  poNumber: z.string(),
+  procurementReference: z.string(),
   supplier: z.string(),
   notes:    z.string(),
 });
@@ -26,6 +27,7 @@ export const licenseFormSchema = z.object({
   isPerpetual:         z.boolean(),
   contractNumber:      z.string(),
   poNumber:            z.string(),
+  procurementReference: z.string(),
   invoiceNumber:       z.string(),
   contactEmail:        optionalEmail,
   supplier:            z.string(),

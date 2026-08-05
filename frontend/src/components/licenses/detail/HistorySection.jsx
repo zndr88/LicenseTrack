@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getLicenseProcurementTrail } from "../../../api/licenses.js";
 import { queryKeys } from "../../../queryKeys.js";
 import { formatDateTime, formatMoney } from "../../../utils/formatting.js";
+import { pendingOrderLabel } from "../../../utils/procurementLabels.js";
 import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 
@@ -97,15 +98,17 @@ export function ProcurementTrail({
       {pendingOrder && (
         <TrailRow
           label="Pending Order"
-          title={`${pendingOrder.poNumber ? `${pendingOrder.poNumber} · ` : ""}Pending Order ID #${pendingOrder.id} · ${pendingOrder.supplier || "No supplier"}`}
+          title={`${pendingOrderLabel(pendingOrder)} - ${pendingOrder.supplier || "No supplier"}`}
           meta={[
             statusLabel(pendingOrder.status),
+            `Pending Order #${pendingOrder.id}`,
+            pendingOrder.procurementReference || null,
             pendingOrder.createdAt ? formatDateTime(pendingOrder.createdAt, userSettings) : null,
-          ].filter(Boolean).join(" · ")}
+          ].filter(Boolean).join(" - ")}
         >
           {onNavigateToPendingOrder && (
             <button type="button" className="btn btn-g btn-sm" onClick={() => onNavigateToPendingOrder(pendingOrder.id)}>
-              <Icon name="arrow-right" size={12} />View PO
+              <Icon name="arrow-right" size={12} />View Order
             </button>
           )}
         </TrailRow>

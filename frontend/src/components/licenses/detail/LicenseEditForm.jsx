@@ -62,6 +62,10 @@ export default function LicenseEditForm({
         </div>
       </div>
       <div className="fg">
+        <label htmlFor="license-edit-procurement-reference">Procurement reference</label>
+        <input id="license-edit-procurement-reference" className="fi" value={editFields.procurementReference || ""} onChange={(e) => setEditFields((p) => ({ ...p, procurementReference: e.target.value }))} />
+      </div>
+      <div className="fg">
         <label htmlFor="license-edit-invoice">Invoice #</label>
         <input id="license-edit-invoice" className="fi" value={editFields.invoiceNumber} onChange={(e) => setEditFields((p) => ({ ...p, invoiceNumber: e.target.value }))} />
       </div>

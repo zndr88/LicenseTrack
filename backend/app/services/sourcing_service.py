@@ -630,15 +630,14 @@ async def convert_sourcing_item_to_order(
     supplier: str | None,
     notes: str | None,
     created_by: int | None,
+    procurement_reference: str | None = None,
 ) -> PendingOrder:
     """Attach a sourcing item to a PendingOrder (existing or newly created).
 
     Mutates item.pending_order_id and item.status in place. Flushes but does
     not commit - the caller controls the transaction boundary.
 
-    Raises ValueError if:
-    - pending_order_id is given but the order doesn't exist
-    - pending_order_id is None and po_number is empty/None
+    Raises ValueError if pending_order_id is given but the order doesn't exist.
     """
     if is_direct_freeware_item(item):
         raise ValueError("Freeware / Open Source items convert directly to the License Registry")
@@ -665,8 +664,6 @@ async def convert_sourcing_item_to_order(
         if request is not None:
             synchronize_open_request_identity(request, supplier=order_supplier)
     else:
-        if not po_number:
-            raise ValueError("po_number is required when pending_order_id is not provided")
         target_supplier = clean_procurement_identity(supplier) or (
             clean_procurement_identity(request.supplier)
             if request is not None
@@ -679,7 +676,8 @@ async def convert_sourcing_item_to_order(
         else:
             item.supplier = target_supplier
         order = PendingOrder(
-            po_number=po_number,
+            po_number=(po_number or "").strip(),
+            procurement_reference=(procurement_reference or "").strip(),
             supplier=target_supplier,
             notes=notes,
             created_by=created_by,
@@ -702,6 +700,7 @@ async def convert_sourcing_request_to_order(
     supplier: str | None,
     notes: str | None,
     created_by: int | None,
+    procurement_reference: str | None = None,
 ) -> PendingOrder:
     """Attach the open purchase items in a sourcing request to a PendingOrder."""
     if request.status == SourcingStatus.converted:
@@ -732,14 +731,13 @@ async def convert_sourcing_request_to_order(
             )
         synchronize_open_request_identity(request, supplier=order_supplier)
     else:
-        if not po_number:
-            raise ValueError("po_number is required when pending_order_id is not provided")
         target_supplier = clean_procurement_identity(supplier) or clean_procurement_identity(request.supplier)
         if target_supplier is None:
             raise HTTPException(status_code=422, detail="Supplier is required to create a pending order")
         synchronize_open_request_identity(request, supplier=target_supplier)
         order = PendingOrder(
-            po_number=po_number,
+            po_number=(po_number or "").strip(),
+            procurement_reference=(procurement_reference or "").strip(),
             supplier=target_supplier,
             notes=notes if notes is not None else request.notes,
             created_by=created_by,

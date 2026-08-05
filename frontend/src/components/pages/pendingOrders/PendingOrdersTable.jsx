@@ -6,6 +6,7 @@ import { formatCost } from "../../../utils/helpers.js";
 import { formatPoTotal } from "./usePendingOrdersPageState.js";
 import { formatDateTime, formatNumber } from "../../../utils/formatting.js";
 import { procurementLineTotal } from "../../../utils/procurementTotals.js";
+import { hasPurchaseOrderNumber, pendingOrderLabel } from "../../../utils/procurementLabels.js";
 
 function SortIndicator({ active, dir }) {
   if (!active) return null;
@@ -241,7 +242,7 @@ export default function PendingOrdersTable({
         <SearchBox
           value={search}
           onChange={setSearch}
-          placeholder="Search PO number, supplier, or line items..."
+          placeholder="Search order, reference, supplier, or line items..."
           ariaLabel={readOnly ? "Search pending order history" : "Search pending orders"}
         />
         {readOnly && (
@@ -269,7 +270,7 @@ export default function PendingOrdersTable({
           <thead>
             <tr>
               <th scope="col" style={{ width: 28 }} />
-              <SortableHeader column="poNumber" label="PO Number" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+              <SortableHeader column="poNumber" label="Order" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <SortableHeader column="supplier" label="Supplier" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <SortableHeader column="itemCount" label="Items" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <SortableHeader column="totalValue" label="Total PO Value" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
@@ -293,11 +294,12 @@ export default function PendingOrdersTable({
               const evidenceStatus = po.evidenceTransferStatus ?? po.evidence_transfer_status;
               const evidenceDetail = po.evidenceTransferDetail ?? po.evidence_transfer_detail;
               const canRetryEvidence = po.status === "converted" && ["failed", "pending"].includes(evidenceStatus);
+              const hasPoNumber = hasPurchaseOrderNumber(po);
               const statusLabel = po.status === "cancelled"
                 ? "Cancelled"
                 : po.status === "converted"
                 ? (evidenceStatus === "failed" ? "Evidence Failed" : evidenceStatus === "pending" ? "Evidence Pending" : evidenceStatus === "escalated" ? "Evidence Escalated" : "Converted")
-                : isInvoiceReceived ? "Invoice Received" : "Pending";
+                : !hasPoNumber ? "Awaiting PO" : isInvoiceReceived ? "Invoice Received" : "Pending";
               const statusClass = po.status === "cancelled"
                 ? "badge-gray"
                 : evidenceStatus === "failed" || evidenceStatus === "escalated"
@@ -322,8 +324,13 @@ export default function PendingOrdersTable({
                       {po.items?.length > 0 ? (isExpanded ? "\u25be" : "\u25b8") : ""}
                     </td>
                     <td>
-                      <div className="mono" style={{ fontWeight: 600 }}>{po.poNumber}</div>
-                      <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>Pending Order ID #{po.id}</div>
+                      <div className="mono" style={{ fontWeight: 600 }}>{pendingOrderLabel(po)}</div>
+                      {hasPoNumber && (
+                        <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>Pending Order #{po.id}</div>
+                      )}
+                      {po.procurementReference && (
+                        <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>{po.procurementReference}</div>
+                      )}
                     </td>
                     <td>{po.supplier || "-"}</td>
                     <td style={{ color: "var(--text-2)" }}>{po.items?.length ?? 0}</td>
@@ -381,8 +388,15 @@ export default function PendingOrdersTable({
                         {!readOnly && perms.canEdit && po.status !== "converted" && po.items?.length === 1 && (
                           <button
                             className="btn btn-p"
-                            style={{ padding: "4px 6px", fontSize: 11 }}
-                            onClick={() => onOpenConvert(po)}
+                            style={{
+                              padding: "4px 6px",
+                              fontSize: 11,
+                              opacity: hasPoNumber ? 1 : 0.45,
+                              cursor: hasPoNumber ? "pointer" : "not-allowed",
+                            }}
+                            disabled={!hasPoNumber}
+                            title={hasPoNumber ? "Convert to license" : "Add a PO number before creating active licenses"}
+                            onClick={() => hasPoNumber && onOpenConvert(po)}
                           >
                             <Icon name="check" size={12} />Convert
                           </button>
@@ -390,8 +404,15 @@ export default function PendingOrdersTable({
                         {!readOnly && perms.canEdit && po.status !== "converted" && po.items?.length > 1 && (
                           <button
                             className="btn btn-p"
-                            style={{ padding: "4px 6px", fontSize: 11 }}
-                            onClick={() => onOpenConvertAll(po)}
+                            style={{
+                              padding: "4px 6px",
+                              fontSize: 11,
+                              opacity: hasPoNumber ? 1 : 0.45,
+                              cursor: hasPoNumber ? "pointer" : "not-allowed",
+                            }}
+                            disabled={!hasPoNumber}
+                            title={hasPoNumber ? "Convert to licenses" : "Add a PO number before creating active licenses"}
+                            onClick={() => hasPoNumber && onOpenConvertAll(po)}
                           >
                             <Icon name="check" size={12} />Convert
                           </button>
