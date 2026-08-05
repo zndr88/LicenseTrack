@@ -94,7 +94,7 @@ const ConvertPendingOrderModal = ({
       startDate:           prefill.startDate           || "",
       endDate:             prefill.endDate             || "",
       purchaseDate:        prefill.purchaseDate        || "",
-      isPerpetual:         false,
+      isPerpetual:         prefill.licenseType === "perpetual",
       contractNumber:      prefill.contractNumber      || "",
       poNumber:            prefill.poNumber            || "",
       invoiceNumber:       prefill.invoiceNumber       || "",
@@ -175,6 +175,8 @@ const ConvertPendingOrderModal = ({
     (publisherVal ?? "").trim() !== "" &&
     (softwareVal  ?? "").trim() !== "" &&
     (licenseType !== "maintenance" || parentLicenseId) &&
+    String(watch("startDate") ?? "").trim() !== "" &&
+    (isPerpetual || String(watch("endDate") ?? "").trim() !== "") &&
     String(quantity  ?? "").trim() !== "" &&
     (isFreewareLicenseType(licenseType) || String(unitPrice ?? "").trim() !== "");
 

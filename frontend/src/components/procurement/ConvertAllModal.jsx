@@ -10,6 +10,7 @@ import ModalShell from "../ui/ModalShell.jsx";
 import Icon from "../ui/Icon.jsx";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
 import ConvertItemForm, { isItemReady } from "./ConvertItemForm.jsx";
+import PendingOrderInvoiceField from "./PendingOrderInvoiceField.jsx";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 
@@ -48,7 +49,11 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
   const { fields } = useFieldArray({ control, name: "items" });
 
   const [saving, setSaving] = useState(false);
-  const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose: onCancel });
+  const [invoiceFile, setInvoiceFile] = useState(null);
+  const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
+    isDirty: isDirty || !!invoiceFile,
+    onClose: onCancel,
+  });
 
   const watchedItems = watch("items") ?? [];
   const readyCount = watchedItems.filter(isItemReady).length;
@@ -107,9 +112,12 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
       };
       return entry;
     });
-    const ok = await onConfirm(order.id, payload);
+    const ok = await onConfirm(order.id, payload, invoiceFile);
     if (!ok) setSaving(false);
-    else reset();
+    else {
+      reset();
+      setInvoiceFile(null);
+    }
   };
 
   return (
@@ -151,6 +159,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
               />
             </div>
           )}
+          <PendingOrderInvoiceField invoiceFile={invoiceFile} onChange={setInvoiceFile} />
           {fields.length > 1 && (
             <div
               style={{
@@ -206,7 +215,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
 
       {showDiscardDialog && (
         <DiscardChangesDialog
-          onDiscard={() => { reset(); onCancel(); }}
+          onDiscard={() => { reset(); setInvoiceFile(null); onCancel(); }}
           onKeep={() => setShowDiscardDialog(false)}
         />
       )}

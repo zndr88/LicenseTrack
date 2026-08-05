@@ -45,7 +45,7 @@ export function useSourcingActions({
     if (error) { showToast(error, "error"); return false; }
     await invalidateSourcingCaches(queryClient);
     if (created?.id) setExpandedRequestId(created.id);
-    return true;
+    return created ?? true;
   }, [showToast, queryClient, setExpandedRequestId]);
 
   const handleUpdateSourcingItem = useCallback(async (id, payload) => {

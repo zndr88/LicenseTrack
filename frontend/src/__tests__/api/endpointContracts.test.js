@@ -202,6 +202,10 @@ describe("frontend API endpoint contracts", () => {
     expect(client.post.mock.calls.at(-1)[0]).toBe("/api/pending-orders/4/convert");
     expect(client.post.mock.calls.at(-1)[1]).toBeInstanceOf(FormData);
 
+    await pendingOrdersApi.batchConvertPendingOrder(4, [{ sourcingItemId: 9 }], file);
+    expect(client.post.mock.calls.at(-1)[0]).toBe("/api/pending-orders/4/convert-all");
+    expect(client.post.mock.calls.at(-1)[1]).toBeInstanceOf(FormData);
+
     await pendingOrdersApi.getPendingOrders({ includeEvidenceIssues: true });
     expect(client.get).toHaveBeenLastCalledWith("/api/pending-orders?include_evidence_issues=true");
 

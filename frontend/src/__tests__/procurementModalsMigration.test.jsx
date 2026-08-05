@@ -292,6 +292,8 @@ describe("ConvertPendingOrderModal", () => {
   const PREFILL = {
     publisherName: "Acme Corp",
     softwareDescription: "Acme Suite",
+    startDate: "2026-01-01",
+    endDate: "2026-12-31",
     quantity: "10",
     unitPrice: "25.00",
     totalPoPrice: "250.00",
@@ -789,8 +791,24 @@ describe("ConvertAllModal", () => {
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     expect(onConfirm).toHaveBeenCalledWith(
       1,
-      [expect.objectContaining({ sourcingItemId: 11, publisherName: "Acme Corp" })]
+      [expect.objectContaining({ sourcingItemId: 11, publisherName: "Acme Corp" })],
+      null
     );
+  });
+
+  test("passes an uploaded invoice file to batch conversion", async () => {
+    const user = userEvent.setup();
+    const invoice = new File(["invoice"], "invoice.pdf", { type: "application/pdf" });
+    const { onConfirm } = renderModal();
+
+    await user.upload(screen.getByLabelText(/invoice document/i), invoice);
+    fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: "2026-01-01" } });
+    fireEvent.change(screen.getByLabelText(/^end date/i), { target: { value: "2026-12-31" } });
+    await user.click(screen.getByRole("button", { name: /confirm & create licenses/i }));
+
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+    expect(onConfirm.mock.calls[0][0]).toBe(1);
+    expect(onConfirm.mock.calls[0][2]).toBe(invoice);
   });
 
   test("submits preserved PO and line-item notes", async () => {
@@ -831,7 +849,8 @@ describe("ConvertAllModal", () => {
         sourcingItemId: 11,
         endDate: null,
         licenseType: "perpetual",
-      })]
+      })],
+      null
     );
   });
 
@@ -880,70 +899,74 @@ describe("ConvertAllModal", () => {
     await user.click(screen.getByRole("button", { name: /confirm & create licenses/i }));
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
-    expect(onConfirm).toHaveBeenCalledWith(2, [
-      {
-        sourcingItemId: 21,
-        publisherName: "SaaS Co",
-        softwareDescription: "SaaS App",
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
-        purchaseDate: null,
-        contractNumber: "",
-        poNumber: "PO-2",
-        invoiceNumber: "",
-        contactEmail: "",
-        supplier: "Order Supplier",
-        costCentre: "",
-        licenseType: "saas",
-        licenseMetric: "per_user",
-        portalUrl: "https://saas.example.com",
-        maintenanceCoverage: "unknown",
-        maintenanceStartDate: null,
-        maintenanceEndDate: null,
-        maintenancePricingBasis: "flat",
-        maintenanceQuantity: null,
-        maintenanceUnitPrice: null,
-        maintenanceCost: null,
-        quantity: "4",
-        skuCode: "",
-        unitPrice: "12.50",
-        totalPoPrice: "50.00",
-        currency: "USD",
-        budgetOwnerEmail: "",
-        notes: null,
-      },
-      {
-        sourcingItemId: 22,
-        publisherName: "Renew Co",
-        softwareDescription: "Renew App",
-        startDate: "2026-02-01",
-        endDate: "2027-01-31",
-        purchaseDate: null,
-        contractNumber: "CN-OLD",
-        poNumber: "PO-2",
-        invoiceNumber: "",
-        contactEmail: "renew@example.com",
-        supplier: "Order Supplier",
-        costCentre: "Renewals",
-        licenseType: "saas",
-        licenseMetric: "per_device",
-        portalUrl: "https://renew.example.com",
-        maintenanceCoverage: "unknown",
-        maintenanceStartDate: null,
-        maintenanceEndDate: null,
-        maintenancePricingBasis: "flat",
-        maintenanceQuantity: null,
-        maintenanceUnitPrice: null,
-        maintenanceCost: null,
-        quantity: "7",
-        skuCode: "SKU-OLD",
-        unitPrice: "30.00",
-        totalPoPrice: "210.00",
-        currency: "EUR",
-        budgetOwnerEmail: "budget-renew@example.com",
-        notes: null,
-      },
-    ]);
+    expect(onConfirm).toHaveBeenCalledWith(
+      2,
+      [
+        {
+          sourcingItemId: 21,
+          publisherName: "SaaS Co",
+          softwareDescription: "SaaS App",
+          startDate: "2026-01-01",
+          endDate: "2026-12-31",
+          purchaseDate: null,
+          contractNumber: "",
+          poNumber: "PO-2",
+          invoiceNumber: "",
+          contactEmail: "",
+          supplier: "Order Supplier",
+          costCentre: "",
+          licenseType: "saas",
+          licenseMetric: "per_user",
+          portalUrl: "https://saas.example.com",
+          maintenanceCoverage: "unknown",
+          maintenanceStartDate: null,
+          maintenanceEndDate: null,
+          maintenancePricingBasis: "flat",
+          maintenanceQuantity: null,
+          maintenanceUnitPrice: null,
+          maintenanceCost: null,
+          quantity: "4",
+          skuCode: "",
+          unitPrice: "12.50",
+          totalPoPrice: "50.00",
+          currency: "USD",
+          budgetOwnerEmail: "",
+          notes: null,
+        },
+        {
+          sourcingItemId: 22,
+          publisherName: "Renew Co",
+          softwareDescription: "Renew App",
+          startDate: "2026-02-01",
+          endDate: "2027-01-31",
+          purchaseDate: null,
+          contractNumber: "CN-OLD",
+          poNumber: "PO-2",
+          invoiceNumber: "",
+          contactEmail: "renew@example.com",
+          supplier: "Order Supplier",
+          costCentre: "Renewals",
+          licenseType: "saas",
+          licenseMetric: "per_device",
+          portalUrl: "https://renew.example.com",
+          maintenanceCoverage: "unknown",
+          maintenanceStartDate: null,
+          maintenanceEndDate: null,
+          maintenancePricingBasis: "flat",
+          maintenanceQuantity: null,
+          maintenanceUnitPrice: null,
+          maintenanceCost: null,
+          quantity: "7",
+          skuCode: "SKU-OLD",
+          unitPrice: "30.00",
+          totalPoPrice: "210.00",
+          currency: "EUR",
+          budgetOwnerEmail: "budget-renew@example.com",
+          notes: null,
+        },
+      ],
+      null,
+    );
   });
 
   test("preserves per-item SaaS portal URL, price display, and renewal defaults", () => {

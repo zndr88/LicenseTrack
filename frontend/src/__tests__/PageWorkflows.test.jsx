@@ -202,6 +202,17 @@ vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
           startDate: item?.startDate,
           endDate: item?.endDate,
           supplier: formData.get("supplier"),
+          ...(formData.get("maintenanceCompanion") === "on" ? {
+            maintenanceCompanion: {
+              publisherName: "Created Publisher",
+              softwareDescription: "Created Sourcing App maintenance/support",
+              licenseType: "maintenance",
+              quantity: "3",
+              currency: "EUR",
+              supplier: formData.get("supportSupplier") || null,
+              parentSourcingItemId: item?.id ?? null,
+            },
+          } : {}),
         });
       }}
     >
@@ -211,6 +222,14 @@ vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
           name="supplier"
           defaultValue={item?.supplier ?? sourcingRequest?.supplier ?? ""}
         />
+      </label>
+      <label>
+        Add maintenance companion
+        <input type="checkbox" name="maintenanceCompanion" />
+      </label>
+      <label>
+        Support supplier
+        <input name="supportSupplier" />
       </label>
       <button type="submit">Save sourcing item</button>
       <button type="button" onClick={onCancel}>Cancel</button>
@@ -316,6 +335,7 @@ function setupDefaultApiMocks() {
   sourcingApi.convertFreewareSourcingItem.mockResolvedValue({ data: null, error: null });
   sourcingApi.convertFreewareSourcingRequest.mockResolvedValue({ data: [], error: null });
   sourcingApi.createSourcingRequest.mockResolvedValue({ data: { id: 99, items: [] }, error: null });
+  sourcingApi.addSourcingRequestItem.mockResolvedValue({ data: { id: 99, items: [] }, error: null });
   sourcingApi.deleteSourcingRequest.mockResolvedValue({ error: null });
   sourcingApi.exportSourcingCsv.mockResolvedValue({ data: null, error: null });
   pendingOrdersApi.getPendingOrders.mockResolvedValue({ data: [], error: null });
@@ -1316,6 +1336,71 @@ describe("SourcingPage workflows", () => {
     expect(screen.queryByText("Unassigned supplier")).not.toBeInTheDocument();
   });
 
+  test("adds a linked support line when adding to an existing sourcing request", async () => {
+    const user = userEvent.setup();
+    const request = {
+      id: 8,
+      supplier: "Primary Supplier",
+      contactEmail: null,
+      status: "sourcing",
+      createdAt: "2026-01-08T00:00:00Z",
+      quoteDocuments: [],
+      items: [{
+        id: 80,
+        publisherName: "Existing Publisher",
+        softwareDescription: "Existing App",
+        quantity: "1",
+        currency: "EUR",
+        supplier: "Primary Supplier",
+        status: "sourcing",
+        isRenewal: false,
+      }],
+    };
+    const createdPrimary = {
+      id: 81,
+      publisherName: "Created Publisher",
+      softwareDescription: "Created Sourcing App",
+      quantity: "3",
+      currency: "EUR",
+      supplier: "Primary Supplier",
+      status: "sourcing",
+      isRenewal: false,
+    };
+    sourcingApi.getSourcingRequests.mockResolvedValue({ data: [request], error: null });
+    sourcingApi.addSourcingRequestItem
+      .mockResolvedValueOnce({ data: { ...request, items: [...request.items, createdPrimary] }, error: null })
+      .mockResolvedValueOnce({ data: { ...request, items: [...request.items, createdPrimary] }, error: null });
+
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+
+    await user.click(await screen.findByText("Primary Supplier"));
+    await user.click(screen.getByRole("button", { name: /add license line/i }));
+    await user.click(screen.getByLabelText(/add maintenance companion/i));
+    await user.click(screen.getByRole("button", { name: /save sourcing item/i }));
+
+    await waitFor(() => {
+      expect(sourcingApi.addSourcingRequestItem).toHaveBeenCalledTimes(2);
+      expect(sourcingApi.addSourcingRequestItem).toHaveBeenNthCalledWith(
+        1,
+        8,
+        expect.objectContaining({
+          publisherName: "Created Publisher",
+          softwareDescription: "Created Sourcing App",
+          supplier: "Primary Supplier",
+        }),
+      );
+      expect(sourcingApi.addSourcingRequestItem).toHaveBeenNthCalledWith(
+        2,
+        8,
+        expect.objectContaining({
+          licenseType: "maintenance",
+          parentSourcingItemId: 81,
+          supplier: "Primary Supplier",
+        }),
+      );
+    });
+  });
+
   test("converts an all-freeware request directly to the Registry", async () => {
     const user = userEvent.setup();
     const onNavigateToLicense = vi.fn();
@@ -1848,6 +1933,42 @@ describe("PendingOrdersPage workflows", () => {
     });
     expect(onPortfolioStateChange).toHaveBeenCalled();
     expect(onRenewalsReload).toHaveBeenCalled();
+  });
+
+  test("marks a pending order as invoice received from the table action", async () => {
+    const user = userEvent.setup();
+    const showSuccess = vi.fn();
+    const order = {
+      id: 10,
+      poNumber: "PO-INVOICE-STATUS",
+      supplier: "Invoice Supplier",
+      status: "pending",
+      items: [],
+      documents: [],
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: [order], error: null });
+    pendingOrdersApi.updatePendingOrder.mockResolvedValueOnce({
+      data: { ...order, status: "invoice_received" },
+      error: null,
+    });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={showSuccess}
+      />
+    );
+
+    expect(await screen.findByText("PO-INVOICE-STATUS")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /invoice received/i }));
+
+    await waitFor(() => {
+      expect(pendingOrdersApi.updatePendingOrder).toHaveBeenCalledWith(10, { status: "invoice_received" });
+      expect(showSuccess).toHaveBeenCalledWith("Invoice marked received.");
+    });
   });
 
   test("last PO line delete warns that the pending order will move to history", async () => {

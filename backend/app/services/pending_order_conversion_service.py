@@ -343,11 +343,16 @@ async def batch_convert_pending_order_to_licenses(
     *,
     order_id: int,
     payload: list[BatchConvertItem],
+    file: Optional[UploadFile],
     db: AsyncSession,
     current_user: User,
     ip_address: str | None,
 ) -> list[LicenseResponse]:
     actor_snapshot = SimpleNamespace(id=current_user.id, email=current_user.email)
+
+    file_data: tuple[bytes, str, str] | None = None
+    if file is not None:
+        file_data = await validate_invoice_file(file)
 
     result = await db.execute(
         select(PendingOrder)
@@ -399,6 +404,7 @@ async def batch_convert_pending_order_to_licenses(
     quote_request_ids: list[int] = []
     created_parent_by_sourcing_item_id: dict[int, License] = {}
     pending_maintenance_items: list[tuple[BatchConvertItem, dict]] = []
+    evidence_transfer_required = file_data is not None
 
     for batch_item in payload:
         sourcing_item = order_item_map.get(batch_item.sourcing_item_id)
@@ -461,6 +467,7 @@ async def batch_convert_pending_order_to_licenses(
             new_license_entries.append((new_lic.id, "renewed"))
             if sourcing_item.sourcing_request_id is not None:
                 quote_request_ids.append(sourcing_item.sourcing_request_id)
+                evidence_transfer_required = True
         else:
             if item_data.get("license_type") == LicenseType.maintenance:
                 pending_maintenance_items.append((batch_item, item_data))
@@ -478,6 +485,7 @@ async def batch_convert_pending_order_to_licenses(
             new_license_entries.append((new_lic.id, "new_purchase"))
             if sourcing_item.sourcing_request_id is not None:
                 quote_request_ids.append(sourcing_item.sourcing_request_id)
+                evidence_transfer_required = True
 
         mark_item_converted(sourcing_item)
 
@@ -493,12 +501,13 @@ async def batch_convert_pending_order_to_licenses(
         new_license_entries.append((new_lic.id, "new_purchase"))
         if sourcing_item.sourcing_request_id is not None:
             quote_request_ids.append(sourcing_item.sourcing_request_id)
+            evidence_transfer_required = True
         mark_item_converted(sourcing_item)
 
     refresh_order_status(order)
     order_po_number = order.po_number
     order_label = order.po_number or order.supplier or ""
-    if quote_request_ids:
+    if evidence_transfer_required:
         order.evidence_transfer_status = EvidenceTransferStatus.pending
         order.evidence_transfer_detail = None
         order.evidence_transfer_failed_at = None
@@ -517,6 +526,13 @@ async def batch_convert_pending_order_to_licenses(
 
     async def transfer_evidence() -> list[StoredProcurementPath]:
         written_paths: list[StoredProcurementPath] = []
+        if file_data is not None:
+            content, filename, mime_type = file_data
+            written_paths.append(
+                await write_invoice_procurement_document(
+                    db, content, filename, mime_type, order_po_number, order_id, actor_snapshot.id
+                )
+            )
         if quote_request_ids:
             written_paths.extend(
                 await copy_quote_documents_to_procurement_documents(
@@ -526,7 +542,7 @@ async def batch_convert_pending_order_to_licenses(
         await db.commit()
         return written_paths
 
-    if quote_request_ids:
+    if evidence_transfer_required:
         await _run_evidence_transfer_after_conversion_commit(
             db=db,
             order_id=order_id,

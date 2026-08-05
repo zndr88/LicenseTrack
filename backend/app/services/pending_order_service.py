@@ -203,6 +203,14 @@ async def apply_pending_order_update(
     before = {column.name: getattr(order, column.name) for column in order.__table__.columns}
 
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+    if "status" in update_data and update_data["status"] not in {
+        PendingOrderStatus.pending,
+        PendingOrderStatus.invoice_received,
+    }:
+        raise HTTPException(
+            status_code=422,
+            detail="Pending order status can only be changed to pending or invoice_received from the edit path",
+        )
     for field, value in update_data.items():
         setattr(order, field, value)
 

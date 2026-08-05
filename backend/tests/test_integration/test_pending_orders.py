@@ -404,6 +404,32 @@ async def test_pending_order_list_can_include_converted_evidence_issues(
     assert issue_orders[order_id]["evidenceTransferDetail"] == "storage failed"
 
 
+async def test_pending_order_update_can_mark_invoice_received_but_not_converted(test_app, auth_headers):
+    create_resp = await test_app.post(
+        "/api/pending-orders",
+        json={"poNumber": "PO-STATUS-UPDATE", "supplier": "Status Supplier"},
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201, create_resp.text
+    order_id = create_resp.json()["id"]
+
+    received_resp = await test_app.put(
+        f"/api/pending-orders/{order_id}",
+        json={"status": "invoice_received"},
+        headers=auth_headers,
+    )
+    assert received_resp.status_code == 200, received_resp.text
+    assert received_resp.json()["status"] == "invoice_received"
+
+    converted_resp = await test_app.put(
+        f"/api/pending-orders/{order_id}",
+        json={"status": "converted"},
+        headers=auth_headers,
+    )
+    assert converted_resp.status_code == 422, converted_resp.text
+    assert "pending or invoice_received" in converted_resp.json()["detail"]
+
+
 async def test_cancelled_pending_order_moves_to_history(test_app, auth_headers, db_session, tmp_path, monkeypatch):
     monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
     order_resp = await test_app.post(
@@ -1243,6 +1269,40 @@ async def test_invoice_upload_creates_po_scoped_procurement_document(test_app, a
     ]
     assert len(invoice_docs) == 1
     assert invoice_docs[0]["original_filename"] == "invoice.pdf"
+
+
+async def test_batch_invoice_upload_creates_po_scoped_procurement_document(
+    test_app,
+    auth_headers,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
+    item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        softwareDescription="Batch Invoice App",
+        estimatedTotalPrice="100",
+    )
+    po = await _convert_sourcing_to_po(test_app, auth_headers, item["id"])
+
+    resp = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert-all",
+        data={"data": json.dumps([_batch_convert_item(item["id"], softwareDescription="Batch Invoice App")])},
+        files={"file": ("batch-invoice.pdf", b"batch invoice", "application/pdf")},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200, resp.text
+    license_id = resp.json()[0]["id"]
+
+    docs_resp = await test_app.get(f"/api/licenses/{license_id}/documents", headers=auth_headers)
+    assert docs_resp.status_code == 200, docs_resp.text
+    invoice_docs = [
+        doc for doc in docs_resp.json()
+        if doc["category"] == "invoice" and doc["scope"] == "po"
+    ]
+    assert len(invoice_docs) == 1
+    assert invoice_docs[0]["original_filename"] == "batch-invoice.pdf"
 
 
 async def test_invoice_transfer_failure_records_retryable_state_after_conversion(

@@ -98,7 +98,7 @@ const SourcingItemModal = ({
 
   // "new request" mode: add mode with no parent request - supports multi-line and quote parse
   const isNewRequest = !item?.id && !requestId;
-  const canAddMaintenanceCompanion = isNewRequest || !!pendingOrderId;
+  const canAddMaintenanceCompanion = isNewRequest || !!pendingOrderId || !!requestId || !!item?.id;
 
   const {
     register,
@@ -387,7 +387,7 @@ const SourcingItemModal = ({
               endDate: maintenanceCompanion.endDate || null,
               supplier: maintenanceCompanion.supplier || null,
               contactEmail: maintenanceCompanion.contactEmail || null,
-              parentSourcingItemId: item.id,
+              parentSourcingItemId: item?.id ?? null,
             },
           } : {}),
         });

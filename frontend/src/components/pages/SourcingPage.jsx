@@ -68,6 +68,27 @@ function isOpenSourcingItem(item) {
   return item.status == null || item.status === "sourcing";
 }
 
+function normalizeProcurementIdentity(value) {
+  return String(value ?? "").trim().toLocaleLowerCase();
+}
+
+function procurementIdentitiesMatch(left, right) {
+  return normalizeProcurementIdentity(left) === normalizeProcurementIdentity(right);
+}
+
+function findCreatedSourcingItem(created, payload) {
+  if (created?.publisherName) return created;
+  const items = Array.isArray(created?.items) ? created.items : [];
+  const matches = items.filter((item) =>
+    procurementIdentitiesMatch(item.publisherName, payload.publisherName) &&
+    procurementIdentitiesMatch(item.softwareDescription, payload.softwareDescription) &&
+    (item.status == null || item.status === "sourcing")
+  );
+  return matches.reduce((latest, item) =>
+    !latest || (Number(item.id) || 0) > (Number(latest.id) || 0) ? item : latest,
+  null);
+}
+
 export default function SourcingPage({
   user,
   userSettings,
@@ -217,6 +238,34 @@ export default function SourcingPage({
   );
   const directConversionOpenCount = directConversionTarget?.request?.items
     .filter(isOpenSourcingItem).length ?? 0;
+
+  const saveMaintenanceCompanion = useCallback(async ({
+    companion,
+    parentItemId,
+    parentRequestId,
+    parentRequestSupplier,
+  }) => {
+    if (!companion) return true;
+    if (!parentItemId) {
+      showToast("License line saved, but support line could not be linked.", "warning");
+      return false;
+    }
+
+    const companionSupplier = companion.supplier || null;
+    const targetRequestId = parentRequestId && (
+      !normalizeProcurementIdentity(companionSupplier) ||
+      procurementIdentitiesMatch(companionSupplier, parentRequestSupplier)
+    )
+      ? parentRequestId
+      : null;
+
+    const companionPayload = {
+      ...companion,
+      parentSourcingItemId: parentItemId,
+      supplier: companionSupplier || (targetRequestId ? parentRequestSupplier : null),
+    };
+    return await handleCreateSourcingItem(companionPayload, targetRequestId);
+  }, [handleCreateSourcingItem, showToast]);
 
   const handleSort = (col) => {
     if (sortCol !== col) { setSortCol(col); setSortDir("asc"); }
@@ -411,32 +460,50 @@ export default function SourcingPage({
               return success;
             }
             // Single item
+            const { maintenanceCompanion, ...itemForm } = form;
             const payload = {
-              publisherName: form.publisherName,
-              softwareDescription: form.softwareDescription,
-              licenseType: form.licenseType || null,
-              maintenanceCoverage: form.maintenanceCoverage || null,
-              maintenanceStartDate: form.maintenanceStartDate || null,
-              maintenanceEndDate: form.maintenanceEndDate || null,
-              maintenancePricingBasis: form.maintenancePricingBasis || null,
-              maintenanceQuantity: form.maintenanceQuantity || null,
-              maintenanceUnitPrice: form.maintenanceUnitPrice || null,
-              maintenanceCost: form.maintenanceCost || null,
-              quantity: form.quantity || null,
-              estimatedUnitPrice: form.estimatedUnitPrice || null,
-              estimatedTotalPrice: form.estimatedTotalPrice || null,
-              currency: form.currency || "EUR",
-              startDate: form.startDate || null,
-              endDate: form.endDate || null,
-              supplier: form.supplier || null,
-              contactEmail: form.contactEmail || null,
-              notes: form.notes || null,
+              publisherName: itemForm.publisherName,
+              softwareDescription: itemForm.softwareDescription,
+              licenseType: itemForm.licenseType || null,
+              maintenanceCoverage: itemForm.maintenanceCoverage || null,
+              maintenanceStartDate: itemForm.maintenanceStartDate || null,
+              maintenanceEndDate: itemForm.maintenanceEndDate || null,
+              maintenancePricingBasis: itemForm.maintenancePricingBasis || null,
+              maintenanceQuantity: itemForm.maintenanceQuantity || null,
+              maintenanceUnitPrice: itemForm.maintenanceUnitPrice || null,
+              maintenanceCost: itemForm.maintenanceCost || null,
+              quantity: itemForm.quantity || null,
+              estimatedUnitPrice: itemForm.estimatedUnitPrice || null,
+              estimatedTotalPrice: itemForm.estimatedTotalPrice || null,
+              currency: itemForm.currency || "EUR",
+              startDate: itemForm.startDate || null,
+              endDate: itemForm.endDate || null,
+              supplier: itemForm.supplier || null,
+              contactEmail: itemForm.contactEmail || null,
+              notes: itemForm.notes || null,
             };
-            const success = showSourcingModal.item
+            const parentRequestId = showSourcingModal.request?.id
+              ?? showSourcingModal.item?.sourcingRequestId
+              ?? showSourcingModal.item?.sourcing_request_id
+              ?? null;
+            let parentItemId = showSourcingModal.item?.id ?? null;
+            const saved = showSourcingModal.item
               ? await handleUpdateSourcingItem(showSourcingModal.item.id, payload)
-              : await handleCreateSourcingItem(payload, showSourcingModal.request?.id ?? null);
-            if (success) setShowSourcingModal(null);
-            return success;
+              : await handleCreateSourcingItem(payload, parentRequestId);
+            if (!saved) return false;
+            if (!parentItemId) {
+              parentItemId = findCreatedSourcingItem(saved, payload)?.id ?? null;
+            }
+            if (maintenanceCompanion) {
+              await saveMaintenanceCompanion({
+                companion: maintenanceCompanion,
+                parentItemId,
+                parentRequestId,
+                parentRequestSupplier: payload.supplier,
+              });
+            }
+            setShowSourcingModal(null);
+            return true;
           }}
         />
       )}

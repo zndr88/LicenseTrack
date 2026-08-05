@@ -57,8 +57,12 @@ export async function convertPendingOrder(id, licenseData, file = null) {
   return post(`/api/pending-orders/${id}/convert`, formData);
 }
 
-export function batchConvertPendingOrder(id, items) {
-  return post(`/api/pending-orders/${id}/convert-all`, items);
+export function batchConvertPendingOrder(id, items, file = null) {
+  if (!file) return post(`/api/pending-orders/${id}/convert-all`, items);
+  const formData = new FormData();
+  formData.append("data", JSON.stringify(items));
+  formData.append("file", file);
+  return post(`/api/pending-orders/${id}/convert-all`, formData);
 }
 
 export function retryPendingOrderEvidenceTransfer(id) {
