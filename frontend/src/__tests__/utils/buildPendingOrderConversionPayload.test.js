@@ -8,6 +8,7 @@ const BASE = {
   endDate: "",
   contractNumber: "",
   poNumber: "",
+  procurementReference: "",
   invoiceNumber: "",
   contactEmail: "",
   supplier: "",

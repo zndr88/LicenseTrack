@@ -10,6 +10,7 @@ const INLINE_EDIT_CONFIG = {
   description: { fieldKey: "softwareDescription", inputType: "text", className: "lp-td", style: { maxWidth: 240 } },
   contractNumber: { fieldKey: "contractNumber", inputType: "text", className: "mono" },
   poNumber: { fieldKey: "poNumber", inputType: "text", className: "mono" },
+  procurementReference: { fieldKey: "procurementReference", inputType: "text", className: "mono" },
   costCentre: { fieldKey: "costCentre", inputType: "text", className: "lp-td" },
   supplier: { fieldKey: "supplier", inputType: "text", className: "lp-td" },
   licenseType: { fieldKey: "licenseType", inputType: "select", className: "lp-td", options: LICENSE_TYPES },
@@ -236,6 +237,8 @@ export default function LicenseTableRowCells({
         return <td key="contractNumber" className="mono">{license.contractNumber || "-"}</td>;
       case "poNumber":
         return <td key="poNumber" className="mono">{license.poNumber || "-"}</td>;
+      case "procurementReference":
+        return <td key="procurementReference" className="mono">{license.procurementReference || "-"}</td>;
       case "invoiceNumber":
         return <InvoiceNumberCell key="invoiceNumber" license={license} />;
       case "costCentre":

@@ -75,7 +75,7 @@ function isDirectFreewareRequest(request) {
 }
 
 function pendingOrderLabel(item) {
-  return item.pendingOrderPoNumber || (item.pendingOrderId ? `Pending Order ID #${item.pendingOrderId}` : null);
+  return item.pendingOrderPoNumber || (item.pendingOrderId ? `Pending Order #${item.pendingOrderId}` : null);
 }
 
 function SourcingItemsRow({

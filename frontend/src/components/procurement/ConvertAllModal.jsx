@@ -13,11 +13,13 @@ import ConvertItemForm, { isItemReady } from "./ConvertItemForm.jsx";
 import PendingOrderInvoiceField from "./PendingOrderInvoiceField.jsx";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
+import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 
 const formSchema = z.object({ items: z.array(licenseFormSchema) });
 
 const SHARED_FIELD_KEYS = [
   "poNumber",
+  "procurementReference",
   "contractNumber",
   "invoiceNumber",
   "contactEmail",
@@ -86,6 +88,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
         purchaseDate:        item.purchaseDate || null,
         contractNumber:      item.contractNumber,
         poNumber:            item.poNumber,
+        procurementReference: item.procurementReference,
         invoiceNumber:       item.invoiceNumber,
         contactEmail:        item.contactEmail,
         supplier:            item.supplier,
@@ -123,7 +126,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
   return (
     <>
       <ModalShell
-        title={`Convert PO ${order.poNumber} - ${unconvertedItems.length} ${unconvertedItems.length === 1 ? "item" : "items"}`}
+        title={`Convert ${pendingOrderLabel(order)} - ${unconvertedItems.length} ${unconvertedItems.length === 1 ? "item" : "items"}`}
         titleId="dialog-title-convert-all"
         onClose={requestClose}
         onEscape={requestClose}

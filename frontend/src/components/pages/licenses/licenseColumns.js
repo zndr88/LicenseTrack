@@ -14,6 +14,7 @@ export const COLUMN_DEFS = [
   { key: "description", label: "Description", width: 240, group: "standard", defaultVisible: true },
   { key: "contractNumber", label: "Contract #", width: 130, group: "standard", defaultVisible: true },
   { key: "poNumber", label: "PO #", width: 130, group: "standard", defaultVisible: true },
+  { key: "procurementReference", label: "Procurement Ref", width: 150, group: "standard", defaultVisible: false, detailKey: "procurementReference" },
   { key: "invoiceNumber", label: "Invoice #", width: 130, group: "standard", defaultVisible: false },
   { key: "costCentre", label: "Department", settingsLabel: "Cost Centre / Department", width: 120, group: "standard", defaultVisible: true, detailKey: "costCentre" },
   { key: "supplier", label: "Supplier", settingsLabel: "Supplier (third-party reseller)", width: 120, group: "standard", defaultVisible: true, detailKey: "supplier" },

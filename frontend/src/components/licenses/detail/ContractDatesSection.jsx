@@ -72,6 +72,21 @@ export default function ContractDatesSection({
           </div>
           <div className="fr dp-data-row">
             <div className="dp-field">
+              <span className="dp-field-label">Procurement reference</span>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div className="val mono">{license.procurementReference || "\u2014"}</div>
+                {perms.canEdit && (
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit procurement reference"
+                    onClick={() => openFieldEdit({ fieldKey: "procurementReference", fieldLabel: "Procurement reference", currentValue: license.procurementReference || "", inputType: "text" })}
+                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                    <Icon name="edit" size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="fr dp-data-row">
+            <div className="dp-field">
               <span className="dp-field-label">Request Date</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.requestDate ? formatDateTime(license.requestDate, userSettings) : "\u2014"}</div>

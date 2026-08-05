@@ -43,6 +43,7 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       isPerpetual:         licenseType === "perpetual",
       contractNumber:      renewal?.contractNumber || "",
       poNumber:            order.poNumber || "",
+      procurementReference: order.procurementReference || "",
       invoiceNumber:       "",
       contactEmail:        si.contactEmail || renewal?.contactEmail || "",
       supplier:            order.supplier || si.supplier || renewal?.supplier || "",

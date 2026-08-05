@@ -56,6 +56,7 @@ class LicenseBase(BaseModel):
     notice_date: Optional[date] = None
     contract_number: str = ""
     po_number: str = ""
+    procurement_reference: str = ""
     invoice_number: str = ""
     invoice_numbers: list[str] = Field(default_factory=list)
     pending_order_id: Optional[int] = None
@@ -196,6 +197,7 @@ class LicenseUpdate(BaseModel):
     purchase_date: Optional[datetime] = None
     contract_number: Optional[str] = None
     po_number: Optional[str] = None
+    procurement_reference: Optional[str] = None
     invoice_number: Optional[str] = None
     invoice_numbers: Optional[list[str]] = None
     pending_order_id: Optional[int] = None
@@ -352,6 +354,7 @@ class ProcurementTrailPendingOrder(BaseModel):
 
     id: int
     po_number: str
+    procurement_reference: str = ""
     status: str
     supplier: Optional[str] = None
     notes: Optional[str] = None

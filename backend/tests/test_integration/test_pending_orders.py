@@ -995,6 +995,65 @@ async def test_batch_convert_all_new_purchase_items(test_app, auth_headers):
     assert {item["purchaseDate"] for item in converted} == {"2026-02-01T00:00:00"}
 
 
+async def test_pending_order_can_wait_for_po_before_active_license_conversion(test_app, auth_headers):
+    item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        softwareDescription="Awaiting PO App",
+        estimatedTotalPrice="100",
+    )
+
+    order_resp = await test_app.post(
+        f"/api/sourcing/{item['id']}/convert",
+        json={
+            "supplier": "Renewal Supplier",
+            "procurementReference": "REQ-2026-77",
+        },
+        headers=auth_headers,
+    )
+    assert order_resp.status_code == 200, order_resp.text
+    order = order_resp.json()
+    assert order["poNumber"] == ""
+    assert order["procurementReference"] == "REQ-2026-77"
+
+    blocked_resp = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert-all",
+        json=[
+            _batch_convert_item(
+                item["id"],
+                softwareDescription="Awaiting PO App",
+                poNumber="",
+            ),
+        ],
+        headers=auth_headers,
+    )
+    assert blocked_resp.status_code == 422, blocked_resp.text
+    assert "Add a PO number" in blocked_resp.json()["detail"]
+
+    update_resp = await test_app.put(
+        f"/api/pending-orders/{order['id']}",
+        json={"poNumber": "PO-LATE-77"},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200, update_resp.text
+
+    convert_resp = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert-all",
+        json=[
+            _batch_convert_item(
+                item["id"],
+                softwareDescription="Awaiting PO App",
+                poNumber="PO-LATE-77",
+            ),
+        ],
+        headers=auth_headers,
+    )
+    assert convert_resp.status_code == 200, convert_resp.text
+    converted = convert_resp.json()[0]
+    assert converted["poNumber"] == "PO-LATE-77"
+    assert converted["procurementReference"] == "REQ-2026-77"
+
+
 async def test_batch_convert_links_new_maintenance_to_same_purchase_perpetual(
     test_app, auth_headers
 ):

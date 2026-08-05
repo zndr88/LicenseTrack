@@ -66,7 +66,7 @@ describe('ProcurementTrail', () => {
     expect(screen.getByText(/Sourcing Line ID #99/)).toBeInTheDocument()
     expect(screen.getByText('Pending Order')).toBeInTheDocument()
     expect(screen.getByText(/PO-WITH-A-DELIBERATELY-LONG-REFERENCE-001/)).toBeInTheDocument()
-    expect(screen.getByText(/Pending Order ID #77/)).toBeInTheDocument()
+    expect(screen.getByText(/Pending Order #77/)).toBeInTheDocument()
 
     const cards = document.querySelectorAll('.dp-neutral-box.dp-trail-row')
     expect(cards).toHaveLength(3)
@@ -77,7 +77,7 @@ describe('ProcurementTrail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /view sourcing/i }))
     expect(handlers.onNavigateToSourcing).toHaveBeenCalledWith(99)
-    fireEvent.click(screen.getByRole('button', { name: /view po/i }))
+    fireEvent.click(screen.getByRole('button', { name: /view order/i }))
     expect(handlers.onNavigateToPendingOrder).toHaveBeenCalledWith(77)
   })
 

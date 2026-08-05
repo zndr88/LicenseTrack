@@ -36,10 +36,12 @@ describe("ConvertSourcingModal supplier contract", () => {
     expect(screen.getByRole("button", { name: /^convert$/i })).toBeDisabled();
 
     await user.type(screen.getByLabelText(/^supplier/i), "Adobe Direct");
+    await user.type(screen.getByLabelText(/procurement reference/i), "REQ-NEW");
     await user.click(screen.getByRole("button", { name: /^convert$/i }));
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledWith({
       poNumber: "PO-NEW",
+      procurementReference: "REQ-NEW",
       supplier: "Adobe Direct",
       notes: null,
     }));
@@ -60,8 +62,8 @@ describe("ConvertSourcingModal supplier contract", () => {
       />
     );
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /add to existing po/i })).toBeEnabled());
-    fireEvent.click(screen.getByRole("button", { name: /add to existing po/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /add to existing/i })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: /add to existing/i }));
     expect(screen.queryByRole("option", { name: /PO-BLANK/i })).not.toBeInTheDocument();
     expect(screen.getByRole("option", { name: /PO-READY/i })).toBeInTheDocument();
   });

@@ -37,6 +37,7 @@ def to_pending_order_response(order: PendingOrder, storage_base: str | None = No
         {
             "id": order.id,
             "po_number": order.po_number,
+            "procurement_reference": order.procurement_reference,
             "supplier": order.supplier,
             "notes": order.notes,
             "status": order.status,
@@ -187,7 +188,10 @@ async def create_pending_order_record(
     *,
     created_by: int,
 ) -> PendingOrder:
-    order = PendingOrder(**payload.model_dump(by_alias=False), created_by=created_by)
+    create_data = payload.model_dump(by_alias=False)
+    create_data["po_number"] = (create_data.get("po_number") or "").strip()
+    create_data["procurement_reference"] = (create_data.get("procurement_reference") or "").strip()
+    order = PendingOrder(**create_data, created_by=created_by)
     db.add(order)
     await db.flush()
     return order
@@ -203,6 +207,10 @@ async def apply_pending_order_update(
     before = {column.name: getattr(order, column.name) for column in order.__table__.columns}
 
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+    if "po_number" in update_data:
+        update_data["po_number"] = (update_data.get("po_number") or "").strip()
+    if "procurement_reference" in update_data:
+        update_data["procurement_reference"] = (update_data.get("procurement_reference") or "").strip()
     if "status" in update_data and update_data["status"] not in {
         PendingOrderStatus.pending,
         PendingOrderStatus.invoice_received,

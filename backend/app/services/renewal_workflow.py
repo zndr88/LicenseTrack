@@ -110,6 +110,7 @@ def build_pending_order_item_license_data(
     old_license: License | None,
     *,
     order_po_number: str | None = None,
+    order_procurement_reference: str | None = None,
     order_supplier: str | None = None,
     order_notes: str | None = None,
 ) -> dict:
@@ -158,6 +159,11 @@ def build_pending_order_item_license_data(
     apply_fallback("contact_email", item.contact_email)
     apply_fallback("contract_number", getattr(old_license, "contract_number", None))
     apply_fallback("po_number", order_po_number)
+    apply_fallback(
+        "procurement_reference",
+        order_procurement_reference,
+        getattr(old_license, "procurement_reference", None),
+    )
     apply_fallback("sku_code", getattr(old_license, "sku_code", None))
     apply_fallback("cost_centre", getattr(old_license, "cost_centre", None))
     apply_fallback("budget_owner_email", getattr(old_license, "budget_owner_email", None))

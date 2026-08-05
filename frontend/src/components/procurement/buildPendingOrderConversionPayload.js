@@ -28,6 +28,7 @@ export function buildPendingOrderConversionPayload(data, settings) {
     purchaseDate:        normalizeDate(data.purchaseDate),
     contractNumber:      data.contractNumber,
     poNumber:            data.poNumber,
+    procurementReference: data.procurementReference,
     invoiceNumber:       data.invoiceNumber,
     contactEmail:        data.contactEmail,
     supplier:            data.supplier,

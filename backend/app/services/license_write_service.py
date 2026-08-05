@@ -77,6 +77,7 @@ ALLOWED_PATCH_FIELDS: dict[str, str] = {
     "purchaseDate": "purchase_date",
     "contractNumber": "contract_number",
     "poNumber": "po_number",
+    "procurementReference": "procurement_reference",
     "invoiceNumber": "invoice_number",
     "contactEmail": "contact_email",
     "supplier": "supplier",

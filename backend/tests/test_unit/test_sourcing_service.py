@@ -734,17 +734,29 @@ async def test_raises_when_pending_order_id_not_found(db_session):
 
 
 @pytest.mark.asyncio
-async def test_raises_when_no_pending_order_id_and_no_po_number(db_session):
+async def test_creates_new_pending_order_without_po_number(db_session):
+    from app.models.user import User, UserRole
+    user = User(username="reqowner", email="reqowner@test.local", hashed_password="x", role=UserRole.viewer)
+    db_session.add(user)
+    await db_session.flush()
+
     item = make_sourcing_item()
     db_session.add(item)
     await db_session.flush()
 
-    with pytest.raises(ValueError, match="po_number is required"):
-        await convert_sourcing_item_to_order(
-            db_session, item,
-            pending_order_id=None,
-            po_number=None,
-            supplier=None,
-            notes=None,
-            created_by=1,
-        )
+    order = await convert_sourcing_item_to_order(
+        db_session, item,
+        pending_order_id=None,
+        po_number=None,
+        supplier="Acme Vendor",
+        notes=None,
+        created_by=user.id,
+        procurement_reference="REQ-123",
+    )
+    await db_session.commit()
+
+    assert order.po_number == ""
+    assert order.procurement_reference == "REQ-123"
+    assert order.supplier == "Acme Vendor"
+    assert item.status == SourcingStatus.converted
+    assert item.pending_order_id == order.id

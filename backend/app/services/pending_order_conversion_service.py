@@ -56,6 +56,13 @@ def _enforce_order_supplier(
     data["supplier"] = canonical_supplier
 
 
+def _require_order_po_number(order: PendingOrder) -> str:
+    po_number = (order.po_number or "").strip()
+    if not po_number:
+        raise HTTPException(status_code=422, detail="Add a PO number before creating active licenses")
+    return po_number
+
+
 def _cleanup_written_procurement_files(paths: list[StoredProcurementPath]) -> None:
     for path, storage_base in paths:
         try:
@@ -159,6 +166,7 @@ async def convert_pending_order_to_licenses(
         raise HTTPException(status_code=409, detail="Pending order has already been converted")
     if order.status == PendingOrderStatus.cancelled:
         raise HTTPException(status_code=409, detail="Pending order has been cancelled")
+    order_po_number = _require_order_po_number(order)
     # F5: Acquire a write lock before creating any licenses.
     _lock = await db.execute(
         update(PendingOrder)
@@ -185,6 +193,10 @@ async def convert_pending_order_to_licenses(
         form_data["purchase_date"] = datetime.combine(form_data["purchase_date"], time.min)
     submitted_fields = convert_payload.model_fields_set
     _enforce_order_supplier(form_data, submitted_fields, order.supplier)
+    if "po_number" not in submitted_fields or not form_data.get("po_number"):
+        form_data["po_number"] = order_po_number
+    if "procurement_reference" not in submitted_fields or not form_data.get("procurement_reference"):
+        form_data["procurement_reference"] = order.procurement_reference or ""
     if len(order.items) > 1:
         # This compatibility endpoint accepts one shared form for every order
         # item. Fields that have a per-line carrier must therefore remain
@@ -241,7 +253,8 @@ async def convert_pending_order_to_licenses(
                     submitted_fields,
                     item,
                     old_lic,
-                    order_po_number=order.po_number,
+                    order_po_number=order_po_number,
+                    order_procurement_reference=order.procurement_reference,
                     order_supplier=order.supplier,
                     order_notes=order.notes,
                 )
@@ -267,7 +280,8 @@ async def convert_pending_order_to_licenses(
                     submitted_fields,
                     item,
                     None,
-                    order_po_number=order.po_number,
+                    order_po_number=order_po_number,
+                    order_procurement_reference=order.procurement_reference,
                     order_supplier=order.supplier,
                     order_notes=order.notes,
                 )
@@ -288,7 +302,6 @@ async def convert_pending_order_to_licenses(
         mark_item_converted(item)
 
     refresh_order_status(order)
-    order_po_number = order.po_number
     order_label = order.po_number or order.supplier or ""
     if evidence_transfer_required:
         order.evidence_transfer_status = EvidenceTransferStatus.pending
@@ -366,6 +379,7 @@ async def batch_convert_pending_order_to_licenses(
         raise HTTPException(status_code=409, detail="Pending order has already been converted")
     if order.status == PendingOrderStatus.cancelled:
         raise HTTPException(status_code=409, detail="Pending order has been cancelled")
+    order_po_number = _require_order_po_number(order)
     # F5: Acquire a write lock before creating any licenses.
     _lock = await db.execute(
         update(PendingOrder)
@@ -437,7 +451,8 @@ async def batch_convert_pending_order_to_licenses(
             batch_item.model_fields_set,
             sourcing_item,
             old_lic,
-            order_po_number=order.po_number,
+            order_po_number=order_po_number,
+            order_procurement_reference=order.procurement_reference,
             order_supplier=order.supplier,
             order_notes=order.notes,
         )
@@ -505,7 +520,6 @@ async def batch_convert_pending_order_to_licenses(
         mark_item_converted(sourcing_item)
 
     refresh_order_status(order)
-    order_po_number = order.po_number
     order_label = order.po_number or order.supplier or ""
     if evidence_transfer_required:
         order.evidence_transfer_status = EvidenceTransferStatus.pending

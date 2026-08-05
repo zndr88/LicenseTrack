@@ -39,9 +39,9 @@ describe("PendingOrderModal", () => {
     return { onSave, onCancel };
   }
 
-  test("Save is disabled when PO Number is empty", () => {
+  test("Save remains enabled when PO Number is empty", () => {
     renderModal();
-    expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^save$/i })).not.toBeDisabled();
   });
 
   test("Save becomes enabled when PO Number is filled", () => {
@@ -65,6 +65,7 @@ describe("PendingOrderModal", () => {
     const payload = onSave.mock.calls[0][0];
     expect(payload).toEqual(expect.objectContaining({
       poNumber: "PO-001",
+      procurementReference: "",
       supplier: "Vendor X",
       notes: "Note here",
     }));
@@ -159,14 +160,13 @@ describe("ConvertSourcingModal", () => {
     return { onConfirm, onCancel };
   }
 
-  test("Convert is disabled when PO Number is empty in new mode", () => {
-    renderModal();
+  test("Convert is disabled when supplier is empty in new mode", () => {
+    renderModal({ item: { ...ITEM, supplier: "" } });
     expect(screen.getByRole("button", { name: /convert/i })).toBeDisabled();
   });
 
-  test("Convert is enabled after filling PO Number", () => {
+  test("Convert is enabled with supplier even when PO Number is empty", () => {
     renderModal();
-    fireEvent.change(screen.getByPlaceholderText(/PO-2026/i), { target: { value: "PO-001" } });
     expect(screen.getByRole("button", { name: /convert/i })).not.toBeDisabled();
   });
 
@@ -180,6 +180,7 @@ describe("ConvertSourcingModal", () => {
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     expect(onConfirm).toHaveBeenCalledWith({
       poNumber: "PO-42",
+      procurementReference: "",
       supplier: "SoftwareOne",
       notes: null,
     });
@@ -195,8 +196,8 @@ describe("ConvertSourcingModal", () => {
     });
     const { onConfirm } = renderModal();
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /add to existing po/i })).not.toBeDisabled());
-    await user.click(screen.getByRole("button", { name: /add to existing po/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /add to existing/i })).not.toBeDisabled());
+    await user.click(screen.getByRole("button", { name: /add to existing/i }));
     expect(screen.getByLabelText(/select pending order/i)).toHaveValue("7");
 
     await user.selectOptions(screen.getByLabelText(/select pending order/i), "9");
@@ -257,8 +258,8 @@ describe("ConvertSourcingModal", () => {
     });
     const { onCancel } = renderModal();
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /add to existing po/i })).not.toBeDisabled());
-    await user.click(screen.getByRole("button", { name: /add to existing po/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /add to existing/i })).not.toBeDisabled());
+    await user.click(screen.getByRole("button", { name: /add to existing/i }));
     await user.click(screen.getByRole("button", { name: /cancel/i }));
 
     expect(await screen.findByText(/discard unsaved changes/i)).toBeInTheDocument();
@@ -384,6 +385,7 @@ describe("ConvertPendingOrderModal", () => {
       purchaseDate: null,
       contractNumber: "CN-1",
       poNumber: "PO-1",
+      procurementReference: "",
       invoiceNumber: "INV-1",
       contactEmail: "owner@example.com",
       supplier: "Supplier A",
@@ -911,6 +913,7 @@ describe("ConvertAllModal", () => {
           purchaseDate: null,
           contractNumber: "",
           poNumber: "PO-2",
+          procurementReference: "",
           invoiceNumber: "",
           contactEmail: "",
           supplier: "Order Supplier",
@@ -942,6 +945,7 @@ describe("ConvertAllModal", () => {
           purchaseDate: null,
           contractNumber: "CN-OLD",
           poNumber: "PO-2",
+          procurementReference: "",
           invoiceNumber: "",
           contactEmail: "renew@example.com",
           supplier: "Order Supplier",

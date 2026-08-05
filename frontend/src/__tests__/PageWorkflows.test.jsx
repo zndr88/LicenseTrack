@@ -240,7 +240,7 @@ vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
 vi.mock("../components/procurement/PendingOrderModal.jsx", () => ({
   default: ({ onSave, onCancel }) => (
     <div role="dialog" aria-label="Pending order form">
-      <button onClick={() => onSave({ poNumber: "PO-NEW", supplier: "Created Supplier", notes: "" })}>
+      <button onClick={() => onSave({ poNumber: "PO-NEW", procurementReference: "", supplier: "Created Supplier", notes: "" })}>
         Save pending order
       </button>
       <button onClick={onCancel}>Cancel</button>
@@ -1889,7 +1889,7 @@ describe("PendingOrdersPage workflows", () => {
     await user.type(screen.getByLabelText(/Search pending orders/i), "missing");
     expect(screen.getByText(/No orders match your search/i)).toBeInTheDocument();
     await user.clear(screen.getByLabelText(/Search pending orders/i));
-    await user.click(screen.getByRole("button", { name: /Add PO/i }));
+    await user.click(screen.getByRole("button", { name: /Add Pending Order/i }));
     await user.click(screen.getByRole("button", { name: /Save pending order/i }));
     expect(await screen.findByText("PO-NEW")).toBeInTheDocument();
   });
@@ -2122,7 +2122,7 @@ describe("PendingOrdersPage workflows", () => {
     await user.click(screen.getByRole("button", { name: /^history$/i }));
     expect(await screen.findByText("Pending Order History")).toBeInTheDocument();
     expect(await screen.findByText("PO-HIST-22")).toBeInTheDocument();
-    expect(screen.getByText("Pending Order ID #22")).toBeInTheDocument();
+    expect(screen.getByText("Pending Order #22")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /view license/i })).toBeInTheDocument();
     expect(screen.getByText("LT-0501")).toBeInTheDocument();
     expect(screen.getByText("Reference only")).toBeInTheDocument();

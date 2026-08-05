@@ -7,6 +7,7 @@ import { poFormSchema } from "../../utils/procurementSchemas.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
+import { pendingOrderOptionLabel } from "../../utils/procurementLabels.js";
 
 const sourcingPoFormSchema = poFormSchema.extend({
   supplier: z.string().trim().min(1, "Supplier is required."),
@@ -30,6 +31,7 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
     resolver: zodResolver(sourcingPoFormSchema),
     defaultValues: {
       poNumber: "",
+      procurementReference: "",
       supplier: item.supplier ?? "",
       notes:    "",
     },
@@ -54,10 +56,9 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
     setMode(newMode);
   };
 
-  const poNumberVal = watch("poNumber");
   const supplierVal = watch("supplier");
   const canConfirm = mode === "new"
-    ? (poNumberVal ?? "").trim() !== "" && (supplierVal ?? "").trim() !== ""
+    ? (supplierVal ?? "").trim() !== ""
     : selectedOrderId !== "";
 
   const handleConfirm = () => {
@@ -65,7 +66,12 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
       handleSubmit(async (data) => {
         setConverting(true);
         try {
-          const converted = await onConfirm({ poNumber: data.poNumber.trim(), supplier: data.supplier || null, notes: data.notes || null });
+          const converted = await onConfirm({
+            poNumber: data.poNumber.trim(),
+            procurementReference: data.procurementReference.trim(),
+            supplier: data.supplier || null,
+            notes: data.notes || null,
+          });
           if (converted) reset();
         } finally {
           setConverting(false);
@@ -101,18 +107,22 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
           </div>
           <div className="fr" style={{ marginBottom: 14 }}>
             <button onClick={() => switchMode("new")} style={{ flex: 1, padding: "10px 12px", borderRadius: "var(--r)", border: "1px solid", borderColor: mode === "new" ? "var(--accent)" : "var(--border)", background: mode === "new" ? "var(--accent-m)" : "var(--bg-2)", color: mode === "new" ? "var(--accent)" : "var(--text-2)", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "var(--sans)" }}>
-              Create New PO
+              Create Pending Order
             </button>
             <button onClick={() => switchMode("existing")} disabled={loadingOrders || localOrders.length === 0} style={{ flex: 1, padding: "10px 12px", borderRadius: "var(--r)", border: "1px solid", borderColor: mode === "existing" ? "var(--accent)" : "var(--border)", background: mode === "existing" ? "var(--accent-m)" : "var(--bg-2)", color: mode === "existing" ? "var(--accent)" : (loadingOrders || localOrders.length === 0) ? "var(--text-3)" : "var(--text-2)", cursor: (loadingOrders || localOrders.length === 0) ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, fontFamily: "var(--sans)", opacity: (loadingOrders || localOrders.length === 0) ? 0.5 : 1 }}>
-              Add to Existing PO
+              Add to Existing
             </button>
           </div>
 
           {mode === "new" ? (
             <>
               <div className="fg">
-                <label htmlFor="cs-po-number">PO Number <span style={{ color: "var(--red)" }}>*</span></label>
+                <label htmlFor="cs-po-number">PO Number</label>
                 <input id="cs-po-number" className="fi" placeholder="e.g. PO-2026-0042" {...register("poNumber")} />
+              </div>
+              <div className="fg">
+                <label htmlFor="cs-procurement-reference">Procurement reference</label>
+                <input id="cs-procurement-reference" className="fi" placeholder="e.g. REQ-2026-0042" {...register("procurementReference")} />
               </div>
               <div className="fg">
                 <label htmlFor="cs-supplier">Supplier <span style={{ color: "var(--red)" }}>*</span></label>
@@ -133,7 +143,7 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
               ) : (
                 <select id="cs-select-order" className="fi" value={selectedOrderId} onChange={(e) => setSelectedOrderId(Number(e.target.value))}>
                   {localOrders.map((o) => (
-                    <option key={o.id} value={o.id}>{o.poNumber}{o.supplier ? ` — ${o.supplier}` : ""}</option>
+                    <option key={o.id} value={o.id}>{pendingOrderOptionLabel(o)}</option>
                   ))}
                 </select>
               )}
