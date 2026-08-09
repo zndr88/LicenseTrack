@@ -65,6 +65,8 @@ test('single pending order conversion can submit a SaaS portal URL', async () =>
       prefill={{
         publisherName: 'Acme',
         softwareDescription: 'Acme SaaS',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
         quantity: '10',
         unitPrice: '5',
         currency: 'EUR',
@@ -124,6 +126,6 @@ test('batch pending order conversion can submit SaaS portal URLs per item', asyn
       sourcingItemId: 11,
       licenseType: 'saas',
       portalUrl: 'https://batch.example.com',
-    })])
+    })], null)
   })
 })
