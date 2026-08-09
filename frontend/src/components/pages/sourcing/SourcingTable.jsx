@@ -1,7 +1,7 @@
 import React from "react";
 import Icon from "../../ui/Icon.jsx";
 import SearchBox from "../../ui/SearchBox.jsx";
-import DocumentButton from "../../ui/DocumentButton.jsx";
+import RowActionsMenu from "../../ui/RowActionsMenu.jsx";
 import { formatCost, formatPriceInput } from "../../../utils/helpers.js";
 import { formatDateTime } from "../../../utils/formatting.js";
 import { procurementLineTotal } from "../../../utils/procurementTotals.js";
@@ -26,18 +26,12 @@ function requestTotal(request, locale) {
   return entries.map(([currency, amount]) => formatCost(amount, currency, locale)).join(" + ");
 }
 
-function QuoteDocumentsCell({ documents, onDownloadQuote }) {
+function QuoteDocumentsCell({ documents }) {
   if (!documents.length) {
     return <span style={{ fontSize: 11, color: "var(--text-3)" }}>No quote</span>;
   }
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-      {documents.map((document) => (
-        <DocumentButton key={document.id} document={document} onDownload={onDownloadQuote} />
-      ))}
-    </div>
-  );
+  return <span className="badge badge-gray">{documents.length === 1 ? "1 quote" : `${documents.length} quotes`}</span>;
 }
 
 function SourcingStatusBadges({ item }) {
@@ -391,6 +385,46 @@ export default function SourcingTable({
             ) : displayed.map((request) => {
               const isExpanded = expandedRequestId === request.id;
               const quoteDocuments = request.quoteDocuments ?? [];
+              const openItems = (request.items ?? []).filter(isOpenSourcingItem);
+              const canEditSingleLine = perms.canEdit && openItems.length === 1;
+              const menuItems = [
+                {
+                  key: "edit",
+                  label: "Edit",
+                  icon: "edit",
+                  hidden: !canEditSingleLine,
+                  onClick: () => onEditItem(openItems[0], request),
+                },
+                {
+                  key: "upload-quote",
+                  label: "Upload Quote",
+                  icon: "upload",
+                  hidden: !perms.canEdit,
+                  onClick: () => onUploadQuote(request),
+                },
+                ...quoteDocuments.map((document, index) => ({
+                  key: `quote-${document.id ?? index}`,
+                  label: quoteDocuments.length === 1 ? "Download Quote" : `Download Quote ${index + 1}`,
+                  icon: "download",
+                  onClick: () => onDownloadQuote(document),
+                })),
+                {
+                  key: "add-line",
+                  label: "Add License Line",
+                  icon: "plus",
+                  hidden: !perms.canEdit,
+                  onClick: () => onAddItem(request),
+                },
+                {
+                  key: "cancel",
+                  label: "Cancel Request",
+                  icon: "archive",
+                  danger: true,
+                  separatorBefore: true,
+                  hidden: !perms.canDelete,
+                  onClick: () => onDeleteRequest(request),
+                },
+              ];
               return (
                 <React.Fragment key={request.id}>
                   <tr
@@ -414,19 +448,14 @@ export default function SourcingTable({
                       {formatDateTime(request.createdAt, userSettings)}
                     </td>
                     <td>
-                      <QuoteDocumentsCell documents={quoteDocuments} onDownloadQuote={onDownloadQuote} />
+                      <QuoteDocumentsCell documents={quoteDocuments} />
                     </td>
                     <td>{renderStatusBadge(request)}</td>
                     <td onClick={(event) => event.stopPropagation()}>
                       {readOnly ? (
                         renderReferenceCell(request)
                       ) : (
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          {perms.canEdit && (
-                            <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onUploadQuote(request)}>
-                              <Icon name="upload" size={12} />Quote
-                            </button>
-                          )}
+                        <div className="row-actions-inline">
                           {perms.canEdit && (
                             <button className="btn btn-p" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onConvert(request)}>
                               <Icon name="check" size={12} />
@@ -435,11 +464,10 @@ export default function SourcingTable({
                                 : "Convert"}
                             </button>
                           )}
-                          {perms.canDelete && (
-                            <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11, color: "var(--red)" }} onClick={() => onDeleteRequest(request)}>
-                              <Icon name="archive" size={12} />Cancel Request
-                            </button>
-                          )}
+                          <RowActionsMenu
+                            label={`More actions for sourcing request ${request.id}`}
+                            items={menuItems}
+                          />
                         </div>
                       )}
                     </td>

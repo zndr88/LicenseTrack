@@ -1675,7 +1675,8 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Hold Supplier")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /cancel request/i }));
+    await user.click(screen.getByRole("button", { name: /more actions for sourcing request 7/i }));
+    await user.click(screen.getByRole("menuitem", { name: /cancel request/i }));
     let dialog = screen.getByRole("dialog", { name: /cancel sourcing request/i });
     expect(dialog).toHaveTextContent("Move this sourcing request and its license lines to history");
 
@@ -1683,7 +1684,8 @@ describe("SourcingPage workflows", () => {
     expect(screen.queryByRole("dialog", { name: /cancel sourcing request/i })).not.toBeInTheDocument();
     expect(sourcingApi.cancelSourcingRequest).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: /cancel request/i }));
+    await user.click(screen.getByRole("button", { name: /more actions for sourcing request 7/i }));
+    await user.click(screen.getByRole("menuitem", { name: /cancel request/i }));
     dialog = screen.getByRole("dialog", { name: /cancel sourcing request/i });
     await user.click(within(dialog).getByRole("button", { name: /cancel request/i }));
 
@@ -1845,7 +1847,7 @@ describe("PendingOrdersPage workflows", () => {
     );
 
     await user.click(await screen.findByText("PO-DATED"));
-    await user.click(screen.getAllByRole("button", { name: /^edit$/i })[1]);
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
     await user.click(screen.getByRole("button", { name: /save sourcing item/i }));
 
     await waitFor(() => {
@@ -1915,7 +1917,8 @@ describe("PendingOrdersPage workflows", () => {
     );
 
     expect(await screen.findByText("PO-DELETE")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /cancel order/i }));
+    await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
+    await user.click(screen.getByRole("menuitem", { name: /cancel order/i }));
     let dialog = screen.getByRole("dialog", { name: /cancel pending order/i });
     expect(dialog).toHaveTextContent("Move this pending order and its line items to history");
 
@@ -1923,7 +1926,8 @@ describe("PendingOrdersPage workflows", () => {
     expect(screen.queryByRole("dialog", { name: /cancel pending order/i })).not.toBeInTheDocument();
     expect(pendingOrdersApi.cancelPendingOrder).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: /cancel order/i }));
+    await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
+    await user.click(screen.getByRole("menuitem", { name: /cancel order/i }));
     dialog = screen.getByRole("dialog", { name: /cancel pending order/i });
     await user.click(within(dialog).getByRole("button", { name: /cancel order/i }));
 
@@ -2019,7 +2023,8 @@ describe("PendingOrdersPage workflows", () => {
 
     expect(await screen.findByText("Evidence Failed")).toBeInTheDocument();
     expect(screen.getByText("storage failed")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Retry Evidence/i }));
+    await user.click(screen.getByRole("button", { name: /more actions for pending order 12/i }));
+    await user.click(screen.getByRole("menuitem", { name: /Retry Evidence/i }));
 
     await waitFor(() => {
       expect(pendingOrdersApi.retryPendingOrderEvidenceTransfer).toHaveBeenCalledWith(12);

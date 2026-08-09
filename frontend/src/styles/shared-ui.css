@@ -253,6 +253,116 @@ textarea.fi { min-height: 80px; resize: vertical; }
 .document-button-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .doc-action-btn.plugin { color: var(--accent); }
 .doc-action-btn.plugin:hover { color: var(--accent-strong); }
+
+.row-actions-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.row-actions-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.row-actions-trigger {
+  width: 30px;
+  min-width: 30px;
+  height: 28px;
+  padding: 4px;
+  justify-content: center;
+  border-radius: 7px;
+  background: var(--bg-2);
+  color: var(--text-2);
+}
+
+.row-actions-trigger:hover,
+.row-actions-trigger[aria-expanded="true"] {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+
+.row-actions-kebab {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 12px;
+  height: 16px;
+}
+
+.row-actions-kebab span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  display: block;
+}
+
+.row-actions-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 168px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-0);
+  box-shadow: var(--shadow-md);
+  animation: rowActionsIn 0.12s ease-out;
+}
+
+.row-actions-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.row-actions-item.separated {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 6px 6px;
+}
+
+.row-actions-item:hover:not(:disabled),
+.row-actions-item:focus-visible:not(:disabled) {
+  background: var(--bg-2);
+  outline: none;
+}
+
+.row-actions-item.danger {
+  color: var(--red-text);
+}
+
+.row-actions-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes rowActionsIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .doc-action-btn .plugin-action-label { display: none; }
 .plugin-slot-inline-status { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-3); align-self: center; display: flex; align-items: center; gap: 6px; }
 .plugin-slot-inline-status.success { color: var(--green-text); }

@@ -2,6 +2,7 @@ import React from "react";
 import Icon from "../../ui/Icon.jsx";
 import SearchBox from "../../ui/SearchBox.jsx";
 import DocumentButton from "../../ui/DocumentButton.jsx";
+import RowActionsMenu from "../../ui/RowActionsMenu.jsx";
 import { formatCost } from "../../../utils/helpers.js";
 import { formatPoTotal } from "./usePendingOrdersPageState.js";
 import { formatDateTime, formatNumber } from "../../../utils/formatting.js";
@@ -38,24 +39,14 @@ function SortableHeader({ column, label, sortCol, sortDir, onSort }) {
   );
 }
 
-function PurchaseOrderDocumentsCell({ documents, onDownloadPurchaseOrder }) {
+function PurchaseOrderDocumentsCell({ documents }) {
   const purchaseOrderDocuments = (documents ?? []).filter((document) => document.category === "purchase_order");
 
   if (!purchaseOrderDocuments.length) {
     return <span style={{ fontSize: 11, color: "var(--text-3)" }}>No PO</span>;
   }
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-      {purchaseOrderDocuments.map((document) => (
-        <DocumentButton
-          key={document.id}
-          document={document}
-          onDownload={onDownloadPurchaseOrder}
-        />
-      ))}
-    </div>
-  );
+  return <span className="badge badge-gray">{purchaseOrderDocuments.length === 1 ? "1 PO" : `${purchaseOrderDocuments.length} POs`}</span>;
 }
 
 function PendingOrderItemsRow({
@@ -294,6 +285,55 @@ export default function PendingOrdersTable({
               const evidenceDetail = po.evidenceTransferDetail ?? po.evidence_transfer_detail;
               const canRetryEvidence = po.status === "converted" && ["failed", "pending"].includes(evidenceStatus);
               const hasPoNumber = hasPurchaseOrderNumber(po);
+              const hasLineItems = (po.items?.length ?? 0) > 0;
+              const purchaseOrderDocuments = (po.documents ?? []).filter((document) => document.category === "purchase_order");
+              const menuItems = [
+                {
+                  key: "edit",
+                  label: "Edit",
+                  icon: "edit",
+                  hidden: !perms.canEdit,
+                  onClick: () => onEdit(po),
+                },
+                {
+                  key: "upload-po",
+                  label: "Upload PO",
+                  icon: "upload",
+                  hidden: !perms.canEdit,
+                  onClick: () => onUploadPurchaseOrder(po),
+                },
+                ...purchaseOrderDocuments.map((document, index) => ({
+                  key: `po-${document.id ?? index}`,
+                  label: purchaseOrderDocuments.length === 1 ? "Download PO" : `Download PO ${index + 1}`,
+                  icon: "download",
+                  onClick: () => onDownloadPurchaseOrder(document),
+                })),
+                {
+                  key: "add-line",
+                  label: "Add License Line",
+                  icon: "plus",
+                  hidden: !perms.canEdit || po.status === "converted" || !hasLineItems,
+                  onClick: () => onOpenAddItems(po),
+                },
+                {
+                  key: "retry-evidence",
+                  label: "Retry Evidence",
+                  icon: "refresh",
+                  hidden: !perms.canEdit || !canRetryEvidence,
+                  onClick: () => onRetryEvidenceTransfer(po.id),
+                },
+                {
+                  key: "cancel",
+                  label: "Cancel Order",
+                  icon: "trash",
+                  danger: true,
+                  separatorBefore: true,
+                  hidden: !perms.canDelete,
+                  disabled: !canDelete,
+                  title: canDelete ? "Cancel this pending order" : "Cannot cancel this order",
+                  onClick: () => onDelete(po.id),
+                },
+              ];
               const statusLabel = po.status === "cancelled"
                 ? "Cancelled"
                 : po.status === "converted"
@@ -338,10 +378,7 @@ export default function PendingOrdersTable({
                       {formatDateTime(po.createdAt, settings)}
                     </td>
                     <td>
-                      <PurchaseOrderDocumentsCell
-                        documents={po.documents}
-                        onDownloadPurchaseOrder={onDownloadPurchaseOrder}
-                      />
+                      <PurchaseOrderDocumentsCell documents={po.documents} />
                     </td>
                     <td>
                       <span className={`badge ${statusClass}`}>
@@ -355,27 +392,9 @@ export default function PendingOrdersTable({
                       )}
                     </td>
                     <td onClick={(event) => event.stopPropagation()}>
-                      <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", alignItems: "center", justifyContent: "flex-start" }}>
+                      <div className="row-actions-inline">
                         {readOnly && renderReferenceCell(po)}
-                        {!readOnly && perms.canEdit && (
-                          <button
-                            className="btn btn-g"
-                            style={{ padding: "4px 6px", fontSize: 11 }}
-                            onClick={() => onUploadPurchaseOrder(po)}
-                          >
-                            <Icon name="upload" size={12} />PO
-                          </button>
-                        )}
-                        {!readOnly && perms.canEdit && (
-                          <button
-                            className="btn btn-g"
-                            style={{ padding: "4px 6px", fontSize: 11 }}
-                            onClick={() => onEdit(po)}
-                          >
-                            <Icon name="edit" size={12} />Edit
-                          </button>
-                        )}
-                        {!readOnly && perms.canEdit && po.status !== "converted" && po.items?.length === 0 && (
+                        {!readOnly && perms.canEdit && po.status !== "converted" && !hasLineItems && (
                           <button
                             className="btn btn-p"
                             style={{ padding: "4px 6px", fontSize: 11 }}
@@ -416,30 +435,11 @@ export default function PendingOrdersTable({
                             <Icon name="check" size={12} />Convert
                           </button>
                         )}
-                        {!readOnly && perms.canEdit && canRetryEvidence && (
-                          <button
-                            className="btn btn-g"
-                            style={{ padding: "4px 6px", fontSize: 11 }}
-                            onClick={() => onRetryEvidenceTransfer(po.id)}
-                          >
-                            <Icon name="refresh" size={12} />Retry Evidence
-                          </button>
-                        )}
-                        {!readOnly && perms.canDelete && (
-                          <button
-                            className="btn btn-g"
-                            style={{
-                              padding: "4px 6px",
-                              fontSize: 11,
-                              color: canDelete ? "var(--red)" : "var(--text-3)",
-                              cursor: canDelete ? "pointer" : "not-allowed",
-                              opacity: canDelete ? 1 : 0.4,
-                            }}
-                            title={canDelete ? "Cancel this pending order" : "Cannot cancel this order"}
-                            onClick={() => canDelete && onDelete(po.id)}
-                          >
-                            <Icon name="trash" size={12} />Cancel Order
-                          </button>
+                        {!readOnly && (
+                          <RowActionsMenu
+                            label={`More actions for pending order ${po.id}`}
+                            items={menuItems}
+                          />
                         )}
                       </div>
                     </td>
