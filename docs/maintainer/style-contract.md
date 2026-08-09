@@ -100,6 +100,7 @@ The frontend is a React/Vite JavaScript app. Keep the current architecture and i
   - `Checkbox`
   - `SearchBox`
   - `DocumentButton`
+  - `RowActionsMenu`
 - Use React Hook Form and Zod for new or migrated complex forms.
 - Keep modal close/dirty behavior consistent through `useModalGuard`.
 
@@ -139,6 +140,7 @@ Prefer CSS classes for:
 - modal body layouts
 - chips and badges
 - upload/document blocks
+- row action menus
 - secret/copy panels
 
 When a pattern appears three times, extract a component or CSS class unless doing so would make the code harder to follow.

@@ -29,13 +29,20 @@ At the same time, a new record is created in the **Sourcing Overview** page.
 
 ## Source and quote
 
-The sourcing record is pre-populated with information from the previous license. When you receive a quote from your supplier, update the record with the current figures and attach the quote to the item. Once it's filled in, convert it to a **purchase order**.
+The sourcing record is pre-populated with information from the previous
+license. When you receive a quote from your supplier, update the record with
+the current figures and attach the quote to the request. Once procurement work
+is ready to track, convert it to a **pending order**.
 
 ![Editing the sourcing record and attaching the quote](../assets/renewal-05-edit-sourcing.png)
 
-When converting, you can attach the item to an **existing PO** or **create a new one**.
+When converting, you can attach the item to an **existing pending order** or
+**create a new one**. If the formal PO number is not available yet, use a
+procurement reference or the generated Pending Order ID while the PO is being
+created. You must add the real PO number before converting the pending order
+into active licenses.
 
-![Converting the sourcing item to a purchase order](../assets/renewal-06-convert-to-po.png)
+![Converting the sourcing item to a pending order](../assets/renewal-06-convert-to-po.png)
 
 After conversion, the sourcing request leaves the active Sourcing Overview table and remains available through the **History** button. Sourcing history opens as a second read-only table below active sourcing work. It keeps the old request id, line id, quote evidence, supplier, pricing, and notes, and it can link forward to the related pending order.
 
@@ -45,13 +52,22 @@ Once converted, the item clears out of sourcing and enters the **Pending Orders*
 
 ![The item now in the Pending Orders phase](../assets/renewal-07-pending-order.png)
 
-Here you can still edit the PO or the line items in case of a last-minute adjustment, and attach the official PO document. For this example we'll convert it as-is into a new active license.
+Here you can still edit the order or the line items in case of a last-minute
+adjustment, add the real PO number if it was not known earlier, and attach the
+official PO document when available. For this example we'll convert it as-is
+into a new active license.
 
-You get a chance to review the purchase and upload the received invoice, if you already have it. **Confirm and Renew** completes the action.
+You get a chance to review the purchase and upload the received invoice, if you
+already have it. **Confirm & Renew License** completes the action.
 
 ![Reviewing the purchase and uploading the invoice](../assets/renewal-08-review-invoice.png)
 
-After conversion to licenses, the pending order leaves the active Pending Orders table and remains available through the **History** button. Pending-order history is also read-only. It keeps the PO id, line ids, PO document, carried-forward quote context, invoice evidence, and links to the license records created from each line.
+After conversion to licenses, the pending order leaves the active Pending
+Orders table and remains available through the **History** button.
+Pending-order history is also read-only for record fields. It keeps the PO id,
+line ids, PO document, carried-forward quote context, invoice evidence, and
+links to the license records created from each line; permitted users can still
+download or remove evidence from the row action menu.
 
 ## The lifecycle closes
 

@@ -74,17 +74,25 @@ order, and delivery.
 
 ## 2. Pending orders
 
-Convert sourcing when the purchase is ready for a PO. The sourcing lines become
-editable pending-order lines under one PO-level record. You can attach the PO,
-adjust lines, or add a forgotten line before final conversion.
+Convert sourcing when the purchase is ready for procurement tracking. The
+sourcing lines become editable pending-order lines under one order-level
+record. The order can start with a real PO number, a procurement reference such
+as an internal request or approval number, or only the generated Pending Order
+ID while the formal PO is still being created.
+
+You can add the PO number later, attach the PO document when it is available,
+adjust lines, or add a forgotten line before final conversion. LicenseTrack
+will not convert a pending order into active licenses until a real PO number is
+recorded.
 
 One pending order has one supplier. An unassigned sourcing request adopts the
-supplier of an existing PO; a conflicting request is rejected instead of being
-combined with that PO.
+supplier of an existing pending order; a conflicting request is rejected instead
+of being combined with that order.
 
 Quote evidence remains connected to its sourcing origin and is visible from the
-pending order. The PO number is commercial metadata; the pending-order database
-relationship—not matching PO text—connects evidence and history.
+pending order action menu. The PO number and procurement reference are
+metadata; the pending-order database relationship - not matching PO text -
+connects evidence and history.
 
 ## 3. Convert to licenses
 
@@ -125,13 +133,19 @@ Two unrelated pending orders or direct-creation batches do not share documents
 merely because their PO numbers match. The pending-order relationship or manual
 batch identifier is the sharing key.
 
+Active and historical sourcing and pending-order rows expose evidence actions
+from the row action menu. Filenames are shown directly in the Download and
+Delete actions so multiple quotes or PO files remain distinguishable.
+
 ## History and recovery
 
 Converted and cancelled sourcing requests and pending orders move to searchable,
-read-only history tables. History rows retain identifiers, notes, prices, and
-evidence links. A converted sourcing line can link forward to its pending order
-or directly created freeware license;
-a converted pending-order line can link to its resulting license.
+paginated history tables. History rows are read-only for record fields, but
+evidence can still be downloaded or removed when the user has permission.
+History rows retain identifiers, notes, prices, and evidence links. A converted
+sourcing line can link forward to its pending order or directly created
+freeware license; a converted pending-order line can link to its resulting
+license.
 
 CSV exports name these internal row identifiers explicitly: **Sourcing Request
 ID**, **Sourcing Line ID**, **Pending Order ID**, and **Pending Order Line ID**.

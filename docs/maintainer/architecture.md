@@ -94,16 +94,16 @@ The procurement pipeline is split across the sourcing and pending-order pages. K
 
 | Module | Owns |
 |--------|------|
-| `SourcingTable.jsx` | Parent sourcing request rows, inline quote download column, expandable license-line rows, search box, merge-selected action, sortable sourcing table, active request actions, read-only history reference actions, child line actions, and row badges |
+| `SourcingTable.jsx` | Parent sourcing request rows, quote evidence indicators, expandable license-line rows, search box, merge-selected action, sortable sourcing table, primary Convert action, row action menu items, read-only history reference actions, child line actions, and row badges |
 | `MergeSourcingModal.jsx` | Merge confirmation UI, selected item summary, final merged quantity input |
 | `CotermSuggestionBanner.jsx` | Coterm renewal opportunity banner and select-group action |
 | `SourcingToast.jsx` | Page-local success/error toast presentation |
 | `useSourcingPageData.js` | TanStack Query setup for active and historical sourcing requests plus license context load for coterm detection |
 | `useSourcingActions.js` | Create/update/delete/convert/export mutation handlers and cross-page invalidation callbacks |
 | `useSourcingMerge.js` | Selected-for-merge state, merge quantity, merge submit lifecycle |
-| `useSourcingQuotes.js` | Quote upload file input state, quote upload, and quote download |
+| `useSourcingQuotes.js` | Quote upload file input state, quote upload, quote download, and quote delete |
 
-`SourcingPage.jsx` owns page composition, active and history sort/search state, highlighted row state, modal open/close state, and wiring between the hooks and presentation components. The history table is a read-only second table used for converted and cancelled sourcing requests. Coterm grouping remains in `frontend/src/hooks/useCotermDetection.js`.
+`SourcingPage.jsx` owns page composition, active and history sort/search/pagination state, highlighted row state, modal open/close state, and wiring between the hooks and presentation components. The history table is a read-only second table used for converted and cancelled sourcing requests; document evidence actions remain available through row action menus when permitted. Coterm grouping remains in `frontend/src/hooks/useCotermDetection.js`.
 
 ### PendingOrdersPage
 
@@ -111,11 +111,15 @@ The procurement pipeline is split across the sourcing and pending-order pages. K
 
 | Module | Owns |
 |--------|------|
-| `usePendingOrdersData.js` | Active and historical pending-order queries, shared licenses query context, create/update/delete/convert/batch-convert/add/update/delete-item handlers, purchase-order document upload/download, CSV export, related query invalidation |
-| `PendingOrdersPage.jsx` | Active and history search/sort/expanded-row state, highlight behavior, table rendering, modal orchestration, conversion prefill builder, pending line-item edit/delete confirmation wiring |
-| `pendingOrders/PendingOrdersTable.jsx` | Pending-order parent rows, inline PO download column, expanded line-item rows, active parent row actions, read-only history reference actions, line-item quote/download action buttons, and status badges |
+| `usePendingOrdersData.js` | Active and historical pending-order queries, shared licenses query context, create/update/delete/convert/batch-convert/add/update/delete-item handlers, purchase-order document upload/download/delete, sourcing quote download/delete from pending-order context, CSV export, related query invalidation |
+| `PendingOrdersPage.jsx` | Active and history search/sort/pagination/expanded-row state, highlight behavior, table rendering, modal orchestration, conversion prefill builder, pending line-item edit/delete confirmation wiring |
+| `pendingOrders/PendingOrdersTable.jsx` | Pending-order parent rows, PO and carried-forward quote evidence indicators, expanded line-item rows, primary Convert action, row action menu items, read-only history reference actions, line-item quote/download action buttons, and status badges |
 
 Keep new pending-order API handlers in `usePendingOrdersData.js` unless they are purely local UI actions.
+
+Shared procurement history pagination is implemented by
+`frontend/src/components/procurement/ProcurementTablePagination.jsx`; keep page
+state in the owning page and the footer rendering in the table composition.
 
 The procurement history and trail linking contract is captured in
 `docs/maintainer/procurement-history-trail.md`. Keep those links based on stored
@@ -130,7 +134,7 @@ Batch pending-order conversion is decomposed so `ConvertAllModal.jsx` remains th
 | `frontend/src/utils/buildConvertItemDefaults.js` | Pure default-value construction for one form item per sourcing row |
 | `frontend/src/components/procurement/ConvertItemForm.jsx` | Single conversion item card, local expand/collapse, price display state, item readiness helper, maintenance parent picker wiring |
 | `frontend/src/components/procurement/ParentLicensePicker.jsx` | Explicit maintenance/support parent selection for existing perpetual/OEM/freeware licenses and eligible same-conversion parent rows |
-`ConvertAllModal.jsx` owns the batch-level copy action for shared PO fields. The action copies PO number, contract number, invoice number, contact email, supplier, cost centre, currency, and budget owner email from the first conversion item into the remaining items. Do not reintroduce per-item price formatting, readiness checks, or default-value construction into `ConvertAllModal.jsx`.
+`ConvertAllModal.jsx` owns the batch-level copy action for shared PO fields. The action copies PO number, procurement reference, contract number, invoice number, contact email, supplier, cost centre, currency, and budget owner email from the first conversion item into the remaining items. Do not reintroduce per-item price formatting, readiness checks, or default-value construction into `ConvertAllModal.jsx`.
 
 Single pending-order conversion is similarly decomposed:
 
@@ -141,6 +145,11 @@ Single pending-order conversion is similarly decomposed:
 | `frontend/src/components/procurement/PendingOrderInvoiceField.jsx` | Invoice file input presentation and selected-file display |
 
 Do not put payload normalization or invoice-file display logic back into `ConvertPendingOrderModal.jsx`.
+
+Pending orders may be created before the formal PO number exists by using a
+procurement reference or only the generated pending-order id. Final conversion
+to active licenses must still require a real PO number; keep that invariant in
+the pending-order conversion path rather than in sourcing conversion.
 
 ## ReportsPage Sub-Module Pattern
 

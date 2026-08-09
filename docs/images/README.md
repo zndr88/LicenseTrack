@@ -6,7 +6,7 @@ Drop the following image files here. They are referenced from the top-level
 | File | Where it appears | Suggested shot |
 | --- | --- | --- |
 | `dashboard.png` | Hero (top of README) | License overview / main dashboard |
-| `procurement.png` | Procurement section | Sourcing requests or pending purchase orders |
+| `procurement.png` | Procurement section | Sourcing requests or pending orders |
 | `license-registry.png` | License Registry section | Filterable license table with columns |
 | `renewals.png` | Renewals section | Renewal workbench |
 | `reports.png` | Reporting, Alerts, and Admin section | Reports view with charts |

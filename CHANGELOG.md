@@ -13,6 +13,32 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+### Added
+
+- Added a procurement reference field to sourcing-to-pending-order workflows so
+  teams can track internal request or approval numbers before a formal PO
+  number exists.
+- Added paginated sourcing and pending-order history tables with compact row
+  action menus for evidence download and deletion.
+- Exposed sourcing quote evidence from pending-order rows and pending-order
+  history so quotes remain reachable after a request leaves active sourcing.
+
+### Changed
+
+- Pending orders can now be created before the real PO number is known, while
+  final conversion to active licenses still requires an actual PO number.
+- Sourcing and pending-order row actions now favor the primary Convert action
+  and move edit, evidence, and cancel/delete actions into a consistent menu.
+- Evidence action labels now use filenames directly, making multiple uploaded
+  quote or PO documents easier to distinguish.
+
+### Fixed
+
+- Included sourcing quote documents in pending-order API responses so pending
+  order views can offer quote download and delete actions.
+- Refreshed frontend audited transitive dependencies and aligned demo/unit tests
+  with the current procurement conversion forms.
+
 ## [1.1.4] - 2026-08-04
 
 ### Added

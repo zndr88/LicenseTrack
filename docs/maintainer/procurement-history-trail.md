@@ -7,19 +7,20 @@ stored database relationships, not display text such as PO number.
 ## User-Facing Flow
 
 Sourcing Overview shows only active quote-stage work by default. The History
-button opens a second table below the active table. That history table contains
-converted and cancelled sourcing requests, keeps request ids and line ids
-visible, remains searchable, and is read-only. Users can download quote evidence
-and inspect line details, but cannot add lines, edit, merge, convert, or cancel
-historical sourcing rows.
+button opens a second paginated table below the active table. That history
+table contains converted and cancelled sourcing requests, keeps request ids and
+line ids visible, remains searchable, and is read-only for record fields. Users
+can download or delete quote evidence and inspect line details, but cannot add
+lines, edit, merge, convert, or cancel historical sourcing rows.
 
 Pending Orders works the same way. The active table shows pending and
-invoice-received orders. The History button opens a second table below it for
-converted and cancelled orders. Historical pending orders keep order ids, line
-ids, PO documents, invoice evidence, carried-forward quote context, and
-conversion references. Parent rows link to a created license when the order maps
-to one license; multi-line orders expose View License actions on their expanded
-line rows.
+invoice-received orders. The History button opens a second paginated table
+below it for converted and cancelled orders. Historical pending orders keep
+order ids, line ids, PO documents, invoice evidence, carried-forward quote
+context, and conversion references. Users can download or delete PO and quote
+evidence through row action menus when permitted. Parent rows link to a created
+license when the order maps to one license; multi-line orders expose View
+License actions on their expanded line rows.
 
 License Details > History shows the license row creator/timestamps plus a
 Procurement Trail when source records exist. The trail links to the source
@@ -35,6 +36,8 @@ record there.
   does not reassign the id.
 - PO number is commercial metadata. It is not a relationship key and must not be
   used to decide whether records share documents, history, or navigation.
+- Procurement reference is optional workflow metadata for internal requests or
+  approval numbers. It is not a relationship key.
 - License ids identify concrete database rows. License refs identify entitlement
   chains and can repeat across renewal successors.
 
@@ -60,4 +63,7 @@ When changing procurement pages, verify these paths:
 - sourcing history to active pending order;
 - sourcing history to converted pending-order history;
 - pending-order history parent row to a single created license;
-- pending-order history line row to a created license in a multi-line order.
+- pending-order history line row to a created license in a multi-line order;
+- active and historical sourcing quote download/delete actions;
+- active and historical pending-order PO and sourcing quote download/delete
+  actions.

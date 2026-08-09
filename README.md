@@ -41,10 +41,10 @@ around that workflow.
 
 ## What LicenseTrack Does
 
-![Sourcing requests and pending purchase orders](docs/images/procurement.png)
+![Sourcing requests and pending orders](docs/images/procurement.png)
 
 - Tracks requests, quotes, suppliers, costs, and documents through sourcing and
-  pending purchase orders.
+  pending orders.
 - Converts completed purchases into active license records while preserving
   their procurement history.
 - Handles paid licenses, freeware and open-source entitlements, included

@@ -16,7 +16,7 @@ This guide takes you from a bare server to tracking your first licenses.
 
 - :material-cart-arrow-right: **[Procurement Workflow](workflows/procurement.md)**
 
-    Move purchases from sourcing and quotes through purchase orders into license records.
+    Move purchases from sourcing and quotes through pending orders into license records.
 
 - :material-shield-account: **[Administration](administration/index.md)**
 

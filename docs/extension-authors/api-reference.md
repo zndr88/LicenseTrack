@@ -111,7 +111,8 @@ document operations also require the matching document scope.
 | `/api/sourcing/{item_id}` | Read, update, or delete one sourcing line |
 | `/api/sourcing/merge` | Merge eligible coterm renewal lines |
 | `/api/sourcing/requests/{request_id}/quote-documents` | List or upload quote evidence |
-| `/api/sourcing/quote-documents/{document_id}` | Download or delete quote evidence |
+| `/api/sourcing/quote-documents/{document_id}/download` | Download quote evidence |
+| `/api/sourcing/quote-documents/{document_id}` | Delete quote evidence |
 | `/api/sourcing/requests/{request_id}/convert` | Convert a request to pending-order work |
 | `/api/sourcing/{item_id}/convert` | Convert a supported individual line |
 | `/api/sourcing/export` | Export sourcing rows to CSV |
@@ -141,11 +142,17 @@ operations also require the matching document scope.
 | `/api/pending-orders/{order_id}/items` | Add one or several lines |
 | `/api/pending-orders/{order_id}/items/{item_id}` | Update or delete an eligible line |
 | `/api/pending-orders/{order_id}/documents` | List or upload PO documents |
-| `/api/pending-orders/documents/{document_id}` | Download or delete PO documents |
+| `/api/pending-orders/documents/{document_id}/download` | Download PO documents |
+| `/api/pending-orders/documents/{document_id}` | Delete PO documents |
 | `/api/pending-orders/{order_id}/convert` | Convert a supported single-line order |
 | `/api/pending-orders/{order_id}/convert-all` | Convert a reviewed multi-line order |
 | `/api/pending-orders/{order_id}/retry-evidence-transfer` | Retry recoverable evidence transfer |
 | `/api/pending-orders/export` | Export flat one-row-per-line data |
+
+Pending-order payloads expose `poNumber` and `procurementReference`. `poNumber`
+may be blank while an order is still being tracked, but conversion to active
+licenses requires a real PO number. Treat `procurementReference` as optional
+workflow metadata, not a relationship key.
 
 Conversion is concurrency protected and non-idempotent after success: retry a
 failed request only after checking the current order status.
