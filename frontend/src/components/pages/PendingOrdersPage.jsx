@@ -12,6 +12,10 @@ import { filterAndSortPendingOrders, usePendingOrdersPageState } from "./pending
 import { usePendingOrdersData } from "./usePendingOrdersData.js";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
+import ProcurementTablePagination, {
+  getPaginationDetails,
+  paginateRows,
+} from "../procurement/ProcurementTablePagination.jsx";
 
 export default function PendingOrdersPage({
   user, userSettings,
@@ -31,6 +35,8 @@ export default function PendingOrdersPage({
   const [showEditPOItemModal, setShowEditPOItemModal] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(20);
   const [historySortCol, setHistorySortCol] = useState("created");
   const [historySortDir, setHistorySortDir] = useState("desc");
   const [expandedHistoryPendingOrderId, setExpandedHistoryPendingOrderId] = useState(null);
@@ -111,6 +117,25 @@ export default function PendingOrdersPage({
     () => filterAndSortPendingOrders(pendingOrderHistory, historySearch, historySortCol, historySortDir),
     [pendingOrderHistory, historySearch, historySortCol, historySortDir]
   );
+  const { totalPages: historyTotalPages } = getPaginationDetails(
+    displayedHistory.length,
+    historyPage,
+    historyPageSize
+  );
+  const paginatedHistory = useMemo(
+    () => paginateRows(displayedHistory, historyPage, historyPageSize),
+    [displayedHistory, historyPage, historyPageSize]
+  );
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historySearch, historySortCol, historySortDir]);
+
+  useEffect(() => {
+    if (historyPage > historyTotalPages) {
+      setHistoryPage(historyTotalPages);
+    }
+  }, [historyPage, historyTotalPages]);
 
   useEffect(() => {
     if (!highlightId) return;
@@ -249,7 +274,7 @@ export default function PendingOrdersPage({
             )}
             {!historyLoading && (
               <PendingOrdersTable
-                displayed={displayedHistory}
+                displayed={paginatedHistory}
                 expandedPendingOrderId={expandedHistoryPendingOrderId}
                 highlightedRowId={highlightedHistoryRowId}
                 locale={locale}
@@ -275,6 +300,17 @@ export default function PendingOrdersPage({
                 sortCol={historySortCol}
                 sortDir={historySortDir}
                 onSort={handleHistorySort}
+                footer={(
+                  <ProcurementTablePagination
+                    currentPage={historyPage}
+                    itemLabel="orders"
+                    pageSize={historyPageSize}
+                    setCurrentPage={setHistoryPage}
+                    setPageSize={setHistoryPageSize}
+                    totalItems={displayedHistory.length}
+                    userSettings={userSettings}
+                  />
+                )}
               />
             )}
           </div>

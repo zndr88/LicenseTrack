@@ -14,6 +14,10 @@ import { useSourcingActions } from "./sourcing/useSourcingActions.js";
 import { useSourcingMerge } from "./sourcing/useSourcingMerge.js";
 import { useSourcingPageData } from "./sourcing/useSourcingPageData.js";
 import { useSourcingQuotes } from "./sourcing/useSourcingQuotes.js";
+import ProcurementTablePagination, {
+  getPaginationDetails,
+  paginateRows,
+} from "../procurement/ProcurementTablePagination.jsx";
 
 function sortSourcingRequests(requests, sortCol, sortDir) {
   if (!sortCol) return requests;
@@ -110,6 +114,8 @@ export default function SourcingPage({
   const [showHistory, setShowHistory] = useState(false);
   const [search, setSearch] = useState("");
   const [historySearch, setHistorySearch] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(20);
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
   const [historySortCol, setHistorySortCol] = useState("created");
@@ -236,8 +242,27 @@ export default function SourcingPage({
     ),
     [sourcingHistoryRequests, historySearch, historySortCol, historySortDir]
   );
+  const { totalPages: historyTotalPages } = getPaginationDetails(
+    displayedHistory.length,
+    historyPage,
+    historyPageSize
+  );
+  const paginatedHistory = useMemo(
+    () => paginateRows(displayedHistory, historyPage, historyPageSize),
+    [displayedHistory, historyPage, historyPageSize]
+  );
   const directConversionOpenCount = directConversionTarget?.request?.items
     .filter(isOpenSourcingItem).length ?? 0;
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historySearch, historySortCol, historySortDir]);
+
+  useEffect(() => {
+    if (historyPage > historyTotalPages) {
+      setHistoryPage(historyTotalPages);
+    }
+  }, [historyPage, historyTotalPages]);
 
   const saveMaintenanceCompanion = useCallback(async ({
     companion,
@@ -390,7 +415,7 @@ export default function SourcingPage({
               )}
             </div>
             <SourcingTable
-              displayed={displayedHistory}
+              displayed={paginatedHistory}
               licenses={licenses}
               userSettings={userSettings}
               perms={perms}
@@ -419,6 +444,17 @@ export default function SourcingPage({
               onConvertFreeware={() => {}}
               onRefetch={refetchHistory}
               onExportCsv={() => {}}
+              footer={(
+                <ProcurementTablePagination
+                  currentPage={historyPage}
+                  itemLabel="requests"
+                  pageSize={historyPageSize}
+                  setCurrentPage={setHistoryPage}
+                  setPageSize={setHistoryPageSize}
+                  totalItems={displayedHistory.length}
+                  userSettings={userSettings}
+                />
+              )}
             />
           </div>
         )}

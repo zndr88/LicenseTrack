@@ -249,6 +249,7 @@ export default function SourcingTable({
   onConvertFreeware,
   onRefetch,
   onExportCsv,
+  footer = null,
 }) {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const readOnly = mode === "history";
@@ -496,6 +497,7 @@ export default function SourcingTable({
           </tbody>
         </table>
       </div>
+      {footer}
     </div>
   );
 }

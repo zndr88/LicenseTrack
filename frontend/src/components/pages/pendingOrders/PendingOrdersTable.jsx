@@ -194,6 +194,7 @@ export default function PendingOrdersTable({
   sortCol,
   sortDir,
   onSort,
+  footer = null,
 }) {
   const readOnly = mode === "history";
   const emptyMessage = readOnly ? "No historical orders match your search." : "No orders match your search.";
@@ -463,6 +464,7 @@ export default function PendingOrdersTable({
           </tbody>
         </table>
       </div>
+      {footer}
     </div>
   );
 }

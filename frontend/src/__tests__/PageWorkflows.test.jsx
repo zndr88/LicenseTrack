@@ -1809,6 +1809,33 @@ describe("SourcingPage workflows", () => {
     expect(onNavigateToPendingOrder).toHaveBeenCalledTimes(2);
     expect(onNavigateToPendingOrder).toHaveBeenLastCalledWith(45);
   });
+
+  test("paginates sourcing history", async () => {
+    const user = userEvent.setup();
+    const historyRows = Array.from({ length: 21 }, (_, index) => ({
+      id: index + 1,
+      supplier: `History Supplier ${String(index + 1).padStart(2, "0")}`,
+      contactEmail: null,
+      status: "converted",
+      createdAt: `2026-01-${String(21 - index).padStart(2, "0")}T00:00:00Z`,
+      quoteDocuments: [],
+      items: [],
+    }));
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({ data: [], error: null });
+    sourcingApi.getSourcingRequestHistory.mockResolvedValueOnce({ data: historyRows, error: null });
+
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+
+    expect(await screen.findByText(/No sourcing requests yet/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^history$/i }));
+    expect(await screen.findByText("History Supplier 01")).toBeInTheDocument();
+    expect(screen.getByText(/Showing 1-20 of 21 requests/i)).toBeInTheDocument();
+    expect(screen.queryByText("History Supplier 21")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
+    expect(await screen.findByText("History Supplier 21")).toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+  });
 });
 
 describe("PendingOrdersPage workflows", () => {
@@ -2109,6 +2136,40 @@ describe("PendingOrdersPage workflows", () => {
     expect(screen.queryByRole("button", { name: /^edit$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^convert$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /add license line/i })).not.toBeInTheDocument();
+  });
+
+  test("paginates pending order history", async () => {
+    const user = userEvent.setup();
+    const historyRows = Array.from({ length: 21 }, (_, index) => ({
+      id: index + 1,
+      poNumber: `PO-HISTORY-${String(index + 1).padStart(2, "0")}`,
+      supplier: `History Supplier ${String(index + 1).padStart(2, "0")}`,
+      status: "converted",
+      items: [],
+      documents: [],
+      createdAt: `2026-01-${String(21 - index).padStart(2, "0")}T00:00:00Z`,
+    }));
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: [], error: null });
+    pendingOrdersApi.getPendingOrderHistory.mockResolvedValueOnce({ data: historyRows, error: null });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText(/No pending orders yet/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^history$/i }));
+    expect(await screen.findByText("PO-HISTORY-01")).toBeInTheDocument();
+    expect(screen.getByText(/Showing 1-20 of 21 orders/i)).toBeInTheDocument();
+    expect(screen.queryByText("PO-HISTORY-21")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
+    expect(await screen.findByText("PO-HISTORY-21")).toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
   });
 });
 
