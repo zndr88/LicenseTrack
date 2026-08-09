@@ -482,6 +482,7 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
         "Pending Order ID",
         "Pending Order Line ID",
         "PO Number",
+        "Procurement Reference",
         "Supplier",
         "Status",
         "Created Date",
@@ -499,6 +500,7 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
     assert [row["Pending Order ID"] for row in rows] == [str(order.id), str(order.id)]
     assert [row["Pending Order Line ID"] for row in rows] == [str(first_item.id), str(second_item.id)]
     assert [row["PO Number"] for row in rows] == ["PO-EXPORT-1", "PO-EXPORT-1"]
+    assert [row["Procurement Reference"] for row in rows] == ["", ""]
     assert [row["PO Line #"] for row in rows] == ["1", "2"]
     assert [row["Description"] for row in rows] == [
         "Fabrikam ERP",

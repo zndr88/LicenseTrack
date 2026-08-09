@@ -26,7 +26,7 @@ test("demo supports the renewal procurement golden path", async ({ page }) => {
   await expect(sourcingDialog).toBeVisible();
   await page.getByLabel(/po number/i).fill("PO-DEMO-RENEWAL");
   await sourcingDialog.getByRole("button", { name: /^Convert$/ }).click();
-  await expect(page.getByText(/Converted to Pending Order PO-DEMO-RENEWAL/i)).toBeVisible();
+  await expect(page.getByText(/Converted to PO-DEMO-RENEWAL/i)).toBeVisible();
 
   await page.getByRole("button", { name: /Pending Orders/ }).first().click();
   await expect(page.getByRole("heading", { name: /pending orders/i })).toBeVisible();
@@ -34,6 +34,8 @@ test("demo supports the renewal procurement golden path", async ({ page }) => {
   await expect(pendingOrderRow).toBeVisible();
   await pendingOrderRow.getByRole("button", { name: /^Convert$/ }).click();
   await expect(page.getByRole("heading", { name: /renew license - PO-DEMO-RENEWAL/i })).toBeVisible();
+  await page.getByLabel(/start date/i).fill("2026-08-01");
+  await page.getByLabel(/end date/i).fill("2027-07-31");
   await page.getByRole("button", { name: /confirm & renew license/i }).click();
   await expect(page.getByText(/1 license renewed/i)).toBeVisible();
 
