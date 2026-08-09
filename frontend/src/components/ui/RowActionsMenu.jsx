@@ -13,9 +13,12 @@ export default function RowActionsMenu({ items = [], label = "More actions" }) {
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const menuWidth = 180;
-    const panelHeight = panelRef.current?.offsetHeight ?? 0;
     const viewportPadding = 8;
+    const menuWidth = Math.min(
+      panelRef.current?.offsetWidth ?? 180,
+      window.innerWidth - viewportPadding * 2,
+    );
+    const panelHeight = panelRef.current?.offsetHeight ?? 0;
     const left = Math.min(
       window.innerWidth - menuWidth - viewportPadding,
       Math.max(viewportPadding, rect.right - menuWidth),

@@ -156,6 +156,9 @@ vi.mock("../api/sourcing.js", () => ({
   convertFreewareSourcingItem: vi.fn(),
   convertFreewareSourcingRequest: vi.fn(),
   mergeSourcingItems: vi.fn(),
+  uploadSourcingQuoteDocument: vi.fn(),
+  downloadSourcingQuoteDocument: vi.fn(),
+  deleteSourcingQuoteDocument: vi.fn(),
   exportSourcingCsv: vi.fn(),
 }));
 
@@ -172,6 +175,7 @@ vi.mock("../api/pendingOrders.js", () => ({
   updatePendingOrderItem: vi.fn(),
   uploadPendingOrderDocument: vi.fn(),
   downloadPendingOrderDocument: vi.fn(),
+  deletePendingOrderDocument: vi.fn(),
   convertPendingOrder: vi.fn(),
   batchConvertPendingOrder: vi.fn(),
   retryPendingOrderEvidenceTransfer: vi.fn(),
@@ -337,10 +341,15 @@ function setupDefaultApiMocks() {
   sourcingApi.createSourcingRequest.mockResolvedValue({ data: { id: 99, items: [] }, error: null });
   sourcingApi.addSourcingRequestItem.mockResolvedValue({ data: { id: 99, items: [] }, error: null });
   sourcingApi.deleteSourcingRequest.mockResolvedValue({ error: null });
+  sourcingApi.uploadSourcingQuoteDocument.mockResolvedValue({ data: null, error: null });
+  sourcingApi.downloadSourcingQuoteDocument.mockResolvedValue({ data: null, error: null });
+  sourcingApi.deleteSourcingQuoteDocument.mockResolvedValue({ error: null });
   sourcingApi.exportSourcingCsv.mockResolvedValue({ data: null, error: null });
   pendingOrdersApi.getPendingOrders.mockResolvedValue({ data: [], error: null });
   pendingOrdersApi.getPendingOrderHistory.mockResolvedValue({ data: [], error: null });
   pendingOrdersApi.cancelPendingOrder.mockResolvedValue({ data: null, error: null });
+  pendingOrdersApi.downloadPendingOrderDocument.mockResolvedValue({ data: null, error: null });
+  pendingOrdersApi.deletePendingOrderDocument.mockResolvedValue({ error: null });
   pendingOrdersApi.retryPendingOrderEvidenceTransfer.mockResolvedValue({ data: null, error: null });
   pendingOrdersApi.exportPendingOrdersCsv.mockResolvedValue({ data: null, error: null });
   contractsApi.getContracts.mockResolvedValue({ data: [], error: null });
@@ -1695,6 +1704,35 @@ describe("SourcingPage workflows", () => {
     });
   });
 
+  test("deletes a sourcing quote from the row action menu", async () => {
+    const user = userEvent.setup();
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({
+      data: [{
+        id: 7,
+        supplier: "Quote Supplier",
+        contactEmail: null,
+        createdAt: "2026-01-01T00:00:00Z",
+        quoteDocuments: [{ id: 77, originalFilename: "quote.pdf" }],
+        items: [],
+      }],
+      error: null,
+    });
+
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+
+    expect(await screen.findByText("Quote Supplier")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /more actions for sourcing request 7/i }));
+    await user.click(screen.getByRole("menuitem", { name: /delete quote/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /delete quote/i });
+    expect(dialog).toHaveTextContent("quote.pdf");
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => {
+      expect(sourcingApi.deleteSourcingQuoteDocument).toHaveBeenCalledWith(77);
+    });
+  });
+
   test("history toggle renders a read-only searchable sourcing history table", async () => {
     const user = userEvent.setup();
     const onNavigateToPendingOrder = vi.fn();
@@ -1759,6 +1797,43 @@ describe("SourcingPage workflows", () => {
     expect(screen.getByText("Sourcing Line ID #80")).toBeInTheDocument();
     expect(screen.getByText("New Purchase")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Add License Line/i })).not.toBeInTheDocument();
+  });
+
+  test("exposes quote document actions in cancelled sourcing history", async () => {
+    const user = userEvent.setup();
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({ data: [], error: null });
+    sourcingApi.getSourcingRequestHistory.mockResolvedValueOnce({
+      data: [{
+        id: 8,
+        supplier: "Cancelled Quote Supplier",
+        contactEmail: null,
+        notes: "Budget not approved",
+        status: "cancelled",
+        createdAt: "2026-01-01T00:00:00Z",
+        quoteDocuments: [{ id: 81, originalFilename: "cancelled-quote.pdf" }],
+        items: [],
+      }],
+      error: null,
+    });
+
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+
+    expect(await screen.findByText(/No sourcing requests yet/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^history$/i }));
+    expect(await screen.findByText("Cancelled Quote Supplier")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /more document actions for sourcing request 8/i }));
+    await user.click(screen.getByRole("menuitem", { name: /download cancelled-quote\.pdf/i }));
+    expect(sourcingApi.downloadSourcingQuoteDocument).toHaveBeenCalledWith(81, "cancelled-quote.pdf");
+
+    await user.click(screen.getByRole("button", { name: /more document actions for sourcing request 8/i }));
+    await user.click(screen.getByRole("menuitem", { name: /delete cancelled-quote\.pdf/i }));
+    const dialog = screen.getByRole("dialog", { name: /delete quote/i });
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => {
+      expect(sourcingApi.deleteSourcingQuoteDocument).toHaveBeenCalledWith(81);
+    });
   });
 
   test("history table links converted sourcing requests to converted PO history", async () => {
@@ -1966,6 +2041,92 @@ describe("PendingOrdersPage workflows", () => {
     expect(onRenewalsReload).toHaveBeenCalled();
   });
 
+  test("deletes a purchase order document from the row action menu", async () => {
+    const user = userEvent.setup();
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({
+      data: [{
+        id: 9,
+        poNumber: "PO-DOC",
+        supplier: "Document Supplier",
+        status: "pending",
+        items: [],
+        documents: [{ id: 88, category: "purchase_order", originalFilename: "po.pdf" }],
+        createdAt: "2026-01-01T00:00:00Z",
+      }],
+      error: null,
+    });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText("PO-DOC")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
+    await user.click(screen.getByRole("menuitem", { name: /delete po/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /delete po/i });
+    expect(dialog).toHaveTextContent("po.pdf");
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => {
+      expect(pendingOrdersApi.deletePendingOrderDocument).toHaveBeenCalledWith(88);
+    });
+  });
+
+  test("exposes sourcing quote documents in the pending order row action menu", async () => {
+    const user = userEvent.setup();
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({
+      data: [{
+        id: 9,
+        poNumber: "PO-QUOTE",
+        supplier: "Quote Supplier",
+        status: "pending",
+        items: [{
+          id: 91,
+          publisherName: "Figma",
+          softwareDescription: "Professional Seats",
+          quantity: "10",
+          estimatedTotalPrice: "1200",
+          currency: "EUR",
+          quoteDocuments: [{ id: 66, originalFilename: "pending-quote.pdf" }],
+        }],
+        documents: [],
+        createdAt: "2026-01-01T00:00:00Z",
+      }],
+      error: null,
+    });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText("PO-QUOTE")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
+    await user.click(screen.getByRole("menuitem", { name: /download pending-quote\.pdf/i }));
+    expect(sourcingApi.downloadSourcingQuoteDocument).toHaveBeenCalledWith(66, "pending-quote.pdf");
+
+    await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
+    await user.click(screen.getByRole("menuitem", { name: /delete pending-quote\.pdf/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /delete quote/i });
+    expect(dialog).toHaveTextContent("pending-quote.pdf");
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => {
+      expect(sourcingApi.deleteSourcingQuoteDocument).toHaveBeenCalledWith(66);
+    });
+  });
+
   test("last PO line delete warns that the pending order will move to history", async () => {
     const user = userEvent.setup();
     pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({
@@ -2136,6 +2297,56 @@ describe("PendingOrdersPage workflows", () => {
     expect(screen.queryByRole("button", { name: /^edit$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^convert$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /add license line/i })).not.toBeInTheDocument();
+  });
+
+  test("exposes PO and quote document actions in pending order history", async () => {
+    const user = userEvent.setup();
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: [], error: null });
+    pendingOrdersApi.getPendingOrderHistory.mockResolvedValueOnce({
+      data: [{
+        id: 22,
+        poNumber: "PO-HIST-DOC",
+        supplier: "History Document Supplier",
+        status: "cancelled",
+        items: [{
+          id: 221,
+          publisherName: "Adobe",
+          softwareDescription: "Creative Cloud",
+          quantity: "1",
+          currency: "EUR",
+          quoteDocuments: [{ id: 67, originalFilename: "history-quote.pdf" }],
+        }],
+        documents: [{ id: 89, category: "purchase_order", originalFilename: "history-po.pdf" }],
+        createdAt: "2026-01-02T00:00:00Z",
+      }],
+      error: null,
+    });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText(/No pending orders yet/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^history$/i }));
+    expect(await screen.findByText("PO-HIST-DOC")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /more document actions for pending order 22/i }));
+    await user.click(screen.getByRole("menuitem", { name: /download history-po\.pdf/i }));
+    expect(pendingOrdersApi.downloadPendingOrderDocument).toHaveBeenCalledWith(89, "history-po.pdf");
+
+    await user.click(screen.getByRole("button", { name: /more document actions for pending order 22/i }));
+    await user.click(screen.getByRole("menuitem", { name: /delete history-quote\.pdf/i }));
+    const dialog = screen.getByRole("dialog", { name: /delete quote/i });
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => {
+      expect(sourcingApi.deleteSourcingQuoteDocument).toHaveBeenCalledWith(67);
+    });
   });
 
   test("paginates pending order history", async () => {

@@ -109,6 +109,7 @@ export default function SourcingPage({
   const [showSourcingModal, setShowSourcingModal] = useState(null);
   const [deleteSourcingRequestTarget, setDeleteSourcingRequestTarget] = useState(null);
   const [deleteSourcingId, setDeleteSourcingId] = useState(null);
+  const [deleteQuoteTarget, setDeleteQuoteTarget] = useState(null);
   const [showConvertModal, setShowConvertModal] = useState(null);
   const [directConversionTarget, setDirectConversionTarget] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -163,6 +164,7 @@ export default function SourcingPage({
     handleUploadQuote,
     handleQuoteSelected,
     handleDownloadQuote,
+    handleDeleteQuote,
   } = useSourcingQuotes({ queryClient, showToast });
 
   const {
@@ -388,6 +390,7 @@ export default function SourcingPage({
             onConvertFreeware={(item) => setDirectConversionTarget({ item })}
             onUploadQuote={handleUploadQuote}
             onDownloadQuote={handleDownloadQuote}
+            onDeleteQuote={setDeleteQuoteTarget}
             onDeleteRequest={setDeleteSourcingRequestTarget}
             onNavigateToPendingOrder={onNavigateToPendingOrder}
             onNavigateToLicense={onNavigateToLicense}
@@ -438,6 +441,7 @@ export default function SourcingPage({
               onConvert={() => {}}
               onUploadQuote={() => {}}
               onDownloadQuote={handleDownloadQuote}
+              onDeleteQuote={setDeleteQuoteTarget}
               onDeleteRequest={() => {}}
               onNavigateToPendingOrder={onNavigateToPendingOrder}
               onNavigateToLicense={onNavigateToLicense}
@@ -587,6 +591,20 @@ export default function SourcingPage({
               requestId: directConversionTarget.request?.id ?? null,
             });
             if (success) setDirectConversionTarget(null);
+          }}
+        />
+      )}
+
+      {deleteQuoteTarget !== null && (
+        <ConfirmDialog
+          title="Delete Quote"
+          message={`Delete "${deleteQuoteTarget.originalFilename ?? deleteQuoteTarget.original_filename ?? "this quote"}"?`}
+          confirmLabel="Delete"
+          danger
+          onCancel={() => setDeleteQuoteTarget(null)}
+          onConfirm={async () => {
+            const success = await handleDeleteQuote(deleteQuoteTarget);
+            if (success) setDeleteQuoteTarget(null);
           }}
         />
       )}

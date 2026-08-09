@@ -49,6 +49,20 @@ function PurchaseOrderDocumentsCell({ documents }) {
   return <span className="badge badge-gray">{purchaseOrderDocuments.length === 1 ? "1 PO" : `${purchaseOrderDocuments.length} POs`}</span>;
 }
 
+function documentFilename(document, fallback) {
+  return document.originalFilename ?? document.original_filename ?? fallback;
+}
+
+function quoteDocumentsForOrder(order) {
+  const seen = new Set();
+  return (order.items ?? []).flatMap((item) => item.quoteDocuments ?? []).filter((document, index) => {
+    const key = document.id ?? `${documentFilename(document, "quote")}-${index}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function PendingOrderItemsRow({
   po,
   locale,
@@ -179,7 +193,9 @@ export default function PendingOrdersTable({
   onDeleteItem,
   onUploadPurchaseOrder,
   onDownloadPurchaseOrder,
+  onDeletePurchaseOrder,
   onDownloadQuote,
+  onDeleteQuote,
   onRetryEvidenceTransfer,
   onOpenAddItems,
   onOpenConvert,
@@ -288,6 +304,39 @@ export default function PendingOrdersTable({
               const hasPoNumber = hasPurchaseOrderNumber(po);
               const hasLineItems = (po.items?.length ?? 0) > 0;
               const purchaseOrderDocuments = (po.documents ?? []).filter((document) => document.category === "purchase_order");
+              const quoteDocuments = quoteDocumentsForOrder(po);
+              const historyMenuItems = [
+                ...purchaseOrderDocuments.map((document, index) => ({
+                  key: `po-${document.id ?? index}`,
+                  label: `Download ${documentFilename(document, "PO")}`,
+                  icon: "download",
+                  onClick: () => onDownloadPurchaseOrder(document),
+                })),
+                ...quoteDocuments.map((document, index) => ({
+                  key: `quote-${document.id ?? index}`,
+                  label: `Download ${documentFilename(document, "quote")}`,
+                  icon: "download",
+                  onClick: () => onDownloadQuote(document),
+                })),
+                ...purchaseOrderDocuments.map((document, index) => ({
+                  key: `delete-po-${document.id ?? index}`,
+                  label: `Delete ${documentFilename(document, "PO")}`,
+                  icon: "trash",
+                  danger: true,
+                  separatorBefore: index === 0,
+                  hidden: !perms.canEdit,
+                  onClick: () => onDeletePurchaseOrder(document),
+                })),
+                ...quoteDocuments.map((document, index) => ({
+                  key: `delete-quote-${document.id ?? index}`,
+                  label: `Delete ${documentFilename(document, "quote")}`,
+                  icon: "trash",
+                  danger: true,
+                  separatorBefore: purchaseOrderDocuments.length === 0 && index === 0,
+                  hidden: !perms.canEdit,
+                  onClick: () => onDeleteQuote(document),
+                })),
+              ];
               const menuItems = [
                 {
                   key: "edit",
@@ -305,9 +354,33 @@ export default function PendingOrdersTable({
                 },
                 ...purchaseOrderDocuments.map((document, index) => ({
                   key: `po-${document.id ?? index}`,
-                  label: purchaseOrderDocuments.length === 1 ? "Download PO" : `Download PO ${index + 1}`,
+                  label: `Download ${documentFilename(document, "PO")}`,
                   icon: "download",
                   onClick: () => onDownloadPurchaseOrder(document),
+                })),
+                ...quoteDocuments.map((document, index) => ({
+                  key: `quote-${document.id ?? index}`,
+                  label: `Download ${documentFilename(document, "quote")}`,
+                  icon: "download",
+                  onClick: () => onDownloadQuote(document),
+                })),
+                ...purchaseOrderDocuments.map((document, index) => ({
+                  key: `delete-po-${document.id ?? index}`,
+                  label: `Delete ${documentFilename(document, "PO")}`,
+                  icon: "trash",
+                  danger: true,
+                  separatorBefore: index === 0,
+                  hidden: !perms.canEdit,
+                  onClick: () => onDeletePurchaseOrder(document),
+                })),
+                ...quoteDocuments.map((document, index) => ({
+                  key: `delete-quote-${document.id ?? index}`,
+                  label: `Delete ${documentFilename(document, "quote")}`,
+                  icon: "trash",
+                  danger: true,
+                  separatorBefore: purchaseOrderDocuments.length === 0 && index === 0,
+                  hidden: !perms.canEdit,
+                  onClick: () => onDeleteQuote(document),
                 })),
                 {
                   key: "add-line",
@@ -395,6 +468,12 @@ export default function PendingOrdersTable({
                     <td onClick={(event) => event.stopPropagation()}>
                       <div className="row-actions-inline">
                         {readOnly && renderReferenceCell(po)}
+                        {readOnly && (
+                          <RowActionsMenu
+                            label={`More document actions for pending order ${po.id}`}
+                            items={historyMenuItems}
+                          />
+                        )}
                         {!readOnly && perms.canEdit && po.status !== "converted" && !hasLineItems && (
                           <button
                             className="btn btn-p"

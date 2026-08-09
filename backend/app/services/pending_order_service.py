@@ -18,7 +18,7 @@ from app.models.pending_order import EvidenceTransferStatus, PendingOrder, Pendi
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.pending_order import PendingOrderCreate, PendingOrderResponse, PendingOrderUpdate, SourcingItemSummary
-from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate
+from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate, SourcingQuoteDocumentResponse
 from app.services.document_availability_service import with_file_availability
 
 
@@ -52,6 +52,7 @@ def to_pending_order_response(order: PendingOrder, storage_base: str | None = No
                 SourcingItemSummary.model_validate(
                     {
                         **{column.name: getattr(item, column.name) for column in item.__table__.columns},
+                        "quote_documents": _quote_document_responses(item, storage_base),
                         **converted_license_refs.get(item.id, {}),
                     }
                 )
@@ -63,6 +64,13 @@ def to_pending_order_response(order: PendingOrder, storage_base: str | None = No
             ],
         }
     )
+
+
+def _quote_document_responses(item: SourcingItem, storage_base: str | None) -> list[SourcingQuoteDocumentResponse]:
+    return [
+        with_file_availability(SourcingQuoteDocumentResponse.model_validate(document), document, storage_base)
+        for document in item.quote_documents
+    ]
 
 
 def _converted_license_refs_by_item(items: list[SourcingItem], licenses: list[License]) -> dict[int, dict]:

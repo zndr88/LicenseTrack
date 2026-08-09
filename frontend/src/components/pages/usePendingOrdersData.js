@@ -7,6 +7,7 @@ import {
   convertPendingOrder,
   createPendingOrder as apiCreatePendingOrder,
   deletePendingOrder as apiDeletePendingOrder,
+  deletePendingOrderDocument,
   deletePendingOrderItem as apiDeletePendingOrderItem,
   downloadPendingOrderDocument,
   exportPendingOrdersCsv,
@@ -17,7 +18,10 @@ import {
   updatePendingOrderItem as apiUpdatePendingOrderItem,
   updatePendingOrder as apiUpdatePendingOrder,
 } from "../../api/pendingOrders.js";
-import { downloadSourcingQuoteDocument } from "../../api/sourcing.js";
+import {
+  deleteSourcingQuoteDocument,
+  downloadSourcingQuoteDocument,
+} from "../../api/sourcing.js";
 import { queryKeys } from "../../queryKeys.js";
 import { invalidateProcurementRenewalState } from "../../queryInvalidation.js";
 import { fetchLicensesData } from "./licenses/useLicensesPageData.js";
@@ -254,6 +258,15 @@ export function usePendingOrdersData({
     return true;
   }, [showError]);
 
+  const handleDeletePurchaseOrderDocument = useCallback(async (document) => {
+    const { error } = await deletePendingOrderDocument(document.id);
+    if (error) { showError(error); return false; }
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
+    showSuccess("Purchase order deleted.");
+    return true;
+  }, [showError, showSuccess, queryClient]);
+
   const handleDownloadSourcingQuote = useCallback(async (document) => {
     const { error } = await downloadSourcingQuoteDocument(
       document.id,
@@ -262,6 +275,17 @@ export function usePendingOrdersData({
     if (error) { showError(error); return false; }
     return true;
   }, [showError]);
+
+  const handleDeleteSourcingQuote = useCallback(async (document) => {
+    const { error } = await deleteSourcingQuoteDocument(document.id);
+    if (error) { showError(error); return false; }
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
+    queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
+    queryClient.invalidateQueries({ queryKey: queryKeys.sourcingHistory });
+    showSuccess("Quote deleted.");
+    return true;
+  }, [showError, showSuccess, queryClient]);
 
   const handleRetryEvidenceTransfer = useCallback(async (orderId) => {
     const { error } = await retryPendingOrderEvidenceTransfer(orderId);
@@ -313,7 +337,9 @@ export function usePendingOrdersData({
     handleDeletePOItem,
     handleUploadPurchaseOrderDocument,
     handleDownloadPurchaseOrderDocument,
+    handleDeletePurchaseOrderDocument,
     handleDownloadSourcingQuote,
+    handleDeleteSourcingQuote,
     handleRetryEvidenceTransfer,
     handleBatchConvert,
     handleExportPendingOrdersCsv,

@@ -50,6 +50,8 @@ export async function downloadPendingOrderDocument(documentId, filename) {
   return { data: null, error: null };
 }
 
+export const deletePendingOrderDocument = (id) => del(`/api/pending-orders/documents/${id}`);
+
 export async function convertPendingOrder(id, licenseData, file = null) {
   const formData = new FormData();
   formData.append("data", JSON.stringify(licenseData));

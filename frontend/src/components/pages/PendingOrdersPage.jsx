@@ -34,6 +34,8 @@ export default function PendingOrdersPage({
   const [showAddPOItemsModal, setShowAddPOItemsModal] = useState(null);
   const [showEditPOItemModal, setShowEditPOItemModal] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [deletePurchaseOrderDocumentTarget, setDeletePurchaseOrderDocumentTarget] = useState(null);
+  const [deleteQuoteTarget, setDeleteQuoteTarget] = useState(null);
   const [historySearch, setHistorySearch] = useState("");
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(20);
@@ -63,7 +65,9 @@ export default function PendingOrdersPage({
     handleDeletePOItem,
     handleUploadPurchaseOrderDocument,
     handleDownloadPurchaseOrderDocument,
+    handleDeletePurchaseOrderDocument,
     handleDownloadSourcingQuote,
+    handleDeleteSourcingQuote,
     handleRetryEvidenceTransfer,
     handleBatchConvert,
     handleExportPendingOrdersCsv,
@@ -236,7 +240,9 @@ export default function PendingOrdersPage({
             onDeleteItem={(po, item) => setDeletePOItemTarget({ order: po, item })}
             onUploadPurchaseOrder={handleOpenPurchaseOrderUpload}
             onDownloadPurchaseOrder={handleDownloadPurchaseOrderDocument}
+            onDeletePurchaseOrder={setDeletePurchaseOrderDocumentTarget}
             onDownloadQuote={handleDownloadSourcingQuote}
+            onDeleteQuote={setDeleteQuoteTarget}
             onRetryEvidenceTransfer={handleRetryEvidenceTransfer}
             onOpenAddItems={(po) => setShowAddPOItemsModal({ order: po })}
             onOpenConvert={(po) => setShowConvertToLicenseModal({
@@ -286,7 +292,9 @@ export default function PendingOrdersPage({
                 onDeleteItem={() => {}}
                 onUploadPurchaseOrder={() => {}}
                 onDownloadPurchaseOrder={handleDownloadPurchaseOrderDocument}
+                onDeletePurchaseOrder={setDeletePurchaseOrderDocumentTarget}
                 onDownloadQuote={handleDownloadSourcingQuote}
+                onDeleteQuote={setDeleteQuoteTarget}
                 onRetryEvidenceTransfer={() => {}}
                 onOpenAddItems={() => {}}
                 onOpenConvert={() => {}}
@@ -431,6 +439,34 @@ export default function PendingOrdersPage({
           onConfirm={async () => {
             const success = await handleCancelPendingOrder(cancelPendingOrderId);
             if (success) setCancelPendingOrderId(null);
+          }}
+        />
+      )}
+
+      {deletePurchaseOrderDocumentTarget !== null && (
+        <ConfirmDialog
+          title="Delete PO"
+          message={`Delete "${deletePurchaseOrderDocumentTarget.originalFilename ?? deletePurchaseOrderDocumentTarget.original_filename ?? "this purchase order"}"?`}
+          confirmLabel="Delete"
+          danger
+          onCancel={() => setDeletePurchaseOrderDocumentTarget(null)}
+          onConfirm={async () => {
+            const success = await handleDeletePurchaseOrderDocument(deletePurchaseOrderDocumentTarget);
+            if (success) setDeletePurchaseOrderDocumentTarget(null);
+          }}
+        />
+      )}
+
+      {deleteQuoteTarget !== null && (
+        <ConfirmDialog
+          title="Delete Quote"
+          message={`Delete "${deleteQuoteTarget.originalFilename ?? deleteQuoteTarget.original_filename ?? "this quote"}"?`}
+          confirmLabel="Delete"
+          danger
+          onCancel={() => setDeleteQuoteTarget(null)}
+          onConfirm={async () => {
+            const success = await handleDeleteSourcingQuote(deleteQuoteTarget);
+            if (success) setDeleteQuoteTarget(null);
           }}
         />
       )}

@@ -1997,6 +1997,39 @@ async def test_pending_order_line_item_preserves_start_and_end_dates(test_app, a
     assert line["endDate"] == "2027-02-28"
 
 
+async def test_pending_order_line_item_includes_sourcing_quote_documents(
+    test_app,
+    auth_headers,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
+    item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Quoted Pending App")
+    request_id = item["sourcingRequestId"]
+
+    upload_resp = await test_app.post(
+        f"/api/sourcing/requests/{request_id}/quote-documents",
+        files={"file": ("pending-quote.pdf", b"quote", "application/pdf")},
+        headers=auth_headers,
+    )
+    assert upload_resp.status_code == 201, upload_resp.text
+    quote_document_id = upload_resp.json()["id"]
+
+    po = await _convert_sourcing_to_po(test_app, auth_headers, item["id"])
+
+    convert_line = po["items"][0]
+    assert convert_line["quoteDocuments"][0]["id"] == quote_document_id
+    assert convert_line["quoteDocuments"][0]["originalFilename"] == "pending-quote.pdf"
+
+    resp = await test_app.get("/api/pending-orders", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    order = next(order for order in resp.json() if order["id"] == po["id"])
+    line = order["items"][0]
+    assert line["quoteDocuments"][0]["id"] == quote_document_id
+    assert line["quoteDocuments"][0]["originalFilename"] == "pending-quote.pdf"
+    assert line["quoteDocuments"][0]["fileAvailability"] == "available"
+
+
 async def test_pending_order_line_item_can_be_deleted_before_conversion(test_app, auth_headers):
     first = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Keep App")
     second = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Delete App")

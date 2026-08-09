@@ -34,6 +34,10 @@ function QuoteDocumentsCell({ documents }) {
   return <span className="badge badge-gray">{documents.length === 1 ? "1 quote" : `${documents.length} quotes`}</span>;
 }
 
+function documentFilename(document, fallback) {
+  return document.originalFilename ?? document.original_filename ?? fallback;
+}
+
 function SourcingStatusBadges({ item }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -243,6 +247,7 @@ export default function SourcingTable({
   onConvert,
   onUploadQuote,
   onDownloadQuote,
+  onDeleteQuote,
   onDeleteRequest,
   onNavigateToPendingOrder,
   onNavigateToLicense,
@@ -388,6 +393,23 @@ export default function SourcingTable({
               const quoteDocuments = request.quoteDocuments ?? [];
               const openItems = (request.items ?? []).filter(isOpenSourcingItem);
               const canEditSingleLine = perms.canEdit && openItems.length === 1;
+              const historyMenuItems = [
+                ...quoteDocuments.map((document, index) => ({
+                  key: `quote-${document.id ?? index}`,
+                  label: `Download ${documentFilename(document, "quote")}`,
+                  icon: "download",
+                  onClick: () => onDownloadQuote(document),
+                })),
+                ...quoteDocuments.map((document, index) => ({
+                  key: `delete-quote-${document.id ?? index}`,
+                  label: `Delete ${documentFilename(document, "quote")}`,
+                  icon: "trash",
+                  danger: true,
+                  separatorBefore: index === 0,
+                  hidden: !perms.canEdit,
+                  onClick: () => onDeleteQuote(document),
+                })),
+              ];
               const menuItems = [
                 {
                   key: "edit",
@@ -405,9 +427,18 @@ export default function SourcingTable({
                 },
                 ...quoteDocuments.map((document, index) => ({
                   key: `quote-${document.id ?? index}`,
-                  label: quoteDocuments.length === 1 ? "Download Quote" : `Download Quote ${index + 1}`,
+                  label: `Download ${documentFilename(document, "quote")}`,
                   icon: "download",
                   onClick: () => onDownloadQuote(document),
+                })),
+                ...quoteDocuments.map((document, index) => ({
+                  key: `delete-quote-${document.id ?? index}`,
+                  label: `Delete ${documentFilename(document, "quote")}`,
+                  icon: "trash",
+                  danger: true,
+                  separatorBefore: index === 0,
+                  hidden: !perms.canEdit,
+                  onClick: () => onDeleteQuote(document),
                 })),
                 {
                   key: "add-line",
@@ -454,7 +485,13 @@ export default function SourcingTable({
                     <td>{renderStatusBadge(request)}</td>
                     <td onClick={(event) => event.stopPropagation()}>
                       {readOnly ? (
-                        renderReferenceCell(request)
+                        <div className="row-actions-inline">
+                          {renderReferenceCell(request)}
+                          <RowActionsMenu
+                            label={`More document actions for sourcing request ${request.id}`}
+                            items={historyMenuItems}
+                          />
+                        </div>
                       ) : (
                         <div className="row-actions-inline">
                           {perms.canEdit && (
