@@ -127,17 +127,6 @@ export function usePendingOrdersData({
     return true;
   }, [showError, queryClient, onPortfolioStateChange]);
 
-  const handleUpdatePendingOrderStatus = useCallback(async (id, status) => {
-    const { data, error } = await apiUpdatePendingOrder(id, { status });
-    if (error) { showError(error); return false; }
-    queryClient.setQueryData(queryKeys.pendingOrders, (prev) =>
-      (prev ?? []).map((order) => order.id === data.id ? data : order)
-    );
-    onPortfolioStateChange?.();
-    showSuccess(status === "invoice_received" ? "Invoice marked received." : "Pending order marked pending.");
-    return true;
-  }, [showError, showSuccess, queryClient, onPortfolioStateChange]);
-
   const handleCancelPendingOrder = useCallback(async (id) => {
     const { error } = await apiCancelPendingOrder(id);
     if (error) { showError(error); return false; }
@@ -317,7 +306,6 @@ export function usePendingOrdersData({
     handleCancelPendingOrder,
     handleCreatePendingOrder,
     handleUpdatePendingOrder,
-    handleUpdatePendingOrderStatus,
     handleDeletePendingOrder,
     handleConvertToLicense,
     handleAddPOItems,

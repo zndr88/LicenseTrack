@@ -51,7 +51,6 @@ export default function PendingOrdersPage({
     handleCancelPendingOrder,
     handleCreatePendingOrder,
     handleUpdatePendingOrder,
-    handleUpdatePendingOrderStatus,
     handleConvertToLicense,
     handleAddPOItems,
     handleUpdatePOItem,
@@ -214,7 +213,6 @@ export default function PendingOrdersPage({
             onDownloadPurchaseOrder={handleDownloadPurchaseOrderDocument}
             onDownloadQuote={handleDownloadSourcingQuote}
             onRetryEvidenceTransfer={handleRetryEvidenceTransfer}
-            onUpdateStatus={handleUpdatePendingOrderStatus}
             onOpenAddItems={(po) => setShowAddPOItemsModal({ order: po })}
             onOpenConvert={(po) => setShowConvertToLicenseModal({
               order: po,
@@ -265,7 +263,6 @@ export default function PendingOrdersPage({
                 onDownloadPurchaseOrder={handleDownloadPurchaseOrderDocument}
                 onDownloadQuote={handleDownloadSourcingQuote}
                 onRetryEvidenceTransfer={() => {}}
-                onUpdateStatus={() => {}}
                 onOpenAddItems={() => {}}
                 onOpenConvert={() => {}}
                 onOpenConvertAll={() => {}}

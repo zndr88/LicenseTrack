@@ -190,7 +190,6 @@ export default function PendingOrdersTable({
   onDownloadPurchaseOrder,
   onDownloadQuote,
   onRetryEvidenceTransfer,
-  onUpdateStatus,
   onOpenAddItems,
   onOpenConvert,
   onOpenConvertAll,
@@ -415,24 +414,6 @@ export default function PendingOrdersTable({
                             onClick={() => hasPoNumber && onOpenConvertAll(po)}
                           >
                             <Icon name="check" size={12} />Convert
-                          </button>
-                        )}
-                        {!readOnly && perms.canEdit && po.status === "pending" && (
-                          <button
-                            className="btn btn-g"
-                            style={{ padding: "4px 6px", fontSize: 11 }}
-                            onClick={() => onUpdateStatus(po.id, "invoice_received")}
-                          >
-                            <Icon name="check" size={12} />Invoice Received
-                          </button>
-                        )}
-                        {!readOnly && perms.canEdit && po.status === "invoice_received" && (
-                          <button
-                            className="btn btn-g"
-                            style={{ padding: "4px 6px", fontSize: 11 }}
-                            onClick={() => onUpdateStatus(po.id, "pending")}
-                          >
-                            <Icon name="clock" size={12} />Mark Pending
                           </button>
                         )}
                         {!readOnly && perms.canEdit && canRetryEvidence && (

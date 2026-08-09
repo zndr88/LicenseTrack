@@ -1935,42 +1935,6 @@ describe("PendingOrdersPage workflows", () => {
     expect(onRenewalsReload).toHaveBeenCalled();
   });
 
-  test("marks a pending order as invoice received from the table action", async () => {
-    const user = userEvent.setup();
-    const showSuccess = vi.fn();
-    const order = {
-      id: 10,
-      poNumber: "PO-INVOICE-STATUS",
-      supplier: "Invoice Supplier",
-      status: "pending",
-      items: [],
-      documents: [],
-      createdAt: "2026-01-01T00:00:00Z",
-    };
-    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: [order], error: null });
-    pendingOrdersApi.updatePendingOrder.mockResolvedValueOnce({
-      data: { ...order, status: "invoice_received" },
-      error: null,
-    });
-
-    wrapWithQueryClient(
-      <PendingOrdersPage
-        user={admin}
-        userSettings={userSettings}
-        showError={vi.fn()}
-        showSuccess={showSuccess}
-      />
-    );
-
-    expect(await screen.findByText("PO-INVOICE-STATUS")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /invoice received/i }));
-
-    await waitFor(() => {
-      expect(pendingOrdersApi.updatePendingOrder).toHaveBeenCalledWith(10, { status: "invoice_received" });
-      expect(showSuccess).toHaveBeenCalledWith("Invoice marked received.");
-    });
-  });
-
   test("last PO line delete warns that the pending order will move to history", async () => {
     const user = userEvent.setup();
     pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({
