@@ -73,7 +73,7 @@ curl http://localhost:8080/api/health
 The health response should include the expected version:
 
 ```json
-{"status":"ok","version":"1.1.4"}
+{"status":"ok","version":"1.1.5"}
 ```
 
 Log in and smoke-test license listing, document downloads, settings, backup listing, and any configured SMTP/OIDC integrations.
@@ -146,7 +146,7 @@ podman rm licensetrack
 Build the new image from the release source:
 
 ```bash
-podman build -t license-lifecycle-system:1.1.4 .
+podman build -t license-lifecycle-system:1.1.5 .
 ```
 
 Start the new container with the same volume mounted at `/data`:
@@ -155,7 +155,7 @@ Start the new container with the same volume mounted at `/data`:
 podman run -d --name licensetrack -p 8080:8000 \
   --env-file .env \
   -v license_lifecycle_data:/data \
-  license-lifecycle-system:1.1.4
+  license-lifecycle-system:1.1.5
 ```
 
 Check health:
