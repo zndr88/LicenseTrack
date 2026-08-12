@@ -120,7 +120,7 @@ def _normalise_date_value(value: object, date_format: str | None = None) -> str 
         return None
     raw = str(value).strip()
     if date_format is not None:
-        parsed, is_perpetual, error = _parse_date(raw, date_format)
+        parsed, is_perpetual, error, _warning = _parse_date(raw, date_format)
         if parsed is not None:
             return parsed.isoformat()
         if not is_perpetual and not error:
