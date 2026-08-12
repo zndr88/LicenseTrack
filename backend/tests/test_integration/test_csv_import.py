@@ -13,6 +13,8 @@ from sqlalchemy import select
 
 from app.models.custom_fields import CustomFieldValue
 from app.models.license import License, LicenseType
+from app.models.settings import UserSettings
+from app.models.user import User
 
 
 def _make_csv(headers: list[str], rows: list[dict]) -> bytes:
@@ -236,16 +238,28 @@ async def test_confirm_import_persists_request_and_purchase_dates(
     db_session,
 ):
     csv_bytes = _make_csv(
-        ["publisher_name", "software_description", "request_date", "purchase_date"],
+        ["publisher_name", "software_description", "request_date", "purchase_date", "procurement_reference"],
         [
             {
                 "publisher_name": "Datadog",
                 "software_description": "Infra Monitoring",
                 "request_date": "2026-01-15",
                 "purchase_date": "2026-02-20T00:00:00Z",
+                "procurement_reference": "REQ-2026-001",
             }
         ],
     )
+
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("milestones.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    preview_row = preview.json()["rows"][0]
+    assert preview_row["requestDate"].startswith("2026-01-15T00:00:00")
+    assert preview_row["purchaseDate"].startswith("2026-02-20T00:00:00")
+    assert preview_row["procurementReference"] == "REQ-2026-001"
 
     resp = await test_app.post(
         "/api/import/confirm",
@@ -264,8 +278,103 @@ async def test_confirm_import_persists_request_and_purchase_dates(
     assert (license_obj.request_date.year, license_obj.request_date.month, license_obj.request_date.day) == (2026, 1, 15)
     assert license_obj.purchase_date is not None
     assert (license_obj.purchase_date.year, license_obj.purchase_date.month, license_obj.purchase_date.day) == (2026, 2, 20)
+    assert license_obj.procurement_reference == "REQ-2026-001"
     # request_date must not leak into start_date, nor purchase_date either.
     assert license_obj.start_date is None
+
+
+async def test_confirm_import_persists_secondary_contacts_from_aliases(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "budget_owner_email", "Application Owner Email"],
+        [
+            {
+                "publisher_name": "Acme",
+                "software_description": "Owner Matrix",
+                "budget_owner_email": "budget.owner@example.com",
+                "Application Owner Email": "app.owner@example.com",
+            }
+        ],
+    )
+
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("secondary-contacts.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["rows"][0]["secondaryContacts"] == ["app.owner@example.com"]
+
+    resp = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("secondary-contacts.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["importedCount"] == 1
+
+    license_obj = await db_session.scalar(
+        select(License).where(License.software_description == "Owner Matrix")
+    )
+    assert license_obj.budget_owner_email == "budget.owner@example.com"
+    assert license_obj.secondary_contacts == ["app.owner@example.com"]
+
+
+async def test_execute_mapped_combines_secondary_contact_columns(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Application Owner", "Technical Owner"],
+        [
+            {
+                "Publisher": "Acme",
+                "Description": "Mapped Owner Matrix",
+                "Application Owner": "app.owner@example.com",
+                "Technical Owner": "tech.owner@example.com; app.owner@example.com",
+            }
+        ],
+    )
+    mapping_json = json.dumps({
+        "mapping": [
+            {"rawHeader": "Publisher", "target": "publisher_name"},
+            {"rawHeader": "Description", "target": "software_description"},
+            {"rawHeader": "Application Owner", "target": "secondary_contacts"},
+            {"rawHeader": "Technical Owner", "target": "secondary_contacts"},
+        ]
+    })
+
+    preview = await test_app.post(
+        "/api/import/preview-mapped",
+        headers=auth_headers,
+        files={"file": ("mapped-secondary-contacts.csv", csv_bytes, "text/csv")},
+        data={"mapping_json": mapping_json},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["rows"][0]["secondaryContacts"] == [
+        "app.owner@example.com",
+        "tech.owner@example.com",
+    ]
+
+    resp = await test_app.post(
+        "/api/import/execute",
+        headers=auth_headers,
+        files={"file": ("mapped-secondary-contacts.csv", csv_bytes, "text/csv")},
+        data={"mapping_json": mapping_json},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["importedCount"] == 1
+
+    license_obj = await db_session.scalar(
+        select(License).where(License.software_description == "Mapped Owner Matrix")
+    )
+    assert license_obj.secondary_contacts == ["app.owner@example.com", "tech.owner@example.com"]
 
 
 async def test_native_confirm_imports_existing_typed_custom_field(
@@ -369,6 +478,55 @@ async def test_native_confirm_parses_declared_date_format_for_custom_date_field(
     )
     assert value is not None
     assert value.value_text == "2027-01-01"
+
+
+async def test_native_confirm_uses_saved_date_format_for_custom_date_field(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    user = await db_session.scalar(select(User).where(User.username == "testadmin"))
+    assert user is not None
+    db_session.add(UserSettings(user_id=user.id, date_format="MM/DD/YYYY"))
+    await db_session.commit()
+
+    definition = await _create_custom_field(test_app, auth_headers, "Defaulted invoice date", "date")
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", definition["fieldKey"]],
+        [{
+            "Publisher": "Acme",
+            "Description": "Native Saved Default Date",
+            definition["fieldKey"]: "12-31-2027",
+        }],
+    )
+
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("native-custom-default-date.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["rows"][0]["importStatus"] == "active"
+
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("native-custom-default-date.csv", csv_bytes, "text/csv")},
+    )
+    assert confirm.status_code == 200, confirm.text
+    assert confirm.json()["importedCount"] == 1
+
+    license_obj = await db_session.scalar(
+        select(License).where(License.software_description == "Native Saved Default Date")
+    )
+    value = await db_session.scalar(
+        select(CustomFieldValue).where(
+            CustomFieldValue.license_id == license_obj.id,
+            CustomFieldValue.custom_field_def_id == definition["id"],
+        )
+    )
+    assert value is not None
+    assert value.value_text == "2027-12-31"
 
 
 async def test_execute_mapped_parses_declared_date_format_for_custom_date_field(

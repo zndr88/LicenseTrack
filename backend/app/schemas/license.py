@@ -36,6 +36,30 @@ def normalise_invoice_numbers(value: object) -> list[str]:
     return numbers
 
 
+def normalise_secondary_contacts(value: object) -> list[str]:
+    if value is None or value == "":
+        return []
+    if not isinstance(value, list):
+        raise ValueError("Secondary contacts must be a list of strings.")
+
+    contacts: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if item is None:
+            continue
+        text = reject_email_crlf(str(item))
+        if not text:
+            continue
+        if len(text) > 255:
+            raise ValueError("Secondary contacts cannot exceed 255 characters.")
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        contacts.append(text)
+    return contacts
+
+
 class LicenseBase(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -64,6 +88,7 @@ class LicenseBase(BaseModel):
     supplier: str = ""
     cost_centre: str = ""
     budget_owner_email: str = ""
+    secondary_contacts: list[str] = Field(default_factory=list)
     portal_url: Optional[str] = None
     notes: Optional[str] = None
     has_maintenance: bool = False
@@ -123,6 +148,11 @@ class LicenseBase(BaseModel):
     @classmethod
     def _normalise_invoice_numbers(cls, value: object) -> list[str]:
         return normalise_invoice_numbers(value)
+
+    @field_validator("secondary_contacts", mode="before")
+    @classmethod
+    def _normalise_secondary_contacts(cls, value: object) -> list[str]:
+        return normalise_secondary_contacts(value)
 
     @model_validator(mode="after")
     def _calculate_support_total(self) -> "LicenseBase":
@@ -205,6 +235,7 @@ class LicenseUpdate(BaseModel):
     supplier: Optional[str] = None
     cost_centre: Optional[str] = None
     budget_owner_email: Optional[str] = None
+    secondary_contacts: Optional[list[str]] = None
     portal_url: Optional[str] = None
     parent_license_id: Optional[int] = None
     maintenance_coverage: Optional[MaintenanceCoverage] = None
@@ -247,6 +278,11 @@ class LicenseUpdate(BaseModel):
     @classmethod
     def _normalise_invoice_numbers(cls, value: object) -> list[str]:
         return normalise_invoice_numbers(value)
+
+    @field_validator("secondary_contacts", mode="before")
+    @classmethod
+    def _normalise_secondary_contacts(cls, value: object) -> list[str]:
+        return normalise_secondary_contacts(value)
 
 
 class LicenseLifecycleRepairRequest(BaseModel):

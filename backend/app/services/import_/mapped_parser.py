@@ -5,6 +5,7 @@ import csv as csv_mod
 import io as io_mod
 
 from app.services.csv_importer import (
+    MULTI_VALUE_TARGETS,
     ParsedImportResult,
     ParsedRow,
     _RECOMMENDED_FIELDS,
@@ -43,7 +44,7 @@ def parse_mapped_csv(
     headers_missing = [f for f in _RECOMMENDED_FIELDS if f not in headers_found]
 
     for row_idx, raw_row in enumerate(all_raw_rows, start=1):
-        native_data: dict[str, str] = {}
+        native_data: dict[str, object] = {}
         custom_data: dict[str, str] = {}
         for raw_h, target in column_to_target.items():
             value = raw_row.get(raw_h, "").strip()
@@ -51,6 +52,8 @@ def parse_mapped_csv(
                 continue
             if target.startswith("cf_"):
                 custom_data[target] = value
+            elif target in MULTI_VALUE_TARGETS:
+                native_data.setdefault(target, []).append(value)
             else:
                 native_data[target] = value
         rows.append(

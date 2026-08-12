@@ -143,6 +143,7 @@ export const normalizeLicense = (l) => ({
   invoiceNumbers: Array.isArray(l.invoiceNumbers)
     ? l.invoiceNumbers.filter(Boolean)
     : (l.invoiceNumber ? [l.invoiceNumber] : []),
+  secondaryContacts: Array.isArray(l.secondaryContacts) ? l.secondaryContacts.filter(Boolean) : [],
   // API uses isRetired; frontend uses retired
   retired: l.isRetired ?? l.retired ?? false,
   // API returns null for no end date; frontend uses "" for perpetual display

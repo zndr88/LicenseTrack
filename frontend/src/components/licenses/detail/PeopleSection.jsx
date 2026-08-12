@@ -15,7 +15,12 @@ export default function PeopleSection({
   customFieldsLoading,
   makeCustomFieldSaveFn,
   closeFieldEdit,
+  openSecondaryContactsEdit = () => {},
 }) {
+  const secondaryContacts = Array.isArray(license.secondaryContacts)
+    ? license.secondaryContacts.filter(Boolean)
+    : [];
+  const primaryBudgetOwner = license.budgetOwnerEmail || "";
   const emailSubject = `Re: Contract ${license.contractNumber} - ${license.softwareDescription}`;
   const emailBody = `Dear ${license.publisherName} team,\n\nI am writing regarding:\n\nContract: ${license.contractNumber}\nPO: ${license.poNumber}\nInvoice: ${license.invoiceNumber}\nSoftware: ${license.softwareDescription}\nPeriod: ${license.startDate} → ${license.endDate}\n\nBest regards`;
   const mailto = `mailto:${license.contactEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
@@ -91,12 +96,22 @@ export default function PeopleSection({
           <div className="dp-field">
             <span className="dp-field-label">Budget Owner (Dept.)</span>
             <div className="dp-budget-row">
-              {license.budgetOwnerEmail ? (
-                <a href={`mailto:${license.budgetOwnerEmail}`} className="email-link dp-fieldval-sm">
-                  <Icon name="mail" size={12} color="var(--orange)" /> {license.budgetOwnerEmail}
+              {primaryBudgetOwner ? (
+                <a href={`mailto:${primaryBudgetOwner}`} className="email-link dp-fieldval-sm">
+                  <Icon name="mail" size={12} color="var(--orange)" /> {primaryBudgetOwner}
                 </a>
               ) : (
                 <span className="dp-not-set">Not set</span>
+              )}
+              {secondaryContacts.length > 0 && (
+                <button
+                  type="button"
+                  className="secondary-contact-count"
+                  onClick={openSecondaryContactsEdit}
+                  aria-label={`${secondaryContacts.length} secondary contact${secondaryContacts.length === 1 ? "" : "s"}`}
+                >
+                  +{secondaryContacts.length}
+                </button>
               )}
               {perms.canEdit && (
                 <button type="button" className="dp-field-edit-icon" aria-label="Edit budget owner"
@@ -105,8 +120,15 @@ export default function PeopleSection({
                   <Icon name="edit" size={11} />
                 </button>
               )}
+              {perms.canEdit && (
+                <button type="button" className="dp-field-edit-icon" aria-label="Edit secondary contacts"
+                  onClick={openSecondaryContactsEdit}
+                  onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  <Icon name="plus" size={11} />
+                </button>
+              )}
             </div>
-            <div className="dp-note">Receives renewal notification emails</div>
+            <div className="dp-note">Secondary contacts are CC&apos;d on renewal notification emails</div>
           </div>
           <CustomFieldRows
             fieldDefs={cfBySection["people"] ?? []}

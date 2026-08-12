@@ -20,6 +20,7 @@ from typing import Optional
 
 import logging
 
+from app.services.import_.date_parser import DATE_FORMAT_VARIANTS, parse_import_date
 from app.services.money import MoneyParseError, parse_localized_money
 
 logger = logging.getLogger("license_lifecycle.csv_importer")
@@ -42,6 +43,8 @@ _HEADER_MAP: dict[str, str] = {
     "contract": "contract_number",
     "po_number": "po_number",
     "po": "po_number",
+    "procurement_reference": "procurement_reference",
+    "procurement_ref": "procurement_reference",
     "request_date": "request_date",
     "purchase_date": "purchase_date",
     "invoice_number": "invoice_number",
@@ -68,6 +71,15 @@ _HEADER_MAP: dict[str, str] = {
     "currency": "currency",
     "notes": "notes",
     "budget_owner_email": "budget_owner_email",
+    "secondary_contacts": "secondary_contacts",
+    "secondary_contact": "secondary_contacts",
+    "secondary_contact_email": "secondary_contacts",
+    "application_owner": "secondary_contacts",
+    "application_owner_email": "secondary_contacts",
+    "app_owner": "secondary_contacts",
+    "app_owner_email": "secondary_contacts",
+    "technical_owner": "secondary_contacts",
+    "technical_owner_email": "secondary_contacts",
     "external_ref": "external_ref",
     "license_ref": "license_ref",
     # Flexera aliases - normalised from Flexera column names
@@ -89,6 +101,7 @@ _HEADER_MAP: dict[str, str] = {
     "lt_ref": "license_ref",  # "LT Ref"
     "publisher_contact": "contact_email",  # "Publisher Contact"
     "budget_owner": "budget_owner_email",  # "Budget Owner"
+    "application_owner_email_address": "secondary_contacts",
     "notice_deadline": "notice_date",  # "Notice Deadline"
     "portal_url": "portal_url",  # "Portal URL"
     "maintenance_coverage": "maintenance_coverage",
@@ -174,13 +187,7 @@ _VALID_MAINTENANCE_COVERAGE = {
 _TOTAL_PRICE_MISMATCH_RATIO = Decimal("10")
 _TOTAL_PRICE_MISMATCH_MIN_DELTA = Decimal("1")
 PRICE_MISMATCH_WARNING_PREFIX = "Calculated total (quantity x unit_price) differs from total_po_price"
-
-_DATE_FORMAT_VARIANTS = {
-    "DD/MM/YYYY": ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y"),
-    "MM/DD/YYYY": ("%m/%d/%Y", "%m-%d-%Y", "%m.%d.%Y"),
-    "YYYY-MM-DD": ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"),
-}
-
+MULTI_VALUE_TARGETS = frozenset({"secondary_contacts"})
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -202,6 +209,7 @@ class ParsedRow:
     end_date: Optional[str]  # ISO string or None (None = perpetual)
     contract_number: str
     po_number: str
+    procurement_reference: str
     invoice_number: str
     contact_email: str
     supplier: str
@@ -215,6 +223,7 @@ class ParsedRow:
     currency: str
     notes: Optional[str]
     budget_owner_email: str
+    secondary_contacts: list[str]
     external_ref: Optional[str]
     license_ref: Optional[str]
     parent_license_ref: Optional[str]
@@ -348,6 +357,27 @@ def _add_total_price_mismatch_warning(
     )
 
 
+def _split_secondary_contact_values(values: object) -> list[str]:
+    raw_values = values if isinstance(values, list) else [values]
+    contacts: list[str] = []
+    seen: set[str] = set()
+    for raw_value in raw_values:
+        for part in re.split(r"[;,]", str(raw_value or "")):
+            contact = part.strip()
+            if not contact:
+                continue
+            key = contact.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            contacts.append(contact)
+    return contacts
+
+
+def _field_text(data: dict[str, object], field: str) -> str:
+    return str(data.get(field, "") or "").strip()
+
+
 def _normalise_enum_value(raw: str) -> str:
     """Normalize human labels like "Per User" to enum values like "per_user"."""
     value = raw.strip().lower()
@@ -400,41 +430,6 @@ def _extract_license_type(normalised: str) -> str:
     return normalised
 
 
-def _parse_date(raw: str, date_format: str) -> tuple[Optional[date], bool, str, str]:
-    """Parse a date string.
-
-    Returns:
-        (parsed_date, is_perpetual, error_message, warning_message)
-        is_perpetual = True when the value means "no end date".
-        error_message is non-empty only when the value looks like a date
-        but could not be parsed.
-        warning_message is non-empty when a parseable value was normalized.
-    """
-    raw = raw.strip().strip("'\"")
-    if not raw:
-        return None, False, "", ""
-
-    if raw.lower() == "perpetual":
-        return None, True, "", ""
-
-    formats = ("%Y-%m-%d", *_DATE_FORMAT_VARIANTS.get(date_format, ("%d/%m/%Y",)))
-    for fmt in dict.fromkeys(formats):
-        try:
-            d = datetime.strptime(raw, fmt).date()
-            if d.year >= 2099:
-                return None, True, "", f"Date {raw!r} has year >= 2099 - treated as perpetual"
-            return d, False, "", ""
-        except ValueError:
-            continue
-
-    return (
-        None,
-        False,
-        f"Unrecognised date format: {raw!r}; expected ISO YYYY-MM-DD or declared format {date_format}",
-        "",
-    )
-
-
 def _parse_datetime(raw: str, date_format: str) -> tuple[Optional[datetime], str]:
     """Parse a procurement-milestone datetime (request_date / purchase_date).
 
@@ -455,7 +450,7 @@ def _parse_datetime(raw: str, date_format: str) -> tuple[Optional[datetime], str
         pass
 
     # Declared date format (DD/MM/YYYY, MM/DD/YYYY, ...) - hand-authored CSVs.
-    for fmt in _DATE_FORMAT_VARIANTS.get(date_format, ("%d/%m/%Y",)):
+    for fmt in DATE_FORMAT_VARIANTS.get(date_format, ("%d/%m/%Y",)):
         try:
             parsed = datetime.strptime(raw, fmt)
             return parsed.replace(tzinfo=timezone.utc), ""
@@ -498,7 +493,7 @@ def _classify_row(
 
 def _parse_row(
     row_number: int,
-    data: dict[str, str],
+    data: dict[str, object],
     default_currency: str = "EUR",
     number_format_locale: str = "en-US",
     date_format: str = "DD/MM/YYYY",
@@ -509,8 +504,8 @@ def _parse_row(
     has_parse_error = False
 
     # -- Required fields --------------------------------------------------
-    publisher_name = data.get("publisher_name", "").strip()
-    software_description = data.get("software_description", "").strip()
+    publisher_name = _field_text(data, "publisher_name")
+    software_description = _field_text(data, "software_description")
 
     # -- Date fields ------------------------------------------------------
     db_start_date: Optional[date] = None
@@ -521,9 +516,9 @@ def _parse_row(
     notice_date_str: Optional[str] = None
     is_perpetual = False
 
-    start_raw = data.get("start_date", "").strip()
+    start_raw = _field_text(data, "start_date")
     if start_raw:
-        sd, _, sd_err, sd_warn = _parse_date(start_raw, date_format)
+        sd, _, sd_err, sd_warn = parse_import_date(start_raw, date_format)
         if sd_err:
             errors.append(f"start_date: {sd_err}")
             has_parse_error = True
@@ -534,9 +529,9 @@ def _parse_row(
                 db_start_date = sd
                 start_date_str = sd.isoformat()
 
-    end_raw = data.get("end_date", "").strip()
+    end_raw = _field_text(data, "end_date")
     if end_raw:
-        ed, ed_perp, ed_err, ed_warn = _parse_date(end_raw, date_format)
+        ed, ed_perp, ed_err, ed_warn = parse_import_date(end_raw, date_format)
         if ed_err:
             errors.append(f"end_date: {ed_err}")
             has_parse_error = True
@@ -549,9 +544,9 @@ def _parse_row(
                 end_date_str = ed.isoformat()
             # perpetual → db_end_date stays None, end_date_str stays None
 
-    notice_raw = data.get("notice_date", "").strip()
+    notice_raw = _field_text(data, "notice_date")
     if notice_raw:
-        nd, _, nd_err, nd_warn = _parse_date(notice_raw, date_format)
+        nd, _, nd_err, nd_warn = parse_import_date(notice_raw, date_format)
         if nd_err:
             errors.append(f"notice_date: {nd_err}")
             has_parse_error = True
@@ -565,12 +560,12 @@ def _parse_row(
                     warnings.append("notice_date falls after end_date")
 
     # -- Procurement milestone datetimes ----------------------------------
-    db_request_date, request_err = _parse_datetime(data.get("request_date", ""), date_format)
+    db_request_date, request_err = _parse_datetime(_field_text(data, "request_date"), date_format)
     if request_err:
         errors.append(f"request_date: {request_err}")
         has_parse_error = True
 
-    db_purchase_date, purchase_err = _parse_datetime(data.get("purchase_date", ""), date_format)
+    db_purchase_date, purchase_err = _parse_datetime(_field_text(data, "purchase_date"), date_format)
     if purchase_err:
         errors.append(f"purchase_date: {purchase_err}")
         has_parse_error = True
@@ -578,14 +573,14 @@ def _parse_row(
     # -- Enum fields -------------------------------------------------------
     has_enum_error = False
 
-    license_type = _extract_license_type(_normalise_enum_value(data.get("license_type", "")))
+    license_type = _extract_license_type(_normalise_enum_value(_field_text(data, "license_type")))
     license_type = _LICENSE_TYPE_VALUE_ALIASES.get(license_type, license_type)
     if license_type and license_type not in _VALID_LICENSE_TYPES:
         errors.append(f"Unrecognised license_type {license_type!r}; correct the value or remove the column")
         license_type = ""
         has_enum_error = True
 
-    license_metric = _normalise_enum_value(data.get("license_metric", ""))
+    license_metric = _normalise_enum_value(_field_text(data, "license_metric"))
     license_metric = _LICENSE_METRIC_VALUE_ALIASES.get(license_metric, license_metric)
     if license_metric and license_metric not in _VALID_LICENSE_METRICS:
         errors.append(f"Unrecognised license_metric {license_metric!r}; correct the value or remove the column")
@@ -593,14 +588,14 @@ def _parse_row(
         has_enum_error = True
 
     # -- Currency default -------------------------------------------------
-    _currency_raw = data.get("currency", "").strip()
+    _currency_raw = _field_text(data, "currency")
     currency = _currency_raw or default_currency
     currency_defaulted = not bool(_currency_raw)
     numeric_error_count = len(errors)
-    quantity = _parse_localized_numeric_field(data.get("quantity", ""), "quantity", errors, number_format_locale)
-    unit_price = _parse_localized_numeric_field(data.get("unit_price", ""), "unit_price", errors, number_format_locale)
+    quantity = _parse_localized_numeric_field(_field_text(data, "quantity"), "quantity", errors, number_format_locale)
+    unit_price = _parse_localized_numeric_field(_field_text(data, "unit_price"), "unit_price", errors, number_format_locale)
     total_po_price = _parse_localized_numeric_field(
-        data.get("total_po_price", ""), "total_po_price", errors, number_format_locale
+        _field_text(data, "total_po_price"), "total_po_price", errors, number_format_locale
     )
     has_parse_error = has_parse_error or len(errors) > numeric_error_count
     _add_total_price_mismatch_warning(quantity, unit_price, total_po_price, warnings)
@@ -608,19 +603,25 @@ def _parse_row(
     # -- Budget owner email - reject SMTP command-injection payloads ------
     # (CVE-2026-53533 hardening: this value eventually reaches
     # aiosmtplib.send(recipients=...) via the daily notification job.)
-    budget_owner_email = data.get("budget_owner_email", "").strip()
+    budget_owner_email = _field_text(data, "budget_owner_email")
     if any(ch in budget_owner_email for ch in ("\r", "\n", "\x00")):
         errors.append("budget_owner_email contains invalid characters (line breaks or null bytes)")
         has_parse_error = True
         budget_owner_email = ""
 
+    secondary_contacts = _split_secondary_contact_values(data.get("secondary_contacts", []))
+    if any(any(ch in contact for ch in ("\r", "\n", "\x00")) for contact in secondary_contacts):
+        errors.append("secondary_contacts contains invalid characters (line breaks or null bytes)")
+        has_parse_error = True
+        secondary_contacts = []
+
     # -- Parent linkage (for maintenance rows) ----------------------------
-    parent_license_ref = data.get("parent_license_ref", "").strip() or None
+    parent_license_ref = _field_text(data, "parent_license_ref") or None
 
     # -- Optional enrichment fields ----------------------------------------
-    portal_url = data.get("portal_url", "").strip() or None
+    portal_url = _field_text(data, "portal_url") or None
 
-    maintenance_coverage_raw = _normalise_enum_value(data.get("maintenance_coverage", ""))
+    maintenance_coverage_raw = _normalise_enum_value(_field_text(data, "maintenance_coverage"))
     if maintenance_coverage_raw and maintenance_coverage_raw not in _VALID_MAINTENANCE_COVERAGE:
         warnings.append(f"Unrecognised maintenance_coverage {maintenance_coverage_raw!r}; defaulting to 'unknown'")
         maintenance_coverage_raw = None
@@ -656,23 +657,25 @@ def _parse_row(
         start_date=start_date_str,
         end_date=end_date_str,
         notice_date=notice_date_str,
-        contract_number=data.get("contract_number", "").strip(),
-        po_number=data.get("po_number", "").strip(),
-        invoice_number=data.get("invoice_number", "").strip(),
-        contact_email=data.get("contact_email", "").strip(),
-        supplier=data.get("supplier", "").strip(),
-        cost_centre=data.get("cost_centre", "").strip(),
+        contract_number=_field_text(data, "contract_number"),
+        po_number=_field_text(data, "po_number"),
+        procurement_reference=_field_text(data, "procurement_reference"),
+        invoice_number=_field_text(data, "invoice_number"),
+        contact_email=_field_text(data, "contact_email"),
+        supplier=_field_text(data, "supplier"),
+        cost_centre=_field_text(data, "cost_centre"),
         license_type=license_type,
         license_metric=license_metric,
         quantity=quantity,
-        sku_code=data.get("sku_code", "").strip(),
+        sku_code=_field_text(data, "sku_code"),
         unit_price=unit_price,
         total_po_price=total_po_price,
         currency=currency,
-        notes=data.get("notes", "").strip() or None,
+        notes=_field_text(data, "notes") or None,
         budget_owner_email=budget_owner_email,
-        external_ref=data.get("external_ref", "").strip() or None,
-        license_ref=data.get("license_ref", "").strip() or None,
+        secondary_contacts=secondary_contacts,
+        external_ref=_field_text(data, "external_ref") or None,
+        license_ref=_field_text(data, "license_ref") or None,
         parent_license_ref=parent_license_ref,
         portal_url=portal_url,
         maintenance_coverage=maintenance_coverage,
@@ -717,7 +720,8 @@ def parse_csv(
     raw_headers: list[str] = list(reader.fieldnames or [])
 
     # Build raw_header → native/custom target mapping (first match wins for
-    # duplicates). Native and ignored headers take precedence over custom names.
+    # duplicates, except explicit multi-value targets). Native and ignored
+    # headers take precedence over custom names.
     header_mapping: dict[str, str] = {}
     mapped_fields: set[str] = set()
     for raw_h in raw_headers:
@@ -725,7 +729,7 @@ def parse_csv(
         target = _HEADER_MAP.get(normalized)
         if target is None and normalized not in _IGNORED_HEADERS:
             target = (custom_field_header_map or {}).get(normalized)
-        if target and target not in mapped_fields:
+        if target and (target not in mapped_fields or target in MULTI_VALUE_TARGETS):
             header_mapping[raw_h] = target
             mapped_fields.add(target)
 
@@ -737,11 +741,15 @@ def parse_csv(
     rows: list[ParsedRow] = []
     custom_rows: list[dict[str, str]] = []
     for row_idx, raw_row in enumerate(reader, start=1):
-        row_data: dict[str, str] = {
-            target: (raw_row.get(raw_h) or "")
-            for raw_h, target in header_mapping.items()
-            if not target.startswith("cf_")
-        }
+        row_data: dict[str, object] = {}
+        for raw_h, target in header_mapping.items():
+            if target.startswith("cf_"):
+                continue
+            value = raw_row.get(raw_h) or ""
+            if target in MULTI_VALUE_TARGETS:
+                row_data.setdefault(target, []).append(value)
+            else:
+                row_data[target] = value
         custom_data: dict[str, str] = {
             target: (raw_row.get(raw_h) or "").strip()
             for raw_h, target in header_mapping.items()

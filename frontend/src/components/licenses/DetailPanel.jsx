@@ -16,6 +16,7 @@ import HistorySection from "./detail/HistorySection.jsx";
 import FieldEditModal from "./FieldEditModal.jsx";
 import MaintenanceCreateModal from "./MaintenanceCreateModal.jsx";
 import InvoiceNumbersModal from "./InvoiceNumbersModal.jsx";
+import SecondaryContactsModal from "./SecondaryContactsModal.jsx";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 
@@ -52,6 +53,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     showMaintenanceModal, setShowMaintenanceModal,
     fieldEdit, openFieldEdit, closeFieldEdit, handleFieldSaved,
     invoiceNumbersEdit, openInvoiceNumbersEdit, closeInvoiceNumbersEdit,
+    secondaryContactsEdit, openSecondaryContactsEdit, closeSecondaryContactsEdit,
     toast, setToast,
     editingLicense, setEditingLicense,
     editFields, setEditFields,
@@ -225,6 +227,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               customFieldsLoading={customFieldsLoading}
               makeCustomFieldSaveFn={makeCustomFieldSaveFn}
               closeFieldEdit={closeFieldEdit}
+              openSecondaryContactsEdit={openSecondaryContactsEdit}
             />
 
             {/* Documents */}
@@ -414,6 +417,19 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
             closeInvoiceNumbersEdit();
           }}
           onClose={closeInvoiceNumbersEdit}
+        />
+      )}
+
+      {secondaryContactsEdit && (
+        <SecondaryContactsModal
+          licenseId={license.id}
+          primaryContact={license.budgetOwnerEmail}
+          secondaryContacts={license.secondaryContacts}
+          onSave={(updatedLicense) => {
+            onUpdate(license.id, updatedLicense);
+            closeSecondaryContactsEdit();
+          }}
+          onClose={closeSecondaryContactsEdit}
         />
       )}
     </div>

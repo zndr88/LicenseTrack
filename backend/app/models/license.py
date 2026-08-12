@@ -116,6 +116,7 @@ class License(Base):
     supplier: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     cost_centre: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     budget_owner_email: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    secondary_contacts: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
 
     # Free-text notes
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

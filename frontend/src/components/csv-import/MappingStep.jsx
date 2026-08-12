@@ -8,6 +8,10 @@ function looksLikeLTExport(analyzeData) {
   return (analyzeData?.matchedColumns ?? []).some((c) => c.internalField === "license_ref");
 }
 
+function isFieldAvailable(field, matchedInternalFields) {
+  return field.value === "secondary_contacts" || !matchedInternalFields.has(field.value);
+}
+
 export default function MappingStep({
   analyzeData,
   error,
@@ -114,7 +118,7 @@ export default function MappingStep({
                     <div className="mapping-row-detail">
                       <select className="fi fi-select mapping-field-select" value={decision.targetField} onChange={e => updateDecision(col.rawHeader, { targetField: e.target.value })} aria-label={`Map ${col.rawHeader} to field`}>
                         <option value="">— select a field —</option>
-                        {NATIVE_FIELDS.filter(f => !matchedInternalFields.has(f.value)).map(f => (
+                        {NATIVE_FIELDS.filter(f => isFieldAvailable(f, matchedInternalFields)).map(f => (
                           <option key={f.value} value={f.value} disabled={f.disabled ?? false}>{f.label}</option>
                         ))}
                         {(customFieldDefs || []).length > 0 && (

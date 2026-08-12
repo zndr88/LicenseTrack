@@ -13,6 +13,7 @@ _STRING_PATCH_FIELDS: list[tuple[str, str]] = [
     ("publisher_name", "publisher_name"),
     ("software_description", "software_description"),
     ("po_number", "po_number"),
+    ("procurement_reference", "procurement_reference"),
     ("invoice_number", "invoice_number"),
     ("contact_email", "contact_email"),
     ("supplier", "supplier"),
@@ -83,6 +84,8 @@ async def apply_import_update(
         license_obj.request_date = row.db_request_date
     if row.db_purchase_date is not None:
         license_obj.purchase_date = row.db_purchase_date
+    if row.secondary_contacts:
+        license_obj.secondary_contacts = row.secondary_contacts
 
     if custom_data:
         await upsert_imported_values_for_license(db, license_obj.id, custom_data, number_format_locale, date_format)

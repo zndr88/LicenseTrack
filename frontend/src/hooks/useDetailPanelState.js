@@ -30,6 +30,7 @@ export function useDetailPanelState({
   const [confirmAction, setConfirmAction] = useState(null);
   const [fieldEdit, setFieldEdit] = useState(null);
   const [invoiceNumbersEdit, setInvoiceNumbersEdit] = useState(false);
+  const [secondaryContactsEdit, setSecondaryContactsEdit] = useState(false);
   const [displayUnitPrice, setDisplayUnitPrice] = useState("");
   const [editingLicense, setEditingLicense] = useState(false);
   const [editFields, setEditFields] = useState({});
@@ -231,6 +232,8 @@ export function useDetailPanelState({
   const closeFieldEdit = () => setFieldEdit(null);
   const openInvoiceNumbersEdit = () => setInvoiceNumbersEdit(true);
   const closeInvoiceNumbersEdit = () => setInvoiceNumbersEdit(false);
+  const openSecondaryContactsEdit = () => setSecondaryContactsEdit(true);
+  const closeSecondaryContactsEdit = () => setSecondaryContactsEdit(false);
 
   const handleFieldSaved = (updatedLicense) => {
     if (fieldEdit) {
@@ -337,6 +340,7 @@ export function useDetailPanelState({
     // Field edit
     fieldEdit, openFieldEdit, closeFieldEdit, handleFieldSaved,
     invoiceNumbersEdit, openInvoiceNumbersEdit, closeInvoiceNumbersEdit,
+    secondaryContactsEdit, openSecondaryContactsEdit, closeSecondaryContactsEdit,
 
     // Toast
     toast, setToast,

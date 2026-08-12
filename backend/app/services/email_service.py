@@ -41,25 +41,26 @@ async def send_email(
     to: str,
     subject: str,
     html_body: str,
-    cc: str | None = None,
+    cc: str | list[str] | None = None,
 ) -> None:
     """Send a single email using SMTP settings from GlobalSettings."""
     if not gs.smtp_host or not gs.smtp_sender:
         raise ValueError("SMTP is not configured")
 
     _reject_crlf_recipient(to)
-    if cc:
-        _reject_crlf_recipient(cc)
+    cc_recipients = [cc] if isinstance(cc, str) else list(cc or [])
+    for recipient in cc_recipients:
+        _reject_crlf_recipient(recipient)
 
     msg = MIMEMultipart("alternative")
     msg["From"] = gs.smtp_sender
     msg["To"] = to
     msg["Subject"] = subject
-    if cc:
-        msg["Cc"] = cc
+    if cc_recipients:
+        msg["Cc"] = ", ".join(cc_recipients)
     msg.attach(MIMEText(html_body, "html"))
 
-    recipients = [to, cc] if cc else [to]
+    recipients = [to, *cc_recipients]
     encryption = _smtp_encryption_mode(gs)
     await aiosmtplib.send(
         msg,

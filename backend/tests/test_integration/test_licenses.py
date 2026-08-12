@@ -321,6 +321,26 @@ async def test_update_license_invoice_numbers_mirrors_primary(test_app, auth_hea
     assert body["invoiceNumbers"] == ["INV-1", "INV-2", "INV-3"]
 
 
+async def test_update_license_secondary_contacts_round_trips(test_app, auth_headers):
+    created = await _create_license(test_app, auth_headers, budgetOwnerEmail="owner@example.com")
+
+    resp = await test_app.put(
+        f"/api/licenses/{created['id']}",
+        json={
+            "secondaryContacts": [
+                " secondary@example.com ",
+                "SECONDARY@example.com",
+                "",
+                "legal@example.com",
+            ]
+        },
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["secondaryContacts"] == ["secondary@example.com", "legal@example.com"]
+
+
 async def test_patch_invoice_number_replaces_invoice_number_list(test_app, auth_headers):
     created = await _create_license(test_app, auth_headers, invoiceNumber="INV-1")
     await test_app.put(

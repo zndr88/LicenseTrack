@@ -508,6 +508,22 @@ def test_request_and_purchase_date_headers_auto_map_and_parse():
     assert row.db_purchase_date.tzinfo is not None
 
 
+def test_procurement_reference_header_auto_maps():
+    csv_bytes = _csv(
+        ["Publisher", "Description", "Procurement Reference"],
+        [{
+            "Publisher": "Acme",
+            "Description": "Widget",
+            "Procurement Reference": "REQ-2026-001",
+        }],
+    )
+    result = parse_csv(csv_bytes)
+    row = result.rows[0]
+
+    assert "procurement_reference" in result.headers_found
+    assert row.procurement_reference == "REQ-2026-001"
+
+
 def test_purchase_date_maps_to_purchase_date_field_not_start_date():
     # Regression: "Purchase Date" was mis-aliased to start_date (Flexera fallback).
     csv_bytes = _csv(
@@ -679,6 +695,54 @@ def test_budget_owner_email_normal_value_passes_through():
     assert row.validation_errors == []
 
 
+def test_secondary_contacts_auto_map_application_owner_aliases():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "Application Owner Email", "Technical Owner Email"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            "Application Owner Email": " app.owner@example.com ",
+            "Technical Owner Email": "tech.owner@example.com",
+        }],
+    )
+    result = parse_csv(csv_bytes)
+    row = result.rows[0]
+
+    assert "secondary_contacts" in result.headers_found
+    assert row.secondary_contacts == ["app.owner@example.com", "tech.owner@example.com"]
+    assert row.validation_errors == []
+
+
+def test_secondary_contacts_split_and_dedupe_values():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "secondary_contacts"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            "secondary_contacts": "app.owner@example.com; App.Owner@example.com, legal@example.com",
+        }],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.secondary_contacts == ["app.owner@example.com", "legal@example.com"]
+
+
+def test_secondary_contacts_with_crlf_flagged_as_row_error():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "application_owner_email"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            "application_owner_email": "owner@example.com\r\nRCPT TO:<evil@x>",
+        }],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.import_status == "error"
+    assert row.secondary_contacts == []
+    assert any("secondary_contacts" in e for e in row.validation_errors)
+
+
 # ---------------------------------------------------------------------------
 # build_warning_summary
 # ---------------------------------------------------------------------------
@@ -698,6 +762,7 @@ def _make_row(**kwargs) -> ParsedRow:
         notice_date=None,
         contract_number="",
         po_number="",
+        procurement_reference="",
         invoice_number="",
         contact_email="",
         supplier="",
@@ -711,6 +776,7 @@ def _make_row(**kwargs) -> ParsedRow:
         currency="EUR",
         notes=None,
         budget_owner_email="",
+        secondary_contacts=[],
         external_ref=None,
         license_ref=None,
         parent_license_ref=None,

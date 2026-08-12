@@ -16,7 +16,7 @@ from sqlalchemy.orm import selectinload
 from app.models.custom_fields import CustomFieldDefinition, CustomFieldValue
 from app.models.license import License
 from app.schemas.custom_fields import CustomFieldDefinitionCreate, CustomFieldDefinitionUpdate, CustomFieldValuesUpsert
-from app.services.csv_importer import _parse_date
+from app.services.import_.date_parser import parse_import_date
 from app.services.money import MoneyParseError, parse_localized_money, parse_money
 
 
@@ -120,7 +120,7 @@ def _normalise_date_value(value: object, date_format: str | None = None) -> str 
         return None
     raw = str(value).strip()
     if date_format is not None:
-        parsed, is_perpetual, error, _warning = _parse_date(raw, date_format)
+        parsed, is_perpetual, error, _warning = parse_import_date(raw, date_format)
         if parsed is not None:
             return parsed.isoformat()
         if not is_perpetual and not error:

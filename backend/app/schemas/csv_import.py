@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, computed_field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 from pydantic.alias_generators import to_camel
 
 from app.services.email_validation import reject_email_crlf
@@ -111,8 +111,11 @@ class CSVImportPreviewRow(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     notice_date: Optional[str] = None
+    request_date: Optional[str] = None
+    purchase_date: Optional[str] = None
     contract_number: str = ""
     po_number: str = ""
+    procurement_reference: str = ""
     invoice_number: str = ""
     contact_email: str = ""
     supplier: str = ""
@@ -126,6 +129,7 @@ class CSVImportPreviewRow(BaseModel):
     currency: str = "EUR"
     notes: Optional[str] = None
     budget_owner_email: str = ""
+    secondary_contacts: list[str] = Field(default_factory=list)
     parent_license_ref: Optional[str] = None
 
     # Classification

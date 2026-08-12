@@ -46,6 +46,27 @@ def test_license_create_rejects_crlf_budget_owner_email():
         LicenseCreate(**_license_create_kwargs(budget_owner_email=_INJECTION_PAYLOAD))
 
 
+def test_license_create_normalises_secondary_contacts():
+    m = LicenseCreate(
+        **_license_create_kwargs(
+            secondary_contacts=[
+                " secondary@example.com ",
+                "",
+                None,
+                "SECONDARY@example.com",
+                "other@example.com",
+            ]
+        )
+    )
+
+    assert m.secondary_contacts == ["secondary@example.com", "other@example.com"]
+
+
+def test_license_create_rejects_crlf_secondary_contacts():
+    with pytest.raises(ValidationError):
+        LicenseCreate(**_license_create_kwargs(secondary_contacts=[_INJECTION_PAYLOAD]))
+
+
 # ── app.schemas.license.LicenseUpdate ─────────────────────────────────────────
 
 def test_license_update_allows_none_budget_owner_email():
@@ -61,6 +82,24 @@ def test_license_update_allows_normal_budget_owner_email():
 def test_license_update_rejects_crlf_budget_owner_email():
     with pytest.raises(ValidationError):
         LicenseUpdate(budget_owner_email=_INJECTION_PAYLOAD)
+
+
+def test_license_update_normalises_secondary_contacts():
+    m = LicenseUpdate(
+        secondary_contacts=[
+            " cc@example.com ",
+            "CC@example.com",
+            "",
+            "legal@example.com",
+        ]
+    )
+
+    assert m.secondary_contacts == ["cc@example.com", "legal@example.com"]
+
+
+def test_license_update_rejects_crlf_secondary_contacts():
+    with pytest.raises(ValidationError):
+        LicenseUpdate(secondary_contacts=[_INJECTION_PAYLOAD])
 
 
 # ── app.schemas.csv_import.CSVImportPreviewRow ───────────────────────────────

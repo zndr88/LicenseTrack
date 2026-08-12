@@ -3,6 +3,7 @@ import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testin
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import DetailPanel from '../components/licenses/DetailPanel.jsx'
+import { updateLicense } from '../api/licenses.js'
 
 vi.mock('../api/documents.js', () => ({
   getDocuments: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -154,6 +155,45 @@ describe('DetailPanel identity references', () => {
 
     expect(screen.getByText('LT-2026-00001')).toBeInTheDocument()
     expect(screen.queryByText(/LT-2026-00001 \|/)).not.toBeInTheDocument()
+  })
+})
+
+describe('DetailPanel secondary contacts', () => {
+  it('edits secondary contacts from the people section', async () => {
+    const user = userEvent.setup()
+    updateLicense.mockResolvedValue({
+      data: {
+        ...baseLicense,
+        budgetOwnerEmail: 'owner@example.com',
+        secondaryContacts: ['legal@example.com'],
+      },
+      error: null,
+    })
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        license={{
+          ...baseLicense,
+          budgetOwnerEmail: 'owner@example.com',
+          secondaryContacts: ['secondary@example.com'],
+        }}
+      />
+    )
+
+    await user.click(screen.getByText('Relationships'))
+    await user.click(screen.getByRole('button', { name: /edit secondary contacts/i }))
+    const input = screen.getByLabelText('Secondary contact')
+    await user.clear(input)
+    await user.type(input, 'legal@example.com')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(updateLicense).toHaveBeenCalledWith(1, {
+        secondaryContacts: ['legal@example.com'],
+      })
+    })
   })
 })
 

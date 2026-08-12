@@ -37,6 +37,27 @@ def _is_domain_allowed(email: str, allowed: list[str]) -> bool:
     return domain in [d.lower().strip() for d in allowed]
 
 
+def _add_recipient(recipients: list[str], seen: set[str], email: str | None) -> None:
+    email = (email or "").strip()
+    if not email:
+        return
+    key = email.lower()
+    if key in seen:
+        return
+    seen.add(key)
+    recipients.append(email)
+
+
+def _budget_owner_cc_recipients(owner_email: str, licenses_list: list, manager_email: str | None) -> list[str]:
+    seen = {owner_email.lower()}
+    recipients: list[str] = []
+    for license_entry in licenses_list:
+        for email in license_entry.get("secondary_contacts", []) or []:
+            _add_recipient(recipients, seen, email)
+    _add_recipient(recipients, seen, manager_email)
+    return recipients
+
+
 async def run_daily_notifications(db: AsyncSession) -> dict:
     """
     Run the daily notification check. Returns a summary dict with
@@ -150,7 +171,8 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
                 )
             else:
                 subject = f"License Lifecycle: {len(owner_licenses)} licenses requiring your attention"
-            cc = gs.manager_email if gs.manager_email and gs.manager_email != owner_email else None
+            cc_recipients = _budget_owner_cc_recipients(owner_email, licenses_list, gs.manager_email)
+            cc = [email for email in cc_recipients if _is_domain_allowed(email, allowed_domains)]
             await send_email(gs, owner_email, subject, html, cc=cc)
             budget_owner_count += 1
         except Exception as exc:
@@ -218,6 +240,7 @@ def _build_license_entry(
         "po_number": lic.po_number or "",
         "contact_email": lic.contact_email or "",
         "budget_owner_email": lic.budget_owner_email or "",
+        "secondary_contacts": list(lic.secondary_contacts or []),
         "completeness_pct": completeness,
         "parent_license_id": lic.parent_license_id,
         "parent_publisher_name": None,

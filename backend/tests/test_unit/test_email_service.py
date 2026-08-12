@@ -169,6 +169,27 @@ async def test_send_email_sets_cc_header_when_provided():
     assert msg["Cc"] == "cc@example.com"
 
 
+async def test_send_email_sets_multi_cc_header_when_provided():
+    gs = _make_gs()
+    captured: list[MIMEMultipart] = []
+
+    async def fake_send(msg, **kwargs):
+        captured.append(msg)
+
+    with patch("app.services.email_service.aiosmtplib.send", new=fake_send), \
+         patch("app.services.email_service.decrypt_secret", return_value="plain-pw"):
+        await send_email(
+            gs,
+            "to@example.com",
+            "Subject",
+            "<p>body</p>",
+            cc=["cc@example.com", "legal@example.com"],
+        )
+
+    msg = captured[0]
+    assert msg["Cc"] == "cc@example.com, legal@example.com"
+
+
 async def test_send_email_attaches_html_part():
     gs = _make_gs()
     captured: list[MIMEMultipart] = []
@@ -213,6 +234,24 @@ async def test_send_email_recipients_with_cc():
 
     kwargs = send_mock.await_args.kwargs
     assert kwargs["recipients"] == ["to@example.com", "cc@example.com"]
+
+
+async def test_send_email_recipients_with_multiple_cc():
+    gs = _make_gs()
+    send_mock = AsyncMock()
+
+    with patch("app.services.email_service.aiosmtplib.send", new=send_mock), \
+         patch("app.services.email_service.decrypt_secret", return_value="pw"):
+        await send_email(
+            gs,
+            "to@example.com",
+            "Subj",
+            "<p/>",
+            cc=["cc@example.com", "legal@example.com"],
+        )
+
+    kwargs = send_mock.await_args.kwargs
+    assert kwargs["recipients"] == ["to@example.com", "cc@example.com", "legal@example.com"]
 
 
 # ---------------------------------------------------------------------------
