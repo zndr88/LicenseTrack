@@ -86,6 +86,7 @@ const HELP_ARTICLES = [
           "Contract #, PO #, Procurement Reference, and Invoice #: commercial and workflow references used to reconcile the license with contracts, purchase orders, internal requests, and invoices. A license can hold multiple invoice numbers; the first invoice is treated as the primary value shown in the table and CSV exports.",
           "Supplier: the reseller or vendor that supplied the license. Leave empty for a direct publisher purchase.",
           "Department and Budget Owner: identify the internal owner. The budget-owner email receives renewal notifications when configured and when the license's renewal notifications flag is enabled.",
+          "Secondary Contacts: additional internal contacts copied on budget-owner renewal emails. They are useful for application owners, technical owners, or shared mailbox stakeholders who should stay informed without replacing the budget owner.",
           "Publisher Contact: the external contact email used for publisher communication.",
           "Type: the license model, such as subscription, perpetual, maintenance, SaaS, OEM, or freeware.",
           "Metric and Purchase Quantity: the metric describes how entitlement usage is counted, such as per user, per device, or enterprise-wide; Purchase Quantity is the quantity as purchased on the order. Effective or per-unit quantities live downstream in your SAM tool or in custom fields.",
@@ -166,7 +167,10 @@ const HELP_ARTICLES = [
         heading: "Things to know",
         bullets: [
           "When an LT Ref column is present, Native and External Tool imports offer an auto-enabled option to update the current matching record instead of creating a duplicate. Turning it off keeps create-only behavior.",
+          "Request date, purchase date, procurement reference, parent LT Ref, and secondary contacts are importable fields. Secondary Contacts can receive more than one mapped source column, such as application owner and technical owner email fields.",
           "Maintenance parent references must resolve before import, unless LicenseTrack can infer a clear parent from the same file.",
+          "Far-future end dates such as 2099 are treated as perpetual license indicators instead of row errors.",
+          "When an external export has both purchase quantity and quantity-per-unit columns, map the purchased entitlement count to Purchase Quantity. Quantity-per-unit values describe package size and should not replace the purchased count.",
           "Currency defaults are reported as informational warnings; by themselves they do not require acknowledgement.",
           "CSV imports are audited with inserted, updated, skipped, error, warning-summary, custom-field failure, and acknowledgement details.",
           "For non-maintenance rows, parent_license_ref is treated as a renewal predecessor reference.",

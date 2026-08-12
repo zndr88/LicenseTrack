@@ -26,6 +26,11 @@ The override belongs to the import, not to your account. This lets you import a
 supplier or legacy spreadsheet that uses different separators without changing
 how LicenseTrack displays numbers elsewhere.
 
+The same import settings also apply to date parsing. Native and mapped imports
+accept ISO dates or the date format selected for the file, including custom date
+fields. Far-future end dates such as `1-1-2099` are treated as a perpetual
+license signal instead of blocking the row.
+
 You have two ways to get your data in:
 
 - **Use this template** to migrate your own license data into the known default format, or
@@ -34,6 +39,19 @@ You have two ways to get your data in:
 When a file contains an **LT Ref** column, either path offers an auto-enabled option to update the current matching license instead of creating a duplicate. This makes it safe to export a list, make small spreadsheet corrections, and re-import it. Turn the option off when you intentionally want new records.
 
 Native Import also recognizes existing custom fields. **Export Full Data** writes their stable `cf_*` keys as headers, so custom values round-trip automatically. Files that use the custom field's display name are also matched when that name identifies one field unambiguously. During an LT Ref update, a nonblank custom-field value is patched and a blank cell preserves the value already stored.
+
+The native template and manual mapping include the current LicenseTrack fields,
+including request date, purchase date, procurement reference, parent LT Ref, and
+secondary contacts. For external exports with several owner email columns, map
+the primary owner to **Budget Owner** and any additional people who should be
+copied on renewal emails to **Secondary Contacts**. That target can accept more
+than one source column.
+
+Some external tools expose both a purchase quantity and a quantity-per-unit
+value. Use the purchased entitlement count for **Purchase Quantity**. A
+quantity-per-unit value, such as a bundle size or lines-of-code pack size,
+should stay in the source tool or be imported into a custom field if you need it
+for reference.
 
 ## Mapping a custom file
 

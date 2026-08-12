@@ -61,7 +61,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `MaintenanceSection.jsx` | Maintenance coverage dates, linked maintenance children, add/disable maintenance actions |
 | `HistorySection.jsx` | Read-only License Record ID, creator account label, license-row creation and last-update timestamps, plus procurement-trail links to source sourcing and pending-order records |
 | `CommercialSection.jsx` | License type, metric, quantity, SKU, pricing, currency |
-| `PeopleSection.jsx` | Supplier, cost centre, publisher contact link, budget owner |
+| `PeopleSection.jsx` | Supplier, cost centre, publisher contact link, budget owner, secondary contacts |
 | `EmailPublisherAction.jsx` | Bottom Email Publisher action, same-PO/same-publisher scope prompt, mailto construction |
 | `DocumentsSection.jsx` | License/procurement document display, upload/download/delete controls, and integration-backed document action buttons |
 | `CompletenessFlagsSection.jsx` | Completeness checklist and retired/legacy/exempt toggles |
@@ -206,7 +206,7 @@ Keep backend permission invariants in the API/services and page-level mutation w
 
 `CSVImportPage.jsx` should remain a UI shell that wires `useCSVImportState` into `UploadStep`, `MappingStep`, `PreviewStep`, and `DoneStep`.
 
-The frontend forwards the same declared number/date formats through native preview/confirm and mapped preview/execute. The backend parses localized input only at that boundary: quantity, price, and mapped custom currency values become canonical decimal strings; dates accept ISO or the declared date format. Invalid values become row errors.
+The frontend forwards the same declared number/date formats through native preview/confirm and mapped preview/execute. The backend parses localized input only at that boundary: quantity, price, and mapped custom currency values become canonical decimal strings; dates accept ISO or the declared date format. Far-future end dates such as 2099 import as perpetual records instead of row errors. Invalid values become row errors.
 
 The backend is the source of truth for import warning summaries. Preview responses include `warningSummary`; execute/confirm requests must send `acknowledge_warnings=true` when that summary has acknowledgement-required warnings. The route rechecks the summary before writing so a stale or hand-built client cannot bypass the gate.
 
@@ -217,6 +217,15 @@ Both write paths rebuild maintenance inference, update-target annotations, dupli
 Import mapping presets are shared configuration. Editors may list and use presets; only admins may create, replace, rename, or delete them. The execute endpoint must not use its optional `mappingName` field to bypass that boundary.
 
 Existing custom fields participate in both import paths. Native preview/confirm loads definitions and resolves headers by immutable `field_key` first and by normalized display name only when that name is unambiguous; native and ignored headers retain precedence. External analysis reports those same matches automatically, and unresolved columns may be assigned to an existing definition. Only admins may create definitions. Native and mapped values share `custom_fields_service` validation/upsert behavior, including typed row errors and nonblank-only patches during LT-Ref updates.
+
+Native and mapped import fields should stay aligned with the current editable
+license model. In addition to core commercial fields, CSV import supports
+request date, purchase date, procurement reference, parent LT Ref, and
+secondary contacts. Mapped imports allow multiple source columns to feed
+secondary contacts so application-owner or technical-owner email columns can be
+retained as renewal notification CC recipients. Purchase quantity remains the
+stored entitlement count; source columns that describe quantity per unit must
+not be treated as purchase quantity.
 
 ## Forms And Validation
 

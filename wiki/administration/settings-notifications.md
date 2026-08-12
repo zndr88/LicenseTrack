@@ -55,6 +55,10 @@ Budget-owner renewal email requires a valid owner address and the license's
 **Renewal notifications** flag. That flag is enabled by default and can suppress
 expiry email for one active license without retiring it.
 
+Licenses can also store secondary contacts. When a budget-owner renewal email is
+sent, those contacts are included as CC recipients after the same recipient
+safety checks.
+
 The expiry alert window is the shared definition of "expiring soon" throughout
 the app. Registry badges and statistics, license detail calculations, exports,
 reports, contracts, renewal and maintenance responses, and notifications all use

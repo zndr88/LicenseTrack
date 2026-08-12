@@ -88,6 +88,9 @@ License read responses also expose procurement and record-history metadata:
 
 - `requestDate`: sourcing-item creation timestamp captured during LicenseTrack procurement conversion, or set later through the license patch endpoint or a CSV import (`request_date` column);
 - `purchaseDate`: pending-order creation timestamp captured during LicenseTrack procurement conversion, or set later through the license patch endpoint or a CSV import (`purchase_date` column);
+- `secondaryContacts`: optional additional internal contacts copied as CC
+  recipients on budget-owner renewal emails. CSV imports can populate the same
+  field from `secondary_contacts` or from mapped owner/contact email columns;
 - `createdAt` and `updatedAt`: license-row creation and latest-update timestamps;
 - `createdBy`, `createdByName`, and `createdByEmail`: creator ID plus best-effort account labels. Account labels may be null for deleted or legacy users.
 

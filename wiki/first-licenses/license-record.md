@@ -77,9 +77,10 @@ maintenance line's current dates and cost for convenient review.
 
 ![Relationships section](../assets/record-05-relationships.png)
 
-Here you'll find the **supplier** (where you purchased the license), the internal **cost center or department** the license is for, your **contact** at the publisher, and the internal **budget or department owner**.
+Here you'll find the **supplier** (where you purchased the license), the internal **cost center or department** the license is for, your **contact** at the publisher, the internal **budget or department owner**, and optional **secondary contacts**.
 
 The budget owner receives automated renewal notifications, if enabled.
+Secondary contacts are copied on those budget-owner renewal emails.
 
 ## Documents
 

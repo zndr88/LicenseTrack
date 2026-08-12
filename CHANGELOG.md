@@ -13,6 +13,40 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-08-12
+
+### Added
+
+- Added license **Secondary Contacts** beside the budget owner. These contacts
+  are stored on the license, editable from License Details, and copied as CC
+  recipients on budget-owner renewal emails when SMTP notifications are enabled.
+- Added CSV import support for secondary contacts, including repeatable mapped
+  email columns such as application owner or technical owner fields from
+  external exports.
+- Added native and mapped CSV import support for request date, purchase date,
+  procurement reference, and parent LT Ref fields so imported legacy records can
+  match the current application data model more closely.
+
+### Changed
+
+- Expanded the native CSV template and import preview to show the newer
+  procurement and contact fields operators are likely to reconcile during a
+  first portfolio load.
+- Capped the License Overview warning list with an internal scrollbar so large
+  first-import warning batches no longer take over the whole page.
+
+### Fixed
+
+- Hardened CSV quantity parsing for Flexera-style exports that contain both
+  purchase quantity and quantity-per-unit values. Quantity-per-unit headers are
+  no longer treated as the purchased license quantity.
+- Treated far-future dates such as `1-1-2099` as perpetual license indicators
+  without blocking import.
+- Shared the declared import date format with custom date-field validation so
+  native and mapped imports parse operator-selected date formats consistently.
+- Preserved localized numeric parsing and update-on-LT-Ref behavior while
+  applying the new import fields.
+
 ## [1.1.5] - 2026-08-09
 
 ### Added
@@ -878,7 +912,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.5...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.6...HEAD
+[1.1.6]: https://github.com/zndr88/LicenseTrack/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/zndr88/LicenseTrack/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/zndr88/LicenseTrack/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/zndr88/LicenseTrack/compare/v1.1.2...v1.1.3
