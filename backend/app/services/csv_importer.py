@@ -15,6 +15,7 @@ import io
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 import logging
@@ -71,7 +72,6 @@ _HEADER_MAP: dict[str, str] = {
     "license_ref": "license_ref",
     # Flexera aliases - normalised from Flexera column names
     "purchase_order_no": "po_number",  # "Purchase Order No."
-    "effective_quantity": "quantity",  # "Effective Quantity"
     "unit_price_eur": "unit_price",  # "Unit Price (EUR)"
     "total_price_eur": "total_po_price",  # "Total Price (EUR)"
     "effective_date": "start_date",  # "Effective Date"
@@ -170,6 +170,10 @@ _VALID_MAINTENANCE_COVERAGE = {
     "included",
     "separately_tracked",
 }
+
+_TOTAL_PRICE_MISMATCH_RATIO = Decimal("10")
+_TOTAL_PRICE_MISMATCH_MIN_DELTA = Decimal("1")
+PRICE_MISMATCH_WARNING_PREFIX = "Calculated total (quantity x unit_price) differs from total_po_price"
 
 _DATE_FORMAT_VARIANTS = {
     "DD/MM/YYYY": ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y"),
@@ -311,6 +315,39 @@ def _parse_localized_numeric_field(
         return ""
 
 
+def _add_total_price_mismatch_warning(
+    quantity: str,
+    unit_price: str,
+    total_po_price: str,
+    warnings: list[str],
+) -> None:
+    """Warn when Qty x Unit Price is wildly inconsistent with Total PO Price."""
+    if not quantity or not unit_price or not total_po_price:
+        return
+    try:
+        qty = Decimal(quantity)
+        unit = Decimal(unit_price)
+        total = Decimal(total_po_price)
+    except InvalidOperation:
+        return
+
+    calculated = qty * unit
+    if calculated <= 0 or total <= 0:
+        return
+
+    larger = max(calculated, total)
+    smaller = min(calculated, total)
+    if larger - smaller < _TOTAL_PRICE_MISMATCH_MIN_DELTA:
+        return
+    if larger / smaller < _TOTAL_PRICE_MISMATCH_RATIO:
+        return
+
+    warnings.append(
+        f"{PRICE_MISMATCH_WARNING_PREFIX} by 10x or more; "
+        "check whether the mapped quantity is a purchase quantity rather than an entitlement quantity per unit"
+    )
+
+
 def _normalise_enum_value(raw: str) -> str:
     """Normalize human labels like "Per User" to enum values like "per_user"."""
     value = raw.strip().lower()
@@ -363,33 +400,39 @@ def _extract_license_type(normalised: str) -> str:
     return normalised
 
 
-def _parse_date(raw: str, date_format: str) -> tuple[Optional[date], bool, str]:
+def _parse_date(raw: str, date_format: str) -> tuple[Optional[date], bool, str, str]:
     """Parse a date string.
 
     Returns:
-        (parsed_date, is_perpetual, error_message)
+        (parsed_date, is_perpetual, error_message, warning_message)
         is_perpetual = True when the value means "no end date".
         error_message is non-empty only when the value looks like a date
         but could not be parsed.
+        warning_message is non-empty when a parseable value was normalized.
     """
     raw = raw.strip().strip("'\"")
     if not raw:
-        return None, False, ""
+        return None, False, "", ""
 
     if raw.lower() == "perpetual":
-        return None, True, ""
+        return None, True, "", ""
 
     formats = ("%Y-%m-%d", *_DATE_FORMAT_VARIANTS.get(date_format, ("%d/%m/%Y",)))
     for fmt in dict.fromkeys(formats):
         try:
             d = datetime.strptime(raw, fmt).date()
             if d.year >= 2099:
-                return None, True, f"Date {raw!r} has year >= 2099 - treated as perpetual"
-            return d, False, ""
+                return None, True, "", f"Date {raw!r} has year >= 2099 - treated as perpetual"
+            return d, False, "", ""
         except ValueError:
             continue
 
-    return None, False, (f"Unrecognised date format: {raw!r}; expected ISO YYYY-MM-DD or declared format {date_format}")
+    return (
+        None,
+        False,
+        f"Unrecognised date format: {raw!r}; expected ISO YYYY-MM-DD or declared format {date_format}",
+        "",
+    )
 
 
 def _parse_datetime(raw: str, date_format: str) -> tuple[Optional[datetime], str]:
@@ -480,22 +523,26 @@ def _parse_row(
 
     start_raw = data.get("start_date", "").strip()
     if start_raw:
-        sd, _, sd_err = _parse_date(start_raw, date_format)
+        sd, _, sd_err, sd_warn = _parse_date(start_raw, date_format)
         if sd_err:
             errors.append(f"start_date: {sd_err}")
             has_parse_error = True
         else:
+            if sd_warn:
+                warnings.append(f"start_date: {sd_warn}")
             if sd is not None:
                 db_start_date = sd
                 start_date_str = sd.isoformat()
 
     end_raw = data.get("end_date", "").strip()
     if end_raw:
-        ed, ed_perp, ed_err = _parse_date(end_raw, date_format)
+        ed, ed_perp, ed_err, ed_warn = _parse_date(end_raw, date_format)
         if ed_err:
             errors.append(f"end_date: {ed_err}")
             has_parse_error = True
         else:
+            if ed_warn:
+                warnings.append(f"end_date: {ed_warn}")
             is_perpetual = ed_perp
             if ed is not None:
                 db_end_date = ed
@@ -504,11 +551,13 @@ def _parse_row(
 
     notice_raw = data.get("notice_date", "").strip()
     if notice_raw:
-        nd, _, nd_err = _parse_date(notice_raw, date_format)
+        nd, _, nd_err, nd_warn = _parse_date(notice_raw, date_format)
         if nd_err:
             errors.append(f"notice_date: {nd_err}")
             has_parse_error = True
         else:
+            if nd_warn:
+                warnings.append(f"notice_date: {nd_warn}")
             if nd is not None:
                 db_notice_date = nd
                 notice_date_str = nd.isoformat()
@@ -554,6 +603,7 @@ def _parse_row(
         data.get("total_po_price", ""), "total_po_price", errors, number_format_locale
     )
     has_parse_error = has_parse_error or len(errors) > numeric_error_count
+    _add_total_price_mismatch_warning(quantity, unit_price, total_po_price, warnings)
 
     # -- Budget owner email - reject SMTP command-injection payloads ------
     # (CVE-2026-53533 hardening: this value eventually reaches

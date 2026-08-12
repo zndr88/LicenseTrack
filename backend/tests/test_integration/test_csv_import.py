@@ -105,6 +105,34 @@ async def test_analyze_import_returns_column_matches_and_samples(test_app, auth_
     assert body["missingRequired"] == []
 
 
+async def test_analyze_import_does_not_auto_match_flexera_entitlement_quantity(test_app, auth_headers):
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Purchase Quantity", "Effective Quantity", "Quantity per Unit"],
+        [{
+            "Publisher": "SonarSource",
+            "Description": "SonarQube",
+            "Purchase Quantity": "1",
+            "Effective Quantity": "5000000",
+            "Quantity per Unit": "5000000",
+        }],
+    )
+
+    resp = await test_app.post(
+        "/api/import/analyze",
+        headers=auth_headers,
+        files={"file": ("flexera.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    matched = {column["rawHeader"]: column["internalField"] for column in body["matchedColumns"]}
+    unrecognized = {column["rawHeader"] for column in body["unrecognizedColumns"]}
+
+    assert matched["Purchase Quantity"] == "quantity"
+    assert "Effective Quantity" in unrecognized
+    assert "Quantity per Unit" in unrecognized
+
+
 async def test_analyze_import_auto_matches_existing_custom_field(test_app, auth_headers):
     definition = await _create_custom_field(test_app, auth_headers, "Renewal Owner", "text")
     csv_bytes = _make_csv(
@@ -1134,6 +1162,50 @@ async def test_confirm_normalizes_end_date_for_perpetual_license(
     assert license_obj.end_date is None
 
 
+async def test_confirm_imports_2099_end_date_as_perpetual_warning(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "end_date"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Perpetual Sentinel Date Suite",
+            "end_date": "1-1-2099",
+        }],
+    )
+
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("perpetual-sentinel.csv", csv_bytes, "text/csv")},
+        data={"date_format": "DD/MM/YYYY"},
+    )
+
+    assert preview.status_code == 200, preview.text
+    preview_row = preview.json()["rows"][0]
+    assert preview_row["importStatus"] == "active"
+    assert preview_row["validationErrors"] == []
+    assert preview_row["endDate"] is None
+    assert any("treated as perpetual" in warning for warning in preview_row["warnings"])
+
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("perpetual-sentinel.csv", csv_bytes, "text/csv")},
+        data={"date_format": "DD/MM/YYYY"},
+    )
+
+    assert confirm.status_code == 200, confirm.text
+    assert confirm.json()["importedCount"] == 1
+    license_obj = await db_session.scalar(
+        select(License).where(License.software_description == "Perpetual Sentinel Date Suite")
+    )
+    assert license_obj is not None
+    assert license_obj.end_date is None
+
+
 async def test_confirm_import_skips_user_selected_rows(
     test_app,
     auth_headers,
@@ -1611,6 +1683,31 @@ async def test_confirm_clean_import_succeeds_without_acknowledgement(test_app, a
     assert data["importedCount"] == 1
     assert data["warningSummary"]["hasWarnings"] is False
     assert data["warningsAcknowledged"] is False
+
+
+async def test_confirm_import_price_mismatch_returns_409_without_acknowledgement(test_app, auth_headers):
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "quantity", "unit_price", "total_po_price"],
+        [{
+            "publisher_name": "SonarSource",
+            "software_description": "SonarQube",
+            "quantity": "5000000",
+            "unit_price": "1000",
+            "total_po_price": "1000",
+        }],
+    )
+
+    resp = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("warn.csv", csv_bytes, "text/csv")},
+        data={"acknowledge_warnings": "false"},
+    )
+
+    assert resp.status_code == 409, resp.text
+    detail = resp.json()["detail"]
+    assert detail["warningSummary"]["priceMismatchCount"] == 1
+    assert detail["warningSummary"]["hasWarnings"] is True
 
 
 async def test_confirm_import_with_warnings_returns_409_without_acknowledgement(

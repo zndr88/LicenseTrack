@@ -14,7 +14,7 @@ from app.schemas.csv_import import (
     CSVImportPreviewRow,
     ImportWarningSummary,
 )
-from app.services.csv_importer import ParsedImportResult, ParsedRow
+from app.services.csv_importer import PRICE_MISMATCH_WARNING_PREFIX, ParsedImportResult, ParsedRow
 from app.services.custom_fields_service import upsert_imported_values_for_license
 from app.services.import_.duplicate_detection import add_duplicate_warnings
 from app.services.import_.import_update import apply_import_update
@@ -63,6 +63,7 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
     ambiguous_date = 0
     inferred_parent = 0
     duplicate_warning = 0
+    price_mismatch = 0
     rows_with_warnings = 0
 
     for row in rows:
@@ -78,6 +79,8 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
         for w in row.warnings:
             if w:
                 row_has_any_warning = True
+            if w.startswith(PRICE_MISMATCH_WARNING_PREFIX):
+                price_mismatch += 1
 
         if row.parent_import_row_number is not None:
             inferred_parent += 1
@@ -96,6 +99,7 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
         ambiguous_date_count=ambiguous_date,
         inferred_parent_count=inferred_parent,
         duplicate_warning_count=duplicate_warning,
+        price_mismatch_count=price_mismatch,
         rows_with_warnings_count=rows_with_warnings,
     )
 

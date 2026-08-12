@@ -124,6 +124,20 @@ def test_perpetual_end_date():
 # 1c — Invalid date produces warning, not error
 # ---------------------------------------------------------------------------
 
+def test_2099_end_date_is_perpetual_warning_not_error():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "end_date"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "end_date": "1-1-2099"}],
+    )
+    row = parse_csv(csv_bytes, date_format="DD/MM/YYYY").rows[0]
+
+    assert row.import_status == "active"
+    assert row.validation_errors == []
+    assert row.db_end_date is None
+    assert row.end_date is None
+    assert any("treated as perpetual" in warning for warning in row.warnings)
+
+
 def test_invalid_date_produces_error():
     csv_bytes = _csv(
         ["publisher_name", "software_description", "end_date"],
@@ -167,6 +181,40 @@ def test_localized_numeric_fields_land_canonical():
     assert row.unit_price == "1234.50"
     assert row.total_po_price == "1234500.00"
     assert row.import_status == "active"
+
+
+def test_effective_quantity_is_not_auto_mapped_to_purchase_quantity():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "Effective Quantity", "Purchase Quantity"],
+        [{
+            "publisher_name": "SonarSource",
+            "software_description": "SonarQube",
+            "Effective Quantity": "5000000",
+            "Purchase Quantity": "1",
+        }],
+    )
+
+    result = parse_csv(csv_bytes)
+
+    assert result.rows[0].quantity == "1"
+
+
+def test_quantity_price_mismatch_adds_row_warning():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "quantity", "unit_price", "total_po_price"],
+        [{
+            "publisher_name": "SonarSource",
+            "software_description": "SonarQube",
+            "quantity": "5000000",
+            "unit_price": "1000",
+            "total_po_price": "1000",
+        }],
+    )
+
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.import_status == "active"
+    assert any("entitlement quantity per unit" in warning for warning in row.warnings)
 
 
 def test_localized_numeric_fields_accept_currency_affixes():
@@ -736,6 +784,21 @@ def test_build_warning_summary_currency_defaulted():
     assert summary.defaulted_currency_count == 1
     assert summary.rows_with_warnings_count == 1
     assert summary.has_warnings is False  # currency does NOT gate
+
+
+def test_build_warning_summary_price_mismatch_gates():
+    row = _make_row(
+        warnings=[
+            "Calculated total (quantity x unit_price) differs from total_po_price by 10x or more; "
+            "check whether the mapped quantity is a purchase quantity rather than an entitlement quantity per unit"
+        ]
+    )
+
+    summary = build_warning_summary([row])
+
+    assert summary.price_mismatch_count == 1
+    assert summary.rows_with_warnings_count == 1
+    assert summary.has_warnings is True
 
 
 def test_build_warning_summary_inferred_parent():

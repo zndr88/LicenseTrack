@@ -109,6 +109,9 @@ export default function PreviewStep({
               {previewData.warningSummary.defaultedCurrencyCount > 0 && (
                 <li>Currency defaulted: <strong>{previewData.warningSummary.defaultedCurrencyCount}</strong> row{previewData.warningSummary.defaultedCurrencyCount !== 1 ? "s" : ""}</li>
               )}
+              {previewData.warningSummary.priceMismatchCount > 0 && (
+                <li>Price total mismatch: <strong>{previewData.warningSummary.priceMismatchCount}</strong> row{previewData.warningSummary.priceMismatchCount !== 1 ? "s" : ""}</li>
+              )}
             </ul>
           </div>
         </div>
