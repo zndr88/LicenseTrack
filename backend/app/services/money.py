@@ -8,6 +8,7 @@ decimal point followed by one or more digits.  Examples: "0", "1234", "1234.50",
 
 Non-canonical values (currency symbols, grouping separators, locale decimal
 commas) are rejected by parse_money and flagged by is_canonical_money.
+Localized CSV import values are normalized by parse_localized_money first.
 
 This is the single source of truth for the backend.  The CSV import path and
 the aggregation layer must both call these functions - there must be exactly one
@@ -21,6 +22,12 @@ from decimal import Decimal
 
 # Pattern for canonical decimal: optional minus, digits, optional fractional part.
 _CANONICAL_RE = re.compile(r"^-?\d+(\.\d+)?$")
+_CURRENCY_SYMBOL_RE = re.compile(r"^\s*([$€£¥₹₩₪₺₽])\s*|\s*([$€£¥₹₩₪₺₽])\s*$")
+_CURRENCY_CODE_RE = re.compile(
+    r"^\s*(AUD|BRL|CAD|CHF|CNY|CZK|DKK|EUR|GBP|HKD|HUF|ILS|INR|JPY|KRW|MXN|NOK|NZD|PLN|RON|SEK|SGD|USD|ZAR)\s+"
+    r"|\s+(AUD|BRL|CAD|CHF|CNY|CZK|DKK|EUR|GBP|HKD|HUF|ILS|INR|JPY|KRW|MXN|NOK|NZD|PLN|RON|SEK|SGD|USD|ZAR)\s*$",
+    re.IGNORECASE,
+)
 
 # Locale separator lookup: (decimal_sep, group_sep).
 # group_sep of None means the locale uses no grouping character in practice.
@@ -92,6 +99,8 @@ def parse_localized_money(raw: str | None, number_format_locale: str) -> str | N
         return None
 
     s = raw.strip()
+    s = _CURRENCY_SYMBOL_RE.sub("", s)
+    s = _CURRENCY_CODE_RE.sub("", s)
 
     dec_sep, grp_sep = _LOCALE_SEPS.get(number_format_locale, (".", ","))
 

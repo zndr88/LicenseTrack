@@ -196,11 +196,16 @@ class TestParseLocalizedMoney:
         # Unknown locale → en-US defaults (period decimal, comma group)
         assert parse_localized_money("1,234.50", "xx-XX") == "1234.50"
 
-    # --- Unparseable → MoneyParseError ---
-    def test_rejects_currency_symbol(self):
+    # --- Currency affixes common in CSV exports ---
+    def test_accepts_currency_symbol_affix(self):
         from app.services.money import parse_localized_money
-        with pytest.raises(MoneyParseError):
-            parse_localized_money("€1234", "de-DE")
+        assert parse_localized_money("€11.000,00", "de-DE") == "11000.00"
+
+    def test_accepts_currency_code_affix(self):
+        from app.services.money import parse_localized_money
+        assert parse_localized_money("EUR 11.000,00", "de-DE") == "11000.00"
+
+    # --- Unparseable → MoneyParseError ---
 
     def test_rejects_garbage(self):
         from app.services.money import parse_localized_money

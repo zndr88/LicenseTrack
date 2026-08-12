@@ -1466,10 +1466,10 @@ async def test_confirm_import_parses_declared_belgian_locale(
         [{
             "publisher_name": "Acme",
             "software_description": "Belgian Suite",
-            "start_date": "01/02/2027",
+            "start_date": "1-2-2027'",
             "quantity": "1.000",
-            "unit_price": "1.234,50",
-            "total_po_price": "1.234.500,00",
+            "unit_price": "€1.234,50",
+            "total_po_price": "EUR 1.234.500,00",
         }],
     )
 

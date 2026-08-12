@@ -171,11 +171,10 @@ _VALID_MAINTENANCE_COVERAGE = {
     "separately_tracked",
 }
 
-# Date formats tried in order (most common first).
-_DATE_FORMATS = {
-    "DD/MM/YYYY": "%d/%m/%Y",
-    "MM/DD/YYYY": "%m/%d/%Y",
-    "YYYY-MM-DD": "%Y-%m-%d",
+_DATE_FORMAT_VARIANTS = {
+    "DD/MM/YYYY": ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y"),
+    "MM/DD/YYYY": ("%m/%d/%Y", "%m-%d-%Y", "%m.%d.%Y"),
+    "YYYY-MM-DD": ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"),
 }
 
 
@@ -369,14 +368,14 @@ def _parse_date(raw: str, date_format: str) -> tuple[Optional[date], bool, str]:
         error_message is non-empty only when the value looks like a date
         but could not be parsed.
     """
-    raw = raw.strip()
+    raw = raw.strip().strip("'\"")
     if not raw:
         return None, False, ""
 
     if raw.lower() == "perpetual":
         return None, True, ""
 
-    formats = ("%Y-%m-%d", _DATE_FORMATS.get(date_format, "%d/%m/%Y"))
+    formats = ("%Y-%m-%d", *_DATE_FORMAT_VARIANTS.get(date_format, ("%d/%m/%Y",)))
     for fmt in dict.fromkeys(formats):
         try:
             d = datetime.strptime(raw, fmt).date()
@@ -397,7 +396,7 @@ def _parse_datetime(raw: str, date_format: str) -> tuple[Optional[datetime], str
     hand-authored CSVs). Returns a timezone-aware UTC datetime, or a non-empty
     error message when the value is present but unparseable.
     """
-    raw = raw.strip()
+    raw = raw.strip().strip("'\"")
     if not raw:
         return None, ""
 
@@ -409,12 +408,13 @@ def _parse_datetime(raw: str, date_format: str) -> tuple[Optional[datetime], str
         pass
 
     # Declared date format (DD/MM/YYYY, MM/DD/YYYY, ...) - hand-authored CSVs.
-    fmt = _DATE_FORMATS.get(date_format, "%d/%m/%Y")
-    try:
-        parsed = datetime.strptime(raw, fmt)
-        return parsed.replace(tzinfo=timezone.utc), ""
-    except ValueError:
-        return None, (f"Unrecognised date format: {raw!r}; expected ISO YYYY-MM-DD or declared format {date_format}")
+    for fmt in _DATE_FORMAT_VARIANTS.get(date_format, ("%d/%m/%Y",)):
+        try:
+            parsed = datetime.strptime(raw, fmt)
+            return parsed.replace(tzinfo=timezone.utc), ""
+        except ValueError:
+            continue
+    return None, (f"Unrecognised date format: {raw!r}; expected ISO YYYY-MM-DD or declared format {date_format}")
 
 
 def _classify_row(

@@ -91,6 +91,9 @@ def test_custom_field_display_aliases_are_safe_and_do_not_override_native_fields
 @pytest.mark.parametrize("raw_date,date_format,expected", [
     ("2026-06-15", "DD/MM/YYYY", date(2026, 6, 15)),  # ISO is always accepted
     ("15/06/2026", "DD/MM/YYYY", date(2026, 6, 15)),
+    ("1-1-2023", "DD/MM/YYYY", date(2023, 1, 1)),
+    ("'1-1-2023'", "DD/MM/YYYY", date(2023, 1, 1)),
+    ("1-1-2023'", "DD/MM/YYYY", date(2023, 1, 1)),
     ("06/15/2026", "MM/DD/YYYY", date(2026, 6, 15)),
 ])
 def test_date_format_variants(raw_date, date_format, expected):
@@ -166,10 +169,28 @@ def test_localized_numeric_fields_land_canonical():
     assert row.import_status == "active"
 
 
+def test_localized_numeric_fields_accept_currency_affixes():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "unit_price", "total_po_price"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            "unit_price": "€11.000,00",
+            "total_po_price": "EUR 11.000,00",
+        }],
+    )
+
+    row = parse_csv(csv_bytes, number_format_locale="de-DE").rows[0]
+
+    assert row.unit_price == "11000.00"
+    assert row.total_po_price == "11000.00"
+    assert row.import_status == "active"
+
+
 def test_invalid_localized_numeric_field_is_a_row_error():
     csv_bytes = _csv(
         ["publisher_name", "software_description", "unit_price"],
-        [{"publisher_name": "Acme", "software_description": "Widget", "unit_price": "€12"}],
+        [{"publisher_name": "Acme", "software_description": "Widget", "unit_price": "not-a-number"}],
     )
 
     row = parse_csv(csv_bytes, number_format_locale="nl-BE").rows[0]
