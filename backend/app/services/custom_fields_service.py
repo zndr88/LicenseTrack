@@ -16,6 +16,7 @@ from sqlalchemy.orm import selectinload
 from app.models.custom_fields import CustomFieldDefinition, CustomFieldValue
 from app.models.license import License
 from app.schemas.custom_fields import CustomFieldDefinitionCreate, CustomFieldDefinitionUpdate, CustomFieldValuesUpsert
+from app.services.csv_importer import _parse_date
 from app.services.money import MoneyParseError, parse_localized_money, parse_money
 
 
@@ -114,11 +115,22 @@ def _normalise_boolean_value(value: object) -> str | None:
     )
 
 
-def _normalise_date_value(value: object) -> str | None:
+def _normalise_date_value(value: object, date_format: str | None = None) -> str | None:
     if value is None or value == "":
         return None
+    raw = str(value).strip()
+    if date_format is not None:
+        parsed, is_perpetual, error = _parse_date(raw, date_format)
+        if parsed is not None:
+            return parsed.isoformat()
+        if not is_perpetual and not error:
+            return None
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=error or "Date custom field values must use a real calendar date.",
+        )
     try:
-        return date.fromisoformat(str(value)).isoformat()
+        return date.fromisoformat(raw).isoformat()
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -156,12 +168,13 @@ def normalize_custom_field_value(
     value_text: str | bool | None = None,
     value_currency: str | None = None,
     number_format_locale: str | None = None,
+    date_format: str | None = None,
 ) -> tuple[str | None, str | None]:
     """Normalize a custom field value according to its definition."""
     if definition.field_type == "boolean":
         return _normalise_boolean_value(value_text), None
     if definition.field_type == "date":
-        return _normalise_date_value(value_text), None
+        return _normalise_date_value(value_text, date_format), None
     if definition.field_type == "currency":
         return None, _normalise_currency_value(value_currency, number_format_locale)
     return value_text, value_currency
@@ -172,6 +185,7 @@ def build_custom_field_value(
     definition: CustomFieldDefinition,
     raw_value: str | None,
     number_format_locale: str | None = None,
+    date_format: str | None = None,
 ) -> CustomFieldValue:
     """Build a CustomFieldValue row using the shared normalization path."""
     value_text = None if definition.field_type == "currency" else raw_value
@@ -181,6 +195,7 @@ def build_custom_field_value(
         value_text=value_text,
         value_currency=value_currency,
         number_format_locale=number_format_locale,
+        date_format=date_format,
     )
     return CustomFieldValue(
         license_id=license_id,
@@ -195,6 +210,7 @@ async def upsert_imported_values_for_license(
     license_id: int,
     values_by_field_key: dict[str, str],
     number_format_locale: str | None = None,
+    date_format: str | None = None,
 ) -> list[str]:
     """
     Add/update imported custom field values without committing.
@@ -224,11 +240,11 @@ async def upsert_imported_values_for_license(
             )
         )
         if existing is not None:
-            value = build_custom_field_value(license_id, definition, raw_value, number_format_locale)
+            value = build_custom_field_value(license_id, definition, raw_value, number_format_locale, date_format)
             existing.value_text = value.value_text
             existing.value_currency = value.value_currency
         else:
-            db.add(build_custom_field_value(license_id, definition, raw_value, number_format_locale))
+            db.add(build_custom_field_value(license_id, definition, raw_value, number_format_locale, date_format))
 
     return missing_keys
 
@@ -238,6 +254,7 @@ async def validate_imported_custom_rows(
     rows: list[object],
     custom_rows: list[dict[str, str]],
     number_format_locale: str | None = None,
+    date_format: str | None = None,
 ) -> None:
     """Attach row-level import errors for unknown or invalid mapped custom fields."""
     field_keys = {
@@ -264,6 +281,7 @@ async def validate_imported_custom_rows(
                     definition=definition,
                     raw_value=raw_value,
                     number_format_locale=number_format_locale,
+                    date_format=date_format,
                 )
             except HTTPException as exc:
                 row.validation_errors.append(f"{definition.name}: {exc.detail}")

@@ -250,7 +250,7 @@ async def preview_import(
         declared_date_format,
         custom_field_header_map=custom_headers,
     )
-    await validate_imported_custom_rows(db, result.rows, result.custom_rows, locale)
+    await validate_imported_custom_rows(db, result.rows, result.custom_rows, locale, declared_date_format)
     await prepare_import_rows(result.rows, db, update_existing=update_existing)
     return build_preview_response(result)
 
@@ -278,7 +278,7 @@ async def preview_mapped_import(
         db, current_user.id, number_format_locale, date_format
     )
     result, _custom_rows = parse_mapped_csv(contents, column_to_target, default_currency, locale, declared_date_format)
-    await validate_imported_custom_rows(db, result.rows, _custom_rows, locale)
+    await validate_imported_custom_rows(db, result.rows, _custom_rows, locale, declared_date_format)
     await prepare_import_rows(result.rows, db, update_existing=update_existing)
     return build_preview_response(result)
 
@@ -337,7 +337,7 @@ async def execute_import(
     parsed_result, custom_rows = parse_mapped_csv(
         contents, column_to_target, default_currency, locale, declared_date_format
     )
-    await validate_imported_custom_rows(db, parsed_result.rows, custom_rows, locale)
+    await validate_imported_custom_rows(db, parsed_result.rows, custom_rows, locale, declared_date_format)
     await prepare_import_rows(parsed_result.rows, db, update_existing=update_existing)
 
     warning_summary: ImportWarningSummary = build_warning_summary(parsed_result.rows)
@@ -358,6 +358,7 @@ async def execute_import(
         current_user.id,
         db,
         locale,
+        declared_date_format,
         update_existing=update_existing,
     )
 
@@ -434,7 +435,7 @@ async def confirm_import(
         declared_date_format,
         custom_field_header_map=custom_headers,
     )
-    await validate_imported_custom_rows(db, result.rows, result.custom_rows, locale)
+    await validate_imported_custom_rows(db, result.rows, result.custom_rows, locale, declared_date_format)
     skipped_rows = _load_skipped_rows(skipped_rows_json)
     await prepare_import_rows(result.rows, db, update_existing=update_existing)
 
@@ -456,6 +457,7 @@ async def confirm_import(
         current_user.id,
         db,
         locale,
+        declared_date_format,
         update_existing=update_existing,
     )
 

@@ -139,7 +139,7 @@ async def test_apply_update_patches_non_empty_fields_only(test_app, auth_headers
     obj = await db_session.get(License, created["id"])
 
     row = _full_row(created["licenseRef"], supplier="New Vendor", quantity="")
-    await apply_import_update(obj, row, {}, db_session, "en-US")
+    await apply_import_update(obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
 
     assert obj.supplier == "New Vendor"   # non-empty -> patched
     assert obj.quantity == "10"           # blank -> preserved
@@ -152,7 +152,7 @@ async def test_apply_update_rejects_license_type_change(test_app, auth_headers, 
 
     import pytest
     with pytest.raises(ValueError, match="license_type"):
-        await apply_import_update(obj, row, {}, db_session, "en-US")
+        await apply_import_update(obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
 
 
 async def test_apply_update_sets_request_date(test_app, auth_headers, db_session):
@@ -163,7 +163,7 @@ async def test_apply_update_sets_request_date(test_app, auth_headers, db_session
         created["licenseRef"],
         db_request_date=_dt(2026, 1, 15, tzinfo=timezone.utc),
     )
-    await apply_import_update(obj, row, {}, db_session, "en-US")
+    await apply_import_update(obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
     assert (obj.request_date.year, obj.request_date.month, obj.request_date.day) == (2026, 1, 15)
 
 

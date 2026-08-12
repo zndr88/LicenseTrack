@@ -327,6 +327,10 @@ _LICENSE_METRIC_VALUE_ALIASES: dict[str, str] = {
     "site_license": "site",
     "concurrent_users": "concurrent",
     "enterprise_wide": "enterprise",
+    "named_user": "per_user",
+    "user": "per_user",
+    "named_device": "per_device",
+    "device": "per_device",
 }
 
 _LICENSE_TYPE_FILLER_TOKENS = {"license", "type", "set", "plan", "a", "an", "the"}

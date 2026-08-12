@@ -298,6 +298,35 @@ def test_valid_license_metric():
     assert not any("license_metric" in w for w in row.warnings)
 
 
+@pytest.mark.parametrize("raw_metric,expected", [
+    ("named_user", "per_user"),
+    ("user", "per_user"),
+    ("device", "per_device"),
+    ("named device", "per_device"),
+])
+def test_flexera_license_metric_aliases(raw_metric, expected):
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "license_metric"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "license_metric": raw_metric}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.license_metric == expected
+    assert row.import_status == "active"
+
+
+@pytest.mark.parametrize("raw_type", ["named_user", "user", "device"])
+def test_flexera_metric_values_are_not_accepted_as_license_type(raw_type):
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "license_type"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "license_type": raw_type}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.import_status == "error"
+    assert any("license_type" in e for e in row.validation_errors)
+
+
 def test_invalid_license_metric():
     csv_bytes = _csv(
         ["publisher_name", "software_description", "license_metric"],

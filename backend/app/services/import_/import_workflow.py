@@ -165,6 +165,7 @@ async def run_import_rows(
     user_id: int,
     db: AsyncSession,
     number_format_locale: str | None = None,
+    date_format: str | None = None,
     update_existing: bool = False,
 ) -> tuple[int, int, int, list[CSVImportError], int]:
     """Persist importable rows.
@@ -213,7 +214,7 @@ async def run_import_rows(
                         parsed.import_action = "create"
                         parsed.matched_license_id = None
                     else:
-                        await apply_import_update(target, parsed, custom_data, db, number_format_locale)
+                        await apply_import_update(target, parsed, custom_data, db, number_format_locale, date_format)
                         did_update = True
                         persisted_license_id = target.id
 
@@ -245,6 +246,7 @@ async def run_import_rows(
                             license_obj.id,
                             custom_data,
                             number_format_locale,
+                            date_format,
                         )
 
             if persisted_license_id is not None:

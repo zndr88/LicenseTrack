@@ -297,6 +297,105 @@ async def test_native_confirm_imports_existing_typed_custom_field(
     assert value.value_text == "2026-12-31"
 
 
+async def test_native_confirm_parses_declared_date_format_for_custom_date_field(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    definition = await _create_custom_field(test_app, auth_headers, "Invoice date", "date")
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", definition["fieldKey"]],
+        [{
+            "Publisher": "Acme",
+            "Description": "Native Custom Flexera Date",
+            definition["fieldKey"]: "1-1-2027'",
+        }],
+    )
+
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("native-custom-date.csv", csv_bytes, "text/csv")},
+        data={"date_format": "DD/MM/YYYY"},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["rows"][0]["importStatus"] == "active"
+
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("native-custom-date.csv", csv_bytes, "text/csv")},
+        data={"date_format": "DD/MM/YYYY"},
+    )
+    assert confirm.status_code == 200, confirm.text
+    assert confirm.json()["importedCount"] == 1
+
+    license_obj = await db_session.scalar(
+        select(License).where(License.software_description == "Native Custom Flexera Date")
+    )
+    value = await db_session.scalar(
+        select(CustomFieldValue).where(
+            CustomFieldValue.license_id == license_obj.id,
+            CustomFieldValue.custom_field_def_id == definition["id"],
+        )
+    )
+    assert value is not None
+    assert value.value_text == "2027-01-01"
+
+
+async def test_execute_mapped_parses_declared_date_format_for_custom_date_field(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    definition = await _create_custom_field(test_app, auth_headers, "Shipping date", "date")
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Flexera Shipping Date"],
+        [{
+            "Publisher": "Acme",
+            "Description": "Mapped Custom Flexera Date",
+            "Flexera Shipping Date": "2-1-2027",
+        }],
+    )
+    mapping_json = json.dumps({
+        "mapping": [
+            {"rawHeader": "Publisher", "target": "publisher_name"},
+            {"rawHeader": "Description", "target": "software_description"},
+            {"rawHeader": "Flexera Shipping Date", "target": definition["fieldKey"]},
+        ]
+    })
+
+    preview = await test_app.post(
+        "/api/import/preview-mapped",
+        headers=auth_headers,
+        files={"file": ("mapped-custom-date.csv", csv_bytes, "text/csv")},
+        data={"mapping_json": mapping_json, "date_format": "DD/MM/YYYY"},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["rows"][0]["importStatus"] == "active"
+
+    execute = await test_app.post(
+        "/api/import/execute",
+        headers=auth_headers,
+        files={"file": ("mapped-custom-date.csv", csv_bytes, "text/csv")},
+        data={"mapping_json": mapping_json, "date_format": "DD/MM/YYYY"},
+    )
+    assert execute.status_code == 200, execute.text
+    assert execute.json()["importedCount"] == 1
+
+    license_obj = await db_session.scalar(
+        select(License).where(License.software_description == "Mapped Custom Flexera Date")
+    )
+    value = await db_session.scalar(
+        select(CustomFieldValue).where(
+            CustomFieldValue.license_id == license_obj.id,
+            CustomFieldValue.custom_field_def_id == definition["id"],
+        )
+    )
+    assert value is not None
+    assert value.value_text == "2027-01-02"
+
+
 async def test_analyze_ignores_export_only_computed_columns(test_app, auth_headers):
     # Round-tripping a full LicenseTrack export must not prompt custom-field
     # creation for computed/metadata columns or the maintenance mirror fields.
