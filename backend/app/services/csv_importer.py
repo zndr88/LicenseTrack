@@ -209,7 +209,6 @@ class ParsedRow:
     end_date: Optional[str]  # ISO string or None (None = perpetual)
     contract_number: str
     po_number: str
-    procurement_reference: str
     invoice_number: str
     contact_email: str
     supplier: str
@@ -223,7 +222,6 @@ class ParsedRow:
     currency: str
     notes: Optional[str]
     budget_owner_email: str
-    secondary_contacts: list[str]
     external_ref: Optional[str]
     license_ref: Optional[str]
     parent_license_ref: Optional[str]
@@ -232,6 +230,8 @@ class ParsedRow:
 
     # Classification
     import_status: str  # "legacy_exempt" | "active" | "legacy_incomplete" | "error"
+    procurement_reference: str = ""
+    secondary_contacts: list[str] = field(default_factory=list)
     validation_errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     duplicate_warnings: list[object] = field(default_factory=list)

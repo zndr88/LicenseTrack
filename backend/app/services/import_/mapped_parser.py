@@ -71,4 +71,5 @@ def parse_mapped_csv(
         rows=rows,
         headers_found=headers_found,
         headers_missing=headers_missing,
+        custom_rows=custom_rows,
     ), custom_rows
