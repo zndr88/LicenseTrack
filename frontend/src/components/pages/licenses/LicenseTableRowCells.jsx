@@ -278,9 +278,9 @@ export default function LicenseTableRowCells({
       case "noticeDate":
         return <td key="noticeDate" className="mono" style={{ width: 110 }}>{license.noticeDate ? formatDate(license.noticeDate, userSettings) : "-"}</td>;
       case "requestDate":
-        return <td key="requestDate" className="mono">{license.requestDate ? formatDateTime(license.requestDate, userSettings) : "-"}</td>;
+        return <td key="requestDate" className="mono">{license.requestDate ? formatDate(license.requestDate, userSettings) : "-"}</td>;
       case "purchaseDate":
-        return <td key="purchaseDate" className="mono">{license.purchaseDate ? formatDateTime(license.purchaseDate, userSettings) : "-"}</td>;
+        return <td key="purchaseDate" className="mono">{license.purchaseDate ? formatDate(license.purchaseDate, userSettings) : "-"}</td>;
       case "portalUrl":
         return <td key="portalUrl" className="lp-td">{license.portalUrl || "-"}</td>;
       case "notes":

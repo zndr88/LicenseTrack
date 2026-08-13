@@ -62,6 +62,28 @@ def test_native_import_accepts_service_and_other_license_types(license_type):
     assert row.validation_errors == []
 
 
+@pytest.mark.parametrize(
+    ("purchase_type", "expected"),
+    [
+        ("Software Subscription", "subscription"),
+        ("Software Maintenance", "maintenance"),
+        ("Software Baseline", "perpetual"),
+        ("Software", "perpetual"),
+        ("Service", "service"),
+    ],
+)
+def test_flexera_purchase_type_aliases_map_to_license_type(purchase_type, expected):
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "purchase_type"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "purchase_type": purchase_type}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.license_type == expected
+    assert row.import_status == "active"
+    assert row.validation_errors == []
+
+
 def test_native_parser_extracts_existing_custom_fields_by_name_and_stable_key():
     definitions = [SimpleNamespace(name="Contract Owner", field_key="cf_contract_owner")]
     custom_headers = build_custom_field_header_map(definitions)

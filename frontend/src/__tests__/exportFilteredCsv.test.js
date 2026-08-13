@@ -83,6 +83,17 @@ describe('exportFilteredCsv', () => {
     expect(lines[0]).toBe('request_date,purchase_date')
   })
 
+  it('exports computed total PO value under the ignored total_po_value header', () => {
+    const row = makeRow({ quantity: '5', unitPrice: '100', totalPoPrice: '999' })
+    const cols = [{ key: 'totalPoPrice', label: 'Total PO Value' }]
+
+    exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
+
+    const lines = capturedCsvContent.split('\n')
+    expect(lines[0]).toBe('total_po_value')
+    expect(lines[1]).toBe('500')
+  })
+
   it('maps publisher and description fields to correct cells', () => {
     const cols = [
       { key: 'publisher', label: 'Publisher' },

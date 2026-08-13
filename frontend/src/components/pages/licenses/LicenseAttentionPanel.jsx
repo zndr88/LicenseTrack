@@ -1,4 +1,4 @@
-export default function LicenseAttentionPanel({ attentionItems, setSelectedId, setDismissedAttentionIds }) {
+export default function LicenseAttentionPanel({ attentionItems, setSelectedId, onDismissAll }) {
   if (attentionItems.length === 0) return null;
   return (
     <div className="attention-banner">
@@ -24,7 +24,7 @@ export default function LicenseAttentionPanel({ attentionItems, setSelectedId, s
         type="button"
         className="attention-dismiss-all"
         aria-label="Dismiss all attention items"
-        onClick={() => setDismissedAttentionIds(new Set(attentionItems.map((l) => l.id)))}
+        onClick={() => onDismissAll(attentionItems.map((l) => l.id))}
       >
         dismiss ×
       </button>

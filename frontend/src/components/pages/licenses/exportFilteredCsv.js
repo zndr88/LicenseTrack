@@ -22,7 +22,7 @@ const STABLE_EXPORT_FIELD_NAMES = {
   quantity:         "quantity",
   skuCode:          "sku_code",
   unitPrice:        "unit_price",
-  totalPoPrice:     "total_po_price",
+  totalPoPrice:     "total_po_value",
   currency:         "currency",
   notes:            "notes",
   startDate:           "start_date",

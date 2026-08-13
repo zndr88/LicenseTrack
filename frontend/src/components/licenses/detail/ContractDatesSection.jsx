@@ -89,7 +89,7 @@ export default function ContractDatesSection({
             <div className="dp-field">
               <span className="dp-field-label">Request Date</span>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val mono">{license.requestDate ? formatDateTime(license.requestDate, userSettings) : "\u2014"}</div>
+                <div className="val mono">{license.requestDate ? formatDate(license.requestDate, userSettings) : "\u2014"}</div>
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit request date"
                     onClick={() => openFieldEdit({ fieldKey: "requestDate", fieldLabel: "Request Date", currentValue: license.requestDate?.slice(0, 10) || "", inputType: "date" })}
@@ -102,7 +102,7 @@ export default function ContractDatesSection({
             <div className="dp-field">
               <span className="dp-field-label">Purchase Date</span>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val mono">{license.purchaseDate ? formatDateTime(license.purchaseDate, userSettings) : "\u2014"}</div>
+                <div className="val mono">{license.purchaseDate ? formatDate(license.purchaseDate, userSettings) : "\u2014"}</div>
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit purchase date"
                     onClick={() => openFieldEdit({ fieldKey: "purchaseDate", fieldLabel: "Purchase Date", currentValue: license.purchaseDate?.slice(0, 10) || "", inputType: "date" })}

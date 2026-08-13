@@ -66,3 +66,19 @@ describe("LicenseTableRowCells record identity", () => {
     expect(screen.getByText("42")).toBeInTheDocument();
   });
 });
+
+describe("LicenseTableRowCells procurement milestone dates", () => {
+  test("renders request and purchase dates without time-of-day", () => {
+    renderCells({
+      id: 1,
+      requestDate: "2026-05-02T13:45:00Z",
+      purchaseDate: "2026-05-04T09:15:00Z",
+      expiration: { status: "active", label: "Active" },
+    }, [{ key: "requestDate" }, { key: "purchaseDate" }]);
+
+    expect(screen.getByText("02/05/2026")).toBeInTheDocument();
+    expect(screen.getByText("04/05/2026")).toBeInTheDocument();
+    expect(screen.queryByText(/13:45/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/09:15/)).not.toBeInTheDocument();
+  });
+});

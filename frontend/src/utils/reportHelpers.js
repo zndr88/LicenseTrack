@@ -11,7 +11,7 @@ export function filterLicenses(licenses, { includeRetired = false, dateRange = "
   let result = licenses;
 
   if (!includeRetired) {
-    result = result.filter((l) => !l.isRetired && !l.retired);
+    result = result.filter((l) => !l.isRetired && !l.retired && l.lifecycleStatus !== "legacy");
   }
 
   if (costCentres.length > 0) {

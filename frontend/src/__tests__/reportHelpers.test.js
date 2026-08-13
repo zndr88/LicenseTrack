@@ -62,6 +62,26 @@ function withNegativeOffsetDateOnlyParsing(callback) {
 }
 
 describe("report cost helpers", () => {
+  test("default report filtering excludes retired and legacy records", () => {
+    const filtered = filterLicenses([
+      license({ id: 1, isRetired: false, lifecycleStatus: null }),
+      license({ id: 2, isRetired: true, lifecycleStatus: null }),
+      license({ id: 3, isRetired: false, lifecycleStatus: "legacy" }),
+    ]);
+
+    expect(filtered.map((item) => item.id)).toEqual([1]);
+  });
+
+  test("includeRetired report filtering includes retired and legacy records", () => {
+    const filtered = filterLicenses([
+      license({ id: 1, isRetired: false, lifecycleStatus: null }),
+      license({ id: 2, isRetired: true, lifecycleStatus: null }),
+      license({ id: 3, isRetired: false, lifecycleStatus: "legacy" }),
+    ], { includeRetired: true });
+
+    expect(filtered.map((item) => item.id)).toEqual([1, 2, 3]);
+  });
+
   test("deduplicates PO-level totals while calculating recurring cost from individual records", () => {
     const licenses = [
       license({ id: 1, poNumber: "PO-1", totalPoPrice: "1000", quantity: "10", unitPrice: "20" }),

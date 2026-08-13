@@ -198,7 +198,7 @@ describe('DetailPanel secondary contacts', () => {
 })
 
 describe('DetailPanel procurement milestones', () => {
-  it('shows request and purchase timestamps under key dates and contract', async () => {
+  it('shows request and purchase dates under key dates and contract', async () => {
     const user = userEvent.setup()
     render(
       <DetailPanel
@@ -214,9 +214,9 @@ describe('DetailPanel procurement milestones', () => {
     await user.click(screen.getByText('Key Dates & Contract'))
 
     expect(screen.getByText('Request Date')).toBeInTheDocument()
-    expect(screen.getByText('02/05/2026 13:45')).toBeInTheDocument()
+    expect(screen.getByText('02/05/2026')).toBeInTheDocument()
     expect(screen.getByText('Purchase Date')).toBeInTheDocument()
-    expect(screen.getByText('04/05/2026 09:15')).toBeInTheDocument()
+    expect(screen.getByText('04/05/2026')).toBeInTheDocument()
   })
 
   it('marks a notice deadline handled from the key dates section', async () => {

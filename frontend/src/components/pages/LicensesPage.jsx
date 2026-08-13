@@ -118,6 +118,11 @@ export default function LicensesPage({
       .sort((a, b) => (a.expiration.days ?? 0) - (b.expiration.days ?? 0)),
     [enriched, dismissedAttentionIds]
   );
+  const attentionLayoutVersion = `${attentionItems.length}:${dismissedAttentionIds.size}:${statsVisible}`;
+
+  const handleDismissAttentionItems = useCallback((ids) => {
+    setDismissedAttentionIds((previous) => new Set([...previous, ...ids]));
+  }, [setDismissedAttentionIds]);
 
   const activeSourcingCount = useMemo(
     () => sourcingItems.filter((s) => s.status !== "converted").length,
@@ -241,7 +246,7 @@ export default function LicensesPage({
     <>
       <div className="page-header">
         <h2>License Overview</h2>
-        <p>{formatNumber(trackedLicenseCount, userSettings)} licenses tracked{visList.totalPoPrice && stats.costByCurrency ? ` · ${formatCostByCurrency(stats.costByCurrency, userSettings.numberFormatLocale ?? "en-US")} active PO value${stats.excludedFromTotals > 0 ? ` (${stats.excludedFromTotals} excluded)` : ""}` : ""}{hasColumnFilters ? " · column filters active" : ""}</p>
+        <p>{formatNumber(trackedLicenseCount, userSettings)} licenses tracked{visList.totalPoPrice && stats.costByCurrency ? ` · ${formatCostByCurrency(stats.costByCurrency, userSettings.numberFormatLocale ?? "en-US")} active recurring cost${stats.excludedFromTotals > 0 ? ` (${stats.excludedFromTotals} excluded)` : ""}` : ""}{hasColumnFilters ? " · column filters active" : ""}</p>
       </div>
       <div className={`page-content ${selectedLicense ? "lp-page-open" : ""}`}>
         {licensesLoading && (
@@ -288,7 +293,7 @@ export default function LicensesPage({
         <LicenseAttentionPanel
           attentionItems={attentionItems}
           setSelectedId={setSelectedId}
-          setDismissedAttentionIds={setDismissedAttentionIds}
+          onDismissAll={handleDismissAttentionItems}
         />
 
         <div className="lp-split">
@@ -367,6 +372,7 @@ export default function LicensesPage({
             setSelectedId={setSelectedId}
             inlineEditEnabled={inlineEditEnabled}
             onInlineFieldSave={handleLicenseFieldPatch}
+            layoutVersion={attentionLayoutVersion}
           />
           </div>
 

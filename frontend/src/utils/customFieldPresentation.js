@@ -5,7 +5,7 @@ const CUSTOM_FIELD_PREFIX = "cf_";
 const SECTION_LABELS = {
   identity: "Identity",
   dates: "Dates & Contract",
-  commercial: "Commercial",
+  commercial: "Details",
   people: "People & Org",
   documents: "Documents",
   maintenance: "Maintenance",

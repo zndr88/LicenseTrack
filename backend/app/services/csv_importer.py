@@ -56,6 +56,7 @@ _HEADER_MAP: dict[str, str] = {
     "department": "cost_centre",
     "license_type": "license_type",
     "type": "license_type",
+    "purchase_type": "license_type",
     "license_metric": "license_metric",
     "metric": "license_metric",
     "parent_license_ref": "parent_license_ref",
@@ -391,6 +392,12 @@ def _normalise_enum_value(raw: str) -> str:
 _LICENSE_TYPE_VALUE_ALIASES: dict[str, str] = {
     "freeware_open_source": "freeware",
     "open_source": "freeware",
+    "software_subscription": "subscription",
+    "software_maintenance": "maintenance",
+    "software_baseline": "perpetual",
+    "software": "perpetual",
+    "baseline": "perpetual",
+    "software_service": "service",
 }
 _LICENSE_METRIC_VALUE_ALIASES: dict[str, str] = {
     "site_license": "site",

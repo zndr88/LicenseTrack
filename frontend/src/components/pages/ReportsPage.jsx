@@ -186,13 +186,13 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
 
         {/* Filter bar */}
         <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {/* Include retired */}
+          {/* Include retired and legacy */}
           <div style={{
             display: "flex", alignItems: "center", gap: 8, padding: "6px 12px",
             background: "var(--bg-2)", border: "1px solid var(--border)",
             borderRadius: "var(--r)", fontSize: 12, fontWeight: 500,
           }}>
-            <span style={{ color: "var(--text-2)" }}>Include retired</span>
+            <span style={{ color: "var(--text-2)" }}>Include retired / legacy</span>
             <Toggle value={includeRetired} onChange={setIncludeRetired} />
           </div>
 

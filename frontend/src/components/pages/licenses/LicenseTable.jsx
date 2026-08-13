@@ -41,6 +41,7 @@ export default function LicenseTable({
   setSelectedId,
   inlineEditEnabled,
   onInlineFieldSave,
+  layoutVersion,
 }) {
   const tblWrapRef = useRef(null);
   const selectAllRef = useRef(null);
@@ -65,10 +66,13 @@ export default function LicenseTable({
       const available = window.innerHeight - rect.top - 60;
       setTblHeight(Math.max(300, available));
     };
-    measure();
+    const frame = window.requestAnimationFrame(measure);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [useVirtual]);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", measure);
+    };
+  }, [filterRowOpen, filtered.length, layoutVersion, useVirtual]);
 
   useEffect(() => {
     if (useVirtual && tblWrapRef.current) {
