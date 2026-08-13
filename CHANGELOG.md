@@ -13,13 +13,6 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
-### Added
-
-- Added native Quantity per Unit and derived Effective Quantity support across
-  licenses, CSV imports, registry exports, details, manual creation, and
-  pending-order conversion. Purchase Quantity remains the commercial count used
-  for cost calculations, while Effective Quantity represents entitlement scale.
-
 ## [1.1.7] - 2026-08-13
 
 ### Added
@@ -31,6 +24,10 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Added authenticated PDF preview from License Details documents. Existing PDF
   files can now be previewed in a side pane while the details panel remains
   usable, and the original download action is unchanged.
+- Added native Quantity per Unit and derived Effective Quantity support across
+  licenses, CSV imports, registry exports, details, manual creation, and
+  pending-order conversion. Purchase Quantity remains the commercial count used
+  for cost calculations, while Effective Quantity represents entitlement scale.
 
 ### Changed
 
