@@ -157,6 +157,35 @@ describe("ReportsPage interactions", () => {
     expect(screen.queryByText("Euro Publisher")).not.toBeInTheDocument();
   });
 
+  test("searches large department lists inside the reports filter dropdown", async () => {
+    const user = userEvent.setup();
+    getLicenses.mockResolvedValueOnce({
+      data: Array.from({ length: 30 }, (_, index) => license({
+        id: index + 1,
+        publisherName: `Publisher ${index + 1}`,
+        costCentre: `Department ${String(index + 1).padStart(3, "0")}`,
+      })),
+      error: null,
+    });
+
+    renderReportsPage();
+
+    expect(await screen.findAllByText("Publisher 1")).not.toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: /All departments/i }));
+
+    const listbox = screen.getByRole("listbox");
+    expect(within(listbox).getByText("Department 001")).toBeInTheDocument();
+    await user.type(within(listbox).getByLabelText("Search departments"), "029");
+
+    expect(within(listbox).getByText("Department 029")).toBeInTheDocument();
+    expect(within(listbox).queryByText("Department 001")).not.toBeInTheDocument();
+    expect(listbox.querySelector(".report-dept-options")).toBeInTheDocument();
+
+    await user.click(within(listbox).getByText("Department 029"));
+    expect(await screen.findByText(/Showing 1 license/i)).toBeInTheDocument();
+    expect(screen.getAllByText("Publisher 29")).not.toHaveLength(0);
+  });
+
   test("updates lifecycle counters from filtered rows and omits incomplete", async () => {
     const user = userEvent.setup();
     getLicenses.mockResolvedValueOnce({

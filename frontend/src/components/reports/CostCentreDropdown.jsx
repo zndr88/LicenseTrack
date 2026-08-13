@@ -1,14 +1,25 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../ui/Icon.jsx";
 
 export default function CostCentreDropdown({ costCentres, selected, onChange }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const ref = useRef(null);
   const listboxRef = useRef(null);
+  const searchRef = useRef(null);
+
+  const filteredCostCentres = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return costCentres;
+    return costCentres.filter((costCentre) => costCentre.toLowerCase().includes(needle));
+  }, [costCentres, query]);
 
   useEffect(() => {
-    if (open) { setFocusedIndex(-1); listboxRef.current?.focus(); }
+    if (!open) return;
+    setFocusedIndex(-1);
+    setQuery("");
+    window.requestAnimationFrame(() => searchRef.current?.focus());
   }, [open]);
 
   useEffect(() => {
@@ -36,13 +47,12 @@ export default function CostCentreDropdown({ costCentres, selected, onChange }) 
   else label = `${selected.length} departments selected`;
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className="report-dept-dropdown">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="chip"
+        className={`chip report-dept-trigger${open ? " open" : ""}`}
         aria-haspopup="listbox"
         aria-expanded={open}
-        style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", background: open ? "var(--bg-hover)" : undefined }}
       >
         <Icon name="filter" size={12} />
         <span>{label}</span>
@@ -55,71 +65,83 @@ export default function CostCentreDropdown({ costCentres, selected, onChange }) 
           role="listbox"
           tabIndex={0}
           aria-multiselectable="true"
-          style={{
-            position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 200,
-            background: "var(--bg-2)", border: "1px solid var(--border)",
-            borderRadius: "var(--r)", padding: "4px 0", minWidth: 200,
-            boxShadow: "var(--shadow-md)", outline: "none",
-          }}
+          className="report-dept-menu"
           onKeyDown={(e) => {
-            const total = 1 + costCentres.length;
-            if (e.key === "ArrowDown") { e.preventDefault(); setFocusedIndex((i) => Math.min(i + 1, total - 1)); }
-            else if (e.key === "ArrowUp") { e.preventDefault(); setFocusedIndex((i) => Math.max(i - 1, 0)); }
-            else if (e.key === "Enter" || e.key === " ") {
+            const isTyping = e.target === searchRef.current
+              && !["ArrowDown", "ArrowUp", "Enter", "Escape"].includes(e.key);
+            if (isTyping) return;
+
+            const total = 1 + filteredCostCentres.length;
+            if (e.key === "ArrowDown") {
               e.preventDefault();
-              if (focusedIndex === 0) { onChange([]); setOpen(false); }
-              else if (focusedIndex > 0) { toggle(costCentres[focusedIndex - 1]); }
+              setFocusedIndex((i) => Math.min(i + 1, total - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setFocusedIndex((i) => Math.max(i - 1, 0));
+            } else if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              if (focusedIndex === 0) {
+                onChange([]);
+                setOpen(false);
+              } else if (focusedIndex > 0) {
+                toggle(filteredCostCentres[focusedIndex - 1]);
+              }
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setOpen(false);
             }
-            else if (e.key === "Escape") { e.preventDefault(); setOpen(false); }
           }}
         >
+          <div className="report-dept-search">
+            <Icon name="search" size={13} />
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              placeholder="Search departments..."
+              aria-label="Search departments"
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setFocusedIndex(-1);
+              }}
+            />
+          </div>
           <div
             role="option"
             aria-selected={selected.length === 0}
             onClick={() => { onChange([]); setOpen(false); }}
-            style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "7px 12px",
-              cursor: "pointer", fontSize: 13, fontWeight: 500,
-              background: focusedIndex === 0 ? "var(--bg-hover)" : undefined,
-            }}
-            onMouseEnter={(e) => { setFocusedIndex(0); e.currentTarget.style.background = "var(--bg-hover)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = focusedIndex === 0 ? "var(--bg-hover)" : "transparent"; }}
+            className={`report-dept-option report-dept-all${focusedIndex === 0 ? " focused" : ""}`}
+            onMouseEnter={() => setFocusedIndex(0)}
           >
             <Icon name="check" size={13} color={selected.length === 0 ? "var(--accent)" : "transparent"} />
-            All departments
+            <span>All departments</span>
           </div>
           {costCentres.length > 0 && (
-            <div style={{ borderTop: "1px solid var(--border)", margin: "2px 0" }} />
+            <div className="report-dept-divider" />
           )}
-          {costCentres.map((cc, idx) => {
-            const checked = selected.includes(cc);
-            const isFocused = focusedIndex === idx + 1;
-            return (
-              <div
-                key={cc}
-                role="option"
-                aria-selected={checked}
-                onClick={() => toggle(cc)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10, padding: "7px 12px",
-                  cursor: "pointer", fontSize: 13,
-                  background: isFocused ? "var(--bg-hover)" : undefined,
-                }}
-                onMouseEnter={(e) => { setFocusedIndex(idx + 1); e.currentTarget.style.background = "var(--bg-hover)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = isFocused ? "var(--bg-hover)" : "transparent"; }}
-              >
-                <div style={{
-                  width: 14, height: 14, borderRadius: 3, flexShrink: 0,
-                  border: `1.5px solid ${checked ? "var(--accent)" : "var(--border-lt)"}`,
-                  background: checked ? "var(--accent)" : "transparent",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  {checked && <Icon name="check" size={10} color="white" />}
+          <div className="report-dept-options">
+            {filteredCostCentres.length === 0 ? (
+              <div className="report-dept-empty">No departments match</div>
+            ) : filteredCostCentres.map((cc, idx) => {
+              const checked = selected.includes(cc);
+              const isFocused = focusedIndex === idx + 1;
+              return (
+                <div
+                  key={cc}
+                  role="option"
+                  aria-selected={checked}
+                  onClick={() => toggle(cc)}
+                  className={`report-dept-option${isFocused ? " focused" : ""}`}
+                  onMouseEnter={() => setFocusedIndex(idx + 1)}
+                >
+                  <div className={`report-dept-check${checked ? " checked" : ""}`}>
+                    {checked && <Icon name="check" size={10} color="white" />}
+                  </div>
+                  <span>{cc}</span>
                 </div>
-                {cc}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

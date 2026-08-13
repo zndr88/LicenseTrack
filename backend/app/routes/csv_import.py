@@ -42,6 +42,7 @@ from app.schemas.csv_import import (
 )
 from app.services.audit_service import format_audit_detail, log_event
 from app.services.csv_importer import (
+    _FALLBACK_HEADER_ALIASES,
     _HEADER_MAP,
     _IGNORED_HEADERS,
     _normalise_header,
@@ -196,6 +197,7 @@ async def analyze_import(
 
     matched_fields: set[str] = set()
     matched_columns: list[ColumnMatch] = []
+    matched_column_indexes: dict[str, int] = {}
     unrecognized_columns: list[UnrecognizedColumn] = []
     custom_headers = await _custom_field_header_map(db)
 
@@ -209,7 +211,23 @@ async def analyze_import(
         samples = [r.get(raw_h, "").strip() for r in sample_rows if r.get(raw_h, "").strip()][:3]
         if internal and internal not in matched_fields:
             matched_fields.add(internal)
+            matched_column_indexes[internal] = len(matched_columns)
             matched_columns.append(ColumnMatch(raw_header=raw_h, internal_field=internal, sample_values=samples))
+        elif internal:
+            existing_index = matched_column_indexes[internal]
+            existing = matched_columns[existing_index]
+            existing_norm = _normalise_header(existing.raw_header)
+            if existing_norm in _FALLBACK_HEADER_ALIASES and norm not in _FALLBACK_HEADER_ALIASES:
+                matched_columns[existing_index] = ColumnMatch(
+                    raw_header=raw_h,
+                    internal_field=internal,
+                    sample_values=samples,
+                )
+                unrecognized_columns.append(
+                    UnrecognizedColumn(raw_header=existing.raw_header, sample_values=existing.sample_values)
+                )
+            else:
+                unrecognized_columns.append(UnrecognizedColumn(raw_header=raw_h, sample_values=samples))
         elif not internal:
             unrecognized_columns.append(UnrecognizedColumn(raw_header=raw_h, sample_values=samples))
 

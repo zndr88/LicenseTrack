@@ -84,6 +84,22 @@ def test_flexera_purchase_type_aliases_map_to_license_type(purchase_type, expect
     assert row.validation_errors == []
 
 
+def test_item_fallback_does_not_override_explicit_software_description():
+    csv_bytes = _csv(
+        ["publisher_name", "Item", "software_description"],
+        [{
+            "publisher_name": "Acme",
+            "Item": "ERP-EXT-123",
+            "software_description": "Acme ERP Suite",
+        }],
+    )
+
+    result = parse_csv(csv_bytes)
+
+    assert result.headers_found == ["publisher_name", "software_description"]
+    assert result.rows[0].software_description == "Acme ERP Suite"
+
+
 def test_native_parser_extracts_existing_custom_fields_by_name_and_stable_key():
     definitions = [SimpleNamespace(name="Contract Owner", field_key="cf_contract_owner")]
     custom_headers = build_custom_field_header_map(definitions)

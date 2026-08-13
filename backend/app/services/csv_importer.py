@@ -109,6 +109,12 @@ _HEADER_MAP: dict[str, str] = {
     "maintenance_support_coverage": "maintenance_coverage",  # "Maintenance / Support Coverage"
 }
 
+_FALLBACK_HEADER_ALIASES: frozenset[str] = frozenset(
+    {
+        "item",
+    }
+)
+
 # Export-only / computed columns (normalised header form). These are recognised
 # on import but intentionally mapped to nothing, so round-tripping a full
 # LicenseTrack export does not prompt the user to create custom fields for them.
@@ -731,16 +737,34 @@ def parse_csv(
     # Build raw_header → native/custom target mapping (first match wins for
     # duplicates, except explicit multi-value targets). Native and ignored
     # headers take precedence over custom names.
+    # Weak fallback aliases can still be replaced by stronger headers below.
     header_mapping: dict[str, str] = {}
     mapped_fields: set[str] = set()
+    target_to_header: dict[str, str] = {}
     for raw_h in raw_headers:
         normalized = _normalise_header(raw_h)
         target = _HEADER_MAP.get(normalized)
         if target is None and normalized not in _IGNORED_HEADERS:
             target = (custom_field_header_map or {}).get(normalized)
-        if target and (target not in mapped_fields or target in MULTI_VALUE_TARGETS):
+        if target in MULTI_VALUE_TARGETS:
             header_mapping[raw_h] = target
             mapped_fields.add(target)
+            continue
+        if not target:
+            continue
+
+        previous_header = target_to_header.get(target)
+        if previous_header is None:
+            header_mapping[raw_h] = target
+            mapped_fields.add(target)
+            target_to_header[target] = raw_h
+            continue
+
+        previous_normalized = _normalise_header(previous_header)
+        if previous_normalized in _FALLBACK_HEADER_ALIASES and normalized not in _FALLBACK_HEADER_ALIASES:
+            header_mapping.pop(previous_header, None)
+            header_mapping[raw_h] = target
+            target_to_header[target] = raw_h
 
     # Preserve order of first appearance for headers_found
     headers_found: list[str] = list(dict.fromkeys(header_mapping.values()))

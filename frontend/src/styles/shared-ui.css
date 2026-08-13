@@ -74,6 +74,89 @@
 .report-chip-suffix {
   color: var(--text-3);
 }
+.report-dept-dropdown { position: relative; }
+.report-dept-trigger.open { background: var(--bg-hover); }
+.report-dept-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 200;
+  min-width: 260px;
+  max-width: min(360px, calc(100vw - 32px));
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 6px 0;
+  box-shadow: var(--shadow-md);
+  outline: none;
+}
+.report-dept-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 8px 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-1);
+  color: var(--text-3);
+}
+.report-dept-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 12px;
+}
+.report-dept-search input::placeholder { color: var(--text-3); }
+.report-dept-divider { border-top: 1px solid var(--border); margin: 2px 0; }
+.report-dept-options {
+  max-height: min(320px, calc(100vh - 260px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.report-dept-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.report-dept-option span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.report-dept-option.focused,
+.report-dept-option:hover { background: var(--bg-hover); color: var(--text-1); }
+.report-dept-all { font-weight: 500; color: var(--text-1); }
+.report-dept-check {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border-lt);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.report-dept-check.checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.report-dept-empty {
+  padding: 9px 12px;
+  color: var(--text-3);
+  font-size: 12px;
+}
 .report-inline-warning {
   display: inline-flex;
   align-items: center;

@@ -135,6 +135,31 @@ async def test_analyze_import_does_not_auto_match_flexera_entitlement_quantity(t
     assert "Quantity per Unit" in unrecognized
 
 
+async def test_analyze_import_keeps_duplicate_description_candidate_recoverable(test_app, auth_headers):
+    csv_bytes = _make_csv(
+        ["Publisher", "Item", "Software Description"],
+        [{
+            "Publisher": "Acme",
+            "Item": "ERP-EXT-123",
+            "Software Description": "Acme ERP Suite",
+        }],
+    )
+
+    resp = await test_app.post(
+        "/api/import/analyze",
+        headers=auth_headers,
+        files={"file": ("external.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    matched = {column["internalField"]: column for column in body["matchedColumns"]}
+
+    assert matched["software_description"]["rawHeader"] == "Software Description"
+    assert {"rawHeader": "Item", "sampleValues": ["ERP-EXT-123"]} in body["unrecognizedColumns"]
+    assert body["missingRequired"] == []
+
+
 async def test_analyze_import_auto_matches_existing_custom_field(test_app, auth_headers):
     definition = await _create_custom_field(test_app, auth_headers, "Renewal Owner", "text")
     csv_bytes = _make_csv(
