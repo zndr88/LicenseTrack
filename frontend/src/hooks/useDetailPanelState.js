@@ -26,6 +26,7 @@ export function useDetailPanelState({
   userSettings,
   globalSettings,
   user,
+  onPreviewDocument,
 }) {
   const [confirmAction, setConfirmAction] = useState(null);
   const [fieldEdit, setFieldEdit] = useState(null);
@@ -114,6 +115,7 @@ export function useDetailPanelState({
     handleFileUpload,
     handleFileRemove,
     handleFileDownload,
+    handleFilePreview,
     handleDocumentAction,
     handleAcceptProcessingResult,
     handleRejectProcessingResult,
@@ -123,6 +125,7 @@ export function useDetailPanelState({
     setConfirmAction,
     setToast,
     onProcessingAccepted: refreshCustomFields,
+    onPreviewDocument,
   });
 
   const [pluginSuggestions, setPluginSuggestions] = useState([]);
@@ -367,7 +370,7 @@ export function useDetailPanelState({
     documents, docsLoading, uploadingCategory, liveDocs, docCount, docAvailabilitySummary,
     documentActions, documentActionBusy,
     processingResults, processingResultHistory, processingResultsLoading, processingRequestPending, processingReviewBusy,
-    handleFileUpload, handleFileRemove, handleFileDownload, handleDocumentAction,
+    handleFileUpload, handleFileRemove, handleFileDownload, handleFilePreview, handleDocumentAction,
     handleAcceptProcessingResult, handleRejectProcessingResult,
     pluginSuggestions, pluginSuggestionsLoading, pluginSuggestionReviewBusy,
     handleAcceptPluginSuggestion, handleRejectPluginSuggestion,

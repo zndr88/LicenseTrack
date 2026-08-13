@@ -47,7 +47,7 @@ function DetailToast({ toast, onClose }) {
   );
 }
 
-export default function DetailPanel({ license, userSettings, globalSettings, user, allLicenses, sourcingItems, pendingOrders, contracts, onClose, onUpdate, onDelete, onCreateRenewal, onCreateRenewalBundle, onCancelRenewal, onNavigateToSourcing, onNavigateToPendingOrder, onNavigateToContract, onCreateContract, onNavigate }) {
+export default function DetailPanel({ license, userSettings, globalSettings, user, allLicenses, sourcingItems, pendingOrders, contracts, onClose, onUpdate, onDelete, onCreateRenewal, onCreateRenewalBundle, onCancelRenewal, onNavigateToSourcing, onNavigateToPendingOrder, onNavigateToContract, onCreateContract, onNavigate, onPreviewDocument }) {
   const {
     confirmAction, setConfirmAction,
     showMaintenanceModal, setShowMaintenanceModal,
@@ -67,7 +67,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     documents, docsLoading, uploadingCategory, docCount, docAvailabilitySummary,
     documentActions, documentActionBusy,
     processingResults, processingResultHistory, processingResultsLoading, processingRequestPending, processingReviewBusy,
-    handleFileUpload, handleFileRemove, handleFileDownload, handleDocumentAction,
+    handleFileUpload, handleFileRemove, handleFileDownload, handleFilePreview, handleDocumentAction,
     handleAcceptProcessingResult, handleRejectProcessingResult,
     pluginSuggestions, pluginSuggestionsLoading, pluginSuggestionReviewBusy,
     handleAcceptPluginSuggestion, handleRejectPluginSuggestion,
@@ -75,7 +75,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     cfBySection,
     makeCustomFieldSaveFn,
     comp, exp, perms, vis,
-  } = useDetailPanelState({ license, onUpdate, onClose, userSettings, globalSettings, user });
+  } = useDetailPanelState({ license, onUpdate, onClose, userSettings, globalSettings, user, onPreviewDocument });
   const canDownloadDocuments = user?.role !== "viewer" || user?.allowDownloads !== false;
 
   const notesPreview = license.notes
@@ -252,6 +252,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               handleFileUpload={handleFileUpload}
               handleFileRemove={handleFileRemove}
               handleFileDownload={handleFileDownload}
+              handleFilePreview={handleFilePreview}
               handleDocumentAction={handleDocumentAction}
               handleAcceptProcessingResult={handleAcceptProcessingResult}
               handleRejectProcessingResult={handleRejectProcessingResult}

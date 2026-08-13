@@ -248,6 +248,7 @@ textarea.fi { min-height: 80px; resize: vertical; }
 .doc-action-btn { width: 36px; height: 36px; border-radius: 6px; border: none; background: none; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; }
 .doc-action-btn:hover { background: var(--bg-3); color: var(--text-1); }
 .doc-action-btn.download:hover { color: var(--steel-text); }
+.doc-action-btn.preview:hover { color: var(--accent); }
 .doc-action-btn.remove:hover { color: var(--red-text); }
 .document-button { max-width: 190px; padding: 3px 7px; font-size: 11px; justify-content: flex-start; }
 .document-button-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

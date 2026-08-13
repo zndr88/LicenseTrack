@@ -59,5 +59,12 @@
   .doc-processing-history-meta {
     white-space: normal;
   }
+  .lp-document-preview {
+    min-height: calc(100vh - 140px);
+  }
+  .lp-document-preview-frame,
+  .lp-document-preview-loading {
+    min-height: 420px;
+  }
 }
 

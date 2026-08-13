@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeEach } from 'vitest'
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
@@ -12,6 +12,8 @@ vi.mock('../api/documents.js', () => ({
   deleteProcurementDocument: vi.fn(),
   downloadDocument: vi.fn(),
   downloadProcurementDocument: vi.fn(),
+  previewDocument: vi.fn(),
+  previewProcurementDocument: vi.fn(),
   invokeDocumentAction: vi.fn(),
   listDocumentActions: vi.fn().mockResolvedValue({ data: [], error: null }),
   listDocumentProcessingResults: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -65,6 +67,10 @@ vi.mock('../api/licenses.js', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 function render(ui) {
@@ -878,6 +884,66 @@ describe('DetailPanel documents', () => {
 
     expect(await screen.findByText('The document record exists, but the file is missing from managed storage.')).toBeInTheDocument()
     expect(downloadDocument).toHaveBeenCalledWith(9, 'invoice.pdf')
+  })
+
+  it('shows PDF preview actions only for available PDFs and forwards preview requests', async () => {
+    const user = userEvent.setup()
+    const { getDocuments } = await import('../api/documents.js')
+    const onPreviewDocument = vi.fn()
+    getDocuments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 9,
+          category: 'invoice',
+          original_filename: 'invoice.pdf',
+          mime_type: 'application/pdf',
+          file_size: 2048,
+          uploaded_at: '2026-01-01T00:00:00Z',
+          file_availability: 'available',
+        },
+        {
+          id: 10,
+          category: 'invoice',
+          original_filename: 'notes.txt',
+          mime_type: 'text/plain',
+          file_size: 1024,
+          uploaded_at: '2026-01-01T00:00:00Z',
+          file_availability: 'available',
+        },
+        {
+          id: 11,
+          category: 'invoice',
+          original_filename: 'missing.pdf',
+          file_size: 1024,
+          uploaded_at: '2026-01-01T00:00:00Z',
+          file_availability: 'missing',
+        },
+      ],
+      error: null,
+    })
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin', allowDownloads: true }}
+        onPreviewDocument={onPreviewDocument}
+      />
+    )
+
+    await user.click(await screen.findByRole('button', { name: /^documents/i }))
+    expect(await screen.findByText('invoice.pdf')).toBeInTheDocument()
+    expect(screen.getByText('notes.txt')).toBeInTheDocument()
+    expect(screen.getByText('missing.pdf')).toBeInTheDocument()
+
+    const previewButtons = screen.getAllByRole('button', { name: /^preview$/i })
+    expect(previewButtons).toHaveLength(1)
+    await user.click(previewButtons[0])
+
+    expect(onPreviewDocument).toHaveBeenCalledWith(expect.objectContaining({
+      id: 9,
+      original_filename: 'invoice.pdf',
+    }))
+    expect(screen.queryByRole('dialog', { name: /pdf preview/i })).not.toBeInTheDocument()
   })
 
   it('refreshes processing suggestions after requesting document processing', async () => {

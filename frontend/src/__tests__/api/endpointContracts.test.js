@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import * as client from "../../api/client.js";
 import * as licensesApi from "../../api/licenses.js";
@@ -29,6 +29,10 @@ beforeEach(() => {
   client.patch.mockResolvedValue({ data: {}, error: null });
   client.del.mockResolvedValue({ data: null, error: null });
   client.request.mockResolvedValue({ data: {}, error: null });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("frontend API endpoint contracts", () => {
@@ -142,6 +146,26 @@ describe("frontend API endpoint contracts", () => {
 
     await documentsApi.listDocumentActions();
     expect(client.get).toHaveBeenLastCalledWith("/api/document-actions");
+
+    const createObjectURL = vi.fn(() => "blob:preview");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL,
+      revokeObjectURL,
+    });
+    client.get.mockResolvedValueOnce({
+      data: { blob: vi.fn().mockResolvedValue(new Blob(["pdf"], { type: "application/pdf" })) },
+      error: null,
+    });
+    await documentsApi.previewDocument(3);
+    expect(client.get).toHaveBeenLastCalledWith("/api/documents/3/download");
+    client.get.mockResolvedValueOnce({
+      data: { blob: vi.fn().mockResolvedValue(new Blob(["pdf"], { type: "application/pdf" })) },
+      error: null,
+    });
+    await documentsApi.previewProcurementDocument(4);
+    expect(client.get).toHaveBeenLastCalledWith("/api/procurement-documents/4/download");
 
     await documentsApi.invokeDocumentAction("request_processing", { documentType: "license_document", documentId: 3 });
     expect(client.post).toHaveBeenLastCalledWith(

@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("../../api/documents.js", () => ({
   getDocuments: vi.fn(),
@@ -56,6 +56,10 @@ function renderForLicense(id) {
 describe("useLicenseDocuments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   test("ignores stale document and processing responses after license changes", async () => {
@@ -166,5 +170,28 @@ describe("useLicenseDocuments", () => {
 
     expect(result.current.documents).toEqual([{ id: 20, category: "invoice", original_filename: "current.pdf" }]);
     expect(onUpdate).not.toHaveBeenCalledWith(1, expect.any(Object));
+  });
+
+  test("forwards available PDF preview requests to the page owner", async () => {
+    const onPreviewDocument = vi.fn();
+    getDocuments.mockResolvedValueOnce({ data: [], error: null });
+    listDocumentProcessingResults.mockResolvedValueOnce({ data: [], error: null });
+
+    const { result } = renderHook(
+      (props) => useLicenseDocuments(props),
+      { initialProps: { ...renderForLicense(1), onPreviewDocument } },
+    );
+
+    const document = {
+      id: 5,
+      category: "invoice",
+      original_filename: "invoice.pdf",
+      file_availability: "available",
+    };
+    await act(async () => {
+      await result.current.handleFilePreview(document);
+    });
+
+    expect(onPreviewDocument).toHaveBeenCalledWith(document);
   });
 });

@@ -23,6 +23,8 @@ import LicenseBulkActions from "./licenses/LicenseBulkActions.jsx";
 import LicenseStatusFilter from "./licenses/LicenseStatusFilter.jsx";
 import LicenseTable from "./licenses/LicenseTable.jsx";
 import LicenseToolbar from "./licenses/LicenseToolbar.jsx";
+import DocumentPreviewPane from "./licenses/DocumentPreviewPane.jsx";
+import { useDocumentPreview } from "./licenses/useDocumentPreview.js";
 
 export { exportFilteredCsv };
 
@@ -55,6 +57,12 @@ export default function LicensesPage({
   const displayCurrency = userSettings.displayCurrency ?? DEFAULT_DISPLAY_CURRENCY;
   const [inlineEditEnabled, setInlineEditEnabled] = useState(false);
   const appliedDefaultViewRef = useRef(null);
+  const {
+    documentPreview,
+    openDocumentPreview,
+    closeDocumentPreview,
+    downloadPreviewDocument,
+  } = useDocumentPreview({ showError });
 
   const {
     search, setSearch,
@@ -242,6 +250,10 @@ export default function LicensesPage({
   const selectedLicense = licenses.find((l) => l.id === selectedId);
   const trackedLicenseCount = Math.max(0, licenses.length - (stats.legacy ?? 0));
 
+  useEffect(() => {
+    closeDocumentPreview();
+  }, [selectedId, closeDocumentPreview]);
+
   return (
     <>
       <div className="page-header">
@@ -297,84 +309,92 @@ export default function LicensesPage({
         />
 
         <div className="lp-split">
-          <div className="tbl-wrap">
-            <LicenseToolbar
-              search={search}
-              setSearch={setSearch}
-              setCurrentPage={setCurrentPage}
-              filterRowOpen={filterRowOpen}
-              setFilterRowOpen={setFilterRowOpen}
-              hasColumnFilters={hasColumnFilters}
-              setColumnFilters={setColumnFilters}
-              statsVisible={statsVisible}
-              onSetStatsVisible={onSetStatsVisible}
-              fullViewProp={fullViewProp}
-              handleToggleFullView={handleToggleFullView}
-              loadLicenses={loadLicenses}
-              selectedIds={selectedIds}
-              setShowBulkDeleteConfirm={setShowBulkDeleteConfirm}
-              userSettings={userSettings}
-              handleSaveView={handleSaveView}
-              handleDeleteView={handleDeleteView}
-              handleSetDefaultView={handleSetDefaultView}
-              handleLoadView={handleLoadView}
-              handleRevertToDefault={handleRevertToDefault}
-              handleSetVisibleColumn={handleSetVisibleColumn}
-              handleSetVisibleColumnGroup={handleSetVisibleColumnGroup}
+          {documentPreview ? (
+            <DocumentPreviewPane
+              preview={documentPreview}
+              onClose={closeDocumentPreview}
+              onDownload={downloadPreviewDocument}
+            />
+          ) : (
+            <div className="tbl-wrap">
+              <LicenseToolbar
+                search={search}
+                setSearch={setSearch}
+                setCurrentPage={setCurrentPage}
+                filterRowOpen={filterRowOpen}
+                setFilterRowOpen={setFilterRowOpen}
+                hasColumnFilters={hasColumnFilters}
+                setColumnFilters={setColumnFilters}
+                statsVisible={statsVisible}
+                onSetStatsVisible={onSetStatsVisible}
+                fullViewProp={fullViewProp}
+                handleToggleFullView={handleToggleFullView}
+                loadLicenses={loadLicenses}
+                selectedIds={selectedIds}
+                setShowBulkDeleteConfirm={setShowBulkDeleteConfirm}
+                userSettings={userSettings}
+                handleSaveView={handleSaveView}
+                handleDeleteView={handleDeleteView}
+                handleSetDefaultView={handleSetDefaultView}
+                handleLoadView={handleLoadView}
+                handleRevertToDefault={handleRevertToDefault}
+                handleSetVisibleColumn={handleSetVisibleColumn}
+                handleSetVisibleColumnGroup={handleSetVisibleColumnGroup}
+                activeColumns={activeColumns}
+                visList={visList}
+                filtered={sorted}
+                displayCurrency={displayCurrency}
+                licenses={licenses}
+                customFieldValuesMap={customFieldValuesMap}
+                showError={showError}
+                inlineEditEnabled={inlineEditEnabled}
+                onToggleInlineEdit={handleToggleInlineEdit}
+                canInlineEdit={user?.role === "admin" || user?.role === "editor"}
+              />
+              <LicenseStatusFilter
+                statusFilters={statusFilters}
+                setStatusFilters={setStatusFilters}
+                setCurrentPage={setCurrentPage}
+              />
+            <LicenseTable
+              filtered={sorted}
+              paginatedItems={paginatedItems}
+              licenses={licenses}
+              departments={departments}
+              datesFromOptions={datesFromOptions}
+              datesToOptions={datesToOptions}
+              customFieldValuesMap={customFieldValuesMap}
               activeColumns={activeColumns}
               visList={visList}
-              filtered={sorted}
               displayCurrency={displayCurrency}
-              licenses={licenses}
-              customFieldValuesMap={customFieldValuesMap}
-              showError={showError}
-              inlineEditEnabled={inlineEditEnabled}
-              onToggleInlineEdit={handleToggleInlineEdit}
-              canInlineEdit={user?.role === "admin" || user?.role === "editor"}
-            />
-            <LicenseStatusFilter
-              statusFilters={statusFilters}
-              setStatusFilters={setStatusFilters}
+              userSettings={userSettings}
+              setUserSettings={setUserSettings}
+              handleHideColumn={handleHideColumn}
+              sortCol={sortCol}
+              sortDir={sortDir}
+              handleSortCol={handleSortCol}
+              selectedIds={selectedIds}
+              setSelectedIds={setSelectedIds}
+              allFilteredSelected={allFilteredSelected}
+              someFilteredSelected={someFilteredSelected}
+              filterRowOpen={filterRowOpen}
+              columnFilters={columnFilters}
+              setColumnFilters={setColumnFilters}
+              hasColumnFilters={hasColumnFilters}
+              currentPage={currentPage}
               setCurrentPage={setCurrentPage}
+              pageSize={pageSize}
+              setPageSize={setPageSize}
+              totalPages={totalPages}
+              hoveredCol={hoveredCol}
+              setHoveredCol={setHoveredCol}
+              setSelectedId={setSelectedId}
+              inlineEditEnabled={inlineEditEnabled}
+              onInlineFieldSave={handleLicenseFieldPatch}
+              layoutVersion={attentionLayoutVersion}
             />
-          <LicenseTable
-            filtered={sorted}
-            paginatedItems={paginatedItems}
-            licenses={licenses}
-            departments={departments}
-            datesFromOptions={datesFromOptions}
-            datesToOptions={datesToOptions}
-            customFieldValuesMap={customFieldValuesMap}
-            activeColumns={activeColumns}
-            visList={visList}
-            displayCurrency={displayCurrency}
-            userSettings={userSettings}
-            setUserSettings={setUserSettings}
-            handleHideColumn={handleHideColumn}
-            sortCol={sortCol}
-            sortDir={sortDir}
-            handleSortCol={handleSortCol}
-            selectedIds={selectedIds}
-            setSelectedIds={setSelectedIds}
-            allFilteredSelected={allFilteredSelected}
-            someFilteredSelected={someFilteredSelected}
-            filterRowOpen={filterRowOpen}
-            columnFilters={columnFilters}
-            setColumnFilters={setColumnFilters}
-            hasColumnFilters={hasColumnFilters}
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            pageSize={pageSize}
-            setPageSize={setPageSize}
-            totalPages={totalPages}
-            hoveredCol={hoveredCol}
-            setHoveredCol={setHoveredCol}
-            setSelectedId={setSelectedId}
-            inlineEditEnabled={inlineEditEnabled}
-            onInlineFieldSave={handleLicenseFieldPatch}
-            layoutVersion={attentionLayoutVersion}
-          />
-          </div>
+            </div>
+          )}
 
           {selectedLicense && (
             <DetailPanel
@@ -397,6 +417,7 @@ export default function LicensesPage({
               onCreateRenewalBundle={handleCreateRenewalBundle}
               onCancelRenewal={handleCancelRenewal}
               onNavigate={(id) => setSelectedId(id)}
+              onPreviewDocument={openDocumentPreview}
             />
           )}
         </div>

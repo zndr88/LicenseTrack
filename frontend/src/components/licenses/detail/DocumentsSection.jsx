@@ -9,6 +9,7 @@ import {
   documentAvailabilityLabel,
   isFileAvailable,
 } from "../../../utils/documentAvailability.js";
+import { isPreviewablePdf } from "../../../utils/documentPreview.js";
 
 const DOC_CATEGORIES = [
   { key: "quote", label: "Quote", icon: "file", color: "var(--purple-text)" },
@@ -170,6 +171,7 @@ export default function DocumentsSection({
   handleFileUpload,
   handleFileRemove,
   handleFileDownload,
+  handleFilePreview,
   handleDocumentAction,
   handleAcceptProcessingResult,
   handleRejectProcessingResult,
@@ -261,6 +263,16 @@ export default function DocumentsSection({
                             onClick={() => handleFileDownload(doc)}
                           >
                             <Icon name="download" size={14} />
+                          </button>
+                        )}
+                        {canDownloadDocuments && isPreviewablePdf(doc) && (
+                          <button
+                            className="doc-action-btn preview"
+                            title="Preview"
+                            aria-label="Preview"
+                            onClick={() => handleFilePreview(doc)}
+                          >
+                            <Icon name="eye" size={14} />
                           </button>
                         )}
                         {perms.canEdit && documentActions.map((action) => {

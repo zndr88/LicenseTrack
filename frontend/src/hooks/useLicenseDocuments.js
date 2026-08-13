@@ -14,8 +14,9 @@ import {
 } from "../api/documents.js";
 import { getLicense } from "../api/licenses.js";
 import { documentAvailabilityHelp, documentAvailabilitySummary, isFileAvailable } from "../utils/documentAvailability.js";
+import { isPreviewablePdf } from "../utils/documentPreview.js";
 
-export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setToast, onProcessingAccepted }) {
+export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setToast, onProcessingAccepted, onPreviewDocument }) {
   const [documents, setDocuments] = useState(null);
   const [docsLoading, setDocsLoading] = useState(false);
   const [uploadingCategory, setUploadingCategory] = useState(null);
@@ -196,6 +197,14 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     }
   };
 
+  const handleFilePreview = async (doc) => {
+    if (!isPreviewablePdf(doc)) {
+      setToast(!isFileAvailable(doc) ? documentAvailabilityHelp(doc) : "Only PDF documents can be previewed.");
+      return;
+    }
+    onPreviewDocument?.(doc);
+  };
+
   const handleDocumentAction = async (action, doc) => {
     const documentType = doc.scope === "po" ? "procurement_document" : "license_document";
     const busyKey = `${action.key}:${documentType}:${doc.id}`;
@@ -277,6 +286,7 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     handleFileUpload,
     handleFileRemove,
     handleFileDownload,
+    handleFilePreview,
     handleDocumentAction,
     handleAcceptProcessingResult,
     handleRejectProcessingResult,
