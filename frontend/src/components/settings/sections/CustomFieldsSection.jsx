@@ -6,7 +6,7 @@ import ConfirmDialog from "../../ui/ConfirmDialog.jsx";
 import { SectionHeader } from "../SectionShared.jsx";
 
 const CUSTOM_FIELD_TYPE_LABELS = { text: "Text", currency: "Currency", date: "Date", boolean: "True/False" };
-const CUSTOM_FIELD_SECTION_KEYS = ["identity", "dates", "commercial", "people", "documents", "maintenance", "notes"];
+const CUSTOM_FIELD_SECTION_KEYS = ["identity", "dates", "commercial", "people", "documents", "notes"];
 
 export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError, onToast, onCustomFieldsChanged }) {
   const [customFields, setCustomFields] = useState([]);

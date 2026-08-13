@@ -81,7 +81,6 @@ describe("CustomFieldsSection", () => {
       getCustomFieldSectionLabel("commercial"),
       getCustomFieldSectionLabel("people"),
       getCustomFieldSectionLabel("documents"),
-      getCustomFieldSectionLabel("maintenance"),
       getCustomFieldSectionLabel("notes"),
     ]);
     expect(getCustomFieldSectionLabel("unknown")).toBe("Custom Fields");
