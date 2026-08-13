@@ -52,14 +52,20 @@ A license can have more than one invoice number. Click the invoice number or the
 
 ![Details section](../assets/record-04-details.png)
 
-Here you'll find more detail about the license record: the **license type**, **metric**, **quantity**, **SKU code**, and **pricing**.
+Here you'll find more detail about the license record: the **license type**, **metric**, **purchase quantity**, **effective quantity**, **quantity per unit**, **SKU code**, and **pricing**.
 
 Use **Service** for implementation, installation, or service costs associated
 with a license purchase. Use **Other** for rare purchase types that should stay
 visible in the registry while you decide how to classify them. Service and
 Other records are not treated as renewable entitlement lines.
 
-The **calculated total** is quantity × unit price, computed automatically. The
+**Purchase quantity** is the count bought on the order. **Quantity per unit**
+describes how much entitlement each purchased unit represents, such as seats in
+a bundle or lines of code in a pack. **Effective quantity** is calculated as
+purchase quantity multiplied by quantity per unit.
+
+The **calculated total** is purchase quantity times unit price, computed
+automatically. Effective quantity is not used for spend calculations. The
 **total PO price** is the acquisition value of the whole purchase order, which
 may span multiple lines in a single PO. Freeware/open-source records have no
 acquisition price; paid support is recorded in **Maintenance & Support**.

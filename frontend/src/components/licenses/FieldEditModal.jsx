@@ -20,7 +20,7 @@ import { parseLocalizedNumber } from "../../utils/formatting.js";
  *   onClose       {Function} - called to dismiss modal
  */
 const PRICE_FIELD_KEYS = ["unitPrice", "totalPoPrice"];
-const NUMERIC_FIELD_KEYS = ["quantity", ...PRICE_FIELD_KEYS];
+const NUMERIC_FIELD_KEYS = ["quantity", "quantityPerUnit", ...PRICE_FIELD_KEYS];
 
 export default function FieldEditModal({
   licenseId,

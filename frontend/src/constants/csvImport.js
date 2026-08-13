@@ -18,6 +18,8 @@ export const NATIVE_FIELDS = [
   { value: "license_type",         label: "License Type" },
   { value: "license_metric",       label: "License Metric" },
   { value: "quantity",             label: "Purchase Quantity" },
+  { value: "effective_quantity",   label: "Effective Quantity" },
+  { value: "quantity_per_unit",    label: "Quantity per Unit" },
   { value: "sku_code",             label: "SKU Code" },
   { value: "unit_price",           label: "Unit Price" },
   { value: "total_po_price",       label: "Total PO Price (legacy stored value)" },

@@ -1,9 +1,18 @@
 // frontend/src/components/licenses/detail/CommercialSection.jsx
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../../constants/licenseData.js";
-import { formatCost, getPoTotal } from "../../../utils/helpers.js";
+import { formatCost, getEffectiveQuantity, getPoTotal } from "../../../utils/helpers.js";
 import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
+
+function formatQuantityDisplay(value, userSettings) {
+  if (value === null || value === undefined || value === "") return "—";
+  const number = Number(value);
+  if (!Number.isFinite(number)) return value;
+  return new Intl.NumberFormat(userSettings?.numberFormatLocale ?? "en-US", {
+    maximumFractionDigits: 4,
+  }).format(number);
+}
 
 export default function CommercialSection({
   license,
@@ -22,6 +31,7 @@ export default function CommercialSection({
 }) {
   const fmtCost = (amount) =>
     formatCost(amount, license.currency || userSettings.displayCurrency || "EUR", userSettings.numberFormatLocale ?? "en-US");
+  const effectiveQuantity = getEffectiveQuantity(license);
 
   return (
     <>
@@ -89,10 +99,31 @@ export default function CommercialSection({
             <div className="dp-field">
               <span className="dp-field-label">Purchase Quantity</span>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val mono">{license.quantity || "—"}</div>
+                <div className="val mono">{formatQuantityDisplay(license.quantity, userSettings)}</div>
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit purchase quantity"
                     onClick={() => openFieldEdit({ fieldKey: "quantity", fieldLabel: "Purchase Quantity", currentValue: license.quantity || "", inputType: "text" })}
+                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                    <Icon name="edit" size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          {vis.effectiveQuantity && (
+            <div className="dp-field">
+              <span className="dp-field-label">Effective Quantity</span>
+              <div className="val mono">{formatQuantityDisplay(effectiveQuantity, userSettings)}</div>
+            </div>
+          )}
+          {vis.quantityPerUnit && (
+            <div className="dp-field">
+              <span className="dp-field-label">Quantity per Unit</span>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div className="val mono">{formatQuantityDisplay(license.quantityPerUnit || "1", userSettings)}</div>
+                {perms.canEdit && (
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit quantity per unit"
+                    onClick={() => openFieldEdit({ fieldKey: "quantityPerUnit", fieldLabel: "Quantity per Unit", currentValue: license.quantityPerUnit || "1", inputType: "text" })}
                     onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
                     <Icon name="edit" size={11} />
                   </button>

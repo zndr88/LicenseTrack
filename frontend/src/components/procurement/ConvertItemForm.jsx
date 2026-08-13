@@ -275,6 +275,10 @@ export default function ConvertItemForm({
               <input id={`ca-quantity-${idx}`} className="fi" {...register(`items.${idx}.quantity`)} />
             </div>
             <div className="fg">
+              <label htmlFor={`ca-quantity-per-unit-${idx}`}>Quantity per Unit</label>
+              <input id={`ca-quantity-per-unit-${idx}`} className="fi" inputMode="decimal" {...register(`items.${idx}.quantityPerUnit`)} />
+            </div>
+            <div className="fg">
               <label htmlFor={`ca-sku-code-${idx}`}>SKU Code</label>
               <input id={`ca-sku-code-${idx}`} className="fi" placeholder="SKU or product code" {...register(`items.${idx}.skuCode`)} />
             </div>

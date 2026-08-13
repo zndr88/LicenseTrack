@@ -123,6 +123,8 @@ class CSVImportPreviewRow(BaseModel):
     license_type: str = ""
     license_metric: str = ""
     quantity: str = ""
+    quantity_per_unit: str = ""
+    effective_quantity: str = ""
     sku_code: str = ""
     unit_price: str = ""
     total_po_price: str = ""

@@ -3,7 +3,7 @@ import { LICENSE_TYPES, LICENSE_METRICS, MAINTENANCE_COVERAGE_OPTIONS } from "..
 import { formatCost, getPoTotal } from "../../../utils/helpers.js";
 import Badge from "../../ui/Badge.jsx";
 import { formatBooleanCustomField } from "./licenseColumns.js";
-import { parseLocalizedNumber, formatDate, formatDateTime, formatNumber } from "../../../utils/formatting.js";
+import { parseLocalizedNumber, formatDate, formatDateTime } from "../../../utils/formatting.js";
 
 const INLINE_EDIT_CONFIG = {
   publisher: { fieldKey: "publisherName", inputType: "text", className: "pub-cell" },
@@ -16,6 +16,7 @@ const INLINE_EDIT_CONFIG = {
   licenseType: { fieldKey: "licenseType", inputType: "select", className: "lp-td", options: LICENSE_TYPES },
   licenseMetric: { fieldKey: "licenseMetric", inputType: "select", className: "lp-td", options: LICENSE_METRICS },
   quantity: { fieldKey: "quantity", inputType: "text", inputMode: "decimal", className: "mono td-center" },
+  quantityPerUnit: { fieldKey: "quantityPerUnit", inputType: "text", inputMode: "decimal", className: "mono td-center" },
   skuCode: { fieldKey: "skuCode", inputType: "text", className: "mono lp-sku" },
   unitPrice: { fieldKey: "unitPrice", inputType: "text", className: "mono lp-mono-bold" },
   startDate: { fieldKey: "startDate", inputType: "date", className: "mono", style: { width: 100 } },
@@ -24,10 +25,21 @@ const INLINE_EDIT_CONFIG = {
 };
 
 function normalizeInlineValue(fieldKey, value, userSettings) {
-  if (fieldKey === "quantity" || fieldKey === "unitPrice") {
+  if (fieldKey === "quantity" || fieldKey === "quantityPerUnit" || fieldKey === "unitPrice") {
     return parseLocalizedNumber(value, userSettings) ?? String(value ?? "");
   }
   return value ?? "";
+}
+
+function formatQuantityCell(value, userSettings) {
+  const quantity = Number(value);
+  if (!Number.isFinite(quantity)) return "-";
+  const locale = userSettings?.numberFormatLocale ?? "en-US";
+  try {
+    return new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(quantity);
+  } catch {
+    return String(value);
+  }
 }
 
 function InlineEditableCell({ license, col, config, currentValue, onInlineFieldSave, userSettings }) {
@@ -254,8 +266,13 @@ export default function LicenseTableRowCells({
       case "licenseMetric":
         return <td key="licenseMetric" className="lp-td">{license.licenseMetric ? (LICENSE_METRICS.find((metric) => metric.value === license.licenseMetric)?.label || license.licenseMetric) : "-"}</td>;
       case "quantity": {
-        const qty = parseFloat(license.quantity);
-        return <td key="quantity" className="mono td-center">{isNaN(qty) ? "-" : formatNumber(qty, userSettings)}</td>;
+        return <td key="quantity" className="mono td-center">{formatQuantityCell(license.quantity, userSettings)}</td>;
+      }
+      case "effectiveQuantity": {
+        return <td key="effectiveQuantity" className="mono td-center">{formatQuantityCell(license.effectiveQuantity, userSettings)}</td>;
+      }
+      case "quantityPerUnit": {
+        return <td key="quantityPerUnit" className="mono td-center">{formatQuantityCell(license.quantityPerUnit, userSettings)}</td>;
       }
       case "skuCode":
         return <td key="skuCode" className="mono lp-sku">{license.skuCode || "-"}</td>;

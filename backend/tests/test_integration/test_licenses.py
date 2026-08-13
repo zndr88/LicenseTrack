@@ -106,6 +106,31 @@ async def test_create_license_valid(test_app, auth_headers):
 # 2c — GET by ID returns the correct record
 # ---------------------------------------------------------------------------
 
+async def test_create_and_patch_quantity_per_unit_returns_effective_quantity(test_app, auth_headers):
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        quantity="7",
+        quantityPerUnit="5",
+        unitPrice="35.61",
+    )
+
+    assert created["quantity"] == "7"
+    assert created["quantityPerUnit"] == "5"
+    assert created["effectiveQuantity"] == "35"
+
+    resp = await test_app.patch(
+        f"/api/licenses/{created['id']}/field",
+        json={"field": "quantityPerUnit", "value": "2.5"},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    patched = resp.json()
+    assert patched["quantityPerUnit"] == "2.5"
+    assert patched["effectiveQuantity"] == "17.5"
+
+
 async def test_create_license_batch_preserves_order_and_links_prior_parent(
     test_app, auth_headers
 ):

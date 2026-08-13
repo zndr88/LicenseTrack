@@ -107,7 +107,7 @@ async def test_analyze_import_returns_column_matches_and_samples(test_app, auth_
     assert body["missingRequired"] == []
 
 
-async def test_analyze_import_does_not_auto_match_flexera_entitlement_quantity(test_app, auth_headers):
+async def test_analyze_import_matches_flexera_quantity_fields_natively(test_app, auth_headers):
     csv_bytes = _make_csv(
         ["Publisher", "Description", "Purchase Quantity", "Effective Quantity", "Quantity per Unit"],
         [{
@@ -128,11 +128,10 @@ async def test_analyze_import_does_not_auto_match_flexera_entitlement_quantity(t
     assert resp.status_code == 200, resp.text
     body = resp.json()
     matched = {column["rawHeader"]: column["internalField"] for column in body["matchedColumns"]}
-    unrecognized = {column["rawHeader"] for column in body["unrecognizedColumns"]}
 
     assert matched["Purchase Quantity"] == "quantity"
-    assert "Effective Quantity" in unrecognized
-    assert "Quantity per Unit" in unrecognized
+    assert matched["Effective Quantity"] == "effective_quantity"
+    assert matched["Quantity per Unit"] == "quantity_per_unit"
 
 
 async def test_analyze_import_keeps_duplicate_description_candidate_recoverable(test_app, auth_headers):
@@ -1849,6 +1848,45 @@ async def test_confirm_import_parses_declared_belgian_locale(
 # ---------------------------------------------------------------------------
 # Acknowledgement gate — /confirm (standard/bulk_csv)
 # ---------------------------------------------------------------------------
+
+async def test_confirm_import_persists_quantity_per_unit_from_effective_quantity(
+    test_app, db_session, auth_headers
+):
+    csv_bytes = _make_csv(
+        [
+            "publisher_name",
+            "software_description",
+            "purchase_quantity",
+            "effective_quantity",
+        ],
+        [{
+            "publisher_name": "SonarSource",
+            "software_description": "SonarQube",
+            "purchase_quantity": "1",
+            "effective_quantity": "5000000",
+        }],
+    )
+
+    resp = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["importedCount"] == 1
+    license_obj = await db_session.scalar(
+        sa_select(License).where(License.software_description == "SonarQube")
+    )
+    assert license_obj is not None
+    assert license_obj.quantity == "1"
+    assert license_obj.quantity_per_unit == "5000000"
+
+    list_resp = await test_app.get("/api/licenses", headers=auth_headers)
+    assert list_resp.status_code == 200, list_resp.text
+    sonar = next(item for item in list_resp.json() if item["softwareDescription"] == "SonarQube")
+    assert sonar["effectiveQuantity"] == "5000000"
+
 
 async def test_confirm_clean_import_succeeds_without_acknowledgement(test_app, auth_headers):
     """A fully clean import (no warnings) succeeds with acknowledge_warnings omitted."""

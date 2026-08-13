@@ -24,6 +24,8 @@ const makeRow = (overrides = {}) => ({
   licenseType: 'subscription',
   licenseMetric: 'per_user',
   quantity: '5',
+  effectiveQuantity: '25',
+  quantityPerUnit: '5',
   unitPrice: '100',
   currency: 'EUR',
   startDate: '2024-01-01',
@@ -92,6 +94,21 @@ describe('exportFilteredCsv', () => {
     const lines = capturedCsvContent.split('\n')
     expect(lines[0]).toBe('total_po_value')
     expect(lines[1]).toBe('500')
+  })
+
+  it('exports native effective quantity fields with importable headers', () => {
+    const row = makeRow({ quantity: '7', effectiveQuantity: '35', quantityPerUnit: '5' })
+    const cols = [
+      { key: 'quantity', label: 'Purchase Quantity' },
+      { key: 'effectiveQuantity', label: 'Effective Quantity' },
+      { key: 'quantityPerUnit', label: 'Quantity per Unit' },
+    ]
+
+    exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
+
+    const lines = capturedCsvContent.split('\n')
+    expect(lines[0]).toBe('quantity,effective_quantity,quantity_per_unit')
+    expect(lines[1]).toBe('7,35,5')
   })
 
   it('maps publisher and description fields to correct cells', () => {

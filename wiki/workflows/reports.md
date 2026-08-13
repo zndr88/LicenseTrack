@@ -43,8 +43,9 @@ monetary totals and surfaced as excluded or unpriced counts.
 | Publisher/vendor overview | Calculated line value grouped by publisher and supplier |
 
 Line value prefers Purchase Quantity multiplied by Unit Price, with stored PO
-value used only where the section documents that fallback. Perpetual purchases
-can contribute to lifecycle budget but not recurring annual cost.
+value used only where the section documents that fallback. Effective Quantity
+is not used for spend calculations. Perpetual purchases can contribute to
+lifecycle budget but not recurring annual cost.
 
 Freeware/open-source records without paid included support contribute zero to
 monetary totals and are not counted as unpriced purchases. When paid support is

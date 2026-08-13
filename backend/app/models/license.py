@@ -79,6 +79,7 @@ class License(Base):
 
     # Quantity & pricing - stored as strings per spec (can be blank/free-form)
     quantity: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    quantity_per_unit: Mapped[str] = mapped_column(String(100), nullable=False, default="1")
     sku_code: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     unit_price: Mapped[str] = mapped_column(String(50), nullable=False, default="")
     total_po_price: Mapped[str] = mapped_column(String(50), nullable=False, default="")

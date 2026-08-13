@@ -248,6 +248,61 @@ def test_effective_quantity_is_not_auto_mapped_to_purchase_quantity():
     result = parse_csv(csv_bytes)
 
     assert result.rows[0].quantity == "1"
+    assert result.rows[0].quantity_per_unit == "5000000"
+    assert result.rows[0].effective_quantity == "5000000"
+
+
+def test_quantity_per_unit_is_native_import_field():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "purchase_quantity", "quantity_per_unit"],
+        [{
+            "publisher_name": "SonarSource",
+            "software_description": "SonarQube",
+            "purchase_quantity": "2",
+            "quantity_per_unit": "5000000",
+        }],
+    )
+
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.quantity == "2"
+    assert row.quantity_per_unit == "5000000"
+    assert row.effective_quantity == ""
+
+
+def test_explicit_quantity_per_unit_is_not_overwritten_by_effective_quantity():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "purchase_quantity", "quantity_per_unit", "effective_quantity"],
+        [{
+            "publisher_name": "SonarSource",
+            "software_description": "SonarQube",
+            "purchase_quantity": "1",
+            "quantity_per_unit": "1",
+            "effective_quantity": "5000000",
+        }],
+    )
+
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.quantity == "1"
+    assert row.quantity_per_unit == "1"
+    assert any("effective_quantity does not equal" in warning for warning in row.warnings)
+
+
+def test_missing_quantity_per_unit_does_not_default_import_update_value():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "purchase_quantity"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            "purchase_quantity": "7",
+        }],
+    )
+
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.quantity == "7"
+    assert row.quantity_per_unit == ""
 
 
 def test_quantity_price_mismatch_adds_row_warning():

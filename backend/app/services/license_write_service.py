@@ -66,6 +66,7 @@ ALLOWED_PATCH_FIELDS: dict[str, str] = {
     "licenseMetric": "license_metric",
     "portalUrl": "portal_url",
     "quantity": "quantity",
+    "quantityPerUnit": "quantity_per_unit",
     "skuCode": "sku_code",
     "unitPrice": "unit_price",
     "totalPoPrice": "total_po_price",
@@ -89,7 +90,7 @@ ALLOWED_PATCH_FIELDS: dict[str, str] = {
 DATE_PATCH_FIELDS = {"startDate", "endDate", "noticeDate"}
 DATETIME_PATCH_FIELDS = {"requestDate", "purchaseDate"}
 EMAIL_PATCH_FIELDS = {"contactEmail", "budgetOwnerEmail"}
-NUMERIC_PATCH_FIELDS = {"quantity", "unitPrice", "totalPoPrice"}
+NUMERIC_PATCH_FIELDS = {"quantity", "quantityPerUnit", "unitPrice", "totalPoPrice"}
 MAINTENANCE_COVERAGE_VALUES = {coverage.value for coverage in MaintenanceCoverage}
 
 

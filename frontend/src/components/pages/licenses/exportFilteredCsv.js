@@ -20,6 +20,8 @@ const STABLE_EXPORT_FIELD_NAMES = {
   licenseType:      "license_type",
   licenseMetric:    "license_metric",
   quantity:         "quantity",
+  effectiveQuantity: "effective_quantity",
+  quantityPerUnit:  "quantity_per_unit",
   skuCode:          "sku_code",
   unitPrice:        "unit_price",
   totalPoPrice:     "total_po_value",
@@ -111,6 +113,8 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "licenseType": return l.licenseType ?? "";
         case "licenseMetric": return l.licenseMetric ?? "";
         case "quantity": return fmtQty(l.quantity);
+        case "effectiveQuantity": return fmtQty(l.effectiveQuantity);
+        case "quantityPerUnit": return fmtQty(l.quantityPerUnit);
         case "skuCode": return l.skuCode ?? "";
         case "unitPrice": return fmtDecimal(l.unitPrice);
         case "currency": return l.currency ?? "";

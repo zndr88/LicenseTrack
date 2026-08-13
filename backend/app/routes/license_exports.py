@@ -15,6 +15,7 @@ from app.dependencies import CurrentUser
 from app.models.license import License
 from app.services.access_service import apply_department_filter, get_viewer_departments
 from app.services.license_service import (
+    calc_effective_quantity,
     calc_line_total,
     compute_completeness,
     compute_days_until_expiry,
@@ -52,6 +53,8 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
         "License Type",
         "License Metric",
         "Purchase Quantity",
+        "Effective Quantity",
+        "Quantity Per Unit",
         "SKU Code",
         "Unit Price",
         "Total PO Value",
@@ -89,6 +92,7 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
     today = date.today()
     for lic in licenses:
         docs = list(lic.documents)
+        effective_quantity = calc_effective_quantity(lic.quantity, lic.quantity_per_unit)
         writer.writerow(
             safe_csv_row(
                 [
@@ -100,6 +104,8 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
                     lic.license_type.value,
                     lic.license_metric.value,
                     lic.quantity,
+                    format(effective_quantity, "f") if effective_quantity is not None else "",
+                    lic.quantity_per_unit,
                     lic.sku_code,
                     lic.unit_price,
                     format(po_totals[lic.po_number], "f") if lic.po_number in po_totals else "",

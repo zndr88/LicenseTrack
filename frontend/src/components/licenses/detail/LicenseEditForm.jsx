@@ -126,6 +126,12 @@ export default function LicenseEditForm({
           <input id="license-edit-quantity" className="fi" inputMode="decimal" value={editFields.quantity} onChange={(e) => setEditFields((p) => ({ ...p, quantity: parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value }))} />
         </div>
         <div className="fg">
+          <label htmlFor="license-edit-quantity-per-unit">Quantity per Unit</label>
+          <input id="license-edit-quantity-per-unit" className="fi" inputMode="decimal" value={editFields.quantityPerUnit || "1"} onChange={(e) => setEditFields((p) => ({ ...p, quantityPerUnit: parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value }))} />
+        </div>
+      </div>
+      <div className="fr">
+        <div className="fg">
           <label htmlFor="license-edit-sku">SKU Code</label>
           <input id="license-edit-sku" className="fi" value={editFields.skuCode} onChange={(e) => setEditFields((p) => ({ ...p, skuCode: e.target.value }))} />
         </div>

@@ -290,6 +290,7 @@ export function useDetailPanelState({
       licenseMetric: license.licenseMetric || "",
       portalUrl: license.portalUrl || "",
       quantity: license.quantity || "",
+      quantityPerUnit: license.quantityPerUnit || "1",
       skuCode: license.skuCode || "",
       unitPrice: license.unitPrice || "",
       currency: license.currency || "EUR",

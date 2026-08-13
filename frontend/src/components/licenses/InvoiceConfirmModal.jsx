@@ -39,6 +39,7 @@ const emptyAdditionalLine = (primaryForm) => ({
   noticeDate: primaryForm.noticeDate || "",
   isPerpetual: primaryForm.isPerpetual || false,
   quantity: "",
+  quantityPerUnit: primaryForm.quantityPerUnit || "1",
   skuCode: "",
   unitPrice: "",
   totalPoPrice: "",
@@ -92,7 +93,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     supplier: data.supplier || "", costCentre: data.costCentre || "",
     licenseType: data.licenseType || "", licenseMetric: data.licenseMetric || "",
     portalUrl: data.portalUrl || "",
-    quantity: data.quantity || "", skuCode: data.skuCode || "", unitPrice: data.unitPrice || "",
+    quantity: data.quantity || "", quantityPerUnit: data.quantityPerUnit || "1", skuCode: data.skuCode || "", unitPrice: data.unitPrice || "",
     totalPoPrice: data.totalPoPrice || "", currency: data.currency || "EUR", notes: data.notes || "",
     budgetOwnerEmail: data.budgetOwnerEmail || "",
     maintenanceCoverage: data.maintenanceCoverage || "unknown",
@@ -135,6 +136,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           startDate: parentForm.maintenanceStartDate || parentForm.startDate || "",
           endDate: parentForm.maintenanceEndDate || parentForm.endDate || "",
           quantity: parentForm.quantity || "1",
+          quantityPerUnit: parentForm.quantityPerUnit || "1",
           currency: parentForm.currency || "EUR",
           parentLineId,
           isMaintenanceCompanion: true,
@@ -188,6 +190,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         ...form,
         unitPrice: isFreewareLicenseType(form.licenseType) ? "" : form.unitPrice,
         totalPoPrice: isFreewareLicenseType(form.licenseType) ? "" : form.totalPoPrice,
+        quantityPerUnit: normalizeLocalizedValue(form.quantityPerUnit, userSettings) || "1",
         maintenanceQuantity: normalizeLocalizedValue(form.maintenanceQuantity, userSettings),
         maintenanceUnitPrice: normalizeLocalizedValue(form.maintenanceUnitPrice, userSettings),
         maintenanceCost: normalizeLocalizedValue(form.maintenanceCost, userSettings),
@@ -201,6 +204,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         endDate: line.isPerpetual ? "Perpetual" : line.endDate,
         isPerpetual: line.isPerpetual,
         quantity: line.quantity,
+        quantityPerUnit: normalizeLocalizedValue(line.quantityPerUnit, userSettings) || "1",
         skuCode: line.skuCode,
         unitPrice: isFreewareLicenseType(line.licenseType)
           ? ""
@@ -460,9 +464,10 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               <input id="inv-portal-url" className="fi" value={form.portalUrl} onChange={(e) => u("portalUrl", e.target.value)} placeholder="https://..." />
             </div>
           )}
-          {(vis.quantity || vis.skuCode) && (
+          {(vis.quantity || vis.quantityPerUnit || vis.skuCode) && (
             <div className="fr">
               {vis.quantity && <div className="fg"><label htmlFor="inv-quantity">Purchase Quantity</label><input id="inv-quantity" className="fi" type="number" value={form.quantity} onChange={(e) => u("quantity", e.target.value)} /></div>}
+              {vis.quantityPerUnit && <div className="fg"><label htmlFor="inv-quantity-per-unit">Quantity per Unit</label><input id="inv-quantity-per-unit" className="fi" inputMode="decimal" value={form.quantityPerUnit} onChange={(e) => u("quantityPerUnit", e.target.value)} /></div>}
               {vis.skuCode && <div className="fg"><label htmlFor="inv-sku-code">SKU Code</label><input id="inv-sku-code" className="fi" value={form.skuCode} placeholder="SKU or product code" onChange={(e) => u("skuCode", e.target.value)} /></div>}
             </div>
           )}
@@ -609,6 +614,12 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   <div className="fg">
                     <label htmlFor={`inv-line-${line.id}-quantity`}>Purchase Quantity</label>
                     <input id={`inv-line-${line.id}-quantity`} type="number" className="fi" value={line.quantity} onChange={(e) => updateLine(line.id, "quantity", e.target.value)} />
+                  </div>
+                )}
+                {vis.quantityPerUnit && (
+                  <div className="fg">
+                    <label htmlFor={`inv-line-${line.id}-quantity-per-unit`}>Quantity per Unit</label>
+                    <input id={`inv-line-${line.id}-quantity-per-unit`} className="fi" inputMode="decimal" value={line.quantityPerUnit} onChange={(e) => updateLine(line.id, "quantityPerUnit", e.target.value)} />
                   </div>
                 )}
                 {vis.skuCode && (

@@ -28,6 +28,7 @@ const makeLicense = (overrides = {}) => ({
   licenseMetric: "per_user",
   portalUrl: "https://adobe.com/admin",
   quantity: "10",
+  quantityPerUnit: "5000000",
   skuCode: "AAAA-1234",
   unitPrice: "49.00",
   totalPoPrice: "490.00",
@@ -63,6 +64,7 @@ describe("buildConvertItemDefaults", () => {
     expect(d.supplier).toBe("Default Supplier");
     expect(d.licenseType).toBe("saas");
     expect(d.portalUrl).toBe("https://adobe.com/admin");
+    expect(d.quantityPerUnit).toBe("5000000");
   });
 
   it("prefers sourcing item estimatedUnitPrice over renewal license unitPrice", () => {

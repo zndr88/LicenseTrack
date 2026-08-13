@@ -168,6 +168,7 @@ class PendingOrderConvertRequest(BaseModel):
 
     # Pricing / quantity
     quantity: str = ""
+    quantity_per_unit: str = "1"
     sku_code: str = ""
     unit_price: str = ""
     total_po_price: str = ""
@@ -212,6 +213,7 @@ class PendingOrderConvertRequest(BaseModel):
 
     @field_validator(
         "quantity",
+        "quantity_per_unit",
         "unit_price",
         "total_po_price",
         "maintenance_quantity",
@@ -231,6 +233,7 @@ class PendingOrderConvertRequest(BaseModel):
 
     @field_validator(
         "quantity",
+        "quantity_per_unit",
         "unit_price",
         "total_po_price",
         "maintenance_quantity",
@@ -309,6 +312,7 @@ class BatchConvertItem(BaseModel):
 
     # Pricing / quantity
     quantity: str = ""
+    quantity_per_unit: str = "1"
     sku_code: str = ""
     unit_price: str = ""
     total_po_price: str = ""
@@ -335,6 +339,7 @@ class BatchConvertItem(BaseModel):
 
     @field_validator(
         "quantity",
+        "quantity_per_unit",
         "unit_price",
         "total_po_price",
         "maintenance_quantity",
@@ -354,6 +359,7 @@ class BatchConvertItem(BaseModel):
 
     @field_validator(
         "quantity",
+        "quantity_per_unit",
         "unit_price",
         "total_po_price",
         "maintenance_quantity",

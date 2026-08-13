@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -71,6 +72,7 @@ class LicenseBase(BaseModel):
     license_type: LicenseType
     license_metric: LicenseMetric
     quantity: str = ""
+    quantity_per_unit: str = "1"
     sku_code: str = ""
     unit_price: str = ""
     total_po_price: str = ""
@@ -122,6 +124,7 @@ class LicenseBase(BaseModel):
 
     @field_validator(
         "quantity",
+        "quantity_per_unit",
         "unit_price",
         "total_po_price",
         "maintenance_quantity",
@@ -216,6 +219,7 @@ class LicenseUpdate(BaseModel):
     license_type: Optional[LicenseType] = None
     license_metric: Optional[LicenseMetric] = None
     quantity: Optional[str] = None
+    quantity_per_unit: Optional[str] = None
     sku_code: Optional[str] = None
     unit_price: Optional[str] = None
     total_po_price: Optional[str] = None
@@ -258,7 +262,7 @@ class LicenseUpdate(BaseModel):
             return None
         return value
 
-    @field_validator("quantity", "unit_price", "total_po_price", mode="before")
+    @field_validator("quantity", "quantity_per_unit", "unit_price", "total_po_price", mode="before")
     @classmethod
     def _validate_canonical_money(cls, v: object) -> object:
         if v is None or v == "":
@@ -317,6 +321,7 @@ class LicenseResponse(LicenseBase):
     notice_handled_by_user_id: Optional[int] = None
 
     # Computed fields - populated server-side, not stored in the database
+    effective_quantity: Optional[str] = None
     completeness_pct: Optional[int] = None
     days_until_expiry: Optional[int] = None
     expiration_status: Optional[str] = None
@@ -334,6 +339,20 @@ class LicenseResponse(LicenseBase):
         populate_by_name=True,
         from_attributes=True,
     )
+
+    @model_validator(mode="after")
+    def _calculate_effective_quantity(self) -> "LicenseResponse":
+        if self.effective_quantity is not None:
+            return self
+        if not self.quantity:
+            return self
+        try:
+            quantity = Decimal(self.quantity)
+            quantity_per_unit = Decimal(self.quantity_per_unit or "1")
+        except InvalidOperation:
+            return self
+        self.effective_quantity = format(quantity * quantity_per_unit, "f")
+        return self
 
 
 class ProcurementTrailDocument(BaseModel):

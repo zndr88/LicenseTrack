@@ -60,7 +60,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `ContractDatesSection.jsx` | Start/end/notice dates, notice handled action/status, editable request/purchase procurement milestones, contract #, PO #, invoice #, contract record link |
 | `MaintenanceSection.jsx` | Maintenance coverage dates, linked maintenance children, add/disable maintenance actions |
 | `HistorySection.jsx` | Read-only License Record ID, creator account label, license-row creation and last-update timestamps, plus procurement-trail links to source sourcing and pending-order records |
-| `CommercialSection.jsx` | License type, metric, quantity, SKU, pricing, currency |
+| `CommercialSection.jsx` | License type, metric, purchase/effective quantity, SKU, pricing, currency |
 | `PeopleSection.jsx` | Supplier, cost centre, publisher contact link, budget owner, secondary contacts |
 | `EmailPublisherAction.jsx` | Bottom Email Publisher action, same-PO/same-publisher scope prompt, mailto construction |
 | `DocumentsSection.jsx` | License/procurement document display, upload/download/delete/preview controls, and integration-backed document action buttons |
@@ -213,7 +213,7 @@ Keep backend permission invariants in the API/services and page-level mutation w
 
 `CSVImportPage.jsx` should remain a UI shell that wires `useCSVImportState` into `UploadStep`, `MappingStep`, `PreviewStep`, and `DoneStep`.
 
-The frontend forwards the same declared number/date formats through native preview/confirm and mapped preview/execute. The backend parses localized input only at that boundary: quantity, price, and mapped custom currency values become canonical decimal strings; dates accept ISO or the declared date format. Far-future end dates such as 2099 import as perpetual records instead of row errors. Invalid values become row errors.
+The frontend forwards the same declared number/date formats through native preview/confirm and mapped preview/execute. The backend parses localized input only at that boundary: quantity, quantity per unit, effective quantity, price, and mapped custom currency values become canonical decimal strings; dates accept ISO or the declared date format. Far-future end dates such as 2099 import as perpetual records instead of row errors. Invalid values become row errors.
 
 The backend is the source of truth for import warning summaries. Preview responses include `warningSummary`; execute/confirm requests must send `acknowledge_warnings=true` when that summary has acknowledgement-required warnings. The route rechecks the summary before writing so a stale or hand-built client cannot bypass the gate.
 
@@ -237,10 +237,11 @@ request date, purchase date, procurement reference, parent LT Ref, and
 secondary contacts. Mapped imports allow multiple source columns to feed
 secondary contacts so application-owner or technical-owner email columns can be
 retained as renewal notification CC recipients. Purchase quantity remains the
-stored entitlement count; source columns that describe quantity per unit must
-not be treated as purchase quantity. Flexera-style purchase type aliases map
-software subscription, software maintenance, software baseline, software, and
-service values onto the native `license_type` enum where unambiguous.
+commercial count used for cost calculations; quantity per unit is stored as the
+native entitlement multiplier; and effective quantity is derived as purchase
+quantity multiplied by quantity per unit. Flexera-style purchase type aliases
+map software subscription, software maintenance, software baseline, software,
+and service values onto the native `license_type` enum where unambiguous.
 
 ## Forms And Validation
 

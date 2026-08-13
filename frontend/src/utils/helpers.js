@@ -67,6 +67,14 @@ export const getPoTotal = (poNumber, allLicenses) => {
     .reduce((sum, l) => sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0), 0);
 };
 
+export const getEffectiveQuantity = (license) => {
+  if (license?.effectiveQuantity != null && license.effectiveQuantity !== "") return license.effectiveQuantity;
+  const quantity = Number(license?.quantity);
+  const quantityPerUnit = Number(license?.quantityPerUnit || 1);
+  if (!Number.isFinite(quantity) || !Number.isFinite(quantityPerUnit)) return "";
+  return String(quantity * quantityPerUnit);
+};
+
 const FREEWARE_ALWAYS_INAPPLICABLE_FIELDS = new Set([
   "contactEmail",
   "entitlement",
@@ -149,6 +157,8 @@ export const normalizeLicense = (l) => ({
     ? l.invoiceNumbers.filter(Boolean)
     : (l.invoiceNumber ? [l.invoiceNumber] : []),
   secondaryContacts: Array.isArray(l.secondaryContacts) ? l.secondaryContacts.filter(Boolean) : [],
+  quantityPerUnit: l.quantityPerUnit ?? l.quantity_per_unit ?? "1",
+  effectiveQuantity: l.effectiveQuantity ?? l.effective_quantity ?? "",
   // API uses isRetired; frontend uses retired
   retired: l.isRetired ?? l.retired ?? false,
   // API returns null for no end date; frontend uses "" for perpetual display

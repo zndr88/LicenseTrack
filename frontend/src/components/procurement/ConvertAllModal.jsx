@@ -106,6 +106,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
         maintenanceUnitPrice: (parseLocalizedNumber(item.maintenanceUnitPrice, userSettings) ?? item.maintenanceUnitPrice) || null,
         maintenanceCost: (parseLocalizedNumber(item.maintenanceCost, userSettings) ?? item.maintenanceCost) || null,
         quantity:            parseLocalizedNumber(item.quantity, userSettings) ?? item.quantity,
+        quantityPerUnit:     (parseLocalizedNumber(item.quantityPerUnit, userSettings) ?? item.quantityPerUnit) || "1",
         skuCode:             item.skuCode,
         unitPrice:           item.licenseType === "freeware" ? "" : item.unitPrice,
         totalPoPrice:        item.licenseType === "freeware" ? "" : item.totalPoPrice,

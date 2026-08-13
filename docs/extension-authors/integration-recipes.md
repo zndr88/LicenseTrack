@@ -81,11 +81,13 @@ curl -X POST https://licensetrack.example.com/api/licenses \
     "licenseType": "subscription",
     "licenseMetric": "per_user",
     "quantity": "25",
+    "quantityPerUnit": "1",
     "currency": "EUR"
   }'
 ```
 
-The response is the created license, including computed completeness, expiry status, document count, and any custom fields set later.
+The response is the created license, including computed effective quantity,
+completeness, expiry status, document count, and any custom fields set later.
 
 ## Create A Sourcing Request
 

@@ -254,6 +254,19 @@ def calc_line_total(quantity: str | None, unit_price: str | None) -> Decimal | N
     return qty * price
 
 
+def calc_effective_quantity(quantity: str | None, quantity_per_unit: str | None) -> Decimal | None:
+    """Return purchase quantity multiplied by entitlement quantity per unit."""
+    try:
+        qty = parse_money(quantity or None)
+        parsed_per_unit = parse_money(quantity_per_unit or None)
+    except MoneyParseError:
+        return None
+    if qty is None:
+        return None
+    per_unit = parsed_per_unit if parsed_per_unit is not None else Decimal("1")
+    return qty * per_unit
+
+
 # ---------------------------------------------------------------------------
 # Dashboard statistics
 # ---------------------------------------------------------------------------

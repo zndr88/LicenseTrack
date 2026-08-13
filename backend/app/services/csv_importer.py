@@ -65,6 +65,9 @@ _HEADER_MAP: dict[str, str] = {
     "quantity": "quantity",
     "qty": "quantity",
     "purchase_quantity": "quantity",  # "Purchase Quantity" (v1.0.3 export label)
+    "quantity_per_unit": "quantity_per_unit",
+    "qty_per_unit": "quantity_per_unit",
+    "effective_quantity": "effective_quantity",
     "sku_code": "sku_code",
     "sku": "sku_code",
     "unit_price": "unit_price",
@@ -239,6 +242,8 @@ class ParsedRow:
 
     # Classification
     import_status: str  # "legacy_exempt" | "active" | "legacy_incomplete" | "error"
+    quantity_per_unit: str = ""
+    effective_quantity: str = ""
     procurement_reference: str = ""
     secondary_contacts: list[str] = field(default_factory=list)
     validation_errors: list[str] = field(default_factory=list)
@@ -364,6 +369,49 @@ def _add_total_price_mismatch_warning(
         f"{PRICE_MISMATCH_WARNING_PREFIX} by 10x or more; "
         "check whether the mapped quantity is a purchase quantity rather than an entitlement quantity per unit"
     )
+
+
+def _derive_quantity_per_unit(
+    quantity: str,
+    quantity_per_unit: str,
+    effective_quantity: str,
+    warnings: list[str],
+    *,
+    quantity_per_unit_provided: bool,
+) -> str:
+    """Resolve quantity_per_unit from native/mapped import values.
+
+    The stored commercial quantity remains ``quantity``. ``effective_quantity``
+    is accepted as native source data only to derive or verify the multiplier.
+    """
+    if not quantity or not effective_quantity:
+        return quantity_per_unit
+
+    try:
+        qty = Decimal(quantity)
+        effective = Decimal(effective_quantity)
+        per_unit = Decimal(quantity_per_unit) if quantity_per_unit else None
+    except InvalidOperation:
+        return quantity_per_unit
+
+    if qty <= 0:
+        return quantity_per_unit
+
+    if per_unit is None:
+        derived = effective / qty
+        return format(derived.normalize(), "f")
+
+    calculated = qty * per_unit
+    if calculated != effective:
+        warnings.append(
+            "effective_quantity does not equal quantity x quantity_per_unit; "
+            "effective quantity will be recalculated from stored values"
+        )
+    if quantity_per_unit_provided:
+        return quantity_per_unit
+
+    derived = effective / qty
+    return format(derived.normalize(), "f")
 
 
 def _split_secondary_contact_values(values: object) -> list[str]:
@@ -608,11 +656,25 @@ def _parse_row(
     currency_defaulted = not bool(_currency_raw)
     numeric_error_count = len(errors)
     quantity = _parse_localized_numeric_field(_field_text(data, "quantity"), "quantity", errors, number_format_locale)
+    quantity_per_unit_raw = _field_text(data, "quantity_per_unit")
+    quantity_per_unit = _parse_localized_numeric_field(
+        quantity_per_unit_raw, "quantity_per_unit", errors, number_format_locale
+    )
+    effective_quantity = _parse_localized_numeric_field(
+        _field_text(data, "effective_quantity"), "effective_quantity", errors, number_format_locale
+    )
     unit_price = _parse_localized_numeric_field(_field_text(data, "unit_price"), "unit_price", errors, number_format_locale)
     total_po_price = _parse_localized_numeric_field(
         _field_text(data, "total_po_price"), "total_po_price", errors, number_format_locale
     )
     has_parse_error = has_parse_error or len(errors) > numeric_error_count
+    quantity_per_unit = _derive_quantity_per_unit(
+        quantity,
+        quantity_per_unit,
+        effective_quantity,
+        warnings,
+        quantity_per_unit_provided=bool(quantity_per_unit_raw.strip()),
+    )
     _add_total_price_mismatch_warning(quantity, unit_price, total_po_price, warnings)
 
     # -- Budget owner email - reject SMTP command-injection payloads ------
@@ -682,6 +744,8 @@ def _parse_row(
         license_type=license_type,
         license_metric=license_metric,
         quantity=quantity,
+        quantity_per_unit=quantity_per_unit,
+        effective_quantity=effective_quantity,
         sku_code=_field_text(data, "sku_code"),
         unit_price=unit_price,
         total_po_price=total_po_price,

@@ -124,6 +124,8 @@ def _row_to_schema(row: ParsedRow) -> CSVImportPreviewRow:
         license_type=row.license_type,
         license_metric=row.license_metric,
         quantity=row.quantity,
+        quantity_per_unit=row.quantity_per_unit,
+        effective_quantity=row.effective_quantity,
         sku_code=row.sku_code,
         unit_price=row.unit_price,
         total_po_price=row.total_po_price,

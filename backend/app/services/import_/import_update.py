@@ -20,6 +20,7 @@ _STRING_PATCH_FIELDS: list[tuple[str, str]] = [
     ("cost_centre", "cost_centre"),
     ("budget_owner_email", "budget_owner_email"),
     ("quantity", "quantity"),
+    ("quantity_per_unit", "quantity_per_unit"),
     ("sku_code", "sku_code"),
     ("unit_price", "unit_price"),
     ("total_po_price", "total_po_price"),

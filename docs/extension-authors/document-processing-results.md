@@ -75,7 +75,7 @@ By default, accepting through the API applies every suggested field. API clients
 
 Every accepted suggested field must map to a supported target:
 
-- a built-in inline-edit license field such as `quantity`, `publisherName`, `contractNumber`, or `budgetOwnerEmail`;
+- a built-in inline-edit license field such as `quantity`, `quantityPerUnit`, `publisherName`, `contractNumber`, or `budgetOwnerEmail`;
 - an existing custom field matched by field key, field key without the `cf_` prefix, or custom field name.
 
 If any accepted suggested field is unknown, LicenseTrack returns `422 Unprocessable Entity` and leaves the result pending. This prevents partial, silent application of integration output.

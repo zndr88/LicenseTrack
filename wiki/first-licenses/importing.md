@@ -50,8 +50,15 @@ than one source column.
 Some external tools expose both a purchase quantity and a quantity-per-unit
 value. Use the purchased entitlement count for **Purchase Quantity**. A
 quantity-per-unit value, such as a bundle size or lines-of-code pack size,
-should stay in the source tool or be imported into a custom field if you need it
-for reference.
+maps to **Quantity per Unit**. LicenseTrack derives **Effective Quantity** as
+Purchase Quantity multiplied by Quantity per Unit, and uses Purchase Quantity,
+not Effective Quantity, for price calculations.
+
+Flexera exports may include **Effective Quantity**, **Purchase Quantity**, and
+**Quantity per Unit**. Map Purchase Quantity to the native Purchase Quantity
+field and Quantity per Unit to the native Quantity per Unit field. If an export
+only has Purchase Quantity and Effective Quantity, LicenseTrack can derive
+Quantity per Unit during import when the numbers are valid.
 
 Flexera exports can use **Purchase Type** values that do not exactly match
 LicenseTrack's labels. Common values are normalized during import: Software

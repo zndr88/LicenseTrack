@@ -37,6 +37,7 @@ const APPLYABLE_PLUGIN_FIELDS = new Set([
   "parentLicenseId",
   "parentSourcingItemId",
   "quantity",
+  "quantityPerUnit",
   "skuCode",
   "unitPrice",
   "totalPoPrice",
@@ -117,6 +118,7 @@ const ConvertPendingOrderModal = ({
       maintenanceUnitPrice: prefill.maintenanceUnitPrice || "",
       maintenanceCost:     prefill.maintenanceCost || "",
       quantity:            prefill.quantity            || "",
+      quantityPerUnit:     prefill.quantityPerUnit     || "1",
       skuCode:             prefill.skuCode             || "",
       unitPrice:           prefill.unitPrice           || "",
       totalPoPrice:        prefill.totalPoPrice        || "",
@@ -406,9 +408,10 @@ const ConvertPendingOrderModal = ({
             locale={locale}
             onChange={(field, value) => setValue(field, value, { shouldDirty: true })}
           />
-          {(vis.quantity || vis.skuCode) && (
+          {(vis.quantity || vis.quantityPerUnit || vis.skuCode) && (
             <div className="fr">
               {vis.quantity && <div className="fg"><label htmlFor="cpo-quantity">Purchase Quantity <span style={{ color: "var(--red)" }}>*</span></label><input id="cpo-quantity" className="fi" {...register("quantity")} /></div>}
+              {vis.quantityPerUnit && <div className="fg"><label htmlFor="cpo-quantity-per-unit">Quantity per Unit</label><input id="cpo-quantity-per-unit" className="fi" inputMode="decimal" {...register("quantityPerUnit")} /></div>}
               {vis.skuCode  && <div className="fg"><label htmlFor="cpo-sku-code">SKU Code</label><input id="cpo-sku-code" className="fi" placeholder="SKU or product code" {...register("skuCode")} /></div>}
             </div>
           )}

@@ -61,6 +61,7 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       maintenanceUnitPrice: si.maintenanceUnitPrice || renewal?.maintenanceUnitPrice || "",
       maintenanceCost:     si.maintenanceCost || renewal?.maintenanceCost || "",
       quantity:            si.quantity || renewal?.quantity || "",
+      quantityPerUnit:     renewal?.quantityPerUnit || "1",
       skuCode:             renewal?.skuCode || "",
       unitPrice:           si.estimatedUnitPrice || renewal?.unitPrice || "",
       totalPoPrice:        si.estimatedTotalPrice || renewal?.totalPoPrice || "",

@@ -94,6 +94,7 @@ async def build_license(
         maintenance_coverage=resolved_maintenance_coverage,
         portal_url=row.portal_url,
         quantity=row.quantity,
+        quantity_per_unit=row.quantity_per_unit or "1",
         sku_code=row.sku_code,
         unit_price=row.unit_price,
         total_po_price=row.total_po_price,

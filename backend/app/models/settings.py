@@ -60,6 +60,8 @@ _DEFAULT_VISIBLE_IN_DETAIL: dict = {
     "licenseType": True,
     "licenseMetric": True,
     "quantity": True,
+    "effectiveQuantity": True,
+    "quantityPerUnit": True,
     "skuCode": True,
     "unitPrice": True,
     "totalPoPrice": True,

@@ -9,6 +9,7 @@ from datetime import date, timedelta
 from types import SimpleNamespace
 
 from app.services.license_service import (
+    calc_effective_quantity,
     compute_completeness,
     compute_days_until_expiry,
     compute_expiration_status,
@@ -55,6 +56,12 @@ def make_doc(category_value: str) -> SimpleNamespace:
 
 def test_status_retired():
     assert compute_expiration_status(make_license(is_retired=True), date.today()) == "retired"
+
+
+def test_calc_effective_quantity_uses_purchase_quantity_multiplier():
+    assert calc_effective_quantity("7", "5") == 35
+    assert calc_effective_quantity("7", "") == 7
+    assert calc_effective_quantity("7", "0") == 0
 
 
 def test_status_legacy():

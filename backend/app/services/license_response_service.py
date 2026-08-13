@@ -19,6 +19,7 @@ from app.schemas.custom_fields import CustomFieldValueResponse
 from app.schemas.license import LicenseResponse
 from app.services.document_availability_service import count_file_availability
 from app.services.license_service import (
+    calc_effective_quantity,
     compute_completeness,
     compute_days_until_expiry,
     compute_expiration_status,
@@ -113,6 +114,8 @@ def enrich_license_response(
     documents = [*list(license_obj.documents), *(procurement_documents or [])]
 
     response = LicenseResponse.model_validate(license_obj)
+    effective_quantity = calc_effective_quantity(license_obj.quantity, license_obj.quantity_per_unit)
+    response.effective_quantity = format(effective_quantity, "f") if effective_quantity is not None else None
     if not response.invoice_numbers and response.invoice_number:
         response.invoice_numbers = [response.invoice_number]
     creator = license_obj.__dict__.get("creator")

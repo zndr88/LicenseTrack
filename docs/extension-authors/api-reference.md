@@ -61,6 +61,14 @@ Required scope is `licenses:read` for reads and `licenses:write` for writes.
 Lifecycle repair endpoints are Admin maintenance tools and are not part of the
 stable integration contract.
 
+License create, update, single-field patch, and pending-order conversion JSON
+payloads accept `quantityPerUnit` as the native entitlement multiplier. CSV
+imports expose the same concept as `quantity_per_unit` and can derive it from
+`effective_quantity` when purchase quantity is present. Responses include
+derived `effectiveQuantity`, calculated as `quantity` multiplied by
+`quantityPerUnit`. Monetary calculations continue to use purchase `quantity`
+multiplied by `unitPrice`.
+
 ### Custom fields
 
 Custom-field definition reads require `licenses:read`; definition writes require

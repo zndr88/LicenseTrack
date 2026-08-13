@@ -45,6 +45,7 @@ export function buildPendingOrderConversionPayload(data, settings) {
     maintenanceUnitPrice: canonicalizeNumber(data.maintenanceUnitPrice, settings),
     maintenanceCost: canonicalizeNumber(data.maintenanceCost, settings),
     quantity:            canonicalizeNumber(data.quantity, settings),
+    quantityPerUnit:     canonicalizeNumber(data.quantityPerUnit, settings) || "1",
     skuCode:             data.skuCode,
     unitPrice:           data.licenseType === "freeware" ? null : canonicalizeNumber(data.unitPrice, settings),
     totalPoPrice:        data.licenseType === "freeware" ? null : canonicalizeNumber(data.totalPoPrice, settings),

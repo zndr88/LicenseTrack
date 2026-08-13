@@ -22,7 +22,7 @@ const BROWSER_SETTINGS = detectBrowserSettings();
 
 const DEFAULT_USER_SETTINGS = {
   visibleInList: VISIBLE_IN_LIST_DEFAULTS,
-  visibleInDetail: { supplier: true, costCentre: true, licenseType: true, licenseMetric: true, quantity: true, skuCode: true, unitPrice: true, totalPoPrice: true, notes: true, licenseRef: true },
+  visibleInDetail: { supplier: true, costCentre: true, licenseType: true, licenseMetric: true, quantity: true, effectiveQuantity: true, quantityPerUnit: true, skuCode: true, unitPrice: true, totalPoPrice: true, notes: true, licenseRef: true },
   theme: "light",
   uiSize: "normal",
   displayCurrency: DEFAULT_DISPLAY_CURRENCY,
@@ -83,7 +83,7 @@ export function useAppSettings({ showError }) {
         const next = {
           ...s,
           visibleInList: data.visible_in_list ? { ...VISIBLE_IN_LIST_DEFAULTS, ...data.visible_in_list } : s.visibleInList,
-          visibleInDetail: data.visible_in_detail ?? s.visibleInDetail,
+          visibleInDetail: data.visible_in_detail ? { ...s.visibleInDetail, ...data.visible_in_detail } : s.visibleInDetail,
           theme: data.theme ?? s.theme,
           uiSize: data.ui_size ?? s.uiSize,
           displayCurrency: data.display_currency ?? s.displayCurrency,

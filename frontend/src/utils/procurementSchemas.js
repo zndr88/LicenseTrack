@@ -45,6 +45,7 @@ export const licenseFormSchema = z.object({
   maintenanceUnitPrice: z.string(),
   maintenanceCost:     z.string(),
   quantity:            z.string(),
+  quantityPerUnit:     z.string(),
   skuCode:             z.string(),
   unitPrice:           z.string(),
   totalPoPrice:        z.string(),

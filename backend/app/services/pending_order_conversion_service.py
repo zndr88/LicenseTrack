@@ -206,6 +206,7 @@ async def convert_pending_order_to_licenses(
             "software_description",
             "license_type",
             "quantity",
+            "quantity_per_unit",
             "unit_price",
             "total_po_price",
             "currency",

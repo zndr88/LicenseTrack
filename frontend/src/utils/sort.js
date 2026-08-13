@@ -15,6 +15,8 @@ export function getSortValue(license, colKey) {
     case "licenseType":    return license.licenseType ?? null;
     case "licenseMetric":  return license.licenseMetric ?? null;
     case "quantity":       return license.quantity ? Number(license.quantity) : null;
+    case "effectiveQuantity": return license.effectiveQuantity ? Number(license.effectiveQuantity) : null;
+    case "quantityPerUnit": return license.quantityPerUnit ? Number(license.quantityPerUnit) : null;
     case "unitPrice":      return license.unitPrice ? Number(license.unitPrice) : null;
     case "currency":       return license.currency ?? null;
     case "totalPoPrice": {

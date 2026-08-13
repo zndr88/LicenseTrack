@@ -23,6 +23,8 @@ export const COLUMN_DEFS = [
   { key: "licenseType", label: "Type", settingsLabel: "License Type", width: 110, group: "standard", defaultVisible: true, detailKey: "licenseType" },
   { key: "licenseMetric", label: "Metric", settingsLabel: "License Metric", width: 110, group: "standard", defaultVisible: true, detailKey: "licenseMetric" },
   { key: "quantity", label: "Qty", settingsLabel: "Purchase Quantity", width: 70, group: "standard", defaultVisible: true, detailKey: "quantity" },
+  { key: "effectiveQuantity", label: "Effective Qty", settingsLabel: "Effective Quantity", width: 110, group: "computed", defaultVisible: false, detailKey: "effectiveQuantity", computed: true },
+  { key: "quantityPerUnit", label: "Qty / Unit", settingsLabel: "Quantity per Unit", width: 95, group: "standard", defaultVisible: false, detailKey: "quantityPerUnit" },
   { key: "skuCode", label: "SKU", settingsLabel: "SKU Code", width: 100, group: "standard", defaultVisible: false, detailKey: "skuCode" },
   { key: "unitPrice", label: "Unit Price", width: 110, group: "standard", defaultVisible: false, detailKey: "unitPrice" },
   { key: "totalPoPrice", label: "Total PO Value", width: 120, group: "computed", defaultVisible: true, detailKey: "totalPoPrice", computed: true },

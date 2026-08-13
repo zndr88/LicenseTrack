@@ -141,6 +141,7 @@ def build_pending_order_item_license_data(
     apply_fallback("license_metric", getattr(old_license, "license_metric", None))
     apply_fallback("portal_url", getattr(old_license, "portal_url", None))
     apply_fallback("quantity", item.quantity, getattr(old_license, "quantity", None))
+    apply_fallback("quantity_per_unit", getattr(old_license, "quantity_per_unit", None))
     apply_fallback("unit_price", item.estimated_unit_price, getattr(old_license, "unit_price", None))
     apply_fallback(
         "total_po_price",
