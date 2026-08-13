@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from app.models.license import License, LicenseMetric, LicenseType
 from app.services.lifecycle_rules import (
+    assert_can_initiate_renewal,
     clear_pending_renewal,
     validate_lifecycle_repair_update,
     validate_renewal_link_invariants,
@@ -52,6 +53,18 @@ def test_clear_pending_renewal_preserves_existing_coterm_ancestry():
     assert successor.renewed_from_id == 1
     assert successor.predecessor_id == 1
     assert successor.coterm_from_ids == [1, 2]
+
+
+@pytest.mark.parametrize("license_type", [LicenseType.service, LicenseType.other])
+def test_initiate_renewal_rejects_non_renewable_types(license_type):
+    license_obj = _license("Non-renewable")
+    license_obj.license_type = license_type
+
+    with pytest.raises(HTTPException) as exc_info:
+        assert_can_initiate_renewal(license_obj)
+
+    assert exc_info.value.status_code == 400
+    assert "service or other" in exc_info.value.detail
 
 
 async def test_repair_accepts_existing_reciprocal_three_generation_chain(db_session):

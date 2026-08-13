@@ -40,7 +40,7 @@ def default_maintenance_coverage(license_type: LicenseType) -> MaintenanceCovera
     """Return the initial maintenance/support classification for a license type."""
     if license_type in (LicenseType.subscription, LicenseType.saas):
         return MaintenanceCoverage.included
-    if license_type == LicenseType.maintenance:
+    if license_type in (LicenseType.maintenance, LicenseType.service, LicenseType.other):
         return MaintenanceCoverage.not_applicable
     return MaintenanceCoverage.unknown
 

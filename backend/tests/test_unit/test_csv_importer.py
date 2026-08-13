@@ -49,6 +49,19 @@ def test_valid_minimal_import():
     assert row.warnings == []
 
 
+@pytest.mark.parametrize("license_type", ["service", "other"])
+def test_native_import_accepts_service_and_other_license_types(license_type):
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "license_type"],
+        [{"publisher_name": "Acme", "software_description": "Implementation", "license_type": license_type}],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.license_type == license_type
+    assert row.import_status == "active"
+    assert row.validation_errors == []
+
+
 def test_native_parser_extracts_existing_custom_fields_by_name_and_stable_key():
     definitions = [SimpleNamespace(name="Contract Owner", field_key="cf_contract_owner")]
     custom_headers = build_custom_field_header_map(definitions)

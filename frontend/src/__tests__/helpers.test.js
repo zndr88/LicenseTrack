@@ -55,6 +55,26 @@ describe("getCompleteness", () => {
     ]);
   });
 
+  it("excludes entitlement document requirements from service and other records", () => {
+    for (const licenseType of ["service", "other"]) {
+      const result = getCompleteness(
+        {
+          licenseType,
+          contractNumber: "CTR-100",
+          documents: {},
+        },
+        {
+          contractNumber: true,
+          eula: true,
+          entitlement: true,
+        },
+      );
+
+      expect(result.percentage).toBe(100);
+      expect(result.checks.map((check) => check.field)).toEqual(["Contract number"]);
+    }
+  });
+
   it("restores purchase evidence checks for freeware with paid included support", () => {
     const result = getCompleteness(
       {
@@ -95,12 +115,14 @@ describe("normalizeLicense", () => {
     expect(normalizeLicense({ licenseType: "oem" }).maintenanceCoverage).toBe("unknown");
     expect(normalizeLicense({ licenseType: "freeware" }).maintenanceCoverage).toBe("unknown");
     expect(normalizeLicense({ licenseType: "maintenance" }).maintenanceCoverage).toBe("not_applicable");
+    expect(normalizeLicense({ licenseType: "service" }).maintenanceCoverage).toBe("not_applicable");
+    expect(normalizeLicense({ licenseType: "other" }).maintenanceCoverage).toBe("not_applicable");
   });
 });
 
 describe("getCompleteness end date", () => {
   it("accepts non-expiring types without an end date", () => {
-    for (const licenseType of ["perpetual", "oem", "freeware"]) {
+    for (const licenseType of ["perpetual", "oem", "freeware", "service", "other"]) {
       expect(getCompleteness({ licenseType }, { endDate: true }).percentage).toBe(100);
     }
   });

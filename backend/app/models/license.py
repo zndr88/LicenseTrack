@@ -14,6 +14,8 @@ class LicenseType(str, enum.Enum):
     saas = "saas"
     oem = "oem"
     freeware = "freeware"
+    service = "service"
+    other = "other"
 
 
 class MaintenanceCoverage(str, enum.Enum):

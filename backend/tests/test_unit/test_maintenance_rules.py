@@ -37,7 +37,7 @@ def test_maintenance_parent_types_contains_perpetual_oem_and_freeware():
 
 
 def test_maintenance_parent_types_excludes_other_types():
-    for t in (LicenseType.subscription, LicenseType.saas, LicenseType.maintenance):
+    for t in (LicenseType.subscription, LicenseType.saas, LicenseType.maintenance, LicenseType.service, LicenseType.other):
         assert t not in MAINTENANCE_PARENT_TYPES
 
 
@@ -55,6 +55,8 @@ def test_parent_type_eligible_passes_for_valid_types(eligible_type):
     LicenseType.subscription,
     LicenseType.saas,
     LicenseType.maintenance,
+    LicenseType.service,
+    LicenseType.other,
 ])
 def test_parent_type_eligible_raises_for_invalid_types(bad_type):
     parent = make_parent(license_type=bad_type)
@@ -92,7 +94,7 @@ def test_maintenance_requires_parent_raises_when_parent_missing():
 
 @pytest.mark.parametrize("lt", [
     LicenseType.subscription, LicenseType.perpetual, LicenseType.saas,
-    LicenseType.oem, LicenseType.freeware,
+    LicenseType.oem, LicenseType.freeware, LicenseType.service, LicenseType.other,
 ])
 def test_maintenance_requires_parent_is_noop_for_non_maintenance(lt):
     # Non-maintenance types should pass regardless of parent_license_id value
@@ -134,6 +136,7 @@ def test_type_change_passes_when_no_active_maintenance():
 
 @pytest.mark.parametrize("bad_type", [
     LicenseType.subscription, LicenseType.saas, LicenseType.maintenance,
+    LicenseType.service, LicenseType.other,
 ])
 def test_type_change_raises_when_active_maintenance_and_ineligible_type(bad_type):
     with pytest.raises(ValueError, match="Disable maintenance tracking"):
@@ -180,8 +183,9 @@ def test_default_maintenance_coverage_is_unknown_for_optional_parent_types(licen
     assert default_maintenance_coverage(license_type) == MaintenanceCoverage.unknown
 
 
-def test_default_maintenance_coverage_is_not_applicable_for_maintenance_child():
-    assert default_maintenance_coverage(LicenseType.maintenance) == MaintenanceCoverage.not_applicable
+@pytest.mark.parametrize("license_type", [LicenseType.maintenance, LicenseType.service, LicenseType.other])
+def test_default_maintenance_coverage_is_not_applicable_for_non_parent_types(license_type):
+    assert default_maintenance_coverage(license_type) == MaintenanceCoverage.not_applicable
 
 
 def test_active_maintenance_requires_separately_tracked_coverage():

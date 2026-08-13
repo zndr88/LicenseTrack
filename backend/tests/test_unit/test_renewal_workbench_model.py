@@ -86,6 +86,11 @@ class TestEstimateAnnualValue:
         lic = _make_license(LicenseType.perpetual, quantity="10", unit_price="150.00")
         assert estimate_annual_value(lic) == Decimal("0")
 
+    def test_service_and_other_return_zero(self):
+        for license_type in (LicenseType.service, LicenseType.other):
+            lic = _make_license(license_type, quantity="10", unit_price="150.00")
+            assert estimate_annual_value(lic) == Decimal("0")
+
     def test_saas(self):
         lic = _make_license(LicenseType.saas, quantity="5", unit_price="200.00")
         assert estimate_annual_value(lic) == Decimal("1000.00")

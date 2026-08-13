@@ -1,5 +1,6 @@
 // frontend/src/components/licenses/detail/RenewalWorkflowSection.jsx
 import { useState } from "react";
+import { NON_RENEWABLE_LICENSE_TYPES } from "../../../constants/licenseData.js";
 import { formatDate } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
 import { useRenewalPanelModel } from "./useRenewalPanelModel.js";
@@ -23,12 +24,13 @@ export default function RenewalWorkflowSection({
 }) {
   const { poSiblings, bundleCount } = useRenewalPanelModel({ license, allLicenses, globalSettings });
   const [initiatingRenewal, setInitiatingRenewal] = useState(false);
+  const canStartRenewal = !NON_RENEWABLE_LICENSE_TYPES.includes(license.licenseType);
 
   return (
     <>
       {/* Renewal Workflow box */}
       {(exp.status === "expiring" || exp.status === "expired") &&
-        !license.renewedToId && !license.retired && (
+        !license.renewedToId && !license.retired && canStartRenewal && (
         <div className="dp-purple-box" style={{ padding: "12px 14px" }}>
           <div className="dp-renewal-title">
             <Icon name="clock" size={14} color="var(--purple-text)" /> Renewal Workflow

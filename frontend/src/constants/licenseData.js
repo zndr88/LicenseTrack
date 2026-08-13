@@ -2,10 +2,16 @@ export const LICENSE_TYPES = [
   { value: "freeware", label: "Freeware / Open Source" },
   { value: "maintenance", label: "Maintenance" },
   { value: "oem", label: "OEM" },
+  { value: "other", label: "Other" },
   { value: "perpetual", label: "Perpetual" },
   { value: "saas", label: "SaaS" },
+  { value: "service", label: "Service" },
   { value: "subscription", label: "Subscription" },
 ];
+
+export const NON_EXPIRING_LICENSE_TYPES = ["perpetual", "oem", "freeware", "service", "other"];
+export const NON_ENTITLEMENT_LICENSE_TYPES = ["freeware", "service", "other"];
+export const NON_RENEWABLE_LICENSE_TYPES = ["service", "other"];
 
 export const MAINTENANCE_COVERAGE_OPTIONS = [
   { value: "unknown", label: "Unknown" },

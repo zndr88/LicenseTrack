@@ -164,6 +164,8 @@ _VALID_LICENSE_TYPES = {
     "saas",
     "oem",
     "freeware",
+    "service",
+    "other",
 }
 
 

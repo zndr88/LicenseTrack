@@ -80,6 +80,26 @@ _FREEWARE_PURCHASE_FIELDS = frozenset(
     }
 )
 
+_NON_EXPIRING_LICENSE_TYPES = frozenset(
+    {
+        LicenseType.perpetual,
+        LicenseType.oem,
+        LicenseType.freeware,
+        LicenseType.service,
+        LicenseType.other,
+    }
+)
+
+_NON_ENTITLEMENT_LICENSE_TYPES = frozenset(
+    {
+        LicenseType.freeware,
+        LicenseType.service,
+        LicenseType.other,
+    }
+)
+
+_ENTITLEMENT_DOCUMENT_FIELDS = frozenset({"entitlement", "eula"})
+
 
 def _has_paid_included_support(license: "License") -> bool:
     if getattr(license, "maintenance_coverage", None) != MaintenanceCoverage.included:
@@ -92,6 +112,8 @@ def _has_paid_included_support(license: "License") -> bool:
 
 def _is_applicable_mandatory_field(key: str, license: "License") -> bool:
     """Return whether a configured completeness field applies to this record."""
+    if license.license_type in _NON_ENTITLEMENT_LICENSE_TYPES and key in _ENTITLEMENT_DOCUMENT_FIELDS:
+        return False
     if license.license_type != LicenseType.freeware:
         return True
     if key in _FREEWARE_ALWAYS_INAPPLICABLE_FIELDS:
@@ -112,12 +134,8 @@ def _check_mandatory_field(
     if key == "startDate":
         return license.start_date is not None
     if key == "endDate":
-        # Perpetual licenses intentionally have no end date - satisfy the requirement
-        return license.end_date is not None or license.license_type in (
-            LicenseType.perpetual,
-            LicenseType.oem,
-            LicenseType.freeware,
-        )
+        # Non-expiring license types intentionally allow no end date.
+        return license.end_date is not None or license.license_type in _NON_EXPIRING_LICENSE_TYPES
     if key == "noticeDate":
         return license.notice_date is not None
     if key == "contractNumber":

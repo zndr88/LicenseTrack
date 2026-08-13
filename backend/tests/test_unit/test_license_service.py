@@ -175,7 +175,7 @@ def test_completeness_disabled_field():
 
 
 def test_completeness_end_date_allows_non_expiring_license_types_without_date():
-    for license_type in ("perpetual", "oem", "freeware"):
+    for license_type in ("perpetual", "oem", "freeware", "service", "other"):
         assert compute_completeness(
             make_license(license_type=license_type, end_date=None),
             [],
@@ -236,6 +236,19 @@ def test_completeness_excludes_inapplicable_requirements_for_freeware():
             "contactEmail": True,
         },
     ) == 50
+
+
+def test_completeness_excludes_entitlement_requirements_for_service_and_other():
+    for license_type in ("service", "other"):
+        assert compute_completeness(
+            make_license(license_type=license_type, contract_number="CTR-100"),
+            [],
+            {
+                "contractNumber": True,
+                "eula": True,
+                "entitlement": True,
+            },
+        ) == 100
 
 
 # ---------------------------------------------------------------------------
@@ -300,6 +313,40 @@ def test_compute_stats_excludes_perpetual_capex_from_annual_cost():
     )
 
     assert stats["annual_cost_by_currency"] == {"EUR": 175.0}
+
+
+def test_compute_stats_excludes_service_and_other_from_annual_cost():
+    today = date.today()
+    recurring = make_license(
+        id=1,
+        end_date=today + timedelta(days=60),
+        license_type="subscription",
+        quantity="2",
+        unit_price="50",
+    )
+    service = make_license(
+        id=2,
+        end_date=None,
+        license_type="service",
+        quantity="1",
+        unit_price="10000",
+    )
+    other = make_license(
+        id=3,
+        end_date=None,
+        license_type="other",
+        quantity="1",
+        unit_price="5000",
+    )
+
+    stats = compute_stats(
+        licenses=[recurring, service, other],
+        documents_by_license_id={},
+        mandatory_fields={},
+        notification_days=30,
+    )
+
+    assert stats["annual_cost_by_currency"] == {"EUR": 100.0}
 
 
 def test_compute_stats_excludes_upcoming_recurring_license_from_annual_cost():

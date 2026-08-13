@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.license import License
+from app.models.license import License, LicenseType
 
 REPAIR_ONLY_UPDATE_FIELDS = {
     "renewed_from_id",
@@ -24,6 +24,8 @@ LIFECYCLE_REPAIR_FIELDS = {
     "lifecycle_status",
     *REPAIR_ONLY_UPDATE_FIELDS,
 }
+
+NON_RENEWABLE_LICENSE_TYPES = frozenset({LicenseType.service, LicenseType.other})
 
 
 def _value(value):
@@ -61,6 +63,8 @@ def assert_can_initiate_renewal(license_obj: License) -> None:
         raise HTTPException(status_code=409, detail="Renewal already initiated for this license")
     if license_obj.lifecycle_status == "renewed":
         raise HTTPException(status_code=409, detail="License has already been renewed")
+    if license_obj.license_type in NON_RENEWABLE_LICENSE_TYPES:
+        raise HTTPException(status_code=400, detail="Cannot initiate renewal on service or other license types")
     assert_predecessor_has_no_successor(license_obj)
     if license_obj.end_date is None:
         raise HTTPException(status_code=400, detail="Cannot initiate renewal on a perpetual license (no end date)")

@@ -1,3 +1,5 @@
+import { NON_ENTITLEMENT_LICENSE_TYPES, NON_EXPIRING_LICENSE_TYPES } from "../constants/licenseData.js";
+
 // Utility Functions
 export const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -80,6 +82,8 @@ const FREEWARE_PURCHASE_FIELDS = new Set([
   "quote",
 ]);
 
+const ENTITLEMENT_DOCUMENT_FIELDS = new Set(["entitlement", "eula"]);
+
 const hasPaidIncludedSupport = (license) =>
   license.maintenanceCoverage === "included" &&
   Number(license.maintenanceCost) > 0;
@@ -92,7 +96,7 @@ export const getCompleteness = (license, mandatoryFields) => {
     purchaseOrder: { label: "Purchase order document", check: () => license.documents?.purchase_order?.length > 0 },
     quote: { label: "Quote document", check: () => license.documents?.quote?.length > 0 },
     startDate: { label: "Start date", check: () => !!license.startDate },
-    endDate: { label: "End date / Non-expiring type", check: () => !!license.endDate || ["perpetual", "oem", "freeware"].includes(license.licenseType) },
+    endDate: { label: "End date / Non-expiring type", check: () => !!license.endDate || NON_EXPIRING_LICENSE_TYPES.includes(license.licenseType) },
     noticeDate: { label: "Notice date", check: () => !!license.noticeDate },
     contractNumber: { label: "Contract number", check: () => !!license.contractNumber },
     poNumber: { label: "PO number", check: () => !!license.poNumber },
@@ -103,11 +107,12 @@ export const getCompleteness = (license, mandatoryFields) => {
   };
   const checks = [];
   for (const [key, { label, check }] of Object.entries(fieldMap)) {
-    const applies = license.licenseType !== "freeware" ||
+    const applies = !(NON_ENTITLEMENT_LICENSE_TYPES.includes(license.licenseType) && ENTITLEMENT_DOCUMENT_FIELDS.has(key)) &&
+      (license.licenseType !== "freeware" ||
       (
         !FREEWARE_ALWAYS_INAPPLICABLE_FIELDS.has(key) &&
         (!FREEWARE_PURCHASE_FIELDS.has(key) || hasPaidIncludedSupport(license))
-      );
+      ));
     if (mandatoryFields[key] && applies) {
       checks.push({ field: label, met: check(), mandatory: true });
     }
@@ -158,7 +163,7 @@ export const normalizeLicense = (l) => ({
   missingDocumentCount: l.missingDocumentCount ?? l.missing_document_count ?? 0,
   unavailableDocumentCount: l.unavailableDocumentCount ?? l.unavailable_document_count ?? 0,
   maintenanceCoverage: l.maintenanceCoverage ?? (
-    l.licenseType === "maintenance"
+    ["maintenance", "service", "other"].includes(l.licenseType)
       ? "not_applicable"
       : ["subscription", "saas"].includes(l.licenseType)
         ? "included"
