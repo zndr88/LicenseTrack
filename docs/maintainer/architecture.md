@@ -63,13 +63,20 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `CommercialSection.jsx` | License type, metric, quantity, SKU, pricing, currency |
 | `PeopleSection.jsx` | Supplier, cost centre, publisher contact link, budget owner, secondary contacts |
 | `EmailPublisherAction.jsx` | Bottom Email Publisher action, same-PO/same-publisher scope prompt, mailto construction |
-| `DocumentsSection.jsx` | License/procurement document display, upload/download/delete controls, and integration-backed document action buttons |
+| `DocumentsSection.jsx` | License/procurement document display, upload/download/delete/preview controls, and integration-backed document action buttons |
 | `CompletenessFlagsSection.jsx` | Completeness checklist and retired/legacy/exempt toggles |
 | `NotesSection.jsx` | Notes display; also exports `CatchallCustomFieldsSection` for unassigned custom fields |
 
 `DetailPanel.jsx` calls `useDetailPanelState` for all state and handlers, then wires props through to section components and mounts modals (`FieldEditModal`, `MaintenanceCreateModal`, `LinkCommitmentModal`, `ConfirmDialog`). No domain logic or rendering logic belongs in the shell.
 
 Document actions are part of the core-rendered integration surface. `DocumentsSection.jsx` should render actions from `useLicenseDocuments`; it should not hard-code plugin names or assume AI processing specifically. Action availability is determined by the backend from registered integration capabilities and active webhook subscribers. This is not runtime frontend plugin loading.
+
+PDF document preview is coordinated at `LicensesPage.jsx` level through
+`useDocumentPreview.js` and `DocumentPreviewPane.jsx` so the preview can replace
+the registry area while the selected license detail panel remains mounted and
+usable. `useLicenseDocuments.js` gates preview eligibility with
+`utils/documentPreview.js` and continues to use authenticated API download
+helpers rather than direct browser navigation.
 
 ## RenewalWorkbenchPage Sub-Module Pattern
 
@@ -158,7 +165,7 @@ the pending-order conversion path rather than in sourcing conversion.
 | Module | Owns |
 |--------|------|
 | `reportShared.jsx` | Shared report section shell, empty state, sort header, legend, palette |
-| `CostCentreDropdown.jsx` | Cost-centre filter dropdown |
+| `CostCentreDropdown.jsx` | Searchable, scrollable cost-centre filter dropdown |
 | `CostForecastSection.jsx` | Budget forecast controls and forecast table/chart presentation |
 | `PublisherBreakdownSection.jsx` | Publisher spend chart plus sortable publisher/supplier relationship table |
 | `PortfolioBreakdownSection.jsx` | License type and billing metric breakdown presentation |
@@ -218,6 +225,12 @@ Import mapping presets are shared configuration. Editors may list and use preset
 
 Existing custom fields participate in both import paths. Native preview/confirm loads definitions and resolves headers by immutable `field_key` first and by normalized display name only when that name is unambiguous; native and ignored headers retain precedence. External analysis reports those same matches automatically, and unresolved columns may be assigned to an existing definition. Only admins may create definitions. Native and mapped values share `custom_fields_service` validation/upsert behavior, including typed row errors and nonblank-only patches during LT-Ref updates.
 
+External analysis may receive several source columns that resemble the same
+native field. Stronger header aliases keep precedence, weak fallback aliases
+such as `item` do not override exact fields such as `software_description`, and
+duplicate recognized columns are returned as available mapping candidates
+instead of being hidden.
+
 Native and mapped import fields should stay aligned with the current editable
 license model. In addition to core commercial fields, CSV import supports
 request date, purchase date, procurement reference, parent LT Ref, and
@@ -225,7 +238,9 @@ secondary contacts. Mapped imports allow multiple source columns to feed
 secondary contacts so application-owner or technical-owner email columns can be
 retained as renewal notification CC recipients. Purchase quantity remains the
 stored entitlement count; source columns that describe quantity per unit must
-not be treated as purchase quantity.
+not be treated as purchase quantity. Flexera-style purchase type aliases map
+software subscription, software maintenance, software baseline, software, and
+service values onto the native `license_type` enum where unambiguous.
 
 ## Forms And Validation
 

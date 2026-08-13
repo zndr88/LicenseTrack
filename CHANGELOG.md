@@ -13,6 +13,40 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.7] - 2026-08-13
+
+### Added
+
+- Added native **Service** and **Other** license types for implementation
+  services, purchase-adjacent costs, and uncommon external purchase types that
+  should remain in the registry without being treated as renewable entitlement
+  lines.
+- Added authenticated PDF preview from License Details documents. Existing PDF
+  files can now be previewed in a side pane while the details panel remains
+  usable, and the original download action is unchanged.
+
+### Changed
+
+- Expanded Flexera purchase-type handling so common values such as Software
+  Subscription, Software Maintenance, Software Baseline, Software, and Service
+  map to the closest LicenseTrack license type during import.
+- Made the Reports department and cost-centre filter searchable and scrollable
+  for large portfolios.
+- Capped the License Overview attention banner at six visible warnings and
+  remeasured the virtual registry after dismissing it.
+- Displayed request date and purchase date as date-only values in License
+  Details to reduce timestamp clutter.
+
+### Fixed
+
+- Prevented weak fallback import aliases such as `Item` from overriding a real
+  Software Description column, and kept duplicate recognized columns available
+  for manual mapping instead of silently hiding them.
+- Excluded legacy records from report forecast calculations when retired and
+  legacy records are not included.
+- Renamed the Full Data CSV `total_po_price` header to `total_po_value` so the
+  export label matches the stored portfolio meaning.
+
 ## [1.1.6] - 2026-08-12
 
 ### Added
@@ -912,7 +946,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.6...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.7...HEAD
+[1.1.7]: https://github.com/zndr88/LicenseTrack/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/zndr88/LicenseTrack/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/zndr88/LicenseTrack/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/zndr88/LicenseTrack/compare/v1.1.3...v1.1.4

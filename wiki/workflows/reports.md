@@ -10,6 +10,9 @@ The report filter bar can include or exclude retired records, restrict licenses
 by start date, and select one or more departments. Filters update the report
 sections below the portfolio summary.
 
+The department selector is searchable and scrollable so large department lists
+remain usable.
+
 Date-only values from license records and report filters are evaluated as local
 calendar dates. A license dated `2026-07-01` is treated as July 1 in the user's
 calendar, so negative UTC offsets do not move it into the previous quarter.

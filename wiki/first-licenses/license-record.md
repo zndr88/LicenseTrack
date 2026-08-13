@@ -54,6 +54,11 @@ A license can have more than one invoice number. Click the invoice number or the
 
 Here you'll find more detail about the license record: the **license type**, **metric**, **quantity**, **SKU code**, and **pricing**.
 
+Use **Service** for implementation, installation, or service costs associated
+with a license purchase. Use **Other** for rare purchase types that should stay
+visible in the registry while you decide how to classify them. Service and
+Other records are not treated as renewable entitlement lines.
+
 The **calculated total** is quantity × unit price, computed automatically. The
 **total PO price** is the acquisition value of the whole purchase order, which
 may span multiple lines in a single PO. Freeware/open-source records have no
@@ -93,6 +98,11 @@ licenses created from the same pending order or the same direct multi-license
 batch. Sharing follows that internal relationship, never matching PO-number
 text. License-specific evidence such as an EULA or entitlement certificate
 remains attached to one license.
+
+PDF documents can be previewed from the document row. The preview opens beside
+the details panel so you can keep reviewing or editing the license while
+checking the document. Download remains available for every file the user is
+allowed to access.
 
 The configured upload maximum applies to the file payload. A file exactly at
 that limit is accepted; a file one byte over it is rejected. LicenseTrack also

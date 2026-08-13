@@ -53,6 +53,16 @@ quantity-per-unit value, such as a bundle size or lines-of-code pack size,
 should stay in the source tool or be imported into a custom field if you need it
 for reference.
 
+Flexera exports can use **Purchase Type** values that do not exactly match
+LicenseTrack's labels. Common values are normalized during import: Software
+Subscription becomes Subscription, Software Maintenance becomes Maintenance,
+Software Baseline and Software become Perpetual, and Service becomes Service.
+
+Some external exports contain a generic **Item** column as well as a more exact
+software description column. LicenseTrack treats Item as a fallback only. If
+your file has **Software Description**, that value wins; if duplicate recognized
+columns are present, the extra columns stay available for manual mapping.
+
 ## Mapping a custom file
 
 Below is an example of a custom file that matches the template and also includes a unique field. You can map it to an existing **custom field**; admins can create a new definition when one does not exist:

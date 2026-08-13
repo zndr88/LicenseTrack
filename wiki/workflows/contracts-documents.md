@@ -38,6 +38,11 @@ Procurement documents shared after conversion are keyed by pending-order
 relationship. Direct multi-license procurement evidence is keyed by its manual
 creation batch. PO number is metadata and is not a sharing key.
 
+PDF license and procurement documents shown in License Details can be previewed
+without downloading first. The preview uses the same permission checks as
+download, and download remains available from the document row and preview
+pane.
+
 Deleting a license removes its license-owned document rows and managed files
 after the database deletion commits. Shared procurement evidence remains until
 its owning workflow says it can be removed: pending-order evidence remains with
