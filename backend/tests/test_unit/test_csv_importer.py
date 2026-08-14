@@ -453,10 +453,24 @@ def test_valid_license_metric():
 
 
 @pytest.mark.parametrize("raw_metric,expected", [
+    ("Named User", "per_user"),
     ("named_user", "per_user"),
+    ("SaaS User", "per_user"),
     ("user", "per_user"),
+    ("Concurrent User", "concurrent"),
+    ("Enterprise", "enterprise"),
     ("device", "per_device"),
     ("named device", "per_device"),
+    ("Site", "site"),
+    ("Microsoft Server Core", "per_core"),
+    ("Microsoft Server/Management Core", "per_core"),
+    ("Device (Core-limited)", "per_core"),
+    ("Core Points", "per_core"),
+    ("Processor", "per_cpu"),
+    ("Processor Points", "per_cpu"),
+    ("Custom Metric", "other"),
+    ("Unknown", "other"),
+    ("Other", "other"),
 ])
 def test_flexera_license_metric_aliases(raw_metric, expected):
     csv_bytes = _csv(

@@ -2225,6 +2225,41 @@ async def test_csv_import_rejects_unrecognised_license_metric(test_app, auth_hea
 # F3 (full) regression — renewal chain must be wired bidirectionally
 # ---------------------------------------------------------------------------
 
+async def test_csv_import_maps_flexera_custom_metric_to_other_metric(test_app, auth_headers, db_session):
+    """Flexera Custom Metric is preserved as the explicit Other / Unknown metric."""
+    from sqlalchemy import select
+
+    from app.models.license import License, LicenseMetric
+
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type", "license_metric"],
+        [{
+            "publisher_name": "Vendor",
+            "software_description": "Custom-counted Widget",
+            "license_type": "subscription",
+            "license_metric": "Custom Metric",
+        }],
+    )
+
+    resp = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("import.csv", csv_bytes, "text/csv")},
+        data={"acknowledge_warnings": "true"},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["importedCount"] == 1
+    assert body["skippedCount"] == 0
+
+    result = await db_session.execute(
+        select(License).where(License.software_description == "Custom-counted Widget")
+    )
+    imported = result.scalar_one()
+    assert imported.license_metric == LicenseMetric.other
+
+
 async def test_csv_import_rejects_predecessor_already_renewed(
     test_app, auth_headers, db_session
 ):

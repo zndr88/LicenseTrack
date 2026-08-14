@@ -28,6 +28,7 @@ export const LICENSE_METRICS = [
   { value: "site", label: "Site License" },
   { value: "concurrent", label: "Concurrent Users" },
   { value: "enterprise", label: "Enterprise-wide" },
+  { value: "other", label: "Other / Unknown" },
 ];
 
 export const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK"];

@@ -38,6 +38,7 @@ class LicenseMetric(str, enum.Enum):
     site = "site"
     concurrent = "concurrent"
     enterprise = "enterprise"
+    other = "other"
 
 
 class LifecycleStatus(str, enum.Enum):

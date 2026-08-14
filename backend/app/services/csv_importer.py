@@ -187,6 +187,7 @@ _VALID_LICENSE_METRICS = {
     "site",
     "concurrent",
     "enterprise",
+    "other",
 }
 
 _VALID_MAINTENANCE_COVERAGE = {
@@ -455,12 +456,23 @@ _LICENSE_TYPE_VALUE_ALIASES: dict[str, str] = {
 }
 _LICENSE_METRIC_VALUE_ALIASES: dict[str, str] = {
     "site_license": "site",
+    "concurrent_user": "concurrent",
     "concurrent_users": "concurrent",
     "enterprise_wide": "enterprise",
     "named_user": "per_user",
+    "saas_user": "per_user",
     "user": "per_user",
     "named_device": "per_device",
     "device": "per_device",
+    "device_core_limited": "per_core",
+    "microsoft_server_core": "per_core",
+    "microsoft_server_management_core": "per_core",
+    "server_management_core": "per_core",
+    "core_points": "per_core",
+    "processor": "per_cpu",
+    "processor_points": "per_cpu",
+    "custom_metric": "other",
+    "unknown": "other",
 }
 
 _LICENSE_TYPE_FILLER_TOKENS = {"license", "type", "set", "plan", "a", "an", "the"}
