@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
+from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.services.csv_importer import ParsedRow
 from app.services.maintenance_service import validate_parent_license
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
@@ -94,6 +94,14 @@ async def build_license(
         "license_type": license_type,
         "license_metric": LicenseMetric(row.license_metric) if row.license_metric else LicenseMetric.per_user,
         "maintenance_coverage": resolved_maintenance_coverage,
+        "maintenance_start_date": row.db_maintenance_start_date,
+        "maintenance_end_date": row.db_maintenance_end_date,
+        "maintenance_pricing_basis": (
+            MaintenancePricingBasis.flat
+            if resolved_maintenance_coverage == MaintenanceCoverage.included and row.maintenance_cost
+            else None
+        ),
+        "maintenance_cost": row.maintenance_cost or None,
         "portal_url": row.portal_url,
         "quantity": row.quantity,
         "quantity_per_unit": row.quantity_per_unit or "1",

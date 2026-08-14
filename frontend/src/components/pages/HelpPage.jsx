@@ -175,6 +175,7 @@ const HELP_ARTICLES = [
           "Flexera Purchase Type values are normalized where possible: Software Subscription maps to Subscription, Software Maintenance maps to Maintenance, Software Baseline and Software map to Perpetual, and Service maps to Service.",
           "Flexera metric values such as Named User, SaaS User, Concurrent User, Device, Microsoft Server Core, Processor, and Processor Points map to LicenseTrack metrics. Custom Metric, Unknown, and Other map to Other / Unknown.",
           "Flexera-style boolean columns such as Includes Maintenance or Purchase Includes Support map true-like values to Maintenance / Support Coverage: Included.",
+          "For perpetual, OEM, or freeware rows with included support, imported Effective/Expiry dates become support coverage dates while the license itself remains non-expiring. If no support cost column is mapped, LicenseTrack defaults support cost from the line total and warns you to verify it is not the perpetual acquisition value.",
           "Weak fallback headers such as Item do not override a real Software Description column. Duplicate recognized columns remain available for manual mapping.",
           "Currency defaults are reported as informational warnings; by themselves they do not require acknowledgement.",
           "CSV imports are audited with inserted, updated, skipped, error, warning-summary, custom-field failure, and acknowledgement details.",

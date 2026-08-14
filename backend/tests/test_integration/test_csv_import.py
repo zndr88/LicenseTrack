@@ -645,10 +645,11 @@ async def test_analyze_ignores_export_only_computed_columns(test_app, auth_heade
     matched_fields = {c["internalField"] for c in body["matchedColumns"]}
     unrecognized = {c["rawHeader"] for c in body["unrecognizedColumns"]}
 
-    assert matched_fields == {"publisher_name", "software_description"}
+    assert matched_fields == {"publisher_name", "software_description", "maintenance_cost"}
     # None of the export-only columns should appear as needing a decision.
-    for ignored in ("License Record ID", "ID", "Maintenance Cost", "Created", "Expiration", "Docs"):
+    for ignored in ("License Record ID", "ID", "Created", "Expiration", "Docs"):
         assert ignored not in unrecognized
+    assert "Maintenance Cost" not in unrecognized
 
 
 async def test_confirm_import_maintenance_with_missing_parent_ref_errors(
@@ -1342,6 +1343,62 @@ async def test_confirm_normalizes_end_date_for_perpetual_license(
     )
     assert license_obj is not None
     assert license_obj.end_date is None
+
+
+async def test_confirm_maps_perpetual_included_support_dates_and_defaults_cost(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    csv_bytes = _make_csv(
+        [
+            "publisher_name",
+            "software_description",
+            "license_type",
+            "maintenance_coverage",
+            "effective_date",
+            "expiry_date",
+            "total_po_price",
+        ],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Perpetual Suite With Support",
+            "license_type": "perpetual",
+            "maintenance_coverage": "included",
+            "effective_date": _FUTURE_START,
+            "expiry_date": _FUTURE_END,
+            "total_po_price": "2500.00",
+        }],
+    )
+
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("perpetual-support.csv", csv_bytes, "text/csv")},
+    )
+
+    assert preview.status_code == 200, preview.text
+    row = preview.json()["rows"][0]
+    assert any("maintenance_cost defaulted from the license line total" in warning for warning in row["warnings"])
+
+    resp = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("perpetual-support.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["importedCount"] == 1
+    license_obj = await db_session.scalar(
+        select(License).where(License.software_description == "Perpetual Suite With Support")
+    )
+    assert license_obj is not None
+    assert license_obj.end_date is None
+    assert license_obj.maintenance_coverage.value == "included"
+    assert license_obj.maintenance_start_date.isoformat() == _FUTURE_START
+    assert license_obj.maintenance_end_date.isoformat() == _FUTURE_END
+    assert license_obj.maintenance_pricing_basis.value == "flat"
+    assert license_obj.maintenance_cost == "2500.00"
 
 
 async def test_confirm_imports_2099_end_date_as_perpetual_warning(

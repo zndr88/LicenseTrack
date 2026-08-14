@@ -110,6 +110,23 @@ _HEADER_MAP: dict[str, str] = {
     "portal_url": "portal_url",  # "Portal URL"
     "maintenance_coverage": "maintenance_coverage",
     "maintenance_support_coverage": "maintenance_coverage",  # "Maintenance / Support Coverage"
+    "maintenance_start": "maintenance_start_date",
+    "maintenance_start_date": "maintenance_start_date",
+    "support_start": "maintenance_start_date",
+    "support_start_date": "maintenance_start_date",
+    "coverage_start": "maintenance_start_date",
+    "coverage_start_date": "maintenance_start_date",
+    "maintenance_end": "maintenance_end_date",
+    "maintenance_end_date": "maintenance_end_date",
+    "support_end": "maintenance_end_date",
+    "support_end_date": "maintenance_end_date",
+    "coverage_end": "maintenance_end_date",
+    "coverage_end_date": "maintenance_end_date",
+    "maintenance_cost": "maintenance_cost",
+    "support_cost": "maintenance_cost",
+    "total_support_cost": "maintenance_cost",
+    "total_support_cost_eur": "maintenance_cost",
+    "coverage_cost": "maintenance_cost",
     "includes_maintenance": "maintenance_coverage",
     "include_maintenance": "maintenance_coverage",
     "maintenance_included": "maintenance_coverage",
@@ -127,10 +144,9 @@ _FALLBACK_HEADER_ALIASES: frozenset[str] = frozenset(
 # Export-only / computed columns (normalised header form). These are recognised
 # on import but intentionally mapped to nothing, so round-tripping a full
 # LicenseTrack export does not prompt the user to create custom fields for them.
-# Covers computed/metadata columns and the maintenance mirror fields, which are
-# derived from the linked child maintenance license and must not be imported
-# directly. Both the export display-label form and the snake_case field form are
-# listed so either survives a round-trip.
+# Covers computed/metadata columns. Maintenance coverage fields are importable
+# for included-support rows, but linked child-maintenance mirror fields are
+# ignored by the builder unless the row itself says coverage is included.
 _IGNORED_HEADERS: frozenset[str] = frozenset(
     {
         "id",
@@ -153,11 +169,6 @@ _IGNORED_HEADERS: frozenset[str] = frozenset(
         "last_synced_at",
         "lifecycle_status",
         "sync_status",
-        "maintenance_start",
-        "maintenance_start_date",
-        "maintenance_end",
-        "maintenance_end_date",
-        "maintenance_cost",
     }
 )
 
@@ -195,6 +206,8 @@ _VALID_LICENSE_METRICS = {
     "enterprise",
     "other",
 }
+
+_INCLUDED_SUPPORT_PARENT_TYPES = {"perpetual", "oem", "freeware"}
 
 _VALID_MAINTENANCE_COVERAGE = {
     "unknown",
@@ -260,6 +273,9 @@ class ParsedRow:
 
     # Classification
     import_status: str  # "legacy_exempt" | "active" | "legacy_incomplete" | "error"
+    maintenance_start_date: Optional[str] = None
+    maintenance_end_date: Optional[str] = None
+    maintenance_cost: str = ""
     quantity_per_unit: str = ""
     effective_quantity: str = ""
     procurement_reference: str = ""
@@ -276,6 +292,8 @@ class ParsedRow:
     db_start_date: Optional[date] = field(default=None, repr=False)
     db_end_date: Optional[date] = field(default=None, repr=False)
     db_notice_date: Optional[date] = field(default=None, repr=False)
+    db_maintenance_start_date: Optional[date] = field(default=None, repr=False)
+    db_maintenance_end_date: Optional[date] = field(default=None, repr=False)
     db_request_date: Optional[datetime] = field(default=None, repr=False)
     db_purchase_date: Optional[datetime] = field(default=None, repr=False)
 
@@ -387,6 +405,17 @@ def _add_total_price_mismatch_warning(
         f"{PRICE_MISMATCH_WARNING_PREFIX} by 10x or more; "
         "check whether the mapped quantity is a purchase quantity rather than an entitlement quantity per unit"
     )
+
+
+def _calculate_line_total(quantity: str, unit_price: str, total_po_price: str) -> str | None:
+    if total_po_price:
+        return total_po_price
+    if not quantity or not unit_price:
+        return None
+    try:
+        return format(Decimal(quantity) * Decimal(unit_price), "f")
+    except (InvalidOperation, ValueError):
+        return None
 
 
 def _derive_quantity_per_unit(
@@ -609,9 +638,13 @@ def _parse_row(
     db_start_date: Optional[date] = None
     db_end_date: Optional[date] = None
     db_notice_date: Optional[date] = None
+    db_maintenance_start_date: Optional[date] = None
+    db_maintenance_end_date: Optional[date] = None
     start_date_str: Optional[str] = None
     end_date_str: Optional[str] = None
     notice_date_str: Optional[str] = None
+    maintenance_start_date_str: Optional[str] = None
+    maintenance_end_date_str: Optional[str] = None
     is_perpetual = False
 
     start_raw = _field_text(data, "start_date")
@@ -656,6 +689,32 @@ def _parse_row(
                 notice_date_str = nd.isoformat()
                 if db_end_date is not None and nd > db_end_date:
                     warnings.append("notice_date falls after end_date")
+
+    maintenance_start_raw = _field_text(data, "maintenance_start_date")
+    if maintenance_start_raw:
+        msd, _, msd_err, msd_warn = parse_import_date(maintenance_start_raw, date_format)
+        if msd_err:
+            errors.append(f"maintenance_start_date: {msd_err}")
+            has_parse_error = True
+        else:
+            if msd_warn:
+                warnings.append(f"maintenance_start_date: {msd_warn}")
+            if msd is not None:
+                db_maintenance_start_date = msd
+                maintenance_start_date_str = msd.isoformat()
+
+    maintenance_end_raw = _field_text(data, "maintenance_end_date")
+    if maintenance_end_raw:
+        med, _, med_err, med_warn = parse_import_date(maintenance_end_raw, date_format)
+        if med_err:
+            errors.append(f"maintenance_end_date: {med_err}")
+            has_parse_error = True
+        else:
+            if med_warn:
+                warnings.append(f"maintenance_end_date: {med_warn}")
+            if med is not None:
+                db_maintenance_end_date = med
+                maintenance_end_date_str = med.isoformat()
 
     # -- Procurement milestone datetimes ----------------------------------
     db_request_date, request_err = _parse_datetime(_field_text(data, "request_date"), date_format)
@@ -702,6 +761,9 @@ def _parse_row(
     total_po_price = _parse_localized_numeric_field(
         _field_text(data, "total_po_price"), "total_po_price", errors, number_format_locale
     )
+    maintenance_cost = _parse_localized_numeric_field(
+        _field_text(data, "maintenance_cost"), "maintenance_cost", errors, number_format_locale
+    )
     has_parse_error = has_parse_error or len(errors) > numeric_error_count
     quantity_per_unit = _derive_quantity_per_unit(
         quantity,
@@ -738,6 +800,22 @@ def _parse_row(
         warnings.append(f"Unrecognised maintenance_coverage {maintenance_coverage_raw!r}; defaulting to 'unknown'")
         maintenance_coverage_raw = None
     maintenance_coverage = maintenance_coverage_raw or None
+
+    if maintenance_coverage == "included" and license_type in _INCLUDED_SUPPORT_PARENT_TYPES:
+        if db_maintenance_start_date is None and db_start_date is not None:
+            db_maintenance_start_date = db_start_date
+            maintenance_start_date_str = start_date_str
+        if db_maintenance_end_date is None and db_end_date is not None:
+            db_maintenance_end_date = db_end_date
+            maintenance_end_date_str = end_date_str
+        if not maintenance_cost:
+            fallback_cost = _calculate_line_total(quantity, unit_price, total_po_price)
+            if fallback_cost:
+                maintenance_cost = fallback_cost
+                warnings.append(
+                    "maintenance_cost defaulted from the license line total for included support; "
+                    "verify this is not the perpetual acquisition value."
+                )
 
     # -- Classification ---------------------------------------------------
     import_status, lifecycle_status, is_completeness_exempt = _classify_row(
@@ -793,6 +871,9 @@ def _parse_row(
         parent_license_ref=parent_license_ref,
         portal_url=portal_url,
         maintenance_coverage=maintenance_coverage,
+        maintenance_start_date=maintenance_start_date_str,
+        maintenance_end_date=maintenance_end_date_str,
+        maintenance_cost=maintenance_cost,
         import_status=import_status,
         validation_errors=errors,
         warnings=warnings,
@@ -800,6 +881,8 @@ def _parse_row(
         db_start_date=db_start_date,
         db_end_date=db_end_date,
         db_notice_date=db_notice_date,
+        db_maintenance_start_date=db_maintenance_start_date,
+        db_maintenance_end_date=db_maintenance_end_date,
         db_request_date=db_request_date,
         db_purchase_date=db_purchase_date,
         is_completeness_exempt=is_completeness_exempt,

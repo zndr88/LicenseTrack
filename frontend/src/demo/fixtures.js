@@ -1,5 +1,6 @@
 import { daysFromNow, datetimeDaysAgo, daysUntil } from "./time.js";
 import { computeTotalPoValue } from "./store.js";
+import { withDefaultMaintenanceCoverage } from "./supportDefaults.js";
 
 /**
  * Seed data for the demo mode in-memory store.
@@ -98,7 +99,7 @@ export function buildLicense(overrides) {
     conversionType: null,
   };
 
-  const merged = { ...base, ...overrides, isRetired, lifecycleStatus, endDate };
+  const merged = withDefaultMaintenanceCoverage({ ...base, ...overrides, isRetired, lifecycleStatus, endDate });
   merged.daysUntilExpiry = daysUntil(merged.endDate);
   merged.expirationStatus = computeExpirationStatus({
     isRetired: merged.isRetired,

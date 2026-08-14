@@ -247,6 +247,12 @@ concurrent, site, enterprise, custom, unknown, and other labels onto native
 `license_metric` values. Boolean "includes maintenance/support" columns map to
 `maintenance_coverage=included` when true-like and stay unset when false-like
 or blank.
+For perpetual, OEM, or freeware included-support imports, source start/end
+dates are copied into maintenance coverage dates while the persisted license
+`end_date` remains null for perpetual rows. When no explicit maintenance cost
+column is present, import defaults support cost from the row line total and
+adds a warning so operators can verify it is not the perpetual acquisition
+value.
 
 Included support on subscription and SaaS records is bundled into the
 subscription itself. The backend derives maintenance start/end from license

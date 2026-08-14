@@ -82,6 +82,13 @@ Includes Maintenance**, or **Purchase Includes Support** can map to
 false-like or blank values leave the coverage unset so LicenseTrack can apply
 the normal default for the license type.
 
+For perpetual, OEM, or freeware rows with included support, imported
+**Effective Date** and **Expiry Date** become support coverage dates while the
+license record itself remains non-expiring. If no support-cost column is
+mapped, LicenseTrack defaults **Total Support Cost** from the line total and
+shows a warning so you can verify it is not the original perpetual acquisition
+value.
+
 Some external exports contain a generic **Item** column as well as a more exact
 software description column. LicenseTrack treats Item as a fallback only. If
 your file has **Software Description**, that value wins; if duplicate recognized

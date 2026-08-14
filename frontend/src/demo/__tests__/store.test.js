@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { store, resetStore, seedStore } from "../store.js";
+import { computeTotalPoValue, store, resetStore, seedStore } from "../store.js";
 
 describe("demo store seed/reset", () => {
   beforeEach(() => resetStore());
@@ -19,6 +19,34 @@ describe("demo store seed/reset", () => {
     expect(store.sourcingItems.length).toBeGreaterThanOrEqual(2);
     expect(store.pendingOrders.length).toBe(1);
     expect(store.pendingOrders[0].items.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("derives bundled support fields for subscription seed licenses", () => {
+    seedStore();
+    const jetbrains = store.licenses.find((license) => license.publisherName === "JetBrains");
+
+    expect(jetbrains).toMatchObject({
+      licenseType: "subscription",
+      maintenanceCoverage: "included",
+      maintenanceStartDate: jetbrains.startDate,
+      maintenanceEndDate: jetbrains.endDate,
+      maintenancePricingBasis: "flat",
+      maintenanceCost: jetbrains.totalPoPrice,
+    });
+  });
+
+  it("does not double-count bundled subscription support in demo procurement totals", () => {
+    const total = computeTotalPoValue([
+      {
+        licenseType: "subscription",
+        estimatedTotalPrice: "1000.00",
+        maintenanceCoverage: "included",
+        maintenanceCost: "1000.00",
+        currency: "EUR",
+      },
+    ]);
+
+    expect(total).toBe("€1,000.00");
   });
 
   it("reset clears everything", () => {

@@ -1,4 +1,10 @@
 import { buildLicense, buildSeedData, computeExpirationStatus } from "./fixtures.js";
+import {
+  applyBundledIncludedSupportDefaults,
+  defaultMaintenanceCoverage,
+  isBundledIncludedSupport,
+  withDefaultMaintenanceCoverage,
+} from "./supportDefaults.js";
 import { daysUntil } from "./time.js";
 import { sumCanonicalQuantities } from "../utils/quantity.js";
 
@@ -128,6 +134,7 @@ export function nextId() {
  * backend/app/routes/license_renewals.py:35-47, license_maintenance.py:36-48).
  */
 export function decorateLicense(license) {
+  withDefaultMaintenanceCoverage(license);
   license.daysUntilExpiry = daysUntil(license.endDate);
   license.expirationStatus = computeExpirationStatus({
     isRetired: license.isRetired,
@@ -595,7 +602,9 @@ function sumByCurrency(items) {
   const totals = {};
   for (const item of items) {
     const acquisition = item.estimatedTotalPrice == null ? null : Number(item.estimatedTotalPrice);
-    const support = item.maintenanceCoverage === "included" && item.maintenanceCost != null
+    const support = item.maintenanceCoverage === "included"
+      && !isBundledIncludedSupport(item.licenseType, item.maintenanceCoverage)
+      && item.maintenanceCost != null
       ? Number(item.maintenanceCost)
       : null;
     const validAcquisition = acquisition !== null && !Number.isNaN(acquisition) ? acquisition : 0;
@@ -889,7 +898,7 @@ export function buildSourcingRequestResponse(request) {
 export function buildSourcingItem(payload, overrides = {}) {
   const now = new Date().toISOString();
   const renewalForLicenseId = payload.renewalForLicenseId ?? null;
-  return {
+  const item = {
     id: overrides.id ?? nextId(),
     sourcingRequestId: overrides.sourcingRequestId ?? payload.sourcingRequestId ?? null,
     publisherName: payload.publisherName,
@@ -924,6 +933,7 @@ export function buildSourcingItem(payload, overrides = {}) {
     updatedAt: now,
     createdBy: 1,
   };
+  return applyBundledIncludedSupportDefaults(item);
 }
 
 /**
@@ -1490,13 +1500,6 @@ function markPredecessorRenewed(predecessor, successorId) {
   decorateLicense(predecessor);
 }
 
-/** Mirrors backend/app/services/maintenance_rules.py:37-43 default_maintenance_coverage. */
-function defaultMaintenanceCoverage(licenseType) {
-  if (licenseType === "subscription" || licenseType === "saas") return "included";
-  if (licenseType === "maintenance") return "not_applicable";
-  return "unknown";
-}
-
 /**
  * Mirrors backend/app/schemas/pending_order.py:124-211 PendingOrderConvertRequest /
  * BatchConvertItem defaults (the subset the demo needs - enum defaults and
@@ -1589,6 +1592,7 @@ function createPurchaseLicense(itemData) {
     throw new Error("parentLicenseId is only valid for maintenance licenses");
   }
   data.maintenanceCoverage = data.maintenanceCoverage || defaultMaintenanceCoverage(data.licenseType);
+  applyBundledIncludedSupportDefaults(data);
   return buildConvertedLicense(data);
 }
 
@@ -1611,6 +1615,7 @@ export function createRenewalSuccessorFromSourcingItem(sourcingItem, licenseData
   }
   const successorType = data.licenseType ?? oldLic.licenseType;
   data.maintenanceCoverage = data.maintenanceCoverage || defaultMaintenanceCoverage(successorType);
+  applyBundledIncludedSupportDefaults(data);
   delete data.parentSourcingItemId;
 
   if (sourcingItem.cotermPredecessorIds && sourcingItem.cotermPredecessorIds.length > 0) {
