@@ -18,6 +18,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Added the backend maintenance-link foundation that lets one maintenance
   license be associated with multiple perpetual, OEM, or freeware parent
   licenses while preserving the existing primary-parent compatibility field.
+- Added backend workflows to create maintenance records with multiple parent
+  licenses and link an existing maintenance record to another eligible parent
+  without retiring shared maintenance when one parent disables tracking.
 
 ### Fixed
 

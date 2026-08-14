@@ -39,6 +39,7 @@ from app.services.maintenance_rules import (
     assert_non_maintenance_has_no_parent,
 )
 from app.services.maintenance_service import (
+    activate_maintenance_for_parent,
     create_maintenance_for_parent,
     sync_parent_mirror_fields,
     validate_parent_license,
@@ -190,6 +191,15 @@ def _clear_notice_handled_if_date_changed(license_obj: License, update_data: dic
     license_obj.notice_handled_by_user_id = None
 
 
+def _normalise_maintenance_parent_ids(parent_license_id: int | None, maintenance_parent_ids: list[int]) -> list[int]:
+    parent_ids: list[int] = []
+    for parent_id in (parent_license_id, *maintenance_parent_ids):
+        if parent_id is None or parent_id in parent_ids:
+            continue
+        parent_ids.append(parent_id)
+    return parent_ids
+
+
 async def create_license_record(
     db: AsyncSession,
     payload: LicenseCreate,
@@ -199,31 +209,44 @@ async def create_license_record(
     procurement_bundle_id: str | None = None,
 ) -> License:
     """Create a license ORM record, including maintenance-parent invariants."""
-    parent_license = None
-    try:
-        assert_maintenance_requires_parent(payload.license_type, payload.parent_license_id)
-        assert_non_maintenance_has_no_parent(payload.license_type, payload.parent_license_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    parent_licenses: list[License] = []
+    maintenance_parent_ids = _normalise_maintenance_parent_ids(
+        payload.parent_license_id,
+        payload.maintenance_parent_ids,
+    )
     if payload.license_type == LicenseType.maintenance:
+        if not maintenance_parent_ids:
+            raise HTTPException(status_code=400, detail="Maintenance licenses require parent_license_id")
         try:
-            parent_license = await validate_parent_license(db, payload.parent_license_id)
+            for parent_id in maintenance_parent_ids:
+                parent_licenses.append(await validate_parent_license(db, parent_id))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        try:
+            assert_non_maintenance_has_no_parent(payload.license_type, payload.parent_license_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        if maintenance_parent_ids:
+            raise HTTPException(status_code=400, detail="maintenanceParentIds is only valid for maintenance licenses")
 
     if payload.license_type == LicenseType.maintenance:
         create_data = payload.model_dump(by_alias=False)
         _sync_invoice_numbers(create_data)
         create_data["procurement_bundle_id"] = procurement_bundle_id
         create_data["contract_id"] = await _resolve_contract_id(db, create_data.get("contract_number"))
-        return await create_maintenance_for_parent(
+        maintenance_license = await create_maintenance_for_parent(
             db,
-            parent_license,
+            parent_licenses[0],
             create_data,
             created_by=created_by,
         )
+        for extra_parent in parent_licenses[1:]:
+            await activate_maintenance_for_parent(db, maintenance_license, extra_parent)
+        return maintenance_license
 
     create_data = payload.model_dump(by_alias=False)
+    create_data.pop("maintenance_parent_ids", None)
     _sync_invoice_numbers(create_data)
     create_data["procurement_bundle_id"] = procurement_bundle_id
     create_data["maintenance_coverage"] = create_data.get("maintenance_coverage") or default_maintenance_coverage(

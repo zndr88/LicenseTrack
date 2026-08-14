@@ -829,6 +829,132 @@ async def test_create_maintenance_license_accepts_freeware_parent(test_app, auth
     assert resp.json()["parentLicenseId"] == parent["id"]
 
 
+async def test_create_maintenance_license_accepts_multiple_parent_ids(test_app, auth_headers):
+    first_parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        startDate="2025-01-01",
+        endDate=None,
+        softwareDescription="First Parent",
+    )
+    second_parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        startDate="2025-01-01",
+        endDate=None,
+        softwareDescription="Second Parent",
+    )
+
+    resp = await test_app.post(
+        "/api/licenses",
+        json=_minimal_payload(
+            licenseType="maintenance",
+            maintenanceParentIds=[first_parent["id"], second_parent["id"]],
+            startDate="2026-01-01",
+            endDate="2026-12-31",
+            softwareDescription="Shared Maintenance",
+        ),
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 201, resp.text
+    maintenance = resp.json()
+    assert maintenance["parentLicenseId"] == first_parent["id"]
+    assert maintenance["maintenanceParentIds"] == [first_parent["id"], second_parent["id"]]
+
+    second_parent_resp = await test_app.get(f"/api/licenses/{second_parent['id']}", headers=auth_headers)
+    assert second_parent_resp.status_code == 200, second_parent_resp.text
+    assert second_parent_resp.json()["activeMaintenanceId"] == maintenance["id"]
+    assert second_parent_resp.json()["linkedMaintenanceIds"] == [maintenance["id"]]
+
+
+async def test_link_existing_maintenance_to_second_parent(test_app, auth_headers):
+    first_parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        startDate="2025-01-01",
+        endDate=None,
+        softwareDescription="First Parent",
+    )
+    second_parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        startDate="2025-01-01",
+        endDate=None,
+        softwareDescription="Second Parent",
+    )
+    maintenance = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=first_parent["id"],
+        startDate="2026-01-01",
+        endDate="2026-12-31",
+        softwareDescription="Existing Maintenance",
+    )
+
+    resp = await test_app.post(
+        f"/api/licenses/{second_parent['id']}/link-maintenance",
+        json={"maintenanceLicenseId": maintenance["id"]},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["activeMaintenanceId"] == maintenance["id"]
+    assert resp.json()["linkedMaintenanceIds"] == [maintenance["id"]]
+
+    maintenance_resp = await test_app.get(f"/api/licenses/{maintenance['id']}", headers=auth_headers)
+    assert maintenance_resp.status_code == 200, maintenance_resp.text
+    assert maintenance_resp.json()["maintenanceParentIds"] == [first_parent["id"], second_parent["id"]]
+
+
+async def test_disable_shared_maintenance_unlinks_parent_without_retiring_child(test_app, auth_headers):
+    first_parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        startDate="2025-01-01",
+        endDate=None,
+        softwareDescription="First Parent",
+    )
+    second_parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        startDate="2025-01-01",
+        endDate=None,
+        softwareDescription="Second Parent",
+    )
+    maintenance = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        maintenanceParentIds=[first_parent["id"], second_parent["id"]],
+        startDate="2026-01-01",
+        endDate="2026-12-31",
+        softwareDescription="Shared Maintenance",
+    )
+
+    resp = await test_app.post(
+        f"/api/licenses/{first_parent['id']}/disable-maintenance",
+        json={},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["hasMaintenance"] is False
+    assert resp.json()["activeMaintenanceId"] is None
+
+    maintenance_resp = await test_app.get(f"/api/licenses/{maintenance['id']}", headers=auth_headers)
+    assert maintenance_resp.status_code == 200, maintenance_resp.text
+    assert maintenance_resp.json()["isRetired"] is False
+    assert maintenance_resp.json()["maintenanceParentIds"] == [second_parent["id"]]
+
+
 async def test_patch_maintenance_coverage_rejects_bundled_support_while_child_is_active(test_app, auth_headers):
     parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
     await _create_license(

@@ -183,7 +183,7 @@ class LicenseBase(BaseModel):
 
 
 class LicenseCreate(LicenseBase):
-    pass
+    maintenance_parent_ids: list[int] = Field(default_factory=list)
 
 
 class LicenseBatchCreateItem(BaseModel):
@@ -197,8 +197,10 @@ class LicenseBatchCreateItem(BaseModel):
 
     @model_validator(mode="after")
     def _reject_ambiguous_parent(self) -> "LicenseBatchCreateItem":
-        if self.parent_line_index is not None and self.license.parent_license_id is not None:
-            raise ValueError("Use parentLineIndex or parentLicenseId, not both.")
+        if self.parent_line_index is not None and (
+            self.license.parent_license_id is not None or self.license.maintenance_parent_ids
+        ):
+            raise ValueError("Use parentLineIndex, parentLicenseId, or maintenanceParentIds, not more than one.")
         return self
 
 
@@ -465,6 +467,15 @@ class LicenseProcurementTrailResponse(BaseModel):
 class FieldUpdateRequest(BaseModel):
     field: str
     value: str
+
+
+class MaintenanceLinkExistingRequest(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    maintenance_license_id: int
 
 
 class BulkDeleteRequest(BaseModel):

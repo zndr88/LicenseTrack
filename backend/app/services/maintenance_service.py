@@ -2,7 +2,9 @@
 Service layer for managing maintenance-type Licenses.
 
 A maintenance License is a License with license_type="maintenance"
-linked to a parent perpetual, OEM, or freeware/open-source License via parent_license_id.
+linked to one or more parent perpetual, OEM, or freeware/open-source Licenses
+through license_maintenance_links. parent_license_id remains the primary
+compatibility parent for older API and import flows.
 The parent carries mirror fields (has_maintenance,
 maintenance_start_date, maintenance_end_date, maintenance_cost,
 active_maintenance_id) that reflect the currently active
@@ -16,7 +18,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
@@ -130,6 +132,8 @@ async def link_maintenance_to_parent(
     """Create the association row linking a maintenance license to a parent."""
     if maintenance_license.license_type != LicenseType.maintenance:
         raise ValueError("Only maintenance licenses can be linked to maintenance/support parents")
+    if maintenance_license.is_retired:
+        raise ValueError("Retired maintenance licenses cannot be linked to maintenance/support parents")
     assert_parent_type_eligible(parent)
     assert_parent_not_retired(parent)
 
@@ -152,6 +156,17 @@ async def link_maintenance_to_parent(
     return link
 
 
+async def activate_maintenance_for_parent(
+    db: AsyncSession,
+    maintenance_license: License,
+    parent: License,
+) -> None:
+    """Link a maintenance license to a parent and make it that parent's active mirror source."""
+    await link_maintenance_to_parent(db, maintenance_license, parent)
+    parent.active_maintenance_id = maintenance_license.id
+    await sync_parent_mirror_fields(db, parent)
+
+
 async def create_maintenance_for_parent(
     db: AsyncSession,
     parent: License,
@@ -170,11 +185,14 @@ async def create_maintenance_for_parent(
     Returns the newly created maintenance License. Caller commits.
     """
     # Sanitize -- the service sets license_type and parent_license_id
-    data = {
-        k: v
-        for k, v in maintenance_data.items()
-        if k not in ("license_type", "maintenance_coverage", "parent_license_id", "created_by")
+    service_owned_fields = {
+        "license_type",
+        "maintenance_coverage",
+        "parent_license_id",
+        "maintenance_parent_ids",
+        "created_by",
     }
+    data = {k: v for k, v in maintenance_data.items() if k not in service_owned_fields}
     if "invoice_numbers" not in data:
         invoice_number = data.get("invoice_number") or ""
         data["invoice_numbers"] = [invoice_number] if invoice_number else []
@@ -189,10 +207,7 @@ async def create_maintenance_for_parent(
     db.add(maintenance_license)
     await db.flush()
     maintenance_license.license_ref = await generate_license_ref(db)
-    await link_maintenance_to_parent(db, maintenance_license, parent)
-
-    parent.active_maintenance_id = maintenance_license.id
-    await sync_parent_mirror_fields(db, parent)
+    await activate_maintenance_for_parent(db, maintenance_license, parent)
 
     return maintenance_license
 
@@ -202,9 +217,10 @@ async def disable_maintenance_for_parent(
     parent: License,
 ) -> None:
     """
-    Disable maintenance tracking on a parent License. Retires the
-    currently active maintenance License (preserving history) and
-    clears the parent's active_maintenance_id and mirror fields.
+    Disable maintenance tracking on a parent License. The active maintenance
+    link for this parent is removed. If no other parents are linked to that
+    maintenance record, the maintenance License is retired to preserve the
+    legacy single-parent behavior.
 
     If there is no active maintenance, this is a no-op (returns
     without raising).
@@ -217,7 +233,19 @@ async def disable_maintenance_for_parent(
     result = await db.execute(select(License).where(License.id == parent.active_maintenance_id))
     active_child = result.scalar_one_or_none()
     if active_child is not None:
-        active_child.is_retired = True
+        await db.execute(
+            delete(LicenseMaintenanceLink).where(
+                LicenseMaintenanceLink.maintenance_license_id == active_child.id,
+                LicenseMaintenanceLink.parent_license_id == parent.id,
+            )
+        )
+        remaining_result = await db.execute(
+            select(func.count()).select_from(LicenseMaintenanceLink).where(
+                LicenseMaintenanceLink.maintenance_license_id == active_child.id
+            )
+        )
+        if int(remaining_result.scalar_one()) == 0:
+            active_child.is_retired = True
 
     parent.active_maintenance_id = None
     await sync_parent_mirror_fields(db, parent)
