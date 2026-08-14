@@ -229,6 +229,8 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               makeCustomFieldSaveFn={makeCustomFieldSaveFn}
               closeFieldEdit={closeFieldEdit}
               openSecondaryContactsEdit={openSecondaryContactsEdit}
+              allLicenses={allLicenses}
+              onNavigate={onNavigate}
             />
 
             {/* Documents */}

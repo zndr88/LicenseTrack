@@ -64,7 +64,9 @@ Perpetual, OEM, freeware/open-source, subscription, and SaaS lines also expose
   new line is prefilled but editable, follows the paid PO path, and retains its
   parent relationship during conversion. This option is available only for
   perpetual, OEM, or freeware/open-source parents. A different support supplier
-  creates a separate linked sourcing request.
+  creates a separate linked sourcing request. If a later renewal covers several
+  eligible parent purchases, the resulting maintenance license can be linked to
+  the additional parents from License Details.
 - **Unknown** and **Not applicable** do not create another line.
 
 Freeware with a positive included-support cost follows the PO path because the

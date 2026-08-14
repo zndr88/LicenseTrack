@@ -24,15 +24,22 @@ export default function IdentitySection({
   makeCustomFieldSaveFn,
   closeFieldEdit,
 }) {
+  const maintenanceParentIds = Array.isArray(license.maintenanceParentIds) && license.maintenanceParentIds.length > 0
+    ? license.maintenanceParentIds
+    : license.parentLicenseId
+      ? [license.parentLicenseId]
+      : [];
+  const singleMaintenanceParentId = maintenanceParentIds.length === 1 ? maintenanceParentIds[0] : null;
+
   return (
     <>
       <DetailSectionHeader sectionKey="identity" title="Identity" isOpen={isOpen} onToggle={onToggle} />
       {isOpen && (
         <div className="dp-section-body" id="dp-section-identity">
-          {license.licenseType === "maintenance" && license.parentLicenseId && (
+          {license.licenseType === "maintenance" && singleMaintenanceParentId && (
             <button
               type="button"
-              onClick={() => onNavigate?.(license.parentLicenseId)}
+              onClick={() => onNavigate?.(singleMaintenanceParentId)}
               style={{
                 appearance: "none", background: "none", border: "none",
                 padding: 0, margin: "0 0 12px 0", cursor: "pointer",

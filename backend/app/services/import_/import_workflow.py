@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import Optional
 
 from sqlalchemy import select as sa_select
@@ -24,9 +25,26 @@ from app.services.import_.maintenance_parenting import infer_batch_maintenance_p
 from app.services.license_service import generate_license_ref
 from app.models.license import License, LicenseType
 from app.services.lifecycle_rules import mark_predecessor_renewed
-from app.services.maintenance_service import activate_maintenance_for_parent
+from app.services.maintenance_service import activate_maintenance_for_parent, validate_parent_license
 
 log = logging.getLogger(__name__)
+
+
+def _restore_import_status(row: ParsedRow) -> None:
+    today = date.today()
+    end_in_past = row.db_end_date is not None and row.db_end_date < today
+    if end_in_past and (not row.publisher_name or not row.software_description):
+        row.import_status = "legacy_incomplete"
+        row.lifecycle_status = "legacy"
+        row.is_completeness_exempt = False
+    elif end_in_past:
+        row.import_status = "legacy_exempt"
+        row.lifecycle_status = "legacy"
+        row.is_completeness_exempt = True
+    else:
+        row.import_status = "active"
+        row.lifecycle_status = None
+        row.is_completeness_exempt = False
 
 
 async def get_import_defaults(db: AsyncSession, user_id: int) -> tuple[str, str, str]:
@@ -42,8 +60,51 @@ async def get_import_defaults(db: AsyncSession, user_id: int) -> tuple[str, str,
     )
 
 
-async def prepare_import_rows(rows: list[ParsedRow], db: AsyncSession, update_existing: bool = False) -> None:
+async def apply_import_row_overrides(
+    rows: list[ParsedRow],
+    db: AsyncSession,
+    row_parent_overrides: dict[int, int] | None = None,
+) -> None:
+    """Apply import-time row corrections before inference and duplicate checks."""
+    if not row_parent_overrides:
+        return
+
+    rows_by_number = {row.row_number: row for row in rows}
+    for row_number, parent_license_id in row_parent_overrides.items():
+        row = rows_by_number.get(row_number)
+        if row is None:
+            continue
+        if row.license_type != "maintenance":
+            row.validation_errors.append("Parent license selection is only valid for maintenance rows.")
+            row.import_status = "error"
+            continue
+        try:
+            parent = await validate_parent_license(db, parent_license_id)
+        except ValueError as exc:
+            row.validation_errors.append(str(exc))
+            row.import_status = "error"
+            continue
+        row.selected_parent_license_id = parent.id
+        row.parent_license_ref = parent.license_ref
+        row.parent_import_row_number = None
+        if row.import_status == "error" and any("parent_license_ref" in error for error in row.validation_errors):
+            row.validation_errors = [
+                error for error in row.validation_errors if "parent_license_ref" not in error
+            ]
+            if not row.validation_errors:
+                _restore_import_status(row)
+        if "Maintenance parent selected during import." not in row.warnings:
+            row.warnings.append("Maintenance parent selected during import.")
+
+
+async def prepare_import_rows(
+    rows: list[ParsedRow],
+    db: AsyncSession,
+    update_existing: bool = False,
+    row_parent_overrides: dict[int, int] | None = None,
+) -> None:
     """Run maintenance parent inference, update-target annotation, then duplicate detection."""
+    await apply_import_row_overrides(rows, db, row_parent_overrides)
     infer_batch_maintenance_parents(rows)
     if update_existing:
         await annotate_update_targets(db, rows)
@@ -230,11 +291,11 @@ async def run_import_rows(
                         persisted_license_id = target.id
 
                 if not did_update:
-                    parent_license_id: Optional[int] = (
-                        inserted_by_row_number.get(parsed.parent_import_row_number)
-                        if parsed.parent_import_row_number is not None
-                        else None
-                    )
+                    parent_license_id: Optional[int] = None
+                    if parsed.selected_parent_license_id is not None:
+                        parent_license_id = parsed.selected_parent_license_id
+                    elif parsed.parent_import_row_number is not None:
+                        parent_license_id = inserted_by_row_number.get(parsed.parent_import_row_number)
                     license_obj = await build_license(parsed, user_id, db, parent_license_id)
                     db.add(license_obj)
                     await db.flush()

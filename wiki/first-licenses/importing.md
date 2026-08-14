@@ -89,6 +89,14 @@ mapped, LicenseTrack defaults **Total Support Cost** from the line total and
 shows a warning so you can verify it is not the original perpetual acquisition
 value.
 
+Separately tracked maintenance imports need one explicit parent reference, or a
+clear parent that LicenseTrack can infer earlier in the same file. Import
+creates that primary parent link. If the preview cannot resolve the parent,
+choose an existing eligible parent license from the row action before importing.
+If one maintenance renewal covers several perpetual, OEM, or
+freeware/open-source records, add the additional parent links from the parent
+license's **Maintenance & Support** section after import.
+
 Some external exports contain a generic **Item** column as well as a more exact
 software description column. LicenseTrack treats Item as a fallback only. If
 your file has **Software Description**, that value wins; if duplicate recognized

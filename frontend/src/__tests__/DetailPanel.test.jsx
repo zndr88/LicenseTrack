@@ -221,6 +221,57 @@ describe('DetailPanel maintenance support details', () => {
 })
 
 describe('DetailPanel secondary contacts', () => {
+  it('lists every linked parent for shared maintenance records', async () => {
+    const user = userEvent.setup()
+    const onNavigate = vi.fn()
+    const parentOne = {
+      ...baseLicense,
+      id: 10,
+      licenseRef: 'LT-2026-00010',
+      publisherName: 'JetBrains',
+      softwareDescription: 'All Products Pack',
+      licenseType: 'perpetual',
+      poNumber: 'PO-10',
+    }
+    const parentTwo = {
+      ...baseLicense,
+      id: 20,
+      licenseRef: 'LT-2026-00020',
+      publisherName: 'JetBrains',
+      softwareDescription: 'DataGrip Pack',
+      licenseType: 'perpetual',
+      poNumber: 'PO-20',
+    }
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        license={{
+          ...baseLicense,
+          id: 30,
+          licenseRef: 'LT-2026-00030',
+          licenseType: 'maintenance',
+          parentLicenseId: 10,
+          maintenanceParentIds: [10, 20],
+        }}
+        allLicenses={[parentOne, parentTwo]}
+        onNavigate={onNavigate}
+      />
+    )
+
+    expect(screen.queryByRole('button', { name: /navigate to parent license/i })).not.toBeInTheDocument()
+
+    await user.click(screen.getByText('Relationships'))
+
+    expect(screen.getByText('Linked Parent Licenses')).toBeInTheDocument()
+    expect(screen.getByText('JetBrains - All Products Pack')).toBeInTheDocument()
+    expect(screen.getByText('JetBrains - DataGrip Pack')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /open linked parent license lt-2026-00020/i }))
+
+    expect(onNavigate).toHaveBeenCalledWith(20)
+  })
+
   it('edits secondary contacts from the people section', async () => {
     const user = userEvent.setup()
     updateLicense.mockResolvedValue({

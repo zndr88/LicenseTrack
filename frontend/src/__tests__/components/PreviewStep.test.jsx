@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import PreviewStep from "../../components/csv-import/PreviewStep.jsx";
 
@@ -92,5 +92,57 @@ describe("PreviewStep — warning summary", () => {
     render(<PreviewStep {...defaultProps} />);
     const button = screen.getByRole("button", { name: /import 2 licenses/i });
     expect(button).toBeTruthy();
+  });
+
+  it("lets a maintenance parent error choose an existing parent license", () => {
+    const setMaintenanceParentOverride = vi.fn();
+    const props = {
+      ...defaultProps,
+      previewData: {
+        ...basePreviewData,
+        totalRows: 1,
+        activeCount: 0,
+        errorCount: 1,
+        validRows: 0,
+        rows: [{
+          rowNumber: 4,
+          publisherName: "Acme",
+          softwareDescription: "Acme Support",
+          licenseType: "maintenance",
+          quantity: "1",
+          unitPrice: "",
+          totalPoPrice: "",
+          startDate: "",
+          endDate: "",
+          noticeDate: "",
+          requestDate: "",
+          purchaseDate: "",
+          contractNumber: "",
+          poNumber: "",
+          supplier: "",
+          costCentre: "",
+          importStatus: "error",
+          importAction: "create",
+          validationErrors: ["Maintenance rows require a 'parent_license_ref' column or a matching perpetual/oem/freeware parent row in the same import."],
+          warnings: [],
+          duplicateWarnings: [],
+        }],
+      },
+      importableRowsCount: 0,
+      eligibleMaintenanceParents: [{
+        id: 42,
+        licenseRef: "LT-2026-00042",
+        publisherName: "Acme",
+        softwareDescription: "Widget",
+        poNumber: "PO-42",
+      }],
+      setMaintenanceParentOverride,
+    };
+
+    render(<PreviewStep {...props} />);
+
+    fireEvent.change(screen.getByLabelText("Choose parent license"), { target: { value: "42" } });
+
+    expect(setMaintenanceParentOverride).toHaveBeenCalledWith(4, "42");
   });
 });

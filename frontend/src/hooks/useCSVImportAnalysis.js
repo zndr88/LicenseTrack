@@ -128,12 +128,24 @@ export function useCSVImportAnalysis({
     setStep("preview");
   };
 
-  const handleExecuteImport = async (csvFile, skippedRows, setConfirmResult, acknowledgeWarnings = false) => {
+  const handleExecuteImport = async (
+    csvFile,
+    skippedRows,
+    setConfirmResult,
+    acknowledgeWarnings = false,
+    rowOverrides = [],
+  ) => {
     if (!csvFile || !analyzeData) return;
     const payload = buildMappingPayload();
     setStep("importing");
     const { data, error: err } = await executeImport(
-      csvFile, JSON.stringify(payload), Array.from(skippedRows), acknowledgeWarnings, importFormats, updateExisting
+      csvFile,
+      JSON.stringify(payload),
+      Array.from(skippedRows),
+      acknowledgeWarnings,
+      importFormats,
+      updateExisting,
+      rowOverrides,
     );
     if (err) { setError(err); setStep("mapping"); return; }
     setConfirmResult(data);

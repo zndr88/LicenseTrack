@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getLicenses } from "../api/licenses.js";
 import { normalizeNumberFormatOptionValue } from "../constants/numberFormats.js";
 import { useCSVImportAnalysis } from "./useCSVImportAnalysis.js";
 import { useCSVImportPreview } from "./useCSVImportPreview.js";
@@ -16,11 +17,31 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
   const [importDateFormat, setImportDateFormat] = useState(
     userSettings?.dateFormat ?? "DD/MM/YYYY"
   );
+  const [eligibleMaintenanceParents, setEligibleMaintenanceParents] = useState([]);
   const fileInputRef = useRef(null);
   const importFormats = {
     numberFormatLocale: importNumberFormatLocale,
     dateFormat: importDateFormat,
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    getLicenses({ includeRetired: false }).then(({ data }) => {
+      if (cancelled || !Array.isArray(data)) return;
+      setEligibleMaintenanceParents(
+        data
+          .filter((license) => ["perpetual", "oem", "freeware"].includes(license.licenseType))
+          .sort((a, b) => {
+            const left = `${a.publisherName || ""} ${a.softwareDescription || ""} ${a.licenseRef || ""}`;
+            const right = `${b.publisherName || ""} ${b.softwareDescription || ""} ${b.licenseRef || ""}`;
+            return left.localeCompare(right);
+          })
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const preview = useCSVImportPreview({
     setStep,
@@ -58,8 +79,18 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
 
   const handleConfirm = async () => {
     const hasImportWarnings = preview.previewData?.warningSummary?.hasWarnings ?? false;
+    const rowOverrides = Object.entries(preview.rowOverrides).map(([rowNumber, override]) => ({
+      rowNumber: Number(rowNumber),
+      parentLicenseId: override.parentLicenseId,
+    }));
     if (source === "external" && analysis.analyzeData) {
-      await analysis.handleExecuteImport(csvFile, preview.skippedRows, preview.setConfirmResult, hasImportWarnings);
+      await analysis.handleExecuteImport(
+        csvFile,
+        preview.skippedRows,
+        preview.setConfirmResult,
+        hasImportWarnings,
+        rowOverrides,
+      );
       return;
     }
     await preview.handleConfirmImport(csvFile, hasImportWarnings);
@@ -106,6 +137,7 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     // Preview
     previewData: preview.previewData,
     skippedRows: preview.skippedRows,
+    rowOverrides: preview.rowOverrides,
     selectedRows: preview.selectedRows,
     duplicateWarningCount: preview.duplicateWarningCount,
     importableRowsCount: preview.importableRowsCount,
@@ -118,10 +150,12 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     toggleAllSelectableRows: preview.toggleAllSelectableRows,
     skipRows: preview.skipRows,
     restoreRows: preview.restoreRows,
+    setMaintenanceParentOverride: preview.setMaintenanceParentOverride,
     handleConfirm,
     updateExisting: source === "external" ? analysis.updateExisting : preview.updateExisting,
     onToggleUpdateExisting,
     showUpdateControls: (preview.previewData?.headersFound || []).includes("license_ref"),
+    eligibleMaintenanceParents,
 
     // Mapping
     analyzeData: analysis.analyzeData,

@@ -2,6 +2,19 @@ import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
 
+function uniqueIds(values) {
+  const seen = new Set();
+  const ids = [];
+  for (const value of values || []) {
+    if (value === null || value === undefined || value === "") continue;
+    const id = Number(value);
+    if (!Number.isFinite(id) || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
 export default function PeopleSection({
   license,
   perms,
@@ -16,11 +29,25 @@ export default function PeopleSection({
   makeCustomFieldSaveFn,
   closeFieldEdit,
   openSecondaryContactsEdit = () => {},
+  allLicenses = [],
+  onNavigate,
 }) {
   const secondaryContacts = Array.isArray(license.secondaryContacts)
     ? license.secondaryContacts.filter(Boolean)
     : [];
   const primaryBudgetOwner = license.budgetOwnerEmail || "";
+  const linkedParentIds = license.licenseType === "maintenance"
+    ? uniqueIds(
+      Array.isArray(license.maintenanceParentIds) && license.maintenanceParentIds.length > 0
+        ? license.maintenanceParentIds
+        : [license.parentLicenseId]
+    )
+    : [];
+  const licensesById = new Map((allLicenses || []).map((item) => [Number(item.id), item]));
+  const linkedParents = linkedParentIds.map((id) => ({
+    id,
+    license: licensesById.get(id) || null,
+  }));
   const emailSubject = `Re: Contract ${license.contractNumber} - ${license.softwareDescription}`;
   const emailBody = `Dear ${license.publisherName} team,\n\nI am writing regarding:\n\nContract: ${license.contractNumber}\nPO: ${license.poNumber}\nInvoice: ${license.invoiceNumber}\nSoftware: ${license.softwareDescription}\nPeriod: ${license.startDate} → ${license.endDate}\n\nBest regards`;
   const mailto = `mailto:${license.contactEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
@@ -30,6 +57,38 @@ export default function PeopleSection({
       <DetailSectionHeader sectionKey="people" title="Relationships" isOpen={isOpen} onToggle={onToggle} />
       {isOpen && (
         <div className="dp-section-body" id="dp-section-people">
+          {linkedParents.length > 0 && (
+            <div className="dp-field">
+              <span className="dp-field-label">Linked Parent Licenses</span>
+              <div className="dp-linked-parent-list">
+                {linkedParents.map(({ id, license: parent }) => {
+                  const title = parent
+                    ? `${parent.publisherName || "Unknown publisher"} - ${parent.softwareDescription || "Untitled license"}`
+                    : `License #${id}`;
+                  const meta = [
+                    parent?.licenseRef,
+                    parent?.poNumber ? `PO ${parent.poNumber}` : null,
+                    parent?.licenseType,
+                  ].filter(Boolean).join(" | ");
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      className="dp-linked-parent-row"
+                      onClick={() => onNavigate?.(id)}
+                      aria-label={`Open linked parent license ${parent?.licenseRef || id}`}
+                    >
+                      <Icon name="link" size={12} />
+                      <span className="dp-linked-parent-copy">
+                        <span className="dp-linked-parent-title">{title}</span>
+                        {meta && <span className="dp-linked-parent-meta">{meta}</span>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {vis.supplier && (
             <div className="dp-field">
               <span className="dp-field-label">Supplier</span>

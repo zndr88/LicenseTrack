@@ -121,6 +121,40 @@ def _load_skipped_rows(skipped_rows_json: str | None) -> set[int]:
     return set(raw)
 
 
+def _load_row_parent_overrides(row_overrides_json: str | None) -> dict[int, int]:
+    if not row_overrides_json:
+        return {}
+    try:
+        raw = json.loads(row_overrides_json)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="row_overrides_json is not valid JSON",
+        )
+    if not isinstance(raw, list):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="row_overrides_json must be a JSON array",
+        )
+
+    overrides: dict[int, int] = {}
+    for item in raw:
+        if not isinstance(item, dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="row_overrides_json entries must be objects",
+            )
+        row_number = item.get("rowNumber", item.get("row_number"))
+        parent_license_id = item.get("parentLicenseId", item.get("parent_license_id"))
+        if not isinstance(row_number, int) or not isinstance(parent_license_id, int):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="row_overrides_json entries require integer rowNumber and parentLicenseId",
+            )
+        overrides[row_number] = parent_license_id
+    return overrides
+
+
 def _column_to_target(mapping: list[MappingEntry]) -> dict[str, str]:
     return {entry.raw_header: entry.target for entry in mapping if entry.target != "skip"}
 
@@ -298,6 +332,7 @@ async def execute_import(
     file: UploadFile,
     mapping_json: str = Form(...),
     skipped_rows_json: str = Form("[]"),
+    row_overrides_json: str = Form("[]"),
     acknowledge_warnings: bool = Form(False),
     update_existing: bool = Form(False),
     number_format_locale: str | None = Form(None),
@@ -318,6 +353,7 @@ async def execute_import(
 
     execute_request = _load_execute_request(mapping_json)
     skipped_rows = _load_skipped_rows(skipped_rows_json)
+    row_parent_overrides = _load_row_parent_overrides(row_overrides_json)
 
     if execute_request.mapping_name and current_user.role != UserRole.admin:
         raise HTTPException(
@@ -346,7 +382,12 @@ async def execute_import(
         contents, column_to_target, default_currency, locale, declared_date_format
     )
     await validate_imported_custom_rows(db, parsed_result.rows, custom_rows, locale, date_format)
-    await prepare_import_rows(parsed_result.rows, db, update_existing=update_existing)
+    await prepare_import_rows(
+        parsed_result.rows,
+        db,
+        update_existing=update_existing,
+        row_parent_overrides=row_parent_overrides,
+    )
 
     warning_summary: ImportWarningSummary = build_warning_summary(parsed_result.rows)
     if warning_summary.has_warnings and not acknowledge_warnings:
@@ -416,6 +457,7 @@ async def confirm_import(
     db: DbSession,
     file: UploadFile,
     skipped_rows_json: str = Form("[]"),
+    row_overrides_json: str = Form("[]"),
     acknowledge_warnings: bool = Form(False),
     update_existing: bool = Form(False),
     number_format_locale: str | None = Form(None),
@@ -446,7 +488,13 @@ async def confirm_import(
     )
     await validate_imported_custom_rows(db, result.rows, result.custom_rows, locale, declared_date_format)
     skipped_rows = _load_skipped_rows(skipped_rows_json)
-    await prepare_import_rows(result.rows, db, update_existing=update_existing)
+    row_parent_overrides = _load_row_parent_overrides(row_overrides_json)
+    await prepare_import_rows(
+        result.rows,
+        db,
+        update_existing=update_existing,
+        row_parent_overrides=row_parent_overrides,
+    )
 
     warning_summary: ImportWarningSummary = build_warning_summary(result.rows)
     if warning_summary.has_warnings and not acknowledge_warnings:

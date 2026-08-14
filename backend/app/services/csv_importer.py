@@ -284,6 +284,7 @@ class ParsedRow:
     warnings: list[str] = field(default_factory=list)
     duplicate_warnings: list[object] = field(default_factory=list)
     parent_import_row_number: Optional[int] = None
+    selected_parent_license_id: Optional[int] = None
 
     # Warning tracking - not exposed in preview response directly
     currency_defaulted: bool = field(default=False, repr=False)

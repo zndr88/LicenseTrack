@@ -44,10 +44,12 @@ export async function confirmCsvImport(
   acknowledgeWarnings = false,
   formats,
   updateExisting = false,
+  rowOverrides = [],
 ) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("skipped_rows_json", JSON.stringify(skippedRows));
+  formData.append("row_overrides_json", JSON.stringify(rowOverrides));
   formData.append("acknowledge_warnings", String(acknowledgeWarnings));
   formData.append("update_existing", String(updateExisting));
   appendImportFormats(formData, formats);
@@ -77,11 +79,20 @@ export async function analyzeImport(file) {
  * @param {boolean} acknowledgeWarnings - must be true when preview showed hasWarnings
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
-export async function executeImport(file, mappingJson, skippedRows = [], acknowledgeWarnings = false, formats, updateExisting = false) {
+export async function executeImport(
+  file,
+  mappingJson,
+  skippedRows = [],
+  acknowledgeWarnings = false,
+  formats,
+  updateExisting = false,
+  rowOverrides = [],
+) {
   const form = new FormData();
   form.append("file", file);
   form.append("mapping_json", mappingJson);
   form.append("skipped_rows_json", JSON.stringify(skippedRows));
+  form.append("row_overrides_json", JSON.stringify(rowOverrides));
   form.append("acknowledge_warnings", String(acknowledgeWarnings));
   form.append("update_existing", String(updateExisting));
   appendImportFormats(form, formats);

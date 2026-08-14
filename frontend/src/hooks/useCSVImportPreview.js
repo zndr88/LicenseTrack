@@ -1,11 +1,23 @@
 import { useState } from "react";
 import { confirmCsvImport, previewCsvImport } from "../api/csvImport.js";
 
+function rowNeedsMaintenanceParent(row) {
+  if (row.licenseType !== "maintenance" || row.importStatus !== "error") return false;
+  return (row.validationErrors || []).some((error) => (
+    error.includes("parent_license_ref") || error.toLowerCase().includes("maintenance parent")
+  ));
+}
+
+function rowHasMaintenanceParentOverride(row, rowOverrides) {
+  return rowNeedsMaintenanceParent(row) && !!rowOverrides[row.rowNumber]?.parentLicenseId;
+}
+
 export function useCSVImportPreview({ setStep, setLoading, setError, onImportComplete, importFormats }) {
   const [previewData, setPreviewData] = useState(null);
   const [confirmResult, setConfirmResult] = useState(null);
   const [selectedRows, setSelectedRows] = useState(() => new Set());
   const [skippedRows, setSkippedRows] = useState(() => new Set());
+  const [rowOverrides, setRowOverrides] = useState({});
   const [updateExisting, setUpdateExisting] = useState(false);
 
   const duplicateWarningCount = previewData?.rows?.reduce(
@@ -13,20 +25,25 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
   ) || 0;
 
   const previewRows = previewData?.rows || [];
-  const selectableRows = previewRows.filter(row => row.importStatus !== "error");
+  const selectableRows = previewRows.filter(row => (
+    row.importStatus !== "error" || rowHasMaintenanceParentOverride(row, rowOverrides)
+  ));
   const selectedRowNumbers = Array.from(selectedRows);
   const selectedImportableRows = selectedRowNumbers.filter(rowNumber =>
     selectableRows.some(row => row.rowNumber === rowNumber)
   );
   const selectedRowsToSkip = selectedImportableRows.filter(rowNumber => !skippedRows.has(rowNumber));
   const selectedRowsToRestore = selectedImportableRows.filter(rowNumber => skippedRows.has(rowNumber));
-  const importableRowsCount = previewData ? Math.max(previewData.validRows - skippedRows.size, 0) : 0;
+  const importableRowsCount = previewData
+    ? Math.max(selectableRows.filter(row => !skippedRows.has(row.rowNumber)).length, 0)
+    : 0;
   const allSelectableSelected = selectableRows.length > 0
     && selectableRows.every(row => selectedRows.has(row.rowNumber));
 
   const resetSelection = () => {
     setSelectedRows(new Set());
     setSkippedRows(new Set());
+    setRowOverrides({});
   };
 
   const setMappedPreviewData = (data) => {
@@ -49,7 +66,15 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     if (!csvFile) return;
     setStep("importing");
     const { data, error: err } = await confirmCsvImport(
-      csvFile, Array.from(skippedRows), acknowledgeWarnings, importFormats, updateExisting
+      csvFile,
+      Array.from(skippedRows),
+      acknowledgeWarnings,
+      importFormats,
+      updateExisting,
+      Object.entries(rowOverrides).map(([rowNumber, override]) => ({
+        rowNumber: Number(rowNumber),
+        parentLicenseId: override.parentLicenseId,
+      })),
     );
     if (err) { setError(err); setStep("preview"); return; }
     setConfirmResult(data);
@@ -85,6 +110,30 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     setSelectedRows(new Set());
   };
 
+  const setMaintenanceParentOverride = (rowNumber, parentLicenseId) => {
+    if (!parentLicenseId) {
+      setSkippedRows(current => {
+        const skipped = new Set(current);
+        skipped.delete(rowNumber);
+        return skipped;
+      });
+      setSelectedRows(current => {
+        const selected = new Set(current);
+        selected.delete(rowNumber);
+        return selected;
+      });
+    }
+    setRowOverrides(prev => {
+      const next = { ...prev };
+      if (!parentLicenseId) {
+        delete next[rowNumber];
+      } else {
+        next[rowNumber] = { parentLicenseId: Number(parentLicenseId) };
+      }
+      return next;
+    });
+  };
+
   const resetPreview = () => {
     setPreviewData(null);
     setConfirmResult(null);
@@ -102,6 +151,7 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     confirmResult,
     setConfirmResult,
     skippedRows,
+    rowOverrides,
     selectedRows,
     duplicateWarningCount,
     importableRowsCount,
@@ -115,6 +165,7 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     toggleAllSelectableRows,
     skipRows,
     restoreRows,
+    setMaintenanceParentOverride,
     handleFilePreview,
     handleConfirmImport,
     handleUpdateExisting,

@@ -263,6 +263,64 @@ async def test_confirm_import_maintenance_with_valid_parent_ref_links_license(
     assert link_result.scalar_one_or_none() is not None
 
 
+async def test_confirm_import_maintenance_parent_override_links_existing_license(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        startDate="2025-01-01",
+        endDate=None,
+    )
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type"],
+        [
+            {
+                "publisher_name": "Acme",
+                "software_description": "Acme Maintenance",
+                "license_type": "maintenance",
+            }
+        ],
+    )
+
+    resp = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={
+            "row_overrides_json": json.dumps([
+                {"rowNumber": 1, "parentLicenseId": parent["id"]},
+            ]),
+        },
+        files={"file": ("maintenance.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["importedCount"] == 1
+    assert data["skippedCount"] == 0
+    assert data["errorCount"] == 0
+
+    result = await db_session.execute(
+        select(License).where(License.software_description == "Acme Maintenance")
+    )
+    maintenance = result.scalar_one()
+    assert maintenance.license_type == LicenseType.maintenance
+    assert maintenance.parent_license_id == parent["id"]
+
+    parent_after = await db_session.get(License, parent["id"])
+    assert parent_after.active_maintenance_id == maintenance.id
+    link_result = await db_session.execute(
+        select(LicenseMaintenanceLink).where(
+            LicenseMaintenanceLink.maintenance_license_id == maintenance.id,
+            LicenseMaintenanceLink.parent_license_id == parent["id"],
+        )
+    )
+    assert link_result.scalar_one_or_none() is not None
+
+
 async def test_confirm_import_persists_request_and_purchase_dates(
     test_app,
     auth_headers,

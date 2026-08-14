@@ -13,6 +13,8 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.9] - 2026-08-14
+
 ### Added
 
 - Added the backend maintenance-link foundation that lets one maintenance
@@ -24,6 +26,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Added the License Details maintenance workflow for linking an existing
   maintenance/support record to another parent from a compact searchable list,
   alongside the existing create-new path.
+- Added CSV import row remediation for maintenance records so an unresolved
+  maintenance parent can be selected from existing eligible license records
+  during preview and applied during import.
 
 ### Fixed
 
@@ -1000,7 +1005,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.8...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.9...HEAD
+[1.1.9]: https://github.com/zndr88/LicenseTrack/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/zndr88/LicenseTrack/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/zndr88/LicenseTrack/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/zndr88/LicenseTrack/compare/v1.1.5...v1.1.6

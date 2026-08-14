@@ -10,6 +10,13 @@ function statusBadge(status) {
   return <Badge type="gray">{status}</Badge>;
 }
 
+function needsMaintenanceParent(row) {
+  if (row.licenseType !== "maintenance" || row.importStatus !== "error") return false;
+  return (row.validationErrors || []).some((error) => (
+    error.includes("parent_license_ref") || error.toLowerCase().includes("maintenance parent")
+  ));
+}
+
 export default function PreviewStep({
   previewData,
   skippedRows, selectedRows,
@@ -18,10 +25,19 @@ export default function PreviewStep({
   selectedImportableRows, selectedRowsToSkip, selectedRowsToRestore,
   toggleSelectedRow, toggleAllSelectableRows,
   skipRows, restoreRows,
+  rowOverrides = {},
+  setMaintenanceParentOverride = () => {},
+  eligibleMaintenanceParents = [],
   showUpdateControls, updateExisting, onToggleUpdateExisting,
   handleConfirm, reset,
 }) {
   if (!previewData) return null;
+
+  const unresolvedErrorCount = previewData.rows.filter((row) => (
+    row.importStatus === "error" && !(
+      needsMaintenanceParent(row) && !!rowOverrides[row.rowNumber]?.parentLicenseId
+    )
+  )).length;
 
   const empty = <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>—</span>;
 
@@ -43,10 +59,10 @@ export default function PreviewStep({
             <span className="csv-chip-val" style={{ color: "var(--text-2)" }}>{previewData.legacyExemptCount + previewData.legacyIncompleteCount}</span>
           </div>
         )}
-        {previewData.errorCount > 0 && (
+        {unresolvedErrorCount > 0 && (
           <div className="csv-chip csv-chip-red">
             <span className="csv-chip-label">Errors</span>
-            <span className="csv-chip-val" style={{ color: "var(--red)" }}>{previewData.errorCount}</span>
+            <span className="csv-chip-val" style={{ color: "var(--red)" }}>{unresolvedErrorCount}</span>
           </div>
         )}
         {duplicateWarningCount > 0 && (
@@ -165,12 +181,20 @@ export default function PreviewStep({
             <tbody>
               {previewData.rows.map((row) => {
                 const isSkipped = skippedRows.has(row.rowNumber);
-                const canSelect = row.importStatus !== "error";
+                const needsParent = needsMaintenanceParent(row);
+                const selectedParentId = rowOverrides[row.rowNumber]?.parentLicenseId || "";
+                const parentResolved = needsParent && !!selectedParentId;
+                const canSelect = row.importStatus !== "error" || parentResolved;
+                const validationErrors = parentResolved
+                  ? (row.validationErrors || []).filter((error) => (
+                    !error.includes("parent_license_ref") && !error.toLowerCase().includes("maintenance parent")
+                  ))
+                  : row.validationErrors;
                 return (
                   <tr
                     key={row.rowNumber}
                     className={isSkipped ? "csv-row-skipped" : undefined}
-                    style={row.importStatus === "error" ? { opacity: 0.45, background: "var(--red-dim)" } : undefined}
+                    style={row.importStatus === "error" && !parentResolved ? { opacity: 0.45, background: "var(--red-dim)" } : undefined}
                   >
                     <td className="csv-select-col">
                       <input type="checkbox" aria-label={`Select row ${row.rowNumber}`} checked={selectedRows.has(row.rowNumber)} disabled={!canSelect} onChange={() => toggleSelectedRow(row.rowNumber)} />
@@ -194,7 +218,7 @@ export default function PreviewStep({
                     <td>
                       {isSkipped ? <Badge type="gray">Skipped</Badge> : (
                         <>
-                          {statusBadge(row.importStatus)}
+                          {parentResolved ? <Badge type="green">Resolved</Badge> : statusBadge(row.importStatus)}
                           {row.importAction === "update" && row.importStatus !== "error" && (
                             <Badge type="blue">Update</Badge>
                           )}
@@ -202,11 +226,36 @@ export default function PreviewStep({
                       )}
                     </td>
                     <td>
-                      {(row.validationErrors.length > 0 || row.warnings.length > 0 || (row.duplicateWarnings?.length || 0) > 0) ? (
+                      {(validationErrors.length > 0 || row.warnings.length > 0 || (row.duplicateWarnings?.length || 0) > 0 || needsParent) ? (
                         <div>
-                          {row.validationErrors.map((e, i) => <div key={`e${i}`} className="csv-err-item">{e}</div>)}
+                          {validationErrors.map((e, i) => <div key={`e${i}`} className="csv-err-item">{e}</div>)}
                           {(row.duplicateWarnings || []).map((w, i) => <div key={`d${i}`} className="csv-warn-item">{w.message}</div>)}
                           {row.warnings.map((w, i) => <div key={`w${i}`} className="csv-warn-item">{w}</div>)}
+                          {needsParent && (
+                            <div className="csv-row-action">
+                              <label htmlFor={`csv-parent-${row.rowNumber}`}>Choose parent license</label>
+                              <select
+                                id={`csv-parent-${row.rowNumber}`}
+                                className="fi fi-select csv-parent-select"
+                                value={selectedParentId}
+                                onChange={(event) => setMaintenanceParentOverride(row.rowNumber, event.target.value)}
+                              >
+                                <option value="">Select parent...</option>
+                                {eligibleMaintenanceParents.map((parent) => (
+                                  <option key={parent.id} value={parent.id}>
+                                    {[
+                                      parent.licenseRef,
+                                      `${parent.publisherName || "Unknown"} - ${parent.softwareDescription || "Untitled"}`,
+                                      parent.poNumber ? `PO ${parent.poNumber}` : null,
+                                    ].filter(Boolean).join(" | ")}
+                                  </option>
+                                ))}
+                              </select>
+                              {parentResolved && (
+                                <div className="csv-action-resolved">Parent selected for import.</div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : <Icon name="check" size={13} color="var(--green)" />}
                     </td>
@@ -225,10 +274,10 @@ export default function PreviewStep({
         </div>
       </div>
 
-      {previewData.errorCount > 0 && (
+      {unresolvedErrorCount > 0 && (
         <div className="csv-error-notice">
           <Icon name="alert" size={13} color="var(--red-text)" />
-          <span><strong style={{ color: "var(--red-text)" }}>{previewData.errorCount} {previewData.errorCount === 1 ? "row" : "rows"}</strong> will be skipped due to errors. Only valid rows will be imported.</span>
+          <span><strong style={{ color: "var(--red-text)" }}>{unresolvedErrorCount} {unresolvedErrorCount === 1 ? "row" : "rows"}</strong> will be skipped due to errors. Only valid rows will be imported.</span>
         </div>
       )}
 

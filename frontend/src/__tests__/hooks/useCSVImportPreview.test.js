@@ -35,6 +35,7 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
       false,
       undefined,
       false,
+      [],
     );
     expect(setStep).toHaveBeenCalledWith("done");
   });
@@ -55,6 +56,7 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
       true,
       undefined,
       false,
+      [],
     );
   });
 
@@ -75,6 +77,7 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
       false,
       importFormats,
       false,
+      [],
     );
   });
 
@@ -98,6 +101,31 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
     await act(async () => {
       await result.current.handleConfirmImport(file);
     });
-    expect(confirmCsvImport).toHaveBeenCalledWith(file, [], false, undefined, true);
+    expect(confirmCsvImport).toHaveBeenCalledWith(file, [], false, undefined, true, []);
+  });
+
+  it("passes selected maintenance parent row overrides to confirmCsvImport", async () => {
+    const setStep = vi.fn();
+    const file = new File(["publisher_name,software_description,license_type\nAcme,Support,maintenance"], "test.csv");
+    const { result } = renderHook(() =>
+      useCSVImportPreview({ setStep, setLoading: vi.fn(), setError: vi.fn() })
+    );
+
+    act(() => {
+      result.current.setMaintenanceParentOverride(3, 42);
+    });
+
+    await act(async () => {
+      await result.current.handleConfirmImport(file);
+    });
+
+    expect(confirmCsvImport).toHaveBeenCalledWith(
+      file,
+      [],
+      false,
+      undefined,
+      false,
+      [{ rowNumber: 3, parentLicenseId: 42 }],
+    );
   });
 });

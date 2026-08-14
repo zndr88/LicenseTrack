@@ -67,7 +67,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `CompletenessFlagsSection.jsx` | Completeness checklist and retired/legacy/exempt toggles |
 | `NotesSection.jsx` | Notes display; also exports `CatchallCustomFieldsSection` for unassigned custom fields |
 
-`DetailPanel.jsx` calls `useDetailPanelState` for all state and handlers, then wires props through to section components and mounts modals (`FieldEditModal`, `MaintenanceCreateModal`, `LinkCommitmentModal`, `ConfirmDialog`). No domain logic or rendering logic belongs in the shell.
+`DetailPanel.jsx` calls `useDetailPanelState` for all state and handlers, then wires props through to section components and mounts modals (`FieldEditModal`, `MaintenanceCreateModal`, `LinkCommitmentModal`, `ConfirmDialog`). `MaintenanceCreateModal` owns the License Details create-new/link-existing maintenance workflow, including the compact searchable existing-maintenance picker. No domain logic or rendering logic belongs in the shell.
 
 Document actions are part of the core-rendered integration surface. `DocumentsSection.jsx` should render actions from `useLicenseDocuments`; it should not hard-code plugin names or assume AI processing specifically. Action availability is determined by the backend from registered integration capabilities and active webhook subscribers. This is not runtime frontend plugin loading.
 
@@ -260,7 +260,10 @@ start/end and derives maintenance cost from the line acquisition total in
 `support_coverage_defaults.py`; procurement totals must not add that value a
 second time. Separately tracked maintenance remains limited to perpetual, OEM,
 and freeware/open-source parents and belongs in `maintenance_rules.py`, not in
-inline route or form checks.
+inline route or form checks. CSV import creates at most one primary parent link
+for each maintenance row. Import-time row overrides can resolve a maintenance
+parent to an existing eligible license during preview/confirm; additional
+shared maintenance links are explicit post-import actions from License Details.
 
 ## Forms And Validation
 
@@ -409,7 +412,7 @@ Current important service boundaries:
 - renewal workbench computation (pure, no DB): `backend/app/services/renewal_workbench_model.py`;
 - renewal command orchestration (start/cancel workflow, single and coterm successor creation, pre-creation predecessor guards): `backend/app/services/renewal_orchestrator.py`;
 - user domain invariants (break-glass, active-admin guard, apply-update): `backend/app/services/user_service.py`;
-- maintenance mirror synchronization: `backend/app/services/maintenance_service.py`;
+- maintenance link management and mirror synchronization: `backend/app/services/maintenance_service.py` owns creation/linking/unlinking of `LicenseMaintenanceLink` rows, active-maintenance mirror updates on parents, and the compatibility behavior where `parent_license_id` remains the primary parent for older create/import flows while `maintenanceParentIds`/`linkedMaintenanceIds` expose multi-parent links in responses;
 - portfolio summary statistics (total active/expiring/expired/incomplete, `annual_cost_by_currency` dict grouped by ISO currency code rather than a single scalar total, `excluded_from_totals` count, by-license-type breakdown): `backend/app/routes/reports.py` — `GET /api/reports/portfolio-stats`;
 - audit logging and data-change webhook enqueueing: `backend/app/services/audit_service.py`;
 - reusable structured audit detail contracts beyond generic field diffs: `backend/app/services/audit_contracts.py`;

@@ -56,6 +56,7 @@ Required scope is `licenses:read` for reads and `licenses:write` for writes.
 | `POST /api/licenses/{license_id}/cancel-renewal` | Cancel eligible renewal work |
 | `POST /api/licenses/renewal-bundle/initiate` | Start a coterm renewal bundle |
 | `POST /api/licenses/{license_id}/disable-maintenance` | Disable active linked maintenance |
+| `POST /api/licenses/{license_id}/link-maintenance` | Link an existing maintenance record to an eligible parent |
 | `GET /api/renewals/workbench` | Read the renewal workbench model |
 
 Lifecycle repair endpoints are Admin maintenance tools and are not part of the
@@ -68,6 +69,15 @@ imports expose the same concept as `quantity_per_unit` and can derive it from
 derived `effectiveQuantity`, calculated as `quantity` multiplied by
 `quantityPerUnit`. Monetary calculations continue to use purchase `quantity`
 multiplied by `unitPrice`.
+
+Maintenance records use `parentLicenseId` as the primary compatibility parent.
+Create requests can also provide `maintenanceParentIds` for a maintenance
+license when the same support record should be linked to several perpetual,
+OEM, or freeware/open-source parents. Responses include `maintenanceParentIds`
+on maintenance records and `linkedMaintenanceIds` on parent records. To attach
+an existing maintenance record to another eligible parent, call
+`POST /api/licenses/{parent_id}/link-maintenance` with
+`maintenanceLicenseId`.
 
 ### Custom fields
 
@@ -206,7 +216,12 @@ Contract document reads and writes use `documents:read` and `documents:write`.
 
 CSV import is a workflow contract rather than a generic bulk API. Preserve the
 preview/acknowledgement/execute sequence documented by the installed OpenAPI
-schema and integration recipes.
+schema and integration recipes. `POST /api/import/confirm` and
+`POST /api/import/execute` accept optional `row_overrides_json` form data for
+review-time corrections. The first supported override is
+`[{ "rowNumber": 1, "parentLicenseId": 123 }]`, which resolves a maintenance
+row to an existing eligible perpetual, OEM, or freeware parent license during
+execution.
 
 Report recurring-cost calculations annualize subscription, SaaS, maintenance,
 and paid included-support records when their stored term is longer than one

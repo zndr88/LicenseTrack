@@ -73,8 +73,15 @@ coverage dates and support cost are derived automatically.
 Choose **Separately tracked** to add a real maintenance line with its own
 procurement evidence and renewal lifecycle. You can create that line while
 sourcing, while editing a pending-order line, during direct license entry, or
-later from the parent license. The active maintenance child supplies the
-mirrored maintenance dates and cost shown on the parent.
+later from the parent license. From the parent license's **Maintenance &
+Support** section, choose whether to create a new maintenance record or link an
+existing maintenance record from the searchable list. The active maintenance
+record supplies the mirrored maintenance dates and cost shown on the parent.
+
+One maintenance record can be linked to more than one eligible parent. This is
+useful when a later renewal covers several perpetual purchases under one
+support contract. Each parent keeps its own active-maintenance pointer, while
+the maintenance record keeps the parent list for review and history.
 
 When either kind of coverage is renewed, create a new line for the new coverage
 period. This preserves the cost and dates of the expired period instead of
@@ -84,8 +91,10 @@ rewriting them.
     A maintenance line is never linked by PO number alone. Select the intended
     parent explicitly so reused PO numbers cannot create the wrong relationship.
 
-Disabling linked maintenance retires the active maintenance relationship and
-clears the current mirror from the parent without rewriting historical records.
+Disabling linked maintenance clears the current mirror from that parent. If the
+maintenance record is still linked to another parent, it remains active there.
+If no parent links remain, the maintenance record is retired to preserve the
+old single-parent behavior.
 
 ## Retired, legacy, and exempt records
 

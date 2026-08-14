@@ -85,7 +85,11 @@ derived rather than edited separately.
 
 Separately tracked support uses its own linked maintenance license, procurement
 evidence, cost, dates, and renewal lifecycle. The parent shows the active
-maintenance line's current dates and cost for convenient review.
+maintenance line's current dates and cost for convenient review. A maintenance
+line can be linked to more than one eligible parent when one support renewal
+covers several perpetual, OEM, or freeware/open-source records. Open the
+maintenance record's **Relationships** section to review every linked parent
+license.
 
 ## Relationships
 
