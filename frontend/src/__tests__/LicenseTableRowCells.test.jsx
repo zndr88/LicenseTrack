@@ -81,4 +81,15 @@ describe("LicenseTableRowCells procurement milestone dates", () => {
     expect(screen.queryByText(/13:45/)).not.toBeInTheDocument();
     expect(screen.queryByText(/09:15/)).not.toBeInTheDocument();
   });
+
+  test("renders the created date without time-of-day in the overview column", () => {
+    renderCells({
+      id: 1,
+      createdAt: "2026-05-02T13:45:00Z",
+      expiration: { status: "active", label: "Active" },
+    }, [{ key: "createdAt" }]);
+
+    expect(screen.getByText("02/05/2026")).toBeInTheDocument();
+    expect(screen.queryByText(/13:45/)).not.toBeInTheDocument();
+  });
 });

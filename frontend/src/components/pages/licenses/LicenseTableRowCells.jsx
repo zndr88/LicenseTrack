@@ -329,7 +329,7 @@ export default function LicenseTableRowCells({
       case "createdBy":
         return <td key="createdBy" className="lp-td">{license.createdByName || license.createdByEmail || (license.createdBy ? `User #${license.createdBy}` : "Unknown / legacy record")}</td>;
       case "createdAt":
-        return <td key="createdAt" className="mono">{license.createdAt ? formatDateTime(license.createdAt, userSettings) : "-"}</td>;
+        return <td key="createdAt" className="mono">{license.createdAt ? formatDate(license.createdAt, userSettings) : "-"}</td>;
       case "updatedAt":
         return <td key="updatedAt" className="mono">{license.updatedAt ? formatDateTime(license.updatedAt, userSettings) : "-"}</td>;
       case "lifecycleStatus":

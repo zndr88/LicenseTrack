@@ -110,12 +110,6 @@ export default function CommercialSection({
               </div>
             </div>
           )}
-          {vis.effectiveQuantity && (
-            <div className="dp-field">
-              <span className="dp-field-label">Effective Quantity</span>
-              <div className="val mono">{formatQuantityDisplay(effectiveQuantity, userSettings)}</div>
-            </div>
-          )}
           {vis.quantityPerUnit && (
             <div className="dp-field">
               <span className="dp-field-label">Quantity per Unit</span>
@@ -129,6 +123,12 @@ export default function CommercialSection({
                   </button>
                 )}
               </div>
+            </div>
+          )}
+          {vis.effectiveQuantity && (
+            <div className="dp-field">
+              <span className="dp-field-label">Effective Quantity</span>
+              <div className="val mono">{formatQuantityDisplay(effectiveQuantity, userSettings)}</div>
             </div>
           )}
           {vis.skuCode && (

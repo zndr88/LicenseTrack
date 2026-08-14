@@ -164,6 +164,36 @@ describe('DetailPanel identity references', () => {
   })
 })
 
+describe('DetailPanel commercial details', () => {
+  it('orders quantity fields as purchase, per-unit, then effective', async () => {
+    const user = userEvent.setup()
+    render(
+      <DetailPanel
+        {...baseProps}
+        license={{ ...baseLicense, quantity: '4', quantityPerUnit: '25' }}
+        userSettings={{
+          ...baseProps.userSettings,
+          visibleInDetail: {
+            ...baseProps.userSettings.visibleInDetail,
+            quantity: true,
+            quantityPerUnit: true,
+            effectiveQuantity: true,
+          },
+        }}
+      />
+    )
+
+    await user.click(screen.getByText('Details'))
+
+    await screen.findByText('Purchase Quantity')
+    const labels = Array.from(document.querySelectorAll('#dp-section-commercial .dp-field-label'))
+      .map((label) => label.textContent)
+
+    expect(labels.indexOf('Purchase Quantity')).toBeLessThan(labels.indexOf('Quantity per Unit'))
+    expect(labels.indexOf('Quantity per Unit')).toBeLessThan(labels.indexOf('Effective Quantity'))
+  })
+})
+
 describe('DetailPanel secondary contacts', () => {
   it('edits secondary contacts from the people section', async () => {
     const user = userEvent.setup()
