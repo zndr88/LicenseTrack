@@ -141,7 +141,7 @@ describe("PreviewStep — warning summary", () => {
 
     render(<PreviewStep {...props} />);
 
-    fireEvent.change(screen.getByLabelText("Choose parent license"), { target: { value: "42" } });
+    fireEvent.change(screen.getByLabelText("Maintenance parent required"), { target: { value: "42" } });
 
     expect(setMaintenanceParentOverride).toHaveBeenCalledWith(4, "42");
   });

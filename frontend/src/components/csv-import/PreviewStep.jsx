@@ -33,10 +33,13 @@ export default function PreviewStep({
 }) {
   if (!previewData) return null;
 
+  const actionRequiredCount = previewData.rows.filter((row) => (
+    needsMaintenanceParent(row) && !rowOverrides[row.rowNumber]?.parentLicenseId
+  )).length;
   const unresolvedErrorCount = previewData.rows.filter((row) => (
-    row.importStatus === "error" && !(
-      needsMaintenanceParent(row) && !!rowOverrides[row.rowNumber]?.parentLicenseId
-    )
+    row.importStatus === "error"
+    && !needsMaintenanceParent(row)
+    && !rowOverrides[row.rowNumber]?.parentLicenseId
   )).length;
 
   const empty = <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>—</span>;
@@ -63,6 +66,12 @@ export default function PreviewStep({
           <div className="csv-chip csv-chip-red">
             <span className="csv-chip-label">Errors</span>
             <span className="csv-chip-val" style={{ color: "var(--red)" }}>{unresolvedErrorCount}</span>
+          </div>
+        )}
+        {actionRequiredCount > 0 && (
+          <div className="csv-chip">
+            <span className="csv-chip-label">Action required</span>
+            <span className="csv-chip-val" style={{ color: "var(--orange)" }}>{actionRequiredCount}</span>
           </div>
         )}
         {duplicateWarningCount > 0 && (
@@ -189,12 +198,18 @@ export default function PreviewStep({
                   ? (row.validationErrors || []).filter((error) => (
                     !error.includes("parent_license_ref") && !error.toLowerCase().includes("maintenance parent")
                   ))
+                  : needsParent
+                    ? (row.validationErrors || []).filter((error) => (
+                      !error.includes("parent_license_ref") && !error.toLowerCase().includes("maintenance parent")
+                    ))
                   : row.validationErrors;
                 return (
                   <tr
                     key={row.rowNumber}
                     className={isSkipped ? "csv-row-skipped" : undefined}
-                    style={row.importStatus === "error" && !parentResolved ? { opacity: 0.45, background: "var(--red-dim)" } : undefined}
+                    style={row.importStatus === "error" && !parentResolved
+                      ? { background: needsParent ? "var(--orange-dim)" : "var(--red-dim)", opacity: needsParent ? 1 : 0.45 }
+                      : undefined}
                   >
                     <td className="csv-select-col">
                       <input type="checkbox" aria-label={`Select row ${row.rowNumber}`} checked={selectedRows.has(row.rowNumber)} disabled={!canSelect} onChange={() => toggleSelectedRow(row.rowNumber)} />
@@ -218,7 +233,7 @@ export default function PreviewStep({
                     <td>
                       {isSkipped ? <Badge type="gray">Skipped</Badge> : (
                         <>
-                          {parentResolved ? <Badge type="green">Resolved</Badge> : statusBadge(row.importStatus)}
+                          {parentResolved ? <Badge type="green">Resolved</Badge> : needsParent ? <Badge type="orange">Action required</Badge> : statusBadge(row.importStatus)}
                           {row.importAction === "update" && row.importStatus !== "error" && (
                             <Badge type="blue">Update</Badge>
                           )}
@@ -232,8 +247,10 @@ export default function PreviewStep({
                           {(row.duplicateWarnings || []).map((w, i) => <div key={`d${i}`} className="csv-warn-item">{w.message}</div>)}
                           {row.warnings.map((w, i) => <div key={`w${i}`} className="csv-warn-item">{w}</div>)}
                           {needsParent && (
-                            <div className="csv-row-action">
-                              <label htmlFor={`csv-parent-${row.rowNumber}`}>Choose parent license</label>
+                            <div className="csv-parent-action">
+                              <label className="csv-parent-action-label" htmlFor={`csv-parent-${row.rowNumber}`}>
+                                Maintenance parent required
+                              </label>
                               <select
                                 id={`csv-parent-${row.rowNumber}`}
                                 className="fi fi-select csv-parent-select"
@@ -253,6 +270,9 @@ export default function PreviewStep({
                               </select>
                               {parentResolved && (
                                 <div className="csv-action-resolved">Parent selected for import.</div>
+                              )}
+                              {!parentResolved && (
+                                <div className="csv-parent-action-help">Choose an existing perpetual, OEM, or freeware parent.</div>
                               )}
                             </div>
                           )}
