@@ -118,16 +118,25 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
   }, [filtered]);
 
   // Section data
-  const costOverview = useMemo(() => getCostOverview(filtered), [filtered]);
+  const costOverview = useMemo(
+    () => getCostOverview(filtered, { dateRange: effectiveDateRange }),
+    [filtered, effectiveDateRange]
+  );
   const lifecycleCounts = useMemo(() => getLifecycleCounts(filtered), [filtered]);
   const budgetForecast = useMemo(() => getBudgetForecast(filtered, {
     years: forecastYears,
     annualGrowthPct: forecastGrowthPct,
   }), [filtered, forecastYears, forecastGrowthPct]);
-  const publisherData = useMemo(() => getSpendByPublisher(filtered), [filtered]);
+  const publisherData = useMemo(
+    () => getSpendByPublisher(filtered, { dateRange: effectiveDateRange }),
+    [filtered, effectiveDateRange]
+  );
   const portfolioData = useMemo(() => getPortfolioBreakdown(filtered), [filtered]);
   const renewalData = useMemo(() => getRenewalCalendar(filtered, fiscalYearStartMonth), [filtered, fiscalYearStartMonth]);
-  const vendorData = useMemo(() => getVendorTable(filtered), [filtered]);
+  const vendorData = useMemo(
+    () => getVendorTable(filtered, { dateRange: effectiveDateRange }),
+    [filtered, effectiveDateRange]
+  );
 
   // Export all sections
   async function handleExportAll() {
@@ -200,15 +209,15 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
           <div className="chip">
             <Icon name="filter" size={12} />
             <select
-              aria-label="Start date range"
+              aria-label="Report date range"
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
               style={{ background: "none", border: "none", color: "inherit", fontFamily: "inherit", fontSize: "inherit", outline: "none", cursor: "pointer" }}
             >
-              <option value="all">All start dates</option>
-              <option value="thisYear">Started this year</option>
-              <option value="last12">Started in last 12 months</option>
-              <option value="custom">Custom start-date range</option>
+              <option value="all">All terms</option>
+              <option value="thisYear">Overlaps this year</option>
+              <option value="last12">Overlaps last 12 months</option>
+              <option value="custom">Custom term range</option>
             </select>
           </div>
 

@@ -37,12 +37,15 @@ export default function CostForecastSection({
               </div>
             </div>
             <div>
-              <div className="report-metric-label">Recurring Baseline</div>
+              <div className="report-metric-label">
+                {costOverview.isPeriodAllocated ? "Recurring In Range" : "Recurring Baseline"}
+              </div>
               <div className="report-metric-value report-metric-value-green">
                 {formatCostByCurrency(costOverview.recurringAnnualCostByCurrency, locale)}
               </div>
               <div className="report-metric-note">
                 {costOverview.recurringCount} active recurring record{costOverview.recurringCount === 1 ? "" : "s"}
+                {costOverview.isPeriodAllocated ? " allocated by overlapping days" : ""}
               </div>
             </div>
             <div>

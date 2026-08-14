@@ -82,6 +82,16 @@ describe("report cost helpers", () => {
     expect(filtered.map((item) => item.id)).toEqual([1, 2, 3]);
   });
 
+  test("date range filtering includes licenses whose terms overlap the selected range", () => {
+    const filtered = filterLicenses([
+      license({ id: 1, startDate: "2025-01-01", endDate: "2030-12-31" }),
+      license({ id: 2, startDate: "2024-01-01", endDate: "2024-12-31" }),
+      license({ id: 3, startDate: "2027-01-01", endDate: "2027-12-31" }),
+    ], { dateRange: { from: "2026-01-01", to: "2026-12-31" } });
+
+    expect(filtered.map((item) => item.id)).toEqual([1]);
+  });
+
   test("deduplicates PO-level totals while calculating recurring cost from individual records", () => {
     const licenses = [
       license({ id: 1, poNumber: "PO-1", totalPoPrice: "1000", quantity: "10", unitPrice: "20" }),
@@ -95,6 +105,63 @@ describe("report cost helpers", () => {
     expect(overview.poCount).toBe(2);
     expect(overview.recurringAnnualCostByCurrency).toEqual({ EUR: 350 });
     expect(overview.recurringCount).toBe(2);
+  });
+
+  test("annualizes recurring cost for multi-year subscriptions", () => {
+    const forecast = getBudgetForecast([
+      license({
+        id: 1,
+        startDate: "2025-01-01",
+        endDate: "2029-12-31",
+        quantity: "1",
+        unitPrice: "18000000",
+        totalPoPrice: "18000000",
+      }),
+    ]);
+
+    expect(forecast.baselineByCurrency.EUR).toBe(3598028.48);
+    expect(forecast.recurringRecords[0].annualCost).toBe(3598028.48);
+  });
+
+  test("allocates recurring spend by overlapping days for selected report ranges", () => {
+    const promo = license({
+      id: 1,
+      startDate: "2026-01-01",
+      endDate: "2027-06-30",
+      quantity: "1",
+      unitPrice: "12000",
+      totalPoPrice: "12000",
+    });
+
+    const firstYear = getCostOverview([promo], {
+      dateRange: { from: "2026-01-01", to: "2026-12-31" },
+    });
+    const secondYear = getCostOverview([promo], {
+      dateRange: { from: "2027-01-01", to: "2027-12-31" },
+    });
+
+    expect(firstYear.totalSpendByCurrency.EUR).toBe(8021.98);
+    expect(firstYear.recurringAnnualCostByCurrency.EUR).toBe(8021.98);
+    expect(firstYear.isPeriodAllocated).toBe(true);
+    expect(secondYear.totalSpendByCurrency.EUR).toBe(3978.02);
+    expect(secondYear.recurringAnnualCostByCurrency.EUR).toBe(3978.02);
+    expect(firstYear.totalSpendByCurrency.EUR + secondYear.totalSpendByCurrency.EUR).toBe(12000);
+  });
+
+  test("publisher and vendor spend use selected-period allocation", () => {
+    const promo = license({
+      id: 1,
+      publisherName: "Promo Publisher",
+      supplier: "Promo Supplier",
+      startDate: "2026-01-01",
+      endDate: "2027-06-30",
+      quantity: "1",
+      unitPrice: "12000",
+    });
+    const opts = { dateRange: { from: "2027-01-01", to: "2027-12-31" } };
+
+    expect(getSpendByPublisher([promo], opts)[0].totalSpendByCurrency.EUR).toBe(3978.02);
+    expect(getVendorTable([promo], opts)[0].totalSpendByCurrency.EUR).toBe(3978.02);
   });
 
   test("breaks calculated budget down by overview lifecycle status with PO fallback pricing", () => {

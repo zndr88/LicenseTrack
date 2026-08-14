@@ -18,29 +18,9 @@ export function filterLicenses(licenses, { includeRetired = false, dateRange = "
     result = result.filter((l) => costCentres.includes(l.costCentre ?? ""));
   }
 
-  if (dateRange && dateRange !== "all") {
-    const now = new Date();
-    let from, to;
-
-    if (dateRange === "thisYear") {
-      from = new Date(now.getFullYear(), 0, 1);
-      to = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
-    } else if (dateRange === "last12") {
-      to = now;
-      from = new Date(now);
-      from.setMonth(from.getMonth() - 12);
-    } else if (typeof dateRange === "object" && dateRange.from && dateRange.to) {
-      from = parseReportDate(dateRange.from);
-      to = endOfReportDate(dateRange.to);
-    }
-
-    if (from && to) {
-      result = result.filter((l) => {
-        if (!l.startDate) return true; // no start date → always include
-        const sd = parseReportDate(l.startDate);
-        return sd >= from && sd <= to;
-      });
-    }
+  const range = resolveReportDateRange(dateRange);
+  if (range) {
+    result = result.filter((l) => licenseOverlapsReportRange(l, range));
   }
 
   return result;
@@ -58,6 +38,10 @@ function roundMoney(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const RECURRING_TYPES = ["subscription", "saas", "maintenance"];
+const INCLUDED_SUPPORT_PARENT_TYPES = ["freeware", "perpetual", "oem"];
+
 function parseReportDate(value) {
   if (typeof value !== "string") return new Date(value);
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -66,10 +50,73 @@ function parseReportDate(value) {
   return new Date(Number(year), Number(month) - 1, Number(day));
 }
 
+function calendarDayNumber(date) {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MS_PER_DAY;
+}
+
 function endOfReportDate(value) {
   const date = parseReportDate(value);
   date.setHours(23, 59, 59, 999);
   return date;
+}
+
+function resolveReportDateRange(dateRange) {
+  if (!dateRange || dateRange === "all") return null;
+  const now = new Date();
+  if (dateRange === "thisYear") {
+    return {
+      from: new Date(now.getFullYear(), 0, 1),
+      to: endOfReportDate(`${now.getFullYear()}-12-31`),
+    };
+  }
+  if (dateRange === "last12") {
+    const from = new Date(now);
+    from.setMonth(from.getMonth() - 12);
+    from.setHours(0, 0, 0, 0);
+    return { from, to: endOfReportDate(now) };
+  }
+  if (typeof dateRange === "object" && dateRange.from && dateRange.to) {
+    return {
+      from: parseReportDate(dateRange.from),
+      to: endOfReportDate(dateRange.to),
+    };
+  }
+  return null;
+}
+
+function getTermBounds(startValue, endValue) {
+  if (!startValue || !endValue) return null;
+  const start = parseReportDate(startValue);
+  const end = parseReportDate(endValue);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || calendarDayNumber(end) < calendarDayNumber(start)) {
+    return null;
+  }
+  return { from: start, to: end };
+}
+
+function inclusiveDayCount(from, to) {
+  return calendarDayNumber(to) - calendarDayNumber(from) + 1;
+}
+
+function overlapDayCount(a, b) {
+  const fromDay = Math.max(calendarDayNumber(a.from), calendarDayNumber(b.from));
+  const toDay = Math.min(calendarDayNumber(a.to), calendarDayNumber(b.to));
+  return Math.max(toDay - fromDay + 1, 0);
+}
+
+function licenseOverlapsReportRange(license, range) {
+  const start = license.startDate ? parseReportDate(license.startDate) : null;
+  const end = license.endDate ? parseReportDate(license.endDate) : null;
+  if (start && end && !isNaN(start.getTime()) && !isNaN(end.getTime())) {
+    return overlapDayCount({ from: start, to: end }, range) > 0;
+  }
+  if (start && !isNaN(start.getTime())) {
+    return calendarDayNumber(start) <= calendarDayNumber(range.to);
+  }
+  if (end && !isNaN(end.getTime())) {
+    return calendarDayNumber(end) >= calendarDayNumber(range.from);
+  }
+  return true;
 }
 
 function getCalculatedLicenseValue(license) {
@@ -107,23 +154,71 @@ function getCalculatedLicenseValue(license) {
 }
 
 function isRecurringLicense(license) {
-  return ["subscription", "saas", "maintenance"].includes(license.licenseType) ||
+  return RECURRING_TYPES.includes(license.licenseType) ||
     (
-      ["freeware", "perpetual", "oem"].includes(license.licenseType) &&
+      INCLUDED_SUPPORT_PARENT_TYPES.includes(license.licenseType) &&
       license.maintenanceCoverage === "included" &&
       parsePrice(license.maintenanceCost) > 0
     );
 }
 
+function getRecurringTermBounds(license) {
+  if (
+    INCLUDED_SUPPORT_PARENT_TYPES.includes(license.licenseType) &&
+    license.maintenanceCoverage === "included"
+  ) {
+    return getTermBounds(license.maintenanceStartDate, license.maintenanceEndDate);
+  }
+  return getTermBounds(license.startDate, license.endDate);
+}
+
+function annualizeAmount(amount, term) {
+  if (!term) return amount;
+  const days = inclusiveDayCount(term.from, term.to);
+  return days > 365 ? amount * 365 / days : amount;
+}
+
 function getRecurringLicenseValue(license) {
   if (
-    ["freeware", "perpetual", "oem"].includes(license.licenseType) &&
+    INCLUDED_SUPPORT_PARENT_TYPES.includes(license.licenseType) &&
     license.maintenanceCoverage === "included"
   ) {
     const maintenanceCost = parsePrice(license.maintenanceCost);
     return maintenanceCost !== null
       ? { amount: maintenanceCost, source: "included_support" }
       : { amount: 0, source: "missing" };
+  }
+  return getCalculatedLicenseValue(license);
+}
+
+function getAnnualizedRecurringLicenseValue(license) {
+  const cost = getRecurringLicenseValue(license);
+  if (cost.source === "missing") return cost;
+  return {
+    ...cost,
+    amount: roundMoney(annualizeAmount(cost.amount, getRecurringTermBounds(license))),
+  };
+}
+
+function getAllocatedRecurringLicenseValue(license, range) {
+  const cost = getRecurringLicenseValue(license);
+  if (!range || cost.source === "missing") return cost;
+  const term = getRecurringTermBounds(license);
+  if (!term) return cost;
+  const termDays = inclusiveDayCount(term.from, term.to);
+  const overlapDays = overlapDayCount(term, range);
+  if (termDays <= 0 || overlapDays <= 0) {
+    return { ...cost, amount: 0 };
+  }
+  return {
+    ...cost,
+    amount: roundMoney(cost.amount * overlapDays / termDays),
+  };
+}
+
+function getReportLicenseValue(license, range) {
+  if (range && isRecurringLicense(license)) {
+    return getAllocatedRecurringLicenseValue(license, range);
   }
   return getCalculatedLicenseValue(license);
 }
@@ -145,7 +240,7 @@ function isForecastActive(license) {
   return true;
 }
 
-function getLifecycleBudget(licenses) {
+function getLifecycleBudget(licenses, range = null) {
   const byStatus = {
     active: {},
     expiring: {},
@@ -156,7 +251,7 @@ function getLifecycleBudget(licenses) {
     const status = l.expirationStatus === "perpetual" ? "active" : l.expirationStatus;
     if (!Object.prototype.hasOwnProperty.call(byStatus, status)) continue;
 
-    const cost = getCalculatedLicenseValue(l);
+    const cost = getReportLicenseValue(l, range);
     if (cost.source === "missing") continue;
 
     const cur = l.currency || "USD";
@@ -189,29 +284,33 @@ export function getLifecycleCounts(licenses) {
   return counts;
 }
 
-function getHistoricalTotalSpend(licenses) {
+function getHistoricalTotalSpend(licenses, range = null) {
   const seenPoNumbers = new Set();
   const byCurrency = {};
   let unpricedCount = 0;
 
   for (const l of licenses) {
     if (l.licenseType === "freeware" && l.maintenanceCoverage !== "included") continue;
-    const price = l.licenseType === "freeware"
-      ? parsePrice(l.maintenanceCost)
-      : parsePrice(l.totalPoPrice);
-    if (price === null) {
+    const cost = range
+      ? getReportLicenseValue(l, range)
+      : {
+          amount: l.licenseType === "freeware" ? parsePrice(l.maintenanceCost) : parsePrice(l.totalPoPrice),
+          source: "po_total",
+        };
+    if (cost.amount === null || cost.source === "missing") {
       unpricedCount += 1;
       continue;
     }
 
     const poNumber = (l.poNumber ?? "").trim();
     if (poNumber) {
-      if (seenPoNumbers.has(poNumber)) continue;
+      const shouldDedupePoTotal = !range || cost.source === "po_fallback" || cost.source === "po_total";
+      if (shouldDedupePoTotal && seenPoNumbers.has(poNumber)) continue;
       seenPoNumbers.add(poNumber);
     }
 
     const cur = l.currency || "USD";
-    byCurrency[cur] = (byCurrency[cur] ?? 0) + price;
+    byCurrency[cur] = (byCurrency[cur] ?? 0) + cost.amount;
   }
 
   return {
@@ -227,12 +326,12 @@ function getRecurringRecords(licenses) {
   for (const l of licenses) {
     if (!isForecastActive(l) || !isRecurringLicense(l)) continue;
     if (
-      ["freeware", "perpetual", "oem"].includes(l.licenseType) &&
+      INCLUDED_SUPPORT_PARENT_TYPES.includes(l.licenseType) &&
       l.maintenanceCoverage === "included" &&
       !isCurrentMaintenanceCoverage(l)
     ) continue;
 
-    const cost = getRecurringLicenseValue(l);
+    const cost = getAnnualizedRecurringLicenseValue(l);
     records.push({
       id: l.id,
       publisher: l.publisherName || "Unknown",
@@ -264,13 +363,18 @@ function getRecurringRecords(licenses) {
  *   unpricedCount: number,
  * }}
  */
-export function getCostOverview(licenses) {
-  const historical = getHistoricalTotalSpend(licenses);
+export function getCostOverview(licenses, { dateRange = "all" } = {}) {
+  const range = resolveReportDateRange(dateRange);
+  const historical = getHistoricalTotalSpend(licenses, range);
   const recurringRecords = getRecurringRecords(licenses);
 
   const recurringAnnualCostByCurrency = {};
-  for (const r of recurringRecords) {
-    recurringAnnualCostByCurrency[r.currency] = (recurringAnnualCostByCurrency[r.currency] ?? 0) + r.annualCost;
+  for (const l of licenses) {
+    if (!isForecastActive(l) || !isRecurringLicense(l)) continue;
+    const cost = range ? getAllocatedRecurringLicenseValue(l, range) : getAnnualizedRecurringLicenseValue(l);
+    if (cost.source === "missing") continue;
+    const cur = l.currency || "USD";
+    recurringAnnualCostByCurrency[cur] = (recurringAnnualCostByCurrency[cur] ?? 0) + cost.amount;
   }
 
   const nonRecurringSpendByCurrency = {};
@@ -284,12 +388,13 @@ export function getCostOverview(licenses) {
     totalSpendByCurrency: historical.byCurrency,
     recurringAnnualCostByCurrency,
     nonRecurringSpendByCurrency,
-    lifecycleBudgetByStatus: getLifecycleBudget(licenses),
+    lifecycleBudgetByStatus: getLifecycleBudget(licenses, range),
     recurringCount: recurringRecords.length,
     poCount: historical.poCount,
     fallbackCount: recurringRecords.filter((row) => row.costSource === "po_fallback").length,
     missingPoTotalCount: historical.unpricedCount,
     unpricedCount: licenses.filter((license) => getCalculatedLicenseValue(license).source === "missing").length,
+    isPeriodAllocated: Boolean(range),
   };
 }
 
@@ -346,12 +451,13 @@ export function getBudgetForecast(licenses, { years = 5, annualGrowthPct = 0 } =
  * @param {object[]} licenses
  * @returns {{ publisher: string, totalSpendByCurrency: {[currency: string]: number}, totalSpend: number, licenseCount: number }[]}
  */
-export function getSpendByPublisher(licenses) {
+export function getSpendByPublisher(licenses, { dateRange = "all" } = {}) {
   const map = new Map();
+  const range = resolveReportDateRange(dateRange);
 
   for (const l of licenses) {
     const pub = l.publisherName || "Unknown";
-    const cost = getCalculatedLicenseValue(l);
+    const cost = getReportLicenseValue(l, range);
     const cur = l.currency || "USD";
 
     if (!map.has(pub)) {
@@ -449,7 +555,7 @@ export function getRenewalCalendar(licenses, fiscalYearStartMonth = 1) {
     for (const qtr of quarters) {
       if (end >= qtr.from && end <= qtr.to) {
         qtr.count += 1;
-        const cost = getCalculatedLicenseValue(l);
+        const cost = getAnnualizedRecurringLicenseValue(l);
         if (cost.source !== "missing") {
           const cur = l.currency || "USD";
           qtr.estimatedValueByCurrency[cur] = (qtr.estimatedValueByCurrency[cur] ?? 0) + cost.amount;
@@ -474,8 +580,9 @@ export function getRenewalCalendar(licenses, fiscalYearStartMonth = 1) {
  * @param {object[]} licenses
  * @returns {{ publisher: string, supplier: string, licenseCount: number, totalSpendByCurrency: {[currency: string]: number}, totalSpend: number, hasUnpricedLicenses: boolean }[]}
  */
-export function getVendorTable(licenses) {
+export function getVendorTable(licenses, { dateRange = "all" } = {}) {
   const map = new Map();
+  const range = resolveReportDateRange(dateRange);
 
   for (const l of licenses) {
     const publisher = l.publisherName || "Unknown";
@@ -488,7 +595,7 @@ export function getVendorTable(licenses) {
     const entry = map.get(key);
     entry.licenseCount += 1;
 
-    const cost = getCalculatedLicenseValue(l);
+    const cost = getReportLicenseValue(l, range);
     if (cost.source !== "missing") {
       const cur = l.currency || "USD";
       entry.totalSpendByCurrency[cur] = (entry.totalSpendByCurrency[cur] ?? 0) + cost.amount;

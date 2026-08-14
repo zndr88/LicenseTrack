@@ -227,7 +227,7 @@ describe("ReportsPage interactions", () => {
     renderReportsPage();
 
     expect(await screen.findByLabelText(/Years/i)).toBeInTheDocument();
-    expect(screen.getByLabelText("Start date range")).toHaveValue("all");
+    expect(screen.getByLabelText("Report date range")).toHaveValue("all");
     const yearsInput = screen.getByLabelText(/Years/i);
     const upliftInput = screen.getByLabelText(/Annual uplift/i);
 

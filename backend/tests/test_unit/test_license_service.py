@@ -6,10 +6,12 @@ are built with types.SimpleNamespace so no ORM models or DB session are needed.
 """
 
 from datetime import date, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 
 from app.services.license_service import (
     calc_effective_quantity,
+    calc_recurring_annual_cost,
     compute_completeness,
     compute_days_until_expiry,
     compute_expiration_status,
@@ -62,6 +64,30 @@ def test_calc_effective_quantity_uses_purchase_quantity_multiplier():
     assert calc_effective_quantity("7", "5") == 35
     assert calc_effective_quantity("7", "") == 7
     assert calc_effective_quantity("7", "0") == 0
+
+
+def test_calc_recurring_annual_cost_annualizes_multi_year_terms():
+    lic = make_license(
+        start_date=date(2025, 1, 1),
+        end_date=date(2029, 12, 31),
+        license_type="subscription",
+        quantity="1",
+        unit_price="18000000",
+    )
+
+    assert round(calc_recurring_annual_cost(lic), 2) == Decimal("3598028.48")
+
+
+def test_calc_recurring_annual_cost_keeps_one_year_terms_stable():
+    lic = make_license(
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+        license_type="subscription",
+        quantity="1",
+        unit_price="12000",
+    )
+
+    assert calc_recurring_annual_cost(lic) == 12000
 
 
 def test_status_legacy():
@@ -320,6 +346,26 @@ def test_compute_stats_excludes_perpetual_capex_from_annual_cost():
     )
 
     assert stats["annual_cost_by_currency"] == {"EUR": 175.0}
+
+
+def test_compute_stats_annualizes_multi_year_recurring_cost():
+    lic = make_license(
+        id=1,
+        start_date=date(2025, 1, 1),
+        end_date=date(2029, 12, 31),
+        license_type="subscription",
+        quantity="1",
+        unit_price="18000000",
+    )
+
+    stats = compute_stats(
+        licenses=[lic],
+        documents_by_license_id={},
+        mandatory_fields={},
+        notification_days=30,
+    )
+
+    assert round(stats["annual_cost_by_currency"]["EUR"], 2) == 3598028.48
 
 
 def test_compute_stats_excludes_service_and_other_from_annual_cost():

@@ -98,6 +98,14 @@ _NON_ENTITLEMENT_LICENSE_TYPES = frozenset(
     }
 )
 
+_RECURRING_LICENSE_TYPES = frozenset(
+    {
+        LicenseType.subscription,
+        LicenseType.saas,
+        LicenseType.maintenance,
+    }
+)
+
 _ENTITLEMENT_DOCUMENT_FIELDS = frozenset({"entitlement", "eula"})
 
 
@@ -267,6 +275,30 @@ def calc_effective_quantity(quantity: str | None, quantity_per_unit: str | None)
     return qty * per_unit
 
 
+def _inclusive_term_days(start_date: date | None, end_date: date | None) -> int | None:
+    if start_date is None or end_date is None or end_date < start_date:
+        return None
+    return (end_date - start_date).days + 1
+
+
+def annualize_term_cost(amount: Decimal, start_date: date | None, end_date: date | None) -> Decimal:
+    """Return normalized yearly cost for a term total using actual calendar days."""
+    term_days = _inclusive_term_days(start_date, end_date)
+    if term_days is None or term_days <= 365:
+        return amount
+    return amount * Decimal("365") / Decimal(term_days)
+
+
+def calc_recurring_annual_cost(license_obj: "License") -> Decimal | None:
+    """Return annualized recurring line cost, or None when stored money is invalid."""
+    try:
+        qty = parse_money(str(license_obj.quantity) if license_obj.quantity else None) or Decimal("0")
+        price = parse_money(str(license_obj.unit_price) if license_obj.unit_price else None) or Decimal("0")
+    except MoneyParseError:
+        return None
+    return annualize_term_cost(qty * price, license_obj.start_date, license_obj.end_date)
+
+
 # ---------------------------------------------------------------------------
 # Dashboard statistics
 # ---------------------------------------------------------------------------
@@ -331,17 +363,12 @@ def compute_stats(
         # (license_type="maintenance") which contributes on its own below.
         # Freeware contributes zero.
         if status in ("active", "perpetual", "expiring") and lic.renewed_to_id is None:
-            if lic.license_type in (
-                LicenseType.subscription,
-                LicenseType.saas,
-                LicenseType.maintenance,
-            ):
-                try:
-                    qty = parse_money(str(lic.quantity) if lic.quantity else None) or Decimal("0")
-                    price = parse_money(str(lic.unit_price) if lic.unit_price else None) or Decimal("0")
+            if lic.license_type in _RECURRING_LICENSE_TYPES:
+                annual_cost = calc_recurring_annual_cost(lic)
+                if annual_cost is not None:
                     cur = lic.currency or "USD"
-                    annual_cost_by_currency[cur] = annual_cost_by_currency.get(cur, Decimal("0")) + qty * price
-                except MoneyParseError:
+                    annual_cost_by_currency[cur] = annual_cost_by_currency.get(cur, Decimal("0")) + annual_cost
+                else:
                     log.warning(
                         "annual_cost: skipping license id=%s - non-canonical quantity=%r unit_price=%r",
                         lic.id,
@@ -363,6 +390,11 @@ def compute_stats(
             ):
                 try:
                     support_cost = parse_money(getattr(lic, "maintenance_cost", None)) or Decimal("0")
+                    support_cost = annualize_term_cost(
+                        support_cost,
+                        getattr(lic, "maintenance_start_date", None),
+                        getattr(lic, "maintenance_end_date", None),
+                    )
                     cur = lic.currency or "USD"
                     annual_cost_by_currency[cur] = annual_cost_by_currency.get(cur, Decimal("0")) + support_cost
                 except MoneyParseError:
