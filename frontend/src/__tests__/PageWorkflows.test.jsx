@@ -1245,7 +1245,6 @@ describe("SourcingPage workflows", () => {
     sourcingApi.createSourcingRequest.mockResolvedValueOnce({ data: { id: 2, items: [] }, error: null });
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
     expect(await screen.findByText("Acme Supplier")).toBeInTheDocument();
-    await user.click(screen.getByText("Acme Supplier"));
     expect(screen.getByText("Acme Trial")).toBeInTheDocument();
     await user.type(screen.getByLabelText(/Search sourcing requests/i), "nothing");
     expect(screen.getByText(/No requests match your search\./i)).toBeInTheDocument();
@@ -1255,8 +1254,63 @@ describe("SourcingPage workflows", () => {
     expect(await screen.findByText("Created Sourcing App")).toBeInTheDocument();
   });
 
-  test("renders renewal sourcing rows when the shared licenses cache is already populated", async () => {
+  test("keeps active sourcing requests open by default and collapses them independently", async () => {
     const user = userEvent.setup();
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({
+      data: [
+        {
+          id: 101,
+          supplier: "Shared Supplier",
+          contactEmail: null,
+          status: "sourcing",
+          createdAt: "2026-02-01T00:00:00Z",
+          quoteDocuments: [],
+          items: [{
+            id: 1010,
+            publisherName: "Publisher One",
+            softwareDescription: "First Suite",
+            quantity: "1",
+            currency: "EUR",
+            status: "sourcing",
+            isRenewal: false,
+          }],
+        },
+        {
+          id: 102,
+          supplier: "Shared Supplier",
+          contactEmail: null,
+          status: "sourcing",
+          createdAt: "2026-02-02T00:00:00Z",
+          quoteDocuments: [],
+          items: [{
+            id: 1020,
+            publisherName: "Publisher Two",
+            softwareDescription: "Second Suite",
+            quantity: "1",
+            currency: "EUR",
+            status: "sourcing",
+            isRenewal: false,
+          }],
+        },
+      ],
+      error: null,
+    });
+
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+
+    expect(await screen.findByText("First Suite")).toBeInTheDocument();
+    expect(screen.getByText("Second Suite")).toBeInTheDocument();
+
+    const firstRequestRow = document.querySelector('[data-sourcing-request-row="101"]');
+    await user.click(firstRequestRow);
+    expect(screen.queryByText("First Suite")).not.toBeInTheDocument();
+    expect(screen.getByText("Second Suite")).toBeInTheDocument();
+
+    await user.click(firstRequestRow);
+    expect(screen.getByText("First Suite")).toBeInTheDocument();
+  });
+
+  test("renders renewal sourcing rows when the shared licenses cache is already populated", async () => {
     const queryClient = createTestQueryClient();
     const cachedLicense = license({
       id: 42,
@@ -1295,7 +1349,6 @@ describe("SourcingPage workflows", () => {
     );
 
     expect(await screen.findByText("Renewal Supplier")).toBeInTheDocument();
-    await user.click(screen.getByText("Renewal Supplier"));
     expect(await screen.findByText("Renewing: Cache Publisher")).toBeInTheDocument();
   });
 
@@ -1334,7 +1387,7 @@ describe("SourcingPage workflows", () => {
     });
 
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
-    await user.click(await screen.findByText("Unassigned supplier"));
+    expect(await screen.findByText("Unassigned supplier")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^edit$/i }));
     await user.type(screen.getByLabelText(/request supplier/i), "Adobe Direct");
     await user.click(screen.getByRole("button", { name: /save sourcing item/i }));
@@ -1382,7 +1435,7 @@ describe("SourcingPage workflows", () => {
 
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
-    await user.click(await screen.findByText("Primary Supplier"));
+    expect(await screen.findByText("Primary Supplier")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /add license line/i }));
     await user.click(screen.getByLabelText(/add maintenance companion/i));
     await user.click(screen.getByRole("button", { name: /save sourcing item/i }));
@@ -1448,7 +1501,8 @@ describe("SourcingPage workflows", () => {
     );
 
     expect(await screen.findByText("Direct")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /convert to registry/i }));
+    const requestRow = document.querySelector('[data-sourcing-request-row="4"]');
+    await user.click(within(requestRow).getByRole("button", { name: /convert to registry/i }));
     const dialog = screen.getByRole("dialog", { name: /convert to license registry/i });
     expect(within(dialog).getByText("Create active Freeware / Open Source licenses for all 1 open line?")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: /convert to registry/i }));
@@ -1468,7 +1522,6 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
-    await user.click(screen.getByText("Acme Corp"));
     expect(screen.getAllByText("Acme Suite").length).toBeGreaterThan(0);
     const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
     await user.click(checkboxes[0]);
@@ -1497,7 +1550,6 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
-    await user.click(screen.getByText("Acme Corp"));
     expect(screen.getAllByText("Acme Suite").length).toBeGreaterThan(0);
     const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
     await user.click(checkboxes[0]);
@@ -1527,7 +1579,6 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
-    await user.click(screen.getByText("Acme Corp"));
     expect(screen.getByText("1.25")).toBeInTheDocument();
     expect(screen.getByText("2.5")).toBeInTheDocument();
 
@@ -1566,7 +1617,6 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={commaSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
-    await user.click(screen.getByText("Acme Corp"));
     expect(screen.getByText("1,25")).toBeInTheDocument();
     expect(screen.getByText("2,5")).toBeInTheDocument();
 
@@ -1598,7 +1648,6 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
-    await user.click(screen.getByText("Acme Corp"));
     const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
     await user.click(checkboxes[0]);
     await user.click(checkboxes[1]);
@@ -1618,7 +1667,6 @@ describe("SourcingPage workflows", () => {
   });
 
   test("displays a stored fractional sourcing quantity without integer rounding", async () => {
-    const user = userEvent.setup();
     sourcingApi.getSourcingRequests.mockResolvedValueOnce({
       data: [{
         id: 8,
@@ -1639,7 +1687,7 @@ describe("SourcingPage workflows", () => {
     });
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
-    await user.click(await screen.findByText("Fractional Supplier"));
+    expect(await screen.findByText("Fractional Supplier")).toBeInTheDocument();
     const row = document.querySelector('[data-sourcing-row="80"]');
     expect(within(row).getByText("3.75")).toBeInTheDocument();
     expect(within(row).queryByText("4")).not.toBeInTheDocument();
@@ -1654,7 +1702,6 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
-    await user.click(screen.getByText("Acme Corp"));
     expect(screen.getAllByText("Acme Suite").length).toBeGreaterThan(0);
     const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
     await user.click(checkboxes[0]);

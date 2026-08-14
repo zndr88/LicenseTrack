@@ -122,7 +122,7 @@ export default function SourcingPage({
   const [historySortCol, setHistorySortCol] = useState("created");
   const [historySortDir, setHistorySortDir] = useState("desc");
   const [highlightedRowId, setHighlightedRowId] = useState(null);
-  const [expandedRequestId, setExpandedRequestId] = useState(null);
+  const [collapsedRequestIds, setCollapsedRequestIds] = useState(() => new Set());
   const [expandedHistoryRequestId, setExpandedHistoryRequestId] = useState(null);
   const [localToast, setLocalToast] = useState(null);
   const tableRef = useRef(null);
@@ -130,6 +130,26 @@ export default function SourcingPage({
   const showToast = useCallback((msg, type = "success", action = null) => {
     setLocalToast({ msg, type, action });
     setTimeout(() => setLocalToast(null), 5000);
+  }, []);
+
+  const openSourcingRequest = useCallback((requestId) => {
+    if (requestId == null) return;
+    setCollapsedRequestIds((prev) => {
+      if (!prev.has(requestId)) return prev;
+      const next = new Set(prev);
+      next.delete(requestId);
+      return next;
+    });
+  }, []);
+
+  const toggleSourcingRequest = useCallback((requestId) => {
+    if (requestId == null) return;
+    setCollapsedRequestIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(requestId)) next.delete(requestId);
+      else next.add(requestId);
+      return next;
+    });
   }, []);
 
   const {
@@ -179,7 +199,7 @@ export default function SourcingPage({
   } = useSourcingActions({
     queryClient,
     showToast,
-    setExpandedRequestId,
+    setExpandedRequestId: openSourcingRequest,
     onPendingOrdersReload,
     onRenewalsReload,
     onPortfolioStateChange,
@@ -197,7 +217,7 @@ export default function SourcingPage({
       setShowHistory(true);
       return undefined;
     }
-    setExpandedRequestId(parentRequest.id);
+    openSourcingRequest(parentRequest.id);
     const el = document.querySelector(`[data-sourcing-row="${highlightId}"]`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     setHighlightedRowId(highlightId);
@@ -206,7 +226,7 @@ export default function SourcingPage({
       if (onClearHighlight) onClearHighlight();
     }, 2000);
     return () => clearTimeout(t);
-  }, [highlightId, sourcingRequests, sourcingLoading, onClearHighlight]);
+  }, [highlightId, sourcingRequests, sourcingLoading, onClearHighlight, openSourcingRequest]);
 
   useEffect(() => {
     if (!highlightId || !showHistory) return;
@@ -308,6 +328,17 @@ export default function SourcingPage({
 
   const handleSelectGroup = (groupIds) => {
     setSelectedForMerge(new Set(groupIds));
+    const groupSet = new Set(groupIds);
+    const requestIdsToOpen = sourcingRequests
+      .filter((request) => (request.items ?? []).some((item) => groupSet.has(item.id)))
+      .map((request) => request.id);
+    if (requestIdsToOpen.length > 0) {
+      setCollapsedRequestIds((prev) => {
+        const next = new Set(prev);
+        requestIdsToOpen.forEach((requestId) => next.delete(requestId));
+        return next;
+      });
+    }
     setTimeout(() => tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
 
@@ -370,13 +401,13 @@ export default function SourcingPage({
             sortCol={sortCol}
             sortDir={sortDir}
             highlightedRowId={highlightedRowId}
-            expandedRequestId={expandedRequestId}
-            onRowToggle={setExpandedRequestId}
+            collapsedRequestIds={collapsedRequestIds}
+            onRowToggle={toggleSourcingRequest}
             onToggleSelect={toggleSelect}
             onEditItem={(item, request) => setShowSourcingModal({ item, request })}
             onDeleteItem={setDeleteSourcingId}
             onAddItem={(request) => {
-              setExpandedRequestId(request.id);
+              openSourcingRequest(request.id);
               setShowSourcingModal({ item: null, request });
             }}
             onConvert={(request) => {

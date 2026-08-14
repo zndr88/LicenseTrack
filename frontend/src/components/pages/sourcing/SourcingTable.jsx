@@ -239,6 +239,7 @@ export default function SourcingTable({
   sortDir,
   highlightedRowId,
   expandedRequestId,
+  collapsedRequestIds = null,
   onRowToggle,
   onToggleSelect,
   onEditItem,
@@ -389,7 +390,19 @@ export default function SourcingTable({
             {displayed.length === 0 ? (
               <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text-3)", padding: "24px 0", fontSize: 13 }}>{emptyMessage}</td></tr>
             ) : displayed.map((request) => {
-              const isExpanded = expandedRequestId === request.id;
+              const hasItems = (request.items?.length ?? 0) > 0;
+              const shouldExpand = collapsedRequestIds
+                ? !collapsedRequestIds.has(request.id)
+                : expandedRequestId === request.id;
+              const isExpanded = hasItems && shouldExpand;
+              const handleRowToggle = () => {
+                if (!hasItems) return;
+                if (collapsedRequestIds) {
+                  onRowToggle(request.id);
+                } else {
+                  onRowToggle(isExpanded ? null : request.id);
+                }
+              };
               const quoteDocuments = request.quoteDocuments ?? [];
               const openItems = (request.items ?? []).filter(isOpenSourcingItem);
               const canEditSingleLine = perms.canEdit && openItems.length === 1;
@@ -461,11 +474,11 @@ export default function SourcingTable({
                 <React.Fragment key={request.id}>
                   <tr
                     data-sourcing-request-row={request.id}
-                    style={{ cursor: request.items?.length > 0 ? "pointer" : "default" }}
-                    onClick={() => request.items?.length > 0 && onRowToggle(isExpanded ? null : request.id)}
+                    style={{ cursor: hasItems ? "pointer" : "default" }}
+                    onClick={handleRowToggle}
                   >
                     <td style={{ color: "var(--text-3)", fontSize: 11, textAlign: "center" }}>
-                      {request.items?.length > 0 ? (isExpanded ? "▾" : "▸") : ""}
+                      {hasItems ? (isExpanded ? "▾" : "▸") : ""}
                     </td>
                     <td style={{ fontWeight: 600 }}>
                       {request.supplier || "Unassigned supplier"}
