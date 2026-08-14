@@ -36,6 +36,35 @@ function findLicenseOr404(id) {
   return license;
 }
 
+function hasMaintenanceParent(license, parentId) {
+  if (Number(license.parentLicenseId) === Number(parentId)) return true;
+  return (license.maintenanceParentIds || []).some((id) => Number(id) === Number(parentId));
+}
+
+function linkMaintenanceToParentRecord(maintenance, parent) {
+  if (maintenance.licenseType !== "maintenance") {
+    throw new Error("Only maintenance licenses can be linked to maintenance/support parents");
+  }
+  if (!MAINTENANCE_PARENT_TYPES.has(parent.licenseType)) {
+    throw new Error("Maintenance/support tracking can only be linked to perpetual, OEM, or freeware Licenses.");
+  }
+  if (!hasMaintenanceParent(maintenance, parent.id)) {
+    maintenance.maintenanceParentIds = [...(maintenance.maintenanceParentIds || []), parent.id];
+  }
+  if (maintenance.parentLicenseId == null) maintenance.parentLicenseId = parent.id;
+  if (!(parent.linkedMaintenanceIds || []).some((id) => Number(id) === Number(maintenance.id))) {
+    parent.linkedMaintenanceIds = [...(parent.linkedMaintenanceIds || []), maintenance.id];
+  }
+  parent.activeMaintenanceId = maintenance.id;
+  parent.hasMaintenance = true;
+  parent.maintenanceCoverage = "separately_tracked";
+  parent.maintenanceStartDate = maintenance.startDate;
+  parent.maintenanceEndDate = maintenance.endDate;
+  parent.maintenanceCost = maintenance.totalPoPrice || maintenance.unitPrice || null;
+  decorateLicense(maintenance);
+  decorateLicense(parent);
+}
+
 function findSourcingItemOr404(id) {
   const item = store.sourcingItems.find((i) => i.id === id);
   if (!item) throw new Error("Sourcing item not found");
@@ -540,9 +569,20 @@ export const routes = [
 
       const child = store.licenses.find((l) => l.id === license.activeMaintenanceId);
       if (child) {
-        child.isRetired = true;
+        child.maintenanceParentIds = (child.maintenanceParentIds || []).filter(
+          (parentId) => Number(parentId) !== Number(license.id)
+        );
+        if (Number(child.parentLicenseId) === Number(license.id)) {
+          child.parentLicenseId = child.maintenanceParentIds[0] ?? null;
+        }
+        if (child.maintenanceParentIds.length === 0) {
+          child.isRetired = true;
+        }
         decorateLicense(child);
       }
+      license.linkedMaintenanceIds = (license.linkedMaintenanceIds || []).filter(
+        (maintenanceId) => Number(maintenanceId) !== Number(license.activeMaintenanceId)
+      );
       license.activeMaintenanceId = null;
       license.hasMaintenance = false;
       license.maintenanceStartDate = null;
@@ -554,6 +594,15 @@ export const routes = [
       decorateLicense(license);
 
       return { data: withComputedCompleteness(license), error: null };
+    },
+  },
+  {
+    method: "POST", pattern: /^\/api\/licenses\/(?<id>\d+)\/link-maintenance$/,
+    handler: async ({ params, body }) => {
+      const parent = findLicenseOr404(Number(params.id));
+      const maintenance = findLicenseOr404(Number(body?.maintenanceLicenseId));
+      linkMaintenanceToParentRecord(maintenance, parent);
+      return { data: withComputedCompleteness(parent), error: null };
     },
   },
   {
@@ -612,7 +661,7 @@ export const routes = [
       if (!includeRetired) result = result.filter((l) => !l.isRetired);
       if (parentLicenseId !== null) {
         const parentId = Number(parentLicenseId);
-        result = result.filter((l) => l.parentLicenseId === parentId);
+        result = result.filter((l) => hasMaintenanceParent(l, parentId));
       }
       return { data: result.map(withComputedCompleteness), error: null };
     },
@@ -636,6 +685,17 @@ export const routes = [
           createdAt: now,
           updatedAt: now,
         });
+        if (license.licenseType === "maintenance") {
+          const parentIds = [
+            license.parentLicenseId,
+            ...(license.maintenanceParentIds || []),
+          ].filter((parentId, parentIdIndex, ids) => parentId != null && ids.indexOf(parentId) === parentIdIndex);
+          for (const parentId of parentIds) {
+            const parent = pending.find((l) => Number(l.id) === Number(parentId)) ||
+              store.licenses.find((l) => Number(l.id) === Number(parentId));
+            if (parent) linkMaintenanceToParentRecord(license, parent);
+          }
+        }
         pending.push(license);
       }
       store.licenses.push(...pending);
@@ -656,6 +716,16 @@ export const routes = [
         updatedAt: now,
       });
       store.licenses.push(license);
+      if (license.licenseType === "maintenance") {
+        const parentIds = [
+          license.parentLicenseId,
+          ...(license.maintenanceParentIds || []),
+        ].filter((parentId, index, ids) => parentId != null && ids.indexOf(parentId) === index);
+        for (const parentId of parentIds) {
+          const parent = store.licenses.find((l) => Number(l.id) === Number(parentId));
+          if (parent) linkMaintenanceToParentRecord(license, parent);
+        }
+      }
       return { data: withComputedCompleteness(license), error: null };
     },
   },

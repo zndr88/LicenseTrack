@@ -122,11 +122,18 @@ export async function cancelRenewal(licenseId) {
 
 /**
  * Disable linked maintenance/support tracking on a perpetual/OEM/freeware License.
- * The currently active maintenance License is retired and the parent's mirror
- * fields are cleared.
+ * The parent's mirror fields are cleared. A shared maintenance License remains
+ * active if it is still linked to another parent.
  */
 export async function disableMaintenance(licenseId) {
   return post(`/api/licenses/${licenseId}/disable-maintenance`, {});
+}
+
+/**
+ * Link an existing maintenance/support License to an eligible parent License.
+ */
+export async function linkMaintenanceToParent(parentLicenseId, maintenanceLicenseId) {
+  return post(`/api/licenses/${parentLicenseId}/link-maintenance`, { maintenanceLicenseId });
 }
 
 /**

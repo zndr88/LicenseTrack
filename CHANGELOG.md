@@ -21,6 +21,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Added backend workflows to create maintenance records with multiple parent
   licenses and link an existing maintenance record to another eligible parent
   without retiring shared maintenance when one parent disables tracking.
+- Added the License Details maintenance workflow for linking an existing
+  maintenance/support record to another parent from a compact searchable list,
+  alongside the existing create-new path.
 
 ### Fixed
 

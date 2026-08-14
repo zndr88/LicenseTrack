@@ -179,6 +179,8 @@ export const normalizeLicense = (l) => ({
         ? "included"
         : "unknown"
   ),
+  maintenanceParentIds: Array.isArray(l.maintenanceParentIds) ? l.maintenanceParentIds : [],
+  linkedMaintenanceIds: Array.isArray(l.linkedMaintenanceIds) ? l.linkedMaintenanceIds : [],
   isCompletenessExempt: l.isCompletenessExempt ?? false,
   renewalNotificationsEnabled: l.renewalNotificationsEnabled ?? true,
 });

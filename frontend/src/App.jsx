@@ -94,6 +94,7 @@ function buildLicensePayload(form) {
     maintenanceUnitPrice: form.maintenanceUnitPrice || null,
     maintenanceCost: form.maintenanceCost || "",
     ...(form.parentLicenseId ? { parentLicenseId: form.parentLicenseId } : {}),
+    ...(form.maintenanceParentIds?.length ? { maintenanceParentIds: form.maintenanceParentIds } : {}),
     isRetired: false,
   };
 }

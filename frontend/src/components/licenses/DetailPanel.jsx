@@ -345,7 +345,12 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
           <EmailPublisherAction license={license} allLicenses={allLicenses} />
           {perms.canDelete && <button className="btn btn-d" onClick={() => {
             const activeMaintenanceChildren = (allLicenses || []).filter(
-              (l) => l.parentLicenseId === license.id && l.licenseType === "maintenance" && !l.isRetired
+              (l) => (
+                (l.parentLicenseId === license.id ||
+                  (l.maintenanceParentIds || []).some((parentId) => Number(parentId) === Number(license.id))) &&
+                l.licenseType === "maintenance" &&
+                !l.isRetired
+              )
             );
             const hasActiveMaintenance = activeMaintenanceChildren.length > 0;
             setConfirmAction({
@@ -379,6 +384,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
         <MaintenanceCreateModal
           parentLicense={license}
           userSettings={userSettings}
+          allLicenses={allLicenses}
           onSuccess={async (parentId) => {
             setShowMaintenanceModal(false);
             const { data: refreshed } = await getLicense(parentId);

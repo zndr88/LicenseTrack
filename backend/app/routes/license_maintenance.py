@@ -54,7 +54,10 @@ def _enrich(
         response.maintenance_parent_ids = [response.parent_license_id]
     child_links = license_obj.__dict__.get("maintenance_child_links")
     if child_links is not None:
-        response.linked_maintenance_ids = sorted({link.maintenance_license_id for link in child_links})
+        linked_ids = sorted({link.maintenance_license_id for link in child_links})
+        response.linked_maintenance_ids = linked_ids
+        if not linked_ids and response.active_maintenance_id is not None:
+            response.linked_maintenance_ids = [response.active_maintenance_id]
     elif response.active_maintenance_id is not None:
         response.linked_maintenance_ids = [response.active_maintenance_id]
     return response
@@ -107,7 +110,10 @@ async def disable_maintenance(
     await db.commit()
 
     reload_result = await db.execute(
-        select(License).where(License.id == license_id).options(*_license_with_maintenance_options())
+        select(License)
+        .where(License.id == license_id)
+        .options(*_license_with_maintenance_options())
+        .execution_options(populate_existing=True)
     )
     license_obj = reload_result.scalar_one()
     return _enrich(license_obj, mandatory_fields, notification_days)
@@ -162,7 +168,10 @@ async def link_existing_maintenance(
     await db.commit()
 
     reload_result = await db.execute(
-        select(License).where(License.id == license_id).options(*_license_with_maintenance_options())
+        select(License)
+        .where(License.id == license_id)
+        .options(*_license_with_maintenance_options())
+        .execution_options(populate_existing=True)
     )
     parent = reload_result.scalar_one()
     return _enrich(parent, mandatory_fields, notification_days)

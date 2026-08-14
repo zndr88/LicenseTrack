@@ -3,10 +3,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import MaintenanceCreateModal from "../components/licenses/MaintenanceCreateModal.jsx";
-import { createLicense } from "../api/licenses.js";
+import { createLicense, linkMaintenanceToParent } from "../api/licenses.js";
 
 vi.mock("../api/licenses.js", () => ({
   createLicense: vi.fn(),
+  linkMaintenanceToParent: vi.fn(),
 }));
 
 vi.mock("../components/ui/Icon.jsx", () => ({
@@ -114,6 +115,45 @@ describe("MaintenanceCreateModal", () => {
 
     expect(await screen.findByText("Could not create maintenance")).toBeInTheDocument();
     expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  test("link existing mode calls link API with selected maintenance record", async () => {
+    const user = userEvent.setup();
+    const onSuccess = vi.fn();
+    linkMaintenanceToParent.mockResolvedValueOnce({ data: { id: 42 }, error: null });
+
+    render(
+      <MaintenanceCreateModal
+        parentLicense={parentLicense}
+        userSettings={userSettings}
+        allLicenses={[
+          {
+            id: 77,
+            licenseRef: "LT-2026-0077",
+            publisherName: "Acme",
+            softwareDescription: "Acme Suite Maintenance",
+            licenseType: "maintenance",
+            poNumber: "PO-77",
+            contractNumber: "CTR-77",
+            startDate: "2026-01-01",
+            endDate: "2026-12-31",
+            maintenanceParentIds: [],
+            isRetired: false,
+          },
+        ]}
+        onSuccess={onSuccess}
+        onClose={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("tab", { name: /link existing/i }));
+    await user.click(screen.getByRole("button", { name: /LT-2026-0077/i }));
+    await user.click(screen.getByRole("button", { name: /link existing record/i }));
+
+    await waitFor(() => {
+      expect(linkMaintenanceToParent).toHaveBeenCalledWith(42, 77);
+      expect(onSuccess).toHaveBeenCalledWith(42);
+    });
   });
 
   test("cancel, close, and overlay behavior remains equivalent", async () => {

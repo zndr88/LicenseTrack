@@ -145,6 +145,8 @@ async def link_maintenance_to_parent(
     )
     existing = result.scalar_one_or_none()
     if existing is not None:
+        db.expire(maintenance_license, ["maintenance_parent_links"])
+        db.expire(parent, ["maintenance_child_links"])
         return existing
 
     link = LicenseMaintenanceLink(
@@ -153,6 +155,8 @@ async def link_maintenance_to_parent(
     )
     db.add(link)
     await db.flush()
+    db.expire(maintenance_license, ["maintenance_parent_links"])
+    db.expire(parent, ["maintenance_child_links"])
     return link
 
 
@@ -239,6 +243,8 @@ async def disable_maintenance_for_parent(
                 LicenseMaintenanceLink.parent_license_id == parent.id,
             )
         )
+        db.expire(active_child, ["maintenance_parent_links"])
+        db.expire(parent, ["maintenance_child_links"])
         remaining_result = await db.execute(
             select(func.count()).select_from(LicenseMaintenanceLink).where(
                 LicenseMaintenanceLink.maintenance_license_id == active_child.id

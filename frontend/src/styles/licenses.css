@@ -100,6 +100,24 @@
 .dp-bottom-actions { display: flex; gap: 8px; }
 .dp-email-btn { flex: 1; justify-content: center; text-decoration: none; }
 
+.maint-modal-intro { font-size: 12px; color: var(--text-2); margin: 0 0 16px; line-height: 1.5; }
+.maint-mode-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 16px; }
+.maint-mode-toggle button { appearance: none; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); border-radius: var(--r); padding: 8px 10px; font-family: var(--font-sans); font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.maint-mode-toggle button:hover { border-color: var(--border-strong); color: var(--text-1); }
+.maint-mode-toggle button.active { border-color: var(--accent); background: var(--accent-m); color: var(--text-1); }
+.maint-existing-picker label { font-family: var(--font-mono); font-size: 9px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); display: block; margin-bottom: 5px; }
+.maint-record-list { margin-top: 8px; max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); padding: 4px; }
+.maint-record-option { appearance: none; border: 1px solid transparent; background: transparent; color: var(--text-1); border-radius: 4px; padding: 8px 9px; width: 100%; text-align: left; display: flex; flex-direction: column; gap: 5px; cursor: pointer; font-family: var(--font-sans); }
+.maint-record-option:hover { background: var(--bg-2); border-color: var(--border); }
+.maint-record-option.is-selected { background: var(--accent-m); border-color: var(--accent); }
+.maint-record-main { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.maint-record-ref { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); flex-shrink: 0; }
+.maint-record-title { font-size: 12px; color: var(--text-1); overflow-wrap: anywhere; }
+.maint-record-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; font-family: var(--font-mono); font-size: 10px; color: var(--text-3); }
+.maint-record-empty { padding: 12px 10px; color: var(--text-3); font-size: 12px; }
+.maint-record-count { margin-top: 5px; color: var(--text-3); font-size: 11px; }
+.maint-modal-error { color: var(--red-text); font-size: 11px; margin-top: 8px; font-family: var(--font-sans); }
+
 /* Detail Panel - collapsible sections */
 .dp-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 12px; border-bottom: 1px solid var(--border); gap: 8px; position: sticky; top: 0; background: var(--bg-1); z-index: 1; }
 .dp-panel-header-title { font-family: var(--font-brand); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-1); flex: 1; }
