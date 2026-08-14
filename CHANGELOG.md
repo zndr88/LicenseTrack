@@ -13,6 +13,16 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed demo bundled included support propagation so subscription and SaaS
+  records derive support dates and support cost from their subscription term and
+  acquisition value without double-counting procurement totals.
+- Fixed CSV import handling for perpetual, OEM, and freeware rows with included
+  support so imported coverage dates and explicit support cost are preserved; if
+  no support cost is supplied, LicenseTrack defaults from the line total and
+  warns the operator to verify the value.
+
 ## [1.1.8] - 2026-08-14
 
 ### Changed
