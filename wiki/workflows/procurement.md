@@ -23,6 +23,10 @@ Use multiple lines when one supplier quote covers several products. Expand the
 request row to edit individual lines. Request-level actions manage the quote,
 conversion, or cancellation of the whole request.
 
+Active sourcing rows start expanded so same-supplier requests can be scanned
+without opening each parent first. Collapse rows individually when you need a
+shorter overview.
+
 The request supplier is the proposed target for the complete purchase, not a
 copy of historical supplier ownership. It can remain unassigned while sourcing
 is unresolved and is human-editable across renewals, but paid lines cannot move
@@ -46,26 +50,30 @@ Freeware/open-source lines do not show license acquisition-price fields because
 their acquisition cost is zero. Perpetual and OEM lines retain their acquisition
 pricing independently of support.
 
-Perpetual, OEM, and freeware/open-source lines also expose
+Perpetual, OEM, freeware/open-source, subscription, and SaaS lines also expose
 **Maintenance / Support**:
 
-- **Included** keeps support on the parent line and records the coverage dates.
-  Support can be entered as a flat coverage fee or as covered quantity times
-  support unit price. The calculated coverage-period total contributes to the
+- **Included** keeps support on the parent line. For perpetual, OEM, and
+  freeware/open-source lines, support can be entered as a flat coverage fee or
+  as covered quantity times support unit price. For subscription and SaaS
+  lines, included support uses the subscription start/end dates and the
+  subscription acquisition total, so the derived coverage dates and cost are
+  hidden in the forms. The calculated or derived total contributes to the
   sourcing estimate and pending-order total exactly once.
 - **Separately tracked** offers an explicit **Add maintenance line** action. The
   new line is prefilled but editable, follows the paid PO path, and retains its
-  parent relationship during conversion. A different support supplier creates
-  a separate linked sourcing request.
+  parent relationship during conversion. This option is available only for
+  perpetual, OEM, or freeware/open-source parents. A different support supplier
+  creates a separate linked sourcing request.
 - **Unknown** and **Not applicable** do not create another line.
 
 Freeware with a positive included-support cost follows the PO path because the
 support purchase needs normal procurement evidence.
 
-Support prices always describe the displayed coverage period. LicenseTrack
-does not convert a multi-year coverage total into an annualized figure. When
-coverage is renewed, the new coverage becomes a new procurement/license line
-instead of overwriting the expired period.
+Support prices always describe the displayed coverage period. When coverage is
+renewed, the new coverage becomes a new procurement/license line instead of
+overwriting the expired period. Reports annualize recurring multi-year records
+and allocate selected report ranges by overlapping days.
 
 Dates entered during sourcing and pending-order work are planning values. The
 license manager confirms the delivered entitlement and support start/end dates

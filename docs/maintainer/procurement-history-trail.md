@@ -6,11 +6,12 @@ stored database relationships, not display text such as PO number.
 
 ## User-Facing Flow
 
-Sourcing Overview shows only active quote-stage work by default. The History
-button opens a second paginated table below the active table. That history
-table contains converted and cancelled sourcing requests, keeps request ids and
-line ids visible, remains searchable, and is read-only for record fields. Users
-can download or delete quote evidence and inspect line details, but cannot add
+Sourcing Overview shows only active quote-stage work by default, with active
+rows expanded initially and independently collapsible per request. The History
+button opens a second paginated table below the active table. That history table
+contains converted and cancelled sourcing requests, keeps request ids and line
+ids visible, remains searchable, and is read-only for record fields. Users can
+download or delete quote evidence and inspect line details, but cannot add
 lines, edit, merge, convert, or cancel historical sourcing rows.
 
 Pending Orders works the same way. The active table shows pending and

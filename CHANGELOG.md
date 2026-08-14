@@ -13,6 +13,34 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.8] - 2026-08-14
+
+### Changed
+
+- Expanded Flexera import normalization for license metrics and maintenance
+  flags. Common Flexera metric labels now map to LicenseTrack metrics, while
+  Custom Metric, Unknown, and Other land on Other / Unknown instead of blocking
+  import. Flexera-style "includes maintenance" boolean columns can now map to
+  included support coverage.
+- Hardened CSV imports for files that were exported from LicenseTrack, adjusted
+  in Excel, and saved again, so common spreadsheet rewrites do not prevent
+  re-import.
+- Updated Reports recurring-cost calculations so multi-year subscriptions,
+  SaaS, maintenance, and paid included-support records are annualized for
+  forecast baselines and allocated by overlapping days when a report date range
+  is selected.
+- Changed Sourcing Overview active rows to start expanded and allow each
+  request to be collapsed independently.
+- Showed Created as a date-only value in the License Overview table while
+  keeping the full timestamp in License Details history.
+- Reordered License Details quantities to show Purchase Quantity, Quantity per
+  Unit, then Effective Quantity.
+- Allowed included support coverage on subscription and SaaS licenses. For
+  those bundled-support records, LicenseTrack derives support dates from the
+  subscription dates and support cost from the acquisition total, hides the
+  derived inputs in license, sourcing, and pending-order forms, and avoids
+  double-counting the bundled cost in procurement totals.
+
 ## [1.1.7] - 2026-08-13
 
 ### Added
@@ -950,7 +978,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.7...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.8...HEAD
+[1.1.8]: https://github.com/zndr88/LicenseTrack/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/zndr88/LicenseTrack/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/zndr88/LicenseTrack/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/zndr88/LicenseTrack/compare/v1.1.4...v1.1.5

@@ -136,6 +136,11 @@ A zero-cost `freeware` sourcing line converts directly to a license. A
 freeware line with positive included support follows the pending-order route,
 and a separately tracked maintenance line remains a distinct paid line.
 Freeware acquisition-price fields are normalized to zero/empty values.
+Subscription and SaaS lines may use `maintenanceCoverage: "included"` when
+support is bundled with the subscription. In that case the server derives the
+support start/end dates from the license start/end dates and derives
+`maintenanceCost` from the acquisition total. Separately tracked support
+coverage remains limited to perpetual, OEM, and freeware parents.
 
 ### Pending orders
 
@@ -166,9 +171,11 @@ Conversion is concurrency protected and non-idempotent after success: retry a
 failed request only after checking the current order status.
 
 Pending-order totals include paid support with
-`maintenanceCoverage: "included"` once on the parent line. A separately
-tracked maintenance line contributes through its own acquisition fields and is
-not added again to the parent.
+`maintenanceCoverage: "included"` once on the parent line. For subscription
+and SaaS bundled support, the included support amount is the same acquisition
+value already represented by the subscription line and is not added a second
+time. A separately tracked maintenance line contributes through its own
+acquisition fields and is not added again to the parent.
 
 ### Contracts
 
@@ -200,6 +207,12 @@ Contract document reads and writes use `documents:read` and `documents:write`.
 CSV import is a workflow contract rather than a generic bulk API. Preserve the
 preview/acknowledgement/execute sequence documented by the installed OpenAPI
 schema and integration recipes.
+
+Report recurring-cost calculations annualize subscription, SaaS, maintenance,
+and paid included-support records when their stored term is longer than one
+year. Client report views that apply a date range allocate recurring value by
+overlapping days; integrations that reproduce report totals should use the same
+calendar-day basis.
 
 ## Experimental integration routes
 

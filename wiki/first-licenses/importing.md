@@ -38,6 +38,12 @@ You have two ways to get your data in:
 
 When a file contains an **LT Ref** column, either path offers an auto-enabled option to update the current matching license instead of creating a duplicate. This makes it safe to export a list, make small spreadsheet corrections, and re-import it. Turn the option off when you intentionally want new records.
 
+If you open a LicenseTrack CSV export in Excel, adjust values, and save it
+again, the importer tolerates the common spreadsheet changes to quoting,
+delimiter hints, line endings, and localized number formatting. Select the
+number format that matches the saved file before previewing so prices and
+quantities are interpreted correctly.
+
 Native Import also recognizes existing custom fields. **Export Full Data** writes their stable `cf_*` keys as headers, so custom values round-trip automatically. Files that use the custom field's display name are also matched when that name identifies one field unambiguously. During an LT Ref update, a nonblank custom-field value is patched and a blank cell preserves the value already stored.
 
 The native template and manual mapping include the current LicenseTrack fields,
@@ -64,6 +70,17 @@ Flexera exports can use **Purchase Type** values that do not exactly match
 LicenseTrack's labels. Common values are normalized during import: Software
 Subscription becomes Subscription, Software Maintenance becomes Maintenance,
 Software Baseline and Software become Perpetual, and Service becomes Service.
+Metric values such as Named User, SaaS User, Concurrent User, Device,
+Microsoft Server Core, Processor, and Processor Points also map to native
+LicenseTrack metrics. Custom Metric, Unknown, and Other map to
+**Other / Unknown** so uncommon metrics can be reviewed after import instead
+of blocking the file.
+
+Flexera-style boolean columns such as **Includes Maintenance**, **Purchase
+Includes Maintenance**, or **Purchase Includes Support** can map to
+**Maintenance / Support Coverage**. True-like values become **Included**;
+false-like or blank values leave the coverage unset so LicenseTrack can apply
+the normal default for the license type.
 
 Some external exports contain a generic **Item** column as well as a more exact
 software description column. LicenseTrack treats Item as a fallback only. If

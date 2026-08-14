@@ -37,7 +37,7 @@ monetary totals and surfaced as excluded or unpriced counts.
 | --- | --- |
 | Historical spend | Total PO values, de-duplicated by nonblank PO number |
 | Lifecycle budget | Line value grouped by active, expiring, and expired status |
-| Recurring annual cost | Active subscription, SaaS, maintenance, and current paid included-support costs |
+| Recurring annual cost | Active subscription, SaaS, maintenance, and current paid included-support costs, annualized when the term is longer than one year |
 | Budget forecast | Recurring annual baseline projected by the selected horizon and growth rate |
 | Renewal calendar | Expiring active records across the next four configured fiscal quarters |
 | Publisher/vendor overview | Calculated line value grouped by publisher and supplier |
@@ -50,11 +50,17 @@ lifecycle budget but not recurring annual cost.
 Freeware/open-source records without paid included support contribute zero to
 monetary totals and are not counted as unpriced purchases. When paid support is
 included on a freeware, perpetual, or OEM parent, its current coverage-period
-total contributes to recurring cost and forecast calculations. LicenseTrack
-uses the stored total for that coverage period; it does not prorate or
-annualize a multi-year support amount. Expired or not-yet-started included
-coverage is excluded. Separately tracked support is represented and reported
-through its own maintenance license line.
+total contributes to recurring cost and forecast calculations.
+
+Recurring subscription, SaaS, maintenance, and included-support values use the
+stored value for the complete term or coverage period. When that term is longer
+than one year, the forecast baseline annualizes it by calendar days. When a
+report range is selected, recurring value is allocated by overlapping days. For
+example, an 18-month record worth EUR 12,000 contributes roughly the first 12
+months of value to a first-year range and the remaining 6 months of value to
+the following year. Expired or not-yet-started included coverage is excluded.
+Separately tracked support is represented and reported through its own
+maintenance license line.
 
 Upcoming, retired, renewed, legacy, expired, and pending-renewal records are
 excluded from the recurring forecast baseline. Upcoming records remain separate

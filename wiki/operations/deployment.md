@@ -12,12 +12,12 @@ The Docker image serves the React frontend and FastAPI backend from the same ori
 The image is a standard OCI image and runs under Podman without changes. The most reliable path is a plain build and run (it avoids differences between compose providers):
 
 ```bash
-podman build -t license-lifecycle-system:1.1.7 .
+podman build -t license-lifecycle-system:1.1.8 .
 
 podman run -d --name licensetrack -p 8080:8000 \
   --env-file .env \
   -v license_lifecycle_data:/data \
-  license-lifecycle-system:1.1.7
+  license-lifecycle-system:1.1.8
 ```
 
 Notes:

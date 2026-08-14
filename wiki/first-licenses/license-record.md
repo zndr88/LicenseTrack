@@ -52,7 +52,7 @@ A license can have more than one invoice number. Click the invoice number or the
 
 ![Details section](../assets/record-04-details.png)
 
-Here you'll find more detail about the license record: the **license type**, **metric**, **purchase quantity**, **effective quantity**, **quantity per unit**, **SKU code**, and **pricing**.
+Here you'll find more detail about the license record: the **license type**, **metric**, **purchase quantity**, **quantity per unit**, **effective quantity**, **SKU code**, and **pricing**.
 
 Use **Service** for implementation, installation, or service costs associated
 with a license purchase. Use **Other** for rare purchase types that should stay
@@ -72,13 +72,16 @@ acquisition price; paid support is recorded in **Maintenance & Support**.
 
 ## Maintenance & Support
 
-Perpetual, OEM, and freeware/open-source records classify support as
-**Unknown**, **Not applicable**, **Included**, or **Separately tracked**.
+Perpetual, OEM, freeware/open-source, subscription, and SaaS records can
+classify support as **Included**. Separately tracked support is available only
+for perpetual, OEM, or freeware/open-source parents.
 
 Included support stays on the parent license. Its start/end dates define the
 coverage period, and its price is either one flat fee or a covered quantity
 multiplied by a support unit price. The resulting support cost is the total for
-that coverage period, not an automatically annualized amount.
+that coverage period. For subscription and SaaS records, included support uses
+the subscription dates and total acquisition value, so those support fields are
+derived rather than edited separately.
 
 Separately tracked support uses its own linked maintenance license, procurement
 evidence, cost, dates, and renewal lifecycle. The parent shows the active

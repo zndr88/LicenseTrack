@@ -242,6 +242,19 @@ native entitlement multiplier; and effective quantity is derived as purchase
 quantity multiplied by quantity per unit. Flexera-style purchase type aliases
 map software subscription, software maintenance, software baseline, software,
 and service values onto the native `license_type` enum where unambiguous.
+Flexera-style metric aliases map common user, device, core, processor,
+concurrent, site, enterprise, custom, unknown, and other labels onto native
+`license_metric` values. Boolean "includes maintenance/support" columns map to
+`maintenance_coverage=included` when true-like and stay unset when false-like
+or blank.
+
+Included support on subscription and SaaS records is bundled into the
+subscription itself. The backend derives maintenance start/end from license
+start/end and derives maintenance cost from the line acquisition total in
+`support_coverage_defaults.py`; procurement totals must not add that value a
+second time. Separately tracked maintenance remains limited to perpetual, OEM,
+and freeware/open-source parents and belongs in `maintenance_rules.py`, not in
+inline route or form checks.
 
 ## Forms And Validation
 

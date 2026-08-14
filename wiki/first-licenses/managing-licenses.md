@@ -17,9 +17,9 @@ LT reference automatically. It cannot be supplied or edited manually.
 
 The **Review License Data** step can create several license lines together.
 Use **Add License** inside that review to add another entitlement. Each eligible
-perpetual, OEM, or freeware/open-source line has the same included or separately
-tracked maintenance choices as the first line, and price fields use your
-personal number format. LicenseTrack saves all lines as one database operation:
+line has the same included support choice, and each eligible perpetual, OEM, or
+freeware/open-source line also has the separately tracked maintenance choice.
+Price fields use your personal number format. LicenseTrack saves all lines as one database operation:
 if any line fails, no part of the batch is created.
 
 An optional Quote, Purchase Order, or Invoice selected for a multi-license batch
@@ -63,10 +63,12 @@ Separately purchased maintenance or support is represented by a maintenance
 license linked to an eligible parent. Eligible parents are active perpetual,
 OEM, or freeware/open-source records.
 
-Choose **Included** when support belongs on the parent record. Its start/end
-dates define the coverage period. Its price can be a flat coverage fee or a
-covered quantity multiplied by a support unit price; LicenseTrack stores the
-resulting coverage-period total. That total is not annualized.
+Choose **Included** when support belongs on the parent record. For perpetual,
+OEM, and freeware/open-source parents, its start/end dates define the coverage
+period and its price can be a flat coverage fee or a covered quantity
+multiplied by a support unit price. For subscription and SaaS records, included
+support follows the subscription dates and total acquisition value, so the
+coverage dates and support cost are derived automatically.
 
 Choose **Separately tracked** to add a real maintenance line with its own
 procurement evidence and renewal lifecycle. You can create that line while
