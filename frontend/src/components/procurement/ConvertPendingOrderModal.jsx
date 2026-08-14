@@ -132,6 +132,9 @@ const ConvertPendingOrderModal = ({
 
   const quantity     = watch("quantity");
   const unitPrice    = watch("unitPrice");
+  const totalPoPrice = watch("totalPoPrice");
+  const startDate = watch("startDate");
+  const endDate = watch("endDate");
   const isPerpetual  = watch("isPerpetual");
   const licenseType  = watch("licenseType");
   const parentLicenseId = watch("parentLicenseId");
@@ -404,6 +407,9 @@ const ConvertPendingOrderModal = ({
             supportUnitPrice={maintenanceUnitPrice}
             cost={maintenanceCost}
             licenseQuantity={quantity}
+            licenseStartDate={startDate}
+            licenseEndDate={isPerpetual ? "" : endDate}
+            licenseTotalCost={totalPoPrice}
             currency={currency}
             locale={locale}
             onChange={(field, value) => setValue(field, value, { shouldDirty: true })}

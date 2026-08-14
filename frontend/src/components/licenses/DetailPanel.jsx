@@ -19,6 +19,7 @@ import InvoiceNumbersModal from "./InvoiceNumbersModal.jsx";
 import SecondaryContactsModal from "./SecondaryContactsModal.jsx";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
+import { supportsMaintenanceCoverage } from "../../utils/maintenanceCoverage.js";
 
 function DetailPanelHeader({ canEdit, editingLicense, onStartEdit, onClose }) {
   return (
@@ -172,7 +173,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
             />
 
             {/* Maintenance */}
-            {["perpetual", "oem", "freeware"].includes(license.licenseType) && (
+            {supportsMaintenanceCoverage(license.licenseType) && (
               <MaintenanceSection
                 license={license}
                 perms={perms}

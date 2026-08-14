@@ -140,3 +140,22 @@ def assert_active_maintenance_allows_coverage_change(
             "This license has an active maintenance/support record. Disable the linked "
             "contract before changing coverage away from separately tracked."
         )
+
+
+def assert_coverage_allowed_for_type(
+    license_type: LicenseType | str,
+    maintenance_coverage: MaintenanceCoverage | str | None,
+) -> None:
+    """Raise ValueError when coverage implies an unsupported maintenance model."""
+    if maintenance_coverage is None:
+        return
+    resolved_type = LicenseType(license_type)
+    resolved_coverage = MaintenanceCoverage(maintenance_coverage)
+    if resolved_coverage != MaintenanceCoverage.separately_tracked:
+        return
+    if resolved_type in MAINTENANCE_PARENT_TYPES:
+        return
+    raise ValueError(
+        "Separately tracked maintenance/support is only valid for perpetual, oem, or freeware Licenses. "
+        "Use included coverage for subscription or SaaS support bundled into the term."
+    )

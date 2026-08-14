@@ -110,6 +110,12 @@ _HEADER_MAP: dict[str, str] = {
     "portal_url": "portal_url",  # "Portal URL"
     "maintenance_coverage": "maintenance_coverage",
     "maintenance_support_coverage": "maintenance_coverage",  # "Maintenance / Support Coverage"
+    "includes_maintenance": "maintenance_coverage",
+    "include_maintenance": "maintenance_coverage",
+    "maintenance_included": "maintenance_coverage",
+    "purchase_includes_maintenance": "maintenance_coverage",
+    "purchase_includes_support": "maintenance_coverage",
+    "includes_support": "maintenance_coverage",
 }
 
 _FALLBACK_HEADER_ALIASES: frozenset[str] = frozenset(
@@ -195,6 +201,16 @@ _VALID_MAINTENANCE_COVERAGE = {
     "not_applicable",
     "included",
     "separately_tracked",
+}
+_MAINTENANCE_COVERAGE_VALUE_ALIASES = {
+    "true": "included",
+    "yes": "included",
+    "y": "included",
+    "1": "included",
+    "false": "",
+    "no": "",
+    "n": "",
+    "0": "",
 }
 
 _TOTAL_PRICE_MISMATCH_RATIO = Decimal("10")
@@ -442,6 +458,12 @@ def _normalise_enum_value(raw: str) -> str:
     value = raw.strip().lower()
     value = re.sub(r"[^a-z0-9]+", "_", value)
     return value.strip("_")
+
+
+def _normalise_maintenance_coverage_value(raw: str) -> str | None:
+    normalised = _normalise_enum_value(raw)
+    normalised = _MAINTENANCE_COVERAGE_VALUE_ALIASES.get(normalised, normalised)
+    return normalised or None
 
 
 # Value-level aliases for human labels the LicenseTrack export (pre-round-trip-fix) wrote.
@@ -711,7 +733,7 @@ def _parse_row(
     # -- Optional enrichment fields ----------------------------------------
     portal_url = _field_text(data, "portal_url") or None
 
-    maintenance_coverage_raw = _normalise_enum_value(_field_text(data, "maintenance_coverage"))
+    maintenance_coverage_raw = _normalise_maintenance_coverage_value(_field_text(data, "maintenance_coverage"))
     if maintenance_coverage_raw and maintenance_coverage_raw not in _VALID_MAINTENANCE_COVERAGE:
         warnings.append(f"Unrecognised maintenance_coverage {maintenance_coverage_raw!r}; defaulting to 'unknown'")
         maintenance_coverage_raw = None

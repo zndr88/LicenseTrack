@@ -16,6 +16,7 @@ from app.schemas.custom_fields import CustomFieldValueResponse
 from app.services.email_validation import reject_email_crlf
 from app.services.money import is_canonical_money
 from app.services.procurement_totals import calculate_per_unit_support_total
+from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 
 
 def normalise_invoice_numbers(value: object) -> list[str]:
@@ -158,15 +159,26 @@ class LicenseBase(BaseModel):
         return normalise_secondary_contacts(value)
 
     @model_validator(mode="after")
-    def _calculate_support_total(self) -> "LicenseBase":
+    def _normalise_included_support(self) -> "LicenseBase":
+        data = self.model_dump(by_alias=False)
         if (
             self.maintenance_coverage == MaintenanceCoverage.included
             and self.maintenance_pricing_basis == MaintenancePricingBasis.per_unit
         ):
-            self.maintenance_cost = calculate_per_unit_support_total(
-                self.maintenance_quantity,
-                self.maintenance_unit_price,
+            data["maintenance_cost"] = calculate_per_unit_support_total(
+                data.get("maintenance_quantity"),
+                data.get("maintenance_unit_price"),
             )
+        apply_bundled_included_support_defaults(data)
+        for field in (
+            "maintenance_start_date",
+            "maintenance_end_date",
+            "maintenance_pricing_basis",
+            "maintenance_quantity",
+            "maintenance_unit_price",
+            "maintenance_cost",
+        ):
+            setattr(self, field, data.get(field))
         return self
 
 

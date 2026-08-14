@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from fastapi import HTTPException
 
-from app.models.license import License, LicenseMetric, LicenseType
+from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User, UserRole
@@ -90,6 +90,51 @@ async def test_create_purchase_license_rejects_parent_for_non_maintenance(db_ses
 
     assert exc.value.status_code == 400
     assert "parentLicenseId is only valid" in exc.value.detail
+
+
+async def test_create_purchase_license_rejects_separately_tracked_subscription_support(db_session):
+    data = _license_data(
+        license_type=LicenseType.subscription,
+        maintenance_coverage=MaintenanceCoverage.separately_tracked,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await license_converter.create_purchase_license(
+            db=db_session,
+            item_data=data,
+            created_by=None,
+            created_parent_by_sourcing_item_id={},
+            item_id=12,
+        )
+
+    assert exc.value.status_code == 400
+    assert "Use included coverage" in exc.value.detail
+
+
+async def test_create_purchase_license_mirrors_bundled_subscription_support(db_session):
+    data = _license_data(
+        license_type=LicenseType.subscription,
+        maintenance_coverage=MaintenanceCoverage.included,
+        maintenance_start_date=date(2025, 1, 1),
+        maintenance_end_date=date(2025, 12, 31),
+        maintenance_cost="999.00",
+        unit_price="300.00",
+        total_po_price="3600.00",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+    )
+
+    new_license = await license_converter.create_purchase_license(
+        db=db_session,
+        item_data=data,
+        created_by=None,
+        created_parent_by_sourcing_item_id={},
+        item_id=13,
+    )
+
+    assert new_license.maintenance_start_date == date(2026, 1, 1)
+    assert new_license.maintenance_end_date == date(2026, 12, 31)
+    assert new_license.maintenance_cost == "3600.00"
 
 
 async def test_create_maintenance_purchase_uses_created_parent_map(db_session):

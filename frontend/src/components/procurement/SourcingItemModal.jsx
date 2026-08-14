@@ -17,6 +17,7 @@ import PluginSlot from "../plugins/PluginSlot.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
   supportsMaintenanceCoverage,
+  supportsSeparateMaintenanceLine,
 } from "./MaintenanceCoverageFields.jsx";
 
 const schema = z.object({
@@ -175,6 +176,9 @@ const SourcingItemModal = ({
   const maintenanceQuantity = watch("maintenanceQuantity");
   const maintenanceUnitPrice = watch("maintenanceUnitPrice");
   const maintenanceCost = watch("maintenanceCost");
+  const startDate = watch("startDate");
+  const endDate = watch("endDate");
+  const estimatedTotalPrice = watch("estimatedTotalPrice");
 
   useEffect(() => {
     const qtyStr = (quantity ?? "").trim();
@@ -203,6 +207,11 @@ const SourcingItemModal = ({
     setDisplayTotalPrice("");
     setTotalManuallyEdited(false);
   }, [licenseType, setValue]);
+
+  useEffect(() => {
+    if (supportsSeparateMaintenanceLine(licenseType)) return;
+    setAdditionalLines((prev) => prev.filter((line) => !line.isMaintenanceCompanion));
+  }, [licenseType]);
 
   const publisherVal = watch("publisherName");
   const softwareVal = watch("softwareDescription");
@@ -492,6 +501,9 @@ const SourcingItemModal = ({
             supportUnitPrice={maintenanceUnitPrice}
             cost={maintenanceCost}
             licenseQuantity={quantity}
+            licenseStartDate={startDate}
+            licenseEndDate={endDate}
+            licenseTotalCost={estimatedTotalPrice}
             currency={watch("currency")}
             locale={locale}
             onChange={(field, value) => setValue(field, value, { shouldDirty: true })}

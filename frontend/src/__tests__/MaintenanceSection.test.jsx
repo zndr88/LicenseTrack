@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import MaintenanceSection from "../components/licenses/detail/MaintenanceSection.jsx";
 
@@ -56,5 +56,39 @@ describe("MaintenanceSection", () => {
     );
 
     expect(screen.getByRole("button", { name: /add maintenance \/ support contract/i })).toBeInTheDocument();
+  });
+
+  it("does not offer separate maintenance linking for subscriptions", () => {
+    render(
+      <MaintenanceSection
+        {...baseProps}
+        license={{
+          ...baseProps.license,
+          licenseType: "subscription",
+          maintenanceCoverage: "separately_tracked",
+        }}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: /add maintenance \/ support contract/i })).not.toBeInTheDocument();
+  });
+
+  it("filters separately tracked coverage from subscription coverage edits", () => {
+    const openFieldEdit = vi.fn();
+    render(
+      <MaintenanceSection
+        {...baseProps}
+        openFieldEdit={openFieldEdit}
+        license={{ ...baseProps.license, licenseType: "subscription", maintenanceCoverage: "included" }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /edit coverage/i }));
+
+    expect(openFieldEdit).toHaveBeenCalledWith(expect.objectContaining({
+      selectOptions: expect.not.arrayContaining([
+        expect.objectContaining({ value: "separately_tracked" }),
+      ]),
+    }));
   });
 });

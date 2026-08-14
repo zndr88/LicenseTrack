@@ -194,6 +194,32 @@ describe('DetailPanel commercial details', () => {
   })
 })
 
+describe('DetailPanel maintenance support details', () => {
+  it('shows included support for subscription licenses', async () => {
+    const user = userEvent.setup()
+    render(
+      <DetailPanel
+        {...baseProps}
+        license={{
+          ...baseLicense,
+          licenseType: 'subscription',
+          maintenanceCoverage: 'included',
+          maintenanceStartDate: '2026-01-01',
+          maintenanceEndDate: '2026-12-31',
+          maintenanceCost: '500',
+        }}
+      />
+    )
+
+    await user.click(screen.getByText('Maintenance / Support'))
+
+    expect(screen.getByText('Included')).toBeInTheDocument()
+    expect(screen.getByText('01/01/2026')).toBeInTheDocument()
+    expect(screen.getByText('31/12/2026')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /add maintenance \/ support contract/i })).not.toBeInTheDocument()
+  })
+})
+
 describe('DetailPanel secondary contacts', () => {
   it('edits secondary contacts from the people section', async () => {
     const user = userEvent.setup()

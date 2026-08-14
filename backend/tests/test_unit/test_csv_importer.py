@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.services.csv_importer import build_custom_field_header_map, parse_csv
+from app.services.import_.mapped_parser import parse_mapped_csv
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -111,6 +112,64 @@ def test_flexera_purchase_type_aliases_map_to_license_type(purchase_type, expect
     assert row.license_type == expected
     assert row.import_status == "active"
     assert row.validation_errors == []
+
+
+@pytest.mark.parametrize("value", ["true", "TRUE", "Yes", "y", "1"])
+def test_flexera_includes_maintenance_true_maps_to_included_coverage(value):
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "includes maintenance"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            "includes maintenance": value,
+        }],
+    )
+    result = parse_csv(csv_bytes)
+    row = result.rows[0]
+
+    assert result.headers_found == ["publisher_name", "software_description", "maintenance_coverage"]
+    assert row.maintenance_coverage == "included"
+    assert row.warnings == []
+
+
+@pytest.mark.parametrize("value", ["false", "FALSE", "No", "n", "0", ""])
+def test_flexera_includes_maintenance_false_leaves_coverage_defaultable(value):
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "includes maintenance"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            "includes maintenance": value,
+        }],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.maintenance_coverage is None
+    assert row.warnings == []
+
+
+def test_mapped_import_boolean_maintenance_flag_maps_to_included_coverage():
+    csv_bytes = _csv(
+        ["Publisher", "Description", "Includes Maintenance"],
+        [{
+            "Publisher": "Acme",
+            "Description": "Widget",
+            "Includes Maintenance": "true",
+        }],
+    )
+    result, _ = parse_mapped_csv(
+        csv_bytes,
+        {
+            "Publisher": "publisher_name",
+            "Description": "software_description",
+            "Includes Maintenance": "maintenance_coverage",
+        },
+        default_currency="EUR",
+    )
+    row = result.rows[0]
+
+    assert row.maintenance_coverage == "included"
+    assert row.warnings == []
 
 
 def test_item_fallback_does_not_override_explicit_software_description():

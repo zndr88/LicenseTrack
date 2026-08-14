@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from app.models.license import MaintenanceCoverage
 from app.services.money import MoneyParseError, parse_money
+from app.services.support_coverage_defaults import is_bundled_included_support
 
 
 def _optional_money(value: object) -> Decimal | None:
@@ -16,7 +17,10 @@ def procurement_line_total(item: object) -> Decimal | None:
     acquisition_total = _optional_money(getattr(item, "estimated_total_price", None))
     support_total = None
     coverage = getattr(item, "maintenance_coverage", None)
-    if coverage == MaintenanceCoverage.included or coverage == MaintenanceCoverage.included.value:
+    if (
+        (coverage == MaintenanceCoverage.included or coverage == MaintenanceCoverage.included.value)
+        and not is_bundled_included_support(getattr(item, "license_type", None), coverage)
+    ):
         support_total = _optional_money(getattr(item, "maintenance_cost", None))
 
     if acquisition_total is None and support_total is None:

@@ -411,6 +411,38 @@ describe("ConvertPendingOrderModal", () => {
     }, null);
   });
 
+  test("included subscription support mirrors conversion term and PO total", async () => {
+    const user = userEvent.setup();
+    const { onConfirm } = renderModal({
+      prefill: {
+        ...PREFILL,
+        licenseType: "subscription",
+        maintenanceCoverage: "unknown",
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+        unitPrice: "50.00",
+        totalPoPrice: "500.00",
+      },
+    });
+
+    await user.selectOptions(screen.getByLabelText(/^coverage$/i), "included");
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/coverage start/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/coverage end/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/total support cost/i)).not.toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /confirm & create license/i }));
+
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+    expect(onConfirm.mock.calls[0][0]).toEqual(expect.objectContaining({
+      maintenanceCoverage: "included",
+      maintenanceStartDate: "2026-01-01",
+      maintenanceEndDate: "2026-12-31",
+      maintenanceCost: "500.00",
+    }));
+  });
+
   test("perpetual checkbox keeps end date valid and sets license type", async () => {
     const user = userEvent.setup();
     const { onConfirm } = renderModal({

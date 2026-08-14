@@ -1,6 +1,11 @@
+import { isBundledIncludedSupport } from "./maintenanceCoverage.js";
+
 export function procurementLineTotal(item) {
   const acquisition = item?.estimatedTotalPrice;
-  const support = item?.maintenanceCoverage === "included" ? item?.maintenanceCost : null;
+  const support = item?.maintenanceCoverage === "included" &&
+    !isBundledIncludedSupport(item?.licenseType, item?.maintenanceCoverage)
+    ? item?.maintenanceCost
+    : null;
   const hasAcquisition = acquisition !== null && acquisition !== undefined && acquisition !== "";
   const hasSupport = support !== null && support !== undefined && support !== "";
   if (!hasAcquisition && !hasSupport) return null;

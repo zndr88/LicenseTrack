@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
 from app.services.csv_importer import ParsedRow
 from app.services.maintenance_service import validate_parent_license
-from app.services.maintenance_rules import default_maintenance_coverage
+from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
+from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 
 
 async def build_license(
@@ -85,41 +86,47 @@ async def build_license(
         if row.maintenance_coverage
         else default_maintenance_coverage(license_type)
     )
+    assert_coverage_allowed_for_type(license_type, resolved_maintenance_coverage)
+
+    data = {
+        "publisher_name": row.publisher_name or "Unknown",
+        "software_description": row.software_description or "Unknown",
+        "license_type": license_type,
+        "license_metric": LicenseMetric(row.license_metric) if row.license_metric else LicenseMetric.per_user,
+        "maintenance_coverage": resolved_maintenance_coverage,
+        "portal_url": row.portal_url,
+        "quantity": row.quantity,
+        "quantity_per_unit": row.quantity_per_unit or "1",
+        "sku_code": row.sku_code,
+        "unit_price": row.unit_price,
+        "total_po_price": row.total_po_price,
+        "currency": row.currency,
+        "start_date": row.db_start_date,
+        "end_date": None if license_type == LicenseType.perpetual else row.db_end_date,
+        "notice_date": row.db_notice_date,
+        "request_date": row.db_request_date,
+        "purchase_date": row.db_purchase_date,
+        "contract_number": row.contract_number,
+        "po_number": row.po_number,
+        "procurement_reference": row.procurement_reference,
+        "invoice_number": row.invoice_number,
+        "invoice_numbers": [row.invoice_number] if row.invoice_number else [],
+        "contact_email": row.contact_email,
+        "supplier": row.supplier,
+        "cost_centre": row.cost_centre,
+        "budget_owner_email": row.budget_owner_email,
+        "secondary_contacts": row.secondary_contacts,
+        "notes": row.notes,
+        "is_retired": False,
+        "lifecycle_status": row.lifecycle_status,
+        "is_completeness_exempt": row.is_completeness_exempt,
+        "created_by": user_id,
+        "external_ref": row.external_ref if row.external_ref else None,
+        "parent_license_id": parent_license_id,
+        "predecessor_id": predecessor_id,
+    }
+    apply_bundled_included_support_defaults(data)
 
     return License(
-        publisher_name=row.publisher_name or "Unknown",
-        software_description=row.software_description or "Unknown",
-        license_type=license_type,
-        license_metric=LicenseMetric(row.license_metric) if row.license_metric else LicenseMetric.per_user,
-        maintenance_coverage=resolved_maintenance_coverage,
-        portal_url=row.portal_url,
-        quantity=row.quantity,
-        quantity_per_unit=row.quantity_per_unit or "1",
-        sku_code=row.sku_code,
-        unit_price=row.unit_price,
-        total_po_price=row.total_po_price,
-        currency=row.currency,
-        start_date=row.db_start_date,
-        end_date=None if license_type == LicenseType.perpetual else row.db_end_date,
-        notice_date=row.db_notice_date,
-        request_date=row.db_request_date,
-        purchase_date=row.db_purchase_date,
-        contract_number=row.contract_number,
-        po_number=row.po_number,
-        procurement_reference=row.procurement_reference,
-        invoice_number=row.invoice_number,
-        invoice_numbers=[row.invoice_number] if row.invoice_number else [],
-        contact_email=row.contact_email,
-        supplier=row.supplier,
-        cost_centre=row.cost_centre,
-        budget_owner_email=row.budget_owner_email,
-        secondary_contacts=row.secondary_contacts,
-        notes=row.notes,
-        is_retired=False,
-        lifecycle_status=row.lifecycle_status,
-        is_completeness_exempt=row.is_completeness_exempt,
-        created_by=user_id,
-        external_ref=row.external_ref if row.external_ref else None,
-        parent_license_id=parent_license_id,
-        predecessor_id=predecessor_id,
+        **data,
     )

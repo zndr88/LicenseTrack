@@ -265,6 +265,9 @@ export default function ConvertItemForm({
             supportUnitPrice={wi.maintenanceUnitPrice}
             cost={wi.maintenanceCost}
             licenseQuantity={wi.quantity}
+            licenseStartDate={wi.startDate}
+            licenseEndDate={wi.isPerpetual ? "" : wi.endDate}
+            licenseTotalCost={wi.totalPoPrice}
             currency={wi.currency}
             locale={locale}
             onChange={(field, value) => setValue(`items.${idx}.${field}`, value, { shouldDirty: true })}

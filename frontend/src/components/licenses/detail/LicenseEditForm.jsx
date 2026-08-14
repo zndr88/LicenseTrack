@@ -1,6 +1,11 @@
 import { formatPriceInput } from "../../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../../utils/formatting.js";
-import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES, MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
+import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../../constants/licenseData.js";
+import {
+  defaultMaintenanceCoverageForLicenseType,
+  maintenanceCoverageOptionsForLicenseType,
+  supportsMaintenanceCoverage,
+} from "../../../utils/maintenanceCoverage.js";
 import Icon from "../../ui/Icon.jsx";
 
 /**
@@ -19,6 +24,12 @@ export default function LicenseEditForm({
   onCancel,
 }) {
   const noticeAfterEnd = Boolean(editFields.noticeDate && editFields.endDate && editFields.noticeDate > editFields.endDate);
+  const maintenanceCoverageOptions = maintenanceCoverageOptionsForLicenseType(editFields.licenseType);
+  const maintenanceCoverageValue = maintenanceCoverageOptions.some(
+    (option) => option.value === editFields.maintenanceCoverage
+  )
+    ? editFields.maintenanceCoverage
+    : "unknown";
 
   return (
     <div className="dp-edit-form">
@@ -92,7 +103,18 @@ export default function LicenseEditForm({
           <label htmlFor="license-edit-type">License Type</label>
           <select id="license-edit-type" className="fi fi-select" value={editFields.licenseType} onChange={(e) => {
             const t = e.target.value;
-            setEditFields((p) => ({ ...p, licenseType: t, ...(t !== "saas" ? { portalUrl: "" } : {}) }));
+            setEditFields((p) => {
+              const options = maintenanceCoverageOptionsForLicenseType(t);
+              const nextCoverage = options.some((option) => option.value === p.maintenanceCoverage)
+                ? p.maintenanceCoverage
+                : defaultMaintenanceCoverageForLicenseType(t);
+              return {
+                ...p,
+                licenseType: t,
+                maintenanceCoverage: nextCoverage,
+                ...(t !== "saas" ? { portalUrl: "" } : {}),
+              };
+            });
           }}>
             <option value="">—</option>
             {LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -112,11 +134,11 @@ export default function LicenseEditForm({
           <input id="license-edit-portal-url" className="fi" value={editFields.portalUrl || ""} onChange={(e) => setEditFields((p) => ({ ...p, portalUrl: e.target.value }))} placeholder="https://..." />
         </div>
       )}
-      {["perpetual", "oem", "freeware"].includes(editFields.licenseType) && (
+      {supportsMaintenanceCoverage(editFields.licenseType) && (
         <div className="fg">
           <label htmlFor="license-edit-maintenance-coverage">Maintenance / Support Coverage</label>
-          <select id="license-edit-maintenance-coverage" className="fi fi-select" value={editFields.maintenanceCoverage || "unknown"} onChange={(e) => setEditFields((p) => ({ ...p, maintenanceCoverage: e.target.value }))}>
-            {MAINTENANCE_COVERAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          <select id="license-edit-maintenance-coverage" className="fi fi-select" value={maintenanceCoverageValue} onChange={(e) => setEditFields((p) => ({ ...p, maintenanceCoverage: e.target.value }))}>
+            {maintenanceCoverageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </div>
       )}

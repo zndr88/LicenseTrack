@@ -14,6 +14,7 @@ from app.services.maintenance_rules import (
     assert_active_maintenance_allows_retirement,
     assert_active_maintenance_allows_coverage_change,
     assert_active_maintenance_allows_type_change,
+    assert_coverage_allowed_for_type,
     assert_maintenance_requires_parent,
     assert_non_maintenance_has_no_parent,
     assert_parent_not_retired,
@@ -192,3 +193,19 @@ def test_active_maintenance_requires_separately_tracked_coverage():
     with pytest.raises(ValueError, match="active maintenance/support record"):
         assert_active_maintenance_allows_coverage_change(2, MaintenanceCoverage.included)
     assert_active_maintenance_allows_coverage_change(2, MaintenanceCoverage.separately_tracked)
+
+
+@pytest.mark.parametrize("license_type", [LicenseType.subscription, LicenseType.saas])
+def test_recurring_types_allow_included_coverage(license_type):
+    assert_coverage_allowed_for_type(license_type, MaintenanceCoverage.included)
+
+
+@pytest.mark.parametrize("license_type", [LicenseType.subscription, LicenseType.saas])
+def test_recurring_types_reject_separately_tracked_coverage(license_type):
+    with pytest.raises(ValueError, match="Use included coverage"):
+        assert_coverage_allowed_for_type(license_type, MaintenanceCoverage.separately_tracked)
+
+
+@pytest.mark.parametrize("license_type", [LicenseType.perpetual, LicenseType.oem, LicenseType.freeware])
+def test_parent_types_allow_separately_tracked_coverage(license_type):
+    assert_coverage_allowed_for_type(license_type, MaintenanceCoverage.separately_tracked)

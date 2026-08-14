@@ -10,7 +10,7 @@ import { parseLocalizedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
-  supportsMaintenanceCoverage,
+  supportsSeparateMaintenanceLine,
 } from "../procurement/MaintenanceCoverageFields.jsx";
 
 const PRIMARY_LINE_ID = "primary";
@@ -422,7 +422,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                       setDisplayUnitPrice("");
                       setDisplayTotalPrice("");
                     }
-                    if (!supportsMaintenanceCoverage(next)) {
+                    if (!supportsSeparateMaintenanceLine(next)) {
                       removeMaintenanceCompanion(PRIMARY_LINE_ID);
                     }
                   }}>
@@ -452,6 +452,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             supportUnitPrice={form.maintenanceUnitPrice}
             cost={form.maintenanceCost}
             licenseQuantity={form.quantity}
+            licenseStartDate={form.startDate}
+            licenseEndDate={form.isPerpetual ? "" : form.endDate}
+            licenseTotalCost={form.totalPoPrice}
             currency={form.currency}
             locale={locale}
             onChange={updatePrimaryMaintenance}
@@ -567,7 +570,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                         updateLine(line.id, "unitPrice", "");
                         updateLine(line.id, "totalPoPrice", "");
                       }
-                      if (!supportsMaintenanceCoverage(next)) {
+                      if (!supportsSeparateMaintenanceLine(next)) {
                         removeMaintenanceCompanion(line.id);
                       }
                     }}>
@@ -597,6 +600,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 supportUnitPrice={line.maintenanceUnitPrice}
                 cost={line.maintenanceCost}
                 licenseQuantity={line.quantity}
+                licenseStartDate={line.startDate}
+                licenseEndDate={line.isPerpetual ? "" : line.endDate}
+                licenseTotalCost={line.totalPoPrice}
                 currency={line.currency}
                 locale={locale}
                 onChange={(field, value) => updateLineMaintenance(line.id, field, value)}

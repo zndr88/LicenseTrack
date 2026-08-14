@@ -33,6 +33,7 @@ from app.services.maintenance_rules import (
     assert_active_maintenance_allows_retirement,
     assert_active_maintenance_allows_coverage_change,
     assert_active_maintenance_allows_type_change,
+    assert_coverage_allowed_for_type,
     default_maintenance_coverage,
     assert_maintenance_requires_parent,
     assert_non_maintenance_has_no_parent,
@@ -43,6 +44,7 @@ from app.services.maintenance_service import (
     validate_parent_license,
 )
 from app.services.money import is_canonical_money
+from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +94,14 @@ DATETIME_PATCH_FIELDS = {"requestDate", "purchaseDate"}
 EMAIL_PATCH_FIELDS = {"contactEmail", "budgetOwnerEmail"}
 NUMERIC_PATCH_FIELDS = {"quantity", "quantityPerUnit", "unitPrice", "totalPoPrice"}
 MAINTENANCE_COVERAGE_VALUES = {coverage.value for coverage in MaintenanceCoverage}
+BUNDLED_SUPPORT_MIRROR_FIELDS = (
+    "maintenance_start_date",
+    "maintenance_end_date",
+    "maintenance_pricing_basis",
+    "maintenance_quantity",
+    "maintenance_unit_price",
+    "maintenance_cost",
+)
 
 
 def _is_valid_email(value: str) -> bool:
@@ -145,6 +155,31 @@ def normalise_perpetual_end_date(update_data: dict) -> None:
         update_data["end_date"] = None
 
 
+def _apply_bundled_support_defaults_to_create_data(create_data: dict) -> None:
+    apply_bundled_included_support_defaults(create_data)
+
+
+def _sync_bundled_support_defaults_on_license(license_obj: License) -> None:
+    data = {
+        "license_type": license_obj.license_type,
+        "maintenance_coverage": license_obj.maintenance_coverage,
+        "start_date": license_obj.start_date,
+        "end_date": license_obj.end_date,
+        "quantity": license_obj.quantity,
+        "unit_price": license_obj.unit_price,
+        "total_po_price": license_obj.total_po_price,
+        "maintenance_start_date": license_obj.maintenance_start_date,
+        "maintenance_end_date": license_obj.maintenance_end_date,
+        "maintenance_pricing_basis": license_obj.maintenance_pricing_basis,
+        "maintenance_quantity": license_obj.maintenance_quantity,
+        "maintenance_unit_price": license_obj.maintenance_unit_price,
+        "maintenance_cost": license_obj.maintenance_cost,
+    }
+    apply_bundled_included_support_defaults(data)
+    for field in BUNDLED_SUPPORT_MIRROR_FIELDS:
+        setattr(license_obj, field, data.get(field))
+
+
 def _clear_notice_handled_if_date_changed(license_obj: License, update_data: dict) -> None:
     """Treat a changed notice date as a new reminder obligation."""
     if "notice_date" not in update_data:
@@ -194,9 +229,14 @@ async def create_license_record(
     create_data["maintenance_coverage"] = create_data.get("maintenance_coverage") or default_maintenance_coverage(
         payload.license_type
     )
+    try:
+        assert_coverage_allowed_for_type(payload.license_type, create_data["maintenance_coverage"])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     if payload.license_type == LicenseType.freeware:
         create_data["unit_price"] = ""
         create_data["total_po_price"] = ""
+    _apply_bundled_support_defaults_to_create_data(create_data)
 
     # F1: chain and lifecycle fields cannot be set at create time.
     _CREATE_CHAIN_FIELDS = REPAIR_ONLY_UPDATE_FIELDS
@@ -278,12 +318,20 @@ async def apply_license_update(
 
     new_type = update_data.get("license_type", license_obj.license_type)
     new_parent_id = update_data.get("parent_license_id", license_obj.parent_license_id)
+    try:
+        assert_coverage_allowed_for_type(
+            new_type,
+            update_data.get("maintenance_coverage", license_obj.maintenance_coverage),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     await _validate_maintenance_parent_transition(db, new_type, new_parent_id)
 
     before = {column.name: getattr(license_obj, column.name) for column in license_obj.__table__.columns}
     _clear_notice_handled_if_date_changed(license_obj, update_data)
     for field, value in update_data.items():
         setattr(license_obj, field, value)
+    _sync_bundled_support_defaults_on_license(license_obj)
 
     if "contract_number" in update_data:
         license_obj.contract_id = await _resolve_contract_id(db, update_data.get("contract_number"))
@@ -310,6 +358,9 @@ async def apply_license_update(
         # contract_id is derived from contract_number but set separately above;
         # read from instance __dict__ to avoid any instrumentation lazy-load path
         after["contract_id"] = license_obj.__dict__.get("contract_id", before.get("contract_id"))
+    for field in BUNDLED_SUPPORT_MIRROR_FIELDS:
+        if field in after:
+            after[field] = getattr(license_obj, field)
 
     return license_obj, before, after
 
@@ -407,6 +458,7 @@ async def apply_license_field_patch(
         try:
             new_coverage = MaintenanceCoverage(value)
             assert_active_maintenance_allows_coverage_change(license_obj.active_maintenance_id, new_coverage)
+            assert_coverage_allowed_for_type(license_obj.license_type, new_coverage)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         license_obj.maintenance_coverage = new_coverage
@@ -420,6 +472,7 @@ async def apply_license_field_patch(
     else:
         setattr(license_obj, snake_field, value)
 
+    _sync_bundled_support_defaults_on_license(license_obj)
     await _sync_active_maintenance_parent_if_needed(db, license_obj)
     return license_obj
 
@@ -651,6 +704,7 @@ def apply_license_type_patch(license_obj: License, value: str | None) -> None:
         license_obj.total_po_price = ""
     if new_type == LicenseType.perpetual:
         license_obj.end_date = None
+    _sync_bundled_support_defaults_on_license(license_obj)
 
 
 async def _validate_maintenance_parent_transition(

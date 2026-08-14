@@ -2,6 +2,10 @@ import { disableMaintenance, getMaintenanceForParent } from "../../../api/licens
 import { formatCost } from "../../../utils/helpers.js";
 import { formatDate } from "../../../utils/formatting.js";
 import { MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
+import {
+  maintenanceCoverageOptionsForLicenseType,
+  supportsSeparateMaintenanceLine,
+} from "../../../utils/maintenanceCoverage.js";
 import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
@@ -30,7 +34,7 @@ export default function MaintenanceSection({
   const prior = maintenanceHistory.filter((m) => m.id !== license.activeMaintenanceId);
   const coverage = license.maintenanceCoverage || "unknown";
   const coverageLabel = MAINTENANCE_COVERAGE_OPTIONS.find((option) => option.value === coverage)?.label || coverage;
-  const canLinkSupportRecord = coverage === "separately_tracked";
+  const canLinkSupportRecord = coverage === "separately_tracked" && supportsSeparateMaintenanceLine(license.licenseType);
 
   const handleDisableMaintenance = async () => {
     const { data, error } = await disableMaintenance(license.id);
@@ -64,7 +68,7 @@ export default function MaintenanceSection({
                   fieldLabel: "Maintenance / Support Coverage",
                   currentValue: coverage,
                   inputType: "select",
-                  selectOptions: MAINTENANCE_COVERAGE_OPTIONS,
+                  selectOptions: maintenanceCoverageOptionsForLicenseType(license.licenseType),
                 })}
               >
                 <Icon name="edit" size={12} /> Edit coverage

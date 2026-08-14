@@ -4,7 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.license import License, LicenseType
 from app.services.conversion.maintenance_linker import create_maintenance_purchase
 from app.services.license_service import generate_license_ref
-from app.services.maintenance_rules import default_maintenance_coverage
+from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
+from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 
 
 async def create_purchase_license(
@@ -39,6 +40,11 @@ async def create_purchase_license(
     item_data["maintenance_coverage"] = item_data.get("maintenance_coverage") or default_maintenance_coverage(
         license_type
     )
+    try:
+        assert_coverage_allowed_for_type(license_type, item_data["maintenance_coverage"])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Item {item_id}: {exc}")
+    apply_bundled_included_support_defaults(item_data)
     if item_data.get("parent_license_id") is not None:
         raise HTTPException(
             status_code=400,

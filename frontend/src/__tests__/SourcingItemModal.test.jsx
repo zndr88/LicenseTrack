@@ -214,6 +214,41 @@ describe("onSave payload shape", () => {
     }));
   });
 
+  test("subscription lines can capture included support without separate maintenance", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderModal({
+      item: {
+        ...VALID_ITEM,
+        licenseType: "subscription",
+        estimatedUnitPrice: "50.00",
+        estimatedTotalPrice: "500.00",
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+      },
+    });
+
+    const coverage = screen.getByLabelText(/^coverage$/i);
+    expect(coverage).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /separately tracked/i })).not.toBeInTheDocument();
+
+    await user.selectOptions(coverage, "included");
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/coverage start/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/coverage end/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/total support cost/i)).not.toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].items[0]).toEqual(expect.objectContaining({
+      licenseType: "subscription",
+      maintenanceCoverage: "included",
+      maintenanceStartDate: "2026-01-01",
+      maintenanceEndDate: "2026-12-31",
+      maintenanceCost: "500.00",
+    }));
+  });
+
   test("separately tracked support adds a linked maintenance line", async () => {
     const user = userEvent.setup();
     const { onSave } = renderModal({

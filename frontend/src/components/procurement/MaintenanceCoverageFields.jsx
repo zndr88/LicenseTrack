@@ -1,16 +1,19 @@
-import { MAINTENANCE_COVERAGE_OPTIONS } from "../../constants/licenseData.js";
+import { useEffect } from "react";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
-
-const ELIGIBLE_LICENSE_TYPES = new Set(["freeware", "perpetual", "oem"]);
-
-export function supportsMaintenanceCoverage(licenseType) {
-  return ELIGIBLE_LICENSE_TYPES.has(licenseType);
-}
+import {
+  defaultMaintenanceCoverageForLicenseType,
+  isBundledIncludedSupport,
+  maintenanceCoverageOptionsForLicenseType,
+  supportsMaintenanceCoverage,
+  supportsSeparateMaintenanceLine,
+} from "../../utils/maintenanceCoverage.js";
 
 export function isFreewareLicenseType(licenseType) {
   return licenseType === "freeware";
 }
+
+export { supportsMaintenanceCoverage, supportsSeparateMaintenanceLine };
 
 function multiplyCanonical(left, right, locale) {
   const settings = { numberFormatLocale: locale };
@@ -36,12 +39,67 @@ export default function MaintenanceCoverageFields({
   supportUnitPrice = "",
   cost = "",
   licenseQuantity = "",
+  licenseStartDate = "",
+  licenseEndDate = "",
+  licenseTotalCost = "",
   currency = "EUR",
   locale = "en-US",
   onChange,
   onAddSeparate,
   separateLineAdded = false,
 }) {
+  const canAddSeparateLine = supportsSeparateMaintenanceLine(licenseType);
+  const coverageOptions = maintenanceCoverageOptionsForLicenseType(licenseType);
+  const bundledIncludedSupport = isBundledIncludedSupport(licenseType, coverage);
+
+  useEffect(() => {
+    if (!supportsMaintenanceCoverage(licenseType) || coverage !== "separately_tracked" || canAddSeparateLine) return;
+    onChange("maintenanceCoverage", defaultMaintenanceCoverageForLicenseType(licenseType));
+    onChange("maintenanceStartDate", "");
+    onChange("maintenanceEndDate", "");
+    onChange("maintenancePricingBasis", "flat");
+    onChange("maintenanceQuantity", "");
+    onChange("maintenanceUnitPrice", "");
+    onChange("maintenanceCost", "");
+  }, [coverage, canAddSeparateLine, licenseType, onChange]);
+
+  useEffect(() => {
+    if (!bundledIncludedSupport) return;
+    const nextStartDate = licenseStartDate || "";
+    const nextEndDate = licenseEndDate || "";
+    const nextCost = licenseTotalCost || "";
+    if ((startDate || "") !== nextStartDate) {
+      onChange("maintenanceStartDate", nextStartDate);
+    }
+    if ((endDate || "") !== nextEndDate) {
+      onChange("maintenanceEndDate", nextEndDate);
+    }
+    if ((pricingBasis || "flat") !== "flat") {
+      onChange("maintenancePricingBasis", "flat");
+    }
+    if (supportQuantity) {
+      onChange("maintenanceQuantity", "");
+    }
+    if (supportUnitPrice) {
+      onChange("maintenanceUnitPrice", "");
+    }
+    if ((cost || "") !== nextCost) {
+      onChange("maintenanceCost", nextCost);
+    }
+  }, [
+    bundledIncludedSupport,
+    cost,
+    endDate,
+    licenseEndDate,
+    licenseStartDate,
+    licenseTotalCost,
+    onChange,
+    pricingBasis,
+    startDate,
+    supportQuantity,
+    supportUnitPrice,
+  ]);
+
   if (!supportsMaintenanceCoverage(licenseType)) return null;
 
   const updatePerUnitTotal = (quantity, unitPrice) => {
@@ -70,13 +128,13 @@ export default function MaintenanceCoverageFields({
             }
           }}
         >
-          {MAINTENANCE_COVERAGE_OPTIONS.map((option) => (
+          {coverageOptions.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
       </div>
 
-      {coverage === "included" && (
+      {coverage === "included" && !bundledIncludedSupport && (
         <>
           <div className="fr">
             <div className="fg">
@@ -191,7 +249,7 @@ export default function MaintenanceCoverageFields({
         </>
       )}
 
-      {coverage === "separately_tracked" && onAddSeparate && (
+      {coverage === "separately_tracked" && canAddSeparateLine && onAddSeparate && (
         <button
           type="button"
           className="btn btn-g"
