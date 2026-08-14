@@ -245,6 +245,18 @@ class License(Base):
         remote_side="License.id",
         post_update=True,
     )
+    maintenance_parent_links: Mapped[list["LicenseMaintenanceLink"]] = relationship(
+        "LicenseMaintenanceLink",
+        foreign_keys="LicenseMaintenanceLink.maintenance_license_id",
+        back_populates="maintenance_license",
+        cascade="all, delete-orphan",
+    )
+    maintenance_child_links: Mapped[list["LicenseMaintenanceLink"]] = relationship(
+        "LicenseMaintenanceLink",
+        foreign_keys="LicenseMaintenanceLink.parent_license_id",
+        back_populates="parent_license",
+        cascade="all, delete-orphan",
+    )
     source_sourcing_item: Mapped["SourcingItem | None"] = relationship(  # noqa: F821
         "SourcingItem",
         foreign_keys=[source_sourcing_item_id],
@@ -260,3 +272,39 @@ class License(Base):
     def created_by_name(self) -> str | None:
         creator = self.__dict__.get("creator")
         return creator.username if creator is not None else None
+
+
+class LicenseMaintenanceLink(Base):
+    """Association table linking one maintenance license to one parent license."""
+
+    __tablename__ = "license_maintenance_links"
+    __table_args__ = (
+        CheckConstraint(
+            "maintenance_license_id != parent_license_id",
+            name="ck_license_maintenance_link_not_self",
+        ),
+    )
+
+    maintenance_license_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("licenses.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    parent_license_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("licenses.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    maintenance_license: Mapped[License] = relationship(
+        "License",
+        foreign_keys=[maintenance_license_id],
+        back_populates="maintenance_parent_links",
+    )
+    parent_license: Mapped[License] = relationship(
+        "License",
+        foreign_keys=[parent_license_id],
+        back_populates="maintenance_child_links",
+    )

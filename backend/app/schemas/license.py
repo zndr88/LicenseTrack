@@ -331,6 +331,8 @@ class LicenseResponse(LicenseBase):
     source_sourcing_item_id: Optional[int] = None
     notice_handled_at: Optional[datetime] = None
     notice_handled_by_user_id: Optional[int] = None
+    maintenance_parent_ids: list[int] = Field(default_factory=list)
+    linked_maintenance_ids: list[int] = Field(default_factory=list)
 
     # Computed fields - populated server-side, not stored in the database
     effective_quantity: Optional[str] = None

@@ -19,7 +19,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.license import License, LicenseType, MaintenanceCoverage
+from app.models.license import License, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
 from app.services.license_service import calc_line_total, generate_license_ref
 from app.services.maintenance_rules import (
     assert_parent_not_retired,
@@ -122,6 +122,36 @@ async def validate_parent_license(
 # ---------------------------------------------------------------------
 
 
+async def link_maintenance_to_parent(
+    db: AsyncSession,
+    maintenance_license: License,
+    parent: License,
+) -> LicenseMaintenanceLink:
+    """Create the association row linking a maintenance license to a parent."""
+    if maintenance_license.license_type != LicenseType.maintenance:
+        raise ValueError("Only maintenance licenses can be linked to maintenance/support parents")
+    assert_parent_type_eligible(parent)
+    assert_parent_not_retired(parent)
+
+    result = await db.execute(
+        select(LicenseMaintenanceLink).where(
+            LicenseMaintenanceLink.maintenance_license_id == maintenance_license.id,
+            LicenseMaintenanceLink.parent_license_id == parent.id,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing is not None:
+        return existing
+
+    link = LicenseMaintenanceLink(
+        maintenance_license_id=maintenance_license.id,
+        parent_license_id=parent.id,
+    )
+    db.add(link)
+    await db.flush()
+    return link
+
+
 async def create_maintenance_for_parent(
     db: AsyncSession,
     parent: License,
@@ -159,6 +189,7 @@ async def create_maintenance_for_parent(
     db.add(maintenance_license)
     await db.flush()
     maintenance_license.license_ref = await generate_license_ref(db)
+    await link_maintenance_to_parent(db, maintenance_license, parent)
 
     parent.active_maintenance_id = maintenance_license.id
     await sync_parent_mirror_fields(db, parent)

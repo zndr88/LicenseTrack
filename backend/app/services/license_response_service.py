@@ -118,6 +118,16 @@ def enrich_license_response(
     response.effective_quantity = format(effective_quantity, "f") if effective_quantity is not None else None
     if not response.invoice_numbers and response.invoice_number:
         response.invoice_numbers = [response.invoice_number]
+    parent_links = license_obj.__dict__.get("maintenance_parent_links")
+    if parent_links is not None:
+        response.maintenance_parent_ids = sorted({link.parent_license_id for link in parent_links})
+    elif response.parent_license_id is not None:
+        response.maintenance_parent_ids = [response.parent_license_id]
+    child_links = license_obj.__dict__.get("maintenance_child_links")
+    if child_links is not None:
+        response.linked_maintenance_ids = sorted({link.maintenance_license_id for link in child_links})
+    elif response.active_maintenance_id is not None:
+        response.linked_maintenance_ids = [response.active_maintenance_id]
     creator = license_obj.__dict__.get("creator")
     response.created_by_name = creator.username if creator is not None else None
     response.created_by_email = creator.email if creator is not None else None

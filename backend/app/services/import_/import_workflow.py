@@ -24,7 +24,7 @@ from app.services.import_.maintenance_parenting import infer_batch_maintenance_p
 from app.services.license_service import generate_license_ref
 from app.models.license import License, LicenseType
 from app.services.lifecycle_rules import mark_predecessor_renewed
-from app.services.maintenance_service import sync_parent_mirror_fields
+from app.services.maintenance_service import link_maintenance_to_parent, sync_parent_mirror_fields
 
 log = logging.getLogger(__name__)
 
@@ -247,6 +247,7 @@ async def run_import_rows(
                     if license_obj.license_type == LicenseType.maintenance and license_obj.parent_license_id is not None:
                         parent = await db.get(License, license_obj.parent_license_id)
                         if parent is not None:
+                            await link_maintenance_to_parent(db, license_obj, parent)
                             parent.active_maintenance_id = license_obj.id
                             await sync_parent_mirror_fields(db, parent)
                     persisted_license_id = license_obj.id

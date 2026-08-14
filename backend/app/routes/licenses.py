@@ -1,14 +1,14 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from sqlalchemy import select
+from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import CurrentUser, require_admin, require_editor_or_admin
 from app.models.document import Document
-from app.models.license import License
+from app.models.license import License, LicenseMaintenanceLink
 from app.models.user import User
 from app.schemas.license import (
     BulkDeleteRequest,
@@ -118,11 +118,24 @@ async def list_licenses(
 
     departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
 
-    query = select(License).options(selectinload(License.documents), selectinload(License.creator))
+    query = select(License).options(
+        selectinload(License.documents),
+        selectinload(License.creator),
+        selectinload(License.maintenance_parent_links),
+        selectinload(License.maintenance_child_links),
+    )
     if not include_retired:
         query = query.where(License.is_retired.is_(False))
     if parent_license_id is not None:
-        query = query.where(License.parent_license_id == parent_license_id)
+        query = query.where(
+            or_(
+                License.parent_license_id == parent_license_id,
+                exists().where(
+                    LicenseMaintenanceLink.maintenance_license_id == License.id,
+                    LicenseMaintenanceLink.parent_license_id == parent_license_id,
+                ),
+            )
+        )
     query = apply_department_filter(query, departments)
     query = query.offset(offset)
     if limit is not None:
@@ -172,7 +185,12 @@ async def get_license(license_id: int, db: DbSession, _current_user: CurrentUser
     result = await db.execute(
         select(License)
         .where(License.id == license_id)
-        .options(selectinload(License.documents), selectinload(License.creator))
+        .options(
+            selectinload(License.documents),
+            selectinload(License.creator),
+            selectinload(License.maintenance_parent_links),
+            selectinload(License.maintenance_child_links),
+        )
     )
     license_obj = result.scalar_one_or_none()
     if license_obj is None:
@@ -223,7 +241,12 @@ async def create_license(
     result = await db.execute(
         select(License)
         .where(License.id == license_obj.id)
-        .options(selectinload(License.documents), selectinload(License.creator))
+        .options(
+            selectinload(License.documents),
+            selectinload(License.creator),
+            selectinload(License.maintenance_parent_links),
+            selectinload(License.maintenance_child_links),
+        )
     )
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
@@ -274,7 +297,12 @@ async def create_license_batch(
     result = await db.execute(
         select(License)
         .where(License.id.in_(created_ids))
-        .options(selectinload(License.documents), selectinload(License.creator))
+        .options(
+            selectinload(License.documents),
+            selectinload(License.creator),
+            selectinload(License.maintenance_parent_links),
+            selectinload(License.maintenance_child_links),
+        )
     )
     created_by_id = {license_obj.id: license_obj for license_obj in result.scalars().all()}
     ordered = [created_by_id[license_id] for license_id in created_ids]
@@ -338,7 +366,12 @@ async def repair_license_lifecycle(
     result = await db.execute(
         select(License)
         .where(License.id == license_id)
-        .options(selectinload(License.documents), selectinload(License.creator))
+        .options(
+            selectinload(License.documents),
+            selectinload(License.creator),
+            selectinload(License.maintenance_parent_links),
+            selectinload(License.maintenance_child_links),
+        )
     )
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
@@ -385,7 +418,12 @@ async def update_license(
     result = await db.execute(
         select(License)
         .where(License.id == license_id)
-        .options(selectinload(License.documents), selectinload(License.creator))
+        .options(
+            selectinload(License.documents),
+            selectinload(License.creator),
+            selectinload(License.maintenance_parent_links),
+            selectinload(License.maintenance_child_links),
+        )
     )
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
@@ -435,7 +473,12 @@ async def mark_notice_handled(
     result = await db.execute(
         select(License)
         .where(License.id == license_id)
-        .options(selectinload(License.documents), selectinload(License.creator))
+        .options(
+            selectinload(License.documents),
+            selectinload(License.creator),
+            selectinload(License.maintenance_parent_links),
+            selectinload(License.maintenance_child_links),
+        )
     )
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
@@ -481,7 +524,12 @@ async def patch_license_field(
     result = await db.execute(
         select(License)
         .where(License.id == license_id)
-        .options(selectinload(License.documents), selectinload(License.creator))
+        .options(
+            selectinload(License.documents),
+            selectinload(License.creator),
+            selectinload(License.maintenance_parent_links),
+            selectinload(License.maintenance_child_links),
+        )
     )
     license_obj = result.scalar_one()
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])

@@ -17,7 +17,7 @@ from sqlalchemy import select
 import app.routes.licenses as licenses_routes
 from app.models.contract import Contract
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
-from app.models.license import License, LicenseMetric, LicenseType, LifecycleStatus
+from app.models.license import License, LicenseMaintenanceLink, LicenseMetric, LicenseType, LifecycleStatus
 from app.models.pending_order import PendingOrder
 from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingStatus
@@ -758,10 +758,58 @@ async def test_create_maintenance_license_accepts_perpetual_parent(test_app, aut
     assert resp.status_code == 201
     assert resp.json()["licenseType"] == "maintenance"
     assert resp.json()["parentLicenseId"] == parent["id"]
+    assert resp.json()["maintenanceParentIds"] == [parent["id"]]
     assert resp.json()["maintenanceCoverage"] == "not_applicable"
 
     parent_resp = await test_app.get(f"/api/licenses/{parent['id']}", headers=auth_headers)
     assert parent_resp.json()["maintenanceCoverage"] == "separately_tracked"
+    assert parent_resp.json()["linkedMaintenanceIds"] == [resp.json()["id"]]
+
+
+async def test_list_licenses_filtered_by_parent_uses_maintenance_links(test_app, auth_headers, db_session):
+    primary_parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        startDate="2025-01-01",
+        endDate=None,
+        softwareDescription="Primary Parent",
+    )
+    secondary_parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        startDate="2025-01-01",
+        endDate=None,
+        softwareDescription="Secondary Parent",
+    )
+    maintenance = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=primary_parent["id"],
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+        softwareDescription="Shared Maintenance",
+    )
+
+    db_session.add(
+        LicenseMaintenanceLink(
+            maintenance_license_id=maintenance["id"],
+            parent_license_id=secondary_parent["id"],
+        )
+    )
+    await db_session.commit()
+
+    resp = await test_app.get(
+        f"/api/licenses?parent_license_id={secondary_parent['id']}",
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert [item["id"] for item in data] == [maintenance["id"]]
+    assert data[0]["maintenanceParentIds"] == [primary_parent["id"], secondary_parent["id"]]
 
 
 async def test_create_maintenance_license_accepts_freeware_parent(test_app, auth_headers):

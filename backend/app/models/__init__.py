@@ -11,7 +11,14 @@ from app.models.custom_fields import CustomFieldDefinition, CustomFieldValue  # 
 from app.models.document import Document, DocumentCategory, ProcurementDocument, ProcurementDocumentCategory  # noqa: F401
 from app.models.document_processing import DocumentProcessingResult  # noqa: F401
 from app.models.extension import ExtensionCapability  # noqa: F401
-from app.models.license import License, LicenseMetric, LicenseType, LifecycleStatus, MaintenanceCoverage  # noqa: F401
+from app.models.license import (  # noqa: F401
+    License,
+    LicenseMaintenanceLink,
+    LicenseMetric,
+    LicenseType,
+    LifecycleStatus,
+    MaintenanceCoverage,
+)
 from app.models.pending_order import PendingOrder, PendingOrderStatus  # noqa: F401
 from app.models.plugin import (  # noqa: F401
     Plugin,
@@ -36,6 +43,7 @@ __all__ = [
     "UserRole",
     "AuthProvider",
     "License",
+    "LicenseMaintenanceLink",
     "LicenseType",
     "MaintenanceCoverage",
     "LicenseMetric",

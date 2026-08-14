@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 
 from app.models.custom_fields import CustomFieldValue
-from app.models.license import License, LicenseType
+from app.models.license import License, LicenseMaintenanceLink, LicenseType
 from app.models.settings import UserSettings
 from app.models.user import User
 
@@ -254,6 +254,13 @@ async def test_confirm_import_maintenance_with_valid_parent_ref_links_license(
     assert parent_after.active_maintenance_id == maintenance.id
     assert parent_after.has_maintenance is True
     assert parent_after.maintenance_coverage.value == "separately_tracked"
+    link_result = await db_session.execute(
+        select(LicenseMaintenanceLink).where(
+            LicenseMaintenanceLink.maintenance_license_id == maintenance.id,
+            LicenseMaintenanceLink.parent_license_id == parent["id"],
+        )
+    )
+    assert link_result.scalar_one_or_none() is not None
 
 
 async def test_confirm_import_persists_request_and_purchase_dates(

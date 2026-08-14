@@ -13,6 +13,12 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+### Added
+
+- Added the backend maintenance-link foundation that lets one maintenance
+  license be associated with multiple perpetual, OEM, or freeware parent
+  licenses while preserving the existing primary-parent compatibility field.
+
 ### Fixed
 
 - Fixed demo bundled included support propagation so subscription and SaaS
