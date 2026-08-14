@@ -49,6 +49,35 @@ def test_valid_minimal_import():
     assert row.warnings == []
 
 
+def test_parse_csv_accepts_excel_semicolon_delimiter():
+    csv_bytes = (
+        "publisher_name;software_description;license_metric\r\n"
+        "Acme;Widget;Custom Metric\r\n"
+    ).encode()
+
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.publisher_name == "Acme"
+    assert row.software_description == "Widget"
+    assert row.license_metric == "other"
+    assert row.import_status == "active"
+
+
+def test_parse_csv_accepts_excel_separator_directive():
+    csv_bytes = (
+        "\ufeffsep=;\r\n"
+        "publisher_name;software_description;license_metric\r\n"
+        "Acme;Widget;Concurrent User\r\n"
+    ).encode()
+
+    result = parse_csv(csv_bytes)
+    row = result.rows[0]
+
+    assert result.headers_found == ["publisher_name", "software_description", "license_metric"]
+    assert row.license_metric == "concurrent"
+    assert row.validation_errors == []
+
+
 @pytest.mark.parametrize("license_type", ["service", "other"])
 def test_native_import_accepts_service_and_other_license_types(license_type):
     csv_bytes = _csv(

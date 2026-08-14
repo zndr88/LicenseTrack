@@ -52,14 +52,27 @@ afterEach(() => {
   capturedCsvContent = ''
 })
 
+function csvLines() {
+  return capturedCsvContent.replace(/^\ufeff/, '').split(/\r?\n/)
+}
+
 describe('exportFilteredCsv', () => {
+  it('emits an Excel-friendly UTF-8 BOM and CRLF row endings', () => {
+    const cols = [{ key: 'publisher', label: 'Publisher' }]
+
+    exportFilteredCsv([makeRow()], cols, 'en-US', 'EUR', [makeRow()], new Map())
+
+    expect(capturedCsvContent.startsWith('\ufeff')).toBe(true)
+    expect(capturedCsvContent).toContain('\r\n')
+  })
+
   it('exports the immutable license row identifier with its canonical header', () => {
     const row = makeRow({ id: 42 })
     const cols = [{ key: 'recordId', label: 'License Record ID' }]
 
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
 
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[0]).toBe('license_record_id')
     expect(lines[1]).toBe('42')
   })
@@ -70,7 +83,7 @@ describe('exportFilteredCsv', () => {
       { key: 'description', label: 'Description' },
     ]
     exportFilteredCsv([makeRow()], cols, 'en-US', 'EUR', [makeRow()], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[0]).toBe('publisher_name,software_description')
   })
 
@@ -81,7 +94,7 @@ describe('exportFilteredCsv', () => {
     ]
     const row = makeRow({ requestDate: '2026-01-15T00:00:00Z', purchaseDate: '2026-02-20T00:00:00Z' })
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[0]).toBe('request_date,purchase_date')
   })
 
@@ -91,7 +104,7 @@ describe('exportFilteredCsv', () => {
 
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
 
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[0]).toBe('total_po_value')
     expect(lines[1]).toBe('500')
   })
@@ -106,7 +119,7 @@ describe('exportFilteredCsv', () => {
 
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
 
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[0]).toBe('quantity,effective_quantity,quantity_per_unit')
     expect(lines[1]).toBe('7,35,5')
   })
@@ -117,7 +130,7 @@ describe('exportFilteredCsv', () => {
       { key: 'description', label: 'Description' },
     ]
     exportFilteredCsv([makeRow()], cols, 'en-US', 'EUR', [makeRow()], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('Acme,Widget Pro')
   })
 
@@ -125,7 +138,7 @@ describe('exportFilteredCsv', () => {
     const row = makeRow({ quantity: null, unitPrice: null })
     const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('')
   })
 
@@ -133,7 +146,7 @@ describe('exportFilteredCsv', () => {
     const row = makeRow({ quantity: '5', unitPrice: '100' })
     const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('500')
   })
 
@@ -141,7 +154,7 @@ describe('exportFilteredCsv', () => {
     const row = makeRow({ softwareDescription: 'Widget, Pro Edition' })
     const cols = [{ key: 'description', label: 'Description' }]
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('"Widget, Pro Edition"')
   })
 
@@ -149,7 +162,7 @@ describe('exportFilteredCsv', () => {
     const row = makeRow({ softwareDescription: 'Say "hello"' })
     const cols = [{ key: 'description', label: 'Description' }]
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('"Say ""hello"""')
   })
 
@@ -157,7 +170,7 @@ describe('exportFilteredCsv', () => {
     const row = makeRow({ softwareDescription: '=HYPERLINK("http://example.test")' })
     const cols = [{ key: 'description', label: 'Description' }]
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('"\'=HYPERLINK(""http://example.test"")"')
   })
 
@@ -167,7 +180,7 @@ describe('exportFilteredCsv', () => {
       { key: 'endDate', label: 'End Date' },
     ]
     exportFilteredCsv([makeRow()], cols, 'en-US', 'EUR', [makeRow()], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[0]).toBe('start_date,end_date')
     expect(lines[1]).toBe('2024-01-01,2025-01-01')
   })
@@ -181,14 +194,14 @@ describe('exportFilteredCsv', () => {
       localized: true,
       userSettings: { dateFormat: 'DD/MM/YYYY' },
     })
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('01/01/2024,01/01/2025')
   })
 
   it('unitPrice exports as canonical decimal in canonical mode', () => {
     const cols = [{ key: 'unitPrice', label: 'Unit Price' }]
     exportFilteredCsv([makeRow()], cols, 'en-US', 'EUR', [makeRow()], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('100')
   })
 
@@ -198,7 +211,7 @@ describe('exportFilteredCsv', () => {
       localized: true,
       userSettings: { numberFormatLocale: 'nl-BE' },
     })
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     // nl-BE uses comma as decimal separator
     expect(lines[1]).toBe('"100,00"')
   })
@@ -209,7 +222,7 @@ describe('exportFilteredCsv', () => {
     const row = makeRow({ id: 42 })
     const valuesMap = new Map([[42, [{ customFieldDefId: 1, valueText: 'IT Dept' }]]])
     exportFilteredCsv([row], [col], 'en-US', 'EUR', [row], valuesMap)
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('IT Dept')
   })
 
@@ -223,7 +236,7 @@ describe('exportFilteredCsv', () => {
       stableCustomFieldHeaders: true,
     })
 
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[0]).toBe('cf_contract_owner')
     expect(lines[1]).toBe('Alice')
   })
@@ -233,7 +246,7 @@ describe('exportFilteredCsv', () => {
     const col = { key: 'cf_owner', label: 'Owner', _cfDef: cfDef }
     const row = makeRow({ id: 99 })
     exportFilteredCsv([row], [col], 'en-US', 'EUR', [row], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('')
   })
 
@@ -248,7 +261,7 @@ describe('exportFilteredCsv', () => {
     ])
 
     exportFilteredCsv(rows, [col], 'en-US', 'EUR', rows, valuesMap)
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('true')
     expect(lines[2]).toBe('false')
     expect(lines[3]).toBe('')
@@ -257,7 +270,7 @@ describe('exportFilteredCsv', () => {
   it('unknown column key produces empty cell', () => {
     const cols = [{ key: 'nonexistent', label: 'X' }]
     exportFilteredCsv([makeRow()], cols, 'en-US', 'EUR', [makeRow()], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('')
   })
 
@@ -265,7 +278,7 @@ describe('exportFilteredCsv', () => {
     const cols = [{ key: 'publisher', label: 'Publisher' }]
     const rows = [makeRow({ publisherName: 'Acme' }), makeRow({ publisherName: 'Contoso' })]
     exportFilteredCsv(rows, cols, 'en-US', 'EUR', rows, new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines).toHaveLength(3) // header + 2 data rows
     expect(lines[1]).toBe('Acme')
     expect(lines[2]).toBe('Contoso')
@@ -283,7 +296,7 @@ describe('exportFilteredCsv', () => {
       { key: 'publisher', label: 'Publisher' },
     ]
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[0]).toBe('license_ref,external_ref,currency,publisher_name')
     expect(lines[1]).toBe('LT-2026-00001,EXT-123,EUR,Acme')
   })
@@ -300,7 +313,7 @@ describe('exportFilteredCsv', () => {
       { key: 'createdAt', label: 'Created' },
     ]
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
-    const lines = capturedCsvContent.split('\n')
+    const lines = csvLines()
     expect(lines[1]).toBe('A long note that must remain complete in CSV exports.,admin,2026-05-01T10:15:00Z')
   })
 })

@@ -180,7 +180,7 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
     headers.map(escape).join(","),
     ...dataRows.map((row) => row.map(escape).join(",")),
   ];
-  const csvContent = csvLines.join("\n");
+  const csvContent = `\ufeff${csvLines.join("\r\n")}`;
 
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);

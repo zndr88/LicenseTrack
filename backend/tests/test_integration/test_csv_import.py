@@ -2002,6 +2002,33 @@ async def test_execute_clean_import_succeeds_without_acknowledgement(test_app, a
     assert resp.json()["warningSummary"]["hasWarnings"] is False
 
 
+async def test_execute_mapped_import_accepts_excel_semicolon_csv(test_app, auth_headers):
+    """Mapped import uses the same Excel-friendly CSV dialect handling as native import."""
+    csv_bytes = (
+        "Publisher;Description;Type;Metric;Currency\r\n"
+        "Acme;Suite;subscription;Custom Metric;EUR\r\n"
+    ).encode()
+    mapping = [
+        {"rawHeader": "Publisher", "target": "publisher_name"},
+        {"rawHeader": "Description", "target": "software_description"},
+        {"rawHeader": "Type", "target": "license_type"},
+        {"rawHeader": "Metric", "target": "license_metric"},
+        {"rawHeader": "Currency", "target": "currency"},
+    ]
+
+    resp = await test_app.post(
+        "/api/import/execute",
+        headers=auth_headers,
+        files={"file": ("excel.csv", csv_bytes, "text/csv")},
+        data={"mapping_json": json.dumps({"mapping": mapping})},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["importedCount"] == 1
+    assert body["skippedCount"] == 0
+
+
 async def test_execute_import_with_warnings_returns_409_without_acknowledgement(
     test_app, auth_headers
 ):

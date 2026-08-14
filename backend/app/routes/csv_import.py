@@ -13,8 +13,6 @@ Editor and admin roles required for all write endpoints.
 
 from __future__ import annotations
 
-import csv as csv_mod
-import io as io_mod
 import json
 import logging
 from datetime import datetime, timezone
@@ -48,6 +46,7 @@ from app.services.csv_importer import (
     _normalise_header,
     build_custom_field_header_map,
     parse_csv,
+    read_csv_dict_rows,
 )
 from app.services.custom_fields_service import get_all_definitions, validate_imported_custom_rows
 from app.services.import_.import_workflow import (
@@ -57,7 +56,7 @@ from app.services.import_.import_workflow import (
     prepare_import_rows,
     run_import_rows,
 )
-from app.services.import_.mapped_parser import decode_csv, parse_mapped_csv
+from app.services.import_.mapped_parser import parse_mapped_csv
 from app.services.money import SUPPORTED_NUMBER_FORMAT_LOCALES
 
 log = logging.getLogger(__name__)
@@ -128,9 +127,7 @@ def _column_to_target(mapping: list[MappingEntry]) -> dict[str, str]:
 
 def _validate_csv_headers(contents: bytes) -> None:
     """Reject non-empty uploads that do not contain a usable CSV header row."""
-    text = decode_csv(contents)
-    reader = csv_mod.DictReader(io_mod.StringIO(text))
-    headers = list(reader.fieldnames or [])
+    headers, _ = read_csv_dict_rows(contents)
     if not headers or not any(header and header.strip() for header in headers):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -184,16 +181,9 @@ async def analyze_import(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The uploaded file is empty")
     _validate_csv_headers(contents)
 
-    text = decode_csv(contents)
-    reader = csv_mod.DictReader(io_mod.StringIO(text))
-    raw_headers: list[str] = list(reader.fieldnames or [])
-
-    sample_rows: list[dict] = []
-    total_rows = 0
-    for row in reader:
-        total_rows += 1
-        if len(sample_rows) < 3:
-            sample_rows.append(dict(row))
+    raw_headers, all_rows = read_csv_dict_rows(contents)
+    sample_rows = all_rows[:3]
+    total_rows = len(all_rows)
 
     matched_fields: set[str] = set()
     matched_columns: list[ColumnMatch] = []

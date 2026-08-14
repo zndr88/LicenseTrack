@@ -201,6 +201,7 @@ _TOTAL_PRICE_MISMATCH_RATIO = Decimal("10")
 _TOTAL_PRICE_MISMATCH_MIN_DELTA = Decimal("1")
 PRICE_MISMATCH_WARNING_PREFIX = "Calculated total (quantity x unit_price) differs from total_po_price"
 MULTI_VALUE_TARGETS = frozenset({"secondary_contacts"})
+_CSV_DELIMITERS = (",", ";", "\t")
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -789,6 +790,44 @@ def _parse_row(
 # ---------------------------------------------------------------------------
 
 
+def decode_csv(contents: bytes) -> str:
+    """Decode raw CSV bytes, handling UTF-8 BOM and latin-1 fallback."""
+    try:
+        return contents.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return contents.decode("latin-1")
+
+
+def _strip_excel_separator_directive(text: str) -> tuple[str, str | None]:
+    """Return CSV text and an Excel ``sep=`` delimiter override if present."""
+    lines = text.splitlines(keepends=True)
+    if not lines:
+        return text, None
+    first_line = lines[0].strip()
+    if len(first_line) >= 5 and first_line[:4].lower() == "sep=":
+        delimiter = first_line[4]
+        if delimiter in _CSV_DELIMITERS:
+            return "".join(lines[1:]), delimiter
+    return text, None
+
+
+def _detect_csv_delimiter(text: str) -> str:
+    """Detect the delimiter from the header row, defaulting to comma."""
+    for line in text.splitlines():
+        if line.strip():
+            counts = {delimiter: line.count(delimiter) for delimiter in _CSV_DELIMITERS}
+            delimiter, count = max(counts.items(), key=lambda item: item[1])
+            return delimiter if count > 0 else ","
+    return ","
+
+
+def read_csv_dict_rows(contents: bytes) -> tuple[list[str], list[dict[str, str]]]:
+    """Read CSV bytes with LicenseTrack's supported Excel-friendly dialects."""
+    text, delimiter = _strip_excel_separator_directive(decode_csv(contents))
+    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter or _detect_csv_delimiter(text))
+    return list(reader.fieldnames or []), [dict(row) for row in reader]
+
+
 def parse_csv(
     file_contents: bytes,
     default_currency: str = "EUR",
@@ -799,16 +838,10 @@ def parse_csv(
     """Parse *file_contents* (raw bytes of a CSV file) and return a
     ParsedImportResult describing every row.
 
-    Decodes with utf-8-sig so that files saved with a BOM (common from Excel)
-    are handled transparently.
+    Handles UTF-8 BOMs, latin-1 fallback, semicolon and tab delimiters, and
+    Excel's ``sep=;`` style delimiter directive.
     """
-    try:
-        text = file_contents.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        text = file_contents.decode("latin-1")
-
-    reader = csv.DictReader(io.StringIO(text))
-    raw_headers: list[str] = list(reader.fieldnames or [])
+    raw_headers, raw_rows = read_csv_dict_rows(file_contents)
 
     # Build raw_header → native/custom target mapping (first match wins for
     # duplicates, except explicit multi-value targets). Native and ignored
@@ -849,7 +882,7 @@ def parse_csv(
     logger.info("CSV import: parsing started")
     rows: list[ParsedRow] = []
     custom_rows: list[dict[str, str]] = []
-    for row_idx, raw_row in enumerate(reader, start=1):
+    for row_idx, raw_row in enumerate(raw_rows, start=1):
         row_data: dict[str, object] = {}
         for raw_h, target in header_mapping.items():
             if target.startswith("cf_"):

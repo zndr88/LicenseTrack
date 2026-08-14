@@ -1,24 +1,14 @@
 # backend/app/services/import_/mapped_parser.py
 from __future__ import annotations
 
-import csv as csv_mod
-import io as io_mod
-
 from app.services.csv_importer import (
     MULTI_VALUE_TARGETS,
     ParsedImportResult,
     ParsedRow,
     _RECOMMENDED_FIELDS,
     _parse_row,
+    read_csv_dict_rows,
 )
-
-
-def decode_csv(contents: bytes) -> str:
-    """Decode raw CSV bytes, handling BOM and latin-1 fallback."""
-    try:
-        return contents.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        return contents.decode("latin-1")
 
 
 def parse_mapped_csv(
@@ -33,9 +23,7 @@ def parse_mapped_csv(
     Returns (ParsedImportResult, custom_rows) where custom_rows is a parallel
     list of dicts containing only cf_* key/value pairs for each row.
     """
-    text = decode_csv(contents)
-    reader = csv_mod.DictReader(io_mod.StringIO(text))
-    all_raw_rows = list(reader)
+    _, all_raw_rows = read_csv_dict_rows(contents)
 
     rows: list[ParsedRow] = []
     custom_rows: list[dict[str, str]] = []
