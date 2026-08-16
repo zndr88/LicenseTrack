@@ -3,14 +3,23 @@ import {
   Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { formatCost, formatCostByCurrency } from "../../utils/helpers.js";
-import { EmptyState, PALETTE, Section, SortHeader } from "./reportShared.jsx";
+import { EmptyState, PALETTE, ReportTableToolbar, Section, SortHeader } from "./reportShared.jsx";
 
-export default function PublisherBreakdownSection({ publisherData, vendorData, locale, singleCurrency }) {
+export default function PublisherBreakdownSection({ publisherData, vendorData, locale, singleCurrency, isOpen, onToggle, forceOpen }) {
   const [sortCol, setSortCol] = useState("totalSpend");
   const [sortDir, setSortDir] = useState("desc");
+  const [vendorSearch, setVendorSearch] = useState("");
+
+  const filteredVendors = useMemo(() => {
+    const query = vendorSearch.trim().toLowerCase();
+    if (!query) return vendorData;
+    return vendorData.filter((row) => [row.publisher, row.supplier].some((value) => (
+      String(value || "").toLowerCase().includes(query)
+    )));
+  }, [vendorData, vendorSearch]);
 
   const sortedVendors = useMemo(() => {
-    return [...vendorData].sort((a, b) => {
+    return [...filteredVendors].sort((a, b) => {
       let av = a[sortCol], bv = b[sortCol];
       if (typeof av === "string") av = av.toLowerCase();
       if (typeof bv === "string") bv = bv.toLowerCase();
@@ -18,7 +27,7 @@ export default function PublisherBreakdownSection({ publisherData, vendorData, l
       if (av > bv) return sortDir === "asc" ? 1 : -1;
       return 0;
     });
-  }, [vendorData, sortCol, sortDir]);
+  }, [filteredVendors, sortCol, sortDir]);
 
   function handleSort(col) {
     if (sortCol === col) setSortDir((d) => d === "asc" ? "desc" : "asc");
@@ -28,6 +37,11 @@ export default function PublisherBreakdownSection({ publisherData, vendorData, l
   return (
     <Section
       id="report-section-publisher-vendor"
+      sectionKey="publisherVendor"
+      isOpen={isOpen}
+      onToggle={onToggle}
+      forceOpen={forceOpen}
+      summary={`${publisherData.length} publishers · ${vendorData.length} suppliers`}
       title="Publisher & Vendor Overview"
       subtitle="Top publishers and supplier relationships by calculated license value"
     >
@@ -83,6 +97,14 @@ export default function PublisherBreakdownSection({ publisherData, vendorData, l
           )}
 
           <div style={{ marginTop: 20 }}>
+            <ReportTableToolbar
+              label="Search publisher and supplier table"
+              value={vendorSearch}
+              onChange={setVendorSearch}
+              placeholder="Search publishers or suppliers..."
+              resultCount={filteredVendors.length}
+              totalCount={vendorData.length}
+            />
             <div className="tbl-wrap">
               <table>
                 <thead>

@@ -98,50 +98,68 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
     return dateRange;
   }, [dateRange, customFrom, customTo]);
 
+  const dateRangeError = useMemo(() => {
+    if (dateRange !== "custom") return null;
+    if (!customFrom || !customTo) return "Select both a start and end date.";
+    if (customFrom > customTo) return "The start date must be before the end date.";
+    return null;
+  }, [dateRange, customFrom, customTo]);
+
   // Filtered set
   const filtered = useMemo(() => filterLicenses(rawLicenses, {
     includeRetired,
     dateRange: effectiveDateRange,
     costCentres: selectedCostCentres,
   }), [rawLicenses, includeRetired, effectiveDateRange, selectedCostCentres]);
+  const visibleFiltered = useMemo(() => (dateRangeError ? [] : filtered), [dateRangeError, filtered]);
+  const hasActiveFilters = includeRetired || dateRange !== "all" || selectedCostCentres.length > 0;
+
+  function handleClearFilters() {
+    setIncludeRetired(false);
+    setDateRange("all");
+    setCustomFrom("");
+    setCustomTo("");
+    setSelectedCostCentres([]);
+  }
 
   // Currency helpers
   // singleCurrency is non-null only when all filtered licenses share one currency
   const singleCurrency = useMemo(() => {
-    const currencies = new Set(filtered.map((l) => l.currency).filter(Boolean));
+    const currencies = new Set(visibleFiltered.map((l) => l.currency).filter(Boolean));
     return currencies.size === 1 ? [...currencies][0] : null;
-  }, [filtered]);
+  }, [visibleFiltered]);
 
   const hasMixedCurrencies = useMemo(() => {
-    const currencies = new Set(filtered.map((l) => l.currency).filter(Boolean));
+    const currencies = new Set(visibleFiltered.map((l) => l.currency).filter(Boolean));
     return currencies.size > 1;
-  }, [filtered]);
+  }, [visibleFiltered]);
 
   // Section data
   const costOverview = useMemo(
-    () => getCostOverview(filtered, { dateRange: effectiveDateRange }),
-    [filtered, effectiveDateRange]
+    () => getCostOverview(visibleFiltered, { dateRange: effectiveDateRange }),
+    [visibleFiltered, effectiveDateRange]
   );
-  const lifecycleCounts = useMemo(() => getLifecycleCounts(filtered), [filtered]);
-  const budgetForecast = useMemo(() => getBudgetForecast(filtered, {
+  const lifecycleCounts = useMemo(() => getLifecycleCounts(visibleFiltered), [visibleFiltered]);
+  const budgetForecast = useMemo(() => getBudgetForecast(visibleFiltered, {
     years: forecastYears,
     annualGrowthPct: forecastGrowthPct,
-  }), [filtered, forecastYears, forecastGrowthPct]);
+  }), [visibleFiltered, forecastYears, forecastGrowthPct]);
   const publisherData = useMemo(
-    () => getSpendByPublisher(filtered, { dateRange: effectiveDateRange }),
-    [filtered, effectiveDateRange]
+    () => getSpendByPublisher(visibleFiltered, { dateRange: effectiveDateRange }),
+    [visibleFiltered, effectiveDateRange]
   );
-  const portfolioData = useMemo(() => getPortfolioBreakdown(filtered), [filtered]);
-  const renewalData = useMemo(() => getRenewalCalendar(filtered, fiscalYearStartMonth), [filtered, fiscalYearStartMonth]);
+  const portfolioData = useMemo(() => getPortfolioBreakdown(visibleFiltered), [visibleFiltered]);
+  const renewalData = useMemo(() => getRenewalCalendar(visibleFiltered, fiscalYearStartMonth), [visibleFiltered, fiscalYearStartMonth]);
   const vendorData = useMemo(
-    () => getVendorTable(filtered, { dateRange: effectiveDateRange }),
-    [filtered, effectiveDateRange]
+    () => getVendorTable(visibleFiltered, { dateRange: effectiveDateRange }),
+    [visibleFiltered, effectiveDateRange]
   );
 
   // Export all sections
   async function handleExportAll() {
     setExporting(true);
     try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
       const { exportFullReportPdf } = await import("../../utils/pdfExport.js");
       await exportFullReportPdf([
         { elementId: "report-section-cost-forecast", title: "Cost Overview & Forecast" },
@@ -160,12 +178,13 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
   const statusLine = useMemo(() => {
     if (licensesLoading) return "Loading report data";
     if (licensesError) return "Report data unavailable";
-    const base = `Showing ${filtered.length} license${filtered.length !== 1 ? "s" : ""}`;
+    if (dateRangeError) return dateRangeError;
+    const base = `Showing ${visibleFiltered.length} license${visibleFiltered.length !== 1 ? "s" : ""}`;
     if (selectedCostCentres.length > 0) {
       return `${base} · ${selectedCostCentres.length} department${selectedCostCentres.length !== 1 ? "s" : ""} selected`;
     }
     return base;
-  }, [filtered.length, selectedCostCentres, licensesLoading, licensesError]);
+  }, [visibleFiltered.length, selectedCostCentres, licensesLoading, licensesError, dateRangeError]);
 
   // Render
   return (
@@ -189,7 +208,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
             }}
           >
             <Icon name="download" size={14} color="white" />
-            {exporting ? "Generating PDF..." : "Export Full Report (PDF)"}
+            {exporting ? "Generating PDF..." : "Export filtered report (PDF)"}
           </button>
         </div>
 
@@ -225,6 +244,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
             <>
               <input
                 type="date"
+                aria-label="Report start date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
                 style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", color: "var(--text)", padding: "6px 10px", fontSize: 12, outline: "none" }}
@@ -232,12 +252,15 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
               <span style={{ color: "var(--text-3)", fontSize: 12 }}>to</span>
               <input
                 type="date"
+                aria-label="Report end date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
                 style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", color: "var(--text)", padding: "6px 10px", fontSize: 12, outline: "none" }}
               />
             </>
           )}
+
+          {dateRangeError && <span className="report-filter-error" role="alert">{dateRangeError}</span>}
 
           {/* Cost centre multi-select */}
           <CostCentreDropdown
@@ -249,6 +272,11 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
           <span style={{ fontSize: 12, color: "var(--text-3)", marginLeft: 4 }}>
             {statusLine}
           </span>
+          {hasActiveFilters && (
+            <button type="button" className="btn btn-g btn-sm report-clear-filters" onClick={handleClearFilters}>
+              Clear filters
+            </button>
+          )}
         </div>
 
         {hasMixedCurrencies && (
@@ -319,7 +347,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
             </div>
           )}>
             <ReportSections
-              filteredCount={filtered.length}
+              filteredCount={visibleFiltered.length}
               costOverview={costOverview}
               budgetForecast={budgetForecast}
               forecastYears={forecastYears}
@@ -332,6 +360,11 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
               vendorData={vendorData}
               portfolioData={portfolioData}
               renewalData={renewalData}
+              totalLicenseCount={rawLicenses.length}
+              hasActiveFilters={hasActiveFilters}
+              dateRangeError={dateRangeError}
+              onClearFilters={handleClearFilters}
+              forceOpen={exporting}
             />
           </Suspense>
         )}

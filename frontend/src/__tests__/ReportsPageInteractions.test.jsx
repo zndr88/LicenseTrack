@@ -78,6 +78,7 @@ function license(overrides = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.sessionStorage.clear();
   getPortfolioStats.mockResolvedValue({
     total_active: 2,
     total_expiring: 1,
@@ -130,6 +131,27 @@ describe("ReportsPage interactions", () => {
     expect(getPortfolioStats).toHaveBeenCalledTimes(1);
   });
 
+  test("collapses and reopens report sections without changing their data", async () => {
+    const user = userEvent.setup();
+    getLicenses.mockResolvedValueOnce({ data: [license()], error: null });
+
+    renderReportsPage();
+
+    const section = await screen.findByRole("button", { name: /Cost Overview & Forecast/ });
+    expect(section).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Total PO Spend")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^(Cost Overview|Publisher & Vendor|Portfolio Breakdown|Renewal Calendar)/ }))
+      .toHaveLength(4);
+
+    await user.click(section);
+    expect(section).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Total PO Spend")).toBeInTheDocument();
+
+    await user.click(section);
+    expect(section).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Total PO Spend")).not.toBeInTheDocument();
+  });
+
   test("filters by cost centre and warns when visible rows use mixed currencies", async () => {
     const user = userEvent.setup();
     getLicenses.mockResolvedValueOnce({
@@ -142,6 +164,8 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
+    await screen.findByText("Publisher & Vendor Overview");
+    await user.click(screen.getByRole("button", { name: /Publisher & Vendor Overview/ }));
     expect(await screen.findAllByText("Euro Publisher", {}, { timeout: 5_000 })).not.toHaveLength(0);
     expect(screen.getByText("Publisher & Vendor Overview")).toBeInTheDocument();
     expect(screen.queryByText("Spend by Publisher")).not.toBeInTheDocument();
@@ -170,6 +194,8 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
+    await screen.findByText("Publisher & Vendor Overview");
+    await user.click(screen.getByRole("button", { name: /Publisher & Vendor Overview/ }));
     expect(await screen.findAllByText("Publisher 1")).not.toHaveLength(0);
     await user.click(screen.getByRole("button", { name: /All departments/i }));
 
@@ -184,6 +210,32 @@ describe("ReportsPage interactions", () => {
     await user.click(within(listbox).getByText("Department 029"));
     expect(await screen.findByText(/Showing 1 license/i)).toBeInTheDocument();
     expect(screen.getAllByText("Publisher 29")).not.toHaveLength(0);
+  });
+
+  test("searches detailed publisher and supplier cost rows", async () => {
+    const user = userEvent.setup();
+    getLicenses.mockResolvedValueOnce({
+      data: [
+        license({ id: 1, publisherName: "Alpha Publisher", supplier: "North Supplier" }),
+        license({ id: 2, publisherName: "Beta Publisher", supplier: "South Supplier" }),
+      ],
+      error: null,
+    });
+
+    renderReportsPage();
+
+    await screen.findByText("Publisher & Vendor Overview");
+    await user.click(screen.getByRole("button", { name: /Publisher & Vendor Overview/ }));
+    const search = screen.getByLabelText("Search publisher and supplier table");
+    expect(screen.getByText("2 rows")).toBeInTheDocument();
+
+    await user.type(search, "North");
+    expect(screen.getByText("North Supplier")).toBeInTheDocument();
+    expect(screen.queryByText("South Supplier")).not.toBeInTheDocument();
+    expect(screen.getByText("1 of 2 rows")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(screen.getByText("South Supplier")).toBeInTheDocument();
   });
 
   test("updates lifecycle counters from filtered rows and omits incomplete", async () => {
@@ -226,6 +278,8 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
+    await screen.findByText("Cost Overview & Forecast");
+    await user.click(screen.getByRole("button", { name: /Cost Overview & Forecast/ }));
     expect(await screen.findByLabelText(/Years/i)).toBeInTheDocument();
     expect(screen.getByLabelText("Report date range")).toHaveValue("all");
     const yearsInput = screen.getByLabelText(/Years/i);
@@ -238,5 +292,56 @@ describe("ReportsPage interactions", () => {
     await user.clear(upliftInput);
     await user.type(upliftInput, "150");
     expect(upliftInput).toHaveValue(100);
+  });
+
+  test("validates custom date ranges before calculating report data", async () => {
+    const user = userEvent.setup();
+    getLicenses.mockResolvedValueOnce({ data: [license()], error: null });
+
+    renderReportsPage();
+
+    await screen.findByText("Cost Overview & Forecast");
+    await user.selectOptions(screen.getByLabelText("Report date range"), "custom");
+    expect(screen.getByRole("alert")).toHaveTextContent("Select both a start and end date.");
+
+    await user.type(screen.getByLabelText("Report start date"), "2026-12-31");
+    await user.type(screen.getByLabelText("Report end date"), "2026-01-01");
+    expect(screen.getByRole("alert")).toHaveTextContent("The start date must be before the end date.");
+    expect(screen.queryByText("Total PO Spend")).not.toBeInTheDocument();
+  });
+
+  test("clears active report filters", async () => {
+    const user = userEvent.setup();
+    getLicenses.mockResolvedValueOnce({ data: [license()], error: null });
+
+    renderReportsPage();
+
+    await screen.findByText("Cost Overview & Forecast");
+    await user.selectOptions(screen.getByLabelText("Report date range"), "custom");
+    await user.type(screen.getByLabelText("Report start date"), "2026-01-01");
+    await user.type(screen.getByLabelText("Report end date"), "2026-12-31");
+    expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getByLabelText("Report date range")).toHaveValue("all");
+    expect(screen.queryByLabelText("Report start date")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 1 license")).toBeInTheDocument();
+  });
+
+  test("restores collapsed report sections during the session", async () => {
+    const user = userEvent.setup();
+    getLicenses.mockResolvedValueOnce({ data: [license()], error: null });
+
+    const firstRender = renderReportsPage();
+    const section = await screen.findByRole("button", { name: /Cost Overview & Forecast/ });
+    await user.click(section);
+    firstRender.unmount();
+
+    getLicenses.mockResolvedValueOnce({ data: [license()], error: null });
+    renderReportsPage();
+
+    const restoredSection = await screen.findByRole("button", { name: /Cost Overview & Forecast/ });
+    expect(restoredSection).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Total PO Spend")).toBeInTheDocument();
   });
 });

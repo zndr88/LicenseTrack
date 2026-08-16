@@ -2436,8 +2436,10 @@ describe("ReportsPage workflows", () => {
     const user = userEvent.setup();
     const onError = vi.fn();
     wrapWithQueryClient(<ReportsPage userSettings={userSettings} onError={onError} />);
+    await user.click(await screen.findByRole("button", { name: /Cost Overview & Forecast/ }));
     expect(await screen.findAllByText(/No data available for the current filters/i)).not.toHaveLength(0);
     cleanup();
+    window.sessionStorage.clear();
 
     licensesApi.getLicenses.mockResolvedValueOnce({
       data: [
@@ -2476,6 +2478,9 @@ describe("ReportsPage workflows", () => {
       error: null,
     });
     wrapWithQueryClient(<ReportsPage userSettings={userSettings} onError={onError} />);
+    await screen.findByRole("button", { name: /Cost Overview & Forecast/ });
+    await user.click(screen.getByRole("button", { name: /Cost Overview & Forecast/ }));
+    await user.click(screen.getByRole("button", { name: /Publisher & Vendor Overview/ }));
     expect(await screen.findAllByText("Report Publisher")).not.toHaveLength(0);
     expect(screen.getByText(/Showing 3 licenses/i)).toBeInTheDocument();
     expect(screen.getByText("Cost Overview & Forecast")).toBeInTheDocument();
@@ -2483,7 +2488,7 @@ describe("ReportsPage workflows", () => {
     expect(screen.getByText("maintenance@example.com")).toBeInTheDocument();
 
     pdfExport.exportFullReportPdf.mockRejectedValueOnce(new Error("PDF failed"));
-    await user.click(screen.getAllByRole("button", { name: /Export Full Report/i }).at(-1));
+    await user.click(screen.getAllByRole("button", { name: /Export filtered report/i }).at(-1));
     expect(pdfExport.exportFullReportPdf).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({ elementId: "report-section-cost-forecast" }),

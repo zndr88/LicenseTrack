@@ -177,6 +177,50 @@
   font-size: 11px;
   color: var(--text-3);
 }
+.report-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.report-table-toolbar .search-input-wrap {
+  flex: 0 1 400px;
+  width: min(400px, 100%);
+  min-width: 180px;
+}
+.report-table-count {
+  color: var(--text-3);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.report-section-summary {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.report-filter-error {
+  color: var(--red-text);
+  font-size: 11px;
+}
+.report-clear-filters { flex-shrink: 0; }
+.report-filter-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--orange);
+  border-radius: var(--r);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.report-filter-empty > div { display: grid; gap: 3px; }
+.report-filter-empty strong { color: var(--text-1); }
+.report-filter-empty span { color: var(--text-3); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th {
   text-align: left;
@@ -344,6 +388,12 @@ textarea.fi { min-height: 80px; resize: vertical; }
   justify-content: flex-end;
   gap: 6px;
 }
+.report-section-header { appearance: none; background: none; border: none; border-bottom: 1px solid var(--border); padding: 16px 20px 12px; font: inherit; color: inherit; width: 100%; text-align: left; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; cursor: pointer; }
+.report-section-header:hover { background: var(--bg-hover); }
+.report-section-title { display: block; font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+.report-section-subtitle { display: block; font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.report-section-chevron { color: var(--text-3); padding-top: 2px; flex-shrink: 0; display: inline-flex; transition: transform 200ms ease; }
+.report-section-chevron.open { transform: rotate(90deg); }
 
 .row-actions-menu-wrap {
   position: relative;

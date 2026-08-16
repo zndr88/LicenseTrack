@@ -5,10 +5,15 @@ import {
 import { formatCost, formatCostByCurrency } from "../../utils/helpers.js";
 import { EmptyState, PALETTE, Section } from "./reportShared.jsx";
 
-export default function RenewalCalendarSection({ renewalData, locale, singleCurrency }) {
+export default function RenewalCalendarSection({ renewalData, locale, singleCurrency, isOpen, onToggle, forceOpen }) {
   return (
     <Section
       id="report-section-renewal"
+      sectionKey="renewal"
+      isOpen={isOpen}
+      onToggle={onToggle}
+      forceOpen={forceOpen}
+      summary={`${renewalData.reduce((total, quarter) => total + quarter.count, 0)} licenses due`}
       title="Renewal Calendar"
       subtitle="Upcoming renewals by quarter (active and expiring licenses)"
     >

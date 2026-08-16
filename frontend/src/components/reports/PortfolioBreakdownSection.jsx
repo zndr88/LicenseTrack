@@ -2,10 +2,15 @@ import React from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { DonutLegend, EmptyState, PALETTE, Section } from "./reportShared.jsx";
 
-export default function PortfolioBreakdownSection({ portfolioData, totalCount }) {
+export default function PortfolioBreakdownSection({ portfolioData, totalCount, isOpen, onToggle, forceOpen }) {
   return (
     <Section
       id="report-section-portfolio"
+      sectionKey="portfolio"
+      isOpen={isOpen}
+      onToggle={onToggle}
+      forceOpen={forceOpen}
+      summary={`${totalCount} records · ${portfolioData.byType.length} license types`}
       title="Portfolio Breakdown"
       subtitle="License composition by type and billing metric"
       sectionStyle={{ minHeight: 500 }}

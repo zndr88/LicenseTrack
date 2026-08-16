@@ -1,10 +1,10 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { formatCost, formatCostByCurrency } from "../../utils/helpers.js";
 import Icon from "../ui/Icon.jsx";
-import { EmptyState, PALETTE, Section } from "./reportShared.jsx";
+import { EmptyState, PALETTE, ReportTableToolbar, Section } from "./reportShared.jsx";
 
 export default function CostForecastSection({
   filteredCount,
@@ -16,10 +16,33 @@ export default function CostForecastSection({
   onForecastGrowthPctChange,
   locale,
   singleCurrency,
+  isOpen,
+  onToggle,
+  forceOpen,
 }) {
+  const [recordSearch, setRecordSearch] = useState("");
+  const filteredRecords = useMemo(() => {
+    const query = recordSearch.trim().toLowerCase();
+    if (!query) return budgetForecast.recurringRecords;
+    return budgetForecast.recurringRecords.filter((row) => [
+      row.publisher,
+      row.softwareDescription,
+      row.supplier,
+      row.licenseType,
+      row.budgetOwnerEmail,
+    ].some((value) => String(value || "").toLowerCase().includes(query)));
+  }, [budgetForecast.recurringRecords, recordSearch]);
+
   return (
     <Section
       id="report-section-cost-forecast"
+      sectionKey="costForecast"
+      isOpen={isOpen}
+      onToggle={onToggle}
+      forceOpen={forceOpen}
+      summary={filteredCount > 0
+        ? `${filteredCount} records · ${formatCostByCurrency(costOverview.totalSpendByCurrency, locale)} PO spend`
+        : "No matching records"}
       title="Cost Overview & Forecast"
       subtitle="Historical PO spend compared with active recurring records and future budget needs"
     >
@@ -156,7 +179,15 @@ export default function CostForecastSection({
                 </BarChart>
               </ResponsiveContainer>
 
-              <div className="tbl-wrap" style={{ marginTop: 20 }}>
+              <ReportTableToolbar
+                label="Search recurring records"
+                value={recordSearch}
+                onChange={setRecordSearch}
+                placeholder="Search recurring records..."
+                resultCount={filteredRecords.length}
+                totalCount={budgetForecast.recurringRecords.length}
+              />
+              <div className="tbl-wrap" style={{ marginTop: 10 }}>
                 <table>
                   <thead>
                     <tr>
@@ -167,7 +198,7 @@ export default function CostForecastSection({
                     </tr>
                   </thead>
                   <tbody>
-                    {budgetForecast.recurringRecords.slice(0, 10).map((row) => (
+                    {filteredRecords.slice(0, 10).map((row) => (
                       <tr key={row.id ?? `${row.publisher}-${row.softwareDescription}`} style={{ cursor: "default" }}>
                         <td>
                           <div className="report-row-title">{row.publisher}</div>
@@ -188,9 +219,9 @@ export default function CostForecastSection({
                   </tbody>
                 </table>
               </div>
-              {budgetForecast.recurringRecords.length > 10 && (
+              {filteredRecords.length > 10 && (
                 <div className="report-note">
-                  Showing top 10 recurring records by annual cost.
+                  Showing top 10 matching recurring records by annual cost.
                 </div>
               )}
             </>
