@@ -265,8 +265,9 @@ const HELP_ARTICLES = [
       {
         heading: "Calculation notes",
         bullets: [
-          "Historical PO spend uses total PO price and de-duplicates by nonblank PO number when possible. Zero-cost freeware without paid support does not contribute and is not treated as an unpriced purchase.",
-          "Lifecycle budget groups line-level calculated value into active, expiring, and expired records using the same status as License Overview. Upcoming records are counted separately in the summary and stay out of active budget until their start date arrives. Calculated value uses purchase quantity multiplied by unit price when available, with total PO price as a fallback.",
+          "Spend by License sums calculated license-line values. Spend by PO Value groups lines by PO number, uses a manual PO override once when present, and otherwise sums the calculated lines. Licenses without a PO number are counted individually.",
+          "The Difference metric shows PO value minus license-line spend. Manual PO overrides contribute to PO-value spend but are not allocated across license lines or included in forecasts. In a selected date range, an override is shown as the full PO value because no line-level time allocation exists.",
+          "Lifecycle budget groups per-license calculated value into active, expiring, and expired records using the same status as License Overview. Upcoming records are counted separately in the summary and stay out of active budget until their start date arrives. These detailed license reports retain the legacy stored PO value as a fallback when line pricing is missing; manual PO overrides are never used as that fallback.",
           "The Publisher & Vendor Overview combines a publisher chart with a sortable publisher/supplier table using the same calculated-value rule.",
           "Recurring annual cost covers active subscription, SaaS, maintenance, and current paid included support on supported parents. Full-term views annualize recurring records with terms longer than one year. Selected report ranges allocate recurring cost by overlapping days, so an 18-month record contributes the first 12 months to a one-year range and the remaining 6 months to the following range.",
           "The budget forecast excludes upcoming, expired, retired, renewed, legacy, and pending-renewal records.",

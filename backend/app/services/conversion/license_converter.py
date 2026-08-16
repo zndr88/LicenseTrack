@@ -5,6 +5,7 @@ from app.models.license import License, LicenseType
 from app.services.conversion.maintenance_linker import create_maintenance_purchase
 from app.services.license_service import generate_license_ref
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
+from app.services.po_total_override_service import inherit_po_total_override
 from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 
 
@@ -25,6 +26,7 @@ async def create_purchase_license(
         item_data["unit_price"] = ""
         item_data["total_po_price"] = ""
     item_data["quantity_per_unit"] = item_data.get("quantity_per_unit") or "1"
+    await inherit_po_total_override(db, item_data)
 
     if license_type == LicenseType.maintenance:
         if parent_sourcing_item_id is not None:

@@ -44,10 +44,10 @@ from app.services.license_write_service import (
     create_license_record,
     delete_license_document_files,
     delete_license_record,
-    apply_po_total_override,
     mark_license_notice_handled,
 )
 from app.services.license_procurement_trail_service import build_license_procurement_trail
+from app.services.po_total_override_service import apply_po_total_override
 
 router = APIRouter(prefix="/api/licenses", tags=["licenses"])
 

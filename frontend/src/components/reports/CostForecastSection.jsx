@@ -6,6 +6,14 @@ import { formatCost, formatCostByCurrency } from "../../utils/helpers.js";
 import Icon from "../ui/Icon.jsx";
 import { EmptyState, PALETTE, ReportTableToolbar, Section } from "./reportShared.jsx";
 
+function formatSpendByCurrency(byCurrency, locale) {
+  const entries = Object.entries(byCurrency ?? {});
+  if (entries.length === 0) return "—";
+  return entries
+    .map(([currency, amount]) => formatCost(amount, currency, locale))
+    .join(" · ");
+}
+
 export default function CostForecastSection({
   filteredCount,
   costOverview,
@@ -41,24 +49,49 @@ export default function CostForecastSection({
       onToggle={onToggle}
       forceOpen={forceOpen}
       summary={filteredCount > 0
-        ? `${filteredCount} records · ${formatCostByCurrency(costOverview.totalSpendByCurrency, locale)} PO spend`
+        ? `${filteredCount} records · ${formatSpendByCurrency(costOverview.poSpendByCurrency, locale)} by PO value`
         : "No matching records"}
       title="Cost Overview & Forecast"
-      subtitle="Historical PO spend compared with active recurring records and future budget needs"
+      subtitle="License-line spend, PO-value spend, and license-based future budget needs"
     >
       {filteredCount === 0 ? <EmptyState /> : (
         <>
           <div className="report-metric-grid">
             <div>
-              <div className="report-metric-label">Total PO Spend</div>
+              <div className="report-metric-label">Spend by License</div>
               <div className="report-metric-value">
-                {formatCostByCurrency(costOverview.totalSpendByCurrency, locale)}
+                {formatSpendByCurrency(costOverview.licenseSpendByCurrency, locale)}
               </div>
               <div className="report-metric-note">
-                {costOverview.poCount > 0 ? `${costOverview.poCount} unique PO${costOverview.poCount === 1 ? "" : "s"}` : "Unkeyed records only"}
-                {costOverview.missingPoTotalCount > 0 ? ` · ${costOverview.missingPoTotalCount} record${costOverview.missingPoTotalCount === 1 ? "" : "s"} missing PO total` : ""}
+                Calculated from each license line; used for breakdowns and forecasts
               </div>
             </div>
+            <div>
+              <div className="report-metric-label">Spend by PO Value</div>
+              <div className="report-metric-value">
+                {formatSpendByCurrency(costOverview.poSpendByCurrency, locale)}
+              </div>
+              <div className="report-metric-note">
+                {costOverview.poCount > 0 ? `${costOverview.poCount} unique PO${costOverview.poCount === 1 ? "" : "s"}` : "No keyed POs"}
+                {costOverview.unkeyedCount > 0 ? ` · ${costOverview.unkeyedCount} unkeyed license${costOverview.unkeyedCount === 1 ? "" : "s"} counted individually` : ""}
+              </div>
+            </div>
+            <div>
+              <div className="report-metric-label">Difference</div>
+              <div className="report-metric-value">
+                {formatSpendByCurrency(costOverview.spendDifferenceByCurrency, locale)}
+              </div>
+              <div className="report-metric-note">
+                {Object.values(costOverview.spendDifferenceByCurrency).some((amount) => amount > 0)
+                  ? "PO value not allocated to license lines"
+                  : Object.values(costOverview.spendDifferenceByCurrency).some((amount) => amount < 0)
+                    ? "License lines exceed their PO values"
+                    : "PO and license totals reconcile"}
+              </div>
+            </div>
+          </div>
+
+          <div className="report-metric-grid" style={{ marginTop: 12 }}>
             <div>
               <div className="report-metric-label">
                 {costOverview.isPeriodAllocated ? "Recurring In Range" : "Recurring Baseline"}
@@ -71,18 +104,6 @@ export default function CostForecastSection({
                 {costOverview.isPeriodAllocated ? " allocated by overlapping days" : ""}
               </div>
             </div>
-            <div>
-              <div className="report-metric-label">One-Time Spend Signal</div>
-              <div className="report-metric-value">
-                {formatCostByCurrency(costOverview.nonRecurringSpendByCurrency, locale)}
-              </div>
-              <div className="report-metric-note">
-                PO spend net of recurring baseline
-              </div>
-            </div>
-          </div>
-
-          <div className="report-metric-grid" style={{ marginTop: 12 }}>
             <div>
               <div className="report-metric-label">Active Budget</div>
               <div className="report-metric-value report-metric-value-green">
@@ -110,6 +131,14 @@ export default function CostForecastSection({
             <div className="report-inline-warning" style={{ marginTop: 12 }}>
               <Icon name="alert" size={11} color="var(--orange)" />
               {costOverview.unpricedCount} record{costOverview.unpricedCount === 1 ? "" : "s"} excluded because pricing is missing
+            </div>
+          )}
+
+          {costOverview.overriddenPoCount > 0 && (
+            <div className="report-inline-warning" style={{ marginTop: 12 }}>
+              <Icon name="info" size={11} color="var(--orange)" />
+              {costOverview.overriddenPoCount} PO override{costOverview.overriddenPoCount === 1 ? " is" : "s are"} included in PO-value spend but excluded from license breakdowns and forecasts
+              {costOverview.isPeriodAllocated ? "; overrides are shown as full PO values" : ""}
             </div>
           )}
 
@@ -145,7 +174,7 @@ export default function CostForecastSection({
             {budgetForecast.fallbackCount > 0 && (
               <span className="report-inline-warning">
                 <Icon name="alert" size={11} color="var(--orange)" />
-                {budgetForecast.fallbackCount} recurring record{budgetForecast.fallbackCount === 1 ? "" : "s"} use PO fallback pricing
+                {budgetForecast.fallbackCount} recurring record{budgetForecast.fallbackCount === 1 ? "" : "s"} use legacy stored PO pricing
               </span>
             )}
           </div>
@@ -211,7 +240,7 @@ export default function CostForecastSection({
                         <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: 12 }}>
                           {row.annualCost > 0 ? formatCost(row.annualCost, row.currency, locale) : "-"}
                           {row.costSource === "po_fallback" && (
-                            <span style={{ marginLeft: 4, color: "var(--orange)" }} title="Line quantity or unit price is missing; using total PO price as fallback">!</span>
+                            <span style={{ marginLeft: 4, color: "var(--orange)" }} title="Line quantity or unit price is missing; using legacy stored PO pricing">!</span>
                           )}
                         </td>
                       </tr>

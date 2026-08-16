@@ -10,6 +10,11 @@ export default function PoTotalOverrideModal({ license, userSettings, onSave, on
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
+  const formatValue = (rawValue) => {
+    const parsed = parseLocalizedNumber(rawValue, userSettings);
+    return parsed === null ? rawValue : formatPriceInput(parsed, locale);
+  };
+
   const save = async () => {
     const parsed = parseLocalizedNumber(value, userSettings);
     if (parsed === null || parsed === undefined || parsed === "") {
@@ -62,7 +67,7 @@ export default function PoTotalOverrideModal({ license, userSettings, onSave, on
             inputMode="decimal"
             value={value}
             onChange={(event) => setValue(event.target.value)}
-            onBlur={() => setValue(formatPriceInput(value, locale))}
+            onBlur={() => setValue(formatValue(value))}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();

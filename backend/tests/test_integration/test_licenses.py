@@ -133,8 +133,18 @@ async def test_po_total_override_is_shared_and_clearable(test_app, auth_headers)
     assert by_id[first["id"]]["poTotalOverride"] == "1250.00"
     assert by_id[second["id"]]["poTotalOverride"] == "1250.00"
 
+    third = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="PO line C",
+        poNumber="PO-SHARED-1",
+        quantity="1",
+        unitPrice="0",
+    )
+    assert third["poTotalOverride"] == "1250.00"
+
     clear_response = await test_app.delete(
-        f"/api/licenses/{second['id']}/po-total-override",
+        f"/api/licenses/{third['id']}/po-total-override",
         headers=auth_headers,
     )
     assert clear_response.status_code == 200
@@ -142,6 +152,51 @@ async def test_po_total_override_is_shared_and_clearable(test_app, auth_headers)
     by_id = {row["id"]: row for row in rows}
     assert by_id[first["id"]]["poTotalOverride"] is None
     assert by_id[second["id"]]["poTotalOverride"] is None
+    assert by_id[third["id"]]["poTotalOverride"] is None
+
+
+async def test_po_total_override_follows_po_membership_rules(test_app, auth_headers):
+    first = await _create_license(test_app, auth_headers, poNumber="PO-A", softwareDescription="A1")
+    second = await _create_license(test_app, auth_headers, poNumber="PO-A", softwareDescription="A2")
+    other = await _create_license(test_app, auth_headers, poNumber="PO-B", softwareDescription="B1")
+
+    await test_app.post(
+        f"/api/licenses/{first['id']}/po-total-override",
+        json={"poTotalOverride": "100.00"},
+        headers=auth_headers,
+    )
+    await test_app.post(
+        f"/api/licenses/{other['id']}/po-total-override",
+        json={"poTotalOverride": "200.00"},
+        headers=auth_headers,
+    )
+
+    joined = await test_app.patch(
+        f"/api/licenses/{first['id']}/field",
+        json={"field": "poNumber", "value": "PO-B"},
+        headers=auth_headers,
+    )
+    assert joined.status_code == 200
+    assert joined.json()["poTotalOverride"] == "200.00"
+
+    left_group = await test_app.put(
+        f"/api/licenses/{second['id']}",
+        json={"poNumber": "PO-C"},
+        headers=auth_headers,
+    )
+    assert left_group.status_code == 200
+    assert left_group.json()["poTotalOverride"] == "100.00"
+
+    new_sibling = await _create_license(test_app, auth_headers, poNumber="PO-C", softwareDescription="C2")
+    assert new_sibling["poTotalOverride"] == "100.00"
+
+    moved_line = await test_app.put(
+        f"/api/licenses/{new_sibling['id']}",
+        json={"poNumber": "PO-D"},
+        headers=auth_headers,
+    )
+    assert moved_line.status_code == 200
+    assert moved_line.json()["poTotalOverride"] is None
 
 
 # ---------------------------------------------------------------------------

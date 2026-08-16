@@ -27,6 +27,7 @@ from app.services.maintenance_rules import (
     assert_parent_not_retired,
     assert_parent_type_eligible,
 )
+from app.services.po_total_override_service import inherit_po_total_override
 
 
 # ---------------------------------------------------------------------
@@ -200,6 +201,7 @@ async def create_maintenance_for_parent(
     if "invoice_numbers" not in data:
         invoice_number = data.get("invoice_number") or ""
         data["invoice_numbers"] = [invoice_number] if invoice_number else []
+    await inherit_po_total_override(db, data)
 
     maintenance_license = License(
         license_type=LicenseType.maintenance,

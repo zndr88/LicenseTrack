@@ -119,7 +119,7 @@ function licenseOverlapsReportRange(license, range) {
   return true;
 }
 
-function getCalculatedLicenseValue(license) {
+function getLicenseLineValue(license) {
   if (license.licenseType === "freeware") {
     if (license.maintenanceCoverage === "included") {
       const maintenanceCost = parsePrice(license.maintenanceCost);
@@ -139,6 +139,16 @@ function getCalculatedLicenseValue(license) {
     };
   }
 
+  return {
+    amount: 0,
+    source: "missing",
+  };
+}
+
+function getCalculatedLicenseValue(license) {
+  const lineValue = getLicenseLineValue(license);
+  if (lineValue.source !== "missing") return lineValue;
+
   const totalPoPrice = parsePrice(license.totalPoPrice);
   if (totalPoPrice !== null) {
     return {
@@ -147,10 +157,7 @@ function getCalculatedLicenseValue(license) {
     };
   }
 
-  return {
-    amount: 0,
-    source: "missing",
-  };
+  return lineValue;
 }
 
 function isRecurringLicense(license) {
@@ -284,39 +291,100 @@ export function getLifecycleCounts(licenses) {
   return counts;
 }
 
-function getHistoricalTotalSpend(licenses, range = null) {
-  const seenPoNumbers = new Set();
-  const byCurrency = {};
-  let unpricedCount = 0;
+function addCurrencyAmount(target, currency, amount) {
+  target[currency] = roundMoney((target[currency] ?? 0) + amount);
+}
 
-  for (const l of licenses) {
-    if (l.licenseType === "freeware" && l.maintenanceCoverage !== "included") continue;
-    const cost = range
-      ? getReportLicenseValue(l, range)
-      : {
-          amount: l.licenseType === "freeware" ? parsePrice(l.maintenanceCost) : parsePrice(l.totalPoPrice),
-          source: "po_total",
-        };
-    if (cost.amount === null || cost.source === "missing") {
+function getSpendComparison(licenses, range = null) {
+  const licenseSpendByCurrency = {};
+  const poSpendByCurrency = {};
+  const poGroups = new Map();
+  let unpricedCount = 0;
+  let unkeyedCount = 0;
+
+  for (const license of licenses) {
+    if (license.licenseType === "freeware" && license.maintenanceCoverage !== "included") continue;
+
+    const currency = license.currency || "USD";
+    const poNumber = (license.poNumber ?? "").trim();
+    const cost = range && isRecurringLicense(license)
+      ? getAllocatedLineValue(license, range)
+      : getLicenseLineValue(license);
+    const hasPrice = cost.source !== "missing";
+
+    if (hasPrice) {
+      addCurrencyAmount(licenseSpendByCurrency, currency, cost.amount);
+    } else {
       unpricedCount += 1;
+    }
+
+    if (!poNumber) {
+      unkeyedCount += 1;
+      if (hasPrice) addCurrencyAmount(poSpendByCurrency, currency, cost.amount);
       continue;
     }
 
-    const poNumber = (l.poNumber ?? "").trim();
-    if (poNumber) {
-      const shouldDedupePoTotal = !range || cost.source === "po_fallback" || cost.source === "po_total";
-      if (shouldDedupePoTotal && seenPoNumbers.has(poNumber)) continue;
-      seenPoNumbers.add(poNumber);
+    if (!poGroups.has(poNumber)) {
+      poGroups.set(poNumber, {
+        currency,
+        lineTotal: 0,
+        hasPricedLine: false,
+        override: null,
+      });
     }
 
-    const cur = l.currency || "USD";
-    byCurrency[cur] = (byCurrency[cur] ?? 0) + cost.amount;
+    const group = poGroups.get(poNumber);
+    if (hasPrice) {
+      group.lineTotal = roundMoney(group.lineTotal + cost.amount);
+      group.hasPricedLine = true;
+    }
+    const override = parsePrice(license.poTotalOverride);
+    if (group.override === null && override !== null) group.override = override;
+  }
+
+  let overriddenPoCount = 0;
+  for (const group of poGroups.values()) {
+    if (group.override !== null) {
+      addCurrencyAmount(poSpendByCurrency, group.currency, group.override);
+      overriddenPoCount += 1;
+    } else if (group.hasPricedLine) {
+      addCurrencyAmount(poSpendByCurrency, group.currency, group.lineTotal);
+    }
+  }
+
+  const spendDifferenceByCurrency = {};
+  const currencies = new Set([
+    ...Object.keys(licenseSpendByCurrency),
+    ...Object.keys(poSpendByCurrency),
+  ]);
+  for (const currency of currencies) {
+    spendDifferenceByCurrency[currency] = roundMoney(
+      (poSpendByCurrency[currency] ?? 0) - (licenseSpendByCurrency[currency] ?? 0),
+    );
   }
 
   return {
-    byCurrency,
-    poCount: seenPoNumbers.size,
+    licenseSpendByCurrency,
+    poSpendByCurrency,
+    spendDifferenceByCurrency,
+    poCount: poGroups.size,
+    overriddenPoCount,
+    unkeyedCount,
     unpricedCount,
+  };
+}
+
+function getAllocatedLineValue(license, range) {
+  const cost = getLicenseLineValue(license);
+  if (cost.source === "missing") return cost;
+  const term = getRecurringTermBounds(license);
+  if (!term) return cost;
+  const termDays = inclusiveDayCount(term.from, term.to);
+  const overlapDays = overlapDayCount(term, range);
+  if (termDays <= 0 || overlapDays <= 0) return { ...cost, amount: 0 };
+  return {
+    ...cost,
+    amount: roundMoney(cost.amount * overlapDays / termDays),
   };
 }
 
@@ -352,20 +420,21 @@ function getRecurringRecords(licenses) {
 /**
  * @param {object[]} licenses
  * @returns {{
- *   totalSpendByCurrency: {[currency: string]: number},
+ *   licenseSpendByCurrency: {[currency: string]: number},
+ *   poSpendByCurrency: {[currency: string]: number},
+ *   spendDifferenceByCurrency: {[currency: string]: number},
  *   recurringAnnualCostByCurrency: {[currency: string]: number},
- *   nonRecurringSpendByCurrency: {[currency: string]: number},
  *   lifecycleBudgetByStatus: {{ active: {[currency: string]: number}, expiring: {[currency: string]: number}, expired: {[currency: string]: number} }},
  *   recurringCount: number,
  *   poCount: number,
- *   fallbackCount: number,
- *   missingPoTotalCount: number,
+ *   overriddenPoCount: number,
+ *   unkeyedCount: number,
  *   unpricedCount: number,
  * }}
  */
 export function getCostOverview(licenses, { dateRange = "all" } = {}) {
   const range = resolveReportDateRange(dateRange);
-  const historical = getHistoricalTotalSpend(licenses, range);
+  const spend = getSpendComparison(licenses, range);
   const recurringRecords = getRecurringRecords(licenses);
 
   const recurringAnnualCostByCurrency = {};
@@ -377,23 +446,17 @@ export function getCostOverview(licenses, { dateRange = "all" } = {}) {
     recurringAnnualCostByCurrency[cur] = (recurringAnnualCostByCurrency[cur] ?? 0) + cost.amount;
   }
 
-  const nonRecurringSpendByCurrency = {};
-  for (const [cur, total] of Object.entries(historical.byCurrency)) {
-    const recurring = recurringAnnualCostByCurrency[cur] ?? 0;
-    const diff = total - recurring;
-    if (diff > 0) nonRecurringSpendByCurrency[cur] = diff;
-  }
-
   return {
-    totalSpendByCurrency: historical.byCurrency,
+    licenseSpendByCurrency: spend.licenseSpendByCurrency,
+    poSpendByCurrency: spend.poSpendByCurrency,
+    spendDifferenceByCurrency: spend.spendDifferenceByCurrency,
     recurringAnnualCostByCurrency,
-    nonRecurringSpendByCurrency,
     lifecycleBudgetByStatus: getLifecycleBudget(licenses, range),
     recurringCount: recurringRecords.length,
-    poCount: historical.poCount,
-    fallbackCount: recurringRecords.filter((row) => row.costSource === "po_fallback").length,
-    missingPoTotalCount: historical.unpricedCount,
-    unpricedCount: licenses.filter((license) => getCalculatedLicenseValue(license).source === "missing").length,
+    poCount: spend.poCount,
+    overriddenPoCount: spend.overriddenPoCount,
+    unkeyedCount: spend.unkeyedCount,
+    unpricedCount: spend.unpricedCount,
     isPeriodAllocated: Boolean(range),
   };
 }
@@ -414,6 +477,7 @@ export function getBudgetForecast(licenses, { years = 5, annualGrowthPct = 0 } =
 
   const baselineByCurrency = {};
   for (const r of recurringRecords) {
+    if (r.costSource === "missing") continue;
     baselineByCurrency[r.currency] = (baselineByCurrency[r.currency] ?? 0) + r.annualCost;
   }
 

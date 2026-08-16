@@ -157,6 +157,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
 
   // Export all sections
   async function handleExportAll() {
+    if (dateRangeError) return;
     setExporting(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -178,7 +179,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
   const statusLine = useMemo(() => {
     if (licensesLoading) return "Loading report data";
     if (licensesError) return "Report data unavailable";
-    if (dateRangeError) return dateRangeError;
+    if (dateRangeError) return null;
     const base = `Showing ${visibleFiltered.length} license${visibleFiltered.length !== 1 ? "s" : ""}`;
     if (selectedCostCentres.length > 0) {
       return `${base} · ${selectedCostCentres.length} department${selectedCostCentres.length !== 1 ? "s" : ""} selected`;
@@ -198,13 +199,14 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
           </div>
           <button
             onClick={handleExportAll}
-            disabled={exporting}
+            disabled={exporting || Boolean(dateRangeError)}
+            title={dateRangeError || undefined}
             style={{
               display: "flex", alignItems: "center", gap: 7, padding: "8px 16px",
               background: "var(--accent)", border: "none", borderRadius: "var(--r)",
               color: "white", fontSize: 13, fontWeight: 600,
-              cursor: exporting ? "not-allowed" : "pointer",
-              opacity: exporting ? 0.6 : 1, flexShrink: 0,
+              cursor: exporting || dateRangeError ? "not-allowed" : "pointer",
+              opacity: exporting || dateRangeError ? 0.6 : 1, flexShrink: 0,
             }}
           >
             <Icon name="download" size={14} color="white" />
@@ -269,9 +271,11 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
             onChange={setSelectedCostCentres}
           />
 
-          <span style={{ fontSize: 12, color: "var(--text-3)", marginLeft: 4 }}>
-            {statusLine}
-          </span>
+          {statusLine && (
+            <span style={{ fontSize: 12, color: "var(--text-3)", marginLeft: 4 }}>
+              {statusLine}
+            </span>
+          )}
           {hasActiveFilters && (
             <button type="button" className="btn btn-g btn-sm report-clear-filters" onClick={handleClearFilters}>
               Clear filters

@@ -139,17 +139,41 @@ describe("ReportsPage interactions", () => {
 
     const section = await screen.findByRole("button", { name: /Cost Overview & Forecast/ });
     expect(section).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("Total PO Spend")).not.toBeInTheDocument();
+    expect(screen.queryByText("Spend by PO Value")).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^(Cost Overview|Publisher & Vendor|Portfolio Breakdown|Renewal Calendar)/ }))
       .toHaveLength(4);
 
     await user.click(section);
     expect(section).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Total PO Spend")).toBeInTheDocument();
+    expect(screen.getByText("Spend by License")).toBeInTheDocument();
+    expect(screen.getByText("Spend by PO Value")).toBeInTheDocument();
 
     await user.click(section);
     expect(section).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("Total PO Spend")).not.toBeInTheDocument();
+    expect(screen.queryByText("Spend by PO Value")).not.toBeInTheDocument();
+  });
+
+  test("shows license spend and overridden PO spend as separate totals", async () => {
+    const user = userEvent.setup();
+    getLicenses.mockResolvedValueOnce({
+      data: [
+        license({ id: 1, poNumber: "PO-OVERRIDE", quantity: "1", unitPrice: "0", poTotalOverride: "1250" }),
+        license({ id: 2, poNumber: "PO-OVERRIDE", quantity: "2", unitPrice: "0", poTotalOverride: "1250" }),
+      ],
+      error: null,
+    });
+
+    renderReportsPage();
+
+    await user.click(await screen.findByRole("button", { name: /Cost Overview & Forecast/ }));
+    const licenseMetric = screen.getByText("Spend by License").parentElement;
+    const poMetric = screen.getByText("Spend by PO Value").parentElement;
+    const differenceMetric = screen.getByText("Difference").parentElement;
+
+    expect(within(licenseMetric).getByText("€0.00")).toBeInTheDocument();
+    expect(within(poMetric).getByText("€1,250.00")).toBeInTheDocument();
+    expect(within(differenceMetric).getByText("€1,250.00")).toBeInTheDocument();
+    expect(screen.getByText(/included in PO-value spend but excluded from license breakdowns and forecasts/i)).toBeInTheDocument();
   });
 
   test("filters by cost centre and warns when visible rows use mixed currencies", async () => {
@@ -306,8 +330,11 @@ describe("ReportsPage interactions", () => {
 
     await user.type(screen.getByLabelText("Report start date"), "2026-12-31");
     await user.type(screen.getByLabelText("Report end date"), "2026-01-01");
-    expect(screen.getByRole("alert")).toHaveTextContent("The start date must be before the end date.");
-    expect(screen.queryByText("Total PO Spend")).not.toBeInTheDocument();
+    const errorMessage = "The start date must be before the end date.";
+    expect(screen.getByRole("alert")).toHaveTextContent(errorMessage);
+    expect(screen.getAllByText(errorMessage)).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /Export filtered report/i })).toBeDisabled();
+    expect(screen.queryByText("Spend by PO Value")).not.toBeInTheDocument();
   });
 
   test("clears active report filters", async () => {
@@ -342,6 +369,6 @@ describe("ReportsPage interactions", () => {
 
     const restoredSection = await screen.findByRole("button", { name: /Cost Overview & Forecast/ });
     expect(restoredSection).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Total PO Spend")).toBeInTheDocument();
+    expect(screen.getByText("Spend by PO Value")).toBeInTheDocument();
   });
 });

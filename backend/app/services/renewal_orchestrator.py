@@ -20,6 +20,7 @@ from app.services.lifecycle_rules import (
 )
 from app.services.maintenance_service import sync_parent_mirror_fields, validate_parent_license
 from app.services.maintenance_rules import default_maintenance_coverage
+from app.services.po_total_override_service import inherit_po_total_override
 from app.services.renewal_workflow import build_renewal_sourcing_item
 from app.services.sourcing_service import (
     cancel_sourcing_request_record,
@@ -314,6 +315,7 @@ async def _create_coterm_renewal_successor(
     if "invoice_numbers" not in license_data:
         invoice_number = license_data.get("invoice_number") or ""
         license_data["invoice_numbers"] = [invoice_number] if invoice_number else []
+    await inherit_po_total_override(db, license_data)
 
     predecessor_ids = list(sourcing_item.coterm_predecessor_ids or [])
     all_pred_result = await db.execute(select(License).where(License.id.in_(predecessor_ids)))
@@ -371,6 +373,7 @@ async def _create_single_renewal_successor(
     if "invoice_numbers" not in license_data:
         invoice_number = license_data.get("invoice_number") or ""
         license_data["invoice_numbers"] = [invoice_number] if invoice_number else []
+    await inherit_po_total_override(db, license_data)
 
     new_lic = License(
         **license_data,

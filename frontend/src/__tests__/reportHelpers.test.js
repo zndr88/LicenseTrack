@@ -92,7 +92,7 @@ describe("report cost helpers", () => {
     expect(filtered.map((item) => item.id)).toEqual([1]);
   });
 
-  test("deduplicates PO-level totals while calculating recurring cost from individual records", () => {
+  test("calculates license and PO spend from line values when no override exists", () => {
     const licenses = [
       license({ id: 1, poNumber: "PO-1", totalPoPrice: "1000", quantity: "10", unitPrice: "20" }),
       license({ id: 2, poNumber: "PO-1", totalPoPrice: "1000", quantity: "5", unitPrice: "30" }),
@@ -101,10 +101,51 @@ describe("report cost helpers", () => {
 
     const overview = getCostOverview(licenses);
 
-    expect(overview.totalSpendByCurrency).toEqual({ EUR: 1400 });
+    expect(overview.licenseSpendByCurrency).toEqual({ EUR: 750 });
+    expect(overview.poSpendByCurrency).toEqual({ EUR: 750 });
+    expect(overview.spendDifferenceByCurrency).toEqual({ EUR: 0 });
     expect(overview.poCount).toBe(2);
     expect(overview.recurringAnnualCostByCurrency).toEqual({ EUR: 350 });
     expect(overview.recurringCount).toBe(2);
+  });
+
+  test("uses a shared manual PO override once and exposes its unallocated difference", () => {
+    const overview = getCostOverview([
+      license({
+        id: 1,
+        poNumber: "PO-OVERRIDE",
+        poTotalOverride: "1250.00",
+        totalPoPrice: "0",
+        quantity: "10",
+        unitPrice: "0",
+      }),
+      license({
+        id: 2,
+        poNumber: "PO-OVERRIDE",
+        poTotalOverride: "1250.00",
+        totalPoPrice: "0",
+        quantity: "5",
+        unitPrice: "0",
+      }),
+    ]);
+
+    expect(overview.licenseSpendByCurrency).toEqual({ EUR: 0 });
+    expect(overview.poSpendByCurrency).toEqual({ EUR: 1250 });
+    expect(overview.spendDifferenceByCurrency).toEqual({ EUR: 1250 });
+    expect(overview.poCount).toBe(1);
+    expect(overview.overriddenPoCount).toBe(1);
+  });
+
+  test("counts licenses without a PO number individually in both spend totals", () => {
+    const overview = getCostOverview([
+      license({ id: 1, poNumber: "", quantity: "2", unitPrice: "100" }),
+      license({ id: 2, poNumber: null, quantity: "3", unitPrice: "50" }),
+    ]);
+
+    expect(overview.licenseSpendByCurrency).toEqual({ EUR: 350 });
+    expect(overview.poSpendByCurrency).toEqual({ EUR: 350 });
+    expect(overview.unkeyedCount).toBe(2);
+    expect(overview.poCount).toBe(0);
   });
 
   test("annualizes recurring cost for multi-year subscriptions", () => {
@@ -140,12 +181,14 @@ describe("report cost helpers", () => {
       dateRange: { from: "2027-01-01", to: "2027-12-31" },
     });
 
-    expect(firstYear.totalSpendByCurrency.EUR).toBe(8021.98);
+    expect(firstYear.licenseSpendByCurrency.EUR).toBe(8021.98);
+    expect(firstYear.poSpendByCurrency.EUR).toBe(8021.98);
     expect(firstYear.recurringAnnualCostByCurrency.EUR).toBe(8021.98);
     expect(firstYear.isPeriodAllocated).toBe(true);
-    expect(secondYear.totalSpendByCurrency.EUR).toBe(3978.02);
+    expect(secondYear.licenseSpendByCurrency.EUR).toBe(3978.02);
+    expect(secondYear.poSpendByCurrency.EUR).toBe(3978.02);
     expect(secondYear.recurringAnnualCostByCurrency.EUR).toBe(3978.02);
-    expect(firstYear.totalSpendByCurrency.EUR + secondYear.totalSpendByCurrency.EUR).toBe(12000);
+    expect(firstYear.licenseSpendByCurrency.EUR + secondYear.licenseSpendByCurrency.EUR).toBe(12000);
   });
 
   test("publisher and vendor spend use selected-period allocation", () => {
@@ -248,7 +291,7 @@ describe("report cost helpers", () => {
     ]);
   });
 
-  test("marks recurring records that must fall back to total PO pricing", () => {
+  test("marks recurring records that must fall back to legacy stored PO pricing", () => {
     const forecast = getBudgetForecast([
       license({ id: 1, quantity: "", unitPrice: "", totalPoPrice: "900" }),
     ]);
@@ -290,17 +333,17 @@ describe("report cost helpers", () => {
 
     const overview = getCostOverview(licenses);
 
-    expect(overview.totalSpendByCurrency).toEqual({ EUR: 1000, USD: 500 });
+    expect(overview.licenseSpendByCurrency).toEqual({ EUR: 1000, USD: 500 });
+    expect(overview.poSpendByCurrency).toEqual({ EUR: 1000, USD: 500 });
     expect(overview.recurringAnnualCostByCurrency).toEqual({ EUR: 1000, USD: 500 });
   });
 
-  test("distinguishes missing PO totals from records with no usable pricing", () => {
+  test("counts records with no usable line pricing", () => {
     const overview = getCostOverview([
       license({ id: 1, quantity: "2", unitPrice: "50", totalPoPrice: "" }),
       license({ id: 2, quantity: "", unitPrice: "", totalPoPrice: "" }),
     ]);
 
-    expect(overview.missingPoTotalCount).toBe(2);
     expect(overview.unpricedCount).toBe(1);
   });
 

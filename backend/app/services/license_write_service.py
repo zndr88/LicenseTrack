@@ -45,6 +45,10 @@ from app.services.maintenance_service import (
     validate_parent_license,
 )
 from app.services.money import is_canonical_money
+from app.services.po_total_override_service import (
+    inherit_po_total_override,
+    resolve_reassigned_po_total_override,
+)
 from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 
 logger = logging.getLogger(__name__)
@@ -235,6 +239,7 @@ async def create_license_record(
         _sync_invoice_numbers(create_data)
         create_data["procurement_bundle_id"] = procurement_bundle_id
         create_data["contract_id"] = await _resolve_contract_id(db, create_data.get("contract_number"))
+        await inherit_po_total_override(db, create_data)
         maintenance_license = await create_maintenance_for_parent(
             db,
             parent_licenses[0],
@@ -278,6 +283,7 @@ async def create_license_record(
 
     normalise_perpetual_end_date(create_data)
     create_data["contract_id"] = await _resolve_contract_id(db, create_data.get("contract_number"))
+    await inherit_po_total_override(db, create_data)
     license_obj = License(**create_data, created_by=created_by)
     db.add(license_obj)
     await db.flush()
@@ -338,6 +344,12 @@ async def apply_license_update(
         update_data["total_po_price"] = ""
 
     validate_general_license_update_fields(update_data, license_obj)
+    if "po_number" in update_data:
+        update_data["po_total_override"] = await resolve_reassigned_po_total_override(
+            db,
+            license_obj,
+            update_data.get("po_number"),
+        )
 
     new_type = update_data.get("license_type", license_obj.license_type)
     new_parent_id = update_data.get("parent_license_id", license_obj.parent_license_id)
@@ -386,26 +398,6 @@ async def apply_license_update(
             after[field] = getattr(license_obj, field)
 
     return license_obj, before, after
-
-
-async def apply_po_total_override(
-    db: AsyncSession,
-    license_id: int,
-    value: str | None,
-) -> tuple[License, int]:
-    """Set or clear the shared PO total override for all licenses in one PO."""
-    result = await db.execute(select(License).where(License.id == license_id))
-    license_obj = result.scalar_one_or_none()
-    if license_obj is None:
-        raise HTTPException(status_code=404, detail="License not found")
-    if not license_obj.po_number:
-        raise HTTPException(status_code=400, detail="A PO number is required to override the total PO value")
-
-    result = await db.execute(select(License).where(License.po_number == license_obj.po_number))
-    matching_licenses = list(result.scalars().all())
-    for matching_license in matching_licenses:
-        matching_license.po_total_override = value
-    return license_obj, len(matching_licenses)
 
 
 async def apply_license_lifecycle_repair(
@@ -512,6 +504,9 @@ async def apply_license_field_patch(
         primary = value or ""
         license_obj.invoice_number = primary
         license_obj.invoice_numbers = [primary] if primary else []
+    elif field == "poNumber":
+        license_obj.po_total_override = await resolve_reassigned_po_total_override(db, license_obj, value or "")
+        license_obj.po_number = value or ""
     else:
         setattr(license_obj, snake_field, value)
 

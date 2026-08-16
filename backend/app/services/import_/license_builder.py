@@ -10,6 +10,7 @@ from app.models.license import License, LicenseMetric, LicenseType, MaintenanceC
 from app.services.csv_importer import ParsedRow
 from app.services.maintenance_service import validate_parent_license
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
+from app.services.po_total_override_service import inherit_po_total_override
 from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 
 
@@ -134,6 +135,7 @@ async def build_license(
         "predecessor_id": predecessor_id,
     }
     apply_bundled_included_support_defaults(data)
+    await inherit_po_total_override(db, data)
 
     return License(
         **data,

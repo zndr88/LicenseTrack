@@ -7,6 +7,7 @@ from app.models.license import License, LicenseType
 from app.services.csv_importer import ParsedRow
 from app.services.custom_fields_service import upsert_imported_values_for_license
 from app.services.license_write_service import _resolve_contract_id
+from app.services.po_total_override_service import resolve_reassigned_po_total_override
 
 # ParsedRow attr -> License attr for plain string fields patched only when non-empty.
 _STRING_PATCH_FIELDS: list[tuple[str, str]] = [
@@ -50,12 +51,17 @@ async def apply_import_update(
             f"(record is {license_obj.license_type.value!r}, file says {row.license_type!r})"
         )
 
+    reassigned_po_override = license_obj.po_total_override
+    if row.po_number and row.po_number != license_obj.po_number:
+        reassigned_po_override = await resolve_reassigned_po_total_override(db, license_obj, row.po_number)
+
     for row_attr, col_attr in _STRING_PATCH_FIELDS:
         value = getattr(row, row_attr)
         if value:
             setattr(license_obj, col_attr, value)
             if col_attr == "invoice_number":
                 license_obj.invoice_numbers = [value]
+    license_obj.po_total_override = reassigned_po_override
 
     # license_metric is a validated enum on the model.
     if row.license_metric:
