@@ -1,6 +1,6 @@
 # LicenseTrack
 
-Version 1.1.9.
+Version 1.1.10.
 
 LicenseTrack is a self-hosted software license procurement and lifecycle
 management system. It helps organisations track software requests through
@@ -54,7 +54,8 @@ around that workflow.
 - Carries renewals through sourcing and purchasing while preserving the license
   chain and supporting coterm opportunities.
 - Provides CSV import and export, including mapped imports from external tools,
-  operational reports, in-app notifications, and optional SMTP alerts.
+  shared PO-value overrides, operational spend and forecast reports, in-app
+  notifications, and optional SMTP alerts.
 - Supports Admin, Editor, and Viewer roles, with optional OIDC/SSO and a local
   break-glass administrator.
 - Includes scheduled backups, restores from server-side or uploaded archives,

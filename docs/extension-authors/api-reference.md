@@ -47,6 +47,8 @@ Required scope is `licenses:read` for reads and `licenses:write` for writes.
 | `POST /api/licenses` | Create a license |
 | `PUT /api/licenses/{license_id}` | Replace editable license fields |
 | `PATCH /api/licenses/{license_id}/field` | Patch one supported field |
+| `POST /api/licenses/{license_id}/po-total-override` | Set the shared manual Total PO Value for the record's PO |
+| `DELETE /api/licenses/{license_id}/po-total-override` | Clear the shared manual Total PO Value for the record's PO |
 | `DELETE /api/licenses/{license_id}` | Delete an eligible record |
 | `GET /api/licenses/export` | Export the visible registry to CSV |
 | `GET /api/licenses/departments` | List visible department values |
@@ -69,6 +71,15 @@ imports expose the same concept as `quantity_per_unit` and can derive it from
 derived `effectiveQuantity`, calculated as `quantity` multiplied by
 `quantityPerUnit`. Monetary calculations continue to use purchase `quantity`
 multiplied by `unitPrice`.
+
+License responses include nullable `poTotalOverride`. Set it only through
+`POST /api/licenses/{license_id}/po-total-override` with a canonical decimal
+string such as `{ "poTotalOverride": "1250.00" }`, or clear it through the
+matching `DELETE` endpoint. The operation applies to every license sharing the
+target record's nonblank PO number. New records joining an existing PO inherit
+its override; reassignment to another existing PO adopts the destination PO's
+override. Ordinary create/update payloads and CSV import do not set a manual
+override.
 
 Maintenance records use `parentLicenseId` as the primary compatibility parent.
 Create requests can also provide `maintenanceParentIds` for a maintenance
@@ -222,6 +233,9 @@ review-time corrections. The first supported override is
 `[{ "rowNumber": 1, "parentLicenseId": 123 }]`, which resolves a maintenance
 row to an existing eligible perpetual, OEM, or freeware parent license during
 execution.
+
+The importable `total_po_price` field is a legacy stored compatibility value.
+It does not set `poTotalOverride` or replace the calculated whole-PO value.
 
 Report recurring-cost calculations annualize subscription, SaaS, maintenance,
 and paid included-support records when their stored term is longer than one

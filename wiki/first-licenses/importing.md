@@ -53,6 +53,13 @@ the primary owner to **Budget Owner** and any additional people who should be
 copied on renewal emails to **Secondary Contacts**. That target can accept more
 than one source column.
 
+**Legacy PO Price (stored only; not used)** remains available for compatibility
+with old imports. It does not update the calculated Total PO Value or create a
+manual PO override. Because a shared whole-PO override needs deliberate review,
+set or clear it afterward from any matching license in License Details. A
+LicenseTrack CSV export may contain the effective Total PO Value for reference;
+mapping that column back to Legacy PO Price still does not create an override.
+
 Some external tools expose both a purchase quantity and a quantity-per-unit
 value. Use the purchased entitlement count for **Purchase Quantity**. A
 quantity-per-unit value, such as a bundle size or lines-of-code pack size,

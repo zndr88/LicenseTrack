@@ -26,6 +26,7 @@ from app.services.procurement_document_transfer_service import (
     validate_invoice_file,
     write_invoice_procurement_document,
 )
+from app.services.po_total_override_service import get_po_total_override
 from app.services.storage import delete_file
 from app.services.renewal_workflow import build_pending_order_item_license_data
 
@@ -167,6 +168,13 @@ async def convert_pending_order_to_licenses(
     if order.status == PendingOrderStatus.cancelled:
         raise HTTPException(status_code=409, detail="Pending order has been cancelled")
     order_po_number = _require_order_po_number(order)
+    submitted_fields = convert_payload.model_fields_set
+    effective_po_number = (
+        convert_payload.po_number
+        if "po_number" in submitted_fields and convert_payload.po_number
+        else order_po_number
+    )
+    inherited_po_total_override = await get_po_total_override(db, effective_po_number)
     # F5: Acquire a write lock before creating any licenses.
     _lock = await db.execute(
         update(PendingOrder)
@@ -188,10 +196,10 @@ async def convert_pending_order_to_licenses(
             detail="Pending order has already been converted",
         )
     form_data = convert_payload.model_dump(by_alias=False)
+    form_data["po_total_override"] = inherited_po_total_override
     form_data["pending_order_id"] = order_id
     if form_data.get("purchase_date") is not None:
         form_data["purchase_date"] = datetime.combine(form_data["purchase_date"], time.min)
-    submitted_fields = convert_payload.model_fields_set
     _enforce_order_supplier(form_data, submitted_fields, order.supplier)
     if "po_number" not in submitted_fields or not form_data.get("po_number"):
         form_data["po_number"] = order_po_number
@@ -381,6 +389,7 @@ async def batch_convert_pending_order_to_licenses(
     if order.status == PendingOrderStatus.cancelled:
         raise HTTPException(status_code=409, detail="Pending order has been cancelled")
     order_po_number = _require_order_po_number(order)
+    inherited_po_total_override = await get_po_total_override(db, order_po_number)
     # F5: Acquire a write lock before creating any licenses.
     _lock = await db.execute(
         update(PendingOrder)
@@ -459,6 +468,7 @@ async def batch_convert_pending_order_to_licenses(
         )
         item_data["source_sourcing_item_id"] = sourcing_item.id
         item_data["pending_order_id"] = order_id
+        item_data["po_total_override"] = inherited_po_total_override
         if item_data.get("purchase_date") is not None:
             item_data["purchase_date"] = datetime.combine(item_data["purchase_date"], time.min)
 

@@ -66,9 +66,19 @@ purchase quantity multiplied by quantity per unit.
 
 The **calculated total** is purchase quantity times unit price, computed
 automatically. Effective quantity is not used for spend calculations. The
-**total PO price** is the acquisition value of the whole purchase order, which
-may span multiple lines in a single PO. Freeware/open-source records have no
-acquisition price; paid support is recorded in **Maintenance & Support**.
+**Total PO Value** is the acquisition value of the whole purchase order, which
+may span multiple lines in a single PO. Normally it is the sum of calculated
+license lines sharing the PO number.
+
+When the invoice provides only one whole-PO amount and no usable line
+breakdown, an Editor or Admin can use the control beside **Total PO Value** to
+set a manual override. The override is shared by every license with that PO
+number: it can be edited or cleared from any member, and a new member joining
+the PO inherits it. Moving a license to an existing PO adopts that PO's
+override; moving it to a new PO does not carry a grouped override with it.
+
+Freeware/open-source records have no acquisition price; paid support is
+recorded in **Maintenance & Support**.
 
 ## Maintenance & Support
 

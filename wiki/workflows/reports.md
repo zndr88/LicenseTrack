@@ -21,6 +21,10 @@ The Upcoming, Active, Expiring, and Expired counters reflect the filtered rows.
 The portfolio-wide annual-cost chip comes from a separate server rollup and is
 not narrowed by those local report filters.
 
+All report sections start collapsed for a cleaner overview and remember their
+expanded state for the current browser session. Detailed recurring-cost and
+publisher/supplier tables provide compact searches with matching-row counts.
+
 ## Money and currencies
 
 LicenseTrack does not perform currency conversion. When records contain several
@@ -80,7 +84,8 @@ from Active until their start date arrives.
 ## PDF export
 
 **Export PDF** captures the currently visible report sections into an A4
-landscape document using the active theme.
+landscape document using the active theme. Export is disabled until an invalid
+custom date range has been corrected.
 
 !!! note
     PDF export captures rendered content. Very large scrollable tables may be

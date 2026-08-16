@@ -54,7 +54,10 @@ Some fields are calculated or protected:
 - LT Ref identifies the renewal chain and is read-only.
 - Expiration and completeness are derived from dates, lifecycle state, mandatory
   fields, and required evidence.
-- Total PO Value is calculated from license rows that share a PO number.
+- Total PO Value is calculated from license rows that share a PO number unless
+  an Editor or Admin sets a shared manual override from License Details. Set,
+  edit, or clear that override from any license in the PO; the same value is
+  shown on every member.
 - Renewal-chain fields change only through renewal or repair workflows.
 
 ## Maintenance and support records

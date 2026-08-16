@@ -13,6 +13,43 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.10] - 2026-08-16
+
+### Added
+
+- Added a shared manual Total PO Value override for purchase orders whose
+  invoice provides only one total without usable line-level pricing. Editors
+  and admins can set or clear the override from any License Details record in
+  the PO; the value is synchronized across every license sharing that PO
+  number and is included in registry CSV exports.
+- Added separate Reports totals for Spend by License and Spend by PO Value,
+  plus their Difference. Manual PO overrides are counted once in PO-value
+  spend without being distributed into license-level breakdowns or forecasts.
+
+### Changed
+
+- Report sections now start collapsed, retain their expanded state for the
+  browser session, and use the same compact section behavior as Admin and User
+  Settings.
+- Added compact search and result counts to detailed recurring-cost and
+  publisher/supplier report tables, along with clearer filter status and reset
+  behavior.
+- Clarified that the importable legacy stored PO price is compatibility data,
+  not the manual PO override or an active Total PO Value calculation.
+
+### Fixed
+
+- Kept shared PO overrides consistent when licenses are created, imported,
+  converted, renewed, or moved between PO numbers, including inheritance from
+  an existing PO and correct clearing when a license leaves a grouped PO.
+- Fixed localized PO override entry so grouped values remain stable after the
+  field loses focus.
+- Preserved the pending-order conversion conflict guard while inheriting an
+  existing PO override, so concurrent conversion attempts still reject the
+  losing request with a conflict instead of an internal error.
+- Prevented report PDF export while a custom date range is invalid and removed
+  the duplicate date-range error message.
+
 ## [1.1.9] - 2026-08-14
 
 ### Added
@@ -1005,7 +1042,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.9...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.10...HEAD
+[1.1.10]: https://github.com/zndr88/LicenseTrack/compare/v1.1.9...v1.1.10
 [1.1.9]: https://github.com/zndr88/LicenseTrack/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/zndr88/LicenseTrack/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/zndr88/LicenseTrack/compare/v1.1.6...v1.1.7

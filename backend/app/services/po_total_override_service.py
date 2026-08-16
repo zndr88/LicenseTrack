@@ -28,12 +28,17 @@ async def get_po_total_override(
     if exclude_license_id is not None:
         statement = statement.where(License.id != exclude_license_id)
 
-    result = await db.execute(statement)
+    # Override inheritance is a read-only lookup. Avoid flushing unrelated
+    # pending ORM work when this helper runs inside a larger conversion.
+    with db.no_autoflush:
+        result = await db.execute(statement)
     return result.scalars().first()
 
 
 async def inherit_po_total_override(db: AsyncSession, data: dict) -> None:
     """Apply an existing PO group's override to a new license payload."""
+    if "po_total_override" in data:
+        return
     data["po_total_override"] = await get_po_total_override(db, data.get("po_number"))
 
 

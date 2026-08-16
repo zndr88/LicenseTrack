@@ -164,7 +164,7 @@ the pending-order conversion path rather than in sourcing conversion.
 
 | Module | Owns |
 |--------|------|
-| `reportShared.jsx` | Shared report section shell, empty state, sort header, legend, palette |
+| `reportShared.jsx` | Shared collapsible report section shell, table search toolbar, empty state, sort header, legend, palette |
 | `CostCentreDropdown.jsx` | Searchable, scrollable cost-centre filter dropdown |
 | `CostForecastSection.jsx` | Budget forecast controls and forecast table/chart presentation |
 | `PublisherBreakdownSection.jsx` | Publisher spend chart plus sortable publisher/supplier relationship table |
@@ -172,6 +172,18 @@ the pending-order conversion path rather than in sourcing conversion.
 | `RenewalCalendarSection.jsx` | Renewal calendar chart/table presentation |
 
 `ReportsPage.jsx` fetches portfolio annual cost via `useQuery` (`queryKeys.reportsPortfolioStats` -> `GET /api/reports/portfolio-stats`) and displays that server rollup in the chip row above the report sections. This key is intentionally separate from the sidebar's `queryKeys.portfolioStats` cache because the two queries return different shapes. The Upcoming, Active, Expiring, and Expired chips are client-computed from the filtered license list so they update with report filters; Active excludes Upcoming and Expiring. All section-specific datasets (cost forecast, publisher and vendor overview, portfolio health, renewal calendar) remain client-computed from the raw license list fetched separately. `ReportsPage.jsx` also computes `singleCurrency` (the single ISO currency code present across the filtered dataset, or `null` when multiple currencies are mixed); chart sections receive `singleCurrency` and suppress currency-dependent chart portions with explanatory notes when needed. Grouped tables remain available. All spend totals use `formatCostByCurrency` so mixed-currency portfolios display grouped values by currency rather than a combined figure. `ReportsPage.jsx` should not own section-specific sort state or large chart/table JSX.
+
+Sections start collapsed and `ReportSections.jsx` persists expansion state in
+session storage; table-specific search stays inside the owning report section.
+
+Cost Overview keeps two separate spend meanings. Spend by License sums strict
+line values (`quantity * unit_price`) for the attributable headline comparison.
+Spend by PO Value groups nonblank PO numbers, uses
+`po_total_override` once when present, otherwise sums line values, and treats
+PO-less records individually. The Difference is PO-value spend minus
+license-line spend. Never replicate a PO override into publisher/vendor,
+lifecycle, or forecast calculations because no line allocation exists. Preserve
+currency grouping in all three totals.
 
 Date-only report values must stay calendar-date based. `frontend/src/utils/reportHelpers.js` parses `YYYY-MM-DD` start and end dates as local dates before date-range and renewal-calendar comparisons so browser UTC offsets cannot move boundary dates into the previous day or quarter.
 
@@ -322,7 +334,7 @@ intake are authoritative: a payload equal to its configured limit is valid and
 only `len(content) > max_bytes` returns 413. The transport allowance remains
 bounded so excessive multipart metadata cannot bypass the early defence.
 
-Pending-order conversion uses a conditional UPDATE write-lock to prevent duplicate license creation from concurrent requests. Both `convert_pending_order_to_licenses` and `batch_convert_pending_order_to_licenses` execute `UPDATE pending_orders SET notes=notes WHERE id=? AND status != converted` immediately after the status guard. Because SQLite serialises writers, the second concurrent request sees `rowcount == 0` and raises 409 before any license rows are created. Do not remove this UPDATE or reorder it after any license creation - the lock must be acquired before the first license write. Conversion also snapshots `request_date` from the sourcing item and `purchase_date` from the pending order onto each resulting license. These are editable afterwards so imported and legacy records can be enriched through the normal write path.
+Pending-order conversion uses a conditional UPDATE write-lock to prevent duplicate license creation from concurrent requests. Both `convert_pending_order_to_licenses` and `batch_convert_pending_order_to_licenses` execute `UPDATE pending_orders SET notes=notes WHERE id=? AND status != converted` immediately after the status guard. Because SQLite serialises writers, the second concurrent request sees `rowcount == 0` and raises 409 before any license rows are created. Do not remove this UPDATE or reorder it after any license creation - the lock must be acquired before the first license write. Read-only prerequisite lookups, including shared PO-total override inheritance, must finish before acquiring the lock so no extra database yield is introduced between lock acquisition and the first license flush. Conversion also snapshots `request_date` from the sourcing item and `purchase_date` from the pending order onto each resulting license. These are editable afterwards so imported and legacy records can be enriched through the normal write path.
 
 Direct multi-license creation uses the additive `POST /api/licenses/batch`
 contract. `create_license_batch_records` creates the ordered rows and resolves
@@ -392,6 +404,10 @@ Current important service boundaries:
 
 - license response assembly (mandatory fields, completeness/expiry enrichment, creator account labels, scoped procurement document lookup): `backend/app/services/license_response_service.py`;
 - license write workflow (single and atomic batch create, update/patch/delete invariants, post-commit managed-file cleanup inputs, editable procurement milestone parsing, maintenance-parent validation, manual procurement-bundle assignment, contract_id resolution from contract_number through `contract_identity_service.py`, predecessor_id wiring on renewal successors, create-time rejection of lifecycle chain fields via `REPAIR_ONLY_UPDATE_FIELDS`): `backend/app/services/license_write_service.py`;
+- shared PO-total override workflow (set/clear replication, create-time
+  inheritance, and PO reassignment semantics across direct writes, imports,
+  conversions, maintenance creation, and renewal successors):
+  `backend/app/services/po_total_override_service.py`;
 - contract-number identity checks (case-insensitive duplicate detection and unambiguous license `contract_id` resolution): `backend/app/services/contract_identity_service.py`;
 - lifecycle rules (ordinary update guardrails, pending-renewal transitions, single-successor predecessor enforcement, renewed predecessor marking, admin repair target/cycle validation, and the canonical `REPAIR_ONLY_UPDATE_FIELDS` set that gates both the update and create paths): `backend/app/services/lifecycle_rules.py`;
 - maintenance invariants (parent type eligibility, parent retirement checks, non-maintenance parent guard, active-maintenance type-change and retirement guards): `backend/app/services/maintenance_rules.py` — all call sites import from here; no inline maintenance checks outside this module;
