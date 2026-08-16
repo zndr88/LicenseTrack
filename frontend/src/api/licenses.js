@@ -174,6 +174,16 @@ export async function patchLicenseField(id, field, value) {
   });
 }
 
+/** Set the shared total PO value override for every license with this PO. */
+export async function setPoTotalOverride(id, value) {
+  return post(`/api/licenses/${id}/po-total-override`, { poTotalOverride: value });
+}
+
+/** Clear the shared total PO value override for every license with this PO. */
+export async function clearPoTotalOverride(id) {
+  return request(`/api/licenses/${id}/po-total-override`, { method: "DELETE" });
+}
+
 /**
  * Mark the current notice deadline as handled for reminder suppression.
  *

@@ -349,6 +349,7 @@ class LicenseResponse(LicenseBase):
     # Set only in convert responses: "renewed" | "new_purchase" |
     # "direct_freeware" | "renewed_predecessor"
     conversion_type: Optional[str] = None
+    po_total_override: Optional[str] = None
 
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -467,6 +468,22 @@ class LicenseProcurementTrailResponse(BaseModel):
 class FieldUpdateRequest(BaseModel):
     field: str
     value: str
+
+
+class PoTotalOverrideRequest(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    po_total_override: str = Field(min_length=1)
+
+    @field_validator("po_total_override", mode="before")
+    @classmethod
+    def _validate_po_total_override(cls, value: object) -> object:
+        if not isinstance(value, str) or not is_canonical_money(value):
+            raise ValueError("PO total override must be a plain decimal string (e.g. '1234.50').")
+        return value
 
 
 class MaintenanceLinkExistingRequest(BaseModel):

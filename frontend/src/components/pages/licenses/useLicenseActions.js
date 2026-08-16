@@ -5,6 +5,8 @@ import {
   deleteLicense,
   getLicense,
   patchLicenseField,
+  setPoTotalOverride as setPoTotalOverrideApi,
+  clearPoTotalOverride as clearPoTotalOverrideApi,
   updateLicense,
 } from "../../../api/licenses.js";
 import { queryKeys } from "../../../queryKeys.js";
@@ -96,6 +98,23 @@ export function useLicenseActions({
     return { ok: true, error: null };
   }, [queryClient, updateLicensesInCache, onPortfolioStateChange, showError]);
 
+  const handlePoTotalOverride = useCallback(async (id, value) => {
+    const apiCall = value === null ? clearPoTotalOverrideApi(id) : setPoTotalOverrideApi(id, value);
+    const { data, error } = await apiCall;
+    if (error) {
+      showError(error);
+      return false;
+    }
+    if (data?.poNumber) {
+      updateLicensesInCache((ls) => ls.map((license) => (
+        license.poNumber === data.poNumber
+          ? { ...license, poTotalOverride: value }
+          : license
+      )));
+    }
+    return true;
+  }, [updateLicensesInCache, showError]);
+
   const handleLicenseDelete = useCallback(async (id) => {
     const { error } = await deleteLicense(id);
     if (error) { showError(error); return; }
@@ -144,6 +163,7 @@ export function useLicenseActions({
   return {
     handleLicenseUpdate,
     handleLicenseFieldPatch,
+    handlePoTotalOverride,
     handleLicenseDelete,
     handleCreateRenewal,
     handleCreateRenewalBundle,

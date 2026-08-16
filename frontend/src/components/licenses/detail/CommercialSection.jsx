@@ -1,9 +1,11 @@
 // frontend/src/components/licenses/detail/CommercialSection.jsx
+import { useState } from "react";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../../constants/licenseData.js";
 import { formatCost, getEffectiveQuantity, getPoTotal } from "../../../utils/helpers.js";
 import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
+import PoTotalOverrideModal from "../PoTotalOverrideModal.jsx";
 
 function formatQuantityDisplay(value, userSettings) {
   if (value === null || value === undefined || value === "") return "—";
@@ -22,6 +24,7 @@ export default function CommercialSection({
   isOpen,
   onToggle,
   allLicenses,
+  onPoTotalOverride,
   openFieldEdit,
   cfBySection,
   customFieldValues,
@@ -29,6 +32,7 @@ export default function CommercialSection({
   makeCustomFieldSaveFn,
   closeFieldEdit,
 }) {
+  const [poOverrideOpen, setPoOverrideOpen] = useState(false);
   const fmtCost = (amount) =>
     formatCost(amount, license.currency || userSettings.displayCurrency || "EUR", userSettings.numberFormatLocale ?? "en-US");
   const effectiveQuantity = getEffectiveQuantity(license);
@@ -169,11 +173,23 @@ export default function CommercialSection({
           )}
           {vis.totalPoPrice && (
             <div className="dp-field">
-              <span className="dp-field-label">Total PO Value</span>
+              <span className="dp-field-label">
+                Total PO Value{license.poTotalOverride ? " · Manual" : " · Calculated"}
+              </span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val dp-mono-val">
                   {license.poNumber ? fmtCost(getPoTotal(license.poNumber, allLicenses)) : "—"}
                 </div>
+                {perms.canEdit && license.poNumber && onPoTotalOverride && (
+                  <button
+                    type="button"
+                    className="dp-field-edit-icon"
+                    aria-label={license.poTotalOverride ? "Edit PO total override" : "Override total PO value"}
+                    onClick={() => setPoOverrideOpen(true)}
+                  >
+                    <Icon name={license.poTotalOverride ? "lock" : "edit"} size={11} />
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -207,6 +223,23 @@ export default function CommercialSection({
         </div>
       )}
       <div className="dp-section-divider" />
+      {poOverrideOpen && (
+        <PoTotalOverrideModal
+          license={license}
+          userSettings={userSettings}
+          onSave={async (value) => {
+            const ok = await onPoTotalOverride(license.id, value);
+            if (ok) setPoOverrideOpen(false);
+            return ok;
+          }}
+          onClear={async () => {
+            const ok = await onPoTotalOverride(license.id, null);
+            if (ok) setPoOverrideOpen(false);
+            return ok;
+          }}
+          onClose={() => setPoOverrideOpen(false)}
+        />
+      )}
     </>
   );
 }

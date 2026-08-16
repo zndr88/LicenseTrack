@@ -19,6 +19,7 @@ from app.schemas.license import (
     LicenseProcurementTrailResponse,
     LicenseResponse,
     LicenseUpdate,
+    PoTotalOverrideRequest,
 )
 from app.services.access_service import apply_department_filter, can_view_license, get_viewer_departments
 from app.services.audit_service import diff_fields, format_audit_detail, log_event
@@ -43,6 +44,7 @@ from app.services.license_write_service import (
     create_license_record,
     delete_license_document_files,
     delete_license_record,
+    apply_po_total_override,
     mark_license_notice_handled,
 )
 from app.services.license_procurement_trail_service import build_license_procurement_trail
@@ -208,6 +210,59 @@ async def get_license(license_id: int, db: DbSession, _current_user: CurrentUser
         custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
         storage_base=storage_base,
     )
+
+
+@router.post("/{license_id}/po-total-override", response_model=LicenseResponse)
+async def set_po_total_override(
+    license_id: int,
+    payload: PoTotalOverrideRequest,
+    request: Request,
+    db: DbSession,
+    _editor: User = Depends(require_editor_or_admin),
+) -> LicenseResponse:
+    target_result = await db.execute(select(License).where(License.id == license_id))
+    target = target_result.scalar_one_or_none()
+    if target is None or not await can_view_license(_editor, target, db):
+        raise HTTPException(status_code=404, detail="License not found")
+    license_obj, affected_count = await apply_po_total_override(db, license_id, payload.po_total_override)
+    await log_event(
+        db,
+        "license.po_total_overridden",
+        actor=_editor,
+        ip_address=request.client.host if request.client else None,
+        target_type="license",
+        target_id=str(license_id),
+        target_label=license_obj.software_description,
+        detail=f"poNumber: {license_obj.po_number}\nvalue: {payload.po_total_override}\nlicensesAffected: {affected_count}",
+    )
+    await db.commit()
+    return await get_license(license_id, db, _editor)
+
+
+@router.delete("/{license_id}/po-total-override", response_model=LicenseResponse)
+async def clear_po_total_override(
+    license_id: int,
+    request: Request,
+    db: DbSession,
+    _editor: User = Depends(require_editor_or_admin),
+) -> LicenseResponse:
+    target_result = await db.execute(select(License).where(License.id == license_id))
+    target = target_result.scalar_one_or_none()
+    if target is None or not await can_view_license(_editor, target, db):
+        raise HTTPException(status_code=404, detail="License not found")
+    license_obj, affected_count = await apply_po_total_override(db, license_id, None)
+    await log_event(
+        db,
+        "license.po_total_override_cleared",
+        actor=_editor,
+        ip_address=request.client.host if request.client else None,
+        target_type="license",
+        target_id=str(license_id),
+        target_label=license_obj.software_description,
+        detail=f"poNumber: {license_obj.po_number}\nlicensesAffected: {affected_count}",
+    )
+    await db.commit()
+    return await get_license(license_id, db, _editor)
 
 
 @router.post("", response_model=LicenseResponse, status_code=201)

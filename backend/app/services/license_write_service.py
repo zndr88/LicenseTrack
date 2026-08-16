@@ -388,6 +388,26 @@ async def apply_license_update(
     return license_obj, before, after
 
 
+async def apply_po_total_override(
+    db: AsyncSession,
+    license_id: int,
+    value: str | None,
+) -> tuple[License, int]:
+    """Set or clear the shared PO total override for all licenses in one PO."""
+    result = await db.execute(select(License).where(License.id == license_id))
+    license_obj = result.scalar_one_or_none()
+    if license_obj is None:
+        raise HTTPException(status_code=404, detail="License not found")
+    if not license_obj.po_number:
+        raise HTTPException(status_code=400, detail="A PO number is required to override the total PO value")
+
+    result = await db.execute(select(License).where(License.po_number == license_obj.po_number))
+    matching_licenses = list(result.scalars().all())
+    for matching_license in matching_licenses:
+        matching_license.po_total_override = value
+    return license_obj, len(matching_licenses)
+
+
 async def apply_license_lifecycle_repair(
     db: AsyncSession,
     license_id: int,

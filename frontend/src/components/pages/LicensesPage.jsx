@@ -189,6 +189,7 @@ export default function LicensesPage({
   const {
     handleLicenseUpdate,
     handleLicenseFieldPatch,
+    handlePoTotalOverride,
     handleLicenseDelete,
     handleCreateRenewal,
     handleCreateRenewalBundle,
@@ -412,6 +413,7 @@ export default function LicensesPage({
               onCreateContract={onCreateContract}
               onClose={() => setSelectedId(null)}
               onUpdate={handleLicenseUpdate}
+              onPoTotalOverride={handlePoTotalOverride}
               onDelete={handleLicenseDelete}
               onCreateRenewal={handleCreateRenewal}
               onCreateRenewalBundle={handleCreateRenewalBundle}

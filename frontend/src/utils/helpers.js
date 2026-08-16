@@ -62,8 +62,10 @@ export const formatFileSize = (bytes) => {
 
 export const getPoTotal = (poNumber, allLicenses) => {
   if (!poNumber) return 0;
-  return allLicenses
-    .filter((l) => l.poNumber === poNumber && !l.retired)
+  const matching = allLicenses.filter((l) => l.poNumber === poNumber && !l.retired);
+  const override = matching.find((l) => l.poTotalOverride !== null && l.poTotalOverride !== undefined && l.poTotalOverride !== "");
+  if (override) return Number(override.poTotalOverride) || 0;
+  return matching
     .reduce((sum, l) => sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0), 0);
 };
 

@@ -84,6 +84,7 @@ class License(Base):
     sku_code: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     unit_price: Mapped[str] = mapped_column(String(50), nullable=False, default="")
     total_po_price: Mapped[str] = mapped_column(String(50), nullable=False, default="")
+    po_total_override: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
     currency: Mapped[str] = mapped_column(String(10), nullable=False, default="EUR")
 
     # Dates - end_date nullable (perpetual licenses have none)

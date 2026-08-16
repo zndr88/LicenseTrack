@@ -22,7 +22,7 @@ export const NATIVE_FIELDS = [
   { value: "quantity_per_unit",    label: "Quantity per Unit" },
   { value: "sku_code",             label: "SKU Code" },
   { value: "unit_price",           label: "Unit Price" },
-  { value: "total_po_price",       label: "Total PO Price (legacy stored value)" },
+  { value: "total_po_price",       label: "Legacy PO Price (stored only; not used)" },
   { value: "currency",             label: "Currency" },
   { value: "notes",                label: "Notes" },
   { value: "budget_owner_email",   label: "Budget Owner Email" },

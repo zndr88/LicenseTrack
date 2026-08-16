@@ -48,7 +48,7 @@ function DetailToast({ toast, onClose }) {
   );
 }
 
-export default function DetailPanel({ license, userSettings, globalSettings, user, allLicenses, sourcingItems, pendingOrders, contracts, onClose, onUpdate, onDelete, onCreateRenewal, onCreateRenewalBundle, onCancelRenewal, onNavigateToSourcing, onNavigateToPendingOrder, onNavigateToContract, onCreateContract, onNavigate, onPreviewDocument }) {
+export default function DetailPanel({ license, userSettings, globalSettings, user, allLicenses, sourcingItems, pendingOrders, contracts, onClose, onUpdate, onPoTotalOverride, onDelete, onCreateRenewal, onCreateRenewalBundle, onCancelRenewal, onNavigateToSourcing, onNavigateToPendingOrder, onNavigateToContract, onCreateContract, onNavigate, onPreviewDocument }) {
   const {
     confirmAction, setConfirmAction,
     showMaintenanceModal, setShowMaintenanceModal,
@@ -206,6 +206,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               isOpen={openSections.commercial}
               onToggle={toggleSection}
               allLicenses={allLicenses}
+              onPoTotalOverride={onPoTotalOverride}
               openFieldEdit={openFieldEdit}
               cfBySection={cfBySection}
               customFieldValues={customFieldValues}

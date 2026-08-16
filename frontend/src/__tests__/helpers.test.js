@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { getCompleteness, normalizeLicense } from "../utils/helpers.js";
+import { getCompleteness, getPoTotal, normalizeLicense } from "../utils/helpers.js";
+
+describe("getPoTotal", () => {
+  it("uses a shared PO override before calculated line totals", () => {
+    const licenses = [
+      { poNumber: "PO-1", quantity: "10", unitPrice: "0", poTotalOverride: "1250.00", retired: false },
+      { poNumber: "PO-1", quantity: "5", unitPrice: "0", retired: false },
+    ];
+
+    expect(getPoTotal("PO-1", licenses)).toBe(1250);
+  });
+
+  it("returns to calculated line totals after the override is cleared", () => {
+    const licenses = [
+      { poNumber: "PO-1", quantity: "10", unitPrice: "12.50", poTotalOverride: null, retired: false },
+      { poNumber: "PO-1", quantity: "5", unitPrice: "10", poTotalOverride: null, retired: false },
+    ];
+
+    expect(getPoTotal("PO-1", licenses)).toBe(175);
+  });
+});
 
 describe("getCompleteness", () => {
   it("counts the new record-level completeness requirements", () => {

@@ -78,16 +78,24 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
     ]
     writer.writerow(headers)
 
-    # Total PO Value is derived, not read from the deprecated total_po_price
-    # column: the whole PO's value = sum of line totals (qty × unit price)
-    # across the exported licenses sharing a PO number. Mirrors the frontend's
-    # getPoTotal, so both exports agree.
+    # The whole PO's value is normally the sum of line totals. A manually
+    # entered PO override takes precedence and is replicated on every license
+    # sharing that PO number. Mirrors the frontend's getPoTotal.
     po_totals: dict[str, Decimal] = {}
+    po_overrides = {
+        lic.po_number: Decimal(lic.po_total_override)
+        for lic in licenses
+        if lic.po_number and lic.po_total_override
+    }
     for lic in licenses:
         if lic.po_number:
+            if lic.po_number in po_overrides:
+                po_totals[lic.po_number] = po_overrides[lic.po_number]
+                continue
             line = calc_line_total(lic.quantity, lic.unit_price)
             if line is not None:
-                po_totals[lic.po_number] = po_totals.get(lic.po_number, Decimal("0")) + line
+                po_totals.setdefault(lic.po_number, Decimal("0"))
+                po_totals[lic.po_number] += line
 
     today = date.today()
     for lic in licenses:

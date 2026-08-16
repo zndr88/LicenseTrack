@@ -606,6 +606,30 @@ export const routes = [
     },
   },
   {
+    method: "POST", pattern: /^\/api\/licenses\/(?<id>\d+)\/po-total-override$/,
+    handler: async ({ params, body }) => {
+      const license = findLicenseOr404(Number(params.id));
+      if (!license.poNumber) throw new Error("A PO number is required to override the total PO value");
+      const value = body?.poTotalOverride;
+      if (!value) throw new Error("PO total override is required");
+      store.licenses
+        .filter((item) => item.poNumber === license.poNumber)
+        .forEach((item) => { item.poTotalOverride = value; decorateLicense(item); });
+      return { data: withComputedCompleteness(license), error: null };
+    },
+  },
+  {
+    method: "DELETE", pattern: /^\/api\/licenses\/(?<id>\d+)\/po-total-override$/,
+    handler: async ({ params }) => {
+      const license = findLicenseOr404(Number(params.id));
+      if (!license.poNumber) throw new Error("A PO number is required to clear the total PO override");
+      store.licenses
+        .filter((item) => item.poNumber === license.poNumber)
+        .forEach((item) => { item.poTotalOverride = null; decorateLicense(item); });
+      return { data: withComputedCompleteness(license), error: null };
+    },
+  },
+  {
     // Mirrors backend/app/services/license_write_service.py:276-314.
     method: "PATCH", pattern: /^\/api\/licenses\/(?<id>\d+)\/field$/,
     handler: async ({ params, body }) => {

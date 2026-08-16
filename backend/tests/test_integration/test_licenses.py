@@ -102,6 +102,48 @@ async def test_create_license_valid(test_app, auth_headers):
     assert data["renewalNotificationsEnabled"] is True
 
 
+async def test_po_total_override_is_shared_and_clearable(test_app, auth_headers):
+    first = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="PO line A",
+        poNumber="PO-SHARED-1",
+        quantity="10",
+        unitPrice="0",
+    )
+    second = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="PO line B",
+        poNumber="PO-SHARED-1",
+        quantity="5",
+        unitPrice="0",
+    )
+
+    set_response = await test_app.post(
+        f"/api/licenses/{first['id']}/po-total-override",
+        json={"poTotalOverride": "1250.00"},
+        headers=auth_headers,
+    )
+    assert set_response.status_code == 200
+    assert set_response.json()["poTotalOverride"] == "1250.00"
+
+    rows = (await test_app.get("/api/licenses", headers=auth_headers)).json()
+    by_id = {row["id"]: row for row in rows}
+    assert by_id[first["id"]]["poTotalOverride"] == "1250.00"
+    assert by_id[second["id"]]["poTotalOverride"] == "1250.00"
+
+    clear_response = await test_app.delete(
+        f"/api/licenses/{second['id']}/po-total-override",
+        headers=auth_headers,
+    )
+    assert clear_response.status_code == 200
+    rows = (await test_app.get("/api/licenses", headers=auth_headers)).json()
+    by_id = {row["id"]: row for row in rows}
+    assert by_id[first["id"]]["poTotalOverride"] is None
+    assert by_id[second["id"]]["poTotalOverride"] is None
+
+
 # ---------------------------------------------------------------------------
 # 2c — GET by ID returns the correct record
 # ---------------------------------------------------------------------------
