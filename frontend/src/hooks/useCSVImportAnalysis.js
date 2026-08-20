@@ -134,6 +134,7 @@ export function useCSVImportAnalysis({
     setConfirmResult,
     acknowledgeWarnings = false,
     rowOverrides = [],
+    referenceOverrides = [],
   ) => {
     if (!csvFile || !analyzeData) return;
     const payload = buildMappingPayload();
@@ -146,6 +147,7 @@ export function useCSVImportAnalysis({
       importFormats,
       updateExisting,
       rowOverrides,
+      referenceOverrides,
     );
     if (err) { setError(err); setStep("mapping"); return; }
     setConfirmResult(data);

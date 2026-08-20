@@ -66,6 +66,64 @@ class ImportExecuteRequest(BaseModel):
     mapping_name: Optional[str] = None  # if set, save mapping before executing
 
 
+class ImportReferenceOverride(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    candidate_key: str = Field(min_length=1, max_length=512)
+    action: str = Field(pattern="^(accept_new|map_existing|keep_separate)$")
+    target_id: Optional[int] = Field(default=None, gt=0)
+    target_name: Optional[str] = Field(default=None, max_length=255)
+    display_name: Optional[str] = Field(default=None, max_length=255)
+
+
+class ImportReferenceMatch(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    id: Optional[int] = None
+    candidate_key: Optional[str] = None
+    name: str
+    is_active: bool
+
+
+class ImportReferenceCandidate(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    kind: str
+    role_usage: list[str] = Field(default_factory=list)
+    candidate_key: str
+    proposed_name: str
+    source_spellings: list[str] = Field(default_factory=list)
+    occurrence_count: int
+    sample_row_numbers: list[int] = Field(default_factory=list)
+    status: str
+    matched: Optional[ImportReferenceMatch] = None
+    possible_matches: list[ImportReferenceMatch] = Field(default_factory=list)
+
+
+class ImportReferenceCounts(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    matched: int = 0
+    new: int = 0
+    possible_duplicate: int = 0
+    blocked: int = 0
+
+
+class ImportReferenceSummary(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    candidates: list[ImportReferenceCandidate] = Field(default_factory=list)
+    organization_counts: ImportReferenceCounts = Field(default_factory=ImportReferenceCounts)
+    cost_centre_counts: ImportReferenceCounts = Field(default_factory=ImportReferenceCounts)
+
+
+class ImportReferenceResult(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    created_count: int = 0
+    reused_count: int = 0
+
+
 class DuplicateWarning(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
@@ -167,6 +225,7 @@ class CSVImportPreviewResponse(BaseModel):
     headers_found: list[str]  # internal field names detected in the file
     headers_missing: list[str]  # recommended fields absent from the file
     warning_summary: ImportWarningSummary = ImportWarningSummary()
+    reference_summary: ImportReferenceSummary = Field(default_factory=ImportReferenceSummary)
 
 
 class CSVImportError(BaseModel):
@@ -186,3 +245,4 @@ class CSVImportConfirmResponse(BaseModel):
     errors: list[CSVImportError]
     warning_summary: ImportWarningSummary = ImportWarningSummary()
     warnings_acknowledged: bool = False
+    reference_result: ImportReferenceResult = Field(default_factory=ImportReferenceResult)

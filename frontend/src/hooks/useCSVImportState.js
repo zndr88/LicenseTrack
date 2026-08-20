@@ -102,6 +102,7 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
       rowNumber: Number(rowNumber),
       parentLicenseId: override.parentLicenseId,
     }));
+    const referenceOverrides = Object.values(preview.referenceOverrides);
     if (source === "external" && analysis.analyzeData) {
       await analysis.handleExecuteImport(
         csvFile,
@@ -109,6 +110,7 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
         preview.setConfirmResult,
         hasImportWarnings,
         rowOverrides,
+        referenceOverrides,
       );
       return;
     }
@@ -157,6 +159,7 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     previewData: preview.previewData,
     skippedRows: preview.skippedRows,
     rowOverrides: preview.rowOverrides,
+    referenceOverrides: preview.referenceOverrides,
     selectedRows: preview.selectedRows,
     duplicateWarningCount: preview.duplicateWarningCount,
     importableRowsCount: preview.importableRowsCount,
@@ -170,6 +173,7 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     skipRows: preview.skipRows,
     restoreRows: preview.restoreRows,
     setMaintenanceParentOverride: preview.setMaintenanceParentOverride,
+    setReferenceOverride: preview.setReferenceOverride,
     handleConfirm,
     updateExisting: source === "external" ? analysis.updateExisting : preview.updateExisting,
     onToggleUpdateExisting,

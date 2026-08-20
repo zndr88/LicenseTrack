@@ -18,6 +18,7 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
   const [selectedRows, setSelectedRows] = useState(() => new Set());
   const [skippedRows, setSkippedRows] = useState(() => new Set());
   const [rowOverrides, setRowOverrides] = useState({});
+  const [referenceOverrides, setReferenceOverrides] = useState({});
   const [updateExisting, setUpdateExisting] = useState(false);
 
   const duplicateWarningCount = previewData?.rows?.reduce(
@@ -44,6 +45,7 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     setSelectedRows(new Set());
     setSkippedRows(new Set());
     setRowOverrides({});
+    setReferenceOverrides({});
   };
 
   const setMappedPreviewData = (data) => {
@@ -75,6 +77,7 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
         rowNumber: Number(rowNumber),
         parentLicenseId: override.parentLicenseId,
       })),
+      Object.values(referenceOverrides),
     );
     if (err) { setError(err); setStep("preview"); return; }
     setConfirmResult(data);
@@ -141,6 +144,15 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     setUpdateExisting(false);
   };
 
+  const setReferenceOverride = (candidateKey, override) => {
+    setReferenceOverrides((current) => {
+      const next = { ...current };
+      if (!override?.action) delete next[candidateKey];
+      else next[candidateKey] = { candidateKey, ...override };
+      return next;
+    });
+  };
+
   const handleUpdateExisting = async (csvFile, next) => {
     setUpdateExisting(next);
     await handleFilePreview(csvFile, next);
@@ -152,6 +164,7 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     setConfirmResult,
     skippedRows,
     rowOverrides,
+    referenceOverrides,
     selectedRows,
     duplicateWarningCount,
     importableRowsCount,
@@ -166,6 +179,7 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     skipRows,
     restoreRows,
     setMaintenanceParentOverride,
+    setReferenceOverride,
     handleFilePreview,
     handleConfirmImport,
     handleUpdateExisting,

@@ -45,11 +45,13 @@ export async function confirmCsvImport(
   formats,
   updateExisting = false,
   rowOverrides = [],
+  referenceOverrides = [],
 ) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("skipped_rows_json", JSON.stringify(skippedRows));
   formData.append("row_overrides_json", JSON.stringify(rowOverrides));
+  formData.append("reference_overrides_json", JSON.stringify(referenceOverrides));
   formData.append("acknowledge_warnings", String(acknowledgeWarnings));
   formData.append("update_existing", String(updateExisting));
   appendImportFormats(formData, formats);
@@ -87,12 +89,14 @@ export async function executeImport(
   formats,
   updateExisting = false,
   rowOverrides = [],
+  referenceOverrides = [],
 ) {
   const form = new FormData();
   form.append("file", file);
   form.append("mapping_json", mappingJson);
   form.append("skipped_rows_json", JSON.stringify(skippedRows));
   form.append("row_overrides_json", JSON.stringify(rowOverrides));
+  form.append("reference_overrides_json", JSON.stringify(referenceOverrides));
   form.append("acknowledge_warnings", String(acknowledgeWarnings));
   form.append("update_existing", String(updateExisting));
   appendImportFormats(form, formats);

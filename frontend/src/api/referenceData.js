@@ -1,6 +1,7 @@
 import { get } from "./client.js";
 
 const REFERENCE_PATHS = {
+  organization: ["organizations", null],
   publisher: ["organizations", "publisher"],
   supplier: ["organizations", "supplier"],
   costCentre: ["cost-centres", null],

@@ -34,6 +34,7 @@ from app.schemas.csv_import import (
     CSVImportPreviewResponse,
     ColumnMatch,
     ImportExecuteRequest,
+    ImportReferenceOverride,
     ImportWarningSummary,
     MappingEntry,
     UnrecognizedColumn,
@@ -55,6 +56,11 @@ from app.services.import_.import_workflow import (
     get_import_defaults,
     prepare_import_rows,
     run_import_rows,
+)
+from app.services.import_.reference_resolution import (
+    build_reference_summary,
+    parse_reference_overrides,
+    validate_reference_overrides,
 )
 from app.services.import_.mapped_parser import parse_mapped_csv
 from app.services.money import SUPPORTED_NUMBER_FORMAT_LOCALES
@@ -153,6 +159,23 @@ def _load_row_parent_overrides(row_overrides_json: str | None) -> dict[int, int]
             )
         overrides[row_number] = parent_license_id
     return overrides
+
+
+def _load_reference_overrides(reference_overrides_json: str | None) -> dict:
+    if not reference_overrides_json:
+        return {}
+    try:
+        raw = json.loads(reference_overrides_json)
+        if not isinstance(raw, list):
+            raise ValueError
+        return parse_reference_overrides([ImportReferenceOverride.model_validate(item) for item in raw])
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="reference_overrides_json is not valid JSON or does not match expected schema",
+        ) from exc
 
 
 def _column_to_target(mapping: list[MappingEntry]) -> dict[str, str]:
@@ -294,7 +317,7 @@ async def preview_import(
     )
     await validate_imported_custom_rows(db, result.rows, result.custom_rows, locale, declared_date_format)
     await prepare_import_rows(result.rows, db, update_existing=update_existing)
-    return build_preview_response(result)
+    return build_preview_response(result, await build_reference_summary(db, result.rows))
 
 
 @router.post("/preview-mapped", response_model=CSVImportPreviewResponse)
@@ -322,7 +345,7 @@ async def preview_mapped_import(
     result, _custom_rows = parse_mapped_csv(contents, column_to_target, default_currency, locale, declared_date_format)
     await validate_imported_custom_rows(db, result.rows, _custom_rows, locale, date_format)
     await prepare_import_rows(result.rows, db, update_existing=update_existing)
-    return build_preview_response(result)
+    return build_preview_response(result, await build_reference_summary(db, result.rows))
 
 
 @router.post("/execute", response_model=CSVImportConfirmResponse)
@@ -333,6 +356,7 @@ async def execute_import(
     mapping_json: str = Form(...),
     skipped_rows_json: str = Form("[]"),
     row_overrides_json: str = Form("[]"),
+    reference_overrides_json: str = Form("[]"),
     acknowledge_warnings: bool = Form(False),
     update_existing: bool = Form(False),
     number_format_locale: str | None = Form(None),
@@ -354,6 +378,7 @@ async def execute_import(
     execute_request = _load_execute_request(mapping_json)
     skipped_rows = _load_skipped_rows(skipped_rows_json)
     row_parent_overrides = _load_row_parent_overrides(row_overrides_json)
+    reference_overrides = _load_reference_overrides(reference_overrides_json)
 
     if execute_request.mapping_name and current_user.role != UserRole.admin:
         raise HTTPException(
@@ -388,6 +413,7 @@ async def execute_import(
         update_existing=update_existing,
         row_parent_overrides=row_parent_overrides,
     )
+    await validate_reference_overrides(db, parsed_result.rows, skipped_rows, reference_overrides)
 
     warning_summary: ImportWarningSummary = build_warning_summary(parsed_result.rows)
     if warning_summary.has_warnings and not acknowledge_warnings:
@@ -400,7 +426,7 @@ async def execute_import(
             },
         )
 
-    imported_count, updated_count, skipped_count, import_errors, cf_failures = await run_import_rows(
+    imported_count, updated_count, skipped_count, import_errors, cf_failures, reference_result = await run_import_rows(
         parsed_result.rows,
         custom_rows,
         skipped_rows,
@@ -409,6 +435,8 @@ async def execute_import(
         locale,
         date_format,
         update_existing=update_existing,
+        reference_overrides=reference_overrides,
+        include_reference_result=True,
     )
 
     if imported_count > 0 or updated_count > 0:
@@ -429,6 +457,8 @@ async def execute_import(
                 "expiredMaintenanceCount": str(warning_summary.expired_maintenance_count),
                 "customFieldFailureCount": str(cf_failures),
                 "acknowledgedWarnings": str(acknowledge_warnings).lower(),
+                "referenceCreatedCount": str(reference_result.created_count),
+                "referenceReusedCount": str(reference_result.reused_count),
             },
         )
         await log_event(
@@ -449,6 +479,7 @@ async def execute_import(
         errors=import_errors,
         warning_summary=warning_summary,
         warnings_acknowledged=acknowledge_warnings,
+        reference_result=reference_result,
     )
 
 
@@ -459,6 +490,7 @@ async def confirm_import(
     file: UploadFile,
     skipped_rows_json: str = Form("[]"),
     row_overrides_json: str = Form("[]"),
+    reference_overrides_json: str = Form("[]"),
     acknowledge_warnings: bool = Form(False),
     update_existing: bool = Form(False),
     number_format_locale: str | None = Form(None),
@@ -490,12 +522,14 @@ async def confirm_import(
     await validate_imported_custom_rows(db, result.rows, result.custom_rows, locale, declared_date_format)
     skipped_rows = _load_skipped_rows(skipped_rows_json)
     row_parent_overrides = _load_row_parent_overrides(row_overrides_json)
+    reference_overrides = _load_reference_overrides(reference_overrides_json)
     await prepare_import_rows(
         result.rows,
         db,
         update_existing=update_existing,
         row_parent_overrides=row_parent_overrides,
     )
+    await validate_reference_overrides(db, result.rows, skipped_rows, reference_overrides)
 
     warning_summary: ImportWarningSummary = build_warning_summary(result.rows)
     if warning_summary.has_warnings and not acknowledge_warnings:
@@ -508,7 +542,7 @@ async def confirm_import(
             },
         )
 
-    imported_count, updated_count, skipped_count, import_errors, cf_failures = await run_import_rows(
+    imported_count, updated_count, skipped_count, import_errors, cf_failures, reference_result = await run_import_rows(
         result.rows,
         result.custom_rows,
         skipped_rows,
@@ -517,6 +551,8 @@ async def confirm_import(
         locale,
         declared_date_format,
         update_existing=update_existing,
+        reference_overrides=reference_overrides,
+        include_reference_result=True,
     )
 
     if imported_count > 0 or updated_count > 0:
@@ -537,6 +573,8 @@ async def confirm_import(
                 "expiredMaintenanceCount": str(warning_summary.expired_maintenance_count),
                 "customFieldFailureCount": str(cf_failures),
                 "acknowledgedWarnings": str(acknowledge_warnings).lower(),
+                "referenceCreatedCount": str(reference_result.created_count),
+                "referenceReusedCount": str(reference_result.reused_count),
             },
         )
         await log_event(
@@ -557,6 +595,7 @@ async def confirm_import(
         errors=import_errors,
         warning_summary=warning_summary,
         warnings_acknowledged=acknowledge_warnings,
+        reference_result=reference_result,
     )
 
 

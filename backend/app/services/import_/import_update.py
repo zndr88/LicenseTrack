@@ -61,6 +61,12 @@ async def apply_import_update(
             setattr(license_obj, col_attr, value)
             if col_attr == "invoice_number":
                 license_obj.invoice_numbers = [value]
+    if row.publisher_name:
+        license_obj.publisher_id = row.resolved_publisher_id
+    if row.supplier:
+        license_obj.supplier_id = row.resolved_supplier_id
+    if row.cost_centre:
+        license_obj.cost_centre_id = row.resolved_cost_centre_id
     license_obj.po_total_override = reassigned_po_override
 
     # license_metric is a validated enum on the model.

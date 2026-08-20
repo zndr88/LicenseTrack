@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { normalizeReferenceSearch } from "../../api/referenceData.js";
 import { LICENSE_TYPES } from "../../constants/licenseData.js";
 import Badge from "../ui/Badge.jsx";
 import Icon from "../ui/Icon.jsx";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import Toggle from "../ui/Toggle.jsx";
 
 const IMPORTER_COLUMNS = [
@@ -134,6 +136,155 @@ function MaintenanceParentPicker({ rowNumber, selectedParentId, parents, onSelec
   );
 }
 
+function candidateAppliesToImportedRows(candidate, rows, skippedRows, rowOverrides) {
+  return rows.some((row) => {
+    const parentResolved = Boolean(rowOverrides[row.rowNumber]?.parentLicenseId);
+    if ((row.importStatus === "error" && !parentResolved) || skippedRows.has(row.rowNumber)) return false;
+    const values = candidate.kind === "cost_centre"
+      ? [row.costCentre]
+      : [
+        row.publisherName || (row.importAction !== "update" ? "Unknown" : ""),
+        row.supplier,
+      ];
+    return values.some((value) => (
+      value && `${candidate.kind}:${normalizeReferenceSearch(value)}` === candidate.candidateKey
+    ));
+  });
+}
+
+function referenceDecisionComplete(override) {
+  if (override?.action === "map_existing") return Boolean(override.targetId && override.targetName);
+  if (override?.action === "accept_new" || override?.action === "keep_separate") {
+    return Boolean(override.displayName?.trim());
+  }
+  return false;
+}
+
+function ReferenceDataSummary({ summary, overrides, onChange, rows, skippedRows, rowOverrides }) {
+  if (!summary) return null;
+  const attention = (summary.candidates || []).filter((candidate) => (
+    candidate.status === "possible_duplicate" || candidate.status === "inactive_conflict"
+  ) && candidateAppliesToImportedRows(candidate, rows, skippedRows, rowOverrides));
+  const organizationCounts = summary.organizationCounts || {};
+  const costCentreCounts = summary.costCentreCounts || {};
+  if (attention.length === 0 && !organizationCounts.new && !costCentreCounts.new) return null;
+
+  return (
+    <div className="csv-reference-summary">
+      <div className="csv-reference-summary-header">
+        <div>
+          <strong>Reference data</strong>
+          <div className="csv-reference-summary-copy">
+            Exact names and aliases match automatically. New references are created only for successful rows.
+          </div>
+        </div>
+        <div className="csv-reference-summary-counts">
+          <span>Matched {(organizationCounts.matched ?? 0) + (costCentreCounts.matched ?? 0)}</span>
+          <span>New {(organizationCounts.new ?? 0) + (costCentreCounts.new ?? 0)}</span>
+          <span className={attention.length ? "is-warning" : ""}>
+            Needs review {attention.length}
+          </span>
+        </div>
+      </div>
+      {attention.length > 0 && (
+        <div className="csv-reference-review-list">
+          <div className="csv-reference-review-title">Review possible duplicates and inactive references</div>
+          {attention.map((candidate) => {
+            const override = overrides[candidate.candidateKey] || {};
+            const isInactive = candidate.status === "inactive_conflict";
+            return (
+              <div className="csv-reference-review-row" key={candidate.candidateKey}>
+                <div className="csv-reference-review-name">
+                  <strong>{candidate.proposedName}</strong>
+                  <span>{candidate.kind === "cost_centre" ? "Cost centre" : (candidate.roleUsage || []).join(" / ")}</span>
+                  <small>{candidate.occurrenceCount} occurrence{candidate.occurrenceCount === 1 ? "" : "s"} · rows {(candidate.sampleRowNumbers || []).join(", ")}</small>
+                  {(candidate.possibleMatches || []).length > 0 && (
+                    <small>Possible matches: {(candidate.possibleMatches || []).map((match) => match.name).join(", ")}</small>
+                  )}
+                </div>
+                <select
+                  className="fi fi-select csv-reference-review-select"
+                  value={override.action || ""}
+                  aria-label={`Reference decision for ${candidate.proposedName}`}
+                  onChange={(event) => {
+                    const action = event.target.value;
+                    if (!action) onChange(candidate.candidateKey, null);
+                    else if (action === "map_existing") {
+                      onChange(candidate.candidateKey, { action, targetId: null, targetName: null });
+                    } else {
+                      onChange(candidate.candidateKey, { action, displayName: candidate.proposedName });
+                    }
+                  }}
+                >
+                  <option value="">{isInactive ? "Choose an active target" : "Choose a decision"}</option>
+                  {!isInactive && <option value="accept_new">Create as new</option>}
+                  {!isInactive && <option value="keep_separate">Keep separate</option>}
+                  <option value="map_existing">Map to existing</option>
+                </select>
+                {override.action === "map_existing" && (
+                  <div className="csv-reference-review-target">
+                    <ReferenceCombobox
+                      mode={candidate.kind === "cost_centre" ? "costCentre" : "organization"}
+                      value={override.targetName || ""}
+                      allowCreate={false}
+                      placeholder="Search active reference data"
+                      aria-label={`Target for ${candidate.proposedName}`}
+                      onChange={(value) => onChange(candidate.candidateKey, {
+                        action: "map_existing",
+                        targetId: null,
+                        targetName: value || null,
+                      })}
+                      onSelectReference={(target) => onChange(candidate.candidateKey, {
+                        action: "map_existing",
+                        targetId: target.id,
+                        targetName: target.name,
+                      })}
+                    />
+                    {(candidate.possibleMatches || []).length > 0 && (
+                      <div className="csv-reference-suggestions">
+                        <span>Possible:</span>
+                        {(candidate.possibleMatches || []).map((match) => (
+                          match.id ? (
+                            <button
+                              type="button"
+                              key={`reference-${match.id}`}
+                              onClick={() => onChange(candidate.candidateKey, {
+                                action: "map_existing",
+                                targetId: match.id,
+                                targetName: match.name,
+                              })}
+                            >
+                              {match.name}
+                            </button>
+                          ) : (
+                            <span key={match.candidateKey}>{match.name} (this file)</span>
+                          )
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {(override.action === "accept_new" || override.action === "keep_separate") && (
+                  <input
+                    className="fi csv-reference-review-target"
+                    value={override.displayName || ""}
+                    maxLength={255}
+                    aria-label={`Canonical display name for ${candidate.proposedName}`}
+                    onChange={(event) => onChange(candidate.candidateKey, {
+                      action: override.action,
+                      displayName: event.target.value,
+                    })}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PreviewStep({
   previewData,
   skippedRows, selectedRows,
@@ -143,7 +294,9 @@ export default function PreviewStep({
   toggleSelectedRow, toggleAllSelectableRows,
   skipRows, restoreRows,
   rowOverrides = {},
+  referenceOverrides = {},
   setMaintenanceParentOverride = () => {},
+  setReferenceOverride = () => {},
   eligibleMaintenanceParents = [],
   showUpdateControls, updateExisting, onToggleUpdateExisting,
   handleConfirm, reset,
@@ -229,6 +382,11 @@ export default function PreviewStep({
     && !needsMaintenanceParent(row)
     && !rowOverrides[row.rowNumber]?.parentLicenseId
   )).length;
+  const unresolvedReferenceCount = (previewData.referenceSummary?.candidates || []).filter((candidate) => (
+    (candidate.status === "possible_duplicate" || candidate.status === "inactive_conflict")
+    && candidateAppliesToImportedRows(candidate, previewData.rows, skippedRows, rowOverrides)
+    && !referenceDecisionComplete(referenceOverrides[candidate.candidateKey])
+  )).length;
 
   const empty = <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>—</span>;
 
@@ -293,6 +451,15 @@ export default function PreviewStep({
           </label>
         </div>
       )}
+
+      <ReferenceDataSummary
+        summary={previewData.referenceSummary}
+        overrides={referenceOverrides}
+        onChange={setReferenceOverride}
+        rows={previewData.rows}
+        skippedRows={skippedRows}
+        rowOverrides={rowOverrides}
+      />
 
       {previewData.headersMissing.length > 0 && (
         <div className="csv-missing-warn">
@@ -523,6 +690,15 @@ export default function PreviewStep({
         </div>
       )}
 
+      {unresolvedReferenceCount > 0 && (
+        <div className="csv-error-notice">
+          <Icon name="alert" size={13} color="var(--orange-text)" />
+          <span>
+            Resolve <strong>{unresolvedReferenceCount} reference-data decision{unresolvedReferenceCount === 1 ? "" : "s"}</strong> before importing.
+          </span>
+        </div>
+      )}
+
       {duplicateWarningCount === 0 && (
         <div className="csv-warn-box">
           <Icon name="alert" size={14} color="var(--orange-text)" />
@@ -532,7 +708,7 @@ export default function PreviewStep({
 
       <div className="csv-actions">
         <button className="btn btn-g" onClick={reset}>Cancel</button>
-        <button className="btn btn-p" onClick={handleConfirm} disabled={importableRowsCount === 0}>
+        <button className="btn btn-p" onClick={handleConfirm} disabled={importableRowsCount === 0 || unresolvedReferenceCount > 0}>
           <Icon name="upload" size={13} />
           {previewData.warningSummary?.hasWarnings
             ? `Acknowledge warnings and import (${importableRowsCount} ${importableRowsCount === 1 ? "license" : "licenses"})`

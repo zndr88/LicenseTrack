@@ -30,11 +30,13 @@ const ReferenceCombobox = forwardRef(function ReferenceCombobox({
   mode,
   value = "",
   onChange,
+  onSelectReference,
   onBlur,
   placeholder,
   className = "fi",
   disabled = false,
   autoFocus = false,
+  allowCreate = true,
   style,
   onKeyDown: externalKeyDown,
   onFocus: externalFocus,
@@ -95,7 +97,7 @@ const ReferenceCombobox = forwardRef(function ReferenceCombobox({
     [item.name, ...(item.aliases || []).map((alias) => alias.name)]
       .some((candidate) => normalizeReferenceSearch(candidate) === normalizedSearch)
   ));
-  const showCreate = searchIsCurrent && !isFetching && !queryError && !exactReferenceMatch;
+  const showCreate = allowCreate && searchIsCurrent && !isFetching && !queryError && !exactReferenceMatch;
   const keyboardOptions = [
     ...visibleOptions.filter((item) => item.isActive).map((item) => ({ type: "reference", item })),
     ...(showCreate ? [{ type: "create", value: cleanedValue }] : []),
@@ -109,6 +111,7 @@ const ReferenceCombobox = forwardRef(function ReferenceCombobox({
   const choose = (option) => {
     if (!option) return;
     onChange(option.type === "create" ? option.value : option.item.name);
+    if (option.type === "reference") onSelectReference?.(option.item);
     setIsOpen(false);
     setActiveIndex(-1);
   };

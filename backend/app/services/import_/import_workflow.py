@@ -5,6 +5,7 @@ import logging
 from datetime import date
 from typing import Optional
 
+from fastapi import HTTPException
 from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +28,11 @@ from app.services.import_.import_update import apply_import_update
 from app.services.import_.license_builder import build_license
 from app.services.import_.license_matcher import annotate_update_targets
 from app.services.import_.maintenance_parenting import infer_batch_maintenance_parents
+from app.services.import_.reference_resolution import (
+    _ReferenceTracker,
+    ImportReferenceConflict,
+    resolve_import_row_references,
+)
 from app.services.license_service import generate_license_ref
 from app.models.license import License, LicenseType
 from app.services.lifecycle_rules import mark_predecessor_renewed
@@ -214,7 +220,7 @@ def _row_to_schema(row: ParsedRow) -> CSVImportPreviewRow:
     )
 
 
-def build_preview_response(result: ParsedImportResult) -> CSVImportPreviewResponse:
+def build_preview_response(result: ParsedImportResult, reference_summary=None) -> CSVImportPreviewResponse:
     """Build the HTTP preview response schema from a ParsedImportResult."""
     row_schemas = [_row_to_schema(r) for r in result.rows]
     legacy_exempt_count = sum(1 for r in result.rows if r.import_status == "legacy_exempt")
@@ -237,6 +243,7 @@ def build_preview_response(result: ParsedImportResult) -> CSVImportPreviewRespon
         headers_found=result.headers_found,
         headers_missing=result.headers_missing,
         warning_summary=warning_summary,
+        reference_summary=reference_summary,
     )
 
 
@@ -249,11 +256,14 @@ async def run_import_rows(
     number_format_locale: str | None = None,
     date_format: str | None = None,
     update_existing: bool = False,
-) -> tuple[int, int, int, list[CSVImportError], int]:
+    reference_overrides: dict | None = None,
+    include_reference_result: bool = False,
+) -> tuple:
     """Persist importable rows.
 
-    Returns (created_count, updated_count, skipped_count, errors,
-    custom_field_failure_count).
+    Returns the established five-value result tuple. When
+    ``include_reference_result`` is true, appends the reference-resolution
+    result as a sixth value for the CSV API workflow.
 
     custom_rows must be a parallel list to rows. Pass a list of empty dicts
     (one per row) for callers that do not provide custom field values.
@@ -269,6 +279,8 @@ async def run_import_rows(
     import_errors: list[CSVImportError] = []
     custom_field_failure_count = 0
     inserted_by_row_number: dict[int, int] = {}
+    reference_tracker = _ReferenceTracker()
+    reference_overrides = reference_overrides or {}
 
     for parsed, custom_data in zip(rows, custom_rows):
         if parsed.row_number in skipped_rows:
@@ -285,6 +297,7 @@ async def run_import_rows(
             did_update = False
             persisted_license_id: Optional[int] = None
             missing_custom_keys: list[str] = []
+            row_reference_tracker = _ReferenceTracker()
 
             # A database-level failure on one row must not invalidate the
             # outer batch transaction or discard earlier successful rows.
@@ -296,17 +309,28 @@ async def run_import_rows(
                         parsed.import_action = "create"
                         parsed.matched_license_id = None
                     else:
+                        await resolve_import_row_references(
+                            db,
+                            parsed,
+                            reference_overrides,
+                            row_reference_tracker,
+                            is_update=True,
+                        )
                         await apply_import_update(target, parsed, custom_data, db, number_format_locale, date_format)
                         did_update = True
                         persisted_license_id = target.id
 
                 if not did_update:
+                    await resolve_import_row_references(db, parsed, reference_overrides, row_reference_tracker)
                     parent_license_id: Optional[int] = None
                     if parsed.selected_parent_license_id is not None:
                         parent_license_id = parsed.selected_parent_license_id
                     elif parsed.parent_import_row_number is not None:
                         parent_license_id = inserted_by_row_number.get(parsed.parent_import_row_number)
                     license_obj = await build_license(parsed, user_id, db, parent_license_id)
+                    license_obj.publisher_id = parsed.resolved_publisher_id
+                    license_obj.supplier_id = parsed.resolved_supplier_id
+                    license_obj.cost_centre_id = parsed.resolved_cost_centre_id
                     db.add(license_obj)
                     await db.flush()
                     license_obj.license_ref = await generate_license_ref(db)
@@ -332,6 +356,8 @@ async def run_import_rows(
 
             if persisted_license_id is not None:
                 inserted_by_row_number[parsed.row_number] = persisted_license_id
+            reference_tracker.created_ids.update(row_reference_tracker.created_ids)
+            reference_tracker.reused_ids.update(row_reference_tracker.reused_ids)
             if did_update:
                 updated_count += 1
             else:
@@ -340,9 +366,22 @@ async def run_import_rows(
                 for cf_key in missing_custom_keys:
                     log.warning("run_import_rows: custom field key %r not found, skipping", cf_key)
 
+        except ImportReferenceConflict as exc:
+            if include_reference_result:
+                raise
+            log.error("import failed on row %s: %s", parsed.row_number, exc, exc_info=True)
+            skipped_count += 1
+            import_errors.append(CSVImportError(row_number=parsed.row_number, reason=str(exc.detail)))
+        except HTTPException as exc:
+            log.error("import failed on row %s: %s", parsed.row_number, exc, exc_info=True)
+            skipped_count += 1
+            import_errors.append(CSVImportError(row_number=parsed.row_number, reason=str(exc.detail)))
         except Exception as exc:
             log.error("import failed on row %s: %s", parsed.row_number, exc, exc_info=True)
             skipped_count += 1
             import_errors.append(CSVImportError(row_number=parsed.row_number, reason=str(exc)))
 
-    return created_count, updated_count, skipped_count, import_errors, custom_field_failure_count
+    result = (created_count, updated_count, skipped_count, import_errors, custom_field_failure_count)
+    if include_reference_result:
+        return (*result, reference_tracker.result())
+    return result

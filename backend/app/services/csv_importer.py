@@ -305,6 +305,9 @@ class ParsedRow:
     is_completeness_exempt: bool = field(default=False, repr=False)
     lifecycle_status: Optional[str] = field(default=None, repr=False)
     notice_date: Optional[str] = None  # ISO string or None
+    resolved_publisher_id: Optional[int] = field(default=None, repr=False)
+    resolved_supplier_id: Optional[int] = field(default=None, repr=False)
+    resolved_cost_centre_id: Optional[int] = field(default=None, repr=False)
 
 
 @dataclass

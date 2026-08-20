@@ -33,6 +33,11 @@ export default function DoneStep({ confirmResult, onGoToLicenses, reset }) {
           ))}
         </div>
       )}
+      {(confirmResult.referenceResult?.createdCount || confirmResult.referenceResult?.reusedCount) && (
+        <p style={{ color: "var(--text-2)", fontSize: 12 }}>
+          Reference data: {confirmResult.referenceResult.createdCount || 0} created, {confirmResult.referenceResult.reusedCount || 0} reused.
+        </p>
+      )}
       <div className="csv-bottom-actions">
         <button className="btn btn-p" onClick={onGoToLicenses}><Icon name="list" size={13} /> View Licenses</button>
         <button className="btn btn-g" onClick={reset}>Import Another File</button>
