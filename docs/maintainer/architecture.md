@@ -105,6 +105,8 @@ The procurement pipeline is split across the sourcing and pending-order pages. K
 | `MergeSourcingModal.jsx` | Merge confirmation UI, selected item summary, final merged quantity input |
 | `CotermSuggestionBanner.jsx` | Coterm renewal opportunity banner and select-group action |
 | `SourcingToast.jsx` | Page-local success/error toast presentation |
+| `components/procurement/SourcingRequestEditModal.jsx` | Atomic request-level editing for supplier/contact/notes and all eligible open lines; converted/cancelled lines remain read-only |
+| `components/procurement/SourcingItemModal.jsx` | New-request and line-entry form, including local pre-save PDF/image/text quote preview |
 | `useSourcingPageData.js` | TanStack Query setup for active and historical sourcing requests plus license context load for coterm detection |
 | `useSourcingActions.js` | Create/update/delete/convert/export mutation handlers and cross-page invalidation callbacks |
 | `useSourcingMerge.js` | Selected-for-merge state, merge quantity, merge submit lifecycle |
@@ -170,6 +172,8 @@ the pending-order conversion path rather than in sourcing conversion.
 | `PublisherBreakdownSection.jsx` | Publisher spend chart plus sortable publisher/supplier relationship table |
 | `PortfolioBreakdownSection.jsx` | License type and billing metric breakdown presentation |
 | `RenewalCalendarSection.jsx` | Renewal calendar chart/table presentation |
+| `PerpetualMaintenanceSection.jsx` | Perpetual acquisition and included/separately tracked maintenance reconciliation |
+| `PurchaseOrderSection.jsx` | Searchable per-PO override, line-value, and difference reconciliation |
 
 `ReportsPage.jsx` fetches portfolio annual cost via `useQuery` (`queryKeys.reportsPortfolioStats` -> `GET /api/reports/portfolio-stats`) and displays that server rollup in the chip row above the report sections. This key is intentionally separate from the sidebar's `queryKeys.portfolioStats` cache because the two queries return different shapes. The Upcoming, Active, Expiring, and Expired chips are client-computed from the filtered license list so they update with report filters; Active excludes Upcoming and Expiring. All section-specific datasets (cost forecast, publisher and vendor overview, portfolio health, renewal calendar) remain client-computed from the raw license list fetched separately. `ReportsPage.jsx` also computes `singleCurrency` (the single ISO currency code present across the filtered dataset, or `null` when multiple currencies are mixed); chart sections receive `singleCurrency` and suppress currency-dependent chart portions with explanatory notes when needed. Grouped tables remain available. All spend totals use `formatCostByCurrency` so mixed-currency portfolios display grouped values by currency rather than a combined figure. `ReportsPage.jsx` should not own section-specific sort state or large chart/table JSX.
 
@@ -184,6 +188,12 @@ PO-less records individually. The Difference is PO-value spend minus
 license-line spend. Never replicate a PO override into publisher/vendor,
 lifecycle, or forecast calculations because no line allocation exists. Preserve
 currency grouping in all three totals.
+
+`getPurchaseOrderReport` and `getPerpetualMaintenanceReport` in
+`frontend/src/utils/reportHelpers.js` own the two detailed reconciliation
+models. Keep PO overrides confined to the PO tracker, preserve unkeyed rows as
+individual entries, resolve maintenance children through explicit link IDs,
+and group every total by currency.
 
 Date-only report values must stay calendar-date based. `frontend/src/utils/reportHelpers.js` parses `YYYY-MM-DD` start and end dates as local dates before date-range and renewal-calendar comparisons so browser UTC offsets cannot move boundary dates into the previous day or quarter.
 
@@ -277,6 +287,14 @@ for each maintenance row. Import-time row overrides can resolve a maintenance
 parent to an existing eligible license during preview/confirm; additional
 shared maintenance links are explicit post-import actions from License Details.
 
+CSV preview also carries a `referenceSummary` for publisher, supplier, and
+cost-centre candidates. `services/import_/reference_resolution.py` owns
+candidate grouping, exact/alias/inactive resolution, override validation, and
+execute-time revalidation. Preview is read-only: reference records are created
+inside the row write transaction only for rows that succeed. `PreviewStep.jsx`
+owns the collapsible review UI, bulk duplicate decisions, temporary column
+visibility, and searchable maintenance-parent remediation.
+
 ## Forms And Validation
 
 New or migrated complex forms should use React Hook Form and Zod.
@@ -307,6 +325,11 @@ mirror fields. Foreign-key IDs are authoritative; mirrors are updated in the
 same caller-owned transaction and are never used to infer identity. CSV
 execution re-resolves references before writing, and viewer department access
 is scoped by canonical `cost_centre_id` while retaining the name-based payload.
+`backend/app/services/reference_data_service.py` is the backend identity and
+mutation boundary; `frontend/src/api/referenceData.js`,
+`components/ui/ReferenceCombobox.jsx`, and
+`components/settings/sections/ReferenceDataSection.jsx` own the frontend data
+access, selection, and admin catalog surfaces respectively.
 
 The restore flow in `backend/app/routes/backup.py` must quiesce all database connections before swapping the file: `await db.close()` closes the request-scoped session, then `await engine.dispose()` drains the connection pool, then `backup_service.restore_backup()` deletes stale `-wal`/`-shm` files and replaces the `.db` file. When `RESTART_AFTER_RESTORE=true`, the route schedules `os.kill(SIGTERM)` after the response so a process manager can restart the API. The native systemd unit deliberately uses `Restart=always`: SIGTERM is a clean process exit, so `Restart=on-failure` leaves the service stopped after a successful restore. Native upgrades must republish and reload the current service template so lifecycle-policy fixes reach existing installs. Do not reorder or remove these steps - out-of-order execution leaves file handles open (Windows) or stale WAL pages that corrupt the restored database on restart.
 
@@ -436,7 +459,8 @@ Current important service boundaries:
 - renewal workbench computation (pure, no DB): `backend/app/services/renewal_workbench_model.py`;
 - renewal command orchestration (start/cancel workflow, single and coterm successor creation, pre-creation predecessor guards): `backend/app/services/renewal_orchestrator.py`;
 - user domain invariants (break-glass, active-admin guard, apply-update): `backend/app/services/user_service.py`;
-- maintenance link management and mirror synchronization: `backend/app/services/maintenance_service.py` owns creation/linking/unlinking of `LicenseMaintenanceLink` rows, active-maintenance mirror updates on parents, and the compatibility behavior where `parent_license_id` remains the primary parent for older create/import flows while `maintenanceParentIds`/`linkedMaintenanceIds` expose multi-parent links in responses;
+- maintenance link management, coverage snapshots, and mirror synchronization: `backend/app/services/maintenance_service.py` owns creation/linking/unlinking of `LicenseMaintenanceLink` rows, immutable `LicenseCoverageHistory` snapshots when active coverage changes, active-maintenance mirror updates on parents, and the compatibility behavior where `parent_license_id` remains the primary parent for older create/import flows while `maintenanceParentIds`/`linkedMaintenanceIds` expose multi-parent links in responses;
+- canonical organization and cost-centre identity, aliases, roles, active state, usage, merge/delete invariants, mirror synchronization, and CSV reference resolution: `backend/app/services/reference_data_service.py` and `backend/app/services/import_/reference_resolution.py`;
 - portfolio summary statistics (total active/expiring/expired/incomplete, `annual_cost_by_currency` dict grouped by ISO currency code rather than a single scalar total, `excluded_from_totals` count, by-license-type breakdown): `backend/app/routes/reports.py` — `GET /api/reports/portfolio-stats`;
 - audit logging and data-change webhook enqueueing: `backend/app/services/audit_service.py`;
 - reusable structured audit detail contracts beyond generic field diffs: `backend/app/services/audit_contracts.py`;

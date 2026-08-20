@@ -64,6 +64,7 @@ Required scope is `licenses:read` for reads and `licenses:write` for writes.
 | `POST /api/licenses/renewal-bundle/initiate` | Start a coterm renewal bundle |
 | `POST /api/licenses/{license_id}/disable-maintenance` | Disable active linked maintenance |
 | `POST /api/licenses/{license_id}/link-maintenance` | Link an existing maintenance record to an eligible parent |
+| `GET /api/licenses/{license_id}/coverage-history` | Read preserved and current maintenance/support coverage periods |
 | `GET /api/renewals/workbench` | Read the renewal workbench model |
 
 Lifecycle repair endpoints are Admin maintenance tools and are not part of the
@@ -94,6 +95,10 @@ on maintenance records and `linkedMaintenanceIds` on parent records. To attach
 an existing maintenance record to another eligible parent, call
 `POST /api/licenses/{parent_id}/link-maintenance` with
 `maintenanceLicenseId`.
+
+Coverage history is append-only workflow evidence. A response may omit the
+linked maintenance record ID and label when the caller cannot view that record;
+the coverage dates and monetary snapshot remain visible with the parent.
 
 ### Custom fields
 
@@ -239,6 +244,13 @@ review-time corrections. The first supported override is
 row to an existing eligible perpetual, OEM, or freeware parent license during
 execution.
 
+Preview responses may include `referenceSummary` candidates for organizations
+and cost centres. Confirm and execute accept `reference_overrides_json` with
+review decisions using `accept_new`, `map_existing`, or `keep_separate`.
+Integrations must return the candidate key supplied by preview and must not
+cache a decision across a new preview; execution revalidates target activity,
+name, role, and batch conflicts before writing.
+
 The importable `total_po_price` field is a legacy stored compatibility value.
 It does not set `poTotalOverride` or replace the calculated whole-PO value.
 
@@ -275,6 +287,7 @@ API tokens are rejected for these route families:
 - `/api/api-tokens/*`
 - `/api/users/*`
 - `/api/settings/*`
+- `/api/reference-data/*`
 - `/api/backup/*`
 - `/api/audit-log/*`
 - `/api/webhooks/*`

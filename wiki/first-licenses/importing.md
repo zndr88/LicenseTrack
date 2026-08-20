@@ -38,6 +38,11 @@ You have two ways to get your data in:
 
 When a file contains an **LT Ref** column, either path offers an auto-enabled option to update the current matching license instead of creating a duplicate. This makes it safe to export a list, make small spreadsheet corrections, and re-import it. Turn the option off when you intentionally want new records.
 
+Perpetual, OEM, and freeware/open-source rows remain non-expiring when an
+included-support end date is in the past. The preview warns that the included
+maintenance coverage has expired and requires acknowledgement, but it does not
+classify the parent license as legacy solely because support ended.
+
 Publisher, supplier, and cost-centre values are resolved against canonical
 reference data during confirmed execution. Exact names, aliases, and normalized
 case/whitespace variants reuse the same record and write its canonical display
@@ -45,6 +50,14 @@ name plus ID. New distinct references can be created automatically; possible
 duplicates and inactive conflicts require an explicit review decision. Preview
 does not create references, and skipped or failed rows do not leave reference
 records behind.
+
+The preview table starts with the main commercial and ownership columns visible.
+Use **Columns** to hide fields temporarily when a wide file is difficult to
+review; this changes only the preview, not the imported data. Maintenance rows
+with no resolved parent provide a searchable picker for an existing eligible
+parent. Reference-data review can be collapsed, and one bulk decision can be
+applied to unresolved possible duplicates before individual exceptions are
+reviewed.
 
 If you open a LicenseTrack CSV export in Excel, adjust values, and save it
 again, the importer tolerates the common spreadsheet changes to quoting,

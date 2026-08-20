@@ -27,6 +27,17 @@ Active sourcing rows start expanded so same-supplier requests can be scanned
 without opening each parent first. Collapse rows individually when you need a
 shorter overview.
 
+Use **Edit Sourcing Request** to update the supplier, contact, request notes,
+and every open line in one save. Publisher, description, type, quantity,
+estimated prices, currency, dates, and line notes are validated together;
+converted and cancelled lines stay read-only. The save is atomic, so a rejected
+line does not leave the rest of the request partially updated.
+
+When creating a sourcing request with a quote attachment, the form can preview
+PDF, image, and text files before save. Expand the preview for detailed review
+or return to the split view while entering line data. Unsupported file types
+remain attachable but show that an inline preview is unavailable.
+
 The request supplier is the proposed target for the complete purchase, not a
 copy of historical supplier ownership. It can remain unassigned while sourcing
 is unresolved and is human-editable across renewals, but paid lines cannot move

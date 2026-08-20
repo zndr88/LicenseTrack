@@ -1,15 +1,17 @@
 # Settings, notifications, and email
 
 **My Settings** contains personal display preferences. **Admin > Settings**
+contains installation-wide behavior and is organized into General, Data
+Management, Integrations, and Operations. Each settings section saves
+independently.
 
-Admin Settings is organized into General, Data Management, Integrations, and
-Operations. Data Management contains canonical Companies and Departments /
-Cost Centres under Reference Data, plus License Configuration and Import
-Configuration. Reference records support aliases, safe renames, deactivation,
-and merge workflows; linked records retain authoritative IDs and synchronized
-compatibility mirrors.
-contains installation-wide behavior and is divided into General, Integrations,
-and Operations sections. Each settings section saves independently.
+Data Management contains canonical Companies and Departments / Cost Centres
+under Reference Data, plus License Configuration and Import Configuration.
+Reference records support aliases, safe renames, deactivation, and merge
+workflows; linked records retain authoritative IDs and synchronized display
+names. Editors can use active reference values in product workflows. Admins
+manage the reference catalog and receive affected-record counts before renames,
+deactivations, or merges are confirmed.
 
 ## Personal settings
 

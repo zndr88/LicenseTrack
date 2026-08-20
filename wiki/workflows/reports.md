@@ -47,6 +47,8 @@ and surfaced as unpriced counts.
 | Budget forecast | Recurring annual baseline projected by the selected horizon and growth rate |
 | Renewal calendar | Expiring active records across the next four configured fiscal quarters |
 | Publisher/vendor overview | Calculated line value grouped by publisher and supplier |
+| Perpetual licenses & maintenance | Perpetual acquisition value beside included or separately tracked support, grouped by currency |
+| Purchase Order Value Tracker | One row per PO and currency, comparing the authoritative PO value with its priced license lines |
 
 The two headline spend totals use Purchase Quantity multiplied by Unit Price as
 their line value. Effective Quantity and the legacy stored PO-value import field
@@ -62,6 +64,13 @@ budgets, or forecasts. When a date range is selected, an override is shown as
 the full PO value because LicenseTrack has no line-level or time-based allocation
 for that amount.
 
+The **Purchase Order Value Tracker** exposes the same reconciliation at row
+level. A PO with a manual override uses that override as its PO value; otherwise
+it uses the sum of priced lines. The table shows line count, publisher (or
+Multiple publishers), PO value, line value, and Difference. Lines without a PO
+number remain individually counted and are reported as unkeyed rather than
+being silently grouped together.
+
 Freeware/open-source records without paid included support contribute zero to
 monetary totals and are not counted as unpriced purchases. When paid support is
 included on a freeware, perpetual, or OEM parent, its current coverage-period
@@ -76,6 +85,13 @@ months of value to a first-year range and the remaining 6 months of value to
 the following year. Expired or not-yet-started included coverage is excluded.
 Separately tracked support is represented and reported through its own
 maintenance license line.
+
+The **Perpetual Licenses & Maintenance** section lists perpetual parent records
+with their acquisition value and support classification. Included coverage uses
+the parent record's maintenance cost. Separately tracked coverage uses linked
+maintenance records and displays those records beneath the parent. Missing
+included cost or a missing separate record is flagged in the table, and mixed
+currencies remain separate in the summary totals.
 
 Upcoming, retired, renewed, legacy, expired, and pending-renewal records are
 excluded from the recurring forecast baseline. Upcoming records remain separate

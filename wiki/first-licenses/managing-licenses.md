@@ -90,6 +90,13 @@ When either kind of coverage is renewed, create a new line for the new coverage
 period. This preserves the cost and dates of the expired period instead of
 rewriting them.
 
+License Details also exposes **Coverage History**. When included support is
+replaced by a separately tracked maintenance record, or one active maintenance
+record is replaced by another, LicenseTrack stores an immutable snapshot of the
+previous dates, cost, pricing basis, quantity, and currency. The history view
+shows those recorded periods beside the current contract and links to a visible
+maintenance license when one still exists.
+
 !!! warning
     A maintenance line is never linked by PO number alone. Select the intended
     parent explicitly so reused PO numbers cannot create the wrong relationship.
@@ -97,7 +104,8 @@ rewriting them.
 Disabling linked maintenance clears the current mirror from that parent. If the
 maintenance record is still linked to another parent, it remains active there.
 If no parent links remain, the maintenance record is retired to preserve the
-old single-parent behavior.
+old single-parent behavior. Retired maintenance records remain historical and
+cannot be selected as a new active link.
 
 ## Retired, legacy, and exempt records
 

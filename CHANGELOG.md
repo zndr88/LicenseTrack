@@ -13,6 +13,72 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.11] - 2026-08-20
+
+### Added
+
+- Added canonical Companies and Departments / Cost Centres with stable IDs,
+  aliases, publisher/supplier roles, active status, usage counts, safe rename,
+  merge, and delete workflows under Admin > Settings > Data Management. The
+  upgrade migration backfills existing publisher, supplier, and cost-centre
+  text without discarding the compatibility display fields used by existing
+  integrations.
+- Added reference-aware publisher, supplier, and cost-centre selectors across
+  license, contract, user-access, sourcing, pending-order, conversion, and
+  maintenance workflows. Existing names and aliases resolve to the canonical
+  record while new values can be created through supported editor workflows.
+- Added CSV reference-data review. Preview groups candidate organizations and
+  cost centres, reuses exact names and aliases, and requires explicit decisions
+  for possible duplicates or inactive references. Decisions are revalidated at
+  execution time, and new references are created only for successful rows.
+- Added immutable maintenance coverage history. When included support or an
+  active maintenance record is replaced, LicenseTrack snapshots the prior
+  period and exposes it from License Details alongside the current period.
+- Added **Perpetual Licenses & Maintenance** and **Purchase Order Value
+  Tracker** report sections for reviewing acquisition value, included or
+  separately tracked support, manual PO overrides, line totals, and per-PO
+  differences without combining currencies.
+- Added request-level sourcing editing for supplier, contact, notes, and all
+  open line items in one validated save. Converted and cancelled lines remain
+  read-only. Newly attached quote files can be previewed in a split or expanded
+  view before the sourcing request is saved.
+
+### Changed
+
+- Reorganized Admin Settings into General, Data Management, Integrations, and
+  Operations. Reference data, license configuration, and import configuration
+  now live together under Data Management.
+- CSV preview now supports searchable maintenance-parent repair, configurable
+  column visibility, condensed responsive layouts, collapsible reference
+  review, and bulk decisions for unresolved possible duplicates.
+- Perpetual, OEM, and freeware imports no longer become legacy merely because
+  an included-support end date has passed. Expired included support is instead
+  surfaced as an acknowledgement-required warning.
+- Registry price filters accept the user's localized number format, maintenance
+  coverage can be filtered explicitly, and the selected license row remains
+  highlighted while its detail panel is open.
+- Procurement forms now resolve canonical organizations and cost centres,
+  preserve renewal-parent and purchase-date defaults during conversion, and
+  keep quote actions at the owning request or order level rather than repeating
+  them on each child line.
+- Stable API responses may include additive `publisherId`, `supplierId`, and
+  `costCentreId` fields. Existing name-based request fields remain supported;
+  when an ID is present it is authoritative and the returned name is canonical.
+
+### Fixed
+
+- Refreshed license and reference-data query state after imports and
+  procurement mutations so newly created parents, aliases, assignments, and
+  canonical names appear without a manual reload.
+- Preserved maintenance, renewal, supplier, purchase-date, and canonical
+  reference relationships through direct writes, imports, sourcing updates,
+  pending-order conversion, maintenance creation, and renewal successors.
+- Made sourcing-request line updates atomic and prevented edits to converted or
+  cancelled lines while retaining their historical values.
+- Hardened reference merges, deactivation, role changes, viewer department
+  assignments, CSV execution preflight, demo behavior, and large reference-list
+  rendering against stale or conflicting decisions.
+
 ## [1.1.10] - 2026-08-16
 
 ### Added
@@ -1042,7 +1108,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.10...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.11...HEAD
+[1.1.11]: https://github.com/zndr88/LicenseTrack/compare/v1.1.10...v1.1.11
 [1.1.10]: https://github.com/zndr88/LicenseTrack/compare/v1.1.9...v1.1.10
 [1.1.9]: https://github.com/zndr88/LicenseTrack/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/zndr88/LicenseTrack/compare/v1.1.7...v1.1.8
