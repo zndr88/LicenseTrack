@@ -8,12 +8,13 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import require_editor_or_admin
-from app.models.license import License
+from app.models.license import License, LicenseCoverageHistory
 from app.services.maintenance_rules import MAINTENANCE_PARENT_TYPES
 from app.models.user import User
-from app.schemas.license import LicenseResponse, MaintenanceLinkExistingRequest
+from app.schemas.license import LicenseCoverageHistoryResponse, LicenseResponse, MaintenanceLinkExistingRequest
 from app.services.audit_service import log_event
 from app.services.license_service import (
+    calc_line_total,
     compute_completeness,
     compute_days_until_expiry,
     compute_expiration_status,
@@ -26,6 +27,54 @@ router = APIRouter(prefix="/api/licenses", tags=["license-maintenance"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 _DEFAULT_NOTIFICATION_DAYS = 30
+
+
+@router.get("/{license_id}/coverage-history", response_model=list[LicenseCoverageHistoryResponse])
+async def get_coverage_history(license_id: int, db: DbSession) -> list[LicenseCoverageHistoryResponse]:
+    """Return preserved coverage periods and the currently active period."""
+    parent_result = await db.execute(select(License).where(License.id == license_id))
+    parent = parent_result.scalar_one_or_none()
+    if parent is None:
+        raise HTTPException(status_code=404, detail="License not found")
+
+    result = await db.execute(
+        select(LicenseCoverageHistory, License.license_ref, License.software_description)
+        .join(License, License.id == LicenseCoverageHistory.maintenance_license_id, isouter=True)
+        .where(LicenseCoverageHistory.parent_license_id == license_id)
+        .order_by(LicenseCoverageHistory.start_date, LicenseCoverageHistory.id)
+    )
+    rows = [
+        LicenseCoverageHistoryResponse.model_validate(row[0]).model_copy(
+            update={"license_ref": row[1], "software_description": row[2]}
+        )
+        for row in result.all()
+    ]
+
+    if parent.active_maintenance_id is not None:
+        active_result = await db.execute(select(License).where(License.id == parent.active_maintenance_id))
+        active = active_result.scalar_one_or_none()
+        if active is not None:
+            line_total = calc_line_total(active.quantity, active.unit_price)
+            rows.append(
+                LicenseCoverageHistoryResponse(
+                    id=-(active.id),
+                    parent_license_id=parent.id,
+                    maintenance_license_id=active.id,
+                    coverage_type="separately_tracked",
+                    source_type="current_maintenance_record",
+                    start_date=active.start_date,
+                    end_date=active.end_date,
+                    quantity=active.quantity,
+                    unit_price=active.unit_price,
+                    cost=format(line_total, "f") if line_total is not None else None,
+                    currency=active.currency,
+                    created_at=active.created_at,
+                    is_current=True,
+                    license_ref=active.license_ref,
+                    software_description=active.software_description,
+                )
+            )
+    return rows
 
 
 async def _get_global_settings(db: AsyncSession) -> tuple[dict, int]:

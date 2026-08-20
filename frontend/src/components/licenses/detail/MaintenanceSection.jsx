@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { disableMaintenance, getMaintenanceForParent } from "../../../api/licenses.js";
 import { formatCost } from "../../../utils/helpers.js";
 import { formatDate } from "../../../utils/formatting.js";
@@ -9,6 +10,7 @@ import {
 import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
+import CoverageHistoryModal from "./CoverageHistoryModal.jsx";
 
 export default function MaintenanceSection({
   license,
@@ -19,6 +21,7 @@ export default function MaintenanceSection({
   maintenanceHistory,
   setMaintenanceHistory,
   historyLoading,
+  coverageHistory = [],
   setShowMaintenanceModal,
   onNavigate,
   onUpdate,
@@ -31,6 +34,7 @@ export default function MaintenanceSection({
   closeFieldEdit,
   customFieldsLoading,
 }) {
+  const [showCoverageHistory, setShowCoverageHistory] = useState(false);
   const prior = maintenanceHistory.filter((m) => m.id !== license.activeMaintenanceId);
   const coverage = license.maintenanceCoverage || "unknown";
   const coverageLabel = MAINTENANCE_COVERAGE_OPTIONS.find((option) => option.value === coverage)?.label || coverage;
@@ -149,6 +153,9 @@ export default function MaintenanceSection({
                     <Icon name="edit" size={12} /> Edit Maintenance / Support Record
                   </button>
                 )}
+                <button type="button" className="btn btn-g btn-sm" onClick={() => setShowCoverageHistory(true)}>
+                  Coverage History
+                </button>
                 {perms.canEdit && (
                   <button type="button" className="btn btn-g btn-sm" onClick={handleDisableMaintenance}>
                     <Icon name="x" size={12} /> Disable linked contract
@@ -224,6 +231,14 @@ export default function MaintenanceSection({
             loading={customFieldsLoading}
           />
         </div>
+      )}
+      {showCoverageHistory && (
+        <CoverageHistoryModal
+          history={coverageHistory}
+          userSettings={userSettings}
+          onClose={() => setShowCoverageHistory(false)}
+          onNavigate={onNavigate}
+        />
       )}
       <div className="dp-section-divider" />
     </>

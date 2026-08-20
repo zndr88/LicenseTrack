@@ -3,6 +3,7 @@ import { formatPriceInput, getCompleteness, getExpirationStatus, normalizeLicens
 import { ROLE_PERMISSIONS } from "../constants/permissions.js";
 import {
   getLicense,
+  getCoverageHistory,
   getMaintenanceForParent,
   markLicenseNoticeHandled,
   upsertCustomFieldValues,
@@ -42,6 +43,7 @@ export function useDetailPanelState({
 
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [maintenanceHistory, setMaintenanceHistory] = useState([]);
+  const [coverageHistory, setCoverageHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const latestLicenseIdRef = useRef(license.id);
   const maintenanceRequestRef = useRef(0);
@@ -67,10 +69,14 @@ export function useDetailPanelState({
     const targetId = id ?? license.id;
     const requestId = ++maintenanceRequestRef.current;
     setHistoryLoading(true);
-    const { data } = await getMaintenanceForParent(targetId);
+    const [{ data }, { data: coverageData }] = await Promise.all([
+      getMaintenanceForParent(targetId),
+      getCoverageHistory(targetId),
+    ]);
     if (requestId !== maintenanceRequestRef.current || latestLicenseIdRef.current !== targetId) return;
     setHistoryLoading(false);
     if (data) setMaintenanceHistory(data);
+    if (coverageData) setCoverageHistory(coverageData);
   };
 
   const toggleSection = (key) =>
@@ -84,6 +90,7 @@ export function useDetailPanelState({
 
   useEffect(() => {
     setMaintenanceHistory([]);
+    setCoverageHistory([]);
     setHistoryLoading(false);
     setShowMaintenanceModal(false);
   }, [license.id]);
@@ -364,6 +371,7 @@ export function useDetailPanelState({
 
     // Maintenance history
     maintenanceHistory, setMaintenanceHistory,
+    coverageHistory,
     historyLoading,
     fetchMaintenanceHistory,
 

@@ -63,6 +63,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     handleFullEditSave, handleStartFullEdit, handleMarkNoticeHandled,
     openSections, setOpenSections, toggleSection,
     maintenanceHistory, setMaintenanceHistory,
+    coverageHistory,
     historyLoading,
     fetchMaintenanceHistory,
     documents, docsLoading, uploadingCategory, docCount, docAvailabilitySummary,
@@ -181,6 +182,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
                 isOpen={openSections.maintenance}
                 onToggle={toggleSection}
                 maintenanceHistory={maintenanceHistory}
+                coverageHistory={coverageHistory}
                 setMaintenanceHistory={setMaintenanceHistory}
                 historyLoading={historyLoading}
                 setShowMaintenanceModal={setShowMaintenanceModal}

@@ -13,6 +13,7 @@ from app.models.document_processing import DocumentProcessingResult  # noqa: F40
 from app.models.extension import ExtensionCapability  # noqa: F401
 from app.models.license import (  # noqa: F401
     License,
+    LicenseCoverageHistory,
     LicenseMaintenanceLink,
     LicenseMetric,
     LicenseType,
@@ -43,6 +44,7 @@ __all__ = [
     "UserRole",
     "AuthProvider",
     "License",
+    "LicenseCoverageHistory",
     "LicenseMaintenanceLink",
     "LicenseType",
     "MaintenanceCoverage",

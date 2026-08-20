@@ -6,6 +6,7 @@ import MaintenanceSection from "../components/licenses/detail/MaintenanceSection
 vi.mock("../api/licenses.js", () => ({
   disableMaintenance: vi.fn(),
   getMaintenanceForParent: vi.fn(),
+  getCoverageHistory: vi.fn(),
 }));
 
 vi.mock("../components/ui/Icon.jsx", () => ({
@@ -26,6 +27,7 @@ const baseProps = {
   maintenanceHistory: [],
   setMaintenanceHistory: vi.fn(),
   historyLoading: false,
+  coverageHistory: [],
   setShowMaintenanceModal: vi.fn(),
   onNavigate: vi.fn(),
   onUpdate: vi.fn(),
@@ -90,5 +92,29 @@ describe("MaintenanceSection", () => {
         expect.objectContaining({ value: "separately_tracked" }),
       ]),
     }));
+  });
+
+  it("opens the coverage history modal without adding another detail section", () => {
+    render(
+      <MaintenanceSection
+        {...baseProps}
+        license={{ ...baseProps.license, hasMaintenance: true, activeMaintenanceId: 9, maintenanceCoverage: "separately_tracked" }}
+        coverageHistory={[
+          {
+            id: 1,
+            sourceType: "original_included_support",
+            startDate: "2025-01-01",
+            endDate: "2025-12-31",
+            cost: "100",
+            currency: "EUR",
+            isCurrent: false,
+          },
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /coverage history/i }));
+    expect(screen.getByRole("dialog", { name: /coverage history/i })).toBeInTheDocument();
+    expect(screen.getByText("Included support")).toBeInTheDocument();
   });
 });

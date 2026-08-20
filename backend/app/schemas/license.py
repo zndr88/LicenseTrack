@@ -372,6 +372,27 @@ class LicenseResponse(LicenseBase):
         return self
 
 
+class LicenseCoverageHistoryResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, from_attributes=True)
+
+    id: int
+    parent_license_id: int
+    maintenance_license_id: Optional[int] = None
+    coverage_type: str
+    source_type: str
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    pricing_basis: Optional[str] = None
+    quantity: Optional[str] = None
+    unit_price: Optional[str] = None
+    cost: Optional[str] = None
+    currency: str = "EUR"
+    created_at: datetime
+    is_current: bool = False
+    license_ref: Optional[str] = None
+    software_description: Optional[str] = None
+
+
 class ProcurementTrailDocument(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,

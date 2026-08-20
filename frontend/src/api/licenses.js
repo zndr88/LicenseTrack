@@ -32,6 +32,10 @@ export async function getMaintenanceForParent(parentId) {
   return get(`/api/licenses?parent_license_id=${parentId}&include_retired=true`);
 }
 
+export async function getCoverageHistory(parentId) {
+  return get(`/api/licenses/${parentId}/coverage-history`);
+}
+
 /**
  * Fetch a single license by ID.
  *

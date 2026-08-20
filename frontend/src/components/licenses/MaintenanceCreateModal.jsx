@@ -8,7 +8,8 @@ import { formatPriceInput } from "../../utils/helpers.js";
 import { formatDate, parseLocalizedNumber } from "../../utils/formatting.js";
 
 function isLinkedToParent(license, parentId) {
-  if (Number(license.parentLicenseId) === Number(parentId)) return true;
+  // parentLicenseId is retained on detached maintenance records as historical
+  // provenance. Only the association list represents an active link.
   return (license.maintenanceParentIds || []).some((id) => Number(id) === Number(parentId));
 }
 

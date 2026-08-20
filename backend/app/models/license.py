@@ -309,3 +309,27 @@ class LicenseMaintenanceLink(Base):
         foreign_keys=[parent_license_id],
         back_populates="maintenance_child_links",
     )
+
+
+class LicenseCoverageHistory(Base):
+    """Immutable snapshots of coverage periods superseded by a later record."""
+
+    __tablename__ = "license_coverage_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    parent_license_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("licenses.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    maintenance_license_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("licenses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    coverage_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(60), nullable=False)
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    pricing_basis: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    quantity: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    unit_price: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    cost: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    currency: Mapped[str] = mapped_column(String(10), nullable=False, default="EUR")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

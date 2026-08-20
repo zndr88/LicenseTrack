@@ -129,6 +129,7 @@ describe("MaintenanceCreateModal", () => {
         allLicenses={[
           {
             id: 77,
+            parentLicenseId: 42,
             licenseRef: "LT-2026-0077",
             publisherName: "Acme",
             softwareDescription: "Acme Suite Maintenance",

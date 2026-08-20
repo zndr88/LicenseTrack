@@ -21,7 +21,7 @@ from typing import Optional
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.license import License, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
+from app.models.license import License, LicenseCoverageHistory, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
 from app.services.license_service import calc_line_total, generate_license_ref
 from app.services.maintenance_rules import (
     assert_parent_not_retired,
@@ -125,6 +125,51 @@ async def validate_parent_license(
 # ---------------------------------------------------------------------
 
 
+async def _snapshot_coverage_period(
+    db: AsyncSession,
+    parent: License,
+    *,
+    maintenance_license: License | None,
+    coverage_type: str,
+    source_type: str,
+    start_date,
+    end_date,
+    pricing_basis,
+    quantity,
+    unit_price,
+    cost,
+    currency,
+) -> None:
+    """Store one coverage period, avoiding duplicate snapshots on retries."""
+    existing = await db.execute(
+        select(LicenseCoverageHistory.id).where(
+            LicenseCoverageHistory.parent_license_id == parent.id,
+            LicenseCoverageHistory.maintenance_license_id
+            == (maintenance_license.id if maintenance_license is not None else None),
+            LicenseCoverageHistory.coverage_type == coverage_type,
+            LicenseCoverageHistory.start_date == start_date,
+            LicenseCoverageHistory.end_date == end_date,
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        return
+    db.add(
+        LicenseCoverageHistory(
+            parent_license_id=parent.id,
+            maintenance_license_id=maintenance_license.id if maintenance_license is not None else None,
+            coverage_type=coverage_type,
+            source_type=source_type,
+            start_date=start_date,
+            end_date=end_date,
+            pricing_basis=pricing_basis.value if hasattr(pricing_basis, "value") else pricing_basis,
+            quantity=quantity,
+            unit_price=unit_price,
+            cost=cost,
+            currency=currency or "EUR",
+        )
+    )
+
+
 async def link_maintenance_to_parent(
     db: AsyncSession,
     maintenance_license: License,
@@ -167,6 +212,41 @@ async def activate_maintenance_for_parent(
     parent: License,
 ) -> None:
     """Link a maintenance license to a parent and make it that parent's active mirror source."""
+    if parent.active_maintenance_id is None and parent.maintenance_coverage == MaintenanceCoverage.included:
+        await _snapshot_coverage_period(
+            db,
+            parent,
+            maintenance_license=None,
+            coverage_type=MaintenanceCoverage.included.value,
+            source_type="original_included_support",
+            start_date=parent.maintenance_start_date,
+            end_date=parent.maintenance_end_date,
+            pricing_basis=parent.maintenance_pricing_basis,
+            quantity=parent.maintenance_quantity,
+            unit_price=parent.maintenance_unit_price,
+            cost=parent.maintenance_cost,
+            currency=parent.currency,
+        )
+    elif parent.active_maintenance_id is not None and parent.active_maintenance_id != maintenance_license.id:
+        result = await db.execute(select(License).where(License.id == parent.active_maintenance_id))
+        active_child = result.scalar_one_or_none()
+        if active_child is not None:
+            await _snapshot_coverage_period(
+                db,
+                parent,
+                maintenance_license=active_child,
+                coverage_type=MaintenanceCoverage.separately_tracked.value,
+                source_type="maintenance_record",
+                start_date=active_child.start_date,
+                end_date=active_child.end_date,
+                pricing_basis=None,
+                quantity=active_child.quantity,
+                unit_price=active_child.unit_price,
+                cost=format(calc_line_total(active_child.quantity, active_child.unit_price), "f")
+                if calc_line_total(active_child.quantity, active_child.unit_price) is not None
+                else None,
+                currency=active_child.currency,
+            )
     await link_maintenance_to_parent(db, maintenance_license, parent)
     parent.active_maintenance_id = maintenance_license.id
     await sync_parent_mirror_fields(db, parent)
