@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { poFormSchema } from "../../utils/procurementSchemas.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
@@ -9,6 +9,7 @@ import Icon from "../ui/Icon.jsx";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -30,6 +31,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { isDirty },
     reset,
@@ -186,7 +188,13 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
           </div>
           <div className="fg">
             <label htmlFor="po-supplier">Supplier</label>
-            <input id="po-supplier" className="fi" placeholder="Reseller or direct supplier" {...register("supplier")} />
+            <Controller
+              name="supplier"
+              control={control}
+              render={({ field }) => (
+                <ReferenceCombobox id="po-supplier" mode="supplier" placeholder="Reseller or direct supplier" {...field} />
+              )}
+            />
           </div>
           <div className="fg">
             <label htmlFor="po-notes">Notes</label>
@@ -212,7 +220,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 10px" }}>
                     <div className="fg" style={{ gridColumn: "1 / -1" }}>
                       <label htmlFor={`pending-item-${item.id}-publisher`}>Publisher</label>
-                      <input id={`pending-item-${item.id}-publisher`} className="fi" placeholder="Software publisher" value={item.publisherName} onChange={(e) => updateItem(item.id, "publisherName", e.target.value)} />
+                      <ReferenceCombobox id={`pending-item-${item.id}-publisher`} mode="publisher" placeholder="Software publisher" value={item.publisherName} onChange={(value) => updateItem(item.id, "publisherName", value)} />
                     </div>
                     <div className="fg" style={{ gridColumn: "1 / -1" }}>
                       <label htmlFor={`pending-item-${item.id}-software`}>Software Description</label>

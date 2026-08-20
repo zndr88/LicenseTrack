@@ -5,6 +5,7 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -110,12 +111,12 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" }}>
               <div className="fg" style={{ gridColumn: "1 / -1" }}>
                 <label htmlFor={`po-line-${idx}-publisher`}>Publisher <span style={{ color: "var(--red)" }}>*</span></label>
-                <input
+                <ReferenceCombobox
                   id={`po-line-${idx}-publisher`}
-                  className="fi"
+                  mode="publisher"
                   placeholder="Software publisher"
                   value={item.publisherName}
-                  onChange={(e) => update(idx, "publisherName", e.target.value)}
+                  onChange={(value) => update(idx, "publisherName", value)}
                 />
               </div>
               <div className="fg" style={{ gridColumn: "1 / -1" }}>
@@ -174,12 +175,12 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
               </div>
               <div className="fg">
                 <label htmlFor={`po-line-${idx}-supplier`}>Supplier</label>
-                <input
+                <ReferenceCombobox
                   id={`po-line-${idx}-supplier`}
-                  className="fi"
+                  mode="supplier"
                   placeholder="Reseller or direct supplier"
                   value={item.supplier}
-                  onChange={(e) => update(idx, "supplier", e.target.value)}
+                  onChange={(value) => update(idx, "supplier", value)}
                 />
               </div>
               <div className="fg">

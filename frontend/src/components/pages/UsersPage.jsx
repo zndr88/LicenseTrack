@@ -4,13 +4,13 @@ import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import {
   createUser,
   deleteUser,
-  getDepartments,
   getUserDepartments,
   getUsers,
   resetUserPassword,
   updateUser,
   updateUserDepartments,
 } from "../../api/users.js";
+import { getCostCentres } from "../../api/referenceData.js";
 import DepartmentMultiSelect from "../users/DepartmentMultiSelect.jsx";
 import NewUserForm from "../users/NewUserForm.jsx";
 import ResetPasswordPanel from "../users/ResetPasswordPanel.jsx";
@@ -62,7 +62,7 @@ export default function UsersPage({ currentUserId, onError, onToast: _onToast })
         setUsers(data);
         setEditState(Object.fromEntries(data.map((user) => [user.id, buildEditableUser(user)])));
 
-        const [deptsResult] = await Promise.all([getDepartments()]);
+        const [deptsResult] = await Promise.all([getCostCentres()]);
         setAvailableDepts(deptsResult.data ?? []);
 
         const viewerUsers = data.filter((u) => u.role === "viewer");

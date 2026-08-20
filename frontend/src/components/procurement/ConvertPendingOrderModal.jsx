@@ -18,6 +18,7 @@ import MaintenanceCoverageFields, {
   isFreewareLicenseType,
 } from "./MaintenanceCoverageFields.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 const APPLYABLE_PLUGIN_FIELDS = new Set([
   "publisherName",
@@ -270,7 +271,13 @@ const ConvertPendingOrderModal = ({
 
           <div className="fg">
             <label htmlFor="cpo-publisher-name">Publisher Name <span style={{ color: "var(--red)" }}>*</span></label>
-            <input id="cpo-publisher-name" className="fi" placeholder="Software publisher" {...register("publisherName")} />
+            <Controller
+              name="publisherName"
+              control={control}
+              render={({ field }) => (
+                <ReferenceCombobox id="cpo-publisher-name" mode="publisher" placeholder="Software publisher" {...field} />
+              )}
+            />
             {errors.publisherName && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.publisherName.message}</span>}
           </div>
           <div className="fg">
@@ -340,8 +347,24 @@ const ConvertPendingOrderModal = ({
           <PendingOrderInvoiceField invoiceFile={invoiceFile} onChange={setInvoiceFile} />
           {(vis.supplier || vis.costCentre) && (
             <div className="fr">
-              {vis.supplier    && <div className="fg"><label htmlFor="cpo-supplier">Supplier</label><input id="cpo-supplier" className="fi" placeholder="Reseller or direct supplier" {...register("supplier")} /></div>}
-              {vis.costCentre  && <div className="fg"><label htmlFor="cpo-cost-centre">Cost Centre / Department</label><input id="cpo-cost-centre" className="fi" placeholder="Department or cost centre" {...register("costCentre")} /></div>}
+              {vis.supplier && (
+                <div className="fg"><label htmlFor="cpo-supplier">Supplier</label>
+                  <Controller
+                    name="supplier"
+                    control={control}
+                    render={({ field }) => <ReferenceCombobox id="cpo-supplier" mode="supplier" placeholder="Reseller or direct supplier" {...field} />}
+                  />
+                </div>
+              )}
+              {vis.costCentre && (
+                <div className="fg"><label htmlFor="cpo-cost-centre">Cost Centre / Department</label>
+                  <Controller
+                    name="costCentre"
+                    control={control}
+                    render={({ field }) => <ReferenceCombobox id="cpo-cost-centre" mode="costCentre" placeholder="Department or cost centre" {...field} />}
+                  />
+                </div>
+              )}
             </div>
           )}
           {(vis.licenseType || vis.licenseMetric) && (

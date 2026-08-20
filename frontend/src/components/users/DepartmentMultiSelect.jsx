@@ -13,7 +13,8 @@ const DepartmentMultiSelect = ({ available, selected, onChange, disabled, id }) 
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const allSelected = available.length > 0 && selected.length === available.length;
+  const visibleAvailable = available.filter((dept) => dept.isActive || selected.includes(dept.name));
+  const allSelected = visibleAvailable.length > 0 && visibleAvailable.every((dept) => selected.includes(dept.name));
 
   let triggerLabel;
   let triggerColor;
@@ -29,10 +30,10 @@ const DepartmentMultiSelect = ({ available, selected, onChange, disabled, id }) 
   }
 
   const toggle = (dept) => {
-    if (selected.includes(dept)) {
-      onChange(selected.filter((d) => d !== dept));
+    if (selected.includes(dept.name)) {
+      onChange(selected.filter((d) => d !== dept.name));
     } else {
-      onChange([...selected, dept]);
+      onChange([...selected, dept.name]);
     }
   };
 
@@ -101,7 +102,7 @@ const DepartmentMultiSelect = ({ available, selected, onChange, disabled, id }) 
             <input
               type="checkbox"
               checked={allSelected}
-              onChange={() => onChange(allSelected ? [] : [...available])}
+              onChange={() => onChange(allSelected ? [] : visibleAvailable.map((dept) => dept.name))}
             />
             Select all
           </label>
@@ -130,14 +131,14 @@ const DepartmentMultiSelect = ({ available, selected, onChange, disabled, id }) 
 
           <div style={{ borderTop: "1px solid var(--border)", margin: "4px 0" }} />
 
-          {available.length === 0 ? (
+          {visibleAvailable.length === 0 ? (
             <div style={{ padding: "6px 10px", fontSize: 11, color: "var(--text-3)", fontFamily: "var(--font-ui)" }}>
               No departments available
             </div>
           ) : (
-            available.map((dept) => (
+            visibleAvailable.map((dept) => (
               <label
-                key={dept}
+                key={dept.name}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -152,10 +153,10 @@ const DepartmentMultiSelect = ({ available, selected, onChange, disabled, id }) 
               >
                 <input
                   type="checkbox"
-                  checked={selected.includes(dept)}
+                  checked={selected.includes(dept.name)}
                   onChange={() => toggle(dept)}
                 />
-                {dept}
+                {dept.name}{!dept.isActive && " (inactive)"}
               </label>
             ))
           )}

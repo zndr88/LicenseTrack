@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { getPendingOrders } from "../../api/pendingOrders.js";
@@ -8,6 +8,7 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import { pendingOrderOptionLabel } from "../../utils/procurementLabels.js";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 const sourcingPoFormSchema = poFormSchema.extend({
   supplier: z.string().trim().min(1, "Supplier is required."),
@@ -23,6 +24,7 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { isDirty },
     watch,
@@ -126,7 +128,13 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
               </div>
               <div className="fg">
                 <label htmlFor="cs-supplier">Supplier <span style={{ color: "var(--red)" }}>*</span></label>
-                <input id="cs-supplier" className="fi" placeholder="Reseller or direct supplier" {...register("supplier")} />
+                <Controller
+                  name="supplier"
+                  control={control}
+                  render={({ field }) => (
+                    <ReferenceCombobox id="cs-supplier" mode="supplier" placeholder="Reseller or direct supplier" {...field} />
+                  )}
+                />
               </div>
               <div className="fg">
                 <label htmlFor="cs-notes">Notes</label>

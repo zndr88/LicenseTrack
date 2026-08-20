@@ -13,6 +13,7 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import Icon from "../ui/Icon.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
@@ -251,7 +252,6 @@ const SourcingItemModal = ({
   const publisherVal = watch("publisherName");
   const softwareVal = watch("softwareDescription");
   const currentFields = watch();
-  const supplierRegistration = register("supplier");
   const additionalLinesValid = additionalLines.every(
     (l) => (l.publisherName ?? "").trim() !== "" && (l.softwareDescription ?? "").trim() !== ""
   );
@@ -550,7 +550,13 @@ const SourcingItemModal = ({
           <div className="fr">
             <div className="fg" style={{ flex: 1 }}>
               <label htmlFor="si-publisher">Publisher <span style={{ color: "var(--red)" }}>*</span></label>
-              <input id="si-publisher" className="fi" placeholder="Software publisher" {...register("publisherName")} />
+              <Controller
+                name="publisherName"
+                control={control}
+                render={({ field }) => (
+                  <ReferenceCombobox id="si-publisher" mode="publisher" placeholder="Software publisher" {...field} />
+                )}
+              />
               {errors.publisherName && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.publisherName.message}</span>}
             </div>
           </div>
@@ -696,21 +702,24 @@ const SourcingItemModal = ({
           <div className="fr">
             <div className="fg" style={{ flex: 1 }}>
               <label htmlFor="si-supplier">Request supplier</label>
-              <input
-                id="si-supplier"
-                className="fi"
-                placeholder="Reseller or direct supplier"
-                {...supplierRegistration}
-                onChange={(event) => {
-                  const previousSupplier = watch("supplier");
-                  supplierRegistration.onChange(event);
-                  if (
-                    String(previousSupplier || "").trim().toLocaleLowerCase()
-                    !== event.target.value.trim().toLocaleLowerCase()
-                  ) {
-                    setValue("contactEmail", "", { shouldDirty: true });
-                  }
-                }}
+              <Controller
+                name="supplier"
+                control={control}
+                render={({ field }) => (
+                  <ReferenceCombobox
+                    id="si-supplier"
+                    mode="supplier"
+                    placeholder="Reseller or direct supplier"
+                    {...field}
+                    onChange={(value) => {
+                      const previousSupplier = watch("supplier");
+                      field.onChange(value);
+                      if (String(previousSupplier || "").trim().toLocaleLowerCase() !== value.trim().toLocaleLowerCase()) {
+                        setValue("contactEmail", "", { shouldDirty: true });
+                      }
+                    }}
+                  />
+                )}
               />
               <span className="field-hint">Applies to every line in this sourcing request.</span>
             </div>
@@ -742,11 +751,11 @@ const SourcingItemModal = ({
               <div className="fr">
                 <div className="fg" style={{ flex: 1 }}>
                   <label htmlFor={`sourcing-line-${line.id}-publisher`}>Publisher <span style={{ color: "var(--red)" }}>*</span></label>
-                  <input
+                  <ReferenceCombobox
                     id={`sourcing-line-${line.id}-publisher`}
-                    className="fi"
+                    mode="publisher"
                     value={line.publisherName}
-                    onChange={(e) => updateAdditionalLine(line.id, "publisherName", e.target.value)}
+                    onChange={(value) => updateAdditionalLine(line.id, "publisherName", value)}
                     placeholder="Software publisher"
                   />
                 </div>
@@ -855,11 +864,11 @@ const SourcingItemModal = ({
                 <>
                   <div className="fg">
                     <label htmlFor={`sourcing-line-${line.id}-supplier`}>Supplier</label>
-                    <input
+                    <ReferenceCombobox
                       id={`sourcing-line-${line.id}-supplier`}
-                      className="fi"
+                      mode="supplier"
                       value={line.supplier}
-                      onChange={(e) => updateAdditionalLine(line.id, "supplier", e.target.value)}
+                      onChange={(value) => updateAdditionalLine(line.id, "supplier", value)}
                       placeholder="Same supplier or a support provider"
                     />
                   </div>

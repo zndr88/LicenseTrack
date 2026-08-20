@@ -48,3 +48,13 @@ export async function searchReferenceData(kind, search) {
     ? result
     : { data: (result.data || []).map(normalizeReference), error: null };
 }
+
+export async function getCostCentres({ active } = {}) {
+  const params = new URLSearchParams();
+  if (active !== undefined) params.set("active", String(active));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const result = await get(`/api/reference-data/cost-centres${suffix}`);
+  return result.error
+    ? result
+    : { data: (result.data || []).map(normalizeReference), error: null };
+}

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import ModalShell from "../ui/ModalShell.jsx";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 function itemDefaults(item) {
   return {
@@ -60,7 +61,7 @@ export default function SourcingRequestEditModal({ request, onSave, onCancel }) 
         <div className="fr">
           <div className="fg">
             <label htmlFor="sourcing-request-supplier">Supplier</label>
-            <input id="sourcing-request-supplier" className="fi" value={supplier} onChange={(event) => setSupplier(event.target.value)} />
+            <ReferenceCombobox id="sourcing-request-supplier" mode="supplier" value={supplier} onChange={setSupplier} />
           </div>
           <div className="fg">
             <label htmlFor="sourcing-request-contact">Supplier Contact</label>
@@ -83,7 +84,7 @@ export default function SourcingRequestEditModal({ request, onSave, onCancel }) 
               <div className="fr">
                 <div className="fg">
                   <label htmlFor={`sourcing-request-item-${item.id}-publisher`}>Publisher</label>
-                  <input id={`sourcing-request-item-${item.id}-publisher`} className="fi" value={item.publisherName} disabled={readOnly} onChange={(event) => updateItem(item.id, "publisherName", event.target.value)} />
+                  <ReferenceCombobox id={`sourcing-request-item-${item.id}-publisher`} mode="publisher" value={item.publisherName} disabled={readOnly} onChange={(value) => updateItem(item.id, "publisherName", value)} />
                 </div>
                 <div className="fg">
                   <label htmlFor={`sourcing-request-item-${item.id}-description`}>Software Description</label>

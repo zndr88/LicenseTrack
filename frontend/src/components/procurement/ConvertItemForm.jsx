@@ -8,6 +8,7 @@ import ParentLicensePicker from "./ParentLicensePicker.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
 } from "./MaintenanceCoverageFields.jsx";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 /**
  * Determines whether a watched form item has all required fields filled.
@@ -99,7 +100,11 @@ export default function ConvertItemForm({
           <div className="fr">
             <div className="fg">
               <label htmlFor={`ca-publisher-name-${idx}`}>Publisher Name <span style={{ color: "var(--red)" }}>*</span></label>
-              <input id={`ca-publisher-name-${idx}`} className="fi" {...register(`items.${idx}.publisherName`)} />
+              <Controller
+                control={control}
+                name={`items.${idx}.publisherName`}
+                render={({ field }) => <ReferenceCombobox id={`ca-publisher-name-${idx}`} mode="publisher" {...field} />}
+              />
             </div>
             <div className="fg">
               <label htmlFor={`ca-software-desc-${idx}`}>Software Description <span style={{ color: "var(--red)" }}>*</span></label>
@@ -180,11 +185,19 @@ export default function ConvertItemForm({
           <div className="fr">
             <div className="fg">
               <label htmlFor={`ca-supplier-${idx}`}>Supplier</label>
-              <input id={`ca-supplier-${idx}`} className="fi" {...register(`items.${idx}.supplier`)} />
+              <Controller
+                control={control}
+                name={`items.${idx}.supplier`}
+                render={({ field }) => <ReferenceCombobox id={`ca-supplier-${idx}`} mode="supplier" {...field} />}
+              />
             </div>
             <div className="fg">
               <label htmlFor={`ca-cost-centre-${idx}`}>Cost Centre</label>
-              <input id={`ca-cost-centre-${idx}`} className="fi" {...register(`items.${idx}.costCentre`)} />
+              <Controller
+                control={control}
+                name={`items.${idx}.costCentre`}
+                render={({ field }) => <ReferenceCombobox id={`ca-cost-centre-${idx}`} mode="costCentre" {...field} />}
+              />
             </div>
           </div>
           <div className="fr">
