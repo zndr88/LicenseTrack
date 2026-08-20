@@ -161,34 +161,111 @@ function referenceDecisionComplete(override) {
 }
 
 function ReferenceDataSummary({ summary, overrides, onChange, rows, skippedRows, rowOverrides }) {
+  const [bulkAction, setBulkAction] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
   if (!summary) return null;
   const attention = (summary.candidates || []).filter((candidate) => (
     candidate.status === "possible_duplicate" || candidate.status === "inactive_conflict"
   ) && candidateAppliesToImportedRows(candidate, rows, skippedRows, rowOverrides));
+  const bulkCandidates = attention.filter((candidate) => candidate.status === "possible_duplicate");
+  const unresolvedBulkCandidates = bulkCandidates.filter((candidate) => (
+    !referenceDecisionComplete(overrides[candidate.candidateKey])
+  ));
+  const bulkCandidatesWithDecision = bulkCandidates.filter((candidate) => (
+    Boolean(overrides[candidate.candidateKey]?.action)
+  ));
+  const inactiveCandidates = attention.filter((candidate) => candidate.status === "inactive_conflict");
   const organizationCounts = summary.organizationCounts || {};
   const costCentreCounts = summary.costCentreCounts || {};
   if (attention.length === 0 && !organizationCounts.new && !costCentreCounts.new) return null;
 
+  const applyBulkDecision = () => {
+    if (!bulkAction || unresolvedBulkCandidates.length === 0) return;
+    for (const candidate of unresolvedBulkCandidates) {
+      onChange(candidate.candidateKey, {
+        action: bulkAction,
+        displayName: candidate.proposedName,
+      });
+    }
+    setBulkAction("");
+  };
+
+  const clearBulkDecisions = () => {
+    for (const candidate of bulkCandidatesWithDecision) onChange(candidate.candidateKey, null);
+    setBulkAction("");
+  };
+
   return (
     <div className="csv-reference-summary">
-      <div className="csv-reference-summary-header">
-        <div>
-          <strong>Reference data</strong>
-          <div className="csv-reference-summary-copy">
+      <button
+        type="button"
+        className="report-section-header"
+        aria-expanded={!collapsed}
+        aria-controls="csv-reference-summary-content"
+        onClick={() => setCollapsed((current) => !current)}
+      >
+        <span>
+          <span className="report-section-title">Reference data</span>
+          <span className="report-section-subtitle">
             Exact names and aliases match automatically. New references are created only for successful rows.
-          </div>
-        </div>
-        <div className="csv-reference-summary-counts">
-          <span>Matched {(organizationCounts.matched ?? 0) + (costCentreCounts.matched ?? 0)}</span>
-          <span>New {(organizationCounts.new ?? 0) + (costCentreCounts.new ?? 0)}</span>
-          <span className={attention.length ? "is-warning" : ""}>
-            Needs review {attention.length}
           </span>
-        </div>
-      </div>
-      {attention.length > 0 && (
-        <div className="csv-reference-review-list">
-          <div className="csv-reference-review-title">Review possible duplicates and inactive references</div>
+          <span className="report-section-summary csv-reference-summary-counts">
+            <span>Matched {(organizationCounts.matched ?? 0) + (costCentreCounts.matched ?? 0)}</span>
+            <span>New {(organizationCounts.new ?? 0) + (costCentreCounts.new ?? 0)}</span>
+            <span className={attention.length ? "is-warning" : ""}>
+              Needs review {attention.length}
+            </span>
+          </span>
+        </span>
+        <span className={`report-section-chevron${collapsed ? "" : " open"}`} aria-hidden="true">
+          <Icon name="chevron-right" size={14} />
+        </span>
+      </button>
+      {!collapsed && attention.length > 0 && (
+        <div id="csv-reference-summary-content" className="csv-reference-summary-body">
+          <div className="csv-reference-review-list">
+            <div className="csv-reference-review-heading">
+            <div className="csv-reference-review-title">Review possible duplicates and inactive references</div>
+            {bulkCandidates.length > 0 && (
+              <div className="csv-reference-bulk">
+                <div className="csv-reference-bulk-copy">
+                  <strong>Decide for all</strong>
+                  <span>Apply one decision to every unresolved possible duplicate.</span>
+                </div>
+                <div className="csv-reference-bulk-controls">
+                  <select
+                    className="fi fi-select"
+                    value={bulkAction}
+                    aria-label="Decision for all unresolved possible duplicates"
+                    disabled={unresolvedBulkCandidates.length === 0}
+                    onChange={(event) => setBulkAction(event.target.value)}
+                  >
+                    <option value="">Choose bulk decision</option>
+                    <option value="accept_new">Create each as new</option>
+                    <option value="keep_separate">Keep each separate</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-g csv-reference-bulk-apply"
+                    disabled={!bulkAction || unresolvedBulkCandidates.length === 0}
+                    onClick={applyBulkDecision}
+                  >
+                    {unresolvedBulkCandidates.length > 0 ? `Apply to ${unresolvedBulkCandidates.length}` : "All decided"}
+                  </button>
+                  {bulkCandidatesWithDecision.length > 0 && (
+                    <button type="button" className="csv-reference-bulk-clear" onClick={clearBulkDecisions}>
+                      Clear duplicate decisions
+                    </button>
+                  )}
+                </div>
+                {inactiveCandidates.length > 0 && (
+                  <span className="csv-reference-bulk-note">
+                    {inactiveCandidates.length} inactive conflict{inactiveCandidates.length === 1 ? "" : "s"} still require an active target.
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
           {attention.map((candidate) => {
             const override = overrides[candidate.candidateKey] || {};
             const isInactive = candidate.status === "inactive_conflict";
@@ -279,6 +356,7 @@ function ReferenceDataSummary({ summary, overrides, onChange, rows, skippedRows,
               </div>
             );
           })}
+          </div>
         </div>
       )}
     </div>
