@@ -73,6 +73,7 @@ from app.routes import (
     plugins,
     renewals,
     reports,
+    reference_data,
     sourcing,
     user_settings,
     users,
@@ -320,6 +321,7 @@ app.include_router(contracts.router)
 app.include_router(contract_folders.router)
 app.include_router(contract_documents.router)
 app.include_router(reports.router)
+app.include_router(reference_data.router)
 app.include_router(audit_log.router)
 app.include_router(custom_fields.bulk_router)
 app.include_router(custom_fields.definitions_router)
