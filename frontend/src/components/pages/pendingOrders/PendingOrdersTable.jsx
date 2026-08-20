@@ -1,7 +1,6 @@
 import React from "react";
 import Icon from "../../ui/Icon.jsx";
 import SearchBox from "../../ui/SearchBox.jsx";
-import DocumentButton from "../../ui/DocumentButton.jsx";
 import RowActionsMenu from "../../ui/RowActionsMenu.jsx";
 import { formatCost } from "../../../utils/helpers.js";
 import { formatPoTotal } from "./usePendingOrdersPageState.js";
@@ -71,7 +70,6 @@ function PendingOrderItemsRow({
   onAddItem,
   onDeleteItem,
   onEditItem,
-  onDownloadQuote,
   onNavigateToLicense,
 }) {
   return (
@@ -110,14 +108,6 @@ function PendingOrderItemsRow({
                 <td>{item.currency}</td>
                 <td>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                    {(item.quoteDocuments ?? []).map((document) => (
-                      <DocumentButton
-                        key={document.id}
-                        document={document}
-                        onDownload={onDownloadQuote}
-                        labelPrefix="Quote: "
-                      />
-                    ))}
                     {readOnly && (
                       <span className={`badge ${item.isRenewal ? "badge-pending" : "badge-gray"}`}>
                         {item.isRenewal ? "Renewal" : "New Purchase"}
@@ -533,7 +523,6 @@ export default function PendingOrdersTable({
                       onAddItem={onOpenAddItems}
                       onDeleteItem={onDeleteItem}
                       onEditItem={onEditItem}
-                      onDownloadQuote={onDownloadQuote}
                       onNavigateToLicense={onNavigateToLicense}
                     />
                   )}
