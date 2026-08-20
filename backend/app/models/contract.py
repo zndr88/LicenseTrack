@@ -11,12 +11,18 @@ class Contract(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     contract_number: Mapped[str] = mapped_column(String(255), nullable=False)
     publisher_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    publisher_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 
     folders: Mapped[list["ContractFolder"]] = relationship(
         "ContractFolder", back_populates="contract", cascade="all, delete-orphan"
+    )
+    publisher: Mapped["Organization | None"] = relationship(  # noqa: F821
+        "Organization", foreign_keys=[publisher_id]
     )
 
 

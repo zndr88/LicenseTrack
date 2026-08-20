@@ -71,6 +71,9 @@ class License(Base):
 
     # Core identification
     publisher_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    publisher_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
     software_description: Mapped[str] = mapped_column(String(500), nullable=False)
 
     # License classification
@@ -119,7 +122,13 @@ class License(Base):
     # Contacts & ownership
     contact_email: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     supplier: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    supplier_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
     cost_centre: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    cost_centre_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("cost_centres.id"), nullable=True, index=True
+    )
     budget_owner_email: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     secondary_contacts: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
 
@@ -224,6 +233,15 @@ class License(Base):
     # Relationships
     creator: Mapped["User | None"] = relationship(  # noqa: F821
         "User", back_populates="licenses_created", foreign_keys=[created_by]
+    )
+    publisher: Mapped["Organization | None"] = relationship(  # noqa: F821
+        "Organization", foreign_keys=[publisher_id]
+    )
+    supplier_organization: Mapped["Organization | None"] = relationship(  # noqa: F821
+        "Organization", foreign_keys=[supplier_id]
+    )
+    cost_centre_reference: Mapped["CostCentre | None"] = relationship(  # noqa: F821
+        "CostCentre", foreign_keys=[cost_centre_id]
     )
     documents: Mapped[list["Document"]] = relationship(  # noqa: F821
         "Document", back_populates="license", cascade="all, delete-orphan"

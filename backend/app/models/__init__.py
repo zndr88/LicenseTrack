@@ -31,6 +31,7 @@ from app.models.plugin import (  # noqa: F401
     PluginVersion,
 )
 from app.models.plugin_suggestion import PluginSuggestion  # noqa: F401
+from app.models.reference_data import CostCentre, CostCentreAlias, Organization, OrganizationAlias  # noqa: F401
 from app.models.settings import GlobalSettings, UserSettings  # noqa: F401
 from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingRequest, SourcingStatus  # noqa: F401
 from app.models.user import AuthProvider, User, UserRole  # noqa: F401
@@ -80,6 +81,10 @@ __all__ = [
     "UserDepartmentAccess",
     "LicenseRefSequence",
     "ImportMapping",
+    "Organization",
+    "OrganizationAlias",
+    "CostCentre",
+    "CostCentreAlias",
     "WebhookEndpoint",
     "WebhookDelivery",
 ]

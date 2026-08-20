@@ -19,6 +19,9 @@ class SourcingRequest(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     supplier: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    supplier_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[SourcingStatus] = mapped_column(
@@ -70,6 +73,9 @@ class SourcingItem(Base):
         Integer, ForeignKey("sourcing_requests.id"), nullable=True, index=True
     )
     publisher_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    publisher_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
     software_description: Mapped[str] = mapped_column(String(500), nullable=False)
     license_type: Mapped[LicenseType | None] = mapped_column(Enum(LicenseType), nullable=True)
     maintenance_coverage: Mapped[MaintenanceCoverage | None] = mapped_column(
@@ -96,6 +102,9 @@ class SourcingItem(Base):
     start_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
     supplier: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    supplier_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[SourcingStatus] = mapped_column(

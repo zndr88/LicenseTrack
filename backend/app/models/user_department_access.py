@@ -11,3 +11,6 @@ class UserDepartmentAccess(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     department: Mapped[str] = mapped_column(String, nullable=False)
+    cost_centre_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("cost_centres.id"), nullable=True, index=True
+    )

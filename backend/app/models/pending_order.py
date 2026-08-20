@@ -28,6 +28,9 @@ class PendingOrder(Base):
     po_number: Mapped[str] = mapped_column(String(255), nullable=False)
     procurement_reference: Mapped[str] = mapped_column(String(255), nullable=False, default="", server_default="")
     supplier: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    supplier_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[PendingOrderStatus] = mapped_column(
         Enum(PendingOrderStatus), nullable=False, default=PendingOrderStatus.pending
