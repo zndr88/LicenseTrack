@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { LICENSE_TYPES } from "../../constants/licenseData.js";
 import Badge from "../ui/Badge.jsx";
@@ -38,6 +38,100 @@ function needsMaintenanceParent(row) {
   return (row.validationErrors || []).some((error) => (
     error.includes("parent_license_ref") || error.toLowerCase().includes("maintenance parent")
   ));
+}
+
+function maintenanceParentLabel(parent) {
+  return [
+    parent.licenseRef,
+    `${parent.publisherName || "Unknown"} - ${parent.softwareDescription || "Untitled"}`,
+    parent.poNumber ? `PO ${parent.poNumber}` : null,
+  ].filter(Boolean).join(" | ");
+}
+
+function MaintenanceParentPicker({ rowNumber, selectedParentId, parents, onSelect }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const pickerRef = useRef(null);
+  const inputRef = useRef(null);
+  const resultsRef = useRef(null);
+  const [resultsPosition, setResultsPosition] = useState({});
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredParents = useMemo(() => parents.filter((parent) => (
+    !normalizedQuery || maintenanceParentLabel(parent).toLowerCase().includes(normalizedQuery)
+  )), [parents, normalizedQuery]);
+  const selectedParent = parents.find((parent) => Number(parent.id) === Number(selectedParentId));
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleOutsideClick = (event) => {
+      if (!pickerRef.current?.contains(event.target) && !resultsRef.current?.contains(event.target)) setOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleKeyDown);
+    const updateResultsPosition = () => {
+      const input = inputRef.current;
+      if (!input) return;
+      const rect = input.getBoundingClientRect();
+      const maxHeight = Math.min(220, Math.max(120, window.innerHeight - rect.bottom - 12));
+      setResultsPosition({
+        position: "fixed",
+        top: rect.bottom + 3,
+        left: rect.left,
+        width: rect.width,
+        maxHeight,
+      });
+    };
+    updateResultsPosition();
+    window.addEventListener("resize", updateResultsPosition);
+    window.addEventListener("scroll", updateResultsPosition, true);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", updateResultsPosition);
+      window.removeEventListener("scroll", updateResultsPosition, true);
+    };
+  }, [open]);
+
+  return (
+    <div className="csv-parent-picker" ref={pickerRef}>
+      <input
+        id={`csv-parent-${rowNumber}`}
+        ref={inputRef}
+        className="fi csv-parent-search"
+        aria-label="Maintenance parent required"
+        placeholder="Select parent..."
+        value={open ? query : (selectedParent ? maintenanceParentLabel(selectedParent) : "")}
+        onFocus={() => { setOpen(true); setQuery(""); }}
+        onChange={(event) => { setOpen(true); setQuery(event.target.value); }}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={`csv-parent-results-${rowNumber}`}
+      />
+      {open && createPortal(
+        <div ref={resultsRef} id={`csv-parent-results-${rowNumber}`} className="csv-parent-results" style={resultsPosition} role="listbox" aria-label={`Maintenance parent results for row ${rowNumber}`}>
+          {filteredParents.length === 0 ? (
+            <div className="csv-parent-empty">No matching eligible parent licenses.</div>
+          ) : filteredParents.map((parent) => (
+            <button
+              key={parent.id}
+              type="button"
+              role="option"
+              aria-selected={Number(parent.id) === Number(selectedParentId)}
+              className={`csv-parent-option${Number(parent.id) === Number(selectedParentId) ? " selected" : ""}`}
+              onClick={() => { onSelect(rowNumber, String(parent.id)); setQuery(""); setOpen(false); }}
+            >
+              {maintenanceParentLabel(parent)}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+      {selectedParent && <div className="csv-action-resolved">Selected: {maintenanceParentLabel(selectedParent)}</div>}
+    </div>
+  );
 }
 
 export default function PreviewStep({
@@ -393,26 +487,12 @@ export default function PreviewStep({
                               <label className="csv-parent-action-label" htmlFor={`csv-parent-${row.rowNumber}`}>
                                 Maintenance parent required
                               </label>
-                              <select
-                                id={`csv-parent-${row.rowNumber}`}
-                                className="fi fi-select csv-parent-select"
-                                value={selectedParentId}
-                                onChange={(event) => setMaintenanceParentOverride(row.rowNumber, event.target.value)}
-                              >
-                                <option value="">Select parent...</option>
-                                {eligibleMaintenanceParents.map((parent) => (
-                                  <option key={parent.id} value={parent.id}>
-                                    {[
-                                      parent.licenseRef,
-                                      `${parent.publisherName || "Unknown"} - ${parent.softwareDescription || "Untitled"}`,
-                                      parent.poNumber ? `PO ${parent.poNumber}` : null,
-                                    ].filter(Boolean).join(" | ")}
-                                  </option>
-                                ))}
-                              </select>
-                              {parentResolved && (
-                                <div className="csv-action-resolved">Parent selected for import.</div>
-                              )}
+                              <MaintenanceParentPicker
+                                rowNumber={row.rowNumber}
+                                selectedParentId={selectedParentId}
+                                parents={eligibleMaintenanceParents}
+                                onSelect={setMaintenanceParentOverride}
+                              />
                               {!parentResolved && (
                                 <div className="csv-parent-action-help">Choose an existing perpetual, OEM, or freeware parent.</div>
                               )}

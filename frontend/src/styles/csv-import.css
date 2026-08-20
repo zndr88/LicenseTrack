@@ -53,6 +53,34 @@
   min-width: 0;
   font-size: 11px;
 }
+.csv-parent-picker { position: relative; display: grid; gap: 6px; }
+.csv-parent-search { width: 100%; }
+.csv-parent-results {
+  display: grid;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-2);
+  padding: 4px;
+  z-index: 9999;
+}
+.csv-parent-option {
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.35;
+  padding: 7px 8px;
+  text-align: left;
+  white-space: normal;
+}
+.csv-parent-option:hover,
+.csv-parent-option.selected { border-color: var(--accent); background: var(--accent-m); }
+.csv-parent-empty { color: var(--text-3); font-size: 11px; padding: 8px; }
 .csv-parent-action-help {
   font-size: 10px;
   color: var(--text-3);

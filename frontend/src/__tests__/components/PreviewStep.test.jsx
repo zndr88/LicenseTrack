@@ -154,7 +154,10 @@ describe("PreviewStep — warning summary", () => {
 
     render(<PreviewStep {...props} />);
 
-    fireEvent.change(screen.getByLabelText("Maintenance parent required"), { target: { value: "42" } });
+    const parentSearch = screen.getByLabelText("Maintenance parent required");
+    fireEvent.focus(parentSearch);
+    fireEvent.change(parentSearch, { target: { value: "42" } });
+    fireEvent.click(screen.getByRole("option", { name: /LT-2026-00042/i }));
 
     expect(setMaintenanceParentOverride).toHaveBeenCalledWith(4, "42");
   });
