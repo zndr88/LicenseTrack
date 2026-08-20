@@ -297,6 +297,33 @@ describe("useLicenseData — columnFilters", () => {
     expect(result.current.filtered.length).toBe(1)
   })
 
+  test("columnFilters: localized price input matches canonical prices", () => {
+    const licenses = [
+      makeLicense({ unitPrice: "0.01" }),
+      makeLicense({ unitPrice: "1.01" }),
+    ]
+    const { result } = renderHook(() => useLicenseData(licenses, {
+      ...defaultOptions,
+      userSettings: { numberFormatLocale: "nl-BE" },
+      columnFilters: { unitPrice: "0,01" },
+    }))
+
+    expect(result.current.filtered.map((license) => license.unitPrice)).toEqual(["0.01"])
+  })
+
+  test("columnFilters: maintenance coverage uses selectable values", () => {
+    const licenses = [
+      makeLicense({ maintenanceCoverage: "included" }),
+      makeLicense({ maintenanceCoverage: "separately_tracked" }),
+    ]
+    const { result } = renderHook(() => useLicenseData(licenses, {
+      ...defaultOptions,
+      columnFilters: { maintenanceCoverage: ["separately_tracked"] },
+    }))
+
+    expect(result.current.filtered.map((license) => license.maintenanceCoverage)).toEqual(["separately_tracked"])
+  })
+
   test("columnFilters: multiple filters are AND-combined", () => {
     const licenses = [
       makeLicense({ publisherName: "Acme", licenseType: "subscription" }),

@@ -11,6 +11,7 @@ import {
   deleteSourcingRequest as apiDeleteSourcingRequest,
   exportSourcingCsv,
   updateSourcingItem as apiUpdateSourcingItem,
+  updateSourcingRequest as apiUpdateSourcingRequest,
   uploadSourcingQuoteDocument,
 } from "../../../api/sourcing.js";
 import { invalidateProcurementRenewalState } from "../../../queryInvalidation.js";
@@ -53,6 +54,33 @@ export function useSourcingActions({
     const { error } = await apiUpdateSourcingItem(id, payload);
     if (error) { showToast(error, "error"); return false; }
     await invalidateSourcingCaches(queryClient);
+    return true;
+  }, [showToast, queryClient]);
+
+  const handleUpdateSourcingRequest = useCallback(async (requestId, payload) => {
+    const { error: requestError } = await apiUpdateSourcingRequest(requestId, {
+      supplier: payload.supplier || null,
+      contactEmail: payload.contactEmail || null,
+      notes: payload.notes || null,
+    });
+    if (requestError) { showToast(requestError, "error"); return false; }
+    for (const item of payload.items ?? []) {
+      if (item.status === "converted" || item.status === "cancelled") continue;
+      const { id } = item;
+      const itemPayload = { ...item };
+      delete itemPayload.id;
+      delete itemPayload.status;
+      itemPayload.licenseType = itemPayload.licenseType || null;
+      itemPayload.startDate = itemPayload.startDate || null;
+      itemPayload.endDate = itemPayload.endDate || null;
+      itemPayload.quantity = itemPayload.quantity || null;
+      itemPayload.estimatedUnitPrice = itemPayload.estimatedUnitPrice || null;
+      itemPayload.estimatedTotalPrice = itemPayload.estimatedTotalPrice || null;
+      const { error } = await apiUpdateSourcingItem(id, itemPayload);
+      if (error) { showToast(error, "error"); return false; }
+    }
+    await invalidateSourcingCaches(queryClient);
+    showToast("Sourcing request updated.", "success");
     return true;
   }, [showToast, queryClient]);
 
@@ -154,6 +182,7 @@ export function useSourcingActions({
     handleCreateSourcingItem,
     handleCreateSourcingRequest,
     handleUpdateSourcingItem,
+    handleUpdateSourcingRequest,
     handleDeleteSourcingItem,
     handleDeleteSourcingRequest,
     handleCancelSourcingRequest,

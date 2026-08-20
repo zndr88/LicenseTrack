@@ -1,4 +1,4 @@
-import { LICENSE_TYPES, LICENSE_METRICS } from "../../../constants/licenseData.js";
+import { LICENSE_TYPES, LICENSE_METRICS, MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
 import MultiSelectFilter from "./MultiSelectFilter.jsx";
 
 const INPUT_STYLE = {
@@ -41,6 +41,18 @@ export default function LicenseTableFilters({
         value={columnFilters.licenseMetric ?? []}
         onChange={(value) => setColumnFilters((filters) => ({ ...filters, licenseMetric: value }))}
         placeholder="Metric"
+      />
+    );
+  }
+
+  if (col.key === "maintenanceCoverage") {
+    return (
+      <MultiSelectFilter
+        id="cf-maintenanceCoverage"
+        options={MAINTENANCE_COVERAGE_OPTIONS}
+        value={columnFilters.maintenanceCoverage ?? []}
+        onChange={(value) => setColumnFilters((filters) => ({ ...filters, maintenanceCoverage: value }))}
+        placeholder="Coverage"
       />
     );
   }

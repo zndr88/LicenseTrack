@@ -22,6 +22,7 @@ const SHARED_FIELD_KEYS = [
   "procurementReference",
   "contractNumber",
   "invoiceNumber",
+  "purchaseDate",
   "contactEmail",
   "supplier",
   "costCentre",

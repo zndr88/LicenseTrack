@@ -389,6 +389,7 @@ export default function LicensesPage({
               totalPages={totalPages}
               hoveredCol={hoveredCol}
               setHoveredCol={setHoveredCol}
+              selectedId={selectedId}
               setSelectedId={setSelectedId}
               inlineEditEnabled={inlineEditEnabled}
               onInlineFieldSave={handleLicenseFieldPatch}

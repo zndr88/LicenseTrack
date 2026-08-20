@@ -664,6 +664,8 @@ describe("CSVImportPage workflows", () => {
     await user.click(screen.getByRole("button", { name: /Import 1 license/i }));
     expect(await screen.findByText(/Import complete/i)).toBeInTheDocument();
     expect(onImportComplete).toHaveBeenCalled();
+    expect(licensesApi.getLicenses).toHaveBeenCalledWith({ includeRetired: false });
+    expect(licensesApi.getLicenses.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 });
 

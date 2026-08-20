@@ -150,7 +150,7 @@ export function useCSVImportAnalysis({
     if (err) { setError(err); setStep("mapping"); return; }
     setConfirmResult(data);
     setStep("done");
-    onImportComplete?.();
+    await onImportComplete?.();
   };
 
   const updateDecision = (rawHeader, updates) => {

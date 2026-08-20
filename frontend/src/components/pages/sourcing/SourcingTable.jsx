@@ -243,6 +243,7 @@ export default function SourcingTable({
   onRowToggle,
   onToggleSelect,
   onEditItem,
+  onEditRequest,
   onDeleteItem,
   onAddItem,
   onConvert,
@@ -430,6 +431,13 @@ export default function SourcingTable({
                   icon: "edit",
                   hidden: !canEditSingleLine,
                   onClick: () => onEditItem(openItems[0], request),
+                },
+                {
+                  key: "edit-request",
+                  label: "Edit Sourcing Request",
+                  icon: "edit",
+                  hidden: !perms.canEdit,
+                  onClick: () => onEditRequest(request),
                 },
                 {
                   key: "upload-quote",

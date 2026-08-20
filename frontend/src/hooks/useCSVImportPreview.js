@@ -79,7 +79,7 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     if (err) { setError(err); setStep("preview"); return; }
     setConfirmResult(data);
     setStep("done");
-    onImportComplete?.();
+    await onImportComplete?.();
   };
 
   const toggleSelectedRow = (rowNumber) => {

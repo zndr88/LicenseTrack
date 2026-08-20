@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { daysBetween, getCompleteness, getExpirationStatus, todayStr } from "../utils/helpers.js";
+import { parseLocalizedNumber } from "../utils/formatting.js";
 import { getSortValue } from "../utils/sort.js";
 
 function statNumber(value, fallback = 0) {
@@ -39,10 +40,11 @@ export function useLicenseData(licenses, {
   sortCol,
   sortDir,
   globalSettings,
-  userSettings: _userSettings,
+  userSettings,
   apiStats,
 }) {
   const normalizedSearch = useMemo(() => search.trim().toLowerCase(), [search]);
+  const numberFormatLocale = userSettings?.numberFormatLocale ?? "en-US";
 
   const activeStatusFilters = useMemo(() => {
     const values = new Set(statusFilters);
@@ -176,18 +178,25 @@ export function useLicenseData(licenses, {
             if (!String(l.quantity ?? "").includes(val)) return false;
             break;
           case "unitPrice":
-            if (!String(l.unitPrice ?? "").includes(val)) return false;
+            if (!String(l.unitPrice ?? "").includes(parseLocalizedNumber(val, { numberFormatLocale }) ?? val)) return false;
             break;
           case "totalPoPrice":
-            if (!String(l.totalPoPrice ?? "").includes(val)) return false;
+            if (!String(l.totalPoPrice ?? "").includes(parseLocalizedNumber(val, { numberFormatLocale }) ?? val)) return false;
             break;
           case "calcTotal": {
             const qty = Number(l.quantity);
             const unit = Number(l.unitPrice);
             const calc = (qty && unit) ? String(qty * unit) : "";
-            if (!calc.includes(val)) return false;
+            if (!calc.includes(parseLocalizedNumber(val, { numberFormatLocale }) ?? val)) return false;
             break;
           }
+          case "maintenanceCoverage":
+            if (Array.isArray(val)) {
+              if (val.length > 0 && !val.includes(l.maintenanceCoverage)) return false;
+            } else if (l.maintenanceCoverage !== val) {
+              return false;
+            }
+            break;
           case "startDate":
             if (!l.startDate?.toLowerCase().includes(val)) return false;
             break;
@@ -221,7 +230,7 @@ export function useLicenseData(licenses, {
     }
 
     return true;
-  }), [enriched, normalizedSearch, activeStatusFilters, activeColumnFilters]);
+  }), [enriched, normalizedSearch, activeStatusFilters, activeColumnFilters, numberFormatLocale]);
 
   const sorted = useMemo(() => {
     if (!sortCol) return filtered;

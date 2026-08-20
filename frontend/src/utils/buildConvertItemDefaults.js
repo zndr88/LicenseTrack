@@ -39,7 +39,7 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       softwareDescription: si.softwareDescription || renewal?.softwareDescription || "",
       startDate:           si.startDate || "",
       endDate:             si.endDate || "",
-      purchaseDate:        "",
+      purchaseDate:        si.purchaseDate || renewal?.purchaseDate || "",
       isPerpetual:         licenseType === "perpetual",
       contractNumber:      renewal?.contractNumber || "",
       poNumber:            order.poNumber || "",

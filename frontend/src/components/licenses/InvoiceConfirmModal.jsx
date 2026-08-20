@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
 import Checkbox from "../ui/Checkbox.jsx";
 import Icon from "../ui/Icon.jsx";
@@ -12,6 +12,8 @@ import MaintenanceCoverageFields, {
   isFreewareLicenseType,
   supportsSeparateMaintenanceLine,
 } from "../procurement/MaintenanceCoverageFields.jsx";
+import ParentLicensePicker from "../procurement/ParentLicensePicker.jsx";
+import { getLicenses } from "../../api/licenses.js";
 
 const PRIMARY_LINE_ID = "primary";
 const PROCUREMENT_DOCUMENT_CATEGORIES = new Set(["invoice", "quote", "purchase_order"]);
@@ -74,6 +76,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const [additionalLines, setAdditionalLines] = useState([]);
   const [formTouched, setFormTouched] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [eligibleParentLicenses, setEligibleParentLicenses] = useState([]);
   const submitLockRef = useRef(false);
 
   const handleFileChange = (file) => {
@@ -103,9 +106,20 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     maintenanceQuantity: data.maintenanceQuantity || "",
     maintenanceUnitPrice: data.maintenanceUnitPrice || "",
     maintenanceCost: data.maintenanceCost || "",
+    parentLicenseId: data.parentLicenseId || "",
   });
   const u = (k, v) => { setFormTouched(true); setForm((f) => ({ ...f, [k]: v })); };
   const vis = userSettings.visibleInDetail;
+
+  useEffect(() => {
+    if (form.licenseType !== "maintenance") return undefined;
+    let cancelled = false;
+    getLicenses({ includeRetired: false }).then(({ data }) => {
+      if (cancelled || !Array.isArray(data)) return;
+      setEligibleParentLicenses(data);
+    });
+    return () => { cancelled = true; };
+  }, [form.licenseType]);
 
   const [displayUnitPrice, setDisplayUnitPrice] = useState(
     formatPriceInput(data.unitPrice || "", locale)
@@ -415,6 +429,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                     setForm((f) => ({
                       ...f,
                       licenseType: next,
+                      ...(next !== "maintenance" ? { parentLicenseId: "" } : {}),
                       ...(next !== "saas" ? { portalUrl: "" } : {}),
                       ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}),
                     }));
@@ -461,6 +476,17 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             onAddSeparate={() => addMaintenanceLine(PRIMARY_LINE_ID, form)}
             separateLineAdded={hasMaintenanceCompanion(PRIMARY_LINE_ID)}
           />
+          {form.licenseType === "maintenance" && (
+            <ParentLicensePicker
+              id="inv-parent-license"
+              licenses={eligibleParentLicenses}
+              parentLicenseId={form.parentLicenseId}
+              parentSourcingItemId={null}
+              onSelectExisting={(value) => u("parentLicenseId", value)}
+              onSelectPoItem={() => {}}
+              error={!form.parentLicenseId ? "Select the perpetual, OEM, or freeware license this maintenance record supports." : null}
+            />
+          )}
           {form.licenseType === "saas" && (
             <div className="fg">
               <label htmlFor="inv-portal-url">Portal URL</label>

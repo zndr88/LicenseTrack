@@ -38,6 +38,7 @@ export default function LicenseTable({
   totalPages,
   hoveredCol,
   setHoveredCol,
+  selectedId,
   setSelectedId,
   inlineEditEnabled,
   onInlineFieldSave,
@@ -99,8 +100,17 @@ export default function LicenseTable({
           setSelectedId(license.id);
         }
       }}
+      aria-selected={selectedId === license.id}
       className={inlineEditEnabled ? "lp-row-inline-edit" : undefined}
-      style={rowStyle(license)}
+      style={{
+        ...rowStyle(license),
+        ...(selectedId === license.id ? {
+          outline: "2px solid var(--accent)",
+          outlineOffset: -2,
+          position: "relative",
+          zIndex: 1,
+        } : {}),
+      }}
     >
       <LicenseTableRowCells
         license={license}

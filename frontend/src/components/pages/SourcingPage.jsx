@@ -5,6 +5,7 @@ import { useCotermDetection } from "../../hooks/useCotermDetection.js";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import SourcingItemModal from "../procurement/SourcingItemModal.jsx";
+import SourcingRequestEditModal from "../procurement/SourcingRequestEditModal.jsx";
 import ConvertSourcingModal from "../procurement/ConvertSourcingModal.jsx";
 import CotermSuggestionBanner from "./sourcing/CotermSuggestionBanner.jsx";
 import MergeSourcingModal from "./sourcing/MergeSourcingModal.jsx";
@@ -107,6 +108,7 @@ export default function SourcingPage({
   const perms = ROLE_PERMISSIONS[user.role];
 
   const [showSourcingModal, setShowSourcingModal] = useState(null);
+  const [showSourcingRequestEditModal, setShowSourcingRequestEditModal] = useState(null);
   const [deleteSourcingRequestTarget, setDeleteSourcingRequestTarget] = useState(null);
   const [deleteSourcingId, setDeleteSourcingId] = useState(null);
   const [deleteQuoteTarget, setDeleteQuoteTarget] = useState(null);
@@ -191,6 +193,7 @@ export default function SourcingPage({
     handleCreateSourcingItem,
     handleCreateSourcingRequest,
     handleUpdateSourcingItem,
+    handleUpdateSourcingRequest,
     handleDeleteSourcingItem,
     handleCancelSourcingRequest,
     handleConvertSourcingRequest,
@@ -405,6 +408,7 @@ export default function SourcingPage({
             onRowToggle={toggleSourcingRequest}
             onToggleSelect={toggleSelect}
             onEditItem={(item, request) => setShowSourcingModal({ item, request })}
+            onEditRequest={setShowSourcingRequestEditModal}
             onDeleteItem={setDeleteSourcingId}
             onAddItem={(request) => {
               openSourcingRequest(request.id);
@@ -576,6 +580,14 @@ export default function SourcingPage({
             setShowSourcingModal(null);
             return true;
           }}
+        />
+      )}
+
+      {showSourcingRequestEditModal !== null && (
+        <SourcingRequestEditModal
+          request={showSourcingRequestEditModal}
+          onCancel={() => setShowSourcingRequestEditModal(null)}
+          onSave={(payload) => handleUpdateSourcingRequest(showSourcingRequestEditModal.id, payload)}
         />
       )}
 

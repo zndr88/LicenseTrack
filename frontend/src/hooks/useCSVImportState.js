@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getLicenses } from "../api/licenses.js";
 import { normalizeNumberFormatOptionValue } from "../constants/numberFormats.js";
 import { useCSVImportAnalysis } from "./useCSVImportAnalysis.js";
@@ -24,6 +24,20 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     dateFormat: importDateFormat,
   };
 
+  const refreshEligibleMaintenanceParents = useCallback(async () => {
+    const { data } = await getLicenses({ includeRetired: false });
+    if (!Array.isArray(data)) return;
+    setEligibleMaintenanceParents(
+      data
+        .filter((license) => ["perpetual", "oem", "freeware"].includes(license.licenseType))
+        .sort((a, b) => {
+          const left = `${a.publisherName || ""} ${a.softwareDescription || ""} ${a.licenseRef || ""}`;
+          const right = `${b.publisherName || ""} ${b.softwareDescription || ""} ${b.licenseRef || ""}`;
+          return left.localeCompare(right);
+        })
+    );
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     getLicenses({ includeRetired: false }).then(({ data }) => {
@@ -43,11 +57,16 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     };
   }, []);
 
+  const handleImportComplete = useCallback(async () => {
+    await onImportComplete?.();
+    await refreshEligibleMaintenanceParents();
+  }, [onImportComplete, refreshEligibleMaintenanceParents]);
+
   const preview = useCSVImportPreview({
     setStep,
     setLoading,
     setError,
-    onImportComplete,
+    onImportComplete: handleImportComplete,
     importFormats,
     canManageImportMappings,
   });
@@ -57,7 +76,7 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     setStep,
     setLoading,
     setError,
-    onImportComplete,
+    onImportComplete: handleImportComplete,
     importFormats,
     canManageImportMappings,
   });
