@@ -6,6 +6,7 @@ import Icon from "../ui/Icon.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { formatDate, parseLocalizedNumber } from "../../utils/formatting.js";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 function isLinkedToParent(license, parentId) {
   // parentLicenseId is retained on detached maintenance records as historical
@@ -265,11 +266,11 @@ export default function MaintenanceCreateModal({
 
               <div className="fg">
                 <label htmlFor="maint-supplier">Supplier</label>
-                <input
+                <ReferenceCombobox
                   id="maint-supplier"
-                  className="fi"
+                  mode="supplier"
                   value={supplier}
-                  onChange={(e) => setSupplier(e.target.value)}
+                  onChange={setSupplier}
                 />
               </div>
             </>

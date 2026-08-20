@@ -5,6 +5,7 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 /**
  * Single-field edit modal.
@@ -37,6 +38,13 @@ export default function FieldEditModal({
 }) {
   const isPriceField = PRICE_FIELD_KEYS.includes(fieldKey);
   const isNumericField = NUMERIC_FIELD_KEYS.includes(fieldKey);
+  const referenceMode = fieldKey === "publisherName"
+    ? "publisher"
+    : fieldKey === "supplier"
+      ? "supplier"
+      : fieldKey === "costCentre"
+        ? "costCentre"
+        : null;
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const initialValue = isPriceField ? formatPriceInput(currentValue ?? "", locale) : (currentValue ?? "");
   const [value, setValue] = useState(initialValue);
@@ -115,6 +123,15 @@ export default function FieldEditModal({
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+          ) : referenceMode ? (
+            <ReferenceCombobox
+              id="field-edit-value"
+              mode={referenceMode}
+              value={value}
+              onChange={setValue}
+              onKeyDown={handleKeyDown}
+              autoFocus
+            />
           ) : (
             <input
               id="field-edit-value"

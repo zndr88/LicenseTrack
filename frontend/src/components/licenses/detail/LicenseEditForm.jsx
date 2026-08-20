@@ -7,6 +7,7 @@ import {
   supportsMaintenanceCoverage,
 } from "../../../utils/maintenanceCoverage.js";
 import Icon from "../../ui/Icon.jsx";
+import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
 
 /**
  * Full-panel edit form shown when editingLicense is true.
@@ -41,7 +42,7 @@ export default function LicenseEditForm({
       )}
       <div className="fg">
         <label htmlFor="license-edit-publisher">Publisher Name</label>
-        <input id="license-edit-publisher" className="fi" value={editFields.publisherName} onChange={(e) => setEditFields((p) => ({ ...p, publisherName: e.target.value }))} />
+        <ReferenceCombobox id="license-edit-publisher" mode="publisher" value={editFields.publisherName} onChange={(value) => setEditFields((p) => ({ ...p, publisherName: value }))} />
       </div>
       <div className="fg">
         <label htmlFor="license-edit-software">Software Description</label>
@@ -91,11 +92,11 @@ export default function LicenseEditForm({
       <div className="fr">
         <div className="fg">
           <label htmlFor="license-edit-supplier">Supplier</label>
-          <input id="license-edit-supplier" className="fi" value={editFields.supplier} onChange={(e) => setEditFields((p) => ({ ...p, supplier: e.target.value }))} />
+          <ReferenceCombobox id="license-edit-supplier" mode="supplier" value={editFields.supplier} onChange={(value) => setEditFields((p) => ({ ...p, supplier: value }))} placeholder="Reseller or direct supplier" />
         </div>
         <div className="fg">
           <label htmlFor="license-edit-cost-centre">Cost Centre / Dept</label>
-          <input id="license-edit-cost-centre" className="fi" value={editFields.costCentre} onChange={(e) => setEditFields((p) => ({ ...p, costCentre: e.target.value }))} />
+          <ReferenceCombobox id="license-edit-cost-centre" mode="costCentre" value={editFields.costCentre} onChange={(value) => setEditFields((p) => ({ ...p, costCentre: value }))} />
         </div>
       </div>
       <div className="fr">

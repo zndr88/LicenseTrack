@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
 import Checkbox from "../ui/Checkbox.jsx";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import Icon from "../ui/Icon.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
@@ -392,7 +393,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               }}
             />
           </div>
-          <div className="fg"><label htmlFor="inv-publisher-name">Publisher Name</label><input id="inv-publisher-name" className="fi" value={form.publisherName} onChange={(e) => u("publisherName", e.target.value)} /></div>
+          <div className="fg"><label htmlFor="inv-publisher-name">Publisher Name</label><ReferenceCombobox id="inv-publisher-name" mode="publisher" value={form.publisherName} onChange={(value) => u("publisherName", value)} /></div>
           <div className="fg"><label htmlFor="inv-software-desc">Software Description</label><input id="inv-software-desc" className="fi" value={form.softwareDescription} onChange={(e) => u("softwareDescription", e.target.value)} /></div>
           <div className="fr">
             <div className="fg"><label htmlFor="inv-start-date">Start Date</label><input id="inv-start-date" type="date" className="fi" value={form.startDate} onChange={(e) => u("startDate", e.target.value)} /></div>
@@ -415,8 +416,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           {/* Toggleable categories */}
           {(vis.supplier || vis.costCentre) && (
             <div className="fr">
-              {vis.supplier && <div className="fg"><label htmlFor="inv-supplier">Supplier</label><input id="inv-supplier" className="fi" value={form.supplier} placeholder="Reseller or direct supplier" onChange={(e) => u("supplier", e.target.value)} /></div>}
-              {vis.costCentre && <div className="fg"><label htmlFor="inv-cost-centre">Cost Centre / Department</label><input id="inv-cost-centre" className="fi" value={form.costCentre} placeholder="Department or cost centre" onChange={(e) => u("costCentre", e.target.value)} /></div>}
+              {vis.supplier && <div className="fg"><label htmlFor="inv-supplier">Supplier</label><ReferenceCombobox id="inv-supplier" mode="supplier" value={form.supplier} placeholder="Reseller or direct supplier" onChange={(value) => u("supplier", value)} /></div>}
+              {vis.costCentre && <div className="fg"><label htmlFor="inv-cost-centre">Cost Centre / Department</label><ReferenceCombobox id="inv-cost-centre" mode="costCentre" value={form.costCentre} placeholder="Department or cost centre" onChange={(value) => u("costCentre", value)} /></div>}
             </div>
           )}
           {(vis.licenseType || vis.licenseMetric) && (

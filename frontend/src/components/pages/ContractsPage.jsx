@@ -9,6 +9,7 @@ import { isEditorOrAdmin } from "../../utils/helpers.js";
 import { getContracts, createContract, deleteContract } from "../../api/contracts.js";
 import { queryKeys } from "../../queryKeys.js";
 import { invalidateContracts } from "../../queryInvalidation.js";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 async function fetchContractsData() {
   const { data, error } = await getContracts();
@@ -64,8 +65,8 @@ function NewContractModal({ onClose, onCreate, showError }) {
         <div className="fr">
           <div className="fg">
             <label htmlFor="new-contract-publisher">Publisher Name *</label>
-            <input id="new-contract-publisher" className="fi" value={form.publisherName}
-              onChange={(e) => setForm((s) => ({ ...s, publisherName: e.target.value }))}
+            <ReferenceCombobox id="new-contract-publisher" mode="publisher" value={form.publisherName}
+              onChange={(value) => setForm((s) => ({ ...s, publisherName: value }))}
               placeholder="Software publisher" />
           </div>
         </div>

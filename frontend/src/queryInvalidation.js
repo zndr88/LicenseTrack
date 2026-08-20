@@ -59,6 +59,10 @@ export function invalidateCustomFieldDefinitions(queryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.renewals });
 }
 
+export function invalidateReferenceData(queryClient) {
+  return queryClient.invalidateQueries({ queryKey: queryKeys.referenceData });
+}
+
 // Invalidate the contracts query.
 // Used after creating a contract or closing the contract modal after edits.
 export function invalidateContracts(queryClient) {

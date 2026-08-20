@@ -14,6 +14,15 @@
 .search-input::placeholder { color: var(--text-3); }
 .search-input:focus { border-color: var(--text-2); }
 .search-input-clear { position: absolute; right: 6px; background: none; border: none; padding: 0; cursor: pointer; color: var(--text-3); font-size: 14px; line-height: 1; display: flex; align-items: center; }
+.reference-combobox { position: relative; width: 100%; }
+.reference-combobox-menu { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 3px); max-height: 240px; overflow-y: auto; border: 1px solid var(--border-strong); border-radius: var(--r); background: var(--bg-1); box-shadow: var(--shadow-md); padding: 4px; }
+.reference-combobox-option, .reference-combobox-create { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; border: 0; border-radius: var(--r); background: transparent; color: var(--text-1); font: inherit; font-size: 12px; text-align: left; padding: 8px 9px; cursor: pointer; }
+.reference-combobox-option:hover, .reference-combobox-option.is-active, .reference-combobox-create:hover, .reference-combobox-create.is-active { background: var(--bg-3); }
+.reference-combobox-option.is-inactive { color: var(--text-3); cursor: not-allowed; }
+.reference-combobox-meta { color: var(--text-3); font-size: 10px; white-space: nowrap; }
+.reference-combobox-create { border-top: 1px solid var(--border); color: var(--text-2); margin-top: 3px; }
+.reference-combobox-status { color: var(--text-3); font-size: 11px; padding: 9px; }
+.reference-combobox-error { color: var(--red-text); }
 .chip { display: flex; align-items: center; gap: 5px; padding: 7px 10px; border-radius: var(--r); font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); transition: all .15s; white-space: nowrap; flex-wrap: wrap; }
 .chip:hover { color: var(--text-1); }
 .chip select { background: none; border: none; color: inherit; font-family: inherit; font-size: inherit; outline: none; cursor: pointer; appearance: none; }

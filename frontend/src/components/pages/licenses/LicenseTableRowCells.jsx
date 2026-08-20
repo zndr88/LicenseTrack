@@ -4,15 +4,16 @@ import { formatCost, getPoTotal } from "../../../utils/helpers.js";
 import Badge from "../../ui/Badge.jsx";
 import { formatBooleanCustomField } from "./licenseColumns.js";
 import { parseLocalizedNumber, formatDate, formatDateTime } from "../../../utils/formatting.js";
+import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
 
 const INLINE_EDIT_CONFIG = {
-  publisher: { fieldKey: "publisherName", inputType: "text", className: "pub-cell" },
+  publisher: { fieldKey: "publisherName", inputType: "text", className: "pub-cell", referenceMode: "publisher" },
   description: { fieldKey: "softwareDescription", inputType: "text", className: "lp-td", style: { maxWidth: 240 } },
   contractNumber: { fieldKey: "contractNumber", inputType: "text", className: "mono" },
   poNumber: { fieldKey: "poNumber", inputType: "text", className: "mono" },
   procurementReference: { fieldKey: "procurementReference", inputType: "text", className: "mono" },
-  costCentre: { fieldKey: "costCentre", inputType: "text", className: "lp-td" },
-  supplier: { fieldKey: "supplier", inputType: "text", className: "lp-td" },
+  costCentre: { fieldKey: "costCentre", inputType: "text", className: "lp-td", referenceMode: "costCentre" },
+  supplier: { fieldKey: "supplier", inputType: "text", className: "lp-td", referenceMode: "supplier" },
   licenseType: { fieldKey: "licenseType", inputType: "select", className: "lp-td", options: LICENSE_TYPES },
   licenseMetric: { fieldKey: "licenseMetric", inputType: "select", className: "lp-td", options: LICENSE_METRICS },
   quantity: { fieldKey: "quantity", inputType: "text", inputMode: "decimal", className: "mono td-center" },
@@ -105,6 +106,18 @@ function InlineEditableCell({ license, col, config, currentValue, onInlineFieldS
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
+        ) : config.referenceMode ? (
+          <ReferenceCombobox
+            mode={config.referenceMode}
+            value={value}
+            onChange={setValue}
+            onKeyDown={handleKeyDown}
+            onBlur={commit}
+            disabled={saving}
+            className={commonProps.className}
+            aria-label={commonProps["aria-label"]}
+            onClick={commonProps.onClick}
+          />
         ) : (
           <input {...commonProps} type={config.inputType} inputMode={config.inputMode} />
         )}

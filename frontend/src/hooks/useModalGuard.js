@@ -26,6 +26,7 @@ export function useModalGuard({ isDirty, onClose }) {
   useEffect(() => {
     const handler = (e) => {
       if (e.key === "Escape") {
+        if (e.target?.closest?.('[role="combobox"][aria-expanded="true"]')) return;
         e.preventDefault();
         e.stopPropagation();
         requestClose();

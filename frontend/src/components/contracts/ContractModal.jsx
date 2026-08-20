@@ -11,6 +11,7 @@ import {
   getContractLicenses,
   updateContract,
 } from "../../api/contracts.js";
+import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 const STATUS_BADGE_TYPE = {
   active:    "green",
@@ -143,12 +144,14 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
             <h3 id="dialog-title-contract">Loading...</h3>
           ) : editing ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
-              <input
+              <ReferenceCombobox
+                value={editForm.publisherName}
+                mode="publisher"
+                aria-label="Publisher name"
                 className="fi"
                 style={{ fontSize: 15, fontWeight: 600, flex: 1 }}
-                value={editForm.publisherName}
-                onChange={(e) => {
-                  const updated = { ...editForm, publisherName: e.target.value };
+                onChange={(value) => {
+                  const updated = { ...editForm, publisherName: value };
                   setEditForm(updated);
                   check(updated);
                 }}
