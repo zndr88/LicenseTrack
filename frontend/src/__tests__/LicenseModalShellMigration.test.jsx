@@ -1,10 +1,16 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, test, vi } from "vitest";
 import FieldEditModal from "../components/licenses/FieldEditModal.jsx";
 import InvoiceConfirmModal from "../components/licenses/InvoiceConfirmModal.jsx";
 import { patchLicenseField } from "../api/licenses.js";
+
+function render(ui, options) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return rtlRender(ui, { wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>, ...options });
+}
 
 vi.mock("../api/licenses.js", () => ({
   patchLicenseField: vi.fn(),

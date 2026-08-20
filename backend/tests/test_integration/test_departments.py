@@ -15,6 +15,7 @@ import bcrypt
 from app.models.document import Document, DocumentCategory
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
+from app.services.reference_data_service import resolve_cost_centre
 
 
 # ---------------------------------------------------------------------------
@@ -56,7 +57,8 @@ async def _create_viewer(db_session, username: str, departments: list[str]) -> t
     await db_session.flush()
 
     for dept in departments:
-        db_session.add(UserDepartmentAccess(user_id=viewer.id, department=dept))
+        cost_centre = await resolve_cost_centre(db_session, dept, create_if_missing=True)
+        db_session.add(UserDepartmentAccess(user_id=viewer.id, department=cost_centre.name, cost_centre_id=cost_centre.id))
     await db_session.commit()
 
     return viewer, password
@@ -257,7 +259,7 @@ async def test_put_departments_deduplicates_exact_duplicates(db_session, test_ap
     assert saved == ["HR", "IT"]
 
 
-async def test_put_departments_keeps_different_casing_as_distinct(db_session, test_app, auth_headers):
+async def test_put_departments_canonicalizes_case_variants(db_session, test_app, auth_headers):
     viewer, _ = await _create_viewer(db_session, "viewer_department_casing", [])
 
     resp = await test_app.put(
@@ -267,4 +269,4 @@ async def test_put_departments_keeps_different_casing_as_distinct(db_session, te
     )
 
     assert resp.status_code == 200, resp.text
-    assert resp.json()["departments"] == ["ART", "art"]
+    assert resp.json() == {"departments": ["ART"]}

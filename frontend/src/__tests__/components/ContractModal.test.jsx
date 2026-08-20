@@ -1,6 +1,7 @@
 import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import ContractModal from "../../components/contracts/ContractModal.jsx";
 import * as contractsApi from "../../api/contracts.js";
@@ -49,6 +50,7 @@ function renderModal(props = {}) {
   const onClose = vi.fn();
   const onNavigateToLicense = vi.fn();
   render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <ContractModal
       contractId={10}
       onClose={onClose}
@@ -56,6 +58,7 @@ function renderModal(props = {}) {
       user={admin}
       {...props}
     />
+    </QueryClientProvider>
   );
   return { onClose, onNavigateToLicense };
 }
@@ -170,6 +173,7 @@ describe("ContractModal", () => {
     await user.click(screen.getByRole("button", { name: /edit contract/i }));
     await user.clear(screen.getByDisplayValue("Acme Corp"));
     await user.type(screen.getByPlaceholderText("Publisher name"), "Changed Corp");
+    await user.keyboard("{Escape}");
     await user.keyboard("{Escape}");
 
     expect(await screen.findByRole("dialog", { name: /discard unsaved changes/i })).toBeInTheDocument();

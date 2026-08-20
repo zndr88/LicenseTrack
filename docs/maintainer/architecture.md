@@ -294,11 +294,19 @@ these fields. Manager-digest eligibility includes `incomplete` as well as
 `expired`, `expiring`, and `notice_due`, so an incomplete-only run still sends
 the configured digest.
 
-Admin settings are grouped into three product areas:
+Admin settings are grouped into four product areas:
 
-- General: storage, notifications, SMTP, OIDC, completeness, custom fields, and import mappings.
+- General: storage, notifications, SMTP, and OIDC.
+- Data Management: canonical Companies and Departments / Cost Centres, license configuration, and import configuration.
 - Integrations: API tokens, webhooks, and integration capability declarations.
 - Operations: database backup and restore.
+
+Reference-data services own NFKC-cleaned, case-folded identity resolution,
+aliases, role promotion, rename/merge/delete invariants, and compatibility
+mirror fields. Foreign-key IDs are authoritative; mirrors are updated in the
+same caller-owned transaction and are never used to infer identity. CSV
+execution re-resolves references before writing, and viewer department access
+is scoped by canonical `cost_centre_id` while retaining the name-based payload.
 
 The restore flow in `backend/app/routes/backup.py` must quiesce all database connections before swapping the file: `await db.close()` closes the request-scoped session, then `await engine.dispose()` drains the connection pool, then `backup_service.restore_backup()` deletes stale `-wal`/`-shm` files and replaces the `.db` file. When `RESTART_AFTER_RESTORE=true`, the route schedules `os.kill(SIGTERM)` after the response so a process manager can restart the API. The native systemd unit deliberately uses `Restart=always`: SIGTERM is a clean process exit, so `Restart=on-failure` leaves the service stopped after a successful restore. Native upgrades must republish and reload the current service template so lifecycle-policy fixes reach existing installs. Do not reorder or remove these steps - out-of-order execution leaves file handles open (Windows) or stale WAL pages that corrupt the restored database on restart.
 

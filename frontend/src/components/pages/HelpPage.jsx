@@ -293,7 +293,8 @@ const HELP_ARTICLES = [
         heading: "Admin areas",
         body: [
           "Admins manage users, roles, viewer department scope, download permission, global settings, SMTP, OIDC, mandatory fields, database backup settings, restore, portfolio reset, and audit history.",
-          "Admin Settings is grouped into General, Integrations, and Operations so routine configuration stays separate from API, webhook, integration capability, database backup, restore, and reset work.",
+          "Admin Settings is grouped into General, Data Management, Integrations, and Operations. Data Management contains canonical Companies and Departments / Cost Centres, plus license and import configuration.",
+          "Reference data uses canonical IDs and keeps display-name mirrors synchronized for compatibility. Names and aliases are normalized for matching; viewer department access uses canonical cost-centre assignments while preserving the existing name-based API shape.",
           "My Settings remains user-specific and covers personal preferences such as display currency, number/date/time formats, time zone, session timeout, appearance, and saved license views.",
         ],
       },
@@ -400,7 +401,7 @@ const HELP_ARTICLES = [
           "Before deletion, LicenseTrack creates and verifies a separate recovery archive containing a WAL-safe database snapshot plus managed license, sourcing, procurement, and contract documents. The reset is blocked if this archive cannot be created. That server-side archive can later be selected in Restore Database to recover both database rows and managed documents.",
         ],
         bullets: [
-          "Users, roles, personal and global settings, custom-field definitions, import mappings, API tokens, webhook definitions, integrations, Official Extensions, and existing backup files are preserved.",
+          "Users, roles, personal and global settings, custom-field definitions, import mappings, canonical organizations and cost centres (including aliases), API tokens, webhook definitions, integrations, Official Extensions, and existing backup files are preserved.",
           "The next generated license reference restarts at LT-REF-00001. Internal database IDs are not reset.",
           "The prior audit log is replaced by one system.portfolio_reset event containing the archive name and deleted record counts.",
           "Only an admin session can execute the reset, and the exact RESET PORTFOLIO confirmation phrase is required.",

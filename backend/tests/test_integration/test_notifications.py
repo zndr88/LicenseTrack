@@ -8,6 +8,7 @@ from app.models.pending_order import PendingOrder
 from app.models.settings import GlobalSettings
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
+from app.services.reference_data_service import resolve_cost_centre
 from app.services.settings_service import invalidate_global_settings_cache
 
 
@@ -26,7 +27,8 @@ async def _create_viewer(db_session, username: str, departments: list[str]) -> d
     await db_session.flush()
 
     for department in departments:
-        db_session.add(UserDepartmentAccess(user_id=viewer.id, department=department))
+        cost_centre = await resolve_cost_centre(db_session, department, create_if_missing=True)
+        db_session.add(UserDepartmentAccess(user_id=viewer.id, department=cost_centre.name, cost_centre_id=cost_centre.id))
     await db_session.commit()
 
     return {"username": username, "password": password, "id": viewer.id}
@@ -277,6 +279,8 @@ async def test_notification_visibility_respects_viewer_department_filter(
         end_date=date.today() + timedelta(days=5),
     )
     db_session.add_all([it_license, hr_license])
+    it_license.cost_centre_id = (await resolve_cost_centre(db_session, "IT", create_if_missing=True)).id
+    hr_license.cost_centre_id = (await resolve_cost_centre(db_session, "HR", create_if_missing=True)).id
     await db_session.commit()
 
     viewer = await _create_viewer(db_session, "notifications_viewer", ["IT"])

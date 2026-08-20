@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.models.audit_log import AuditLog
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
+from app.services.reference_data_service import resolve_cost_centre
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +84,8 @@ async def _make_viewer_headers(db_session, test_app, username: str, departments:
     db_session.add(viewer)
     await db_session.flush()
     for department in departments:
-        db_session.add(UserDepartmentAccess(user_id=viewer.id, department=department))
+        cost_centre = await resolve_cost_centre(db_session, department, create_if_missing=True)
+        db_session.add(UserDepartmentAccess(user_id=viewer.id, department=cost_centre.name, cost_centre_id=cost_centre.id))
     await db_session.commit()
 
     login_resp = await test_app.post(

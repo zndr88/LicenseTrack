@@ -1,6 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, test, expect, vi } from "vitest";
 import SourcingItemModal from "../components/procurement/SourcingItemModal.jsx";
 
@@ -22,12 +23,14 @@ function renderModal(props = {}) {
   const onSave = vi.fn();
   const onCancel = vi.fn();
   render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <SourcingItemModal
       userSettings={USER_SETTINGS}
       onSave={onSave}
       onCancel={onCancel}
       {...props}
     />
+    </QueryClientProvider>
   );
   return { onSave, onCancel };
 }

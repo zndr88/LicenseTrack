@@ -24,6 +24,7 @@ from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
+from app.services.reference_data_service import resolve_cost_centre
 from app.services.settings_service import invalidate_global_settings_cache
 
 
@@ -78,7 +79,8 @@ async def _create_viewer(
     db_session.add(viewer)
     await db_session.flush()
     for department in departments or []:
-        db_session.add(UserDepartmentAccess(user_id=viewer.id, department=department))
+        cost_centre = await resolve_cost_centre(db_session, department, create_if_missing=True)
+        db_session.add(UserDepartmentAccess(user_id=viewer.id, department=cost_centre.name, cost_centre_id=cost_centre.id))
     await db_session.commit()
 
     return viewer, {"username": username, "password": password}
@@ -775,6 +777,7 @@ async def test_viewer_can_download_document_in_assigned_department(
     )
     db_session.add(license_obj)
     await db_session.flush()
+    license_obj.cost_centre_id = (await resolve_cost_centre(db_session, "IT", create_if_missing=True)).id
 
     stored_path = f"documents/{license_obj.id}/viewer.pdf"
     target = patch_storage / stored_path
@@ -821,6 +824,7 @@ async def test_viewer_without_downloads_can_list_but_not_download_in_assigned_de
     )
     db_session.add(license_obj)
     await db_session.flush()
+    license_obj.cost_centre_id = (await resolve_cost_centre(db_session, "IT", create_if_missing=True)).id
 
     stored_path = f"documents/{license_obj.id}/read-only.pdf"
     target = patch_storage / stored_path

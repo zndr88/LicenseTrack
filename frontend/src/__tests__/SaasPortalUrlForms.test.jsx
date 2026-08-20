@@ -1,11 +1,17 @@
 import React from 'react'
 import { expect, test, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import InvoiceConfirmModal from '../components/licenses/InvoiceConfirmModal.jsx'
 import ConvertPendingOrderModal from '../components/procurement/ConvertPendingOrderModal.jsx'
 import ConvertAllModal from '../components/procurement/ConvertAllModal.jsx'
+
+function render(ui, options) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return rtlRender(ui, { wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>, ...options })
+}
 
 const userSettings = {
   numberFormatLocale: 'en-US',

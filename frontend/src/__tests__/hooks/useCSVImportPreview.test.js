@@ -36,6 +36,7 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
       undefined,
       false,
       [],
+      [],
     );
     expect(setStep).toHaveBeenCalledWith("done");
   });
@@ -57,6 +58,7 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
       undefined,
       false,
       [],
+      [],
     );
   });
 
@@ -77,6 +79,7 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
       false,
       importFormats,
       false,
+      [],
       [],
     );
   });
@@ -101,7 +104,7 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
     await act(async () => {
       await result.current.handleConfirmImport(file);
     });
-    expect(confirmCsvImport).toHaveBeenCalledWith(file, [], false, undefined, true, []);
+    expect(confirmCsvImport).toHaveBeenCalledWith(file, [], false, undefined, true, [], []);
   });
 
   it("passes selected maintenance parent row overrides to confirmCsvImport", async () => {
@@ -126,6 +129,7 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
       undefined,
       false,
       [{ rowNumber: 3, parentLicenseId: 42 }],
+      [],
     );
   });
 });

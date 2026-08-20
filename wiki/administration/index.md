@@ -23,9 +23,9 @@ Use these public docs for operational setup and recovery:
 
 ## Admin Areas
 
-- **Settings** - system configuration such as SMTP, OIDC, mandatory fields,
-  custom fields, notification timing, backup location, API tokens, webhooks, and
-  integration capabilities.
+- **Settings** - system configuration grouped into General, Data Management,
+  Integrations, and Operations. Data Management includes canonical Companies,
+  Departments / Cost Centres, license configuration, and import configuration.
 - **Users** - local and OIDC users, role assignment, viewer department scoping,
   download permission, and break-glass admin protection.
 - **Audit Log** - searchable history for authentication, settings, user,
@@ -42,3 +42,7 @@ LicenseTrack uses three main roles:
 
 Viewer access is intentionally narrow. A viewer with no assigned departments sees
 no records.
+
+Companies and cost centres are managed as canonical reference records. Aliases,
+renames, merges, and active status are governed centrally; linked records keep
+their authoritative IDs while compatibility text mirrors are refreshed.

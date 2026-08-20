@@ -1,6 +1,7 @@
 import React from "react";
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, render as rtlRender, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, test, expect, vi } from "vitest";
 import PendingOrderModal from "../components/procurement/PendingOrderModal.jsx";
 import ConvertSourcingModal from "../components/procurement/ConvertSourcingModal.jsx";
@@ -8,6 +9,11 @@ import ConvertPendingOrderModal from "../components/procurement/ConvertPendingOr
 import ConvertAllModal from "../components/procurement/ConvertAllModal.jsx";
 import * as pendingOrdersApi from "../api/pendingOrders.js";
 import { buildConvertItemDefaults } from "../utils/buildConvertItemDefaults.js";
+
+function render(ui, options) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return rtlRender(ui, { wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>, ...options });
+}
 
 vi.mock("../api/pendingOrders.js", () => ({
   getPendingOrders: vi.fn().mockResolvedValue({ data: [] }),

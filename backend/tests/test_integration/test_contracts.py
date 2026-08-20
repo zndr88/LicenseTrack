@@ -28,6 +28,7 @@ from app.models.contract import Contract, ContractDocument
 from app.models.license import License, LicenseType, LicenseMetric
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
+from app.services.reference_data_service import resolve_cost_centre
 
 
 # ---------------------------------------------------------------------------
@@ -623,7 +624,9 @@ async def test_viewer_with_matching_department_sees_contract(
     db_session.add(viewer)
     await db_session.flush()
 
-    db_session.add(UserDepartmentAccess(user_id=viewer.id, department="IT"))
+    cost_centre = await resolve_cost_centre(db_session, "IT", create_if_missing=True)
+    lic.cost_centre_id = cost_centre.id
+    db_session.add(UserDepartmentAccess(user_id=viewer.id, department=cost_centre.name, cost_centre_id=cost_centre.id))
     await db_session.commit()
 
     login = await test_app.post(
@@ -666,7 +669,9 @@ async def test_viewer_contract_visibility_matches_contract_number_case_insensiti
     )
     db_session.add(viewer)
     await db_session.flush()
-    db_session.add(UserDepartmentAccess(user_id=viewer.id, department="IT"))
+    cost_centre = await resolve_cost_centre(db_session, "IT", create_if_missing=True)
+    lic.cost_centre_id = cost_centre.id
+    db_session.add(UserDepartmentAccess(user_id=viewer.id, department=cost_centre.name, cost_centre_id=cost_centre.id))
     await db_session.commit()
 
     login = await test_app.post(
@@ -735,7 +740,12 @@ async def test_viewer_cannot_access_contract_direct_routes_outside_department(
     )
     db_session.add(viewer)
     await db_session.flush()
-    db_session.add(UserDepartmentAccess(user_id=viewer.id, department="IT"))
+    cost_centre = await resolve_cost_centre(db_session, "IT", create_if_missing=True)
+    visible_license.cost_centre_id = cost_centre.id
+    hidden_cost_centre = await resolve_cost_centre(db_session, "HR", create_if_missing=True)
+    hidden_license.cost_centre_id = hidden_cost_centre.id
+    db_session.add(UserDepartmentAccess(user_id=viewer.id, department=cost_centre.name, cost_centre_id=cost_centre.id)
+    )
     await db_session.commit()
 
     login = await test_app.post(
@@ -794,7 +804,11 @@ async def test_viewer_contract_direct_routes_filter_to_assigned_department(
     )
     db_session.add(viewer)
     await db_session.flush()
-    db_session.add(UserDepartmentAccess(user_id=viewer.id, department="IT"))
+    cost_centre = await resolve_cost_centre(db_session, "IT", create_if_missing=True)
+    visible_license.cost_centre_id = cost_centre.id
+    hidden_cost_centre = await resolve_cost_centre(db_session, "HR", create_if_missing=True)
+    hidden_license.cost_centre_id = hidden_cost_centre.id
+    db_session.add(UserDepartmentAccess(user_id=viewer.id, department=cost_centre.name, cost_centre_id=cost_centre.id))
     await db_session.commit()
 
     login = await test_app.post(
@@ -852,7 +866,9 @@ async def test_viewer_without_downloads_can_list_but_not_download_contract_docum
     )
     db_session.add(viewer)
     await db_session.flush()
-    db_session.add(UserDepartmentAccess(user_id=viewer.id, department="IT"))
+    cost_centre = await resolve_cost_centre(db_session, "IT", create_if_missing=True)
+    license_obj.cost_centre_id = cost_centre.id
+    db_session.add(UserDepartmentAccess(user_id=viewer.id, department=cost_centre.name, cost_centre_id=cost_centre.id))
     await db_session.commit()
 
     login = await test_app.post(

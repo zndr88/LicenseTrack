@@ -16,10 +16,11 @@ A Viewer with no assigned departments sees no license data. Department scope is
 also applied to related reporting, department filter options, contract access,
 and document access.
 
-Department names are matched exactly, including casing. Admins can intentionally
-keep `ART` and `art` as separate assignments if their portfolio uses both forms.
-When saving assignments, LicenseTrack removes exact duplicate entries from the
-submitted list before storing them.
+Department assignments resolve to active canonical cost-centre IDs. The existing
+name-based request and response shape remains supported, and names are returned
+in canonical display form with exact duplicates removed. Aliases and case or
+whitespace variants therefore point to one cost centre; inactive cost centres
+must be repaired by an admin before they can be newly assigned.
 
 ## Download permission
 

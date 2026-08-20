@@ -99,6 +99,12 @@ One pending order has one supplier. An unassigned sourcing request adopts the
 supplier of an existing pending order; a conflicting request is rejected instead
 of being combined with that order.
 
+Supplier agreement is based on the canonical organization ID, not spelling in a
+legacy mirror. A name, alias, case variant, or whitespace variant that resolves
+to the same organization is compatible, and request, open-item, pending-order,
+and converted-license mirrors are written with that organization's canonical
+name. Different organizations remain a conflict.
+
 Quote evidence remains connected to its sourcing origin and is visible from the
 pending order action menu. The PO number and procurement reference are
 metadata; the pending-order database relationship - not matching PO text -

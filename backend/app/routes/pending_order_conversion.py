@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import InvalidRequestError
 
 from app.database import get_db
 from app.dependencies import require_editor_or_admin
@@ -48,14 +49,20 @@ async def convert_pending_order_to_license(
             detail=f"Could not parse license data: {exc}",
         )
 
-    return await convert_pending_order_to_licenses(
-        order_id=order_id,
-        convert_payload=convert_payload,
-        file=file,
-        db=db,
-        current_user=current_user,
-        ip_address=request.client.host if request.client else None,
-    )
+    try:
+        return await convert_pending_order_to_licenses(
+            order_id=order_id,
+            convert_payload=convert_payload,
+            file=file,
+            db=db,
+            current_user=current_user,
+            ip_address=request.client.host if request.client else None,
+        )
+    except InvalidRequestError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="This pending order is already being converted or has been converted.",
+        ) from exc
 
 
 @router.post("/{order_id}/convert-all", response_model=list[LicenseResponse], status_code=200)

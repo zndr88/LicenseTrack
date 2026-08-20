@@ -8,6 +8,7 @@ from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
+from app.services.reference_data_service import resolve_cost_centre
 
 
 def _license_payload(**overrides) -> dict:
@@ -50,7 +51,8 @@ async def _create_viewer(db_session, username: str, departments: list[str]) -> t
     await db_session.flush()
 
     for department in departments:
-        db_session.add(UserDepartmentAccess(user_id=viewer.id, department=department))
+        cost_centre = await resolve_cost_centre(db_session, department, create_if_missing=True)
+        db_session.add(UserDepartmentAccess(user_id=viewer.id, department=cost_centre.name, cost_centre_id=cost_centre.id))
     await db_session.commit()
     return viewer, password
 

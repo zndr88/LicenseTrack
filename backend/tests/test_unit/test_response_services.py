@@ -14,6 +14,7 @@ from app.services.license_response_service import (
     enrich_license_response,
     get_procurement_documents_by_scope,
 )
+from app.services.reference_data_service import resolve_cost_centre
 from app.services.settings_service import invalidate_global_settings_cache
 
 
@@ -212,9 +213,8 @@ async def test_build_contract_response_counts_licenses_documents_and_folder_docu
     await db_session.flush()
     folder = ContractFolder(contract_id=contract.id, name="Legal")
     db_session.add(folder)
-    db_session.add_all(
-        [
-            License(
+    licenses = [
+        License(
                 publisher_name="Acme",
                 software_description="IT License",
                 license_type=LicenseType.subscription,
@@ -222,8 +222,8 @@ async def test_build_contract_response_counts_licenses_documents_and_folder_docu
                 currency="EUR",
                 contract_number="ctr-1",
                 cost_centre="IT",
-            ),
-            License(
+        ),
+        License(
                 publisher_name="Acme",
                 software_description="Finance License",
                 license_type=LicenseType.subscription,
@@ -231,10 +231,16 @@ async def test_build_contract_response_counts_licenses_documents_and_folder_docu
                 currency="EUR",
                 contract_number="CTR-1",
                 cost_centre="Finance",
-            ),
-        ]
-    )
+        ),
+    ]
+    db_session.add_all(licenses)
     await db_session.flush()
+    it_cost_centre_id = None
+    for license_row, name in zip(licenses, ("IT", "Finance")):
+        cost_centre = await resolve_cost_centre(db_session, name, create_if_missing=True)
+        license_row.cost_centre_id = cost_centre.id
+        if name == "IT":
+            it_cost_centre_id = cost_centre.id
     db_session.add_all(
         [
             ContractDocument(
@@ -260,7 +266,7 @@ async def test_build_contract_response_counts_licenses_documents_and_folder_docu
         .options(selectinload(Contract.folders))
     )
 
-    response = await build_contract_response(loaded_contract, db_session, departments=["IT"])
+    response = await build_contract_response(loaded_contract, db_session, departments=[it_cost_centre_id])
 
     assert response.license_count == 1
     assert response.document_count == 2

@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ConvertSourcingModal from "../components/procurement/ConvertSourcingModal.jsx";
@@ -16,6 +17,10 @@ const REQUEST = {
   items: [{ id: 31 }, { id: 32 }],
 };
 
+function renderWithQueryClient(ui) {
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>);
+}
+
 describe("ConvertSourcingModal supplier contract", () => {
   beforeEach(() => {
     getPendingOrders.mockResolvedValue({ data: [] });
@@ -24,7 +29,7 @@ describe("ConvertSourcingModal supplier contract", () => {
   it("requires one supplier when creating a pending order", async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn().mockResolvedValue(true);
-    render(
+    renderWithQueryClient(
       <ConvertSourcingModal
         item={REQUEST}
         onConfirm={onConfirm}
@@ -54,7 +59,7 @@ describe("ConvertSourcingModal supplier contract", () => {
         { id: 2, poNumber: "PO-READY", supplier: "Common Reseller" },
       ],
     });
-    render(
+    renderWithQueryClient(
       <ConvertSourcingModal
         item={{ ...REQUEST, supplier: "Common Reseller" }}
         onConfirm={vi.fn()}

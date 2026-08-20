@@ -38,6 +38,14 @@ You have two ways to get your data in:
 
 When a file contains an **LT Ref** column, either path offers an auto-enabled option to update the current matching license instead of creating a duplicate. This makes it safe to export a list, make small spreadsheet corrections, and re-import it. Turn the option off when you intentionally want new records.
 
+Publisher, supplier, and cost-centre values are resolved against canonical
+reference data during confirmed execution. Exact names, aliases, and normalized
+case/whitespace variants reuse the same record and write its canonical display
+name plus ID. New distinct references can be created automatically; possible
+duplicates and inactive conflicts require an explicit review decision. Preview
+does not create references, and skipped or failed rows do not leave reference
+records behind.
+
 If you open a LicenseTrack CSV export in Excel, adjust values, and save it
 again, the importer tolerates the common spreadsheet changes to quoting,
 delimiter hints, line endings, and localized number formatting. Select the

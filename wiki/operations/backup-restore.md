@@ -79,6 +79,7 @@ history, and prior audit events. Completed and cancelled sourcing and
 pending-order history is included.
 
 The reset preserves users, access settings, personal and global settings,
+canonical organizations and cost centres (including their aliases),
 custom-field definitions, import mappings, API tokens, webhook endpoint
 definitions, integration capabilities, Official Extension configuration, and
 existing backup files. Custom-field values attached to deleted licenses are

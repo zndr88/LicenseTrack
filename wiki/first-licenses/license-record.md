@@ -105,7 +105,11 @@ license.
 
 ![Relationships section](../assets/record-05-relationships.png)
 
-Here you'll find the **supplier** (where you purchased the license), the internal **cost center or department** the license is for, your **contact** at the publisher, the internal **budget or department owner**, and optional **secondary contacts**.
+Here you'll find the **supplier** (where you purchased the license), the internal
+**cost centre or department** the license is for, your **contact** at the
+publisher, the internal **budget or department owner**, and optional **secondary
+contacts**. Publisher, supplier, and cost-centre fields use canonical reference
+records; aliases are accepted, while the saved display text is canonical.
 
 The budget owner receives automated renewal notifications, if enabled.
 Secondary contacts are copied on those budget-owner renewal emails.

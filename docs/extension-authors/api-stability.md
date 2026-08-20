@@ -87,6 +87,12 @@ The following are not usually breaking changes:
 - tightening validation for security or data-integrity reasons;
 - fixing behavior that contradicted documentation.
 
+Reference-data-backed responses may include additive canonical ID fields while
+existing name-based request fields remain supported. Integrations should treat
+IDs as authoritative when present and continue sending name-compatible values to
+existing payload fields; legacy mirror spelling must not be used to infer a
+different organization or cost centre.
+
 ## Deprecation Policy
 
 When a stable API needs to change, maintainers should:

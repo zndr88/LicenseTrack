@@ -24,6 +24,11 @@ They are rejected on session-only routes even when the owner is an Admin. See
 `api-auth.md` for token creation, storage, rotation, and the complete scope
 definitions.
 
+Reference-backed responses may include additive `publisherId`, `supplierId`,
+and `costCentreId` fields. Existing name-based request fields remain supported;
+when an ID is present it is authoritative and the corresponding display name is
+canonical. Integrations must not infer identity from legacy mirror spelling.
+
 ## Stability labels
 
 - **Stable** endpoints preserve documented paths, methods, fields, enum values,

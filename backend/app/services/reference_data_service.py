@@ -524,7 +524,14 @@ async def add_cost_centre_alias(db: AsyncSession, cost_centre_id: int, data: Cos
     cost_centre = await db.get(CostCentre, cost_centre_id)
     if cost_centre is None:
         raise HTTPException(status_code=404, detail="Cost centre not found")
-    cleaned = clean_reference_name(data.name)
+    return await _add_cost_centre_alias(db, cost_centre, data)
+
+
+async def _add_cost_centre_alias(
+    db: AsyncSession, cost_centre: CostCentre, data: CostCentreAliasCreate | str
+) -> CostCentreAlias:
+    name = data if isinstance(data, str) else data.name
+    cleaned = clean_reference_name(name)
     normalized = normalize_reference_name(cleaned)
     existing = await db.scalar(select(CostCentreAlias).where(CostCentreAlias.normalized_name == normalized))
     canonical = await db.scalar(select(CostCentre).where(CostCentre.normalized_name == normalized))

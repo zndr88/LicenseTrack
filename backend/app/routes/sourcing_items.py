@@ -272,7 +272,10 @@ async def update_sourcing_item(
         update_data["estimated_unit_price"] = None
         update_data["estimated_total_price"] = None
     await apply_sourcing_item_update(db, item, sourcing_request, update_data)
-    after = {c.name: getattr(item, c.name) for c in item.__table__.columns}
+    await db.flush()
+    after_result = await db.execute(select(SourcingItem).where(SourcingItem.id == item_id))
+    after_item = after_result.scalar_one()
+    after = {c.name: getattr(after_item, c.name) for c in after_item.__table__.columns}
 
     diff = diff_fields(
         before,
@@ -280,7 +283,14 @@ async def update_sourcing_item(
         exclude={"supplier", "contact_email"} if sourcing_request is not None else None,
     )
     if request_before is not None:
-        request_after = {c.name: getattr(sourcing_request, c.name) for c in sourcing_request.__table__.columns}
+        request_after_result = await db.execute(
+            select(SourcingRequest).where(SourcingRequest.id == sourcing_request.id)
+        )
+        request_after_obj = request_after_result.scalar_one()
+        request_after = {
+            c.name: getattr(request_after_obj, c.name)
+            for c in sourcing_request.__table__.columns
+        }
         request_diff = diff_fields(request_before, request_after)
         if request_diff:
             ip = request.client.host if request.client else None

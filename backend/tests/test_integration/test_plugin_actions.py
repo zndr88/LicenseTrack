@@ -9,6 +9,7 @@ from app.models.plugin import PluginAction
 from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingRequest
 from app.models.user import User, UserRole
 from app.models.user_department_access import UserDepartmentAccess
+from app.services.reference_data_service import resolve_cost_centre
 from app.schemas.plugin import PluginActionCreate, PluginPermissionCreate, PluginRegistryCreate
 from app.services.plugin_runtime_service import PluginRuntimeError
 from app.services.plugin_registry_service import create_plugin_registry_record
@@ -216,7 +217,8 @@ async def _viewer_headers(db_session, test_app) -> tuple[dict, int]:
     )
     db_session.add(user)
     await db_session.flush()
-    db_session.add(UserDepartmentAccess(user_id=user.id, department="Finance"))
+    cost_centre = await resolve_cost_centre(db_session, "Finance", create_if_missing=True)
+    db_session.add(UserDepartmentAccess(user_id=user.id, department=cost_centre.name, cost_centre_id=cost_centre.id))
     await db_session.commit()
 
     response = await test_app.post(
