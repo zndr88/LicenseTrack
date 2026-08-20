@@ -1,6 +1,29 @@
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { LICENSE_TYPES } from "../../constants/licenseData.js";
 import Badge from "../ui/Badge.jsx";
 import Icon from "../ui/Icon.jsx";
+import Toggle from "../ui/Toggle.jsx";
+
+const IMPORTER_COLUMNS = [
+  ["publisher", "Publisher"],
+  ["description", "Description"],
+  ["type", "Type"],
+  ["quantity", "Qty"],
+  ["unitPrice", "Unit Price"],
+  ["totalPoPrice", "Total Price"],
+  ["startDate", "Start Date"],
+  ["endDate", "End Date"],
+  ["noticeDate", "Notice Date"],
+  ["requestDate", "Request Date"],
+  ["purchaseDate", "Purchase Date"],
+  ["contractNumber", "Contract #"],
+  ["poNumber", "PO #"],
+  ["supplier", "Supplier"],
+  ["costCentre", "Department"],
+];
+
+const DEFAULT_VISIBLE_IMPORTER_COLUMNS = new Set(IMPORTER_COLUMNS.map(([key]) => key));
 
 function statusBadge(status) {
   if (status === "active") return <Badge type="green">Active</Badge>;
@@ -31,7 +54,45 @@ export default function PreviewStep({
   showUpdateControls, updateExisting, onToggleUpdateExisting,
   handleConfirm, reset,
 }) {
+  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(DEFAULT_VISIBLE_IMPORTER_COLUMNS);
+  const columnsButtonRef = useRef(null);
+  const columnsMenuRef = useRef(null);
+  const [columnsMenuPosition, setColumnsMenuPosition] = useState({});
+
+  useEffect(() => {
+    if (!columnsMenuOpen) return undefined;
+    if (columnsButtonRef.current) {
+      const rect = columnsButtonRef.current.getBoundingClientRect();
+      setColumnsMenuPosition({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    const handleOutsideClick = (event) => {
+      if (
+        columnsButtonRef.current && !columnsButtonRef.current.contains(event.target)
+        && columnsMenuRef.current && !columnsMenuRef.current.contains(event.target)
+      ) {
+        setColumnsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [columnsMenuOpen]);
+
   if (!previewData) return null;
+
+  const allImporterColumnsVisible = IMPORTER_COLUMNS.every(([key]) => visibleColumns.has(key));
+  const toggleColumn = (key) => {
+    setVisibleColumns((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+  const toggleAllImporterColumns = (value) => {
+    setVisibleColumns(value ? new Set(DEFAULT_VISIBLE_IMPORTER_COLUMNS) : new Set());
+  };
+  const showColumn = (key) => visibleColumns.has(key);
 
   const actionRequiredCount = previewData.rows.filter((row) => (
     needsMaintenanceParent(row) && !rowOverrides[row.rowNumber]?.parentLicenseId
@@ -137,6 +198,9 @@ export default function PreviewStep({
               {previewData.warningSummary.priceMismatchCount > 0 && (
                 <li>Price total mismatch: <strong>{previewData.warningSummary.priceMismatchCount}</strong> row{previewData.warningSummary.priceMismatchCount !== 1 ? "s" : ""}</li>
               )}
+              {previewData.warningSummary.expiredMaintenanceCount > 0 && (
+                <li>Maintenance expired: <strong>{previewData.warningSummary.expiredMaintenanceCount}</strong> row{previewData.warningSummary.expiredMaintenanceCount !== 1 ? "s" : ""}</li>
+              )}
             </ul>
           </div>
         </div>
@@ -151,6 +215,49 @@ export default function PreviewStep({
               : `${importableRowsCount} will import`}
           </div>
           <div className="csv-bulkbar-actions">
+            <button
+              ref={columnsButtonRef}
+              type="button"
+              className={`toolbar-btn csv-columns-button ${columnsMenuOpen ? "toolbar-btn-active" : ""}`}
+              onClick={() => setColumnsMenuOpen((open) => !open)}
+              title="Choose importer columns"
+              aria-label="Choose importer columns"
+              aria-expanded={columnsMenuOpen}
+              aria-haspopup="menu"
+            >
+              <Icon name="columns" size={15} />
+            </button>
+            {columnsMenuOpen && createPortal(
+              <div
+                ref={columnsMenuRef}
+                role="menu"
+                aria-label="Importer columns"
+                className="lp-menu lp-column-menu csv-columns-menu"
+                style={{ top: columnsMenuPosition.top, right: columnsMenuPosition.right }}
+              >
+                <div className="lp-column-group">
+                  <div className="lp-column-group-row">
+                    <strong>Importer columns</strong>
+                    <Toggle
+                      ariaLabel="Toggle all importer columns"
+                      value={allImporterColumnsVisible}
+                      onChange={toggleAllImporterColumns}
+                    />
+                  </div>
+                  {IMPORTER_COLUMNS.map(([key, label]) => (
+                    <div key={key} className="lp-column-option">
+                      <span>{label}</span>
+                      <Toggle
+                        ariaLabel={`Show ${label} column`}
+                        value={showColumn(key)}
+                        onChange={() => toggleColumn(key)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>,
+              document.body,
+            )}
             <button type="button" className="btn btn-g" style={{ fontSize: 12 }} disabled={selectedRowsToSkip.length === 0} onClick={() => skipRows(selectedRowsToSkip)}>
               Skip selected
             </button>
@@ -162,27 +269,27 @@ export default function PreviewStep({
           </div>
         </div>
         <div className="lp-tbl-wrap">
-          <table className="csv-preview-table">
+          <table className={`csv-preview-table${visibleColumns.size < IMPORTER_COLUMNS.length ? " csv-preview-table-condensed" : ""}`}>
             <thead><tr>
               <th scope="col" className="csv-select-col">
                 <input type="checkbox" aria-label="Select all importable rows" checked={allSelectableSelected} disabled={selectableRows.length === 0} onChange={toggleAllSelectableRows} />
               </th>
               <th scope="col" style={{ width: 40 }}>Row</th>
-              <th scope="col">Publisher</th>
-              <th scope="col">Description</th>
-              <th scope="col">Type</th>
-              <th scope="col">Qty</th>
-              <th scope="col">Unit Price</th>
-              <th scope="col">Total Price</th>
-              <th scope="col">Start Date</th>
-              <th scope="col">End Date</th>
-              <th scope="col">Notice Date</th>
-              <th scope="col">Request Date</th>
-              <th scope="col">Purchase Date</th>
-              <th scope="col">Contract #</th>
-              <th scope="col">PO #</th>
-              <th scope="col">Supplier</th>
-              <th scope="col">Department</th>
+              {showColumn("publisher") && <th scope="col">Publisher</th>}
+              {showColumn("description") && <th scope="col">Description</th>}
+              {showColumn("type") && <th scope="col">Type</th>}
+              {showColumn("quantity") && <th scope="col">Qty</th>}
+              {showColumn("unitPrice") && <th scope="col">Unit Price</th>}
+              {showColumn("totalPoPrice") && <th scope="col">Total Price</th>}
+              {showColumn("startDate") && <th scope="col">Start Date</th>}
+              {showColumn("endDate") && <th scope="col">End Date</th>}
+              {showColumn("noticeDate") && <th scope="col">Notice Date</th>}
+              {showColumn("requestDate") && <th scope="col">Request Date</th>}
+              {showColumn("purchaseDate") && <th scope="col">Purchase Date</th>}
+              {showColumn("contractNumber") && <th scope="col">Contract #</th>}
+              {showColumn("poNumber") && <th scope="col">PO #</th>}
+              {showColumn("supplier") && <th scope="col">Supplier</th>}
+              {showColumn("costCentre") && <th scope="col">Department</th>}
               <th scope="col">Status</th>
               <th scope="col">Issues</th>
               <th scope="col">Import</th>
@@ -215,21 +322,21 @@ export default function PreviewStep({
                       <input type="checkbox" aria-label={`Select row ${row.rowNumber}`} checked={selectedRows.has(row.rowNumber)} disabled={!canSelect} onChange={() => toggleSelectedRow(row.rowNumber)} />
                     </td>
                     <td className="mono csv-row-num">{row.rowNumber}</td>
-                    <td style={{ fontWeight: row.publisherName ? 500 : 400 }}>{row.publisherName || empty}</td>
-                    <td className="csv-desc">{row.softwareDescription || empty}</td>
-                    <td>{LICENSE_TYPES.find((t) => t.value === row.licenseType)?.label || row.licenseType || empty}</td>
-                    <td className="mono csv-mono-sm">{row.quantity || empty}</td>
-                    <td className="mono csv-mono-sm">{row.unitPrice || empty}</td>
-                    <td className="mono csv-mono-sm">{row.totalPoPrice || empty}</td>
-                    <td className="mono csv-mono-sm">{row.startDate || empty}</td>
-                    <td className="mono csv-mono-sm">{row.endDate || (row.importStatus !== "error" ? <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>Perpetual</span> : empty)}</td>
-                    <td className="mono csv-mono-sm">{row.noticeDate || empty}</td>
-                    <td className="mono csv-mono-sm">{row.requestDate || empty}</td>
-                    <td className="mono csv-mono-sm">{row.purchaseDate || empty}</td>
-                    <td className="mono csv-mono-sm">{row.contractNumber || empty}</td>
-                    <td className="mono csv-mono-sm">{row.poNumber || empty}</td>
-                    <td>{row.supplier || empty}</td>
-                    <td>{row.costCentre || empty}</td>
+                    {showColumn("publisher") && <td style={{ fontWeight: row.publisherName ? 500 : 400 }}>{row.publisherName || empty}</td>}
+                    {showColumn("description") && <td className="csv-desc">{row.softwareDescription || empty}</td>}
+                    {showColumn("type") && <td>{LICENSE_TYPES.find((t) => t.value === row.licenseType)?.label || row.licenseType || empty}</td>}
+                    {showColumn("quantity") && <td className="mono csv-mono-sm">{row.quantity || empty}</td>}
+                    {showColumn("unitPrice") && <td className="mono csv-mono-sm">{row.unitPrice || empty}</td>}
+                    {showColumn("totalPoPrice") && <td className="mono csv-mono-sm">{row.totalPoPrice || empty}</td>}
+                    {showColumn("startDate") && <td className="mono csv-mono-sm">{row.startDate || empty}</td>}
+                    {showColumn("endDate") && <td className="mono csv-mono-sm">{row.endDate || (row.importStatus !== "error" ? <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>Perpetual</span> : empty)}</td>}
+                    {showColumn("noticeDate") && <td className="mono csv-mono-sm">{row.noticeDate || empty}</td>}
+                    {showColumn("requestDate") && <td className="mono csv-mono-sm">{row.requestDate || empty}</td>}
+                    {showColumn("purchaseDate") && <td className="mono csv-mono-sm">{row.purchaseDate || empty}</td>}
+                    {showColumn("contractNumber") && <td className="mono csv-mono-sm">{row.contractNumber || empty}</td>}
+                    {showColumn("poNumber") && <td className="mono csv-mono-sm">{row.poNumber || empty}</td>}
+                    {showColumn("supplier") && <td>{row.supplier || empty}</td>}
+                    {showColumn("costCentre") && <td>{row.costCentre || empty}</td>}
                     <td>
                       {isSkipped ? <Badge type="gray">Skipped</Badge> : (
                         <>

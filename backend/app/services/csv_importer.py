@@ -229,6 +229,7 @@ _MAINTENANCE_COVERAGE_VALUE_ALIASES = {
 _TOTAL_PRICE_MISMATCH_RATIO = Decimal("10")
 _TOTAL_PRICE_MISMATCH_MIN_DELTA = Decimal("1")
 PRICE_MISMATCH_WARNING_PREFIX = "Calculated total (quantity x unit_price) differs from total_po_price"
+EXPIRED_MAINTENANCE_WARNING = "Included maintenance coverage has expired"
 MULTI_VALUE_TARGETS = frozenset({"secondary_contacts"})
 _CSV_DELIMITERS = (",", ";", "\t")
 
@@ -591,21 +592,26 @@ def _classify_row(
     publisher_name: str,
     software_description: str,
     db_end_date: Optional[date],
-    is_perpetual: bool,
+    license_type: str,
     db_start_date: Optional[date],
 ) -> tuple[str, str | None, bool]:
     """Return (import_status, lifecycle_status, is_completeness_exempt).
 
     Priority:
       1. "error"             - both required fields missing
-      2. "legacy_incomplete" - end_date in past + a required field missing
-      3. "legacy_exempt"     - end_date in past, all required fields present
+      2. "legacy_incomplete" - expiring end_date in past + a required field missing
+      3. "legacy_exempt"     - expiring end_date in past, all required fields present
       4. "active"            - everything else (future/perpetual/no date)
+
+    Perpetual, OEM, and freeware rows are non-expiring license records. Their
+    imported expiry dates represent included support coverage and must not make
+    the license itself legacy.
     """
     today = date.today()
     has_publisher = bool(publisher_name)
     has_description = bool(software_description)
-    end_in_past = db_end_date is not None and db_end_date < today
+    non_expiring_license = license_type in _INCLUDED_SUPPORT_PARENT_TYPES
+    end_in_past = not non_expiring_license and db_end_date is not None and db_end_date < today
 
     if not has_publisher and not has_description:
         return "error", None, False
@@ -646,7 +652,6 @@ def _parse_row(
     notice_date_str: Optional[str] = None
     maintenance_start_date_str: Optional[str] = None
     maintenance_end_date_str: Optional[str] = None
-    is_perpetual = False
 
     start_raw = _field_text(data, "start_date")
     if start_raw:
@@ -670,7 +675,6 @@ def _parse_row(
         else:
             if ed_warn:
                 warnings.append(f"end_date: {ed_warn}")
-            is_perpetual = ed_perp
             if ed is not None:
                 db_end_date = ed
                 end_date_str = ed.isoformat()
@@ -819,8 +823,16 @@ def _parse_row(
                 )
 
     # -- Classification ---------------------------------------------------
+    if (
+        maintenance_coverage == "included"
+        and license_type in _INCLUDED_SUPPORT_PARENT_TYPES
+        and db_maintenance_end_date is not None
+        and db_maintenance_end_date < date.today()
+    ):
+        warnings.append(EXPIRED_MAINTENANCE_WARNING)
+
     import_status, lifecycle_status, is_completeness_exempt = _classify_row(
-        publisher_name, software_description, db_end_date, is_perpetual, db_start_date
+        publisher_name, software_description, db_end_date, license_type, db_start_date
     )
 
     if import_status == "error":

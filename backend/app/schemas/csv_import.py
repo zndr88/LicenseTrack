@@ -89,6 +89,7 @@ class ImportWarningSummary(BaseModel):
     inferred_parent_count: int = 0  # maintenance rows whose parent was inferred from batch
     duplicate_warning_count: int = 0  # rows with at least one duplicate warning
     price_mismatch_count: int = 0  # rows whose Qty x Unit Price differs sharply from Total PO Price
+    expired_maintenance_count: int = 0  # rows whose included maintenance coverage has ended
     rows_with_warnings_count: int = 0  # non-error rows accepted with any non-fatal warning
 
     @computed_field  # type: ignore[misc]
@@ -99,6 +100,7 @@ class ImportWarningSummary(BaseModel):
             self.inferred_parent_count > 0
             or self.duplicate_warning_count > 0
             or self.price_mismatch_count > 0
+            or self.expired_maintenance_count > 0
         )
 
 

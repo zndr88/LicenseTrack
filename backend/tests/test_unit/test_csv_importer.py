@@ -502,6 +502,26 @@ def test_legacy_incomplete_classification():
     assert row.import_status == "legacy_incomplete"
 
 
+def test_perpetual_with_expired_included_maintenance_stays_active_with_warning():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "license_type", "maintenance_coverage", "end_date"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Perpetual Widget",
+            "license_type": "perpetual",
+            "maintenance_coverage": "included",
+            "end_date": _PAST,
+        }],
+    )
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.import_status == "active"
+    assert row.lifecycle_status is None
+    assert row.db_end_date is not None
+    assert row.db_maintenance_end_date == row.db_end_date
+    assert "Included maintenance coverage has expired" in row.warnings
+
+
 # ---------------------------------------------------------------------------
 # 1f — Enum validation
 # ---------------------------------------------------------------------------
@@ -1012,6 +1032,14 @@ def test_build_warning_summary_no_warnings():
     assert summary.duplicate_warning_count == 0
     assert summary.rows_with_warnings_count == 0
     assert summary.has_warnings is False
+
+
+def test_build_warning_summary_expired_maintenance_gates():
+    row = _make_row(warnings=["Included maintenance coverage has expired"])
+    summary = build_warning_summary([row])
+    assert summary.expired_maintenance_count == 1
+    assert summary.rows_with_warnings_count == 1
+    assert summary.has_warnings is True
 
 
 def test_build_warning_summary_defaulted_enum():

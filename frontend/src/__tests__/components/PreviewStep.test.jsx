@@ -145,4 +145,36 @@ describe("PreviewStep — warning summary", () => {
 
     expect(setMaintenanceParentOverride).toHaveBeenCalledWith(4, "42");
   });
+
+  it("lets users hide importer columns without hiding workflow columns", () => {
+    const props = {
+      ...defaultProps,
+      previewData: {
+        ...basePreviewData,
+        rows: [{
+          rowNumber: 1,
+          publisherName: "Acme",
+          softwareDescription: "Widget",
+          licenseType: "perpetual",
+          importStatus: "active",
+          validationErrors: [],
+          warnings: [],
+          duplicateWarnings: [],
+        }],
+      },
+      selectableRows: [{ rowNumber: 1 }],
+    };
+
+    render(<PreviewStep {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose importer columns" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Show Publisher column" }));
+
+    expect(screen.queryByRole("columnheader", { name: "Publisher" })).toBeNull();
+    expect(screen.getByRole("columnheader", { name: "Description" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Status" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Issues" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Import" })).toBeTruthy();
+    expect(screen.getByRole("table")).toHaveClass("csv-preview-table-condensed");
+  });
 });

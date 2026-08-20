@@ -15,7 +15,12 @@ from app.schemas.csv_import import (
     CSVImportPreviewRow,
     ImportWarningSummary,
 )
-from app.services.csv_importer import PRICE_MISMATCH_WARNING_PREFIX, ParsedImportResult, ParsedRow
+from app.services.csv_importer import (
+    EXPIRED_MAINTENANCE_WARNING,
+    PRICE_MISMATCH_WARNING_PREFIX,
+    ParsedImportResult,
+    ParsedRow,
+)
 from app.services.custom_fields_service import upsert_imported_values_for_license
 from app.services.import_.duplicate_detection import add_duplicate_warnings
 from app.services.import_.import_update import apply_import_update
@@ -115,9 +120,10 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
     """Compute per-category warning counts across all parsed rows.
 
     Only non-error rows are counted for rows_with_warnings_count.
-    Inferred-parent and duplicate-warning counts drive has_warnings. The enum
-    and date fields remain zero-valued response compatibility fields because
-    invalid enums and dates are hard row errors.
+    Inferred-parent, duplicate, price-mismatch, and expired-maintenance
+    warnings drive has_warnings. The enum and date fields remain zero-valued
+    response compatibility fields because invalid enums and dates are hard row
+    errors.
     """
     defaulted_currency = 0
     defaulted_enum = 0
@@ -125,6 +131,7 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
     inferred_parent = 0
     duplicate_warning = 0
     price_mismatch = 0
+    expired_maintenance = 0
     rows_with_warnings = 0
 
     for row in rows:
@@ -142,6 +149,8 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
                 row_has_any_warning = True
             if w.startswith(PRICE_MISMATCH_WARNING_PREFIX):
                 price_mismatch += 1
+            if w == EXPIRED_MAINTENANCE_WARNING:
+                expired_maintenance += 1
 
         if row.parent_import_row_number is not None:
             inferred_parent += 1
@@ -161,6 +170,7 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
         inferred_parent_count=inferred_parent,
         duplicate_warning_count=duplicate_warning,
         price_mismatch_count=price_mismatch,
+        expired_maintenance_count=expired_maintenance,
         rows_with_warnings_count=rows_with_warnings,
     )
 
