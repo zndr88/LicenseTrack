@@ -73,6 +73,14 @@ const emptyAdditionalLine = (overrides = {}) => ({
   ...overrides,
 });
 
+function quotePreviewKind(file) {
+  if (!file) return null;
+  if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return "pdf";
+  if (file.type.startsWith("image/") || /\.(png|jpe?g|gif|webp)$/i.test(file.name)) return "image";
+  if (file.type.startsWith("text/") || /\.(txt|csv)$/i.test(file.name)) return "text";
+  return null;
+}
+
 function normalizeOptionalNumber(value, settings) {
   return (parseLocalizedNumber(value, settings) ?? value) || null;
 }
@@ -139,9 +147,36 @@ const SourcingItemModal = ({
   const [slotHasActions, setSlotHasActions] = useState(false);
   const [additionalLines, setAdditionalLines] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [quotePreviewUrl, setQuotePreviewUrl] = useState(null);
+  const [quoteText, setQuoteText] = useState("");
+  const [quotePreviewExpanded, setQuotePreviewExpanded] = useState(false);
+
+  const quotePreviewType = quotePreviewKind(attachedFile);
+
+  useEffect(() => {
+    if (!attachedFile || !quotePreviewType || quotePreviewType === "text") {
+      setQuotePreviewUrl(null);
+      return undefined;
+    }
+    const url = URL.createObjectURL(attachedFile);
+    setQuotePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [attachedFile, quotePreviewType]);
+
+  useEffect(() => {
+    let active = true;
+    setQuoteText("");
+    if (attachedFile && quotePreviewType === "text") {
+      attachedFile.text().then((value) => {
+        if (active) setQuoteText(value);
+      });
+    }
+    return () => { active = false; };
+  }, [attachedFile, quotePreviewType]);
 
   const handleFileChange = (file) => {
     setAttachedFile(file);
+    setQuotePreviewExpanded(false);
     if (!file) { setAttachedFileBase64(null); return; }
     const reader = new FileReader();
     reader.onload = () => setAttachedFileBase64(reader.result.split(",")[1] ?? null);
@@ -408,6 +443,7 @@ const SourcingItemModal = ({
   };
 
   const lineCount = 1 + additionalLines.length;
+  const showQuotePreview = Boolean(attachedFile);
 
   return (
     <>
@@ -415,7 +451,12 @@ const SourcingItemModal = ({
         title={title ?? (item ? "Edit Sourcing Item" : "Add Sourcing Item")}
         titleId="dialog-title-sourcing-item"
         onClose={requestClose}
-        modalStyle={{ maxWidth: "min(560px, 92vw)" }}
+        modalClassName="modal sourcing-item-modal"
+        modalStyle={{
+          width: showQuotePreview ? "min(1120px, 94vw)" : "min(560px, 92vw)",
+          maxWidth: showQuotePreview ? "min(1120px, 94vw)" : "min(560px, 92vw)",
+          overflow: "hidden",
+        }}
         footer={(
           <>
             <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
@@ -425,7 +466,46 @@ const SourcingItemModal = ({
           </>
         )}
       >
-        <div className="modal-bd">
+        <div className={`sourcing-item-modal-layout${showQuotePreview ? " has-quote-preview" : ""}`}>
+          {showQuotePreview && (
+            <aside className={`lp-document-preview sourcing-quote-preview${quotePreviewExpanded ? " is-expanded" : ""}`} aria-label="Attached quote preview">
+              <div className="lp-document-preview-hd">
+                <div className="lp-document-preview-title">
+                  <span>Quote Preview</span>
+                  <small title={attachedFile.name}>{attachedFile.name}</small>
+                </div>
+                <div className="lp-document-preview-actions">
+                  <button
+                    className="doc-action-btn"
+                    title={quotePreviewExpanded ? "Restore split view" : "Expand quote preview"}
+                    aria-label={quotePreviewExpanded ? "Restore split view" : "Expand quote preview"}
+                    onClick={() => setQuotePreviewExpanded((expanded) => !expanded)}
+                  >
+                    <Icon name={quotePreviewExpanded ? "minimize" : "maximize"} size={14} />
+                  </button>
+                  <Icon name="file" size={15} color="var(--text-2)" />
+                </div>
+              </div>
+              <div className="sourcing-quote-preview-body lp-document-preview-frame">
+                {quotePreviewType === "pdf" && quotePreviewUrl && (
+                  <iframe title={`Preview of ${attachedFile.name}`} src={`${quotePreviewUrl}#zoom=page-width`} />
+                )}
+                {quotePreviewType === "image" && quotePreviewUrl && (
+                  <img src={quotePreviewUrl} alt={`Preview of ${attachedFile.name}`} />
+                )}
+                {quotePreviewType === "text" && (
+                  <pre>{quoteText || "Loading quote..."}</pre>
+                )}
+                {!quotePreviewType && (
+                  <div className="sourcing-quote-preview-empty">
+                    <Icon name="file" size={22} color="var(--text-3)" />
+                    <span>Preview is not available for this file type.</span>
+                  </div>
+                )}
+              </div>
+            </aside>
+          )}
+          <div className="modal-bd sourcing-item-form">
           {/* Quote upload - always available (document attaches to the request).
               Parse Quote action is layered on below when a plugin is active. */}
           {isNewRequest && (
@@ -825,6 +905,7 @@ const SourcingItemModal = ({
               />
             </div>
           )}
+        </div>
         </div>
       </ModalShell>
       {showDiscardDialog && (

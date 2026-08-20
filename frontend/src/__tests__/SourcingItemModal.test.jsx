@@ -35,6 +35,28 @@ function renderModal(props = {}) {
 // ─── Required fields ──────────────────────────────────────────────────────────
 
 describe("required field validation", () => {
+  test("shows an attached PDF quote beside the form", async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:quote-preview");
+    URL.revokeObjectURL = vi.fn();
+
+    try {
+      renderModal();
+      const quote = new File(["%PDF-1.7"], "vendor-quote.pdf", { type: "application/pdf" });
+      fireEvent.change(document.getElementById("sourcing-quote-file"), { target: { files: [quote] } });
+
+      await waitFor(() => {
+        expect(screen.getByRole("complementary", { name: /attached quote preview/i })).toBeInTheDocument();
+        expect(screen.getByTitle("vendor-quote.pdf")).toBeInTheDocument();
+        expect(screen.getByTitle("Preview of vendor-quote.pdf")).toHaveAttribute("src", "blob:quote-preview#zoom=page-width");
+      });
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+    }
+  });
+
   test("Save button is disabled when publisher is empty", () => {
     renderModal();
     expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();

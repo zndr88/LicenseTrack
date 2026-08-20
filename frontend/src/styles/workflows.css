@@ -1,3 +1,116 @@
+/* Sourcing item quote preview */
+.sourcing-item-modal {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.sourcing-item-modal-layout {
+  min-height: 0;
+  display: flex;
+  flex: 1;
+}
+
+.sourcing-item-modal-layout.has-quote-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(460px, 560px);
+}
+
+.sourcing-item-form {
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.sourcing-quote-preview {
+  min-width: 0;
+  min-height: 0;
+  margin: 18px 0 18px 24px;
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.sourcing-quote-preview.is-expanded {
+  position: fixed;
+  inset: 12px;
+  z-index: 3;
+  margin: 0;
+  box-shadow: var(--shadow-md);
+}
+
+.sourcing-quote-preview .lp-document-preview-hd {
+  position: static;
+  padding: 10px 12px;
+}
+
+.sourcing-quote-preview-body {
+  min-height: 0;
+  height: calc(90vh - 150px);
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+  overflow: auto;
+}
+
+.sourcing-quote-preview.is-expanded .sourcing-quote-preview-body {
+  height: calc(100vh - 70px);
+}
+
+.sourcing-quote-preview-body iframe {
+  width: 100%;
+  min-height: 100%;
+  border: 0;
+  background: var(--bg-1);
+}
+
+.sourcing-quote-preview-body img {
+  display: block;
+  width: 100%;
+  height: max-content;
+  object-fit: contain;
+  align-self: flex-start;
+}
+
+.sourcing-quote-preview-body pre {
+  width: 100%;
+  margin: 0;
+  padding: 16px;
+  color: var(--text-2);
+  font: 11px/1.5 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sourcing-quote-preview-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 820px) {
+  .sourcing-item-modal-layout.has-quote-preview {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sourcing-quote-preview {
+    order: 2;
+    margin: 0 18px 18px;
+    min-height: 300px;
+  }
+
+  .sourcing-quote-preview-body {
+    height: 320px;
+  }
+}
+
 /* Consumption Page (cp-) */
 .cp-header-row { display: flex; align-items: center; justify-content: space-between; }
 .cp-sync-area { display: flex; gap: 8px; align-items: center; }
