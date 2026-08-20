@@ -405,8 +405,6 @@ export default function SourcingTable({
                 }
               };
               const quoteDocuments = request.quoteDocuments ?? [];
-              const openItems = (request.items ?? []).filter(isOpenSourcingItem);
-              const canEditSingleLine = perms.canEdit && openItems.length === 1;
               const historyMenuItems = [
                 ...quoteDocuments.map((document, index) => ({
                   key: `quote-${document.id ?? index}`,
@@ -425,13 +423,6 @@ export default function SourcingTable({
                 })),
               ];
               const menuItems = [
-                {
-                  key: "edit",
-                  label: "Edit",
-                  icon: "edit",
-                  hidden: !canEditSingleLine,
-                  onClick: () => onEditItem(openItems[0], request),
-                },
                 {
                   key: "edit-request",
                   label: "Edit Sourcing Request",
