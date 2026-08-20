@@ -5,6 +5,8 @@ import {
   getBudgetForecast,
   getCostOverview,
   getLifecycleCounts,
+  getPerpetualMaintenanceReport,
+  getPurchaseOrderReport,
   getRenewalCalendar,
   getSpendByPublisher,
   getVendorTable,
@@ -361,6 +363,44 @@ describe("report cost helpers", () => {
 
     expect(getSpendByPublisher(licenses)[0].totalSpendByCurrency).toEqual({ EUR: 50000 });
     expect(getVendorTable(licenses)[0].totalSpendByCurrency).toEqual({ EUR: 50000 });
+  });
+
+  test("tracks purchase order values and reconciles manual overrides", () => {
+    const report = getPurchaseOrderReport([
+      license({ id: 1, poNumber: "PO-1", quantity: "2", unitPrice: "100" }),
+      license({ id: 2, poNumber: "PO-1", quantity: "1", unitPrice: "100", poTotalOverride: "350" }),
+      license({ id: 3, poNumber: "", quantity: "1", unitPrice: "50" }),
+    ]);
+
+    expect(report.poCount).toBe(1);
+    expect(report.unkeyedCount).toBe(1);
+    expect(report.overriddenCount).toBe(1);
+    expect(report.rows[0]).toMatchObject({ poNumber: "PO-1", publisher: "Acme", lineCount: 2, lineValue: 300, poValue: 350, difference: 50, status: "override" });
+    expect(report.totalsByCurrency).toEqual({ EUR: 400 });
+  });
+
+  test("combines included and separately tracked perpetual maintenance", () => {
+    const report = getPerpetualMaintenanceReport([
+      license({ id: 10, licenseType: "perpetual", quantity: "1", unitPrice: "1000", maintenanceCoverage: "included", maintenanceCost: "120" }),
+      license({ id: 20, licenseType: "perpetual", quantity: "1", unitPrice: "2000", maintenanceCoverage: "separately_tracked" }),
+      license({ id: 21, licenseType: "maintenance", parentLicenseId: 20, quantity: "1", unitPrice: "250", maintenanceCost: "250" }),
+    ]);
+
+    expect(report.rows).toHaveLength(2);
+    expect(report.includedCount).toBe(1);
+    expect(report.separatelyTrackedCount).toBe(1);
+    expect(report.maintenanceByCurrency).toEqual({ EUR: 370 });
+    expect(report.totalByCurrency).toEqual({ EUR: 3370 });
+    expect(report.rows.find((row) => row.id === 20)).toMatchObject({ maintenanceValue: 250, linkedMaintenanceCount: 1, maintenanceSource: "separately_tracked", maintenanceRecords: [{ id: 21, amount: 250 }] });
+  });
+
+  test("includes upcoming maintenance exposed through the parent link", () => {
+    const report = getPerpetualMaintenanceReport([
+      license({ id: 30, licenseType: "perpetual", maintenanceCoverage: "unknown", linkedMaintenanceIds: [31] }),
+      license({ id: 31, licenseType: "maintenance", maintenanceCost: "400", startDate: "2099-01-01" }),
+    ]);
+
+    expect(report.rows[0]).toMatchObject({ maintenanceValue: 400, linkedMaintenanceCount: 1, maintenanceSource: "separately_tracked" });
   });
 });
 

@@ -461,6 +461,180 @@ export function getCostOverview(licenses, { dateRange = "all" } = {}) {
   };
 }
 
+function addReportAmount(target, currency, amount) {
+  if (!Number.isFinite(amount)) return;
+  target[currency] = roundMoney((target[currency] ?? 0) + amount);
+}
+
+/**
+ * Build the row-level purchase-order tracker used by the reports page.
+ * PO overrides are treated as the authoritative PO value; otherwise the
+ * priced license lines are summed. Unkeyed lines stay visible as one row per
+ * currency so missing PO numbers cannot silently disappear from the report.
+ */
+export function getPurchaseOrderReport(licenses, { dateRange = "all" } = {}) {
+  const range = resolveReportDateRange(dateRange);
+  const groups = new Map();
+
+  for (const license of licenses) {
+    if (license.licenseType === "freeware" && license.maintenanceCoverage !== "included") continue;
+    const currency = license.currency || "USD";
+    const poNumber = (license.poNumber ?? "").trim();
+    const cost = range && isRecurringLicense(license)
+      ? getAllocatedLineValue(license, range)
+      : getLicenseLineValue(license);
+    const key = `${poNumber || "__unkeyed__"}::${currency}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        poNumber: poNumber || null,
+        currency,
+        publishers: [],
+        lineCount: 0,
+        pricedLineCount: 0,
+        lineValue: 0,
+        override: null,
+      });
+    }
+    const group = groups.get(key);
+    group.lineCount += 1;
+    const publisher = (license.publisherName ?? "").trim();
+    if (publisher && !group.publishers.includes(publisher)) group.publishers.push(publisher);
+    if (cost.source !== "missing") {
+      group.pricedLineCount += 1;
+      group.lineValue = roundMoney(group.lineValue + cost.amount);
+    }
+    const override = parsePrice(license.poTotalOverride);
+    if (group.override === null && override !== null) group.override = override;
+  }
+
+  const rows = Array.from(groups.values()).map((group) => {
+    const poValue = group.override ?? group.lineValue;
+    const difference = roundMoney(poValue - group.lineValue);
+    return {
+      ...group,
+      publisher: group.publishers.length === 0
+        ? "Unknown publisher"
+        : group.publishers.length === 1 ? group.publishers[0] : "Multiple publishers",
+      poValue,
+      difference,
+      status: group.poNumber === null
+        ? "unkeyed"
+        : group.override !== null && difference !== 0
+          ? "override"
+          : difference === 0 ? "reconciled" : "difference",
+    };
+  }).sort((a, b) => b.poValue - a.poValue || String(a.poNumber ?? "").localeCompare(String(b.poNumber ?? "")));
+
+  const totalsByCurrency = {};
+  const lineTotalsByCurrency = {};
+  for (const row of rows) {
+    addReportAmount(totalsByCurrency, row.currency, row.poValue);
+    addReportAmount(lineTotalsByCurrency, row.currency, row.lineValue);
+  }
+
+  return {
+    rows,
+    totalsByCurrency,
+    lineTotalsByCurrency,
+    poCount: rows.filter((row) => row.poNumber !== null).length,
+    unkeyedCount: rows.filter((row) => row.poNumber === null).reduce((sum, row) => sum + row.lineCount, 0),
+    overriddenCount: rows.filter((row) => row.override !== null).length,
+  };
+}
+
+/**
+ * Summarize perpetual parents together with support recorded on the parent
+ * or on linked maintenance records. Maintenance child values use their own
+ * maintenance cost first, then their priced license line as a fallback.
+ */
+export function getPerpetualMaintenanceReport(licenses) {
+  const maintenanceByParent = new Map();
+  const maintenanceById = new Map();
+  for (const license of licenses) {
+    if (license.licenseType !== "maintenance") continue;
+    const parentIds = new Set([
+      ...(Array.isArray(license.maintenanceParentIds) ? license.maintenanceParentIds : []),
+      ...(license.parentLicenseId != null ? [license.parentLicenseId] : []),
+    ]);
+    const cost = parsePrice(license.maintenanceCost);
+    const fallback = getCalculatedLicenseValue(license);
+    const maintenanceRecord = {
+      id: license.id,
+      amount: cost !== null ? cost : fallback.amount,
+      currency: license.currency || "USD",
+      publisher: license.publisherName || "Unknown",
+      description: license.softwareDescription || "",
+      poNumber: license.poNumber || "",
+    };
+    maintenanceById.set(license.id, maintenanceRecord);
+    for (const parentId of parentIds) {
+      if (!maintenanceByParent.has(parentId)) maintenanceByParent.set(parentId, []);
+      maintenanceByParent.get(parentId).push(maintenanceRecord);
+    }
+  }
+
+  const rows = licenses
+    .filter((license) => license.licenseType === "perpetual")
+    .map((license) => {
+      const currency = license.currency || "USD";
+      const purchase = getCalculatedLicenseValue(license);
+      const linkedRecords = [
+        ...(maintenanceByParent.get(license.id) ?? []),
+        ...(Array.isArray(license.linkedMaintenanceIds)
+          ? license.linkedMaintenanceIds.map((id) => maintenanceById.get(id)).filter(Boolean)
+          : []),
+      ];
+      const linked = Array.from(new Map(linkedRecords.map((item) => [item.id, item])).values());
+      let coverage = license.maintenanceCoverage || "unknown";
+      let maintenance = 0;
+      let maintenanceCurrency = currency;
+      let maintenanceSource = "not_tracked";
+
+      if (coverage === "included") {
+        maintenance = parsePrice(license.maintenanceCost) ?? 0;
+        maintenanceSource = parsePrice(license.maintenanceCost) !== null ? "included" : "included_missing";
+      } else if (coverage === "separately_tracked" || linked.length > 0) {
+        maintenance = linked.reduce((sum, item) => sum + item.amount, 0);
+        maintenanceCurrency = linked[0]?.currency || currency;
+        maintenanceSource = linked.length > 0 ? "separately_tracked" : "separate_missing";
+      }
+
+      return {
+        id: license.id,
+        publisher: license.publisherName || "Unknown",
+        description: license.softwareDescription || "",
+        poNumber: license.poNumber || "",
+        currency,
+        purchaseValue: purchase.amount,
+        purchaseSource: purchase.source,
+        maintenanceValue: maintenance,
+        maintenanceCurrency,
+        maintenanceSource,
+        linkedMaintenanceCount: linked.length,
+        maintenanceRecords: linked,
+        totalValue: maintenanceCurrency === currency ? roundMoney(purchase.amount + maintenance) : null,
+      };
+    });
+
+  const purchaseByCurrency = {};
+  const maintenanceByCurrency = {};
+  const totalByCurrency = {};
+  for (const row of rows) {
+    addReportAmount(purchaseByCurrency, row.currency, row.purchaseValue);
+    addReportAmount(maintenanceByCurrency, row.maintenanceCurrency, row.maintenanceValue);
+    if (row.totalValue !== null) addReportAmount(totalByCurrency, row.currency, row.totalValue);
+  }
+
+  return {
+    rows,
+    purchaseByCurrency,
+    maintenanceByCurrency,
+    totalByCurrency,
+    includedCount: rows.filter((row) => row.maintenanceSource.startsWith("included")).length,
+    separatelyTrackedCount: rows.filter((row) => row.maintenanceSource === "separately_tracked").length,
+  };
+}
+
 /**
  * @param {object[]} licenses
  * @param {{ years?: number, annualGrowthPct?: number }} opts

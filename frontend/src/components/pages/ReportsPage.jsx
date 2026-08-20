@@ -9,6 +9,8 @@ import {
   getPortfolioBreakdown,
   getRenewalCalendar,
   getVendorTable,
+  getPurchaseOrderReport,
+  getPerpetualMaintenanceReport,
 } from "../../utils/reportHelpers.js";
 import { normalizeLicense, formatCostByCurrency } from "../../utils/helpers.js";
 import { getLicenses } from "../../api/licenses.js";
@@ -154,6 +156,14 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
     () => getVendorTable(visibleFiltered, { dateRange: effectiveDateRange }),
     [visibleFiltered, effectiveDateRange]
   );
+  const purchaseOrderData = useMemo(
+    () => getPurchaseOrderReport(visibleFiltered, { dateRange: effectiveDateRange }),
+    [visibleFiltered, effectiveDateRange]
+  );
+  const perpetualMaintenanceData = useMemo(
+    () => getPerpetualMaintenanceReport(visibleFiltered),
+    [visibleFiltered]
+  );
 
   // Export all sections
   async function handleExportAll() {
@@ -167,6 +177,8 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
         { elementId: "report-section-publisher-vendor", title: "Publisher & Vendor Overview" },
         { elementId: "report-section-portfolio", title: "Portfolio Breakdown" },
         { elementId: "report-section-renewal",   title: "Renewal Calendar" },
+        { elementId: "report-section-perpetual-maintenance", title: "Perpetual Licenses & Maintenance" },
+        { elementId: "report-section-purchase-orders", title: "Purchase Order Value Tracker" },
       ], "license-lifecycle-full-report", userSettings);
     } catch {
       if (onError) onError("PDF export failed — try again");
@@ -364,6 +376,8 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
               vendorData={vendorData}
               portfolioData={portfolioData}
               renewalData={renewalData}
+              purchaseOrderData={purchaseOrderData}
+              perpetualMaintenanceData={perpetualMaintenanceData}
               totalLicenseCount={rawLicenses.length}
               hasActiveFilters={hasActiveFilters}
               dateRangeError={dateRangeError}

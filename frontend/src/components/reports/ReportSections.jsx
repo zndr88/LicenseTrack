@@ -3,6 +3,8 @@ import CostForecastSection from "./CostForecastSection.jsx";
 import PortfolioBreakdownSection from "./PortfolioBreakdownSection.jsx";
 import PublisherBreakdownSection from "./PublisherBreakdownSection.jsx";
 import RenewalCalendarSection from "./RenewalCalendarSection.jsx";
+import PerpetualMaintenanceSection from "./PerpetualMaintenanceSection.jsx";
+import PurchaseOrderSection from "./PurchaseOrderSection.jsx";
 
 export default function ReportSections({
   filteredCount,
@@ -18,6 +20,8 @@ export default function ReportSections({
   vendorData,
   portfolioData,
   renewalData,
+  purchaseOrderData,
+  perpetualMaintenanceData,
   totalLicenseCount,
   hasActiveFilters,
   dateRangeError,
@@ -29,6 +33,8 @@ export default function ReportSections({
     publisherVendor: false,
     portfolio: false,
     renewal: false,
+    perpetualMaintenance: false,
+    purchaseOrders: false,
   };
   const [openSections, setOpenSections] = useState(() => {
     try {
@@ -101,6 +107,22 @@ export default function ReportSections({
         locale={locale}
         singleCurrency={singleCurrency}
         isOpen={openSections.renewal}
+        onToggle={toggleSection}
+        forceOpen={forceOpen}
+      />
+
+      <PerpetualMaintenanceSection
+        data={perpetualMaintenanceData}
+        locale={locale}
+        isOpen={openSections.perpetualMaintenance}
+        onToggle={toggleSection}
+        forceOpen={forceOpen}
+      />
+
+      <PurchaseOrderSection
+        data={purchaseOrderData}
+        locale={locale}
+        isOpen={openSections.purchaseOrders}
         onToggle={toggleSection}
         forceOpen={forceOpen}
       />
