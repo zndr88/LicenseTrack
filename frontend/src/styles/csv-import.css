@@ -20,8 +20,7 @@
 .csv-preview-table-condensed th,
 .csv-preview-table-condensed td { white-space: nowrap; }
 .csv-preview-table-condensed .csv-desc { max-width: none; }
-.csv-preview-table-condensed th:nth-last-child(2),
-.csv-preview-table-condensed td:nth-last-child(2) {
+.csv-preview-table-condensed .csv-issues-col {
   min-width: 0;
   width: auto;
   white-space: normal;

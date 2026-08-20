@@ -146,6 +146,25 @@ describe("useCSVImportAnalysis shared preset permissions", () => {
     expect(payload.mappingName).toBeNull();
     expect(payload.mapping).toEqual([{ rawHeader: "Vendor Name", target: "publisher_name" }]);
   });
+
+  it("keeps loaded presets available after resetting the import flow", async () => {
+    const { result } = renderHook(() =>
+      useCSVImportAnalysis({
+        active: true,
+        setStep: vi.fn(),
+        setLoading: vi.fn(),
+        setError: vi.fn(),
+      })
+    );
+    await waitFor(() => expect(result.current.savedMappings).toHaveLength(1));
+
+    act(() => result.current.setSelectedMappingId(7));
+    act(() => result.current.resetAnalysis());
+
+    expect(result.current.savedMappings).toHaveLength(1);
+    expect(result.current.selectedMappingId).toBeNull();
+    expect(listImportMappings).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("useCSVImportAnalysis existing custom fields", () => {

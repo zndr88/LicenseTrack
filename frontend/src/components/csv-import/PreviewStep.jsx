@@ -62,10 +62,26 @@ export default function PreviewStep({
 
   useEffect(() => {
     if (!columnsMenuOpen) return undefined;
-    if (columnsButtonRef.current) {
-      const rect = columnsButtonRef.current.getBoundingClientRect();
-      setColumnsMenuPosition({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-    }
+    const updateMenuPosition = () => {
+      const button = columnsButtonRef.current;
+      if (!button) return;
+      const buttonRect = button.getBoundingClientRect();
+      const menuRect = columnsMenuRef.current?.getBoundingClientRect();
+      const menuWidth = menuRect?.width ?? Math.min(280, window.innerWidth - 24);
+      const menuHeight = menuRect?.height ?? 0;
+      const top = Math.max(
+        8,
+        Math.min(buttonRect.bottom + 4, window.innerHeight - menuHeight - 8),
+      );
+      const right = Math.max(
+        8,
+        Math.min(window.innerWidth - buttonRect.right, window.innerWidth - menuWidth - 8),
+      );
+      setColumnsMenuPosition({ top, right });
+    };
+
+    updateMenuPosition();
+    const frame = window.requestAnimationFrame(updateMenuPosition);
     const handleOutsideClick = (event) => {
       if (
         columnsButtonRef.current && !columnsButtonRef.current.contains(event.target)
@@ -74,8 +90,25 @@ export default function PreviewStep({
         setColumnsMenuOpen(false);
       }
     };
+    const handleKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setColumnsMenuOpen(false);
+      columnsButtonRef.current?.focus();
+    };
     document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    const firstToggle = columnsMenuRef.current?.querySelector('[role="switch"]');
+    firstToggle?.focus();
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
   }, [columnsMenuOpen]);
 
   if (!previewData) return null;
@@ -223,14 +256,16 @@ export default function PreviewStep({
               title="Choose importer columns"
               aria-label="Choose importer columns"
               aria-expanded={columnsMenuOpen}
-              aria-haspopup="menu"
+              aria-haspopup="dialog"
+              aria-controls="csv-importer-columns-menu"
             >
               <Icon name="columns" size={15} />
             </button>
             {columnsMenuOpen && createPortal(
               <div
                 ref={columnsMenuRef}
-                role="menu"
+                id="csv-importer-columns-menu"
+                role="dialog"
                 aria-label="Importer columns"
                 className="lp-menu lp-column-menu csv-columns-menu"
                 style={{ top: columnsMenuPosition.top, right: columnsMenuPosition.right }}
@@ -291,7 +326,7 @@ export default function PreviewStep({
               {showColumn("supplier") && <th scope="col">Supplier</th>}
               {showColumn("costCentre") && <th scope="col">Department</th>}
               <th scope="col">Status</th>
-              <th scope="col">Issues</th>
+              <th scope="col" className="csv-issues-col">Issues</th>
               <th scope="col">Import</th>
             </tr></thead>
             <tbody>
@@ -337,7 +372,7 @@ export default function PreviewStep({
                     {showColumn("poNumber") && <td className="mono csv-mono-sm">{row.poNumber || empty}</td>}
                     {showColumn("supplier") && <td>{row.supplier || empty}</td>}
                     {showColumn("costCentre") && <td>{row.costCentre || empty}</td>}
-                    <td>
+                    <td className="csv-issues-col">
                       {isSkipped ? <Badge type="gray">Skipped</Badge> : (
                         <>
                           {parentResolved ? <Badge type="green">Resolved</Badge> : needsParent ? <Badge type="orange">Action required</Badge> : statusBadge(row.importStatus)}
@@ -420,7 +455,7 @@ export default function PreviewStep({
         <button className="btn btn-p" onClick={handleConfirm} disabled={importableRowsCount === 0}>
           <Icon name="upload" size={13} />
           {previewData.warningSummary?.hasWarnings
-            ? `Import with warnings (${importableRowsCount} ${importableRowsCount === 1 ? "license" : "licenses"})`
+            ? `Acknowledge warnings and import (${importableRowsCount} ${importableRowsCount === 1 ? "license" : "licenses"})`
             : `Import ${importableRowsCount} ${importableRowsCount === 1 ? "license" : "licenses"}`}
         </button>
       </div>

@@ -186,7 +186,6 @@ export function useCSVImportAnalysis({
     setMappingName("");
     setShowMatched(false);
     setUnmatchedColumns([]);
-    setSavedMappings([]);
     setSelectedMappingId(null);
     setUpdateExisting(false);
   };

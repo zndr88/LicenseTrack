@@ -67,7 +67,7 @@ describe("PreviewStep — warning summary", () => {
     expect(document.querySelector("[data-testid='csv-warning-summary']")).not.toBeNull();
   });
 
-  it("shows 'Import with warnings' button label when hasWarnings is true", () => {
+  it("shows an explicit warning acknowledgement button when hasWarnings is true", () => {
     const props = {
       ...defaultProps,
       previewData: {
@@ -84,8 +84,21 @@ describe("PreviewStep — warning summary", () => {
       },
     };
     render(<PreviewStep {...props} />);
-    const button = screen.getByRole("button", { name: /import with warnings/i });
+    const button = screen.getByRole("button", { name: /acknowledge warnings and import/i });
     expect(button).toBeTruthy();
+  });
+
+  it("closes the importer columns dialog with Escape and returns focus", () => {
+    render(<PreviewStep {...defaultProps} />);
+
+    const button = screen.getByRole("button", { name: "Choose importer columns" });
+    fireEvent.click(button);
+    const dialog = screen.getByRole("dialog", { name: "Importer columns" });
+
+    fireEvent.keyDown(dialog, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog", { name: "Importer columns" })).toBeNull();
+    expect(button).toHaveFocus();
   });
 
   it("shows standard 'Import N licenses' button label when no warnings", () => {

@@ -1899,6 +1899,101 @@ async def test_execute_import_audit_detail_contains_import_mode_mapped_csv(
     assert "insertedCount=1" in audit.detail
 
 
+async def test_confirm_expired_included_maintenance_requires_acknowledgement_and_audits_count(
+    test_app, db_session, auth_headers
+):
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type", "maintenance_coverage", "end_date"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Perpetual Widget",
+            "license_type": "perpetual",
+            "maintenance_coverage": "included",
+            "end_date": (date.today() - timedelta(days=1)).isoformat(),
+        }],
+    )
+
+    rejected = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("expired-support.csv", csv_bytes, "text/csv")},
+        data={"acknowledge_warnings": "false"},
+    )
+
+    assert rejected.status_code == 409, rejected.text
+    assert rejected.json()["detail"]["warningSummary"]["expiredMaintenanceCount"] == 1
+
+    accepted = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("expired-support.csv", csv_bytes, "text/csv")},
+        data={"acknowledge_warnings": "true"},
+    )
+
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["warningSummary"]["expiredMaintenanceCount"] == 1
+    assert accepted.json()["warningsAcknowledged"] is True
+
+    license_result = await db_session.scalar(
+        sa_select(License).where(License.software_description == "Perpetual Widget")
+    )
+    assert license_result is not None
+    assert license_result.license_type.value == "perpetual"
+    assert license_result.lifecycle_status is None
+
+    audit = await db_session.scalar(
+        sa_select(AuditLog)
+        .where(AuditLog.action == "license.csv_imported")
+        .order_by(AuditLog.id.desc())
+    )
+    assert audit is not None
+    assert "expiredMaintenanceCount=1" in audit.detail
+
+
+async def test_execute_expired_included_maintenance_requires_acknowledgement(
+    test_app, auth_headers
+):
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Type", "Includes Maintenance", "End Date"],
+        [{
+            "Publisher": "Acme",
+            "Description": "Mapped Perpetual Widget",
+            "Type": "perpetual",
+            "Includes Maintenance": "yes",
+            "End Date": (date.today() - timedelta(days=1)).isoformat(),
+        }],
+    )
+    mapping_json = json.dumps({
+        "mapping": [
+            {"rawHeader": "Publisher", "target": "publisher_name"},
+            {"rawHeader": "Description", "target": "software_description"},
+            {"rawHeader": "Type", "target": "license_type"},
+            {"rawHeader": "Includes Maintenance", "target": "maintenance_coverage"},
+            {"rawHeader": "End Date", "target": "end_date"},
+        ]
+    })
+
+    rejected = await test_app.post(
+        "/api/import/execute",
+        headers=auth_headers,
+        files={"file": ("expired-support-mapped.csv", csv_bytes, "text/csv")},
+        data={"mapping_json": mapping_json, "acknowledge_warnings": "false"},
+    )
+
+    assert rejected.status_code == 409, rejected.text
+    assert rejected.json()["detail"]["warningSummary"]["expiredMaintenanceCount"] == 1
+
+    accepted = await test_app.post(
+        "/api/import/execute",
+        headers=auth_headers,
+        files={"file": ("expired-support-mapped.csv", csv_bytes, "text/csv")},
+        data={"mapping_json": mapping_json, "acknowledge_warnings": "true"},
+    )
+
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["warningSummary"]["expiredMaintenanceCount"] == 1
+
+
 async def test_confirm_import_rejects_unrecognised_dates(
     test_app, auth_headers
 ):
