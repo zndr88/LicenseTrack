@@ -133,6 +133,163 @@ export function stubResponse(_method, _pathname) {
   return { data: null, error: DEMO_TOAST };
 }
 
+function demoReferenceUsage(reference, kind) {
+  const names = new Set([reference.name, ...(reference.aliases || []).map((alias) => alias.name)].map(demoReferenceNormalized));
+  const matches = (value) => value && names.has(demoReferenceNormalized(value));
+  if (kind === "organization") {
+    return {
+      licenses: store.licenses.filter((license) => matches(license.publisherName) || matches(license.supplier)).length,
+      contracts: store.contracts.filter((contract) => matches(contract.publisherName)).length,
+      sourcingRequests: store.sourcingRequests.filter((request) => matches(request.supplier)).length,
+      sourcingItems: store.sourcingItems.filter((item) => matches(item.publisherName) || matches(item.supplier)).length,
+      pendingOrders: store.pendingOrders.filter((order) => matches(order.supplier)).length,
+      total: store.licenses.filter((license) => matches(license.publisherName) || matches(license.supplier)).length
+        + store.contracts.filter((contract) => matches(contract.publisherName)).length
+        + store.sourcingRequests.filter((request) => matches(request.supplier)).length
+        + store.sourcingItems.filter((item) => matches(item.publisherName) || matches(item.supplier)).length
+        + store.pendingOrders.filter((order) => matches(order.supplier)).length,
+    };
+  }
+  const assignedViewers = Object.values(store.userDepartments).filter((departments) =>
+    departments.some(matches)
+  ).length;
+  const licenses = store.licenses.filter((license) => matches(license.costCentre)).length;
+  return {
+    licenses,
+    assignedViewers,
+    total: licenses + assignedViewers,
+  };
+}
+
+function demoReferenceResponse(reference, kind) {
+  return { ...reference, usage: demoReferenceUsage(reference, kind) };
+}
+
+function demoReferenceCollection(kind) {
+  return kind === "organization" ? store.organizations : store.costCentres;
+}
+
+function demoReferenceOr404(kind, id) {
+  const reference = demoReferenceCollection(kind).find((item) => item.id === Number(id));
+  if (!reference) throw new Error("Reference not found");
+  return reference;
+}
+
+function demoReferenceNormalized(value) {
+  return String(value ?? "").normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase();
+}
+
+function findDemoReference(kind, value) {
+  const normalized = demoReferenceNormalized(value);
+  if (!normalized) return null;
+  return demoReferenceCollection(kind).find((item) =>
+    item.normalizedName === normalized
+    || (item.aliases || []).some((alias) => alias.normalizedName === normalized)
+  ) || null;
+}
+
+function assertDemoReferenceNameAvailable(kind, value, ownerId = null) {
+  const owner = findDemoReference(kind, value);
+  if (owner && owner.id !== ownerId) throw new Error("A reference with this name or alias already exists");
+}
+
+function rewriteDemoReferenceMirrors(kind, previousNames, nextName) {
+  const normalizedNames = new Set(previousNames.map(demoReferenceNormalized));
+  const replace = (value) => normalizedNames.has(demoReferenceNormalized(value)) ? nextName : value;
+  if (kind === "organization") {
+    store.licenses.forEach((license) => { license.publisherName = replace(license.publisherName); license.supplier = replace(license.supplier); });
+    store.contracts.forEach((contract) => { contract.publisherName = replace(contract.publisherName); });
+    store.sourcingItems.forEach((item) => { item.publisherName = replace(item.publisherName); item.supplier = replace(item.supplier); });
+    store.sourcingRequests.forEach((item) => { item.supplier = replace(item.supplier); });
+    store.pendingOrders.forEach((item) => { item.supplier = replace(item.supplier); });
+  } else {
+    store.licenses.forEach((license) => { license.costCentre = replace(license.costCentre); });
+    for (const [userId, departments] of Object.entries(store.userDepartments)) {
+      store.userDepartments[userId] = [...new Set(departments.map(replace))];
+    }
+  }
+}
+
+function renameDemoReference(reference, kind, nextName) {
+  const name = nextName.trim();
+  const oldName = reference.name;
+  const oldNormalized = reference.normalizedName;
+  const nextNormalized = demoReferenceNormalized(name);
+  assertDemoReferenceNameAvailable(kind, name, reference.id);
+
+  if (nextNormalized !== oldNormalized) {
+    reference.aliases = (reference.aliases || []).filter((alias) => alias.normalizedName !== nextNormalized);
+    if (!(reference.aliases || []).some((alias) => alias.normalizedName === oldNormalized)) {
+      reference.aliases = [...(reference.aliases || []), {
+        id: nextId(), name: oldName, normalizedName: oldNormalized, createdAt: new Date().toISOString(),
+      }];
+    }
+  }
+  reference.name = name;
+  reference.normalizedName = nextNormalized;
+  rewriteDemoReferenceMirrors(kind, [oldName, ...(reference.aliases || []).map((alias) => alias.name)], name);
+}
+
+function mergeDemoReferences(kind, source, target) {
+  const transferredNames = [source.name, ...(source.aliases || []).map((alias) => alias.name)];
+  for (const name of transferredNames) {
+    const owner = findDemoReference(kind, name);
+    if (owner && owner.id !== source.id && owner.id !== target.id) throw new Error(`Cannot merge because ${name} belongs to another reference`);
+  }
+  if (kind === "organization") {
+    target.isPublisher = target.isPublisher || source.isPublisher;
+    target.isSupplier = target.isSupplier || source.isSupplier;
+  }
+  const aliases = [...(target.aliases || [])];
+  for (const name of transferredNames) {
+    const normalizedName = demoReferenceNormalized(name);
+    if (normalizedName === target.normalizedName || aliases.some((alias) => alias.normalizedName === normalizedName)) continue;
+    aliases.push({ id: nextId(), name, normalizedName, createdAt: new Date().toISOString() });
+  }
+  target.aliases = aliases;
+  rewriteDemoReferenceMirrors(kind, transferredNames, target.name);
+  const collection = demoReferenceCollection(kind);
+  if (kind === "organization") store.organizations = collection.filter((item) => item.id !== source.id);
+  else store.costCentres = collection.filter((item) => item.id !== source.id);
+}
+
+function ensureDemoOrganization(value, role) {
+  const name = String(value ?? "").trim();
+  if (!name) return null;
+  let reference = findDemoReference("organization", name);
+  if (reference && !reference.isActive) throw new Error(`${reference.name} is inactive`);
+  if (!reference) {
+    const now = new Date().toISOString();
+    reference = { id: nextId(), name, normalizedName: demoReferenceNormalized(name), isPublisher: false, isSupplier: false, isActive: true, aliases: [], createdAt: now, updatedAt: now };
+    store.organizations.push(reference);
+  }
+  if (role === "publisher") reference.isPublisher = true;
+  if (role === "supplier") reference.isSupplier = true;
+  return reference;
+}
+
+function ensureDemoCostCentre(value) {
+  const name = String(value ?? "").trim();
+  if (!name) return null;
+  let reference = findDemoReference("cost_centre", name);
+  if (reference && !reference.isActive) throw new Error(`${reference.name} is inactive`);
+  if (!reference) {
+    const now = new Date().toISOString();
+    reference = { id: nextId(), name, normalizedName: demoReferenceNormalized(name), isActive: true, aliases: [], createdAt: now, updatedAt: now };
+    store.costCentres.push(reference);
+  }
+  return reference;
+}
+
+function canonicalizeDemoReferenceFields(payload) {
+  const result = { ...(payload || {}) };
+  if (Object.hasOwn(result, "publisherName")) result.publisherName = ensureDemoOrganization(result.publisherName, "publisher")?.name || "";
+  if (Object.hasOwn(result, "publisher_name")) result.publisher_name = ensureDemoOrganization(result.publisher_name, "publisher")?.name || "";
+  if (Object.hasOwn(result, "supplier")) result.supplier = ensureDemoOrganization(result.supplier, "supplier")?.name || null;
+  if (Object.hasOwn(result, "costCentre")) result.costCentre = ensureDemoCostCentre(result.costCentre)?.name || null;
+  return result;
+}
+
 // UserResponse is snake_case - no camelCase alias (backend/app/schemas/user.py:8).
 const demoUser = {
   id: 1,
@@ -145,6 +302,15 @@ const demoUser = {
   is_break_glass_admin: false,
   must_change_password: false,
   created_at: datetimeDaysAgo(120),
+};
+
+const demoViewer = {
+  ...demoUser,
+  id: 2,
+  username: "viewer",
+  email: "viewer@example.com",
+  role: "viewer",
+  allow_downloads: false,
 };
 
 export const routes = [
@@ -162,7 +328,32 @@ export const routes = [
   { method: "POST", pattern: /^\/api\/auth\/logout$/, handler: async () => { resetStore(); return { data: null, error: null }; } },
   { method: "GET", pattern: /^\/api\/auth\/session$/, handler: async () => ({ data: { authenticated: store.seeded, user: store.seeded ? demoUser : null }, error: null }) },
   { method: "GET", pattern: /^\/api\/users\/me$/, handler: async () => ({ data: demoUser, error: null }) },
-  { method: "GET", pattern: /^\/api\/users$/, handler: async () => ({ data: [demoUser], error: null }) },
+  { method: "GET", pattern: /^\/api\/users$/, handler: async () => ({ data: [demoUser, demoViewer], error: null }) },
+  {
+    method: "GET", pattern: /^\/api\/users\/(?<id>\d+)\/departments$/,
+    handler: async ({ params }) => {
+      const userId = Number(params.id);
+      if (![demoUser.id, demoViewer.id].includes(userId)) throw new Error("User not found");
+      return { data: store.userDepartments[userId] || [], error: null };
+    },
+  },
+  {
+    method: "PUT", pattern: /^\/api\/users\/(?<id>\d+)\/departments$/,
+    handler: async ({ params, body }) => {
+      const userId = Number(params.id);
+      if (![demoUser.id, demoViewer.id].includes(userId)) throw new Error("User not found");
+      const current = new Set((store.userDepartments[userId] || []).map(demoReferenceNormalized));
+      const departments = [];
+      for (const requestedName of body?.departments || []) {
+        const reference = findDemoReference("cost_centre", requestedName);
+        if (!reference) throw new Error(`Unknown department: ${requestedName}`);
+        if (!reference.isActive && !current.has(reference.normalizedName)) throw new Error(`${reference.name} is inactive`);
+        if (!departments.includes(reference.name)) departments.push(reference.name);
+      }
+      store.userDepartments[userId] = departments;
+      return { data: departments, error: null };
+    },
+  },
 
   // Quiet read-only endpoints used by top-level pages and Admin tabs.
   // Side-effect endpoints stay unregistered and therefore show DEMO_TOAST.
@@ -175,6 +366,144 @@ export const routes = [
   { method: "GET", pattern: /^\/api\/webhooks$/, handler: async () => ({ data: [], error: null }) },
   { method: "GET", pattern: /^\/api\/backup\/list$/, handler: async () => ({ data: [], error: null }) },
   { method: "GET", pattern: /^\/api\/audit-log$/, handler: async () => ({ data: { results: [], total: 0 }, error: null }) },
+
+  // Reference-data management - mirrors the admin API in an isolated demo store.
+  {
+    method: "GET", pattern: /^\/api\/reference-data\/(?<kind>organizations|cost-centres)$/,
+    handler: async ({ params, query }) => {
+      const kind = params.kind === "organizations" ? "organization" : "cost_centre";
+      const search = demoReferenceNormalized(query.get("search") || "");
+      const active = query.get("active");
+      const role = query.get("role");
+      const data = demoReferenceCollection(kind)
+        .filter((item) => !search || demoReferenceNormalized(item.name).includes(search) || (item.aliases || []).some((alias) => demoReferenceNormalized(alias.name).includes(search)))
+        .filter((item) => active == null || String(item.isActive) === active)
+        .filter((item) => kind !== "organization" || !role || (role === "publisher" ? item.isPublisher : item.isSupplier))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((item) => demoReferenceResponse(item, kind));
+      return { data, error: null };
+    },
+  },
+  {
+    method: "POST", pattern: /^\/api\/reference-data\/(?<kind>organizations|cost-centres)$/,
+    handler: async ({ params, body }) => {
+      const kind = params.kind === "organizations" ? "organization" : "cost_centre";
+      const name = String(body?.name || "").trim();
+      if (!name) throw new Error("Name is required");
+      const collection = demoReferenceCollection(kind);
+      assertDemoReferenceNameAvailable(kind, name);
+      if (kind === "organization" && !body?.isPublisher && !body?.isSupplier) throw new Error("At least one organization role is required");
+      const item = kind === "organization"
+        ? { id: nextId(), name, normalizedName: demoReferenceNormalized(name), isPublisher: !!body.isPublisher, isSupplier: !!body.isSupplier, isActive: true, aliases: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+        : { id: nextId(), name, normalizedName: demoReferenceNormalized(name), isActive: true, aliases: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      collection.push(item);
+      return { data: demoReferenceResponse(item, kind), error: null };
+    },
+  },
+  {
+    method: "PATCH", pattern: /^\/api\/reference-data\/(?<kind>organizations|cost-centres)\/(?<id>\d+)$/,
+    handler: async ({ params, body }) => {
+      const kind = params.kind === "organizations" ? "organization" : "cost_centre";
+      const item = demoReferenceOr404(kind, params.id);
+      let nextPublisher;
+      let nextSupplier;
+      if (kind === "organization") {
+        nextPublisher = body?.isPublisher ?? item.isPublisher;
+        nextSupplier = body?.isSupplier ?? item.isSupplier;
+        if (!nextPublisher && !nextSupplier) throw new Error("At least one organization role is required");
+        const names = new Set([item.name, ...(item.aliases || []).map((alias) => alias.name)].map(demoReferenceNormalized));
+        const matches = (value) => names.has(demoReferenceNormalized(value));
+        if (item.isPublisher && !nextPublisher && (
+          store.licenses.some((license) => matches(license.publisherName))
+          || store.contracts.some((contract) => matches(contract.publisherName))
+          || store.sourcingItems.some((sourcingItem) => matches(sourcingItem.publisherName))
+        )) throw new Error("Publisher role cannot be removed while it is in use");
+        if (item.isSupplier && !nextSupplier && (
+          store.licenses.some((license) => matches(license.supplier))
+          || store.sourcingRequests.some((request) => matches(request.supplier))
+          || store.sourcingItems.some((sourcingItem) => matches(sourcingItem.supplier))
+          || store.pendingOrders.some((order) => matches(order.supplier))
+        )) throw new Error("Supplier role cannot be removed while it is in use");
+      }
+      if (Object.hasOwn(body || {}, "name")) {
+        const name = String(body.name || "").trim();
+        if (!name) throw new Error("Name is required");
+        renameDemoReference(item, kind, name);
+      }
+      if (kind === "organization") {
+        item.isPublisher = nextPublisher;
+        item.isSupplier = nextSupplier;
+      }
+      item.updatedAt = new Date().toISOString();
+      return { data: demoReferenceResponse(item, kind), error: null };
+    },
+  },
+  {
+    method: "POST", pattern: /^\/api\/reference-data\/(?<kind>organizations|cost-centres)\/(?<id>\d+)\/(?<action>activate|deactivate)$/,
+    handler: async ({ params }) => {
+      const kind = params.kind === "organizations" ? "organization" : "cost_centre";
+      const item = demoReferenceOr404(kind, params.id);
+      item.isActive = params.action === "activate";
+      return { data: demoReferenceResponse(item, kind), error: null };
+    },
+  },
+  {
+    method: "POST", pattern: /^\/api\/reference-data\/(?<kind>organizations|cost-centres)\/(?<id>\d+)\/aliases$/,
+    handler: async ({ params, body }) => {
+      const kind = params.kind === "organizations" ? "organization" : "cost_centre";
+      const item = demoReferenceOr404(kind, params.id);
+      const name = String(body?.name || "").trim();
+      if (!name) throw new Error("Alias name is required");
+      if (findDemoReference(kind, name)) throw new Error("This name or alias already exists");
+      item.aliases = [...(item.aliases || []), { id: nextId(), name, normalizedName: demoReferenceNormalized(name), createdAt: new Date().toISOString() }];
+      return { data: demoReferenceResponse(item, kind), error: null };
+    },
+  },
+  {
+    method: "DELETE", pattern: /^\/api\/reference-data\/(?<kind>organizations|cost-centres)\/(?<id>\d+)\/aliases\/(?<aliasId>\d+)$/,
+    handler: async ({ params }) => {
+      const kind = params.kind === "organizations" ? "organization" : "cost_centre";
+      const item = demoReferenceOr404(kind, params.id);
+      item.aliases = (item.aliases || []).filter((alias) => alias.id !== Number(params.aliasId));
+      return { data: null, error: null };
+    },
+  },
+  {
+    method: "GET", pattern: /^\/api\/reference-data\/(?<kind>organizations|cost-centres)\/(?<id>\d+)\/merge-preview$/,
+    handler: async ({ params, query }) => {
+      const kind = params.kind === "organizations" ? "organization" : "cost_centre";
+      const source = demoReferenceOr404(kind, params.id);
+      const target = demoReferenceOr404(kind, query.get("target_id"));
+      if (source.id === target.id) throw new Error("A reference cannot be merged into itself");
+      if (!target.isActive) throw new Error("The merge target must be active");
+      return { data: { sourceId: source.id, sourceName: source.name, targetId: target.id, targetName: target.name, sourceUsage: demoReferenceUsage(source, kind) }, error: null };
+    },
+  },
+  {
+    method: "POST", pattern: /^\/api\/reference-data\/(?<kind>organizations|cost-centres)\/(?<id>\d+)\/merge$/,
+    handler: async ({ params, body }) => {
+      const kind = params.kind === "organizations" ? "organization" : "cost_centre";
+      const source = demoReferenceOr404(kind, params.id);
+      const target = demoReferenceOr404(kind, body?.targetId);
+      if (source.id === target.id) throw new Error("A reference cannot be merged into itself");
+      if (!target.isActive) throw new Error("The merge target must be active");
+      const affected = demoReferenceUsage(source, kind);
+      mergeDemoReferences(kind, source, target);
+      return { data: { sourceId: source.id, targetId: target.id, targetName: target.name, affected }, error: null };
+    },
+  },
+  {
+    method: "DELETE", pattern: /^\/api\/reference-data\/(?<kind>organizations|cost-centres)\/(?<id>\d+)$/,
+    handler: async ({ params }) => {
+      const kind = params.kind === "organizations" ? "organization" : "cost_centre";
+      const item = demoReferenceOr404(kind, params.id);
+      if ((demoReferenceUsage(item, kind).total ?? 0) > 0) throw new Error("This reference is still in use");
+      const collection = demoReferenceCollection(kind).filter((candidate) => candidate.id !== item.id);
+      if (kind === "organization") store.organizations = collection;
+      else store.costCentres = collection;
+      return { data: null, error: null };
+    },
+  },
 
   // Contracts - in-memory records, folders, document metadata and linked
   // license lookup. Uploads/downloads are browser-local demo placeholders:
@@ -194,10 +523,11 @@ export const routes = [
     method: "POST", pattern: /^\/api\/contracts$/,
     handler: async ({ body }) => {
       const contractNumber = body?.contract_number?.trim();
-      const publisherName = body?.publisher_name?.trim();
-      if (!contractNumber || !publisherName) {
+      const requestedPublisher = body?.publisher_name?.trim();
+      if (!contractNumber || !requestedPublisher) {
         throw new Error("Contract number and publisher name are required.");
       }
+      const publisherName = ensureDemoOrganization(requestedPublisher, "publisher").name;
       const now = new Date().toISOString();
       const contract = {
         id: nextId(),
@@ -225,7 +555,7 @@ export const routes = [
       const contract = findContractOr404(Number(params.id));
       const oldContractNumber = contract.contractNumber;
       if (body?.contract_number != null) contract.contractNumber = body.contract_number.trim();
-      if (body?.publisher_name != null) contract.publisherName = body.publisher_name.trim();
+      if (body?.publisher_name != null) contract.publisherName = ensureDemoOrganization(body.publisher_name, "publisher")?.name || "";
       if (Object.hasOwn(body ?? {}, "notes")) contract.notes = body.notes ?? null;
       renameContractNumberOnLicenses(oldContractNumber, contract.contractNumber);
       return { data: buildContractResponse(contract), error: null };
@@ -641,12 +971,17 @@ export const routes = [
         throw new Error(`Field '${field}' is not allowed. Allowed: ${[...FIELD_PATCH_ALLOWED].join(", ")}`);
       }
 
+      let resolvedValue = value;
+      if (field === "publisherName") resolvedValue = ensureDemoOrganization(value, "publisher")?.name || "";
+      if (field === "supplier") resolvedValue = ensureDemoOrganization(value, "supplier")?.name || null;
+      if (field === "costCentre") resolvedValue = ensureDemoCostCentre(value)?.name || null;
+
       if (field === "contractNumber") {
         license.contractNumber = value || "";
       } else if (DATE_PATCH_FIELDS.has(field)) {
         license[field] = value || null;
       } else {
-        license[field] = value;
+        license[field] = resolvedValue;
       }
       decorateLicense(license);
 
@@ -702,7 +1037,7 @@ export const routes = [
         const now = new Date().toISOString();
         const id = nextId();
         const license = buildLicense({
-          ...item.license,
+          ...canonicalizeDemoReferenceFields(item.license),
           ...(parentLineIndex == null ? {} : { parentLicenseId: pending[parentLineIndex].id }),
           id,
           licenseRef: `LT-2026-${String(id).padStart(4, "0")}`,
@@ -732,7 +1067,7 @@ export const routes = [
       const now = new Date().toISOString();
       const id = nextId();
       const license = buildLicense({
-        ...body,
+        ...canonicalizeDemoReferenceFields(body),
         id,
         // Real backend always generates an LT-Ref on create (routes/licenses.py:179)
         licenseRef: `LT-2026-${String(id).padStart(4, "0")}`,
@@ -761,7 +1096,7 @@ export const routes = [
     method: "PUT", pattern: /^\/api\/licenses\/(?<id>\d+)$/,
     handler: async ({ params, body }) => {
       const license = findLicenseOr404(Number(params.id));
-      Object.assign(license, body ?? {});
+      Object.assign(license, canonicalizeDemoReferenceFields(body));
       decorateLicense(license);
       return { data: withComputedCompleteness(license), error: null };
     },
@@ -811,11 +1146,12 @@ export const routes = [
     // Mirrors backend/app/routes/sourcing_requests.py:40-61 create_sourcing_request.
     method: "POST", pattern: /^\/api\/sourcing\/requests$/,
     handler: async ({ body }) => {
-      const itemPayloads = body?.items ?? [];
-      if (itemPayloads.length === 0) {
+      if ((body?.items ?? []).length === 0) {
         throw new Error("At least one sourcing item is required");
       }
-      let requestSupplier = cleanProcurementIdentity(body?.supplier);
+      const requestPayload = canonicalizeDemoReferenceFields(body);
+      const itemPayloads = body.items.map(canonicalizeDemoReferenceFields);
+      let requestSupplier = cleanProcurementIdentity(requestPayload.supplier);
       let requestContact = cleanProcurementIdentity(body?.contactEmail);
       for (const itemPayload of itemPayloads.filter((item) => item.parentItemIndex == null)) {
         const itemSupplier = cleanProcurementIdentity(itemPayload.supplier);
@@ -834,7 +1170,7 @@ export const routes = [
         id: nextId(),
         supplier: requestSupplier,
         contactEmail: requestContact,
-        notes: body?.notes ?? null,
+        notes: requestPayload.notes ?? null,
         status: "sourcing",
         createdAt: now,
         updatedAt: now,
@@ -883,7 +1219,8 @@ export const routes = [
       if (request.status === "converted") {
         throw new Error("Cannot add items to a converted sourcing request");
       }
-      const proposedSupplier = cleanProcurementIdentity(body?.supplier);
+      const itemPayload = canonicalizeDemoReferenceFields(body);
+      const proposedSupplier = cleanProcurementIdentity(itemPayload.supplier);
       const proposedContact = cleanProcurementIdentity(body?.contactEmail);
       if (request.supplier && proposedSupplier && !procurementIdentitiesMatch(request.supplier, proposedSupplier)) {
         throw new Error("The line supplier conflicts with the sourcing request supplier");
@@ -900,7 +1237,7 @@ export const routes = [
         synchronizeOpenSourcingRequestIdentity(request, { contactEmail: proposedContact });
       }
       store.sourcingItems.push(buildSourcingItem({
-        ...(body ?? {}),
+        ...itemPayload,
         supplier: request.supplier,
         contactEmail: request.contactEmail,
       }, { sourcingRequestId: request.id, status: "sourcing" }));
@@ -952,11 +1289,12 @@ export const routes = [
     method: "POST", pattern: /^\/api\/sourcing\/requests\/(?<id>\d+)\/convert$/,
     handler: async ({ params, body }) => {
       const request = findSourcingRequestOr404(Number(params.id));
+      const conversion = canonicalizeDemoReferenceFields(body);
       const order = convertSourcingRequestToOrder(request, {
-        pendingOrderId: body?.pendingOrderId ?? null,
-        poNumber: body?.poNumber ?? null,
-        supplier: body?.supplier ?? null,
-        notes: body?.notes ?? null,
+        pendingOrderId: conversion.pendingOrderId ?? null,
+        poNumber: conversion.poNumber ?? null,
+        supplier: conversion.supplier ?? null,
+        notes: conversion.notes ?? null,
       });
       return { data: order, error: null };
     },
@@ -967,8 +1305,9 @@ export const routes = [
     method: "PUT", pattern: /^\/api\/sourcing\/requests\/(?<id>\d+)$/,
     handler: async ({ params, body }) => {
       const request = findSourcingRequestOr404(Number(params.id));
+      const requestPayload = canonicalizeDemoReferenceFields(body);
       synchronizeOpenSourcingRequestIdentity(request, {
-        ...(body && Object.prototype.hasOwnProperty.call(body, "supplier") ? { supplier: body.supplier } : {}),
+        ...(body && Object.prototype.hasOwnProperty.call(body, "supplier") ? { supplier: requestPayload.supplier } : {}),
         ...(body && Object.prototype.hasOwnProperty.call(body, "contactEmail")
           ? { contactEmail: body.contactEmail }
           : {}),
@@ -1021,11 +1360,12 @@ export const routes = [
     method: "POST", pattern: /^\/api\/sourcing\/(?<id>\d+)\/convert$/,
     handler: async ({ params, body }) => {
       const item = findSourcingItemOr404(Number(params.id));
+      const conversion = canonicalizeDemoReferenceFields(body);
       const order = convertSourcingItemToOrder(item, {
-        pendingOrderId: body?.pendingOrderId ?? null,
-        poNumber: body?.poNumber ?? null,
-        supplier: body?.supplier ?? null,
-        notes: body?.notes ?? null,
+        pendingOrderId: conversion.pendingOrderId ?? null,
+        poNumber: conversion.poNumber ?? null,
+        supplier: conversion.supplier ?? null,
+        notes: conversion.notes ?? null,
       });
       return { data: order, error: null };
     },
@@ -1042,13 +1382,14 @@ export const routes = [
     handler: async ({ params, body }) => {
       const item = findSourcingItemOr404(Number(params.id));
       assertSourcingItemEditable(item);
+      const itemPayload = canonicalizeDemoReferenceFields(body);
       const allowed = [
         "publisherName", "softwareDescription", "licenseType", "quantity", "estimatedUnitPrice", "estimatedTotalPrice",
         "currency", "startDate", "endDate", "notes", "status",
       ];
       for (const field of allowed) {
         if (body && Object.prototype.hasOwnProperty.call(body, field)) {
-          item[field] = body[field];
+          item[field] = itemPayload[field];
         }
       }
       const sourcingRequest = store.sourcingRequests.find(
@@ -1057,7 +1398,7 @@ export const routes = [
       if (sourcingRequest) {
         synchronizeOpenSourcingRequestIdentity(sourcingRequest, {
           ...(body && Object.prototype.hasOwnProperty.call(body, "supplier")
-            ? { supplier: body.supplier }
+            ? { supplier: itemPayload.supplier }
             : {}),
           ...(body && Object.prototype.hasOwnProperty.call(body, "contactEmail")
             ? { contactEmail: body.contactEmail }
@@ -1065,7 +1406,7 @@ export const routes = [
         });
       } else {
         if (body && Object.prototype.hasOwnProperty.call(body, "supplier")) {
-          item.supplier = cleanProcurementIdentity(body.supplier);
+          item.supplier = cleanProcurementIdentity(itemPayload.supplier);
         }
         if (body && Object.prototype.hasOwnProperty.call(body, "contactEmail")) {
           item.contactEmail = cleanProcurementIdentity(body.contactEmail);
@@ -1110,7 +1451,7 @@ export const routes = [
     // Mirrors backend/app/routes/sourcing_items.py:161-185 create_sourcing_item.
     method: "POST", pattern: /^\/api\/sourcing$/,
     handler: async ({ body }) => {
-      const item = buildSourcingItem(body ?? {});
+      const item = buildSourcingItem(canonicalizeDemoReferenceFields(body));
       store.sourcingItems.push(item);
       ensureSourcingRequestForItem(item);
       return { data: item, error: null };
@@ -1131,7 +1472,7 @@ export const routes = [
     method: "POST", pattern: /^\/api\/pending-orders\/(?<id>\d+)\/convert$/,
     handler: async ({ params, body }) => {
       const order = findPendingOrderOr404(Number(params.id));
-      return { data: convertPendingOrderToLicenses(order, body ?? {}), error: null };
+      return { data: convertPendingOrderToLicenses(order, canonicalizeDemoReferenceFields(body)), error: null };
     },
   },
   {
@@ -1140,7 +1481,8 @@ export const routes = [
     method: "POST", pattern: /^\/api\/pending-orders\/(?<id>\d+)\/convert-all$/,
     handler: async ({ params, body }) => {
       const order = findPendingOrderOr404(Number(params.id));
-      return { data: batchConvertPendingOrderToLicenses(order, body ?? []), error: null };
+      const payload = (body ?? []).map(canonicalizeDemoReferenceFields);
+      return { data: batchConvertPendingOrderToLicenses(order, payload), error: null };
     },
   },
   {
@@ -1148,7 +1490,8 @@ export const routes = [
     method: "POST", pattern: /^\/api\/pending-orders\/(?<id>\d+)\/items\/bulk$/,
     handler: async ({ params, body }) => {
       const order = findPendingOrderOr404(Number(params.id));
-      return { data: addPendingOrderItemsBulk(order, body ?? []), error: null };
+      const payload = (body ?? []).map(canonicalizeDemoReferenceFields);
+      return { data: addPendingOrderItemsBulk(order, payload), error: null };
     },
   },
   {
@@ -1161,9 +1504,10 @@ export const routes = [
       const itemId = Number(params.itemId);
       const item = store.sourcingItems.find((i) => i.id === itemId && i.pendingOrderId === order.id);
       if (!item) throw new Error("Pending order item not found");
+      const itemPayload = canonicalizeDemoReferenceFields(body);
       for (const field of PO_ITEM_UPDATE_FIELDS) {
         if (body && Object.prototype.hasOwnProperty.call(body, field)) {
-          item[field] = body[field];
+          item[field] = itemPayload[field];
         }
       }
       if (item.licenseType === "freeware") {
@@ -1223,14 +1567,17 @@ export const routes = [
   {
     // Mirrors backend/app/routes/pending_order_core.py:53-74 create_pending_order.
     method: "POST", pattern: /^\/api\/pending-orders$/,
-    handler: async ({ body }) => ({
-      data: createPendingOrderRecord({
-        poNumber: body?.poNumber,
-        supplier: body?.supplier ?? null,
-        notes: body?.notes ?? null,
-      }),
-      error: null,
-    }),
+    handler: async ({ body }) => {
+      const orderPayload = canonicalizeDemoReferenceFields(body);
+      return {
+        data: createPendingOrderRecord({
+          poNumber: orderPayload.poNumber,
+          supplier: orderPayload.supplier ?? null,
+          notes: orderPayload.notes ?? null,
+        }),
+        error: null,
+      };
+    },
   },
   {
     method: "GET", pattern: /^\/api\/pending-orders\/(?<id>\d+)$/,
@@ -1243,9 +1590,10 @@ export const routes = [
     handler: async ({ params, body }) => {
       const order = findPendingOrderOr404(Number(params.id));
       ensurePendingOrderEditable(order, "update");
+      const orderPayload = canonicalizeDemoReferenceFields(body);
       for (const field of ["poNumber", "supplier", "notes", "status"]) {
         if (body && Object.prototype.hasOwnProperty.call(body, field)) {
-          order[field] = body[field];
+          order[field] = orderPayload[field];
         }
       }
       order.updatedAt = new Date().toISOString();

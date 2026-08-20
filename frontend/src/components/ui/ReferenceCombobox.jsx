@@ -37,6 +37,7 @@ const ReferenceCombobox = forwardRef(function ReferenceCombobox({
   disabled = false,
   autoFocus = false,
   allowCreate = true,
+  excludedReferenceIds = [],
   style,
   onKeyDown: externalKeyDown,
   onFocus: externalFocus,
@@ -92,7 +93,9 @@ const ReferenceCombobox = forwardRef(function ReferenceCombobox({
 
   const searchIsCurrent = debouncedSearch.length >= MIN_SEARCH_LENGTH
     && normalizeReferenceSearch(debouncedSearch) === normalizedSearch;
-  const visibleOptions = searchIsCurrent ? options : [];
+  const visibleOptions = searchIsCurrent
+    ? options.filter((item) => !excludedReferenceIds.includes(item.id))
+    : [];
   const exactReferenceMatch = visibleOptions.some((item) => (
     [item.name, ...(item.aliases || []).map((alias) => alias.name)]
       .some((candidate) => normalizeReferenceSearch(candidate) === normalizedSearch)

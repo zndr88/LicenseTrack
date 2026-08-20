@@ -60,7 +60,17 @@ export function invalidateCustomFieldDefinitions(queryClient) {
 }
 
 export function invalidateReferenceData(queryClient) {
-  return queryClient.invalidateQueries({ queryKey: queryKeys.referenceData });
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.referenceData }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.licenses }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.contracts }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.sourcing }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.sourcingHistory }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.sourcingItems }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.renewals }),
+  ]);
 }
 
 // Invalidate the contracts query.

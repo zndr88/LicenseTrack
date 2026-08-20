@@ -1,4 +1,4 @@
-import { get } from "./client.js";
+import { del, get, patch, post } from "./client.js";
 
 const REFERENCE_PATHS = {
   organization: ["organizations", null],
@@ -58,4 +58,53 @@ export async function getCostCentres({ active } = {}) {
   return result.error
     ? result
     : { data: (result.data || []).map(normalizeReference), error: null };
+}
+
+function referencePath(kind) {
+  return kind === "organization" ? "/api/reference-data/organizations" : "/api/reference-data/cost-centres";
+}
+
+export async function listReferenceData(kind, { search = "", active } = {}) {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  if (active !== undefined) params.set("active", String(active));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const result = await get(`${referencePath(kind)}${suffix}`);
+  return result.error ? result : { data: (result.data || []).map(normalizeReference), error: null };
+}
+
+export async function createReference(kind, payload) {
+  const result = await post(referencePath(kind), payload);
+  return result.error ? result : { data: normalizeReference(result.data), error: null };
+}
+
+export async function updateReference(kind, id, payload) {
+  const result = await patch(`${referencePath(kind)}/${id}`, payload);
+  return result.error ? result : { data: normalizeReference(result.data), error: null };
+}
+
+export async function setReferenceActive(kind, id, active) {
+  const result = await post(`${referencePath(kind)}/${id}/${active ? "activate" : "deactivate"}`, {});
+  return result.error ? result : { data: normalizeReference(result.data), error: null };
+}
+
+export async function deleteReference(kind, id) {
+  return del(`${referencePath(kind)}/${id}`);
+}
+
+export async function addReferenceAlias(kind, id, name) {
+  const result = await post(`${referencePath(kind)}/${id}/aliases`, { name });
+  return result.error ? result : { data: normalizeReference(result.data), error: null };
+}
+
+export async function deleteReferenceAlias(kind, id, aliasId) {
+  return del(`${referencePath(kind)}/${id}/aliases/${aliasId}`);
+}
+
+export async function mergeReferences(kind, sourceId, targetId) {
+  return post(`${referencePath(kind)}/${sourceId}/merge`, { targetId });
+}
+
+export async function previewReferenceMerge(kind, sourceId, targetId) {
+  return get(`${referencePath(kind)}/${sourceId}/merge-preview?target_id=${targetId}`);
 }

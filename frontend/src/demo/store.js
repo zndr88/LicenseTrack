@@ -16,6 +16,9 @@ export const store = {
   sourcingItems: [],
   sourcingRequests: [],
   pendingOrders: [],
+  organizations: [],
+  costCentres: [],
+  userDepartments: {},
   userSettings: {},
   globalSettings: {},
   seeded: false,
@@ -1828,6 +1831,9 @@ export function resetStore() {
   store.sourcingItems = [];
   store.sourcingRequests = [];
   store.pendingOrders = [];
+  store.organizations = [];
+  store.costCentres = [];
+  store.userDepartments = {};
   resetSettings();
   store.seeded = false;
   store._nextId = 1000;
@@ -1841,6 +1847,31 @@ export function seedStore() {
   store.sourcingItems = seed.sourcingItems;
   store.sourcingRequests = seed.sourcingRequests;
   store.pendingOrders = seed.pendingOrders;
+  const organizations = new Map();
+  const organizationValues = [
+    ...store.licenses.flatMap((license) => [[license.publisherName, "publisher"], [license.supplier, "supplier"]]),
+    ...store.contracts.map((contract) => [contract.publisherName, "publisher"]),
+    ...store.sourcingRequests.map((request) => [request.supplier, "supplier"]),
+    ...store.sourcingItems.flatMap((item) => [[item.publisherName, "publisher"], [item.supplier, "supplier"]]),
+    ...store.pendingOrders.map((order) => [order.supplier, "supplier"]),
+  ];
+  for (const [name, role] of organizationValues) {
+    if (!name) continue;
+    const key = name.trim().toLowerCase();
+    const record = organizations.get(key) || { id: 500 + organizations.size, name, normalizedName: key, isPublisher: false, isSupplier: false, isActive: true, aliases: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    if (role === "publisher") record.isPublisher = true;
+    if (role === "supplier") record.isSupplier = true;
+    organizations.set(key, record);
+  }
+  store.organizations = [...organizations.values()];
+  const costCentres = new Map();
+  for (const license of store.licenses) {
+    if (!license.costCentre) continue;
+    const key = license.costCentre.trim().toLowerCase();
+    costCentres.set(key, costCentres.get(key) || { id: 700 + costCentres.size, name: license.costCentre, normalizedName: key, isActive: true, aliases: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  }
+  store.costCentres = [...costCentres.values()];
+  store.userDepartments = { 2: store.costCentres[0] ? [store.costCentres[0].name] : [] };
   resetSettings();
   store.seeded = true;
 }

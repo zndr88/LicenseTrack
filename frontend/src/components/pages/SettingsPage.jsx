@@ -24,9 +24,11 @@ import BackupSection from "../settings/sections/BackupSection.jsx";
 import RestoreSection from "../settings/sections/RestoreSection.jsx";
 import PortfolioResetSection from "../settings/sections/PortfolioResetSection.jsx";
 import RenewalsSection from "../settings/sections/RenewalsSection.jsx";
+import ReferenceDataSection from "../settings/sections/ReferenceDataSection.jsx";
 
 const ADMIN_GROUPS = [
   { id: "general", label: "General" },
+  { id: "dataManagement", label: "Data Management" },
   { id: "integrations", label: "Integrations" },
   { id: "operations", label: "Operations" },
 ];
@@ -56,6 +58,7 @@ export default function SettingsPage({
     password: false, appearance: false, visibleCategories: false,
     storage: false, notifications: false, renewals: false, smtp: false, oidc: false,
     completeness: false, customFields: false, importMappings: false,
+    organizations: false, costCentres: false,
     apiTokens: false, webhooks: false, extensions: false, plugins: false, backup: false, restore: false,
     portfolioReset: false,
   });
@@ -115,9 +118,25 @@ export default function SettingsPage({
                 <RenewalsSection {...sharedDirty("renewals")} {...sharedAdmin} />
                 <SmtpSection {...sharedDirty("smtp")} {...sharedAdmin} />
                 <OidcSection {...sharedDirty("oidc")} {...sharedAdmin} />
-                <CompletenessSection {...sharedDirty("completeness")} {...sharedAdmin} onRefreshLicenses={onRefreshLicenses} onCompletenessRulesChanged={onCompletenessRulesChanged} />
-                <CustomFieldsSection {...sharedDirty("customFields")} onError={onError} onToast={onToast} onCustomFieldsChanged={onCustomFieldsChanged} />
-                <ImportMappingsSection {...sharedDirty("importMappings")} onError={onError} onToast={onToast} />
+              </>
+            )}
+
+            {adminGroup === "dataManagement" && (
+              <>
+                <div className="set-management-group">
+                  <div className="set-management-heading"><strong>Reference Data</strong><span>Canonical companies and organizational units used throughout LicenseTrack.</span></div>
+                  <ReferenceDataSection kind="organization" {...sharedDirty("organizations")} onError={onError} onToast={onToast} />
+                  <ReferenceDataSection kind="cost_centre" {...sharedDirty("costCentres")} onError={onError} onToast={onToast} />
+                </div>
+                <div className="set-management-group">
+                  <div className="set-management-heading"><strong>License Configuration</strong><span>Define completeness rules and portfolio-specific fields.</span></div>
+                  <CompletenessSection {...sharedDirty("completeness")} {...sharedAdmin} onRefreshLicenses={onRefreshLicenses} onCompletenessRulesChanged={onCompletenessRulesChanged} />
+                  <CustomFieldsSection {...sharedDirty("customFields")} onError={onError} onToast={onToast} onCustomFieldsChanged={onCustomFieldsChanged} />
+                </div>
+                <div className="set-management-group">
+                  <div className="set-management-heading"><strong>Import Configuration</strong><span>Maintain reusable mappings for external CSV formats.</span></div>
+                  <ImportMappingsSection {...sharedDirty("importMappings")} onError={onError} onToast={onToast} />
+                </div>
               </>
             )}
 

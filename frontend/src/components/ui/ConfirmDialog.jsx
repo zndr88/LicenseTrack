@@ -2,7 +2,16 @@ import React from "react";
 import Icon from "./Icon.jsx";
 import ModalShell from "./ModalShell.jsx";
 
-const ConfirmDialog = ({ title, message, confirmLabel, cancelLabel, danger, onConfirm, onCancel }) => {
+const ConfirmDialog = ({
+  title,
+  message,
+  confirmLabel,
+  cancelLabel,
+  danger,
+  confirmDisabled = false,
+  onConfirm,
+  onCancel,
+}) => {
   return (
     <ModalShell
       title={title || "Confirm"}
@@ -13,7 +22,7 @@ const ConfirmDialog = ({ title, message, confirmLabel, cancelLabel, danger, onCo
       footer={(
         <>
           <button className="btn btn-g" onClick={onCancel}>{cancelLabel || "Cancel"}</button>
-          <button className={`btn ${danger ? "btn-d" : "btn-p"}`} onClick={onConfirm}>
+          <button className={`btn ${danger ? "btn-d" : "btn-p"}`} onClick={onConfirm} disabled={confirmDisabled}>
             {confirmLabel || "Confirm"}
           </button>
         </>
@@ -25,7 +34,7 @@ const ConfirmDialog = ({ title, message, confirmLabel, cancelLabel, danger, onCo
             <Icon name="alert" size={20} color={danger ? "var(--red)" : "var(--orange)"} />
           </div>
           <div>
-            <p className="confirm-dialog-message">{message}</p>
+            <div className="confirm-dialog-message">{message}</div>
           </div>
         </div>
       </div>
