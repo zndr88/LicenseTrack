@@ -162,7 +162,7 @@ async def merge_coterm_sourcing_items(
     }
 
     try:
-        merged = build_merged_sourcing_item(items, predecessors, created_by=current_user.id)
+        merged = await build_merged_sourcing_item(db, items, predecessors, created_by=current_user.id)
     except MoneyParseError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.add(merged)
@@ -218,9 +218,9 @@ async def create_sourcing_item(
     item_data = payload.model_dump(by_alias=False)
     item_data.pop("parent_item_index", None)
     item = SourcingItem(**item_data, created_by=current_user.id)
+    await ensure_sourcing_request_for_item(db, item, created_by=current_user.id)
     db.add(item)
     await db.flush()
-    await ensure_sourcing_request_for_item(db, item, created_by=current_user.id)
 
     ip = request.client.host if request.client else None
     await log_event(
@@ -271,7 +271,7 @@ async def update_sourcing_item(
     if update_data.get("license_type", item.license_type) == LicenseType.freeware:
         update_data["estimated_unit_price"] = None
         update_data["estimated_total_price"] = None
-    apply_sourcing_item_update(item, sourcing_request, update_data)
+    await apply_sourcing_item_update(db, item, sourcing_request, update_data)
     after = {c.name: getattr(item, c.name) for c in item.__table__.columns}
 
     diff = diff_fields(

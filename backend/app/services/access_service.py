@@ -17,14 +17,16 @@ def can_download_documents(user: User) -> bool:
     return not is_viewer(user) or bool(getattr(user, "allow_downloads", True))
 
 
-async def get_viewer_departments(user_id: int, db: AsyncSession) -> list[str]:
+async def get_viewer_departments(user_id: int, db: AsyncSession) -> list[int]:
     """
-    Returns the list of assigned departments for a viewer.
+    Returns the canonical cost-centre IDs assigned to a viewer.
     Returns None for admin/editor callers - callers must check role first.
     An empty list means the viewer has no departments assigned (sees zero records).
     """
-    result = await db.execute(select(UserDepartmentAccess.department).where(UserDepartmentAccess.user_id == user_id))
-    return [row[0] for row in result.all()]
+    result = await db.execute(
+        select(UserDepartmentAccess.cost_centre_id).where(UserDepartmentAccess.user_id == user_id)
+    )
+    return [row[0] for row in result.all() if row[0] is not None]
 
 
 def apply_department_filter(query, departments: list[str] | None):
@@ -38,10 +40,10 @@ def apply_department_filter(query, departments: list[str] | None):
         return query
     if len(departments) == 0:
         return query.where(False)
-    return query.where(License.cost_centre.in_(departments))
+    return query.where(License.cost_centre_id.in_(departments))
 
 
-async def get_user_departments_for_scope(user: User, db: AsyncSession) -> list[str] | None:
+async def get_user_departments_for_scope(user: User, db: AsyncSession) -> list[int] | None:
     """Return viewer departments, or None for roles with unrestricted read scope."""
     if not is_viewer(user):
         return None
@@ -53,7 +55,7 @@ async def can_view_license(user: User, license_obj: License, db: AsyncSession) -
     departments = await get_user_departments_for_scope(user, db)
     if departments is None:
         return True
-    return bool(license_obj.cost_centre and license_obj.cost_centre in departments)
+    return bool(license_obj.cost_centre_id and license_obj.cost_centre_id in departments)
 
 
 async def can_view_contract(user: User, contract: Contract, db: AsyncSession) -> bool:
@@ -68,7 +70,7 @@ async def can_view_contract(user: User, contract: Contract, db: AsyncSession) ->
         select(License.id)
         .where(
             func.lower(func.trim(License.contract_number)) == normalize_contract_number(contract.contract_number),
-            License.cost_centre.in_(departments),
+            License.cost_centre_id.in_(departments),
         )
         .limit(1)
     )

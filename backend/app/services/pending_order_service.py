@@ -20,6 +20,8 @@ from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.pending_order import PendingOrderCreate, PendingOrderResponse, PendingOrderUpdate, SourcingItemSummary
 from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate, SourcingQuoteDocumentResponse
 from app.services.document_availability_service import with_file_availability
+from app.services.reference_data_service import resolve_organization, resolve_procurement_reference_fields
+from app.services.sourcing_service import resolve_sourcing_item_references
 
 
 def to_pending_order_response(order: PendingOrder, storage_base: str | None = None) -> PendingOrderResponse:
@@ -199,6 +201,14 @@ async def create_pending_order_record(
     create_data = payload.model_dump(by_alias=False)
     create_data["po_number"] = (create_data.get("po_number") or "").strip()
     create_data["procurement_reference"] = (create_data.get("procurement_reference") or "").strip()
+    supplier_value = create_data.get("supplier")
+    if isinstance(supplier_value, str) and supplier_value.strip():
+        supplier = await resolve_organization(db, supplier_value, role="supplier", create_if_missing=True)
+        create_data["supplier"] = supplier.name
+        create_data["supplier_id"] = supplier.id
+    else:
+        create_data["supplier"] = None
+        create_data["supplier_id"] = None
     order = PendingOrder(**create_data, created_by=created_by)
     db.add(order)
     await db.flush()
@@ -219,6 +229,15 @@ async def apply_pending_order_update(
         update_data["po_number"] = (update_data.get("po_number") or "").strip()
     if "procurement_reference" in update_data:
         update_data["procurement_reference"] = (update_data.get("procurement_reference") or "").strip()
+    if "supplier" in update_data:
+        supplier_value = update_data.get("supplier")
+        if isinstance(supplier_value, str) and supplier_value.strip():
+            supplier = await resolve_organization(db, supplier_value, role="supplier", create_if_missing=True)
+            update_data["supplier"] = supplier.name
+            update_data["supplier_id"] = supplier.id
+        else:
+            update_data["supplier"] = None
+            update_data["supplier_id"] = None
     if "status" in update_data and update_data["status"] not in {
         PendingOrderStatus.pending,
         PendingOrderStatus.invoice_received,
@@ -291,7 +310,9 @@ async def add_pending_order_item_record(
     order = await get_pending_order_or_404(db, order_id, include_items=True)
     ensure_pending_order_editable(order, action="add items to")
 
-    db.add(_build_pending_order_item(payload, order_id=order_id, created_by=created_by))
+    item = _build_pending_order_item(payload, order_id=order_id, created_by=created_by)
+    await resolve_sourcing_item_references(db, item)
+    db.add(item)
     return order
 
 
@@ -309,7 +330,9 @@ async def add_pending_order_items_bulk_record(
     ensure_pending_order_editable(order, action="add items to")
 
     for item_payload in payload:
-        db.add(_build_pending_order_item(item_payload, order_id=order_id, created_by=created_by))
+        item = _build_pending_order_item(item_payload, order_id=order_id, created_by=created_by)
+        await resolve_sourcing_item_references(db, item)
+        db.add(item)
 
     return order
 
@@ -326,6 +349,18 @@ async def update_pending_order_item_record(
     item = _find_order_item(order, item_id)
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
     update_data.pop("status", None)
+    if "publisher_name" in update_data or "supplier" in update_data:
+        reference_data = {
+            "publisher_name": update_data.get("publisher_name", item.publisher_name),
+            "supplier": update_data.get("supplier", item.supplier),
+        }
+        await resolve_procurement_reference_fields(db, reference_data, publisher_required=True)
+        if "publisher_name" in update_data:
+            update_data["publisher_name"] = reference_data["publisher_name"]
+            update_data["publisher_id"] = reference_data["publisher_id"]
+        if "supplier" in update_data:
+            update_data["supplier"] = reference_data["supplier"]
+            update_data["supplier_id"] = reference_data["supplier_id"]
     for field, value in update_data.items():
         setattr(item, field, value)
 

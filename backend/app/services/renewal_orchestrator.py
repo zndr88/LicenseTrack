@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType
+from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
 from app.services.audit_service import log_event
@@ -21,6 +22,7 @@ from app.services.lifecycle_rules import (
 from app.services.maintenance_service import sync_parent_mirror_fields, validate_parent_license
 from app.services.maintenance_rules import default_maintenance_coverage
 from app.services.po_total_override_service import inherit_po_total_override
+from app.services.reference_data_service import resolve_license_reference_fields, resolve_organization
 from app.services.renewal_workflow import build_renewal_sourcing_item
 from app.services.sourcing_service import (
     cancel_sourcing_request_record,
@@ -74,6 +76,8 @@ async def initiate_renewal(
     mark_pending_renewal(license_obj)
 
     sourcing_item = build_renewal_sourcing_item(license_obj, created_by=actor.id)
+    sourcing_item.publisher_id = license_obj.publisher_id
+    sourcing_item.supplier_id = license_obj.supplier_id
     db.add(sourcing_item)
     await db.flush()
     await ensure_sourcing_request_for_item(db, sourcing_item, created_by=actor.id)
@@ -135,14 +139,25 @@ async def initiate_renewal_bundle(
     for license_obj in licenses:
         mark_pending_renewal(license_obj)
 
-    target_supplier = _common_or_none([license_obj.supplier for license_obj in licenses])
-    target_contact = (
-        _common_or_none([license_obj.contact_email for license_obj in licenses])
-        if target_supplier is not None
-        else None
-    )
+    supplier_ids = [license_obj.supplier_id for license_obj in licenses]
+    target_supplier_id = None
+    target_supplier = None
+    target_contact = None
+    if supplier_ids and all(supplier_id is not None for supplier_id in supplier_ids) and len(set(supplier_ids)) == 1:
+        supplier_record = await db.get(Organization, supplier_ids[0])
+        if supplier_record is not None:
+            supplier_record = await resolve_organization(
+                db,
+                supplier_record.name,
+                role="supplier",
+                create_if_missing=False,
+            )
+            target_supplier = supplier_record.name
+            target_supplier_id = supplier_record.id
+            target_contact = _common_or_none([license_obj.contact_email for license_obj in licenses])
     request = SourcingRequest(
         supplier=target_supplier,
+        supplier_id=target_supplier_id,
         contact_email=target_contact,
         status=SourcingStatus.sourcing,
         created_by=actor.id,
@@ -155,6 +170,16 @@ async def initiate_renewal_bundle(
         sourcing_item = build_renewal_sourcing_item(license_obj, created_by=actor.id)
         sourcing_item.sourcing_request_id = request.id
         sourcing_item.supplier = target_supplier
+        publisher_record = await db.get(Organization, license_obj.publisher_id) if license_obj.publisher_id else None
+        publisher_record = await resolve_organization(
+            db,
+            publisher_record.name if publisher_record is not None else license_obj.publisher_name,
+            role="publisher",
+            create_if_missing=publisher_record is None,
+        )
+        sourcing_item.publisher_name = publisher_record.name
+        sourcing_item.publisher_id = publisher_record.id
+        sourcing_item.supplier_id = request.supplier_id
         sourcing_item.contact_email = target_contact
         db.add(sourcing_item)
         sourcing_items.append(sourcing_item)
@@ -280,6 +305,7 @@ async def create_renewal_successor_from_sourcing_item(
             license_data.get("maintenance_coverage") or default_maintenance_coverage(successor_type)
         ),
     }
+    await resolve_license_reference_fields(db, license_data)
 
     if validate_maintenance_parent and old_lic.license_type == LicenseType.maintenance:
         try:

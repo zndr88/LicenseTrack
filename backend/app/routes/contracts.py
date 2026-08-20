@@ -46,6 +46,7 @@ from app.services.contract_identity_service import (
     assert_contract_number_unambiguous,
     assert_unique_contract_number,
 )
+from app.services.reference_data_service import resolve_contract_publisher
 from app.services.license_service import compute_expiration_status
 
 router = APIRouter(tags=["contracts"])
@@ -83,7 +84,7 @@ async def list_contracts(
         visible_contract_numbers = (
             select(func.lower(func.trim(License.contract_number)))
             .where(License.contract_number.isnot(None))
-            .where(License.cost_centre.in_(departments))
+            .where(License.cost_centre_id.in_(departments))
             .distinct()
         )
         query = query.where(func.lower(func.trim(Contract.contract_number)).in_(visible_contract_numbers))
@@ -134,9 +135,11 @@ async def create_contract(
 ) -> ContractResponse:
     contract_number = body.contract_number.strip()
     await assert_unique_contract_number(db, contract_number)
+    publisher = await resolve_contract_publisher(db, body.publisher_name)
     contract = Contract(
         contract_number=contract_number,
-        publisher_name=body.publisher_name,
+        publisher_name=publisher.name,
+        publisher_id=publisher.id,
         notes=body.notes,
         created_by=current_user.id,
     )
@@ -199,7 +202,9 @@ async def update_contract(
         )
         contract.contract_number = new_contract_number
     if body.publisher_name is not None:
-        contract.publisher_name = body.publisher_name
+        publisher = await resolve_contract_publisher(db, body.publisher_name)
+        contract.publisher_name = publisher.name
+        contract.publisher_id = publisher.id
     if body.notes is not None:
         contract.notes = body.notes
 

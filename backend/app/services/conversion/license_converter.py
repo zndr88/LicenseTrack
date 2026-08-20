@@ -6,6 +6,7 @@ from app.services.conversion.maintenance_linker import create_maintenance_purcha
 from app.services.license_service import generate_license_ref
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.po_total_override_service import inherit_po_total_override
+from app.services.reference_data_service import resolve_license_reference_fields
 from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 
 
@@ -19,6 +20,7 @@ async def create_purchase_license(
 ) -> License:
     parent_sourcing_item_id = item_data.pop("parent_sourcing_item_id", None)
     license_type = item_data.get("license_type")
+    await resolve_license_reference_fields(db, item_data)
 
     if license_type == LicenseType.perpetual:
         item_data["end_date"] = None

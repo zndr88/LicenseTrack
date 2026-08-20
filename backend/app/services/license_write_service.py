@@ -49,6 +49,10 @@ from app.services.po_total_override_service import (
     inherit_po_total_override,
     resolve_reassigned_po_total_override,
 )
+from app.services.reference_data_service import (
+    resolve_license_reference_fields,
+    resolve_license_reference_updates,
+)
 from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 
 logger = logging.getLogger(__name__)
@@ -237,6 +241,7 @@ async def create_license_record(
     if payload.license_type == LicenseType.maintenance:
         create_data = payload.model_dump(by_alias=False)
         _sync_invoice_numbers(create_data)
+        await resolve_license_reference_fields(db, create_data)
         create_data["procurement_bundle_id"] = procurement_bundle_id
         create_data["contract_id"] = await _resolve_contract_id(db, create_data.get("contract_number"))
         await inherit_po_total_override(db, create_data)
@@ -253,6 +258,7 @@ async def create_license_record(
     create_data = payload.model_dump(by_alias=False)
     create_data.pop("maintenance_parent_ids", None)
     _sync_invoice_numbers(create_data)
+    await resolve_license_reference_fields(db, create_data)
     create_data["procurement_bundle_id"] = procurement_bundle_id
     create_data["maintenance_coverage"] = create_data.get("maintenance_coverage") or default_maintenance_coverage(
         payload.license_type
@@ -332,6 +338,7 @@ async def apply_license_update(
 
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
     _sync_invoice_numbers(update_data)
+    await resolve_license_reference_updates(db, update_data)
     if (
         "license_type" in update_data
         and "maintenance_coverage" not in update_data
@@ -507,6 +514,23 @@ async def apply_license_field_patch(
     elif field == "poNumber":
         license_obj.po_total_override = await resolve_reassigned_po_total_override(db, license_obj, value or "")
         license_obj.po_number = value or ""
+    elif field in {"publisherName", "supplier", "costCentre"}:
+        reference_updates = {
+            {
+                "publisherName": "publisher_name",
+                "supplier": "supplier",
+                "costCentre": "cost_centre",
+            }[field]: value
+        }
+        await resolve_license_reference_updates(db, reference_updates)
+        for update_field, update_value in reference_updates.items():
+            setattr(license_obj, update_field, update_value)
+            if update_field == "publisher_name":
+                license_obj.publisher_id = reference_updates.get("publisher_id")
+            elif update_field == "supplier":
+                license_obj.supplier_id = reference_updates.get("supplier_id")
+            elif update_field == "cost_centre":
+                license_obj.cost_centre_id = reference_updates.get("cost_centre_id")
     else:
         setattr(license_obj, snake_field, value)
 

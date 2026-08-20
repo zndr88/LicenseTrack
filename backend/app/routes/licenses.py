@@ -9,6 +9,7 @@ from app.database import get_db
 from app.dependencies import CurrentUser, require_admin, require_editor_or_admin
 from app.models.document import Document
 from app.models.license import License, LicenseMaintenanceLink
+from app.models.reference_data import CostCentre
 from app.models.user import User
 from app.schemas.license import (
     BulkDeleteRequest,
@@ -72,11 +73,11 @@ async def list_departments(db: DbSession, _current_user: CurrentUser) -> list[st
     """Return distinct non-null, non-empty cost_centre values sorted alphabetically."""
     departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
     query = (
-        select(License.cost_centre)
-        .where(License.cost_centre.isnot(None))
-        .where(License.cost_centre != "")
+        select(CostCentre.name)
+        .join(License, License.cost_centre_id == CostCentre.id)
+        .where(CostCentre.name != "")
         .distinct()
-        .order_by(License.cost_centre)
+        .order_by(CostCentre.name)
     )
     query = apply_department_filter(query, departments)
     result = await db.execute(query)

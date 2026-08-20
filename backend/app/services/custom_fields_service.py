@@ -351,7 +351,7 @@ async def delete_definition(db: AsyncSession, def_id: int) -> dict:
 
 async def get_all_values(
     db: AsyncSession,
-    departments: list[str] | None = None,
+    departments: list[int] | None = None,
 ) -> list[CustomFieldValue]:
     """Return all CustomFieldValue rows with definitions eagerly loaded."""
     query = select(CustomFieldValue).options(selectinload(CustomFieldValue.definition))
@@ -360,7 +360,7 @@ async def get_all_values(
         if not departments:
             query = query.where(False)
         else:
-            query = query.where(License.cost_centre.in_(departments))
+            query = query.where(License.cost_centre_id.in_(departments))
     result = await db.execute(query)
     return list(result.scalars().all())
 

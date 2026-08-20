@@ -9,10 +9,15 @@ from sqlalchemy.orm import selectinload
 
 from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder
+from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.schemas.sourcing import SourcingItemCreate, SourcingRequestCreate
 from app.services.lifecycle_rules import clear_pending_renewal_if_current
 from app.services.money import MoneyParseError, parse_money
+from app.services.reference_data_service import (
+    resolve_organization,
+    resolve_procurement_reference_fields,
+)
 
 
 _IDENTITY_UNSET = object()
@@ -53,14 +58,20 @@ def synchronize_open_request_identity(
     request: SourcingRequest,
     *,
     supplier: str | None | object = _IDENTITY_UNSET,
+    supplier_id: int | None | object = _IDENTITY_UNSET,
     contact_email: str | None | object = _IDENTITY_UNSET,
 ) -> None:
     """Apply request-owned supplier context to every open compatibility line."""
     supplier_changed = False
     if supplier is not _IDENTITY_UNSET:
         normalized_supplier = clean_procurement_identity(supplier)
-        supplier_changed = not procurement_identities_match(request.supplier, normalized_supplier)
+        supplier_changed = not procurement_identities_match(request.supplier, normalized_supplier) or (
+            supplier_id is not _IDENTITY_UNSET and request.supplier_id != supplier_id
+        )
         request.supplier = normalized_supplier
+    if supplier_id is not _IDENTITY_UNSET:
+        supplier_changed = supplier_changed or request.supplier_id != supplier_id
+        request.supplier_id = supplier_id
 
     if contact_email is not _IDENTITY_UNSET:
         request.contact_email = clean_procurement_identity(contact_email)
@@ -70,10 +81,45 @@ def synchronize_open_request_identity(
     for item in request.items:
         if item.status == SourcingStatus.sourcing:
             item.supplier = request.supplier
+            item.supplier_id = request.supplier_id
             item.contact_email = request.contact_email
 
 
-def apply_sourcing_item_update(
+async def _resolve_request_supplier(db: AsyncSession, request: SourcingRequest) -> None:
+    if request.supplier:
+        supplier = await resolve_organization(db, request.supplier, role="supplier", create_if_missing=True)
+        request.supplier = supplier.name
+        request.supplier_id = supplier.id
+    else:
+        request.supplier_id = None
+
+
+async def _resolve_supplier_candidate(
+    db: AsyncSession,
+    value: str | None,
+) -> tuple[str | None, int | None]:
+    cleaned = clean_procurement_identity(value)
+    if cleaned is None:
+        return None, None
+    supplier = await resolve_organization(db, cleaned, role="supplier", create_if_missing=True)
+    return supplier.name, supplier.id
+
+
+async def resolve_sourcing_item_references(db: AsyncSession, item: SourcingItem) -> SourcingItem:
+    data = {
+        "publisher_name": item.publisher_name,
+        "supplier": item.supplier,
+    }
+    await resolve_procurement_reference_fields(db, data, publisher_required=True)
+    item.publisher_name = data["publisher_name"]
+    item.publisher_id = data["publisher_id"]
+    item.supplier = data["supplier"]
+    item.supplier_id = data["supplier_id"]
+    return item
+
+
+async def apply_sourcing_item_update(
+    db: AsyncSession,
     item: SourcingItem,
     request: SourcingRequest | None,
     update_data: dict,
@@ -81,12 +127,26 @@ def apply_sourcing_item_update(
     """Apply a line edit while keeping request-owned identity atomic."""
     supplier = update_data.pop("supplier", _IDENTITY_UNSET)
     contact_email = update_data.pop("contact_email", _IDENTITY_UNSET)
+    if "publisher_name" in update_data:
+        publisher_data = {"publisher_name": update_data["publisher_name"]}
+        await resolve_procurement_reference_fields(db, publisher_data, publisher_required=True)
+        update_data["publisher_name"] = publisher_data["publisher_name"]
+        item.publisher_id = publisher_data["publisher_id"]
+    if request is not None:
+        await _resolve_request_supplier(db, request)
+    supplier_id = None
+    if supplier is not _IDENTITY_UNSET:
+        supplier_data = {"supplier": supplier}
+        await resolve_procurement_reference_fields(db, supplier_data)
+        supplier = supplier_data["supplier"] or None
+        supplier_id = supplier_data["supplier_id"]
     for field, value in update_data.items():
         setattr(item, field, value)
 
     if request is None:
         if supplier is not _IDENTITY_UNSET:
             item.supplier = clean_procurement_identity(supplier)
+            item.supplier_id = supplier_id
         if contact_email is not _IDENTITY_UNSET:
             item.contact_email = clean_procurement_identity(contact_email)
         elif supplier is not _IDENTITY_UNSET:
@@ -96,18 +156,27 @@ def apply_sourcing_item_update(
     synchronize_open_request_identity(
         request,
         supplier=supplier,
+        supplier_id=supplier_id if supplier is not _IDENTITY_UNSET else _IDENTITY_UNSET,
         contact_email=contact_email,
     )
 
 
-def apply_sourcing_request_update(request: SourcingRequest, update_data: dict) -> None:
+async def apply_sourcing_request_update(db: AsyncSession, request: SourcingRequest, update_data: dict) -> None:
     supplier = update_data.pop("supplier", _IDENTITY_UNSET)
     contact_email = update_data.pop("contact_email", _IDENTITY_UNSET)
     if "notes" in update_data:
         request.notes = update_data["notes"]
+    await _resolve_request_supplier(db, request)
+    supplier_id = request.supplier_id
+    if supplier is not _IDENTITY_UNSET:
+        supplier_data = {"supplier": supplier}
+        await resolve_procurement_reference_fields(db, supplier_data)
+        supplier = supplier_data["supplier"] or None
+        supplier_id = supplier_data["supplier_id"]
     synchronize_open_request_identity(
         request,
         supplier=supplier,
+        supplier_id=supplier_id if supplier is not _IDENTITY_UNSET else _IDENTITY_UNSET,
         contact_email=contact_email,
     )
 
@@ -232,7 +301,8 @@ async def delete_empty_sourcing_requests(
         await db.delete(request)
 
 
-def build_merged_sourcing_item(
+async def build_merged_sourcing_item(
+    db: AsyncSession,
     items: list[SourcingItem],
     predecessors: list[License],
     created_by: int | None,
@@ -269,18 +339,25 @@ def build_merged_sourcing_item(
         else None
     )
 
-    source_suppliers = [
-        item.sourcing_request.supplier if item.sourcing_request is not None else item.supplier
+    source_supplier_ids = [
+        item.sourcing_request.supplier_id if item.sourcing_request is not None else item.supplier_id
         for item in items
     ]
-    target_supplier = _common_nonblank_identity(source_suppliers)
+    target_supplier = None
+    target_supplier_id = None
+    if source_supplier_ids and all(supplier_id is not None for supplier_id in source_supplier_ids):
+        if len(set(source_supplier_ids)) == 1:
+            supplier_record = await db.get(Organization, source_supplier_ids[0])
+            if supplier_record is not None:
+                target_supplier = supplier_record.name
+                target_supplier_id = supplier_record.id
     source_contacts = [
         item.sourcing_request.contact_email if item.sourcing_request is not None else item.contact_email
         for item in items
     ]
     target_contact = _common_nonblank_identity(source_contacts) if target_supplier is not None else None
 
-    return SourcingItem(
+    merged = SourcingItem(
         publisher_name=primary_item.publisher_name,
         software_description=primary_item.software_description,
         license_type=primary_item.license_type or primary_pred.license_type,
@@ -289,12 +366,15 @@ def build_merged_sourcing_item(
         estimated_total_price=merged_total_price,
         currency=primary_item.currency,
         supplier=target_supplier,
+        supplier_id=target_supplier_id,
         contact_email=target_contact,
         status=SourcingStatus.sourcing,
         renewal_for_license_id=primary_pred.id,
         coterm_predecessor_ids=[lic.id for lic in sorted_preds],
         created_by=created_by,
     )
+    await resolve_sourcing_item_references(db, merged)
+    return merged
 
 
 async def ensure_sourcing_request_for_item(
@@ -306,12 +386,17 @@ async def ensure_sourcing_request_for_item(
     if item.sourcing_request_id is not None:
         request = await db.get(SourcingRequest, item.sourcing_request_id)
         if request is not None:
+            await resolve_sourcing_item_references(db, item)
+            await _resolve_request_supplier(db, request)
+            item.supplier = request.supplier
+            item.supplier_id = request.supplier_id
             return request
 
-    item.supplier = clean_procurement_identity(item.supplier)
+    await resolve_sourcing_item_references(db, item)
     item.contact_email = clean_procurement_identity(item.contact_email)
     request = SourcingRequest(
         supplier=item.supplier,
+        supplier_id=item.supplier_id,
         contact_email=item.contact_email,
         notes=item.notes,
         status=item.status,
@@ -417,17 +502,20 @@ async def create_sourcing_request_record(
     if not payload.items:
         raise HTTPException(status_code=422, detail="At least one sourcing item is required")
 
-    request_supplier = clean_procurement_identity(payload.supplier)
+    request_supplier, request_supplier_id = await _resolve_supplier_candidate(db, payload.supplier)
     request_contact = clean_procurement_identity(payload.contact_email)
     for item_payload in payload.items:
         if item_payload.parent_item_index is not None:
             continue
-        request_supplier = _adopt_or_validate_identity(
-            request_supplier,
-            item_payload.supplier,
-            field_label="request supplier",
-            status_code=422,
-        )
+        item_supplier, item_supplier_id = await _resolve_supplier_candidate(db, item_payload.supplier)
+        if item_supplier_id is not None:
+            if request_supplier_id is None:
+                request_supplier, request_supplier_id = item_supplier, item_supplier_id
+            elif request_supplier_id != item_supplier_id:
+                raise HTTPException(
+                    status_code=422,
+                    detail="All lines in a sourcing request must use the same request supplier",
+                )
         request_contact = _adopt_or_validate_identity(
             request_contact,
             item_payload.contact_email,
@@ -437,6 +525,7 @@ async def create_sourcing_request_record(
 
     request = SourcingRequest(
         supplier=request_supplier,
+        supplier_id=request_supplier_id,
         contact_email=request_contact,
         notes=payload.notes,
         status=SourcingStatus.sourcing,
@@ -457,10 +546,13 @@ async def create_sourcing_request_record(
         target_request = request
         parent_item = created_items[parent_index] if parent_index is not None else None
         if parent_item is not None:
-            child_supplier = clean_procurement_identity(item_payload.supplier) or request.supplier
-            if child_supplier and not procurement_identities_match(child_supplier, request.supplier):
+            child_supplier, child_supplier_id = await _resolve_supplier_candidate(db, item_payload.supplier)
+            if child_supplier_id is None:
+                child_supplier, child_supplier_id = request.supplier, request.supplier_id
+            if child_supplier_id is not None and child_supplier_id != request.supplier_id:
                 target_request = SourcingRequest(
                     supplier=child_supplier,
+                    supplier_id=child_supplier_id,
                     contact_email=clean_procurement_identity(item_payload.contact_email) or request.contact_email,
                     notes=payload.notes,
                     status=SourcingStatus.sourcing,
@@ -486,6 +578,7 @@ async def create_sourcing_request_record(
         )
         if parent_item is not None:
             item.parent_sourcing_item_id = parent_item.id
+        await resolve_sourcing_item_references(db, item)
         db.add(item)
         await db.flush()
         created_items.append(item)
@@ -501,12 +594,17 @@ async def add_sourcing_request_item_record(
 ) -> SourcingRequest:
     request = await get_sourcing_request_for_update_or_404(db, request_id)
     assert_sourcing_request_editable(request)
+    await _resolve_request_supplier(db, request)
     proposed_supplier = clean_procurement_identity(payload.supplier)
+    proposed_supplier_id = None
+    if proposed_supplier:
+        proposed_supplier_record = await resolve_organization(
+            db, proposed_supplier, role="supplier", create_if_missing=True
+        )
+        proposed_supplier = proposed_supplier_record.name
+        proposed_supplier_id = proposed_supplier_record.id
     proposed_contact = clean_procurement_identity(payload.contact_email)
-    if request.supplier is not None and proposed_supplier is not None and not procurement_identities_match(
-        request.supplier,
-        proposed_supplier,
-    ):
+    if request.supplier_id is not None and proposed_supplier_id is not None and request.supplier_id != proposed_supplier_id:
         raise HTTPException(
             status_code=409,
             detail="The line supplier conflicts with the sourcing request supplier",
@@ -524,20 +622,21 @@ async def add_sourcing_request_item_record(
         synchronize_open_request_identity(
             request,
             supplier=proposed_supplier,
+            supplier_id=proposed_supplier_id,
             contact_email=proposed_contact if proposed_contact is not None else _IDENTITY_UNSET,
         )
     elif request.contact_email is None and proposed_contact is not None:
         synchronize_open_request_identity(request, contact_email=proposed_contact)
 
-    db.add(
-        _build_request_item(
+    item = _build_request_item(
             payload,
             request_id=request.id,
             created_by=created_by,
             supplier=request.supplier,
             contact_email=request.contact_email,
         )
-    )
+    await resolve_sourcing_item_references(db, item)
+    db.add(item)
     await db.flush()
     return request
 
@@ -645,6 +744,8 @@ async def convert_sourcing_item_to_order(
     request = item.sourcing_request
     if request is None and item.sourcing_request_id is not None:
         request = await get_sourcing_request_for_update_or_404(db, item.sourcing_request_id)
+    if request is not None:
+        await _resolve_request_supplier(db, request)
 
     if pending_order_id is not None:
         order = await db.get(PendingOrder, pending_order_id)
@@ -653,32 +754,42 @@ async def convert_sourcing_item_to_order(
         order_supplier = clean_procurement_identity(order.supplier)
         if order_supplier is None:
             raise HTTPException(status_code=422, detail="The selected pending order must have a supplier")
-        if request is not None and request.supplier is not None and not procurement_identities_match(
-            request.supplier,
-            order_supplier,
-        ):
+        order_supplier_record = await resolve_organization(db, order_supplier, role="supplier", create_if_missing=True)
+        order.supplier = order_supplier_record.name
+        order.supplier_id = order_supplier_record.id
+        if request is not None and request.supplier_id is not None and request.supplier_id != order_supplier_record.id:
             raise HTTPException(
                 status_code=409,
                 detail="The sourcing request supplier conflicts with the selected pending order supplier",
             )
         if request is not None:
-            synchronize_open_request_identity(request, supplier=order_supplier)
+            synchronize_open_request_identity(
+                request,
+                supplier=order_supplier_record.name,
+                supplier_id=order.supplier_id,
+            )
     else:
         target_supplier = clean_procurement_identity(supplier) or (
-            clean_procurement_identity(request.supplier)
-            if request is not None
-            else clean_procurement_identity(item.supplier)
-        )
+            clean_procurement_identity(request.supplier) if request is not None else None
+        ) or clean_procurement_identity(item.supplier)
         if target_supplier is None:
             raise HTTPException(status_code=422, detail="Supplier is required to create a pending order")
+        target_supplier_record = await resolve_organization(db, target_supplier, role="supplier", create_if_missing=True)
+        target_supplier = target_supplier_record.name
         if request is not None:
-            synchronize_open_request_identity(request, supplier=target_supplier)
+            synchronize_open_request_identity(
+                request,
+                supplier=target_supplier,
+                supplier_id=target_supplier_record.id,
+            )
         else:
             item.supplier = target_supplier
+            item.supplier_id = target_supplier_record.id
         order = PendingOrder(
             po_number=(po_number or "").strip(),
             procurement_reference=(procurement_reference or "").strip(),
             supplier=target_supplier,
+            supplier_id=target_supplier_record.id,
             notes=notes,
             created_by=created_by,
         )
@@ -687,6 +798,8 @@ async def convert_sourcing_item_to_order(
 
     item.pending_order_id = order.id
     item.status = SourcingStatus.converted
+    item.supplier = order.supplier
+    item.supplier_id = order.supplier_id
     if request is not None:
         await refresh_sourcing_request_status(db, request)
     return order
@@ -705,6 +818,7 @@ async def convert_sourcing_request_to_order(
     """Attach the open purchase items in a sourcing request to a PendingOrder."""
     if request.status == SourcingStatus.converted:
         raise ValueError("Sourcing request has already been converted")
+    await _resolve_request_supplier(db, request)
 
     purchase_items = [
         item
@@ -721,24 +835,39 @@ async def convert_sourcing_request_to_order(
         order_supplier = clean_procurement_identity(order.supplier)
         if order_supplier is None:
             raise HTTPException(status_code=422, detail="The selected pending order must have a supplier")
-        if request.supplier is not None and not procurement_identities_match(
-            request.supplier,
-            order_supplier,
-        ):
+        order_supplier_record = await resolve_organization(db, order_supplier, role="supplier", create_if_missing=True)
+        order.supplier = order_supplier_record.name
+        order.supplier_id = order_supplier_record.id
+        if request.supplier_id is not None and request.supplier_id != order_supplier_record.id:
             raise HTTPException(
                 status_code=409,
                 detail="The sourcing request supplier conflicts with the selected pending order supplier",
             )
-        synchronize_open_request_identity(request, supplier=order_supplier)
+        synchronize_open_request_identity(
+            request,
+            supplier=order_supplier_record.name,
+            supplier_id=order.supplier_id,
+        )
     else:
-        target_supplier = clean_procurement_identity(supplier) or clean_procurement_identity(request.supplier)
+        target_supplier = (
+            clean_procurement_identity(supplier)
+            or clean_procurement_identity(request.supplier)
+            or next((clean_procurement_identity(item.supplier) for item in request.items if item.supplier), None)
+        )
         if target_supplier is None:
             raise HTTPException(status_code=422, detail="Supplier is required to create a pending order")
-        synchronize_open_request_identity(request, supplier=target_supplier)
+        target_supplier_record = await resolve_organization(db, target_supplier, role="supplier", create_if_missing=True)
+        target_supplier = target_supplier_record.name
+        synchronize_open_request_identity(
+            request,
+            supplier=target_supplier,
+            supplier_id=target_supplier_record.id,
+        )
         order = PendingOrder(
             po_number=(po_number or "").strip(),
             procurement_reference=(procurement_reference or "").strip(),
             supplier=target_supplier,
+            supplier_id=target_supplier_record.id,
             notes=notes if notes is not None else request.notes,
             created_by=created_by,
         )
@@ -748,6 +877,8 @@ async def convert_sourcing_request_to_order(
     for item in purchase_items:
         item.pending_order_id = order.id
         item.status = SourcingStatus.converted
+        item.supplier = order.supplier
+        item.supplier_id = order.supplier_id
     await refresh_sourcing_request_status(db, request)
     return order
 

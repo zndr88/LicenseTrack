@@ -111,7 +111,7 @@ async def update_sourcing_request(
     assert_sourcing_request_editable(sourcing_request)
     before = {c.name: getattr(sourcing_request, c.name) for c in sourcing_request.__table__.columns}
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
-    apply_sourcing_request_update(sourcing_request, update_data)
+    await apply_sourcing_request_update(db, sourcing_request, update_data)
     after = {c.name: getattr(sourcing_request, c.name) for c in sourcing_request.__table__.columns}
 
     diff = diff_fields(before, after)

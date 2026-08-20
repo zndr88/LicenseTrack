@@ -151,6 +151,130 @@ async def resolve_cost_centre(db: AsyncSession, value: str, *, create_if_missing
     return cost_centre
 
 
+async def resolve_license_reference_fields(db: AsyncSession, data: dict) -> dict:
+    """Resolve license publisher, supplier, and cost-centre fields in-place."""
+    publisher_value = data.get("publisher_name")
+    if not isinstance(publisher_value, str) or not publisher_value.strip():
+        raise HTTPException(status_code=422, detail="publisher_name is required")
+    publisher = await resolve_organization(db, publisher_value, role="publisher", create_if_missing=True)
+    data["publisher_name"] = publisher.name
+    data["publisher_id"] = publisher.id
+
+    supplier_value = data.get("supplier")
+    if isinstance(supplier_value, str) and supplier_value.strip():
+        supplier = await resolve_organization(db, supplier_value, role="supplier", create_if_missing=True)
+        data["supplier"] = supplier.name
+        data["supplier_id"] = supplier.id
+    else:
+        data["supplier"] = ""
+        data["supplier_id"] = None
+
+    cost_centre_value = data.get("cost_centre")
+    if isinstance(cost_centre_value, str) and cost_centre_value.strip():
+        cost_centre = await resolve_cost_centre(db, cost_centre_value, create_if_missing=True)
+        data["cost_centre"] = cost_centre.name
+        data["cost_centre_id"] = cost_centre.id
+    else:
+        data["cost_centre"] = ""
+        data["cost_centre_id"] = None
+    return data
+
+
+async def resolve_license_reference_updates(db: AsyncSession, data: dict) -> dict:
+    """Resolve only the reference fields present in a partial license update."""
+    if "publisher_name" in data:
+        value = data.get("publisher_name")
+        if not isinstance(value, str) or not value.strip():
+            raise HTTPException(status_code=422, detail="publisher_name is required")
+        publisher = await resolve_organization(db, value, role="publisher", create_if_missing=True)
+        data["publisher_name"] = publisher.name
+        data["publisher_id"] = publisher.id
+    if "supplier" in data:
+        value = data.get("supplier")
+        if isinstance(value, str) and value.strip():
+            supplier = await resolve_organization(db, value, role="supplier", create_if_missing=True)
+            data["supplier"] = supplier.name
+            data["supplier_id"] = supplier.id
+        else:
+            data["supplier"] = ""
+            data["supplier_id"] = None
+    if "cost_centre" in data:
+        value = data.get("cost_centre")
+        if isinstance(value, str) and value.strip():
+            cost_centre = await resolve_cost_centre(db, value, create_if_missing=True)
+            data["cost_centre"] = cost_centre.name
+            data["cost_centre_id"] = cost_centre.id
+        else:
+            data["cost_centre"] = ""
+            data["cost_centre_id"] = None
+    return data
+
+
+async def resolve_procurement_reference_fields(
+    db: AsyncSession,
+    data: dict,
+    *,
+    publisher_required: bool = False,
+    supplier_required: bool = False,
+) -> dict:
+    """Resolve procurement publisher/supplier fields while preserving blank shapes."""
+    publisher_value = data.get("publisher_name")
+    if publisher_required and (not isinstance(publisher_value, str) or not publisher_value.strip()):
+        raise HTTPException(status_code=422, detail="publisher_name is required")
+    if isinstance(publisher_value, str) and publisher_value.strip():
+        publisher = await resolve_organization(db, publisher_value, role="publisher", create_if_missing=True)
+        data["publisher_name"] = publisher.name
+        data["publisher_id"] = publisher.id
+    elif "publisher_name" in data:
+        data["publisher_name"] = ""
+        data["publisher_id"] = None
+
+    supplier_value = data.get("supplier")
+    if supplier_required and (not isinstance(supplier_value, str) or not supplier_value.strip()):
+        raise HTTPException(status_code=422, detail="supplier is required")
+    if isinstance(supplier_value, str) and supplier_value.strip():
+        supplier = await resolve_organization(db, supplier_value, role="supplier", create_if_missing=True)
+        data["supplier"] = supplier.name
+        data["supplier_id"] = supplier.id
+    elif "supplier" in data:
+        data["supplier"] = None if data.get("supplier") is None else ""
+        data["supplier_id"] = None
+    return data
+
+
+async def resolve_department_assignment_names(
+    db: AsyncSession,
+    names: list[str],
+    *,
+    currently_assigned_ids: set[int] | None = None,
+) -> list[CostCentre]:
+    """Resolve admin department payloads, retaining already-assigned inactive units."""
+    current_ids = currently_assigned_ids or set()
+    resolved: list[CostCentre] = []
+    seen: set[int] = set()
+    for value in names:
+        cleaned = clean_reference_name(value)
+        normalized = normalize_reference_name(cleaned)
+        cost_centre = await db.scalar(select(CostCentre).where(CostCentre.normalized_name == normalized))
+        if cost_centre is None:
+            alias = await db.scalar(select(CostCentreAlias).where(CostCentreAlias.normalized_name == normalized))
+            if alias is not None:
+                cost_centre = await db.get(CostCentre, alias.cost_centre_id)
+        if cost_centre is None:
+            cost_centre = await resolve_cost_centre(db, cleaned, create_if_missing=True)
+        elif not cost_centre.is_active and cost_centre.id not in current_ids:
+            raise _conflict(f"Cost centre '{cost_centre.name}' is inactive and requires admin action.")
+        if cost_centre.id not in seen:
+            resolved.append(cost_centre)
+            seen.add(cost_centre.id)
+    return resolved
+
+
+async def resolve_contract_publisher(db: AsyncSession, value: str) -> Organization:
+    """Resolve a contract publisher and return its canonical organization."""
+    return await resolve_organization(db, value, role="publisher", create_if_missing=True)
+
+
 async def _organization_usage(db: AsyncSession, organization_id: int) -> dict[str, int]:
     counts = {
         "licenses": await db.scalar(

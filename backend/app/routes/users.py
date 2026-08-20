@@ -30,6 +30,7 @@ from app.models.license import License
 from app.models.pending_order import PendingOrder
 from app.models.plugin import PluginPermission, PluginSettingValue
 from app.models.plugin_suggestion import PluginSuggestion
+from app.models.reference_data import CostCentre
 from app.models.settings import GlobalSettings, UserSettings
 from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingRequest
 from app.models.user import AuthProvider, User
@@ -44,6 +45,7 @@ from app.schemas.user import (
     UserUpdate,
 )
 from app.services.audit_service import diff_fields, log_event
+from app.services.reference_data_service import resolve_department_assignment_names
 from app.services.user_service import (
     apply_user_update,
     build_inherited_user_settings,
@@ -386,9 +388,10 @@ async def get_user_departments_route(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     result = await db.execute(
-        select(UserDepartmentAccess.department)
+        select(CostCentre.name)
+        .join(UserDepartmentAccess, UserDepartmentAccess.cost_centre_id == CostCentre.id)
         .where(UserDepartmentAccess.user_id == user_id)
-        .order_by(UserDepartmentAccess.department)
+        .order_by(CostCentre.name)
     )
     return [row[0] for row in result.all()]
 
@@ -411,11 +414,26 @@ async def update_user_departments(
         .order_by(UserDepartmentAccess.department)
     )
     before_departments = sorted([row[0] for row in before_result.all()])
-    after_departments = list(dict.fromkeys(payload.departments))
+    current_access_result = await db.execute(
+        select(UserDepartmentAccess.cost_centre_id).where(UserDepartmentAccess.user_id == user_id)
+    )
+    current_access_ids = {row[0] for row in current_access_result.all() if row[0] is not None}
+    cost_centres = await resolve_department_assignment_names(
+        db,
+        payload.departments,
+        currently_assigned_ids=current_access_ids,
+    )
+    after_departments = [cost_centre.name for cost_centre in cost_centres]
 
     await db.execute(delete(UserDepartmentAccess).where(UserDepartmentAccess.user_id == user_id))
-    for dept in after_departments:
-        db.add(UserDepartmentAccess(user_id=user_id, department=dept))
+    for cost_centre in cost_centres:
+        db.add(
+            UserDepartmentAccess(
+                user_id=user_id,
+                department=cost_centre.name,
+                cost_centre_id=cost_centre.id,
+            )
+        )
 
     ip = request.client.host if request.client else None
     await log_event(
