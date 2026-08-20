@@ -11,7 +11,7 @@ from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder
 from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
-from app.schemas.sourcing import SourcingItemCreate, SourcingRequestCreate
+from app.schemas.sourcing import SourcingItemCreate, SourcingRequestCreate, SourcingRequestUpdate
 from app.services.lifecycle_rules import clear_pending_renewal_if_current
 from app.services.money import MoneyParseError, parse_money
 from app.services.reference_data_service import (
@@ -179,6 +179,43 @@ async def apply_sourcing_request_update(db: AsyncSession, request: SourcingReque
         supplier_id=supplier_id if supplier is not _IDENTITY_UNSET else _IDENTITY_UNSET,
         contact_email=contact_email,
     )
+
+
+async def apply_sourcing_request_workflow_update(
+    db: AsyncSession,
+    request: SourcingRequest,
+    payload: SourcingRequestUpdate,
+) -> list[int]:
+    """Apply request metadata and requested open-line edits in one transaction."""
+    assert_sourcing_request_editable(request)
+    request_data = payload.model_dump(by_alias=False, exclude_unset=True, exclude={"items"})
+    requested_items = payload.items or []
+    items_by_id = {item.id: item for item in request.items}
+    requested_ids = [item_update.id for item_update in requested_items]
+    if len(requested_ids) != len(set(requested_ids)):
+        raise HTTPException(status_code=422, detail="A sourcing request line can only be updated once")
+
+    for item_id in requested_ids:
+        item = items_by_id.get(item_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail=f"Sourcing item {item_id} was not found in this request")
+        assert_sourcing_item_editable(item)
+
+    await apply_sourcing_request_update(db, request, request_data)
+    for item_update in requested_items:
+        item = items_by_id[item_update.id]
+        update_data = item_update.model_dump(
+            by_alias=False,
+            exclude_unset=True,
+            exclude={"id"},
+        )
+        if update_data.get("license_type", item.license_type) == LicenseType.freeware:
+            update_data["estimated_unit_price"] = None
+            update_data["estimated_total_price"] = None
+        await apply_sourcing_item_update(db, item, request, update_data)
+
+    await db.flush()
+    return requested_ids
 
 
 def is_direct_freeware_item(item: SourcingItem) -> bool:

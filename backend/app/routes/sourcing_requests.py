@@ -13,11 +13,12 @@ from app.schemas.sourcing import (
     SourcingRequestResponse,
     SourcingRequestUpdate,
 )
-from app.services.audit_service import diff_fields, log_event
+from app.services.audit_service import diff_fields, format_audit_detail, log_event
 from app.services.document_availability_service import get_document_storage_base, with_file_availability
 from app.services.sourcing_service import (
     add_sourcing_request_item_record,
     apply_sourcing_request_update,
+    apply_sourcing_request_workflow_update,
     assert_sourcing_request_editable,
     cancel_sourcing_request_record,
     create_sourcing_request_record,
@@ -110,12 +111,28 @@ async def update_sourcing_request(
     sourcing_request = await get_sourcing_request_for_update_or_404(db, request_id)
     assert_sourcing_request_editable(sourcing_request)
     before = {c.name: getattr(sourcing_request, c.name) for c in sourcing_request.__table__.columns}
-    update_data = payload.model_dump(by_alias=False, exclude_unset=True)
-    await apply_sourcing_request_update(db, sourcing_request, update_data)
+    item_before = {
+        item.id: {c.name: getattr(item, c.name) for c in item.__table__.columns}
+        for item in sourcing_request.items
+    }
+    if payload.items is None:
+        update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+        await apply_sourcing_request_update(db, sourcing_request, update_data)
+        updated_item_ids: list[int] = []
+    else:
+        updated_item_ids = await apply_sourcing_request_workflow_update(db, sourcing_request, payload)
     after = {c.name: getattr(sourcing_request, c.name) for c in sourcing_request.__table__.columns}
 
-    diff = diff_fields(before, after)
-    if diff:
+    request_diff = diff_fields(before, after)
+    item_diffs = []
+    for item in sourcing_request.items:
+        if item.id not in updated_item_ids:
+            continue
+        item_after = {c.name: getattr(item, c.name) for c in item.__table__.columns}
+        item_diff = diff_fields(item_before[item.id], item_after, exclude={"supplier", "contact_email"})
+        if item_diff:
+            item_diffs.extend(f"item[{item.id}].{line}" for line in item_diff.splitlines())
+    if request_diff or item_diffs:
         ip = request.client.host if request.client else None
         await log_event(
             db,
@@ -125,7 +142,11 @@ async def update_sourcing_request(
             target_type="sourcing_request",
             target_id=str(request_id),
             target_label=sourcing_request.supplier or f"Sourcing request {request_id}",
-            detail=diff,
+            detail=format_audit_detail(
+                "sourcing_request_edit",
+                {"updatedItemIds": ",".join(str(item_id) for item_id in updated_item_ids) or None},
+                [*(request_diff.splitlines() if request_diff else []), *item_diffs],
+            ),
         )
     await db.commit()
     sourcing_request = await get_sourcing_request_or_404(db, request_id)

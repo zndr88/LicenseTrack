@@ -586,6 +586,7 @@ export default function SourcingPage({
       {showSourcingRequestEditModal !== null && (
         <SourcingRequestEditModal
           request={showSourcingRequestEditModal}
+          userSettings={userSettings}
           onCancel={() => setShowSourcingRequestEditModal(null)}
           onSave={(payload) => handleUpdateSourcingRequest(showSourcingRequestEditModal.id, payload)}
         />

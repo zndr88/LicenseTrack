@@ -58,27 +58,13 @@ export function useSourcingActions({
   }, [showToast, queryClient]);
 
   const handleUpdateSourcingRequest = useCallback(async (requestId, payload) => {
-    const { error: requestError } = await apiUpdateSourcingRequest(requestId, {
+    const { error } = await apiUpdateSourcingRequest(requestId, {
       supplier: payload.supplier || null,
       contactEmail: payload.contactEmail || null,
       notes: payload.notes || null,
+      items: payload.items ?? [],
     });
-    if (requestError) { showToast(requestError, "error"); return false; }
-    for (const item of payload.items ?? []) {
-      if (item.status === "converted" || item.status === "cancelled") continue;
-      const { id } = item;
-      const itemPayload = { ...item };
-      delete itemPayload.id;
-      delete itemPayload.status;
-      itemPayload.licenseType = itemPayload.licenseType || null;
-      itemPayload.startDate = itemPayload.startDate || null;
-      itemPayload.endDate = itemPayload.endDate || null;
-      itemPayload.quantity = itemPayload.quantity || null;
-      itemPayload.estimatedUnitPrice = itemPayload.estimatedUnitPrice || null;
-      itemPayload.estimatedTotalPrice = itemPayload.estimatedTotalPrice || null;
-      const { error } = await apiUpdateSourcingItem(id, itemPayload);
-      if (error) { showToast(error, "error"); return false; }
-    }
+    if (error) { showToast(error, "error"); return false; }
     await invalidateSourcingCaches(queryClient);
     showToast("Sourcing request updated.", "success");
     return true;

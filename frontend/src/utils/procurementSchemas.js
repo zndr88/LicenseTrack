@@ -3,6 +3,8 @@
  * Import these into individual modals rather than duplicating the definitions.
  */
 import { z } from "zod";
+import { CURRENCIES, LICENSE_TYPES } from "../constants/licenseData.js";
+import { parseLocalizedNumber } from "./formatting.js";
 
 const optionalEmail = z.string().refine(
   (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
@@ -58,4 +60,40 @@ export const licenseFormSchema = z.object({
 export const convertAllItemSchema = licenseFormSchema.extend({
   sourcingItemId: z.number(),
   isRenewal:      z.boolean(),
+});
+
+const sourcingRequestLineSchema = (settings) => {
+  const optionalNumber = z.string().refine(
+    (value) => !value || parseLocalizedNumber(value, settings) !== null,
+    { message: "Enter a valid number." },
+  );
+  return z.object({
+    id: z.number(),
+    status: z.string().nullable(),
+    publisherName: z.string(),
+    softwareDescription: z.string(),
+    licenseType: z.union([z.literal(""), z.enum(LICENSE_TYPES.map((option) => option.value))]),
+    quantity: optionalNumber,
+    estimatedUnitPrice: optionalNumber,
+    estimatedTotalPrice: optionalNumber,
+    currency: z.enum(CURRENCIES),
+    startDate: z.string(),
+    endDate: z.string(),
+    notes: z.string(),
+  }).superRefine((item, context) => {
+    if (["converted", "cancelled"].includes(item.status)) return;
+    if (!item.publisherName.trim()) {
+      context.addIssue({ code: "custom", path: ["publisherName"], message: "Publisher is required." });
+    }
+    if (!item.softwareDescription.trim()) {
+      context.addIssue({ code: "custom", path: ["softwareDescription"], message: "Software description is required." });
+    }
+  });
+};
+
+export const createSourcingRequestEditSchema = (settings) => z.object({
+  supplier: z.string(),
+  contactEmail: optionalEmail,
+  notes: z.string(),
+  items: z.array(sourcingRequestLineSchema(settings)),
 });

@@ -586,18 +586,21 @@ export function getPerpetualMaintenanceReport(licenses) {
       ];
       const linked = Array.from(new Map(linkedRecords.map((item) => [item.id, item])).values());
       let coverage = license.maintenanceCoverage || "unknown";
-      let maintenance = 0;
-      let maintenanceCurrency = currency;
+      const maintenanceByCurrency = {};
       let maintenanceSource = "not_tracked";
 
       if (coverage === "included") {
-        maintenance = parsePrice(license.maintenanceCost) ?? 0;
-        maintenanceSource = parsePrice(license.maintenanceCost) !== null ? "included" : "included_missing";
+        const maintenance = parsePrice(license.maintenanceCost);
+        if (maintenance !== null) addReportAmount(maintenanceByCurrency, currency, maintenance);
+        maintenanceSource = maintenance !== null ? "included" : "included_missing";
       } else if (coverage === "separately_tracked" || linked.length > 0) {
-        maintenance = linked.reduce((sum, item) => sum + item.amount, 0);
-        maintenanceCurrency = linked[0]?.currency || currency;
+        for (const item of linked) addReportAmount(maintenanceByCurrency, item.currency, item.amount);
         maintenanceSource = linked.length > 0 ? "separately_tracked" : "separate_missing";
       }
+
+      const maintenanceEntries = Object.entries(maintenanceByCurrency);
+      const singleMaintenanceCurrency = maintenanceEntries.length === 1 ? maintenanceEntries[0][0] : null;
+      const singleMaintenanceValue = maintenanceEntries.length === 1 ? maintenanceEntries[0][1] : null;
 
       return {
         id: license.id,
@@ -607,12 +610,15 @@ export function getPerpetualMaintenanceReport(licenses) {
         currency,
         purchaseValue: purchase.amount,
         purchaseSource: purchase.source,
-        maintenanceValue: maintenance,
-        maintenanceCurrency,
+        maintenanceByCurrency,
+        maintenanceValue: singleMaintenanceValue,
+        maintenanceCurrency: singleMaintenanceCurrency,
         maintenanceSource,
         linkedMaintenanceCount: linked.length,
         maintenanceRecords: linked,
-        totalValue: maintenanceCurrency === currency ? roundMoney(purchase.amount + maintenance) : null,
+        totalValue: maintenanceEntries.every(([maintenanceCurrency]) => maintenanceCurrency === currency)
+          ? roundMoney(purchase.amount + (maintenanceByCurrency[currency] ?? 0))
+          : null,
       };
     });
 
@@ -621,8 +627,11 @@ export function getPerpetualMaintenanceReport(licenses) {
   const totalByCurrency = {};
   for (const row of rows) {
     addReportAmount(purchaseByCurrency, row.currency, row.purchaseValue);
-    addReportAmount(maintenanceByCurrency, row.maintenanceCurrency, row.maintenanceValue);
-    if (row.totalValue !== null) addReportAmount(totalByCurrency, row.currency, row.totalValue);
+    addReportAmount(totalByCurrency, row.currency, row.purchaseValue);
+    for (const [currency, amount] of Object.entries(row.maintenanceByCurrency)) {
+      addReportAmount(maintenanceByCurrency, currency, amount);
+      addReportAmount(totalByCurrency, currency, amount);
+    }
   }
 
   return {

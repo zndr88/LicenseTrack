@@ -22,6 +22,7 @@ export default function PerpetualMaintenanceSection({ data, locale, isOpen, onTo
       currency: record.currency,
       maintenanceValue: record.amount,
       maintenanceCurrency: record.currency,
+      maintenanceByCurrency: { [record.currency]: record.amount },
       maintenanceSource: "maintenance_record",
       purchaseValue: 0,
     })),
@@ -54,7 +55,7 @@ export default function PerpetualMaintenanceSection({ data, locale, isOpen, onTo
             <div>
               <div className="report-metric-label">Combined value</div>
               <div className="report-metric-value">{formatCostByCurrency(data.totalByCurrency, locale)}</div>
-              <div className="report-metric-note">Only rows with matching currencies are combined</div>
+              <div className="report-metric-note">Purchase and maintenance values remain grouped by currency</div>
             </div>
           </div>
           <div className="tbl-wrap">
@@ -70,7 +71,7 @@ export default function PerpetualMaintenanceSection({ data, locale, isOpen, onTo
                     <td style={{ color: row.poNumber ? "var(--text-2)" : "var(--text-3)" }}>{row.poNumber || "No PO number"}</td>
                     <td style={{ color: row.maintenanceSource.includes("missing") ? "var(--orange)" : "var(--text-2)" }}>{row.rowKind === "maintenance" ? "Maintenance record" : STATUS_LABELS[row.maintenanceSource]}</td>
                     <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: 12 }}>{row.rowKind === "maintenance" ? "-" : formatCost(row.purchaseValue, row.currency, locale)}</td>
-                    <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: 12 }}>{formatCost(row.maintenanceValue, row.maintenanceCurrency, locale)}</td>
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: 12 }}>{row.rowKind === "maintenance" ? formatCost(row.maintenanceValue, row.maintenanceCurrency, locale) : formatCostByCurrency(row.maintenanceByCurrency, locale)}</td>
                   </tr>
                 ))}
               </tbody>

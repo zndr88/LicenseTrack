@@ -7,12 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import require_editor_or_admin
+from app.dependencies import CurrentUser, require_editor_or_admin
 from app.models.license import License, LicenseCoverageHistory
 from app.services.maintenance_rules import MAINTENANCE_PARENT_TYPES
 from app.models.user import User
 from app.schemas.license import LicenseCoverageHistoryResponse, LicenseResponse, MaintenanceLinkExistingRequest
 from app.services.audit_service import log_event
+from app.services.access_service import can_view_license
 from app.services.license_service import (
     calc_line_total,
     compute_completeness,
@@ -30,36 +31,48 @@ _DEFAULT_NOTIFICATION_DAYS = 30
 
 
 @router.get("/{license_id}/coverage-history", response_model=list[LicenseCoverageHistoryResponse])
-async def get_coverage_history(license_id: int, db: DbSession) -> list[LicenseCoverageHistoryResponse]:
+async def get_coverage_history(
+    license_id: int,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> list[LicenseCoverageHistoryResponse]:
     """Return preserved coverage periods and the currently active period."""
     parent_result = await db.execute(select(License).where(License.id == license_id))
     parent = parent_result.scalar_one_or_none()
-    if parent is None:
+    if parent is None or not await can_view_license(current_user, parent, db):
         raise HTTPException(status_code=404, detail="License not found")
 
     result = await db.execute(
-        select(LicenseCoverageHistory, License.license_ref, License.software_description)
+        select(LicenseCoverageHistory, License)
         .join(License, License.id == LicenseCoverageHistory.maintenance_license_id, isouter=True)
         .where(LicenseCoverageHistory.parent_license_id == license_id)
         .order_by(LicenseCoverageHistory.start_date, LicenseCoverageHistory.id)
     )
-    rows = [
-        LicenseCoverageHistoryResponse.model_validate(row[0]).model_copy(
-            update={"license_ref": row[1], "software_description": row[2]}
-        )
-        for row in result.all()
-    ]
+    rows = []
+    for history, maintenance in result.all():
+        response = LicenseCoverageHistoryResponse.model_validate(history)
+        if maintenance is not None and await can_view_license(current_user, maintenance, db):
+            response = response.model_copy(
+                update={
+                    "license_ref": maintenance.license_ref,
+                    "software_description": maintenance.software_description,
+                }
+            )
+        elif maintenance is not None:
+            response = response.model_copy(update={"maintenance_license_id": None})
+        rows.append(response)
 
     if parent.active_maintenance_id is not None:
         active_result = await db.execute(select(License).where(License.id == parent.active_maintenance_id))
         active = active_result.scalar_one_or_none()
         if active is not None:
+            can_view_active = await can_view_license(current_user, active, db)
             line_total = calc_line_total(active.quantity, active.unit_price)
             rows.append(
                 LicenseCoverageHistoryResponse(
                     id=-(active.id),
                     parent_license_id=parent.id,
-                    maintenance_license_id=active.id,
+                    maintenance_license_id=active.id if can_view_active else None,
                     coverage_type="separately_tracked",
                     source_type="current_maintenance_record",
                     start_date=active.start_date,
@@ -70,8 +83,8 @@ async def get_coverage_history(license_id: int, db: DbSession) -> list[LicenseCo
                     currency=active.currency,
                     created_at=active.created_at,
                     is_current=True,
-                    license_ref=active.license_ref,
-                    software_description=active.software_description,
+                    license_ref=active.license_ref if can_view_active else None,
+                    software_description=active.software_description if can_view_active else None,
                 )
             )
     return rows

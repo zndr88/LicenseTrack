@@ -94,6 +94,17 @@
   text-align: center;
 }
 
+.sourcing-request-edit-modal { width: min(760px, 94vw); }
+.sourcing-request-edit-heading { margin-top: 14px; }
+.sourcing-request-edit-heading p { color: var(--text-3); font-size: 11px; }
+.sourcing-request-edit-line {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  margin: 0 0 10px;
+  padding: 12px;
+}
+.sourcing-request-edit-line:disabled { opacity: 0.65; }
+
 @media (max-width: 820px) {
   .sourcing-item-modal-layout.has-quote-preview {
     display: flex;

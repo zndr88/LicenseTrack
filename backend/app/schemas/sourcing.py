@@ -223,6 +223,36 @@ class SourcingRequestCreate(BaseModel):
     items: list[SourcingItemCreate]
 
 
+class SourcingRequestItemUpdate(BaseModel):
+    """Editable request line fields submitted with one atomic request update."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    id: int
+    publisher_name: Optional[str] = None
+    software_description: Optional[str] = None
+    license_type: Optional[LicenseType] = None
+    quantity: Optional[str] = None
+    estimated_unit_price: Optional[str] = None
+    estimated_total_price: Optional[str] = None
+    currency: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    notes: Optional[str] = None
+
+    @field_validator("quantity", "estimated_unit_price", "estimated_total_price", mode="before")
+    @classmethod
+    def _validate_canonical_money(cls, value: object) -> object:
+        if value is None or value == "":
+            return value
+        if isinstance(value, str) and not is_canonical_money(value):
+            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {value!r}.")
+        return value
+
+
 class SourcingRequestUpdate(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -232,6 +262,7 @@ class SourcingRequestUpdate(BaseModel):
     supplier: Optional[str] = None
     contact_email: Optional[str] = None
     notes: Optional[str] = None
+    items: Optional[list[SourcingRequestItemUpdate]] = None
 
 
 class SourcingQuoteDocumentResponse(BaseModel):
