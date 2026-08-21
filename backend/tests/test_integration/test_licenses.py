@@ -1155,6 +1155,174 @@ async def test_link_existing_legacy_unlinked_maintenance_clears_flag_and_sets_pr
     assert "legacyUnlinkedMaintenance=true" in audit.json()["results"][0]["detail"]
 
 
+async def test_put_links_legacy_unlinked_maintenance_through_relationship_workflow(
+    test_app, auth_headers, db_session
+):
+    parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    maintenance = await _seed_legacy_unlinked_license(db_session)
+
+    response = await test_app.put(
+        f"/api/licenses/{maintenance.id}",
+        json={"parentLicenseId": parent["id"]},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["parentLicenseId"] == parent["id"]
+    assert body["maintenanceParentIds"] == [parent["id"]]
+    assert body["isLegacyUnlinkedMaintenance"] is False
+    link = await db_session.get(
+        LicenseMaintenanceLink,
+        (maintenance.id, parent["id"]),
+    )
+    assert link is not None
+    parent_row = await db_session.get(License, parent["id"])
+    assert parent_row.active_maintenance_id == maintenance.id
+    assert parent_row.has_maintenance is True
+
+
+async def test_put_reassigns_maintenance_primary_parent_and_clears_old_mirror(
+    test_app, auth_headers, db_session
+):
+    first_parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    second_parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    maintenance = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=first_parent["id"],
+    )
+
+    response = await test_app.put(
+        f"/api/licenses/{maintenance['id']}",
+        json={"parentLicenseId": second_parent["id"]},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["parentLicenseId"] == second_parent["id"]
+    assert body["maintenanceParentIds"] == [second_parent["id"]]
+    first_row = await db_session.get(License, first_parent["id"])
+    second_row = await db_session.get(License, second_parent["id"])
+    assert first_row.active_maintenance_id is None
+    assert first_row.has_maintenance is False
+    assert second_row.active_maintenance_id == maintenance["id"]
+    assert second_row.has_maintenance is True
+
+
+async def test_put_retiring_maintenance_clears_parent_relationship(
+    test_app, auth_headers, db_session
+):
+    parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    maintenance = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+    )
+
+    response = await test_app.put(
+        f"/api/licenses/{maintenance['id']}",
+        json={"isRetired": True},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["isRetired"] is True
+    assert body["parentLicenseId"] is None
+    assert body["maintenanceParentIds"] == []
+    parent_row = await db_session.get(License, parent["id"])
+    assert parent_row.active_maintenance_id is None
+    assert parent_row.has_maintenance is False
+    links = await db_session.execute(
+        select(LicenseMaintenanceLink).where(
+            LicenseMaintenanceLink.maintenance_license_id == maintenance["id"]
+        )
+    )
+    assert links.scalars().all() == []
+
+
+async def test_delete_parent_retires_active_maintenance_without_constraint_failure(
+    test_app, auth_headers, db_session
+):
+    parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    maintenance = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+    )
+
+    response = await test_app.delete(f"/api/licenses/{parent['id']}", headers=auth_headers)
+
+    assert response.status_code == 204, response.text
+    maintenance_row = await db_session.get(License, maintenance["id"])
+    assert maintenance_row.is_retired is True
+    assert maintenance_row.parent_license_id is None
+    assert maintenance_row.is_legacy_unlinked_maintenance is False
+
+
+async def test_delete_shared_parent_preserves_child_and_primary_remaining_link(
+    test_app, auth_headers, db_session
+):
+    first_parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    second_parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    maintenance = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        maintenanceParentIds=[first_parent["id"], second_parent["id"]],
+    )
+
+    response = await test_app.delete(f"/api/licenses/{first_parent['id']}", headers=auth_headers)
+
+    assert response.status_code == 204, response.text
+    maintenance_response = await test_app.get(
+        f"/api/licenses/{maintenance['id']}", headers=auth_headers
+    )
+    assert maintenance_response.status_code == 200, maintenance_response.text
+    body = maintenance_response.json()
+    assert body["isRetired"] is False
+    assert body["parentLicenseId"] == second_parent["id"]
+    assert body["maintenanceParentIds"] == [second_parent["id"]]
+    second_row = await db_session.get(License, second_parent["id"])
+    assert second_row.active_maintenance_id == maintenance["id"]
+    assert second_row.has_maintenance is True
+
+
+async def test_bulk_delete_shared_parent_preserves_child_and_primary_remaining_link(
+    test_app, auth_headers
+):
+    first_parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    second_parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    maintenance = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        maintenanceParentIds=[first_parent["id"], second_parent["id"]],
+    )
+
+    response = await test_app.request(
+        "DELETE",
+        "/api/licenses/bulk",
+        json={"ids": [first_parent["id"]]},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    maintenance_response = await test_app.get(
+        f"/api/licenses/{maintenance['id']}", headers=auth_headers
+    )
+    assert maintenance_response.status_code == 200, maintenance_response.text
+    body = maintenance_response.json()
+    assert body["isRetired"] is False
+    assert body["parentLicenseId"] == second_parent["id"]
+    assert body["maintenanceParentIds"] == [second_parent["id"]]
+
+
 async def test_link_legacy_unlinked_to_invalid_parent_is_atomic(test_app, auth_headers, db_session):
     parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
     maintenance = await _seed_legacy_unlinked_license(db_session)
@@ -1223,6 +1391,7 @@ async def test_disable_shared_maintenance_unlinks_parent_without_retiring_child(
     maintenance_resp = await test_app.get(f"/api/licenses/{maintenance['id']}", headers=auth_headers)
     assert maintenance_resp.status_code == 200, maintenance_resp.text
     assert maintenance_resp.json()["isRetired"] is False
+    assert maintenance_resp.json()["parentLicenseId"] == second_parent["id"]
     assert maintenance_resp.json()["maintenanceParentIds"] == [second_parent["id"]]
 
 

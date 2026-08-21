@@ -213,4 +213,20 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
     expect(result.current.rowOverrides).toEqual({});
     expect(result.current.legacyUnlinkedSelectedCount).toBe(0);
   });
+
+  it("cascades a skipped inferred parent to its same-file maintenance children", () => {
+    const { result } = renderHook(() =>
+      useCSVImportPreview({ setStep: vi.fn(), setLoading: vi.fn(), setError: vi.fn() })
+    );
+    act(() => result.current.setMappedPreviewData({ rows: [
+      { rowNumber: 1, importStatus: "active", importAction: "create" },
+      { rowNumber: 2, importStatus: "active", importAction: "create", inferredParentRowNumber: 1 },
+      { rowNumber: 3, importStatus: "active", importAction: "create", inferredParentRowNumber: 2 },
+    ] }));
+
+    act(() => result.current.skipRows([1]));
+
+    expect(result.current.skippedRows).toEqual(new Set([1, 2, 3]));
+    expect(result.current.importableRowsCount).toBe(0);
+  });
 });

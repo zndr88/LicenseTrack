@@ -147,6 +147,30 @@ async def prepare_import_rows(
     await add_duplicate_warnings(rows, db)
 
 
+def expand_skipped_inferred_rows(rows: list[ParsedRow], skipped_rows: set[int]) -> set[int]:
+    """Cascade explicit skips to maintenance rows inferred from those rows.
+
+    An inferred maintenance parent is a same-file dependency. If the parent
+    is skipped, allowing its child through to the persistence loop would make
+    the child appear importable in the UI and fail only when its generated
+    foreign key is missing. Keep the existing skip semantics (count rows as
+    skipped without manufacturing a validation error), while making the
+    dependency decision deterministic before any writes occur.
+    """
+    effective_skips = set(skipped_rows)
+    changed = True
+    while changed:
+        changed = False
+        for row in rows:
+            if (
+                row.parent_import_row_number in effective_skips
+                and row.row_number not in effective_skips
+            ):
+                effective_skips.add(row.row_number)
+                changed = True
+    return effective_skips
+
+
 def build_warning_summary(rows: list[ParsedRow], skipped_rows: set[int] | None = None) -> ImportWarningSummary:
     """Compute per-category warning counts across all parsed rows.
 
@@ -253,6 +277,7 @@ def _row_to_schema(row: ParsedRow) -> CSVImportPreviewRow:
         import_action=row.import_action,
         matched_license_id=row.matched_license_id,
         maintenance_parent_action=row.maintenance_parent_action,
+        inferred_parent_row_number=row.parent_import_row_number,
     )
 
 
@@ -317,6 +342,7 @@ async def run_import_rows(
     inserted_by_row_number: dict[int, int] = {}
     reference_tracker = _ReferenceTracker()
     reference_overrides = reference_overrides or {}
+    skipped_rows = expand_skipped_inferred_rows(rows, skipped_rows)
 
     for parsed, custom_data in zip(rows, custom_rows):
         if parsed.row_number in skipped_rows:

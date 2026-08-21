@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "./queryKeys.js";
-import { invalidateCompletenessRules, invalidateCustomFieldDefinitions, invalidateNotifications } from "./queryInvalidation.js";
+import { invalidateCompletenessRules, invalidateCustomFieldDefinitions, invalidateImportState, invalidateNotifications } from "./queryInvalidation.js";
 import LicensesPage from "./components/pages/LicensesPage.jsx";
 import InvoiceConfirmModal from "./components/licenses/InvoiceConfirmModal.jsx";
 import { createManualEntryData } from "./constants/licenseData.js";
@@ -197,10 +197,7 @@ export default function AppRouter({
             userSettings={userSettings}
             canManageImportMappings={currentUser.role === "admin"}
             onImportComplete={() => {
-              queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
-              queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
-              queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
-              invalidateNotifications(queryClient);
+              invalidateImportState(queryClient);
             }}
             onGoToLicenses={() => { invalidateNotifications(queryClient); setPage("licenses"); }}
           />

@@ -204,6 +204,10 @@ class CSVImportPreviewRow(BaseModel):
     import_action: str = "create"  # "create" | "update"
     matched_license_id: Optional[int] = None
     maintenance_parent_action: Optional[str] = None
+    # Set when a maintenance row's parent was inferred from an earlier row in
+    # the same file. The UI uses this relationship to cascade an explicit
+    # parent skip before the request reaches persistence.
+    inferred_parent_row_number: Optional[int] = None
 
     @field_validator("budget_owner_email", mode="before")
     @classmethod

@@ -1,17 +1,10 @@
-from datetime import date
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.license import License
 from app.schemas.license import LicenseResponse
-from app.services.license_service import (
-    compute_completeness,
-    compute_days_until_expiry,
-    compute_expiration_status,
-)
-from app.services.license_response_service import get_procurement_documents_by_scope
+from app.services.license_response_service import enrich_license_response, get_procurement_documents_by_scope
 from app.services.settings_service import get_global_settings as _get_cached_global_settings
 
 
@@ -26,7 +19,12 @@ async def build_conversion_response(
     reload_result = await db.execute(
         select(License)
         .where(License.id.in_(all_return_ids))
-        .options(selectinload(License.documents), selectinload(License.creator))
+        .options(
+            selectinload(License.documents),
+            selectinload(License.creator),
+            selectinload(License.maintenance_parent_links),
+            selectinload(License.maintenance_child_links),
+        )
     )
     licenses = list(reload_result.scalars().all())
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, licenses)
@@ -34,19 +32,17 @@ async def build_conversion_response(
     gs = await _get_cached_global_settings(db)
     mandatory_fields = (gs.mandatory_fields if gs else {}) or {}
     notification_days = int(gs.notification_days) if gs else 30
+    storage_base = (gs.storage_path if gs else "") or None
 
-    today = date.today()
     responses: list[LicenseResponse] = []
     for lic in licenses:
-        docs = [
-            *list(lic.documents),
-            *procurement_documents_by_license_id.get(lic.id, []),
-        ]
-        resp = LicenseResponse.model_validate(lic)
-        resp.completeness_pct = compute_completeness(lic, docs, mandatory_fields)
-        resp.days_until_expiry = compute_days_until_expiry(lic, today)
-        resp.expiration_status = compute_expiration_status(lic, today, notification_days)
-        resp.document_count = len(docs)
+        resp = enrich_license_response(
+            lic,
+            mandatory_fields,
+            notification_days,
+            procurement_documents=procurement_documents_by_license_id.get(lic.id, []),
+            storage_base=storage_base,
+        )
         resp.conversion_type = new_license_type_map.get(lic.id, "renewed_predecessor")
         responses.append(resp)
 

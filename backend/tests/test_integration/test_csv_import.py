@@ -908,6 +908,64 @@ async def test_execute_mapped_parses_declared_date_format_for_custom_date_field(
     assert value.value_text == "2027-01-02"
 
 
+async def test_execute_mapped_uses_saved_date_format_for_custom_date_field(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    user = await db_session.scalar(select(User).where(User.username == "testadmin"))
+    assert user is not None
+    db_session.add(UserSettings(user_id=user.id, date_format="MM/DD/YYYY"))
+    await db_session.commit()
+
+    definition = await _create_custom_field(test_app, auth_headers, "Mapped default date", "date")
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Mapped date"],
+        [{
+            "Publisher": "Acme",
+            "Description": "Mapped Custom Saved Default Date",
+            "Mapped date": "12-31-2027",
+        }],
+    )
+    mapping_json = json.dumps({
+        "mapping": [
+            {"rawHeader": "Publisher", "target": "publisher_name"},
+            {"rawHeader": "Description", "target": "software_description"},
+            {"rawHeader": "Mapped date", "target": definition["fieldKey"]},
+        ]
+    })
+
+    preview = await test_app.post(
+        "/api/import/preview-mapped",
+        headers=auth_headers,
+        files={"file": ("mapped-custom-default-date.csv", csv_bytes, "text/csv")},
+        data={"mapping_json": mapping_json},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["rows"][0]["importStatus"] == "active"
+
+    execute = await test_app.post(
+        "/api/import/execute",
+        headers=auth_headers,
+        files={"file": ("mapped-custom-default-date.csv", csv_bytes, "text/csv")},
+        data={"mapping_json": mapping_json},
+    )
+    assert execute.status_code == 200, execute.text
+    assert execute.json()["importedCount"] == 1
+
+    license_obj = await db_session.scalar(
+        select(License).where(License.software_description == "Mapped Custom Saved Default Date")
+    )
+    value = await db_session.scalar(
+        select(CustomFieldValue).where(
+            CustomFieldValue.license_id == license_obj.id,
+            CustomFieldValue.custom_field_def_id == definition["id"],
+        )
+    )
+    assert value is not None
+    assert value.value_text == "2027-12-31"
+
+
 async def test_analyze_ignores_export_only_computed_columns(test_app, auth_headers):
     # Round-tripping a full LicenseTrack export must not prompt custom-field
     # creation for computed/metadata columns or the maintenance mirror fields.
@@ -1106,6 +1164,38 @@ async def test_confirm_import_inferred_maintenance_parent_links_to_new_parent(
     parent = next(row for row in imported if row.license_type == LicenseType.perpetual)
     maintenance = next(row for row in imported if row.license_type == LicenseType.maintenance)
     assert maintenance.parent_license_id == parent.id
+
+
+async def test_confirm_import_skipping_inferred_parent_cascades_to_child(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Type", "Contract #", "PO #"],
+        [
+            {"Publisher": "Acme", "Description": "Widget", "Type": "perpetual", "Contract #": "C-SKIP", "PO #": "P-SKIP"},
+            {"Publisher": "Acme", "Description": "Widget - Maintenance", "Type": "maintenance", "Contract #": "C-SKIP-M", "PO #": "P-SKIP"},
+        ],
+    )
+
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={
+            "skipped_rows_json": json.dumps([1]),
+            "acknowledge_warnings": "true",
+        },
+        files={"file": ("skipped-inferred-parent.csv", csv_bytes, "text/csv")},
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["importedCount"] == 0
+    assert data["skippedCount"] == 2
+    assert data["errorCount"] == 0
+    assert await db_session.scalar(select(License).where(License.software_description == "Widget")) is None
+    assert await db_session.scalar(select(License).where(License.software_description == "Widget - Maintenance")) is None
 
 
 async def test_confirm_import_maintenance_with_subscription_parent_ref_errors(
@@ -1982,7 +2072,7 @@ async def test_preview_mapped_flags_invalid_typed_custom_field_values(
             {
                 "Publisher": "Acme Invalid Custom",
                 "Description": "Invalid Custom Import",
-                "Review": "31/12/2026",
+                "Review": "31/31/2026",
                 "Cost": "not money",
                 "Approved": "sometimes",
             }
@@ -2025,7 +2115,7 @@ async def test_execute_mapped_invalid_custom_field_values_do_not_persist_license
             {
                 "Publisher": "Acme Invalid Persist",
                 "Description": "Should Not Persist",
-                "Review": "31/12/2026",
+                "Review": "not-a-date",
             }
         ],
     )

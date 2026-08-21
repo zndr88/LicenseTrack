@@ -4,6 +4,7 @@ import {
   invalidateCompletenessRules,
   invalidateContracts,
   invalidateCustomFieldDefinitions,
+  invalidateImportState,
   invalidateNotifications,
   invalidateProcurementRenewalState,
   invalidateRenewalWorkflow,
@@ -82,6 +83,22 @@ describe("query invalidation helpers", () => {
     invalidateContracts(queryClient);
 
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.contracts });
+  });
+
+  test("invalidates all caches affected by a completed import", async () => {
+    const queryClient = makeQueryClient();
+
+    await invalidateImportState(queryClient);
+
+    expect(queryClient.invalidateQueries.mock.calls.map(([arg]) => arg.queryKey)).toEqual([
+      queryKeys.licenses,
+      queryKeys.licenseStats,
+      queryKeys.renewals,
+      queryKeys.referenceData,
+      queryKeys.portfolioStats,
+      queryKeys.reportsPortfolioStats,
+      queryKeys.notifications,
+    ]);
   });
 
   test("invalidates every cache that renders custom field definitions", () => {

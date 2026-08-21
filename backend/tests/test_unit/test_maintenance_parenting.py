@@ -6,6 +6,7 @@ from app.services.import_.maintenance_parenting import (
     infer_batch_maintenance_parents,
 )
 from app.services.csv_importer import ParsedRow
+from app.services.import_.import_workflow import expand_skipped_inferred_rows
 
 
 def _row(row_number, publisher="Acme", software="Widget",
@@ -60,3 +61,12 @@ def test_infer_errors_on_ambiguous_parents():
     infer_batch_maintenance_parents([parent_a, parent_b, maintenance])
     assert maintenance.import_status == "error"
     assert any("ambiguous" in e for e in maintenance.validation_errors)
+
+
+def test_skipping_inferred_parent_cascades_to_maintenance_dependents():
+    parent = _row(1, software="Widget", license_type="perpetual", contract="C1")
+    maintenance = _row(2, software="Widget - Maintenance", license_type="maintenance", contract="C1")
+    second_maintenance = _row(3, software="Widget - Maintenance", license_type="maintenance", contract="C1")
+    infer_batch_maintenance_parents([parent, maintenance, second_maintenance])
+
+    assert expand_skipped_inferred_rows([parent, maintenance, second_maintenance], {1}) == {1, 2, 3}

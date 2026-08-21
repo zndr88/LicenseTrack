@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.contract import Contract, ContractDocument, ContractFolder
 from app.models.document import Document, DocumentCategory, ProcurementDocument, ProcurementDocumentCategory
-from app.models.license import License, LicenseMetric, LicenseType
+from app.models.license import License, LicenseMaintenanceLink, LicenseMetric, LicenseType
 from app.models.pending_order import PendingOrder
 from app.models.settings import GlobalSettings
 from app.services.contract_response_service import build_contract_response
@@ -152,6 +152,41 @@ async def test_build_conversion_response_marks_new_and_predecessor_licenses(db_s
     assert by_id[new_license.id].document_count == 1
     assert by_id[new_license.id].completeness_pct == 100
     assert by_id[predecessor.id].conversion_type == "renewed_predecessor"
+
+
+async def test_build_conversion_response_includes_maintenance_association_ids(db_session):
+    parent = _license(
+        software_description="Parent License",
+        license_type=LicenseType.perpetual,
+        end_date=None,
+    )
+    db_session.add(parent)
+    await db_session.flush()
+    maintenance = _license(
+        software_description="Maintenance Renewal",
+        license_type=LicenseType.maintenance,
+        parent_license_id=parent.id,
+        end_date=date(2027, 12, 31),
+    )
+    db_session.add(maintenance)
+    await db_session.flush()
+    db_session.add(
+        LicenseMaintenanceLink(
+            maintenance_license_id=maintenance.id,
+            parent_license_id=parent.id,
+        )
+    )
+    await db_session.commit()
+
+    responses = await build_conversion_response(
+        db_session,
+        [(maintenance.id, "renewed")],
+        [parent.id],
+    )
+    by_id = {response.id: response for response in responses}
+
+    assert by_id[maintenance.id].maintenance_parent_ids == [parent.id]
+    assert by_id[parent.id].linked_maintenance_ids == [maintenance.id]
 
 
 async def test_build_conversion_response_includes_pending_order_procurement_documents(db_session):

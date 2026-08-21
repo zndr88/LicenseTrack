@@ -53,6 +53,7 @@ from app.services.custom_fields_service import get_all_definitions, validate_imp
 from app.services.import_.import_workflow import (
     build_preview_response,
     build_warning_summary,
+    expand_skipped_inferred_rows,
     get_import_defaults,
     prepare_import_rows,
     run_import_rows,
@@ -375,7 +376,7 @@ async def preview_mapped_import(
         db, current_user.id, number_format_locale, date_format
     )
     result, _custom_rows = parse_mapped_csv(contents, column_to_target, default_currency, locale, declared_date_format)
-    await validate_imported_custom_rows(db, result.rows, _custom_rows, locale, date_format)
+    await validate_imported_custom_rows(db, result.rows, _custom_rows, locale, declared_date_format)
     await prepare_import_rows(result.rows, db, update_existing=update_existing)
     return build_preview_response(result, await build_reference_summary(db, result.rows))
 
@@ -438,13 +439,14 @@ async def execute_import(
     parsed_result, custom_rows = parse_mapped_csv(
         contents, column_to_target, default_currency, locale, declared_date_format
     )
-    await validate_imported_custom_rows(db, parsed_result.rows, custom_rows, locale, date_format)
+    await validate_imported_custom_rows(db, parsed_result.rows, custom_rows, locale, declared_date_format)
     await prepare_import_rows(
         parsed_result.rows,
         db,
         update_existing=update_existing,
         row_parent_overrides=row_parent_overrides,
     )
+    skipped_rows = expand_skipped_inferred_rows(parsed_result.rows, skipped_rows)
     await validate_reference_overrides(db, parsed_result.rows, skipped_rows, reference_overrides)
 
     warning_summary: ImportWarningSummary = build_warning_summary(parsed_result.rows, skipped_rows)
@@ -465,7 +467,7 @@ async def execute_import(
         current_user.id,
         db,
         locale,
-        date_format,
+        declared_date_format,
         update_existing=update_existing,
         reference_overrides=reference_overrides,
         include_reference_result=True,
@@ -562,6 +564,7 @@ async def confirm_import(
         update_existing=update_existing,
         row_parent_overrides=row_parent_overrides,
     )
+    skipped_rows = expand_skipped_inferred_rows(result.rows, skipped_rows)
     await validate_reference_overrides(db, result.rows, skipped_rows, reference_overrides)
 
     warning_summary: ImportWarningSummary = build_warning_summary(result.rows, skipped_rows)

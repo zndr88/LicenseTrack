@@ -18,7 +18,7 @@ from sqlalchemy import delete, select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document, ProcurementDocument
-from app.models.license import License, LicenseType, MaintenanceCoverage
+from app.models.license import License, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
 from app.models.sourcing import SourcingItem
 from app.schemas.license import LicenseBatchCreateItem, LicenseCreate, LicenseUpdate
 from app.services import storage
@@ -41,6 +41,8 @@ from app.services.maintenance_rules import (
 from app.services.maintenance_service import (
     activate_maintenance_for_parent,
     create_maintenance_for_parent,
+    detach_maintenance_from_parent,
+    retire_maintenance_license,
     sync_parent_mirror_fields,
     validate_parent_license,
 )
@@ -337,6 +339,8 @@ async def apply_license_update(
         raise HTTPException(status_code=404, detail="License not found")
 
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+    parent_update_requested = "parent_license_id" in update_data
+    requested_parent_id = update_data.pop("parent_license_id", None)
     _sync_invoice_numbers(update_data)
     await resolve_license_reference_updates(db, update_data)
     if (
@@ -359,7 +363,7 @@ async def apply_license_update(
         )
 
     new_type = update_data.get("license_type", license_obj.license_type)
-    new_parent_id = update_data.get("parent_license_id", license_obj.parent_license_id)
+    new_parent_id = requested_parent_id if parent_update_requested else license_obj.parent_license_id
     try:
         assert_coverage_allowed_for_type(
             new_type,
@@ -368,7 +372,16 @@ async def apply_license_update(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     await _validate_maintenance_parent_transition(db, license_obj, new_type, new_parent_id)
-    if new_type != LicenseType.maintenance or new_parent_id is not None:
+    linking_legacy_parent = (
+        new_type == LicenseType.maintenance
+        and parent_update_requested
+        and requested_parent_id is not None
+        and license_obj.is_legacy_unlinked_maintenance
+        and license_obj.parent_license_id is None
+    )
+    if parent_update_requested and not linking_legacy_parent:
+        update_data["parent_license_id"] = requested_parent_id
+    if (new_type != LicenseType.maintenance or new_parent_id is not None) and not linking_legacy_parent:
         update_data["is_legacy_unlinked_maintenance"] = False
 
     before = {column.name: getattr(license_obj, column.name) for column in license_obj.__table__.columns}
@@ -382,6 +395,13 @@ async def apply_license_update(
 
     validate_renewal_link_invariants(license_obj)
     _validate_active_maintenance_parent_update(license_obj, before)
+    await _reconcile_maintenance_relationships_after_update(
+        db,
+        license_obj,
+        previous_parent_id=before.get("parent_license_id"),
+        requested_parent_id=requested_parent_id,
+        parent_update_requested=parent_update_requested,
+    )
     await _sync_active_maintenance_parent_if_needed(db, license_obj)
 
     # Build `after` from `before` + applied changes rather than re-reading from
@@ -405,6 +425,10 @@ async def apply_license_update(
     for field in BUNDLED_SUPPORT_MIRROR_FIELDS:
         if field in after:
             after[field] = getattr(license_obj, field)
+    if parent_update_requested or before.get("parent_license_id") != license_obj.parent_license_id:
+        after["parent_license_id"] = license_obj.parent_license_id
+    if before.get("is_legacy_unlinked_maintenance") != license_obj.is_legacy_unlinked_maintenance:
+        after["is_legacy_unlinked_maintenance"] = license_obj.is_legacy_unlinked_maintenance
 
     return license_obj, before, after
 
@@ -566,6 +590,68 @@ async def mark_license_notice_handled(
     return license_obj, before, after
 
 
+async def _prepare_maintenance_relationships_for_delete(
+    db: AsyncSession,
+    licenses: list[License],
+) -> None:
+    """Detach deleted parents without orphaning shared maintenance records."""
+    deleted_ids = {license_obj.id for license_obj in licenses}
+    if not deleted_ids:
+        return
+
+    active_ids = {license_obj.active_maintenance_id for license_obj in licenses if license_obj.active_maintenance_id}
+    linked_result = await db.execute(
+        select(LicenseMaintenanceLink.maintenance_license_id).where(
+            LicenseMaintenanceLink.parent_license_id.in_(deleted_ids)
+        )
+    )
+    maintenance_ids = set(linked_result.scalars().all()) | active_ids
+    primary_result = await db.execute(
+        select(License.id).where(
+            License.id.not_in(deleted_ids),
+            License.license_type == LicenseType.maintenance,
+            License.parent_license_id.in_(deleted_ids),
+        )
+    )
+    maintenance_ids.update(primary_result.scalars().all())
+    if not maintenance_ids:
+        return
+
+    children_result = await db.execute(
+        select(License).where(License.id.in_(maintenance_ids), License.id.not_in(deleted_ids))
+    )
+    children = list(children_result.scalars().all())
+
+    # Clear parent mirrors before deleting parent rows so the consistency
+    # check is not evaluated with has_maintenance still true.
+    for parent in licenses:
+        if parent.active_maintenance_id in maintenance_ids:
+            parent.active_maintenance_id = None
+            await sync_parent_mirror_fields(db, parent)
+
+    for child in children:
+        remaining_result = await db.execute(
+            select(LicenseMaintenanceLink.parent_license_id)
+            .where(
+                LicenseMaintenanceLink.maintenance_license_id == child.id,
+                LicenseMaintenanceLink.parent_license_id.not_in(deleted_ids),
+            )
+            .order_by(LicenseMaintenanceLink.parent_license_id)
+        )
+        remaining_parent_ids = list(remaining_result.scalars().all())
+        if remaining_parent_ids:
+            if child.parent_license_id not in remaining_parent_ids:
+                child.parent_license_id = remaining_parent_ids[0]
+        else:
+            child.parent_license_id = None
+            child.is_legacy_unlinked_maintenance = False
+            child.is_retired = True
+
+    await db.execute(
+        delete(LicenseMaintenanceLink).where(LicenseMaintenanceLink.parent_license_id.in_(deleted_ids))
+    )
+
+
 async def bulk_delete_license_records(db: AsyncSession, license_ids: list[int]) -> DeletedLicenseBatch:
     """Delete multiple licenses and return their IDs and managed document paths."""
     if not license_ids:
@@ -580,21 +666,8 @@ async def bulk_delete_license_records(db: AsyncSession, license_ids: list[int]) 
 
     found_ids = [license_obj.id for license_obj in found]
 
-    maintenance_result = await db.execute(
-        select(License).where(
-            License.parent_license_id.in_(found_ids),
-            License.license_type == LicenseType.maintenance,
-            License.is_retired.is_(False),
-        )
-    )
-    maintenance_children = maintenance_result.scalars().all()
-    parent_ids_with_maintenance = {child.parent_license_id for child in maintenance_children}
-    for child in maintenance_children:
-        child.is_retired = True
+    await _prepare_maintenance_relationships_for_delete(db, found)
     for license_obj in found:
-        if license_obj.id in parent_ids_with_maintenance:
-            license_obj.active_maintenance_id = None
-            await sync_parent_mirror_fields(db, license_obj)
         if license_obj.license_type == LicenseType.maintenance:
             license_obj.is_retired = True
 
@@ -614,16 +687,7 @@ async def delete_license_record(db: AsyncSession, license_id: int) -> DeletedLic
 
     await _assert_license_delete_allowed(db, [license_obj])
 
-    maintenance_result = await db.execute(
-        select(License).where(
-            License.parent_license_id == license_id,
-            License.license_type == LicenseType.maintenance,
-            License.is_retired.is_(False),
-        )
-    )
-    maintenance_children = maintenance_result.scalars().all()
-    for child in maintenance_children:
-        child.is_retired = True
+    await _prepare_maintenance_relationships_for_delete(db, [license_obj])
 
     if license_obj.license_type == LicenseType.maintenance:
         license_obj.is_retired = True
@@ -823,11 +887,78 @@ def _validate_active_maintenance_parent_update(license_obj: License, before: dic
         raise HTTPException(status_code=400, detail=str(exc))
 
 
-async def _sync_active_maintenance_parent_if_needed(db: AsyncSession, license_obj: License) -> None:
-    if license_obj.license_type != LicenseType.maintenance or license_obj.parent_license_id is None:
-        return
+async def _detach_all_maintenance_relationships(db: AsyncSession, license_obj: License) -> None:
+    """Remove all association rows and clear each affected parent mirror."""
+    parent_result = await db.execute(
+        select(License)
+        .join(
+            LicenseMaintenanceLink,
+            LicenseMaintenanceLink.parent_license_id == License.id,
+        )
+        .where(LicenseMaintenanceLink.maintenance_license_id == license_obj.id)
+    )
+    parents = list(parent_result.scalars().unique().all())
+    if license_obj.parent_license_id is not None and all(
+        parent.id != license_obj.parent_license_id for parent in parents
+    ):
+        primary = await db.get(License, license_obj.parent_license_id)
+        if primary is not None:
+            parents.append(primary)
+    for parent in parents:
+        await detach_maintenance_from_parent(db, license_obj, parent)
+    license_obj.parent_license_id = None
 
-    parent_result = await db.execute(select(License).where(License.id == license_obj.parent_license_id))
-    parent_license = parent_result.scalar_one_or_none()
-    if parent_license is not None and parent_license.active_maintenance_id == license_obj.id:
-        await sync_parent_mirror_fields(db, parent_license)
+
+async def _reconcile_maintenance_relationships_after_update(
+    db: AsyncSession,
+    license_obj: License,
+    *,
+    previous_parent_id: int | None,
+    requested_parent_id: int | None,
+    parent_update_requested: bool,
+) -> None:
+    """Apply ordinary PUT changes through maintenance link/mirror workflows."""
+    if license_obj.license_type != LicenseType.maintenance:
+        if previous_parent_id is not None or license_obj.parent_license_id is not None:
+            await _detach_all_maintenance_relationships(db, license_obj)
+        license_obj.is_legacy_unlinked_maintenance = False
+        return
+    if license_obj.is_retired:
+        await retire_maintenance_license(db, license_obj)
+        return
+    if not parent_update_requested:
+        return
+    if previous_parent_id is not None and previous_parent_id != requested_parent_id:
+        previous_parent = await db.get(License, previous_parent_id)
+        if previous_parent is not None:
+            await detach_maintenance_from_parent(db, license_obj, previous_parent, update_primary=False)
+    if requested_parent_id is not None:
+        parent = await validate_parent_license(db, requested_parent_id)
+        await activate_maintenance_for_parent(db, license_obj, parent)
+        # An additional association may already exist, so activation preserves
+        # the old primary. A PUT explicitly selects the requested parent as the
+        # compatibility primary while retaining any other valid links.
+        license_obj.parent_license_id = requested_parent_id
+
+
+async def _sync_active_maintenance_parent_if_needed(db: AsyncSession, license_obj: License) -> None:
+    if license_obj.license_type != LicenseType.maintenance:
+        return
+    parent_result = await db.execute(
+        select(License)
+        .join(
+            LicenseMaintenanceLink,
+            LicenseMaintenanceLink.parent_license_id == License.id,
+        )
+        .where(LicenseMaintenanceLink.maintenance_license_id == license_obj.id)
+    )
+    parents = list(parent_result.scalars().unique().all())
+    if license_obj.parent_license_id is not None and all(
+        parent.id != license_obj.parent_license_id for parent in parents
+    ):
+        primary = await db.get(License, license_obj.parent_license_id)
+        if primary is not None:
+            parents.append(primary)
+    for parent_license in parents:
+        if parent_license.active_maintenance_id == license_obj.id:
+            await sync_parent_mirror_fields(db, parent_license)

@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.license import License, LicenseType
+from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
@@ -24,7 +24,10 @@ from app.services.maintenance_service import (
     sync_parent_mirror_fields,
     validate_parent_license,
 )
-from app.services.maintenance_rules import default_maintenance_coverage
+from app.services.maintenance_rules import (
+    assert_coverage_allowed_for_type,
+    default_maintenance_coverage,
+)
 from app.services.po_total_override_service import inherit_po_total_override
 from app.services.reference_data_service import resolve_license_reference_fields, resolve_organization
 from app.services.renewal_workflow import build_renewal_sourcing_item
@@ -313,11 +316,28 @@ async def create_renewal_successor_from_sourcing_item(
             ),
         }
     successor_type = license_data.get("license_type", old_lic.license_type)
+    try:
+        successor_type = LicenseType(successor_type)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{validation_detail_prefix}Invalid license type for renewal: {exc}",
+        ) from exc
+    successor_coverage = license_data.get("maintenance_coverage") or default_maintenance_coverage(
+        successor_type
+    )
+    try:
+        successor_coverage = MaintenanceCoverage(successor_coverage)
+        assert_coverage_allowed_for_type(successor_type, successor_coverage)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{validation_detail_prefix}{exc}",
+        ) from exc
     license_data = {
         **license_data,
-        "maintenance_coverage": (
-            license_data.get("maintenance_coverage") or default_maintenance_coverage(successor_type)
-        ),
+        "license_type": successor_type,
+        "maintenance_coverage": successor_coverage,
     }
     await resolve_license_reference_fields(db, license_data)
 

@@ -73,6 +73,21 @@ export function invalidateReferenceData(queryClient) {
   ]);
 }
 
+// An import can create licenses, change renewal-workbench rows, and create
+// reference values in one transaction. Keep the import completion callback
+// on the same shared query-key helpers as the rest of the app.
+export function invalidateImportState(queryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.licenses }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.licenseStats }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.renewals }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.referenceData }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
+  ]);
+}
+
 // Invalidate the contracts query.
 // Used after creating a contract or closing the contract modal after edits.
 export function invalidateContracts(queryClient) {

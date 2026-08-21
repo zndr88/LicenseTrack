@@ -123,10 +123,24 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
   };
 
   const skipRows = (rowNumbers) => {
-    setSkippedRows(prev => { const next = new Set(prev); rowNumbers.forEach(r => next.add(r)); return next; });
+    // Same-file inferred maintenance rows depend on their parent being
+    // persisted first. Keep the preview's "will import" count aligned with
+    // the backend by cascading an explicit parent skip to its dependents.
+    const rowsToSkip = new Set(rowNumbers);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      previewRows.forEach((row) => {
+        if (rowsToSkip.has(row.inferredParentRowNumber) && !rowsToSkip.has(row.rowNumber)) {
+          rowsToSkip.add(row.rowNumber);
+          changed = true;
+        }
+      });
+    }
+    setSkippedRows(prev => { const next = new Set(prev); rowsToSkip.forEach(r => next.add(r)); return next; });
     setRowOverrides(prev => {
       const next = { ...prev };
-      rowNumbers.forEach((rowNumber) => { delete next[rowNumber]; });
+      rowsToSkip.forEach((rowNumber) => { delete next[rowNumber]; });
       return next;
     });
     setSelectedRows(new Set());
