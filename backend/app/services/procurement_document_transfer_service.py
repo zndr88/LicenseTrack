@@ -14,6 +14,14 @@ from app.services import storage
 StoredProcurementPath = tuple[str, str | None]
 
 
+def _cleanup_paths(paths: list[StoredProcurementPath]) -> None:
+    for path, storage_base in paths:
+        try:
+            storage.delete_file(path, storage_base)
+        except Exception:
+            pass
+
+
 async def validate_invoice_file(file: UploadFile) -> tuple[bytes, str, str]:
     """Read and validate an invoice upload. Returns (content, filename, mime_type)."""
     content = await file.read()
@@ -69,7 +77,7 @@ async def copy_quote_documents_to_procurement_documents(
     po_number: str,
     pending_order_id: int,
     request_ids: list[int],
-    user_id: int,
+    user_id: int | None,
 ) -> list[StoredProcurementPath]:
     gs_result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
     gs_row = gs_result.scalar_one_or_none()
@@ -88,31 +96,43 @@ async def copy_quote_documents_to_procurement_documents(
     existing_keys = {(doc.original_filename, doc.file_size, doc.mime_type) for doc in existing_result.scalars().all()}
 
     stored_paths: list[StoredProcurementPath] = []
-    for quote_doc in quote_result.scalars().all():
-        key = (quote_doc.original_filename, quote_doc.file_size, quote_doc.mime_type)
-        if key in existing_keys:
-            continue
-        source_path = storage.get_file_path(quote_doc.filename, storage_base)
-        if not source_path.exists():
-            continue
-        stored_path, file_size = storage.save_procurement_document_bytes(
-            source_path.read_bytes(),
-            quote_doc.original_filename,
-            po_number,
-            storage_base,
-        )
-        db.add(
-            ProcurementDocument(
-                po_number=po_number,
-                pending_order_id=pending_order_id,
-                filename=stored_path,
-                original_filename=quote_doc.original_filename,
-                file_size=file_size,
-                mime_type=quote_doc.mime_type,
-                category=ProcurementDocumentCategory.quote,
-                uploaded_by=user_id,
+    try:
+        for quote_doc in quote_result.scalars().all():
+            key = (quote_doc.original_filename, quote_doc.file_size, quote_doc.mime_type)
+            if key in existing_keys:
+                continue
+            source_path = storage.get_file_path(quote_doc.filename, storage_base)
+            if not source_path.exists():
+                continue
+            stored_path, file_size = storage.save_procurement_document_bytes(
+                source_path.read_bytes(), quote_doc.original_filename, po_number, storage_base
             )
-        )
-        existing_keys.add(key)
-        stored_paths.append((stored_path, storage_base))
-    return stored_paths
+            db.add(ProcurementDocument(
+                po_number=po_number, pending_order_id=pending_order_id, filename=stored_path,
+                original_filename=quote_doc.original_filename, file_size=file_size,
+                mime_type=quote_doc.mime_type, category=ProcurementDocumentCategory.quote,
+                uploaded_by=user_id,
+            ))
+            existing_keys.add(key)
+            stored_paths.append((stored_path, storage_base))
+        await db.commit()
+        return stored_paths
+    except Exception:
+        await db.rollback()
+        _cleanup_paths(stored_paths)
+        raise
+
+
+async def require_invoice_evidence(db: AsyncSession, pending_order_id: int) -> None:
+    gs_result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
+    gs_row = gs_result.scalar_one_or_none()
+    storage_base = (gs_row.storage_path if gs_row else "") or None
+    result = await db.execute(select(ProcurementDocument).where(
+        ProcurementDocument.pending_order_id == pending_order_id,
+        ProcurementDocument.category == ProcurementDocumentCategory.invoice,
+    ))
+    documents = result.scalars().all()
+    if not documents or not any(
+        storage.get_file_path(doc.filename, storage_base).exists() for doc in documents
+    ):
+        raise RuntimeError("Required invoice evidence is missing from the procurement document store")

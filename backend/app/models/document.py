@@ -50,7 +50,9 @@ class ProcurementDocument(Base):
     pending_order_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("pending_orders.id"), nullable=True, index=True
     )
-    license_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("licenses.id"), nullable=True, index=True)
+    license_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("licenses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     procurement_bundle_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
     original_filename: Mapped[str] = mapped_column(String(500), nullable=False)

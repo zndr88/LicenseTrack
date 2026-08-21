@@ -6,8 +6,10 @@ import json
 from sqlalchemy import select, text
 
 from app.config import settings
+from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import License
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
+from app.services import pending_order_conversion_service as _conversion_service
 from app.services import storage as _storage_module
 from app.models.pending_order import EvidenceTransferStatus, PendingOrder, PendingOrderStatus
 
@@ -1411,6 +1413,270 @@ async def test_invoice_transfer_failure_records_retryable_state_after_conversion
     assert audit_resp.json()["results"][0]["targetId"] == str(order_id)
 
 
+async def test_quote_transfer_failure_preserves_committed_invoice_evidence(
+    test_app,
+    auth_headers,
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
+    sourcing_item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        softwareDescription="Invoice Before Quote Failure",
+    )
+    request_id = sourcing_item["sourcingRequestId"]
+    upload_resp = await test_app.post(
+        f"/api/sourcing/requests/{request_id}/quote-documents",
+        files={"file": ("quote.pdf", b"quote", "application/pdf")},
+        headers=auth_headers,
+    )
+    assert upload_resp.status_code == 201, upload_resp.text
+    order = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+
+    async def fail_quote_copy(*_args, **_kwargs):
+        raise OSError("simulated quote transfer failure")
+
+    monkeypatch.setattr(
+        _conversion_service,
+        "copy_quote_documents_to_procurement_documents",
+        fail_quote_copy,
+    )
+    response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber=order["poNumber"]))},
+        files={"file": ("invoice.pdf", b"durable invoice", "application/pdf")},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200, response.text
+
+    db_session.expire_all()
+    stored_order = await db_session.get(PendingOrder, order["id"])
+    assert stored_order.evidence_transfer_status == EvidenceTransferStatus.failed
+    invoice_result = await db_session.execute(
+        select(ProcurementDocument).where(
+            ProcurementDocument.pending_order_id == order["id"],
+            ProcurementDocument.category == ProcurementDocumentCategory.invoice,
+        )
+    )
+    invoice = invoice_result.scalar_one()
+    assert _storage_module.get_file_path(invoice.filename).read_bytes() == b"durable invoice"
+
+
+async def test_completion_failure_does_not_delete_committed_evidence_files(
+    test_app,
+    auth_headers,
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
+    order_resp = await test_app.post(
+        "/api/pending-orders",
+        json={"poNumber": "PO-COMPLETE-FAIL", "supplier": "Invoice Supplier"},
+        headers=auth_headers,
+    )
+    assert order_resp.status_code == 201, order_resp.text
+    order_id = order_resp.json()["id"]
+
+    async def fail_completion(*_args, **_kwargs):
+        raise OSError("simulated completion failure")
+
+    monkeypatch.setattr(_conversion_service, "_mark_evidence_transfer_complete", fail_completion)
+    response = await test_app.post(
+        f"/api/pending-orders/{order_id}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber="PO-COMPLETE-FAIL"))},
+        files={"file": ("invoice.pdf", b"committed invoice", "application/pdf")},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200, response.text
+
+    db_session.expire_all()
+    stored_order = await db_session.get(PendingOrder, order_id)
+    assert stored_order.evidence_transfer_status == EvidenceTransferStatus.failed
+    invoice_result = await db_session.execute(
+        select(ProcurementDocument).where(
+            ProcurementDocument.pending_order_id == order_id,
+            ProcurementDocument.category == ProcurementDocumentCategory.invoice,
+        )
+    )
+    invoice = invoice_result.scalar_one()
+    assert _storage_module.get_file_path(invoice.filename).read_bytes() == b"committed invoice"
+
+
+async def test_partial_quote_copy_failure_compensates_quote_rows_and_files_only(
+    test_app,
+    auth_headers,
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
+    sourcing_item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        softwareDescription="Partial Quote Failure",
+    )
+    request_id = sourcing_item["sourcingRequestId"]
+    for filename, content in (("quote-one.pdf", b"quote one"), ("quote-two.pdf", b"quote two")):
+        upload_resp = await test_app.post(
+            f"/api/sourcing/requests/{request_id}/quote-documents",
+            files={"file": (filename, content, "application/pdf")},
+            headers=auth_headers,
+        )
+        assert upload_resp.status_code == 201, upload_resp.text
+    order = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+
+    real_save = _storage_module.save_procurement_document_bytes
+    written: dict[str, str] = {}
+
+    def fail_second_quote(content, filename, po_number, storage_base=None):
+        if filename == "quote-two.pdf":
+            raise OSError("simulated second quote failure")
+        stored_path, file_size = real_save(content, filename, po_number, storage_base)
+        written[filename] = stored_path
+        return stored_path, file_size
+
+    monkeypatch.setattr(_storage_module, "save_procurement_document_bytes", fail_second_quote)
+    response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber=order["poNumber"]))},
+        files={"file": ("invoice.pdf", b"invoice survives", "application/pdf")},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200, response.text
+
+    document_result = await db_session.execute(
+        select(ProcurementDocument).where(ProcurementDocument.pending_order_id == order["id"])
+    )
+    documents = document_result.scalars().all()
+    assert [document.category for document in documents] == [ProcurementDocumentCategory.invoice]
+    assert _storage_module.get_file_path(written["invoice.pdf"]).exists()
+    assert not _storage_module.get_file_path(written["quote-one.pdf"]).exists()
+
+
+async def test_evidence_retry_is_idempotent_when_failed_state_is_replayed(
+    test_app,
+    auth_headers,
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
+    sourcing_item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Retry Quote App")
+    request_id = sourcing_item["sourcingRequestId"]
+    upload_resp = await test_app.post(
+        f"/api/sourcing/requests/{request_id}/quote-documents",
+        files={"file": ("retry-quote.pdf", b"retry quote", "application/pdf")},
+        headers=auth_headers,
+    )
+    assert upload_resp.status_code == 201, upload_resp.text
+    order = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+    real_copy = _conversion_service.copy_quote_documents_to_procurement_documents
+
+    async def fail_initial_copy(*_args, **_kwargs):
+        raise OSError("simulated initial quote failure")
+
+    monkeypatch.setattr(
+        _conversion_service,
+        "copy_quote_documents_to_procurement_documents",
+        fail_initial_copy,
+    )
+    conversion = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber=order["poNumber"]))},
+        headers=auth_headers,
+    )
+    assert conversion.status_code == 200, conversion.text
+    monkeypatch.setattr(
+        _conversion_service,
+        "copy_quote_documents_to_procurement_documents",
+        real_copy,
+    )
+
+    first_retry = await test_app.post(
+        f"/api/pending-orders/{order['id']}/retry-evidence-transfer",
+        headers=auth_headers,
+    )
+    assert first_retry.status_code == 204, first_retry.text
+    db_session.expire_all()
+    stored_order = await db_session.get(PendingOrder, order["id"])
+    stored_order.evidence_transfer_status = EvidenceTransferStatus.failed
+    await db_session.commit()
+
+    second_retry = await test_app.post(
+        f"/api/pending-orders/{order['id']}/retry-evidence-transfer",
+        headers=auth_headers,
+    )
+    assert second_retry.status_code == 204, second_retry.text
+    quote_result = await db_session.execute(
+        select(ProcurementDocument).where(
+            ProcurementDocument.pending_order_id == order["id"],
+            ProcurementDocument.category == ProcurementDocumentCategory.quote,
+        )
+    )
+    assert len(quote_result.scalars().all()) == 1
+
+
+async def test_missing_required_invoice_blocks_manual_and_scheduled_completion(
+    test_app,
+    auth_headers,
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
+    order_resp = await test_app.post(
+        "/api/pending-orders",
+        json={"poNumber": "PO-MISSING-INVOICE", "supplier": "Invoice Supplier"},
+        headers=auth_headers,
+    )
+    assert order_resp.status_code == 201, order_resp.text
+    order_id = order_resp.json()["id"]
+    conversion = await test_app.post(
+        f"/api/pending-orders/{order_id}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber="PO-MISSING-INVOICE"))},
+        files={"file": ("invoice.pdf", b"invoice", "application/pdf")},
+        headers=auth_headers,
+    )
+    assert conversion.status_code == 200, conversion.text
+
+    invoice_result = await db_session.execute(
+        select(ProcurementDocument).where(
+            ProcurementDocument.pending_order_id == order_id,
+            ProcurementDocument.category == ProcurementDocumentCategory.invoice,
+        )
+    )
+    invoice = invoice_result.scalar_one()
+    _storage_module.delete_file(invoice.filename)
+    stored_order = await db_session.get(PendingOrder, order_id)
+    stored_order.evidence_transfer_status = EvidenceTransferStatus.failed
+    await db_session.commit()
+
+    manual_retry = await test_app.post(
+        f"/api/pending-orders/{order_id}/retry-evidence-transfer",
+        headers=auth_headers,
+    )
+    assert manual_retry.status_code == 409, manual_retry.text
+    assert "Required invoice evidence is missing" in manual_retry.json()["detail"]
+
+    class SessionContext:
+        async def __aenter__(self):
+            return db_session
+
+        async def __aexit__(self, *_args):
+            return False
+
+    monkeypatch.setattr(_conversion_service, "AsyncSessionLocal", SessionContext)
+    attempted = await _conversion_service.sweep_stale_evidence_transfers()
+    assert attempted == 1
+    db_session.expire_all()
+    stored_order = await db_session.get(PendingOrder, order_id)
+    assert stored_order.evidence_transfer_status == EvidenceTransferStatus.failed
+    assert stored_order.evidence_transfer_attempts == 1
+
+
 async def test_sourcing_quote_carries_forward_as_po_scoped_procurement_document(
     test_app,
     auth_headers,
@@ -1926,7 +2192,7 @@ async def test_batch_convert_all_preserves_saas_portal_url(test_app, auth_header
     assert converted[0]["portalUrl"] == "https://batch.example.com"
 
 
-async def test_batch_partial_conversion_only_returns_requested_item(test_app, auth_headers):
+async def test_batch_partial_conversion_is_rejected_before_any_write(test_app, auth_headers, db_session):
     first = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Partial App One")
     second = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Partial App Two")
     po = await _convert_sourcing_to_po(test_app, auth_headers, first["id"])
@@ -1938,10 +2204,85 @@ async def test_batch_partial_conversion_only_returns_requested_item(test_app, au
         headers=auth_headers,
     )
 
-    assert resp.status_code == 200, resp.text
-    converted = resp.json()
-    assert len(converted) == 1
-    assert converted[0]["softwareDescription"] == "Partial App One"
+    assert resp.status_code == 400, resp.text
+    assert "Missing convertible sourcing item IDs" in resp.json()["detail"]
+    created_result = await db_session.execute(
+        select(License).where(License.source_sourcing_item_id.in_([first["id"], second["id"]]))
+    )
+    assert created_result.scalars().all() == []
+    db_session.expire_all()
+    stored_order = await db_session.get(PendingOrder, po["id"])
+    assert stored_order.status != PendingOrderStatus.converted
+
+
+async def test_batch_duplicate_item_ids_are_rejected_before_any_write(test_app, auth_headers, db_session):
+    item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Duplicate Batch App")
+    order = await _convert_sourcing_to_po(test_app, auth_headers, item["id"])
+    payload = _batch_convert_item(item["id"], softwareDescription="Duplicate Batch App")
+
+    response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert-all",
+        json=[payload, payload],
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 400, response.text
+    assert "Duplicate sourcing item IDs" in response.json()["detail"]
+    created_result = await db_session.execute(
+        select(License).where(License.source_sourcing_item_id == item["id"])
+    )
+    assert created_result.scalars().all() == []
+
+
+async def test_batch_foreign_order_item_is_rejected_before_any_write(test_app, auth_headers, db_session):
+    first = await _create_sourcing_item(test_app, auth_headers, softwareDescription="First Order App")
+    second = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Second Order App")
+    first_order = await _convert_sourcing_to_po(test_app, auth_headers, first["id"])
+    await _convert_sourcing_to_po(test_app, auth_headers, second["id"])
+
+    response = await test_app.post(
+        f"/api/pending-orders/{first_order['id']}/convert-all",
+        json=[_batch_convert_item(second["id"], softwareDescription="Second Order App")],
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 400, response.text
+    assert "Items not found in pending order" in response.json()["detail"]
+    created_result = await db_session.execute(
+        select(License).where(License.source_sourcing_item_id.in_([first["id"], second["id"]]))
+    )
+    assert created_result.scalars().all() == []
+
+
+async def test_batch_rejects_sourcing_item_consumed_by_retired_license(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Consumed Batch App")
+    order = await _convert_sourcing_to_po(test_app, auth_headers, item["id"])
+    previous = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Retired Converted App",
+    )
+    previous_license = await db_session.get(License, previous["id"])
+    previous_license.source_sourcing_item_id = item["id"]
+    previous_license.is_retired = True
+    await db_session.commit()
+
+    response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert-all",
+        json=[_batch_convert_item(item["id"], softwareDescription="Consumed Batch App")],
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 409, response.text
+    assert "already converted or ineligible" in response.json()["detail"]
+    converted_result = await db_session.execute(
+        select(License).where(License.source_sourcing_item_id == item["id"])
+    )
+    assert [license_obj.id for license_obj in converted_result.scalars().all()] == [previous["id"]]
 
 
 async def test_pending_order_line_item_can_be_edited_before_conversion(test_app, auth_headers):
@@ -2145,8 +2486,8 @@ async def test_pending_order_conversion_error_cases(test_app, auth_headers):
     )
 
     assert invalid_json.status_code == 422
-    assert missing_item.status_code == 422
-    assert empty_payload.status_code == 422
+    assert missing_item.status_code == 400
+    assert empty_payload.status_code == 200
 
 
 async def test_single_saas_renewal_persists_confirmed_conversion_values(test_app, auth_headers):

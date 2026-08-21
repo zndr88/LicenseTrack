@@ -7,11 +7,13 @@ imported and unit-tested without standing up a database session.
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from app.models.license import License, LicenseType
 from app.schemas.renewal import RenewalRiskFlag, RenewalStatus, RenewalWorkbenchRow
 from app.services.money import MoneyParseError, parse_money
+from app.services.license_service import annualize_term_cost
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +55,14 @@ def estimate_annual_value(license_obj: License) -> Decimal | None:
         unit_price = parse_money(str(license_obj.unit_price) if license_obj.unit_price is not None else None)
     except MoneyParseError:
         return None
-    return (quantity or Decimal("0")) * (unit_price or Decimal("0"))
+    amount = (quantity or Decimal("0")) * (unit_price or Decimal("0"))
+    start_date = getattr(license_obj, "start_date", None)
+    end_date = getattr(license_obj, "end_date", None)
+    return annualize_term_cost(
+        amount,
+        start_date if isinstance(start_date, date) else None,
+        end_date if isinstance(end_date, date) else None,
+    )
 
 
 def compute_risk_flags(

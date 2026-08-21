@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.database import AsyncSessionLocal
 from app.models.license import License, LicenseType
 from app.models.pending_order import EvidenceTransferStatus, PendingOrder, PendingOrderStatus
+from app.models.sourcing import SourcingStatus
 from app.models.user import User
 from app.schemas.license import LicenseResponse
 from app.schemas.pending_order import BatchConvertItem, PendingOrderConvertRequest
@@ -23,6 +24,7 @@ from app.services.conversion_response_service import build_conversion_response
 from app.services.procurement_document_transfer_service import (
     StoredProcurementPath,
     copy_quote_documents_to_procurement_documents,
+    require_invoice_evidence,
     validate_invoice_file,
     write_invoice_procurement_document,
 )
@@ -31,6 +33,36 @@ from app.services.storage import delete_file
 from app.services.renewal_workflow import build_pending_order_item_license_data
 
 log = logging.getLogger(__name__)
+
+
+async def _validate_batch_coverage(
+    db: AsyncSession, order: PendingOrder, payload: list[BatchConvertItem]
+) -> dict[int, object]:
+    """Validate the complete, one-to-one conversion set before locking/writes."""
+    item_map = {item.id: item for item in order.items}
+    submitted_ids = [item.sourcing_item_id for item in payload]
+    duplicates = sorted({item_id for item_id in submitted_ids if submitted_ids.count(item_id) > 1})
+    if duplicates:
+        raise HTTPException(status_code=400, detail=f"Duplicate sourcing item IDs: {duplicates}")
+    unknown = sorted(set(submitted_ids) - set(item_map))
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Items not found in pending order {order.id}: {unknown}")
+    existing_result = await db.execute(
+        select(License.source_sourcing_item_id).where(
+            License.source_sourcing_item_id.in_(item_map)
+        )
+    )
+    already_converted = {item_id for (item_id,) in existing_result.all() if item_id is not None}
+    convertible = {item.id for item in order.items if item.status != SourcingStatus.cancelled} - already_converted
+    if not payload and convertible:
+        raise HTTPException(status_code=400, detail="Every convertible pending-order item must be included")
+    missing = sorted(convertible - set(submitted_ids))
+    ineligible = sorted(set(submitted_ids) - convertible)
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Missing convertible sourcing item IDs: {missing}")
+    if ineligible:
+        raise HTTPException(status_code=409, detail=f"Sourcing items are already converted or ineligible: {ineligible}")
+    return item_map
 
 
 def _enforce_order_supplier(
@@ -76,6 +108,8 @@ async def _mark_evidence_transfer_complete(db: AsyncSession, order_id: int) -> N
     order = await db.get(PendingOrder, order_id)
     if order is None:
         return
+    if order.evidence_invoice_required:
+        await require_invoice_evidence(db, order_id)
     order.evidence_transfer_status = EvidenceTransferStatus.complete
     order.evidence_transfer_detail = None
     order.evidence_transfer_failed_at = None
@@ -118,12 +152,14 @@ async def _run_evidence_transfer_after_conversion_commit(
     ip_address: str | None,
     transfer: Callable[[], Awaitable[list[StoredProcurementPath]]],
 ) -> None:
-    written_procurement_paths: list[StoredProcurementPath] = []
     try:
-        written_procurement_paths = await transfer()
+        # Each evidence phase commits its document rows before returning and
+        # compensates its own files if that commit fails.  Once transfer()
+        # returns, its paths are durable and must survive a later status-update
+        # failure so an idempotent retry can finish without dangling DB rows.
+        await transfer()
         await _mark_evidence_transfer_complete(db, order_id)
     except Exception as exc:
-        _cleanup_written_procurement_files(written_procurement_paths)
         await db.rollback()
         await _mark_evidence_transfer_failed(
             db,
@@ -314,6 +350,7 @@ async def convert_pending_order_to_licenses(
     order_label = order.po_number or order.supplier or ""
     if evidence_transfer_required:
         order.evidence_transfer_status = EvidenceTransferStatus.pending
+        order.evidence_invoice_required = file_data is not None
         order.evidence_transfer_detail = None
         order.evidence_transfer_failed_at = None
 
@@ -338,6 +375,12 @@ async def convert_pending_order_to_licenses(
                     db, content, filename, mime_type, order_po_number, order_id, actor_snapshot.id
                 )
             )
+            try:
+                await db.commit()
+            except Exception:
+                _cleanup_written_procurement_files(written_paths)
+                await db.rollback()
+                raise
 
         if quote_request_ids:
             written_paths.extend(
@@ -388,6 +431,7 @@ async def batch_convert_pending_order_to_licenses(
         raise HTTPException(status_code=409, detail="Pending order has already been converted")
     if order.status == PendingOrderStatus.cancelled:
         raise HTTPException(status_code=409, detail="Pending order has been cancelled")
+    order_item_map = await _validate_batch_coverage(db, order, payload)
     order_po_number = _require_order_po_number(order)
     inherited_po_total_override = await get_po_total_override(db, order_po_number)
     # F5: Acquire a write lock before creating any licenses.
@@ -411,10 +455,6 @@ async def batch_convert_pending_order_to_licenses(
             detail="Pending order has already been converted",
         )
 
-    if not payload:
-        raise HTTPException(status_code=422, detail="Payload must contain at least one item")
-
-    order_item_map = {si.id: si for si in order.items}
     for batch_item in payload:
         _enforce_order_supplier(
             batch_item.model_dump(by_alias=False),
@@ -431,12 +471,7 @@ async def batch_convert_pending_order_to_licenses(
     evidence_transfer_required = file_data is not None
 
     for batch_item in payload:
-        sourcing_item = order_item_map.get(batch_item.sourcing_item_id)
-        if sourcing_item is None:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Item {batch_item.sourcing_item_id}: not found in pending order {order_id}",
-            )
+        sourcing_item = order_item_map[batch_item.sourcing_item_id]
 
         item_data = batch_item.model_dump(by_alias=False, exclude={"sourcing_item_id"})
         _enforce_order_supplier(
@@ -534,6 +569,7 @@ async def batch_convert_pending_order_to_licenses(
     order_label = order.po_number or order.supplier or ""
     if evidence_transfer_required:
         order.evidence_transfer_status = EvidenceTransferStatus.pending
+        order.evidence_invoice_required = file_data is not None
         order.evidence_transfer_detail = None
         order.evidence_transfer_failed_at = None
 
@@ -558,6 +594,12 @@ async def batch_convert_pending_order_to_licenses(
                     db, content, filename, mime_type, order_po_number, order_id, actor_snapshot.id
                 )
             )
+            try:
+                await db.commit()
+            except Exception:
+                _cleanup_written_procurement_files(written_paths)
+                await db.rollback()
+                raise
         if quote_request_ids:
             written_paths.extend(
                 await copy_quote_documents_to_procurement_documents(
@@ -614,15 +656,15 @@ async def retry_evidence_transfer(
         )
 
     quote_request_ids = [item.sourcing_request_id for item in order.items if item.sourcing_request_id is not None]
-    if not quote_request_ids:
-        raise HTTPException(
-            status_code=409,
-            detail="No sourcing quote documents found to transfer",
-        )
-
     order_po_number = order.po_number
     order_label = order.po_number or order.supplier or ""
     actor_snapshot = SimpleNamespace(id=actor.id, email=actor.email)
+
+    if order.evidence_invoice_required:
+        try:
+            await require_invoice_evidence(db, order_id)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     async def transfer_evidence() -> list[StoredProcurementPath]:
         written_paths = await copy_quote_documents_to_procurement_documents(
@@ -641,7 +683,7 @@ async def retry_evidence_transfer(
     )
 
 
-_SYSTEM_ACTOR = SimpleNamespace(id=0, email="system")
+_SYSTEM_ACTOR = SimpleNamespace(id=None, email="system")
 
 MAX_EVIDENCE_SWEEP_ATTEMPTS = 5
 
@@ -717,12 +759,6 @@ async def sweep_stale_evidence_transfers() -> int:
                 continue
             order.evidence_transfer_attempts = new_attempts
             await db.commit()
-
-        if not quote_ids:
-            # Nothing to copy - mark complete so it stops appearing in the sweep.
-            async with AsyncSessionLocal() as db:
-                await _mark_evidence_transfer_complete(db, order_id)
-            continue
 
         async with AsyncSessionLocal() as db:
 

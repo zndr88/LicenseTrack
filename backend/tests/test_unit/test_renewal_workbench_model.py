@@ -7,6 +7,7 @@ side-effect-free computation only.
 from __future__ import annotations
 
 from decimal import Decimal
+from datetime import date
 from unittest.mock import MagicMock
 
 
@@ -16,6 +17,7 @@ from app.services.renewal_workbench_model import (
     estimate_annual_value,
     matches_workbench_view,
 )
+from app.services.license_service import annualize_term_cost
 from app.models.license import LicenseMetric, LicenseType
 from app.schemas.renewal import RenewalWorkbenchRow
 
@@ -32,6 +34,8 @@ def _make_license(
     supplier: str = "Acme",
     contract_number: str = "C-001",
     po_number: str = "PO-001",
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> MagicMock:
     """Return a mock License with the given field values."""
     obj = MagicMock()
@@ -42,6 +46,8 @@ def _make_license(
     obj.supplier = supplier
     obj.contract_number = contract_number
     obj.po_number = po_number
+    obj.start_date = start_date
+    obj.end_date = end_date
     return obj
 
 
@@ -122,6 +128,29 @@ class TestEstimateAnnualValue:
     def test_invalid_unit_price_is_invalid(self):
         lic = _make_license(LicenseType.subscription, quantity="2.5", unit_price="EUR 19.99")
         assert estimate_annual_value(lic) is None
+
+    def test_multi_year_term_matches_reporting_annualization(self):
+        lic = _make_license(
+            quantity="1", unit_price="120000",
+            start_date=date(2024, 1, 1), end_date=date(2026, 12, 31),
+        )
+        expected = annualize_term_cost(Decimal("120000"), lic.start_date, lic.end_date)
+        assert estimate_annual_value(lic) == expected
+        assert estimate_annual_value(lic) < Decimal("50000")
+
+    def test_partial_year_and_invalid_or_missing_dates_keep_line_value(self):
+        partial = _make_license(
+            quantity="1", unit_price="120000",
+            start_date=date(2026, 1, 1), end_date=date(2026, 6, 30),
+        )
+        assert estimate_annual_value(partial) == Decimal("120000")
+        missing = _make_license(quantity="1", unit_price="120000")
+        assert estimate_annual_value(missing) == Decimal("120000")
+        invalid = _make_license(
+            quantity="1", unit_price="120000",
+            start_date=date(2027, 1, 1), end_date=date(2026, 1, 1),
+        )
+        assert estimate_annual_value(invalid) == Decimal("120000")
 
 
 # ---------------------------------------------------------------------------

@@ -100,14 +100,14 @@ class License(Base):
     # Contract & procurement references
     contract_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     contract_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("contracts.id", use_alter=True, name="fk_license_contract"), nullable=True, index=True
+        Integer, ForeignKey("contracts.id", use_alter=True, name="fk_license_contract", ondelete="SET NULL"), nullable=True, index=True
     )
     po_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     procurement_reference: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     invoice_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     invoice_numbers: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     pending_order_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("pending_orders.id"), nullable=True, index=True
+        Integer, ForeignKey("pending_orders.id", ondelete="SET NULL"), nullable=True, index=True
     )
     procurement_bundle_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     source_sourcing_item_id: Mapped[int | None] = mapped_column(
@@ -184,7 +184,7 @@ class License(Base):
     # Display logic is unchanged; the LT ref still shows as before.
     predecessor_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("licenses.id", use_alter=True, name="fk_license_predecessor"),
+        ForeignKey("licenses.id", use_alter=True, name="fk_license_predecessor", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
