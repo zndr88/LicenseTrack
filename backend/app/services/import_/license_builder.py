@@ -31,7 +31,7 @@ async def build_license(
     parent_license_id: Optional[int] = parent_license_id_override
     predecessor_id: Optional[int] = None
 
-    if row.parent_license_ref:
+    if row.parent_license_ref and row.maintenance_parent_action != "import_legacy_unlinked":
         if license_type == LicenseType.maintenance and parent_license_id is None:
             # Maintenance path: resolve ref to a valid perpetual/oem/freeware parent
             parent_result = await db.execute(sa_select(License).where(License.license_ref == row.parent_license_ref))
@@ -132,6 +132,11 @@ async def build_license(
         "created_by": user_id,
         "external_ref": row.external_ref if row.external_ref else None,
         "parent_license_id": parent_license_id,
+        "is_legacy_unlinked_maintenance": (
+            license_type == LicenseType.maintenance
+            and row.maintenance_parent_action == "import_legacy_unlinked"
+            and parent_license_id is None
+        ),
         "predecessor_id": predecessor_id,
     }
     apply_bundled_included_support_defaults(data)

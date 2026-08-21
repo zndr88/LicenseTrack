@@ -1,5 +1,6 @@
 """Regression coverage for the relationship-integrity repair migrations."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -52,10 +53,27 @@ def _insert_license(connection, **overrides) -> int:
         "budget_owner_email": "",
         "secondary_contacts": [],
         "maintenance_coverage": MaintenanceCoverage.not_applicable,
+        "is_retired": False,
+        "is_completeness_exempt": False,
+        "renewal_notifications_enabled": True,
+        "has_maintenance": False,
     }
     values.update(overrides)
-    result = connection.execute(License.__table__.insert().values(**values))
-    return int(result.inserted_primary_key[0])
+    # This helper intentionally inserts rows before the repair migration in
+    # upgrade tests; newer ORM-only columns are not present at that revision.
+    existing_columns = {column["name"] for column in inspect(connection).get_columns("licenses")}
+    values = {key: value for key, value in values.items() if key in existing_columns}
+    names = list(values)
+    encoded_values = [
+        json.dumps(value) if isinstance(value, list) else getattr(value, "value", value)
+        for value in (values[name] for name in names)
+    ]
+    statement = text(
+        f"INSERT INTO licenses ({', '.join(names)}) "
+        f"VALUES ({', '.join(':' + name for name in names)})"
+    )
+    connection.execute(statement, dict(zip(names, encoded_values)))
+    return int(connection.execute(text("SELECT last_insert_rowid()")).scalar_one())
 
 
 def _foreign_key_by_column(inspector, table: str) -> dict[str, dict]:
@@ -115,8 +133,6 @@ def test_integrity_migration_upgrades_existing_rows_and_parent_delete_behavior(t
             maintenance_coverage=MaintenanceCoverage.not_applicable,
             parent_license_id=parent_id,
         )
-    engine.dispose()
-
     command.upgrade(config, "head")
 
     engine = create_engine(f"sqlite:///{database_path.as_posix()}")
@@ -143,4 +159,52 @@ def test_integrity_migration_upgrades_existing_rows_and_parent_delete_behavior(t
         ).scalar_one()
         assert child_parent_id is None
 
+    engine.dispose()
+
+
+def test_legacy_unlinked_maintenance_constraint_states(tmp_path, monkeypatch):
+    database_path = tmp_path / "legacy-unlinked.sqlite"
+    command.upgrade(_alembic_config(database_path, monkeypatch), "head")
+
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    with engine.begin() as connection:
+        connection.execute(text("PRAGMA foreign_keys=ON"))
+        parent_id = _insert_license(
+            connection,
+            software_description="Eligible Parent",
+            license_type=LicenseType.perpetual,
+            maintenance_coverage=MaintenanceCoverage.unknown,
+        )
+        legacy_id = _insert_license(
+            connection,
+            software_description="Legacy Maintenance",
+            license_type=LicenseType.maintenance,
+            maintenance_coverage=MaintenanceCoverage.not_applicable,
+            is_legacy_unlinked_maintenance=True,
+        )
+        assert legacy_id > parent_id
+
+        with pytest.raises(IntegrityError):
+            _insert_license(
+                connection,
+                software_description="Unflagged Parentless Maintenance",
+                license_type=LicenseType.maintenance,
+                maintenance_coverage=MaintenanceCoverage.not_applicable,
+            )
+        with pytest.raises(IntegrityError):
+            _insert_license(
+                connection,
+                software_description="Linked Flagged Maintenance",
+                license_type=LicenseType.maintenance,
+                maintenance_coverage=MaintenanceCoverage.not_applicable,
+                parent_license_id=parent_id,
+                is_legacy_unlinked_maintenance=True,
+            )
+        with pytest.raises(IntegrityError):
+            _insert_license(
+                connection,
+                software_description="Flagged Non Maintenance",
+                license_type=LicenseType.subscription,
+                is_legacy_unlinked_maintenance=True,
+            )
     engine.dispose()

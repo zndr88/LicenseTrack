@@ -17,7 +17,14 @@ from sqlalchemy import select
 import app.routes.licenses as licenses_routes
 from app.models.contract import Contract
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
-from app.models.license import License, LicenseMaintenanceLink, LicenseMetric, LicenseType, LifecycleStatus
+from app.models.license import (
+    License,
+    LicenseMaintenanceLink,
+    LicenseMetric,
+    LicenseType,
+    LifecycleStatus,
+    MaintenanceCoverage,
+)
 from app.models.pending_order import PendingOrder
 from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingStatus
@@ -79,6 +86,98 @@ async def test_list_licenses_empty(test_app, auth_headers):
 
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+async def _seed_legacy_unlinked_license(db_session) -> License:
+    license_obj = License(
+        publisher_name="Legacy Publisher",
+        software_description="Legacy Support",
+        license_type=LicenseType.maintenance,
+        license_metric=LicenseMetric.per_user,
+        maintenance_coverage=MaintenanceCoverage.not_applicable,
+        currency="EUR",
+        is_legacy_unlinked_maintenance=True,
+    )
+    db_session.add(license_obj)
+    await db_session.commit()
+    await db_session.refresh(license_obj)
+    return license_obj
+
+
+async def test_legacy_unlinked_maintenance_accepts_ordinary_full_update_and_exposes_flag(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    license_obj = await _seed_legacy_unlinked_license(db_session)
+    response = await test_app.put(
+        f"/api/licenses/{license_obj.id}",
+        headers=auth_headers,
+        json={
+            "softwareDescription": "Edited Legacy Support",
+            "startDate": "2026-01-01",
+            "endDate": "2027-01-01",
+            "unitPrice": "12.50",
+            "notes": "Updated notes",
+            "contactEmail": "owner@example.test",
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["softwareDescription"] == "Edited Legacy Support"
+    assert body["isLegacyUnlinkedMaintenance"] is True
+    assert body["parentLicenseId"] is None
+
+
+async def test_legacy_unlinked_type_changes_clear_flag_for_full_update_and_patch(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    full_update_target = await _seed_legacy_unlinked_license(db_session)
+    response = await test_app.put(
+        f"/api/licenses/{full_update_target.id}",
+        headers=auth_headers,
+        json={"licenseType": "subscription"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["licenseType"] == "subscription"
+    assert response.json()["parentLicenseId"] is None
+    assert response.json()["isLegacyUnlinkedMaintenance"] is False
+
+    patch_target = await _seed_legacy_unlinked_license(db_session)
+    response = await test_app.patch(
+        f"/api/licenses/{patch_target.id}/field",
+        headers=auth_headers,
+        json={"field": "licenseType", "value": "subscription"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["licenseType"] == "subscription"
+    assert response.json()["parentLicenseId"] is None
+    assert response.json()["isLegacyUnlinkedMaintenance"] is False
+
+
+async def test_license_clients_cannot_create_or_set_legacy_unlinked_flag_directly(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    create_response = await test_app.post(
+        "/api/licenses",
+        headers=auth_headers,
+        json=_minimal_payload(isLegacyUnlinkedMaintenance=True),
+    )
+    assert create_response.status_code == 201
+    assert create_response.json()["isLegacyUnlinkedMaintenance"] is False
+
+    license_obj = await _seed_legacy_unlinked_license(db_session)
+    update_response = await test_app.put(
+        f"/api/licenses/{license_obj.id}",
+        headers=auth_headers,
+        json={"isLegacyUnlinkedMaintenance": False, "softwareDescription": "Still Legacy"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["isLegacyUnlinkedMaintenance"] is True
 
 
 # ---------------------------------------------------------------------------

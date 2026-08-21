@@ -58,7 +58,10 @@ def infer_batch_maintenance_parents(rows: list[ParsedRow]) -> None:
     """Infer parent links for maintenance rows that lack an explicit parent_license_ref."""
     candidates = [row for row in rows if _is_parent_candidate(row)]
     for row in rows:
-        if row.license_type == "maintenance" and row.selected_parent_license_id is not None:
+        if row.license_type == "maintenance" and (
+            row.selected_parent_license_id is not None
+            or row.maintenance_parent_action == "import_legacy_unlinked"
+        ):
             continue
         if row.license_type != "maintenance" or row.parent_license_ref:
             continue

@@ -286,6 +286,9 @@ class ParsedRow:
     duplicate_warnings: list[object] = field(default_factory=list)
     parent_import_row_number: Optional[int] = None
     selected_parent_license_id: Optional[int] = None
+    # Explicit CSV-only maintenance parent action. This is separate from
+    # selected/inferred parent state so inference cannot erase user intent.
+    maintenance_parent_action: str | None = None
 
     # Warning tracking - not exposed in preview response directly
     currency_defaulted: bool = field(default=False, repr=False)

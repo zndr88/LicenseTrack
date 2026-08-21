@@ -335,6 +335,7 @@ class LicenseResponse(LicenseBase):
     notice_handled_by_user_id: Optional[int] = None
     maintenance_parent_ids: list[int] = Field(default_factory=list)
     linked_maintenance_ids: list[int] = Field(default_factory=list)
+    is_legacy_unlinked_maintenance: bool = False
 
     # Computed fields - populated server-side, not stored in the database
     effective_quantity: Optional[str] = None

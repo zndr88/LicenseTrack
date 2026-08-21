@@ -148,6 +148,7 @@ class ImportWarningSummary(BaseModel):
     duplicate_warning_count: int = 0  # rows with at least one duplicate warning
     price_mismatch_count: int = 0  # rows whose Qty x Unit Price differs sharply from Total PO Price
     expired_maintenance_count: int = 0  # rows whose included maintenance coverage has ended
+    legacy_unlinked_maintenance_count: int = 0  # explicitly selected parentless maintenance creates
     rows_with_warnings_count: int = 0  # non-error rows accepted with any non-fatal warning
 
     @computed_field  # type: ignore[misc]
@@ -159,6 +160,7 @@ class ImportWarningSummary(BaseModel):
             or self.duplicate_warning_count > 0
             or self.price_mismatch_count > 0
             or self.expired_maintenance_count > 0
+            or self.legacy_unlinked_maintenance_count > 0
         )
 
 
@@ -201,6 +203,7 @@ class CSVImportPreviewRow(BaseModel):
     duplicate_warnings: list[DuplicateWarning] = []
     import_action: str = "create"  # "create" | "update"
     matched_license_id: Optional[int] = None
+    maintenance_parent_action: Optional[str] = None
 
     @field_validator("budget_owner_email", mode="before")
     @classmethod

@@ -367,7 +367,9 @@ async def apply_license_update(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    await _validate_maintenance_parent_transition(db, new_type, new_parent_id)
+    await _validate_maintenance_parent_transition(db, license_obj, new_type, new_parent_id)
+    if new_type != LicenseType.maintenance or new_parent_id is not None:
+        update_data["is_legacy_unlinked_maintenance"] = False
 
     before = {column.name: getattr(license_obj, column.name) for column in license_obj.__table__.columns}
     _clear_notice_handled_if_date_changed(license_obj, update_data)
@@ -752,13 +754,21 @@ def apply_license_type_patch(license_obj: License, value: str | None) -> None:
         raise HTTPException(status_code=400, detail=f"Invalid license type: {value}")
 
     try:
-        assert_maintenance_requires_parent(new_type, license_obj.parent_license_id)
+        if not (
+            new_type == LicenseType.maintenance
+            and license_obj.license_type == LicenseType.maintenance
+            and license_obj.is_legacy_unlinked_maintenance
+            and license_obj.parent_license_id is None
+        ):
+            assert_maintenance_requires_parent(new_type, license_obj.parent_license_id)
         assert_non_maintenance_has_no_parent(new_type, license_obj.parent_license_id)
         assert_active_maintenance_allows_type_change(license_obj.active_maintenance_id, new_type)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
     license_obj.license_type = new_type
+    if new_type != LicenseType.maintenance:
+        license_obj.is_legacy_unlinked_maintenance = False
     if license_obj.active_maintenance_id is None:
         license_obj.maintenance_coverage = default_maintenance_coverage(new_type)
     if new_type == LicenseType.freeware:
@@ -771,11 +781,20 @@ def apply_license_type_patch(license_obj: License, value: str | None) -> None:
 
 async def _validate_maintenance_parent_transition(
     db: AsyncSession,
+    license_obj: License,
     new_type: LicenseType,
     new_parent_id: int | None,
 ) -> None:
     try:
-        assert_maintenance_requires_parent(new_type, new_parent_id)
+        grandfathered_legacy_unlinked = (
+            new_type == LicenseType.maintenance
+            and license_obj.license_type == LicenseType.maintenance
+            and license_obj.is_legacy_unlinked_maintenance
+            and license_obj.parent_license_id is None
+            and new_parent_id is None
+        )
+        if not grandfathered_legacy_unlinked:
+            assert_maintenance_requires_parent(new_type, new_parent_id)
         assert_non_maintenance_has_no_parent(new_type, new_parent_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

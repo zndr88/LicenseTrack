@@ -249,6 +249,7 @@ async def test_confirm_import_maintenance_with_valid_parent_ref_links_license(
     maintenance = result.scalar_one()
     assert maintenance.license_type == LicenseType.maintenance
     assert maintenance.parent_license_id == parent["id"]
+    assert maintenance.is_legacy_unlinked_maintenance is False
 
     parent_after = await db_session.get(License, parent["id"])
     assert parent_after.active_maintenance_id == maintenance.id
@@ -319,6 +320,242 @@ async def test_confirm_import_maintenance_parent_override_links_existing_license
         )
     )
     assert link_result.scalar_one_or_none() is not None
+
+
+async def test_confirm_import_legacy_unlinked_requires_acknowledgement_and_persists_flag(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type"],
+        [{"publisher_name": "Acme", "software_description": "Legacy Support", "license_type": "maintenance"}],
+    )
+    override = json.dumps([{"rowNumber": 1, "action": "import_legacy_unlinked"}])
+
+    rejected = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"row_overrides_json": override},
+        files={"file": ("legacy.csv", csv_bytes, "text/csv")},
+    )
+    assert rejected.status_code == 409
+    assert rejected.json()["detail"]["warningSummary"]["legacyUnlinkedMaintenanceCount"] == 1
+
+    accepted = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"row_overrides_json": override, "acknowledge_warnings": "true"},
+        files={"file": ("legacy.csv", csv_bytes, "text/csv")},
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["warningSummary"]["legacyUnlinkedMaintenanceCount"] == 1
+
+    maintenance = await db_session.scalar(
+        select(License).where(License.software_description == "Legacy Support")
+    )
+    assert maintenance is not None
+    assert maintenance.parent_license_id is None
+    assert maintenance.is_legacy_unlinked_maintenance is True
+    audit = await db_session.scalar(
+        sa_select(AuditLog).where(AuditLog.action == "license.csv_imported").order_by(AuditLog.id.desc())
+    )
+    assert audit is not None
+    assert "legacyUnlinkedMaintenanceCount=1" in audit.detail
+    response = await test_app.get(f"/api/licenses/{maintenance.id}", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["isLegacyUnlinkedMaintenance"] is True
+
+
+async def test_execute_mapped_legacy_unlinked_persists_flag_and_audit_count(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Type"],
+        [{"Publisher": "Acme", "Description": "Mapped Legacy Support", "Type": "maintenance"}],
+    )
+    mapping = [
+        {"rawHeader": "Publisher", "target": "publisher_name"},
+        {"rawHeader": "Description", "target": "software_description"},
+        {"rawHeader": "Type", "target": "license_type"},
+    ]
+    data = {
+        "mapping_json": json.dumps({"mapping": mapping}),
+        "row_overrides_json": json.dumps([{"rowNumber": 1, "action": "import_legacy_unlinked"}]),
+        "acknowledge_warnings": "true",
+    }
+    response = await test_app.post(
+        "/api/import/execute",
+        headers=auth_headers,
+        data=data,
+        files={"file": ("mapped-legacy.csv", csv_bytes, "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["warningSummary"]["legacyUnlinkedMaintenanceCount"] == 1
+
+    maintenance = await db_session.scalar(
+        select(License).where(License.software_description == "Mapped Legacy Support")
+    )
+    assert maintenance is not None
+    assert maintenance.parent_license_id is None
+    assert maintenance.is_legacy_unlinked_maintenance is True
+    audit = await db_session.scalar(
+        sa_select(AuditLog).where(AuditLog.action == "license.csv_imported").order_by(AuditLog.id.desc())
+    )
+    assert audit is not None
+    assert "legacyUnlinkedMaintenanceCount=1" in audit.detail
+
+
+async def test_import_override_unknown_row_numbers_are_rejected_for_native_and_mapped(
+    test_app,
+    auth_headers,
+):
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type"],
+        [{"publisher_name": "Acme", "software_description": "Unknown Row", "license_type": "maintenance"}],
+    )
+    override = json.dumps([{"rowNumber": 99, "action": "import_legacy_unlinked"}])
+
+    native = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"row_overrides_json": override},
+        files={"file": ("unknown-row.csv", csv_bytes, "text/csv")},
+    )
+    assert native.status_code == 422
+    assert "99" in native.json()["detail"]
+
+    mapped = await test_app.post(
+        "/api/import/execute",
+        headers=auth_headers,
+        data={
+            "mapping_json": json.dumps({"mapping": [
+                {"rawHeader": "publisher_name", "target": "publisher_name"},
+                {"rawHeader": "software_description", "target": "software_description"},
+                {"rawHeader": "license_type", "target": "license_type"},
+            ]}),
+            "row_overrides_json": override,
+        },
+        files={"file": ("unknown-row.csv", csv_bytes, "text/csv")},
+    )
+    assert mapped.status_code == 422
+    assert "99" in mapped.json()["detail"]
+
+
+async def test_explicit_legacy_action_overrides_same_batch_inference_and_skipped_rows_are_not_counted(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type", "contract_number", "po_number"],
+        [
+            {"publisher_name": "Acme", "software_description": "Widget", "license_type": "perpetual", "contract_number": "C-1", "po_number": "P-1"},
+            {"publisher_name": "Acme", "software_description": "Widget - Maintenance", "license_type": "maintenance", "contract_number": "C-1-M", "po_number": "P-1"},
+        ],
+    )
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={
+            "row_overrides_json": json.dumps([{"rowNumber": 2, "action": "import_legacy_unlinked"}]),
+            "skipped_rows_json": json.dumps([2]),
+            "acknowledge_warnings": "false",
+        },
+        files={"file": ("override-inference.csv", csv_bytes, "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["warningSummary"]["legacyUnlinkedMaintenanceCount"] == 0
+    assert response.json()["importedCount"] == 1
+    assert await db_session.scalar(select(License).where(License.software_description == "Widget - Maintenance")) is None
+
+
+async def test_legacy_action_does_not_clear_non_parent_validation_errors(test_app, auth_headers):
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type", "end_date"],
+        [{"publisher_name": "Acme", "software_description": "Bad Legacy", "license_type": "maintenance", "end_date": "not-a-date"}],
+    )
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={
+            "row_overrides_json": json.dumps([{"rowNumber": 1, "action": "import_legacy_unlinked"}]),
+            "acknowledge_warnings": "true",
+        },
+        files={"file": ("bad-legacy.csv", csv_bytes, "text/csv")},
+    )
+    assert response.status_code == 200
+    assert response.json()["importedCount"] == 0
+    assert response.json()["errorCount"] == 1
+
+
+async def test_skipped_inferred_parent_warning_keeps_existing_warning_count(
+    test_app,
+    auth_headers,
+):
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Type", "Contract #", "PO #"],
+        [
+            {"Publisher": "Acme", "Description": "Widget", "Type": "perpetual", "Contract #": "C-W", "PO #": "P-W"},
+            {"Publisher": "Acme", "Description": "Widget - Maintenance", "Type": "maintenance", "Contract #": "C-W-M", "PO #": "P-W"},
+        ],
+    )
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"skipped_rows_json": json.dumps([2])},
+        files={"file": ("skipped-warning.csv", csv_bytes, "text/csv")},
+    )
+    assert response.status_code == 409
+    summary = response.json()["detail"]["warningSummary"]
+    assert summary["inferredParentCount"] == 1
+
+
+async def test_legacy_action_cannot_unlink_existing_linked_maintenance_in_update_mode(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        softwareDescription="Update Parent",
+        endDate=None,
+    )
+    maintenance = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        softwareDescription="Linked Maintenance To Update",
+        parentLicenseId=parent["id"],
+    )
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type", "license_ref"],
+        [{
+            "publisher_name": "Acme Corp",
+            "software_description": "Updated Linked Maintenance",
+            "license_type": "maintenance",
+            "license_ref": maintenance["licenseRef"],
+        }],
+    )
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={
+            "update_existing": "true",
+            "row_overrides_json": json.dumps([{"rowNumber": 1, "action": "import_legacy_unlinked"}]),
+            "acknowledge_warnings": "true",
+        },
+        files={"file": ("linked-update.csv", csv_bytes, "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    stored = await db_session.get(License, maintenance["id"])
+    assert stored is not None
+    assert stored.parent_license_id == parent["id"]
+    assert stored.is_legacy_unlinked_maintenance is False
 
 
 async def test_confirm_import_persists_request_and_purchase_dates(

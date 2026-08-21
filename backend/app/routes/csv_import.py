@@ -127,7 +127,7 @@ def _load_skipped_rows(skipped_rows_json: str | None) -> set[int]:
     return set(raw)
 
 
-def _load_row_parent_overrides(row_overrides_json: str | None) -> dict[int, int]:
+def _load_row_parent_overrides(row_overrides_json: str | None) -> dict[int, dict[str, int | str]]:
     if not row_overrides_json:
         return {}
     try:
@@ -143,21 +143,53 @@ def _load_row_parent_overrides(row_overrides_json: str | None) -> dict[int, int]
             detail="row_overrides_json must be a JSON array",
         )
 
-    overrides: dict[int, int] = {}
+    overrides: dict[int, dict[str, int | str]] = {}
     for item in raw:
         if not isinstance(item, dict):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="row_overrides_json entries must be objects",
             )
-        row_number = item.get("rowNumber", item.get("row_number"))
-        parent_license_id = item.get("parentLicenseId", item.get("parent_license_id"))
-        if not isinstance(row_number, int) or not isinstance(parent_license_id, int):
+        allowed_keys = {"rowNumber", "row_number", "action", "parentLicenseId", "parent_license_id"}
+        if set(item) - allowed_keys:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="row_overrides_json entries require integer rowNumber and parentLicenseId",
+                detail="row_overrides_json entries contain unknown fields",
             )
-        overrides[row_number] = parent_license_id
+        row_number = item.get("rowNumber", item.get("row_number"))
+        action = item.get("action")
+        parent_license_id = item.get("parentLicenseId", item.get("parent_license_id"))
+        if isinstance(row_number, bool) or not isinstance(row_number, int) or row_number <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="row_overrides_json entries require a positive integer rowNumber",
+            )
+        if action is None and parent_license_id is not None:
+            action = "link_existing"
+        if action not in {"link_existing", "import_legacy_unlinked"}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="row_overrides_json entries require a supported action",
+            )
+        if row_number in overrides:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"row_overrides_json contains duplicate rowNumber {row_number}",
+            )
+        if action == "link_existing":
+            if isinstance(parent_license_id, bool) or not isinstance(parent_license_id, int) or parent_license_id <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="link_existing requires a positive integer parentLicenseId",
+                )
+            overrides[row_number] = {"action": action, "parent_license_id": parent_license_id}
+        else:
+            if parent_license_id is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="import_legacy_unlinked must not include parentLicenseId",
+                )
+            overrides[row_number] = {"action": action}
     return overrides
 
 
@@ -415,7 +447,7 @@ async def execute_import(
     )
     await validate_reference_overrides(db, parsed_result.rows, skipped_rows, reference_overrides)
 
-    warning_summary: ImportWarningSummary = build_warning_summary(parsed_result.rows)
+    warning_summary: ImportWarningSummary = build_warning_summary(parsed_result.rows, skipped_rows)
     if warning_summary.has_warnings and not acknowledge_warnings:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -455,6 +487,7 @@ async def execute_import(
                 "duplicateWarningCount": str(warning_summary.duplicate_warning_count),
                 "priceMismatchCount": str(warning_summary.price_mismatch_count),
                 "expiredMaintenanceCount": str(warning_summary.expired_maintenance_count),
+                "legacyUnlinkedMaintenanceCount": str(warning_summary.legacy_unlinked_maintenance_count),
                 "customFieldFailureCount": str(cf_failures),
                 "acknowledgedWarnings": str(acknowledge_warnings).lower(),
                 "referenceCreatedCount": str(reference_result.created_count),
@@ -531,7 +564,7 @@ async def confirm_import(
     )
     await validate_reference_overrides(db, result.rows, skipped_rows, reference_overrides)
 
-    warning_summary: ImportWarningSummary = build_warning_summary(result.rows)
+    warning_summary: ImportWarningSummary = build_warning_summary(result.rows, skipped_rows)
     if warning_summary.has_warnings and not acknowledge_warnings:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -571,6 +604,7 @@ async def confirm_import(
                 "duplicateWarningCount": str(warning_summary.duplicate_warning_count),
                 "priceMismatchCount": str(warning_summary.price_mismatch_count),
                 "expiredMaintenanceCount": str(warning_summary.expired_maintenance_count),
+                "legacyUnlinkedMaintenanceCount": str(warning_summary.legacy_unlinked_maintenance_count),
                 "customFieldFailureCount": str(cf_failures),
                 "acknowledgedWarnings": str(acknowledge_warnings).lower(),
                 "referenceCreatedCount": str(reference_result.created_count),

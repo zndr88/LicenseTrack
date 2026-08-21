@@ -55,9 +55,12 @@ class License(Base):
             name="ck_license_perpetual_no_end_date",
         ),
         CheckConstraint(
-            "(license_type = 'maintenance' AND parent_license_id IS NOT NULL) "
-            "OR (license_type != 'maintenance' AND parent_license_id IS NULL) "
-            "OR (license_type = 'maintenance' AND parent_license_id IS NULL AND is_retired = 1)",
+            "(license_type = 'maintenance' AND parent_license_id IS NOT NULL "
+            "AND is_legacy_unlinked_maintenance = 0) "
+            "OR (license_type = 'maintenance' AND parent_license_id IS NULL "
+            "AND (is_legacy_unlinked_maintenance = 1 OR is_retired = 1)) "
+            "OR (license_type != 'maintenance' AND parent_license_id IS NULL "
+            "AND is_legacy_unlinked_maintenance = 0)",
             name="ck_license_maintenance_has_parent",
         ),
         CheckConstraint(
@@ -201,6 +204,11 @@ class License(Base):
         ),
         nullable=True,
         index=True,
+    )
+    # Set only by the CSV import exception workflow. Ordinary license writes
+    # continue to require a parent for active maintenance records.
+    is_legacy_unlinked_maintenance: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
     )
 
     # Points at the currently active maintenance-type License child.

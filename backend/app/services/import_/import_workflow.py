@@ -74,21 +74,46 @@ async def get_import_defaults(db: AsyncSession, user_id: int) -> tuple[str, str,
 async def apply_import_row_overrides(
     rows: list[ParsedRow],
     db: AsyncSession,
-    row_parent_overrides: dict[int, int] | None = None,
+    row_parent_overrides: dict[int, dict[str, int | str] | int] | None = None,
 ) -> None:
     """Apply import-time row corrections before inference and duplicate checks."""
     if not row_parent_overrides:
         return
 
     rows_by_number = {row.row_number: row for row in rows}
-    for row_number, parent_license_id in row_parent_overrides.items():
+    unknown_row_numbers = sorted(set(row_parent_overrides) - set(rows_by_number))
+    if unknown_row_numbers:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "row_overrides_json contains rowNumber values not present in the CSV: "
+                f"{unknown_row_numbers}"
+            ),
+        )
+    for row_number, override in row_parent_overrides.items():
         row = rows_by_number.get(row_number)
-        if row is None:
-            continue
         if row.license_type != "maintenance":
             row.validation_errors.append("Parent license selection is only valid for maintenance rows.")
             row.import_status = "error"
             continue
+        if isinstance(override, int) and not isinstance(override, bool):
+            override = {"action": "link_existing", "parent_license_id": override}
+        action = str(override["action"])
+        row.maintenance_parent_action = action
+        row.selected_parent_license_id = None
+        row.parent_import_row_number = None
+        if action == "import_legacy_unlinked":
+            row.parent_license_ref = None
+            row.validation_errors = [
+                error for error in row.validation_errors
+                if "parent_license_ref" not in error and "maintenance parent" not in error.lower()
+            ]
+            if not row.validation_errors:
+                _restore_import_status(row)
+            if "Legacy unlinked maintenance selected during import." not in row.warnings:
+                row.warnings.append("Legacy unlinked maintenance selected during import.")
+            continue
+        parent_license_id = int(override["parent_license_id"])
         try:
             parent = await validate_parent_license(db, parent_license_id)
         except ValueError as exc:
@@ -112,7 +137,7 @@ async def prepare_import_rows(
     rows: list[ParsedRow],
     db: AsyncSession,
     update_existing: bool = False,
-    row_parent_overrides: dict[int, int] | None = None,
+    row_parent_overrides: dict[int, dict[str, int | str] | int] | None = None,
 ) -> None:
     """Run maintenance parent inference, update-target annotation, then duplicate detection."""
     await apply_import_row_overrides(rows, db, row_parent_overrides)
@@ -122,7 +147,7 @@ async def prepare_import_rows(
     await add_duplicate_warnings(rows, db)
 
 
-def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
+def build_warning_summary(rows: list[ParsedRow], skipped_rows: set[int] | None = None) -> ImportWarningSummary:
     """Compute per-category warning counts across all parsed rows.
 
     Only non-error rows are counted for rows_with_warnings_count.
@@ -138,6 +163,7 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
     duplicate_warning = 0
     price_mismatch = 0
     expired_maintenance = 0
+    legacy_unlinked_maintenance = 0
     rows_with_warnings = 0
 
     for row in rows:
@@ -162,6 +188,14 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
             inferred_parent += 1
             row_has_any_warning = True
 
+        if (
+            row.maintenance_parent_action == "import_legacy_unlinked"
+            and row.import_action == "create"
+            and (not skipped_rows or row.row_number not in skipped_rows)
+        ):
+            legacy_unlinked_maintenance += 1
+            row_has_any_warning = True
+
         if row.duplicate_warnings:
             duplicate_warning += 1
             row_has_any_warning = True
@@ -177,6 +211,7 @@ def build_warning_summary(rows: list[ParsedRow]) -> ImportWarningSummary:
         duplicate_warning_count=duplicate_warning,
         price_mismatch_count=price_mismatch,
         expired_maintenance_count=expired_maintenance,
+        legacy_unlinked_maintenance_count=legacy_unlinked_maintenance,
         rows_with_warnings_count=rows_with_warnings,
     )
 
@@ -217,6 +252,7 @@ def _row_to_schema(row: ParsedRow) -> CSVImportPreviewRow:
         duplicate_warnings=row.duplicate_warnings,
         import_action=row.import_action,
         matched_license_id=row.matched_license_id,
+        maintenance_parent_action=row.maintenance_parent_action,
     )
 
 
@@ -323,7 +359,9 @@ async def run_import_rows(
                 if not did_update:
                     await resolve_import_row_references(db, parsed, reference_overrides, row_reference_tracker)
                     parent_license_id: Optional[int] = None
-                    if parsed.selected_parent_license_id is not None:
+                    if parsed.maintenance_parent_action == "import_legacy_unlinked":
+                        parent_license_id = None
+                    elif parsed.selected_parent_license_id is not None:
                         parent_license_id = parsed.selected_parent_license_id
                     elif parsed.parent_import_row_number is not None:
                         parent_license_id = inserted_by_row_number.get(parsed.parent_import_row_number)
