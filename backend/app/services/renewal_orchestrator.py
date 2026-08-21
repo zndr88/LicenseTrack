@@ -19,7 +19,11 @@ from app.services.lifecycle_rules import (
     mark_pending_renewal,
     mark_predecessor_renewed,
 )
-from app.services.maintenance_service import sync_parent_mirror_fields, validate_parent_license
+from app.services.maintenance_service import (
+    link_maintenance_to_parent,
+    sync_parent_mirror_fields,
+    validate_parent_license,
+)
 from app.services.maintenance_rules import default_maintenance_coverage
 from app.services.po_total_override_service import inherit_po_total_override
 from app.services.reference_data_service import resolve_license_reference_fields, resolve_organization
@@ -284,19 +288,29 @@ async def create_renewal_successor_from_sourcing_item(
     if sourcing_item.renewal_for_license_id is None:
         raise ValueError("sourcing_item must reference a renewal predecessor")
 
-    old_lic = primary_predecessor
-    if old_lic is None:
-        old_result = await db.execute(select(License).where(License.id == sourcing_item.renewal_for_license_id))
-        old_lic = old_result.scalar_one_or_none()
+    # The sourcing form is only a snapshot.  Re-read the predecessor at the
+    # conversion boundary so a legacy maintenance record linked after
+    # sourcing began inherits its current parent state.
+    old_result = await db.execute(
+        select(License)
+        .where(License.id == sourcing_item.renewal_for_license_id)
+        .with_for_update()
+    )
+    old_lic = old_result.scalar_one_or_none()
     if old_lic is None:
         raise HTTPException(status_code=404, detail=missing_license_detail)
 
+    # This is an internal derived field, never a sourcing or conversion input.
+    license_data.pop("is_legacy_unlinked_maintenance", None)
     if old_lic.license_type == LicenseType.maintenance:
         license_data = {
             **license_data,
             "license_type": old_lic.license_type,
             "license_metric": old_lic.license_metric,
             "parent_license_id": old_lic.parent_license_id,
+            "is_legacy_unlinked_maintenance": (
+                old_lic.is_legacy_unlinked_maintenance and old_lic.parent_license_id is None
+            ),
         }
     successor_type = license_data.get("license_type", old_lic.license_type)
     license_data = {
@@ -307,7 +321,14 @@ async def create_renewal_successor_from_sourcing_item(
     }
     await resolve_license_reference_fields(db, license_data)
 
-    if validate_maintenance_parent and old_lic.license_type == LicenseType.maintenance:
+    if (
+        validate_maintenance_parent
+        and old_lic.license_type == LicenseType.maintenance
+        and not (
+            old_lic.is_legacy_unlinked_maintenance
+            and old_lic.parent_license_id is None
+        )
+    ):
         try:
             await validate_parent_license(db, old_lic.parent_license_id)
         except ValueError as exc:
@@ -378,6 +399,7 @@ async def _create_coterm_renewal_successor(
         parent_result = await db.execute(select(License).where(License.id == primary_predecessor.parent_license_id))
         parent_lic = parent_result.scalar_one_or_none()
         if parent_lic is not None:
+            await link_maintenance_to_parent(db, new_lic, parent_lic)
             parent_lic.active_maintenance_id = new_lic.id
             await sync_parent_mirror_fields(db, parent_lic)
 
@@ -417,6 +439,7 @@ async def _create_single_renewal_successor(
         parent_result = await db.execute(select(License).where(License.id == old_license.parent_license_id))
         parent_lic = parent_result.scalar_one_or_none()
         if parent_lic is not None:
+            await link_maintenance_to_parent(db, new_lic, parent_lic)
             parent_lic.active_maintenance_id = new_lic.id
             await sync_parent_mirror_fields(db, parent_lic)
 

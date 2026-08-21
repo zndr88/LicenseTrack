@@ -312,6 +312,7 @@ async def convert_pending_order_to_licenses(
                     created_by=current_user.id,
                     missing_license_detail=f"License {item.renewal_for_license_id} not found for renewal",
                     primary_predecessor=old_lic,
+                    validate_maintenance_parent=True,
                 )
                 new_lic = renewal_result.successor
                 predecessor_ids.extend(renewal_result.predecessor_ids)

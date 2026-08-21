@@ -2,12 +2,20 @@
 
 import asyncio
 import json
+from datetime import date, timedelta
 
 from sqlalchemy import select, text
 
 from app.config import settings
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
-from app.models.license import License
+from app.models.license import (
+    License,
+    LicenseCoverageHistory,
+    LicenseMaintenanceLink,
+    LicenseMetric,
+    LicenseType,
+    MaintenanceCoverage,
+)
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.services import pending_order_conversion_service as _conversion_service
 from app.services import storage as _storage_module
@@ -60,6 +68,24 @@ async def _create_parent_with_maintenance(client, headers) -> tuple[dict, dict]:
         totalPoPrice="2500",
     )
     return parent, maintenance
+
+
+async def _seed_legacy_unlinked_maintenance(db_session) -> License:
+    maintenance = License(
+        publisher_name="Legacy Publisher",
+        software_description="Legacy Renewal Maintenance",
+        license_type=LicenseType.maintenance,
+        license_metric=LicenseMetric.per_user,
+        maintenance_coverage=MaintenanceCoverage.not_applicable,
+        currency="EUR",
+        start_date=date.today() - timedelta(days=30),
+        end_date=date.today() + timedelta(days=30),
+        is_legacy_unlinked_maintenance=True,
+    )
+    db_session.add(maintenance)
+    await db_session.commit()
+    await db_session.refresh(maintenance)
+    return maintenance
 
 
 async def _initiate_renewal(client, headers, license_id: int) -> dict:
@@ -2748,7 +2774,7 @@ async def test_batch_subscription_renewal_persists_confirmed_conversion_values(
     _assert_license_fields(stored, expected)
 
 
-async def test_convert_po_with_maintenance_renewal_succeeds(test_app, auth_headers):
+async def test_convert_po_with_maintenance_renewal_succeeds(db_session, test_app, auth_headers):
     parent, maintenance = await _create_parent_with_maintenance(test_app, auth_headers)
     parent_before = await _get_license(test_app, auth_headers, parent["id"])
     sourcing_item = await _initiate_renewal(test_app, auth_headers, maintenance["id"])
@@ -2791,6 +2817,9 @@ async def test_convert_po_with_maintenance_renewal_succeeds(test_app, auth_heade
     assert new_license["licenseType"] == "maintenance"
     assert new_license["licenseMetric"] == maintenance["licenseMetric"]
     assert new_license["parentLicenseId"] == parent["id"]
+    assert new_license["isLegacyUnlinkedMaintenance"] is False
+    successor_detail = await _get_license(test_app, auth_headers, new_license["id"])
+    assert successor_detail["maintenanceParentIds"] == [parent["id"]]
     assert new_license["renewedFromId"] == maintenance["id"]
     _assert_license_fields(
         new_license,
@@ -2828,13 +2857,21 @@ async def test_convert_po_with_maintenance_renewal_succeeds(test_app, auth_heade
 
     parent_after = await _get_license(test_app, auth_headers, parent["id"])
     assert parent_after["activeMaintenanceId"] == new_license["id"]
+    assert new_license["id"] in parent_after["linkedMaintenanceIds"]
+    successor_link = await db_session.execute(
+        select(LicenseMaintenanceLink).where(
+            LicenseMaintenanceLink.maintenance_license_id == new_license["id"],
+            LicenseMaintenanceLink.parent_license_id == parent["id"],
+        )
+    )
+    assert successor_link.scalar_one_or_none() is not None
     assert parent_after["maintenanceEndDate"] == new_license["endDate"]
     assert parent_after["maintenanceCost"] == "3601.00"
     assert new_license["totalPoPrice"] == "3601.00"
     assert parent_after["lifecycleStatus"] == parent_before["lifecycleStatus"]
 
 
-async def test_batch_convert_with_maintenance_renewal_succeeds(test_app, auth_headers):
+async def test_batch_convert_with_maintenance_renewal_succeeds(db_session, test_app, auth_headers):
     parent, maintenance = await _create_parent_with_maintenance(test_app, auth_headers)
     parent_before = await _get_license(test_app, auth_headers, parent["id"])
     sourcing_item = await _initiate_renewal(test_app, auth_headers, maintenance["id"])
@@ -2864,6 +2901,9 @@ async def test_batch_convert_with_maintenance_renewal_succeeds(test_app, auth_he
     new_license = _new_successor(resp.json(), maintenance["id"])
     assert new_license["licenseType"] == "maintenance"
     assert new_license["parentLicenseId"] == parent["id"]
+    assert new_license["isLegacyUnlinkedMaintenance"] is False
+    successor_detail = await _get_license(test_app, auth_headers, new_license["id"])
+    assert successor_detail["maintenanceParentIds"] == [parent["id"]]
     assert new_license["renewedFromId"] == maintenance["id"]
     assert new_license["totalPoPrice"] == "4700"
 
@@ -2873,6 +2913,14 @@ async def test_batch_convert_with_maintenance_renewal_succeeds(test_app, auth_he
 
     parent_after = await _get_license(test_app, auth_headers, parent["id"])
     assert parent_after["activeMaintenanceId"] == new_license["id"]
+    assert new_license["id"] in parent_after["linkedMaintenanceIds"]
+    successor_link = await db_session.execute(
+        select(LicenseMaintenanceLink).where(
+            LicenseMaintenanceLink.maintenance_license_id == new_license["id"],
+            LicenseMaintenanceLink.parent_license_id == parent["id"],
+        )
+    )
+    assert successor_link.scalar_one_or_none() is not None
     assert parent_after["maintenanceEndDate"] == new_license["endDate"]
     assert parent_after["maintenanceCost"] == "4700"
     assert parent_after["lifecycleStatus"] == parent_before["lifecycleStatus"]
@@ -3105,6 +3153,7 @@ async def test_convert_stale_coterm_order_rejects_conflicting_secondary_predeces
 
 
 async def test_coterm_renewal_of_maintenance_updates_parent_active_maintenance(
+    db_session,
     test_app,
     auth_headers,
 ):
@@ -3184,6 +3233,9 @@ async def test_coterm_renewal_of_maintenance_updates_parent_active_maintenance(
     successor = _new_successor(resp.json(), maintenance_a["id"])
     assert successor["licenseType"] == "maintenance"
     assert successor["parentLicenseId"] == parent["id"]
+    assert successor["isLegacyUnlinkedMaintenance"] is False
+    successor_detail = await _get_license(test_app, auth_headers, successor["id"])
+    assert successor_detail["maintenanceParentIds"] == [parent["id"]]
     assert successor["renewedFromId"] == maintenance_a["id"]
 
     old_a = await _get_license(test_app, auth_headers, maintenance_a["id"])
@@ -3193,10 +3245,78 @@ async def test_coterm_renewal_of_maintenance_updates_parent_active_maintenance(
 
     parent_after = await _get_license(test_app, auth_headers, parent["id"])
     assert parent_after["activeMaintenanceId"] == successor["id"]
+    assert successor["id"] in parent_after["linkedMaintenanceIds"]
+    successor_link = await db_session.execute(
+        select(LicenseMaintenanceLink).where(
+            LicenseMaintenanceLink.maintenance_license_id == successor["id"],
+            LicenseMaintenanceLink.parent_license_id == parent["id"],
+        )
+    )
+    assert successor_link.scalar_one_or_none() is not None
     assert parent_after["maintenanceEndDate"] == successor["endDate"]
     assert parent_after["maintenanceCost"] == "2500"
     assert successor["totalPoPrice"] == "2500"
     assert parent_after["lifecycleStatus"] == parent_before["lifecycleStatus"]
+
+
+async def test_coterm_legacy_unlinked_primary_stays_parentless(
+    db_session,
+    test_app,
+    auth_headers,
+):
+    primary = await _seed_legacy_unlinked_maintenance(db_session)
+    primary.license_ref = "LT-LEGACY-PRIMARY"
+    await db_session.commit()
+    parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        startDate="2025-01-01",
+        endDate=None,
+    )
+    secondary = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        publisherName="Legacy Publisher",
+        softwareDescription="Legacy Renewal Maintenance",
+        startDate="2027-01-01",
+        endDate="2027-12-31",
+    )
+    primary_sourcing = await _initiate_renewal(test_app, auth_headers, primary.id)
+    secondary_sourcing = await _initiate_renewal(test_app, auth_headers, secondary["id"])
+    merge_response = await test_app.post(
+        "/api/sourcing/merge",
+        json={"sourcingItemIds": [primary_sourcing["id"], secondary_sourcing["id"]]},
+        headers=auth_headers,
+    )
+    assert merge_response.status_code == 201, merge_response.text
+    po = await _convert_sourcing_to_po(test_app, auth_headers, merge_response.json()["id"])
+
+    response = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert",
+        data={"data": json.dumps(_single_convert_form())},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    successor = _new_successor(response.json(), primary.id)
+    assert successor["licenseType"] == "maintenance"
+    assert successor["parentLicenseId"] is None
+    assert successor["isLegacyUnlinkedMaintenance"] is True
+    assert successor["licenseRef"] == primary.license_ref
+    assert successor["renewedFromId"] == primary.id
+    assert successor["cotermFromIds"] == [primary.id, secondary["id"]]
+
+    successor_links = await db_session.execute(
+        select(LicenseMaintenanceLink).where(
+            LicenseMaintenanceLink.maintenance_license_id == successor["id"]
+        )
+    )
+    assert successor_links.scalars().all() == []
+    parent_after = await _get_license(test_app, auth_headers, parent["id"])
+    assert parent_after["activeMaintenanceId"] == secondary["id"]
 
 
 async def test_batch_convert_maintenance_renewal_with_retired_parent_raises(
@@ -3251,13 +3371,151 @@ async def test_convert_maintenance_renewal_with_missing_parent_raises(
         headers=auth_headers,
     )
 
-    assert resp.status_code == 200, resp.text
-    new_license = _new_successor(resp.json(), maintenance["id"])
-    assert new_license["licenseType"] == "maintenance"
-    assert new_license["parentLicenseId"] == 999999
+    assert resp.status_code == 400, resp.text
+    assert "does not exist" in resp.json()["detail"]
 
+    maintenance_after = await _get_license(test_app, auth_headers, maintenance["id"])
+    assert maintenance_after["lifecycleStatus"] == "pending_renewal"
+    assert maintenance_after["renewedToId"] is None
+
+
+async def test_single_convert_legacy_unlinked_maintenance_renewal_preserves_exception(
+    db_session, test_app, auth_headers
+):
+    maintenance = await _seed_legacy_unlinked_maintenance(db_session)
+    sourcing_item = await _initiate_renewal(test_app, auth_headers, maintenance.id)
+    po = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+
+    response = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert",
+        data={"data": json.dumps(_single_convert_form())},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    successor = _new_successor(response.json(), maintenance.id)
+    assert successor["licenseType"] == "maintenance"
+    assert successor["parentLicenseId"] is None
+    assert successor["isLegacyUnlinkedMaintenance"] is True
+    assert successor["renewedFromId"] == maintenance.id
+
+    stored = await _get_license(test_app, auth_headers, successor["id"])
+    assert stored["isLegacyUnlinkedMaintenance"] is True
+    assert stored["parentLicenseId"] is None
+    links = await db_session.execute(
+        select(LicenseMaintenanceLink).where(
+            LicenseMaintenanceLink.maintenance_license_id == successor["id"]
+        )
+    )
+    assert links.scalars().all() == []
+    coverage = await db_session.execute(
+        select(LicenseCoverageHistory).where(
+            LicenseCoverageHistory.maintenance_license_id == successor["id"]
+        )
+    )
+    assert coverage.scalars().all() == []
+
+    parent = await _create_license(
+        test_app, auth_headers, licenseType="perpetual", startDate="2025-01-01", endDate=None
+    )
+    link_response = await test_app.post(
+        f"/api/licenses/{parent['id']}/link-maintenance",
+        json={"maintenanceLicenseId": successor["id"]},
+        headers=auth_headers,
+    )
+    assert link_response.status_code == 200, link_response.text
+    linked_successor = await _get_license(test_app, auth_headers, successor["id"])
+    assert linked_successor["parentLicenseId"] == parent["id"]
+    assert linked_successor["isLegacyUnlinkedMaintenance"] is False
+
+
+async def test_batch_convert_legacy_unlinked_maintenance_renewal_preserves_exception(
+    db_session, test_app, auth_headers
+):
+    maintenance = await _seed_legacy_unlinked_maintenance(db_session)
+    sourcing_item = await _initiate_renewal(test_app, auth_headers, maintenance.id)
+    po = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+
+    response = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert-all",
+        json=[
+            {
+                "sourcingItemId": sourcing_item["id"],
+                "publisherName": "Renewal Publisher",
+                "softwareDescription": "Renewed Legacy Maintenance",
+                "quantity": "2",
+                "unitPrice": "20",
+                "totalPoPrice": "40",
+                "currency": "EUR",
+                "startDate": date.today().isoformat(),
+                "endDate": (date.today() + timedelta(days=365)).isoformat(),
+                "supplier": "Renewal Supplier",
+            }
+        ],
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    successor = _new_successor(response.json(), maintenance.id)
+    assert successor["licenseType"] == "maintenance"
+    assert successor["parentLicenseId"] is None
+    assert successor["isLegacyUnlinkedMaintenance"] is True
+    assert successor["renewedFromId"] == maintenance.id
+
+
+async def test_legacy_unlinked_renewal_conversion_failure_is_atomic(
+    db_session, test_app, auth_headers
+):
+    maintenance = await _seed_legacy_unlinked_maintenance(db_session)
+    maintenance_id = maintenance.id
+    sourcing_item = await _initiate_renewal(test_app, auth_headers, maintenance.id)
+    po = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+
+    response = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert",
+        data={"data": json.dumps(_single_convert_form(licenseType="not-a-license-type"))},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
+    await db_session.rollback()
+    predecessor = await db_session.get(License, maintenance_id)
+    successors = (
+        await db_session.execute(select(License).where(License.renewed_from_id == maintenance_id))
+    ).scalars().all()
+    assert predecessor.lifecycle_status == "pending_renewal"
+    assert predecessor.renewed_to_id is None
+    assert successors == []
+
+
+async def test_legacy_maintenance_linked_before_conversion_inherits_current_parent(
+    db_session, test_app, auth_headers
+):
+    parent = await _create_license(
+        test_app, auth_headers, licenseType="perpetual", startDate="2025-01-01", endDate=None
+    )
+    maintenance = await _seed_legacy_unlinked_maintenance(db_session)
+    sourcing_item = await _initiate_renewal(test_app, auth_headers, maintenance.id)
+    link_response = await test_app.post(
+        f"/api/licenses/{parent['id']}/link-maintenance",
+        json={"maintenanceLicenseId": maintenance.id},
+        headers=auth_headers,
+    )
+    assert link_response.status_code == 200, link_response.text
+    po = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+
+    response = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert",
+        data={"data": json.dumps(_single_convert_form())},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    successor = _new_successor(response.json(), maintenance.id)
+    assert successor["parentLicenseId"] == parent["id"]
+    assert successor["isLegacyUnlinkedMaintenance"] is False
     parent_after = await _get_license(test_app, auth_headers, parent["id"])
-    assert parent_after["activeMaintenanceId"] == maintenance["id"]
+    assert parent_after["activeMaintenanceId"] == successor["id"]
 
 
 # ---------------------------------------------------------------------------

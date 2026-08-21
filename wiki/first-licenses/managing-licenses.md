@@ -86,6 +86,16 @@ useful when a later renewal covers several perpetual purchases under one
 support contract. Each parent keeps its own active-maintenance pointer, while
 the maintenance record keeps the parent list for review and history.
 
+An imported maintenance record may be marked **legacy unlinked** when its
+original perpetual, OEM, or freeware purchase cannot be identified. It remains
+active and visible, but has no parent link or parent maintenance mirror until an
+editor or admin links it. Ordinary maintenance creation and API updates still
+require an eligible parent; the flag is not writable in normal license payloads.
+When a legacy-unlinked maintenance record is renewed, its successor remains
+legacy-unlinked if it is still unlinked at conversion time. Linking either the
+predecessor before conversion or the successor afterward produces the normal
+linked maintenance state and updates the parent's mirror.
+
 When either kind of coverage is renewed, create a new line for the new coverage
 period. This preserves the cost and dates of the expired period instead of
 rewriting them.

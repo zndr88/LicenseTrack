@@ -121,6 +121,15 @@ Separately tracked maintenance imports need one explicit parent reference, or a
 clear parent that LicenseTrack can infer earlier in the same file. Import
 creates that primary parent link. If the preview cannot resolve the parent,
 choose an existing eligible parent license from the row action before importing.
+If the original purchase record is unavailable, choose **Import as legacy
+unlinked maintenance** instead. This creates active maintenance with no parent
+and marks it for follow-up; it is an import-only exception and still requires
+warning acknowledgement. Maintenance create rows can otherwise use importer
+defaults or same-file inference, or **Link existing parent**. The bulk legacy
+action shows the number of affected rows. In update mode, imports cannot unlink
+an existing maintenance record. License Details visibly marks legacy-unlinked
+records; editors and admins can choose an eligible parent later, which clears
+the exception and establishes the normal maintenance relationship.
 If one maintenance renewal covers several perpetual, OEM, or
 freeware/open-source records, add the additional parent links from the parent
 license's **Maintenance & Support** section after import.

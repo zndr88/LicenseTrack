@@ -75,6 +75,13 @@ The new record becomes the **active** license. The previous record — which was
 
 Looking the license up in the License Overview, you'll see the historical link back to the previous term via **View Previous**.
 
+Legacy-unlinked maintenance follows the same renewal chain. If it is still
+parentless when the pending order is converted, the successor remains active
+maintenance with no parent and retains the legacy-unlinked marker; LicenseTrack
+does not invent a parent link, mirror, or coverage relationship. The current
+predecessor is reread during conversion, so linking it while renewal sourcing
+is in progress makes the successor an ordinary linked maintenance record.
+
 ![The renewed license with a link back to the previous term](../assets/renewal-09-renewed-link.png)
 
 The renewed license's **History** section also shows the procurement trail when the renewal passed through LicenseTrack sourcing and pending orders. From there you can jump back to the historical sourcing item, then through to the historical PO, and finally back to the created license. This is useful when an old renewal is restarted months later and you need the previous quote, notes, or PO evidence for reference.

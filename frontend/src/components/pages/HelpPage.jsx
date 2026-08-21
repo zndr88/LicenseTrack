@@ -52,6 +52,7 @@ const HELP_ARTICLES = [
           "The renewal workbench surfaces licenses approaching expiry and flags records that need attention, such as missing documents or high value.",
           "Starting a renewal marks the current license as pending renewal and creates sourcing-stage work. The successor license is not created until the related pending order is converted.",
           "When conversion completes, LicenseTrack creates the successor, marks the predecessor renewed, and preserves the renewal chain.",
+          "A maintenance record imported as legacy unlinked can renew without a parent. If it is still unlinked at conversion, the successor keeps the legacy-unlinked marker; linking the predecessor before conversion or the successor afterward creates the normal parent link and mirror.",
         ],
       },
       {
@@ -180,6 +181,8 @@ const HELP_ARTICLES = [
           "Legacy PO Price is stored compatibility data only. Importing or mapping that field does not set the shared manual Total PO Value override; overrides must be reviewed and entered by an editor or admin in License Details.",
           "Maintenance parent references must resolve before import, unless LicenseTrack can infer a clear parent from the same file. Imports create one primary parent link per maintenance row; additional shared parent links can be added afterward from License Details.",
           "If a maintenance row cannot resolve its parent during preview, choose an existing eligible parent license from the row action before importing.",
+          "Maintenance create rows can use importer defaults or same-file parent inference, link an existing eligible parent, or choose Import as legacy unlinked maintenance when the original purchase is unavailable. The bulk legacy action shows its affected-row count. Legacy imports require warning acknowledgement; update-mode imports cannot unlink an existing maintenance record.",
+          "License Details visibly marks legacy-unlinked maintenance. Editors and admins can select an eligible parent later; linking clears the exception and establishes the normal maintenance relationship. The internal flag is not accepted in ordinary create or update API payloads.",
           "Far-future end dates such as 2099 are treated as perpetual license indicators instead of row errors.",
           "When an external export has purchase quantity, quantity-per-unit, and effective quantity columns, map Purchase Quantity and Quantity per Unit to their native fields. Effective Quantity is accepted as source data and is recalculated from stored values after import.",
           "Flexera Purchase Type values are normalized where possible: Software Subscription maps to Subscription, Software Maintenance maps to Maintenance, Software Baseline and Software map to Perpetual, and Service maps to Service.",

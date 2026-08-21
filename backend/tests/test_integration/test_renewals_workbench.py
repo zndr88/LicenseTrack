@@ -3,7 +3,7 @@ from datetime import date, timedelta
 import bcrypt
 
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
-from app.models.license import License
+from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
 from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User, UserRole
@@ -457,6 +457,28 @@ async def test_workbench_requires_authentication(test_app):
     resp = await test_app.get("/api/renewals/workbench")
 
     assert resp.status_code == 401
+
+
+async def test_workbench_includes_active_legacy_unlinked_maintenance(db_session, test_app, auth_headers):
+    maintenance = License(
+        publisher_name="Legacy Publisher",
+        software_description="Legacy Workbench Maintenance",
+        license_type=LicenseType.maintenance,
+        license_metric=LicenseMetric.per_user,
+        maintenance_coverage=MaintenanceCoverage.not_applicable,
+        currency="EUR",
+        end_date=date.today() + timedelta(days=30),
+        is_legacy_unlinked_maintenance=True,
+    )
+    db_session.add(maintenance)
+    await db_session.commit()
+    await db_session.refresh(maintenance)
+
+    response = await test_app.get("/api/renewals/workbench", headers=auth_headers)
+
+    assert response.status_code == 200, response.text
+    row = next(row for row in response.json() if row["licenseId"] == maintenance.id)
+    assert row["licenseType"] == "maintenance"
 
 
 async def test_workbench_rejects_invalid_view_and_window(test_app, auth_headers):

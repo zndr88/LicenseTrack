@@ -492,7 +492,7 @@ optional deletion reason. Direct license custom-field upserts emit
 `license.custom_fields_updated` with normalized before/after field diffs only
 when at least one value changes; definition auditing remains separate.
 
-Renewal command side effects belong in `backend/app/services/renewal_orchestrator.py`, with chain invariants delegated to `backend/app/services/lifecycle_rules.py`. Do not spread renewal lifecycle mutations across pages or routes. Successor creation must validate every predecessor before creating a new license row so stale single or coterm pending-order work cannot fork a renewal chain.
+Renewal command side effects belong in `backend/app/services/renewal_orchestrator.py`, with chain invariants delegated to `backend/app/services/lifecycle_rules.py`. Do not spread renewal lifecycle mutations across pages or routes. Successor creation must validate every predecessor before creating a new license row so stale single or coterm pending-order work cannot fork a renewal chain. Renewal conversion rereads the primary predecessor at the conversion boundary: an active parentless maintenance row is allowed to carry `is_legacy_unlinked_maintenance=true` only when that flag already exists on the persisted predecessor. Linked maintenance successors clear the flag and inherit the current primary parent; no parent link, mirror, or coverage snapshot is fabricated for an unlinked successor. Coterm successors use the same primary-predecessor rule.
 
 The renewal graph permits an intermediate license to have both incoming and
 outgoing renewal links, but each predecessor may have at most one immediate
