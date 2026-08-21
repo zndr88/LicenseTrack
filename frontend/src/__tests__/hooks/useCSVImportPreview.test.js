@@ -7,7 +7,7 @@ vi.mock("../../api/csvImport.js", () => ({
 }));
 
 import { confirmCsvImport, previewCsvImport } from "../../api/csvImport.js";
-import { useCSVImportPreview } from "../../hooks/useCSVImportPreview.js";
+import { serializeImportRowOverrides, useCSVImportPreview } from "../../hooks/useCSVImportPreview.js";
 
 describe("useCSVImportPreview — handleConfirmImport", () => {
   beforeEach(() => {
@@ -128,8 +128,89 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
       false,
       undefined,
       false,
-      [{ rowNumber: 3, parentLicenseId: 42 }],
+      [{ rowNumber: 3, action: "link_existing", parentLicenseId: 42 }],
       [],
     );
+  });
+
+  it("passes the explicit legacy-unlinked action without a parent id", async () => {
+    const setStep = vi.fn();
+    const file = new File(["license_type\nmaintenance"], "legacy.csv");
+    const { result } = renderHook(() =>
+      useCSVImportPreview({ setStep, setLoading: vi.fn(), setError: vi.fn() })
+    );
+
+    act(() => {
+      result.current.setMaintenanceParentAction(7, "import_legacy_unlinked");
+    });
+    await act(async () => {
+      await result.current.handleConfirmImport(file, true);
+    });
+
+    expect(confirmCsvImport).toHaveBeenCalledWith(
+      file,
+      [],
+      true,
+      undefined,
+      false,
+      [{ rowNumber: 7, action: "import_legacy_unlinked" }],
+      [],
+    );
+  });
+
+  it("omits skipped link and legacy overrides from native and mapped payload serialization", () => {
+    const overrides = {
+      3: { action: "link_existing", parentLicenseId: 42 },
+      4: { action: "link_existing" },
+      5: { action: "import_legacy_unlinked" },
+    };
+    expect(serializeImportRowOverrides(overrides, new Set([4, 5]))).toEqual([
+      { rowNumber: 3, action: "link_existing", parentLicenseId: 42 },
+    ]);
+    expect(serializeImportRowOverrides(overrides, [4, 5])).toEqual([
+      { rowNumber: 3, action: "link_existing", parentLicenseId: 42 },
+    ]);
+  });
+
+  it("clears an override when skipped so restoring does not reveal a hidden invalid action", () => {
+    const { result } = renderHook(() =>
+      useCSVImportPreview({ setStep: vi.fn(), setLoading: vi.fn(), setError: vi.fn() })
+    );
+    act(() => {
+      result.current.setMaintenanceParentAction(4, "link_existing");
+      result.current.skipRows([4]);
+    });
+    expect(result.current.rowOverrides).toEqual({});
+    act(() => result.current.restoreRows([4]));
+    expect(result.current.rowOverrides).toEqual({});
+  });
+
+  it("bulk applies and clears only eligible maintenance creates and tracks eligibility through skip/restore", () => {
+    const { result } = renderHook(() =>
+      useCSVImportPreview({ setStep: vi.fn(), setLoading: vi.fn(), setError: vi.fn() })
+    );
+    act(() => result.current.setMappedPreviewData({ rows: [
+      { rowNumber: 1, licenseType: "maintenance", importAction: "create", importStatus: "active", validationErrors: [] },
+      { rowNumber: 2, licenseType: "maintenance", importAction: "create", importStatus: "error", validationErrors: ["Maintenance parent is required"] },
+      { rowNumber: 3, licenseType: "maintenance", importAction: "update", importStatus: "active", validationErrors: [] },
+      { rowNumber: 4, licenseType: "maintenance", importAction: "create", importStatus: "active", validationErrors: [] },
+      { rowNumber: 5, licenseType: "maintenance", importAction: "create", importStatus: "error", validationErrors: ["Maintenance parent is required", "Invalid date"] },
+    ] }));
+
+    expect(result.current.legacyUnlinkedEligibleCount).toBe(3);
+    act(() => result.current.skipRows([4]));
+    expect(result.current.legacyUnlinkedEligibleCount).toBe(2);
+    act(() => result.current.restoreRows([4]));
+    expect(result.current.legacyUnlinkedEligibleCount).toBe(3);
+    act(() => result.current.applyLegacyUnlinkedToEligible());
+    expect(result.current.rowOverrides).toEqual({
+      1: { action: "import_legacy_unlinked" },
+      2: { action: "import_legacy_unlinked" },
+      4: { action: "import_legacy_unlinked" },
+    });
+    expect(result.current.legacyUnlinkedSelectedCount).toBe(3);
+    act(() => result.current.clearLegacyUnlinkedSelections());
+    expect(result.current.rowOverrides).toEqual({});
+    expect(result.current.legacyUnlinkedSelectedCount).toBe(0);
   });
 });

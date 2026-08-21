@@ -154,7 +154,7 @@ describe("PreviewStep — warning summary", () => {
 
     render(<PreviewStep {...props} />);
 
-    const parentSearch = screen.getByLabelText("Maintenance parent required");
+    const parentSearch = screen.getByLabelText("Maintenance parent search");
     fireEvent.focus(parentSearch);
     fireEvent.change(parentSearch, { target: { value: "42" } });
     fireEvent.click(screen.getByRole("option", { name: /LT-2026-00042/i }));
@@ -192,5 +192,77 @@ describe("PreviewStep — warning summary", () => {
     expect(screen.getByRole("columnheader", { name: "Issues" })).toBeTruthy();
     expect(screen.getByRole("columnheader", { name: "Import" })).toBeTruthy();
     expect(screen.getByRole("table")).toHaveClass("csv-preview-table-condensed");
+  });
+
+  it("treats legacy selection as resolved for reference-data applicability and blocks until decided", () => {
+    const row = {
+      rowNumber: 8,
+      publisherName: "Acme",
+      supplier: "Old Acme",
+      softwareDescription: "Support",
+      licenseType: "maintenance",
+      importAction: "create",
+      importStatus: "error",
+      validationErrors: ["Maintenance parent is required"],
+      warnings: [],
+      duplicateWarnings: [],
+    };
+    render(
+      <PreviewStep
+        {...defaultProps}
+        previewData={{
+          ...basePreviewData,
+          rows: [row],
+          referenceSummary: {
+            candidates: [
+              { candidateKey: "organization:acme", kind: "organization", proposedName: "Acme", status: "possible_duplicate", occurrenceCount: 1 },
+              { candidateKey: "organization:old acme", kind: "organization", proposedName: "Old Acme", status: "inactive_conflict", occurrenceCount: 1 },
+            ],
+            organizationCounts: {},
+            costCentreCounts: {},
+          },
+        }}
+        rowOverrides={{ 8: { action: "import_legacy_unlinked" } }}
+        importableRowsCount={1}
+      />
+    );
+
+    expect(screen.getAllByText("Acme").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Old Acme").length).toBeGreaterThan(0);
+    expect(screen.getByText(/2 reference-data decisions/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /import 1 license/i })).toBeDisabled();
+  });
+
+  it("keeps unrelated errors blocking and exposes bulk legacy controls", () => {
+    const apply = vi.fn();
+    const clear = vi.fn();
+    render(
+      <PreviewStep
+        {...defaultProps}
+        previewData={{
+          ...basePreviewData,
+          rows: [{
+            rowNumber: 9,
+            licenseType: "maintenance",
+            importAction: "create",
+            importStatus: "error",
+            validationErrors: ["Maintenance parent is required", "Invalid end date"],
+            warnings: [],
+            duplicateWarnings: [],
+          }],
+        }}
+        applyLegacyUnlinkedToEligible={apply}
+        clearLegacyUnlinkedSelections={clear}
+      />
+    );
+
+    expect(screen.queryByRole("option", { name: "Import as legacy unlinked" })).toBeNull();
+    const bulkButton = screen.getByRole("button", { name: /import 0 eligible maintenance as legacy unlinked/i });
+    expect(bulkButton).toBeDisabled();
+  });
+
+  it("shows the eligible count and enables the bulk action when rows qualify", () => {
+    render(<PreviewStep {...defaultProps} legacyUnlinkedEligibleCount={2} />);
+    expect(screen.getByRole("button", { name: /import 2 eligible maintenance as legacy unlinked/i })).toBeEnabled();
   });
 });

@@ -23,6 +23,7 @@ export default function IdentitySection({
   customFieldsLoading,
   makeCustomFieldSaveFn,
   closeFieldEdit,
+  onLinkLegacyMaintenance,
 }) {
   const maintenanceParentIds = Array.isArray(license.maintenanceParentIds) && license.maintenanceParentIds.length > 0
     ? license.maintenanceParentIds
@@ -36,6 +37,12 @@ export default function IdentitySection({
       <DetailSectionHeader sectionKey="identity" title="Identity" isOpen={isOpen} onToggle={onToggle} />
       {isOpen && (
         <div className="dp-section-body" id="dp-section-identity">
+          {license.licenseType === "maintenance" && license.isLegacyUnlinkedMaintenance && (
+            <div className="dp-legacy-unlinked-warning">
+              <span><strong>Legacy unlinked maintenance.</strong> The original purchase parent was unavailable during import. You can link an eligible parent now.</span>
+              {perms.canEdit && <button type="button" className="btn btn-g btn-sm" onClick={onLinkLegacyMaintenance}>Link parent</button>}
+            </div>
+          )}
           {license.licenseType === "maintenance" && singleMaintenanceParentId && (
             <button
               type="button"

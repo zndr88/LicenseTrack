@@ -3,6 +3,7 @@ import { getLicenses } from "../api/licenses.js";
 import { normalizeNumberFormatOptionValue } from "../constants/numberFormats.js";
 import { useCSVImportAnalysis } from "./useCSVImportAnalysis.js";
 import { useCSVImportPreview } from "./useCSVImportPreview.js";
+import { serializeImportRowOverrides } from "./useCSVImportPreview.js";
 
 export function useCSVImportState({ onImportComplete, userSettings, canManageImportMappings }) {
   const [step, setStep] = useState("upload");
@@ -97,11 +98,10 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
   };
 
   const handleConfirm = async () => {
-    const hasImportWarnings = preview.previewData?.warningSummary?.hasWarnings ?? false;
-    const rowOverrides = Object.entries(preview.rowOverrides).map(([rowNumber, override]) => ({
-      rowNumber: Number(rowNumber),
-      parentLicenseId: override.parentLicenseId,
-    }));
+    const hasImportWarnings = Boolean(
+      preview.previewData?.warningSummary?.hasWarnings || preview.legacyUnlinkedSelectedCount > 0
+    );
+    const rowOverrides = serializeImportRowOverrides(preview.rowOverrides, preview.skippedRows);
     const referenceOverrides = Object.values(preview.referenceOverrides);
     if (source === "external" && analysis.analyzeData) {
       await analysis.handleExecuteImport(
@@ -173,6 +173,11 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     skipRows: preview.skipRows,
     restoreRows: preview.restoreRows,
     setMaintenanceParentOverride: preview.setMaintenanceParentOverride,
+    setMaintenanceParentAction: preview.setMaintenanceParentAction,
+    applyLegacyUnlinkedToEligible: preview.applyLegacyUnlinkedToEligible,
+    clearLegacyUnlinkedSelections: preview.clearLegacyUnlinkedSelections,
+    legacyUnlinkedSelectedCount: preview.legacyUnlinkedSelectedCount,
+    legacyUnlinkedEligibleCount: preview.legacyUnlinkedEligibleCount,
     setReferenceOverride: preview.setReferenceOverride,
     handleConfirm,
     updateExisting: source === "external" ? analysis.updateExisting : preview.updateExisting,

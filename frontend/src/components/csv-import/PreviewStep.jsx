@@ -42,6 +42,16 @@ function needsMaintenanceParent(row) {
   ));
 }
 
+function isMaintenanceCreateRow(row) {
+  return row.licenseType === "maintenance" && row.importAction !== "update";
+}
+
+function hasOnlyParentError(row) {
+  return needsMaintenanceParent(row) && (row.validationErrors || []).every((error) => (
+    error.includes("parent_license_ref") || error.toLowerCase().includes("maintenance parent")
+  ));
+}
+
 function maintenanceParentLabel(parent) {
   return [
     parent.licenseRef,
@@ -103,7 +113,7 @@ function MaintenanceParentPicker({ rowNumber, selectedParentId, parents, onSelec
         id={`csv-parent-${rowNumber}`}
         ref={inputRef}
         className="fi csv-parent-search"
-        aria-label="Maintenance parent required"
+        aria-label="Maintenance parent search"
         placeholder="Select parent..."
         value={open ? query : (selectedParent ? maintenanceParentLabel(selectedParent) : "")}
         onFocus={() => { setOpen(true); setQuery(""); }}
@@ -138,7 +148,9 @@ function MaintenanceParentPicker({ rowNumber, selectedParentId, parents, onSelec
 
 function candidateAppliesToImportedRows(candidate, rows, skippedRows, rowOverrides) {
   return rows.some((row) => {
-    const parentResolved = Boolean(rowOverrides[row.rowNumber]?.parentLicenseId);
+    const override = rowOverrides[row.rowNumber] || {};
+    const parentResolved = override.action === "import_legacy_unlinked"
+      || (override.action === "link_existing" && Number(override.parentLicenseId) > 0);
     if ((row.importStatus === "error" && !parentResolved) || skippedRows.has(row.rowNumber)) return false;
     const values = candidate.kind === "cost_centre"
       ? [row.costCentre]
@@ -373,7 +385,12 @@ export default function PreviewStep({
   skipRows, restoreRows,
   rowOverrides = {},
   referenceOverrides = {},
-  setMaintenanceParentOverride = () => {},
+  setMaintenanceParentOverride: _setMaintenanceParentOverride = () => {},
+  setMaintenanceParentAction = () => {},
+  applyLegacyUnlinkedToEligible = () => {},
+  clearLegacyUnlinkedSelections = () => {},
+  legacyUnlinkedSelectedCount = 0,
+  legacyUnlinkedEligibleCount = 0,
   setReferenceOverride = () => {},
   eligibleMaintenanceParents = [],
   showUpdateControls, updateExisting, onToggleUpdateExisting,
@@ -453,17 +470,22 @@ export default function PreviewStep({
   const showColumn = (key) => visibleColumns.has(key);
 
   const actionRequiredCount = previewData.rows.filter((row) => (
-    needsMaintenanceParent(row) && !rowOverrides[row.rowNumber]?.parentLicenseId
+    hasOnlyParentError(row) && !rowOverrides[row.rowNumber]?.action
   )).length;
   const unresolvedErrorCount = previewData.rows.filter((row) => (
     row.importStatus === "error"
-    && !needsMaintenanceParent(row)
-    && !rowOverrides[row.rowNumber]?.parentLicenseId
+    && !(hasOnlyParentError(row) && rowOverrides[row.rowNumber]?.action)
   )).length;
   const unresolvedReferenceCount = (previewData.referenceSummary?.candidates || []).filter((candidate) => (
     (candidate.status === "possible_duplicate" || candidate.status === "inactive_conflict")
     && candidateAppliesToImportedRows(candidate, previewData.rows, skippedRows, rowOverrides)
     && !referenceDecisionComplete(referenceOverrides[candidate.candidateKey])
+  )).length;
+  const unresolvedMaintenanceActionCount = previewData.rows.filter((row) => (
+    !skippedRows.has(row.rowNumber)
+    && isMaintenanceCreateRow(row)
+    && rowOverrides[row.rowNumber]?.action === "link_existing"
+    && !Number(rowOverrides[row.rowNumber]?.parentLicenseId)
   )).length;
 
   const empty = <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>—</span>;
@@ -510,6 +532,12 @@ export default function PreviewStep({
             <span className="csv-chip-val" style={{ color: "var(--text-2)" }}>{skippedRows.size}</span>
           </div>
         )}
+        {legacyUnlinkedSelectedCount > 0 && (
+          <div className="csv-chip csv-chip-warning">
+            <span className="csv-chip-label">Legacy unlinked</span>
+            <span className="csv-chip-val" style={{ color: "var(--orange)" }}>{legacyUnlinkedSelectedCount}</span>
+          </div>
+        )}
       </div>
 
       {showUpdateControls && (
@@ -552,7 +580,7 @@ export default function PreviewStep({
         </div>
       )}
 
-      {previewData.warningSummary?.hasWarnings && (
+      {(previewData.warningSummary?.hasWarnings || legacyUnlinkedSelectedCount > 0) && (
         <div className="csv-warn-box" data-testid="csv-warning-summary">
           <Icon name="alert" size={14} color="var(--orange-text)" />
           <div>
@@ -572,6 +600,9 @@ export default function PreviewStep({
               )}
               {previewData.warningSummary.expiredMaintenanceCount > 0 && (
                 <li>Maintenance expired: <strong>{previewData.warningSummary.expiredMaintenanceCount}</strong> row{previewData.warningSummary.expiredMaintenanceCount !== 1 ? "s" : ""}</li>
+              )}
+              {legacyUnlinkedSelectedCount > 0 && (
+                <li>Legacy unlinked maintenance: <strong>{legacyUnlinkedSelectedCount}</strong> row{legacyUnlinkedSelectedCount !== 1 ? "s" : ""} (acknowledgement required)</li>
               )}
             </ul>
           </div>
@@ -640,6 +671,14 @@ export default function PreviewStep({
                 Restore selected
               </button>
             )}
+            <button type="button" className="btn btn-g csv-maintenance-bulk-action" disabled={legacyUnlinkedEligibleCount === 0} onClick={applyLegacyUnlinkedToEligible}>
+              Import {legacyUnlinkedEligibleCount} eligible maintenance as legacy unlinked
+            </button>
+            {legacyUnlinkedSelectedCount > 0 && (
+              <button type="button" className="btn btn-g csv-maintenance-bulk-action" onClick={clearLegacyUnlinkedSelections}>
+                Clear legacy selections
+              </button>
+            )}
           </div>
         </div>
         <div className="lp-tbl-wrap">
@@ -672,10 +711,15 @@ export default function PreviewStep({
               {previewData.rows.map((row) => {
                 const isSkipped = skippedRows.has(row.rowNumber);
                 const needsParent = needsMaintenanceParent(row);
-                const selectedParentId = rowOverrides[row.rowNumber]?.parentLicenseId || "";
-                const parentResolved = needsParent && !!selectedParentId;
-                const canSelect = row.importStatus !== "error" || parentResolved;
-                const validationErrors = parentResolved
+                const override = rowOverrides[row.rowNumber] || {};
+                const selectedParentId = override.parentLicenseId || "";
+                const legacySelected = override.action === "import_legacy_unlinked";
+                const parentResolved = (needsParent || legacySelected) && (
+                  legacySelected || (override.action === "link_existing" && Number(selectedParentId) > 0)
+                );
+                const parentOnlyError = hasOnlyParentError(row);
+                const canSelect = row.importStatus !== "error" || (parentOnlyError && parentResolved);
+                const validationErrors = parentResolved && parentOnlyError
                   ? (row.validationErrors || []).filter((error) => (
                     !error.includes("parent_license_ref") && !error.toLowerCase().includes("maintenance parent")
                   ))
@@ -689,7 +733,7 @@ export default function PreviewStep({
                     key={row.rowNumber}
                     className={isSkipped ? "csv-row-skipped" : undefined}
                     style={row.importStatus === "error" && !parentResolved
-                      ? { background: needsParent ? "var(--orange-dim)" : "var(--red-dim)", opacity: needsParent ? 1 : 0.45 }
+                      ? { background: parentOnlyError ? "var(--orange-dim)" : "var(--red-dim)", opacity: parentOnlyError ? 1 : 0.45 }
                       : undefined}
                   >
                     <td className="csv-select-col">
@@ -714,7 +758,7 @@ export default function PreviewStep({
                     <td className="csv-issues-col">
                       {isSkipped ? <Badge type="gray">Skipped</Badge> : (
                         <>
-                          {parentResolved ? <Badge type="green">Resolved</Badge> : needsParent ? <Badge type="orange">Action required</Badge> : statusBadge(row.importStatus)}
+                          {legacySelected ? <Badge type="orange">Legacy unlinked</Badge> : parentResolved ? <Badge type="green">Resolved</Badge> : needsParent ? <Badge type="orange">Action required</Badge> : statusBadge(row.importStatus)}
                           {row.importAction === "update" && row.importStatus !== "error" && (
                             <Badge type="blue">Update</Badge>
                           )}
@@ -722,24 +766,42 @@ export default function PreviewStep({
                       )}
                     </td>
                     <td>
-                      {(validationErrors.length > 0 || row.warnings.length > 0 || (row.duplicateWarnings?.length || 0) > 0 || needsParent) ? (
+                      {(validationErrors.length > 0 || row.warnings.length > 0 || (row.duplicateWarnings?.length || 0) > 0 || needsParent || isMaintenanceCreateRow(row)) ? (
                         <div>
                           {validationErrors.map((e, i) => <div key={`e${i}`} className="csv-err-item">{e}</div>)}
                           {(row.duplicateWarnings || []).map((w, i) => <div key={`d${i}`} className="csv-warn-item">{w.message}</div>)}
                           {row.warnings.map((w, i) => <div key={`w${i}`} className="csv-warn-item">{w}</div>)}
-                          {needsParent && (
+                          {isMaintenanceCreateRow(row) && (row.importStatus !== "error" || parentOnlyError) && (
                             <div className="csv-parent-action">
-                              <label className="csv-parent-action-label" htmlFor={`csv-parent-${row.rowNumber}`}>
-                                Maintenance parent required
+                              <label className="csv-parent-action-label" htmlFor={`csv-parent-action-${row.rowNumber}`}>
+                                {needsParent ? "Maintenance parent required" : "Maintenance parent action"}
                               </label>
-                              <MaintenanceParentPicker
-                                rowNumber={row.rowNumber}
-                                selectedParentId={selectedParentId}
-                                parents={eligibleMaintenanceParents}
-                                onSelect={setMaintenanceParentOverride}
-                              />
-                              {!parentResolved && (
-                                <div className="csv-parent-action-help">Choose an existing perpetual, OEM, or freeware parent.</div>
+                              <select
+                                id={`csv-parent-action-${row.rowNumber}`}
+                                className="fi fi-select csv-maintenance-action-select"
+                                value={override.action || ""}
+                                onChange={(event) => setMaintenanceParentAction(row.rowNumber, event.target.value, selectedParentId)}
+                              >
+                                <option value="">Use importer default</option>
+                                <option value="link_existing">Link an existing parent</option>
+                                <option value="import_legacy_unlinked">Import as legacy unlinked</option>
+                              </select>
+                              {(!legacySelected && (override.action === "link_existing" || needsParent)) && (
+                                <MaintenanceParentPicker
+                                  rowNumber={row.rowNumber}
+                                  selectedParentId={selectedParentId}
+                                  parents={eligibleMaintenanceParents}
+                                  onSelect={(number, id) => {
+                                    _setMaintenanceParentOverride(number, id);
+                                    setMaintenanceParentAction(number, "link_existing", id);
+                                  }}
+                                />
+                              )}
+                              {legacySelected && (
+                                <div className="csv-parent-action-help csv-maintenance-action-help">The original purchase is unavailable. You can link this maintenance record later.</div>
+                              )}
+                              {!parentResolved && needsParent && (
+                                <div className="csv-parent-action-help csv-maintenance-action-help">Choose an existing perpetual, OEM, or freeware parent, or import it as legacy unlinked.</div>
                               )}
                             </div>
                           )}
@@ -777,6 +839,13 @@ export default function PreviewStep({
         </div>
       )}
 
+      {unresolvedMaintenanceActionCount > 0 && (
+        <div className="csv-error-notice">
+          <Icon name="alert" size={13} color="var(--orange-text)" />
+          <span>Choose an eligible parent for each selected “link existing” maintenance action.</span>
+        </div>
+      )}
+
       {duplicateWarningCount === 0 && (
         <div className="csv-warn-box">
           <Icon name="alert" size={14} color="var(--orange-text)" />
@@ -786,9 +855,9 @@ export default function PreviewStep({
 
       <div className="csv-actions">
         <button className="btn btn-g" onClick={reset}>Cancel</button>
-        <button className="btn btn-p" onClick={handleConfirm} disabled={importableRowsCount === 0 || unresolvedReferenceCount > 0}>
+        <button className="btn btn-p" onClick={handleConfirm} disabled={importableRowsCount === 0 || unresolvedReferenceCount > 0 || unresolvedMaintenanceActionCount > 0}>
           <Icon name="upload" size={13} />
-          {previewData.warningSummary?.hasWarnings
+          {(previewData.warningSummary?.hasWarnings || legacyUnlinkedSelectedCount > 0)
             ? `Acknowledge warnings and import (${importableRowsCount} ${importableRowsCount === 1 ? "license" : "licenses"})`
             : `Import ${importableRowsCount} ${importableRowsCount === 1 ? "license" : "licenses"}`}
         </button>

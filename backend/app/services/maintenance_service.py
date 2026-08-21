@@ -249,6 +249,13 @@ async def activate_maintenance_for_parent(
                 currency=active_child.currency,
             )
     await link_maintenance_to_parent(db, maintenance_license, parent)
+    # A legacy-unlinked record becomes an ordinary linked maintenance record
+    # as soon as an eligible parent is chosen.  Keep the primary parent in
+    # sync for the legacy single-parent API while preserving an existing
+    # primary parent when this is an additional association.
+    if maintenance_license.parent_license_id is None:
+        maintenance_license.parent_license_id = parent.id
+    maintenance_license.is_legacy_unlinked_maintenance = False
     parent.active_maintenance_id = maintenance_license.id
     await sync_parent_mirror_fields(db, parent)
 

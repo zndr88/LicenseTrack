@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { getLicense } from "../../api/licenses.js";
 import { useDetailPanelState } from "../../hooks/useDetailPanelState.js";
 import LicenseEditForm from "./detail/LicenseEditForm.jsx";
@@ -15,6 +16,7 @@ import { NotesSection, CatchallCustomFieldsSection } from "./detail/NotesSection
 import HistorySection from "./detail/HistorySection.jsx";
 import FieldEditModal from "./FieldEditModal.jsx";
 import MaintenanceCreateModal from "./MaintenanceCreateModal.jsx";
+import LegacyMaintenanceLinkModal from "./LegacyMaintenanceLinkModal.jsx";
 import InvoiceNumbersModal from "./InvoiceNumbersModal.jsx";
 import SecondaryContactsModal from "./SecondaryContactsModal.jsx";
 import Icon from "../ui/Icon.jsx";
@@ -78,6 +80,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     makeCustomFieldSaveFn,
     comp, exp, perms, vis,
   } = useDetailPanelState({ license, onUpdate, onClose, userSettings, globalSettings, user, onPreviewDocument });
+  const [showLegacyLinkModal, setShowLegacyLinkModal] = useState(false);
   const canDownloadDocuments = user?.role !== "viewer" || user?.allowDownloads !== false;
 
   const notesPreview = license.notes
@@ -131,6 +134,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               customFieldsLoading={customFieldsLoading}
               makeCustomFieldSaveFn={makeCustomFieldSaveFn}
               closeFieldEdit={closeFieldEdit}
+              onLinkLegacyMaintenance={() => setShowLegacyLinkModal(true)}
             />
 
             {/* Renewal / coterm blocks - always visible, between Identity and Dates */}
@@ -400,6 +404,21 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
             setOpenSections((p) => ({ ...p, maintenance: true }));
           }}
           onClose={() => setShowMaintenanceModal(false)}
+        />
+      )}
+
+      {showLegacyLinkModal && (
+        <LegacyMaintenanceLinkModal
+          license={license}
+          allLicenses={allLicenses}
+          onClose={() => setShowLegacyLinkModal(false)}
+          onSuccess={async (refreshed, parentId) => {
+            setShowLegacyLinkModal(false);
+            onUpdate(license.id, refreshed);
+            const { data: parent } = await getLicense(parentId);
+            if (parent) onUpdate(parentId, parent);
+            setToast("Maintenance linked to parent license");
+          }}
         />
       )}
 

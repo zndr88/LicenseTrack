@@ -39,6 +39,7 @@ function MaintenanceRecordOption({ license, selected, onSelect, userSettings }) 
         <span className="maint-record-title">{license.publisherName} / {license.softwareDescription}</span>
       </span>
       <span className="maint-record-meta">
+        {license.isLegacyUnlinkedMaintenance && <span className="maint-record-legacy-label">Legacy unlinked</span>}
         <span>{license.poNumber || "No PO"}</span>
         <span>{license.contractNumber || "No contract"}</span>
         <span>

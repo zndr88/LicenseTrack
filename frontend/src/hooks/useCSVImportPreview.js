@@ -8,8 +8,30 @@ function rowNeedsMaintenanceParent(row) {
   ));
 }
 
+function rowHasOnlyMaintenanceParentError(row) {
+  if (!rowNeedsMaintenanceParent(row)) return false;
+  return (row.validationErrors || []).every((error) => (
+    error.includes("parent_license_ref") || error.toLowerCase().includes("maintenance parent")
+  ));
+}
+
 function rowHasMaintenanceParentOverride(row, rowOverrides) {
-  return rowNeedsMaintenanceParent(row) && !!rowOverrides[row.rowNumber]?.parentLicenseId;
+  const override = rowOverrides[row.rowNumber];
+  return rowHasOnlyMaintenanceParentError(row) && (
+    override?.action === "import_legacy_unlinked"
+    || (override?.action === "link_existing" && Number(override.parentLicenseId) > 0)
+  );
+}
+
+export function serializeImportRowOverrides(rowOverrides, skippedRows = new Set()) {
+  const skipped = new Set(skippedRows);
+  return Object.entries(rowOverrides)
+    .filter(([rowNumber]) => !skipped.has(Number(rowNumber)))
+    .map(([rowNumber, override]) => ({
+    rowNumber: Number(rowNumber),
+    action: override.action || "link_existing",
+    ...(override.parentLicenseId ? { parentLicenseId: Number(override.parentLicenseId) } : {}),
+    }));
 }
 
 export function useCSVImportPreview({ setStep, setLoading, setError, onImportComplete, importFormats }) {
@@ -73,10 +95,7 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
       acknowledgeWarnings,
       importFormats,
       updateExisting,
-      Object.entries(rowOverrides).map(([rowNumber, override]) => ({
-        rowNumber: Number(rowNumber),
-        parentLicenseId: override.parentLicenseId,
-      })),
+      serializeImportRowOverrides(rowOverrides, skippedRows),
       Object.values(referenceOverrides),
     );
     if (err) { setError(err); setStep("preview"); return; }
@@ -105,6 +124,11 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
 
   const skipRows = (rowNumbers) => {
     setSkippedRows(prev => { const next = new Set(prev); rowNumbers.forEach(r => next.add(r)); return next; });
+    setRowOverrides(prev => {
+      const next = { ...prev };
+      rowNumbers.forEach((rowNumber) => { delete next[rowNumber]; });
+      return next;
+    });
     setSelectedRows(new Set());
   };
 
@@ -114,7 +138,10 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
   };
 
   const setMaintenanceParentOverride = (rowNumber, parentLicenseId) => {
-    if (!parentLicenseId) {
+    const override = typeof parentLicenseId === "object"
+      ? parentLicenseId
+      : (parentLicenseId ? { action: "link_existing", parentLicenseId: Number(parentLicenseId) } : null);
+    if (!override?.action) {
       setSkippedRows(current => {
         const skipped = new Set(current);
         skipped.delete(rowNumber);
@@ -128,12 +155,43 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     }
     setRowOverrides(prev => {
       const next = { ...prev };
-      if (!parentLicenseId) {
+      if (!override?.action) {
         delete next[rowNumber];
       } else {
-        next[rowNumber] = { parentLicenseId: Number(parentLicenseId) };
+        next[rowNumber] = override.action === "import_legacy_unlinked"
+          ? { action: "import_legacy_unlinked" }
+          : { action: "link_existing", parentLicenseId: override.parentLicenseId ? Number(override.parentLicenseId) : null };
       }
       return next;
+    });
+  };
+
+  const setMaintenanceParentAction = (rowNumber, action, parentLicenseId) => {
+    if (action === "link_existing") {
+      setMaintenanceParentOverride(rowNumber, { action, parentLicenseId });
+    } else if (action === "import_legacy_unlinked") {
+      setMaintenanceParentOverride(rowNumber, { action });
+    } else {
+      setMaintenanceParentOverride(rowNumber, null);
+    }
+  };
+
+  const legacyUnlinkedRows = previewRows.filter((row) => (
+    row.licenseType === "maintenance"
+    && row.importAction !== "update"
+    && !skippedRows.has(row.rowNumber)
+    && (row.importStatus !== "error" || rowHasOnlyMaintenanceParentError(row))
+  ));
+  const legacyUnlinkedEligibleCount = legacyUnlinkedRows.length;
+  const legacyUnlinkedSelectedCount = Object.entries(rowOverrides).filter(
+    ([rowNumber, override]) => override.action === "import_legacy_unlinked" && !skippedRows.has(Number(rowNumber))
+  ).length;
+  const applyLegacyUnlinkedToEligible = () => {
+    legacyUnlinkedRows.forEach((row) => setMaintenanceParentAction(row.rowNumber, "import_legacy_unlinked"));
+  };
+  const clearLegacyUnlinkedSelections = () => {
+    legacyUnlinkedRows.forEach((row) => {
+      if (rowOverrides[row.rowNumber]?.action === "import_legacy_unlinked") setMaintenanceParentAction(row.rowNumber, "");
     });
   };
 
@@ -179,6 +237,11 @@ export function useCSVImportPreview({ setStep, setLoading, setError, onImportCom
     skipRows,
     restoreRows,
     setMaintenanceParentOverride,
+    setMaintenanceParentAction,
+    applyLegacyUnlinkedToEligible,
+    clearLegacyUnlinkedSelections,
+    legacyUnlinkedSelectedCount,
+    legacyUnlinkedEligibleCount,
     setReferenceOverride,
     handleFilePreview,
     handleConfirmImport,

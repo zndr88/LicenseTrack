@@ -211,6 +211,10 @@ async def link_existing_maintenance(
     if maintenance is None:
         raise HTTPException(status_code=404, detail="Maintenance license not found")
 
+    was_legacy_unlinked = bool(
+        maintenance.is_legacy_unlinked_maintenance
+        and maintenance.parent_license_id is None
+    )
     try:
         await activate_maintenance_for_parent(db, maintenance, parent)
     except ValueError as exc:
@@ -225,7 +229,10 @@ async def link_existing_maintenance(
         target_type="license",
         target_id=str(license_id),
         target_label=parent.software_description,
-        detail=f"maintenanceLicenseId={maintenance.id}",
+        detail=(
+            f"maintenanceLicenseId={maintenance.id}"
+            + (";legacyUnlinkedMaintenance=true" if was_legacy_unlinked else "")
+        ),
     )
     await db.commit()
 

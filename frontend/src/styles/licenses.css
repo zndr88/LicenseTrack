@@ -21,6 +21,15 @@
 .dp-toggle-title { font-size: 12px; font-weight: 600; color: var(--text-2); }
 .dp-toggle-desc { font-size: 10px; color: var(--text-3); }
 .dp-legacy-notice { padding: 8px 12px; background: var(--bg-3); border: 1px solid var(--border-strong); border-radius: var(--r); margin-bottom: 8px; font-size: 11px; color: var(--text-3); }
+.dp-legacy-unlinked-warning { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; margin-bottom: 12px; background: var(--orange-dim); border: 1px solid var(--orange-border); border-radius: var(--r); font-size: 12px; color: var(--orange-text); }
+.dp-legacy-unlinked-warning > span { flex: 1; }
+.legacy-maintenance-parent-list { margin-top: 8px; max-height: 240px; overflow-y: auto; }
+.legacy-maintenance-parent-option { display: block; width: 100%; height: auto; padding: 8px; margin-bottom: 4px; text-align: left; border: 1px solid transparent; border-radius: var(--r); background: var(--bg-2); color: var(--text-1); cursor: pointer; }
+.legacy-maintenance-parent-option:hover, .legacy-maintenance-parent-option.is-selected { border-color: var(--accent); background: var(--accent-m); }
+.legacy-maintenance-parent-empty { padding: 8px; color: var(--text-3); }
+.legacy-maintenance-link-error { margin-top: 8px; }
+.legacy-maintenance-link-success { display: flex; flex-direction: column; gap: 12px; padding: 12px; background: var(--orange-dim); border: 1px solid var(--orange-border); border-radius: var(--r); color: var(--orange-text); font-size: 12px; }
+.maint-record-legacy-label { color: var(--orange-text); font-weight: 700; }
 .dp-exempt-notice { padding: 8px 0; color: var(--text-3); font-size: 11px; }
 .dp-check-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
 .dp-check-label { font-size: 11px; color: var(--text-2); }

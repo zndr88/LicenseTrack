@@ -146,6 +146,7 @@ describe("MaintenanceCreateModal", () => {
             endDate: "2026-12-31",
             maintenanceParentIds: [],
             isRetired: false,
+            isLegacyUnlinkedMaintenance: true,
           },
         ]}
         onSuccess={onSuccess}
@@ -154,6 +155,7 @@ describe("MaintenanceCreateModal", () => {
     );
 
     await user.click(screen.getByRole("tab", { name: /link existing/i }));
+    expect(screen.getByText("Legacy unlinked")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /LT-2026-0077/i }));
     await user.click(screen.getByRole("button", { name: /link existing record/i }));
 

@@ -3,7 +3,7 @@ import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testin
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import DetailPanel from '../components/licenses/DetailPanel.jsx'
-import { updateLicense } from '../api/licenses.js'
+import { getLicense, linkMaintenanceToParent, updateLicense } from '../api/licenses.js'
 
 vi.mock('../api/documents.js', () => ({
   getDocuments: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -63,6 +63,7 @@ vi.mock('../api/licenses.js', () => ({
   cancelRenewal: vi.fn(),
   getMaintenanceForParent: vi.fn(),
   disableMaintenance: vi.fn(),
+  linkMaintenanceToParent: vi.fn(),
 }))
 
 beforeEach(() => {
@@ -71,6 +72,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  getLicense.mockReset()
+  linkMaintenanceToParent.mockReset()
 })
 
 function render(ui) {
@@ -161,6 +164,77 @@ describe('DetailPanel identity references', () => {
 
     expect(screen.getByText('LT-2026-00001')).toBeInTheDocument()
     expect(screen.queryByText(/LT-2026-00001 \|/)).not.toBeInTheDocument()
+  })
+})
+
+describe('DetailPanel legacy-unlinked maintenance', () => {
+  const legacyMaintenance = {
+    ...baseLicense,
+    id: 7,
+    licenseType: 'maintenance',
+    isLegacyUnlinkedMaintenance: true,
+    parentLicenseId: null,
+    maintenanceParentIds: [],
+  }
+
+  it('shows the warning without a mutation action to viewers', () => {
+    render(<DetailPanel {...baseProps} license={legacyMaintenance} />)
+
+    expect(screen.getByText(/legacy unlinked maintenance/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Link parent' })).not.toBeInTheDocument()
+  })
+
+  it('shows editors the Link parent action and opens the linking modal', async () => {
+    const user = userEvent.setup()
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'editor' }}
+        license={legacyMaintenance}
+        allLicenses={[legacyMaintenance, { ...baseLicense, id: 42, licenseType: 'perpetual', licenseRef: 'LT-42' }]}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Link parent' }))
+    expect(screen.getByRole('dialog', { name: /link legacy maintenance/i })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /LT-42/i })).toBeInTheDocument()
+  })
+
+  it('removes the warning and exposes parent navigation after a successful link refresh', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn()
+    const refreshed = { ...legacyMaintenance, isLegacyUnlinkedMaintenance: false, parentLicenseId: 42, maintenanceParentIds: [42] }
+    const parent = { ...baseLicense, id: 42, licenseRef: 'LT-42', licenseType: 'perpetual' }
+    const { rerender } = render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        onUpdate={onUpdate}
+        license={legacyMaintenance}
+        allLicenses={[legacyMaintenance, parent]}
+      />
+    )
+    linkMaintenanceToParent.mockResolvedValueOnce({ data: {}, error: null })
+    getLicense.mockResolvedValueOnce({ data: refreshed, error: null }).mockResolvedValueOnce({ data: parent, error: null })
+
+    await user.click(screen.getByRole('button', { name: 'Link parent' }))
+    await user.click(screen.getByRole('option', { name: /LT-42/i }))
+    await user.click(screen.getByRole('button', { name: 'Link maintenance' }))
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith(7, refreshed))
+
+    rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <DetailPanel
+          {...baseProps}
+          user={{ id: 2, role: 'admin' }}
+          onUpdate={onUpdate}
+          license={refreshed}
+          allLicenses={[refreshed, parent]}
+        />
+      </QueryClientProvider>
+    )
+    expect(screen.queryByText(/legacy unlinked maintenance/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /navigate to parent license/i })).toBeInTheDocument()
   })
 })
 
