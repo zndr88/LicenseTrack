@@ -18,10 +18,6 @@ vi.mock("../../utils/helpers.js", () => ({
   todayStr: vi.fn(() => "2026-01-01"),
 }))
 
-vi.mock("../../utils/sort.js", () => ({
-  getSortValue: vi.fn((item, col) => item[col]),
-}))
-
 const defaultOptions = {
   search: "",
   statusFilters: [],
@@ -196,7 +192,7 @@ describe("useLicenseData", () => {
     const { result } = renderHook(() =>
       useLicenseData(licenses, {
         ...defaultOptions,
-        sortCol: "publisherName",
+        sortCol: "publisher",
         sortDir: "asc",
       })
     )
@@ -205,6 +201,45 @@ describe("useLicenseData", () => {
 })
 
 describe("useLicenseData — columnFilters", () => {
+  const customFieldDefs = [
+    { id: 1, fieldKey: "owner", fieldType: "text" },
+    { id: 2, fieldKey: "renewal", fieldType: "date" },
+    { id: 3, fieldKey: "budget", fieldType: "currency" },
+    { id: 4, fieldKey: "enabled", fieldType: "boolean" },
+  ]
+  const customFieldValuesMap = new Map([
+    [1, [{ customFieldDefId: 1, valueText: "Alice" }, { customFieldDefId: 2, valueText: "2026-01-01" }, { customFieldDefId: 3, valueCurrency: "10" }, { customFieldDefId: 4, valueText: "true" }]],
+    [2, [{ customFieldDefId: 1, valueText: "Bob" }, { customFieldDefId: 2, valueText: "2026-12-01" }, { customFieldDefId: 3, valueCurrency: "20" }, { customFieldDefId: 4, valueText: "false" }]],
+  ])
+
+  function withCustomFields(overrides) {
+    return { ...defaultOptions, customFieldDefs, customFieldValuesMap, ...overrides }
+  }
+
+  test.each([
+    ["effectiveQuantity", { effectiveQuantity: "25" }, "25"],
+    ["quantityPerUnit", { quantityPerUnit: "5" }, "5"],
+    ["noticeDate", { noticeDate: "2026-04-15" }, "2026-04"],
+  ])("columnFilters: %s controls filter rows", (key, values, input) => {
+    const licenses = [makeLicense(values), makeLicense(values[key] === "25" ? { [key]: "10" } : { [key]: "" })]
+    const { result } = renderHook(() => useLicenseData(licenses, { ...defaultOptions, columnFilters: { [key]: input } }))
+    expect(result.current.filtered).toHaveLength(1)
+  })
+
+  test.each([
+    ["cf_owner", "alice"], ["cf_renewal", "2026-01"], ["cf_budget", "10"], ["cf_enabled", "true"],
+  ])("columnFilters: custom field %s uses its rendered/canonical value", (key, value) => {
+    const licenses = [makeLicense({ id: 1 }), makeLicense({ id: 2 })]
+    const { result } = renderHook(() => useLicenseData(licenses, withCustomFields({ columnFilters: { [key]: value } })))
+    expect(result.current.filtered.map((license) => license.id)).toEqual([1])
+  })
+
+  test("columnFilters: createdBy uses the displayed fallback chain", () => {
+    const licenses = [makeLicense({ createdByName: "Alice" }), makeLicense({ createdByEmail: "bob@example.com" }), makeLicense({ createdBy: 42 })]
+    const { result } = renderHook(() => useLicenseData(licenses, { ...defaultOptions, columnFilters: { createdBy: "user #42" } }))
+    expect(result.current.filtered.map((license) => license.createdBy)).toEqual([42])
+  })
+
   test("columnFilters: License Record ID matches the immutable row id", () => {
     const licenses = [
       makeLicense({ id: 101 }),

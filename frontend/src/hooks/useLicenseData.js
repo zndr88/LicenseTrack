@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { daysBetween, getCompleteness, getExpirationStatus, todayStr } from "../utils/helpers.js";
 import { parseLocalizedNumber } from "../utils/formatting.js";
-import { getSortValue } from "../utils/sort.js";
+import { finiteNumber, getSortValue } from "../utils/sort.js";
 
 function statNumber(value, fallback = 0) {
   const n = Number(value ?? fallback);
@@ -42,6 +42,8 @@ export function useLicenseData(licenses, {
   globalSettings,
   userSettings,
   apiStats,
+  customFieldDefs = [],
+  customFieldValuesMap = new Map(),
 }) {
   const normalizedSearch = useMemo(() => search.trim().toLowerCase(), [search]);
   const numberFormatLocale = userSettings?.numberFormatLocale ?? "en-US";
@@ -155,11 +157,16 @@ export function useLicenseData(licenses, {
             }
             break;
           case "supplier":
-            if (!l.supplier?.toLowerCase().includes(val)) return false;
+            if (!(l.supplier || "Direct").toLowerCase().includes(val)) return false;
             break;
           case "skuCode":
             if (!l.skuCode?.toLowerCase().includes(val)) return false;
             break;
+          case "createdBy": {
+            const createdBy = l.createdByName || l.createdByEmail || (l.createdBy ? `User #${l.createdBy}` : "Unknown / legacy record");
+            if (!createdBy.toLowerCase().includes(val)) return false;
+            break;
+          }
           case "licenseType":
             if (Array.isArray(val)) {
               if (val.length > 0 && !val.includes(l.licenseType)) return false;
@@ -177,6 +184,15 @@ export function useLicenseData(licenses, {
           case "quantity":
             if (!String(l.quantity ?? "").includes(val)) return false;
             break;
+          case "effectiveQuantity":
+            if (!String(l.effectiveQuantity ?? "").includes(val)) return false;
+            break;
+          case "quantityPerUnit":
+            if (!String(l.quantityPerUnit ?? "").includes(val)) return false;
+            break;
+          case "noticeDate":
+            if (!String(l.noticeDate ?? "").toLowerCase().includes(val)) return false;
+            break;
           case "unitPrice":
             if (!String(l.unitPrice ?? "").includes(parseLocalizedNumber(val, { numberFormatLocale }) ?? val)) return false;
             break;
@@ -186,7 +202,7 @@ export function useLicenseData(licenses, {
           case "calcTotal": {
             const qty = Number(l.quantity);
             const unit = Number(l.unitPrice);
-            const calc = (qty && unit) ? String(qty * unit) : "";
+            const calc = (Number.isFinite(qty) && Number.isFinite(unit)) ? String(qty * unit) : "";
             if (!calc.includes(parseLocalizedNumber(val, { numberFormatLocale }) ?? val)) return false;
             break;
           }
@@ -221,6 +237,20 @@ export function useLicenseData(licenses, {
             }
             break;
           default: {
+            if (key.startsWith("cf_")) {
+              const def = customFieldDefs.find((item) => String(item.fieldKey ?? item.field_key ?? "").replace(/^cf_/, "") === key.slice(3).replace(/^cf_/, ""));
+              const entry = (customFieldValuesMap.get(l.id) ?? []).find((item) => item.customFieldDefId === def?.id);
+              const fieldType = def?.fieldType ?? def?.field_type;
+              const raw = entry ? (fieldType === "currency" ? entry.valueCurrency : entry.valueText) : null;
+              let display = raw;
+              if (fieldType === "boolean") display = raw === true || raw === "true" ? "True" : raw === false || raw === "false" ? "False" : "";
+              if (fieldType === "currency" || fieldType === "number") {
+                const numeric = finiteNumber(raw);
+                const input = parseLocalizedNumber(val, { numberFormatLocale });
+                if (numeric === null || input === null || numeric !== Number(input)) return false;
+              } else if (!String(display ?? "").toLowerCase().includes(val)) return false;
+              continue;
+            }
             const field = FILTER_FIELD_BY_COLUMN[key];
             if (field && !String(l[field] ?? "").toLowerCase().includes(val)) return false;
             break;
@@ -230,19 +260,19 @@ export function useLicenseData(licenses, {
     }
 
     return true;
-  }), [enriched, normalizedSearch, activeStatusFilters, activeColumnFilters, numberFormatLocale]);
+  }), [enriched, normalizedSearch, activeStatusFilters, activeColumnFilters, numberFormatLocale, customFieldDefs, customFieldValuesMap]);
 
   const sorted = useMemo(() => {
     if (!sortCol) return filtered;
     const collator = new Intl.Collator(undefined, { sensitivity: "base" });
     const direction = sortDir === "asc" ? 1 : -1;
     return filtered
-      .map((license, index) => ({ license, index, value: getSortValue(license, sortCol) }))
+      .map((license, index) => ({ license, index, value: getSortValue(license, sortCol, { allLicenses: licenses, customFieldValuesMap, customFieldDefs }) }))
       .sort((a, b) => {
         const aVal = a.value;
         const bVal = b.value;
-        const aMissing = aVal === null || aVal === undefined || (typeof aVal === "number" && Number.isNaN(aVal));
-        const bMissing = bVal === null || bVal === undefined || (typeof bVal === "number" && Number.isNaN(bVal));
+        const aMissing = aVal === null || aVal === undefined || (typeof aVal === "number" && !Number.isFinite(aVal));
+        const bMissing = bVal === null || bVal === undefined || (typeof bVal === "number" && !Number.isFinite(bVal));
         // Nulls always sort to the end regardless of direction
         if (aMissing && bMissing) return a.index - b.index;
         if (aMissing) return 1;
@@ -257,7 +287,7 @@ export function useLicenseData(licenses, {
         return direction * cmp;
       })
       .map(({ license }) => license);
-  }, [filtered, sortCol, sortDir]);
+  }, [filtered, licenses, sortCol, sortDir, customFieldDefs, customFieldValuesMap]);
 
   const stats = useMemo(() => {
     if (apiStats) {

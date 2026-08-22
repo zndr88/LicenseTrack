@@ -93,3 +93,25 @@ describe("LicenseTableRowCells procurement milestone dates", () => {
     expect(screen.queryByText(/13:45/)).not.toBeInTheDocument();
   });
 });
+
+describe("LicenseTableRowCells calculated total", () => {
+  test.each([
+    [{ quantity: "", unitPrice: "100" }],
+    [{ quantity: "5", unitPrice: "" }],
+    [{ quantity: null, unitPrice: "100" }],
+    [{ quantity: undefined, unitPrice: "100" }],
+    [{ quantity: "invalid", unitPrice: "100" }],
+  ])("renders a dash when an operand is missing or invalid: %o", (values) => {
+    renderCells({ id: 1, ...values, expiration: { status: "active", label: "Active" } }, [{ key: "calcTotal" }]);
+    expect(screen.getByText("-")).toBeInTheDocument();
+  });
+
+  test.each([
+    [{ quantity: 0, unitPrice: 100 }],
+    [{ quantity: "0", unitPrice: "100" }],
+    [{ quantity: 5, unitPrice: "0" }],
+  ])("renders a real zero total for valid zero operands: %o", (values) => {
+    renderCells({ id: 1, ...values, currency: "EUR", expiration: { status: "active", label: "Active" } }, [{ key: "calcTotal" }]);
+    expect(screen.getByText("€0.00")).toBeInTheDocument();
+  });
+});

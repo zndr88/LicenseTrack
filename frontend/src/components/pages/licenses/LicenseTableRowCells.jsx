@@ -5,6 +5,7 @@ import Badge from "../../ui/Badge.jsx";
 import { formatBooleanCustomField } from "./licenseColumns.js";
 import { parseLocalizedNumber, formatDate, formatDateTime } from "../../../utils/formatting.js";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
+import { getCalcTotalValue } from "../../../utils/sort.js";
 
 const INLINE_EDIT_CONFIG = {
   publisher: { fieldKey: "publisherName", inputType: "text", className: "pub-cell", referenceMode: "publisher" },
@@ -296,10 +297,9 @@ export default function LicenseTableRowCells({
       case "totalPoPrice":
         return <td key="totalPoPrice" className="mono lp-mono-bold">{formatCost(getPoTotal(license.poNumber, licenses), license.currency || displayCurrency, locale)}</td>;
       case "calcTotal": {
-        const qty = Number(license.quantity);
-        const unit = Number(license.unitPrice);
-        if (!qty || !unit) return <td key="calcTotal" className="mono lp-mono-bold">-</td>;
-        return <td key="calcTotal" className="mono lp-mono-bold">{formatCost(qty * unit, license.currency || displayCurrency, locale)}</td>;
+        const total = getCalcTotalValue(license);
+        if (total === null) return <td key="calcTotal" className="mono lp-mono-bold">-</td>;
+        return <td key="calcTotal" className="mono lp-mono-bold">{formatCost(total, license.currency || displayCurrency, locale)}</td>;
       }
       case "startDate":
         return <td key="startDate" className="mono" style={{ width: 100 }}>{license.startDate ? formatDate(license.startDate, userSettings) : "-"}</td>;

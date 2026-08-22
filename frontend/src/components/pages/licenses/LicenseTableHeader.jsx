@@ -1,5 +1,5 @@
 import LicenseTableFilters from "./LicenseTableFilters.jsx";
-import { NON_FILTERABLE_COLUMNS } from "./licenseTableShared.js";
+import { isColumnFilterable, isColumnSortable } from "./licenseTableShared.js";
 
 function SortIndicator({ active, sortDir }) {
   if (!active) return null;
@@ -66,6 +66,9 @@ export default function LicenseTableHeader({
           }
 
           return (
+            (() => {
+              const sortable = isColumnSortable(col);
+              return (
             <th
               scope="col"
               key={col.key}
@@ -88,9 +91,10 @@ export default function LicenseTableHeader({
               }}
               onMouseEnter={() => setHoveredCol(col.key)}
               onMouseLeave={() => setHoveredCol(null)}
-              tabIndex={0}
+              tabIndex={sortable ? 0 : undefined}
               aria-sort={sortCol === col.key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
               onClick={() => {
+                if (!sortable) return;
                 if (dragHappenedRef.current) {
                   dragHappenedRef.current = false;
                   return;
@@ -100,20 +104,20 @@ export default function LicenseTableHeader({
               onKeyDown={(event) => {
                 if (event.key !== "Enter" && event.key !== " ") return;
                 event.preventDefault();
-                handleSortCol(col.key);
+                if (sortable) handleSortCol(col.key);
               }}
               style={{
                 width: col.width,
                 minWidth: col.width,
-                cursor: "pointer",
+                cursor: sortable ? "pointer" : "default",
                 userSelect: "none",
                 position: "relative",
                 whiteSpace: "nowrap",
               }}
-              title="Click to sort / Drag to reorder"
+              title={sortable ? "Click to sort / Drag to reorder" : "Drag to reorder"}
             >
               {col.label}
-              <SortIndicator active={sortCol === col.key} sortDir={sortDir} />
+              {sortable && <SortIndicator active={sortCol === col.key} sortDir={sortDir} />}
               {!col.always && hoveredCol === col.key && (
                 <span
                   onClick={(e) => { e.stopPropagation(); handleHideColumn(col.key); }}
@@ -132,6 +136,8 @@ export default function LicenseTableHeader({
                 </span>
               )}
             </th>
+              );
+            })()
           );
         })}
       </tr>
@@ -139,7 +145,7 @@ export default function LicenseTableHeader({
       {filterRowOpen && (
         <tr>
           {visibleColumns.map((col) => {
-            if (NON_FILTERABLE_COLUMNS.includes(col.key)) {
+            if (!isColumnFilterable(col)) {
               return (
                 <th
                   key={col.key}

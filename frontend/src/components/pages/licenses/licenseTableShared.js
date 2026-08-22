@@ -1,6 +1,16 @@
+import { hasSortAccessor } from "../../../utils/sort.js";
+
 export const VIRTUAL_THRESHOLD = 500;
 
 export const NON_FILTERABLE_COLUMNS = ["select", "docs", "expiration", "status", "complete", "totalPoPrice", "calcTotal"];
+
+export function isColumnSortable(col) {
+  return hasSortAccessor(col);
+}
+
+export function isColumnFilterable(col) {
+  return Boolean(col) && !NON_FILTERABLE_COLUMNS.includes(col.key);
+}
 
 export function rowStyle(license) {
   if (license.expiration.status === "retired") return { opacity: 0.5 };

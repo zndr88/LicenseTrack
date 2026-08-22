@@ -109,6 +109,7 @@ export default function LicensesPage({
     search, statusFilters,
     columnFilters,
     currentPage, pageSize, sortCol, sortDir, globalSettings, userSettings, apiStats,
+    customFieldDefs, customFieldValuesMap,
   });
 
   const datesFromOptions = useMemo(
@@ -359,6 +360,7 @@ export default function LicensesPage({
               />
             <LicenseTable
               filtered={sorted}
+              sorted={sorted}
               paginatedItems={paginatedItems}
               licenses={licenses}
               departments={departments}

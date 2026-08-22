@@ -8,6 +8,7 @@ import { getVisibleColumns, rowStyle, VIRTUAL_THRESHOLD } from "./licenseTableSh
 
 export default function LicenseTable({
   filtered,
+  sorted,
   paginatedItems,
   licenses,
   departments,
@@ -50,6 +51,7 @@ export default function LicenseTable({
   const [tblHeight, setTblHeight] = useState(500);
 
   const useVirtual = filtered.length > VIRTUAL_THRESHOLD;
+  const displayRows = useVirtual ? sorted : paginatedItems;
   const visibleColumns = getVisibleColumns(activeColumns, visList);
 
   const rowVirtualizer = useVirtualizer({
@@ -180,7 +182,7 @@ export default function LicenseTable({
                       <td colSpan={visibleColumns.length} style={{ height: paddingTop, padding: 0, border: 0 }} />
                     </tr>
                   )}
-                  {virtualItems.map((virtualRow) => renderRow(filtered[virtualRow.index]))}
+                  {virtualItems.map((virtualRow) => renderRow(sorted[virtualRow.index]))}
                   {paddingBottom > 0 && (
                     <tr aria-hidden="true">
                       <td colSpan={visibleColumns.length} style={{ height: paddingBottom, padding: 0, border: 0 }} />
@@ -189,7 +191,7 @@ export default function LicenseTable({
                 </>
               );
             })() : (
-              paginatedItems.map(renderRow)
+              displayRows.map(renderRow)
             )}
           </tbody>
         </table>
