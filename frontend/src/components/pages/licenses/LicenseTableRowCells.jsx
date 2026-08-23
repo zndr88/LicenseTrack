@@ -295,7 +295,7 @@ export default function LicenseTableRowCells({
       case "currency":
         return <td key="currency" className="mono">{license.currency || "-"}</td>;
       case "totalPoPrice":
-        return <td key="totalPoPrice" className="mono lp-mono-bold">{formatCost(getPoTotal(license.poNumber, licenses), license.currency || displayCurrency, locale)}</td>;
+        return <td key="totalPoPrice" className="mono lp-mono-bold">{formatCost(getPoTotal(license.poNumber, license.currency, licenses), license.currency || displayCurrency, locale)}</td>;
       case "calcTotal": {
         const total = getCalcTotalValue(license);
         if (total === null) return <td key="calcTotal" className="mono lp-mono-bold">-</td>;

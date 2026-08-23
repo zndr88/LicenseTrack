@@ -943,7 +943,7 @@ export const routes = [
       const value = body?.poTotalOverride;
       if (!value) throw new Error("PO total override is required");
       store.licenses
-        .filter((item) => item.poNumber === license.poNumber)
+        .filter((item) => item.poNumber === license.poNumber && item.currency === license.currency)
         .forEach((item) => { item.poTotalOverride = value; decorateLicense(item); });
       return { data: withComputedCompleteness(license), error: null };
     },
@@ -954,7 +954,7 @@ export const routes = [
       const license = findLicenseOr404(Number(params.id));
       if (!license.poNumber) throw new Error("A PO number is required to clear the total PO override");
       store.licenses
-        .filter((item) => item.poNumber === license.poNumber)
+        .filter((item) => item.poNumber === license.poNumber && item.currency === license.currency)
         .forEach((item) => { item.poTotalOverride = null; decorateLicense(item); });
       return { data: withComputedCompleteness(license), error: null };
     },

@@ -324,8 +324,9 @@ function getSpendComparison(licenses, range = null) {
       continue;
     }
 
-    if (!poGroups.has(poNumber)) {
-      poGroups.set(poNumber, {
+    const poGroupKey = `${poNumber}::${currency}`;
+    if (!poGroups.has(poGroupKey)) {
+      poGroups.set(poGroupKey, {
         currency,
         lineTotal: 0,
         hasPricedLine: false,
@@ -333,7 +334,7 @@ function getSpendComparison(licenses, range = null) {
       });
     }
 
-    const group = poGroups.get(poNumber);
+    const group = poGroups.get(poGroupKey);
     if (hasPrice) {
       group.lineTotal = roundMoney(group.lineTotal + cost.amount);
       group.hasPricedLine = true;

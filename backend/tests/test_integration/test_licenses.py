@@ -254,6 +254,73 @@ async def test_po_total_override_is_shared_and_clearable(test_app, auth_headers)
     assert by_id[third["id"]]["poTotalOverride"] is None
 
 
+async def test_po_total_override_is_scoped_by_currency(test_app, auth_headers):
+    eur = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="EUR line",
+        poNumber="PO-MIXED-CURRENCY",
+        currency="EUR",
+    )
+    usd = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="USD line",
+        poNumber="PO-MIXED-CURRENCY",
+        currency="USD",
+    )
+
+    response = await test_app.post(
+        f"/api/licenses/{eur['id']}/po-total-override",
+        json={"poTotalOverride": "1250.00"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+    rows = (await test_app.get("/api/licenses", headers=auth_headers)).json()
+    by_id = {row["id"]: row for row in rows}
+    assert by_id[eur["id"]]["poTotalOverride"] == "1250.00"
+    assert by_id[usd["id"]]["poTotalOverride"] is None
+
+    inherited_eur = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Second EUR line",
+        poNumber="PO-MIXED-CURRENCY",
+        currency="EUR",
+    )
+    inherited_usd = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Second USD line",
+        poNumber="PO-MIXED-CURRENCY",
+        currency="USD",
+    )
+    assert inherited_eur["poTotalOverride"] == "1250.00"
+    assert inherited_usd["poTotalOverride"] is None
+
+    response = await test_app.post(
+        f"/api/licenses/{usd['id']}/po-total-override",
+        json={"poTotalOverride": "900.00"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+    moved = await test_app.patch(
+        f"/api/licenses/{inherited_eur['id']}/field",
+        json={"field": "currency", "value": "USD"},
+        headers=auth_headers,
+    )
+    assert moved.status_code == 200
+    assert moved.json()["poTotalOverride"] == "900.00"
+
+    rows = (await test_app.get("/api/licenses", headers=auth_headers)).json()
+    by_id = {row["id"]: row for row in rows}
+    assert by_id[eur["id"]]["poTotalOverride"] == "1250.00"
+    assert by_id[usd["id"]]["poTotalOverride"] == "900.00"
+    assert by_id[inherited_usd["id"]]["poTotalOverride"] == "900.00"
+
+
 async def test_po_total_override_follows_po_membership_rules(test_app, auth_headers):
     first = await _create_license(test_app, auth_headers, poNumber="PO-A", softwareDescription="A1")
     second = await _create_license(test_app, auth_headers, poNumber="PO-A", softwareDescription="A2")

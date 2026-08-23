@@ -45,6 +45,12 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- Kept PO-wide totals and manual overrides scoped by both PO number and
+  currency, preventing reused mixed-currency PO numbers from combining or
+  relabelling monetary values in the Registry and reports.
+- Aligned sourcing and pending-order overview totals and sorting with the
+  canonical procurement line total, including separately priced support and
+  preserving currency groups instead of combining unlike currencies.
 - Hardened local sourcing quote previews against DOM-based XSS by encoding
   preview URLs, rejecting conflicting MIME types, and sandboxing PDF previews.
 - Made post-conversion quote and invoice evidence transfer durable and

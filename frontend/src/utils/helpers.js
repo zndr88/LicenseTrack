@@ -60,9 +60,11 @@ export const formatFileSize = (bytes) => {
   return (bytes / 1048576).toFixed(1) + " MB";
 };
 
-export const getPoTotal = (poNumber, allLicenses) => {
-  if (!poNumber) return 0;
-  const matching = allLicenses.filter((l) => l.poNumber === poNumber && !l.retired);
+export const getPoTotal = (poNumber, currency, allLicenses) => {
+  if (!poNumber || !currency) return 0;
+  const matching = allLicenses.filter(
+    (license) => license.poNumber === poNumber && license.currency === currency && !license.retired,
+  );
   const override = matching.find((l) => l.poTotalOverride !== null && l.poTotalOverride !== undefined && l.poTotalOverride !== "");
   if (override) return Number(override.poTotalOverride) || 0;
   return matching

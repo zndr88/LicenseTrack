@@ -56,7 +56,7 @@ export default function PoTotalOverrideModal({ license, userSettings, onSave, on
     >
       <div className="modal-bd" style={{ paddingBottom: 8 }}>
         <p style={{ marginTop: 0, color: "var(--text-muted)", fontSize: 12 }}>
-          This value will apply to every license with PO {license.poNumber}.
+          This value will apply to every {license.currency || "EUR"} license with PO {license.poNumber}.
           Clear the override to return to the calculated line total.
         </p>
         <div className="fg" style={{ marginBottom: 0 }}>

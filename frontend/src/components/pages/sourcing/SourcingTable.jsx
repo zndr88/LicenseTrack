@@ -4,7 +4,7 @@ import SearchBox from "../../ui/SearchBox.jsx";
 import RowActionsMenu from "../../ui/RowActionsMenu.jsx";
 import { formatCost, formatPriceInput } from "../../../utils/helpers.js";
 import { formatDateTime } from "../../../utils/formatting.js";
-import { procurementLineTotal } from "../../../utils/procurementTotals.js";
+import { procurementLineTotal, procurementTotalsByCurrency } from "../../../utils/procurementTotals.js";
 import { formatQuantity } from "../../../utils/quantity.js";
 
 function SortIndicator({ col, sortCol, sortDir }) {
@@ -16,12 +16,7 @@ function SortIndicator({ col, sortCol, sortDir }) {
 }
 
 function requestTotal(request, locale) {
-  const totals = {};
-  for (const item of request.items ?? []) {
-    const value = procurementLineTotal(item);
-    if (value != null) totals[item.currency] = (totals[item.currency] ?? 0) + value;
-  }
-  const entries = Object.entries(totals);
+  const entries = Object.entries(procurementTotalsByCurrency(request.items)).sort(([a], [b]) => a.localeCompare(b));
   if (!entries.length) return "-";
   return entries.map(([currency, amount]) => formatCost(amount, currency, locale)).join(" + ");
 }

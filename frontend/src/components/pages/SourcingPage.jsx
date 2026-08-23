@@ -15,43 +15,11 @@ import { useSourcingActions } from "./sourcing/useSourcingActions.js";
 import { useSourcingMerge } from "./sourcing/useSourcingMerge.js";
 import { useSourcingPageData } from "./sourcing/useSourcingPageData.js";
 import { useSourcingQuotes } from "./sourcing/useSourcingQuotes.js";
+import { sortSourcingRequests } from "./sourcing/sourcingPageState.js";
 import ProcurementTablePagination, {
   getPaginationDetails,
   paginateRows,
 } from "../procurement/ProcurementTablePagination.jsx";
-
-function sortSourcingRequests(requests, sortCol, sortDir) {
-  if (!sortCol) return requests;
-
-  const requestValue = (request, col) => {
-    switch (col) {
-      case "supplier": return request.supplier ?? "";
-      case "itemCount": return request.items?.length ?? 0;
-      case "total": return (request.items ?? []).reduce((sum, item) => {
-        const value = parseFloat(item.estimatedTotalPrice);
-        return sum + (Number.isNaN(value) ? 0 : value);
-      }, 0);
-      case "created": return request.createdAt ?? "";
-      default: return "";
-    }
-  };
-
-  return [...requests].sort((a, b) => {
-    let aVal;
-    let bVal;
-
-    aVal = requestValue(a, sortCol);
-    bVal = requestValue(b, sortCol);
-
-    if (aVal === null || aVal === undefined) return 1;
-    if (bVal === null || bVal === undefined) return -1;
-
-    const cmp = typeof aVal === "number"
-      ? aVal - bVal
-      : String(aVal).localeCompare(String(bVal), undefined, { sensitivity: "base" });
-    return sortDir === "asc" ? cmp : -cmp;
-  });
-}
 
 function filterSourcingRequests(requests, search) {
   const query = search.trim().toLowerCase();

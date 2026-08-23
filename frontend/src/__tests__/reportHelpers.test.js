@@ -138,6 +138,18 @@ describe("report cost helpers", () => {
     expect(overview.overriddenPoCount).toBe(1);
   });
 
+  test("keeps a reused PO number separated by currency", () => {
+    const overview = getCostOverview([
+      license({ id: 1, poNumber: "PO-MIXED", currency: "EUR", quantity: "1", unitPrice: "100" }),
+      license({ id: 2, poNumber: "PO-MIXED", currency: "USD", quantity: "1", unitPrice: "200" }),
+    ]);
+
+    expect(overview.licenseSpendByCurrency).toEqual({ EUR: 100, USD: 200 });
+    expect(overview.poSpendByCurrency).toEqual({ EUR: 100, USD: 200 });
+    expect(overview.spendDifferenceByCurrency).toEqual({ EUR: 0, USD: 0 });
+    expect(overview.poCount).toBe(2);
+  });
+
   test("counts licenses without a PO number individually in both spend totals", () => {
     const overview = getCostOverview([
       license({ id: 1, poNumber: "", quantity: "2", unitPrice: "100" }),

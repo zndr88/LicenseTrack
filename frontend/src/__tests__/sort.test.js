@@ -25,13 +25,13 @@ describe("License Overview sort accessors", () => {
 
   test("uses PO-wide totals, overrides, retired-row rules, and stable ties", () => {
     const rows = [
-      { id: "same-a", poNumber: "PO-1", quantity: 1, unitPrice: 10 },
-      { id: "po-2", poNumber: "PO-2", quantity: 1, unitPrice: 20 },
-      { id: "same-b", poNumber: "PO-1", quantity: 2, unitPrice: 10 },
-      { id: "override", poNumber: "PO-3", quantity: 1, unitPrice: 1, poTotalOverride: 5 },
-      { id: "retired", poNumber: "PO-3", quantity: 100, unitPrice: 100, retired: true },
+      { id: "same-a", poNumber: "PO-1", currency: "EUR", quantity: 1, unitPrice: 10 },
+      { id: "po-2", poNumber: "PO-2", currency: "EUR", quantity: 1, unitPrice: 20 },
+      { id: "same-b", poNumber: "PO-1", currency: "EUR", quantity: 2, unitPrice: 10 },
+      { id: "override", poNumber: "PO-3", currency: "EUR", quantity: 1, unitPrice: 1, poTotalOverride: 5 },
+      { id: "retired", poNumber: "PO-3", currency: "EUR", quantity: 100, unitPrice: 100, retired: true },
     ];
-    expect(getSortValue(rows[0], "totalPoPrice", { allLicenses: rows })).toBe(getPoTotal("PO-1", rows));
+    expect(getSortValue(rows[0], "totalPoPrice", { allLicenses: rows })).toBe(getPoTotal("PO-1", "EUR", rows));
     expect(sort(rows, "totalPoPrice", "asc", { allLicenses: rows }).map((row) => row.id)).toEqual(["override", "retired", "po-2", "same-a", "same-b"]);
     expect(sort(rows, "totalPoPrice", "desc", { allLicenses: rows }).map((row) => row.id)).toEqual(["same-a", "same-b", "po-2", "override", "retired"]);
   });

@@ -356,11 +356,12 @@ async def apply_license_update(
         update_data["total_po_price"] = ""
 
     validate_general_license_update_fields(update_data, license_obj)
-    if "po_number" in update_data:
+    if "po_number" in update_data or "currency" in update_data:
         update_data["po_total_override"] = await resolve_reassigned_po_total_override(
             db,
             license_obj,
-            update_data.get("po_number"),
+            update_data.get("po_number", license_obj.po_number),
+            update_data.get("currency", license_obj.currency),
         )
 
     new_type = update_data.get("license_type", license_obj.license_type)
@@ -539,8 +540,21 @@ async def apply_license_field_patch(
         license_obj.invoice_number = primary
         license_obj.invoice_numbers = [primary] if primary else []
     elif field == "poNumber":
-        license_obj.po_total_override = await resolve_reassigned_po_total_override(db, license_obj, value or "")
+        license_obj.po_total_override = await resolve_reassigned_po_total_override(
+            db,
+            license_obj,
+            value or "",
+            license_obj.currency,
+        )
         license_obj.po_number = value or ""
+    elif field == "currency":
+        license_obj.po_total_override = await resolve_reassigned_po_total_override(
+            db,
+            license_obj,
+            license_obj.po_number,
+            value or "",
+        )
+        license_obj.currency = value
     elif field in {"publisherName", "supplier", "costCentre"}:
         reference_updates = {
             {

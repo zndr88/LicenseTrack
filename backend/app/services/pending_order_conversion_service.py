@@ -210,7 +210,11 @@ async def convert_pending_order_to_licenses(
         if "po_number" in submitted_fields and convert_payload.po_number
         else order_po_number
     )
-    inherited_po_total_override = await get_po_total_override(db, effective_po_number)
+    inherited_po_total_override = await get_po_total_override(
+        db,
+        effective_po_number,
+        convert_payload.currency,
+    )
     # F5: Acquire a write lock before creating any licenses.
     _lock = await db.execute(
         update(PendingOrder)
@@ -434,7 +438,6 @@ async def batch_convert_pending_order_to_licenses(
         raise HTTPException(status_code=409, detail="Pending order has been cancelled")
     order_item_map = await _validate_batch_coverage(db, order, payload)
     order_po_number = _require_order_po_number(order)
-    inherited_po_total_override = await get_po_total_override(db, order_po_number)
     # F5: Acquire a write lock before creating any licenses.
     _lock = await db.execute(
         update(PendingOrder)
@@ -504,7 +507,11 @@ async def batch_convert_pending_order_to_licenses(
         )
         item_data["source_sourcing_item_id"] = sourcing_item.id
         item_data["pending_order_id"] = order_id
-        item_data["po_total_override"] = inherited_po_total_override
+        item_data["po_total_override"] = await get_po_total_override(
+            db,
+            order_po_number,
+            item_data.get("currency"),
+        )
         if item_data.get("purchase_date") is not None:
             item_data["purchase_date"] = datetime.combine(item_data["purchase_date"], time.min)
 

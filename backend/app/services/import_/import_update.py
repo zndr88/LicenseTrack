@@ -52,8 +52,15 @@ async def apply_import_update(
         )
 
     reassigned_po_override = license_obj.po_total_override
-    if row.po_number and row.po_number != license_obj.po_number:
-        reassigned_po_override = await resolve_reassigned_po_total_override(db, license_obj, row.po_number)
+    target_po_number = row.po_number or license_obj.po_number
+    target_currency = row.currency or license_obj.currency
+    if target_po_number != license_obj.po_number or target_currency != license_obj.currency:
+        reassigned_po_override = await resolve_reassigned_po_total_override(
+            db,
+            license_obj,
+            target_po_number,
+            target_currency,
+        )
 
     for row_attr, col_attr in _STRING_PATCH_FIELDS:
         value = getattr(row, row_attr)

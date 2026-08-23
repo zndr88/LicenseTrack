@@ -234,7 +234,12 @@ async def set_po_total_override(
         target_type="license",
         target_id=str(license_id),
         target_label=license_obj.software_description,
-        detail=f"poNumber: {license_obj.po_number}\nvalue: {payload.po_total_override}\nlicensesAffected: {affected_count}",
+        detail=(
+            f"poNumber: {license_obj.po_number}\n"
+            f"currency: {license_obj.currency}\n"
+            f"value: {payload.po_total_override}\n"
+            f"licensesAffected: {affected_count}"
+        ),
     )
     await db.commit()
     return await get_license(license_id, db, _editor)
@@ -260,7 +265,11 @@ async def clear_po_total_override(
         target_type="license",
         target_id=str(license_id),
         target_label=license_obj.software_description,
-        detail=f"poNumber: {license_obj.po_number}\nlicensesAffected: {affected_count}",
+        detail=(
+            f"poNumber: {license_obj.po_number}\n"
+            f"currency: {license_obj.currency}\n"
+            f"licensesAffected: {affected_count}"
+        ),
     )
     await db.commit()
     return await get_license(license_id, db, _editor)

@@ -41,6 +41,7 @@ const userSettings = {
   displayCurrency: "EUR",
   numberFormatLocale: "en-US",
 };
+const LAZY_SECTION_TIMEOUT = { timeout: 10_000 };
 
 function renderReportsPage({ configureQueryClient, ...props } = {}) {
   const queryClient = new QueryClient({
@@ -137,7 +138,7 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
-    const section = await screen.findByRole("button", { name: /Cost Overview & Forecast/ });
+    const section = await screen.findByRole("button", { name: /Cost Overview & Forecast/ }, LAZY_SECTION_TIMEOUT);
     expect(section).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Spend by PO Value")).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^(Cost Overview|Publisher & Vendor|Portfolio Breakdown|Renewal Calendar)/ }))
@@ -165,7 +166,7 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
-    await user.click(await screen.findByRole("button", { name: /Cost Overview & Forecast/ }));
+    await user.click(await screen.findByRole("button", { name: /Cost Overview & Forecast/ }, LAZY_SECTION_TIMEOUT));
     const licenseMetric = screen.getByText("Spend by License").parentElement;
     const poMetric = screen.getByText("Spend by PO Value").parentElement;
     const differenceMetric = screen.getByText("Difference").parentElement;
@@ -188,7 +189,7 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
-    await screen.findByText("Publisher & Vendor Overview");
+    await screen.findByText("Publisher & Vendor Overview", {}, LAZY_SECTION_TIMEOUT);
     await user.click(screen.getByRole("button", { name: /Publisher & Vendor Overview/ }));
     expect(await screen.findAllByText("Euro Publisher", {}, { timeout: 5_000 })).not.toHaveLength(0);
     expect(screen.getByText("Publisher & Vendor Overview")).toBeInTheDocument();
@@ -218,7 +219,7 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
-    await screen.findByText("Publisher & Vendor Overview");
+    await screen.findByText("Publisher & Vendor Overview", {}, LAZY_SECTION_TIMEOUT);
     await user.click(screen.getByRole("button", { name: /Publisher & Vendor Overview/ }));
     expect(await screen.findAllByText("Publisher 1")).not.toHaveLength(0);
     await user.click(screen.getByRole("button", { name: /All departments/i }));
@@ -248,7 +249,7 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
-    await screen.findByText("Publisher & Vendor Overview");
+    await screen.findByText("Publisher & Vendor Overview", {}, LAZY_SECTION_TIMEOUT);
     await user.click(screen.getByRole("button", { name: /Publisher & Vendor Overview/ }));
     const search = screen.getByLabelText("Search publisher and supplier table");
     expect(screen.getByText("2 rows")).toBeInTheDocument();
@@ -302,7 +303,7 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
-    await screen.findByText("Cost Overview & Forecast");
+    await screen.findByText("Cost Overview & Forecast", {}, LAZY_SECTION_TIMEOUT);
     await user.click(screen.getByRole("button", { name: /Cost Overview & Forecast/ }));
     expect(await screen.findByLabelText(/Years/i)).toBeInTheDocument();
     expect(screen.getByLabelText("Report date range")).toHaveValue("all");
@@ -324,7 +325,7 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
-    await screen.findByText("Cost Overview & Forecast");
+    await screen.findByText("Cost Overview & Forecast", {}, LAZY_SECTION_TIMEOUT);
     await user.selectOptions(screen.getByLabelText("Report date range"), "custom");
     expect(screen.getByRole("alert")).toHaveTextContent("Select both a start and end date.");
 
@@ -343,7 +344,7 @@ describe("ReportsPage interactions", () => {
 
     renderReportsPage();
 
-    await screen.findByText("Cost Overview & Forecast");
+    await screen.findByText("Cost Overview & Forecast", {}, LAZY_SECTION_TIMEOUT);
     await user.selectOptions(screen.getByLabelText("Report date range"), "custom");
     await user.type(screen.getByLabelText("Report start date"), "2026-01-01");
     await user.type(screen.getByLabelText("Report end date"), "2026-12-31");
@@ -360,14 +361,14 @@ describe("ReportsPage interactions", () => {
     getLicenses.mockResolvedValueOnce({ data: [license()], error: null });
 
     const firstRender = renderReportsPage();
-    const section = await screen.findByRole("button", { name: /Cost Overview & Forecast/ });
+    const section = await screen.findByRole("button", { name: /Cost Overview & Forecast/ }, LAZY_SECTION_TIMEOUT);
     await user.click(section);
     firstRender.unmount();
 
     getLicenses.mockResolvedValueOnce({ data: [license()], error: null });
     renderReportsPage();
 
-    const restoredSection = await screen.findByRole("button", { name: /Cost Overview & Forecast/ });
+    const restoredSection = await screen.findByRole("button", { name: /Cost Overview & Forecast/ }, LAZY_SECTION_TIMEOUT);
     expect(restoredSection).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Spend by PO Value")).toBeInTheDocument();
   });

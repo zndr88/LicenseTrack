@@ -1,21 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatCost } from "../../../utils/helpers.js";
 import { pendingOrderLabel } from "../../../utils/procurementLabels.js";
+import {
+  compareProcurementTotals,
+  procurementTotalsByCurrency,
+} from "../../../utils/procurementTotals.js";
 
 export function formatPoTotal(po, locale) {
   if (!po.items?.length) return "-";
 
-  const totals = {};
-  for (const item of po.items) {
-    if (item.estimatedTotalPrice != null) {
-      const value = parseFloat(item.estimatedTotalPrice);
-      if (!Number.isNaN(value)) {
-        totals[item.currency] = (totals[item.currency] ?? 0) + value;
-      }
-    }
-  }
-
-  const parts = Object.entries(totals);
+  const parts = Object.entries(procurementTotalsByCurrency(po.items)).sort(([a], [b]) => a.localeCompare(b));
   if (!parts.length) return "-";
   return parts.map(([currency, amount]) => formatCost(amount, currency, locale)).join(" + ");
 }
@@ -57,13 +51,7 @@ export function filterAndSortPendingOrders(pendingOrders, search, sortCol, sortD
         bVal = b.items?.length ?? 0;
         break;
       case "totalValue": {
-        const poSum = (po) => (po.items ?? []).reduce((sum, item) => {
-          const value = parseFloat(item.estimatedTotalPrice);
-          return sum + (Number.isNaN(value) ? 0 : value);
-        }, 0);
-        aVal = poSum(a);
-        bVal = poSum(b);
-        break;
+        return compareProcurementTotals(a.items, b.items, sortDir);
       }
       case "status":
         aVal = a.status ?? "";

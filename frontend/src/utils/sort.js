@@ -87,7 +87,9 @@ const STATIC_SORT_ACCESSORS = {
   quantityPerUnit: (license) => finiteNumber(license.quantityPerUnit),
   skuCode: (license) => license.skuCode ?? null,
   unitPrice: (license) => finiteNumber(license.unitPrice),
-  totalPoPrice: (license, { allLicenses }) => finiteNumber(getPoTotal(license.poNumber, allLicenses)),
+  totalPoPrice: (license, { allLicenses }) => finiteNumber(
+    getPoTotal(license.poNumber, license.currency, allLicenses),
+  ),
   currency: (license) => license.currency ?? null,
   startDate: (license) => dateOnlyValue(license.startDate),
   endDate: (license) => dateOnlyValue(license.endDate),
