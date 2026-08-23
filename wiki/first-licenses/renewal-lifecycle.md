@@ -14,6 +14,10 @@ Once a license is inside the alert window, the renewal workflow activates. An **
 
 From either view you can start the renewal, provided all conditions are met.
 
+The workbench's estimated annual value annualizes multi-year term cost, so a
+two- or three-year purchase is not presented as though the complete term value
+were one year's spend.
+
 !!! note "A budget owner is required"
     You can't start a renewal until the license has a **budget owner** assigned (under the Relationships section). The budget owner is who the renewal is routed to.
 
@@ -32,7 +36,10 @@ At the same time, a new record is created in the **Sourcing Overview** page.
 The sourcing record is pre-populated with information from the previous
 license. When you receive a quote from your supplier, update the record with
 the current figures and attach the quote to the request. Once procurement work
-is ready to track, convert it to a **pending order**.
+is ready to track, convert it to a **pending order**. The predecessor's explicit
+maintenance/support classification travels with the renewal; older recurring
+records without a stored classification use the type-appropriate default so
+coverage is not lost during sourcing, coterm merging, or final conversion.
 
 ![Editing the sourcing record and attaching the quote](../assets/renewal-05-edit-sourcing.png)
 

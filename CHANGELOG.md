@@ -13,6 +13,56 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.12] - 2026-08-23
+
+### Added
+
+- Added an explicit **Import as legacy unlinked maintenance** exception for
+  maintenance purchases whose original perpetual, OEM, or freeware parent is
+  unavailable. Preview supports row-level and bulk selection, requires warning
+  acknowledgement, marks the imported record for follow-up, and lets Editors
+  and Admins establish a normal parent relationship later from License Details.
+- Added upgrade migrations that restore missing foreign-key delete behavior for
+  license relationships and procurement documents, persist invoice-evidence
+  retry requirements, and enforce the explicit legacy-unlinked maintenance
+  state without silently rewriting invalid existing relationships.
+
+### Changed
+
+- License Overview sorting now follows each column's displayed meaning,
+  including PO-wide totals, calculated values, lifecycle-aware expiration,
+  localized labels, timestamps, and typed custom fields. Unsupported columns no
+  longer advertise sorting, and filters now cover additional displayed fields
+  and custom-field values consistently.
+- Renewal Workbench estimated annual value now annualizes multi-year term cost.
+  Renewal sourcing, coterm merges, and pending-order conversion preserve an
+  explicit maintenance/support classification and apply the correct default
+  when older recurring records do not have one stored.
+- Pending-order batch conversion now validates a complete one-to-one set of all
+  eligible lines before taking the conversion lock or creating licenses.
+
+### Fixed
+
+- Made post-conversion quote and invoice evidence transfer durable and
+  idempotent across phase commits, status-update failures, scheduled retries,
+  and missing required invoice files. A failed transfer remains recoverable
+  without deleting already committed evidence or reconverting licenses.
+- Preserved maintenance parent links, active-parent mirrors, coverage state,
+  and legacy-unlinked state through ordinary edits, linking, disabling,
+  retirement, renewal successors, conversion responses, and parent deletion.
+- Prevented CSV import from creating an inferred maintenance child when its
+  same-file parent is skipped, kept warning and audit counts aligned with the
+  effective rows, honored the selected date format for mapped custom fields,
+  and refreshed all affected Registry, renewal, report, notification, and
+  reference-data caches after import.
+- Allowed a license referenced only by cancelled renewal sourcing history to be
+  deleted while retaining that history with the deleted predecessor reference
+  removed. Active renewal/procurement relationships continue to block deletion.
+- Fixed sourcing-request supplier changes so refreshed parent and line values
+  are persisted and audited correctly.
+- Fixed Registry zero-value totals, missing-value ordering, creator filters,
+  quantity and notice-date filters, and stable ascending/descending ordering.
+
 ## [1.1.11] - 2026-08-20
 
 ### Added
@@ -1108,7 +1158,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.11...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.12...HEAD
+[1.1.12]: https://github.com/zndr88/LicenseTrack/compare/v1.1.11...v1.1.12
 [1.1.11]: https://github.com/zndr88/LicenseTrack/compare/v1.1.10...v1.1.11
 [1.1.10]: https://github.com/zndr88/LicenseTrack/compare/v1.1.9...v1.1.10
 [1.1.9]: https://github.com/zndr88/LicenseTrack/compare/v1.1.8...v1.1.9

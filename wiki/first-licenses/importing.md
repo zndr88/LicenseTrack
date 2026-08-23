@@ -121,6 +121,10 @@ Separately tracked maintenance imports need one explicit parent reference, or a
 clear parent that LicenseTrack can infer earlier in the same file. Import
 creates that primary parent link. If the preview cannot resolve the parent,
 choose an existing eligible parent license from the row action before importing.
+If you skip a same-file parent that LicenseTrack inferred for a maintenance
+row, the dependent maintenance row is skipped too. This keeps the preview,
+warning summary, and final write set aligned instead of allowing a child whose
+parent was never created.
 If the original purchase record is unavailable, choose **Import as legacy
 unlinked maintenance** instead. This creates active maintenance with no parent
 and marks it for follow-up; it is an import-only exception and still requires

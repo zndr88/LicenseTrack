@@ -16,6 +16,12 @@ The application container is replaceable. Persistent data lives under `/data` in
 
 Startup runs Alembic migrations automatically, so an upgrade normally means replacing the application source/image and starting the container against the same `/data` volume.
 
+Integrity migrations stop rather than silently discard data when they discover
+dangling relationships that cannot be repaired safely. If startup reports such
+an error, keep the pre-upgrade volume backup, do not repeatedly replace the
+database, and inspect the named table, column, and example row IDs before
+retrying the upgrade.
+
 ## Before upgrading
 
 From the current install directory, identify the volume mounted at `/data`:
@@ -73,7 +79,7 @@ curl http://localhost:8080/api/health
 The health response should include the expected version:
 
 ```json
-{"status":"ok","version":"1.1.11"}
+{"status":"ok","version":"1.1.12"}
 ```
 
 Log in and smoke-test license listing, document downloads, settings, backup listing, and any configured SMTP/OIDC integrations.
@@ -146,7 +152,7 @@ podman rm licensetrack
 Build the new image from the release source:
 
 ```bash
-podman build -t license-lifecycle-system:1.1.11 .
+podman build -t license-lifecycle-system:1.1.12 .
 ```
 
 Start the new container with the same volume mounted at `/data`:
@@ -155,7 +161,7 @@ Start the new container with the same volume mounted at `/data`:
 podman run -d --name licensetrack -p 8080:8000 \
   --env-file .env \
   -v license_lifecycle_data:/data \
-  license-lifecycle-system:1.1.11
+  license-lifecycle-system:1.1.12
 ```
 
 Check health:

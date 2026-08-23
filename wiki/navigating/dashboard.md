@@ -35,6 +35,21 @@ The dashboard toolbar exposes the list-view side for quick view building. My Set
 !!! tip
     If you ever lose track of a column, or want to experiment with your views, this settings page is the place to do it — nothing is permanently gone, just toggled off.
 
+## Sort and filter the displayed values
+
+Click a sortable column header to switch between ascending and descending
+order. Sorting follows what the column means on screen: dates and timestamps
+use chronological order, **Total PO Value** uses the whole PO value,
+**Expiration** follows lifecycle urgency, and number, date, boolean, and text
+custom fields use their declared type. Missing values stay at the end in both
+directions. A header that has no supported sort value remains draggable but
+does not show sort behavior.
+
+Turn on **Show column filters** to filter individual displayed fields alongside
+the normal search and status filters. Creator, quantity, notice-date, and custom
+field filters follow the same display values used in the table. Numeric filters
+use your selected number format.
+
 ## The toolbar buttons
 
 ![The License Overview toolbar buttons](../assets/nav-05-toolbar-buttons.png)

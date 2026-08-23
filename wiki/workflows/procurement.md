@@ -187,7 +187,14 @@ reverse, letting you navigate from an entitlement back to its quote and PO work.
 If evidence transfer fails after license creation, the licenses remain committed
 and the order records a recoverable transfer status. LicenseTrack retries the
 transfer, and Admins or Editors can request another retry without reconverting
-the order.
+the order. Quote and invoice transfer phases are committed independently, so a
+later status failure does not remove evidence that was already stored. When an
+invoice was supplied during conversion, retry cannot mark the transfer complete
+unless the required invoice evidence still exists in document storage.
+
+For a multi-line pending order, conversion must include every eligible line
+exactly once. Missing, duplicate, already converted, or ineligible line IDs are
+rejected before LicenseTrack locks the order or creates any licenses.
 
 !!! warning
     Converted records are locked. Add late evidence as a documented amendment;

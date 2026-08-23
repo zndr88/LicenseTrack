@@ -96,6 +96,14 @@ an existing maintenance record to another eligible parent, call
 `POST /api/licenses/{parent_id}/link-maintenance` with
 `maintenanceLicenseId`.
 
+License responses may also include the additive boolean
+`isLegacyUnlinkedMaintenance`. A true value identifies the narrow CSV-import
+exception for active maintenance whose historical purchase parent was not
+available. It is read-only integration state: ordinary license create, replace,
+and field-patch payloads cannot set the flag or create new active parentless
+maintenance. Linking the record to an eligible parent through the normal
+maintenance endpoint clears the exception.
+
 Coverage history is append-only workflow evidence. A response may omit the
 linked maintenance record ID and label when the caller cannot view that record;
 the coverage dates and monetary snapshot remain visible with the parent.

@@ -138,6 +138,13 @@ manual creation batch still owns that scope. It may be blocked when the record
 participates in procurement, renewal, maintenance, or other protected
 relationships.
 
+A record referenced only by cancelled renewal sourcing history can be deleted.
+LicenseTrack keeps the cancelled history but removes its reference to the
+deleted predecessor. Active renewal or procurement work still blocks deletion.
+If a deleted parent shares a maintenance record with other parents, one of the
+remaining links becomes the primary compatibility parent; if no links remain,
+the maintenance record is retired instead of being left active and parentless.
+
 !!! danger
     There is no recycle bin. Confirm your database and document-storage backups
     before deleting material records.

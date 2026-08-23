@@ -36,7 +36,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `useLicensesPageData.js` | Server data fetching (licenses, stats, sourcing, contracts, custom fields) |
 | `useLicenseActions.js` | Mutation handlers (create, update, single-field patch, delete, renewal, bulk delete) |
 | `useLicenseTableState.js` | All table UI state (search, filters, sort, selection, pagination) |
-| `LicenseTable.jsx` | Table rendering, virtualizer, inline edit mode handoff, column drag/sort/hide, pagination |
+| `LicenseTable.jsx` | Table rendering, virtualizer, inline edit mode handoff, capability-gated column drag/sort/hide, pagination |
 | `LicenseToolbar.jsx` | Search, saved views dropdown, Current View / Full Data / localized Current View CSV exports, inline edit, filter/stats/full-view toggles |
 | `LicenseStatusFilter.jsx` | Status chip filters with complete↔incomplete mutual exclusivity |
 | `LicenseAttentionPanel.jsx` | Expiring/expired attention banner |
@@ -44,7 +44,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `licenseColumns.js` | Shared Registry column catalog: user-facing static fields, visibility groups and defaults, custom-field column assembly, saved ordering helpers, and Full Data export selection |
 | `exportFilteredCsv.js` | Registry CSV export assembly: selected columns in supplied order, canonical ISO values by default, localized Current View formatting when requested, stable custom-field keys for Full Data round-trips, custom-field values, and spreadsheet-formula escaping |
 
-`LicensesPage.jsx` computes derived values (`activeColumns`, `visList`, `attentionItems`, `allFilteredSelected`) and wires navigation props through to `DetailPanel`. It also owns the inline edit mode toggle because that mode coordinates toolbar state, table row behavior, and detail-panel selection. Inline edits use the single-field patch path in `useLicenseActions.js`; computed columns, document counts, custom fields, and workflow actions stay outside the table editing surface. The `onStatsChange` effect that feeds the sidebar portfolio widget remains in `LicensesPage` because it depends on both the filtered stats and navigation callbacks that live at page level.
+`LicensesPage.jsx` computes derived values (`activeColumns`, `visList`, `attentionItems`, `allFilteredSelected`) and wires navigation props through to `DetailPanel`. It also owns the inline edit mode toggle because that mode coordinates toolbar state, table row behavior, and detail-panel selection. Inline edits use the single-field patch path in `useLicenseActions.js`; computed columns, document counts, custom fields, and workflow actions stay outside the table editing surface. Registry sort accessors live in `frontend/src/utils/sort.js`; headers must use `hasSortAccessor` rather than advertising sort behavior for unsupported columns, and typed custom-field sort/filter values must use the loaded definition and value maps. The `onStatsChange` effect that feeds the sidebar portfolio widget remains in `LicensesPage` because it depends on both the filtered stats and navigation callbacks that live at page level.
 
 ## DetailPanel Sub-Module Pattern
 
@@ -55,7 +55,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `useRenewalPanelModel.js` | PO-sibling detection and bundle count derivation for renewal workflow |
 | `DetailSectionHeader.jsx` | Shared collapsible section header button with chevron |
 | `CustomFieldRows.jsx` | Shared custom field row renderer used by all sections |
-| `IdentitySection.jsx` | Publisher, description, badge row, parent/maintenance navigation, maintenance expiry alert |
+| `IdentitySection.jsx` | Publisher, description, badge row, parent/maintenance navigation, maintenance expiry and legacy-unlinked alerts |
 | `RenewalWorkflowSection.jsx` | All renewal lifecycle state boxes (expiring, pending, renewed, draft, consolidated) |
 | `ContractDatesSection.jsx` | Start/end/notice dates, notice handled action/status, editable request/purchase procurement milestones, contract #, PO #, invoice #, contract record link |
 | `MaintenanceSection.jsx` | Maintenance coverage dates, linked maintenance children, add/disable maintenance actions |
@@ -67,7 +67,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `CompletenessFlagsSection.jsx` | Completeness checklist and retired/legacy/exempt toggles |
 | `NotesSection.jsx` | Notes display; also exports `CatchallCustomFieldsSection` for unassigned custom fields |
 
-`DetailPanel.jsx` calls `useDetailPanelState` for all state and handlers, then wires props through to section components and mounts modals (`FieldEditModal`, `MaintenanceCreateModal`, `LinkCommitmentModal`, `ConfirmDialog`). `MaintenanceCreateModal` owns the License Details create-new/link-existing maintenance workflow, including the compact searchable existing-maintenance picker. No domain logic or rendering logic belongs in the shell.
+`DetailPanel.jsx` calls `useDetailPanelState` for all state and handlers, then wires props through to section components and mounts modals (`FieldEditModal`, `MaintenanceCreateModal`, `LegacyMaintenanceLinkModal`, `LinkCommitmentModal`, `ConfirmDialog`). `MaintenanceCreateModal` owns the License Details create-new/link-existing maintenance workflow, including the compact searchable existing-maintenance picker. `LegacyMaintenanceLinkModal` is the focused recovery path for an imported parentless maintenance record; a successful link clears the exception through the normal backend maintenance workflow. No domain logic or rendering logic belongs in the shell.
 
 Document actions are part of the core-rendered integration surface. `DocumentsSection.jsx` should render actions from `useLicenseDocuments`; it should not hard-code plugin names or assume AI processing specifically. Action availability is determined by the backend from registered integration capabilities and active webhook subscribers. This is not runtime frontend plugin loading.
 
@@ -241,7 +241,7 @@ The backend is the source of truth for import warning summaries. Preview respons
 
 Both the native (`/preview`, `/confirm`) and mapped (`/preview-mapped`, `/execute`) flows support update-on-LT-Ref-match via the `update_existing` flag. The frontend auto-arms the option when a `license_ref` column is present and lets the user return to create-only behavior. `import_/license_matcher.py` resolves a row's `license_ref` to the current chain head (`is_retired = false AND renewed_to_id IS NULL`): exactly one match updates, none creates, two or more active heads is a row error. `annotate_update_targets` tags each row's `import_action` ("create"/"update") for preview counts and execution; `import_/import_update.py` patches only non-empty importable fields, leaves `license_type`/`license_ref`/chain-lifecycle/maintenance-mirror fields immutable, and re-resolves `contract_id` on a contract-number change. When a row will update, `duplicate_detection` suppresses its "license ref matches" warning. Preview responses carry `createCount`/`updateCount` and per-row `importAction`; confirm/execute responses add `updatedCount`.
 
-Both write paths rebuild maintenance inference, update-target annotations, duplicate warnings, and the warning summary before applying the acknowledgement gate. Row writes use nested transactions so a database failure on one row is reported without poisoning the rest of the batch. An inferred maintenance parent must appear before its maintenance child in the file.
+Both write paths rebuild maintenance inference, update-target annotations, duplicate warnings, and the warning summary before applying the acknowledgement gate. Row writes use nested transactions so a database failure on one row is reported without poisoning the rest of the batch. An inferred maintenance parent must appear before its maintenance child in the file; skipping that parent cascades the skip to every same-file maintenance child that depends on it.
 
 Import mapping presets are shared configuration. Editors may list and use presets; only admins may create, replace, rename, or delete them. The execute endpoint must not use its optional `mappingName` field to bypass that boundary.
 
@@ -293,7 +293,11 @@ candidate grouping, exact/alias/inactive resolution, override validation, and
 execute-time revalidation. Preview is read-only: reference records are created
 inside the row write transaction only for rows that succeed. `PreviewStep.jsx`
 owns the collapsible review UI, bulk duplicate decisions, temporary column
-visibility, and searchable maintenance-parent remediation.
+visibility, searchable maintenance-parent remediation, and the explicit
+`import_legacy_unlinked` exception for maintenance create rows whose original
+parent is unavailable. That exception is acknowledgement-gated, cannot be used
+to unlink an update target, and is the only import path allowed to persist
+`is_legacy_unlinked_maintenance=true`.
 
 ## Forms And Validation
 
@@ -386,7 +390,12 @@ those paths through the storage abstraction. Missing files are idempotent and
 post-commit cleanup failures are logged without rolling back the already valid
 database deletion. Pending-order procurement evidence remains in its owning
 scope. A manual procurement-bundle document is removed only when deletion
-leaves no license in that bundle.
+leaves no license in that bundle. Active renewal/procurement work still blocks
+deletion, but cancelled renewal sourcing history is retained after removing
+references to the deleted predecessor. When a deleted parent shared a
+maintenance record, the remaining eligible parent becomes the compatibility
+primary; an orphaned maintenance record is retired instead of being left in an
+invalid active state.
 
 New admin sections should be added to the group that matches the operator's intent, not simply appended to the page. Integration-facing features should default to the Integrations group unless they are clearly general product configuration or operational recovery tooling.
 
@@ -434,7 +443,7 @@ Do not add new procurement endpoints to the aggregator files.
 Current important service boundaries:
 
 - license response assembly (mandatory fields, completeness/expiry enrichment, creator account labels, scoped procurement document lookup): `backend/app/services/license_response_service.py`;
-- license write workflow (single and atomic batch create, update/patch/delete invariants, post-commit managed-file cleanup inputs, editable procurement milestone parsing, maintenance-parent validation, manual procurement-bundle assignment, contract_id resolution from contract_number through `contract_identity_service.py`, predecessor_id wiring on renewal successors, create-time rejection of lifecycle chain fields via `REPAIR_ONLY_UPDATE_FIELDS`): `backend/app/services/license_write_service.py`;
+- license write workflow (single and atomic batch create, update/patch/delete invariants, maintenance relationship reconciliation, cancelled-renewal-history detachment during eligible deletes, post-commit managed-file cleanup inputs, editable procurement milestone parsing, maintenance-parent validation, manual procurement-bundle assignment, contract_id resolution from contract_number through `contract_identity_service.py`, predecessor_id wiring on renewal successors, create-time rejection of lifecycle chain fields via `REPAIR_ONLY_UPDATE_FIELDS`): `backend/app/services/license_write_service.py`;
 - shared PO-total override workflow (set/clear replication, create-time
   inheritance, and PO reassignment semantics across direct writes, imports,
   conversions, maintenance creation, and renewal successors):
@@ -448,7 +457,7 @@ Current important service boundaries:
 - pending-order CSV export assembly, including flat one-row-per-line-item output with repeated PO metadata and parent-only rows for orders with no items: `backend/app/services/pending_order_export_service.py`;
 - CSV formula-injection neutralization for exported cells: `backend/app/services/csv_safety.py`;
 - pending-order CRUD and line-item management (add, edit, delete before conversion, with converted-order mutation guards): `backend/app/services/pending_order_service.py`;
-- pending-order conversion orchestration (order loading, conversion-path selection, transaction order, evidence-transfer status, audit logging, response handoff): `backend/app/services/pending_order_conversion_service.py`;
+- pending-order conversion orchestration (order loading, complete one-to-one batch coverage validation, conversion-path selection, transaction order, evidence-transfer status and persisted invoice requirement, audit logging, response handoff): `backend/app/services/pending_order_conversion_service.py`;
 - pending-order conversion helpers (new purchase license creation, maintenance parent resolution, status transitions): `backend/app/services/conversion/license_converter.py`, `backend/app/services/conversion/maintenance_linker.py`, and `backend/app/services/conversion/pending_order_status.py`;
 - pending-order conversion document transfer (invoice validation/write and quote carry-forward into pending-order-scoped procurement documents): `backend/app/services/procurement_document_transfer_service.py`;
 - pending-order conversion response enrichment: `backend/app/services/conversion_response_service.py`;
@@ -456,10 +465,10 @@ Current important service boundaries:
   `backend/app/services/license_procurement_trail_service.py`;
 - custom field normalization/upsert: `backend/app/services/custom_fields_service.py`;
 - renewal read model (async DB queries): `backend/app/services/renewal_service.py`;
-- renewal workbench computation (pure, no DB): `backend/app/services/renewal_workbench_model.py`;
+- renewal workbench computation (pure, no DB, including annualized term value): `backend/app/services/renewal_workbench_model.py`;
 - renewal command orchestration (start/cancel workflow, single and coterm successor creation, pre-creation predecessor guards): `backend/app/services/renewal_orchestrator.py`;
 - user domain invariants (break-glass, active-admin guard, apply-update): `backend/app/services/user_service.py`;
-- maintenance link management, coverage snapshots, and mirror synchronization: `backend/app/services/maintenance_service.py` owns creation/linking/unlinking of `LicenseMaintenanceLink` rows, immutable `LicenseCoverageHistory` snapshots when active coverage changes, active-maintenance mirror updates on parents, and the compatibility behavior where `parent_license_id` remains the primary parent for older create/import flows while `maintenanceParentIds`/`linkedMaintenanceIds` expose multi-parent links in responses;
+- maintenance link management, coverage snapshots, and mirror synchronization: `backend/app/services/maintenance_service.py` owns creation/linking/unlinking of `LicenseMaintenanceLink` rows, legacy-unlinked recovery, primary-parent reassignment, retirement cleanup, immutable `LicenseCoverageHistory` snapshots when active coverage changes, active-maintenance mirror updates on parents, and the compatibility behavior where `parent_license_id` remains the primary parent for older create/import flows while `maintenanceParentIds`/`linkedMaintenanceIds` expose multi-parent links in responses;
 - canonical organization and cost-centre identity, aliases, roles, active state, usage, merge/delete invariants, mirror synchronization, and CSV reference resolution: `backend/app/services/reference_data_service.py` and `backend/app/services/import_/reference_resolution.py`;
 - portfolio summary statistics (total active/expiring/expired/incomplete, `annual_cost_by_currency` dict grouped by ISO currency code rather than a single scalar total, `excluded_from_totals` count, by-license-type breakdown): `backend/app/routes/reports.py` — `GET /api/reports/portfolio-stats`;
 - audit logging and data-change webhook enqueueing: `backend/app/services/audit_service.py`;
@@ -469,11 +478,20 @@ Current important service boundaries:
 
 SQLite foreign-key enforcement is enabled at the connection level via `enable_sqlite_foreign_keys` in `backend/app/database.py`. It registers a `connect` event listener that executes `PRAGMA foreign_keys=ON` for every DBAPI connection. This means every `ForeignKey` declared in the ORM models is enforced at the database layer — not just by the ORM. Do not remove this listener. The test engine in `conftest.py` applies the same function. Note: the pragma only affects new writes; existing rows with dangling references are not retroactively rechecked on deploy.
 
+The 1.1.12 integrity migrations rebuild the affected SQLite tables to restore
+`SET NULL` behavior for contract, pending-order, predecessor, parent, and
+license-scoped procurement-document references. They deliberately stop when
+dangling references already exist instead of silently discarding or rewriting
+operator data. The following migration persists
+`evidence_invoice_required` for recoverable evidence transfer, and the final
+migration makes active parentless maintenance valid only when the explicit
+`is_legacy_unlinked_maintenance` exception is set.
+
 `backend/app/routes/licenses.py` is now a thin route module. It should own auth, request parsing, query composition for reads, and audit-log wiring. It should not reintroduce field-level patch validation, maintenance-parent invariants, or response enrichment logic that now live in the license services.
 
 Settings routes are split by responsibility while preserving existing API paths. `backend/app/routes/user_settings.py` owns `GET/PUT /api/settings`; `backend/app/routes/global_settings.py` owns global settings read/update endpoints; `backend/app/routes/integrations.py` owns admin integration actions such as test email and manual notification trigger; `backend/app/routes/backup.py` owns database backup/restore; and `backend/app/routes/operations.py` owns destructive operational maintenance such as the fixed-scope portfolio reset. `backend/app/routes/settings.py` remains only as a compatibility aggregator for older imports.
 
-File I/O in `procurement_document_transfer_service` follows a two-phase pattern coordinated by `pending_order_conversion_service`: file validation happens before any DB work; the actual disk write happens only after `db.commit()` succeeds. This prevents orphaned files when a DB transaction fails. After the conversion commit, evidence transfer records `pending`, `complete`, or `failed` on the pending order; a transfer failure is retryable/recoverable state and must not roll back the created licenses.
+File I/O in `procurement_document_transfer_service` follows a post-conversion, phase-commit pattern coordinated by `pending_order_conversion_service`: invoice validation happens before conversion writes; licenses and the pending evidence state commit first; each invoice or quote transfer phase then writes files, commits its document rows, and compensates only that phase's files if its own commit fails. A later status-update failure must not delete already committed evidence because retries are idempotent. The pending order persists whether invoice evidence was required, and completion/retry checks that at least one matching invoice row still has a stored file before marking transfer complete. Evidence transfer records `pending`, `complete`, or `failed`; a failure is retryable/recoverable state and must not roll back the created licenses.
 
 Procurement documents must be resolved by explicit scope. Use
 `pending_order_id` for documents shared by licenses created from one pending
@@ -492,7 +510,7 @@ optional deletion reason. Direct license custom-field upserts emit
 `license.custom_fields_updated` with normalized before/after field diffs only
 when at least one value changes; definition auditing remains separate.
 
-Renewal command side effects belong in `backend/app/services/renewal_orchestrator.py`, with chain invariants delegated to `backend/app/services/lifecycle_rules.py`. Do not spread renewal lifecycle mutations across pages or routes. Successor creation must validate every predecessor before creating a new license row so stale single or coterm pending-order work cannot fork a renewal chain. Renewal conversion rereads the primary predecessor at the conversion boundary: an active parentless maintenance row is allowed to carry `is_legacy_unlinked_maintenance=true` only when that flag already exists on the persisted predecessor. Linked maintenance successors clear the flag and inherit the current primary parent; no parent link, mirror, or coverage snapshot is fabricated for an unlinked successor. Coterm successors use the same primary-predecessor rule.
+Renewal command side effects belong in `backend/app/services/renewal_orchestrator.py`, with chain invariants delegated to `backend/app/services/lifecycle_rules.py`. Do not spread renewal lifecycle mutations across pages or routes. Successor creation must validate every predecessor before creating a new license row so stale single or coterm pending-order work cannot fork a renewal chain. Renewal sourcing and coterm merge rows carry the predecessor's explicit maintenance coverage, or the type-appropriate default for older records, and conversion validates that coverage before creating the successor. Renewal conversion rereads the primary predecessor at the conversion boundary: an active parentless maintenance row is allowed to carry `is_legacy_unlinked_maintenance=true` only when that flag already exists on the persisted predecessor. Linked maintenance successors clear the flag, inherit the current primary parent, and create the normal association row and parent mirror; no parent link, mirror, or coverage snapshot is fabricated for an unlinked successor. Coterm successors use the same primary-predecessor rule.
 
 The renewal graph permits an intermediate license to have both incoming and
 outgoing renewal links, but each predecessor may have at most one immediate
