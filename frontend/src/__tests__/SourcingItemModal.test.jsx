@@ -53,10 +53,28 @@ describe("required field validation", () => {
         expect(screen.getByRole("complementary", { name: /attached quote preview/i })).toBeInTheDocument();
         expect(screen.getByTitle("vendor-quote.pdf")).toBeInTheDocument();
         expect(screen.getByTitle("Preview of vendor-quote.pdf")).toHaveAttribute("src", "blob:quote-preview#zoom=page-width");
+        expect(screen.getByTitle("Preview of vendor-quote.pdf")).toHaveAttribute("sandbox", "allow-same-origin");
       });
     } finally {
       URL.createObjectURL = originalCreateObjectURL;
       URL.revokeObjectURL = originalRevokeObjectURL;
+    }
+  });
+
+  test("does not preview a file whose declared MIME type conflicts with its PDF extension", async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:quote-preview");
+
+    try {
+      renderModal();
+      const quote = new File(["<script>alert(1)</script>"], "vendor-quote.pdf", { type: "text/html" });
+      fireEvent.change(document.getElementById("sourcing-quote-file"), { target: { files: [quote] } });
+
+      expect(await screen.findByText(/preview is not available/i)).toBeInTheDocument();
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
+      expect(screen.queryByTitle("Preview of vendor-quote.pdf")).not.toBeInTheDocument();
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
     }
   });
 
