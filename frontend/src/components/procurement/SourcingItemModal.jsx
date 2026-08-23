@@ -77,9 +77,15 @@ const emptyAdditionalLine = (overrides = {}) => ({
 
 function quotePreviewKind(file) {
   if (!file) return null;
-  if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return "pdf";
-  if (file.type.startsWith("image/") || /\.(png|jpe?g|gif|webp)$/i.test(file.name)) return "image";
-  if (file.type.startsWith("text/") || /\.(txt|csv)$/i.test(file.name)) return "text";
+  const mimeType = file.type.split(";", 1)[0].trim().toLowerCase();
+  if (mimeType === "application/pdf") return "pdf";
+  if (["image/png", "image/jpeg"].includes(mimeType)) return "image";
+  if (mimeType === "text/plain") return "text";
+  if (mimeType) return null;
+
+  if (/\.pdf$/i.test(file.name)) return "pdf";
+  if (/\.(png|jpe?g)$/i.test(file.name)) return "image";
+  if (/\.txt$/i.test(file.name)) return "text";
   return null;
 }
 
@@ -163,7 +169,7 @@ const SourcingItemModal = ({
       setQuotePreviewUrl(null);
       return undefined;
     }
-    const url = URL.createObjectURL(attachedFile);
+    const url = encodeURI(URL.createObjectURL(attachedFile));
     setQuotePreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [attachedFile, quotePreviewType]);
@@ -492,7 +498,11 @@ const SourcingItemModal = ({
               </div>
               <div className="sourcing-quote-preview-body lp-document-preview-frame">
                 {quotePreviewType === "pdf" && quotePreviewUrl && (
-                  <iframe title={`Preview of ${attachedFile.name}`} src={`${quotePreviewUrl}#zoom=page-width`} />
+                  <iframe
+                    title={`Preview of ${attachedFile.name}`}
+                    src={`${quotePreviewUrl}#zoom=page-width`}
+                    sandbox="allow-same-origin"
+                  />
                 )}
                 {quotePreviewType === "image" && quotePreviewUrl && (
                   <img src={quotePreviewUrl} alt={`Preview of ${attachedFile.name}`} />
