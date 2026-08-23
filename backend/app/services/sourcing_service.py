@@ -13,6 +13,7 @@ from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.schemas.sourcing import SourcingItemCreate, SourcingRequestCreate, SourcingRequestUpdate
 from app.services.lifecycle_rules import clear_pending_renewal_if_current
+from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.money import MoneyParseError, parse_money
 from app.services.reference_data_service import (
     resolve_organization,
@@ -357,6 +358,15 @@ async def build_merged_sourcing_item(
     sorted_preds = sorted(predecessors, key=_sort_key)
     primary_pred = sorted_preds[0]
     primary_item = next(item for item in items if item.renewal_for_license_id == primary_pred.id)
+    merged_license_type = primary_item.license_type or primary_pred.license_type
+    # Coterm renewal coverage follows the deterministic primary predecessor;
+    # secondary lines remain independent predecessors, not merged maintenance records.
+    maintenance_coverage = (
+        primary_item.maintenance_coverage
+        or primary_pred.maintenance_coverage
+        or default_maintenance_coverage(merged_license_type)
+    )
+    assert_coverage_allowed_for_type(merged_license_type, maintenance_coverage)
 
     total_quantity = sum(
         (parse_money(item.quantity) or Decimal("0") for item in items),
@@ -397,7 +407,8 @@ async def build_merged_sourcing_item(
     merged = SourcingItem(
         publisher_name=primary_item.publisher_name,
         software_description=primary_item.software_description,
-        license_type=primary_item.license_type or primary_pred.license_type,
+        license_type=merged_license_type,
+        maintenance_coverage=MaintenanceCoverage(maintenance_coverage),
         quantity=format(total_quantity, "f") if total_quantity else None,
         estimated_unit_price=primary_item.estimated_unit_price,
         estimated_total_price=merged_total_price,

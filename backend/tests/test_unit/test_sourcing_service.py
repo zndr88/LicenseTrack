@@ -15,7 +15,7 @@ from datetime import date
 
 from sqlalchemy import func, select
 
-from app.models.license import License, LicenseMetric, LicenseType
+from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
@@ -468,7 +468,14 @@ async def test_none_start_date_sorts_before_real_dates(db_session):
 
 @pytest.mark.asyncio
 async def test_merged_item_inherits_fields_from_primary_item(db_session):
-    pred_primary = make_pred(id=1, start_date=date(2020, 1, 1))
+    pred_primary = make_pred(
+        id=1,
+        start_date=date(2020, 1, 1),
+        maintenance_coverage=MaintenanceCoverage.included,
+        maintenance_start_date=date(2020, 1, 1),
+        maintenance_end_date=date(2020, 12, 31),
+        maintenance_cost="100.00",
+    )
     pred_other = make_pred(id=2, start_date=date(2022, 1, 1))
     primary_item = make_item_for(
         pred_primary,
@@ -494,6 +501,26 @@ async def test_merged_item_inherits_fields_from_primary_item(db_session):
     assert merged.estimated_unit_price == "100.00"
     assert merged.created_by == 7
     assert merged.status == SourcingStatus.sourcing
+    assert merged.maintenance_coverage == MaintenanceCoverage.included
+    assert merged.maintenance_start_date is None
+    assert merged.maintenance_end_date is None
+    assert merged.maintenance_cost is None
+
+
+@pytest.mark.asyncio
+async def test_merged_item_falls_back_to_primary_predecessor_coverage(db_session):
+    pred_primary = make_pred(
+        id=1,
+        start_date=date(2020, 1, 1),
+        maintenance_coverage=MaintenanceCoverage.included,
+    )
+    pred_other = make_pred(id=2, start_date=date(2022, 1, 1), maintenance_coverage=MaintenanceCoverage.unknown)
+    items = [make_item_for(pred_primary, maintenance_coverage=None), make_item_for(pred_other)]
+
+    merged = await build_merged_sourcing_item(db_session, items, [pred_other, pred_primary], created_by=7)
+
+    assert merged.renewal_for_license_id == pred_primary.id
+    assert merged.maintenance_coverage == MaintenanceCoverage.included
 
 
 @pytest.mark.asyncio
@@ -716,8 +743,6 @@ async def test_creates_new_pending_order_when_none_provided(db_session):
     assert order.created_by == user.id
     assert item.status == SourcingStatus.converted
     assert item.pending_order_id == order.id
-
-
 @pytest.mark.asyncio
 async def test_attaches_to_existing_pending_order(db_session):
     po = make_pending_order(po_number="PO-EXISTING", supplier="Acme Supplier")

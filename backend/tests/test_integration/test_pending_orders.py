@@ -2933,13 +2933,38 @@ async def test_convert_subscription_renewal_unaffected(test_app, auth_headers):
         licenseType="subscription",
         startDate="2025-01-01",
         endDate="2025-12-31",
+        maintenanceCoverage="included",
+        maintenanceStartDate="2025-01-01",
+        maintenanceEndDate="2025-12-31",
+        unitPrice="100",
+        totalPoPrice="1000",
     )
     sourcing_item = await _initiate_renewal(test_app, auth_headers, subscription["id"])
+    assert sourcing_item["maintenanceCoverage"] == "included"
+
+    update = await test_app.put(
+        f"/api/sourcing/{sourcing_item['id']}",
+        json={"quantity": "20"},
+        headers=auth_headers,
+    )
+    assert update.status_code == 200, update.text
+    assert update.json()["maintenanceCoverage"] == "included"
+
     po = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+    pending = await test_app.get(f"/api/pending-orders/{po['id']}", headers=auth_headers)
+    assert pending.status_code == 200, pending.text
+    assert pending.json()["items"][0]["maintenanceCoverage"] == "included"
 
     resp = await test_app.post(
         f"/api/pending-orders/{po['id']}/convert",
-        data={"data": json.dumps(_single_convert_form())},
+        data={"data": json.dumps(_single_convert_form(
+            maintenanceCoverage="included",
+            quantity="20",
+            unitPrice="100",
+            totalPoPrice="2000",
+            startDate="2026-04-01",
+            endDate="2027-03-31",
+        ))},
         headers=auth_headers,
     )
 
@@ -2949,10 +2974,20 @@ async def test_convert_subscription_renewal_unaffected(test_app, auth_headers):
     assert new_license["parentLicenseId"] is None
     assert new_license["renewedFromId"] == subscription["id"]
     assert new_license["predecessorId"] == subscription["id"]
+    assert new_license["maintenanceCoverage"] == "included"
+    assert new_license["startDate"] == "2026-04-01"
+    assert new_license["endDate"] == "2027-03-31"
+    assert new_license["maintenanceStartDate"] == "2026-04-01"
+    assert new_license["maintenanceEndDate"] == "2027-03-31"
+    assert new_license["maintenanceCost"] == "2000"
+    assert new_license["maintenanceParentIds"] == []
 
     predecessor = await _get_license(test_app, auth_headers, subscription["id"])
     assert predecessor["lifecycleStatus"] == "renewed"
     assert predecessor["renewedToId"] == new_license["id"]
+    assert predecessor["maintenanceCoverage"] == "included"
+    assert predecessor["maintenanceStartDate"] == "2025-01-01"
+    assert predecessor["maintenanceEndDate"] == "2025-12-31"
 
 
 async def test_coterm_successor_can_be_renewed_as_next_generation(test_app, auth_headers):

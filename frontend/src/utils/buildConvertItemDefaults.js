@@ -1,3 +1,5 @@
+import { defaultMaintenanceCoverageForLicenseType } from "./maintenanceCoverage.js";
+
 /**
  * Builds conversion form defaults for pending-order items.
  * Pure function - no React, safe to call outside components or in tests.
@@ -34,6 +36,9 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
         ? licenses.find((l) => l.id === si.renewalForLicenseId)
         : null;
     const licenseType = si.licenseType || renewal?.licenseType || "subscription";
+    const maintenanceCoverage = si.maintenanceCoverage
+      || renewal?.maintenanceCoverage
+      || (si.isRenewal ? defaultMaintenanceCoverageForLicenseType(renewal?.licenseType || licenseType) : "unknown");
     return {
       publisherName:       si.publisherName || renewal?.publisherName || "",
       softwareDescription: si.softwareDescription || renewal?.softwareDescription || "",
@@ -53,7 +58,7 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       portalUrl:           renewal?.portalUrl || "",
       parentLicenseId:     si.parentSourcingItemId ? "" : renewal?.parentLicenseId || "",
       parentSourcingItemId: si.parentSourcingItemId || "",
-      maintenanceCoverage: si.maintenanceCoverage || renewal?.maintenanceCoverage || "unknown",
+      maintenanceCoverage,
       maintenanceStartDate: si.maintenanceStartDate || renewal?.maintenanceStartDate || "",
       maintenanceEndDate:  si.maintenanceEndDate || renewal?.maintenanceEndDate || "",
       maintenancePricingBasis: si.maintenancePricingBasis || renewal?.maintenancePricingBasis || "flat",

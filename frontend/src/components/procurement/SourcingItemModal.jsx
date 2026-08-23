@@ -20,6 +20,7 @@ import MaintenanceCoverageFields, {
   supportsMaintenanceCoverage,
   supportsSeparateMaintenanceLine,
 } from "./MaintenanceCoverageFields.jsx";
+import { defaultMaintenanceCoverageForLicenseType } from "../../utils/maintenanceCoverage.js";
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
@@ -124,7 +125,10 @@ const SourcingItemModal = ({
       publisherName:       item?.publisherName ?? "",
       softwareDescription: item?.softwareDescription ?? "",
       licenseType:         item?.licenseType ?? "",
-      maintenanceCoverage: item?.maintenanceCoverage ?? "unknown",
+      maintenanceCoverage: item?.maintenanceCoverage
+        ?? (item?.isRenewal || item?.renewalForLicenseId != null
+          ? defaultMaintenanceCoverageForLicenseType(item?.licenseType)
+          : "unknown"),
       maintenanceStartDate: item?.maintenanceStartDate ?? "",
       maintenanceEndDate:  item?.maintenanceEndDate ?? "",
       maintenancePricingBasis: item?.maintenancePricingBasis ?? "flat",

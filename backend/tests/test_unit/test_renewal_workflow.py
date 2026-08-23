@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from fastapi import HTTPException
 
-from app.models.license import License, LicenseMetric, LicenseType
+from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.services.lifecycle_rules import mark_pending_renewal, mark_predecessor_renewed
 from app.services.renewal_workflow import (
@@ -125,6 +125,7 @@ def test_build_renewal_sourcing_item_prefills_from_license_without_reusing_term(
         id=42,
         created_by=7,
         license_type=license_type,
+        maintenance_coverage=MaintenanceCoverage.included,
         start_date=date(2025, 1, 1),
         end_date=date(2025, 12, 31),
     )
@@ -145,6 +146,32 @@ def test_build_renewal_sourcing_item_prefills_from_license_without_reusing_term(
     assert sourcing_item.created_by == 99
     assert sourcing_item.start_date is None
     assert sourcing_item.end_date is None
+    assert sourcing_item.maintenance_coverage == MaintenanceCoverage.included
+
+
+@pytest.mark.parametrize(
+    ("license_type", "coverage"),
+    [
+        (LicenseType.subscription, MaintenanceCoverage.unknown),
+        (LicenseType.saas, MaintenanceCoverage.not_applicable),
+    ],
+)
+def test_build_renewal_sourcing_item_preserves_valid_coverage(license_type, coverage):
+    predecessor = make_license(license_type=license_type, maintenance_coverage=coverage)
+
+    sourcing_item = build_renewal_sourcing_item(predecessor, created_by=99)
+
+    assert sourcing_item.maintenance_coverage == coverage
+    assert predecessor.maintenance_coverage == coverage
+
+
+def test_build_renewal_sourcing_item_defaults_legacy_recurring_coverage():
+    predecessor = make_license(license_type=LicenseType.subscription, maintenance_coverage=None)
+
+    sourcing_item = build_renewal_sourcing_item(predecessor, created_by=99)
+
+    assert sourcing_item.maintenance_coverage == MaintenanceCoverage.included
+    assert predecessor.maintenance_coverage is None
 
 
 def test_build_pending_order_item_license_data_preserves_submitted_values():

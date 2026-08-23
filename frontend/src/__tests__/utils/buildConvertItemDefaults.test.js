@@ -274,6 +274,35 @@ describe("buildConvertItemDefaults", () => {
     expect(d.contractNumber).toBe("PRIMARY");
   });
 
+  it("prefers included coverage from the sourcing item", () => {
+    const order = {
+      ...baseOrder,
+      items: [makeSI({ isRenewal: true, renewalForLicenseId: 42, licenseType: "subscription", maintenanceCoverage: "included" })],
+    };
+    const [defaults] = buildConvertItemDefaults(order, [makeLicense({ maintenanceCoverage: "unknown" })]);
+    expect(defaults.maintenanceCoverage).toBe("included");
+  });
+
+  it("falls back to predecessor or recurring-license default coverage", () => {
+    const order = {
+      ...baseOrder,
+      items: [makeSI({ isRenewal: true, renewalForLicenseId: 42, licenseType: "subscription", maintenanceCoverage: null })],
+    };
+    expect(buildConvertItemDefaults(order, [makeLicense({ maintenanceCoverage: "included" })])[0].maintenanceCoverage)
+      .toBe("included");
+    expect(buildConvertItemDefaults(order, [makeLicense({ maintenanceCoverage: null })])[0].maintenanceCoverage)
+      .toBe("included");
+  });
+
+  it("keeps an explicit unknown sourcing choice authoritative", () => {
+    const order = {
+      ...baseOrder,
+      items: [makeSI({ isRenewal: true, renewalForLicenseId: 42, licenseType: "subscription", maintenanceCoverage: "unknown" })],
+    };
+    expect(buildConvertItemDefaults(order, [makeLicense({ maintenanceCoverage: "included" })])[0].maintenanceCoverage)
+      .toBe("unknown");
+  });
+
   it("preserves maintenance renewal defaults and its existing parent", () => {
     const si = makeSI({
       isRenewal: true,

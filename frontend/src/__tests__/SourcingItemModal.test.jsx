@@ -274,6 +274,62 @@ describe("onSave payload shape", () => {
     }));
   });
 
+  test("renewal subscription with missing coverage defensively defaults to included", () => {
+    renderModal({
+      item: {
+        id: 44,
+        isRenewal: true,
+        renewalForLicenseId: 7,
+        publisherName: "Acme Corp",
+        softwareDescription: "Acme Suite",
+        licenseType: "subscription",
+      },
+    });
+
+    expect(screen.getByLabelText(/^coverage$/i)).toHaveValue("included");
+  });
+
+  test("renewal subscription preserves an explicit unknown coverage", () => {
+    renderModal({
+      item: {
+        id: 45,
+        isRenewal: true,
+        renewalForLicenseId: 8,
+        publisherName: "Acme Corp",
+        softwareDescription: "Acme Suite",
+        licenseType: "subscription",
+        maintenanceCoverage: "unknown",
+      },
+    });
+
+    expect(screen.getByLabelText(/^coverage$/i)).toHaveValue("unknown");
+  });
+
+  test("editing an unrelated renewal field submits included coverage", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderModal({
+      item: {
+        id: 46,
+        isRenewal: true,
+        renewalForLicenseId: 9,
+        publisherName: "Acme Corp",
+        softwareDescription: "Acme Suite",
+        licenseType: "subscription",
+        maintenanceCoverage: "included",
+        quantity: "10",
+      },
+    });
+
+    await user.clear(screen.getByLabelText(/purchase quantity/i));
+    await user.type(screen.getByLabelText(/purchase quantity/i), "20");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({
+      maintenanceCoverage: "included",
+    }));
+  });
+
   test("separately tracked support adds a linked maintenance line", async () => {
     const user = userEvent.setup();
     const { onSave } = renderModal({

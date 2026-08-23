@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from app.models.license import License, LicenseType
+from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.services.license_service import calc_line_total
+from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 
 
 RenewalWorkflowState = Literal[
@@ -81,10 +82,14 @@ def build_renewal_sourcing_item(
     created_by: int | None,
 ) -> SourcingItem:
     """Create the sourcing item used to start the renewal procurement flow."""
+    license_type = license_obj.license_type
+    maintenance_coverage = license_obj.maintenance_coverage or default_maintenance_coverage(license_type)
+    assert_coverage_allowed_for_type(license_type, maintenance_coverage)
     return SourcingItem(
         publisher_name=license_obj.publisher_name,
         software_description=license_obj.software_description,
-        license_type=license_obj.license_type,
+        license_type=license_type,
+        maintenance_coverage=MaintenanceCoverage(maintenance_coverage),
         quantity=license_obj.quantity or None,
         estimated_unit_price=license_obj.unit_price or None,
         # Seed with this license's own line total (qty × unit price), not the
