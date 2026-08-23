@@ -29,6 +29,8 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Changed
 
+- Updated supported backend and frontend dependencies to their latest
+  compatible maintenance releases.
 - License Overview sorting now follows each column's displayed meaning,
   including PO-wide totals, calculated values, lifecycle-aware expiration,
   localized labels, timestamps, and typed custom fields. Unsupported columns no
@@ -43,6 +45,8 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- Hardened local sourcing quote previews against DOM-based XSS by encoding
+  preview URLs, rejecting conflicting MIME types, and sandboxing PDF previews.
 - Made post-conversion quote and invoice evidence transfer durable and
   idempotent across phase commits, status-update failures, scheduled retries,
   and missing required invoice files. A failed transfer remains recoverable
