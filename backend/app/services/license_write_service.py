@@ -14,12 +14,12 @@ from datetime import date, datetime, timezone
 from uuid import uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import delete, select, update as sa_update
+from sqlalchemy import delete, or_, select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document, ProcurementDocument
 from app.models.license import License, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
-from app.models.sourcing import SourcingItem
+from app.models.sourcing import SourcingItem, SourcingStatus
 from app.schemas.license import LicenseBatchCreateItem, LicenseCreate, LicenseUpdate
 from app.services import storage
 from app.services.contract_identity_service import resolve_contract_id_for_number
@@ -56,6 +56,7 @@ from app.services.reference_data_service import (
     resolve_license_reference_updates,
 )
 from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
+from app.services.sourcing_service import sourcing_item_predecessor_ids
 
 logger = logging.getLogger(__name__)
 
@@ -703,6 +704,8 @@ async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list
     if not license_ids:
         return ()
 
+    await _detach_cancelled_renewal_history(db, license_ids)
+
     document_result = await db.execute(select(Document.filename).where(Document.license_id.in_(license_ids)))
     document_paths = list(document_result.scalars().all())
     await db.execute(delete(Document).where(Document.license_id.in_(license_ids)))
@@ -758,6 +761,39 @@ async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list
     return tuple(document_paths)
 
 
+async def _linked_renewal_sourcing_items(db: AsyncSession, license_ids: list[int]) -> list[SourcingItem]:
+    deleted_ids = set(license_ids)
+    result = await db.execute(
+        select(SourcingItem).where(
+            or_(
+                SourcingItem.renewal_for_license_id.in_(license_ids),
+                SourcingItem.coterm_predecessor_ids.is_not(None),
+            )
+        )
+    )
+    return [
+        item
+        for item in result.scalars().all()
+        if deleted_ids.intersection(sourcing_item_predecessor_ids(item))
+    ]
+
+
+async def _detach_cancelled_renewal_history(db: AsyncSession, license_ids: list[int]) -> None:
+    """Remove deleted predecessor references while preserving cancelled procurement history."""
+    deleted_ids = set(license_ids)
+    for item in await _linked_renewal_sourcing_items(db, license_ids):
+        if item.status != SourcingStatus.cancelled:
+            continue
+        remaining_ids = [
+            predecessor_id
+            for predecessor_id in sourcing_item_predecessor_ids(item)
+            if predecessor_id not in deleted_ids
+        ]
+        item.renewal_for_license_id = remaining_ids[0] if remaining_ids else None
+        if item.coterm_predecessor_ids is not None:
+            item.coterm_predecessor_ids = remaining_ids or None
+
+
 def delete_license_document_files(
     stored_paths: Iterable[str],
     storage_base: str | None,
@@ -797,10 +833,8 @@ async def _assert_license_delete_allowed(db: AsyncSession, licenses: list[Licens
                 ),
             )
 
-    renewal_item_result = await db.execute(
-        select(SourcingItem.id).where(SourcingItem.renewal_for_license_id.in_(license_ids)).limit(1)
-    )
-    if renewal_item_result.scalar_one_or_none() is not None:
+    renewal_items = await _linked_renewal_sourcing_items(db, license_ids)
+    if any(item.status != SourcingStatus.cancelled for item in renewal_items):
         raise HTTPException(
             status_code=409,
             detail=(

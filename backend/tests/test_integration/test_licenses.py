@@ -25,7 +25,7 @@ from app.models.license import (
     LifecycleStatus,
     MaintenanceCoverage,
 )
-from app.models.pending_order import PendingOrder
+from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User, UserRole
@@ -1653,6 +1653,135 @@ async def test_delete_license_with_renewal_pending_order_item_returns_409(
     stored_item = result.scalar_one()
     assert stored_item.renewal_for_license_id == created["id"]
     assert stored_item.pending_order_id == order_id
+
+
+async def test_delete_license_after_cancelling_renewal_sourcing_request(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Cancelled sourcing predecessor",
+        endDate=(date.today() + timedelta(days=30)).isoformat(),
+    )
+    initiate_resp = await test_app.post(
+        f"/api/licenses/{created['id']}/initiate-renewal",
+        headers=auth_headers,
+    )
+    assert initiate_resp.status_code == 200, initiate_resp.text
+    item = initiate_resp.json()["sourcingItem"]
+
+    cancel_resp = await test_app.post(
+        f"/api/sourcing/requests/{item['sourcingRequestId']}/cancel",
+        headers=auth_headers,
+    )
+    assert cancel_resp.status_code == 200, cancel_resp.text
+
+    delete_resp = await test_app.delete(f"/api/licenses/{created['id']}", headers=auth_headers)
+
+    assert delete_resp.status_code == 204, delete_resp.text
+    db_session.expire_all()
+    stored_item = await db_session.get(SourcingItem, item["id"])
+    assert stored_item is not None
+    assert stored_item.status == SourcingStatus.cancelled
+    assert stored_item.renewal_for_license_id is None
+
+
+async def test_delete_license_after_cancelling_renewal_pending_order(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Cancelled pending-order predecessor",
+        endDate=(date.today() + timedelta(days=30)).isoformat(),
+    )
+    initiate_resp = await test_app.post(
+        f"/api/licenses/{created['id']}/initiate-renewal",
+        headers=auth_headers,
+    )
+    assert initiate_resp.status_code == 200, initiate_resp.text
+    item = initiate_resp.json()["sourcingItem"]
+    convert_resp = await test_app.post(
+        f"/api/sourcing/{item['id']}/convert",
+        json={"poNumber": "PO-CANCELLED-RENEWAL-DELETE", "supplier": "Renewal Supplier"},
+        headers=auth_headers,
+    )
+    assert convert_resp.status_code == 200, convert_resp.text
+    order_id = convert_resp.json()["id"]
+
+    cancel_resp = await test_app.post(
+        f"/api/pending-orders/{order_id}/cancel",
+        headers=auth_headers,
+    )
+    assert cancel_resp.status_code == 200, cancel_resp.text
+
+    delete_resp = await test_app.delete(f"/api/licenses/{created['id']}", headers=auth_headers)
+
+    assert delete_resp.status_code == 204, delete_resp.text
+    db_session.expire_all()
+    stored_order = await db_session.get(PendingOrder, order_id)
+    stored_item = await db_session.get(SourcingItem, item["id"])
+    assert stored_order.status == PendingOrderStatus.cancelled
+    assert stored_item.status == SourcingStatus.cancelled
+    assert stored_item.renewal_for_license_id is None
+
+
+async def test_bulk_delete_detaches_cancelled_coterm_history(test_app, auth_headers, db_session):
+    first = await _create_license(test_app, auth_headers, softwareDescription="Cancelled coterm first")
+    second = await _create_license(test_app, auth_headers, softwareDescription="Cancelled coterm second")
+    item = SourcingItem(
+        publisher_name="Acme Corp",
+        software_description="Cancelled coterm renewal",
+        status=SourcingStatus.cancelled,
+        renewal_for_license_id=first["id"],
+        coterm_predecessor_ids=[first["id"], second["id"]],
+    )
+    db_session.add(item)
+    await db_session.commit()
+    item_id = item.id
+
+    delete_resp = await test_app.request(
+        "DELETE",
+        "/api/licenses/bulk",
+        json={"ids": [first["id"], second["id"]]},
+        headers=auth_headers,
+    )
+
+    assert delete_resp.status_code == 200, delete_resp.text
+    assert delete_resp.json()["deleted"] == 2
+    db_session.expire_all()
+    stored_item = await db_session.get(SourcingItem, item_id)
+    assert stored_item is not None
+    assert stored_item.renewal_for_license_id is None
+    assert stored_item.coterm_predecessor_ids is None
+
+
+async def test_delete_license_with_active_secondary_coterm_item_returns_409(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    primary = await _create_license(test_app, auth_headers, softwareDescription="Active coterm primary")
+    secondary = await _create_license(test_app, auth_headers, softwareDescription="Active coterm secondary")
+    item = SourcingItem(
+        publisher_name="Acme Corp",
+        software_description="Active coterm renewal",
+        status=SourcingStatus.sourcing,
+        renewal_for_license_id=primary["id"],
+        coterm_predecessor_ids=[primary["id"], secondary["id"]],
+    )
+    db_session.add(item)
+    await db_session.commit()
+
+    delete_resp = await test_app.delete(f"/api/licenses/{secondary['id']}", headers=auth_headers)
+
+    assert delete_resp.status_code == 409
+    assert "renewal sourcing or pending-order item" in delete_resp.json()["detail"]
 
 
 async def test_delete_license_with_successor_links_returns_409(test_app, auth_headers, db_session):
