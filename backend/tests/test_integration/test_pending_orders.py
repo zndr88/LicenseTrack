@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from sqlalchemy import select, text
 
 from app.config import settings
+from app.models.audit_log import AuditLog
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import (
     License,
@@ -2105,6 +2106,80 @@ async def test_renewal_target_supplier_can_change_without_rewriting_historical_s
     historical = await _get_license(test_app, auth_headers, predecessor["id"])
     assert historical["supplier"] == "Historical Reseller A"
     assert historical["contactEmail"] == "historical@example.test"
+
+
+async def test_request_editor_can_change_pending_renewal_supplier(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Request editor supplier renewal",
+        supplier="Historical Renewal Supplier",
+        contactEmail="historical@example.test",
+        endDate=(date.today() + timedelta(days=30)).isoformat(),
+    )
+    renewal_item = await _initiate_renewal(test_app, auth_headers, predecessor["id"])
+    request_id = renewal_item["sourcingRequestId"]
+
+    request_response = await test_app.get(
+        f"/api/sourcing/requests/{request_id}",
+        headers=auth_headers,
+    )
+    assert request_response.status_code == 200, request_response.text
+    sourcing_request = request_response.json()
+    item = sourcing_request["items"][0]
+
+    update_response = await test_app.put(
+        f"/api/sourcing/requests/{request_id}",
+        json={
+            "supplier": "New Request Editor Supplier",
+            "contactEmail": "new-renewals@example.test",
+            "notes": sourcing_request["notes"],
+            "items": [
+                {
+                    "id": item["id"],
+                    "publisherName": item["publisherName"],
+                    "softwareDescription": item["softwareDescription"],
+                    "licenseType": item["licenseType"],
+                    "quantity": item["quantity"],
+                    "estimatedUnitPrice": item["estimatedUnitPrice"],
+                    "estimatedTotalPrice": item["estimatedTotalPrice"],
+                    "currency": item["currency"],
+                    "startDate": item["startDate"],
+                    "endDate": item["endDate"],
+                    "notes": item["notes"],
+                }
+            ],
+        },
+        headers=auth_headers,
+    )
+
+    assert update_response.status_code == 200, update_response.text
+    updated_request = update_response.json()
+    assert updated_request["supplier"] == "New Request Editor Supplier"
+    assert updated_request["contactEmail"] == "new-renewals@example.test"
+    assert updated_request["items"][0]["supplier"] == "New Request Editor Supplier"
+    assert updated_request["items"][0]["contactEmail"] == "new-renewals@example.test"
+
+    historical = await _get_license(test_app, auth_headers, predecessor["id"])
+    assert historical["supplier"] == "Historical Renewal Supplier"
+    assert historical["contactEmail"] == "historical@example.test"
+
+    audit = await db_session.scalar(
+        select(AuditLog)
+        .where(
+            AuditLog.action == "sourcing_request.updated",
+            AuditLog.target_id == str(request_id),
+        )
+        .order_by(AuditLog.id.desc())
+    )
+    assert audit is not None
+    assert "mutationType=sourcing_request_edit" in audit.detail
+    assert "supplier: Historical Renewal Supplier" in audit.detail
+    assert "New Request Editor Supplier" in audit.detail
 
 
 async def test_renewal_bundle_with_historical_supplier_variation_starts_unassigned(

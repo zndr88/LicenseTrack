@@ -121,13 +121,16 @@ async def update_sourcing_request(
         updated_item_ids: list[int] = []
     else:
         updated_item_ids = await apply_sourcing_request_workflow_update(db, sourcing_request, payload)
+    updated_items = [item for item in sourcing_request.items if item.id in updated_item_ids]
+    await db.flush()
+    await db.refresh(sourcing_request)
+    for item in updated_items:
+        await db.refresh(item)
     after = {c.name: getattr(sourcing_request, c.name) for c in sourcing_request.__table__.columns}
 
     request_diff = diff_fields(before, after)
     item_diffs = []
-    for item in sourcing_request.items:
-        if item.id not in updated_item_ids:
-            continue
+    for item in updated_items:
         item_after = {c.name: getattr(item, c.name) for c in item.__table__.columns}
         item_diff = diff_fields(item_before[item.id], item_after, exclude={"supplier", "contact_email"})
         if item_diff:
