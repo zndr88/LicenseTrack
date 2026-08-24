@@ -19,6 +19,7 @@ import MaintenanceCreateModal from "./MaintenanceCreateModal.jsx";
 import LegacyMaintenanceLinkModal from "./LegacyMaintenanceLinkModal.jsx";
 import InvoiceNumbersModal from "./InvoiceNumbersModal.jsx";
 import SecondaryContactsModal from "./SecondaryContactsModal.jsx";
+import ExistingSuccessorModal from "./ExistingSuccessorModal.jsx";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import { supportsMaintenanceCoverage } from "../../utils/maintenanceCoverage.js";
@@ -50,7 +51,7 @@ function DetailToast({ toast, onClose }) {
   );
 }
 
-export default function DetailPanel({ license, userSettings, globalSettings, user, allLicenses, sourcingItems, pendingOrders, contracts, onClose, onUpdate, onPoTotalOverride, onDelete, onCreateRenewal, onCreateRenewalBundle, onCancelRenewal, onNavigateToSourcing, onNavigateToPendingOrder, onNavigateToContract, onCreateContract, onNavigate, onPreviewDocument }) {
+export default function DetailPanel({ license, userSettings, globalSettings, user, allLicenses, sourcingItems, pendingOrders, contracts, onClose, onUpdate, onPoTotalOverride, onDelete, onCreateRenewal, onCreateRenewalBundle, onCancelRenewal, onUnlinkExistingSuccessor, onNavigateToSourcing, onNavigateToPendingOrder, onNavigateToContract, onCreateContract, onNavigate, onPreviewDocument }) {
   const {
     confirmAction, setConfirmAction,
     showMaintenanceModal, setShowMaintenanceModal,
@@ -81,6 +82,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     comp, exp, perms, vis,
   } = useDetailPanelState({ license, onUpdate, onClose, userSettings, globalSettings, user, onPreviewDocument });
   const [showLegacyLinkModal, setShowLegacyLinkModal] = useState(false);
+  const [showExistingSuccessorModal, setShowExistingSuccessorModal] = useState(false);
   const canDownloadDocuments = user?.role !== "viewer" || user?.allowDownloads !== false;
 
   const notesPreview = license.notes
@@ -153,6 +155,9 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               onNavigate={onNavigate}
               onNavigateToSourcing={onNavigateToSourcing}
               onNavigateToPendingOrder={onNavigateToPendingOrder}
+              onLinkExistingSuccessor={() => setShowExistingSuccessorModal(true)}
+              onUnlinkExistingSuccessor={onUnlinkExistingSuccessor}
+              setConfirmAction={setConfirmAction}
               setToast={setToast}
             />
 
@@ -418,6 +423,24 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
             const { data: parent } = await getLicense(parentId);
             if (parent) onUpdate(parentId, parent);
             setToast("Maintenance linked to parent license");
+          }}
+        />
+      )}
+
+      {showExistingSuccessorModal && (
+        <ExistingSuccessorModal
+          predecessor={license}
+          allLicenses={allLicenses}
+          globalSettings={globalSettings}
+          userSettings={userSettings}
+          onUpdate={onUpdate}
+          onClose={() => setShowExistingSuccessorModal(false)}
+          onSuccess={(successor, formerRef) => {
+            setShowExistingSuccessorModal(false);
+            setToast(
+              `Renewed into ${successor.licenseRef || `License #${successor.id}`}`
+              + (formerRef ? `; ${formerRef} remains reserved` : "")
+            );
           }}
         />
       )}

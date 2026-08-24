@@ -106,4 +106,28 @@ describe('ProcurementTrail', () => {
 
     expect(screen.getByText('No linked procurement trail.')).toBeInTheDocument()
   })
+
+  it('explains an existing-purchase renewal without fabricating sourcing stages', () => {
+    renderTrail({
+      trail: {
+        sourcingRequest: null,
+        sourcingItem: null,
+        pendingOrder: null,
+        existingSuccessorLink: {
+          predecessorLicenseId: 24,
+          successorLicenseId: 25,
+          poNumber: 'PO-COMMIT-1',
+          formerSuccessorLicenseRef: 'LT-2026-00151',
+          linkedAt: '2026-08-24T12:00:00Z',
+          linkedByEmail: 'admin@example.com',
+        },
+        conversion: { sourceMatchType: 'none' },
+      },
+    })
+
+    expect(screen.getByText('Existing Purchase Renewal')).toBeInTheDocument()
+    expect(screen.getByText(/License Record #24 renewed into License Record #25/)).toBeInTheDocument()
+    expect(screen.getByText(/former successor ref LT-2026-00151/)).toBeInTheDocument()
+    expect(screen.queryByText('Sourcing Request')).not.toBeInTheDocument()
+  })
 })

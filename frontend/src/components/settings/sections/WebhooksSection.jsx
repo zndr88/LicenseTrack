@@ -19,6 +19,8 @@ const WEBHOOK_EVENTS = [
   ["license.updated", "License updated"],
   ["license.deleted", "License deleted"],
   ["license.custom_fields_updated", "License custom fields updated"],
+  ["license.existing_successor_linked", "Existing renewal successor linked"],
+  ["license.existing_successor_unlinked", "Existing renewal successor unlinked"],
   ["sourcing_request.created", "Sourcing request created"],
   ["po.created", "Pending order created"],
   ["document.uploaded", "Document uploaded"],

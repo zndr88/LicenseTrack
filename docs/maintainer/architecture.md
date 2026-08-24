@@ -56,7 +56,8 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `DetailSectionHeader.jsx` | Shared collapsible section header button with chevron |
 | `CustomFieldRows.jsx` | Shared custom field row renderer used by all sections |
 | `IdentitySection.jsx` | Publisher, description, badge row, parent/maintenance navigation, maintenance expiry and legacy-unlinked alerts |
-| `RenewalWorkflowSection.jsx` | All renewal lifecycle state boxes (expiring, pending, renewed, draft, consolidated) |
+| `RenewalWorkflowSection.jsx` | All renewal lifecycle state boxes (expiring, pending, renewed, draft, consolidated), plus existing-successor link/unlink actions |
+| `ExistingSuccessorModal.jsx` | Same-PO Active/Upcoming successor selection, date-gap/overlap disclosure, and existing-purchase renewal confirmation |
 | `ContractDatesSection.jsx` | Start/end/notice dates, notice handled action/status, editable request/purchase procurement milestones, contract #, PO #, invoice #, contract record link |
 | `MaintenanceSection.jsx` | Maintenance coverage dates, linked maintenance children, add/disable maintenance actions |
 | `HistorySection.jsx` | Read-only License Record ID, creator account label, license-row creation and last-update timestamps, plus procurement-trail links to source sourcing and pending-order records |
@@ -67,7 +68,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `CompletenessFlagsSection.jsx` | Completeness checklist and retired/legacy/exempt toggles |
 | `NotesSection.jsx` | Notes display; also exports `CatchallCustomFieldsSection` for unassigned custom fields |
 
-`DetailPanel.jsx` calls `useDetailPanelState` for all state and handlers, then wires props through to section components and mounts modals (`FieldEditModal`, `MaintenanceCreateModal`, `LegacyMaintenanceLinkModal`, `LinkCommitmentModal`, `ConfirmDialog`). `MaintenanceCreateModal` owns the License Details create-new/link-existing maintenance workflow, including the compact searchable existing-maintenance picker. `LegacyMaintenanceLinkModal` is the focused recovery path for an imported parentless maintenance record; a successful link clears the exception through the normal backend maintenance workflow. No domain logic or rendering logic belongs in the shell.
+`DetailPanel.jsx` calls `useDetailPanelState` for all state and handlers, then wires props through to section components and mounts modals (`FieldEditModal`, `MaintenanceCreateModal`, `LegacyMaintenanceLinkModal`, `ExistingSuccessorModal`, `ConfirmDialog`). `MaintenanceCreateModal` owns the License Details create-new/link-existing maintenance workflow, including the compact searchable existing-maintenance picker. `LegacyMaintenanceLinkModal` is the focused recovery path for an imported parentless maintenance record; a successful link clears the exception through the normal backend maintenance workflow. `ExistingSuccessorModal` is the uncommon alternate renewal-completion path for an already-purchased same-PO successor. No domain logic or rendering logic belongs in the shell.
 
 Document actions are part of the core-rendered integration surface. `DocumentsSection.jsx` should render actions from `useLicenseDocuments`; it should not hard-code plugin names or assume AI processing specifically. Action availability is determined by the backend from registered integration capabilities and active webhook subscribers. This is not runtime frontend plugin loading.
 
@@ -511,6 +512,15 @@ optional deletion reason. Direct license custom-field upserts emit
 when at least one value changes; definition auditing remains separate.
 
 Renewal command side effects belong in `backend/app/services/renewal_orchestrator.py`, with chain invariants delegated to `backend/app/services/lifecycle_rules.py`. Do not spread renewal lifecycle mutations across pages or routes. Successor creation must validate every predecessor before creating a new license row so stale single or coterm pending-order work cannot fork a renewal chain. Renewal sourcing and coterm merge rows carry the predecessor's explicit maintenance coverage, or the type-appropriate default for older records, and conversion validates that coverage before creating the successor. Renewal conversion rereads the primary predecessor at the conversion boundary: an active parentless maintenance row is allowed to carry `is_legacy_unlinked_maintenance=true` only when that flag already exists on the persisted predecessor. Linked maintenance successors clear the flag, inherit the current primary parent, and create the normal association row and parent mirror; no parent link, mirror, or coverage snapshot is fabricated for an unlinked successor. Coterm successors use the same primary-predecessor rule.
+
+Existing-successor linking is also owned by `renewal_orchestrator.py`. It is
+available only for an Expiring or Expired predecessor and an Active or Upcoming
+same-PO successor that extends coverage and has no incoming renewal link. The
+operation uses the ordinary `renewed_to_id`, `renewed_from_id`, and
+`predecessor_id` chain, preserves the successor's former LT reference in
+`license_ref_aliases`, and stores link provenance on the predecessor so the
+History procurement trail can explain the missing sourcing stages and the
+link can be safely undone.
 
 The renewal graph permits an intermediate license to have both incoming and
 outgoing renewal links, but each predecessor may have at most one immediate

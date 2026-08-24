@@ -16,6 +16,7 @@ from sqlalchemy import select
 
 import app.routes.licenses as licenses_routes
 from app.models.contract import Contract
+from app.models.audit_log import AuditLog
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import (
     License,
@@ -75,6 +76,131 @@ async def _create_three_generation_chain(client, headers, db_session) -> tuple[d
     await db_session.commit()
 
     return first, intermediate, successor
+
+
+async def test_link_existing_successor_reuses_standard_renewal_chain_and_preserves_ref_alias(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    today = date.today()
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Commitment Year 1",
+        poNumber="PO-COMMIT-001",
+        startDate=(today - timedelta(days=365)).isoformat(),
+        endDate=(today + timedelta(days=5)).isoformat(),
+    )
+    successor = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Commitment Year 2",
+        poNumber="PO-COMMIT-001",
+        startDate=today.isoformat(),
+        endDate=(today + timedelta(days=370)).isoformat(),
+    )
+    successor_original_ref = successor["licenseRef"]
+
+    response = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/link-existing-successor",
+        json={"successorLicenseId": successor["id"]},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["predecessor"]["lifecycleStatus"] == "renewed"
+    assert payload["predecessor"]["renewedToId"] == successor["id"]
+    assert payload["successor"]["renewedFromId"] == predecessor["id"]
+    assert payload["successor"]["predecessorId"] == predecessor["id"]
+    assert payload["successor"]["licenseRef"] == predecessor["licenseRef"]
+    assert payload["successor"]["licenseRefAliases"] == [successor_original_ref]
+    assert payload["formerSuccessorLicenseRef"] == successor_original_ref
+
+    trail_response = await test_app.get(
+        f"/api/licenses/{successor['id']}/procurement-trail",
+        headers=auth_headers,
+    )
+    assert trail_response.status_code == 200
+    trail = trail_response.json()["existingSuccessorLink"]
+    assert trail["predecessorLicenseId"] == predecessor["id"]
+    assert trail["successorLicenseId"] == successor["id"]
+    assert trail["formerSuccessorLicenseRef"] == successor_original_ref
+
+    audit_result = await db_session.execute(
+        select(AuditLog).where(AuditLog.action == "license.existing_successor_linked")
+    )
+    audit = audit_result.scalar_one()
+    assert f"successorLicenseId={successor['id']}" in audit.detail
+    assert f"formerSuccessorLicenseRef={successor_original_ref}" in audit.detail
+
+
+async def test_unlink_existing_successor_restores_original_ref(
+    test_app,
+    auth_headers,
+):
+    today = date.today()
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        poNumber="PO-COMMIT-UNLINK",
+        startDate=(today - timedelta(days=365)).isoformat(),
+        endDate=(today + timedelta(days=5)).isoformat(),
+    )
+    successor = await _create_license(
+        test_app,
+        auth_headers,
+        poNumber="PO-COMMIT-UNLINK",
+        startDate=today.isoformat(),
+        endDate=(today + timedelta(days=370)).isoformat(),
+    )
+    await test_app.post(
+        f"/api/licenses/{predecessor['id']}/link-existing-successor",
+        json={"successorLicenseId": successor["id"]},
+        headers=auth_headers,
+    )
+
+    response = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/unlink-existing-successor",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["predecessor"]["lifecycleStatus"] is None
+    assert payload["predecessor"]["renewedToId"] is None
+    assert payload["successor"]["renewedFromId"] is None
+    assert payload["successor"]["predecessorId"] is None
+    assert payload["successor"]["licenseRef"] == successor["licenseRef"]
+    assert payload["successor"]["licenseRefAliases"] == []
+
+
+async def test_link_existing_successor_requires_same_po(test_app, auth_headers):
+    today = date.today()
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        poNumber="PO-ONE",
+        startDate=(today - timedelta(days=365)).isoformat(),
+        endDate=(today + timedelta(days=5)).isoformat(),
+    )
+    successor = await _create_license(
+        test_app,
+        auth_headers,
+        poNumber="PO-TWO",
+        startDate=today.isoformat(),
+        endDate=(today + timedelta(days=370)).isoformat(),
+    )
+
+    response = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/link-existing-successor",
+        json={"successorLicenseId": successor["id"]},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "The successor must have the same PO number"
 
 
 # ---------------------------------------------------------------------------

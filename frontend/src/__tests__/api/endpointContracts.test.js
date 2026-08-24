@@ -53,6 +53,15 @@ describe("frontend API endpoint contracts", () => {
     await licensesApi.initiateRenewalBundle([7, 8]);
     expect(client.post).toHaveBeenLastCalledWith("/api/licenses/renewal-bundle/initiate", { licenseIds: [7, 8] });
 
+    await licensesApi.linkExistingSuccessor(7, 8);
+    expect(client.post).toHaveBeenLastCalledWith(
+      "/api/licenses/7/link-existing-successor",
+      { successorLicenseId: 8 },
+    );
+
+    await licensesApi.unlinkExistingSuccessor(7);
+    expect(client.post).toHaveBeenLastCalledWith("/api/licenses/7/unlink-existing-successor", {});
+
     await licensesApi.bulkDeleteLicenses([1, 2]);
     expect(client.request).toHaveBeenLastCalledWith("/api/licenses/bulk", {
       method: "DELETE",

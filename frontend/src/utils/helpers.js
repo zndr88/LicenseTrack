@@ -161,6 +161,7 @@ export const normalizeLicense = (l) => ({
     ? l.invoiceNumbers.filter(Boolean)
     : (l.invoiceNumber ? [l.invoiceNumber] : []),
   secondaryContacts: Array.isArray(l.secondaryContacts) ? l.secondaryContacts.filter(Boolean) : [],
+  licenseRefAliases: Array.isArray(l.licenseRefAliases) ? l.licenseRefAliases.filter(Boolean) : [],
   quantityPerUnit: l.quantityPerUnit ?? l.quantity_per_unit ?? "1",
   effectiveQuantity: l.effectiveQuantity ?? l.effective_quantity ?? "",
   // API uses isRetired; frontend uses retired

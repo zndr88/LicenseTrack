@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -10,8 +11,8 @@ from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
-from app.services.audit_service import log_event
-from app.services.license_service import generate_license_ref
+from app.services.audit_service import format_audit_detail, log_event
+from app.services.license_service import compute_expiration_status, generate_license_ref
 from app.services.lifecycle_rules import (
     assert_can_cancel_renewal,
     assert_predecessor_has_no_successor,
@@ -62,6 +63,190 @@ class RenewalConversionResult:
     successor: License
     primary_predecessor: License
     predecessor_ids: list[int]
+
+
+@dataclass
+class ExistingSuccessorLinkResult:
+    predecessor: License
+    successor: License
+    former_successor_license_ref: str | None
+
+
+def _normalized_po(value: str | None) -> str:
+    return (value or "").strip().casefold()
+
+
+def _assert_existing_successor_candidate(
+    predecessor: License,
+    successor: License,
+    *,
+    notification_days: int,
+) -> None:
+    predecessor_status = compute_expiration_status(predecessor, date.today(), notification_days)
+    if predecessor_status not in {"expiring", "expired"}:
+        raise HTTPException(status_code=400, detail="Only expiring or expired licenses can link an existing successor")
+    if predecessor.is_retired or predecessor.lifecycle_status in {"renewed", "legacy", "pending_renewal"}:
+        raise HTTPException(status_code=409, detail="This license is not eligible to link an existing successor")
+    if predecessor.end_date is None or predecessor.license_type in {LicenseType.service, LicenseType.other}:
+        raise HTTPException(status_code=400, detail="This license type is not eligible for renewal")
+    assert_predecessor_has_no_successor(predecessor)
+
+    if successor.id == predecessor.id:
+        raise HTTPException(status_code=400, detail="A license cannot be its own successor")
+    if successor.is_retired or successor.lifecycle_status is not None:
+        raise HTTPException(status_code=409, detail="The selected successor is not an active or upcoming license")
+    if successor.renewed_from_id is not None or successor.predecessor_id is not None or successor.coterm_from_ids:
+        raise HTTPException(status_code=409, detail="The selected license already has a predecessor")
+    if successor.renewed_to_id is not None:
+        raise HTTPException(status_code=409, detail="The selected license is already part of another renewal chain")
+    successor_status = compute_expiration_status(successor, date.today(), notification_days)
+    if successor_status not in {"active", "upcoming"}:
+        raise HTTPException(status_code=400, detail="The selected successor must be active or upcoming")
+
+    predecessor_po = _normalized_po(predecessor.po_number)
+    successor_po = _normalized_po(successor.po_number)
+    if not predecessor_po or predecessor_po != successor_po:
+        raise HTTPException(status_code=400, detail="The successor must have the same PO number")
+    if predecessor.end_date is None or successor.end_date is None or successor.end_date <= predecessor.end_date:
+        raise HTTPException(status_code=400, detail="The successor must extend coverage beyond the predecessor end date")
+    if predecessor.start_date is not None and (
+        successor.start_date is None or successor.start_date <= predecessor.start_date
+    ):
+        raise HTTPException(status_code=400, detail="The successor must start after the predecessor start date")
+
+
+async def link_existing_successor(
+    *,
+    db: AsyncSession,
+    predecessor_id: int,
+    successor_id: int,
+    actor: User,
+    ip_address: str | None,
+    notification_days: int,
+) -> ExistingSuccessorLinkResult:
+    """Adopt an existing purchased License row as a standard renewal successor."""
+    result = await db.execute(
+        select(License)
+        .where(License.id.in_([predecessor_id, successor_id]))
+        .order_by(License.id)
+        .with_for_update()
+    )
+    licenses = {license_obj.id: license_obj for license_obj in result.scalars().all()}
+    predecessor = licenses.get(predecessor_id)
+    successor = licenses.get(successor_id)
+    if predecessor is None:
+        raise HTTPException(status_code=404, detail="Predecessor license not found")
+    if successor is None:
+        raise HTTPException(status_code=404, detail="Successor license not found")
+
+    _assert_existing_successor_candidate(
+        predecessor,
+        successor,
+        notification_days=notification_days,
+    )
+
+    former_ref = successor.license_ref
+    chain_ref = predecessor.license_ref or await generate_license_ref(db)
+    aliases = list(successor.license_ref_aliases or [])
+    if former_ref and former_ref != chain_ref and former_ref not in aliases:
+        aliases.append(former_ref)
+
+    mark_predecessor_renewed(predecessor, successor.id)
+    predecessor.existing_successor_linked_at = datetime.now(timezone.utc)
+    predecessor.existing_successor_linked_by_email = actor.email
+    predecessor.existing_successor_original_ref = former_ref
+    successor.renewed_from_id = predecessor.id
+    successor.predecessor_id = predecessor.id
+    successor.license_ref = chain_ref
+    successor.license_ref_aliases = aliases
+
+    detail = format_audit_detail(
+        "existing_successor_link",
+        {
+            "predecessorLicenseId": str(predecessor.id),
+            "successorLicenseId": str(successor.id),
+            "poNumber": predecessor.po_number,
+            "chainLicenseRef": chain_ref,
+            "formerSuccessorLicenseRef": former_ref,
+            "successorStartDate": successor.start_date.isoformat() if successor.start_date else None,
+            "successorEndDate": successor.end_date.isoformat() if successor.end_date else None,
+            "actorEmail": actor.email,
+        },
+    )
+    await log_event(
+        db,
+        "license.existing_successor_linked",
+        actor=actor,
+        ip_address=ip_address,
+        target_type="license",
+        target_id=str(predecessor.id),
+        target_label=predecessor.software_description,
+        detail=detail,
+    )
+    return ExistingSuccessorLinkResult(predecessor, successor, former_ref)
+
+
+async def unlink_existing_successor(
+    *,
+    db: AsyncSession,
+    predecessor_id: int,
+    actor: User,
+    ip_address: str | None,
+) -> ExistingSuccessorLinkResult:
+    """Undo an existing-purchase link without touching ordinary renewal chains."""
+    predecessor_result = await db.execute(
+        select(License).where(License.id == predecessor_id).with_for_update()
+    )
+    predecessor = predecessor_result.scalar_one_or_none()
+    if predecessor is None:
+        raise HTTPException(status_code=404, detail="Predecessor license not found")
+    if predecessor.existing_successor_linked_at is None or predecessor.renewed_to_id is None:
+        raise HTTPException(status_code=409, detail="This license has no linked existing successor")
+
+    successor_result = await db.execute(
+        select(License).where(License.id == predecessor.renewed_to_id).with_for_update()
+    )
+    successor = successor_result.scalar_one_or_none()
+    if successor is None:
+        raise HTTPException(status_code=409, detail="The linked successor no longer exists")
+    if successor.renewed_to_id is not None:
+        raise HTTPException(status_code=409, detail="Unlink the successor's later renewal before removing this link")
+
+    former_ref = predecessor.existing_successor_original_ref
+    aliases = list(successor.license_ref_aliases or [])
+    if former_ref:
+        successor.license_ref = former_ref
+        aliases = [alias for alias in aliases if alias != former_ref]
+    successor.license_ref_aliases = aliases
+    successor.renewed_from_id = None
+    successor.predecessor_id = None
+
+    predecessor.lifecycle_status = None
+    predecessor.renewed_to_id = None
+    predecessor.existing_successor_linked_at = None
+    predecessor.existing_successor_linked_by_email = None
+    predecessor.existing_successor_original_ref = None
+
+    detail = format_audit_detail(
+        "existing_successor_unlink",
+        {
+            "predecessorLicenseId": str(predecessor.id),
+            "successorLicenseId": str(successor.id),
+            "restoredSuccessorLicenseRef": former_ref,
+            "actorEmail": actor.email,
+        },
+    )
+    await log_event(
+        db,
+        "license.existing_successor_unlinked",
+        actor=actor,
+        ip_address=ip_address,
+        target_type="license",
+        target_id=str(predecessor.id),
+        target_label=predecessor.software_description,
+        detail=detail,
+    )
+    return ExistingSuccessorLinkResult(predecessor, successor, former_ref)
 
 
 async def initiate_renewal(

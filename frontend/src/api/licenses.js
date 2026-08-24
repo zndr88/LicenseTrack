@@ -153,6 +153,16 @@ export async function initiateRenewal(id) {
   return post(`/api/licenses/${id}/initiate-renewal`, {});
 }
 
+/** Complete a renewal by adopting an existing purchased license as successor. */
+export async function linkExistingSuccessor(id, successorLicenseId) {
+  return post(`/api/licenses/${id}/link-existing-successor`, { successorLicenseId });
+}
+
+/** Undo an existing-purchase successor link. */
+export async function unlinkExistingSuccessor(id) {
+  return post(`/api/licenses/${id}/unlink-existing-successor`, {});
+}
+
 /**
  * Initiate one renewal sourcing request containing multiple license lines.
  *

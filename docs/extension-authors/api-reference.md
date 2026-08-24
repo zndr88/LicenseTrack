@@ -61,6 +61,8 @@ Required scope is `licenses:read` for reads and `licenses:write` for writes.
 | `GET /api/licenses/{license_id}/procurement-trail` | Follow stored sourcing and pending-order relationships |
 | `POST /api/licenses/{license_id}/initiate-renewal` | Start a single renewal |
 | `POST /api/licenses/{license_id}/cancel-renewal` | Cancel eligible renewal work |
+| `POST /api/licenses/{license_id}/link-existing-successor` | Adopt an already-purchased same-PO license as the renewal successor |
+| `POST /api/licenses/{license_id}/unlink-existing-successor` | Undo an existing-purchase successor link before a later renewal is attached |
 | `POST /api/licenses/renewal-bundle/initiate` | Start a coterm renewal bundle |
 | `POST /api/licenses/{license_id}/disable-maintenance` | Disable active linked maintenance |
 | `POST /api/licenses/{license_id}/link-maintenance` | Link an existing maintenance record to an eligible parent |

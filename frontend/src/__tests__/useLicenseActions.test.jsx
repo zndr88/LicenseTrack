@@ -13,6 +13,7 @@ vi.mock("../api/licenses.js", () => ({
   getLicense: vi.fn(),
   initiateRenewal: vi.fn(),
   initiateRenewalBundle: vi.fn(),
+  unlinkExistingSuccessor: vi.fn(),
   updateLicense: vi.fn(),
 }));
 
@@ -77,6 +78,7 @@ beforeEach(() => {
   licensesApi.updateLicense.mockResolvedValue({ data: {}, error: null });
   licensesApi.getLicense.mockResolvedValue({ data: baseLicense, error: null });
   licensesApi.bulkDeleteLicenses.mockResolvedValue({ data: {}, error: null });
+  licensesApi.unlinkExistingSuccessor.mockResolvedValue({ data: null, error: null });
 });
 
 describe("useLicenseActions", () => {

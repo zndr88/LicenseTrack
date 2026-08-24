@@ -104,7 +104,7 @@ export function useLicenseData(licenses, {
 
   const filtered = useMemo(() => enriched.filter((l) => {
     if (normalizedSearch) {
-      const hay = `${l.publisherName} ${l.softwareDescription} ${l.contractNumber} ${l.poNumber} ${l.procurementReference || ""} ${l.supplier || ""}`.toLowerCase();
+      const hay = `${l.licenseRef || ""} ${(l.licenseRefAliases || []).join(" ")} ${l.publisherName} ${l.softwareDescription} ${l.contractNumber} ${l.poNumber} ${l.procurementReference || ""} ${l.supplier || ""}`.toLowerCase();
       if (!hay.includes(normalizedSearch)) return false;
     }
     if (activeStatusFilters.hasLifecycleFilters) {

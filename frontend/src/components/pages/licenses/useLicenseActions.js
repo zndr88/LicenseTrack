@@ -7,10 +7,11 @@ import {
   patchLicenseField,
   setPoTotalOverride as setPoTotalOverrideApi,
   clearPoTotalOverride as clearPoTotalOverrideApi,
+  unlinkExistingSuccessor,
   updateLicense,
 } from "../../../api/licenses.js";
 import { queryKeys } from "../../../queryKeys.js";
-import { invalidateNotifications } from "../../../queryInvalidation.js";
+import { invalidateNotifications, invalidateRenewalWorkflow } from "../../../queryInvalidation.js";
 import { normalizeLicense } from "../../../utils/helpers.js";
 import { updateLicensesInQueryData } from "../../../utils/licenseQueryData.js";
 import { useRenewalWorkflowActions } from "../../../hooks/useRenewalWorkflowActions.js";
@@ -137,6 +138,24 @@ export function useLicenseActions({
     return result.ok;
   }, [cancelRenewalWorkflow]);
 
+  const handleUnlinkExistingSuccessor = useCallback(async (licenseId) => {
+    const { data, error } = await unlinkExistingSuccessor(licenseId);
+    if (error) {
+      showError(error);
+      return { ok: false, error };
+    }
+    updateLicensesInCache((licenses) => licenses.map((license) => {
+      if (license.id === data.predecessor.id) return normalizeLicense(data.predecessor);
+      if (license.id === data.successor.id) return normalizeLicense(data.successor);
+      return license;
+    }));
+    invalidateRenewalWorkflow(queryClient);
+    queryClient.invalidateQueries({ queryKey: queryKeys.licenseProcurementTrail(data.predecessor.id) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.licenseProcurementTrail(data.successor.id) });
+    onPortfolioStateChange?.();
+    return { ok: true, data };
+  }, [onPortfolioStateChange, queryClient, showError, updateLicensesInCache]);
+
   const handleBulkDelete = useCallback(async () => {
     setShowBulkDeleteConfirm(false);
     const ids = [...selectedIds];
@@ -168,6 +187,7 @@ export function useLicenseActions({
     handleCreateRenewal,
     handleCreateRenewalBundle,
     handleCancelRenewal,
+    handleUnlinkExistingSuccessor,
     handleBulkDelete,
   };
 }

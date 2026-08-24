@@ -54,6 +54,7 @@ const HELP_ARTICLES = [
           "The renewal workbench surfaces licenses approaching expiry and flags records that need attention, such as missing documents or high value.",
           "Starting a renewal marks the current license as pending renewal and creates sourcing-stage work. The successor license is not created until the related pending order is converted.",
           "When conversion completes, LicenseTrack creates the successor, marks the predecessor renewed, and preserves the renewal chain.",
+          "If the next term was already purchased as another active or upcoming license under the same PO, use Link Existing Successor from the expiring license instead. LicenseTrack adopts that record as the normal renewal successor without creating duplicate sourcing or pending-order work.",
           "Renewal sourcing and conversion preserve the predecessor's maintenance/support classification. Older recurring records without a stored value receive the type-appropriate default instead of losing coverage during renewal.",
           "A maintenance record imported as legacy unlinked can renew without a parent. If it is still unlinked at conversion, the successor keeps the legacy-unlinked marker; linking the predecessor before conversion or the successor afterward creates the normal parent link and mirror.",
         ],
@@ -62,6 +63,7 @@ const HELP_ARTICLES = [
         heading: "Things to know",
         bullets: [
           "Renewal successors inherit the predecessor license reference.",
+          "When an existing license is linked as the successor, its former LT reference remains reserved, searchable, and visible in the procurement trail.",
           "Cancel renewal work before it reaches a pending order when the purchasing motion changes.",
           "Coterm renewals merge multiple renewal lines so several predecessor licenses can align to one successor period.",
           "Estimated annual value in the Renewal Workbench annualizes a multi-year term rather than showing the complete term cost as one year.",

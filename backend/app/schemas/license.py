@@ -336,6 +336,10 @@ class LicenseResponse(LicenseBase):
     maintenance_parent_ids: list[int] = Field(default_factory=list)
     linked_maintenance_ids: list[int] = Field(default_factory=list)
     is_legacy_unlinked_maintenance: bool = False
+    existing_successor_linked_at: Optional[datetime] = None
+    existing_successor_linked_by_email: Optional[str] = None
+    existing_successor_original_ref: Optional[str] = None
+    license_ref_aliases: list[str] = Field(default_factory=list)
 
     # Computed fields - populated server-side, not stored in the database
     effective_quantity: Optional[str] = None
@@ -473,6 +477,18 @@ class ProcurementTrailConversion(BaseModel):
     coterm_from_ids: Optional[list[int]] = None
 
 
+class ProcurementTrailExistingSuccessorLink(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    predecessor_license_id: int
+    successor_license_id: int
+    po_number: str
+    chain_license_ref: Optional[str] = None
+    former_successor_license_ref: Optional[str] = None
+    linked_at: datetime
+    linked_by_email: Optional[str] = None
+
+
 class LicenseProcurementTrailResponse(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -484,6 +500,7 @@ class LicenseProcurementTrailResponse(BaseModel):
     sourcing_request: Optional[ProcurementTrailSourcingRequest] = None
     sourcing_item: Optional[ProcurementTrailSourcingItem] = None
     pending_order: Optional[ProcurementTrailPendingOrder] = None
+    existing_successor_link: Optional[ProcurementTrailExistingSuccessorLink] = None
     conversion: ProcurementTrailConversion
 
 
@@ -543,6 +560,20 @@ class InitiateRenewalResponse(BaseModel):
 
     license: LicenseResponse
     sourcing_item: "SourcingItemResponse"
+
+
+class LinkExistingSuccessorRequest(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    successor_license_id: int
+
+
+class LinkExistingSuccessorResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    predecessor: LicenseResponse
+    successor: LicenseResponse
+    former_successor_license_ref: Optional[str] = None
 
 
 class InitiateRenewalBundleRequest(BaseModel):

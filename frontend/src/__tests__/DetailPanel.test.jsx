@@ -61,6 +61,8 @@ vi.mock('../api/licenses.js', () => ({
   initiateRenewal: vi.fn(),
   initiateRenewalBundle: vi.fn(),
   cancelRenewal: vi.fn(),
+  linkExistingSuccessor: vi.fn(),
+  unlinkExistingSuccessor: vi.fn(),
   getMaintenanceForParent: vi.fn(),
   disableMaintenance: vi.fn(),
   linkMaintenanceToParent: vi.fn(),
@@ -164,6 +166,85 @@ describe('DetailPanel identity references', () => {
 
     expect(screen.getByText('LT-2026-00001')).toBeInTheDocument()
     expect(screen.queryByText(/LT-2026-00001 \|/)).not.toBeInTheDocument()
+  })
+})
+
+describe('DetailPanel existing renewal successor', () => {
+  it('links an already-purchased active license without requiring a budget owner', async () => {
+    const user = userEvent.setup()
+    const { linkExistingSuccessor } = await import('../api/licenses.js')
+    const onUpdate = vi.fn()
+    const successor = {
+      ...baseLicense,
+      id: 2,
+      licenseRef: 'LT-2026-00002',
+      softwareDescription: 'Commitment Year 2',
+      lifecycleStatus: null,
+      startDate: '2026-01-01',
+      endDate: '2028-01-01',
+      renewedFromId: null,
+      predecessorId: null,
+      renewedToId: null,
+    }
+    linkExistingSuccessor.mockResolvedValueOnce({
+      data: {
+        predecessor: {
+          ...baseLicense,
+          lifecycleStatus: 'renewed',
+          renewedToId: 2,
+          existingSuccessorLinkedAt: '2026-08-24T12:00:00Z',
+        },
+        successor: {
+          ...successor,
+          licenseRef: baseLicense.licenseRef,
+          renewedFromId: 1,
+          predecessorId: 1,
+          licenseRefAliases: ['LT-2026-00002'],
+        },
+        formerSuccessorLicenseRef: 'LT-2026-00002',
+      },
+      error: null,
+    })
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        allLicenses={[baseLicense, successor]}
+        onUpdate={onUpdate}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /link existing successor/i }))
+    expect(screen.getByRole('dialog', { name: /link existing successor/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('option', { name: /commitment year 2/i }))
+    await user.click(screen.getByRole('button', { name: /link as renewal/i }))
+
+    await waitFor(() => {
+      expect(linkExistingSuccessor).toHaveBeenCalledWith(1, 2)
+      expect(onUpdate).toHaveBeenCalledWith(1, expect.objectContaining({ lifecycleStatus: 'renewed' }))
+      expect(onUpdate).toHaveBeenCalledWith(2, expect.objectContaining({
+        licenseRef: 'LT-2026-00001',
+        licenseRefAliases: ['LT-2026-00002'],
+      }))
+    })
+  })
+
+  it('offers unlink only for renewals created from an existing successor', () => {
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        license={{
+          ...baseLicense,
+          lifecycleStatus: 'renewed',
+          renewedToId: 2,
+          existingSuccessorLinkedAt: '2026-08-24T12:00:00Z',
+        }}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: /^unlink$/i })).toBeInTheDocument()
   })
 })
 

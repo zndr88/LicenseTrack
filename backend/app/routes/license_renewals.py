@@ -16,6 +16,8 @@ from app.schemas.license import (
     InitiateRenewalBundleRequest,
     InitiateRenewalBundleResponse,
     InitiateRenewalResponse,
+    LinkExistingSuccessorRequest,
+    LinkExistingSuccessorResponse,
     LicenseResponse,
 )
 from app.schemas.sourcing import SourcingItemResponse, SourcingRequestResponse
@@ -127,6 +129,69 @@ async def initiate_renewal(
     return InitiateRenewalResponse(
         license=_enrich(license_obj, mandatory_fields, notification_days),
         sourcing_item=SourcingItemResponse.model_validate(result.sourcing_item),
+    )
+
+
+@router.post("/{license_id}/link-existing-successor", response_model=LinkExistingSuccessorResponse)
+async def link_existing_successor(
+    license_id: int,
+    payload: LinkExistingSuccessorRequest,
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_editor_or_admin),
+) -> LinkExistingSuccessorResponse:
+    """Complete a renewal by adopting an existing purchased License row."""
+    mandatory_fields, notification_days = await _get_global_settings(db)
+    result = await renewal_orchestrator.link_existing_successor(
+        db=db,
+        predecessor_id=license_id,
+        successor_id=payload.successor_license_id,
+        actor=current_user,
+        ip_address=request.client.host if request.client else None,
+        notification_days=notification_days,
+    )
+    await db.commit()
+
+    reload_result = await db.execute(
+        select(License)
+        .where(License.id.in_([result.predecessor.id, result.successor.id]))
+        .options(selectinload(License.documents))
+    )
+    reloaded = {license_obj.id: license_obj for license_obj in reload_result.scalars().all()}
+    return LinkExistingSuccessorResponse(
+        predecessor=_enrich(reloaded[result.predecessor.id], mandatory_fields, notification_days),
+        successor=_enrich(reloaded[result.successor.id], mandatory_fields, notification_days),
+        former_successor_license_ref=result.former_successor_license_ref,
+    )
+
+
+@router.post("/{license_id}/unlink-existing-successor", response_model=LinkExistingSuccessorResponse)
+async def unlink_existing_successor(
+    license_id: int,
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_editor_or_admin),
+) -> LinkExistingSuccessorResponse:
+    """Undo a link created by the existing-purchase renewal path."""
+    mandatory_fields, notification_days = await _get_global_settings(db)
+    result = await renewal_orchestrator.unlink_existing_successor(
+        db=db,
+        predecessor_id=license_id,
+        actor=current_user,
+        ip_address=request.client.host if request.client else None,
+    )
+    await db.commit()
+
+    reload_result = await db.execute(
+        select(License)
+        .where(License.id.in_([result.predecessor.id, result.successor.id]))
+        .options(selectinload(License.documents))
+    )
+    reloaded = {license_obj.id: license_obj for license_obj in reload_result.scalars().all()}
+    return LinkExistingSuccessorResponse(
+        predecessor=_enrich(reloaded[result.predecessor.id], mandatory_fields, notification_days),
+        successor=_enrich(reloaded[result.successor.id], mandatory_fields, notification_days),
+        former_successor_license_ref=result.former_successor_license_ref,
     )
 
 

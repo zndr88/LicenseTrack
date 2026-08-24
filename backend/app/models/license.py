@@ -181,6 +181,17 @@ class License(Base):
     renewed_to_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("licenses.id", use_alter=True, name="fk_license_renewed_to"), nullable=True
     )
+    # Set only when an operator adopts an already-purchased License row as
+    # this record's renewal successor. Ordinary sourcing/PO renewals leave
+    # these provenance fields empty.
+    existing_successor_linked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    existing_successor_linked_by_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    existing_successor_original_ref: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Former chain identities remain searchable and are never returned to the
+    # reference sequence when an existing row joins a renewal chain.
+    license_ref_aliases: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
 
     # Structural predecessor link - points at the license this record supersedes.
     # Populated during renewal conversion and CSV import of renewal rows.

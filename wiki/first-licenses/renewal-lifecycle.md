@@ -14,6 +14,14 @@ Once a license is inside the alert window, the renewal workflow activates. An **
 
 From either view you can start the renewal, provided all conditions are met.
 
+If the next entitlement period was already purchased and exists as an Active
+or Upcoming license under the same PO, choose **Link Existing Successor**
+instead. This marks the current record renewed and adopts the selected record
+as its normal successor without creating another sourcing request or pending
+order. The selected record inherits the renewal-chain LT reference; its former
+reference remains reserved and searchable in history. Date gaps and overlaps
+are shown for confirmation before linking.
+
 The workbench's estimated annual value annualizes multi-year term cost, so a
 two- or three-year purchase is not presented as though the complete term value
 were one year's spend.
@@ -92,6 +100,11 @@ is in progress makes the successor an ordinary linked maintenance record.
 ![The renewed license with a link back to the previous term](../assets/renewal-09-renewed-link.png)
 
 The renewed license's **History** section also shows the procurement trail when the renewal passed through LicenseTrack sourcing and pending orders. From there you can jump back to the historical sourcing item, then through to the historical PO, and finally back to the created license. This is useful when an old renewal is restarted months later and you need the previous quote, notes, or PO evidence for reference.
+
+An existing-purchase renewal has no new sourcing or pending-order stages to
+show. Its procurement trail records the predecessor and successor record IDs,
+PO number, former successor reference, actor, and link time, while preserving
+the successor's original purchase trail.
 
 !!! info "About the LT-Reference number"
     You might notice the LT-Reference number is unchanged. A license keeps a single unique identifier for its whole life — on renewal in future years the **year** in the reference changes, but the identifier number does not. Because this is an example renewal within the same year, both records show the same year.

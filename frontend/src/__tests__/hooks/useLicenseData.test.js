@@ -90,6 +90,19 @@ describe("useLicenseData", () => {
     expect(result.current.filtered.length).toBe(1)
   })
 
+  test("search matches a former renewal-chain reference alias", () => {
+    const licenses = [
+      makeLicense({
+        licenseRef: "LT-2026-00150",
+        licenseRefAliases: ["LT-2026-00151"],
+      }),
+    ]
+    const { result } = renderHook(() =>
+      useLicenseData(licenses, { ...defaultOptions, search: "00151" })
+    )
+    expect(result.current.filtered).toHaveLength(1)
+  })
+
   // 4n
   test("statusFilters filters by expiration status", () => {
     const licenses = [

@@ -20,11 +20,36 @@ export default function RenewalWorkflowSection({
   onNavigate,
   onNavigateToSourcing,
   onNavigateToPendingOrder,
+  onLinkExistingSuccessor,
+  onUnlinkExistingSuccessor,
+  setConfirmAction,
   setToast,
 }) {
   const { poSiblings, bundleCount } = useRenewalPanelModel({ license, allLicenses, globalSettings });
   const [initiatingRenewal, setInitiatingRenewal] = useState(false);
+  const [unlinkingSuccessor, setUnlinkingSuccessor] = useState(false);
   const canStartRenewal = !NON_RENEWABLE_LICENSE_TYPES.includes(license.licenseType);
+  const canLinkExistingSuccessor = Boolean(license.poNumber?.trim());
+
+  const confirmUnlinkExistingSuccessor = () => {
+    setConfirmAction({
+      title: "Unlink Existing Successor",
+      message: "Remove this existing-purchase renewal link? The predecessor will return to its date-based status and the successor's former LT reference will be restored.",
+      confirmLabel: "Unlink Successor",
+      danger: true,
+      onConfirm: async () => {
+        setConfirmAction(null);
+        setUnlinkingSuccessor(true);
+        const result = await onUnlinkExistingSuccessor(license.id);
+        setUnlinkingSuccessor(false);
+        if (!result?.ok) {
+          setToast(`Unlink failed: ${result?.error || "Unknown error"}`);
+          return;
+        }
+        setToast("Existing successor unlinked");
+      },
+    });
+  };
 
   return (
     <>
@@ -40,37 +65,44 @@ export default function RenewalWorkflowSection({
               ? bundleCount > 1
                 ? `${bundleCount} licenses share PO ${license.poNumber} and the same end date. One sourcing request with ${bundleCount} license lines will be created.`
                 : `Initiating renewal will create a sourcing record routed through procurement. This license will be retired once the renewal is complete and a successor license will be created with the new dates.`
-              : "Set a budget owner email above to enable automated renewal notifications."}
+              : "Set a budget owner email above to start procurement, or link the next term if it was already purchased under this PO."}
           </div>
-          {perms.canEdit && license.budgetOwnerEmail && (
-            <button
-              className="btn btn-p"
-              style={{ fontSize: 11, padding: "6px 12px" }}
-              disabled={initiatingRenewal}
-              onClick={async () => {
-                setInitiatingRenewal(true);
-                try {
-                  const allToRenew = [license, ...poSiblings];
-                  const result = bundleCount > 1 && onCreateRenewalBundle
-                    ? await onCreateRenewalBundle(allToRenew.map((lic) => lic.id))
-                    : await onCreateRenewal(license.id);
-                  if (!result?.ok) {
-                    return;
-                  }
-                  setToast(
-                    bundleCount > 1
-                      ? `Renewal initiated - one sourcing request with ${bundleCount} lines created`
-                      : "Renewal initiated - sourcing record created"
-                  );
-                  setTimeout(() => setToast(null), 6000);
-                } finally {
-                  setInitiatingRenewal(false);
-                }
-              }}
-            >
-              <Icon name="clock" size={13} />{" "}
-              {initiatingRenewal ? "Initiating..." : bundleCount > 1 ? `Initiate Renewal (${bundleCount} licenses)` : "Initiate Renewal"}
-            </button>
+          {perms.canEdit && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {license.budgetOwnerEmail && (
+                <button
+                  className="btn btn-p"
+                  style={{ fontSize: 11, padding: "6px 12px" }}
+                  disabled={initiatingRenewal}
+                  onClick={async () => {
+                    setInitiatingRenewal(true);
+                    try {
+                      const allToRenew = [license, ...poSiblings];
+                      const result = bundleCount > 1 && onCreateRenewalBundle
+                        ? await onCreateRenewalBundle(allToRenew.map((lic) => lic.id))
+                        : await onCreateRenewal(license.id);
+                      if (!result?.ok) return;
+                      setToast(
+                        bundleCount > 1
+                          ? `Renewal initiated - one sourcing request with ${bundleCount} lines created`
+                          : "Renewal initiated - sourcing record created"
+                      );
+                      setTimeout(() => setToast(null), 6000);
+                    } finally {
+                      setInitiatingRenewal(false);
+                    }
+                  }}
+                >
+                  <Icon name="clock" size={13} />{" "}
+                  {initiatingRenewal ? "Initiating..." : bundleCount > 1 ? `Initiate Renewal (${bundleCount} licenses)` : "Initiate Renewal"}
+                </button>
+              )}
+              {canLinkExistingSuccessor && (
+                <button type="button" className="btn btn-g" style={{ fontSize: 11, padding: "6px 12px" }} onClick={onLinkExistingSuccessor}>
+                  <Icon name="arrow-right" size={13} /> Link Existing Successor
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -101,7 +133,14 @@ export default function RenewalWorkflowSection({
                 </div>
               )}
             </div>
-            <button className="btn btn-g btn-sm" onClick={() => onNavigate(license.renewedToId)}>View Renewal →</button>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <button className="btn btn-g btn-sm" onClick={() => onNavigate(license.renewedToId)}>View Renewal →</button>
+              {perms.canEdit && license.existingSuccessorLinkedAt && (
+                <button className="btn btn-g btn-sm" disabled={unlinkingSuccessor} onClick={confirmUnlinkExistingSuccessor}>
+                  {unlinkingSuccessor ? "Unlinking..." : "Unlink"}
+                </button>
+              )}
+            </div>
           </div>
         );
       })()}

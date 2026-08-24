@@ -47,8 +47,9 @@ export function ProcurementTrail({
   const sourcingRequest = trail?.sourcingRequest;
   const sourcingItem = trail?.sourcingItem;
   const pendingOrder = trail?.pendingOrder;
+  const existingSuccessorLink = trail?.existingSuccessorLink;
   const conversion = trail?.conversion;
-  const hasTrail = sourcingRequest || sourcingItem || pendingOrder;
+  const hasTrail = sourcingRequest || sourcingItem || pendingOrder || existingSuccessorLink;
 
   if (!hasTrail) {
     return <div className="dp-note">No linked procurement trail.</div>;
@@ -70,6 +71,21 @@ export function ProcurementTrail({
 
   return (
     <div className="dp-trail">
+      {existingSuccessorLink && (
+        <TrailRow
+          label="Existing Purchase Renewal"
+          title={`License Record #${existingSuccessorLink.predecessorLicenseId} renewed into License Record #${existingSuccessorLink.successorLicenseId}`}
+          meta={[
+            existingSuccessorLink.poNumber ? `PO ${existingSuccessorLink.poNumber}` : null,
+            existingSuccessorLink.formerSuccessorLicenseRef
+              ? `former successor ref ${existingSuccessorLink.formerSuccessorLicenseRef}`
+              : null,
+            existingSuccessorLink.linkedAt ? formatDateTime(existingSuccessorLink.linkedAt, userSettings) : null,
+            existingSuccessorLink.linkedByEmail ? `linked by ${existingSuccessorLink.linkedByEmail}` : null,
+            "no new sourcing or pending order created",
+          ].filter(Boolean).join(" · ")}
+        />
+      )}
       {sourcingRequest && (
         <TrailRow
           label="Sourcing Request"

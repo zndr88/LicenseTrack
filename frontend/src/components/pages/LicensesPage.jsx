@@ -195,6 +195,7 @@ export default function LicensesPage({
     handleCreateRenewal,
     handleCreateRenewalBundle,
     handleCancelRenewal,
+    handleUnlinkExistingSuccessor,
     handleBulkDelete,
   } = useLicenseActions({
     selectedId,
@@ -421,6 +422,7 @@ export default function LicensesPage({
               onCreateRenewal={handleCreateRenewal}
               onCreateRenewalBundle={handleCreateRenewalBundle}
               onCancelRenewal={handleCancelRenewal}
+              onUnlinkExistingSuccessor={handleUnlinkExistingSuccessor}
               onNavigate={(id) => setSelectedId(id)}
               onPreviewDocument={openDocumentPreview}
             />

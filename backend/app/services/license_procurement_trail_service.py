@@ -9,6 +9,7 @@ from app.schemas.license import (
     LicenseProcurementTrailResponse,
     ProcurementTrailConversion,
     ProcurementTrailDocument,
+    ProcurementTrailExistingSuccessorLink,
     ProcurementTrailPendingOrder,
     ProcurementTrailSourcingItem,
     ProcurementTrailSourcingRequest,
@@ -144,12 +145,35 @@ async def build_license_procurement_trail(
         if len({item.sourcing_request_id for item in sourced_items}) == 1:
             sourcing_request = sourced_items[0].sourcing_request
 
+    link_predecessor = license_obj if license_obj.existing_successor_linked_at is not None else None
+    if link_predecessor is None and license_obj.renewed_from_id is not None:
+        candidate = await db.get(License, license_obj.renewed_from_id)
+        if (
+            candidate is not None
+            and candidate.existing_successor_linked_at is not None
+            and candidate.renewed_to_id == license_obj.id
+        ):
+            link_predecessor = candidate
+
+    existing_successor_link = None
+    if link_predecessor is not None and link_predecessor.renewed_to_id is not None:
+        existing_successor_link = ProcurementTrailExistingSuccessorLink(
+            predecessor_license_id=link_predecessor.id,
+            successor_license_id=link_predecessor.renewed_to_id,
+            po_number=link_predecessor.po_number,
+            chain_license_ref=link_predecessor.license_ref,
+            former_successor_license_ref=link_predecessor.existing_successor_original_ref,
+            linked_at=link_predecessor.existing_successor_linked_at,
+            linked_by_email=link_predecessor.existing_successor_linked_by_email,
+        )
+
     return LicenseProcurementTrailResponse(
         license_id=license_obj.id,
         license_ref=license_obj.license_ref,
         sourcing_request=_sourcing_request_response(sourcing_request),
         sourcing_item=_sourcing_item_response(source_item),
         pending_order=_pending_order_response(pending_order),
+        existing_successor_link=existing_successor_link,
         conversion=ProcurementTrailConversion(
             pending_order_id=license_obj.pending_order_id,
             source_sourcing_item_id=source_item.id if source_item is not None else license_obj.source_sourcing_item_id,

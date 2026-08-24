@@ -36,7 +36,10 @@ Create a webhook endpoint:
 
 Use `["*"]` to subscribe to all audited events. The create response includes `signing_secret` once. Store it in the receiving system because LicenseTrack does not return it again.
 
-Common event names include `license.created`, `license.updated`, `document.uploaded`, `procurement_document.uploaded`, `document_action.requested`, and `webhook.test`.
+Common event names include `license.created`, `license.updated`,
+`license.existing_successor_linked`, `license.existing_successor_unlinked`,
+`document.uploaded`, `procurement_document.uploaded`,
+`document_action.requested`, and `webhook.test`.
 
 ## Event Payload
 
