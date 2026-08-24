@@ -18,8 +18,34 @@ def test_save_file_bytes_returns_relative_path(tmp_path):
     stored_path, _ = storage.save_file_bytes(content, "doc.pdf", license_id=7, storage_base=str(tmp_path))
     # Must be relative (no leading slash)
     assert not stored_path.startswith("/")
-    # Must be under the documents/7/ directory
-    assert "documents/7/" in stored_path.replace("\\", "/")
+    assert "attachments/licenses/7/" in stored_path.replace("\\", "/")
+
+
+@pytest.mark.parametrize(
+    ("scope", "scope_id", "expected_directory"),
+    [
+        ("pending_order", 12, "attachments/procurement/pending_orders/12/"),
+        ("bundle", "5f70f30c-2e1d-4b93-8af4-64141077b902", "attachments/procurement/bundles/5f70f30c-2e1d-4b93-8af4-64141077b902/"),
+        ("license", 42, "attachments/procurement/licenses/42/"),
+    ],
+)
+def test_save_procurement_document_bytes_uses_immutable_scope_directory(
+    tmp_path,
+    scope,
+    scope_id,
+    expected_directory,
+):
+    stored_path, size = storage.save_procurement_document_bytes(
+        b"evidence",
+        "invoice.pdf",
+        scope,
+        scope_id,
+        str(tmp_path),
+    )
+
+    assert expected_directory in stored_path.replace("\\", "/")
+    assert (tmp_path / stored_path).read_bytes() == b"evidence"
+    assert size == len(b"evidence")
 
 
 def test_save_file_bytes_sanitises_filename(tmp_path):

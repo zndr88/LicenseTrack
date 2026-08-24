@@ -367,6 +367,7 @@ async def test_upload_document_to_contract_returns_201(test_app, auth_headers, c
     body = resp.json()
     assert body["originalFilename"] == "agreement.pdf"
     assert body["folderId"] is None
+    assert f"attachments/contracts/{contract['id']}/" in body["filename"].replace("\\", "/")
 
 
 async def test_upload_document_to_folder(test_app, auth_headers, contract_with_folder):

@@ -177,6 +177,9 @@ def test_create_portfolio_reset_archive_includes_database_documents_and_manifest
     document = storage / "documents" / "7" / "eula.pdf"
     document.parent.mkdir(parents=True)
     document.write_bytes(b"eula")
+    attachment = storage / "attachments" / "contracts" / "9" / "agreement.pdf"
+    attachment.parent.mkdir(parents=True)
+    attachment.write_bytes(b"agreement")
     plugin_file = storage / "plugins" / "kept.bin"
     plugin_file.parent.mkdir(parents=True)
     plugin_file.write_bytes(b"plugin")
@@ -186,18 +189,19 @@ def test_create_portfolio_reset_archive_includes_database_documents_and_manifest
         str(tmp_path / "backups"),
         str(storage),
         {"licenses": 1},
-        ["documents/7/eula.pdf"],
+        ["documents/7/eula.pdf", "attachments/contracts/9/agreement.pdf"],
     )
 
     with zipfile.ZipFile(archive) as zf:
         names = zf.namelist()
         assert "database/licenses.db" in names
         assert "storage/documents/7/eula.pdf" in names
+        assert "storage/attachments/contracts/9/agreement.pdf" in names
         assert "storage/plugins/kept.bin" not in names
         manifest = json.loads(zf.read("portfolio_reset_manifest.json"))
         assert manifest["archive_type"] == "portfolio_reset_recovery"
         assert manifest["record_counts"] == {"licenses": 1}
-        assert manifest["required_document_count"] == 1
+        assert manifest["required_document_count"] == 2
 
 
 def test_create_portfolio_reset_archive_rejects_missing_required_document(

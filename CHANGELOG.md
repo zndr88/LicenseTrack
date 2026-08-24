@@ -13,6 +13,60 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+### Added
+
+- Added **Link existing successor** to the renewal workflow so a pre-purchased
+  upcoming license under the same purchase order can become the next term
+  without creating a duplicate purchase. The adopted license follows the
+  standard renewal chain, procurement trail, lifecycle transition, reference
+  alias, and unlink behavior.
+
+### Changed
+
+- Unified new managed document storage under an `attachments/` hierarchy keyed
+  by immutable license, pending-order, procurement-bundle, sourcing-request,
+  and contract IDs instead of using purchase-order numbers as physical folder
+  names. Legacy stored paths remain readable and supported by backup, restore,
+  and portfolio reset workflows.
+- Classified Quote, Purchase Order, and Invoice uploads consistently as
+  procurement evidence even when the attached license does not yet have a PO
+  number.
+
+### Fixed
+
+- Required document categories now count toward completeness only when the
+  managed file is available. Missing or unavailable files retain their
+  metadata and availability counts but no longer make a license appear
+  complete in the Registry, reports, notifications, exports, or Renewal
+  Workbench.
+- Rejected newly created or edited terms whose end date precedes their start
+  date across manual entry, inline editing, CSV import, procurement conversion,
+  maintenance, and renewal workflows. Existing invalid historical records
+  remain readable and repairable instead of breaking the Registry response.
+- Stopped classifying recurring licenses without an end date as perpetual.
+  They remain active but incomplete until an end date is supplied, while true
+  non-expiring license types retain perpetual status.
+- Rejected explicit null values for required license fields and safely
+  normalized null values for clearable text fields, preventing database errors
+  during full and inline updates.
+- Scoped bulk selection to the displayed page, cleared hidden selections when
+  filters or pagination change, and identified the selected licenses in the
+  delete confirmation.
+- Reset and clamped Registry pagination after searches, filters, saved-view
+  changes, and page-size changes so a valid filtered result cannot appear as an
+  empty out-of-range page.
+- Aligned Registry status filters with portfolio counts: **Active** no longer
+  includes expiring licenses, and **Incomplete** no longer includes
+  completeness-exempt records.
+- Removed the redundant all-custom-field-values request from License Overview
+  and built the custom-field map from values already embedded in the license
+  registry response.
+- Kept core license loading independent from auxiliary statistics, sourcing,
+  pending-order, contract, and custom-field-definition failures. The Registry
+  retains last-known supporting data, shows unavailable pipeline counts as
+  unknown instead of zero, offers a focused retry, and applies stable license
+  ID ordering before offset pagination.
+
 ## [1.1.12] - 2026-08-23
 
 ### Added

@@ -202,6 +202,38 @@ async def test_list_documents(test_app, auth_headers, existing_license):
     assert len(resp.json()) == 1
 
 
+async def test_procurement_category_without_po_uses_license_procurement_scope(test_app, auth_headers):
+    license_resp = await test_app.post(
+        "/api/licenses",
+        json={
+            "publisherName": "No PO Publisher",
+            "softwareDescription": "No PO Suite",
+            "licenseType": "subscription",
+            "licenseMetric": "per_user",
+            "quantity": "1",
+            "currency": "EUR",
+        },
+        headers=auth_headers,
+    )
+    assert license_resp.status_code == 201, license_resp.text
+    license_id = license_resp.json()["id"]
+
+    upload_resp = await test_app.post(
+        f"/api/licenses/{license_id}/documents",
+        files={"file": ("invoice.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"category": "invoice"},
+        headers=auth_headers,
+    )
+
+    assert upload_resp.status_code == 201, upload_resp.text
+    document = upload_resp.json()
+    assert document["scope"] == "po"
+    assert document["license_id"] == license_id
+    assert document["pending_order_id"] is None
+    assert document["procurement_bundle_id"] is None
+    assert f"attachments/procurement/licenses/{license_id}/" in document["filename"].replace("\\", "/")
+
+
 async def test_license_overview_counts_license_scoped_procurement_documents(test_app, auth_headers):
     license_payload = {
         "publisherName": "Acme Corp",
@@ -562,7 +594,7 @@ async def test_download_document_success(
     upload_url = f"/api/licenses/{existing_license}/documents"
     content = b"%PDF-1.4 downloadable"
     files = {"file": ("download-me.pdf", content, "application/pdf")}
-    data = {"category": "invoice"}
+    data = {"category": "eula"}
 
     upload_resp = await test_app.post(
         upload_url, files=files, data=data, headers=auth_headers
@@ -588,7 +620,7 @@ async def test_download_missing_file_on_disk_returns_404(
     upload_resp = await test_app.post(
         upload_url,
         files={"file": ("missing.pdf", b"%PDF-1.4", "application/pdf")},
-        data={"category": "invoice"},
+        data={"category": "eula"},
         headers=auth_headers,
     )
     assert upload_resp.status_code == 201
@@ -946,7 +978,7 @@ async def test_list_documents_nonexistent_license(test_app, auth_headers):
 async def test_delete_document(test_app, auth_headers, existing_license):
     upload_url = f"/api/licenses/{existing_license}/documents"
     files = {"file": ("receipt.pdf", b"%PDF-1.4", "application/pdf")}
-    data = {"category": "invoice"}
+    data = {"category": "eula"}
 
     upload_resp = await test_app.post(upload_url, files=files, data=data, headers=auth_headers)
     assert upload_resp.status_code == 201
@@ -967,7 +999,7 @@ async def test_delete_document_succeeds_when_file_is_already_missing(
     upload_resp = await test_app.post(
         upload_url,
         files={"file": ("gone.pdf", b"%PDF-1.4", "application/pdf")},
-        data={"category": "invoice"},
+        data={"category": "eula"},
         headers=auth_headers,
     )
     assert upload_resp.status_code == 201
@@ -995,7 +1027,7 @@ async def test_delete_license_removes_its_managed_document_file(
     upload_resp = await test_app.post(
         f"/api/licenses/{existing_license}/documents",
         files={"file": ("license-owned.pdf", b"%PDF-1.4 managed", "application/pdf")},
-        data={"category": "invoice"},
+        data={"category": "eula"},
         headers=auth_headers,
     )
     assert upload_resp.status_code == 201
@@ -1037,7 +1069,7 @@ async def test_bulk_delete_licenses_removes_all_managed_document_files(
         upload_resp = await test_app.post(
             f"/api/licenses/{license_id}/documents",
             files={"file": (filename, b"%PDF-1.4 managed", "application/pdf")},
-            data={"category": "invoice"},
+            data={"category": "eula"},
             headers=auth_headers,
         )
         assert upload_resp.status_code == 201
@@ -1061,7 +1093,7 @@ async def test_rejected_license_delete_keeps_managed_document_file(
     upload_resp = await test_app.post(
         f"/api/licenses/{existing_license}/documents",
         files={"file": ("kept-after-rollback.pdf", b"%PDF-1.4 kept", "application/pdf")},
-        data={"category": "invoice"},
+        data={"category": "eula"},
         headers=auth_headers,
     )
     assert upload_resp.status_code == 201

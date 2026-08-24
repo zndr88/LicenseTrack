@@ -18,6 +18,9 @@ from app.config import settings as app_settings
 logger = logging.getLogger("license_lifecycle.backup_service")
 
 PORTFOLIO_STORAGE_DIRECTORIES = (
+    "attachments",
+    # Legacy roots remain supported so existing relative paths stay readable,
+    # recoverable, and removable after adopting the unified attachments layout.
     "documents",
     "contracts",
     "sourcing_requests",

@@ -1205,6 +1205,7 @@ async def test_purchase_order_document_is_shared_across_converted_licenses(test_
     )
     assert upload_resp.status_code == 201, upload_resp.text
     assert upload_resp.json()["category"] == "purchase_order"
+    assert f"attachments/procurement/pending_orders/{order_id}/" in upload_resp.json()["filename"].replace("\\", "/")
 
     order_detail_resp = await test_app.get(f"/api/pending-orders/{order_id}", headers=auth_headers)
     assert order_detail_resp.status_code == 200, order_detail_resp.text
@@ -1558,10 +1559,10 @@ async def test_partial_quote_copy_failure_compensates_quote_rows_and_files_only(
     real_save = _storage_module.save_procurement_document_bytes
     written: dict[str, str] = {}
 
-    def fail_second_quote(content, filename, po_number, storage_base=None):
+    def fail_second_quote(content, filename, scope, scope_id, storage_base=None):
         if filename == "quote-two.pdf":
             raise OSError("simulated second quote failure")
-        stored_path, file_size = real_save(content, filename, po_number, storage_base)
+        stored_path, file_size = real_save(content, filename, scope, scope_id, storage_base)
         written[filename] = stored_path
         return stored_path, file_size
 
@@ -1720,6 +1721,7 @@ async def test_sourcing_quote_carries_forward_as_po_scoped_procurement_document(
         headers=auth_headers,
     )
     assert upload_resp.status_code == 201, upload_resp.text
+    assert f"attachments/sourcing_requests/{request_id}/" in upload_resp.json()["filename"].replace("\\", "/")
 
     po = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
     convert_resp = await test_app.post(
@@ -1738,6 +1740,7 @@ async def test_sourcing_quote_carries_forward_as_po_scoped_procurement_document(
     ]
     assert len(quote_docs) == 1
     assert quote_docs[0]["original_filename"] == "quote.pdf"
+    assert f"attachments/procurement/pending_orders/{po['id']}/" in quote_docs[0]["filename"].replace("\\", "/")
 
 
 async def test_sourcing_quote_document_download_and_delete(test_app, auth_headers, tmp_path, monkeypatch):

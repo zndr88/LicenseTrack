@@ -89,10 +89,16 @@ async def upload_document(
 
     storage_base = await storage.resolve_storage_path(db)
     is_procurement_category = category.value in {member.value for member in ProcurementDocumentCategory}
-    if is_procurement_category and (lic.po_number or lic.procurement_bundle_id):
-        storage_scope = lic.po_number or f"manual-{lic.procurement_bundle_id}"
-        stored_path, file_size = await storage.save_procurement_document_file(file, storage_scope, storage_base)
+    if is_procurement_category:
         is_bundle_document = lic.procurement_bundle_id is not None
+        storage_scope = "bundle" if is_bundle_document else "license"
+        storage_scope_id = lic.procurement_bundle_id if is_bundle_document else license_id
+        stored_path, file_size = await storage.save_procurement_document_file(
+            file,
+            storage_scope,
+            storage_scope_id,
+            storage_base,
+        )
         procurement_document = ProcurementDocument(
             po_number=lic.po_number,
             pending_order_id=None,

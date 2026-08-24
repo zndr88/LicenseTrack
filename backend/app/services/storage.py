@@ -27,8 +27,16 @@ from app.models.settings import GlobalSettings
 logger = logging.getLogger("license_lifecycle.storage")
 
 DocumentFileAvailability = Literal["available", "missing", "unavailable"]
+ProcurementDocumentScope = Literal["pending_order", "bundle", "license"]
 MISSING_FILE_DETAIL = "The document record exists, but the file is missing from managed storage."
 UNAVAILABLE_STORAGE_DETAIL = "The document record exists, but managed storage is unavailable."
+
+_ATTACHMENTS_DIRECTORY = "attachments"
+_PROCUREMENT_SCOPE_DIRECTORIES: dict[ProcurementDocumentScope, str] = {
+    "pending_order": "pending_orders",
+    "bundle": "bundles",
+    "license": "licenses",
+}
 
 
 @dataclass(frozen=True)
@@ -112,23 +120,35 @@ def _resolve_base(storage_base: Optional[str] = None) -> Path:
 
 def _license_dir(license_id: int, storage_base: Optional[str] = None) -> Path:
     """Return the per-license storage directory path."""
-    return _resolve_base(storage_base) / "documents" / str(license_id)
+    return _resolve_base(storage_base) / _ATTACHMENTS_DIRECTORY / "licenses" / str(license_id)
 
 
 def _contract_dir(contract_id: int, storage_base: Optional[str] = None) -> Path:
     """Return the per-contract storage directory path."""
-    return _resolve_base(storage_base) / "contracts" / str(contract_id)
+    return _resolve_base(storage_base) / _ATTACHMENTS_DIRECTORY / "contracts" / str(contract_id)
 
 
 def _sourcing_request_dir(sourcing_request_id: int, storage_base: Optional[str] = None) -> Path:
     """Return the per-sourcing-request storage directory path."""
-    return _resolve_base(storage_base) / "sourcing_requests" / str(sourcing_request_id)
+    return _resolve_base(storage_base) / _ATTACHMENTS_DIRECTORY / "sourcing_requests" / str(sourcing_request_id)
 
 
-def _procurement_document_dir(po_number: str, storage_base: Optional[str] = None) -> Path:
-    """Return the per-PO procurement document storage directory path."""
-    safe_po = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in po_number) or "unassigned"
-    return _resolve_base(storage_base) / "procurement_documents" / safe_po
+def _procurement_document_dir(
+    scope: ProcurementDocumentScope,
+    scope_id: int | str,
+    storage_base: Optional[str] = None,
+) -> Path:
+    """Return the procurement directory for one immutable ownership scope."""
+    scope_value = str(scope_id).strip()
+    if not scope_value or any(not (ch.isalnum() or ch in ("-", "_")) for ch in scope_value):
+        raise ValueError("Invalid procurement storage scope identifier.")
+    return (
+        _resolve_base(storage_base)
+        / _ATTACHMENTS_DIRECTORY
+        / "procurement"
+        / _PROCUREMENT_SCOPE_DIRECTORIES[scope]
+        / scope_value
+    )
 
 
 def _path_within_base(candidate: Path, base: Path, log_value: object) -> Path:
@@ -166,7 +186,7 @@ def _stored_upload_name(filename: str | None) -> str:
 
 async def save_file(file: UploadFile, license_id: int, storage_base: Optional[str] = None) -> tuple[str, int]:
     """
-    Persist *file* under <storage_base>/documents/{license_id}/{uuid}_{filename}.
+    Persist *file* under <storage_base>/attachments/licenses/{license_id}/{uuid}.
 
     Returns
     -------
@@ -192,7 +212,7 @@ def save_file_bytes(
     license_id: int,
     storage_base: Optional[str] = None,
 ) -> tuple[str, int]:
-    """Write pre-read bytes to disk under documents/{license_id}/{uuid}_{filename}.
+    """Write pre-read bytes under attachments/licenses/{license_id}/{uuid}.
 
     Unlike save_file(), this accepts bytes directly so the disk write can be
     deferred until after a DB commit. Returns (relative_stored_path, byte_count).
@@ -209,7 +229,7 @@ def save_file_bytes(
 
 async def save_contract_file(file: UploadFile, contract_id: int, storage_base: Optional[str] = None) -> tuple[str, int]:
     """
-    Persist *file* under <storage_base>/contracts/{contract_id}/{uuid}_{filename}.
+    Persist *file* under <storage_base>/attachments/contracts/{contract_id}/{uuid}.
 
     Returns
     -------
@@ -234,7 +254,7 @@ async def save_sourcing_request_file(
     sourcing_request_id: int,
     storage_base: Optional[str] = None,
 ) -> tuple[str, int]:
-    """Persist *file* under <storage_base>/sourcing_requests/{id}/{uuid}_{filename}."""
+    """Persist *file* under <storage_base>/attachments/sourcing_requests/{id}/{uuid}."""
     stored_name = _stored_upload_name(file.filename)
     base = _resolve_base(storage_base)
     dest = _stored_file_path(base, _sourcing_request_dir(sourcing_request_id, storage_base), stored_name)
@@ -248,13 +268,14 @@ async def save_sourcing_request_file(
 
 async def save_procurement_document_file(
     file: UploadFile,
-    po_number: str,
+    scope: ProcurementDocumentScope,
+    scope_id: int | str,
     storage_base: Optional[str] = None,
 ) -> tuple[str, int]:
-    """Persist *file* under <storage_base>/procurement_documents/{po}/{uuid}_{filename}."""
+    """Persist a procurement file under its immutable ownership scope."""
     stored_name = _stored_upload_name(file.filename)
     base = _resolve_base(storage_base)
-    dest = _stored_file_path(base, _procurement_document_dir(po_number, storage_base), stored_name)
+    dest = _stored_file_path(base, _procurement_document_dir(scope, scope_id, storage_base), stored_name)
 
     contents = await file.read()
     _backend.write(dest, contents)
@@ -266,13 +287,14 @@ async def save_procurement_document_file(
 def save_procurement_document_bytes(
     content: bytes,
     filename: str,
-    po_number: str,
+    scope: ProcurementDocumentScope,
+    scope_id: int | str,
     storage_base: Optional[str] = None,
 ) -> tuple[str, int]:
-    """Write bytes under procurement_documents/{po}/{uuid}_{filename}."""
+    """Write procurement bytes under their immutable ownership scope."""
     stored_name = _stored_upload_name(filename)
     base = _resolve_base(storage_base)
-    dest = _stored_file_path(base, _procurement_document_dir(po_number, storage_base), stored_name)
+    dest = _stored_file_path(base, _procurement_document_dir(scope, scope_id, storage_base), stored_name)
 
     _backend.write(dest, content)
 

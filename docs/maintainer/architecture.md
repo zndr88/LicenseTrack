@@ -502,6 +502,16 @@ procurement-category documents uploaded directly to a single license. Do not
 use PO number as the document sharing key; PO number is metadata and may be
 reused intentionally or accidentally.
 
+New managed files use one stable-ID filesystem hierarchy under `attachments/`:
+license evidence under `licenses/{license_id}`, procurement evidence under
+`procurement/pending_orders/{pending_order_id}`, `procurement/bundles/{bundle_id}`,
+or `procurement/licenses/{license_id}`, sourcing evidence under
+`sourcing_requests/{sourcing_request_id}`, and contract evidence under
+`contracts/{contract_id}`. Stored relative paths remain authoritative, so legacy
+`documents/`, `procurement_documents/`, `sourcing_requests/`, and `contracts/`
+paths continue to resolve. Human-editable PO numbers and folder labels must not
+be used as physical storage keys.
+
 Document, procurement-document, and contract-document uploads/deletes are
 evidence amendments once they happen outside the original conversion
 transaction. Their audit detail should use `mutationType=document_amendment`

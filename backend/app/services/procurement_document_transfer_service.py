@@ -56,7 +56,13 @@ async def write_invoice_procurement_document(
     gs_result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
     gs_row = gs_result.scalar_one_or_none()
     storage_base = (gs_row.storage_path if gs_row else "") or None
-    stored_path, file_size = storage.save_procurement_document_bytes(content, filename, po_number, storage_base)
+    stored_path, file_size = storage.save_procurement_document_bytes(
+        content,
+        filename,
+        "pending_order",
+        pending_order_id,
+        storage_base,
+    )
     db.add(
         ProcurementDocument(
             po_number=po_number,
@@ -105,7 +111,11 @@ async def copy_quote_documents_to_procurement_documents(
             if not source_path.exists():
                 continue
             stored_path, file_size = storage.save_procurement_document_bytes(
-                source_path.read_bytes(), quote_doc.original_filename, po_number, storage_base
+                source_path.read_bytes(),
+                quote_doc.original_filename,
+                "pending_order",
+                pending_order_id,
+                storage_base,
             )
             db.add(ProcurementDocument(
                 po_number=po_number, pending_order_id=pending_order_id, filename=stored_path,
