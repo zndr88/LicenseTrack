@@ -38,6 +38,12 @@ Procurement documents shared after conversion are keyed by pending-order
 relationship. Direct multi-license procurement evidence is keyed by its manual
 creation batch. PO number is metadata and is not a sharing key.
 
+New managed files are stored under one `attachments/` hierarchy using stable
+license, pending-order, creation-batch, sourcing-request, and contract IDs.
+Changing a PO number, contract number, or folder label does not move or rename
+the underlying file. Files created by earlier releases remain readable in their
+legacy storage locations.
+
 PDF license and procurement documents shown in License Details can be previewed
 without downloading first. The preview uses the same permission checks as
 download, and download remains available from the document row and preview
@@ -60,7 +66,10 @@ metadata without treating it as part of the file size.
 
 Admins can require evidence categories such as invoice, purchase order, quote,
 EULA, or proof of entitlement. The license completeness score checks visible
-license-owned and procurement evidence against those requirements.
+license-owned and procurement evidence against those requirements. A document
+counts only while its managed file is available; metadata for a missing or
+unavailable file remains visible for recovery, but it does not make the license
+complete.
 
 Adding evidence after conversion updates completeness without reopening the
 procurement workflow. These late uploads and deletions are recorded as evidence

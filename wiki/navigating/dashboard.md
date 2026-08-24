@@ -50,6 +50,12 @@ the normal search and status filters. Creator, quantity, notice-date, and custom
 field filters follow the same display values used in the table. Numeric filters
 use your selected number format.
 
+Use **Column Categories** to choose Standard, Advanced, Computed, and Custom
+Field columns, including the document-count **Docs** column. Bulk selection is
+limited to the displayed page and is cleared when filters or pagination hide
+the selected rows. Search, filter, saved-view, and page-size changes return the
+table to a valid page instead of leaving an empty out-of-range view.
+
 ## The toolbar buttons
 
 ![The License Overview toolbar buttons](../assets/nav-05-toolbar-buttons.png)

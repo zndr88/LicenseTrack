@@ -60,6 +60,11 @@ Some fields are calculated or protected:
   shown on every member.
 - Renewal-chain fields change only through renewal or repair workflows.
 
+For fixed-term and recurring licenses, the end date cannot precede the start
+date. A recurring license without an end date remains active but incomplete;
+only genuinely non-expiring license types receive perpetual status. Historical
+records with an invalid date range remain visible so an editor can repair them.
+
 ## Maintenance and support records
 
 Separately purchased maintenance or support is represented by a maintenance

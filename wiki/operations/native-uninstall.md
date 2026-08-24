@@ -4,7 +4,7 @@ This procedure applies only to instances installed by LicenseTrack's native
 installer. Docker and Podman deployments use their container and volume
 management procedures instead.
 
-LicenseTrack 1.1.12 documents removal as an operator procedure. It does not
+LicenseTrack 1.1.13 documents removal as an operator procedure. It does not
 provide a `licensetrack uninstall` command because complete removal can destroy
 the database, uploaded documents, backups, configuration, and secrets.
 

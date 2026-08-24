@@ -143,6 +143,7 @@ const HELP_ARTICLES = [
         heading: "Things to know",
         bullets: [
           "Perpetual licenses are not incomplete for missing an end date.",
+          "Fixed-term and recurring records cannot be saved with an end date before their start date. A recurring record without an end date remains active but incomplete instead of being treated as perpetual.",
           "For a direct freeware or open-source record, use the ordinary Add License form and choose Freeware / Open Source as the License Type. EULA, proof-of-entitlement, and publisher-contact completeness checks do not apply. Contract, PO, invoice, and quote checks also do not apply unless paid included support is present. Department and budget owner requirements still apply.",
           "Annual cost totals are active recurring-cost rollups: active, perpetual-status, and expiring subscription, SaaS, maintenance, and current paid included-support costs are included; multi-year records are annualized, and selected report ranges allocate recurring cost by overlapping days. Zero-cost freeware and upcoming, expired, retired, renewed, and legacy records are excluded.",
           "Request Date preserves sourcing-item creation history, including direct freeware conversion. Purchase Date is added only when a pending order exists. Both can also be edited to enrich imported or legacy records.",
@@ -153,6 +154,8 @@ const HELP_ARTICLES = [
           "The History section shows the License Record ID, creator account name, record creation timestamp, last-update timestamp, and the Procurement Trail linking back to sourcing and pending-order history when those source records exist.",
           "Prices on every line in Review License Data use your configured number format.",
           "Inline editing is for quick field corrections; use the detail panel for full review.",
+          "Column Categories includes the document-count Docs column. Bulk selection applies only to the displayed page and clears when filtering or pagination hides selected rows.",
+          "Required evidence counts toward completeness only while its managed file is available. Missing-file metadata remains visible for recovery but does not make a license complete.",
           "Use the control beside Total PO Value in License Details to set, edit, or clear a manual PO override. New licenses joining that PO inherit the override; moving a license to another PO adopts the destination PO's value instead.",
           "For separately tracked support, License Details can create a new maintenance record or link an existing maintenance record from a compact searchable list. One maintenance record can be linked to several eligible parents.",
           "When a maintenance record is linked to several parents, its Relationships section lists every linked parent license.",
