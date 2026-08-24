@@ -32,16 +32,36 @@ def count_file_availability(
     documents: Iterable,
     storage_base: str | None = None,
 ) -> dict[str, int]:
+    return inspect_document_availability(documents, storage_base)[1]
+
+
+def inspect_document_availability(
+    documents: Iterable,
+    storage_base: str | None = None,
+) -> tuple[list, dict[str, int]]:
+    """Return available records and availability counts with one storage scan."""
     counts = {
         "total": 0,
         "available": 0,
         "missing": 0,
         "unavailable": 0,
     }
+    available = []
     for document in documents:
         counts["total"] += 1
-        counts[document_availability(document, storage_base)] += 1
-    return counts
+        availability = document_availability(document, storage_base)
+        counts[availability] += 1
+        if availability == "available":
+            available.append(document)
+    return available, counts
+
+
+def available_documents(
+    documents: Iterable,
+    storage_base: str | None = None,
+) -> list:
+    """Return only document records whose managed file currently exists."""
+    return inspect_document_availability(documents, storage_base)[0]
 
 
 async def reconcile_document_storage(db: AsyncSession, storage_base: str | None = None) -> dict[str, int]:
@@ -54,4 +74,3 @@ async def reconcile_document_storage(db: AsyncSession, storage_base: str | None 
         result = await db.execute(select(model))
         documents.extend(result.scalars().all())
     return count_file_availability(documents, effective_base)
-

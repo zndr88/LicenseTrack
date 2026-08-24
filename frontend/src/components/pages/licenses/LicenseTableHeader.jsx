@@ -13,8 +13,9 @@ function SortIndicator({ active, sortDir }) {
 export default function LicenseTableHeader({
   visibleColumns,
   selectAllRef,
-  allFilteredSelected,
-  filtered,
+  allDisplayedSelected,
+  displayRows,
+  selectionLabel,
   setSelectedIds,
   dragHappenedRef,
   setUserSettings,
@@ -51,15 +52,18 @@ export default function LicenseTableHeader({
                 <input
                   type="checkbox"
                   ref={selectAllRef}
-                  checked={allFilteredSelected}
+                  checked={allDisplayedSelected}
                   onChange={() => {
-                    if (allFilteredSelected) {
-                      setSelectedIds(new Set());
-                    } else {
-                      setSelectedIds(new Set(filtered.map((license) => license.id)));
-                    }
+                    setSelectedIds((previous) => {
+                      const next = new Set(previous);
+                      for (const license of displayRows) {
+                        if (allDisplayedSelected) next.delete(license.id);
+                        else next.add(license.id);
+                      }
+                      return next;
+                    });
                   }}
-                  aria-label="Select all visible licenses"
+                  aria-label={selectionLabel}
                 />
               </th>
             );

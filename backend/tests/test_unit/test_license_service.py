@@ -9,6 +9,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
+from app.models.license import LicenseType
 from app.services.license_service import (
     calc_effective_quantity,
     calc_recurring_annual_cost,
@@ -128,7 +129,17 @@ def test_status_upcoming_before_perpetual():
 
 
 def test_status_perpetual():
-    assert compute_expiration_status(make_license(end_date=None), date.today()) == "perpetual"
+    assert (
+        compute_expiration_status(
+            make_license(license_type=LicenseType.perpetual, end_date=None),
+            date.today(),
+        )
+        == "perpetual"
+    )
+
+
+def test_recurring_license_without_end_date_is_not_called_perpetual():
+    assert compute_expiration_status(make_license(end_date=None), date.today()) == "active"
 
 
 def test_status_expired():

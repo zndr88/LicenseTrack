@@ -17,7 +17,7 @@ from app.models.custom_fields import CustomFieldValue
 from app.models.document import ProcurementDocument
 from app.schemas.custom_fields import CustomFieldValueResponse
 from app.schemas.license import LicenseResponse
-from app.services.document_availability_service import count_file_availability
+from app.services.document_availability_service import inspect_document_availability
 from app.services.license_service import (
     calc_effective_quantity,
     compute_completeness,
@@ -131,10 +131,10 @@ def enrich_license_response(
     creator = license_obj.__dict__.get("creator")
     response.created_by_name = creator.username if creator is not None else None
     response.created_by_email = creator.email if creator is not None else None
-    response.completeness_pct = compute_completeness(license_obj, documents, mandatory_fields)
+    available_docs, document_counts = inspect_document_availability(documents, storage_base)
+    response.completeness_pct = compute_completeness(license_obj, available_docs, mandatory_fields)
     response.days_until_expiry = compute_days_until_expiry(license_obj, today)
     response.expiration_status = compute_expiration_status(license_obj, today, notification_days)
-    document_counts = count_file_availability(documents, storage_base)
     response.document_count = document_counts["total"]
     response.available_document_count = document_counts["available"]
     response.missing_document_count = document_counts["missing"]

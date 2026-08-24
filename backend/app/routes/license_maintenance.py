@@ -14,6 +14,7 @@ from app.models.user import User
 from app.schemas.license import LicenseCoverageHistoryResponse, LicenseResponse, MaintenanceLinkExistingRequest
 from app.services.audit_service import log_event
 from app.services.access_service import can_view_license
+from app.services.document_availability_service import available_documents
 from app.services.license_service import (
     calc_line_total,
     compute_completeness,
@@ -90,22 +91,27 @@ async def get_coverage_history(
     return rows
 
 
-async def _get_global_settings(db: AsyncSession) -> tuple[dict, int]:
+async def _get_global_settings(db: AsyncSession) -> tuple[dict, int, str | None]:
     gs = await _get_cached_global_settings(db)
     if gs is None:
-        return {}, _DEFAULT_NOTIFICATION_DAYS
-    return (gs.mandatory_fields or {}, int(gs.notification_days))
+        return {}, _DEFAULT_NOTIFICATION_DAYS, None
+    return (gs.mandatory_fields or {}, int(gs.notification_days), gs.storage_path or None)
 
 
 def _enrich(
     license_obj: License,
     mandatory_fields: dict,
     notification_days: int = _DEFAULT_NOTIFICATION_DAYS,
+    storage_base: str | None = None,
 ) -> LicenseResponse:
     today = date.today()
     docs = list(license_obj.documents)
     response = LicenseResponse.model_validate(license_obj)
-    response.completeness_pct = compute_completeness(license_obj, docs, mandatory_fields)
+    response.completeness_pct = compute_completeness(
+        license_obj,
+        available_documents(docs, storage_base),
+        mandatory_fields,
+    )
     response.days_until_expiry = compute_days_until_expiry(license_obj, today)
     response.expiration_status = compute_expiration_status(license_obj, today, notification_days)
     response.document_count = len(docs)
@@ -141,7 +147,7 @@ async def disable_maintenance(
     current_user: User = Depends(require_editor_or_admin),
 ) -> LicenseResponse:
     """Disable linked maintenance/support tracking on an eligible parent License."""
-    mandatory_fields, notification_days = await _get_global_settings(db)
+    mandatory_fields, notification_days, storage_base = await _get_global_settings(db)
 
     result = await db.execute(select(License).where(License.id == license_id).options(*_license_with_maintenance_options()))
     license_obj = result.scalar_one_or_none()
@@ -155,7 +161,7 @@ async def disable_maintenance(
         )
 
     if not license_obj.has_maintenance:
-        return _enrich(license_obj, mandatory_fields, notification_days)
+        return _enrich(license_obj, mandatory_fields, notification_days, storage_base)
 
     await disable_maintenance_for_parent(db, license_obj)
 
@@ -178,7 +184,7 @@ async def disable_maintenance(
         .execution_options(populate_existing=True)
     )
     license_obj = reload_result.scalar_one()
-    return _enrich(license_obj, mandatory_fields, notification_days)
+    return _enrich(license_obj, mandatory_fields, notification_days, storage_base)
 
 
 @router.post("/{license_id}/link-maintenance", response_model=LicenseResponse)
@@ -190,7 +196,7 @@ async def link_existing_maintenance(
     current_user: User = Depends(require_editor_or_admin),
 ) -> LicenseResponse:
     """Link an existing maintenance/support License to an eligible parent License."""
-    mandatory_fields, notification_days = await _get_global_settings(db)
+    mandatory_fields, notification_days, storage_base = await _get_global_settings(db)
 
     parent_result = await db.execute(
         select(License).where(License.id == license_id).options(*_license_with_maintenance_options())
@@ -243,4 +249,4 @@ async def link_existing_maintenance(
         .execution_options(populate_existing=True)
     )
     parent = reload_result.scalar_one()
-    return _enrich(parent, mandatory_fields, notification_days)
+    return _enrich(parent, mandatory_fields, notification_days, storage_base)

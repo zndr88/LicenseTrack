@@ -22,6 +22,7 @@ from app.schemas.license import (
 )
 from app.schemas.sourcing import SourcingItemResponse, SourcingRequestResponse
 from app.services import renewal_orchestrator
+from app.services.document_availability_service import available_documents
 from app.services.license_service import (
     compute_completeness,
     compute_days_until_expiry,
@@ -36,22 +37,27 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 _DEFAULT_NOTIFICATION_DAYS = 30
 
 
-async def _get_global_settings(db: AsyncSession) -> tuple[dict, int]:
+async def _get_global_settings(db: AsyncSession) -> tuple[dict, int, str | None]:
     gs = await _get_cached_global_settings(db)
     if gs is None:
-        return {}, _DEFAULT_NOTIFICATION_DAYS
-    return (gs.mandatory_fields or {}, int(gs.notification_days))
+        return {}, _DEFAULT_NOTIFICATION_DAYS, None
+    return (gs.mandatory_fields or {}, int(gs.notification_days), gs.storage_path or None)
 
 
 def _enrich(
     license_obj: License,
     mandatory_fields: dict,
     notification_days: int = _DEFAULT_NOTIFICATION_DAYS,
+    storage_base: str | None = None,
 ) -> LicenseResponse:
     today = date.today()
     docs = list(license_obj.documents)
     response = LicenseResponse.model_validate(license_obj)
-    response.completeness_pct = compute_completeness(license_obj, docs, mandatory_fields)
+    response.completeness_pct = compute_completeness(
+        license_obj,
+        available_documents(docs, storage_base),
+        mandatory_fields,
+    )
     response.days_until_expiry = compute_days_until_expiry(license_obj, today)
     response.expiration_status = compute_expiration_status(license_obj, today, notification_days)
     response.document_count = len(docs)
@@ -73,7 +79,7 @@ async def cancel_renewal(
     exists (sourcing item status == "converted"), a po_warning flag is set in
     the response so the frontend can prompt the user to clean it up manually.
     """
-    mandatory_fields, notification_days = await _get_global_settings(db)
+    mandatory_fields, notification_days, storage_base = await _get_global_settings(db)
 
     result = await renewal_orchestrator.cancel_renewal(
         db=db,
@@ -89,7 +95,7 @@ async def cancel_renewal(
     license_obj = reload_result.scalar_one()
 
     return CancelRenewalResponse(
-        license=_enrich(license_obj, mandatory_fields, notification_days),
+        license=_enrich(license_obj, mandatory_fields, notification_days, storage_base),
         po_warning=result.po_warning,
     )
 
@@ -110,7 +116,7 @@ async def initiate_renewal(
     the backend will UPDATE this license with the new dates/contract details instead
     of creating a new record.
     """
-    mandatory_fields, notification_days = await _get_global_settings(db)
+    mandatory_fields, notification_days, storage_base = await _get_global_settings(db)
 
     result = await renewal_orchestrator.initiate_renewal(
         db=db,
@@ -127,7 +133,7 @@ async def initiate_renewal(
     license_obj = reload_result.scalar_one()
 
     return InitiateRenewalResponse(
-        license=_enrich(license_obj, mandatory_fields, notification_days),
+        license=_enrich(license_obj, mandatory_fields, notification_days, storage_base),
         sourcing_item=SourcingItemResponse.model_validate(result.sourcing_item),
     )
 
@@ -141,7 +147,7 @@ async def link_existing_successor(
     current_user: User = Depends(require_editor_or_admin),
 ) -> LinkExistingSuccessorResponse:
     """Complete a renewal by adopting an existing purchased License row."""
-    mandatory_fields, notification_days = await _get_global_settings(db)
+    mandatory_fields, notification_days, storage_base = await _get_global_settings(db)
     result = await renewal_orchestrator.link_existing_successor(
         db=db,
         predecessor_id=license_id,
@@ -159,8 +165,8 @@ async def link_existing_successor(
     )
     reloaded = {license_obj.id: license_obj for license_obj in reload_result.scalars().all()}
     return LinkExistingSuccessorResponse(
-        predecessor=_enrich(reloaded[result.predecessor.id], mandatory_fields, notification_days),
-        successor=_enrich(reloaded[result.successor.id], mandatory_fields, notification_days),
+        predecessor=_enrich(reloaded[result.predecessor.id], mandatory_fields, notification_days, storage_base),
+        successor=_enrich(reloaded[result.successor.id], mandatory_fields, notification_days, storage_base),
         former_successor_license_ref=result.former_successor_license_ref,
     )
 
@@ -173,7 +179,7 @@ async def unlink_existing_successor(
     current_user: User = Depends(require_editor_or_admin),
 ) -> LinkExistingSuccessorResponse:
     """Undo a link created by the existing-purchase renewal path."""
-    mandatory_fields, notification_days = await _get_global_settings(db)
+    mandatory_fields, notification_days, storage_base = await _get_global_settings(db)
     result = await renewal_orchestrator.unlink_existing_successor(
         db=db,
         predecessor_id=license_id,
@@ -189,8 +195,8 @@ async def unlink_existing_successor(
     )
     reloaded = {license_obj.id: license_obj for license_obj in reload_result.scalars().all()}
     return LinkExistingSuccessorResponse(
-        predecessor=_enrich(reloaded[result.predecessor.id], mandatory_fields, notification_days),
-        successor=_enrich(reloaded[result.successor.id], mandatory_fields, notification_days),
+        predecessor=_enrich(reloaded[result.predecessor.id], mandatory_fields, notification_days, storage_base),
+        successor=_enrich(reloaded[result.successor.id], mandatory_fields, notification_days, storage_base),
         former_successor_license_ref=result.former_successor_license_ref,
     )
 
@@ -208,7 +214,7 @@ async def initiate_renewal_bundle(
     Used for same-PO, same-end-date renewal bundles where products must remain
     separate line items instead of being coterm-merged into one license.
     """
-    mandatory_fields, notification_days = await _get_global_settings(db)
+    mandatory_fields, notification_days, storage_base = await _get_global_settings(db)
 
     result = await renewal_orchestrator.initiate_renewal_bundle(
         db=db,
@@ -234,7 +240,7 @@ async def initiate_renewal_bundle(
 
     return InitiateRenewalBundleResponse(
         licenses=[
-            _enrich(licenses_by_id[license_obj.id], mandatory_fields, notification_days)
+            _enrich(licenses_by_id[license_obj.id], mandatory_fields, notification_days, storage_base)
             for license_obj in result.licenses
         ],
         sourcing_request=SourcingRequestResponse.model_validate(sourcing_request),

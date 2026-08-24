@@ -19,7 +19,8 @@ export function useRenewalPanelModel({ license, allLicenses, globalSettings }) {
             l.retired,
             l.lifecycleStatus,
             l.renewedToId,
-            l.startDate
+            l.startDate,
+            l.licenseType,
           );
           return s.status === "expiring" || s.status === "expired";
         })

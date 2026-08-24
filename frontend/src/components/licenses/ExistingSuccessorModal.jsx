@@ -34,6 +34,7 @@ export function getExistingSuccessorCandidates(predecessor, allLicenses, notific
         candidate.lifecycleStatus,
         candidate.renewedToId,
         candidate.startDate,
+        candidate.licenseType,
       ),
     }))
     .filter(({ expiration }) => expiration.status === "active" || expiration.status === "upcoming")

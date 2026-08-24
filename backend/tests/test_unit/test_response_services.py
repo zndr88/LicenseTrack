@@ -33,7 +33,11 @@ def _license(**overrides) -> License:
     return License(**data)
 
 
-async def test_enrich_license_response_counts_license_and_procurement_documents(db_session):
+async def test_enrich_license_response_counts_license_and_procurement_documents(db_session, tmp_path):
+    for relative_path in ("documents/invoice.pdf", "procurement/quote.pdf"):
+        document_path = tmp_path / relative_path
+        document_path.parent.mkdir(parents=True, exist_ok=True)
+        document_path.write_bytes(b"document")
     license_obj = _license()
     db_session.add(license_obj)
     await db_session.flush()
@@ -68,6 +72,7 @@ async def test_enrich_license_response_counts_license_and_procurement_documents(
         loaded_license,
         mandatory_fields={"invoice": True, "startDate": True},
         procurement_documents=[procurement_doc],
+        storage_base=str(tmp_path),
     )
 
     assert response.id == license_obj.id
@@ -123,8 +128,11 @@ async def test_get_procurement_documents_by_scope_maps_license_and_pending_order
     assert [doc.original_filename for doc in mapped[second.id]] == ["second.pdf"]
 
 
-async def test_build_conversion_response_marks_new_and_predecessor_licenses(db_session):
-    db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}))
+async def test_build_conversion_response_marks_new_and_predecessor_licenses(db_session, tmp_path):
+    invoice_path = tmp_path / "documents" / "invoice.pdf"
+    invoice_path.parent.mkdir(parents=True)
+    invoice_path.write_bytes(b"invoice")
+    db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}, storage_path=str(tmp_path)))
     new_license = _license(software_description="New License")
     predecessor = _license(software_description="Old License")
     db_session.add_all([new_license, predecessor])
@@ -140,6 +148,7 @@ async def test_build_conversion_response_marks_new_and_predecessor_licenses(db_s
         )
     )
     await db_session.commit()
+    invalidate_global_settings_cache()
 
     responses = await build_conversion_response(
         db_session,
@@ -177,6 +186,7 @@ async def test_build_conversion_response_includes_maintenance_association_ids(db
         )
     )
     await db_session.commit()
+    invalidate_global_settings_cache()
 
     responses = await build_conversion_response(
         db_session,
@@ -189,8 +199,11 @@ async def test_build_conversion_response_includes_maintenance_association_ids(db
     assert by_id[parent.id].linked_maintenance_ids == [maintenance.id]
 
 
-async def test_build_conversion_response_includes_pending_order_procurement_documents(db_session):
-    db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}))
+async def test_build_conversion_response_includes_pending_order_procurement_documents(db_session, tmp_path):
+    invoice_path = tmp_path / "procurement" / "invoice.pdf"
+    invoice_path.parent.mkdir(parents=True)
+    invoice_path.write_bytes(b"invoice")
+    db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}, storage_path=str(tmp_path)))
     order = PendingOrder(po_number="PO-CONVERT")
     db_session.add(order)
     await db_session.flush()
@@ -209,6 +222,7 @@ async def test_build_conversion_response_includes_pending_order_procurement_docu
         )
     )
     await db_session.commit()
+    invalidate_global_settings_cache()
 
     responses = await build_conversion_response(
         db_session,

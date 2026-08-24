@@ -17,7 +17,7 @@ from sqlalchemy import select
 import app.routes.licenses as licenses_routes
 from app.models.contract import Contract
 from app.models.audit_log import AuditLog
-from app.models.document import ProcurementDocument, ProcurementDocumentCategory
+from app.models.document import Document, DocumentCategory, ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import (
     License,
     LicenseMaintenanceLink,
@@ -212,6 +212,21 @@ async def test_list_licenses_empty(test_app, auth_headers):
 
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+async def test_list_licenses_pagination_uses_stable_id_order(test_app, auth_headers):
+    created = [
+        await _create_license(test_app, auth_headers, softwareDescription=f"Ordered {index}")
+        for index in range(3)
+    ]
+
+    resp = await test_app.get(
+        "/api/licenses?include_retired=true&limit=1&offset=1",
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert [license["id"] for license in resp.json()] == [created[1]["id"]]
 
 
 async def _seed_legacy_unlinked_license(db_session) -> License:
@@ -637,6 +652,80 @@ async def test_create_perpetual_license_clears_end_date(test_app, auth_headers):
     assert resp.json()["endDate"] is None
 
 
+async def test_create_rejects_end_date_before_start_date(test_app, auth_headers):
+    resp = await test_app.post(
+        "/api/licenses",
+        json=_minimal_payload(startDate="2027-01-02", endDate="2027-01-01"),
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 422
+
+
+async def test_list_keeps_legacy_inverted_term_readable(test_app, auth_headers, db_session):
+    license_obj = License(
+        publisher_name="Legacy Publisher",
+        software_description="Legacy Inverted Term",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        start_date=date(2027, 1, 2),
+        end_date=date(2027, 1, 1),
+    )
+    db_session.add(license_obj)
+    await db_session.commit()
+
+    resp = await test_app.get("/api/licenses?include_retired=true", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    listed = next(row for row in resp.json() if row["id"] == license_obj.id)
+    assert listed["startDate"] == "2027-01-02"
+    assert listed["endDate"] == "2027-01-01"
+
+
+async def test_update_rejects_term_that_conflicts_with_existing_date(test_app, auth_headers):
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        startDate="2027-01-01",
+        endDate="2027-12-31",
+    )
+
+    resp = await test_app.put(
+        f"/api/licenses/{created['id']}",
+        json={"startDate": "2028-01-01"},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "End date cannot be before start date."
+
+
+async def test_update_rejects_null_for_required_fields(test_app, auth_headers):
+    created = await _create_license(test_app, auth_headers)
+
+    resp = await test_app.put(
+        f"/api/licenses/{created['id']}",
+        json={"softwareDescription": None},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 422
+
+
+async def test_update_normalises_null_for_clearable_strings(test_app, auth_headers):
+    created = await _create_license(test_app, auth_headers, supplier="Vendor")
+
+    resp = await test_app.put(
+        f"/api/licenses/{created['id']}",
+        json={"supplier": None},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["supplier"] == ""
+
+
 async def test_mark_notice_handled_sets_state_and_notice_date_change_clears_it(test_app, auth_headers):
     created = await _create_license(
         test_app,
@@ -677,6 +766,40 @@ async def test_get_license_by_id(test_app, auth_headers):
 
     assert resp.status_code == 200
     assert resp.json()["id"] == license_id
+
+
+async def test_missing_document_file_does_not_satisfy_completeness(
+    test_app,
+    auth_headers,
+    db_session,
+    tmp_path,
+):
+    created = await _create_license(test_app, auth_headers)
+    settings = await db_session.get(GlobalSettings, 1)
+    if settings is None:
+        settings = GlobalSettings(id=1)
+        db_session.add(settings)
+    settings.mandatory_fields = {"invoice": True}
+    settings.storage_path = str(tmp_path)
+    db_session.add(
+        Document(
+            license_id=created["id"],
+            filename="missing/invoice.pdf",
+            original_filename="invoice.pdf",
+            file_size=10,
+            mime_type="application/pdf",
+            category=DocumentCategory.invoice,
+        )
+    )
+    await db_session.commit()
+    invalidate_global_settings_cache()
+
+    resp = await test_app.get(f"/api/licenses/{created['id']}", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["documentCount"] == 1
+    assert resp.json()["missingDocumentCount"] == 1
+    assert resp.json()["completenessPct"] == 0
 
 
 # ---------------------------------------------------------------------------

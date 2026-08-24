@@ -130,6 +130,32 @@ describe("useLicenseData", () => {
     expect(result.current.filtered[0].expirationStatus).toBe("upcoming")
   })
 
+  test("active filter does not include licenses in the expiring bucket", () => {
+    const licenses = [
+      makeLicense({ expirationStatus: "active" }),
+      makeLicense({ expirationStatus: "perpetual" }),
+      makeLicense({ expirationStatus: "expiring" }),
+    ]
+    const { result } = renderHook(() =>
+      useLicenseData(licenses, { ...defaultOptions, statusFilters: ["active"] })
+    )
+
+    expect(result.current.filtered.map((license) => license.expirationStatus)).toEqual(["active", "perpetual"])
+  })
+
+  test("incomplete filter excludes completeness-exempt licenses", () => {
+    const licenses = [
+      makeLicense({ completenessPct: 50 }),
+      makeLicense({ completenessPct: null, isCompletenessExempt: true }),
+    ]
+    const { result } = renderHook(() =>
+      useLicenseData(licenses, { ...defaultOptions, statusFilters: ["incomplete"] })
+    )
+
+    expect(result.current.filtered).toHaveLength(1)
+    expect(result.current.filtered[0].isCompletenessExempt).toBe(false)
+  })
+
   test("stats count upcoming separately from active", () => {
     const licenses = [
       makeLicense({ expirationStatus: "active" }),
@@ -182,6 +208,16 @@ describe("useLicenseData", () => {
 
     expect(result.current.totalPages).toBe(1)
     expect(result.current.paginatedItems).toEqual([])
+  })
+
+  test("uses the last valid page when the requested page is out of range", () => {
+    const licenses = Array.from({ length: 4 }, () => makeLicense())
+    const { result } = renderHook(() =>
+      useLicenseData(licenses, { ...defaultOptions, pageSize: 3, currentPage: 9 })
+    )
+
+    expect(result.current.totalPages).toBe(2)
+    expect(result.current.paginatedItems.map((license) => license.id)).toEqual([4])
   })
 
   // 4r

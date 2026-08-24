@@ -12,7 +12,7 @@ from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
 from app.services.audit_service import format_audit_detail, log_event
-from app.services.license_service import compute_expiration_status, generate_license_ref
+from app.services.license_service import compute_expiration_status, generate_license_ref, validate_term_date_order
 from app.services.lifecycle_rules import (
     assert_can_cancel_renewal,
     assert_predecessor_has_no_successor,
@@ -524,6 +524,10 @@ async def create_renewal_successor_from_sourcing_item(
         "license_type": successor_type,
         "maintenance_coverage": successor_coverage,
     }
+    try:
+        validate_term_date_order(license_data.get("start_date"), license_data.get("end_date"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"{validation_detail_prefix}{exc}") from exc
     await resolve_license_reference_fields(db, license_data)
 
     if (

@@ -47,6 +47,7 @@ from app.services.maintenance_service import (
     validate_parent_license,
 )
 from app.services.money import is_canonical_money
+from app.services.license_service import validate_term_date_order
 from app.services.po_total_override_service import (
     inherit_po_total_override,
     resolve_reassigned_po_total_override,
@@ -105,6 +106,26 @@ DATE_PATCH_FIELDS = {"startDate", "endDate", "noticeDate"}
 DATETIME_PATCH_FIELDS = {"requestDate", "purchaseDate"}
 EMAIL_PATCH_FIELDS = {"contactEmail", "budgetOwnerEmail"}
 NUMERIC_PATCH_FIELDS = {"quantity", "quantityPerUnit", "unitPrice", "totalPoPrice"}
+REQUIRED_PATCH_FIELDS = {"publisherName", "softwareDescription", "licenseType", "licenseMetric", "currency"}
+BLANKABLE_STRING_PATCH_FIELDS = {
+    "quantity",
+    "quantityPerUnit",
+    "skuCode",
+    "unitPrice",
+    "totalPoPrice",
+    "contractNumber",
+    "poNumber",
+    "procurementReference",
+    "invoiceNumber",
+    "contactEmail",
+    "supplier",
+    "costCentre",
+    "budgetOwnerEmail",
+}
+BLANKABLE_STRING_UPDATE_FIELDS = {
+    ALLOWED_PATCH_FIELDS[field]
+    for field in BLANKABLE_STRING_PATCH_FIELDS
+}
 MAINTENANCE_COVERAGE_VALUES = {coverage.value for coverage in MaintenanceCoverage}
 BUNDLED_SUPPORT_MIRROR_FIELDS = (
     "maintenance_start_date",
@@ -165,6 +186,13 @@ def normalise_perpetual_end_date(update_data: dict) -> None:
     """Perpetual licenses never carry an end date in persisted state."""
     if update_data.get("license_type") == LicenseType.perpetual:
         update_data["end_date"] = None
+
+
+def validate_term_dates(start_date: date | None, end_date: date | None) -> None:
+    try:
+        validate_term_date_order(start_date, end_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _apply_bundled_support_defaults_to_create_data(create_data: dict) -> None:
@@ -291,6 +319,7 @@ async def create_license_record(
         )
 
     normalise_perpetual_end_date(create_data)
+    validate_term_dates(create_data.get("start_date"), create_data.get("end_date"))
     create_data["contract_id"] = await _resolve_contract_id(db, create_data.get("contract_number"))
     await inherit_po_total_override(db, create_data)
     license_obj = License(**create_data, created_by=created_by)
@@ -340,6 +369,9 @@ async def apply_license_update(
         raise HTTPException(status_code=404, detail="License not found")
 
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+    for field in BLANKABLE_STRING_UPDATE_FIELDS.intersection(update_data):
+        if update_data[field] is None:
+            update_data[field] = ""
     parent_update_requested = "parent_license_id" in update_data
     requested_parent_id = update_data.pop("parent_license_id", None)
     _sync_invoice_numbers(update_data)
@@ -351,6 +383,11 @@ async def apply_license_update(
     ):
         update_data["maintenance_coverage"] = default_maintenance_coverage(update_data["license_type"])
     normalise_perpetual_end_date(update_data)
+    if "start_date" in update_data or "end_date" in update_data:
+        validate_term_dates(
+            update_data.get("start_date", license_obj.start_date),
+            update_data.get("end_date", license_obj.end_date),
+        )
     if update_data.get("license_type", license_obj.license_type) == LicenseType.freeware:
         update_data["unit_price"] = ""
         update_data["total_po_price"] = ""
@@ -470,6 +507,9 @@ def validate_patch_field_input(field: str, value: str | None) -> None:
             detail=f"Field '{field}' is not allowed. Allowed: {', '.join(ALLOWED_PATCH_FIELDS)}",
         )
 
+    if field in REQUIRED_PATCH_FIELDS and (value is None or not str(value).strip()):
+        raise HTTPException(status_code=400, detail=f"Field '{field}' cannot be empty.")
+
     if field in DATE_PATCH_FIELDS and value:
         try:
             date.fromisoformat(value)
@@ -514,8 +554,14 @@ async def apply_license_field_patch(
         raise HTTPException(status_code=404, detail="License not found")
 
     snake_field = ALLOWED_PATCH_FIELDS[field]
+    if field in BLANKABLE_STRING_PATCH_FIELDS and value is None:
+        value = ""
     if field in DATE_PATCH_FIELDS:
         parsed_value = date.fromisoformat(value) if value else None
+        validate_term_dates(
+            parsed_value if field == "startDate" else license_obj.start_date,
+            parsed_value if field == "endDate" else license_obj.end_date,
+        )
         if field == "noticeDate" and parsed_value != license_obj.notice_date:
             license_obj.notice_handled_at = None
             license_obj.notice_handled_by_user_id = None

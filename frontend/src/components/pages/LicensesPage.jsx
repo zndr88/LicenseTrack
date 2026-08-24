@@ -102,10 +102,14 @@ export default function LicensesPage({
     contracts,
     customFieldDefs,
     customFieldValuesMap,
+    auxiliaryIssues = [],
+    retryAuxiliaryData,
+    sourcingTotalsUnavailable = false,
+    pendingOrderTotalsUnavailable = false,
   } = useLicensesPageData({ showError, includeContracts: Boolean(selectedId) });
 
   // Derived data
-  const { filtered, sorted, stats, enriched, paginatedItems, totalPages, departments } = useLicenseData(licenses, {
+  const { sorted, stats, enriched, paginatedItems, totalPages, departments } = useLicenseData(licenses, {
     search, statusFilters,
     columnFilters,
     currentPage, pageSize, sortCol, sortDir, globalSettings, userSettings, apiStats,
@@ -134,17 +138,14 @@ export default function LicensesPage({
   }, [setDismissedAttentionIds]);
 
   const activeSourcingCount = useMemo(
-    () => sourcingItems.filter((s) => s.status !== "converted").length,
-    [sourcingItems]
+    () => sourcingTotalsUnavailable ? null : sourcingItems.filter((s) => s.status !== "converted").length,
+    [sourcingItems, sourcingTotalsUnavailable]
   );
 
   const activePendingCount = useMemo(
-    () => pendingOrders.filter((po) => po.status !== "converted").length,
-    [pendingOrders]
+    () => pendingOrderTotalsUnavailable ? null : pendingOrders.filter((po) => po.status !== "converted").length,
+    [pendingOrders, pendingOrderTotalsUnavailable]
   );
-
-  const allFilteredSelected = filtered.length > 0 && filtered.every(l => selectedIds.has(l.id));
-  const someFilteredSelected = filtered.some(l => selectedIds.has(l.id));
 
   const {
     handleSaveView,
@@ -174,6 +175,19 @@ export default function LicensesPage({
     appliedDefaultViewRef.current = defaultView.name;
     void handleLoadView(defaultView);
   }, [userSettings.savedViews, handleLoadView]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilters, columnFilters, pageSize, setCurrentPage]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(Math.max(1, page), totalPages));
+  }, [totalPages, setCurrentPage]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setShowBulkDeleteConfirm(false);
+  }, [search, statusFilters, columnFilters, currentPage, pageSize, setSelectedIds, setShowBulkDeleteConfirm]);
 
   useEffect(() => {
     if (onStatsChange && stats) {
@@ -275,6 +289,15 @@ export default function LicensesPage({
             <Icon name="alert" size={16} color="var(--red-text)" />
             <span>{licensesError}</span>
             <button className="lp-error-retry" onClick={loadLicenses}>Retry</button>
+          </div>
+        )}
+        {auxiliaryIssues.length > 0 && (
+          <div className="lp-partial-warning" role="status">
+            <Icon name="alert" size={16} color="var(--orange-text)" />
+            <span>
+              Some supporting data could not be refreshed. Last available values are shown where possible: {auxiliaryIssues.map((issue) => issue.label).join(", ")}.
+            </span>
+            <button className="lp-partial-retry" onClick={retryAuxiliaryData}>Retry</button>
           </div>
         )}
 
@@ -379,8 +402,6 @@ export default function LicensesPage({
               handleSortCol={handleSortCol}
               selectedIds={selectedIds}
               setSelectedIds={setSelectedIds}
-              allFilteredSelected={allFilteredSelected}
-              someFilteredSelected={someFilteredSelected}
               filterRowOpen={filterRowOpen}
               columnFilters={columnFilters}
               setColumnFilters={setColumnFilters}
@@ -433,6 +454,7 @@ export default function LicensesPage({
         showBulkDeleteConfirm={showBulkDeleteConfirm}
         setShowBulkDeleteConfirm={setShowBulkDeleteConfirm}
         selectedIds={selectedIds}
+        licenses={licenses}
         handleBulkDelete={handleBulkDelete}
       />
     </>

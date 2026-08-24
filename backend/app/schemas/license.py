@@ -185,6 +185,12 @@ class LicenseBase(BaseModel):
 class LicenseCreate(LicenseBase):
     maintenance_parent_ids: list[int] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _validate_term_dates(self) -> "LicenseCreate":
+        if self.start_date is not None and self.end_date is not None and self.end_date < self.start_date:
+            raise ValueError("End date cannot be before start date.")
+        return self
+
 
 class LicenseBatchCreateItem(BaseModel):
     model_config = ConfigDict(
@@ -284,6 +290,24 @@ class LicenseUpdate(BaseModel):
         if isinstance(v, str) and not is_canonical_money(v):
             raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
+
+    @field_validator(
+        "publisher_name",
+        "software_description",
+        "license_type",
+        "license_metric",
+        "currency",
+        "is_retired",
+        "is_completeness_exempt",
+        "renewal_notifications_enabled",
+        "maintenance_coverage",
+        mode="before",
+    )
+    @classmethod
+    def _reject_null_required_fields(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("Field cannot be null.")
+        return value
 
     @field_validator("budget_owner_email", mode="before")
     @classmethod
@@ -506,7 +530,7 @@ class LicenseProcurementTrailResponse(BaseModel):
 
 class FieldUpdateRequest(BaseModel):
     field: str
-    value: str
+    value: str | None
 
 
 class PoTotalOverrideRequest(BaseModel):

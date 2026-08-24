@@ -590,9 +590,13 @@ async def test_run_daily_notifications_sends_digest_for_incomplete_only_run(
 
 
 async def test_run_daily_notifications_counts_procurement_documents_for_completeness(
-    db_session, smtp_settings
+    db_session, smtp_settings, tmp_path
 ):
     smtp_settings.mandatory_fields = {"invoice": True}
+    smtp_settings.storage_path = str(tmp_path)
+    invoice_path = tmp_path / "procurement" / "invoice.pdf"
+    invoice_path.parent.mkdir(parents=True)
+    invoice_path.write_bytes(b"invoice")
     order = PendingOrder(po_number="PO-INVOICE")
     db_session.add(order)
     await db_session.flush()

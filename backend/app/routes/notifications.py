@@ -31,6 +31,7 @@ from app.models.license import License
 from app.models.user import UserRole
 from app.schemas.notification import NotificationItem
 from app.services.access_service import apply_department_filter, get_viewer_departments
+from app.services.document_availability_service import available_documents
 from app.services.license_service import compute_completeness
 from app.services.license_response_service import get_procurement_documents_by_scope
 from app.services.settings_service import get_global_settings
@@ -78,10 +79,10 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
         if lic.lifecycle_status == "legacy":
             continue
 
-        docs = [
-            *list(lic.documents),
-            *procurement_documents_by_license_id.get(lic.id, []),
-        ]
+        docs = available_documents(
+            [*list(lic.documents), *procurement_documents_by_license_id.get(lic.id, [])],
+            (gs.storage_path if gs else "") or None,
+        )
         is_renewed = lic.lifecycle_status == "renewed"
         is_upcoming = lic.start_date is not None and lic.start_date > today
 

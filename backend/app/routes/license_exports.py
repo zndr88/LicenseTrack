@@ -14,6 +14,7 @@ from app.database import get_db
 from app.dependencies import CurrentUser
 from app.models.license import License
 from app.services.access_service import apply_department_filter, get_viewer_departments
+from app.services.document_availability_service import available_documents, get_document_storage_base
 from app.services.license_service import (
     calc_effective_quantity,
     calc_line_total,
@@ -34,6 +35,7 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
     """Download all active (non-retired) licenses as a CSV file."""
     mandatory_fields = await get_mandatory_fields(db)
     notification_days = await get_notification_days(db)
+    storage_base = await get_document_storage_base(db)
 
     departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
     query = select(License).where(License.is_retired.is_(False)).options(selectinload(License.documents))
@@ -99,7 +101,7 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
 
     today = date.today()
     for lic in licenses:
-        docs = list(lic.documents)
+        docs = available_documents(lic.documents, storage_base)
         effective_quantity = calc_effective_quantity(lic.quantity, lic.quantity_per_unit)
         writer.writerow(
             safe_csv_row(

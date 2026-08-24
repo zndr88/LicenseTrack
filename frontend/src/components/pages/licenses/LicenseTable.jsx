@@ -26,8 +26,6 @@ export default function LicenseTable({
   handleSortCol,
   selectedIds,
   setSelectedIds,
-  allFilteredSelected,
-  someFilteredSelected,
   filterRowOpen,
   columnFilters,
   setColumnFilters,
@@ -52,6 +50,8 @@ export default function LicenseTable({
 
   const useVirtual = filtered.length > VIRTUAL_THRESHOLD;
   const displayRows = useVirtual ? sorted : paginatedItems;
+  const allDisplayedSelected = displayRows.length > 0 && displayRows.every((license) => selectedIds.has(license.id));
+  const someDisplayedSelected = displayRows.some((license) => selectedIds.has(license.id));
   const visibleColumns = getVisibleColumns(activeColumns, visList);
 
   const rowVirtualizer = useVirtualizer({
@@ -85,9 +85,9 @@ export default function LicenseTable({
 
   useEffect(() => {
     if (selectAllRef.current) {
-      selectAllRef.current.indeterminate = someFilteredSelected && !allFilteredSelected;
+      selectAllRef.current.indeterminate = someDisplayedSelected && !allDisplayedSelected;
     }
-  }, [someFilteredSelected, allFilteredSelected]);
+  }, [someDisplayedSelected, allDisplayedSelected]);
 
   const renderRow = (license) => (
     <tr
@@ -140,8 +140,9 @@ export default function LicenseTable({
           <LicenseTableHeader
             visibleColumns={visibleColumns}
             selectAllRef={selectAllRef}
-            allFilteredSelected={allFilteredSelected}
-            filtered={filtered}
+            allDisplayedSelected={allDisplayedSelected}
+            displayRows={displayRows}
+            selectionLabel={useVirtual ? "Select all filtered licenses" : "Select all licenses on this page"}
             setSelectedIds={setSelectedIds}
             dragHappenedRef={dragHappenedRef}
             setUserSettings={setUserSettings}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getCompleteness, getPoTotal, normalizeLicense } from "../utils/helpers.js";
+import { getCompleteness, getExpirationStatus, getPoTotal, normalizeLicense } from "../utils/helpers.js";
 
 describe("getPoTotal", () => {
   it("uses a shared PO override before calculated line totals", () => {
@@ -161,5 +161,16 @@ describe("getCompleteness end date", () => {
     for (const licenseType of ["subscription", "saas", "maintenance"]) {
       expect(getCompleteness({ licenseType }, { endDate: true }).percentage).toBe(0);
     }
+  });
+});
+
+describe("getExpirationStatus without an end date", () => {
+  it("only labels non-expiring license types as perpetual", () => {
+    expect(getExpirationStatus(null, 30, false, null, null, null, "perpetual").status).toBe("perpetual");
+    expect(getExpirationStatus(null, 30, false, null, null, null, "subscription")).toEqual({
+      status: "active",
+      days: null,
+      label: "Active",
+    });
   });
 });

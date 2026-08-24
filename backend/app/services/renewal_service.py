@@ -19,6 +19,7 @@ from app.schemas.renewal import (
     RenewalWorkbenchRow,
 )
 from app.services.access_service import apply_department_filter, get_viewer_departments
+from app.services.document_availability_service import available_documents
 from app.services.license_service import compute_completeness, compute_days_until_expiry
 from app.services.license_response_service import get_procurement_documents_by_scope
 from app.services.renewal_workflow import compute_workbench_renewal_status
@@ -42,7 +43,7 @@ async def get_renewal_workbench_rows(
     today = today or date.today()
     cutoff = today + timedelta(days=window_days)
 
-    mandatory_fields, high_value_threshold = await _get_global_settings(db)
+    mandatory_fields, high_value_threshold, storage_base = await _get_global_settings(db)
     licenses = await _load_candidate_licenses(db, current_user, cutoff)
     if not licenses:
         return []
@@ -62,19 +63,20 @@ async def get_renewal_workbench_rows(
             window_days=window_days,
             today=today,
             high_value_threshold=high_value_threshold,
+            storage_base=storage_base,
         )
         for lic in licenses
     ]
     return [row for row in rows if matches_workbench_view(row, view)]
 
 
-async def _get_global_settings(db: AsyncSession) -> tuple[dict[str, bool], Decimal]:
+async def _get_global_settings(db: AsyncSession) -> tuple[dict[str, bool], Decimal, str | None]:
     result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
     settings = result.scalar_one_or_none()
     mandatory_fields = (settings.mandatory_fields if settings else {}) or {}
     raw_threshold = settings.high_value_threshold if settings else None
     high_value_threshold = Decimal(str(raw_threshold)) if raw_threshold is not None else Decimal("50000")
-    return mandatory_fields, high_value_threshold
+    return mandatory_fields, high_value_threshold, (settings.storage_path if settings else "") or None
 
 
 async def _load_candidate_licenses(
@@ -173,8 +175,9 @@ def _build_row(
     window_days: int,
     today: date,
     high_value_threshold=None,
+    storage_base: str | None = None,
 ) -> RenewalWorkbenchRow:
-    docs = [*list(license_obj.documents), *procurement_documents]
+    docs = available_documents([*list(license_obj.documents), *procurement_documents], storage_base)
     days_until_expiry = compute_days_until_expiry(license_obj, today)
     completeness_pct = compute_completeness(license_obj, docs, mandatory_fields)
     estimated_annual_value = estimate_annual_value(license_obj)

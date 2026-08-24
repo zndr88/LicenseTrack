@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.license import License
 from app.models.settings import GlobalSettings
+from app.services.document_availability_service import available_documents
 from app.services.license_service import compute_completeness
 from app.services.license_response_service import get_procurement_documents_by_scope
 from app.services.email_service import send_email
@@ -104,10 +105,10 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
         if lic.lifecycle_status in ("legacy", "renewed"):
             continue
 
-        docs = [
-            *list(lic.documents),
-            *procurement_documents_by_license_id.get(lic.id, []),
-        ]
+        docs = available_documents(
+            [*list(lic.documents), *procurement_documents_by_license_id.get(lic.id, [])],
+            gs.storage_path or None,
+        )
 
         # Check expiration
         if lic.end_date is not None and getattr(lic, "renewal_notifications_enabled", True):

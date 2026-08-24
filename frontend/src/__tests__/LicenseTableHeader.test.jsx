@@ -10,8 +10,9 @@ describe("LicenseTableHeader sortable capability", () => {
         <LicenseTableHeader
           visibleColumns={[{ key: "unknown", label: "Unknown", width: 100 }]}
           selectAllRef={{ current: null }}
-          allFilteredSelected={false}
-          filtered={[]}
+          allDisplayedSelected={false}
+          displayRows={[]}
+          selectionLabel="Select all licenses on this page"
           setSelectedIds={vi.fn()}
           dragHappenedRef={{ current: false }}
           setUserSettings={vi.fn()}
@@ -38,5 +39,39 @@ describe("LicenseTableHeader sortable capability", () => {
     fireEvent.click(header);
     fireEvent.keyDown(header, { key: "Enter" });
     expect(handleSortCol).not.toHaveBeenCalled();
+  });
+
+  test("select-all only adds the displayed page rows", () => {
+    const setSelectedIds = vi.fn();
+    render(
+      <table>
+        <LicenseTableHeader
+          visibleColumns={[{ key: "select", label: "Select", width: 40 }]}
+          selectAllRef={{ current: null }}
+          allDisplayedSelected={false}
+          displayRows={[{ id: 2 }, { id: 3 }]}
+          selectionLabel="Select all licenses on this page"
+          setSelectedIds={setSelectedIds}
+          dragHappenedRef={{ current: false }}
+          setUserSettings={vi.fn()}
+          setHoveredCol={vi.fn()}
+          hoveredCol={null}
+          handleSortCol={vi.fn()}
+          sortCol={null}
+          sortDir="asc"
+          handleHideColumn={vi.fn()}
+          filterRowOpen={false}
+          columnFilters={{}}
+          setColumnFilters={vi.fn()}
+          departments={[]}
+          datesFromOptions={[]}
+          datesToOptions={[]}
+        />
+      </table>,
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all licenses on this page" }));
+    const update = setSelectedIds.mock.calls[0][0];
+    expect([...update(new Set([99]))]).toEqual([99, 2, 3]);
   });
 });

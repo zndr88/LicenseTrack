@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType
 from app.services.conversion.maintenance_linker import create_maintenance_purchase
-from app.services.license_service import generate_license_ref
+from app.services.license_service import generate_license_ref, validate_term_date_order
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.po_total_override_service import inherit_po_total_override
 from app.services.reference_data_service import resolve_license_reference_fields
@@ -28,6 +28,10 @@ async def create_purchase_license(
         item_data["unit_price"] = ""
         item_data["total_po_price"] = ""
     item_data["quantity_per_unit"] = item_data.get("quantity_per_unit") or "1"
+    try:
+        validate_term_date_order(item_data.get("start_date"), item_data.get("end_date"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Item {item_id}: {exc}") from exc
     await inherit_po_total_override(db, item_data)
 
     if license_type == LicenseType.maintenance:

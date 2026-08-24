@@ -15,13 +15,15 @@ export default function PipelineStrip({ stats, onStageClick, activeFilters }) {
       {stages.map((stage, i) => {
         if (stage === null) return <div key="sep" className="kp-sep" />
 
-        const count = stats?.[stage.key] ?? 0
+        const count = stats?.[stage.key]
+        const unavailable = count === null
+        const displayCount = unavailable ? '—' : (count ?? 0)
         const isActive = activeFilters?.includes?.(stage.key)
         const showArrow = i < stages.length - 1 && stages[i + 1] !== null
 
         const numClass = [
           'kp-num',
-          count === 0 ? 'kp-num--zero' : '',
+          displayCount === 0 ? 'kp-num--zero' : '',
           stage.color ? `kp-num--${stage.color}` : '',
         ].filter(Boolean).join(' ')
 
@@ -32,7 +34,7 @@ export default function PipelineStrip({ stats, onStageClick, activeFilters }) {
               onClick={() => onStageClick(stage.key)}
               aria-pressed={isActive}
             >
-              <span className={numClass}>{count}</span>
+              <span className={numClass}>{displayCount}</span>
               <span className="kp-label">{stage.label}</span>
             </button>
             {showArrow && <div className="kp-arrow" aria-hidden="true">→</div>}

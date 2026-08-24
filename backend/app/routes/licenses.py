@@ -24,7 +24,7 @@ from app.schemas.license import (
 )
 from app.services.access_service import apply_department_filter, can_view_license, get_viewer_departments
 from app.services.audit_service import diff_fields, format_audit_detail, log_event
-from app.services.document_availability_service import get_document_storage_base
+from app.services.document_availability_service import available_documents, get_document_storage_base
 from app.services.license_service import (
     compute_stats,
     generate_license_ref,
@@ -96,13 +96,14 @@ async def get_stats(db: DbSession, _current_user: CurrentUser) -> dict:
     result = await db.execute(query)
     all_licenses = list(result.scalars().all())
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, all_licenses)
+    storage_base = await get_document_storage_base(db)
 
     documents_by_license_id: dict[int, list[Document]] = {}
     for lic in all_licenses:
-        documents_by_license_id[lic.id] = [
-            *list(lic.documents),
-            *procurement_documents_by_license_id.get(lic.id, []),
-        ]
+        documents_by_license_id[lic.id] = available_documents(
+            [*list(lic.documents), *procurement_documents_by_license_id.get(lic.id, [])],
+            storage_base,
+        )
 
     return compute_stats(all_licenses, documents_by_license_id, mandatory_fields, notification_days)
 
@@ -140,6 +141,7 @@ async def list_licenses(
             )
         )
     query = apply_department_filter(query, departments)
+    query = query.order_by(License.id)
     query = query.offset(offset)
     if limit is not None:
         query = query.limit(limit)

@@ -142,8 +142,14 @@ async def test_workbench_excludes_service_and_other_license_types(test_app, auth
     assert other["id"] not in row_ids
 
 
-async def test_workbench_completeness_includes_procurement_documents(db_session, test_app, auth_headers):
-    db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}))
+async def test_workbench_completeness_includes_procurement_documents(
+    db_session,
+    test_app,
+    auth_headers,
+    tmp_path,
+):
+    db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}, storage_path=str(tmp_path)))
+    (tmp_path / "stored-invoice.pdf").write_bytes(b"invoice")
     await db_session.commit()
     license_data = await _create_license(
         test_app,

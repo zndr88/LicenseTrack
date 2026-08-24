@@ -261,6 +261,8 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     });
   };
 
+  const completenessDocuments = documents?.filter(isFileAvailable) ?? null;
+
   return {
     documents,
     docsLoading,
@@ -272,13 +274,13 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     processingResultsLoading,
     processingRequestPending,
     processingReviewBusy,
-    liveDocs: documents !== null
+    liveDocs: completenessDocuments !== null
       ? {
-          invoice: documents.filter((d) => d.category === "invoice"),
-          quote: documents.filter((d) => d.category === "quote"),
-          purchase_order: documents.filter((d) => d.category === "purchase_order"),
-          eula: documents.filter((d) => d.category === "eula"),
-          entitlement: documents.filter((d) => d.category === "entitlement"),
+          invoice: completenessDocuments.filter((d) => d.category === "invoice"),
+          quote: completenessDocuments.filter((d) => d.category === "quote"),
+          purchase_order: completenessDocuments.filter((d) => d.category === "purchase_order"),
+          eula: completenessDocuments.filter((d) => d.category === "eula"),
+          entitlement: completenessDocuments.filter((d) => d.category === "entitlement"),
         }
       : license.documents,
     docCount: documents?.length ?? 0,

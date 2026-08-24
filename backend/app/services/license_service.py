@@ -23,6 +23,12 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+def validate_term_date_order(start_date: date | None, end_date: date | None) -> None:
+    """Reject a bounded term whose end precedes its start."""
+    if start_date is not None and end_date is not None and end_date < start_date:
+        raise ValueError("End date cannot be before start date.")
+
+
 # ---------------------------------------------------------------------------
 # License reference generation
 # ---------------------------------------------------------------------------
@@ -215,7 +221,7 @@ def compute_expiration_status(
     3. renewed   - lifecycle_status == "renewed"
     4. pending_renewal - lifecycle_status == "pending_renewal"
     5. upcoming  - start_date is in the future
-    6. perpetual - no end_date
+    6. perpetual - a non-expiring license type with no end_date
     7. expired   - end_date in the past
     8. expiring  - end_date within notification_days
     9. active    - everything else
@@ -231,7 +237,7 @@ def compute_expiration_status(
     if license.start_date is not None and license.start_date > today:
         return "upcoming"
     if license.end_date is None:
-        return "perpetual"
+        return "perpetual" if license.license_type in _NON_EXPIRING_LICENSE_TYPES else "active"
     if license.end_date < today:
         return "expired"
     if license.end_date <= today + timedelta(days=notification_days):

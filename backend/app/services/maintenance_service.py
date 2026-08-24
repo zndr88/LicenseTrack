@@ -22,7 +22,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseCoverageHistory, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
-from app.services.license_service import calc_line_total, generate_license_ref
+from app.services.license_service import calc_line_total, generate_license_ref, validate_term_date_order
 from app.services.maintenance_rules import (
     assert_parent_not_retired,
     assert_parent_type_eligible,
@@ -362,6 +362,7 @@ async def create_maintenance_for_parent(
         invoice_number = data.get("invoice_number") or ""
         data["invoice_numbers"] = [invoice_number] if invoice_number else []
     await resolve_license_reference_fields(db, data)
+    validate_term_date_order(data.get("start_date"), data.get("end_date"))
     await inherit_po_total_override(db, data)
 
     maintenance_license = License(

@@ -96,7 +96,15 @@ export function useLicenseData(licenses, {
       else label = l.expirationStatus;
       expiration = { status: l.expirationStatus, days, label };
     } else {
-      expiration = getExpirationStatus(l.endDate, globalSettings.notificationDays, l.retired, l.lifecycleStatus, l.renewedToId, l.startDate);
+      expiration = getExpirationStatus(
+        l.endDate,
+        globalSettings.notificationDays,
+        l.retired,
+        l.lifecycleStatus,
+        l.renewedToId,
+        l.startDate,
+        l.licenseType,
+      );
     }
 
     return { ...l, completeness, expiration };
@@ -110,7 +118,7 @@ export function useLicenseData(licenses, {
     if (activeStatusFilters.hasLifecycleFilters) {
       const { values } = activeStatusFilters;
       const matchesLifecycle = (
-        (values.has("active") && (l.expiration.status === "active" || l.expiration.status === "perpetual" || l.expiration.status === "expiring")) ||
+        (values.has("active") && (l.expiration.status === "active" || l.expiration.status === "perpetual")) ||
         (values.has("upcoming") && l.expiration.status === "upcoming") ||
         (values.has("expiring") && l.expiration.status === "expiring") ||
         (values.has("expired") && l.expiration.status === "expired") ||
@@ -126,7 +134,7 @@ export function useLicenseData(licenses, {
       const { values } = activeStatusFilters;
       const matchesCompleteness = (
         (values.has("complete") && l.completeness.isComplete) ||
-        (values.has("incomplete") && !l.completeness.isComplete)
+        (values.has("incomplete") && !l.completeness.isExempt && !l.completeness.isComplete)
       );
       if (!matchesCompleteness) return false;
     }
@@ -346,8 +354,11 @@ export function useLicenseData(licenses, {
   );
 
   const paginatedItems = useMemo(
-    () => sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [sorted, currentPage, pageSize]
+    () => {
+      const effectivePage = Math.min(Math.max(1, currentPage), totalPages);
+      return sorted.slice((effectivePage - 1) * pageSize, effectivePage * pageSize);
+    },
+    [sorted, currentPage, pageSize, totalPages]
   );
 
   const departments = useMemo(() => [...new Set(licenses.map((l) => l.costCentre).filter(Boolean))].sort(), [licenses]);
