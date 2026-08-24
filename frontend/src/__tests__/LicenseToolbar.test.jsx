@@ -2,6 +2,7 @@ import React from "react";
 import { render, fireEvent, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import LicenseToolbar from "../components/pages/licenses/LicenseToolbar.jsx";
+import { COLUMN_DEFS } from "../components/pages/licenses/licenseColumns.js";
 
 const baseUserSettings = {
   savedViews: [],
@@ -166,6 +167,36 @@ describe("LicenseToolbar", () => {
     fireEvent.click(screen.getByRole("switch", { name: "Show Publisher column" }));
 
     expect(handleSetVisibleColumn).toHaveBeenCalledWith("publisher", false);
+  });
+
+  test("column category menu exposes the Docs column", () => {
+    const { handleSetVisibleColumn } = setup({
+      activeColumns: COLUMN_DEFS,
+      visList: { docs: true },
+    });
+
+    fireEvent.click(screen.getByLabelText("Column categories"));
+    fireEvent.click(screen.getByRole("switch", { name: "Show Docs column" }));
+
+    expect(handleSetVisibleColumn).toHaveBeenCalledWith("docs", false);
+  });
+
+  test("column category menu fits the viewport below a lowered toolbar", () => {
+    setup({ activeColumns: COLUMN_DEFS, visList: {} });
+    const button = screen.getByLabelText("Column categories");
+    vi.spyOn(button, "getBoundingClientRect").mockReturnValue({
+      bottom: 500,
+      right: 900,
+    });
+    vi.stubGlobal("innerHeight", 700);
+    vi.stubGlobal("innerWidth", 1000);
+
+    fireEvent.click(button);
+
+    const menu = screen.getByRole("menu", { name: "Column categories" });
+    expect(menu.style.top).toBe("504px");
+    expect(menu.style.maxHeight).toBe("184px");
+    vi.unstubAllGlobals();
   });
 
   test("column category menu toggles grouped visible columns", () => {

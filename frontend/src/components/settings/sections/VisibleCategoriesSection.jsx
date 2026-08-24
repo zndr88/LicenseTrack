@@ -76,7 +76,7 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
 
   return (
     <div className="setsec">
-      <SectionHeader sectionKey="visibleCategories" icon="columns" title="Visible Categories" description="Control which optional fields appear in the list overview vs. the license detail panel (per-user)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
+      <SectionHeader sectionKey="visibleCategories" icon="columns" title="Column Categories" description="Control which optional fields appear in License Overview and License Details (per-user)" isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
           <div className="set-section-stack">

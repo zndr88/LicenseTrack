@@ -36,7 +36,7 @@ export const COLUMN_DEFS = [
   { key: "purchaseDate", label: "Purchase Date", width: 110, group: "standard", defaultVisible: false },
   { key: "portalUrl", label: "Portal URL", width: 190, group: "standard", defaultVisible: false },
   { key: "notes", label: "Notes", settingsLabel: "Notes / Comments", width: 240, group: "standard", defaultVisible: false, detailKey: "notes", truncate: true },
-  { key: "docs", label: "Docs", settingsLabel: "Procurement Documents", width: 80, group: "computed", defaultVisible: true, computed: true },
+  { key: "docs", label: "Docs", width: 80, group: "computed", defaultVisible: true, computed: true },
   { key: "calcTotal", label: "Calc. Total", width: 110, group: "computed", defaultVisible: false, computed: true },
   { key: "expiration", label: "Expiration", width: 140, group: "computed", defaultVisible: true, always: true, computed: true },
   { key: "complete", label: "Complete", width: 100, group: "computed", defaultVisible: true, always: true, computed: true },

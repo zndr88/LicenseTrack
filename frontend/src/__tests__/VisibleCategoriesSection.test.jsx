@@ -38,6 +38,16 @@ function setup() {
 }
 
 describe("VisibleCategoriesSection toggle-all controls", () => {
+  test("uses the Column Categories title and exposes the Docs list column", () => {
+    const setUserSettings = setup();
+
+    expect(screen.getByText("Column Categories")).toBeTruthy();
+    fireEvent.click(screen.getByRole("switch", { name: "Show Docs in list view" }));
+
+    const next = setUserSettings.mock.calls[0][0](userSettings);
+    expect(next.visibleInList.docs).toBe(false);
+  });
+
   test("enables every advanced list field together", () => {
     const setUserSettings = setup();
 

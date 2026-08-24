@@ -94,10 +94,17 @@ export default function LicenseToolbar({
 
   useEffect(() => {
     if (!columnsMenuOpen) return;
-    if (columnsBtnRef.current) {
+    const positionMenu = () => {
+      if (!columnsBtnRef.current) return;
       const r = columnsBtnRef.current.getBoundingClientRect();
-      setColumnsPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
-    }
+      const top = r.bottom + 4;
+      setColumnsPos({
+        top,
+        right: window.innerWidth - r.right,
+        maxHeight: Math.min(520, Math.max(0, window.innerHeight - top - 12)),
+      });
+    };
+    positionMenu();
     const handler = (e) => {
       if (
         columnsBtnRef.current && !columnsBtnRef.current.contains(e.target) &&
@@ -106,8 +113,12 @@ export default function LicenseToolbar({
         setColumnsMenuOpen(false);
       }
     };
+    window.addEventListener("resize", positionMenu);
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    return () => {
+      window.removeEventListener("resize", positionMenu);
+      document.removeEventListener("mousedown", handler);
+    };
   }, [columnsMenuOpen]);
 
   useEffect(() => {
@@ -326,7 +337,7 @@ export default function LicenseToolbar({
             role="menu"
             aria-label="Column categories"
             className="lp-menu lp-column-menu"
-            style={{ top: columnsPos.top, right: columnsPos.right }}
+            style={{ top: columnsPos.top, right: columnsPos.right, maxHeight: columnsPos.maxHeight }}
           >
             {selectorGroups.map((group) => {
               const allVisible = group.columns.every(isColumnVisible);

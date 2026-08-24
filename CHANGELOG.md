@@ -34,6 +34,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- Made the **Docs** column selectable from License Overview and per-user
+  settings, renamed **Visible Categories** to **Column Categories**, and kept
+  the selector within the viewport when the attention banner lowers the toolbar.
 - Required document categories now count toward completeness only when the
   managed file is available. Missing or unavailable files retain their
   metadata and availability counts but no longer make a license appear
