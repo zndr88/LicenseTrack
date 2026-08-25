@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from app.models.audit_log import AuditLog
 from app.models.license import License, LicenseType, LicenseMetric
-from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
+from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.pending_order import PendingOrder
 from app.models.user import User, UserRole
 
@@ -44,6 +44,7 @@ async def seeded_license(db_session):
         start_date=date.today(),
         end_date=date.today() + timedelta(days=90),
         currency="EUR",
+        budget_owner_email="owner@example.com",
     )
     db_session.add(lic)
     await db_session.commit()
@@ -94,10 +95,10 @@ async def test_audit_license_renewal_initiated(
 
 
 # ---------------------------------------------------------------------------
-# 2 — sourcing_request.cancelled from license renewal cancellation
+# 2 — license renewal cancellation stays scoped to its sourcing line
 # ---------------------------------------------------------------------------
 
-async def test_audit_license_renewal_cancelled_logs_sourcing_request_cancelled(
+async def test_audit_license_renewal_cancelled_does_not_log_whole_request_cancellation(
     test_app, db_session, auth_headers, seeded_license
 ):
     # First initiate so cancel has something to cancel
@@ -110,14 +111,8 @@ async def test_audit_license_renewal_cancelled_logs_sourcing_request_cancelled(
         headers=auth_headers,
     )
     assert resp.status_code == 200
-    request_id = await db_session.scalar(
-        select(SourcingRequest.id)
-        .join(SourcingItem, SourcingItem.sourcing_request_id == SourcingRequest.id)
-        .where(SourcingItem.renewal_for_license_id == seeded_license.id)
-    )
     rows = await get_audit_rows(db_session, "sourcing_request.cancelled")
-    assert len(rows) == 1
-    assert rows[0].target_id == str(request_id)
+    assert rows == []
 
 
 # ---------------------------------------------------------------------------

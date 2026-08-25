@@ -117,4 +117,31 @@ describe("MaintenanceSection", () => {
     expect(screen.getByRole("dialog", { name: /coverage history/i })).toBeInTheDocument();
     expect(screen.getByText("Included support")).toBeInTheDocument();
   });
+
+  it("keeps coverage history available after active maintenance is disabled", () => {
+    render(
+      <MaintenanceSection
+        {...baseProps}
+        license={{
+          ...baseProps.license,
+          hasMaintenance: false,
+          activeMaintenanceId: null,
+          maintenanceCoverage: "separately_tracked",
+        }}
+        coverageHistory={[{
+          id: 2,
+          sourceType: "linked_maintenance",
+          startDate: "2025-01-01",
+          endDate: "2025-12-31",
+          cost: "250",
+          currency: "EUR",
+          isCurrent: false,
+        }]}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /coverage history/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /edit maintenance \/ support record/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /disable linked contract/i })).not.toBeInTheDocument();
+  });
 });

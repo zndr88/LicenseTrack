@@ -10,7 +10,17 @@ import ModalShell from "../ui/ModalShell.jsx";
 const NON_RENEWABLE_TYPES = new Set(["service", "other"]);
 
 function normalized(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function entitlementIdentity(license) {
+  return [
+    license.publisherName,
+    license.softwareDescription,
+    license.skuCode,
+    license.licenseMetric,
+    license.licenseType,
+  ].map(normalized).join("|");
 }
 
 export function getExistingSuccessorCandidates(predecessor, allLicenses, notificationDays) {
@@ -20,6 +30,7 @@ export function getExistingSuccessorCandidates(predecessor, allLicenses, notific
   return allLicenses
     .filter((candidate) => candidate.id !== predecessor.id)
     .filter((candidate) => normalized(candidate.poNumber) === predecessorPo)
+    .filter((candidate) => entitlementIdentity(candidate) === entitlementIdentity(predecessor))
     .filter((candidate) => !NON_RENEWABLE_TYPES.has(candidate.licenseType))
     .filter((candidate) => !candidate.retired && !candidate.isRetired && !candidate.lifecycleStatus)
     .filter((candidate) => !candidate.renewedFromId && !candidate.predecessorId && !candidate.renewedToId)

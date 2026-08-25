@@ -177,6 +177,7 @@ describe("RenewalWorkbenchPage helpers", () => {
     expect(getPrimaryAction(row({ pendingOrderId: 5 }), { canOpenPipeline: true, canStartRenewal: true })).toBe("po");
     expect(getPrimaryAction(row({ sourcingItemId: 8 }), { canOpenPipeline: true, canStartRenewal: true })).toBe("sourcing");
     expect(getPrimaryAction(row(), { canOpenPipeline: true, canStartRenewal: true })).toBe("start");
+    expect(getPrimaryAction(row({ budgetOwnerEmail: " " }), { canOpenPipeline: true, canStartRenewal: true })).toBeNull();
     expect(getPrimaryAction(row(), { canOpenPipeline: false, canStartRenewal: false })).toBeNull();
   });
 

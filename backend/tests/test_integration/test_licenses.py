@@ -45,6 +45,7 @@ def _minimal_payload(**overrides) -> dict:
         "licenseMetric": "per_user",
         "quantity": "10",
         "currency": "EUR",
+        "budgetOwnerEmail": "owner@example.com",
     }
     base.update(overrides)
     return base
@@ -87,7 +88,7 @@ async def test_link_existing_successor_reuses_standard_renewal_chain_and_preserv
     predecessor = await _create_license(
         test_app,
         auth_headers,
-        softwareDescription="Commitment Year 1",
+        softwareDescription="Annual Commitment",
         poNumber="PO-COMMIT-001",
         startDate=(today - timedelta(days=365)).isoformat(),
         endDate=(today + timedelta(days=5)).isoformat(),
@@ -95,7 +96,7 @@ async def test_link_existing_successor_reuses_standard_renewal_chain_and_preserv
     successor = await _create_license(
         test_app,
         auth_headers,
-        softwareDescription="Commitment Year 2",
+        softwareDescription="Annual Commitment",
         poNumber="PO-COMMIT-001",
         startDate=today.isoformat(),
         endDate=(today + timedelta(days=370)).isoformat(),

@@ -48,7 +48,9 @@ Renewal sourcing records are created automatically when a renewal begins. When
 several renewal lines should end on the same date, coterm merge combines them
 while preserving their predecessor relationships. If the historical supplier
 suggestions differ, the new request remains unassigned until procurement chooses
-one target supplier.
+one target supplier. Coterm lines must use one currency, but their historical
+unit prices may differ. The merged request sums each line's own value and leaves
+the merged unit price blank when there is no single representative price.
 
 For freeware or open-source requests, set the line's optional **License Type**
 to **Freeware / Open Source**. Converting that line creates an active Registry

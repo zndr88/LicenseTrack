@@ -160,6 +160,14 @@ function getCalculatedLicenseValue(license) {
   return lineValue;
 }
 
+function getMaintenanceRecordValue(license) {
+  const maintenanceCost = parsePrice(license.maintenanceCost);
+  if (maintenanceCost !== null) return maintenanceCost;
+  const quantity = parsePrice(license.quantity);
+  const unitPrice = parsePrice(license.unitPrice);
+  return quantity !== null && unitPrice !== null ? quantity * unitPrice : null;
+}
+
 function isRecurringLicense(license) {
   return RECURRING_TYPES.includes(license.licenseType) ||
     (
@@ -558,10 +566,10 @@ export function getPerpetualMaintenanceReport(licenses) {
       ...(license.parentLicenseId != null ? [license.parentLicenseId] : []),
     ]);
     const cost = parsePrice(license.maintenanceCost);
-    const fallback = getCalculatedLicenseValue(license);
+    const fallback = getMaintenanceRecordValue(license);
     const maintenanceRecord = {
       id: license.id,
-      amount: cost !== null ? cost : fallback.amount,
+      amount: cost !== null ? cost : fallback,
       currency: license.currency || "USD",
       publisher: license.publisherName || "Unknown",
       description: license.softwareDescription || "",
@@ -626,12 +634,28 @@ export function getPerpetualMaintenanceReport(licenses) {
   const purchaseByCurrency = {};
   const maintenanceByCurrency = {};
   const totalByCurrency = {};
+  const countedMaintenance = new Set();
   for (const row of rows) {
     addReportAmount(purchaseByCurrency, row.currency, row.purchaseValue);
     addReportAmount(totalByCurrency, row.currency, row.purchaseValue);
     for (const [currency, amount] of Object.entries(row.maintenanceByCurrency)) {
-      addReportAmount(maintenanceByCurrency, currency, amount);
-      addReportAmount(totalByCurrency, currency, amount);
+      const maintenanceRecords = row.maintenanceRecords.filter((record) => record.currency === currency);
+      if (maintenanceRecords.length === 0) {
+        addReportAmount(maintenanceByCurrency, currency, amount);
+        addReportAmount(totalByCurrency, currency, amount);
+        continue;
+      }
+      const uniqueRecords = maintenanceRecords.filter((record) => {
+        const key = `${record.id}::${currency}`;
+        if (countedMaintenance.has(key)) return false;
+        countedMaintenance.add(key);
+        return true;
+      });
+      const uniqueAmount = uniqueRecords.reduce((sum, record) => sum + (record.amount ?? 0), 0);
+      if (uniqueRecords.length > 0) {
+        addReportAmount(maintenanceByCurrency, currency, uniqueAmount);
+        addReportAmount(totalByCurrency, currency, uniqueAmount);
+      }
     }
   }
 

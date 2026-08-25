@@ -188,6 +188,7 @@ class SourcingItemResponse(BaseModel):
     pending_order_po_number: Optional[str] = None
     converted_license_id: Optional[int] = None
     converted_license_ref: Optional[str] = None
+    converted_license_retired: bool = False
     converted_license_ids: list[int] = []
     renewal_for_license_id: Optional[int] = None
     coterm_predecessor_ids: Optional[list[int]] = None

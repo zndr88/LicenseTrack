@@ -6,7 +6,9 @@ from fastapi import HTTPException
 from app.models.license import License, LicenseMetric, LicenseType
 from app.services.lifecycle_rules import (
     assert_can_initiate_renewal,
+    assert_successor_term,
     clear_pending_renewal,
+    entitlement_identity,
     validate_lifecycle_repair_update,
     validate_renewal_link_invariants,
 )
@@ -65,6 +67,44 @@ def test_initiate_renewal_rejects_non_renewable_types(license_type):
 
     assert exc_info.value.status_code == 400
     assert "service or other" in exc_info.value.detail
+
+
+def test_initiate_renewal_requires_budget_owner():
+    license_obj = _license("Unowned renewal")
+    license_obj.budget_owner_email = " "
+
+    with pytest.raises(HTTPException) as exc_info:
+        assert_can_initiate_renewal(license_obj)
+
+    assert exc_info.value.status_code == 400
+    assert "budget owner" in exc_info.value.detail.lower()
+
+
+def test_successor_term_must_advance_start_and_end_dates():
+    predecessor = _license("Predecessor")
+
+    with pytest.raises(HTTPException, match="start after"):
+        assert_successor_term(
+            [predecessor],
+            successor_start=predecessor.start_date,
+            successor_end=date(2026, 12, 31),
+        )
+
+    with pytest.raises(HTTPException, match="extend coverage"):
+        assert_successor_term(
+            [predecessor],
+            successor_start=date(2026, 1, 1),
+            successor_end=predecessor.end_date,
+        )
+
+
+def test_entitlement_identity_includes_sku_metric_and_license_type():
+    first = _license("Acme Suite")
+    first.sku_code = " SKU-ONE "
+    second = _license("  acme   suite ")
+    second.sku_code = "sku-two"
+
+    assert entitlement_identity(first) != entitlement_identity(second)
 
 
 async def test_repair_accepts_existing_reciprocal_three_generation_chain(db_session):

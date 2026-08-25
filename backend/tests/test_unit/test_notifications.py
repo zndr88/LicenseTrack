@@ -556,6 +556,36 @@ async def test_run_daily_notifications_no_emails_sent_when_no_expiring(
     mock_send.assert_not_called()
 
 
+async def test_run_daily_notifications_does_not_alert_for_upcoming_license(
+    db_session,
+    smtp_settings,
+):
+    upcoming = License(
+        publisher_name="Vendor",
+        software_description="Future App",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        start_date=date.today() + timedelta(days=5),
+        end_date=date.today() + timedelta(days=10),
+        budget_owner_email="owner@example.com",
+        is_retired=False,
+    )
+    db_session.add(upcoming)
+    await db_session.commit()
+
+    with patch(
+        "app.services.notification_sender.send_email",
+        new_callable=AsyncMock,
+    ) as mock_send:
+        result = await run_daily_notifications(db_session)
+
+    assert result["budget_owner_emails_sent"] == 0
+    assert result["digest_sent"] is False
+    assert result["total_notifications"] == 0
+    mock_send.assert_not_called()
+
+
 async def test_run_daily_notifications_sends_digest_for_incomplete_only_run(
     db_session, smtp_settings
 ):

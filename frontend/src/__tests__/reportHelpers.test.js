@@ -414,6 +414,32 @@ describe("report cost helpers", () => {
 
     expect(report.rows[0]).toMatchObject({ maintenanceValue: 400, linkedMaintenanceCount: 1, maintenanceSource: "separately_tracked" });
   });
+
+  test("shows shared maintenance on each parent without double-counting portfolio totals", () => {
+    const report = getPerpetualMaintenanceReport([
+      license({ id: 40, licenseType: "perpetual", quantity: "1", unitPrice: "1000", maintenanceCoverage: "separately_tracked" }),
+      license({ id: 41, licenseType: "perpetual", quantity: "1", unitPrice: "2000", maintenanceCoverage: "separately_tracked" }),
+      license({
+        id: 42,
+        licenseType: "maintenance",
+        maintenanceParentIds: [40, 41],
+        maintenanceCost: null,
+        quantity: "2",
+        unitPrice: "150",
+      }),
+    ]);
+
+    expect(report.rows.find((row) => row.id === 40)).toMatchObject({
+      maintenanceValue: 300,
+      maintenanceRecords: [{ id: 42, amount: 300 }],
+    });
+    expect(report.rows.find((row) => row.id === 41)).toMatchObject({
+      maintenanceValue: 300,
+      maintenanceRecords: [{ id: 42, amount: 300 }],
+    });
+    expect(report.maintenanceByCurrency).toEqual({ EUR: 300 });
+    expect(report.totalByCurrency).toEqual({ EUR: 3300 });
+  });
 });
 
 describe("report date-only handling", () => {

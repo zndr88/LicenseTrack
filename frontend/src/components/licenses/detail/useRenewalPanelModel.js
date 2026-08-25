@@ -1,30 +1,11 @@
-import { getExpirationStatus } from "../../../utils/helpers.js";
+import { getRenewalBundleMembers } from "../../../utils/renewalBundle.js";
 
 export function useRenewalPanelModel({ license, allLicenses, globalSettings }) {
-  const poSiblings = license.poNumber
-    ? allLicenses
-        .filter(
-          (l) =>
-            l.poNumber === license.poNumber &&
-            l.endDate === license.endDate &&
-            l.id !== license.id &&
-            !l.renewedToId &&
-            !l.retired &&
-            l.lifecycleStatus !== "pending_renewal"
-        )
-        .filter((l) => {
-          const s = getExpirationStatus(
-            l.endDate,
-            globalSettings.notificationDays,
-            l.retired,
-            l.lifecycleStatus,
-            l.renewedToId,
-            l.startDate,
-            l.licenseType,
-          );
-          return s.status === "expiring" || s.status === "expired";
-        })
-    : [];
+  const poSiblings = getRenewalBundleMembers(
+    license,
+    allLicenses,
+    globalSettings.notificationDays,
+  );
 
   const bundleCount = poSiblings.length + 1;
 

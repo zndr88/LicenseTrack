@@ -60,7 +60,7 @@ async def get_coverage_history(
                 }
             )
         elif maintenance is not None:
-            response = response.model_copy(update={"maintenance_license_id": None})
+            continue
         rows.append(response)
 
     if parent.active_maintenance_id is not None:
@@ -68,12 +68,14 @@ async def get_coverage_history(
         active = active_result.scalar_one_or_none()
         if active is not None:
             can_view_active = await can_view_license(current_user, active, db)
+            if not can_view_active:
+                return rows
             line_total = calc_line_total(active.quantity, active.unit_price)
             rows.append(
                 LicenseCoverageHistoryResponse(
                     id=-(active.id),
                     parent_license_id=parent.id,
-                    maintenance_license_id=active.id if can_view_active else None,
+                    maintenance_license_id=active.id,
                     coverage_type="separately_tracked",
                     source_type="current_maintenance_record",
                     start_date=active.start_date,
@@ -84,8 +86,8 @@ async def get_coverage_history(
                     currency=active.currency,
                     created_at=active.created_at,
                     is_current=True,
-                    license_ref=active.license_ref if can_view_active else None,
-                    software_description=active.software_description if can_view_active else None,
+                    license_ref=active.license_ref,
+                    software_description=active.software_description,
                 )
             )
     return rows

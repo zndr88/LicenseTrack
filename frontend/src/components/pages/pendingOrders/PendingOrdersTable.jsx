@@ -122,7 +122,7 @@ function PendingOrderItemsRow({
                           onNavigateToLicense(item.convertedLicenseId);
                         }}
                       >
-                        <Icon name="arrow-right" size={12} />View License
+                        <Icon name="arrow-right" size={12} />{item.convertedLicenseRetired ? "View Retired License" : "View License"}
                       </button>
                     )}
                     {readOnly && !item.convertedLicenseId && (item.convertedLicenseIds?.length ?? 0) > 1 && (
@@ -213,7 +213,7 @@ export default function PendingOrdersTable({
             style={{ padding: "4px 8px", fontSize: 11 }}
             onClick={() => onNavigateToLicense(po.convertedLicenseId)}
           >
-            <Icon name="arrow-right" size={12} />View License
+            <Icon name="arrow-right" size={12} />{po.convertedLicenseRetired ? "View Retired License" : "View License"}
           </button>
           {po.convertedLicenseRef && (
             <span style={{ color: "var(--text-3)", fontSize: 10 }}>{po.convertedLicenseRef}</span>

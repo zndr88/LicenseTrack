@@ -6,23 +6,25 @@ from datetime import date, datetime, timezone
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.models.license import License, LicenseType, MaintenanceCoverage
+from app.models.license import License, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
 from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
 from app.services.audit_service import format_audit_detail, log_event
 from app.services.license_service import compute_expiration_status, generate_license_ref, validate_term_date_order
 from app.services.lifecycle_rules import (
+    assert_successor_term,
     assert_can_cancel_renewal,
     assert_predecessor_has_no_successor,
     clear_pending_renewal,
     mark_pending_renewal,
     mark_predecessor_renewed,
+    entitlement_identity,
 )
 from app.services.maintenance_service import (
-    link_maintenance_to_parent,
-    sync_parent_mirror_fields,
+    activate_maintenance_for_parent,
     validate_parent_license,
 )
 from app.services.maintenance_rules import (
@@ -33,9 +35,10 @@ from app.services.po_total_override_service import inherit_po_total_override
 from app.services.reference_data_service import resolve_license_reference_fields, resolve_organization
 from app.services.renewal_workflow import build_renewal_sourcing_item
 from app.services.sourcing_service import (
-    cancel_sourcing_request_record,
     ensure_sourcing_request_for_item,
     sourcing_item_predecessor_ids,
+    clear_pending_renewal_if_no_open_sourcing,
+    refresh_sourcing_request_status,
 )
 
 
@@ -70,6 +73,33 @@ class ExistingSuccessorLinkResult:
     predecessor: License
     successor: License
     former_successor_license_ref: str | None
+
+
+async def _activate_maintenance_successor_for_all_parents(
+    db: AsyncSession,
+    predecessor: License,
+    successor: License,
+) -> None:
+    if predecessor.license_type != LicenseType.maintenance:
+        return
+    link_result = await db.execute(
+        select(LicenseMaintenanceLink.parent_license_id).where(
+            LicenseMaintenanceLink.maintenance_license_id == predecessor.id
+        )
+    )
+    linked_parent_ids = set(link_result.scalars().all())
+    parent_ids = []
+    if predecessor.parent_license_id is not None:
+        parent_ids.append(predecessor.parent_license_id)
+    parent_ids.extend(sorted(linked_parent_ids - set(parent_ids)))
+    if not parent_ids:
+        return
+    parent_result = await db.execute(select(License).where(License.id.in_(parent_ids)))
+    parents_by_id = {parent.id: parent for parent in parent_result.scalars().all()}
+    for parent_id in parent_ids:
+        parent = parents_by_id.get(parent_id)
+        if parent is not None:
+            await activate_maintenance_for_parent(db, successor, parent)
 
 
 def _normalized_po(value: str | None) -> str:
@@ -113,6 +143,8 @@ def _assert_existing_successor_candidate(
         successor.start_date is None or successor.start_date <= predecessor.start_date
     ):
         raise HTTPException(status_code=400, detail="The successor must start after the predecessor start date")
+    if entitlement_identity(predecessor) != entitlement_identity(successor):
+        raise HTTPException(status_code=400, detail="The successor must match the predecessor entitlement identity")
 
 
 async def link_existing_successor(
@@ -413,7 +445,9 @@ async def cancel_renewal(
     assert_can_cancel_renewal(license_obj)
 
     sourcing_result = await db.execute(
-        select(SourcingItem).where(SourcingItem.status == SourcingStatus.sourcing)
+        select(SourcingItem)
+        .where(SourcingItem.status == SourcingStatus.sourcing)
+        .options(selectinload(SourcingItem.sourcing_request))
     )
     sourcing_only_items = [
         item
@@ -421,8 +455,18 @@ async def cancel_renewal(
         if license_id in sourcing_item_predecessor_ids(item)
     ]
     for item in sourcing_only_items:
+        predecessor_ids = sourcing_item_predecessor_ids(item)
+        if len(predecessor_ids) > 1:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This renewal is represented by a coterm sourcing line covering "
+                    f"predecessors {predecessor_ids}; cancel the grouped renewal instead."
+                ),
+            )
         if item.sourcing_request_id is None:
             await ensure_sourcing_request_for_item(db, item, created_by=actor.id)
+        item.status = SourcingStatus.cancelled
     affected_request_ids = sorted(
         {
             item.sourcing_request_id
@@ -432,16 +476,11 @@ async def cancel_renewal(
     )
 
     for request_id in affected_request_ids:
-        cancelled_request = await cancel_sourcing_request_record(db, request_id)
-        await log_event(
-            db,
-            "sourcing_request.cancelled",
-            actor=actor,
-            ip_address=ip_address,
-            target_type="sourcing_request",
-            target_id=str(request_id),
-            target_label=cancelled_request.supplier or f"Sourcing request {request_id}",
-        )
+        request_result = await db.execute(select(SourcingRequest).where(SourcingRequest.id == request_id))
+        request = request_result.scalar_one_or_none()
+        if request is not None:
+            await refresh_sourcing_request_status(db, request)
+        await clear_pending_renewal_if_no_open_sourcing(db, license_id)
 
     po_result = await db.execute(
         select(SourcingItem).where(SourcingItem.status == SourcingStatus.converted)
@@ -576,8 +615,16 @@ async def _create_coterm_renewal_successor(
     predecessor_ids = list(sourcing_item.coterm_predecessor_ids or [])
     all_pred_result = await db.execute(select(License).where(License.id.in_(predecessor_ids)))
     all_preds = {lic.id: lic for lic in all_pred_result.scalars().all()}
+    missing_predecessors = [pred_id for pred_id in predecessor_ids if pred_id not in all_preds]
+    if missing_predecessors:
+        raise HTTPException(status_code=404, detail=f"Renewal predecessor(s) not found: {missing_predecessors}")
     for pred in all_preds.values():
         assert_predecessor_has_no_successor(pred)
+    assert_successor_term(
+        list(all_preds.values()),
+        license_data.get("start_date"),
+        license_data.get("end_date"),
+    )
 
     new_lic = License(
         **license_data,
@@ -601,16 +648,7 @@ async def _create_coterm_renewal_successor(
             mark_predecessor_renewed(pred, new_lic.id)
             marked_predecessor_ids.append(pred.id)
 
-    if (
-        primary_predecessor.license_type == LicenseType.maintenance
-        and primary_predecessor.parent_license_id is not None
-    ):
-        parent_result = await db.execute(select(License).where(License.id == primary_predecessor.parent_license_id))
-        parent_lic = parent_result.scalar_one_or_none()
-        if parent_lic is not None:
-            await link_maintenance_to_parent(db, new_lic, parent_lic)
-            parent_lic.active_maintenance_id = new_lic.id
-            await sync_parent_mirror_fields(db, parent_lic)
+    await _activate_maintenance_successor_for_all_parents(db, primary_predecessor, new_lic)
 
     return RenewalConversionResult(
         successor=new_lic,
@@ -627,6 +665,11 @@ async def _create_single_renewal_successor(
     created_by: int | None,
 ) -> RenewalConversionResult:
     assert_predecessor_has_no_successor(old_license)
+    assert_successor_term(
+        [old_license],
+        license_data.get("start_date"),
+        license_data.get("end_date"),
+    )
     if "invoice_numbers" not in license_data:
         invoice_number = license_data.get("invoice_number") or ""
         license_data["invoice_numbers"] = [invoice_number] if invoice_number else []
@@ -644,13 +687,7 @@ async def _create_single_renewal_successor(
 
     mark_predecessor_renewed(old_license, new_lic.id)
 
-    if old_license.license_type == LicenseType.maintenance and old_license.parent_license_id is not None:
-        parent_result = await db.execute(select(License).where(License.id == old_license.parent_license_id))
-        parent_lic = parent_result.scalar_one_or_none()
-        if parent_lic is not None:
-            await link_maintenance_to_parent(db, new_lic, parent_lic)
-            parent_lic.active_maintenance_id = new_lic.id
-            await sync_parent_mirror_fields(db, parent_lic)
+    await _activate_maintenance_successor_for_all_parents(db, old_license, new_lic)
 
     return RenewalConversionResult(
         successor=new_lic,

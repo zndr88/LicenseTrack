@@ -16,6 +16,7 @@ def _license_payload(**overrides) -> dict:
         "quantity": "10",
         "unitPrice": "100",
         "currency": "EUR",
+        "budgetOwnerEmail": "owner@example.com",
         "endDate": (date.today() + timedelta(days=30)).isoformat(),
     }
     base.update(overrides)
@@ -113,7 +114,7 @@ async def test_cancel_successor_renewal_from_license_preserves_established_ances
     assert successor_row.predecessor_id == predecessor_row.id
     request_row = await db_session.get(SourcingRequest, pending_item["sourcingRequestId"])
     item_row = await db_session.get(SourcingItem, pending_item["id"])
-    assert request_row.status == SourcingStatus.cancelled
+    assert request_row.status == SourcingStatus.converted
     assert item_row.status == SourcingStatus.cancelled
     assert item_row.sourcing_request_id == request_row.id
     assert await db_session.get(SourcingItem, unrelated_item["id"]) is not None
@@ -138,7 +139,7 @@ async def test_cancel_successor_renewal_from_license_preserves_established_ances
             )
         )
     ).scalars().all()
-    assert len(audit_rows) == 1
+    assert audit_rows == []
 
 
 async def test_cancel_successor_renewal_from_sourcing_preserves_established_ancestry(
@@ -261,9 +262,9 @@ async def test_cancel_renewal_cancels_multiple_sourcing_only_items(
     )
     assert remaining_items == 0
 
-    cancelled_requests = await db_session.scalar(
+    completed_requests = await db_session.scalar(
         select(func.count(SourcingRequest.id)).where(
-            SourcingRequest.status == SourcingStatus.cancelled,
+            SourcingRequest.status == SourcingStatus.converted,
         )
     )
-    assert cancelled_requests == 2
+    assert completed_requests == 2

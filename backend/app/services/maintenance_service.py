@@ -401,6 +401,24 @@ async def disable_maintenance_for_parent(
     result = await db.execute(select(License).where(License.id == parent.active_maintenance_id))
     active_child = result.scalar_one_or_none()
     if active_child is not None:
+        await _snapshot_coverage_period(
+            db,
+            parent,
+            maintenance_license=active_child,
+            coverage_type=MaintenanceCoverage.separately_tracked.value,
+            source_type="maintenance_record_ended",
+            start_date=active_child.start_date,
+            end_date=active_child.end_date,
+            pricing_basis=None,
+            quantity=active_child.quantity,
+            unit_price=active_child.unit_price,
+            cost=active_child.maintenance_cost or (
+                format(calc_line_total(active_child.quantity, active_child.unit_price), "f")
+                if calc_line_total(active_child.quantity, active_child.unit_price) is not None
+                else None
+            ),
+            currency=active_child.currency,
+        )
         remaining_parent_ids = await detach_maintenance_from_parent(db, active_child, parent)
         if not remaining_parent_ids:
             active_child.is_retired = True

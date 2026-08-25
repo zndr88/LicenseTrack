@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { disableMaintenance, getMaintenanceForParent } from "../../../api/licenses.js";
+import { disableMaintenance, getCoverageHistory, getMaintenanceForParent } from "../../../api/licenses.js";
 import { formatCost } from "../../../utils/helpers.js";
 import { formatDate } from "../../../utils/formatting.js";
 import { MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
@@ -22,6 +22,7 @@ export default function MaintenanceSection({
   setMaintenanceHistory,
   historyLoading,
   coverageHistory = [],
+  setCoverageHistory,
   setShowMaintenanceModal,
   onNavigate,
   onUpdate,
@@ -50,6 +51,8 @@ export default function MaintenanceSection({
     onUpdate(license.id, data);
     const { data: history } = await getMaintenanceForParent(license.id);
     if (history) setMaintenanceHistory(history);
+    const { data: coverage } = await getCoverageHistory(license.id);
+    if (coverage) setCoverageHistory?.(coverage);
   };
 
   return (
@@ -103,7 +106,7 @@ export default function MaintenanceSection({
             </div>
           )}
 
-          {(license.hasMaintenance || coverage === "included") && (
+          {(license.hasMaintenance || coverage === "included" || coverageHistory.length > 0) && (
             <>
               <div className="fr dp-data-row">
                 <div className="dp-field">
@@ -147,16 +150,16 @@ export default function MaintenanceSection({
                 </div>
               )}
 
-              {license.hasMaintenance && <div className="dp-btn-row" style={{ marginTop: 12 }}>
+              {(license.hasMaintenance || coverageHistory.length > 0) && <div className="dp-btn-row" style={{ marginTop: 12 }}>
                 {license.activeMaintenanceId && (
                   <button type="button" className="btn btn-g btn-sm" onClick={() => onNavigate?.(license.activeMaintenanceId)}>
                     <Icon name="edit" size={12} /> Edit Maintenance / Support Record
                   </button>
                 )}
-                <button type="button" className="btn btn-g btn-sm" onClick={() => setShowCoverageHistory(true)}>
+                {coverageHistory.length > 0 && <button type="button" className="btn btn-g btn-sm" onClick={() => setShowCoverageHistory(true)}>
                   Coverage History
-                </button>
-                {perms.canEdit && (
+                </button>}
+                {perms.canEdit && license.hasMaintenance && (
                   <button type="button" className="btn btn-g btn-sm" onClick={handleDisableMaintenance}>
                     <Icon name="x" size={12} /> Disable linked contract
                   </button>
@@ -199,9 +202,9 @@ export default function MaintenanceSection({
                     {m.startDate ? formatDate(m.startDate, userSettings) : "—"} → {m.endDate ? formatDate(m.endDate, userSettings) : "—"}
                   </span>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-1)" }}>
-                    {m.totalPoPrice
+                    {m.maintenanceCost || (m.quantity && m.unitPrice)
                       ? formatCost(
-                          m.totalPoPrice,
+                          m.maintenanceCost || String(Number(m.quantity) * Number(m.unitPrice)),
                           m.currency || userSettings?.displayCurrency || "EUR",
                           userSettings?.numberFormatLocale ?? "en-US"
                         )

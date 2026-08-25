@@ -201,6 +201,7 @@ def _build_row(
         software_description=license_obj.software_description,
         license_type=license_obj.license_type,
         license_metric=license_obj.license_metric,
+        start_date=license_obj.start_date,
         end_date=license_obj.end_date,
         days_until_expiry=days_until_expiry,
         renewal_status=renewal_status,

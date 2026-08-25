@@ -25,6 +25,8 @@ from app.services.sourcing_service import (
     get_sourcing_request_or_404,
     get_sourcing_request_for_update_or_404,
     is_direct_freeware_item,
+    reserve_sourcing_item_conversion,
+    reserve_sourcing_request_conversion,
 )
 
 router = APIRouter(prefix="/api/sourcing", tags=["sourcing"])
@@ -43,6 +45,7 @@ async def convert_freeware_sourcing_request(
     db: DbSession,
     current_user: User = Depends(require_editor_or_admin),
 ) -> list[LicenseResponse]:
+    await reserve_sourcing_request_conversion(db, request_id)
     sourcing_request = await get_sourcing_request_for_update_or_404(db, request_id)
     identity_before = {
         "supplier": sourcing_request.supplier,
@@ -110,6 +113,7 @@ async def convert_freeware_sourcing_item(
     db: DbSession,
     current_user: User = Depends(require_editor_or_admin),
 ) -> LicenseResponse:
+    await reserve_sourcing_item_conversion(db, item_id)
     result = await db.execute(
         select(SourcingItem)
         .where(SourcingItem.id == item_id)
@@ -153,6 +157,7 @@ async def convert_sourcing_request(
     db: DbSession,
     current_user: User = Depends(require_editor_or_admin),
 ) -> PendingOrderResponse:
+    await reserve_sourcing_request_conversion(db, request_id)
     sourcing_request = await get_sourcing_request_or_404(db, request_id)
     freeware_items = [
         item
@@ -229,6 +234,7 @@ async def convert_sourcing_item(
     current_user: User = Depends(require_editor_or_admin),
 ) -> PendingOrderResponse:
     """Convert a sourcing item to (or attach it to) a pending order."""
+    await reserve_sourcing_item_conversion(db, item_id)
     result = await db.execute(
         select(SourcingItem)
         .where(SourcingItem.id == item_id)

@@ -48,6 +48,7 @@ class RenewalWorkbenchRow(BaseModel):
     software_description: str
     license_type: LicenseType
     license_metric: LicenseMetric
+    start_date: date | None = None
     end_date: date | None = None
     days_until_expiry: int | None = None
     renewal_status: RenewalStatus

@@ -13,6 +13,7 @@ from app.services.procurement_totals import calculate_per_unit_support_total
 from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.sourcing import SourcingQuoteDocumentResponse
+from app.schemas.sourcing import SourcingItemCreate
 
 
 _CURRENCY_SYMBOLS: dict[str, str] = {
@@ -65,6 +66,7 @@ class SourcingItemSummary(BaseModel):
     is_renewal: bool = False
     converted_license_id: Optional[int] = None
     converted_license_ref: Optional[str] = None
+    converted_license_retired: bool = False
     converted_license_ids: list[int] = []
 
     @model_validator(mode="after")
@@ -83,6 +85,7 @@ class PendingOrderCreate(BaseModel):
     procurement_reference: str = ""
     supplier: Optional[str] = None
     notes: Optional[str] = None
+    items: list[SourcingItemCreate] = []
 
 
 class PendingOrderUpdate(BaseModel):
@@ -122,6 +125,7 @@ class PendingOrderResponse(BaseModel):
     total_po_value: Optional[str] = None
     converted_license_id: Optional[int] = None
     converted_license_ref: Optional[str] = None
+    converted_license_retired: bool = False
     converted_license_ids: list[int] = []
     direct_registry_count: int = 0
 

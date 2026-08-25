@@ -21,6 +21,7 @@ import {
 } from "./renewals/workbenchColumns.js";
 import RenewalWorkbenchTable from "./renewals/RenewalWorkbenchTable.jsx";
 import RenewalWorkbenchToolbar from "./renewals/RenewalWorkbenchToolbar.jsx";
+import { getRenewalBundleMembers } from "../../utils/renewalBundle.js";
 
 const EMPTY_ROWS = [];
 
@@ -48,7 +49,7 @@ export default function RenewalWorkbenchPage({
   onNavigateToPendingOrder,
 }) {
   const queryClient = useQueryClient();
-  const { startRenewal } = useRenewalWorkflowActions({ showError });
+  const { startRenewal, startRenewalBundle } = useRenewalWorkflowActions({ showError });
   const [view, setView] = useState("all");
   const [search, setSearch] = useState("");
   const [startingId, setStartingId] = useState(null);
@@ -91,6 +92,16 @@ export default function RenewalWorkbenchPage({
     [rows, search],
   );
 
+  const bundleCandidates = useMemo(
+    () => summaryRows.map((row) => ({
+      ...row,
+      id: row.licenseId,
+      poNumber: row.poNumber,
+      endDate: row.endDate,
+    })),
+    [summaryRows],
+  );
+
   const highValueThreshold = globalSettings?.highValueThreshold ?? HIGH_VALUE_THRESHOLD;
   const viewCounts = useMemo(() => getViewCounts(summaryRows, highValueThreshold), [summaryRows, highValueThreshold]);
   const columns = useMemo(() => buildWorkbenchColumns(summaryRows, customFieldDefs), [summaryRows, customFieldDefs]);
@@ -127,9 +138,23 @@ export default function RenewalWorkbenchPage({
 
   const handleStartRenewal = async (row) => {
     setStartingId(row.licenseId);
-    const result = await startRenewal(row.licenseId);
+    const bundleLicense = {
+      ...row,
+      id: row.licenseId,
+      poNumber: row.poNumber,
+      endDate: row.endDate,
+    };
+    const siblings = getRenewalBundleMembers(
+      bundleLicense,
+      bundleCandidates,
+      globalSettings?.notificationDays ?? 30,
+    );
+    const licenseIds = [row.licenseId, ...siblings.map((sibling) => sibling.id)];
+    const result = licenseIds.length > 1
+      ? await startRenewalBundle(licenseIds)
+      : await startRenewal(row.licenseId);
     setStartingId(null);
-    if (result.ok) showSuccess?.("Renewal started.");
+    if (result.ok) showSuccess?.(licenseIds.length > 1 ? "Renewal bundle started." : "Renewal started.");
   };
 
   return (

@@ -161,7 +161,7 @@ function SourcingItemsRow({
                           style={{ padding: "4px 8px", fontSize: 11 }}
                           onClick={() => onNavigateToLicense(si.convertedLicenseId)}
                         >
-                          <Icon name="arrow-right" size={12} />View License
+                          <Icon name="arrow-right" size={12} />{si.convertedLicenseRetired ? "View Retired License" : "View License"}
                         </button>
                       )}
                       {hasLinkedPendingOrder(si) && onNavigateToPendingOrder && (
@@ -322,7 +322,7 @@ export default function SourcingTable({
           style={{ padding: "4px 8px", fontSize: 11 }}
           onClick={() => onNavigateToLicense(directLicenses[0].convertedLicenseId)}
         >
-          <Icon name="arrow-right" size={12} />View License
+          <Icon name="arrow-right" size={12} />{directLicenses[0].convertedLicenseRetired ? "View Retired License" : "View License"}
         </button>
       );
     }

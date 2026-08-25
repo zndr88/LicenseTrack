@@ -29,12 +29,13 @@ def to_pending_order_response(order: PendingOrder, storage_base: str | None = No
     documents = list(order.documents) if "documents" in order.__dict__ else []
     licenses = list(order.licenses) if "licenses" in order.__dict__ else []
     converted_license_refs = _converted_license_refs_by_item(items, licenses)
-    active_license_refs = [license_obj for license_obj in licenses if not license_obj.is_retired]
-    order_license_ids = [license_obj.id for license_obj in active_license_refs]
+    order_license_ids = [license_obj.id for license_obj in licenses]
     order_license_payload: dict = {"converted_license_ids": order_license_ids}
-    if len(active_license_refs) == 1:
-        order_license_payload["converted_license_id"] = active_license_refs[0].id
-        order_license_payload["converted_license_ref"] = active_license_refs[0].license_ref
+    single_license = licenses[0] if len(licenses) == 1 else None
+    if single_license is not None:
+        order_license_payload["converted_license_id"] = single_license.id
+        order_license_payload["converted_license_ref"] = single_license.license_ref
+        order_license_payload["converted_license_retired"] = bool(single_license.is_retired)
     return PendingOrderResponse.model_validate(
         {
             "id": order.id,
@@ -80,7 +81,7 @@ def _converted_license_refs_by_item(items: list[SourcingItem], licenses: list[Li
     if not items or not licenses:
         return refs
 
-    active_licenses = [license_obj for license_obj in licenses if not license_obj.is_retired]
+    active_licenses = list(licenses)
     for item in items:
         exact_matches = [
             license_obj
@@ -98,6 +99,7 @@ def _converted_license_refs_by_item(items: list[SourcingItem], licenses: list[Li
         if len(matches) == 1:
             payload["converted_license_id"] = matches[0].id
             payload["converted_license_ref"] = matches[0].license_ref
+            payload["converted_license_retired"] = bool(matches[0].is_retired)
         refs[item.id] = payload
     return refs
 
@@ -199,6 +201,7 @@ async def create_pending_order_record(
     created_by: int,
 ) -> PendingOrder:
     create_data = payload.model_dump(by_alias=False)
+    create_data.pop("items", None)
     create_data["po_number"] = (create_data.get("po_number") or "").strip()
     create_data["procurement_reference"] = (create_data.get("procurement_reference") or "").strip()
     supplier_value = create_data.get("supplier")
@@ -212,6 +215,13 @@ async def create_pending_order_record(
     order = PendingOrder(**create_data, created_by=created_by)
     db.add(order)
     await db.flush()
+    if payload.items:
+        await add_pending_order_items_bulk_record(
+            db,
+            order.id,
+            payload.items,
+            created_by=created_by,
+        )
     return order
 
 
@@ -261,9 +271,23 @@ async def delete_pending_order_record(db: AsyncSession, order_id: int) -> str:
             detail="Only pending orders with status 'pending' can be deleted",
         )
 
-    items_result = await db.execute(select(SourcingItem).where(SourcingItem.pending_order_id == order_id))
-    for item in items_result.scalars().all():
+    items_result = await db.execute(
+        select(SourcingItem).where(SourcingItem.pending_order_id == order_id)
+    )
+    affected_request_ids = set()
+    items = list(items_result.scalars().all())
+    for item in items:
+        if item.sourcing_request_id is not None:
+            affected_request_ids.add(item.sourcing_request_id)
         item.status = SourcingStatus.sourcing
+
+    from app.services.sourcing_service import refresh_sourcing_request_status
+    for request_id in affected_request_ids:
+        request_result = await db.execute(select(SourcingRequest).where(SourcingRequest.id == request_id))
+        request = request_result.scalar_one_or_none()
+        if request is not None:
+            request.status = SourcingStatus.sourcing
+            await refresh_sourcing_request_status(db, request)
 
     docs_result = await db.execute(select(ProcurementDocument).where(ProcurementDocument.pending_order_id == order_id))
     docs = docs_result.scalars().all()

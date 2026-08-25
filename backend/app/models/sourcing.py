@@ -147,25 +147,22 @@ class SourcingItem(Base):
     @property
     def converted_license_ids(self) -> list[int]:
         licenses = self.__dict__.get("converted_licenses", [])
-        return [license_obj.id for license_obj in licenses if not license_obj.is_retired]
+        return [license_obj.id for license_obj in licenses]
 
     @property
     def converted_license_id(self) -> int | None:
-        licenses = [
-            license_obj
-            for license_obj in self.__dict__.get("converted_licenses", [])
-            if not license_obj.is_retired
-        ]
+        licenses = list(self.__dict__.get("converted_licenses", []))
         return licenses[0].id if len(licenses) == 1 else None
 
     @property
     def converted_license_ref(self) -> str | None:
-        licenses = [
-            license_obj
-            for license_obj in self.__dict__.get("converted_licenses", [])
-            if not license_obj.is_retired
-        ]
+        licenses = list(self.__dict__.get("converted_licenses", []))
         return licenses[0].license_ref if len(licenses) == 1 else None
+
+    @property
+    def converted_license_retired(self) -> bool:
+        licenses = list(self.__dict__.get("converted_licenses", []))
+        return bool(licenses[0].is_retired) if len(licenses) == 1 else False
 
     @property
     def pending_order_status(self) -> str | None:

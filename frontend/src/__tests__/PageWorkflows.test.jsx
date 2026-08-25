@@ -1960,6 +1960,38 @@ describe("SourcingPage workflows", () => {
     expect(await screen.findByText("History Supplier 21")).toBeInTheDocument();
     expect(screen.getByText("2 / 2")).toBeInTheDocument();
   });
+
+  test("opens a highlighted sourcing history line on its sorted page", async () => {
+    const historyRows = Array.from({ length: 21 }, (_, index) => ({
+      id: index + 1,
+      supplier: `Targeted Supplier ${String(index + 1).padStart(2, "0")}`,
+      contactEmail: null,
+      status: "converted",
+      createdAt: `2026-01-${String(21 - index).padStart(2, "0")}T00:00:00Z`,
+      quoteDocuments: [],
+      items: [{
+        id: 100 + index,
+        publisherName: "Acme",
+        softwareDescription: `Targeted Line ${index + 1}`,
+        status: "converted",
+      }],
+    }));
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({ data: [], error: null });
+    sourcingApi.getSourcingRequestHistory.mockResolvedValueOnce({ data: historyRows, error: null });
+
+    wrapWithQueryClient(
+      <SourcingPage
+        user={admin}
+        userSettings={userSettings}
+        highlightId={120}
+        onClearHighlight={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText("Targeted Supplier 21")).toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    expect(await screen.findByText("Targeted Line 21")).toBeInTheDocument();
+  });
 });
 
 describe("PendingOrdersPage workflows", () => {
@@ -2430,6 +2462,40 @@ describe("PendingOrdersPage workflows", () => {
     await user.click(screen.getByRole("button", { name: /^next$/i }));
     expect(await screen.findByText("PO-HISTORY-21")).toBeInTheDocument();
     expect(screen.getByText("2 / 2")).toBeInTheDocument();
+  });
+
+  test("opens a highlighted pending order on its sorted history page", async () => {
+    const historyRows = Array.from({ length: 21 }, (_, index) => ({
+      id: index + 1,
+      poNumber: `PO-TARGET-${String(index + 1).padStart(2, "0")}`,
+      supplier: `Targeted Supplier ${String(index + 1).padStart(2, "0")}`,
+      status: "converted",
+      items: [{
+        id: 200 + index,
+        publisherName: "Acme",
+        softwareDescription: `Targeted PO Line ${index + 1}`,
+        status: "converted",
+      }],
+      documents: [],
+      createdAt: `2026-01-${String(21 - index).padStart(2, "0")}T00:00:00Z`,
+    }));
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: [], error: null });
+    pendingOrdersApi.getPendingOrderHistory.mockResolvedValueOnce({ data: historyRows, error: null });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+        highlightId={21}
+        onClearHighlight={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText("PO-TARGET-21")).toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    expect(await screen.findByText("Targeted PO Line 21")).toBeInTheDocument();
   });
 });
 

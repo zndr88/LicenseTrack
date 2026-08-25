@@ -31,6 +31,7 @@ def _minimal_license_payload(**overrides) -> dict:
         "licenseMetric": "per_user",
         "quantity": "10",
         "currency": "EUR",
+        "budgetOwnerEmail": "owner@example.com",
     }
     base.update(overrides)
     return base
@@ -81,6 +82,7 @@ async def _seed_legacy_unlinked_maintenance(db_session) -> License:
         currency="EUR",
         start_date=date.today() - timedelta(days=30),
         end_date=date.today() + timedelta(days=30),
+        budget_owner_email="owner@example.com",
         is_legacy_unlinked_maintenance=True,
     )
     db_session.add(maintenance)
@@ -457,6 +459,49 @@ async def test_pending_order_update_can_mark_invoice_received_but_not_converted(
     )
     assert converted_resp.status_code == 422, converted_resp.text
     assert "pending or invoice_received" in converted_resp.json()["detail"]
+
+
+async def test_pending_order_create_accepts_header_and_lines_atomically(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    create_resp = await test_app.post(
+        "/api/pending-orders",
+        json={
+            "poNumber": "PO-ATOMIC-CREATE",
+            "supplier": "Atomic Supplier",
+            "items": [
+                {
+                    "publisherName": "Acme",
+                    "softwareDescription": "Acme Suite",
+                    "quantity": "2",
+                    "estimatedUnitPrice": "50",
+                    "estimatedTotalPrice": "100",
+                    "currency": "EUR",
+                },
+                {
+                    "publisherName": "Beta",
+                    "softwareDescription": "Beta Tool",
+                    "quantity": "1",
+                    "currency": "USD",
+                },
+            ],
+        },
+        headers=auth_headers,
+    )
+
+    assert create_resp.status_code == 201, create_resp.text
+    body = create_resp.json()
+    assert body["poNumber"] == "PO-ATOMIC-CREATE"
+    assert [item["softwareDescription"] for item in body["items"]] == [
+        "Acme Suite",
+        "Beta Tool",
+    ]
+    stored = await db_session.get(PendingOrder, body["id"])
+    await db_session.refresh(stored, attribute_names=["items"])
+    assert len(stored.items) == 2
+    assert {item.pending_order_id for item in stored.items} == {stored.id}
 
 
 async def test_cancelled_pending_order_moves_to_history(test_app, auth_headers, db_session, tmp_path, monkeypatch):
@@ -3409,7 +3454,14 @@ async def test_coterm_legacy_unlinked_primary_stays_parentless(
 
     response = await test_app.post(
         f"/api/pending-orders/{po['id']}/convert",
-        data={"data": json.dumps(_single_convert_form())},
+        data={
+            "data": json.dumps(
+                _single_convert_form(
+                    startDate="2028-01-01",
+                    endDate="2028-12-31",
+                )
+            )
+        },
         headers=auth_headers,
     )
 
@@ -3496,12 +3548,21 @@ async def test_single_convert_legacy_unlinked_maintenance_renewal_preserves_exce
     db_session, test_app, auth_headers
 ):
     maintenance = await _seed_legacy_unlinked_maintenance(db_session)
+    successor_start = maintenance.end_date + timedelta(days=1)
+    successor_end = successor_start + timedelta(days=365)
     sourcing_item = await _initiate_renewal(test_app, auth_headers, maintenance.id)
     po = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
 
     response = await test_app.post(
         f"/api/pending-orders/{po['id']}/convert",
-        data={"data": json.dumps(_single_convert_form())},
+        data={
+            "data": json.dumps(
+                _single_convert_form(
+                    startDate=successor_start.isoformat(),
+                    endDate=successor_end.isoformat(),
+                )
+            )
+        },
         headers=auth_headers,
     )
 
@@ -3608,6 +3669,8 @@ async def test_legacy_maintenance_linked_before_conversion_inherits_current_pare
         test_app, auth_headers, licenseType="perpetual", startDate="2025-01-01", endDate=None
     )
     maintenance = await _seed_legacy_unlinked_maintenance(db_session)
+    successor_start = maintenance.end_date + timedelta(days=1)
+    successor_end = successor_start + timedelta(days=365)
     sourcing_item = await _initiate_renewal(test_app, auth_headers, maintenance.id)
     link_response = await test_app.post(
         f"/api/licenses/{parent['id']}/link-maintenance",
@@ -3619,7 +3682,14 @@ async def test_legacy_maintenance_linked_before_conversion_inherits_current_pare
 
     response = await test_app.post(
         f"/api/pending-orders/{po['id']}/convert",
-        data={"data": json.dumps(_single_convert_form())},
+        data={
+            "data": json.dumps(
+                _single_convert_form(
+                    startDate=successor_start.isoformat(),
+                    endDate=successor_end.isoformat(),
+                )
+            )
+        },
         headers=auth_headers,
     )
 

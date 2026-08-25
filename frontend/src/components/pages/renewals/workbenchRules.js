@@ -183,7 +183,7 @@ export function getPrimaryAction(row, { canOpenPipeline, canStartRenewal }) {
   const inProgress = IN_PROGRESS_STATUSES.has(row.renewalStatus);
   if (canOpenPipeline && row.pendingOrderId) return "po";
   if (canOpenPipeline && row.sourcingItemId) return "sourcing";
-  if (canStartRenewal && !inProgress) return "start";
+  if (canStartRenewal && !inProgress && row.budgetOwnerEmail?.trim()) return "start";
   return null;
 }
 

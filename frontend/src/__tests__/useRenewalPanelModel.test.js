@@ -7,6 +7,7 @@ const makeSettings = (days = 30) => ({ notificationDays: days });
 const makeLicense = (overrides = {}) => ({
   id: 1,
   poNumber: "PO-001",
+  budgetOwnerEmail: "owner@example.com",
   endDate: null,
   retired: false,
   lifecycleStatus: "active",
@@ -74,6 +75,49 @@ describe("useRenewalPanelModel — poSiblings", () => {
     const { result } = renderHook(() =>
       useRenewalPanelModel({ license, allLicenses: [license, pending], globalSettings: makeSettings() })
     );
+    expect(result.current.poSiblings).toHaveLength(0);
+  });
+
+  it("requires a budget owner on the selected license and every bundle sibling", () => {
+    const endDate = "2020-01-01";
+    const missingPrimaryOwner = makeLicense({ endDate, budgetOwnerEmail: " " });
+    const eligibleSibling = makeLicense({ id: 2, endDate });
+    const missingSiblingOwner = makeLicense({ id: 3, endDate, budgetOwnerEmail: null });
+
+    const missingPrimaryResult = renderHook(() =>
+      useRenewalPanelModel({
+        license: missingPrimaryOwner,
+        allLicenses: [missingPrimaryOwner, eligibleSibling],
+        globalSettings: makeSettings(),
+      })
+    );
+    expect(missingPrimaryResult.result.current.poSiblings).toHaveLength(0);
+
+    const selected = makeLicense({ endDate });
+    const missingSiblingResult = renderHook(() =>
+      useRenewalPanelModel({
+        license: selected,
+        allLicenses: [selected, missingSiblingOwner],
+        globalSettings: makeSettings(),
+      })
+    );
+    expect(missingSiblingResult.result.current.poSiblings).toHaveLength(0);
+  });
+
+  it("excludes a same-term sibling whose coverage has not started", () => {
+    const today = new Date();
+    const end = new Date(today);
+    end.setDate(today.getDate() + 10);
+    const start = new Date(today);
+    start.setDate(today.getDate() + 5);
+    const endDate = end.toISOString().slice(0, 10);
+
+    const license = makeLicense({ endDate });
+    const upcoming = makeLicense({ id: 2, startDate: start.toISOString().slice(0, 10), endDate });
+    const { result } = renderHook(() =>
+      useRenewalPanelModel({ license, allLicenses: [license, upcoming], globalSettings: makeSettings() })
+    );
+
     expect(result.current.poSiblings).toHaveLength(0);
   });
 

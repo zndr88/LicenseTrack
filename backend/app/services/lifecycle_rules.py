@@ -28,6 +28,39 @@ LIFECYCLE_REPAIR_FIELDS = {
 NON_RENEWABLE_LICENSE_TYPES = frozenset({LicenseType.service, LicenseType.other})
 
 
+def normalize_entitlement_identity(value: object) -> str:
+    """Normalize a human-entered entitlement field for identity comparisons."""
+    return " ".join(str(value or "").strip().casefold().split())
+
+
+def entitlement_identity(license_obj: License) -> tuple[str, str, str, str, str]:
+    """Return the stable identity used when matching renewal entitlements."""
+    return (
+        normalize_entitlement_identity(license_obj.publisher_name),
+        normalize_entitlement_identity(license_obj.software_description),
+        normalize_entitlement_identity(license_obj.sku_code),
+        normalize_entitlement_identity(license_obj.license_metric),
+        normalize_entitlement_identity(license_obj.license_type),
+    )
+
+
+def assert_successor_term(predecessors: list[License], successor_start, successor_end) -> None:
+    """Require a renewal successor to extend every predecessor's coverage."""
+    if not successor_end:
+        raise HTTPException(status_code=400, detail="Renewal successor must have an end date")
+    for predecessor in predecessors:
+        if predecessor.end_date and successor_end <= predecessor.end_date:
+            raise HTTPException(
+                status_code=400,
+                detail="Renewal successor must extend coverage beyond every predecessor end date",
+            )
+        if predecessor.start_date and (not successor_start or successor_start <= predecessor.start_date):
+            raise HTTPException(
+                status_code=400,
+                detail="Renewal successor must start after every predecessor start date",
+            )
+
+
 def _value(value):
     return getattr(value, "value", value)
 
@@ -65,6 +98,8 @@ def assert_can_initiate_renewal(license_obj: License) -> None:
         raise HTTPException(status_code=409, detail="License has already been renewed")
     if license_obj.license_type in NON_RENEWABLE_LICENSE_TYPES:
         raise HTTPException(status_code=400, detail="Cannot initiate renewal on service or other license types")
+    if not (license_obj.budget_owner_email or "").strip():
+        raise HTTPException(status_code=400, detail="A budget owner is required before initiating renewal")
     assert_predecessor_has_no_successor(license_obj)
     if license_obj.end_date is None:
         raise HTTPException(status_code=400, detail="Cannot initiate renewal on a perpetual license (no end date)")

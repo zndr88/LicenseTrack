@@ -91,34 +91,36 @@ export function usePendingOrdersData({
 
   const handleCreatePendingOrder = useCallback(async (payload) => {
     const { items, quoteFile, ...headerPayload } = payload;
-    const { data, error } = await apiCreatePendingOrder(headerPayload);
+    const normalized = (items ?? [])
+      .filter((item) => item.publisherName?.trim() && item.softwareDescription?.trim())
+      .map((item) => ({
+        publisherName: item.publisherName.trim(),
+        softwareDescription: item.softwareDescription.trim(),
+        licenseType: item.licenseType || null,
+        maintenanceCoverage: item.maintenanceCoverage || null,
+        quantity: parseLocalizedNumber(item.quantity, userSettings) ?? (item.quantity || null),
+        estimatedUnitPrice: parseLocalizedNumber(item.estimatedUnitPrice, userSettings) ?? (item.estimatedUnitPrice || null),
+        estimatedTotalPrice: parseLocalizedNumber(item.estimatedTotalPrice, userSettings) ?? (item.estimatedTotalPrice || null),
+        currency: item.currency || "EUR",
+        supplier: item.supplier || null,
+        contactEmail: item.contactEmail || null,
+      }));
+    const { data, error } = await apiCreatePendingOrder({ ...headerPayload, items: normalized });
     if (error) { showError(error); return false; }
-    if (items?.length > 0) {
-      const normalized = items
-        .filter((item) => item.publisherName?.trim() && item.softwareDescription?.trim())
-        .map((item) => ({
-          publisherName: item.publisherName.trim(),
-          softwareDescription: item.softwareDescription.trim(),
-          quantity: parseLocalizedNumber(item.quantity, userSettings) ?? (item.quantity || null),
-          estimatedUnitPrice: parseLocalizedNumber(item.estimatedUnitPrice, userSettings) ?? (item.estimatedUnitPrice || null),
-          estimatedTotalPrice: parseLocalizedNumber(item.estimatedTotalPrice, userSettings) ?? (item.estimatedTotalPrice || null),
-          currency: item.currency || "EUR",
-          supplier: item.supplier || null,
-          contactEmail: item.contactEmail || null,
-        }));
-      if (normalized.length > 0) {
-        const { error: itemsError } = await addItemsToPendingOrderBulk(data.id, normalized);
-        if (itemsError) showError(`Pending order created but items could not be saved: ${itemsError}`);
-      }
-    }
     if (quoteFile) {
       const { error: docError } = await uploadPendingOrderDocument(data.id, quoteFile);
-      if (docError) showError(`Pending order created but document upload failed: ${docError}`);
+      if (docError) {
+        showError(`Partial completion: pending order ${data.poNumber || `#${data.id}`} was created, but document upload failed: ${docError}`);
+        queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
+        queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
+        onPortfolioStateChange?.();
+        return { ok: true, partial: true, data };
+      }
     }
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
     onPortfolioStateChange?.();
-    return true;
+    return { ok: true, partial: false, data };
   }, [showError, queryClient, onPortfolioStateChange, userSettings]);
 
   const handleUpdatePendingOrder = useCallback(async (id, payload) => {
@@ -144,9 +146,7 @@ export function usePendingOrdersData({
   const handleDeletePendingOrder = useCallback(async (id) => {
     const { error } = await apiDeletePendingOrder(id);
     if (error) { showError(error); return false; }
-    queryClient.setQueryData(queryKeys.pendingOrders, (prev) =>
-      (prev ?? []).filter((o) => o.id !== id)
-    );
+    await invalidateProcurementRenewalState(queryClient);
     onPortfolioStateChange?.();
     onRenewalsReload?.();
     return true;

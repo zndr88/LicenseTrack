@@ -3,7 +3,7 @@ from datetime import date
 from decimal import ROUND_HALF_EVEN, Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -33,6 +33,27 @@ def sourcing_item_predecessor_ids(item: SourcingItem) -> list[int]:
         seen.add(predecessor_id)
         predecessor_ids.append(predecessor_id)
     return predecessor_ids
+
+
+async def reserve_sourcing_request_conversion(db: AsyncSession, request_id: int) -> None:
+    """Acquire SQLite's write lock before reading or creating conversion state."""
+    result = await db.execute(
+        update(SourcingRequest)
+        .where(SourcingRequest.id == request_id, SourcingRequest.status == SourcingStatus.sourcing)
+        .values(status=SourcingStatus.sourcing)
+    )
+    if result.rowcount != 1:
+        raise HTTPException(status_code=409, detail="Sourcing request is no longer available for conversion")
+
+
+async def reserve_sourcing_item_conversion(db: AsyncSession, item_id: int) -> None:
+    result = await db.execute(
+        update(SourcingItem)
+        .where(SourcingItem.id == item_id, SourcingItem.status == SourcingStatus.sourcing)
+        .values(status=SourcingStatus.sourcing)
+    )
+    if result.rowcount != 1:
+        raise HTTPException(status_code=409, detail="Sourcing item is no longer available for conversion")
 
 
 def clean_procurement_identity(value: str | None) -> str | None:
@@ -368,23 +389,56 @@ async def build_merged_sourcing_item(
     )
     assert_coverage_allowed_for_type(merged_license_type, maintenance_coverage)
 
+    currencies = {
+        (clean_procurement_identity(item.currency) or "").upper()
+        for item in items
+    }
+    predecessor_by_id = {predecessor.id: predecessor for predecessor in predecessors}
+    license_types = {
+        item.license_type
+        or predecessor_by_id.get(item.renewal_for_license_id, primary_pred).license_type
+        for item in items
+    }
+    parsed_unit_prices = [parse_money(item.estimated_unit_price) for item in items]
+    if len(currencies) != 1 or "" in currencies:
+        raise HTTPException(status_code=409, detail="Coterm lines must use one explicit currency")
+    if len(license_types) != 1:
+        raise HTTPException(status_code=409, detail="Coterm lines must use the same license type")
+
+    parsed_quantities = [parse_money(item.quantity) for item in items]
     total_quantity = sum(
-        (parse_money(item.quantity) or Decimal("0") for item in items),
+        (quantity or Decimal("0") for quantity in parsed_quantities),
         start=Decimal("0"),
     )
 
-    unit_price = parse_money(primary_item.estimated_unit_price)
-    merged_total_price = (
-        format(
-            (unit_price * total_quantity).quantize(
+    line_values = []
+    for item, quantity, unit_price in zip(
+        items,
+        parsed_quantities,
+        parsed_unit_prices,
+        strict=True,
+    ):
+        explicit_total = parse_money(item.estimated_total_price)
+        if explicit_total is not None:
+            line_values.append(explicit_total)
+        elif unit_price is not None:
+            line_values.append((quantity or Decimal("0")) * unit_price)
+        else:
+            line_values.append(None)
+    merged_total_price = None
+    if all(value is not None for value in line_values):
+        merged_total_price = format(
+            sum(line_values, start=Decimal("0")).quantize(
                 Decimal("0.01"),
                 rounding=ROUND_HALF_EVEN,
             ),
             "f",
         )
-        if unit_price is not None
-        else None
-    )
+
+    common_unit_price = None
+    distinct_unit_prices = set(parsed_unit_prices)
+    if len(distinct_unit_prices) == 1 and None not in distinct_unit_prices:
+        common_unit_price = primary_item.estimated_unit_price
 
     source_supplier_ids = [
         item.sourcing_request.supplier_id if item.sourcing_request is not None else item.supplier_id
@@ -410,7 +464,7 @@ async def build_merged_sourcing_item(
         license_type=merged_license_type,
         maintenance_coverage=MaintenanceCoverage(maintenance_coverage),
         quantity=format(total_quantity, "f") if total_quantity else None,
-        estimated_unit_price=primary_item.estimated_unit_price,
+        estimated_unit_price=common_unit_price,
         estimated_total_price=merged_total_price,
         currency=primary_item.currency,
         supplier=target_supplier,

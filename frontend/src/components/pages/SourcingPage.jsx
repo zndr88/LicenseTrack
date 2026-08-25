@@ -199,29 +199,6 @@ export default function SourcingPage({
     return () => clearTimeout(t);
   }, [highlightId, sourcingRequests, sourcingLoading, onClearHighlight, openSourcingRequest]);
 
-  useEffect(() => {
-    if (!highlightId || !showHistory) return;
-    const parentRequest = sourcingHistoryRequests.find((request) =>
-      (request.items ?? []).some((item) => item.id === highlightId)
-    );
-    if (!parentRequest) return;
-
-    setExpandedHistoryRequestId(parentRequest.id);
-    const scrollTimer = setTimeout(() => {
-      const el = document.querySelector(`[data-sourcing-row="${highlightId}"]`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 50);
-    setHighlightedRowId(highlightId);
-    const clearTimer = setTimeout(() => {
-      setHighlightedRowId(null);
-      if (onClearHighlight) onClearHighlight();
-    }, 2000);
-    return () => {
-      clearTimeout(scrollTimer);
-      clearTimeout(clearTimer);
-    };
-  }, [highlightId, showHistory, sourcingHistoryRequests, onClearHighlight]);
-
   const cotermGroups = useCotermDetection(sourcingItems, licenses);
   const displayed = useMemo(
     () => sortSourcingRequests(filterSourcingRequests(sourcingRequests, search), sortCol, sortDir),
@@ -244,6 +221,38 @@ export default function SourcingPage({
     () => paginateRows(displayedHistory, historyPage, historyPageSize),
     [displayedHistory, historyPage, historyPageSize]
   );
+
+  useEffect(() => {
+    if (!highlightId || !showHistory) return;
+    const parentRequest = sourcingHistoryRequests.find((request) =>
+      (request.items ?? []).some((item) => item.id === highlightId)
+    );
+    if (!parentRequest) return;
+    const targetIndex = displayedHistory.findIndex((request) => request.id === parentRequest.id);
+    if (targetIndex < 0) {
+      if (historySearch) setHistorySearch("");
+      return;
+    }
+    const targetPage = Math.floor(targetIndex / historyPageSize) + 1;
+    if (historyPage !== targetPage) {
+      setHistoryPage(targetPage);
+      return;
+    }
+    setExpandedHistoryRequestId(parentRequest.id);
+    const scrollTimer = setTimeout(() => {
+      const el = document.querySelector(`[data-sourcing-row="${highlightId}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+    setHighlightedRowId(highlightId);
+    const clearTimer = setTimeout(() => {
+      setHighlightedRowId(null);
+      onClearHighlight?.();
+    }, 2000);
+    return () => {
+      clearTimeout(scrollTimer);
+      clearTimeout(clearTimer);
+    };
+  }, [highlightId, showHistory, sourcingHistoryRequests, displayedHistory, historyPage, historyPageSize, historySearch, onClearHighlight]);
   const directConversionOpenCount = directConversionTarget?.request?.items
     .filter(isOpenSourcingItem).length ?? 0;
 

@@ -20,6 +20,7 @@ def _license_payload(**overrides) -> dict:
         "quantity": "10",
         "unitPrice": "100",
         "currency": "EUR",
+        "budgetOwnerEmail": "owner@example.com",
         "endDate": (date.today() + timedelta(days=45)).isoformat(),
     }
     base.update(overrides)
@@ -102,10 +103,12 @@ async def test_workbench_returns_expired_unresolved_row(test_app, auth_headers):
 
 
 async def test_workbench_returns_due_soon_row(test_app, auth_headers):
+    start_date = date.today() - timedelta(days=345)
     license_data = await _create_license(
         test_app,
         auth_headers,
         softwareDescription="Due Soon Tool",
+        startDate=start_date.isoformat(),
         endDate=(date.today() + timedelta(days=20)).isoformat(),
     )
 
@@ -116,6 +119,7 @@ async def test_workbench_returns_due_soon_row(test_app, auth_headers):
     assert [row["licenseId"] for row in rows] == [license_data["id"]]
     assert rows[0]["renewalStatus"] == "due_soon"
     assert rows[0]["daysUntilExpiry"] == 20
+    assert rows[0]["startDate"] == start_date.isoformat()
 
 
 async def test_workbench_excludes_service_and_other_license_types(test_app, auth_headers):

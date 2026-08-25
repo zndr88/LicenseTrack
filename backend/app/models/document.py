@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -44,6 +44,13 @@ class Document(Base):
 
 class ProcurementDocument(Base):
     __tablename__ = "procurement_documents"
+    __table_args__ = (
+        UniqueConstraint(
+            "pending_order_id",
+            "source_sourcing_quote_document_id",
+            name="uq_procurement_document_pending_quote_source",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     po_number: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
@@ -54,6 +61,9 @@ class ProcurementDocument(Base):
         Integer, ForeignKey("licenses.id", ondelete="SET NULL"), nullable=True, index=True
     )
     procurement_bundle_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    source_sourcing_quote_document_id: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, index=True
+    )
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
     original_filename: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)

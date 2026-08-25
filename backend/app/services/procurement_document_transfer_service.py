@@ -99,17 +99,22 @@ async def copy_quote_documents_to_procurement_documents(
             ProcurementDocument.category == ProcurementDocumentCategory.quote,
         )
     )
-    existing_keys = {(doc.original_filename, doc.file_size, doc.mime_type) for doc in existing_result.scalars().all()}
+    existing_source_ids = {
+        doc.source_sourcing_quote_document_id
+        for doc in existing_result.scalars().all()
+        if doc.source_sourcing_quote_document_id is not None
+    }
 
     stored_paths: list[StoredProcurementPath] = []
     try:
         for quote_doc in quote_result.scalars().all():
-            key = (quote_doc.original_filename, quote_doc.file_size, quote_doc.mime_type)
-            if key in existing_keys:
+            if quote_doc.id in existing_source_ids:
                 continue
             source_path = storage.get_file_path(quote_doc.filename, storage_base)
             if not source_path.exists():
-                continue
+                raise RuntimeError(
+                    f"Source quote document {quote_doc.id} is missing from storage; evidence transfer requires review"
+                )
             stored_path, file_size = storage.save_procurement_document_bytes(
                 source_path.read_bytes(),
                 quote_doc.original_filename,
@@ -121,9 +126,10 @@ async def copy_quote_documents_to_procurement_documents(
                 po_number=po_number, pending_order_id=pending_order_id, filename=stored_path,
                 original_filename=quote_doc.original_filename, file_size=file_size,
                 mime_type=quote_doc.mime_type, category=ProcurementDocumentCategory.quote,
+                source_sourcing_quote_document_id=quote_doc.id,
                 uploaded_by=user_id,
             ))
-            existing_keys.add(key)
+            existing_source_ids.add(quote_doc.id)
             stored_paths.append((stored_path, storage_base))
         await db.commit()
         return stored_paths

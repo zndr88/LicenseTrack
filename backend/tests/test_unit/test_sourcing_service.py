@@ -10,9 +10,10 @@ build_merged_sourcing_item — pure-function tests, no DB required.
 convert_sourcing_item_to_order — uses db_session; covers PO creation, PO
 attachment, and error paths.
 """
-import pytest
 from datetime import date
 
+import pytest
+from fastapi import HTTPException
 from sqlalchemy import func, select
 
 from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
@@ -31,6 +32,8 @@ from app.services.sourcing_service import (
     convert_sourcing_item_to_order,
     delete_sourcing_request_record,
     handle_delete_side_effects,
+    reserve_sourcing_item_conversion,
+    reserve_sourcing_request_conversion,
     sourcing_item_predecessor_ids,
 )
 
@@ -94,6 +97,22 @@ def test_assert_sourcing_item_editable_rejects_pending_order_link():
         assert_sourcing_item_editable(item)
 
     assert getattr(exc_info.value, "status_code", None) == 409
+
+
+@pytest.mark.asyncio
+async def test_conversion_reservations_reject_non_sourcing_rows(db_session):
+    request = SourcingRequest(status=SourcingStatus.converted)
+    item = make_sourcing_item(status=SourcingStatus.converted)
+    db_session.add_all([request, item])
+    await db_session.flush()
+
+    with pytest.raises(Exception) as request_exc:
+        await reserve_sourcing_request_conversion(db_session, request.id)
+    with pytest.raises(Exception) as item_exc:
+        await reserve_sourcing_item_conversion(db_session, item.id)
+
+    assert getattr(request_exc.value, "status_code", None) == 409
+    assert getattr(item_exc.value, "status_code", None) == 409
 
 
 # ---------------------------------------------------------------------------
@@ -487,7 +506,13 @@ async def test_merged_item_inherits_fields_from_primary_item(db_session):
         contact_email="primary@example.com",
         estimated_unit_price="100.00",
     )
-    other_item = make_item_for(pred_other, publisher_name="Other Corp")
+    other_item = make_item_for(
+        pred_other,
+        publisher_name="Other Corp",
+        license_type=LicenseType.saas,
+        currency="USD",
+        estimated_unit_price="100.00",
+    )
     items = [primary_item, other_item]
 
     merged = await build_merged_sourcing_item(db_session, items, [pred_primary, pred_other], created_by=7)
@@ -555,7 +580,7 @@ async def test_merged_item_retains_common_request_supplier_and_contact(db_sessio
 
 
 @pytest.mark.asyncio
-async def test_merged_item_falls_back_to_deterministic_primary_predecessor_type(db_session):
+async def test_merged_item_rejects_mixed_license_types(db_session):
     pred_primary = make_pred(
         id=1,
         start_date=date(2020, 1, 1),
@@ -571,10 +596,23 @@ async def test_merged_item_falls_back_to_deterministic_primary_predecessor_type(
         make_item_for(pred_other, license_type=LicenseType.subscription),
     ]
 
-    merged = await build_merged_sourcing_item(db_session, items, [pred_other, pred_primary], created_by=7)
+    with pytest.raises(HTTPException, match="same license type"):
+        await build_merged_sourcing_item(
+            db_session,
+            items,
+            [pred_other, pred_primary],
+            created_by=7,
+        )
 
-    assert merged.renewal_for_license_id == pred_primary.id
-    assert merged.license_type == LicenseType.saas
+
+@pytest.mark.asyncio
+async def test_merged_item_rejects_mixed_currencies(db_session):
+    pred_a = make_pred(id=1, start_date=date(2020, 1, 1))
+    pred_b = make_pred(id=2, start_date=date(2021, 1, 1))
+    items = [make_item_for(pred_a, currency="EUR"), make_item_for(pred_b, currency="USD")]
+
+    with pytest.raises(HTTPException, match="one explicit currency"):
+        await build_merged_sourcing_item(db_session, items, [pred_a, pred_b], created_by=1)
 
 
 @pytest.mark.asyncio
@@ -631,7 +669,8 @@ async def test_fractional_quantities_are_summed_exactly(db_session):
     merged = await build_merged_sourcing_item(db_session, items, [pred_a, pred_b], created_by=1)
 
     assert merged.quantity == "3.75"
-    assert merged.estimated_total_price == "74.96"
+    assert merged.estimated_unit_price is None
+    assert merged.estimated_total_price == "142.48"
 
 
 @pytest.mark.asyncio
@@ -646,7 +685,7 @@ async def test_total_quantity_zero_gives_none_quantity(db_session):
 
 
 @pytest.mark.asyncio
-async def test_estimated_total_price_is_unit_price_times_merged_quantity(db_session):
+async def test_mixed_unit_prices_are_valued_per_line(db_session):
     pred_a = make_pred(id=1, start_date=date(2020, 1, 1))
     pred_b = make_pred(id=2, start_date=date(2021, 1, 1))
     items = [
@@ -656,7 +695,33 @@ async def test_estimated_total_price_is_unit_price_times_merged_quantity(db_sess
 
     merged = await build_merged_sourcing_item(db_session, items, [pred_a, pred_b], created_by=1)
 
-    assert merged.estimated_total_price == "300.00"
+    assert merged.estimated_unit_price is None
+    assert merged.estimated_total_price == "600.00"
+
+
+@pytest.mark.asyncio
+async def test_explicit_line_totals_are_authoritative_for_mixed_prices(db_session):
+    pred_a = make_pred(id=1, start_date=date(2020, 1, 1))
+    pred_b = make_pred(id=2, start_date=date(2021, 1, 1))
+    items = [
+        make_item_for(
+            pred_a,
+            quantity="5",
+            estimated_unit_price="20.00",
+            estimated_total_price="90.00",
+        ),
+        make_item_for(
+            pred_b,
+            quantity="10",
+            estimated_unit_price="50.00",
+            estimated_total_price="450.00",
+        ),
+    ]
+
+    merged = await build_merged_sourcing_item(db_session, items, [pred_a, pred_b], created_by=1)
+
+    assert merged.estimated_unit_price is None
+    assert merged.estimated_total_price == "540.00"
 
 
 @pytest.mark.asyncio
@@ -678,7 +743,7 @@ async def test_estimated_total_price_rounds_half_even_at_two_decimals(db_session
     pred_b = make_pred(id=2, start_date=date(2021, 1, 1))
     items = [
         make_item_for(pred_a, quantity="1", estimated_unit_price="0.335"),
-        make_item_for(pred_b, quantity="2"),
+        make_item_for(pred_b, quantity="2", estimated_unit_price="0.335"),
     ]
 
     merged = await build_merged_sourcing_item(db_session, items, [pred_a, pred_b], created_by=1)
@@ -698,6 +763,44 @@ async def test_none_unit_price_gives_none_total(db_session):
     merged = await build_merged_sourcing_item(db_session, items, [pred_a, pred_b], created_by=1)
 
     assert merged.estimated_total_price is None
+
+
+@pytest.mark.asyncio
+async def test_unpriced_lines_remain_unpriced_after_merge(db_session):
+    pred_a = make_pred(id=1, start_date=date(2020, 1, 1))
+    pred_b = make_pred(id=2, start_date=date(2021, 1, 1))
+    items = [
+        make_item_for(pred_a, estimated_unit_price=None),
+        make_item_for(pred_b, estimated_unit_price=None),
+    ]
+
+    merged = await build_merged_sourcing_item(db_session, items, [pred_a, pred_b], created_by=1)
+
+    assert merged.estimated_unit_price is None
+    assert merged.estimated_total_price is None
+
+
+@pytest.mark.asyncio
+async def test_total_only_lines_are_summed_without_a_merged_unit_price(db_session):
+    pred_a = make_pred(id=1, start_date=date(2020, 1, 1))
+    pred_b = make_pred(id=2, start_date=date(2021, 1, 1))
+    items = [
+        make_item_for(
+            pred_a,
+            estimated_unit_price=None,
+            estimated_total_price="125.25",
+        ),
+        make_item_for(
+            pred_b,
+            estimated_unit_price=None,
+            estimated_total_price="274.75",
+        ),
+    ]
+
+    merged = await build_merged_sourcing_item(db_session, items, [pred_a, pred_b], created_by=1)
+
+    assert merged.estimated_unit_price is None
+    assert merged.estimated_total_price == "400.00"
 
 
 @pytest.mark.asyncio

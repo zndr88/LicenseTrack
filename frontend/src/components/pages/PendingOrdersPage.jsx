@@ -152,6 +152,17 @@ export default function PendingOrdersPage({
     if (!highlightId || !showHistory) return;
     if (!pendingOrderHistory.some((po) => po.id === highlightId)) return;
 
+    const targetIndex = displayedHistory.findIndex((po) => po.id === highlightId);
+    if (targetIndex < 0) {
+      if (historySearch) setHistorySearch("");
+      return;
+    }
+    const targetPage = Math.floor(targetIndex / historyPageSize) + 1;
+    if (historyPage !== targetPage) {
+      setHistoryPage(targetPage);
+      return;
+    }
+
     setExpandedHistoryPendingOrderId(highlightId);
     const scrollTimer = setTimeout(() => {
       const element = document.querySelector(`[data-po-row="${highlightId}"]`);
@@ -169,7 +180,7 @@ export default function PendingOrdersPage({
       clearTimeout(scrollTimer);
       clearTimeout(clearTimer);
     };
-  }, [highlightId, showHistory, pendingOrderHistory, onClearHighlight]);
+  }, [highlightId, showHistory, pendingOrderHistory, displayedHistory, historyPage, historyPageSize, historySearch, onClearHighlight]);
 
   const handleHistorySort = (column) => {
     if (historySortCol !== column) {
@@ -363,7 +374,12 @@ export default function PendingOrdersPage({
                 notes: payload.notes,
               })
               : await handleCreatePendingOrder(payload);
-            if (success) setShowPendingOrderModal(null);
+            if (success === true || success?.ok) {
+              setShowPendingOrderModal(null);
+              if (!showPendingOrderModal.order && success.data?.id) {
+                setExpandedPendingOrderId(success.data.id);
+              }
+            }
             return success;
           }}
         />

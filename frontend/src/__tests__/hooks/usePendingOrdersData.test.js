@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, it, expect, vi } from "vitest";
 import React from "react";
@@ -9,11 +9,14 @@ vi.mock("../../api/licenses.js", () => ({
   getAllCustomFieldValues: vi.fn().mockResolvedValue({ data: { values: [] }, error: null }),
 }));
 vi.mock("../../api/pendingOrders.js", () => ({
+  createPendingOrder: vi.fn(),
   getPendingOrders: vi.fn().mockResolvedValue({ data: [], error: null }),
+  uploadPendingOrderDocument: vi.fn(),
 }));
 vi.mock("../../api/sourcing.js", () => ({}));
 
 import { usePendingOrdersData } from "../../components/pages/usePendingOrdersData.js";
+import * as pendingOrdersApi from "../../api/pendingOrders.js";
 
 function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -45,5 +48,55 @@ describe("usePendingOrdersData — licenses", () => {
     );
 
     expect(result.current.licenses).toEqual([{ id: 7, licenseRef: "L-007" }]);
+  });
+
+  it("returns structured partial success when the order is created but its document upload fails", async () => {
+    const showError = vi.fn();
+    const onPortfolioStateChange = vi.fn();
+    pendingOrdersApi.createPendingOrder.mockResolvedValueOnce({
+      data: { id: 12, poNumber: "PO-12", items: [] },
+      error: null,
+    });
+    pendingOrdersApi.uploadPendingOrderDocument.mockResolvedValueOnce({
+      data: null,
+      error: "storage unavailable",
+    });
+    const quoteFile = new File(["quote"], "quote.pdf", { type: "application/pdf" });
+    const { result } = renderHook(
+      () => usePendingOrdersData({
+        showError,
+        showSuccess: vi.fn(),
+        onPortfolioStateChange,
+      }),
+      { wrapper: makeWrapper() }
+    );
+
+    let createResult;
+    await act(async () => {
+      createResult = await result.current.handleCreatePendingOrder({
+        poNumber: "PO-12",
+        supplier: "Acme",
+        quoteFile,
+        items: [{
+          publisherName: " Acme ",
+          softwareDescription: " Suite ",
+          quantity: "2",
+          currency: "EUR",
+        }],
+      });
+    });
+
+    expect(createResult).toEqual({
+      ok: true,
+      partial: true,
+      data: { id: 12, poNumber: "PO-12", items: [] },
+    });
+    expect(pendingOrdersApi.createPendingOrder).toHaveBeenCalledWith(expect.objectContaining({
+      poNumber: "PO-12",
+      items: [expect.objectContaining({ publisherName: "Acme", softwareDescription: "Suite" })],
+    }));
+    expect(pendingOrdersApi.uploadPendingOrderDocument).toHaveBeenCalledWith(12, quoteFile);
+    expect(showError).toHaveBeenCalledWith(expect.stringMatching(/partial completion.*storage unavailable/i));
+    expect(onPortfolioStateChange).toHaveBeenCalledTimes(1);
   });
 });

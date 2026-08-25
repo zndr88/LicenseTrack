@@ -105,8 +105,10 @@ async def merge_coterm_sourcing_items(
 
     All items must be in "sourcing" status and must be renewal items
     (renewal_for_license_id set).  The merged item inherits publisher/description/
-    currency/supplier/contact from the primary predecessor's sourcing item and sums
-    the quantities.  The original items are deleted; predecessor licenses are untouched.
+    supplier/contact from the primary predecessor's sourcing item and sums the
+    quantities and independently calculated line values. All lines must use one
+    currency. Mixed unit prices are represented by a blank merged unit price.
+    The original items are deleted; predecessor licenses are untouched.
     """
     if len(payload.sourcing_item_ids) < 2:
         raise HTTPException(status_code=400, detail="At least two sourcing item IDs are required to merge")

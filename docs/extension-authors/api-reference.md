@@ -208,6 +208,12 @@ may be blank while an order is still being tracked, but conversion to active
 licenses requires a real PO number. Treat `procurementReference` as optional
 workflow metadata, not a relationship key.
 
+`POST /api/pending-orders` also accepts an additive `items` array. Each entry
+uses the same sourcing-item fields accepted by the pending-order item routes;
+the header and all lines are created atomically. If a later document upload
+fails, the order and lines remain available and the client must report the
+result as partial completion rather than treating the workflow as fully done.
+
 Conversion is concurrency protected and non-idempotent after success: retry a
 failed request only after checking the current order status.
 

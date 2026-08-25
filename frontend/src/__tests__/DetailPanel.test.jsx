@@ -178,7 +178,7 @@ describe('DetailPanel existing renewal successor', () => {
       ...baseLicense,
       id: 2,
       licenseRef: 'LT-2026-00002',
-      softwareDescription: 'Commitment Year 2',
+      softwareDescription: baseLicense.softwareDescription,
       lifecycleStatus: null,
       startDate: '2026-01-01',
       endDate: '2028-01-01',
@@ -217,7 +217,7 @@ describe('DetailPanel existing renewal successor', () => {
 
     await user.click(screen.getByRole('button', { name: /link existing successor/i }))
     expect(screen.getByRole('dialog', { name: /link existing successor/i })).toBeInTheDocument()
-    await user.click(screen.getByRole('option', { name: /commitment year 2/i }))
+    await user.click(screen.getByRole('option', { name: /lt-2026-00002/i }))
     await user.click(screen.getByRole('button', { name: /link as renewal/i }))
 
     await waitFor(() => {

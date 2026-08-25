@@ -13,6 +13,57 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+### Added
+
+- Added optional line-item creation to `POST /api/pending-orders`, allowing a
+  pending-order header and its initial lines to be created atomically while
+  preserving compatibility with header-only requests.
+- Added durable sourcing-quote provenance to procurement documents and retired
+  license indicators to procurement responses, keeping historical evidence and
+  navigation useful after conversion and retirement.
+
+### Changed
+
+- Required a budget owner before renewal initiation from License Details, the
+  Renewal Workbench, or the API. The Workbench now follows the same PO and
+  end-date bundle rules as License Details and excludes upcoming or
+  otherwise ineligible sibling licenses.
+- Restricted **Link existing successor** to the same entitlement identity,
+  including publisher, product, SKU, license metric, and license type, and
+  required every converted renewal successor to advance the predecessor term.
+- Made coterm financial handling preserve each line's own value. Within a
+  coterm merge, mixed unit prices are supported while currencies and license
+  types must match. Explicit line totals remain authoritative, and no
+  representative unit price or incomplete aggregate is invented when the
+  merged values cannot be stated accurately.
+
+### Fixed
+
+- Reserved sourcing items and requests before conversion so concurrent SQLite
+  requests cannot create duplicate pending orders or license records.
+- Scoped license-level renewal cancellation to the selected renewal instead of
+  cancelling every line in its sourcing request, and based renewal emails on
+  the actual expiration state so upcoming licenses are not reported as
+  expiring.
+- Updated shared maintenance renewal to activate the successor for every linked
+  parent in deterministic order, while preserving coverage snapshots when
+  active maintenance is replaced or disabled.
+- Omitted inaccessible maintenance periods and commercial fields from scoped
+  coverage history, kept Coverage History available after disabling a linked
+  contract, and refreshed both maintenance and coverage history after changes.
+- Deduplicated shared maintenance costs in portfolio totals while retaining the
+  contract on every relevant parent row, and corrected prior-record cost
+  fallback to use the maintenance line's quantity and unit price.
+- Hardened final-line pending-order deletion for incomplete and partially
+  processed orders while retaining document and quote context in history, and
+  surfaced document-upload partial success without duplicate resubmission.
+- Extended the durable procurement-evidence workflow with explicit transfer
+  failure status and operator retry controls.
+- Made sourcing and pending-order history navigation locate, expand, and scroll
+  to highlighted records on the correct filtered and sorted page.
+- Extended existing procurement-trail links so they remain usable after a
+  linked license is retired, with navigation labelled accordingly.
+
 ## [1.1.13] - 2026-08-25
 
 ### Added

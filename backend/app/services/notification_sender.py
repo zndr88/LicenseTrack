@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.license import License
 from app.models.settings import GlobalSettings
 from app.services.document_availability_service import available_documents
-from app.services.license_service import compute_completeness
+from app.services.license_service import compute_completeness, compute_expiration_status
 from app.services.license_response_service import get_procurement_documents_by_scope
 from app.services.email_service import send_email
 from app.services.email_templates import budget_owner_alert, manager_digest
@@ -112,16 +112,17 @@ async def run_daily_notifications(db: AsyncSession) -> dict:
 
         # Check expiration
         if lic.end_date is not None and getattr(lic, "renewal_notifications_enabled", True):
+            expiration_status = compute_expiration_status(lic, today, notification_days)
             days_left = (lic.end_date - today).days
 
-            if days_left < 0:
+            if expiration_status == "expired":
                 # Expired
                 entry = _build_license_entry(lic, "expired", days_left, parent_map=parent_map)
                 all_notifications.append(entry)
                 if lic.budget_owner_email:
                     expiring_by_owner.setdefault(lic.budget_owner_email, []).append(entry)
 
-            elif 0 <= days_left <= notification_days:
+            elif expiration_status == "expiring":
                 # Expiring within threshold
                 entry = _build_license_entry(lic, "expiring", days_left, parent_map=parent_map)
                 all_notifications.append(entry)

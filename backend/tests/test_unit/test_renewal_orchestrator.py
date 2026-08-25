@@ -4,8 +4,15 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import select
 
-from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
+from app.models.license import (
+    License,
+    LicenseMaintenanceLink,
+    LicenseMetric,
+    LicenseType,
+    MaintenanceCoverage,
+)
 from app.models.sourcing import SourcingItem
+from app.services import renewal_orchestrator
 from app.services.renewal_orchestrator import create_renewal_successor_from_sourcing_item
 
 
@@ -107,3 +114,57 @@ async def test_coterm_legacy_maintenance_rejects_invalid_coverage_atomically(db_
     assert (
         await db_session.execute(select(License).where(License.renewed_from_id.in_([legacy.id, secondary.id])))
     ).scalars().all() == []
+
+
+async def test_shared_maintenance_successor_activates_compatibility_parent_first(
+    db_session,
+    monkeypatch,
+):
+    secondary_parent = License(
+        **_license_data(license_type=LicenseType.perpetual, end_date=None)
+    )
+    compatibility_parent = License(
+        **_license_data(license_type=LicenseType.perpetual, end_date=None)
+    )
+    db_session.add_all([secondary_parent, compatibility_parent])
+    await db_session.flush()
+    predecessor = License(
+        **_license_data(
+            license_type=LicenseType.maintenance,
+            parent_license_id=compatibility_parent.id,
+        )
+    )
+    db_session.add(predecessor)
+    await db_session.flush()
+    db_session.add_all([
+        LicenseMaintenanceLink(
+            maintenance_license_id=predecessor.id,
+            parent_license_id=secondary_parent.id,
+        ),
+        LicenseMaintenanceLink(
+            maintenance_license_id=predecessor.id,
+            parent_license_id=compatibility_parent.id,
+        ),
+    ])
+    await db_session.flush()
+    successor = License(
+        **_license_data(license_type=LicenseType.maintenance)
+    )
+    activated_parent_ids = []
+
+    async def record_activation(_db, _successor, parent):
+        activated_parent_ids.append(parent.id)
+
+    monkeypatch.setattr(
+        renewal_orchestrator,
+        "activate_maintenance_for_parent",
+        record_activation,
+    )
+
+    await renewal_orchestrator._activate_maintenance_successor_for_all_parents(
+        db_session,
+        predecessor,
+        successor,
+    )
+
+    assert activated_parent_ids == [compatibility_parent.id, secondary_parent.id]
