@@ -70,6 +70,43 @@
   gap: 4px;
 }
 
+.um-dept-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 2px 8px 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-1);
+  color: var(--text-3);
+}
+
+.um-dept-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 12px;
+}
+
+.um-dept-search input::placeholder {
+  color: var(--text-3);
+}
+
+.um-dept-search:focus-within {
+  border-color: var(--text-2);
+}
+
+.um-dept-options {
+  max-height: 174px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* Toast */
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 9999; background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 6px; padding: 12px 20px; font-family: var(--font-sans); font-size: 12px; color: var(--text-1); display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.5); max-width: 520px; }
 .toast-success { border-left: 3px solid var(--green); }
