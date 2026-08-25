@@ -64,6 +64,25 @@ async def _assert_reloaded_ancestry(client, headers, predecessor_id: int, succes
     assert successor_resp.json()["lifecycleStatus"] is None
 
 
+async def test_initiate_recurring_renewal_suggests_next_annual_term(test_app, auth_headers):
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+    )
+
+    response = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/initiate-renewal",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    sourcing_item = response.json()["sourcingItem"]
+    assert sourcing_item["startDate"] == "2026-01-01"
+    assert sourcing_item["endDate"] == "2026-12-31"
+
+
 async def test_cancel_successor_renewal_from_license_preserves_established_ancestry(
     test_app,
     db_session,

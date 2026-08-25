@@ -24,6 +24,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Changed
 
+- Prefilled subscription, SaaS, and maintenance renewal sourcing lines with an
+  editable one-year term that starts the day after the predecessor ends, while
+  leaving missing-date and non-standard renewal terms for manual review.
 - Required a budget owner before renewal initiation from License Details, the
   Renewal Workbench, or the API. The Workbench now follows the same PO and
   end-date bundle rules as License Details and excludes upcoming or

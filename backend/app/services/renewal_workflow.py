@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Literal
 
 from app.models.license import License, LicenseType, MaintenanceCoverage
@@ -26,6 +27,30 @@ RenewalWorkbenchStatus = Literal[
     "in_sourcing",
     "pending_order",
 ]
+
+_ANNUAL_CONTINUATION_LICENSE_TYPES = frozenset(
+    {
+        LicenseType.subscription,
+        LicenseType.saas,
+        LicenseType.maintenance,
+    }
+)
+
+
+def _suggest_annual_continuation_term(license_obj: License) -> tuple[date | None, date | None]:
+    """Return an editable one-year term immediately following a recurring license."""
+    if license_obj.license_type not in _ANNUAL_CONTINUATION_LICENSE_TYPES or license_obj.end_date is None:
+        return None, None
+    if license_obj.end_date.year == date.max.year:
+        return None, None
+
+    start_date = license_obj.end_date + timedelta(days=1)
+    try:
+        end_date = license_obj.end_date.replace(year=license_obj.end_date.year + 1)
+    except ValueError:
+        # February 29 has no direct anniversary in a non-leap year.
+        end_date = license_obj.end_date.replace(year=license_obj.end_date.year + 1, day=28)
+    return start_date, end_date
 
 
 def derive_renewal_workflow_state(
@@ -85,6 +110,7 @@ def build_renewal_sourcing_item(
     license_type = license_obj.license_type
     maintenance_coverage = license_obj.maintenance_coverage or default_maintenance_coverage(license_type)
     assert_coverage_allowed_for_type(license_type, maintenance_coverage)
+    start_date, end_date = _suggest_annual_continuation_term(license_obj)
     return SourcingItem(
         publisher_name=license_obj.publisher_name,
         software_description=license_obj.software_description,
@@ -102,6 +128,8 @@ def build_renewal_sourcing_item(
         currency=license_obj.currency,
         supplier=license_obj.supplier or None,
         contact_email=license_obj.contact_email or None,
+        start_date=start_date,
+        end_date=end_date,
         status=SourcingStatus.sourcing,
         renewal_for_license_id=license_obj.id,
         created_by=created_by,

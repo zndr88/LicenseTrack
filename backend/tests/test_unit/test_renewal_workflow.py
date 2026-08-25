@@ -119,13 +119,20 @@ def test_compute_workbench_renewal_status_preserves_existing_labels():
     )
 
 
-@pytest.mark.parametrize("license_type", [LicenseType.subscription, LicenseType.saas])
-def test_build_renewal_sourcing_item_prefills_from_license_without_reusing_term(license_type):
+@pytest.mark.parametrize(
+    ("license_type", "coverage"),
+    [
+        (LicenseType.subscription, MaintenanceCoverage.included),
+        (LicenseType.saas, MaintenanceCoverage.included),
+        (LicenseType.maintenance, MaintenanceCoverage.not_applicable),
+    ],
+)
+def test_build_renewal_sourcing_item_suggests_annual_continuation_term(license_type, coverage):
     license_obj = make_license(
         id=42,
         created_by=7,
         license_type=license_type,
-        maintenance_coverage=MaintenanceCoverage.included,
+        maintenance_coverage=coverage,
         start_date=date(2025, 1, 1),
         end_date=date(2025, 12, 31),
     )
@@ -144,9 +151,48 @@ def test_build_renewal_sourcing_item_prefills_from_license_without_reusing_term(
     assert sourcing_item.status == SourcingStatus.sourcing
     assert sourcing_item.renewal_for_license_id == 42
     assert sourcing_item.created_by == 99
+    assert sourcing_item.start_date == date(2026, 1, 1)
+    assert sourcing_item.end_date == date(2026, 12, 31)
+    assert sourcing_item.maintenance_coverage == coverage
+
+
+@pytest.mark.parametrize(
+    ("predecessor_end", "expected_start", "expected_end"),
+    [
+        (date(2028, 2, 28), date(2028, 2, 29), date(2029, 2, 28)),
+        (date(2028, 2, 29), date(2028, 3, 1), date(2029, 2, 28)),
+    ],
+)
+def test_build_renewal_sourcing_item_handles_leap_year_continuations(
+    predecessor_end,
+    expected_start,
+    expected_end,
+):
+    predecessor = make_license(
+        end_date=predecessor_end,
+        maintenance_coverage=MaintenanceCoverage.included,
+    )
+
+    sourcing_item = build_renewal_sourcing_item(predecessor, created_by=99)
+
+    assert sourcing_item.start_date == expected_start
+    assert sourcing_item.end_date == expected_end
+
+
+@pytest.mark.parametrize(
+    ("license_type", "end_date"),
+    [
+        (LicenseType.subscription, None),
+        (LicenseType.oem, date(2025, 12, 31)),
+    ],
+)
+def test_build_renewal_sourcing_item_leaves_term_blank_without_an_annual_default(license_type, end_date):
+    predecessor = make_license(license_type=license_type, end_date=end_date)
+
+    sourcing_item = build_renewal_sourcing_item(predecessor, created_by=99)
+
     assert sourcing_item.start_date is None
     assert sourcing_item.end_date is None
-    assert sourcing_item.maintenance_coverage == MaintenanceCoverage.included
 
 
 @pytest.mark.parametrize(
