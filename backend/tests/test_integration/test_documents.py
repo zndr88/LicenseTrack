@@ -15,6 +15,7 @@ import bcrypt
 from sqlalchemy import select
 
 import app.services.storage as _storage_module
+import app.routes.documents as documents_routes
 from app.config import settings
 from app.models.audit_log import AuditLog
 from app.models.document import Document, DocumentCategory, ProcurementDocument, ProcurementDocumentCategory
@@ -110,6 +111,36 @@ async def test_upload_valid_pdf(test_app, auth_headers, existing_license):
     body = resp.json()
     assert body["original_filename"] == "test.pdf"
     assert body["category"] == "invoice"
+
+
+async def test_failed_document_upload_removes_written_file_and_rolls_back_record(
+    test_app,
+    auth_headers,
+    existing_license,
+    db_session,
+    patch_storage,
+    monkeypatch,
+):
+    async def fail_audit(*_args, **_kwargs):
+        raise RuntimeError("audit unavailable")
+
+    monkeypatch.setattr(documents_routes, "log_event", fail_audit)
+    files_before = {path for path in patch_storage.rglob("*") if path.is_file()}
+
+    response = await test_app.post(
+        f"/api/licenses/{existing_license}/documents",
+        files={"file": ("rollback.pdf", b"%PDF-1.4 rollback", "application/pdf")},
+        data={"category": "eula"},
+        headers=auth_headers,
+    )
+
+    files_after = {path for path in patch_storage.rglob("*") if path.is_file()}
+    record = await db_session.scalar(
+        select(Document).where(Document.original_filename == "rollback.pdf")
+    )
+    assert response.status_code == 500
+    assert files_after == files_before
+    assert record is None
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +263,79 @@ async def test_procurement_category_without_po_uses_license_procurement_scope(te
     assert document["pending_order_id"] is None
     assert document["procurement_bundle_id"] is None
     assert f"attachments/procurement/licenses/{license_id}/" in document["filename"].replace("\\", "/")
+
+
+async def test_pending_order_upload_is_shared_and_preserves_legacy_license_evidence(
+    test_app,
+    auth_headers,
+    db_session,
+    patch_storage,
+):
+    order = PendingOrder(
+        po_number="PO-SHARED-EVIDENCE",
+        supplier="Shared Supplier",
+        status=PendingOrderStatus.converted,
+    )
+    db_session.add(order)
+    await db_session.flush()
+    first = License(
+        publisher_name="Acme",
+        software_description="Shared Suite A",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        po_number=order.po_number,
+        pending_order_id=order.id,
+    )
+    second = License(
+        publisher_name="Acme",
+        software_description="Shared Suite B",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        po_number=order.po_number,
+        pending_order_id=order.id,
+    )
+    db_session.add_all([first, second])
+    await db_session.flush()
+
+    legacy_path = f"procurement_documents/{first.id}/legacy-invoice.pdf"
+    legacy_file = patch_storage / legacy_path
+    legacy_file.parent.mkdir(parents=True, exist_ok=True)
+    legacy_file.write_bytes(b"%PDF-1.4 legacy")
+    legacy_document = ProcurementDocument(
+        po_number=order.po_number,
+        license_id=first.id,
+        filename=legacy_path,
+        original_filename="legacy-invoice.pdf",
+        file_size=15,
+        mime_type="application/pdf",
+        category=ProcurementDocumentCategory.invoice,
+    )
+    db_session.add(legacy_document)
+    await db_session.commit()
+
+    upload_resp = await test_app.post(
+        f"/api/licenses/{first.id}/documents",
+        files={"file": ("shared-invoice.pdf", b"%PDF-1.4 shared", "application/pdf")},
+        data={"category": "invoice"},
+        headers=auth_headers,
+    )
+
+    assert upload_resp.status_code == 201, upload_resp.text
+    shared_document = upload_resp.json()
+    assert shared_document["pending_order_id"] == order.id
+    assert shared_document["license_id"] is None
+    assert shared_document["procurement_bundle_id"] is None
+    assert f"attachments/procurement/pending_orders/{order.id}/" in shared_document["filename"].replace("\\", "/")
+
+    first_resp = await test_app.get(f"/api/licenses/{first.id}/documents", headers=auth_headers)
+    second_resp = await test_app.get(f"/api/licenses/{second.id}/documents", headers=auth_headers)
+
+    assert first_resp.status_code == 200
+    assert {doc["id"] for doc in first_resp.json()} == {legacy_document.id, shared_document["id"]}
+    assert second_resp.status_code == 200
+    assert [doc["id"] for doc in second_resp.json()] == [shared_document["id"]]
 
 
 async def test_license_overview_counts_license_scoped_procurement_documents(test_app, auth_headers):
@@ -481,7 +585,7 @@ async def test_post_conversion_procurement_upload_audit_is_document_amendment(
     assert "operation=upload" in detail
     assert "postConversion=true" in detail
     assert "documentCategory=invoice" in detail
-    assert "documentScope=procurement" in detail
+    assert "documentScope=pending_order" in detail
     assert f"relatedLicenseId={license_obj.id}" in detail
     assert f"pendingOrderId={order.id}" in detail
     assert "poNumber=PO-AMEND-UPLOAD" in detail
@@ -1015,6 +1119,37 @@ async def test_delete_document_succeeds_when_file_is_already_missing(
     list_resp = await test_app.get(upload_url, headers=auth_headers)
     assert list_resp.status_code == 200
     assert list_resp.json() == []
+
+
+async def test_delete_document_succeeds_when_configured_storage_is_unavailable(
+    test_app,
+    auth_headers,
+    existing_license,
+    db_session,
+    tmp_path,
+):
+    upload_url = f"/api/licenses/{existing_license}/documents"
+    upload_resp = await test_app.post(
+        upload_url,
+        files={"file": ("unavailable.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"category": "eula"},
+        headers=auth_headers,
+    )
+    assert upload_resp.status_code == 201
+    document_id = upload_resp.json()["id"]
+
+    unavailable_storage = tmp_path / "storage-is-a-file"
+    unavailable_storage.write_text("not a directory")
+    db_session.add(GlobalSettings(id=1, storage_path=str(unavailable_storage)))
+    await db_session.commit()
+
+    delete_resp = await test_app.delete(
+        f"/api/documents/{document_id}",
+        headers=auth_headers,
+    )
+
+    assert delete_resp.status_code == 204
+    assert await db_session.get(Document, document_id) is None
 
 
 # ---------------------------------------------------------------------------

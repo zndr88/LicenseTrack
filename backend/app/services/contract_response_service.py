@@ -14,6 +14,7 @@ from app.models.contract import Contract, ContractDocument
 from app.models.license import License
 from app.schemas.contract import ContractFolderResponse, ContractResponse
 from app.services.access_service import apply_department_filter
+from app.services.contract_identity_service import license_contract_match
 
 
 async def build_contract_response(
@@ -22,9 +23,7 @@ async def build_contract_response(
     departments: list[str] | None = None,
 ) -> ContractResponse:
     """Compute license_count, document_count, folder doc counts and build ContractResponse."""
-    license_count_query = select(func.count(License.id)).where(
-        func.lower(License.contract_number) == func.lower(contract.contract_number)
-    )
+    license_count_query = select(func.count(License.id)).where(license_contract_match(contract))
     license_count_query = apply_department_filter(license_count_query, departments)
     lic_count_result = await db.execute(license_count_query)
     license_count = lic_count_result.scalar_one() or 0

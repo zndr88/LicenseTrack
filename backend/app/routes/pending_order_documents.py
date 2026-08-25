@@ -1,4 +1,5 @@
 import mimetypes
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
@@ -19,6 +20,7 @@ from app.services.document_availability_service import get_document_storage_base
 from app.services.pending_order_service import get_pending_order_or_404
 
 router = APIRouter(prefix="/api/pending-orders", tags=["pending-orders"])
+logger = logging.getLogger(__name__)
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
@@ -55,29 +57,37 @@ async def upload_pending_order_document(
         category=ProcurementDocumentCategory.purchase_order,
         uploaded_by=current_user.id,
     )
-    db.add(document)
-    await db.flush()
-    await log_event(
-        db,
-        "procurement_document.uploaded",
-        actor=current_user,
-        ip_address=request.client.host if request.client else None,
-        target_type="pending_order",
-        target_id=str(order_id),
-        target_label=order.po_number or order.supplier or "",
-        detail=format_document_amendment_detail(
-            operation="upload",
-            post_conversion=order.status == PendingOrderStatus.converted,
-            document_category=document.category.value,
-            document_scope="procurement",
-            document_id=document.id,
-            filename=original_filename,
-            pending_order_id=order_id,
-            po_number=order.po_number,
-            actor_email=current_user.email,
-        ),
-    )
-    await db.commit()
+    try:
+        db.add(document)
+        await db.flush()
+        await log_event(
+            db,
+            "procurement_document.uploaded",
+            actor=current_user,
+            ip_address=request.client.host if request.client else None,
+            target_type="pending_order",
+            target_id=str(order_id),
+            target_label=order.po_number or order.supplier or "",
+            detail=format_document_amendment_detail(
+                operation="upload",
+                post_conversion=order.status == PendingOrderStatus.converted,
+                document_category=document.category.value,
+                document_scope="pending_order",
+                document_id=document.id,
+                filename=original_filename,
+                pending_order_id=order_id,
+                po_number=order.po_number,
+                actor_email=current_user.email,
+            ),
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        try:
+            storage.delete_file(stored_path, storage_base)
+        except Exception:
+            logger.warning("Could not clean up failed pending-order upload %s", stored_path, exc_info=True)
+        raise
     await db.refresh(document)
     response = ProcurementDocumentResponse.model_validate(document)
     return with_file_availability(response, document, storage_base)
@@ -134,7 +144,7 @@ async def delete_pending_order_document(
     po_number = document.po_number
     category = document.category.value
     order = await get_pending_order_or_404(db, order_id, include_items=False) if order_id is not None else None
-    storage_base = await storage.resolve_storage_path(db)
+    storage_base = await get_document_storage_base(db)
     await db.delete(document)
     await log_event(
         db,
@@ -158,5 +168,8 @@ async def delete_pending_order_document(
         ),
     )
     await db.commit()
-    storage.delete_file(filename, storage_base)
+    try:
+        storage.delete_file(filename, storage_base)
+    except Exception:
+        logger.warning("Could not delete stored pending-order document file %s after commit", filename, exc_info=True)
     return Response(status_code=204)

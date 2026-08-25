@@ -10,6 +10,7 @@ DELETE /api/documents/{document_id}                  - delete record + file
 from __future__ import annotations
 
 import mimetypes
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile
@@ -31,6 +32,7 @@ from app.services.document_availability_service import get_document_storage_base
 from app.services.procurement_document_scope_service import get_procurement_document_licenses
 
 router = APIRouter(tags=["documents"])
+logger = logging.getLogger(__name__)
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
@@ -90,9 +92,16 @@ async def upload_document(
     storage_base = await storage.resolve_storage_path(db)
     is_procurement_category = category.value in {member.value for member in ProcurementDocumentCategory}
     if is_procurement_category:
-        is_bundle_document = lic.procurement_bundle_id is not None
-        storage_scope = "bundle" if is_bundle_document else "license"
-        storage_scope_id = lic.procurement_bundle_id if is_bundle_document else license_id
+        is_pending_order_document = lic.pending_order_id is not None
+        is_bundle_document = not is_pending_order_document and lic.procurement_bundle_id is not None
+        storage_scope = "pending_order" if is_pending_order_document else "bundle" if is_bundle_document else "license"
+        storage_scope_id = (
+            lic.pending_order_id
+            if is_pending_order_document
+            else lic.procurement_bundle_id
+            if is_bundle_document
+            else license_id
+        )
         stored_path, file_size = await storage.save_procurement_document_file(
             file,
             storage_scope,
@@ -101,9 +110,9 @@ async def upload_document(
         )
         procurement_document = ProcurementDocument(
             po_number=lic.po_number,
-            pending_order_id=None,
-            license_id=None if is_bundle_document else license_id,
-            procurement_bundle_id=lic.procurement_bundle_id,
+            pending_order_id=lic.pending_order_id if is_pending_order_document else None,
+            license_id=None if (is_pending_order_document or is_bundle_document) else license_id,
+            procurement_bundle_id=lic.procurement_bundle_id if is_bundle_document else None,
             filename=stored_path,
             original_filename=original_filename,
             file_size=file_size,
@@ -111,32 +120,40 @@ async def upload_document(
             category=ProcurementDocumentCategory(category.value),
             uploaded_by=current_user.id,
         )
-        db.add(procurement_document)
-        await db.flush()
-        ip = request.client.host if request.client else None
-        await log_event(
-            db,
-            "procurement_document.uploaded",
-            actor=current_user,
-            ip_address=ip,
-            target_type="procurement_document",
-            target_id=str(procurement_document.id),
-            target_label=procurement_document.original_filename,
-            detail=format_document_amendment_detail(
-                operation="upload",
-                post_conversion=lic.pending_order_id is not None,
-                document_category=procurement_document.category.value,
-                document_scope="procurement_bundle" if is_bundle_document else "procurement",
-                document_id=procurement_document.id,
-                filename=procurement_document.original_filename,
-                related_license_id=license_id,
-                pending_order_id=lic.pending_order_id,
-                procurement_bundle_id=lic.procurement_bundle_id,
-                po_number=lic.po_number,
-                actor_email=current_user.email,
-            ),
-        )
-        await db.commit()
+        try:
+            db.add(procurement_document)
+            await db.flush()
+            ip = request.client.host if request.client else None
+            await log_event(
+                db,
+                "procurement_document.uploaded",
+                actor=current_user,
+                ip_address=ip,
+                target_type="procurement_document",
+                target_id=str(procurement_document.id),
+                target_label=procurement_document.original_filename,
+                detail=format_document_amendment_detail(
+                    operation="upload",
+                    post_conversion=lic.pending_order_id is not None,
+                    document_category=procurement_document.category.value,
+                    document_scope=("pending_order" if is_pending_order_document else "procurement_bundle" if is_bundle_document else "license"),
+                    document_id=procurement_document.id,
+                    filename=procurement_document.original_filename,
+                    related_license_id=license_id,
+                    pending_order_id=lic.pending_order_id,
+                    procurement_bundle_id=lic.procurement_bundle_id if is_bundle_document else None,
+                    po_number=lic.po_number,
+                    actor_email=current_user.email,
+                ),
+            )
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            try:
+                storage.delete_file(stored_path, storage_base)
+            except Exception:
+                logger.warning("Could not clean up failed procurement upload %s", stored_path, exc_info=True)
+            raise
         await db.refresh(procurement_document)
         response = ProcurementDocumentResponse.model_validate(procurement_document)
         return with_file_availability(response, procurement_document, storage_base)
@@ -151,32 +168,40 @@ async def upload_document(
         category=category,
         uploaded_by=current_user.id,
     )
-    db.add(document)
-    await db.flush()
+    try:
+        db.add(document)
+        await db.flush()
 
-    ip = request.client.host if request.client else None
-    await log_event(
-        db,
-        "document.uploaded",
-        actor=current_user,
-        ip_address=ip,
-        target_type="document",
-        target_id=str(document.id),
-        target_label=document.original_filename,
-        detail=format_document_amendment_detail(
-            operation="upload",
-            post_conversion=lic.pending_order_id is not None,
-            document_category=document.category.value,
-            document_scope="license",
-            document_id=document.id,
-            filename=document.original_filename,
-            related_license_id=license_id,
-            pending_order_id=lic.pending_order_id,
-            po_number=lic.po_number,
-            actor_email=current_user.email,
-        ),
-    )
-    await db.commit()
+        ip = request.client.host if request.client else None
+        await log_event(
+            db,
+            "document.uploaded",
+            actor=current_user,
+            ip_address=ip,
+            target_type="document",
+            target_id=str(document.id),
+            target_label=document.original_filename,
+            detail=format_document_amendment_detail(
+                operation="upload",
+                post_conversion=lic.pending_order_id is not None,
+                document_category=document.category.value,
+                document_scope="license",
+                document_id=document.id,
+                filename=document.original_filename,
+                related_license_id=license_id,
+                pending_order_id=lic.pending_order_id,
+                po_number=lic.po_number,
+                actor_email=current_user.email,
+            ),
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        try:
+            storage.delete_file(stored_path, storage_base)
+        except Exception:
+            logger.warning("Could not clean up failed license document upload %s", stored_path, exc_info=True)
+        raise
     await db.refresh(document)
     response = DocumentResponse.model_validate(document)
     return with_file_availability(response, document, storage_base)
@@ -213,7 +238,7 @@ async def list_documents(
     procurement_conditions = [ProcurementDocument.license_id == license_id]
     if license_obj.pending_order_id is not None:
         procurement_conditions.append(ProcurementDocument.pending_order_id == license_obj.pending_order_id)
-    if license_obj.procurement_bundle_id is not None:
+    elif license_obj.procurement_bundle_id is not None:
         procurement_conditions.append(
             ProcurementDocument.procurement_bundle_id == license_obj.procurement_bundle_id
         )
@@ -309,7 +334,7 @@ async def delete_document(
     filename = document.original_filename
     license_id = document.license_id
     stored_path = document.filename
-    storage_base = await storage.resolve_storage_path(db)
+    storage_base = await get_document_storage_base(db)
 
     lic_result = await db.execute(select(License).where(License.id == license_id))
     lic = lic_result.scalar_one_or_none()
@@ -340,7 +365,10 @@ async def delete_document(
     )
     await db.commit()
 
-    storage.delete_file(stored_path, storage_base)
+    try:
+        storage.delete_file(stored_path, storage_base)
+    except Exception:
+        logger.warning("Could not delete stored license document file %s after commit", stored_path, exc_info=True)
     return Response(status_code=204)
 
 
@@ -366,7 +394,7 @@ async def delete_procurement_document(
     procurement_bundle_id = document.procurement_bundle_id
     related_licenses = await get_procurement_document_licenses(db, document)
     related_license = related_licenses[0] if related_licenses else None
-    storage_base = await storage.resolve_storage_path(db)
+    storage_base = await get_document_storage_base(db)
 
     await db.delete(document)
     ip = request.client.host if request.client else None
@@ -385,7 +413,13 @@ async def delete_procurement_document(
                 else pending_order_id is not None
             ),
             document_category=category,
-            document_scope="procurement_bundle" if procurement_bundle_id is not None else "procurement",
+            document_scope=(
+                "pending_order"
+                if pending_order_id is not None
+                else "procurement_bundle"
+                if procurement_bundle_id is not None
+                else "license"
+            ),
             document_id=document_id,
             filename=filename,
             related_license_id=related_license.id if related_license is not None else license_id,
@@ -398,5 +432,8 @@ async def delete_procurement_document(
     )
     await db.commit()
 
-    storage.delete_file(stored_path, storage_base)
+    try:
+        storage.delete_file(stored_path, storage_base)
+    except Exception:
+        logger.warning("Could not delete stored procurement document file %s after commit", stored_path, exc_info=True)
     return Response(status_code=204)

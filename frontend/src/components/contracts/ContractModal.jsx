@@ -35,7 +35,7 @@ const STATUS_LABEL = {
   retired: "Retired",
 };
 
-export default function ContractModal({ contractId, onClose, onNavigateToLicense, user }) {
+export default function ContractModal({ contractId, onClose, onNavigateToLicense, user, showError, onChanged }) {
   const [contract, setContract] = useState(null);
   const [licenses, setLicenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -85,13 +85,15 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
         getContractLicenses(contractId),
       ]);
       if (cancelled) return;
+      if (contractResult.error) showError?.(contractResult.error);
+      if (licensesResult.error) showError?.(licensesResult.error);
       if (contractResult.data) setContract(contractResult.data);
       if (licensesResult.data) setLicenses(licensesResult.data);
       setLoading(false);
     }
     load();
     return () => { cancelled = true; };
-  }, [contractId]);
+  }, [contractId, showError]);
 
   // Edit
 
@@ -113,11 +115,12 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
     const { data, error } = await updateContract(contractId, {
       publisher_name: editForm.publisherName.trim() || undefined,
       contract_number: editForm.contractNumber.trim() || undefined,
-      notes: editForm.notes.trim() || null,
+      notes: editForm.notes === "" ? null : editForm.notes,
     });
     setSaving(false);
-    if (error) { setSaveError(error); return; }
+    if (error) { setSaveError(error); showError?.(error); return; }
     setContract(data);
+    onChanged?.();
     reset();
     setEditing(false);
   };
@@ -340,6 +343,8 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
                 contractId={contractId}
                 canEdit={canEdit}
                 canDownloadDocuments={canDownloadDocuments}
+                showError={showError}
+                onChanged={onChanged}
               />
             </>
           )}

@@ -187,7 +187,12 @@ vi.mock("../utils/pdfExport.js", () => ({
 }));
 
 vi.mock("../components/contracts/ContractModal.jsx", () => ({
-  default: ({ contractId }) => <div role="dialog">Contract {contractId} opened</div>,
+  default: ({ contractId, onChanged }) => (
+    <div role="dialog">
+      Contract {contractId} opened
+      <button type="button" onClick={onChanged}>Simulate contract change</button>
+    </div>
+  ),
 }));
 
 vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
@@ -1127,6 +1132,30 @@ describe("ContractsPage workflows", () => {
     expect(screen.getByText("Contract 4 opened")).toBeInTheDocument();
   });
 
+  test("refreshes the contracts query after a modal mutation", async () => {
+    const user = userEvent.setup();
+    contractsApi.getContracts
+      .mockResolvedValueOnce({
+        data: [{ id: 4, publisherName: "Acme", contractNumber: "CN-4", licenseCount: 1, documentCount: 0, createdAt: "2026-01-01T00:00:00Z" }],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: 4, publisherName: "Acme", contractNumber: "CN-4", licenseCount: 1, documentCount: 2, createdAt: "2026-01-01T00:00:00Z" }],
+        error: null,
+      });
+    wrapWithQueryClient(
+      <ContractsPage user={admin} userSettings={userSettings} showError={vi.fn()} />
+    );
+
+    await user.click(await screen.findByRole("button", { name: /Open contract CN-4/i }));
+    await user.click(screen.getByRole("button", { name: /Simulate contract change/i }));
+
+    await waitFor(() => {
+      expect(contractsApi.getContracts).toHaveBeenCalledTimes(2);
+      expect(screen.getByText("2 documents")).toBeInTheDocument();
+    });
+  });
+
   test("validates required fields in the new contract modal before creating", async () => {
     const user = userEvent.setup();
     const showError = vi.fn();
@@ -1782,6 +1811,35 @@ describe("SourcingPage workflows", () => {
     });
   });
 
+  test("keeps missing sourcing quotes visible but disables download", async () => {
+    const user = userEvent.setup();
+    sourcingApi.getSourcingRequests.mockResolvedValueOnce({
+      data: [{
+        id: 7,
+        supplier: "Missing Quote Supplier",
+        contactEmail: null,
+        createdAt: "2026-01-01T00:00:00Z",
+        quoteDocuments: [{
+          id: 77,
+          originalFilename: "missing-quote.pdf",
+          fileAvailability: "missing",
+        }],
+        items: [],
+      }],
+      error: null,
+    });
+
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+
+    expect(await screen.findByText(/1 quote · 1 unavailable/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /more actions for sourcing request 7/i }));
+    const downloadItem = screen.getByRole("menuitem", { name: /file missing: missing-quote\.pdf/i });
+    expect(downloadItem).toBeDisabled();
+    await user.click(downloadItem);
+    expect(sourcingApi.downloadSourcingQuoteDocument).not.toHaveBeenCalled();
+    expect(screen.getByRole("menuitem", { name: /delete missing-quote\.pdf/i })).toBeEnabled();
+  });
+
   test("history toggle renders a read-only searchable sourcing history table", async () => {
     const user = userEvent.setup();
     const onNavigateToPendingOrder = vi.fn();
@@ -2157,6 +2215,60 @@ describe("PendingOrdersPage workflows", () => {
     await waitFor(() => {
       expect(pendingOrdersApi.deletePendingOrderDocument).toHaveBeenCalledWith(88);
     });
+  });
+
+  test("keeps unavailable pending-order evidence visible but disables downloads", async () => {
+    const user = userEvent.setup();
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({
+      data: [{
+        id: 9,
+        poNumber: "PO-MISSING-DOC",
+        supplier: "Document Supplier",
+        status: "pending",
+        items: [{
+          id: 91,
+          publisherName: "Acme",
+          softwareDescription: "Suite",
+          quantity: "1",
+          currency: "EUR",
+          quoteDocuments: [{
+            id: 66,
+            originalFilename: "unavailable-quote.pdf",
+            fileAvailability: "unavailable",
+          }],
+        }],
+        documents: [{
+          id: 88,
+          category: "purchase_order",
+          originalFilename: "missing-po.pdf",
+          fileAvailability: "missing",
+        }],
+        createdAt: "2026-01-01T00:00:00Z",
+      }],
+      error: null,
+    });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText(/1 PO · 1 unavailable/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
+    const poDownload = screen.getByRole("menuitem", { name: /file missing: missing-po\.pdf/i });
+    const quoteDownload = screen.getByRole("menuitem", { name: /storage unavailable: unavailable-quote\.pdf/i });
+    expect(poDownload).toBeDisabled();
+    expect(quoteDownload).toBeDisabled();
+    await user.click(poDownload);
+    await user.click(quoteDownload);
+    expect(pendingOrdersApi.downloadPendingOrderDocument).not.toHaveBeenCalled();
+    expect(sourcingApi.downloadSourcingQuoteDocument).not.toHaveBeenCalled();
+    expect(screen.getByRole("menuitem", { name: /delete missing-po\.pdf/i })).toBeEnabled();
+    expect(screen.getByRole("menuitem", { name: /delete unavailable-quote\.pdf/i })).toBeEnabled();
   });
 
   test("exposes sourcing quote documents in the pending order row action menu", async () => {

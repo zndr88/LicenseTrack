@@ -45,6 +45,8 @@ from app.services.contract_storage_service import get_storage_base
 from app.services.contract_identity_service import (
     assert_contract_number_unambiguous,
     assert_unique_contract_number,
+    contract_number_is_unambiguous,
+    license_contract_match,
 )
 from app.services.reference_data_service import resolve_contract_publisher
 from app.services.license_service import compute_expiration_status
@@ -81,13 +83,26 @@ async def list_contracts(
         departments = await get_viewer_departments(_current_user.id, db)
         if not departments:
             return []
-        visible_contract_numbers = (
+        visible_contract_ids = (
+            select(License.contract_id)
+            .where(License.contract_id.isnot(None))
+            .where(License.cost_centre_id.in_(departments))
+            .distinct()
+        )
+        visible_legacy_numbers = (
             select(func.lower(func.trim(License.contract_number)))
+            .where(License.contract_id.is_(None))
             .where(License.contract_number.isnot(None))
             .where(License.cost_centre_id.in_(departments))
             .distinct()
         )
-        query = query.where(func.lower(func.trim(Contract.contract_number)).in_(visible_contract_numbers))
+        query = query.where(
+            (Contract.id.in_(visible_contract_ids))
+            | (
+                (func.lower(func.trim(Contract.contract_number)).in_(visible_legacy_numbers))
+                & contract_number_is_unambiguous(Contract)
+            )
+        )
 
     query = query.offset(offset)
     if limit is not None:
@@ -205,7 +220,7 @@ async def update_contract(
         publisher = await resolve_contract_publisher(db, body.publisher_name)
         contract.publisher_name = publisher.name
         contract.publisher_id = publisher.id
-    if body.notes is not None:
+    if "notes" in body.model_fields_set:
         contract.notes = body.notes
 
     after = {c.name: getattr(contract, c.name) for c in contract.__table__.columns}
@@ -216,7 +231,7 @@ async def update_contract(
     if old_contract_number != new_contract_number:
         await db.execute(
             sa_update(License)
-            .where(func.lower(License.contract_number) == func.lower(old_contract_number))
+            .where(License.contract_id == contract.id)
             .values(contract_number=new_contract_number)
         )
 
@@ -314,7 +329,7 @@ async def get_contract_licenses(
         raise HTTPException(status_code=404, detail="Contract not found")
 
     license_query = select(License).where(
-        func.lower(License.contract_number) == func.lower(contract.contract_number),
+        license_contract_match(contract),
         License.is_retired.is_(False),
     )
     departments = await get_user_departments_for_scope(_current_user, db)

@@ -25,9 +25,10 @@ import {
  *   canEdit              {boolean}
  *   canDownloadDocuments {boolean}
  */
-export default function ContractDocumentsSection({ contractId, canEdit, canDownloadDocuments }) {
+export default function ContractDocumentsSection({ contractId, canEdit, canDownloadDocuments, showError, onChanged }) {
   const [documents, setDocuments] = useState([]);
   const [folders, setFolders] = useState([]);
+  const [loadError, setLoadError] = useState(false);
 
   // Folder management
   const [newFolderName, setNewFolderName] = useState("");
@@ -53,21 +54,28 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
         getContract(contractId),
       ]);
       if (cancelled) return;
+      setLoadError(Boolean(docsResult.error || contractResult.error));
+      if (docsResult.error) showError?.(docsResult.error);
+      if (contractResult.error) showError?.(contractResult.error);
       if (docsResult.data) setDocuments(docsResult.data);
       if (contractResult.data) setFolders(contractResult.data.folders ?? []);
     }
     load();
     return () => { cancelled = true; };
-  }, [contractId]);
+  }, [contractId, showError]);
 
   const reloadDocs = async () => {
-    const { data } = await getContractDocuments(contractId);
+    const { data, error } = await getContractDocuments(contractId);
+    setLoadError(Boolean(error));
     if (data) setDocuments(data);
+    else if (error) showError?.(error);
   };
 
   const reloadContract = async () => {
-    const { data } = await getContract(contractId);
+    const { data, error } = await getContract(contractId);
+    setLoadError(Boolean(error));
     if (data) setFolders(data.folders ?? []);
+    else if (error) showError?.(error);
   };
 
   // Folders
@@ -78,25 +86,28 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
     setAddingFolder(true);
     const { error } = await createFolder(contractId, { name });
     setAddingFolder(false);
-    if (error) return;
+    if (error) { showError?.(error); return; }
     setNewFolderName("");
     await reloadContract();
+    onChanged?.();
   };
 
   const handleRenameFolder = async (folderId) => {
     const name = renameFolderName.trim();
     if (!name) { setRenamingFolderId(null); return; }
     const { error } = await updateFolder(contractId, folderId, { name });
-    if (error) return;
+    if (error) { showError?.(error); return; }
     setRenamingFolderId(null);
     await reloadContract();
+    onChanged?.();
   };
 
   const handleDeleteFolder = async (folderId) => {
     const { error } = await deleteFolder(contractId, folderId);
-    if (error) { setDeleteFolderConfirm(null); return; }
+    if (error) { setDeleteFolderConfirm(null); showError?.(error); return; }
     setDeleteFolderConfirm(null);
     await reloadContract();
+    onChanged?.();
   };
 
   const toggleFolder = (folderId) =>
@@ -108,24 +119,30 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
     setUploading(true);
     const { error } = await uploadContractDocument(contractId, file, folderId);
     setUploading(false);
-    if (error) return;
+    if (error) { showError?.(error); return; }
     await reloadDocs();
     await reloadContract();
+    onChanged?.();
   };
 
   const handleDeleteDoc = async (doc) => {
     const { error } = await deleteContractDocument(contractId, doc.id);
-    if (error) { setDeleteDocConfirm(null); return; }
+    if (error) { setDeleteDocConfirm(null); showError?.(error); return; }
     setDeleteDocConfirm(null);
     setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
     await reloadContract();
+    onChanged?.();
   };
 
   const handleDownload = async (doc) => {
     if (!isFileAvailable(doc)) return;
     setDownloadingId(doc.id);
-    await downloadContractDocument(contractId, doc.id, doc.originalFilename);
-    setDownloadingId(null);
+    try {
+      const { error } = await downloadContractDocument(contractId, doc.id, doc.originalFilename);
+      if (error) showError?.(error);
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   // Derived
@@ -175,6 +192,11 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
 
         {documentsOpen && (
           <>
+            {loadError && (
+              <div role="alert" style={{ marginBottom: 10, color: "var(--red)", fontSize: 12 }}>
+                Contract documents or folders could not be loaded. Existing records remain available; try again later.
+              </div>
+            )}
             {/* General folder (system - no rename/delete) */}
             {(() => {
               const generalIsExpanded = !!expandedFolders["general"];

@@ -1008,6 +1008,24 @@ describe('DetailPanel — custom fields section', () => {
 })
 
 describe('DetailPanel documents', () => {
+  it('labels procurement uploads from pending-order licenses as shared purchase evidence', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        license={{ ...baseLicense, pendingOrderId: 42 }}
+        user={{ id: 2, role: 'admin' }}
+      />
+    )
+
+    await user.click(await screen.findByRole('button', { name: /^documents/i }))
+
+    expect(await screen.findByRole('button', { name: 'Upload invoice (shared purchase)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Upload quote (shared purchase)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Upload purchase order (shared purchase)' })).toBeInTheDocument()
+  })
+
   it('hides license document download actions for read-only viewers', async () => {
     const user = userEvent.setup()
     const { getDocuments, downloadDocument } = await import('../api/documents.js')

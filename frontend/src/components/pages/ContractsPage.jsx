@@ -283,7 +283,9 @@ export default function ContractsPage({
             setSelectedContractId(null);
             invalidateContracts(queryClient);
           }}
+          onChanged={() => invalidateContracts(queryClient)}
           onNavigateToLicense={onNavigateToLicense}
+          showError={showError}
           user={user}
           userSettings={userSettings}
         />

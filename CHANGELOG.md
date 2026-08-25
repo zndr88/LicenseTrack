@@ -42,6 +42,13 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- Hardened contract access and editing with authoritative record links, safe
+  legacy-number fallback, clearable notes, validated contract and folder names,
+  surfaced document errors, and synchronized contract document state.
+- Kept quote, purchase-order, and invoice evidence on the correct procurement
+  scope, preserved legacy license-specific evidence, and made upload rollback,
+  deletion cleanup, missing-file states, and permission-controlled downloads
+  more resilient.
 - Reserved sourcing items and requests before conversion so concurrent SQLite
   requests cannot create duplicate pending orders or license records.
 - Scoped license-level renewal cancellation to the selected renewal instead of

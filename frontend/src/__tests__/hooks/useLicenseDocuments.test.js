@@ -194,4 +194,28 @@ describe("useLicenseDocuments", () => {
 
     expect(onPreviewDocument).toHaveBeenCalledWith(document);
   });
+
+  test("warns when removing evidence shared by a pending-order purchase", async () => {
+    const setConfirmAction = vi.fn();
+    getDocuments.mockResolvedValueOnce({ data: [], error: null });
+    listDocumentProcessingResults.mockResolvedValueOnce({ data: [], error: null });
+
+    const { result } = renderHook(
+      (props) => useLicenseDocuments(props),
+      { initialProps: { ...renderForLicense(1), setConfirmAction } },
+    );
+
+    act(() => {
+      result.current.handleFileRemove({
+        id: 8,
+        scope: "po",
+        pending_order_id: 42,
+        original_filename: "shared-invoice.pdf",
+      });
+    });
+
+    expect(setConfirmAction).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringContaining("removed from every license in this purchase"),
+    }));
+  });
 });

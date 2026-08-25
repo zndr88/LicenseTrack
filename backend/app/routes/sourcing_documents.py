@@ -1,4 +1,5 @@
 import mimetypes
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
@@ -21,6 +22,7 @@ from app.services.sourcing_service import (
 )
 
 router = APIRouter(prefix="/api/sourcing", tags=["sourcing"])
+logger = logging.getLogger(__name__)
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
@@ -50,20 +52,28 @@ async def upload_sourcing_quote_document(
         mime_type=mime_type,
         uploaded_by=current_user.id,
     )
-    db.add(document)
-    await db.flush()
-    ip = request.client.host if request.client else None
-    await log_event(
-        db,
-        "sourcing_quote.uploaded",
-        actor=current_user,
-        ip_address=ip,
-        target_type="sourcing_request",
-        target_id=str(request_id),
-        target_label=sourcing_request.supplier or f"Sourcing request {request_id}",
-        detail=original_filename,
-    )
-    await db.commit()
+    try:
+        db.add(document)
+        await db.flush()
+        ip = request.client.host if request.client else None
+        await log_event(
+            db,
+            "sourcing_quote.uploaded",
+            actor=current_user,
+            ip_address=ip,
+            target_type="sourcing_request",
+            target_id=str(request_id),
+            target_label=sourcing_request.supplier or f"Sourcing request {request_id}",
+            detail=original_filename,
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        try:
+            storage.delete_file(stored_path, storage_base)
+        except Exception:
+            logger.warning("Could not clean up failed sourcing quote upload %s", stored_path, exc_info=True)
+        raise
     await db.refresh(document)
     response = SourcingQuoteDocumentResponse.model_validate(document)
     return with_file_availability(response, document, storage_base)
@@ -118,7 +128,7 @@ async def delete_sourcing_quote_document(
         raise HTTPException(status_code=404, detail="Document not found")
     filename = document.filename
     original_filename = document.original_filename
-    storage_base = await storage.resolve_storage_path(db)
+    storage_base = await get_document_storage_base(db)
     await db.delete(document)
     ip = request.client.host if request.client else None
     await log_event(
@@ -131,5 +141,8 @@ async def delete_sourcing_quote_document(
         target_label=original_filename,
     )
     await db.commit()
-    storage.delete_file(filename, storage_base)
+    try:
+        storage.delete_file(filename, storage_base)
+    except Exception:
+        logger.warning("Could not delete stored sourcing quote file %s after commit", filename, exc_info=True)
     return Response(status_code=204)

@@ -214,8 +214,9 @@ export default function DocumentsSection({
             {DOC_CATEGORIES.map((cat) => {
               const files = (documents || []).filter((d) => d.category === cat.key);
               const isUploading = uploadingCategory === cat.key;
-              const isSharedManualProcurementCategory = Boolean(
-                license.procurementBundleId && PROCUREMENT_CATEGORIES.has(cat.key)
+              const isSharedProcurementCategory = Boolean(
+                (license.pendingOrderId || license.procurementBundleId)
+                && PROCUREMENT_CATEGORIES.has(cat.key)
               );
               return (
                 <div key={cat.key} className="doc-cat">
@@ -319,7 +320,7 @@ export default function DocumentsSection({
                       <Icon name={isUploading ? "clock" : "upload"} size={13} />
                       {isUploading
                         ? "Uploading..."
-                        : `Upload ${cat.label.toLowerCase()}${isSharedManualProcurementCategory ? " (shared)" : ""}`}
+                        : `Upload ${cat.label.toLowerCase()}${isSharedProcurementCategory ? " (shared purchase)" : ""}`}
                     </button>
                   )}
                 </div>

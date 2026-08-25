@@ -6,6 +6,7 @@ import { formatCost, formatPriceInput } from "../../../utils/helpers.js";
 import { formatDateTime } from "../../../utils/formatting.js";
 import { procurementLineTotal, procurementTotalsByCurrency } from "../../../utils/procurementTotals.js";
 import { formatQuantity } from "../../../utils/quantity.js";
+import { documentAvailabilityHelp, documentAvailabilityLabel, documentAvailabilitySummary, isFileAvailable } from "../../../utils/documentAvailability.js";
 
 function SortIndicator({ col, sortCol, sortDir }) {
   return sortCol === col ? (
@@ -26,11 +27,20 @@ function QuoteDocumentsCell({ documents }) {
     return <span style={{ fontSize: 11, color: "var(--text-3)" }}>No quote</span>;
   }
 
-  return <span className="badge badge-gray">{documents.length === 1 ? "1 quote" : `${documents.length} quotes`}</span>;
+  const summary = documentAvailabilitySummary(documents);
+  return <span className="badge badge-gray" title={summary.available === summary.total ? "All quote files available" : `${summary.missing + summary.unavailable} quote file(s) need attention`}>
+    {documents.length === 1 ? "1 quote" : `${documents.length} quotes`}
+    {summary.available !== summary.total ? ` · ${summary.missing + summary.unavailable} unavailable` : ""}
+  </span>;
 }
 
 function documentFilename(document, fallback) {
   return document.originalFilename ?? document.original_filename ?? fallback;
+}
+
+function downloadDocumentLabel(document, fallback) {
+  const filename = documentFilename(document, fallback);
+  return isFileAvailable(document) ? `Download ${filename}` : `${documentAvailabilityLabel(document)}: ${filename}`;
 }
 
 function SourcingStatusBadges({ item }) {
@@ -403,8 +413,10 @@ export default function SourcingTable({
               const historyMenuItems = [
                 ...quoteDocuments.map((document, index) => ({
                   key: `quote-${document.id ?? index}`,
-                  label: `Download ${documentFilename(document, "quote")}`,
+                  label: downloadDocumentLabel(document, "quote"),
                   icon: "download",
+                  disabled: !isFileAvailable(document),
+                  title: documentAvailabilityHelp(document),
                   onClick: () => onDownloadQuote(document),
                 })),
                 ...quoteDocuments.map((document, index) => ({
@@ -434,8 +446,10 @@ export default function SourcingTable({
                 },
                 ...quoteDocuments.map((document, index) => ({
                   key: `quote-${document.id ?? index}`,
-                  label: `Download ${documentFilename(document, "quote")}`,
+                  label: downloadDocumentLabel(document, "quote"),
                   icon: "download",
+                  disabled: !isFileAvailable(document),
+                  title: documentAvailabilityHelp(document),
                   onClick: () => onDownloadQuote(document),
                 })),
                 ...quoteDocuments.map((document, index) => ({

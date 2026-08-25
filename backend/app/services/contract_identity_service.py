@@ -3,15 +3,42 @@
 from __future__ import annotations
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models.contract import Contract
+from app.models.license import License
 
 
 def normalize_contract_number(contract_number: str | None) -> str:
     """Return the canonical comparison value for a contract number."""
     return (contract_number or "").strip().lower()
+
+
+def contract_number_is_unambiguous(contract: Contract | type[Contract]):
+    """Return a SQL condition requiring one unique, non-blank contract number."""
+    other_contract = aliased(Contract)
+    normalized_number = func.lower(func.trim(contract.contract_number))
+    duplicate_exists = exists(
+        select(other_contract.id).where(
+            other_contract.id != contract.id,
+            func.lower(func.trim(other_contract.contract_number)) == normalized_number,
+        )
+    )
+    return and_(normalized_number != "", ~duplicate_exists)
+
+
+def license_contract_match(contract: Contract):
+    """Match explicit links, with an unambiguous null-only legacy fallback."""
+    return or_(
+        License.contract_id == contract.id,
+        and_(
+            License.contract_id.is_(None),
+            func.lower(func.trim(License.contract_number)) == normalize_contract_number(contract.contract_number),
+            contract_number_is_unambiguous(contract),
+        ),
+    )
 
 
 async def find_contracts_by_number(

@@ -116,6 +116,60 @@ async def test_update_contract_changes_fields(test_app, auth_headers, contract):
     assert body["notes"] == "Updated"
 
 
+async def test_update_contract_can_explicitly_clear_notes(test_app, auth_headers, contract):
+    set_resp = await test_app.put(
+        f"/api/contracts/{contract['id']}",
+        json={"notes": "Temporary note"},
+        headers=auth_headers,
+    )
+    assert set_resp.status_code == 200
+    assert set_resp.json()["notes"] == "Temporary note"
+
+    clear_resp = await test_app.put(
+        f"/api/contracts/{contract['id']}",
+        json={"notes": None},
+        headers=auth_headers,
+    )
+
+    assert clear_resp.status_code == 200
+    assert clear_resp.json()["notes"] is None
+
+
+@pytest.mark.parametrize(
+    ("payload", "field"),
+    [
+        ({"contract_number": "   ", "publisher_name": "Acme"}, "contract_number"),
+        ({"contract_number": "CN-VALID", "publisher_name": "   "}, "publisher_name"),
+        ({"contract_number": "C" * 256, "publisher_name": "Acme"}, "contract_number"),
+        ({"contract_number": "CN-VALID", "publisher_name": "P" * 256}, "publisher_name"),
+        ({"contract_number": "CN-VALID", "publisher_name": "Acme", "notes": "N" * 10001}, "notes"),
+    ],
+)
+async def test_create_contract_validates_text_fields(test_app, auth_headers, payload, field):
+    resp = await test_app.post("/api/contracts", json=payload, headers=auth_headers)
+
+    assert resp.status_code == 422
+    assert any(error["loc"][-1] == field for error in resp.json()["detail"])
+
+
+async def test_create_and_update_folder_validate_name(test_app, auth_headers, contract_with_folder):
+    contract, folder = contract_with_folder
+
+    create_resp = await test_app.post(
+        f"/api/contracts/{contract['id']}/folders",
+        json={"name": "   "},
+        headers=auth_headers,
+    )
+    update_resp = await test_app.put(
+        f"/api/contracts/{contract['id']}/folders/{folder['id']}",
+        json={"name": "F" * 256},
+        headers=auth_headers,
+    )
+
+    assert create_resp.status_code == 422
+    assert update_resp.status_code == 422
+
+
 async def test_update_contract_number_cascades_to_linked_licenses(
     test_app, auth_headers, db_session, contract
 ):
@@ -127,6 +181,7 @@ async def test_update_contract_number_cascades_to_linked_licenses(
         license_metric=LicenseMetric.per_user,
         currency="EUR",
         contract_number="CN-2024-001",
+        contract_id=contract["id"],
         is_retired=False,
     )
     lic2 = License(
@@ -136,15 +191,16 @@ async def test_update_contract_number_cascades_to_linked_licenses(
         license_metric=LicenseMetric.per_user,
         currency="EUR",
         contract_number="CN-2024-001",
+        contract_id=contract["id"],
         is_retired=False,
     )
     unrelated = License(
         publisher_name="Other",
-        software_description="Unrelated",
+        software_description="Text-only legacy reference",
         license_type=LicenseType.subscription,
         license_metric=LicenseMetric.per_user,
         currency="EUR",
-        contract_number="CN-OTHER",
+        contract_number="CN-2024-001",
         is_retired=False,
     )
     db_session.add_all([lic1, lic2, unrelated])
@@ -164,7 +220,7 @@ async def test_update_contract_number_cascades_to_linked_licenses(
 
     assert lic1.contract_number == "CN-2024-999"
     assert lic2.contract_number == "CN-2024-999"
-    assert unrelated.contract_number == "CN-OTHER"  # untouched
+    assert unrelated.contract_number == "CN-2024-001"  # text-only legacy row is untouched
 
 
 async def test_delete_contract_returns_204(test_app, auth_headers, contract):
@@ -690,6 +746,64 @@ async def test_viewer_contract_visibility_matches_contract_number_case_insensiti
     assert contract_resp.status_code == 200
     assert licenses_resp.status_code == 200
     assert [item["id"] for item in licenses_resp.json()] == [lic.id]
+
+
+async def test_ambiguous_legacy_contract_number_does_not_grant_viewer_access(
+    test_app,
+    db_session,
+):
+    first = Contract(contract_number="CN-AMBIGUOUS", publisher_name="First")
+    second = Contract(contract_number="cn-ambiguous", publisher_name="Second")
+    db_session.add_all([first, second])
+    await db_session.flush()
+
+    cost_centre = await resolve_cost_centre(db_session, "IT", create_if_missing=True)
+    license_obj = License(
+        publisher_name="Acme",
+        software_description="Legacy text-only link",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        contract_number="CN-AMBIGUOUS",
+        contract_id=None,
+        cost_centre="IT",
+        cost_centre_id=cost_centre.id,
+        is_retired=False,
+    )
+    hashed = bcrypt.hashpw(b"pass123456789", bcrypt.gensalt()).decode()
+    viewer = User(
+        username="viewer_contract_ambiguous",
+        email="viewer_contract_ambiguous@test.local",
+        hashed_password=hashed,
+        role=UserRole.viewer,
+        is_active=True,
+        must_change_password=False,
+    )
+    db_session.add_all([license_obj, viewer])
+    await db_session.flush()
+    db_session.add(
+        UserDepartmentAccess(
+            user_id=viewer.id,
+            department=cost_centre.name,
+            cost_centre_id=cost_centre.id,
+        )
+    )
+    await db_session.commit()
+
+    login = await test_app.post(
+        "/api/auth/login",
+        json={"username": viewer.username, "password": "pass123456789"},
+    )
+    viewer_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    list_resp = await test_app.get("/api/contracts", headers=viewer_headers)
+    first_resp = await test_app.get(f"/api/contracts/{first.id}", headers=viewer_headers)
+    second_resp = await test_app.get(f"/api/contracts/{second.id}", headers=viewer_headers)
+
+    assert list_resp.status_code == 200
+    assert list_resp.json() == []
+    assert first_resp.status_code == 404
+    assert second_resp.status_code == 404
 
 
 async def test_viewer_cannot_access_contract_direct_routes_outside_department(

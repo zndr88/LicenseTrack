@@ -184,11 +184,12 @@ describe("ContractModal", () => {
 
   test("Save sends the same updateContract payload shape", async () => {
     const user = userEvent.setup();
+    const onChanged = vi.fn();
     contractsApi.updateContract.mockResolvedValue({
       data: { ...baseContract, publisherName: "Changed Corp", contractNumber: "CN-200", notes: "Updated note" },
       error: null,
     });
-    await renderLoadedModal();
+    await renderLoadedModal({ onChanged });
 
     await user.click(screen.getByRole("button", { name: /edit contract/i }));
     await user.clear(screen.getByDisplayValue("Acme Corp"));
@@ -206,13 +207,15 @@ describe("ContractModal", () => {
         notes: "Updated note",
       });
     });
+    expect(onChanged).toHaveBeenCalledTimes(1);
   });
 
   test("nested delete folder and document confirmations call the right APIs", async () => {
     const user = userEvent.setup();
+    const onChanged = vi.fn();
     contractsApi.deleteFolder.mockResolvedValue({ error: null });
     contractsApi.deleteContractDocument.mockResolvedValue({ error: null });
-    await renderLoadedModal();
+    await renderLoadedModal({ onChanged });
 
     await user.click(screen.getByRole("button", { name: /delete folder/i }));
     let confirm = screen.getByRole("dialog", { name: /delete folder/i });
@@ -224,6 +227,7 @@ describe("ContractModal", () => {
     confirm = screen.getByRole("dialog", { name: /delete document/i });
     await user.click(within(confirm).getByRole("button", { name: /^delete$/i }));
     await waitFor(() => expect(contractsApi.deleteContractDocument).toHaveBeenCalledWith(10, 21));
+    expect(onChanged).toHaveBeenCalledTimes(2);
   });
 
   test("read-only viewers cannot trigger contract document downloads", async () => {
@@ -255,6 +259,25 @@ describe("ContractModal", () => {
     expect(screen.getByText("File missing")).toBeInTheDocument();
     await user.click(documentButton);
     expect(contractsApi.downloadContractDocument).not.toHaveBeenCalled();
+  });
+
+  test("clears the load warning after a successful folder refresh", async () => {
+    const user = userEvent.setup();
+    const showError = vi.fn();
+    mockLoadedContract();
+    contractsApi.getContractDocuments.mockResolvedValueOnce({ data: null, error: "Storage unavailable" });
+    contractsApi.createFolder.mockResolvedValueOnce({ data: { id: 8, name: "Renewals" }, error: null });
+    renderModal({ showError });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not be loaded/i);
+    expect(showError).toHaveBeenCalledWith("Storage unavailable");
+
+    await user.type(screen.getByPlaceholderText(/new folder name/i), "Renewals");
+    await user.click(screen.getByRole("button", { name: /^plus folder$/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
   });
 
   test("folder rename Escape cancels rename without closing modal", async () => {

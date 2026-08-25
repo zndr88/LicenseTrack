@@ -7,6 +7,7 @@ import { formatPoTotal } from "./usePendingOrdersPageState.js";
 import { formatDateTime, formatNumber } from "../../../utils/formatting.js";
 import { procurementLineTotal } from "../../../utils/procurementTotals.js";
 import { hasPurchaseOrderNumber, pendingOrderLabel } from "../../../utils/procurementLabels.js";
+import { documentAvailabilityHelp, documentAvailabilityLabel, documentAvailabilitySummary, isFileAvailable } from "../../../utils/documentAvailability.js";
 
 function SortIndicator({ active, dir }) {
   if (!active) return null;
@@ -45,11 +46,20 @@ function PurchaseOrderDocumentsCell({ documents }) {
     return <span style={{ fontSize: 11, color: "var(--text-3)" }}>No PO</span>;
   }
 
-  return <span className="badge badge-gray">{purchaseOrderDocuments.length === 1 ? "1 PO" : `${purchaseOrderDocuments.length} POs`}</span>;
+  const summary = documentAvailabilitySummary(purchaseOrderDocuments);
+  return <span className="badge badge-gray" title={summary.available === summary.total ? "All PO files available" : `${summary.missing + summary.unavailable} PO file(s) need attention`}>
+    {purchaseOrderDocuments.length === 1 ? "1 PO" : `${purchaseOrderDocuments.length} POs`}
+    {summary.available !== summary.total ? ` · ${summary.missing + summary.unavailable} unavailable` : ""}
+  </span>;
 }
 
 function documentFilename(document, fallback) {
   return document.originalFilename ?? document.original_filename ?? fallback;
+}
+
+function downloadDocumentLabel(document, fallback) {
+  const filename = documentFilename(document, fallback);
+  return isFileAvailable(document) ? `Download ${filename}` : `${documentAvailabilityLabel(document)}: ${filename}`;
 }
 
 function quoteDocumentsForOrder(order) {
@@ -298,14 +308,18 @@ export default function PendingOrdersTable({
               const historyMenuItems = [
                 ...purchaseOrderDocuments.map((document, index) => ({
                   key: `po-${document.id ?? index}`,
-                  label: `Download ${documentFilename(document, "PO")}`,
+                  label: downloadDocumentLabel(document, "PO"),
                   icon: "download",
+                  disabled: !isFileAvailable(document),
+                  title: documentAvailabilityHelp(document),
                   onClick: () => onDownloadPurchaseOrder(document),
                 })),
                 ...quoteDocuments.map((document, index) => ({
                   key: `quote-${document.id ?? index}`,
-                  label: `Download ${documentFilename(document, "quote")}`,
+                  label: downloadDocumentLabel(document, "quote"),
                   icon: "download",
+                  disabled: !isFileAvailable(document),
+                  title: documentAvailabilityHelp(document),
                   onClick: () => onDownloadQuote(document),
                 })),
                 ...purchaseOrderDocuments.map((document, index) => ({
@@ -344,14 +358,18 @@ export default function PendingOrdersTable({
                 },
                 ...purchaseOrderDocuments.map((document, index) => ({
                   key: `po-${document.id ?? index}`,
-                  label: `Download ${documentFilename(document, "PO")}`,
+                  label: downloadDocumentLabel(document, "PO"),
                   icon: "download",
+                  disabled: !isFileAvailable(document),
+                  title: documentAvailabilityHelp(document),
                   onClick: () => onDownloadPurchaseOrder(document),
                 })),
                 ...quoteDocuments.map((document, index) => ({
                   key: `quote-${document.id ?? index}`,
-                  label: `Download ${documentFilename(document, "quote")}`,
+                  label: downloadDocumentLabel(document, "quote"),
                   icon: "download",
+                  disabled: !isFileAvailable(document),
+                  title: documentAvailabilityHelp(document),
                   onClick: () => onDownloadQuote(document),
                 })),
                 ...purchaseOrderDocuments.map((document, index) => ({
