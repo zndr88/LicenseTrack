@@ -8,6 +8,7 @@ Functions:
 
 from __future__ import annotations
 
+from html import escape
 from itertools import groupby
 from typing import Any
 
@@ -37,14 +38,16 @@ _BODY_START = '<div style="padding: 24px;">'
 _BODY_END = "</div>"
 
 
-def _severity_color(days_until_expiry: int | None) -> str:
-    if days_until_expiry is None or days_until_expiry < 0:
-        return "#ef4444"  # red - expired
-    if days_until_expiry <= 30:
-        return "#ef4444"  # red - critical
-    if days_until_expiry <= 60:
-        return "#f59e0b"  # amber - warning
-    return "#3b82f6"  # blue - info
+def _html_text(value: object) -> str:
+    """Render an untrusted value as HTML text."""
+    if value is None:
+        return ""
+    return escape(str(value), quote=True)
+
+
+def _html_plain_text(value: object) -> str:
+    """Escape plain text while preserving intentional line breaks."""
+    return _html_text(value).replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>")
 
 
 def _label_row(label: str, value: str) -> str:
@@ -52,8 +55,8 @@ def _label_row(label: str, value: str) -> str:
         return ""
     return (
         f"<tr>"
-        f'<td style="padding: 3px 12px 3px 0; color: #64748b; font-size: 12px; white-space: nowrap;">{label}</td>'
-        f'<td style="padding: 3px 0; font-size: 12px; color: #1e293b;">{value}</td>'
+        f'<td style="padding: 3px 12px 3px 0; color: #64748b; font-size: 12px; white-space: nowrap;">{_html_text(label)}</td>'
+        f'<td style="padding: 3px 0; font-size: 12px; color: #1e293b;">{_html_text(value)}</td>'
         f"</tr>"
     )
 
@@ -115,7 +118,7 @@ def budget_owner_alert(
 
     po_sections = ""
     for idx_po, (po_number, items) in enumerate(groups.items()):
-        po_label = f"PO: {po_number}" if po_number else "No PO Number"
+        po_label = f"PO: {_html_text(po_number)}" if po_number else "No PO Number"
         po_sections += (
             f'<div style="margin-bottom: 24px;">'
             f'<div style="font-size: 12px; font-weight: bold; color: #64748b; '
@@ -127,12 +130,12 @@ def budget_owner_alert(
             days = lic.get("days_until_expiry")
             row_bg = "#ffffff" if row_idx % 2 == 0 else "#f8fafc"
             is_maintenance = lic.get("license_type") == "maintenance"
-            description_display = lic.get("software_description", "")
+            description_display = _html_text(lic.get("software_description", ""))
             if is_maintenance and lic.get("parent_software_description"):
                 description_display = (
-                    f"{lic.get('software_description', '')} "
+                    f"{_html_text(lic.get('software_description', ''))} "
                     f"<span style='color: #7c3aed; font-weight: 600;'>"
-                    f"[Maintenance: {lic.get('parent_software_description')}]"
+                    f"[Maintenance: {_html_text(lic.get('parent_software_description'))}]"
                     f"</span>"
                 )
 
@@ -140,27 +143,27 @@ def budget_owner_alert(
                 days_text = "-"
                 days_color = "#374151"
             elif days < 0:
-                days_text = f"Expired {abs(days)} days ago"
+                days_text = f"Expired {abs(days)} {'day' if abs(days) == 1 else 'days'} ago"
                 days_color = "#ef4444"
             elif days <= 30:
-                days_text = f"{days} days"
+                days_text = f"{days} {'day' if days == 1 else 'days'}"
                 days_color = "#ef4444"
             elif days <= 60:
-                days_text = f"{days} days"
+                days_text = f"{days} {'day' if days == 1 else 'days'}"
                 days_color = "#f59e0b"
             else:
-                days_text = f"{days} days"
+                days_text = f"{days} {'day' if days == 1 else 'days'}"
                 days_color = "#374151"
 
             td = f'style="padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #e2e8f0; background: {row_bg};"'
             po_sections += (
                 f"<tr>"
-                f"<td {td}>{lic.get('publisher_name', '')}</td>"
+                f"<td {td}>{_html_text(lic.get('publisher_name', ''))}</td>"
                 f"<td {td}>{description_display}</td>"
-                f"<td {td}>{lic.get('quantity', '')}</td>"
-                f"<td {td}>{lic.get('start_date', '')}</td>"
-                f"<td {td}>{lic.get('end_date', '')}</td>"
-                f"<td {td}>{lic.get('cost_centre', '')}</td>"
+                f"<td {td}>{_html_text(lic.get('quantity', ''))}</td>"
+                f"<td {td}>{_html_text(lic.get('start_date', ''))}</td>"
+                f"<td {td}>{_html_text(lic.get('end_date', ''))}</td>"
+                f"<td {td}>{_html_text(lic.get('cost_centre', ''))}</td>"
                 f'<td style="padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #e2e8f0; '
                 f'background: {row_bg}; color: {days_color}; font-weight: 600;">{days_text}</td>'
                 f"</tr>"
@@ -169,10 +172,11 @@ def budget_owner_alert(
 
     intro = intro_text if intro_text is not None else _DEFAULT_BUDGET_INTRO
     signoff = signoff_text if signoff_text is not None else _DEFAULT_BUDGET_SIGNOFF
-    signoff_html = signoff.replace("\n", "<br>")
+    intro_html = _html_plain_text(intro)
+    signoff_html = _html_plain_text(signoff)
 
     body = f"""
-<p style="color: #374151; font-size: 14px; margin-bottom: 20px;">{intro}</p>
+<p style="color: #374151; font-size: 14px; margin-bottom: 20px;">{intro_html}</p>
 {po_sections}
 <p style="color: #374151; font-size: 14px; margin-top: 24px;">{signoff_html}</p>
 """
@@ -229,48 +233,44 @@ def manager_digest(
     # -- Notification row helper --------------------------------------------
     def _notif_row(n: dict) -> str:
         severity_colors = {"critical": "#ef4444", "warning": "#f59e0b", "info": "#3b82f6"}
-        color = severity_colors.get(n.get("severity", "info"), "#3b82f6")
-        days = n.get("days_until_expiry", 0)
-        completeness_pct = n.get("completeness_pct", 0)
-        notif_type = n.get("type", "")
-        if notif_type == "expired":
-            detail = f"Expired {abs(days)} days ago"
-        elif notif_type == "expiring":
-            detail = f"Expires in {days} days"
-        elif notif_type == "notice_due":
-            notice_date = n.get("notice_date", "")
-            if days < 0:
-                detail = f"Notice deadline passed {abs(days)} days ago"
-            else:
-                detail = f"Notice deadline in {days} days"
-            if notice_date:
-                detail = f"{detail} ({notice_date})"
-        elif notif_type == "incomplete":
-            detail = f"{completeness_pct}% complete"
-        else:
-            detail = ""
+        severity = n.get("severity") or "info"
+        color = severity_colors.get(severity, "#3b82f6")
+        detail = n.get("detail", "")
+        if not detail:
+            days = n.get("days_until_expiry", 0) or 0
+            notif_type = n.get("type", "")
+            if notif_type == "expired":
+                detail = f"Expired {abs(days)} days ago"
+            elif notif_type == "expiring":
+                detail = f"Expires in {days} days"
+            elif notif_type == "notice_due":
+                detail = f"Notice deadline {'passed' if days < 0 else 'in'} {abs(days)} days"
+                if n.get("notice_date"):
+                    detail += f" ({n['notice_date']})"
+            elif notif_type == "incomplete":
+                detail = f"{n.get('completeness_pct', 0)}% complete"
         is_maintenance = n.get("license_type") == "maintenance"
         title_html = (
-            f'<div style="font-weight: 600; font-size: 13px; color: #1e293b;">{n.get("software_description", "")}</div>'
+            f'<div style="font-weight: 600; font-size: 13px; color: #1e293b;">{_html_text(n.get("software_description", ""))}</div>'
         )
         if is_maintenance and n.get("parent_software_description"):
             title_html += (
                 f'<div style="font-size: 11px; color: #7c3aed; margin-top: 2px;">'
-                f"Maintenance for: {n.get('parent_software_description', '')}"
+                f"Maintenance for: {_html_text(n.get('parent_software_description', ''))}"
                 f"</div>"
             )
         title_html += (
-            f'<div style="font-size: 11px; color: #64748b; margin-top: 2px;">{n.get("publisher_name", "")}</div>'
+            f'<div style="font-size: 11px; color: #64748b; margin-top: 2px;">{_html_text(n.get("publisher_name", ""))}</div>'
         )
         return (
             f'<tr style="border-bottom: 1px solid #f1f5f9;">'
             f'<td style="padding: 10px 12px 10px 0;">'
             f"  {title_html}"
             f"</td>"
-            f'<td style="padding: 10px 0; font-size: 12px; color: #374151;">{detail}</td>'
+            f'<td style="padding: 10px 0; font-size: 12px; color: #374151;">{_html_text(detail)}</td>'
             f'<td style="padding: 10px 0 10px 12px; text-align: right;">'
             f'  <span style="background: {color}; color: white; font-size: 10px; font-weight: bold; '
-            f'  padding: 2px 7px; border-radius: 4px;">{n.get("severity", "").upper()}</span>'
+            f'  padding: 2px 7px; border-radius: 4px;">{_html_text(severity).upper()}</span>'
             f"</td>"
             f"</tr>"
         )
@@ -298,7 +298,7 @@ def manager_digest(
         )
     else:
         intro_template = intro_text if intro_text is not None else _DEFAULT_MANAGER_INTRO
-        intro_rendered = intro_template.replace("{total}", str(total))
+        intro_rendered = _html_plain_text(intro_template).replace("{total}", _html_text(total))
         body_content = f"""
 <p style="color: #374151; font-size: 14px; margin-bottom: 16px;">{intro_rendered}</p>
 <div style="margin-bottom: 20px;">{summary_row}</div>

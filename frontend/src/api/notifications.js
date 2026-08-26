@@ -18,6 +18,7 @@ import { get } from "./client.js";
  *     license_id:    number,
  *     software_name: string,
  *     publisher:     string,
+ *     budget_owner_email: string,
  *     type:          "expired" | "expiring" | "notice_due" | "incomplete",
  *     detail:        string,
  *     severity:      "critical" | "warning" | "info",

@@ -20,7 +20,14 @@ from app.models.license import License, LicenseType, LicenseMetric
 from app.models.pending_order import PendingOrder
 from app.models.settings import GlobalSettings
 from app.services import email_templates
-from app.services.notification_sender import _is_domain_allowed, run_daily_notifications
+from app.services.notification_classification import classify_license_alerts
+from app.services.notification_sender import (
+    _claim_notification_run,
+    _finalize_notification_run,
+    _is_domain_allowed,
+    _refresh_notification_run,
+    run_daily_notifications,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -85,6 +92,10 @@ def test_is_domain_allowed_multiple_domains():
     assert _is_domain_allowed("user@other.net", allowed) is False
 
 
+def test_is_domain_allowed_supports_display_name_addresses():
+    assert _is_domain_allowed("Owner Name <owner@example.com>", ["example.com"]) is True
+
+
 # ---------------------------------------------------------------------------
 # budget_owner_alert
 # ---------------------------------------------------------------------------
@@ -100,6 +111,80 @@ def test_budget_owner_alert_contains_license_details():
     html = email_templates.budget_owner_alert([entry])
     assert "Acme Suite" in html
     assert "Acme Corp" in html
+
+
+def test_budget_owner_alert_escapes_record_and_template_html():
+    entry = _make_license_entry()
+    entry["software_description"] = '<a href="https://evil.test">Click me</a>'
+    entry["publisher_name"] = "<script>alert(1)</script>"
+
+    html = email_templates.budget_owner_alert(
+        [entry],
+        intro_text="Hello <img src=x>\nSecond line",
+        signoff_text="Regards <b>team</b>",
+    )
+
+    assert '<a href="https://evil.test">' not in html
+    assert "&lt;a href=&quot;https://evil.test&quot;&gt;Click me&lt;/a&gt;" in html
+    assert "<script>" not in html
+    assert "Hello &lt;img src=x&gt;<br>Second line" in html
+    assert "Regards &lt;b&gt;team&lt;/b&gt;" in html
+
+
+def test_shared_classification_preserves_expiry_and_notice_severity_bands():
+    today = date(2026, 8, 26)
+    license_obj = License(
+        publisher_name="Vendor",
+        software_description="App",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        end_date=today + timedelta(days=30),
+        notice_date=today + timedelta(days=8),
+        is_retired=False,
+    )
+
+    alerts = classify_license_alerts(license_obj, [], {}, 90, 30, today=today)
+    by_type = {alert["type"]: alert for alert in alerts}
+
+    assert by_type["expiring"]["severity"] == "critical"
+    assert by_type["notice_due"]["severity"] == "warning"
+
+
+def test_shared_classification_alerts_at_eighty_percent_completeness():
+    today = date(2026, 8, 26)
+    license_obj = License(
+        publisher_name="Vendor",
+        software_description="App",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        start_date=today,
+        end_date=today + timedelta(days=180),
+        contract_number="CONTRACT-1",
+        cost_centre="IT",
+        po_number="",
+        is_retired=False,
+    )
+    mandatory_fields = {
+        "startDate": True,
+        "endDate": True,
+        "contractNumber": True,
+        "costCentre": True,
+        "poNumber": True,
+    }
+
+    alerts = classify_license_alerts(
+        license_obj,
+        [],
+        mandatory_fields,
+        30,
+        30,
+        today=today,
+    )
+
+    incomplete = next(alert for alert in alerts if alert["type"] == "incomplete")
+    assert incomplete["completeness_pct"] == 80
 
 
 def test_budget_owner_alert_shows_expired_label_for_negative_days():
@@ -252,7 +337,7 @@ async def smtp_settings(db_session) -> GlobalSettings:
 async def test_run_daily_notifications_skips_when_no_settings(db_session):
     result = await run_daily_notifications(db_session)
     assert result["skipped"] is True
-    assert result["reason"] == "smtp_not_configured"
+    assert result["reason"] == "settings_not_configured"
 
 
 async def test_run_daily_notifications_skips_when_smtp_host_missing(db_session):
@@ -608,12 +693,13 @@ async def test_run_daily_notifications_sends_digest_for_incomplete_only_run(
     ) as mock_send:
         result = await run_daily_notifications(db_session)
 
-    assert result == {
-        "budget_owner_emails_sent": 0,
-        "digest_sent": True,
-        "total_notifications": 1,
-        "errors": [],
-    }
+    assert result["status"] == "success"
+    assert result["budget_owner_emails_sent"] == 0
+    assert result["digest_sent"] is True
+    assert result["total_notifications"] == 1
+    assert result["intended_messages"] == 1
+    assert result["blocked"] == []
+    assert result["errors"] == []
     mock_send.assert_awaited_once()
     assert mock_send.await_args.args[1] == "manager@example.com"
     assert "1 incomplete" in mock_send.await_args.args[2]
@@ -663,3 +749,77 @@ async def test_run_daily_notifications_counts_procurement_documents_for_complete
     assert result["total_notifications"] == 0
     assert result["digest_sent"] is False
     mock_send.assert_not_called()
+
+
+async def test_notification_run_claim_is_atomic_and_recovers_stale_lock(db_session):
+    db_session.add(GlobalSettings(id=1))
+    await db_session.commit()
+    started_at = datetime(2026, 8, 26, 7, 0, tzinfo=timezone.utc)
+
+    first_token = await _claim_notification_run(db_session, now=started_at)
+    conflicting_token = await _claim_notification_run(
+        db_session,
+        now=started_at + timedelta(minutes=1),
+    )
+    recovered_token = await _claim_notification_run(
+        db_session,
+        now=started_at + timedelta(minutes=16),
+    )
+
+    assert first_token is not None
+    assert conflicting_token is None
+    assert recovered_token is not None
+    assert recovered_token != first_token
+
+
+async def test_notification_run_refresh_prevents_active_lock_from_becoming_stale(db_session):
+    db_session.add(GlobalSettings(id=1))
+    await db_session.commit()
+    started_at = datetime(2026, 8, 26, 7, 0, tzinfo=timezone.utc)
+    token = await _claim_notification_run(db_session, now=started_at)
+    assert token is not None
+
+    refreshed = await _refresh_notification_run(
+        db_session,
+        token,
+        now=started_at + timedelta(minutes=10),
+    )
+    competing_token = await _claim_notification_run(
+        db_session,
+        now=started_at + timedelta(minutes=16),
+    )
+
+    assert refreshed is True
+    assert competing_token is None
+
+
+async def test_notification_run_finalization_records_success_and_releases_claim(db_session):
+    db_session.add(GlobalSettings(id=1))
+    await db_session.commit()
+    token = await _claim_notification_run(db_session)
+    assert token is not None
+
+    await _finalize_notification_run(
+        db_session,
+        token,
+        {
+            "status": "success",
+            "total_notifications": 1,
+            "intended_messages": 1,
+            "budget_owner_emails_sent": 1,
+            "digest_sent": False,
+            "blocked": [],
+            "blocked_owner_count": 0,
+            "blocked_secondary_contact_count": 0,
+            "blocked_manager_count": 0,
+            "errors": [],
+        },
+    )
+    await db_session.refresh(await db_session.get(GlobalSettings, 1))
+    settings = await db_session.get(GlobalSettings, 1)
+
+    assert settings.notification_run_token is None
+    assert settings.notification_run_started_at is None
+    assert settings.last_notification_status == "success"
+    assert settings.last_notification_sent_date == date.today()
+    assert settings.last_notification_summary["budget_owner_emails_sent"] == 1

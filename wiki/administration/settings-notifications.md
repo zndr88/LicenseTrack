@@ -40,7 +40,9 @@ integrations. Deleting a definition also deletes its stored values.
 ## Notifications
 
 The scheduled notification run evaluates expiring licenses, notice deadlines,
-and incomplete licenses. Admins
+and incomplete licenses. A non-exempt eligible license is incomplete whenever
+its completeness is below 100%. Upcoming licenses can still be incomplete, but
+do not produce expiry or notice alerts until they are active. Admins
 configure:
 
 - the daily notification hour;
@@ -63,6 +65,13 @@ hour.
 Budget-owner renewal email requires a valid owner address and the license's
 **Renewal notifications** flag. That flag is enabled by default and can suppress
 expiry email for one active license without retiring it.
+
+Notification runs show a persisted outcome in Admin > Settings. Full success,
+partial delivery, blocked recipients, failures, skipped runs, and no-work runs
+are distinguished. A failed or partial scheduled attempt is not retried every
+minute; use **Trigger notifications now** after correcting configuration.
+Allowed-domain rejections list the affected owner, secondary contact, or
+manager recipient in the admin-only run result.
 
 Licenses can also store secondary contacts. When a budget-owner renewal email is
 sent, those contacts are included as CC recipients after the same recipient

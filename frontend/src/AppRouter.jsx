@@ -37,6 +37,11 @@ export default function AppRouter({
   statsVisible,
   setStatsVisible,
   notifications,
+  notificationData,
+  notificationsLoading,
+  notificationsError,
+  notificationsFetching,
+  onRetryNotifications,
   licenseFullView,
   handleFullView,
   highlightSourcingId,
@@ -146,6 +151,11 @@ export default function AppRouter({
         <Suspense fallback={<div className="page-loading">Loading...</div>}>
           <NotificationsPage
             notifications={notifications}
+            notificationData={notificationData}
+            notificationsLoading={notificationsLoading}
+            notificationsError={notificationsError}
+            notificationsFetching={notificationsFetching}
+            onRetryNotifications={onRetryNotifications}
             globalSettings={globalSettings}
             setSelectedId={setSelectedId}
             setPage={setPage}

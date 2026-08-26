@@ -5,7 +5,7 @@ from sqlalchemy import delete, select
 from app.database import AsyncSessionLocal
 from app.models.audit_log import AuditLog
 from app.models.settings import GlobalSettings
-from app.services.notification_sender import notification_run_succeeded, run_daily_notifications
+from app.services.notification_sender import run_daily_notifications
 from app.services.pending_order_conversion_service import sweep_stale_evidence_transfers
 from app.services.webhook_service import dispatch_pending_webhooks
 
@@ -150,15 +150,10 @@ async def start_scheduler():
                             "success; use the manual trigger to retry"
                         )
                     else:
-                        # Record the attempt BEFORE sending and commit it, so a crash
-                        # mid-run cannot leave the loop retrying every 60 seconds.
-                        if gs_notif:
-                            gs_notif.last_notification_attempt_date = today
-                            await db.commit()
                         summary = await run_daily_notifications(db)
-                        if gs_notif and notification_run_succeeded(summary):
-                            gs_notif.last_notification_sent_date = today
-                            await db.commit()
+                        if summary.get("status") == "conflict":
+                            log.info("Scheduled notification run skipped because another run is active")
+                        elif summary.get("status") in {"success", "no_work", "skipped"}:
                             log.info(f"Notification run complete: {summary}")
                         else:
                             log.warning(

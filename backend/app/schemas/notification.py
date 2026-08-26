@@ -17,6 +17,7 @@ class NotificationItem(BaseModel):
     license_id: int
     software_name: str
     publisher: str
+    budget_owner_email: str = ""
     type: NotificationType
     detail: str
     severity: NotificationSeverity

@@ -199,6 +199,9 @@ class GlobalSettingsResponse(BaseModel):
     last_backup_at: Optional[datetime] = None
     last_notification_sent_date: Optional[date] = None
     last_notification_attempt_date: Optional[date] = None
+    last_notification_status: Optional[str] = None
+    last_notification_at: Optional[datetime] = None
+    last_notification_summary: Optional[dict] = None
 
     @model_validator(mode="after")
     def mask_smtp_password(self) -> "GlobalSettingsResponse":

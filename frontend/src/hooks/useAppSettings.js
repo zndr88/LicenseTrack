@@ -68,6 +68,11 @@ const DEFAULT_GLOBAL_SETTINGS = {
   emailTemplateBudgetOwnerIntro: "",
   emailTemplateBudgetOwnerSignoff: "",
   emailTemplateManagerIntro: "",
+  lastNotificationSentDate: null,
+  lastNotificationAttemptDate: null,
+  lastNotificationStatus: null,
+  lastNotificationAt: null,
+  lastNotificationSummary: null,
 };
 
 export function useAppSettings({ showError }) {

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, test, vi, beforeEach } from "vitest";
 
 vi.mock("../api/settings.js", () => ({
+  getGlobalSettings: vi.fn(),
   updateGlobalSettings: vi.fn(),
   sendTestEmail: vi.fn(),
   triggerNotifications: vi.fn(),
@@ -19,7 +20,7 @@ vi.mock("../components/settings/EmailTemplatesModal.jsx", () => ({
   default: () => null,
 }));
 
-import { updateGlobalSettings, sendTestEmail, triggerBackup, triggerNotifications } from "../api/settings.js";
+import { getGlobalSettings, updateGlobalSettings, sendTestEmail, triggerBackup, triggerNotifications } from "../api/settings.js";
 import NotificationsSection from "../components/settings/sections/NotificationsSection.jsx";
 import SmtpSection from "../components/settings/sections/SmtpSection.jsx";
 import OidcSection from "../components/settings/sections/OidcSection.jsx";
@@ -405,6 +406,48 @@ describe("SmtpSection test-email validation", () => {
     expect(screen.getByRole("button", { name: /send notifications now/i })).toBeDisabled();
     expect(sendTestEmail).not.toHaveBeenCalled();
     expect(triggerNotifications).not.toHaveBeenCalled();
+  });
+
+  test("reports a partial manual notification outcome without undefined counts", async () => {
+    const onToast = vi.fn();
+    triggerNotifications.mockResolvedValue({
+      data: {
+        status: "partial",
+        budget_owner_emails_sent: 2,
+        blocked: [{ recipient: "blocked@example.net" }],
+        errors: [{ message: "SMTP rejected recipient" }],
+      },
+      error: null,
+    });
+    getGlobalSettings.mockResolvedValue({ data: {}, error: null });
+    const settings = baseSmtpSettings({ emailEnabled: true });
+    render(<SmtpSection {...sectionProps(settings, { isDirty: false, onToast })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /send notifications now/i }));
+
+    await waitFor(() => expect(onToast).toHaveBeenCalledWith(
+      "Notifications partially sent: 2 owner email(s) delivered; 1 blocked, 1 failed.",
+      "error"
+    ));
+    expect(getGlobalSettings).toHaveBeenCalled();
+  });
+
+  test("renders persisted notification operational status", () => {
+    const settings = baseSmtpSettings({
+      lastNotificationStatus: "blocked",
+      lastNotificationAt: "2026-08-26T07:00:00Z",
+      lastNotificationAttemptDate: "2026-08-26",
+      lastNotificationSentDate: "2026-08-25",
+      lastNotificationSummary: {
+        blocked: [{ recipient: "owner@example.net" }],
+        error_count: 0,
+      },
+    });
+    render(<SmtpSection {...sectionProps(settings)} userSettings={{ dateFormat: "YYYY-MM-DD", timeFormat: "24h", timeZone: "UTC" }} />);
+
+    expect(screen.getByText(/Last notification run:/)).toBeInTheDocument();
+    expect(screen.getByText(/Blocked by recipient policy/)).toBeInTheDocument();
+    expect(screen.getByText(/last successful run: 2026-08-25/)).toBeInTheDocument();
   });
 });
 

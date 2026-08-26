@@ -2694,10 +2694,6 @@ describe("NotificationsPage workflows", () => {
     );
     expect(screen.getByText(/All clear/i)).toBeInTheDocument();
 
-    licensesApi.getLicenses.mockResolvedValueOnce({
-      data: [license({ id: 7, budgetOwnerEmail: "owner@example.com" })],
-      error: null,
-    });
     render(
       <NotificationsPage
         notifications={[{
@@ -2706,6 +2702,7 @@ describe("NotificationsPage workflows", () => {
           software_name: "Renewal Suite",
           type: "expiring",
           detail: "Expires in 5 days",
+          budget_owner_email: "owner@example.com",
         }]}
         globalSettings={globalSettings}
         setSelectedId={setSelectedId}
@@ -2714,8 +2711,58 @@ describe("NotificationsPage workflows", () => {
     );
     const row = await screen.findByRole("button", { name: /View license/i });
     expect(row).toHaveTextContent("Renewal Suite");
+    expect(row).toHaveTextContent("owner@example.com");
     await userEvent.click(row);
     expect(setSelectedId).toHaveBeenCalledWith(7);
     expect(setPage).toHaveBeenCalledWith("licenses");
+  });
+
+  test("does not show all clear when the notification request fails", async () => {
+    const retry = vi.fn();
+    render(
+      <NotificationsPage
+        notifications={[]}
+        notificationData={null}
+        notificationsLoading={false}
+        notificationsError="Service unavailable"
+        notificationsFetching={false}
+        onRetryNotifications={retry}
+        globalSettings={globalSettings}
+        setSelectedId={vi.fn()}
+        setPage={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Service unavailable");
+    expect(screen.queryByText(/All clear/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  test("keeps the last valid notifications visible after a refresh failure", () => {
+    render(
+      <NotificationsPage
+        notifications={[]}
+        notificationData={[{
+          license_id: 8,
+          publisher: "Acme",
+          software_name: "Stale Renewal",
+          type: "expired",
+          detail: "Expired yesterday",
+          relevant_date: "2026-08-25",
+        }]}
+        notificationsLoading={false}
+        notificationsError="Refresh failed"
+        notificationsFetching={false}
+        onRetryNotifications={vi.fn()}
+        globalSettings={globalSettings}
+        setSelectedId={vi.fn()}
+        setPage={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /Stale Renewal/ })).toBeInTheDocument();
+    expect(screen.getByText(/Showing the last valid notification result/i)).toBeInTheDocument();
+    expect(screen.queryByText(/All clear/i)).not.toBeInTheDocument();
   });
 });

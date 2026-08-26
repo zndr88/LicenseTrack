@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContract } from "./api/contracts.js";
 import { createLicenseBatch, getStats } from "./api/licenses.js";
 import { uploadDocument } from "./api/documents.js";
@@ -13,7 +13,8 @@ import { createManualEntryData } from "./constants/licenseData.js";
 async function fetchNotifications() {
   const { data, error } = await getNotifications();
   if (error) throw new Error(error);
-  return data ?? [];
+  if (!Array.isArray(data)) throw new Error("Notification data was not returned by the server.");
+  return data;
 }
 
 async function fetchLicenseStats() {
@@ -126,11 +127,14 @@ export default function App() {
     showToast,
   });
 
-  const { data: notifications = [] } = useQuery({
+  const notificationQuery = useQuery({
     queryKey: queryKeys.notifications,
     queryFn: fetchNotifications,
     enabled: !!currentUser,
+    placeholderData: keepPreviousData,
   });
+  const notifications = Array.isArray(notificationQuery.data) ? notificationQuery.data : [];
+  const notificationDataAvailable = Array.isArray(notificationQuery.data);
 
   const { data: sidebarStats = DEFAULT_SIDEBAR_STATS } = useQuery({
     queryKey: queryKeys.portfolioStats,
@@ -261,6 +265,8 @@ export default function App() {
             onNavigate={handleSetPage}
             currentUser={currentUser}
             notifications={notifications}
+            notificationsAvailable={notificationDataAvailable}
+            notificationsLoading={notificationQuery.isPending}
             onLogout={handleLogout}
             perms={perms}
             onAddLicense={() => setConfirmData(createManualEntryData())}
@@ -292,6 +298,11 @@ export default function App() {
               statsVisible={statsVisible}
               setStatsVisible={setStatsVisible}
               notifications={notifications}
+              notificationData={notificationQuery.data ?? null}
+              notificationsLoading={notificationQuery.isPending}
+              notificationsError={notificationQuery.isError ? notificationQuery.error?.message : null}
+              notificationsFetching={notificationQuery.isFetching}
+              onRetryNotifications={notificationQuery.refetch}
               licenseFullView={licenseFullView}
               handleFullView={handleFullView}
               highlightSourcingId={highlightSourcingId}

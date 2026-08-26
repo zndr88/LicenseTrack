@@ -53,6 +53,11 @@ export function normalizeGlobalSettings(data, current) {
     emailTemplateManagerIntro: data.email_template_manager_intro ?? current.emailTemplateManagerIntro ?? "",
     lastBackupStatus: data.last_backup_status ?? current.lastBackupStatus,
     lastBackupAt: data.last_backup_at ?? current.lastBackupAt,
+    lastNotificationSentDate: data.last_notification_sent_date ?? current.lastNotificationSentDate,
+    lastNotificationAttemptDate: data.last_notification_attempt_date ?? current.lastNotificationAttemptDate,
+    lastNotificationStatus: data.last_notification_status ?? current.lastNotificationStatus,
+    lastNotificationAt: data.last_notification_at ?? current.lastNotificationAt,
+    lastNotificationSummary: data.last_notification_summary ?? current.lastNotificationSummary,
   };
 }
 

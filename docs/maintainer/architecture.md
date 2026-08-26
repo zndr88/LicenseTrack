@@ -317,6 +317,13 @@ these fields. Manager-digest eligibility includes `incomplete` as well as
 `expired`, `expiring`, and `notice_due`, so an incomplete-only run still sends
 the configured digest.
 
+Notification eligibility and severity are centralized in
+`backend/app/services/notification_classification.py`. Non-exempt records with
+completeness below 100% are incomplete; upcoming records may be incomplete but
+are excluded from expiry and notice alerts. Email delivery claims the singleton
+database-backed run slot before sending and persists a compact admin-only
+outcome summary.
+
 Admin settings are grouped into four product areas:
 
 - General: storage, notifications, SMTP, and OIDC.

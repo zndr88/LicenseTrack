@@ -902,9 +902,9 @@ def test_notification_run_succeeded_false_when_delivery_errors():
     assert notification_run_succeeded({"errors": ["owner@x: smtp down"]}) is False
 
 
-def test_notification_run_succeeded_true_when_skipped():
+def test_notification_run_succeeded_false_when_skipped():
     from app.services.notification_sender import notification_run_succeeded
-    assert notification_run_succeeded({"skipped": True, "reason": "email_disabled"}) is True
+    assert notification_run_succeeded({"skipped": True, "reason": "email_disabled"}) is False
 
 
 def _run_one_scheduler_iteration(monkeypatch, fake_run, *, send_hour=7):
@@ -939,16 +939,16 @@ def _run_one_scheduler_iteration(monkeypatch, fake_run, *, send_hour=7):
     monkeypatch.setattr(notification_scheduler.asyncio, "sleep", controlled_sleep)
 
 
-async def test_scheduler_clean_run_marks_attempt_and_success(db_session, monkeypatch):
-    """A run with no delivery errors records both attempt and success dates."""
-    import datetime as dt_module
-
+async def test_scheduler_delegates_clean_run_to_sender(db_session, monkeypatch):
     _patch_scheduler_session(monkeypatch, db_session)
     db_session.add(GlobalSettings(id=1, notification_send_hour=7, backup_enabled=False))
     await db_session.commit()
 
+    calls = []
+
     async def fake_run(db):
-        return {"budget_owner_emails_sent": 1, "errors": []}
+        calls.append(db)
+        return {"status": "success", "budget_owner_emails_sent": 1, "errors": []}
 
     _run_one_scheduler_iteration(monkeypatch, fake_run)
     try:
@@ -956,26 +956,19 @@ async def test_scheduler_clean_run_marks_attempt_and_success(db_session, monkeyp
     except StopAsyncIteration:
         pass
 
-    gs = await db_session.scalar(select(GlobalSettings).where(GlobalSettings.id == 1))
-    today = dt_module.date(2026, 5, 21)
-    assert gs.last_notification_attempt_date == today
-    assert gs.last_notification_sent_date == today
+    assert calls == [db_session]
 
 
-async def test_scheduler_failed_run_records_attempt_but_not_success(db_session, monkeypatch):
-    """A run with delivery errors records the attempt but leaves the day un-sent.
-
-    This is the core of Gap 1: SMTP failure must NOT mark the day handled, so the
-    license can still be alerted via a later manual retry.
-    """
-    import datetime as dt_module
-
+async def test_scheduler_delegates_failed_run_to_sender(db_session, monkeypatch):
     _patch_scheduler_session(monkeypatch, db_session)
     db_session.add(GlobalSettings(id=1, notification_send_hour=7, backup_enabled=False))
     await db_session.commit()
 
+    calls = []
+
     async def fake_run(db):
-        return {"budget_owner_emails_sent": 0, "errors": ["owner@x: smtp down"]}
+        calls.append(db)
+        return {"status": "failed", "budget_owner_emails_sent": 0, "errors": ["owner@x: smtp down"]}
 
     _run_one_scheduler_iteration(monkeypatch, fake_run)
     try:
@@ -983,9 +976,7 @@ async def test_scheduler_failed_run_records_attempt_but_not_success(db_session, 
     except StopAsyncIteration:
         pass
 
-    gs = await db_session.scalar(select(GlobalSettings).where(GlobalSettings.id == 1))
-    assert gs.last_notification_attempt_date == dt_module.date(2026, 5, 21)
-    assert gs.last_notification_sent_date is None
+    assert calls == [db_session]
 
 
 async def test_scheduler_does_not_auto_retry_after_failed_attempt_today(db_session, monkeypatch):

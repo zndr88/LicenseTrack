@@ -12,10 +12,7 @@ async def trigger_notifications(
     db: DbSession,
     _admin: User = Depends(require_admin),
 ) -> dict:
-    from datetime import date
-
     from app.services.notification_sender import (
-        notification_run_succeeded,
         run_daily_notifications,
     )
 
@@ -26,15 +23,14 @@ async def trigger_notifications(
             detail="SMTP is not configured",
         )
     # A manual trigger is an explicit admin action and always runs (it is the
-    # documented retry path when a scheduled run failed). It records the same
-    # attempt/success markers as the scheduler so state stays consistent.
-    today = date.today()
-    gs.last_notification_attempt_date = today
-    await db.commit()
+    # documented retry path when a scheduled run failed). The sender owns the
+    # atomic claim and persists the attempt/outcome markers.
     summary = await run_daily_notifications(db)
-    if notification_run_succeeded(summary):
-        gs.last_notification_sent_date = today
-        await db.commit()
+    if summary.get("status") == "conflict":
+        raise HTTPException(
+            status_code=409,
+            detail="A notification run is already in progress. Wait for it to finish before retrying.",
+        )
     return summary
 
 
@@ -53,10 +49,12 @@ async def test_email_connection(
             status_code=422,
             detail="Manager email is not configured - set it in the Notifications section above",
         )
-    allowed = [d.lower().strip() for d in (gs.allowed_email_domains or "").split(",") if d.strip()]
-    if allowed:
-        domain = gs.manager_email.split("@")[-1].lower().strip()
-        if domain not in allowed:
+    from app.services.email_validation import email_domain, is_email_domain_allowed
+
+    allowed = [d.strip() for d in (gs.allowed_email_domains or "").split(",") if d.strip()]
+    if not is_email_domain_allowed(gs.manager_email, allowed):
+        domain = email_domain(gs.manager_email) or "unknown"
+        if allowed:
             raise HTTPException(
                 status_code=422,
                 detail=f"Manager email domain '{domain}' is not in the allowed domains whitelist",

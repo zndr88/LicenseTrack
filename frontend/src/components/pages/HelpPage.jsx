@@ -344,6 +344,7 @@ const HELP_ARTICLES = [
         body: [
           "The daily notification run evaluates visible lifecycle, notice deadline, and completeness conditions, creates in-app notifications, and optionally sends SMTP email when email notifications are enabled.",
           "Admins configure the expiration alert window, notice deadline alert window, notification hour, manager digest recipient, allowed recipient domains, SMTP settings, and email template text. A test email checks SMTP without running the full notification workflow.",
+          "A non-exempt eligible license is incomplete whenever its completeness is below 100%. Upcoming licenses may still be incomplete, but expiry and notice alerts wait until the license is active.",
         ],
       },
       {
@@ -357,6 +358,7 @@ const HELP_ARTICLES = [
           "The per-license Renewal notifications toggle suppresses expiry email for that record without retiring it or removing its owner.",
           "Trigger notifications now runs the real notification workflow and can send real messages; use Send test email for SMTP-only validation.",
           "The allowed-domain list applies to scheduled and manually triggered notification recipients.",
+          "Admin Settings records whether the latest run succeeded, was partial, blocked, failed, skipped, or found no work. A partial or failed scheduled attempt needs a manual retry after configuration is corrected.",
         ],
       },
     ],

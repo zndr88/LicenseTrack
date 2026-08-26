@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef } from "react";
 import { ROLE_LABELS } from "../../constants/permissions.js";
 import Icon from "../ui/Icon.jsx";
 
-export default function TopBar({ page, onNavigate, currentUser, notifications, onLogout, perms, onAddLicense }) {
+export default function TopBar({ page, onNavigate, currentUser, notifications, notificationsAvailable = false, notificationsLoading = false, onLogout, perms, onAddLicense }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const role = currentUser.role;
   const userDisplayName = currentUser.name || currentUser.username || "User";
   const userAvatar = currentUser.avatar || userDisplayName.slice(0, 2).toUpperCase();
+  const showNotificationCount = notificationsAvailable && !notificationsLoading;
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -88,11 +89,11 @@ export default function TopBar({ page, onNavigate, currentUser, notifications, o
         <button
           type="button"
           className="topbar-icon-btn"
-          aria-label={`Notifications${notifications.length > 0 ? ` (${notifications.length})` : ""}`}
+          aria-label={`Notifications${showNotificationCount && notifications.length > 0 ? ` (${notifications.length})` : ""}`}
           onClick={() => onNavigate("notifications")}
         >
           <Icon name="bell" size={17} />
-          {notifications.length > 0 && (
+          {showNotificationCount && notifications.length > 0 && (
             <span className="topbar-badge">{notifications.length}</span>
           )}
         </button>

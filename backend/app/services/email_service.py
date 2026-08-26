@@ -1,6 +1,7 @@
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape
 
 import aiosmtplib
 
@@ -36,6 +37,11 @@ def _reject_crlf_recipient(address: str) -> None:
         raise ValueError(f"Refusing to send: recipient address contains line breaks or null bytes: {address!r}")
 
 
+def _reject_crlf_header(value: str, name: str) -> None:
+    if any(ch in value for ch in _FORBIDDEN_RECIPIENT_CHARS):
+        raise ValueError(f"Refusing to send: {name} contains line breaks or null bytes")
+
+
 async def send_email(
     gs: GlobalSettings,
     to: str,
@@ -51,6 +57,8 @@ async def send_email(
     cc_recipients = [cc] if isinstance(cc, str) else list(cc or [])
     for recipient in cc_recipients:
         _reject_crlf_recipient(recipient)
+    _reject_crlf_header(subject, "subject")
+    _reject_crlf_header(gs.smtp_sender, "sender")
 
     msg = MIMEMultipart("alternative")
     msg["From"] = gs.smtp_sender
@@ -92,10 +100,10 @@ async def send_test_email(gs: GlobalSettings, to: str) -> None:
       </div>
     </div>
     """.format(
-        host=gs.smtp_host,
+        host=escape(str(gs.smtp_host), quote=True),
         port=gs.smtp_port,
         encryption=_SMTP_ENCRYPTION_LABELS[_smtp_encryption_mode(gs)],
-        sender=gs.smtp_sender,
+        sender=escape(str(gs.smtp_sender), quote=True),
     )
     await _send_test_email_impl(gs, to, html)
 

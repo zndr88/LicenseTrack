@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
-import { updateGlobalSettings, sendTestEmail, triggerNotifications } from "../../../api/settings.js";
+import { getGlobalSettings, updateGlobalSettings, sendTestEmail, triggerNotifications } from "../../../api/settings.js";
 import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { smtpSaveSchema, smtpConnectionSchema } from "../../../utils/settingsSchemas.js";
+import { formatDate, formatDateTime } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
 import Toggle from "../../ui/Toggle.jsx";
 import EmailTemplatesModal from "../EmailTemplatesModal.jsx";
@@ -13,7 +14,34 @@ const SMTP_ENCRYPTION_OPTIONS = [
   { value: "tls", label: "TLS / SSL" },
 ];
 
-export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, onError, onToast, navGuard }) {
+function notificationOutcomeLabel(status, summary) {
+  const sent = Number(summary?.budget_owner_emails_sent ?? 0);
+  const digest = summary?.digest_sent ? "The manager digest was sent." : "No manager digest was sent.";
+  const blocked = Number(summary?.blocked?.length ?? 0);
+  const failed = Number(summary?.error_count ?? summary?.errors?.length ?? 0);
+  switch (status) {
+    case "success": return `Completed successfully: ${sent} owner email(s). ${digest}`;
+    case "partial": return `Partially completed: ${sent} owner email(s) sent; ${blocked} recipient(s) blocked and ${failed} delivery failure(s).`;
+    case "blocked": return `Blocked by recipient policy: ${blocked} recipient(s) were not allowed.`;
+    case "failed": return "Failed before all intended notification messages were delivered.";
+    case "skipped": return summary?.reason === "email_disabled" ? "Skipped because email notifications are disabled." : "Skipped because SMTP is not configured.";
+    case "no_work": return "No eligible notification items were found.";
+    default: return "Notification run status is unavailable.";
+  }
+}
+
+function notificationToastMessage(summary) {
+  const status = summary?.status;
+  if (status === "success") return "Notifications sent successfully.";
+  if (status === "no_work") return "No eligible notifications were found.";
+  if (status === "skipped") return summary.reason === "email_disabled" ? "Notifications skipped: email is disabled." : "Notifications skipped: SMTP is not configured.";
+  if (status === "blocked") return `Notifications blocked: ${summary.blocked?.length ?? 0} recipient(s) failed the allowed-domain check.`;
+  if (status === "partial") return `Notifications partially sent: ${summary.budget_owner_emails_sent ?? 0} owner email(s) delivered; ${summary.blocked?.length ?? 0} blocked, ${summary.errors?.length ?? 0} failed.`;
+  if (status === "failed") return "Notifications failed before all intended messages were delivered.";
+  return "Notification run completed with an unknown outcome.";
+}
+
+export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, onError, onToast, navGuard, userSettings }) {
   const [saving, setSaving] = useState(false);
   const [testEmailSending, setTestEmailSending] = useState(false);
   const [triggeringSending, setTriggeringSending] = useState(false);
@@ -73,10 +101,12 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
     const { data, error } = await triggerNotifications();
     setTriggeringSending(false);
     if (error) { onError(error); return; }
-    const msg = data
-      ? `Sent ${data.budget_owner_emails_sent} owner email(s), digest ${data.digest_sent ? "sent" : "skipped"}. ${data.errors?.length || 0} error(s).`
-      : "Notifications triggered.";
-    onToast(msg, data?.errors?.length ? "error" : "success");
+    const { data: refreshedSettings } = await getGlobalSettings();
+    if (refreshedSettings) {
+      setGlobalSettings((s) => normalizeGlobalSettings(refreshedSettings, s));
+    }
+    const status = data?.status;
+    onToast(notificationToastMessage(data), ["partial", "blocked", "failed"].includes(status) ? "error" : "success");
   };
 
   const handleOpenEmailTemplates = useCallback(() => {
@@ -161,6 +191,23 @@ export default function SmtpSection({ isOpen, isDirty, onToggle, markDirty, clea
                   <Icon name="mail" size={13} /> Edit Email Templates
                 </button>
               </div>
+              {globalSettings.lastNotificationStatus && (
+                <div className={`set-status-box ${["failed", "partial", "blocked"].includes(globalSettings.lastNotificationStatus) ? "set-status-box-failed" : "set-status-box-success"}`} role="status">
+                  <strong>Last notification run:</strong>{" "}
+                  {notificationOutcomeLabel(globalSettings.lastNotificationStatus, globalSettings.lastNotificationSummary)}
+                  {globalSettings.lastNotificationAt && <span className="set-status-time">{formatDateTime(globalSettings.lastNotificationAt, userSettings)}</span>}
+                  {globalSettings.lastNotificationAttemptDate && (
+                    <div className="set-status-detail">
+                      Scheduled attempt: {formatDate(globalSettings.lastNotificationAttemptDate, userSettings)}
+                      {globalSettings.lastNotificationSentDate ? `; last successful run: ${formatDate(globalSettings.lastNotificationSentDate, userSettings)}` : "; no successful run recorded"}
+                    </div>
+                  )}
+                  {globalSettings.lastNotificationAttemptDate === new Date().toISOString().slice(0, 10)
+                    && ["failed", "partial", "blocked"].includes(globalSettings.lastNotificationStatus) && (
+                    <div className="set-status-detail"><strong>Manual attention required for today's scheduled attempt.</strong></div>
+                  )}
+                </div>
+              )}
               <SectionSaveButton sectionKey="smtp" isDirty={isDirty} isSaving={saving} onSave={handleSave} />
             </div>
           </div>

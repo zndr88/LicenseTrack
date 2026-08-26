@@ -21,19 +21,29 @@ describe('normalizeGlobalSettings', () => {
     expect(normalized.passwordMinLength).toBe(14)
   })
 
-  test('maps renewal/report and backup status fields on initial load', () => {
+  test('maps renewal/report and operational status fields on initial load', () => {
     const normalized = normalizeGlobalSettings(
       {
         high_value_threshold: '75000',
         fiscal_year_start_month: 4,
         last_backup_status: 'failed',
         last_backup_at: '2026-07-12T08:00:00Z',
+        last_notification_sent_date: '2026-07-11',
+        last_notification_attempt_date: '2026-07-12',
+        last_notification_status: 'partial',
+        last_notification_at: '2026-07-12T07:00:00Z',
+        last_notification_summary: { error_count: 1 },
       },
       {
         highValueThreshold: 50000,
         fiscalYearStartMonth: 1,
         lastBackupStatus: null,
         lastBackupAt: null,
+        lastNotificationSentDate: null,
+        lastNotificationAttemptDate: null,
+        lastNotificationStatus: null,
+        lastNotificationAt: null,
+        lastNotificationSummary: null,
       }
     )
 
@@ -41,6 +51,11 @@ describe('normalizeGlobalSettings', () => {
     expect(normalized.fiscalYearStartMonth).toBe(4)
     expect(normalized.lastBackupStatus).toBe('failed')
     expect(normalized.lastBackupAt).toBe('2026-07-12T08:00:00Z')
+    expect(normalized.lastNotificationSentDate).toBe('2026-07-11')
+    expect(normalized.lastNotificationAttemptDate).toBe('2026-07-12')
+    expect(normalized.lastNotificationStatus).toBe('partial')
+    expect(normalized.lastNotificationAt).toBe('2026-07-12T07:00:00Z')
+    expect(normalized.lastNotificationSummary).toEqual({ error_count: 1 })
   })
 
   test('maps explicit SMTP encryption and legacy TLS fallback', () => {

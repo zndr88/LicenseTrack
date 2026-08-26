@@ -249,6 +249,13 @@ class GlobalSettings(Base):
     #                                     can surface it and a manual trigger can retry.
     last_notification_sent_date: Mapped[date | None] = mapped_column(Date, nullable=True, default=None)
     last_notification_attempt_date: Mapped[date | None] = mapped_column(Date, nullable=True, default=None)
+    notification_run_token: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+    notification_run_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+    last_notification_status: Mapped[str | None] = mapped_column(String(20), nullable=True, default=None)
+    last_notification_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
+    last_notification_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
