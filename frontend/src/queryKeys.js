@@ -14,5 +14,7 @@ export const queryKeys = {
   licenseProcurementTrail: (licenseId) => ["license-procurement-trail", licenseId],
   customFieldDefs: ["custom-field-defs"],
   referenceData: ["reference-data"],
+  referenceDataLookup: ["reference-data-lookup"],
   referenceDataSearch: (kind, search = "") => ["reference-data", kind, search],
+  referenceDataLookupSearch: (kind, search = "") => ["reference-data-lookup", kind, search],
 };

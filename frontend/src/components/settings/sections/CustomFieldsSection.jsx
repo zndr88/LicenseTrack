@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { listCustomFields, createCustomField, updateCustomField, deleteCustomField, updateCustomFieldSection } from "../../../api/settings.js";
+import {
+  createCustomField,
+  deleteCustomField,
+  listCustomFields,
+  reorderCustomFields,
+  updateCustomFieldSection,
+} from "../../../api/settings.js";
 import { getCustomFieldSectionLabel } from "../../../utils/customFieldPresentation.js";
 import Icon from "../../ui/Icon.jsx";
 import ConfirmDialog from "../../ui/ConfirmDialog.jsx";
@@ -12,6 +18,7 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
   const [customFields, setCustomFields] = useState([]);
   const [customFieldsLoading, setCustomFieldsLoading] = useState(false);
   const [customFieldsSaving, setCustomFieldsSaving] = useState(false);
+  const [customFieldsReordering, setCustomFieldsReordering] = useState(false);
   const [showAddField, setShowAddField] = useState(false);
   const [newFieldName, setNewFieldName] = useState("");
   const [newFieldType, setNewFieldType] = useState("text");
@@ -49,24 +56,25 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
   };
 
   const handleMoveCustomField = async (index, direction) => {
+    if (customFieldsReordering) return;
     const swapIndex = direction === "up" ? index - 1 : index + 1;
     if (swapIndex < 0 || swapIndex >= customFields.length) return;
     const previous = customFields;
     const updated = [...customFields];
-    const a = { ...updated[index], displayOrder: updated[swapIndex].displayOrder };
-    const b = { ...updated[swapIndex], displayOrder: updated[index].displayOrder };
-    updated[index] = a; updated[swapIndex] = b;
-    updated.sort((x, y) => x.displayOrder - y.displayOrder);
+    [updated[index], updated[swapIndex]] = [updated[swapIndex], updated[index]];
     setCustomFields(updated);
-    const results = await Promise.all([
-      updateCustomField(a.id, { displayOrder: a.displayOrder }),
-      updateCustomField(b.id, { displayOrder: b.displayOrder }),
-    ]);
-    const error = results.find((result) => result?.error)?.error;
+    setCustomFieldsReordering(true);
+    const { data, error } = await reorderCustomFields(updated.map((field) => field.id));
+    setCustomFieldsReordering(false);
     if (error) {
+      const refreshed = await listCustomFields();
+      if (!refreshed.error && refreshed.data) setCustomFields(refreshed.data);
+      else setCustomFields(previous);
       onError(error);
-      setCustomFields(previous);
       return;
+    }
+    if (data) {
+      setCustomFields(data);
     }
     onCustomFieldsChanged?.();
   };
@@ -120,10 +128,10 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
                           </select>
                         </td>
                         <td className="set-field-actions-cell">
-                          <button type="button" className="btn btn-g set-icon-button" disabled={index === 0} onClick={() => handleMoveCustomField(index, "up")} aria-label={`Move ${field.name} up`} title={`Move ${field.name} up`}>
+                          <button type="button" className="btn btn-g set-icon-button" disabled={customFieldsReordering || index === 0} onClick={() => handleMoveCustomField(index, "up")} aria-label={`Move ${field.name} up`} title={`Move ${field.name} up`}>
                             <Icon name="chevron-up" size={12} />
                           </button>
-                          <button type="button" className="btn btn-g set-icon-button" disabled={index === customFields.length - 1} onClick={() => handleMoveCustomField(index, "down")} aria-label={`Move ${field.name} down`} title={`Move ${field.name} down`}>
+                          <button type="button" className="btn btn-g set-icon-button" disabled={customFieldsReordering || index === customFields.length - 1} onClick={() => handleMoveCustomField(index, "down")} aria-label={`Move ${field.name} down`} title={`Move ${field.name} down`}>
                             <Icon name="chevron-down" size={12} />
                           </button>
                           <button type="button" className="btn btn-g set-icon-button set-danger-action" onClick={() => setDeleteFieldPending({ id: field.id, name: field.name })} aria-label={`Delete ${field.name}`} title={`Delete ${field.name}`}>

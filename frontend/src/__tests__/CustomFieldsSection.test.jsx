@@ -8,14 +8,14 @@ import {
   createCustomField,
   deleteCustomField,
   listCustomFields,
-  updateCustomField,
+  reorderCustomFields,
   updateCustomFieldSection,
 } from "../api/settings.js";
 
 vi.mock("../api/settings.js", () => ({
   listCustomFields: vi.fn(),
   createCustomField: vi.fn(),
-  updateCustomField: vi.fn(),
+  reorderCustomFields: vi.fn(),
   deleteCustomField: vi.fn(),
   updateCustomFieldSection: vi.fn(),
 }));
@@ -58,7 +58,7 @@ beforeEach(() => {
     },
     error: null,
   });
-  updateCustomField.mockResolvedValue({ data: {}, error: null });
+  reorderCustomFields.mockResolvedValue({ data: [], error: null });
   updateCustomFieldSection.mockResolvedValue({ data: {}, error: null });
   deleteCustomField.mockResolvedValue({ data: { affectedLicenses: 3 }, error: null });
 });
@@ -129,7 +129,7 @@ describe("CustomFieldsSection", () => {
     expect(onCustomFieldsChanged).toHaveBeenCalledTimes(1);
   });
 
-  test("updates custom field display order with the same API payloads", async () => {
+  test("updates custom field display order atomically", async () => {
     const user = userEvent.setup();
     listCustomFields.mockResolvedValueOnce({
       data: [
@@ -146,6 +146,27 @@ describe("CustomFieldsSection", () => {
           name: "Renewal Flag",
           fieldKey: "renewal_flag",
           fieldType: "boolean",
+          section: "",
+          displayOrder: 1,
+        },
+      ],
+      error: null,
+    });
+    reorderCustomFields.mockResolvedValueOnce({
+      data: [
+        {
+          id: 2,
+          name: "Renewal Flag",
+          fieldKey: "renewal_flag",
+          fieldType: "boolean",
+          section: "",
+          displayOrder: 0,
+        },
+        {
+          id: 1,
+          name: "Contract Owner",
+          fieldKey: "contract_owner",
+          fieldType: "text",
           section: "",
           displayOrder: 1,
         },
@@ -158,16 +179,15 @@ describe("CustomFieldsSection", () => {
     await user.click(await screen.findByRole("button", { name: /move contract owner down/i }));
 
     await waitFor(() => {
-      expect(updateCustomField).toHaveBeenCalledWith(1, { displayOrder: 1 });
-      expect(updateCustomField).toHaveBeenCalledWith(2, { displayOrder: 0 });
+      expect(reorderCustomFields).toHaveBeenCalledWith([2, 1]);
+      expect(onCustomFieldsChanged).toHaveBeenCalledTimes(1);
     });
-    expect(onCustomFieldsChanged).toHaveBeenCalledTimes(1);
   });
 
   test("rolls back custom field display order when a reorder update fails", async () => {
     const user = userEvent.setup();
     const onError = vi.fn();
-    listCustomFields.mockResolvedValueOnce({
+    const originalFields = {
       data: [
         {
           id: 1,
@@ -187,10 +207,11 @@ describe("CustomFieldsSection", () => {
         },
       ],
       error: null,
-    });
-    updateCustomField
-      .mockResolvedValueOnce({ data: null, error: "Order update failed" })
-      .mockResolvedValueOnce({ data: {}, error: null });
+    };
+    listCustomFields
+      .mockResolvedValueOnce(originalFields)
+      .mockResolvedValueOnce(originalFields);
+    reorderCustomFields.mockResolvedValueOnce({ data: null, error: "Order update failed" });
     renderSection({ onError });
 
     await user.click(await screen.findByRole("button", { name: /move contract owner down/i }));

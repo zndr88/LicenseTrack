@@ -69,6 +69,16 @@ class OrganizationResponse(ReferenceModel):
     updated_at: datetime
 
 
+class OrganizationLookupResponse(ReferenceModel):
+    id: int
+    name: str
+    normalized_name: str
+    is_publisher: bool
+    is_supplier: bool
+    is_active: bool
+    aliases: list[ReferenceAliasResponse] = Field(default_factory=list)
+
+
 class CostCentreUsage(ReferenceModel):
     licenses: int = 0
     assigned_viewers: int = 0
@@ -84,6 +94,14 @@ class CostCentreResponse(ReferenceModel):
     usage: CostCentreUsage
     created_at: datetime
     updated_at: datetime
+
+
+class CostCentreLookupResponse(ReferenceModel):
+    id: int
+    name: str
+    normalized_name: str
+    is_active: bool
+    aliases: list[ReferenceAliasResponse] = Field(default_factory=list)
 
 
 class MergePreviewResponse(ReferenceModel):

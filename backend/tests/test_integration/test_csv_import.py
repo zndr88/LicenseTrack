@@ -1341,7 +1341,14 @@ async def test_preview_warns_about_duplicate_existing_license(
         endDate=_FUTURE_END,
     )
     csv_bytes = _make_csv(
-        ["publisher_name", "software_description", "contract_number", "po_number", "start_date", "end_date"],
+        [
+            "publisher_name",
+            "software_description",
+            "contract_number",
+            "po_number",
+            "start_date",
+            "end_date",
+        ],
         [
             {
                 "publisher_name": "  acme   corp ",
@@ -1368,6 +1375,53 @@ async def test_preview_warns_about_duplicate_existing_license(
     assert warning["matchedLicenseId"] == existing["id"]
     assert warning["matchedLicenseRef"] == existing["licenseRef"]
     assert "Possible duplicate of existing license" in warning["message"]
+
+
+async def test_preview_duplicate_detection_preserves_python_whitespace_matching(
+    test_app,
+    auth_headers,
+):
+    existing = await _create_license(
+        test_app,
+        auth_headers,
+        publisherName="Acme Corp",
+        softwareDescription=" Acme Suite",
+        contractNumber="C-101",
+        poNumber="PO-101",
+        startDate=_FUTURE_START,
+        endDate=_FUTURE_END,
+    )
+    csv_bytes = _make_csv(
+        [
+            "publisher_name",
+            "software_description",
+            "contract_number",
+            "po_number",
+            "start_date",
+            "end_date",
+        ],
+        [
+            {
+                "publisher_name": "Acme Corp",
+                "software_description": "Acme Suite",
+                "contract_number": "C-101",
+                "po_number": "PO-101",
+                "start_date": _FUTURE_START,
+                "end_date": _FUTURE_END,
+            }
+        ],
+    )
+
+    resp = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200
+    warning = resp.json()["rows"][0]["duplicateWarnings"][0]
+    assert warning["type"] == "existing_license"
+    assert warning["matchedLicenseId"] == existing["id"]
 
 
 async def test_preview_warns_about_native_export_duplicate_by_license_ref(

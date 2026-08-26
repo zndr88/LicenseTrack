@@ -163,16 +163,45 @@ def _match_fields_sentence(fields: list[str]) -> str:
 
 async def add_duplicate_warnings(rows: list[ParsedRow], db: AsyncSession) -> None:
     """Populate `duplicate_warnings` on each non-error row."""
-    license_result = await db.execute(sa_select(License).where(License.is_retired.is_(False)))
-    existing_licenses = license_result.scalars().all()
-
     for row in rows:
         row.duplicate_warnings = []
+
+    usable_rows = [row for row in rows if row.import_status != "error"]
+    existing_licenses: list[License] = []
+    needs_existing_candidates = any(
+        (_norm_text(row.publisher_name) and _norm_text(row.software_description))
+        or _norm_text(row.license_ref)
+        for row in usable_rows
+    )
+    # SQLite cannot safely reproduce Python's whitespace collapse and Unicode
+    # casefold semantics. Load active licenses once, then use authoritative
+    # normalized buckets below instead of issuing one scan per import identity.
+    if needs_existing_candidates:
+        license_result = await db.execute(sa_select(License).where(License.is_retired.is_(False)))
+        existing_licenses = list(license_result.scalars().all())
+
+    licenses_by_identity: dict[tuple[str, str], list[License]] = {}
+    licenses_by_ref: dict[str, list[License]] = {}
+    for license_obj in existing_licenses:
+        licenses_by_identity.setdefault(
+            (_norm_text(license_obj.publisher_name), _norm_text(license_obj.software_description)), []
+        ).append(license_obj)
+        if _norm_text(license_obj.license_ref):
+            licenses_by_ref.setdefault(_norm_text(license_obj.license_ref), []).append(license_obj)
 
     for row in rows:
         if row.import_status == "error":
             continue
-        for license_obj in existing_licenses:
+        normalized_ref = _norm_text(row.license_ref)
+        candidates = list(licenses_by_ref.get(normalized_ref, [])) if normalized_ref else []
+        candidates += licenses_by_identity.get(
+            (_norm_text(row.publisher_name), _norm_text(row.software_description)), []
+        )
+        seen_license_ids: set[int] = set()
+        for license_obj in candidates:
+            if license_obj.id in seen_license_ids:
+                continue
+            seen_license_ids.add(license_obj.id)
             ref_warning = _match_by_license_ref(row, license_obj)
             if ref_warning:
                 # An intended update reconciles onto this record; not a duplicate.
@@ -196,10 +225,22 @@ async def add_duplicate_warnings(rows: list[ParsedRow], db: AsyncSession) -> Non
             )
             break
 
-    for index, row in enumerate(rows):
+    rows_by_identity: dict[tuple[str, str], list[ParsedRow]] = {}
+    for row in rows:
+        if row.import_status != "error":
+            rows_by_identity.setdefault(
+                (_norm_text(row.publisher_name), _norm_text(row.software_description)), []
+            ).append(row)
+
+    for row in rows:
         if row.import_status == "error":
             continue
-        for earlier in rows[:index]:
+        candidates = rows_by_identity.get(
+            (_norm_text(row.publisher_name), _norm_text(row.software_description)), []
+        )
+        for earlier in candidates:
+            if earlier.row_number >= row.row_number:
+                break
             if earlier.import_status == "error":
                 continue
             match = _match_duplicate(row, earlier)

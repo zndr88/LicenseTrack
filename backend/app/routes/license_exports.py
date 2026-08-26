@@ -83,21 +83,22 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
     # The whole PO's value is normally the sum of line totals. A manually
     # entered PO override takes precedence and is replicated on every license
     # sharing that PO number. Mirrors the frontend's getPoTotal.
-    po_totals: dict[str, Decimal] = {}
+    po_totals: dict[tuple[str, str], Decimal] = {}
     po_overrides = {
-        lic.po_number: Decimal(lic.po_total_override)
+        (lic.po_number, lic.currency): Decimal(lic.po_total_override)
         for lic in licenses
         if lic.po_number and lic.po_total_override
     }
     for lic in licenses:
         if lic.po_number:
-            if lic.po_number in po_overrides:
-                po_totals[lic.po_number] = po_overrides[lic.po_number]
+            key = (lic.po_number, lic.currency)
+            if key in po_overrides:
+                po_totals[key] = po_overrides[key]
                 continue
             line = calc_line_total(lic.quantity, lic.unit_price)
             if line is not None:
-                po_totals.setdefault(lic.po_number, Decimal("0"))
-                po_totals[lic.po_number] += line
+                po_totals.setdefault(key, Decimal("0"))
+                po_totals[key] += line
 
     today = date.today()
     for lic in licenses:
@@ -118,7 +119,9 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
                     lic.quantity_per_unit,
                     lic.sku_code,
                     lic.unit_price,
-                    format(po_totals[lic.po_number], "f") if lic.po_number in po_totals else "",
+                    format(po_totals[(lic.po_number, lic.currency)], "f")
+                    if lic.po_number and (lic.po_number, lic.currency) in po_totals
+                    else "",
                     lic.currency,
                     lic.start_date.isoformat() if lic.start_date else "",
                     lic.end_date.isoformat() if lic.end_date else "Perpetual",

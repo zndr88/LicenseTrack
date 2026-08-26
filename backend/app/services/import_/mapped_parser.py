@@ -11,6 +11,39 @@ from app.services.csv_importer import (
 )
 
 
+def validate_mapped_import(
+    headers: list[str],
+    mapping: list[object],
+    *,
+    supported_targets: set[str],
+    custom_field_keys: set[str],
+) -> dict[str, str]:
+    """Validate an explicit mapping before either preview or execution."""
+    seen_headers: set[str] = set()
+    target_headers: dict[str, str] = {}
+    multi_value_targets = MULTI_VALUE_TARGETS
+    header_set = set(headers)
+    for entry in mapping:
+        raw_header = entry.raw_header
+        target = entry.target
+        if raw_header in seen_headers:
+            raise ValueError(f"Mapping header {raw_header!r} is listed more than once")
+        seen_headers.add(raw_header)
+        if raw_header not in header_set:
+            raise ValueError(f"Mapping header {raw_header!r} does not exist in the uploaded CSV")
+        if target != "skip" and target not in supported_targets and target not in custom_field_keys:
+            raise ValueError(f"Mapping target {target!r} for header {raw_header!r} is unknown or stale")
+        if target == "skip":
+            continue
+        previous = target_headers.get(target)
+        if previous is not None and target not in multi_value_targets:
+            raise ValueError(
+                f"Headers {previous!r} and {raw_header!r} both target single-value field {target!r}"
+            )
+        target_headers[target] = raw_header
+    return {entry.raw_header: entry.target for entry in mapping if entry.target != "skip"}
+
+
 def parse_mapped_csv(
     contents: bytes,
     column_to_target: dict[str, str],

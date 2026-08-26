@@ -31,6 +31,12 @@ class CustomFieldDefinitionUpdate(BaseModel):
     # field_type and field_key are immutable after creation - not included here
 
 
+class CustomFieldDefinitionReorder(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    definition_ids: list[int] = Field(min_length=1)
+
+
 class CustomFieldDefinitionResponse(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,

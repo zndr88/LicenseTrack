@@ -95,6 +95,7 @@ describe("query invalidation helpers", () => {
       queryKeys.licenseStats,
       queryKeys.renewals,
       queryKeys.referenceData,
+      queryKeys.referenceDataLookup,
       queryKeys.portfolioStats,
       queryKeys.reportsPortfolioStats,
       queryKeys.notifications,

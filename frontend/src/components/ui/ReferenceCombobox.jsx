@@ -69,7 +69,7 @@ const ReferenceCombobox = forwardRef(function ReferenceCombobox({
     error: queryError,
     isFetching,
   } = useQuery({
-    queryKey: queryKeys.referenceDataSearch(mode, debouncedSearch),
+    queryKey: queryKeys.referenceDataLookupSearch(mode, debouncedSearch),
     queryFn: async () => {
       const result = await searchReferenceData(mode, debouncedSearch);
       if (result.error) throw new Error(result.error);

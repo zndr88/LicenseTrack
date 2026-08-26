@@ -34,14 +34,14 @@ class CSVAnalyzeResponse(BaseModel):
 class MappingEntry(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    raw_header: str
-    target: str  # internal field name, "cf_*" key, or "skip"
+    raw_header: str = Field(min_length=1, max_length=255)
+    target: str = Field(min_length=1, max_length=255)  # internal field name, custom field key, or "skip"
 
 
 class ImportMappingCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    name: str
+    name: str = Field(min_length=1, max_length=255)
     mapping: list[MappingEntry]
 
 

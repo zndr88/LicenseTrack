@@ -59,6 +59,28 @@ async def get_definition_by_id(db: AsyncSession, def_id: int) -> CustomFieldDefi
     return result.scalar_one_or_none()
 
 
+async def reorder_definitions(db: AsyncSession, definition_ids: list[int]) -> list[CustomFieldDefinition]:
+    """Apply the complete custom-field order as one transaction-owned update."""
+    if len(definition_ids) != len(set(definition_ids)):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="definition_ids must be unique")
+    result = await db.execute(select(CustomFieldDefinition).order_by(CustomFieldDefinition.id))
+    definitions = list(result.scalars().all())
+    existing_ids = {definition.id for definition in definitions}
+    requested_ids = set(definition_ids)
+    if requested_ids != existing_ids:
+        missing = sorted(existing_ids - requested_ids)
+        unknown = sorted(requested_ids - existing_ids)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"definition_ids must contain every definition exactly once; missing={missing}, unknown={unknown}",
+        )
+    definitions_by_id = {definition.id: definition for definition in definitions}
+    for display_order, definition_id in enumerate(definition_ids):
+        definitions_by_id[definition_id].display_order = display_order
+    await db.flush()
+    return [definitions_by_id[definition_id] for definition_id in definition_ids]
+
+
 async def create_definition(db: AsyncSession, data: CustomFieldDefinitionCreate) -> CustomFieldDefinition:
     """
     Generate field_key from name. Check uniqueness of both name and field_key

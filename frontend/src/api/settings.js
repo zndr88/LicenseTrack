@@ -144,6 +144,11 @@ export async function updateCustomField(id, payload) {
   return patch(`/api/custom-fields/${id}`, payload);
 }
 
+/** Reorder all custom-field definitions atomically. */
+export async function reorderCustomFields(definitionIds) {
+  return post("/api/custom-fields/reorder", { definitionIds });
+}
+
 /** @returns {Promise<{ data: object | null, error: string | null }>} */
 export async function deleteCustomField(id) {
   return del(`/api/custom-fields/${id}`);

@@ -64,6 +64,7 @@ from app.services.import_.reference_resolution import (
     validate_reference_overrides,
 )
 from app.services.import_.mapped_parser import parse_mapped_csv
+from app.services.import_.mapped_parser import validate_mapped_import
 from app.services.money import SUPPORTED_NUMBER_FORMAT_LOCALES
 
 log = logging.getLogger(__name__)
@@ -211,13 +212,30 @@ def _load_reference_overrides(reference_overrides_json: str | None) -> dict:
         ) from exc
 
 
-def _column_to_target(mapping: list[MappingEntry]) -> dict[str, str]:
-    return {entry.raw_header: entry.target for entry in mapping if entry.target != "skip"}
+async def _validated_column_to_target(
+    db: AsyncSession, contents: bytes, mapping: list[MappingEntry]
+) -> dict[str, str]:
+    try:
+        headers, _ = read_csv_dict_rows(contents)
+        definitions = await get_all_definitions(db)
+        supported_targets = set(_HEADER_MAP.values())
+        custom_field_keys = {definition.field_key for definition in definitions}
+        return validate_mapped_import(
+            headers,
+            mapping,
+            supported_targets=supported_targets,
+            custom_field_keys=custom_field_keys,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
 
 
 def _validate_csv_headers(contents: bytes) -> None:
     """Reject non-empty uploads that do not contain a usable CSV header row."""
-    headers, _ = read_csv_dict_rows(contents)
+    try:
+        headers, _ = read_csv_dict_rows(contents)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     if not headers or not any(header and header.strip() for header in headers):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -250,6 +268,13 @@ async def _resolve_import_formats(
 async def _custom_field_header_map(db: AsyncSession) -> dict[str, str]:
     definitions = await get_all_definitions(db)
     return build_custom_field_header_map(definitions)
+
+
+def _parse_native_csv(contents: bytes, *args, **kwargs):
+    try:
+        return parse_csv(contents, *args, **kwargs)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -341,7 +366,7 @@ async def preview_import(
         db, current_user.id, number_format_locale, date_format
     )
     custom_headers = await _custom_field_header_map(db)
-    result = parse_csv(
+    result = _parse_native_csv(
         contents,
         default_currency,
         locale,
@@ -371,7 +396,7 @@ async def preview_mapped_import(
     _validate_csv_headers(contents)
 
     execute_request = _load_execute_request(mapping_json)
-    column_to_target = _column_to_target(execute_request.mapping)
+    column_to_target = await _validated_column_to_target(db, contents, execute_request.mapping)
     default_currency, locale, declared_date_format = await _resolve_import_formats(
         db, current_user.id, number_format_locale, date_format
     )
@@ -432,7 +457,7 @@ async def execute_import(
             db.add(ImportMapping(name=execute_request.mapping_name, mapping=mapping_data))
         await db.flush()
 
-    column_to_target = _column_to_target(execute_request.mapping)
+    column_to_target = await _validated_column_to_target(db, contents, execute_request.mapping)
     default_currency, locale, declared_date_format = await _resolve_import_formats(
         db, current_user.id, number_format_locale, date_format
     )
@@ -547,7 +572,7 @@ async def confirm_import(
         db, current_user.id, number_format_locale, date_format
     )
     custom_headers = await _custom_field_header_map(db)
-    result = parse_csv(
+    result = _parse_native_csv(
         contents,
         default_currency,
         locale,

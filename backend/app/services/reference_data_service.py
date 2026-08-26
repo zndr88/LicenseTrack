@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.contract import Contract
 from app.models.license import License
@@ -328,6 +329,45 @@ async def _cost_centre_usage(db: AsyncSession, cost_centre_id: int) -> dict[str,
     return {"licenses": licenses, "assigned_viewers": viewers, "total": licenses + viewers}
 
 
+async def _organization_usage_grouped(db: AsyncSession, ids: list[int]) -> dict[int, dict[str, int]]:
+    usage = {reference_id: {"licenses": 0, "contracts": 0, "sourcing_requests": 0, "sourcing_items": 0, "pending_orders": 0, "total": 0} for reference_id in ids}
+    if not ids:
+        return usage
+    for record_id, first_ref, second_ref, key in [
+        (License.id, License.publisher_id, License.supplier_id, "licenses"),
+        (SourcingItem.id, SourcingItem.publisher_id, SourcingItem.supplier_id, "sourcing_items"),
+    ]:
+        pair_query = select(record_id.label("record_id"), first_ref.label("reference_id")).where(first_ref.in_(ids)).union(
+            select(record_id, second_ref).where(second_ref.in_(ids))
+        ).subquery()
+        result = await db.execute(select(pair_query.c.reference_id, func.count()).group_by(pair_query.c.reference_id))
+        for reference_id, count in result.all():
+            usage[reference_id][key] = count
+    for column, key, model in [
+        (Contract.publisher_id, "contracts", Contract), (SourcingRequest.supplier_id, "sourcing_requests", SourcingRequest),
+        (PendingOrder.supplier_id, "pending_orders", PendingOrder),
+    ]:
+        result = await db.execute(select(column, func.count()).where(column.in_(ids)).group_by(column))
+        for reference_id, count in result.all():
+            usage[reference_id][key] += count
+    for values in usage.values():
+        values["total"] = sum(values[key] for key in values if key != "total")
+    return usage
+
+
+async def _cost_centre_usage_grouped(db: AsyncSession, ids: list[int]) -> dict[int, dict[str, int]]:
+    usage = {reference_id: {"licenses": 0, "assigned_viewers": 0, "total": 0} for reference_id in ids}
+    if not ids:
+        return usage
+    for model, column, key in [(License, License.cost_centre_id, "licenses"), (UserDepartmentAccess, UserDepartmentAccess.cost_centre_id, "assigned_viewers")]:
+        result = await db.execute(select(column, func.count()).where(column.in_(ids)).group_by(column))
+        for reference_id, count in result.all():
+            usage[reference_id][key] = count
+    for values in usage.values():
+        values["total"] = values["licenses"] + values["assigned_viewers"]
+    return usage
+
+
 async def _organization_view(db: AsyncSession, organization: Organization) -> dict:
     await db.refresh(organization, attribute_names=["aliases"])
     return {"organization": organization, "usage": await _organization_usage(db, organization.id)}
@@ -355,8 +395,11 @@ async def list_organizations(
         raise HTTPException(status_code=422, detail="Role must be publisher or supplier")
     if active is not None:
         query = query.where(Organization.is_active.is_(active))
-    result = await db.execute(query.distinct())
-    return [await _organization_view(db, organization) for organization in result.scalars().all()]
+    result = await db.execute(query.options(selectinload(Organization.aliases)).distinct())
+    organizations = list(result.scalars().all())
+    ids = [organization.id for organization in organizations]
+    usage = await _organization_usage_grouped(db, ids)
+    return [{"organization": organization, "usage": usage[organization.id]} for organization in organizations]
 
 
 async def get_organization(db: AsyncSession, organization_id: int) -> dict:
@@ -375,8 +418,43 @@ async def list_cost_centres(db: AsyncSession, *, search: str | None = None, acti
         )
     if active is not None:
         query = query.where(CostCentre.is_active.is_(active))
+    result = await db.execute(query.options(selectinload(CostCentre.aliases)).distinct())
+    cost_centres = list(result.scalars().all())
+    usage = await _cost_centre_usage_grouped(db, [cost_centre.id for cost_centre in cost_centres])
+    return [{"cost_centre": cost_centre, "usage": usage[cost_centre.id]} for cost_centre in cost_centres]
+
+
+async def search_reference_data(
+    db: AsyncSession,
+    *,
+    organization: bool,
+    search: str,
+    role: str | None = None,
+    active: bool | None = None,
+    limit: int = 25,
+) -> list[dict]:
+    """Return combobox candidates without expensive administration usage counts."""
+    if organization and role not in {None, "publisher", "supplier"}:
+        raise HTTPException(status_code=422, detail="Role must be publisher or supplier")
+    model = Organization if organization else CostCentre
+    alias_model = OrganizationAlias if organization else CostCentreAlias
+    query = (
+        select(model)
+        .options(selectinload(model.aliases))
+        .outerjoin(alias_model)
+        .where(or_(model.name.ilike(f"%{clean_reference_name(search)}%"), alias_model.name.ilike(f"%{clean_reference_name(search)}%")))
+        .order_by(func.lower(model.name), model.id)
+        .limit(max(1, min(limit, 100)))
+    )
+    if active is not None:
+        query = query.where(model.is_active.is_(active))
+    if organization and role == "publisher":
+        query = query.where(Organization.is_publisher.is_(True))
+    elif organization and role == "supplier":
+        query = query.where(Organization.is_supplier.is_(True))
     result = await db.execute(query.distinct())
-    return [await _cost_centre_view(db, cost_centre) for cost_centre in result.scalars().all()]
+    key = "organization" if organization else "cost_centre"
+    return [{key: item} for item in result.scalars().all()]
 
 
 async def get_cost_centre(db: AsyncSession, cost_centre_id: int) -> dict:
@@ -427,6 +505,50 @@ async def _assert_name_available(db: AsyncSession, normalized: str, *, organizat
         raise _conflict("That canonical name or alias is already in use.")
 
 
+async def _rename_organization(db: AsyncSession, organization: Organization, cleaned: str, normalized: str) -> None:
+    try:
+        async with db.begin_nested():
+            await _assert_name_available(db, normalized, organization_id=organization.id)
+            own_alias = await db.scalar(
+                select(OrganizationAlias).where(
+                    OrganizationAlias.organization_id == organization.id,
+                    OrganizationAlias.normalized_name == normalized,
+                )
+            )
+            if own_alias is not None:
+                await db.delete(own_alias)
+                await db.flush()
+            old_name = organization.name
+            organization.name = cleaned
+            organization.normalized_name = normalized
+            await _add_organization_alias(db, organization, old_name)
+            await _sync_organization_mirrors(db, organization)
+    except IntegrityError as exc:
+        raise _conflict("That organization name or alias is already in use.") from exc
+
+
+async def _rename_cost_centre(db: AsyncSession, cost_centre: CostCentre, cleaned: str, normalized: str) -> None:
+    try:
+        async with db.begin_nested():
+            await _assert_name_available(db, normalized, cost_centre_id=cost_centre.id)
+            own_alias = await db.scalar(
+                select(CostCentreAlias).where(
+                    CostCentreAlias.cost_centre_id == cost_centre.id,
+                    CostCentreAlias.normalized_name == normalized,
+                )
+            )
+            if own_alias is not None:
+                await db.delete(own_alias)
+                await db.flush()
+            old_name = cost_centre.name
+            cost_centre.name = cleaned
+            cost_centre.normalized_name = normalized
+            await _add_cost_centre_alias(db, cost_centre, CostCentreAliasCreate(name=old_name))
+            await _sync_cost_centre_mirrors(db, cost_centre)
+    except IntegrityError as exc:
+        raise _conflict("That cost centre name or alias is already in use.") from exc
+
+
 async def update_organization(db: AsyncSession, organization_id: int, data: OrganizationUpdate) -> Organization:
     organization = await db.get(Organization, organization_id)
     if organization is None:
@@ -444,27 +566,18 @@ async def update_organization(db: AsyncSession, organization_id: int, data: Orga
     if data.name is not None:
         cleaned = clean_reference_name(data.name)
         normalized = normalize_reference_name(cleaned)
-        await _assert_name_available(db, normalized, organization_id=organization.id)
         if normalized != organization.normalized_name:
-            old_name = organization.name
-            own_alias = await db.scalar(
-                select(OrganizationAlias).where(
-                    OrganizationAlias.organization_id == organization.id,
-                    OrganizationAlias.normalized_name == normalized,
-                )
-            )
-            if own_alias is not None:
-                await db.delete(own_alias)
-            organization.name = cleaned
-            organization.normalized_name = normalized
-            await _add_organization_alias(db, organization, old_name)
+            await _rename_organization(db, organization, cleaned, normalized)
         else:
             organization.name = cleaned
             organization.normalized_name = normalized
-        await _sync_organization_mirrors(db, organization)
+            await _sync_organization_mirrors(db, organization)
     organization.is_publisher = proposed_publisher
     organization.is_supplier = proposed_supplier
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        raise _conflict("That organization name or alias is already in use.") from exc
     return organization
 
 
@@ -475,25 +588,16 @@ async def update_cost_centre(db: AsyncSession, cost_centre_id: int, data: CostCe
     if data.name is not None:
         cleaned = clean_reference_name(data.name)
         normalized = normalize_reference_name(cleaned)
-        await _assert_name_available(db, normalized, cost_centre_id=cost_centre.id)
         if normalized != cost_centre.normalized_name:
-            old_name = cost_centre.name
-            own_alias = await db.scalar(
-                select(CostCentreAlias).where(
-                    CostCentreAlias.cost_centre_id == cost_centre.id,
-                    CostCentreAlias.normalized_name == normalized,
-                )
-            )
-            if own_alias is not None:
-                await db.delete(own_alias)
-            cost_centre.name = cleaned
-            cost_centre.normalized_name = normalized
-            await _add_cost_centre_alias(db, cost_centre, CostCentreAliasCreate(name=old_name))
+            await _rename_cost_centre(db, cost_centre, cleaned, normalized)
         else:
             cost_centre.name = cleaned
             cost_centre.normalized_name = normalized
-        await _sync_cost_centre_mirrors(db, cost_centre)
-    await db.flush()
+            await _sync_cost_centre_mirrors(db, cost_centre)
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        raise _conflict("That cost centre name or alias is already in use.") from exc
     return cost_centre
 
 

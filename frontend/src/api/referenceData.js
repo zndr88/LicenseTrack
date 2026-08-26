@@ -44,7 +44,7 @@ export async function searchReferenceData(kind, search) {
   if (!path) return { data: [], error: "Unknown reference-data kind" };
   const params = new URLSearchParams({ search });
   if (role) params.set("role", role);
-  const result = await get(`/api/reference-data/${path}?${params.toString()}`);
+  const result = await get(`/api/reference-data/${path}/search?${params.toString()}`);
   return result.error
     ? result
     : { data: (result.data || []).map(normalizeReference), error: null };

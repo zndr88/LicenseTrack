@@ -936,20 +936,35 @@ def _strip_excel_separator_directive(text: str) -> tuple[str, str | None]:
 
 
 def _detect_csv_delimiter(text: str) -> str:
-    """Detect the delimiter from the header row, defaulting to comma."""
+    """Detect a delimiter using the CSV reader so quoted punctuation is ignored."""
     for line in text.splitlines():
         if line.strip():
-            counts = {delimiter: line.count(delimiter) for delimiter in _CSV_DELIMITERS}
-            delimiter, count = max(counts.items(), key=lambda item: item[1])
-            return delimiter if count > 0 else ","
+            candidates = []
+            for delimiter in _CSV_DELIMITERS:
+                try:
+                    fields = next(csv.reader([line], delimiter=delimiter))
+                except csv.Error:
+                    continue
+                candidates.append((len(fields), delimiter))
+            field_count, delimiter = max(candidates, default=(1, ","))
+            return delimiter if field_count > 1 else ","
     return ","
 
 
 def read_csv_dict_rows(contents: bytes) -> tuple[list[str], list[dict[str, str]]]:
     """Read CSV bytes with LicenseTrack's supported Excel-friendly dialects."""
     text, delimiter = _strip_excel_separator_directive(decode_csv(contents))
-    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter or _detect_csv_delimiter(text))
-    return list(reader.fieldnames or []), [dict(row) for row in reader]
+    selected_delimiter = delimiter or _detect_csv_delimiter(text)
+    reader = csv.reader(io.StringIO(text), delimiter=selected_delimiter)
+    try:
+        raw_headers = next(reader)
+    except StopIteration:
+        return [], []
+    if len(raw_headers) != len(set(raw_headers)):
+        duplicates = sorted({header for header in raw_headers if raw_headers.count(header) > 1})
+        raise ValueError(f"CSV contains duplicate header name(s): {', '.join(repr(item) for item in duplicates)}")
+    rows = [dict(zip(raw_headers, row + [""] * (len(raw_headers) - len(row)))) for row in reader]
+    return raw_headers, rows
 
 
 def parse_csv(
@@ -998,6 +1013,14 @@ def parse_csv(
             header_mapping.pop(previous_header, None)
             header_mapping[raw_h] = target
             target_to_header[target] = raw_h
+        elif normalized in _FALLBACK_HEADER_ALIASES:
+            # A weak fallback after an established header is intentionally
+            # ignored, regardless of source-column order.
+            continue
+        else:
+            raise ValueError(
+                f"CSV headers {previous_header!r} and {raw_h!r} both map to single-value field {target!r}"
+            )
 
     # Preserve order of first appearance for headers_found
     headers_found: list[str] = list(dict.fromkeys(header_mapping.values()))

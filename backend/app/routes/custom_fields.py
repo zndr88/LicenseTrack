@@ -27,6 +27,7 @@ from app.schemas.custom_fields import (
     CustomFieldDefinitionCreate,
     CustomFieldDefinitionResponse,
     CustomFieldDefinitionUpdate,
+    CustomFieldDefinitionReorder,
     CustomFieldDeleteResponse,
     CustomFieldValuesResponse,
     CustomFieldValuesUpsert,
@@ -70,6 +71,27 @@ async def create_definition(
         target_id=str(result.id),
         target_label=result.name,
         detail=f"name={result.name}, type={result.field_type}",
+    )
+    await db.commit()
+    return result
+
+
+@definitions_router.post("/reorder", response_model=list[CustomFieldDefinitionResponse])
+async def reorder_definitions(
+    data: CustomFieldDefinitionReorder,
+    request: Request,
+    db: DbSession,
+    admin: User = Depends(require_admin),
+):
+    result = await custom_fields_service.reorder_definitions(db, data.definition_ids)
+    await log_event(
+        db,
+        "custom_field.reordered",
+        actor=admin,
+        ip_address=request.client.host if request.client else None,
+        target_type="custom_field",
+        target_label="custom field definitions",
+        detail=f"definition_ids={','.join(str(definition.id) for definition in result)}",
     )
     await db.commit()
     return result

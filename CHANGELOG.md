@@ -49,6 +49,20 @@ contracts will be called out under a **Breaking** heading in future releases.
   scope, preserved legacy license-specific evidence, and made upload rollback,
   deletion cleanup, missing-file states, and permission-controlled downloads
   more resilient.
+- Hardened native and mapped CSV imports with quote-aware delimiter detection,
+  duplicate and ambiguous header rejection, mapping-target and custom-field
+  validation, order-independent native aliases, and scalable duplicate
+  matching that preserves whitespace and Unicode case-folding behavior.
+- Kept Registry purchase-order totals and overrides isolated by both PO number
+  and currency, and made pending-order export line ordering deterministic.
+- Enforced a shared uniqueness namespace across canonical organization and
+  cost-centre names and their aliases, including race-safe renames, merges,
+  deactivation-aware lookup behavior, and an upgrade check that requires
+  existing namespace collisions to be resolved before migration.
+- Reduced reference-data administration and combobox query overhead with
+  grouped usage counts and lightweight lookup responses, kept their caches
+  synchronized after mutations and imports, and made custom-field reordering
+  a single atomic operation.
 - Reserved sourcing items and requests before conversion so concurrent SQLite
   requests cannot create duplicate pending orders or license records.
 - Scoped license-level renewal cancellation to the selected renewal instead of

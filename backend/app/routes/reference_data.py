@@ -10,6 +10,7 @@ from app.models.user import User
 from app.schemas.reference_data import (
     CostCentreAliasCreate,
     CostCentreCreate,
+    CostCentreLookupResponse,
     CostCentreResponse,
     CostCentreUpdate,
     MergePreviewResponse,
@@ -17,6 +18,7 @@ from app.schemas.reference_data import (
     MergeResponse,
     OrganizationAliasCreate,
     OrganizationCreate,
+    OrganizationLookupResponse,
     OrganizationResponse,
     OrganizationUpdate,
 )
@@ -71,6 +73,26 @@ async def list_organizations(
 ) -> list[OrganizationResponse]:
     views = await service.list_organizations(db, search=search, role=role, active=active)
     return [_organization_response(view) for view in views]
+
+
+@router.get("/organizations/search", response_model=list[OrganizationLookupResponse])
+async def search_organizations(
+    db: DbSession,
+    search: str,
+    _editor: User = Depends(require_editor_or_admin),
+    role: str | None = None,
+    active: bool | None = None,
+    limit: int = 25,
+) -> list[OrganizationLookupResponse]:
+    views = await service.search_reference_data(
+        db,
+        organization=True,
+        search=search,
+        role=role,
+        active=active,
+        limit=limit,
+    )
+    return [OrganizationLookupResponse.model_validate(view["organization"]) for view in views]
 
 
 @router.get("/organizations/{organization_id}", response_model=OrganizationResponse)
@@ -233,6 +255,24 @@ async def delete_organization(organization_id: int, request: Request, db: DbSess
 async def list_cost_centres(db: DbSession, _editor: User = Depends(require_editor_or_admin), search: str | None = None, active: bool | None = None) -> list[CostCentreResponse]:
     views = await service.list_cost_centres(db, search=search, active=active)
     return [_cost_centre_response(view) for view in views]
+
+
+@router.get("/cost-centres/search", response_model=list[CostCentreLookupResponse])
+async def search_cost_centres(
+    db: DbSession,
+    search: str,
+    _editor: User = Depends(require_editor_or_admin),
+    active: bool | None = None,
+    limit: int = 25,
+) -> list[CostCentreLookupResponse]:
+    views = await service.search_reference_data(
+        db,
+        organization=False,
+        search=search,
+        active=active,
+        limit=limit,
+    )
+    return [CostCentreLookupResponse.model_validate(view["cost_centre"]) for view in views]
 
 
 @router.get("/cost-centres/{cost_centre_id}", response_model=CostCentreResponse)

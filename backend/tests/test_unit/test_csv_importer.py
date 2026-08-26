@@ -188,7 +188,26 @@ def test_item_fallback_does_not_override_explicit_software_description():
     assert result.rows[0].software_description == "Acme ERP Suite"
 
 
-def test_native_parser_extracts_existing_custom_fields_by_name_and_stable_key():
+@pytest.mark.parametrize("header", ["Contract Owner", "cf_contract_owner"])
+def test_native_parser_extracts_existing_custom_fields_by_name_or_stable_key(header):
+    definitions = [SimpleNamespace(name="Contract Owner", field_key="cf_contract_owner")]
+    custom_headers = build_custom_field_header_map(definitions)
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", header],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "Widget",
+            header: "Alice",
+        }],
+    )
+
+    result = parse_csv(csv_bytes, custom_field_header_map=custom_headers)
+
+    assert result.headers_found == ["publisher_name", "software_description", "cf_contract_owner"]
+    assert result.custom_rows == [{"cf_contract_owner": "Alice"}]
+
+
+def test_native_parser_rejects_custom_field_name_and_stable_key_collision():
     definitions = [SimpleNamespace(name="Contract Owner", field_key="cf_contract_owner")]
     custom_headers = build_custom_field_header_map(definitions)
     csv_bytes = _csv(
@@ -197,14 +216,12 @@ def test_native_parser_extracts_existing_custom_fields_by_name_and_stable_key():
             "publisher_name": "Acme",
             "software_description": "Widget",
             "Contract Owner": "Alice",
-            "cf_contract_owner": "ignored duplicate",
+            "cf_contract_owner": "Bob",
         }],
     )
 
-    result = parse_csv(csv_bytes, custom_field_header_map=custom_headers)
-
-    assert result.headers_found == ["publisher_name", "software_description", "cf_contract_owner"]
-    assert result.custom_rows == [{"cf_contract_owner": "Alice"}]
+    with pytest.raises(ValueError, match="both map to single-value field 'cf_contract_owner'"):
+        parse_csv(csv_bytes, custom_field_header_map=custom_headers)
 
 
 def test_custom_field_display_aliases_are_safe_and_do_not_override_native_fields():

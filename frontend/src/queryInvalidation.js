@@ -62,6 +62,7 @@ export function invalidateCustomFieldDefinitions(queryClient) {
 export function invalidateReferenceData(queryClient) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: queryKeys.referenceData }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.referenceDataLookup }),
     queryClient.invalidateQueries({ queryKey: queryKeys.licenses }),
     queryClient.invalidateQueries({ queryKey: queryKeys.contracts }),
     queryClient.invalidateQueries({ queryKey: queryKeys.sourcing }),
@@ -82,6 +83,7 @@ export function invalidateImportState(queryClient) {
     queryClient.invalidateQueries({ queryKey: queryKeys.licenseStats }),
     queryClient.invalidateQueries({ queryKey: queryKeys.renewals }),
     queryClient.invalidateQueries({ queryKey: queryKeys.referenceData }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.referenceDataLookup }),
     queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats }),
     queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats }),
     queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),

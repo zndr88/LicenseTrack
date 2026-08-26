@@ -57,7 +57,7 @@ async def build_pending_orders_export_csv(db: AsyncSession) -> str:
 def _build_export_rows(
     order: PendingOrder,
 ) -> list[list[str | int]]:
-    items = order.items or []
+    items = sorted(order.items or [], key=lambda item: item.id)
 
     if not items:
         return [
