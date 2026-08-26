@@ -117,7 +117,7 @@ async def download_sourcing_quote_document(
         target_type="sourcing_quote_document",
         target_id=str(document.id),
         target_label=document.original_filename,
-        detail=f"outcome=success",
+        detail="outcome=success",
     )
     await db.commit()
     return FileResponse(

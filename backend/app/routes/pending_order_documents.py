@@ -170,7 +170,7 @@ async def delete_pending_order_document(
             operation="delete",
             post_conversion=order.status == PendingOrderStatus.converted if order else False,
             document_category=category,
-            document_scope="procurement",
+            document_scope="pending_order",
             document_id=document_id,
             filename=original_filename,
             pending_order_id=order_id,

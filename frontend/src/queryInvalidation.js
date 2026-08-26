@@ -74,6 +74,8 @@ export function invalidateReferenceData(queryClient) {
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders }),
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory }),
     queryClient.invalidateQueries({ queryKey: queryKeys.renewals }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed }),
   ]);
 }
 
