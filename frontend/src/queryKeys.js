@@ -10,6 +10,7 @@ export const queryKeys = {
   notifications: ["notifications"],
   portfolioStats: ["portfolio-stats"],
   reportsPortfolioStats: ["reports-portfolio-stats"],
+  reportsDetailed: ["reports-detailed"],
   licenseStats: ["license-stats"],
   licenseProcurementTrail: (licenseId) => ["license-procurement-trail", licenseId],
   customFieldDefs: ["custom-field-defs"],

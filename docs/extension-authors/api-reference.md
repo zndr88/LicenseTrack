@@ -244,7 +244,9 @@ Contract document reads and writes use `documents:read` and `documents:write`.
 
 | Method or family | Scope | Purpose |
 | --- | --- | --- |
-| `GET /api/reports/portfolio-stats` | `reports:read` | Portfolio annual-cost rollup grouped by currency |
+| `GET /api/reports/portfolio-stats` | `reports:read` | Backwards-compatible portfolio summary; use the decimal-string companion field for money |
+| `GET /api/reports/detailed` | `reports:read` | Filtered authoritative report model with native-currency summaries and complete row datasets |
+| `GET /api/reports/detailed/export` | `reports:read` | Formula-safe CSV export of the same complete report model |
 | `GET /api/import/template` | `licenses:read` | Download the native import template |
 | `GET /api/import/mappings` | `licenses:read` | List shared mapping profiles |
 | `/api/import/analyze`, `/preview`, `/preview-mapped` | `licenses:write` | Analyze and preview an import without persisting license rows |

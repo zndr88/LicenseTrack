@@ -38,6 +38,7 @@ describe("query invalidation helpers", () => {
       queryKeys.renewals,
       queryKeys.portfolioStats,
       queryKeys.reportsPortfolioStats,
+      queryKeys.reportsDetailed,
       queryKeys.notifications,
     ]);
   });
@@ -58,6 +59,7 @@ describe("query invalidation helpers", () => {
       queryKeys.renewals,
       queryKeys.portfolioStats,
       queryKeys.reportsPortfolioStats,
+      queryKeys.reportsDetailed,
       queryKeys.notifications,
     ]);
   });
@@ -72,6 +74,7 @@ describe("query invalidation helpers", () => {
       queryKeys.licenseStats,
       queryKeys.portfolioStats,
       queryKeys.reportsPortfolioStats,
+      queryKeys.reportsDetailed,
       queryKeys.renewals,
       queryKeys.notifications,
     ]);
@@ -98,6 +101,7 @@ describe("query invalidation helpers", () => {
       queryKeys.referenceDataLookup,
       queryKeys.portfolioStats,
       queryKeys.reportsPortfolioStats,
+      queryKeys.reportsDetailed,
       queryKeys.notifications,
     ]);
   });

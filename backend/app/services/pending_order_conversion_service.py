@@ -214,6 +214,7 @@ async def convert_pending_order_to_licenses(
         db,
         effective_po_number,
         convert_payload.currency,
+        pending_order_id=order_id,
     )
     # F5: Acquire a write lock before creating any licenses.
     _lock = await db.execute(
@@ -511,6 +512,7 @@ async def batch_convert_pending_order_to_licenses(
             db,
             order_po_number,
             item_data.get("currency"),
+            pending_order_id=order_id,
         )
         if item_data.get("purchase_date") is not None:
             item_data["purchase_date"] = datetime.combine(item_data["purchase_date"], time.min)

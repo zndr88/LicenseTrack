@@ -33,6 +33,15 @@ Do not depend on private frontend internals, database tables, or undocumented re
 | Submit document processing suggestions | `documents:read`, `documents:write`, `extensions:write` |
 | Accept document processing suggestions through API | `documents:write`, `licenses:write` |
 
+Reporting integrations should use `GET /api/reports/detailed` for the filtered
+report model or `GET /api/reports/detailed/export` for its complete CSV. Both
+routes accept `include_retired`, `date_range` (with `date_from` and `date_to`
+for custom ranges), repeated `cost_centres`, `forecast_years`,
+`annual_uplift_pct`, and `fiscal_year_start_month`. Money in the detailed model
+and CSV is emitted as canonical decimal strings and remains grouped by native
+currency; no conversion is performed. Rows include explicit report/row types,
+and invalid, unpriced, and undated records are surfaced in the report counts.
+
 Webhook endpoint management is intentionally admin/browser-session only. API tokens are not accepted for `/api/webhooks`.
 
 ## Quickstart

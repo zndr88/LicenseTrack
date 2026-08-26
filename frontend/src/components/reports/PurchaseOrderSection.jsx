@@ -34,7 +34,7 @@ export default function PurchaseOrderSection({ data, locale, isOpen, onToggle, f
               <thead><tr><th scope="col">PO number</th><th scope="col">Publisher</th><th scope="col">Lines</th><th scope="col" style={{ textAlign: "right" }}>PO value</th><th scope="col" style={{ textAlign: "right" }}>Line value</th><th scope="col" style={{ textAlign: "right" }}>Difference</th></tr></thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={`${row.poNumber || "unkeyed"}-${row.currency}`}>
+                  <tr key={row.identityKey ?? `${row.poNumber || "unkeyed"}-${row.currency}`}>
                     <td><div className="report-row-title">{row.poNumber || "No PO number"}</div><div className="report-row-sub">{row.status === "override" ? "Manual PO value" : row.status === "reconciled" ? "Reconciled" : row.status === "unkeyed" ? "Counted individually" : "Line value differs"}</div></td>
                     <td style={{ color: row.publisher === "Multiple publishers" ? "var(--text-3)" : "var(--text-2)" }}>{row.publisher}</td>
                     <td style={{ color: "var(--text-2)" }}>{row.lineCount}</td>

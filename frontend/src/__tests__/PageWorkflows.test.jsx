@@ -30,8 +30,21 @@ import * as usersApi from "../api/users.js";
 import * as contractsApi from "../api/contracts.js";
 import * as sourcingApi from "../api/sourcing.js";
 import * as pendingOrdersApi from "../api/pendingOrders.js";
+import * as reportsApi from "../api/reports.js";
 import * as pdfExport from "../utils/pdfExport.js";
 import { queryKeys } from "../queryKeys.js";
+import { normalizeLicense } from "../utils/helpers.js";
+import {
+  getBudgetForecast,
+  getCostOverview,
+  getLifecycleCounts,
+  getPerpetualMaintenanceReport,
+  getPortfolioBreakdown,
+  getPurchaseOrderReport,
+  getRenewalCalendar,
+  getSpendByPublisher,
+  getVendorTable,
+} from "../utils/reportHelpers.js";
 
 vi.mock("recharts", () => {
   const passthrough = ({ children }) => <div>{children}</div>;
@@ -182,8 +195,15 @@ vi.mock("../api/pendingOrders.js", () => ({
   exportPendingOrdersCsv: vi.fn(),
 }));
 
+vi.mock("../api/reports.js", () => ({
+  exportDetailedReport: vi.fn(),
+  getDetailedReport: vi.fn(),
+  getPortfolioStats: vi.fn(),
+}));
+
 vi.mock("../utils/pdfExport.js", () => ({
   exportFullReportPdf: vi.fn(),
+  exportStructuredReportPdf: vi.fn(),
 }));
 
 vi.mock("../components/contracts/ContractModal.jsx", () => ({
@@ -333,6 +353,26 @@ function setupDefaultApiMocks() {
   sourcingApi.updateSourcingItem.mockReset();
   sourcingApi.mergeSourcingItems.mockReset();
   licensesApi.getLicenses.mockResolvedValue({ data: [], error: null });
+  reportsApi.getDetailedReport.mockImplementation(async (filters) => {
+    const { data, error } = await licensesApi.getLicenses({ includeRetired: true });
+    if (error) throw new Error(error);
+    const licenses = (data ?? []).map(normalizeLicense);
+    const costOverview = getCostOverview(licenses);
+    return {
+      counts: { records: licenses.length, totalRecords: licenses.length, ...getLifecycleCounts(licenses) },
+      availableCostCentres: [...new Set(licenses.map((item) => item.costCentre).filter(Boolean))].sort(),
+      costOverview,
+      budgetForecast: getBudgetForecast(licenses, { years: filters.forecastYears, annualGrowthPct: filters.forecastGrowthPct }),
+      publisherData: getSpendByPublisher(licenses),
+      vendorData: getVendorTable(licenses),
+      portfolioData: getPortfolioBreakdown(licenses),
+      renewalData: getRenewalCalendar(licenses, filters.fiscalYearStartMonth),
+      purchaseOrderData: getPurchaseOrderReport(licenses),
+      perpetualMaintenanceData: getPerpetualMaintenanceReport(licenses),
+    };
+  });
+  reportsApi.getPortfolioStats.mockResolvedValue({ annual_cost_by_currency: {} });
+  reportsApi.exportDetailedReport.mockResolvedValue({ data: null, error: null });
   licensesApi.getLicense.mockResolvedValue({ data: null, error: null });
   licensesApi.getCustomFieldValues.mockResolvedValue({ data: { values: [] }, error: null });
   licensesApi.getStats.mockResolvedValue({ data: { total: 0, active: 0, expiring: 0, expired: 0, renewed: 0 }, error: null });
@@ -2667,15 +2707,13 @@ describe("ReportsPage workflows", () => {
     expect(screen.getByText(/2 active recurring records/i)).toBeInTheDocument();
     expect(screen.getByText("maintenance@example.com")).toBeInTheDocument();
 
-    pdfExport.exportFullReportPdf.mockRejectedValueOnce(new Error("PDF failed"));
+    pdfExport.exportStructuredReportPdf.mockRejectedValueOnce(new Error("PDF failed"));
     await user.click(screen.getAllByRole("button", { name: /Export filtered report/i }).at(-1));
-    expect(pdfExport.exportFullReportPdf).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ elementId: "report-section-cost-forecast" }),
-      ]),
+    await waitFor(() => expect(pdfExport.exportStructuredReportPdf).toHaveBeenCalledWith(
+      expect.objectContaining({ counts: expect.objectContaining({ records: 3 }) }),
       "license-lifecycle-full-report",
-      expect.anything()
-    );
+      expect.anything(),
+    ));
     await waitFor(() => expect(onError).toHaveBeenCalledWith("PDF export failed — try again"));
   });
 });

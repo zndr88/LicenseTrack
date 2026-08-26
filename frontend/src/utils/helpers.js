@@ -30,13 +30,21 @@ export const formatCost = (value, currency = "USD", locale = "en-US") => {
   }
 };
 
-export function formatCostByCurrency(byCurrency, locale = "en-US") {
+export function formatCostByCurrency(byCurrency, locale = "en-US", { includeNegative = false, includeZero = false } = {}) {
   if (!byCurrency) return "—";
-  const entries = Object.entries(byCurrency).filter(([, v]) => v > 0);
+  const entries = Object.entries(byCurrency).filter(([, value]) => {
+    const amount = Number(value);
+    return Number.isFinite(amount) && (amount > 0 || (includeNegative && amount < 0) || (includeZero && amount === 0));
+  });
   if (entries.length === 0) return "—";
   return entries
     .map(([currency, amount]) => formatCost(amount, currency, locale))
     .join(" · ");
+}
+
+/** Format signed reconciliation amounts without combining native currencies. */
+export function formatSignedCostByCurrency(byCurrency, locale = "en-US") {
+  return formatCostByCurrency(byCurrency, locale, { includeNegative: true, includeZero: true });
 }
 
 export function formatPriceInput(value, locale = "en-US") {

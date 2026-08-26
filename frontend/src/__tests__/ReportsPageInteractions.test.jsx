@@ -6,8 +6,21 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import ReportsPage from "../components/pages/ReportsPage.jsx";
 import { getLicenses } from "../api/licenses.js";
-import { getPortfolioStats } from "../api/reports.js";
+import { exportDetailedReport, getDetailedReport, getPortfolioStats } from "../api/reports.js";
 import { queryKeys } from "../queryKeys.js";
+import { normalizeLicense } from "../utils/helpers.js";
+import {
+  filterLicenses,
+  getBudgetForecast,
+  getCostOverview,
+  getLifecycleCounts,
+  getPerpetualMaintenanceReport,
+  getPortfolioBreakdown,
+  getPurchaseOrderReport,
+  getRenewalCalendar,
+  getSpendByPublisher,
+  getVendorTable,
+} from "../utils/reportHelpers.js";
 
 vi.mock("recharts", () => {
   const passthrough = ({ children }) => <div>{children}</div>;
@@ -30,6 +43,8 @@ vi.mock("../api/licenses.js", () => ({
 }));
 
 vi.mock("../api/reports.js", () => ({
+  exportDetailedReport: vi.fn(),
+  getDetailedReport: vi.fn(),
   getPortfolioStats: vi.fn(),
 }));
 
@@ -77,9 +92,51 @@ function license(overrides = {}) {
   };
 }
 
+let reportLicenseResult;
+
+async function buildDetailedReport(filters) {
+  reportLicenseResult ??= getLicenses({ includeRetired: true });
+  const { data, error } = await reportLicenseResult;
+  if (error) throw new Error(error);
+  const licenses = (data ?? []).map(normalizeLicense);
+  const effectiveRange = filters.dateRange === "custom"
+    ? { from: filters.dateFrom, to: filters.dateTo }
+    : filters.dateRange;
+  const filtered = filterLicenses(licenses, {
+    includeRetired: filters.includeRetired,
+    dateRange: effectiveRange,
+    costCentres: filters.costCentres,
+  });
+  const costOverview = getCostOverview(filtered, { dateRange: effectiveRange });
+  return {
+    counts: {
+      records: filtered.length,
+      totalRecords: licenses.length,
+      unpriced: costOverview.unpricedCount,
+      excluded: costOverview.excludedCount,
+      ...getLifecycleCounts(filtered),
+    },
+    availableCostCentres: [...new Set(licenses.map((item) => item.costCentre).filter(Boolean))].sort(),
+    costOverview,
+    budgetForecast: getBudgetForecast(filtered, {
+      years: filters.forecastYears,
+      annualGrowthPct: filters.forecastGrowthPct,
+    }),
+    publisherData: getSpendByPublisher(filtered, { dateRange: effectiveRange }),
+    vendorData: getVendorTable(filtered, { dateRange: effectiveRange }),
+    portfolioData: getPortfolioBreakdown(filtered),
+    renewalData: getRenewalCalendar(filtered, filters.fiscalYearStartMonth),
+    purchaseOrderData: getPurchaseOrderReport(filtered, { dateRange: effectiveRange }),
+    perpetualMaintenanceData: getPerpetualMaintenanceReport(filtered),
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  reportLicenseResult = null;
   window.sessionStorage.clear();
+  getDetailedReport.mockImplementation(buildDetailedReport);
+  exportDetailedReport.mockResolvedValue({ data: null, error: null });
   getPortfolioStats.mockResolvedValue({
     total_active: 2,
     total_expiring: 1,
@@ -92,6 +149,23 @@ beforeEach(() => {
 });
 
 describe("ReportsPage interactions", () => {
+  test("labels missing and invalid pricing separately in the portfolio summary", async () => {
+    getDetailedReport.mockResolvedValueOnce({
+      counts: { records: 3, totalRecords: 3, active: 3, upcoming: 0, expiring: 0, expired: 0, unpriced: 3, excluded: 1 },
+      availableCostCentres: [],
+      costOverview: {},
+      budgetForecast: { forecastRows: [], recurringRecords: [], baselineByCurrency: {}, singleCurrency: null },
+    });
+    getPortfolioStats.mockResolvedValueOnce({ excluded_from_totals: 9, annual_cost_by_currency: {} });
+
+    renderReportsPage();
+
+    expect(await screen.findByText("3 unpriced")).toBeInTheDocument();
+    expect(screen.getByText("1 invalid price")).toBeInTheDocument();
+    expect(screen.queryByText(/0 excluded/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/9 excluded/i)).not.toBeInTheDocument();
+  });
+
   test("loads the report portfolio with retired licenses included", async () => {
     getLicenses.mockResolvedValueOnce({ data: [], error: null });
 

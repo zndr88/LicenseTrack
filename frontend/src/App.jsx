@@ -214,6 +214,7 @@ export default function App() {
     queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
     queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
     queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
+    queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
     invalidateNotifications(queryClient);
     return true;
   }, [showError, queryClient, setConfirmData, setPage, setSelectedId]);

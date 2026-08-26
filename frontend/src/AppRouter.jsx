@@ -86,6 +86,7 @@ export default function AppRouter({
           onPortfolioStateChange={() => {
             queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
             queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
+            queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
           }}
         />
       )}
@@ -119,6 +120,7 @@ export default function AppRouter({
             onPortfolioStateChange={() => {
               queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
               queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
+              queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
             }}
             onNavigateToPendingOrder={(id) => { setPage("pending-orders"); setHighlightPendingOrderId(id); }}
             onNavigateToLicense={(id) => { setPage("licenses"); handleSetSelectedId(id); }}
@@ -138,6 +140,7 @@ export default function AppRouter({
             onPortfolioStateChange={() => {
               queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
               queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
+              queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
             }}
             onNotificationsReload={() => invalidateNotifications(queryClient)}
             onNavigateToLicense={(id) => { handleSetSelectedId(id); setPage("licenses"); }}

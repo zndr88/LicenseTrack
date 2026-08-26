@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { formatCost, formatCostByCurrency } from "../../utils/helpers.js";
+import { formatCost, formatCostByCurrency, formatSignedCostByCurrency } from "../../utils/helpers.js";
 import Icon from "../ui/Icon.jsx";
 import { EmptyState, PALETTE, ReportTableToolbar, Section } from "./reportShared.jsx";
 
@@ -79,7 +79,7 @@ export default function CostForecastSection({
             <div>
               <div className="report-metric-label">Difference</div>
               <div className="report-metric-value">
-                {formatSpendByCurrency(costOverview.spendDifferenceByCurrency, locale)}
+                {formatSignedCostByCurrency(costOverview.spendDifferenceByCurrency, locale)}
               </div>
               <div className="report-metric-note">
                 {Object.values(costOverview.spendDifferenceByCurrency).some((amount) => amount > 0)
@@ -130,7 +130,14 @@ export default function CostForecastSection({
           {costOverview.unpricedCount > 0 && (
             <div className="report-inline-warning" style={{ marginTop: 12 }}>
               <Icon name="alert" size={11} color="var(--orange)" />
-              {costOverview.unpricedCount} record{costOverview.unpricedCount === 1 ? "" : "s"} excluded because pricing is missing
+              {costOverview.unpricedCount} unpriced record{costOverview.unpricedCount === 1 ? "" : "s"} omitted from financial calculations
+            </div>
+          )}
+
+          {costOverview.excludedCount > 0 && (
+            <div className="report-inline-warning" style={{ marginTop: 12 }}>
+              <Icon name="alert" size={11} color="var(--orange)" />
+              {costOverview.excludedCount} record{costOverview.excludedCount === 1 ? " has" : "s have"} non-canonical stored money and {costOverview.excludedCount === 1 ? "is" : "are"} excluded from authoritative calculations
             </div>
           )}
 
@@ -139,6 +146,13 @@ export default function CostForecastSection({
               <Icon name="info" size={11} color="var(--orange)" />
               {costOverview.overriddenPoCount} PO override{costOverview.overriddenPoCount === 1 ? " is" : "s are"} included in PO-value spend but excluded from license breakdowns and forecasts
               {costOverview.isPeriodAllocated ? "; overrides are shown as full PO values" : ""}
+            </div>
+          )}
+
+          {costOverview.undatedCount > 0 && (
+            <div className="report-inline-warning" style={{ marginTop: 12 }}>
+              <Icon name="alert" size={11} color="var(--orange)" />
+              {costOverview.undatedCount} recurring record{costOverview.undatedCount === 1 ? " is" : "s are"} unallocated because its coverage dates are missing or unbounded; period totals exclude these values
             </div>
           )}
 

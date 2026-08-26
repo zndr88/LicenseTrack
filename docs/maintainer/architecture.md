@@ -176,7 +176,7 @@ the pending-order conversion path rather than in sourcing conversion.
 | `PerpetualMaintenanceSection.jsx` | Perpetual acquisition and included/separately tracked maintenance reconciliation |
 | `PurchaseOrderSection.jsx` | Searchable per-PO override, line-value, and difference reconciliation |
 
-`ReportsPage.jsx` fetches portfolio annual cost via `useQuery` (`queryKeys.reportsPortfolioStats` -> `GET /api/reports/portfolio-stats`) and displays that server rollup in the chip row above the report sections. This key is intentionally separate from the sidebar's `queryKeys.portfolioStats` cache because the two queries return different shapes. The Upcoming, Active, Expiring, and Expired chips are client-computed from the filtered license list so they update with report filters; Active excludes Upcoming and Expiring. All section-specific datasets (cost forecast, publisher and vendor overview, portfolio health, renewal calendar) remain client-computed from the raw license list fetched separately. `ReportsPage.jsx` also computes `singleCurrency` (the single ISO currency code present across the filtered dataset, or `null` when multiple currencies are mixed); chart sections receive `singleCurrency` and suppress currency-dependent chart portions with explanatory notes when needed. Grouped tables remain available. All spend totals use `formatCostByCurrency` so mixed-currency portfolios display grouped values by currency rather than a combined figure. `ReportsPage.jsx` should not own section-specific sort state or large chart/table JSX.
+`ReportsPage.jsx` fetches `GET /api/reports/detailed` through `frontend/src/api/reports.js`; the backend `reporting_service.py` owns filtering, Decimal calculations, eligibility, currency grouping, renewal events, and data-quality counts. The legacy `GET /api/reports/portfolio-stats` contract remains available for the portfolio chip and other consumers, with an additive canonical decimal-string field. The page normalizes report money strings at the API boundary for charts and presentation only, and never recomputes financial business rules from the license list. `singleCurrency` comes from the server baseline and chart sections suppress currency-dependent chart portions when multiple currencies are mixed. Grouped tables remain available. `ReportsPage.jsx` should not own section-specific sort state or large chart/table JSX.
 
 Sections start collapsed and `ReportSections.jsx` persists expansion state in
 session storage; table-specific search stays inside the owning report section.
@@ -190,13 +190,21 @@ license-line spend. Never replicate a PO override into publisher/vendor,
 lifecycle, or forecast calculations because no line allocation exists. Preserve
 currency grouping in all three totals.
 
-`getPurchaseOrderReport` and `getPerpetualMaintenanceReport` in
-`frontend/src/utils/reportHelpers.js` own the two detailed reconciliation
-models. Keep PO overrides confined to the PO tracker, preserve unkeyed rows as
-individual entries, resolve maintenance children through explicit link IDs,
-and group every total by currency.
+`backend/app/services/reporting_service.py` owns the detailed reconciliation
+models. PO overrides are resolved by pending-order ID, procurement-bundle ID,
+then normalized PO number and currency; records without an identity remain
+individual rows. `frontend/src/utils/reportHelpers.js` remains a compatibility
+utility for older callers, but ReportsPage uses the server model. Structured
+CSV export is assembled by `report_export_service.py` from that same response.
+`frontend/src/api/reportCompatibility.js` is only a legacy demo/test adapter
+for installations whose API shim predates the detailed endpoint.
 
-Date-only report values must stay calendar-date based. `frontend/src/utils/reportHelpers.js` parses `YYYY-MM-DD` start and end dates as local dates before date-range and renewal-calendar comparisons so browser UTC offsets cannot move boundary dates into the previous day or quarter.
+Date-only report values stay calendar-date based. The backend parses date query
+parameters as `date` values before date-range and renewal-calendar comparisons,
+so browser UTC offsets cannot move boundary dates into the previous day or
+quarter. The structured full-report PDF is generated from the detailed report
+model by `frontend/src/utils/pdfExport.js`; screenshot capture remains only for
+the backwards-compatible single-section export API.
 
 ## Help Center Pattern
 
@@ -478,7 +486,9 @@ Current important service boundaries:
 - user domain invariants (break-glass, active-admin guard, apply-update): `backend/app/services/user_service.py`;
 - maintenance link management, coverage snapshots, and mirror synchronization: `backend/app/services/maintenance_service.py` owns creation/linking/unlinking of `LicenseMaintenanceLink` rows, legacy-unlinked recovery, primary-parent reassignment, retirement cleanup, immutable `LicenseCoverageHistory` snapshots when active coverage changes, active-maintenance mirror updates on parents, and the compatibility behavior where `parent_license_id` remains the primary parent for older create/import flows while `maintenanceParentIds`/`linkedMaintenanceIds` expose multi-parent links in responses;
 - canonical organization and cost-centre identity, aliases, roles, active state, usage, merge/delete invariants, mirror synchronization, and CSV reference resolution: `backend/app/services/reference_data_service.py` and `backend/app/services/import_/reference_resolution.py`;
-- portfolio summary statistics (total active/expiring/expired/incomplete, `annual_cost_by_currency` dict grouped by ISO currency code rather than a single scalar total, `excluded_from_totals` count, by-license-type breakdown): `backend/app/routes/reports.py` — `GET /api/reports/portfolio-stats`;
+- authoritative Decimal report calculations, shared recurring eligibility, renewal-event model, native-currency summaries, and scoped detailed report read model: `backend/app/services/reporting_service.py` — `GET /api/reports/detailed`;
+- report-specific CSV serialization with formula-injection protection: `backend/app/services/report_export_service.py` — `GET /api/reports/detailed/export`;
+- portfolio summary statistics (including the backwards-compatible numeric `annual_cost_by_currency` plus canonical `annual_cost_by_currency_decimal`): `backend/app/routes/reports.py` — `GET /api/reports/portfolio-stats`;
 - audit logging and data-change webhook enqueueing: `backend/app/services/audit_service.py`;
 - reusable structured audit detail contracts beyond generic field diffs: `backend/app/services/audit_contracts.py`;
 - API token generation, hashing, scope encoding, and last-used mutation: `backend/app/services/api_token_service.py`;

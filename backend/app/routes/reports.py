@@ -1,16 +1,19 @@
 """
-Reports API - server-side aggregates for the portfolio summary.
+Reports API - scoped, server-side reporting aggregates and exports.
 
 GET /api/reports/portfolio-stats
     Returns pre-computed summary statistics:
     - total_active, total_upcoming, total_expiring, total_expired, total_incomplete
-    - annual_cost_total (subscription / SaaS / maintenance only)
+    - annual_cost_by_currency (subscription / SaaS / maintenance only)
     - by_license_type  (count per LicenseType value)
 """
 
+from datetime import date
+from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -18,7 +21,8 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.dependencies import CurrentUser
 from app.models.document import Document
-from app.models.license import License, LicenseType
+from app.models.license import License
+from app.schemas.report import DetailedReportResponse
 from app.services.access_service import apply_department_filter, get_viewer_departments
 from app.services.document_availability_service import available_documents, get_document_storage_base
 from app.services.license_response_service import (
@@ -26,7 +30,8 @@ from app.services.license_response_service import (
     get_notification_days,
     get_procurement_documents_by_scope,
 )
-from app.services.license_service import compute_stats
+from app.services.reporting_service import ReportOptions, build_portfolio_stats, get_detailed_report
+from app.services.report_export_service import build_report_export_csv
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -59,22 +64,100 @@ async def get_portfolio_stats(
             storage_base,
         )
 
-    stats = compute_stats(all_licenses, documents_by_license_id, mandatory_fields, notification_days)
+    return build_portfolio_stats(
+        all_licenses,
+        mandatory_fields,
+        documents_by_license_id,
+        notification_days,
+    ).model_dump(by_alias=False)
 
-    # Count active (non-retired) licenses by type
-    by_license_type: dict[str, int] = {t.value: 0 for t in LicenseType}
-    for lic in all_licenses:
-        if not lic.is_retired:
-            key = lic.license_type.value if lic.license_type else "unknown"
-            by_license_type[key] = by_license_type.get(key, 0) + 1
 
-    return {
-        "total_active": stats["total_active"],
-        "total_upcoming": stats["total_upcoming"],
-        "total_expiring": stats["total_expiring"],
-        "total_expired": stats["total_expired"],
-        "total_incomplete": stats["total_incomplete"],
-        "annual_cost_by_currency": stats["annual_cost_by_currency"],
-        "excluded_from_totals": stats["excluded_from_totals"],
-        "by_license_type": by_license_type,
-    }
+def _report_options(
+    *,
+    include_retired: bool,
+    date_range: str,
+    date_from: date | None,
+    date_to: date | None,
+    cost_centres: list[str],
+    forecast_years: int,
+    annual_uplift_pct: Decimal,
+    fiscal_year_start_month: int,
+    notification_days: int,
+) -> ReportOptions:
+    if date_range not in {"all", "thisYear", "last12", "custom"}:
+        raise HTTPException(status_code=422, detail="Unsupported report date range")
+    if date_range == "custom" and (date_from is None or date_to is None):
+        raise HTTPException(status_code=422, detail="Custom report ranges require date_from and date_to")
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=422, detail="date_from must be before date_to")
+    return ReportOptions(
+        include_retired=include_retired,
+        date_range=date_range,
+        date_from=date_from,
+        date_to=date_to,
+        cost_centres=tuple(" ".join(value.split()) for value in cost_centres if value.strip()),
+        forecast_years=forecast_years,
+        annual_uplift_pct=annual_uplift_pct,
+        fiscal_year_start_month=fiscal_year_start_month,
+        notification_days=notification_days,
+    )
+
+
+@router.get("/detailed", response_model=DetailedReportResponse)
+async def get_detailed_report_endpoint(
+    db: DbSession,
+    current_user: CurrentUser,
+    include_retired: bool = Query(default=False),
+    date_range: str = Query(default="all"),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    cost_centres: list[str] = Query(default=[]),
+    forecast_years: int = Query(default=5, ge=1, le=10),
+    annual_uplift_pct: Decimal = Query(default=Decimal("0"), ge=0, le=100),
+    fiscal_year_start_month: int = Query(default=1, ge=1, le=12),
+) -> DetailedReportResponse:
+    options = _report_options(
+        include_retired=include_retired,
+        date_range=date_range,
+        date_from=date_from,
+        date_to=date_to,
+        cost_centres=cost_centres,
+        forecast_years=forecast_years,
+        annual_uplift_pct=annual_uplift_pct,
+        fiscal_year_start_month=fiscal_year_start_month,
+        notification_days=await get_notification_days(db),
+    )
+    return await get_detailed_report(db, current_user, options)
+
+
+@router.get("/detailed/export")
+async def export_detailed_report(
+    db: DbSession,
+    current_user: CurrentUser,
+    include_retired: bool = Query(default=False),
+    date_range: str = Query(default="all"),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    cost_centres: list[str] = Query(default=[]),
+    forecast_years: int = Query(default=5, ge=1, le=10),
+    annual_uplift_pct: Decimal = Query(default=Decimal("0"), ge=0, le=100),
+    fiscal_year_start_month: int = Query(default=1, ge=1, le=12),
+) -> StreamingResponse:
+    options = _report_options(
+        include_retired=include_retired,
+        date_range=date_range,
+        date_from=date_from,
+        date_to=date_to,
+        cost_centres=cost_centres,
+        forecast_years=forecast_years,
+        annual_uplift_pct=annual_uplift_pct,
+        fiscal_year_start_month=fiscal_year_start_month,
+        notification_days=await get_notification_days(db),
+    )
+    report = await get_detailed_report(db, current_user, options)
+    content = build_report_export_csv(report)
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=licensetrack_report_{date.today().isoformat()}.csv"},
+    )

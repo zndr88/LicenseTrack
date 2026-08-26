@@ -15,6 +15,76 @@ import {
 } from "./store.js";
 import { buildLicense } from "./fixtures.js";
 import { datetimeDaysAgo } from "./time.js";
+import {
+  filterLicenses, getBudgetForecast, getCostOverview, getLifecycleCounts,
+  getSpendByPublisher, getPortfolioBreakdown, getRenewalCalendar, getVendorTable,
+  getPurchaseOrderReport, getPerpetualMaintenanceReport,
+} from "../utils/reportHelpers.js";
+
+function buildDemoDetailedReport(query) {
+  const dateRange = query.get("date_range") || "all";
+  const effectiveRange = dateRange === "custom"
+    ? { from: query.get("date_from"), to: query.get("date_to") }
+    : dateRange;
+  const filters = {
+    includeRetired: query.get("include_retired") === "true",
+    dateRange,
+    dateFrom: query.get("date_from") || undefined,
+    dateTo: query.get("date_to") || undefined,
+    costCentres: query.getAll("cost_centres"),
+    forecastYears: Number(query.get("forecast_years") || 5),
+    forecastGrowthPct: Number(query.get("annual_uplift_pct") || 0),
+    fiscalYearStartMonth: Number(query.get("fiscal_year_start_month") || 1),
+  };
+  const filtered = filterLicenses(store.licenses, {
+    includeRetired: filters.includeRetired,
+    dateRange: effectiveRange,
+    costCentres: filters.costCentres,
+  });
+  const costOverview = {
+    ...getCostOverview(filtered, { dateRange: effectiveRange }),
+    undatedCount: 0,
+  };
+  return {
+    generatedAt: new Date().toISOString(),
+    filters,
+    availableCostCentres: [...new Set(store.licenses.map((license) => license.costCentre).filter(Boolean))].sort(),
+    currencyDisclaimer: "All monetary values remain in their native currencies. No currency conversion is applied.",
+    counts: { records: filtered.length, ...getLifecycleCounts(filtered), incomplete: 0, unpriced: costOverview.unpricedCount, excluded: 0, undated: 0, unallocated: 0 },
+    financialSummaries: costOverview,
+    costOverview,
+    budgetForecast: getBudgetForecast(filtered, { years: filters.forecastYears, annualGrowthPct: filters.forecastGrowthPct }),
+    publisherData: getSpendByPublisher(filtered, { dateRange: effectiveRange }),
+    vendorData: getVendorTable(filtered, { dateRange: effectiveRange }),
+    portfolioData: getPortfolioBreakdown(filtered),
+    renewalData: getRenewalCalendar(filtered, filters.fiscalYearStartMonth),
+    perpetualMaintenanceData: getPerpetualMaintenanceReport(filtered),
+    purchaseOrderData: getPurchaseOrderReport(filtered, { dateRange: effectiveRange }),
+  };
+}
+
+function demoCsvCell(value) {
+  const text = value == null ? "" : String(value);
+  const safe = /^[=+\-@\t\r]/.test(text.trim()) ? `'${text}` : text;
+  return `"${safe.replaceAll('"', '""')}"`;
+}
+
+function buildDemoReportCsv(query) {
+  const report = buildDemoDetailedReport(query);
+  const headers = ["Report Type", "Row Type", "Record ID", "Publisher", "Supplier", "Currency", "Amount", "Difference", "Count", "Status", "Event Date"];
+  const rows = [headers];
+  const add = (values) => rows.push(values.map(demoCsvCell));
+  for (const [name, values] of Object.entries(report.financialSummaries)) {
+    if (name === "lifecycleBudgetByStatus") continue;
+    for (const [currency, amount] of Object.entries(values || {})) add(["summary", name, "", "", "", currency, amount]);
+  }
+  for (const row of report.budgetForecast.recurringRecords || []) add(["budget_forecast", "recurring_record", row.licenseId, row.publisher, row.supplier, row.currency, row.annualCost, "", 1, row.costSource]);
+  for (const row of report.publisherData || []) for (const [currency, amount] of Object.entries(row.totalSpendByCurrency || {})) add(["publisher", "publisher_currency", "", row.publisher, "", currency, amount, "", row.licenseCount]);
+  for (const row of report.vendorData || []) for (const [currency, amount] of Object.entries(row.totalSpendByCurrency || {})) add(["vendor", "vendor_currency", "", row.publisher, row.supplier, currency, amount, "", row.licenseCount]);
+  for (const row of report.renewalData || []) for (const event of row.events || []) add(["renewal", row.quarterLabel, event.licenseId, event.publisher, "", event.currency, event.renewalValue, "", 1, event.renewalKind, event.eventDate]);
+  for (const row of report.purchaseOrderData.rows || []) add(["purchase_order", "procurement_identity", "", row.publisher, "", row.currency, row.poValue, row.difference, row.lineCount, row.status]);
+  return rows.map((row) => row.join(",")).join("\r\n") + "\r\n";
+}
 
 // Mirrors backend/app/services/license_write_service.py:42-66 ALLOWED_PATCH_FIELDS
 // (camelCase keys match 1:1 with the demo store's field names, so no snake_case
@@ -359,6 +429,8 @@ export const routes = [
   // Side-effect endpoints stay unregistered and therefore show DEMO_TOAST.
 
   { method: "GET", pattern: /^\/api\/notifications$/, handler: async () => ({ data: computeNotifications(), error: null }) },
+  { method: "GET", pattern: /^\/api\/reports\/detailed$/, handler: async ({ query }) => ({ data: buildDemoDetailedReport(query), error: null }) },
+  { method: "GET", pattern: /^\/api\/reports\/detailed\/export$/, handler: async ({ query }) => ({ data: new Response(buildDemoReportCsv(query), { headers: { "Content-Type": "text/csv" } }), error: null }) },
   { method: "GET", pattern: /^\/api\/reports\/portfolio-stats$/, handler: async () => ({ data: computePortfolioReportStats(), error: null }) },
   { method: "GET", pattern: /^\/api\/extensions\/capabilities$/, handler: async () => ({ data: [], error: null }) },
   { method: "GET", pattern: /^\/api\/custom-fields\/?$/, handler: async () => ({ data: [], error: null }) },

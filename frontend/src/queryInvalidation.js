@@ -18,6 +18,7 @@ export function invalidateRenewalWorkflow(queryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.renewals });
   queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
   queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
+  queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
   queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
 }
 
@@ -35,6 +36,7 @@ export function invalidateProcurementRenewalState(queryClient) {
     queryClient.invalidateQueries({ queryKey: queryKeys.renewals }),
     queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats }),
     queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed }),
     queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
   ]);
 }
@@ -46,6 +48,7 @@ export function invalidateCompletenessRules(queryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.licenseStats });
   queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
   queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
+  queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
   queryClient.invalidateQueries({ queryKey: queryKeys.renewals });
   queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
 }
@@ -86,6 +89,7 @@ export function invalidateImportState(queryClient) {
     queryClient.invalidateQueries({ queryKey: queryKeys.referenceDataLookup }),
     queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats }),
     queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed }),
     queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
   ]);
 }

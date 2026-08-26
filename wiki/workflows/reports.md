@@ -18,8 +18,8 @@ calendar dates. A license dated `2026-07-01` is treated as July 1 in the user's
 calendar, so negative UTC offsets do not move it into the previous quarter.
 
 The Upcoming, Active, Expiring, and Expired counters reflect the filtered rows.
-The portfolio-wide annual-cost chip comes from a separate server rollup and is
-not narrowed by those local report filters.
+The report API applies the same filters and returns the annual-cost baseline used
+by the chip, detailed sections, and forecast, so those values remain consistent.
 
 All report sections start collapsed for a cleaner overview and remember their
 expanded state for the current browser session. Detailed recurring-cost and
@@ -32,20 +32,21 @@ currencies, monetary totals remain grouped by ISO currency code. Charts that
 would imply one converted total are replaced by an explanation while grouped
 tables remain available.
 
-Records without usable line prices are excluded from line-based monetary totals
-and surfaced as unpriced counts.
+Records with blank or invalid prices are excluded from the affected monetary
+totals and surfaced as unpriced or excluded counts. Invalid stored values are
+never interpreted with locale-specific comma replacement.
 
 ## Main calculations
 
 | Section | Calculation |
 | --- | --- |
 | Spend by license | Purchase Quantity multiplied by Unit Price for each license line |
-| Spend by PO value | Lines grouped by PO number; a manual override is used once when present, otherwise the calculated lines are summed |
+| Spend by PO value | Procurement events use pending-order ID, procurement-bundle ID, then normalized PO number plus currency; a manual override is used once when present, otherwise calculated lines are summed |
 | Difference | PO-value spend minus license-line spend |
 | Lifecycle budget | Line value grouped by active, expiring, and expired status |
 | Recurring annual cost | Active subscription, SaaS, maintenance, and current paid included-support costs, annualized when the term is longer than one year |
 | Budget forecast | Recurring annual baseline projected by the selected horizon and growth rate |
-| Renewal calendar | Expiring active records across the next four configured fiscal quarters |
+| Renewal calendar | Subscription/SaaS term expiry, separately tracked maintenance expiry, and included-support coverage expiry across the next four configured fiscal quarters |
 | Publisher/vendor overview | Calculated line value grouped by publisher and supplier |
 | Perpetual licenses & maintenance | Perpetual acquisition value beside included or separately tracked support, grouped by currency |
 | Purchase Order Value Tracker | One row per PO and currency, comparing the authoritative PO value with its priced license lines |
@@ -57,12 +58,14 @@ legacy stored value as a fallback when line pricing is missing; a manual PO
 override is never used as a license fallback. Perpetual purchases can contribute
 to lifecycle budget but not recurring annual cost.
 
-Licenses without a PO number are counted individually in both headline spend
+Licenses without a durable identity are counted individually in both headline spend
 totals. Manual PO overrides are included once in Spend by PO Value, but are not
 distributed across license lines, publisher/vendor breakdowns, lifecycle
 budgets, or forecasts. When a date range is selected, an override is shown as
 the full PO value because LicenseTrack has no line-level or time-based allocation
-for that amount.
+for that amount. If the PO group also contains an undated recurring line in a
+selected period, the override is marked unallocated and excluded from that
+period's monetary total.
 
 The **Purchase Order Value Tracker** exposes the same reconciliation at row
 level. A PO with a manual override uses that override as its PO value; otherwise
@@ -97,14 +100,29 @@ Upcoming, retired, renewed, legacy, expired, and pending-renewal records are
 excluded from the recurring forecast baseline. Upcoming records remain separate
 from Active until their start date arrives.
 
-## PDF export
+For a selected period, a recurring record must have bounded coverage dates before
+its value can be allocated. Missing or unbounded dates are reported as
+**undated/unallocated** with their native-currency value and are excluded from
+period totals. All-terms reporting may retain a current baseline for an
+unbounded recurring record.
 
-**Export PDF** captures the currently visible report sections into an A4
-landscape document using the active theme. Export is disabled until an invalid
-custom date range has been corrected.
+## CSV and PDF export
 
-!!! note
-    PDF export captures rendered content. Very large scrollable tables may be
-    clipped; use CSV exports when a complete row-level dataset is required.
+**Export report CSV** downloads the complete server-generated report model,
+including every row in the recurring, publisher/vendor, renewal, maintenance,
+portfolio, and purchase-order datasets. It preserves native currencies, emits
+canonical decimal and ISO date values, includes row/report type columns, and is
+protected against spreadsheet formula injection. It is separate from Registry
+CSV export.
+
+**Export filtered report (PDF)** generates a structured, paginated A4 landscape
+document from the same detailed report data. It includes filters, generation
+date, the no-conversion disclaimer, data-quality counts, native-currency
+summaries, and complete tables with repeated headers. It does not depend on the
+visible table viewport or chart screenshots.
+
+Both exports are available to authenticated users and API tokens with the
+`reports:read` scope. Export is disabled until an invalid custom date range has
+been corrected.
 
 For Registry export behavior, see [Dashboard and key views](../navigating/dashboard.md).
