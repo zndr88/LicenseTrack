@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import ntpath
 import os
 import shutil
@@ -11,7 +12,9 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
-import logging
+from alembic import command as alembic_command
+from alembic.config import Config as AlembicConfig
+from alembic.script import ScriptDirectory
 
 from app.config import settings as app_settings
 
@@ -31,12 +34,85 @@ PORTFOLIO_RESET_ARCHIVE_PREFIX = "license_lifecycle_pre_portfolio_reset_"
 RESTORE_SAFETY_ARCHIVE_PREFIX = "license_lifecycle_pre_document_restore_"
 _routine_backup_lock = asyncio.Lock()
 
+REQUIRED_RESTORE_TABLES = {
+    "alembic_version",
+    "users",
+    "global_settings",
+    "licenses",
+    "audit_log",
+}
+
 
 def get_db_path() -> Path:
     """Resolve the SQLite database file path from the DATABASE_URL env var."""
     db_url = app_settings.DATABASE_URL
     raw = db_url.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
     return Path(raw).resolve()
+
+
+def _alembic_config(db_path: Path | None = None) -> AlembicConfig:
+    backend_root = Path(__file__).resolve().parents[2]
+    config = AlembicConfig(str(backend_root / "alembic.ini"))
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+    if db_path is not None:
+        config.attributes["database_url"] = f"sqlite:///{db_path.resolve().as_posix()}"
+    return config
+
+
+def current_schema_revision(db_path: Path | None = None) -> str | None:
+    path = db_path or get_db_path()
+    if not path.exists():
+        return None
+    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    try:
+        row = connection.execute("SELECT version_num FROM alembic_version LIMIT 2").fetchall()
+        return row[0][0] if len(row) == 1 else None
+    except sqlite3.DatabaseError:
+        return None
+    finally:
+        connection.close()
+
+
+def _known_schema_revisions() -> set[str]:
+    return {revision.revision for revision in ScriptDirectory.from_config(_alembic_config()).walk_revisions()}
+
+
+def validate_database_file(db_path: Path) -> str:
+    """Validate SQLite integrity, required tables, and a known Alembic revision."""
+    try:
+        connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        try:
+            integrity_result = connection.execute("PRAGMA integrity_check").fetchone()
+            if not integrity_result or integrity_result[0] != "ok":
+                raise ValueError("Backup database failed SQLite integrity validation.")
+            tables = {
+                row[0]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+            missing = REQUIRED_RESTORE_TABLES - tables
+            if missing:
+                raise ValueError(f"Backup database is missing required table(s): {', '.join(sorted(missing))}")
+            revisions = connection.execute("SELECT version_num FROM alembic_version").fetchall()
+            if len(revisions) != 1 or not revisions[0][0]:
+                raise ValueError("Backup database has ambiguous or missing Alembic schema metadata.")
+            revision = str(revisions[0][0])
+        finally:
+            connection.close()
+    except ValueError:
+        raise
+    except (sqlite3.DatabaseError, OSError) as exc:
+        raise ValueError("Backup database is not a valid SQLite database.") from exc
+
+    if revision not in _known_schema_revisions():
+        raise ValueError(f"Backup database uses an unknown or future Alembic revision: {revision}")
+    return revision
+
+
+def run_database_migrations(db_path: Path | None = None) -> None:
+    """Bring a validated restored database to the current application head."""
+    alembic_command.upgrade(_alembic_config(db_path), "head")
 
 
 def create_backup(backup_location: str) -> Path:
@@ -79,6 +155,20 @@ def create_backup(backup_location: str) -> Path:
 
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.write(tmp_path, arcname=db_path.name)
+            zf.writestr(
+                "backup_manifest.json",
+                json.dumps(
+                    {
+                        "archive_type": "database_backup",
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "application_version": __import__("app.version", fromlist=["APP_VERSION"]).APP_VERSION,
+                        "schema_revision": current_schema_revision(db_path),
+                        "database_file": db_path.name,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                ),
+            )
     finally:
         if tmp_path is not None:
             tmp_path.unlink(missing_ok=True)
@@ -175,6 +265,8 @@ def _create_database_and_storage_archive(
             manifest = {
                 "archive_type": archive_type,
                 "created_at": timestamp.isoformat(),
+                "application_version": __import__("app.version", fromlist=["APP_VERSION"]).APP_VERSION,
+                "schema_revision": current_schema_revision(db_path),
                 "database_file": db_path.name,
                 "portfolio_file_count": archived_files,
                 "record_counts": counts,
@@ -250,19 +342,48 @@ def inspect_backup_archive(zip_path: Path) -> dict:
             bad_file = zf.testzip()
             if bad_file is not None:
                 raise ValueError(f"Backup archive contains a corrupt entry: {bad_file}")
-            db_files = [name for name in zf.namelist() if name.lower().endswith(".db")]
-            if not db_files:
-                raise ValueError("No .db file found inside the backup zip.")
+            db_files = [
+                name
+                for name in zf.namelist()
+                if name.lower().endswith(".db")
+                and PurePosixPath(name).parent in {PurePosixPath("."), PurePosixPath("database")}
+            ]
+            if len(db_files) != 1:
+                if not db_files:
+                    raise ValueError("No .db file found inside the backup zip.")
+                raise ValueError("Backup archive contains multiple database candidates.")
+            entry_name = db_files[0]
+            entry_path = PurePosixPath(entry_name)
+            if "\\" in entry_name or entry_path.is_absolute() or ".." in entry_path.parts:
+                raise ValueError("Backup archive contains an unsafe database path.")
+            if entry_path.name != entry_name and entry_path.parts[:-1] not in (("database",),):
+                raise ValueError("Backup archive contains an unsupported database path.")
+
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as staged:
+                staged_path = Path(staged.name)
+                with zf.open(entry_name) as source:
+                    shutil.copyfileobj(source, staged)
+            try:
+                schema_revision = validate_database_file(staged_path)
+            finally:
+                staged_path.unlink(missing_ok=True)
 
             archive_type = "database_backup"
             manifest = {}
-            if "portfolio_reset_manifest.json" in zf.namelist():
+            manifest_name = (
+                "portfolio_reset_manifest.json"
+                if "portfolio_reset_manifest.json" in zf.namelist()
+                else "backup_manifest.json"
+            )
+            if manifest_name in zf.namelist():
                 try:
-                    manifest = json.loads(zf.read("portfolio_reset_manifest.json"))
+                    manifest = json.loads(zf.read(manifest_name))
                 except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                     raise ValueError("Backup archive manifest is invalid.") from exc
+                if not isinstance(manifest, dict):
+                    raise ValueError("Backup archive manifest is invalid.")
                 archive_type = str(manifest.get("archive_type") or "")
-                if archive_type not in {"portfolio_reset_recovery", "document_restore_safety"}:
+                if archive_type not in {"database_backup", "portfolio_reset_recovery", "document_restore_safety"}:
                     raise ValueError("Backup archive type is not supported.")
 
             return {
@@ -270,6 +391,7 @@ def inspect_backup_archive(zip_path: Path) -> dict:
                 "includes_documents": archive_type
                 in {"portfolio_reset_recovery", "document_restore_safety"},
                 "manifest": manifest,
+                "schema_revision": schema_revision,
             }
     except zipfile.BadZipFile as exc:
         raise ValueError("File is not a valid zip archive.") from exc
@@ -351,7 +473,7 @@ def prune_backups(backup_location: str, keep: int) -> None:
         logger.info("Pruned %d old backup(s) from %s", len(to_delete), backup_location)
 
 
-def restore_backup(zip_path: Path) -> None:
+def restore_backup(zip_path: Path) -> Path:
     """
     Replace the live database with the one inside the zip.
     Creates a safety snapshot of the current db first.
@@ -362,7 +484,12 @@ def restore_backup(zip_path: Path) -> None:
 
     staged_db = None
     with zipfile.ZipFile(zip_path, "r") as zf:
-        db_files = [name for name in zf.namelist() if name.lower().endswith(".db")]
+        db_files = [
+            name
+            for name in zf.namelist()
+            if name.lower().endswith(".db")
+            and PurePosixPath(name).parent in {PurePosixPath("."), PurePosixPath("database")}
+        ]
         if not db_files:
             raise ValueError("No .db file found inside the backup zip.")
         entry_name = db_files[0]
@@ -377,16 +504,16 @@ def restore_backup(zip_path: Path) -> None:
                 shutil.copyfileobj(source, staged_file)
 
     try:
-        candidate_connection = sqlite3.connect(str(staged_db))
-        try:
-            integrity_result = candidate_connection.execute("PRAGMA integrity_check").fetchone()
-        finally:
-            candidate_connection.close()
-        if not integrity_result or integrity_result[0] != "ok":
-            raise ValueError("Backup database failed SQLite integrity validation.")
-    except sqlite3.DatabaseError as exc:
+        validate_database_file(staged_db)
+        run_database_migrations(staged_db)
+        validate_database_file(staged_db)
+    except ValueError:
         staged_db.unlink(missing_ok=True)
-        raise ValueError("Backup database is not a valid SQLite database.") from exc
+        raise
+    except Exception:
+        logger.exception("Could not migrate the staged restore database")
+        staged_db.unlink(missing_ok=True)
+        raise
 
     try:
         # Safety snapshot before overwrite - WAL-consistent via
@@ -412,6 +539,7 @@ def restore_backup(zip_path: Path) -> None:
         staged_db.unlink(missing_ok=True)
 
     logger.info("Restore complete. Safety snapshot saved as %s", safety_copy.name)
+    return safety_copy
 
 
 def _safe_recovery_member(info: zipfile.ZipInfo) -> PurePosixPath:
@@ -518,6 +646,7 @@ def restore_backup_archive(
     return {
         "archive_type": info["archive_type"],
         "restored_documents": info["includes_documents"],
+        "schema_revision": info["schema_revision"],
     }
 
 

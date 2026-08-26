@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -12,7 +12,7 @@ from app.schemas.settings import (
     GlobalSettingsUpdate,
 )
 from app.services.audit_service import diff_fields, log_event
-from app.services.oidc_service import get_oidc_availability, invalidate_oidc_cache
+from app.services.oidc_service import get_oidc_availability, invalidate_oidc_cache, normalize_oidc_issuer
 from app.services.settings_service import invalidate_global_settings_cache
 from app.services.settings_update_service import (
     encrypt_settings_secrets,
@@ -64,6 +64,11 @@ async def update_global_settings(
     before = {c.name: getattr(global_settings, c.name) for c in global_settings.__table__.columns}
 
     update_data = payload.model_dump(exclude_unset=True)
+    if update_data.get("oidc_discovery_url"):
+        try:
+            update_data["oidc_discovery_url"] = normalize_oidc_issuer(update_data["oidc_discovery_url"])
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     normalize_smtp_encryption(update_data)
     validate_storage_path(update_data)
     preserve_masked_or_empty_secrets(update_data)

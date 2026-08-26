@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.contract import Contract
@@ -66,12 +66,29 @@ async def can_view_contract(user: User, contract: Contract, db: AsyncSession) ->
     if not departments:
         return False
 
-    result = await db.execute(
-        select(License.id)
-        .where(
-            license_contract_match(contract),
-            License.cost_centre_id.in_(departments),
+    linked = select(License.id).where(license_contract_match(contract))
+    total = await db.scalar(select(func.count()).select_from(linked.subquery())) or 0
+    if not total:
+        return False
+    out_of_scope = await db.scalar(
+        select(func.count())
+        .select_from(
+            linked.where(
+                License.cost_centre_id.is_(None) | ~License.cost_centre_id.in_(departments)
+            ).subquery()
         )
-        .limit(1)
+    ) or 0
+    return out_of_scope == 0
+
+
+async def can_view_procurement_document(user: User, licenses: list[License], db: AsyncSession) -> bool:
+    """Require every license covered by shared evidence to be in viewer scope."""
+    departments = await get_user_departments_for_scope(user, db)
+    if departments is None:
+        return True
+    if not licenses:
+        return False
+    return all(
+        license_obj.cost_centre_id is not None and license_obj.cost_centre_id in departments
+        for license_obj in licenses
     )
-    return result.scalar_one_or_none() is not None

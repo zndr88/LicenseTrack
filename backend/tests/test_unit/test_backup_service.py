@@ -34,12 +34,21 @@ from app.services.backup_service import (
 # ---------------------------------------------------------------------------
 
 def _make_db(path) -> None:
-    """Create a minimal (empty) SQLite database file at *path*."""
+    """Create a minimal database satisfying the restore compatibility contract."""
     conn = sqlite3.connect(str(path))
+    for table in ("users", "global_settings", "licenses", "audit_log"):
+        conn.execute(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)")
+    conn.execute("CREATE TABLE alembic_version (version_num TEXT NOT NULL)")
+    conn.execute(
+        "INSERT INTO alembic_version (version_num) VALUES (?)",
+        ("8a9b0c1d2e3f",),
+    )
+    conn.commit()
     conn.close()
 
 
 def _make_marker_db(path, marker: str) -> None:
+    _make_db(path)
     conn = sqlite3.connect(str(path))
     conn.execute("CREATE TABLE marker (value TEXT)")
     conn.execute("INSERT INTO marker (value) VALUES (?)", (marker,))
@@ -327,6 +336,7 @@ def test_document_recovery_archive_restores_database_and_managed_storage(
     assert result == {
         "archive_type": "portfolio_reset_recovery",
         "restored_documents": True,
+        "schema_revision": "8a9b0c1d2e3f",
     }
     assert not current_document.exists()
     assert (storage / "documents" / "9" / "recovered.txt").read_text(encoding="utf-8") == "recovered"
@@ -484,6 +494,31 @@ def test_restore_backup_replaces_db(tmp_path, monkeypatch):
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     conn.close()
     assert "test_marker" not in tables
+
+
+def test_restore_migration_failure_leaves_live_database_untouched(tmp_path, monkeypatch):
+    live_db = tmp_path / "live.db"
+    restored_db = tmp_path / "restored.db"
+    _make_marker_db(live_db, "current")
+    _make_marker_db(restored_db, "candidate")
+    archive = tmp_path / "backup.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.write(restored_db, "licenses.db")
+    monkeypatch.setattr(backup_service, "get_db_path", lambda: live_db)
+
+    def fail_migration(_db_path):
+        raise RuntimeError("migration failed")
+
+    monkeypatch.setattr(backup_service, "run_database_migrations", fail_migration)
+
+    with pytest.raises(RuntimeError, match="migration failed"):
+        restore_backup(archive)
+
+    connection = sqlite3.connect(str(live_db))
+    marker = connection.execute("SELECT value FROM marker").fetchone()[0]
+    connection.close()
+    assert marker == "current"
+    assert list(tmp_path.glob("license_lifecycle_pre_restore_*.db")) == []
 
 
 # ---------------------------------------------------------------------------

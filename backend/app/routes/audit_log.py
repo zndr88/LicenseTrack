@@ -10,7 +10,7 @@ import io
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
@@ -22,6 +22,7 @@ from app.dependencies import require_admin
 from app.models.audit_log import AuditLog
 from app.models.user import User
 from app.services.csv_safety import safe_csv_row
+from app.services.audit_service import log_event
 
 router = APIRouter(prefix="/api/audit-log", tags=["audit-log"])
 
@@ -79,7 +80,11 @@ def _build_query(
     if actor_email:
         q = q.where(AuditLog.actor_email.ilike(f"%{actor_email}%"))
     if action:
-        q = q.where(AuditLog.action.ilike(f"%{action}%"))
+        action_parts = [part.strip() for part in action.split(",") if part.strip()]
+        if len(action_parts) > 1:
+            q = q.where(or_(*(AuditLog.action.ilike(f"{part}.%") for part in action_parts)))
+        elif action_parts:
+            q = q.where(AuditLog.action.ilike(f"%{action_parts[0]}%"))
     if date_from:
         q = q.where(AuditLog.timestamp >= datetime(date_from.year, date_from.month, date_from.day, tzinfo=timezone.utc))
     if date_to:
@@ -137,6 +142,7 @@ async def list_audit_log(
 
 @router.get("/export")
 async def export_audit_log(
+    request: Request,
     db: DbSession,
     _admin: User = Depends(require_admin),
     actor_email: Optional[str] = Query(default=None),
@@ -186,6 +192,15 @@ async def export_audit_log(
         )
 
     output.seek(0)
+    await log_event(
+        db,
+        "audit_log.csv_exported",
+        actor=_admin,
+        ip_address=request.client.host if request.client else None,
+        target_type="audit_log_export",
+        detail=f"rowCount={len(rows)}\nactionFilter={action or ''}\noutcome=success",
+    )
+    await db.commit()
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",

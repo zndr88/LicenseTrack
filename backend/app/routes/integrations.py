@@ -1,14 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from app.dependencies import require_admin
 from app.models.user import User
 from app.routes.settings_helpers import DbSession, get_or_create_global_settings
+from app.services.audit_service import log_event
 
 router = APIRouter(prefix="/api/settings/global", tags=["settings"])
 
 
 @router.post("/trigger-notifications", status_code=200)
 async def trigger_notifications(
+    request: Request,
     db: DbSession,
     _admin: User = Depends(require_admin),
 ) -> dict:
@@ -31,11 +33,15 @@ async def trigger_notifications(
             status_code=409,
             detail="A notification run is already in progress. Wait for it to finish before retrying.",
         )
+    outcome = "success" if summary.get("status") in {"success", "no_work", "skipped"} else "failure"
+    await log_event(db, "notification.manual_run", actor=_admin, ip_address=request.client.host if request.client else None, target_type="notification_run", detail=f"status={summary.get('status')}\noutcome={outcome}")
+    await db.commit()
     return summary
 
 
 @router.post("/test-email", status_code=204, response_class=Response)
 async def test_email_connection(
+    request: Request,
     db: DbSession,
     _admin: User = Depends(require_admin),
 ) -> Response:
@@ -62,8 +68,12 @@ async def test_email_connection(
     try:
         await send_test_email(gs, gs.manager_email)
     except Exception as exc:
+        await log_event(db, "notification.test_email_failed", actor=_admin, ip_address=request.client.host if request.client else None, target_type="email", target_label=gs.manager_email, detail="outcome=failure")
+        await db.commit()
         raise HTTPException(
             status_code=502,
             detail=f"Failed to send test email: {exc}",
         )
+    await log_event(db, "notification.test_email_sent", actor=_admin, ip_address=request.client.host if request.client else None, target_type="email", target_label=gs.manager_email, detail="outcome=success")
+    await db.commit()
     return Response(status_code=204)

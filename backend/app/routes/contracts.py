@@ -104,6 +104,19 @@ async def list_contracts(
             )
         )
 
+    if _current_user.role == "viewer":
+        # A contract is shared evidence: filter the complete result set before
+        # pagination so a page cannot leak a contract with another department.
+        result = await db.execute(query)
+        visible_contracts = [
+            contract
+            for contract in result.scalars().all()
+            if await can_view_contract(_current_user, contract, db)
+        ]
+        contracts = visible_contracts[offset : offset + limit if limit is not None else None]
+        departments = await get_user_departments_for_scope(_current_user, db)
+        return [await build_contract_response(c, db, departments) for c in contracts]
+
     query = query.offset(offset)
     if limit is not None:
         query = query.limit(limit)

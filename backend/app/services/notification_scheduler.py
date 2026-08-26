@@ -60,9 +60,25 @@ async def _run_backup(gs: GlobalSettings) -> None:
         zip_path = await run_routine_backup(backup_location, backup_keep)
         log.info(f"Scheduled backup created: {zip_path}")
         await _write_backup_status("success")
+        try:
+            async with AsyncSessionLocal() as db:
+                from app.services.audit_service import log_event
+
+                await log_event(db, "system.scheduled_backup_succeeded", target_type="backup", target_label=zip_path.name, detail="outcome=success")
+                await db.commit()
+        except Exception:
+            log.error("Scheduled backup success audit failed", exc_info=True)
     except Exception as exc:
         log.error(f"Scheduled backup failed: {exc}", exc_info=True)
         await _write_backup_status("failed")
+        try:
+            async with AsyncSessionLocal() as db:
+                from app.services.audit_service import log_event
+
+                await log_event(db, "system.scheduled_backup_failed", target_type="backup", detail="outcome=failure")
+                await db.commit()
+        except Exception:
+            log.error("Scheduled backup failure audit failed", exc_info=True)
 
 
 async def start_scheduler():

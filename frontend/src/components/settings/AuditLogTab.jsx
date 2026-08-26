@@ -75,29 +75,15 @@ export default function AuditLogTab() {
     filterDateFrom !== daysAgoStr(7) ||
     filterDateTo !== todayStr();
 
-  // Derive the `action` param from the selected category.
-  // For "Procurement" we send two separate requests or handle server-side with one partial match.
-  // The backend does partial ilike match, so "sourcing" also matches "sourcing.*" and "po" matches "po.*".
-  // For "Procurement" we need to pick one - use a comma-separated value and split it into two calls.
-  // Simpler: pass the raw category value as two separate filter calls, OR just use one of them.
-  // Cleanest: use "sourcing" OR "po" but the API only accepts one action filter.
-  // We'll handle this by fetching twice for Procurement and merging - but that's complex.
-  // Alternative: pass "sourcing" and rely on `po` being a different prefix; or just use "" and local filter.
-  // For now: if the selected category value contains a comma, we pass the first part to the API
-  // and filter locally. This is acceptable given typical log volumes.
-
   const buildParams = useCallback(
     (overridePage) => {
-      const categoryValue = filterCategory.includes(",")
-        ? filterCategory.split(",")[0]
-        : filterCategory;
       return {
         page: overridePage ?? page,
         pageSize: PAGE_SIZE,
         dateFrom: filterDateFrom || undefined,
         dateTo: filterDateTo || undefined,
         search: filterSearch || undefined,
-        action: categoryValue || undefined,
+        action: filterCategory || undefined,
       };
     },
     [page, filterDateFrom, filterDateTo, filterSearch, filterCategory]
@@ -113,14 +99,7 @@ export default function AuditLogTab() {
     }
     setLoadError(null);
 
-    // Secondary local filter for "Procurement" (both sourcing.* and po.*)
-    let results = data?.results ?? [];
-    if (filterCategory === "sourcing,po") {
-      results = results.filter(
-        (e) => e.action?.startsWith("sourcing.") || e.action?.startsWith("po.")
-      );
-    }
-    setEntries(results);
+    setEntries(data?.results ?? []);
     setTotal(data?.total ?? 0);
   }, [buildParams, filterCategory]);
 
@@ -142,14 +121,11 @@ export default function AuditLogTab() {
   }
 
   async function handleExport() {
-    const categoryValue = filterCategory.includes(",")
-      ? ""
-      : filterCategory;
     const { error } = await exportAuditLog({
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
       search: filterSearch || undefined,
-      action: categoryValue || undefined,
+      action: filterCategory || undefined,
     });
     if (error) {
       setLoadError(error);

@@ -80,6 +80,7 @@ from app.routes import (
     webhooks,
 )
 from app.services.notification_scheduler import start_scheduler
+from app.services.restore_maintenance import restore_maintenance
 from app.version import APP_VERSION
 
 SPA_INDEX_CACHE_CONTROL = "no-cache, must-revalidate"
@@ -278,6 +279,35 @@ async def log_requests(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def reject_requests_during_restore(request: Request, call_next):
+    path = request.url.path
+    is_health = path == "/api/health"
+    is_restore = path in {"/api/backup/restore", "/api/backup/restore-server"}
+    # Restore requests coordinate themselves through begin_restore(). Counting
+    # the initiating restore here would make it wait for its own request to
+    # leave before the database swap could begin.
+    if not is_health and not is_restore:
+        entered = await restore_maintenance.enter_request()
+        if not entered:
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "The application is temporarily unavailable while a database restore is in progress."},
+                headers={"Retry-After": "30"},
+            )
+    else:
+        entered = False
+    try:
+        return await call_next(request)
+    finally:
+        if entered:
+            await restore_maintenance.leave_request()
+        restore_owner = getattr(request.state, "restore_owner", None)
+        keep_maintenance = getattr(request.state, "keep_restore_maintenance", False)
+        if restore_owner is not None and not keep_maintenance:
+            await restore_maintenance.end_restore(restore_owner)
+
+
 _cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
 
 app.add_middleware(
@@ -330,7 +360,10 @@ app.include_router(custom_fields.values_router)
 
 @app.get("/api/health")
 async def health_check() -> dict:
-    return {"status": "ok", "version": APP_VERSION}
+    return {
+        "status": "maintenance" if restore_maintenance.maintenance else "ok",
+        "version": APP_VERSION,
+    }
 
 
 # -- Serve compiled React frontend (Docker / production only) ------------------

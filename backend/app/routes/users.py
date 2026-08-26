@@ -15,7 +15,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import auth
@@ -51,6 +51,7 @@ from app.services.user_service import (
     build_inherited_user_settings,
     ensure_local_admin_invariant,
     reject_break_glass_change,
+    bump_security_version,
 )
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -83,7 +84,8 @@ async def create_user(
     if existing_username:
         raise HTTPException(status_code=409, detail="Username already taken")
 
-    existing_email = await db.scalar(select(User).where(User.email == payload.email))
+    normalized_email = str(payload.email).strip().lower()
+    existing_email = await db.scalar(select(User).where(func.lower(User.email) == normalized_email))
     if existing_email:
         raise HTTPException(status_code=409, detail="Email already in use")
 
@@ -109,7 +111,7 @@ async def create_user(
 
     user = User(
         username=payload.username,
-        email=str(payload.email),
+        email=normalized_email,
         hashed_password=hashed_password,
         auth_provider=payload.auth_provider,
         role=payload.role,
@@ -155,7 +157,10 @@ async def update_user(
     if existing_username:
         raise HTTPException(status_code=409, detail="Username already taken")
 
-    existing_email = await db.scalar(select(User).where(User.email == payload.email, User.id != user_id))
+    normalized_email = str(payload.email).strip().lower()
+    existing_email = await db.scalar(
+        select(User).where(func.lower(User.email) == normalized_email, User.id != user_id)
+    )
     if existing_email:
         raise HTTPException(status_code=409, detail="Email already in use")
 
@@ -187,7 +192,7 @@ async def update_user(
     apply_user_update(
         user,
         username=payload.username,
-        email=str(payload.email),
+        email=normalized_email,
         role=payload.role,
         is_active=payload.is_active,
         allow_downloads=payload.allow_downloads,
@@ -196,6 +201,10 @@ async def update_user(
         min_password_length=min_length,
     )
     after = {c.name: getattr(user, c.name) for c in user.__table__.columns}
+
+    security_fields = {"hashed_password", "auth_provider", "email", "username", "role", "is_active", "allow_downloads"}
+    if any(before.get(field) != after.get(field) for field in security_fields):
+        bump_security_version(user)
 
     ip = request.client.host if request.client else None
     diff = diff_fields(before, after, {"hashed_password"})
@@ -318,6 +327,7 @@ async def reset_user_password(
         raise HTTPException(status_code=422, detail=f"Password must be at least {min_length} characters")
     user.hashed_password = auth.hash_password(payload.new_password)
     user.must_change_password = True
+    bump_security_version(user)
 
     ip = request.client.host if request.client else None
     await log_event(
@@ -361,6 +371,8 @@ async def update_user_role(
 
     old_role = user.role
     user.role = payload.role
+    if old_role != user.role:
+        bump_security_version(user)
 
     ip = request.client.host if request.client else None
     await log_event(
@@ -434,6 +446,7 @@ async def update_user_departments(
                 cost_centre_id=cost_centre.id,
             )
         )
+    bump_security_version(user)
 
     ip = request.client.host if request.client else None
     await log_event(

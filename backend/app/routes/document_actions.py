@@ -15,7 +15,7 @@ from app.schemas.document_action import (
     DocumentActionInvokeResponse,
     DocumentActionResponse,
 )
-from app.services.access_service import can_view_license
+from app.services.access_service import can_view_license, can_view_procurement_document
 from app.services.audit_service import log_event
 from app.services.procurement_document_scope_service import get_procurement_document_licenses
 from app.services.webhook_service import has_active_subscriber
@@ -73,16 +73,15 @@ async def _get_procurement_document_or_404(
     db: AsyncSession,
     document_id: int,
     current_user: User,
-) -> tuple[ProcurementDocument, License | None]:
+) -> tuple[ProcurementDocument, License]:
     document = await db.get(ProcurementDocument, document_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
     licenses = await get_procurement_document_licenses(db, document)
-    visible = [license_obj for license_obj in licenses if await can_view_license(current_user, license_obj, db)]
-    if not visible:
+    if not licenses or not await can_view_procurement_document(current_user, licenses, db):
         raise HTTPException(status_code=404, detail="Document not found")
-    return document, visible[0]
+    return document, licenses[0]
 
 
 @router.post("/{action_key}/invoke", response_model=DocumentActionInvokeResponse)

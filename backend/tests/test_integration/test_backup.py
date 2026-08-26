@@ -13,7 +13,9 @@ Critical patches applied per test:
 
 import io
 import json
+import os
 import sqlite3
+import tempfile
 import time
 import zipfile
 
@@ -41,13 +43,33 @@ def _make_sqlite_db(path) -> None:
     conn.close()
 
 
+def _compatible_db_bytes() -> bytes:
+    """Return a minimally compatible SQLite database."""
+    handle, raw_path = tempfile.mkstemp(suffix=".db")
+    os.close(handle)
+    try:
+        connection = sqlite3.connect(raw_path)
+        for table in ("users", "global_settings", "licenses", "audit_log"):
+            connection.execute(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)")
+        connection.execute("CREATE TABLE alembic_version (version_num TEXT NOT NULL)")
+        connection.execute(
+            "INSERT INTO alembic_version (version_num) VALUES (?)",
+            ("8a9b0c1d2e3f",),
+        )
+        connection.commit()
+        connection.close()
+        with open(raw_path, "rb") as database_file:
+            return database_file.read()
+    finally:
+        os.unlink(raw_path)
+
+
 def _make_zip_with_db() -> bytes:
-    """Return in-memory zip bytes containing a fake .db entry."""
+    """Return an archive containing a minimally compatible database."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
-        zf.writestr("licenses.db", b"fake db content")
-    buf.seek(0)
-    return buf.read()
+        zf.writestr("licenses.db", _compatible_db_bytes())
+    return buf.getvalue()
 
 
 def _make_zip_without_db() -> bytes:
@@ -132,7 +154,7 @@ async def test_list_backups_returns_entries(db_session, test_app, auth_headers, 
     for i in range(2):
         f = backup_dir / f"license_lifecycle_backup_2024010{i + 1}_000000.zip"
         with zipfile.ZipFile(f, "w") as zf:
-            zf.writestr("licenses.db", b"database placeholder")
+            zf.writestr("licenses.db", _compatible_db_bytes())
         # Spread mtime so ordering is stable
         mtime = time.time() + i * 10
         import os
@@ -223,10 +245,10 @@ async def test_restore_rejects_zip_without_db(test_app, auth_headers, monkeypatc
 async def test_restore_sanitises_error(test_app, auth_headers, monkeypatch):
     monkeypatch.setattr(backup_module.os, "kill", lambda pid, sig: None)
 
-    def _fail(path):
+    def _fail(path, *, storage_location, safety_archive):
         raise RuntimeError("internal restore detail")
 
-    monkeypatch.setattr("app.services.backup_service.restore_backup", _fail)
+    monkeypatch.setattr(backup_module, "restore_backup_archive", _fail)
 
     files = {"file": ("backup.zip", _make_zip_with_db(), "application/zip")}
     resp = await test_app.post("/api/backup/restore", files=files, headers=auth_headers)
@@ -243,14 +265,19 @@ async def test_restore_success_can_skip_process_restart(test_app, auth_headers, 
     restored_paths = []
     killed = []
 
-    def _restore(path):
+    def _restore(path, *, storage_location, safety_archive):
         restored_paths.append(path)
+        return {
+            "archive_type": "database_backup",
+            "restored_documents": False,
+            "schema_revision": "8a9b0c1d2e3f",
+        }
 
     def _kill(pid, sig):
         killed.append((pid, sig))
 
     monkeypatch.setattr(settings, "RESTART_AFTER_RESTORE", False)
-    monkeypatch.setattr("app.services.backup_service.restore_backup", _restore)
+    monkeypatch.setattr(backup_module, "restore_backup_archive", _restore)
     monkeypatch.setattr(
         backup_module,
         "document_storage_reconciliation",
@@ -272,6 +299,7 @@ async def test_restore_success_can_skip_process_restart(test_app, auth_headers, 
         "restart_scheduled": False,
         "archive_type": "database_backup",
         "restored_documents": False,
+        "schema_revision": "8a9b0c1d2e3f",
         "document_storage": {
             "document_records": 0,
             "available_files": 0,
@@ -288,14 +316,19 @@ async def test_restore_success_returns_before_scheduled_restart(test_app, auth_h
     restored_paths = []
     killed = []
 
-    def _restore(path):
+    def _restore(path, *, storage_location, safety_archive):
         restored_paths.append(path)
+        return {
+            "archive_type": "database_backup",
+            "restored_documents": False,
+            "schema_revision": "8a9b0c1d2e3f",
+        }
 
     def _kill(pid, sig):
         killed.append((pid, sig))
 
     monkeypatch.setattr(settings, "RESTART_AFTER_RESTORE", True)
-    monkeypatch.setattr("app.services.backup_service.restore_backup", _restore)
+    monkeypatch.setattr(backup_module, "restore_backup_archive", _restore)
     monkeypatch.setattr(
         backup_module,
         "document_storage_reconciliation",
@@ -317,6 +350,7 @@ async def test_restore_success_returns_before_scheduled_restart(test_app, auth_h
         "restart_scheduled": True,
         "archive_type": "database_backup",
         "restored_documents": False,
+        "schema_revision": "8a9b0c1d2e3f",
         "document_storage": {
             "document_records": 0,
             "available_files": 0,
@@ -327,6 +361,7 @@ async def test_restore_success_returns_before_scheduled_restart(test_app, auth_h
     }
     assert len(restored_paths) == 1
     assert killed == [(backup_module.os.getpid(), backup_module.signal.SIGTERM)]
+    assert backup_module.restore_maintenance.maintenance is False
 
 
 async def test_list_backups_includes_typed_portfolio_recovery_archive(
@@ -339,7 +374,7 @@ async def test_list_backups_includes_typed_portfolio_recovery_archive(
     backup_dir.mkdir()
     recovery = backup_dir / "license_lifecycle_pre_portfolio_reset_20260724_010203_000001.zip"
     with zipfile.ZipFile(recovery, "w") as zf:
-        zf.writestr("database/licenses.db", b"database placeholder")
+        zf.writestr("database/licenses.db", _compatible_db_bytes())
         zf.writestr(
             "portfolio_reset_manifest.json",
             json.dumps({"archive_type": "portfolio_reset_recovery"}),
@@ -379,7 +414,11 @@ async def test_restore_server_uses_exact_allow_listed_archive(
 
     def fake_restore(path, *, storage_location, safety_archive):
         restored.append((path, storage_location, safety_archive))
-        return {"archive_type": "database_backup", "restored_documents": False}
+        return {
+            "archive_type": "database_backup",
+            "restored_documents": False,
+            "schema_revision": "8a9b0c1d2e3f",
+        }
 
     monkeypatch.setattr(settings, "RESTART_AFTER_RESTORE", False)
     monkeypatch.setattr(backup_module, "restore_backup_archive", fake_restore)
@@ -429,7 +468,11 @@ async def test_database_restore_reports_missing_document_files_without_deleting_
 
     def _restore(path, *, storage_location, safety_archive):
         restored_paths.append(path)
-        return {"archive_type": "database_backup", "restored_documents": False}
+        return {
+            "archive_type": "database_backup",
+            "restored_documents": False,
+            "schema_revision": "8a9b0c1d2e3f",
+        }
 
     monkeypatch.setattr(settings, "RESTART_AFTER_RESTORE", False)
     monkeypatch.setattr(backup_module, "restore_backup_archive", _restore)

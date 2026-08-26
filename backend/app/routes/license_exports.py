@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +24,7 @@ from app.services.license_service import (
 )
 from app.services.csv_safety import safe_csv_row
 from app.services.license_response_service import get_mandatory_fields, get_notification_days
+from app.services.audit_service import log_event
 
 router = APIRouter(prefix="/api/licenses", tags=["license-exports"])
 
@@ -31,7 +32,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
 @router.get("/export")
-async def export_licenses(db: DbSession, _current_user: CurrentUser) -> StreamingResponse:
+async def export_licenses(request: Request, db: DbSession, _current_user: CurrentUser) -> StreamingResponse:
     """Download all active (non-retired) licenses as a CSV file."""
     mandatory_fields = await get_mandatory_fields(db)
     notification_days = await get_notification_days(db)
@@ -144,6 +145,15 @@ async def export_licenses(db: DbSession, _current_user: CurrentUser) -> Streamin
         )
 
     output.seek(0)
+    await log_event(
+        db,
+        "license.csv_exported",
+        actor=_current_user,
+        ip_address=request.client.host if request.client else None,
+        target_type="license_export",
+        detail=f"rowCount={len(licenses)}\noutcome=success",
+    )
+    await db.commit()
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",

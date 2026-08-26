@@ -192,6 +192,7 @@ async def list_contract_documents(
 async def download_contract_document(
     contract_id: int,
     doc_id: int,
+    request: Request,
     db: DbSession,
     _current_user: CurrentUser,
 ) -> FileResponse:
@@ -214,6 +215,17 @@ async def download_contract_document(
 
     storage_base = await get_storage_base(db)
     file_path = storage.require_available_file(doc.filename, storage_base)
+    await log_event(
+        db,
+        "contract_document.downloaded",
+        actor=_current_user,
+        ip_address=request.client.host if request.client else None,
+        target_type="contract_document",
+        target_id=str(doc.id),
+        target_label=doc.original_filename,
+        detail=f"contractId={contract_id}\noutcome=success",
+    )
+    await db.commit()
 
     media_type = mimetypes.guess_type(doc.original_filename)[0] or "application/octet-stream"
     return FileResponse(

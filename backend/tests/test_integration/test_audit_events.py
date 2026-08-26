@@ -366,7 +366,7 @@ async def test_audit_auth_password_changed(test_app, db_session, auth_headers):
         headers=auth_headers,
         json={"current_password": "testpassword123", "new_password": "newtestpassword123"},
     )
-    assert resp.status_code == 204
+    assert resp.status_code == 200
     rows = await get_audit_rows(db_session, "auth.password_changed")
     assert len(rows) == 1
     assert rows[0].actor_email == "testadmin@test.local"

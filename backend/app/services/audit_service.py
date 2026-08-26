@@ -58,6 +58,8 @@ async def log_event(
     target_id: str | None = None,
     target_label: str | None = None,
     detail: str | None = None,
+    actor_id: int | None = None,
+    actor_email: str | None = None,
 ) -> None:
     """
     Add an AuditLog entry to the session.
@@ -70,8 +72,8 @@ async def log_event(
     detail_with_context = _with_api_token_detail(detail)
     entry = AuditLog(
         timestamp=timestamp,
-        actor_id=actor.id if actor is not None else None,
-        actor_email=actor.email if actor is not None else "system",
+        actor_id=actor.id if actor is not None else actor_id,
+        actor_email=actor.email if actor is not None else actor_email or "system",
         actor_token_id=token_ctx["id"] if token_ctx else None,
         actor_token_name=token_ctx["name"] if token_ctx else None,
         ip_address=ip_address,

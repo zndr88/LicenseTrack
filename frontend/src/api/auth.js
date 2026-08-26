@@ -49,7 +49,6 @@ export async function login(username, password) {
 
 /**
  * Log out the current user by clearing the in-memory token.
- * There is no server-side session to invalidate with stateless JWTs.
  */
 export function logout() {
   clearToken();
@@ -85,11 +84,13 @@ export async function getSession() {
  *
  * @param {string} currentPassword
  * @param {string} newPassword
- * @returns {Promise<{ data: null, error: string | null }>}
+ * @returns {Promise<{ data: { access_token: string, token_type: string } | null, error: string | null }>}
  */
 export async function changePassword(currentPassword, newPassword) {
-  return post("/api/auth/change-password", {
+  const result = await post("/api/auth/change-password", {
     current_password: currentPassword,
     new_password: newPassword,
   });
+  if (result.data?.access_token) setToken(result.data.access_token);
+  return result;
 }

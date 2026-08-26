@@ -30,8 +30,10 @@ from app.config import settings
 
 target_metadata = Base.metadata
 
-# Override the URL from our app settings so alembic.ini stays generic
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Restore validation can direct Alembic at a staged database. Normal CLI and
+# startup migrations continue to use the configured application database.
+database_url = config.attributes.get("database_url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", database_url)
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +71,7 @@ def run_migrations_online() -> None:
     # asyncio.run() being called from a thread-pool executor
     # under uvloop on Linux, which deadlocks on signal handler
     # registration.
-    sync_url = settings.DATABASE_URL.replace("+aiosqlite", "")
+    sync_url = database_url.replace("+aiosqlite", "")
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

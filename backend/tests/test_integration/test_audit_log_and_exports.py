@@ -214,6 +214,39 @@ async def test_audit_log_filters_by_token_id_and_returns_token_fields(
     assert entry["actorTokenName"] is None
 
 
+async def test_audit_log_multi_prefix_filter_aligns_list_count_and_export(
+    test_app,
+    role_headers,
+    db_session,
+):
+    db_session.add_all(
+        [
+            AuditLog(actor_email="admin@test.local", action="sourcing.created"),
+            AuditLog(actor_email="admin@test.local", action="po.cancelled"),
+            AuditLog(actor_email="admin@test.local", action="license.created"),
+        ]
+    )
+    await db_session.commit()
+    headers = role_headers[UserRole.admin]
+
+    listing = await test_app.get(
+        "/api/audit-log?action=sourcing,po&page_size=1",
+        headers=headers,
+    )
+    exported = await test_app.get(
+        "/api/audit-log/export?action=sourcing,po",
+        headers=headers,
+    )
+
+    assert listing.status_code == 200
+    assert listing.json()["total"] == 2
+    assert len(listing.json()["results"]) == 1
+    assert {row["action"] for row in _csv_dicts(exported)} == {
+        "sourcing.created",
+        "po.cancelled",
+    }
+
+
 async def test_audit_log_role_access_for_list_and_export(
     test_app,
     role_headers,

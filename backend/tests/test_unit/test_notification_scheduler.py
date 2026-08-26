@@ -8,6 +8,18 @@ from app.models.settings import GlobalSettings
 from app.services import notification_scheduler
 
 
+@pytest.fixture(autouse=True)
+def _disable_evidence_transfer_sweep(monkeypatch):
+    async def no_stale_transfers() -> int:
+        return 0
+
+    monkeypatch.setattr(
+        notification_scheduler,
+        "sweep_stale_evidence_transfers",
+        no_stale_transfers,
+    )
+
+
 class _SessionContext:
     def __init__(self, session):
         self.session = session
@@ -291,6 +303,7 @@ async def test_start_scheduler_logs_warning_when_db_fails_to_load_settings(monke
             return None
 
     monkeypatch.setattr(notification_scheduler, "AsyncSessionLocal", lambda: _BrokenAfterStartup())
+    monkeypatch.setattr(notification_scheduler, "_prune_audit_log", lambda _days: _async_return(None))
     monkeypatch.setattr(notification_scheduler.asyncio, "sleep", _SleepBreaker(allow=2))
     monkeypatch.setattr(
         notification_scheduler, "dispatch_pending_webhooks", lambda: _async_return(0)
@@ -724,6 +737,7 @@ async def test_start_scheduler_startup_db_exception_is_caught(monkeypatch, caplo
             return None
 
     monkeypatch.setattr(notification_scheduler, "AsyncSessionLocal", lambda: _FailOnSecondEnter())
+    monkeypatch.setattr(notification_scheduler, "_prune_audit_log", lambda _days: _async_return(None))
     monkeypatch.setattr(notification_scheduler, "dispatch_pending_webhooks", lambda: _async_return(0))
     monkeypatch.setattr(notification_scheduler, "run_daily_notifications", lambda db: _async_return({}))
 
@@ -758,13 +772,11 @@ async def test_start_scheduler_backup_load_exception_is_caught(db_session, monke
     class _FailOnBackupDBLoad:
         async def __aenter__(self):
             call_count[0] += 1
-            # Calls in order through one loop iteration:
-            #   1 = startup: GlobalSettings read
-            #   2 = startup: _prune_audit_log inner AsyncSessionLocal
-            #   3 = loop: settings read (must succeed so backup_enabled=True is loaded)
-            #   4 = loop: backup block inner AsyncSessionLocal → raise HERE
-            #   5 = loop: _prune_audit_log (caught internally if it raises)
-            if call_count[0] == 4:
+            # Calls in order with pruning mocked out below:
+            #   1 = startup settings read
+            #   2 = loop settings read
+            #   3 = backup settings refresh → raise HERE
+            if call_count[0] == 3:
                 raise RuntimeError("backup settings load failure")
             return db_session
 
@@ -784,13 +796,14 @@ async def test_start_scheduler_backup_load_exception_is_caught(db_session, monke
     await db_session.commit()
 
     monkeypatch.setattr(notification_scheduler, "AsyncSessionLocal", lambda: _FailOnBackupDBLoad())
+    monkeypatch.setattr(notification_scheduler, "_prune_audit_log", lambda _days: _async_return(None))
     monkeypatch.setattr(notification_scheduler, "dispatch_pending_webhooks", lambda: _async_return(0))
     monkeypatch.setattr(notification_scheduler, "run_daily_notifications", lambda db: _async_return({}))
 
     # Time: now=01:59, now_after=02:01 (past backup_hour=2)
     _before = dt_module.datetime(2026, 5, 21, 1, 59, tzinfo=dt_module.timezone.utc)
     _after  = dt_module.datetime(2026, 5, 21, 2, 1,  tzinfo=dt_module.timezone.utc)
-    _now_seq = [_before, _before, _after]
+    _now_seq = [_before, _after]
 
     class _FakeDT(dt_module.datetime):
         _idx = 0

@@ -174,6 +174,7 @@ async def list_webhook_deliveries(
 @router.post("/deliveries/{delivery_id}/retry", response_model=WebhookDeliveryResponse)
 async def retry_webhook_delivery(
     delivery_id: int,
+    request: Request,
     db: DbSession,
     _admin: User = Depends(require_admin),
 ) -> WebhookDeliveryResponse:
@@ -183,6 +184,7 @@ async def retry_webhook_delivery(
     delivery.status = "pending"
     delivery.next_attempt_at = None
     await deliver_webhook_delivery(db, delivery)
+    await log_event(db, "webhook.delivery_retried", actor=_admin, ip_address=request.client.host if request.client else None, target_type="webhook_delivery", target_id=str(delivery.id), target_label=str(delivery.endpoint_id), detail=f"status={delivery.status}\noutcome={'success' if delivery.status == 'succeeded' else 'failure'}")
     await db.commit()
     await db.refresh(delivery)
     return WebhookDeliveryResponse.model_validate(delivery)
@@ -191,6 +193,7 @@ async def retry_webhook_delivery(
 @router.post("/{endpoint_id}/test", response_model=WebhookDeliveryResponse)
 async def test_webhook_endpoint(
     endpoint_id: int,
+    request: Request,
     db: DbSession,
     _admin: User = Depends(require_admin),
 ) -> WebhookDeliveryResponse:
@@ -213,6 +216,7 @@ async def test_webhook_endpoint(
     db.add(delivery)
     await db.flush()
     await deliver_webhook_delivery(db, delivery)
+    await log_event(db, "webhook.test_sent", actor=_admin, ip_address=request.client.host if request.client else None, target_type="webhook_endpoint", target_id=str(endpoint.id), target_label=endpoint.name, detail=f"deliveryStatus={delivery.status}\noutcome={'success' if delivery.status == 'succeeded' else 'failure'}")
     await db.commit()
     await db.refresh(delivery)
     return WebhookDeliveryResponse.model_validate(delivery)

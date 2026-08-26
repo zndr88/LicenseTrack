@@ -75,13 +75,22 @@ SESSION_COOKIE_MAX_AGE = settings.TOKEN_EXPIRY * 60
 OIDC_FLOW_COOKIE = "license_lifecycle_oidc_flow"
 
 
-def create_access_token(user_id: int, role: str) -> str:
-    """Return a signed HS256 JWT for *user_id* / *role*, expiring after TOKEN_EXPIRY minutes."""
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.TOKEN_EXPIRY)
+def create_access_token(
+    user_id: int,
+    role: str,
+    *,
+    security_version: int = 0,
+    lifetime_minutes: int | None = None,
+) -> str:
+    """Return a signed human-session JWT with an authoritative bounded lifetime."""
+    issued_at = datetime.now(timezone.utc)
+    expire = issued_at + timedelta(minutes=lifetime_minutes or settings.TOKEN_EXPIRY)
     header = {"alg": "HS256", "typ": "JWT"}
     payload: dict[str, Any] = {
         "sub": str(user_id),
         "role": role,
+        "iat": int(issued_at.timestamp()),
+        "security_version": int(security_version),
         "exp": int(expire.timestamp()),
     }
     header_b64 = _b64url_encode(json.dumps(header, separators=(",", ":")).encode())

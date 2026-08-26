@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +19,7 @@ from app.dependencies import require_editor_or_admin
 from app.models.contract import Contract, ContractDocument, ContractFolder
 from app.models.user import User
 from app.schemas.contract import ContractFolderCreate, ContractFolderResponse, ContractFolderUpdate
+from app.services.audit_service import log_event
 
 router = APIRouter(tags=["contract-folders"])
 
@@ -33,6 +34,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 async def create_folder(
     contract_id: int,
     body: ContractFolderCreate,
+    request: Request,
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> ContractFolderResponse:
@@ -42,6 +44,8 @@ async def create_folder(
 
     folder = ContractFolder(contract_id=contract_id, name=body.name)
     db.add(folder)
+    await db.flush()
+    await log_event(db, "contract_folder.created", actor=_editor, ip_address=request.client.host if request.client else None, target_type="contract_folder", target_id=str(folder.id), target_label=folder.name)
     await db.commit()
     await db.refresh(folder)
     return ContractFolderResponse(
@@ -60,6 +64,7 @@ async def update_folder(
     contract_id: int,
     folder_id: int,
     body: ContractFolderUpdate,
+    request: Request,
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> ContractFolderResponse:
@@ -73,7 +78,9 @@ async def update_folder(
     if folder is None:
         raise HTTPException(status_code=404, detail="Folder not found")
 
+    old_name = folder.name
     folder.name = body.name
+    await log_event(db, "contract_folder.updated", actor=_editor, ip_address=request.client.host if request.client else None, target_type="contract_folder", target_id=str(folder.id), target_label=folder.name, detail=f"name: {old_name} -> {folder.name}")
     await db.commit()
     await db.refresh(folder)
 
@@ -98,6 +105,7 @@ async def update_folder(
 async def delete_folder(
     contract_id: int,
     folder_id: int,
+    request: Request,
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> Response:
@@ -122,5 +130,6 @@ async def delete_folder(
         )
 
     await db.delete(folder)
+    await log_event(db, "contract_folder.deleted", actor=_editor, ip_address=request.client.host if request.client else None, target_type="contract_folder", target_id=str(folder_id), target_label=str(folder_id))
     await db.commit()
     return Response(status_code=204)

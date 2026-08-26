@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import asc
 from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +26,7 @@ from app.dependencies import require_admin, require_editor_or_admin
 from app.models.import_mapping import ImportMapping
 from app.models.user import User
 from app.schemas.csv_import import ImportMappingCreate, ImportMappingResponse
+from app.services.audit_service import log_event
 
 router = APIRouter(prefix="/api/import", tags=["import"])
 
@@ -50,6 +51,7 @@ async def list_mappings(
 async def create_mapping(
     db: DbSession,
     body: ImportMappingCreate,
+    request: Request,
     _admin: User = Depends(require_admin),
 ) -> ImportMappingResponse:
     """Create a new named import mapping."""
@@ -64,6 +66,7 @@ async def create_mapping(
     db.add(row)
     await db.flush()
     await db.refresh(row)
+    await log_event(db, "import_mapping.created", actor=_admin, ip_address=request.client.host if request.client else None, target_type="import_mapping", target_id=str(row.id), target_label=row.name)
     await db.commit()
     return row
 
@@ -73,6 +76,7 @@ async def update_mapping(
     mapping_id: int,
     db: DbSession,
     body: ImportMappingCreate,
+    request: Request,
     _admin: User = Depends(require_admin),
 ) -> ImportMappingResponse:
     """Update an existing import mapping."""
@@ -94,6 +98,7 @@ async def update_mapping(
     row.updated_at = _utc_now()
     await db.flush()
     await db.refresh(row)
+    await log_event(db, "import_mapping.updated", actor=_admin, ip_address=request.client.host if request.client else None, target_type="import_mapping", target_id=str(row.id), target_label=row.name)
     await db.commit()
     return row
 
@@ -105,6 +110,7 @@ async def update_mapping(
 )
 async def delete_mapping(
     mapping_id: int,
+    request: Request,
     db: DbSession,
     _admin: User = Depends(require_admin),
 ) -> Response:
@@ -114,5 +120,6 @@ async def delete_mapping(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mapping not found")
     await db.delete(row)
+    await log_event(db, "import_mapping.deleted", actor=_admin, ip_address=request.client.host if request.client else None, target_type="import_mapping", target_id=str(mapping_id), target_label=row.name)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

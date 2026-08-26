@@ -1,11 +1,13 @@
+import hashlib
 import logging
+import re
 from collections import defaultdict
 from time import time
 from urllib.parse import urlencode, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import auth
@@ -16,6 +18,8 @@ from app.services.crypto_service import decrypt_secret
 from app.services.oidc_service import (
     authlib_available,
     get_oidc_metadata,
+    normalize_oidc_email,
+    normalize_oidc_issuer,
     oidc_is_configured,
     validate_oidc_fetch_url,
 )
@@ -217,14 +221,30 @@ async def oidc_callback(
                     exc=exc,
                 )
                 return _login_redirect("oidc_failed")
-            if claims.get("iss") != metadata.discovery.get("issuer"):
+            try:
+                issuer = normalize_oidc_issuer(str(metadata.discovery.get("issuer") or ""))
+                claim_issuer = normalize_oidc_issuer(str(claims.get("iss") or ""))
+            except ValueError:
                 _log_oidc_callback_failure("invalid_issuer", global_settings, discovery=discovery)
+                return _login_redirect("oidc_failed")
+            if claim_issuer != issuer:
+                _log_oidc_callback_failure("invalid_issuer", global_settings, discovery=discovery)
+                return _login_redirect("oidc_failed")
+            subject = claims.get("sub")
+            if not isinstance(subject, str) or not subject.strip() or len(subject) > 255:
+                _log_oidc_callback_failure("missing_subject", global_settings, discovery=discovery)
+                return _login_redirect("oidc_failed")
+            if "email_verified" in claims and claims.get("email_verified") is not True:
+                _log_oidc_callback_failure("email_not_verified", global_settings, discovery=discovery)
                 return _login_redirect("oidc_failed")
             audience = claims.get("aud")
             if isinstance(audience, str):
                 audience = [audience]
             if global_settings.oidc_client_id not in (audience or []):
                 _log_oidc_callback_failure("invalid_audience", global_settings, discovery=discovery)
+                return _login_redirect("oidc_failed")
+            if len(audience or []) > 1 and claims.get("azp") != global_settings.oidc_client_id:
+                _log_oidc_callback_failure("invalid_authorized_party", global_settings, discovery=discovery)
                 return _login_redirect("oidc_failed")
             if claims.get("nonce") != flow.get("nonce"):
                 _log_oidc_callback_failure("invalid_nonce", global_settings, discovery=discovery)
@@ -240,7 +260,14 @@ async def oidc_callback(
                         headers={"Authorization": f"Bearer {token['access_token']}"},
                     )
                     userinfo_response.raise_for_status()
-                    email = userinfo_response.json().get("email")
+                    userinfo = userinfo_response.json()
+                    if userinfo.get("sub") != subject:
+                        _log_oidc_callback_failure("userinfo_subject_mismatch", global_settings, discovery=discovery)
+                        return _login_redirect("oidc_failed")
+                    email = userinfo.get("email")
+                    if "email_verified" in userinfo and userinfo.get("email_verified") is not True:
+                        _log_oidc_callback_failure("email_not_verified", global_settings, discovery=discovery)
+                        return _login_redirect("oidc_failed")
                 except Exception as exc:
                     _log_oidc_callback_failure(
                         "missing_email",
@@ -250,11 +277,22 @@ async def oidc_callback(
                     )
                     return _login_redirect("oidc_failed")
 
-        if not email:
+        email = normalize_oidc_email(str(email or ""))
+        if not email or not re.fullmatch(r"[^@\s]+@[^@\s]+", email):
             _log_oidc_callback_failure("missing_email", global_settings, discovery=discovery)
             return _login_redirect("oidc_failed")
 
-        user = await db.scalar(select(User).where(User.email == email))
+        user = await db.scalar(
+            select(User).where(User.oidc_issuer == issuer, User.oidc_subject == subject.strip())
+        )
+        if user is None:
+            email_matches = list(
+                (await db.scalars(select(User).where(func.lower(func.trim(User.email)) == email))).all()
+            )
+            if len(email_matches) > 1:
+                _log_oidc_callback_failure("ambiguous_email", global_settings, discovery=discovery)
+                return _login_redirect("oidc_failed")
+            user = email_matches[0] if email_matches else None
         if user is None:
             _log_oidc_callback_failure("user_not_provisioned", global_settings, discovery=discovery)
             return _login_redirect("not_provisioned")
@@ -264,6 +302,13 @@ async def oidc_callback(
         if not user.is_active:
             _log_oidc_callback_failure("inactive_user", global_settings, discovery=discovery)
             return _login_redirect("oidc_failed")
+        if user.oidc_issuer and (
+            user.oidc_issuer != issuer or user.oidc_subject != subject.strip()
+        ):
+            _log_oidc_callback_failure("identity_mismatch", global_settings, discovery=discovery)
+            return _login_redirect("oidc_failed")
+        user.oidc_issuer = issuer
+        user.oidc_subject = subject.strip()
 
         ip = request.client.host if request.client else None
         await log_event(
@@ -274,12 +319,25 @@ async def oidc_callback(
             target_type="user",
             target_id=str(user.id),
             target_label=user.email,
+            detail=(
+                f"issuerHost={_safe_host(issuer)}\n"
+                f"subjectHash={hashlib.sha256(subject.strip().encode()).hexdigest()[:16]}\n"
+                f"emailDomain={email.rsplit('@', 1)[-1]}"
+            ),
         )
         await db.commit()
 
         response = RedirectResponse(url=_frontend_redirect_url(), status_code=302)
         auth.clear_oidc_flow_cookie(response)
-        auth.set_session_cookie(response, auth.create_access_token(user.id, user.role))
+        auth.set_session_cookie(
+            response,
+            auth.create_access_token(
+                user.id,
+                user.role,
+                security_version=user.security_version,
+                lifetime_minutes=global_settings.session_timeout if global_settings.session_timeout > 0 else None,
+            ),
+        )
         return response
     except Exception as exc:
         _log_oidc_callback_failure(

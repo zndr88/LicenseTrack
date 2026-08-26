@@ -127,12 +127,17 @@ def apply_user_update(
     Handles password hashing and OIDC password invalidation. Raises HTTP 422
     if a local password is provided but too short.
     """
+    old_auth_provider = user.auth_provider
     user.username = username
     user.email = email
     user.role = role
     user.is_active = is_active
     user.allow_downloads = allow_downloads
     user.auth_provider = auth_provider
+
+    if auth_provider != old_auth_provider:
+        user.oidc_issuer = None
+        user.oidc_subject = None
 
     if auth_provider == AuthProvider.oidc:
         user.hashed_password = auth.hash_password(secrets.token_urlsafe(32))
@@ -145,3 +150,8 @@ def apply_user_update(
             )
         user.hashed_password = auth.hash_password(password)
         user.must_change_password = False
+
+
+def bump_security_version(user: User) -> None:
+    """Invalidate all previously issued human-session tokens for a user."""
+    user.security_version = int(user.security_version or 0) + 1

@@ -15,8 +15,6 @@ import tempfile
 from pathlib import Path
 from typing import Annotated
 
-log = logging.getLogger(__name__)
-
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -38,6 +36,9 @@ from app.services.backup_service import (
     resolve_server_backup_archive,
     restore_backup_archive,
 )
+from app.services.restore_maintenance import restore_maintenance
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/backup", tags=["backup"])
 
@@ -48,10 +49,17 @@ class ServerRestoreRequest(BaseModel):
     filename: str = Field(min_length=1, max_length=500)
 
 
-def _terminate_process_after_restore() -> None:
-    """Terminate after the restore response has been sent to the client."""
+async def _terminate_process_after_restore(restore_owner: object) -> None:
+    """Terminate after the response, releasing maintenance if termination returns."""
     log.info("Restore response sent; sending SIGTERM so the process manager can restart the API.")
-    os.kill(os.getpid(), signal.SIGTERM)
+    try:
+        await asyncio.to_thread(os.kill, os.getpid(), signal.SIGTERM)
+    except OSError:
+        log.exception("Could not signal the API process to restart after restore")
+    finally:
+        # A real SIGTERM ends the process. If a test double or unusual process
+        # environment returns, avoid stranding the API in maintenance mode.
+        await restore_maintenance.end_restore(restore_owner)
 
 
 async def _get_global_settings(db: AsyncSession) -> GlobalSettings:
@@ -82,6 +90,18 @@ async def trigger_backup(
         )
     except Exception as exc:
         log.error("Backup creation failed: %s", exc, exc_info=True)
+        try:
+            await log_event(
+                db,
+                "system.backup_failed",
+                actor=_admin,
+                ip_address=request.client.host if request.client else None,
+                target_type="backup",
+                detail="outcome=failure",
+            )
+            await db.commit()
+        except Exception:
+            log.error("Could not persist manual backup failure audit", exc_info=True)
         raise HTTPException(status_code=500, detail="Backup failed. Check server logs.")
 
     ip = request.client.host if request.client else None
@@ -153,10 +173,42 @@ async def _perform_restore(
     try:
         archive_info = inspect_backup_archive(archive_path)
     except ValueError as exc:
+        log.warning("Backup restore rejected archive=%s reason=%s", archive_path.name, exc)
+        try:
+            await log_event(
+                db,
+                "system.backup_restore_failed",
+                actor=admin,
+                ip_address=request.client.host if request.client else None,
+                target_type="backup",
+                target_label=archive_path.name,
+                detail="outcome=validation_failed",
+            )
+            await db.commit()
+        except Exception:
+            log.error("Could not persist rejected restore audit", exc_info=True)
         raise HTTPException(status_code=422, detail=str(exc))
 
     gs = await _get_global_settings(db)
     storage_location = gs.storage_path or settings.STORAGE_PATH
+    ip = request.client.host if request.client else None
+    actor_id = admin.id
+    actor_email = admin.email
+    log.warning(
+        "Database restore attempt actor_id=%s actor_email=%s ip=%s archive=%s archive_type=%s restored_documents=%s",
+        actor_id,
+        actor_email,
+        ip,
+        archive_path.name,
+        archive_info["archive_type"],
+        archive_info["includes_documents"],
+    )
+    try:
+        restore_owner = await restore_maintenance.begin_restore()
+        request.state.restore_owner = restore_owner
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     safety_archive = None
     if archive_info["includes_documents"]:
         from app.services.portfolio_reset_service import (
@@ -164,9 +216,9 @@ async def _perform_restore(
             portfolio_document_paths,
         )
 
-        counts = await portfolio_counts(db)
-        document_paths = await portfolio_document_paths(db)
         try:
+            counts = await portfolio_counts(db)
+            document_paths = await portfolio_document_paths(db)
             safety_archive = await asyncio.to_thread(
                 create_document_restore_safety_archive,
                 gs.backup_location,
@@ -176,30 +228,25 @@ async def _perform_restore(
             )
         except Exception as exc:
             log.error("Pre-restore database-and-document archive failed: %s", exc, exc_info=True)
+            try:
+                await log_event(
+                    db,
+                    "system.backup_restore_failed",
+                    actor=admin,
+                    ip_address=ip,
+                    target_type="backup",
+                    target_label=archive_path.name,
+                    detail=f"archiveType={archive_info['archive_type']}\nrestoredDocuments=true\noutcome=failure",
+                )
+                await db.commit()
+            except Exception:
+                log.error("Could not persist pre-restore failure audit", exc_info=True)
             raise HTTPException(status_code=500, detail="Restore safety archive failed. Check server logs.")
-
-    # Log before replacing the database. Use a separate session because the
-    # request session and engine are closed immediately afterward.
-    ip = request.client.host if request.client else None
-    try:
-        async with AsyncSessionLocal() as audit_db:
-            await log_event(
-                audit_db,
-                "system.backup_restored",
-                actor=admin,
-                ip_address=ip,
-                target_type="backup",
-                target_label=archive_path.name,
-                detail=f"archiveType={archive_info['archive_type']}",
-            )
-            await audit_db.commit()
-    except Exception as exc:
-        log.warning("Could not audit database restore before overwrite: %s", exc, exc_info=True)
 
     from app.database import engine as _engine
 
-    await db.close()
     try:
+        await db.close()
         await _engine.dispose()
         restore_result = restore_backup_archive(
             archive_path,
@@ -208,7 +255,26 @@ async def _perform_restore(
         )
     except Exception as exc:
         log.error("Backup restore failed: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail="Restore failed. Check server logs.")
+        try:
+            async with AsyncSessionLocal() as failure_db:
+                await log_event(
+                    failure_db,
+                    "system.backup_restore_failed",
+                    actor_id=actor_id,
+                    actor_email=actor_email,
+                    ip_address=ip,
+                    target_type="backup",
+                    target_label=archive_path.name,
+                    detail=(
+                        f"archiveType={archive_info['archive_type']}\n"
+                        f"restoredDocuments={archive_info['includes_documents']}\n"
+                        "outcome=failure"
+                    ),
+                )
+                await failure_db.commit()
+        except Exception:
+            log.error("Could not persist backup restore failure audit", exc_info=True)
+        raise HTTPException(status_code=500, detail="Restore failed. Check server logs.") from exc
 
     warnings = []
     try:
@@ -233,15 +299,47 @@ async def _perform_restore(
         "document_storage": reconciliation,
         "warnings": warnings,
     }
+    audit_warning = None
+    try:
+        async with AsyncSessionLocal() as restored_db:
+            bound_actor_id = await restored_db.scalar(
+                select(User.id).where(
+                    User.id == actor_id,
+                    User.email == actor_email,
+                )
+            )
+            await log_event(
+                restored_db,
+                "system.backup_restored",
+                actor_id=bound_actor_id,
+                actor_email=actor_email,
+                ip_address=ip,
+                target_type="backup",
+                target_id=str(actor_id),
+                target_label=archive_path.name,
+                detail=(
+                    f"archiveType={archive_info['archive_type']}\n"
+                    f"documentRestore={archive_info['includes_documents']}\n"
+                    f"outcome=success\n"
+                    f"schemaRevision={restore_result.get('schema_revision')}"
+                ),
+            )
+            await restored_db.commit()
+    except Exception as exc:
+        audit_warning = "Restore completed, but the post-restore audit event could not be committed."
+        log.error("Could not persist post-restore audit event: %s", exc, exc_info=True)
+    if audit_warning:
+        warnings.append(audit_warning)
     if not settings.RESTART_AFTER_RESTORE:
         log.info("Restore complete; RESTART_AFTER_RESTORE=false, keeping the API process running.")
         return response_data
 
     response_data.update(status="restore_initiated", restart_scheduled=True)
+    request.state.keep_restore_maintenance = True
     # Signal the process manager only after the response body has been sent.
     return JSONResponse(
         response_data,
-        background=BackgroundTask(_terminate_process_after_restore),
+        background=BackgroundTask(_terminate_process_after_restore, restore_owner),
     )
 
 

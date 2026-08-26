@@ -7,6 +7,7 @@ require_admin     - raises 403 unless the current user has the admin role.
 require_editor_or_admin - raises 403 if the current user is a viewer.
 """
 
+from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request, status
@@ -27,6 +28,7 @@ from app.services.api_token_service import (
     hash_legacy_api_token,
     mark_token_used,
 )
+from app.services.settings_service import get_global_settings
 
 # auto_error=False so the dependency can also read the session cookie.
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -178,10 +180,12 @@ async def get_current_user(
     set_api_token_audit_context(None)
     try:
         payload = auth.decode_access_token(token)
-    except auth.JWTError:
+        user_id = int(payload["sub"])
+        token_version = int(payload.get("security_version", 0))
+        issued_at = int(payload.get("iat", 0))
+    except (auth.JWTError, KeyError, TypeError, ValueError):
         _raise_invalid_token()
 
-    user_id = int(payload["sub"])
     user = await db.scalar(select(User).where(User.id == user_id))
 
     if user is None or not user.is_active:
@@ -189,6 +193,29 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if token_version != int(user.security_version or 0):
+        _raise_invalid_token()
+
+    global_settings = await get_global_settings(db)
+    timeout_minutes = int(global_settings.session_timeout) if global_settings else 0
+    # The browser idle timer is only a convenience. Without a server-side
+    # session store, enforce the setting as a bounded absolute JWT lifetime.
+    if timeout_minutes > 0:
+        token_age = datetime.now(timezone.utc).timestamp() - issued_at
+        if not issued_at or token_age < -60 or token_age > timeout_minutes * 60:
+            _raise_invalid_token()
+
+    if user.must_change_password and request.url.path not in {
+        "/api/auth/session",
+        "/api/auth/change-password",
+        "/api/auth/logout",
+        "/api/users/me",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password change required before using this endpoint",
         )
 
     return user

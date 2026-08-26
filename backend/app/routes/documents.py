@@ -25,11 +25,14 @@ from app.models.license import License
 from app.models.user import User
 from app.schemas.document import DocumentResponse, ProcurementDocumentResponse
 from app.services import storage
-from app.services.access_service import can_download_documents, can_view_license
+from app.services.access_service import can_download_documents, can_view_license, can_view_procurement_document
 from app.services.audit_contracts import format_document_amendment_detail
 from app.services.audit_service import log_event
 from app.services.document_availability_service import get_document_storage_base, with_file_availability
-from app.services.procurement_document_scope_service import get_procurement_document_licenses
+from app.services.procurement_document_scope_service import (
+    filter_viewable_procurement_documents,
+    get_procurement_document_licenses,
+)
 
 router = APIRouter(tags=["documents"])
 logger = logging.getLogger(__name__)
@@ -244,9 +247,12 @@ async def list_documents(
         )
     procurement_query = select(ProcurementDocument).where(or_(*procurement_conditions))
     procurement_result = await db.execute(procurement_query)
+    viewable_procurement_documents = await filter_viewable_procurement_documents(
+        db, list(procurement_result.scalars().all()), _current_user
+    )
     responses.extend(
         with_file_availability(ProcurementDocumentResponse.model_validate(doc), doc, storage_base)
-        for doc in procurement_result.scalars().all()
+        for doc in viewable_procurement_documents
     )
     return responses
 
@@ -257,7 +263,7 @@ async def list_documents(
 
 
 @router.get("/api/documents/{document_id}/download")
-async def download_document(document_id: int, db: DbSession, current_user: CurrentUser) -> FileResponse:
+async def download_document(document_id: int, request: Request, db: DbSession, current_user: CurrentUser) -> FileResponse:
     """Stream a stored file back to the client.
 
     JWT is required (401 if missing/invalid - enforced by CurrentUser).
@@ -278,6 +284,17 @@ async def download_document(document_id: int, db: DbSession, current_user: Curre
 
     storage_base = await get_document_storage_base(db)
     file_path = storage.require_available_file(document.filename, storage_base)
+    await log_event(
+        db,
+        "document.downloaded",
+        actor=current_user,
+        ip_address=request.client.host if request.client else None,
+        target_type="document",
+        target_id=str(document.id),
+        target_label=document.original_filename,
+        detail=f"licenseId={license_obj.id}\noutcome=success",
+    )
+    await db.commit()
 
     return FileResponse(
         path=str(file_path),
@@ -287,7 +304,7 @@ async def download_document(document_id: int, db: DbSession, current_user: Curre
 
 
 @router.get("/api/procurement-documents/{document_id}/download")
-async def download_procurement_document(document_id: int, db: DbSession, current_user: CurrentUser) -> FileResponse:
+async def download_procurement_document(document_id: int, request: Request, db: DbSession, current_user: CurrentUser) -> FileResponse:
     result = await db.execute(select(ProcurementDocument).where(ProcurementDocument.id == document_id))
     document = result.scalar_one_or_none()
     if document is None:
@@ -296,14 +313,24 @@ async def download_procurement_document(document_id: int, db: DbSession, current
     licenses = await get_procurement_document_licenses(db, document)
     if not licenses:
         raise HTTPException(status_code=404, detail="Document not found")
-    can_view_any = any([await can_view_license(current_user, license_obj, db) for license_obj in licenses])
-    if not can_view_any:
+    if not await can_view_procurement_document(current_user, licenses, db):
         raise HTTPException(status_code=404, detail="Document not found")
     if not can_download_documents(current_user):
         raise HTTPException(status_code=403, detail="Downloads are disabled for this viewer")
 
     storage_base = await get_document_storage_base(db)
     file_path = storage.require_available_file(document.filename, storage_base)
+    await log_event(
+        db,
+        "procurement_document.downloaded",
+        actor=current_user,
+        ip_address=request.client.host if request.client else None,
+        target_type="procurement_document",
+        target_id=str(document.id),
+        target_label=document.original_filename,
+        detail=f"relatedLicenseCount={len(licenses)}\noutcome=success",
+    )
+    await db.commit()
 
     return FileResponse(
         path=str(file_path),

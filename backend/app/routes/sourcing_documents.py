@@ -99,6 +99,7 @@ async def list_sourcing_quote_documents(
 @router.get("/quote-documents/{document_id}/download")
 async def download_sourcing_quote_document(
     document_id: int,
+    request: Request,
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> FileResponse:
@@ -108,6 +109,17 @@ async def download_sourcing_quote_document(
         raise HTTPException(status_code=404, detail="Document not found")
     storage_base = await get_document_storage_base(db)
     file_path = storage.require_available_file(document.filename, storage_base)
+    await log_event(
+        db,
+        "sourcing_quote.downloaded",
+        actor=_editor,
+        ip_address=request.client.host if request.client else None,
+        target_type="sourcing_quote_document",
+        target_id=str(document.id),
+        target_label=document.original_filename,
+        detail=f"outcome=success",
+    )
+    await db.commit()
     return FileResponse(
         path=str(file_path),
         media_type=document.mime_type,

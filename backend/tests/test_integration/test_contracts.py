@@ -883,7 +883,7 @@ async def test_viewer_cannot_access_contract_direct_routes_outside_department(
     assert licenses_resp.status_code == 404
 
 
-async def test_viewer_contract_direct_routes_filter_to_assigned_department(
+async def test_viewer_cannot_access_contract_shared_with_unassigned_department(
     test_app, db_session, contract
 ):
     visible_license = License(
@@ -935,10 +935,8 @@ async def test_viewer_contract_direct_routes_filter_to_assigned_department(
     contract_resp = await test_app.get(f"/api/contracts/{contract['id']}", headers=viewer_headers)
     licenses_resp = await test_app.get(f"/api/contracts/{contract['id']}/licenses", headers=viewer_headers)
 
-    assert contract_resp.status_code == 200
-    assert contract_resp.json()["licenseCount"] == 1
-    assert licenses_resp.status_code == 200
-    assert [item["id"] for item in licenses_resp.json()] == [visible_license.id]
+    assert contract_resp.status_code == 404
+    assert licenses_resp.status_code == 404
 
 
 async def test_viewer_without_downloads_can_list_but_not_download_contract_document(

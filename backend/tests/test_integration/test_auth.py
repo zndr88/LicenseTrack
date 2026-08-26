@@ -47,7 +47,7 @@ _full_jwk = _TEST_PRIVATE_JWK.as_dict(private=False)
 _TEST_JWKS = {"keys": [{"kty": _full_jwk["kty"], "n": _full_jwk["n"], "e": _full_jwk["e"], "alg": "RS256", "use": "sig"}]}
 
 
-def _build_id_token(email: str, nonce: str) -> str:
+def _build_id_token(email: str, nonce: str, **claim_overrides) -> str:
     """Return a signed RS256 ID token for the given email and nonce."""
     now = int(time.time())
     payload = {
@@ -59,6 +59,7 @@ def _build_id_token(email: str, nonce: str) -> str:
         "iat": now,
         "exp": now + 3600,
     }
+    payload.update(claim_overrides)
     return joserfc_jwt.encode({"alg": "RS256"}, payload, _TEST_PRIVATE_JWK)
 
 
@@ -176,7 +177,7 @@ async def test_logout_clears_session_cookie(db_session, test_app):
     assert "Max-Age=0" in logout_resp.headers.get("set-cookie", "")
 
 
-async def test_change_password_returns_empty_204(db_session, test_app):
+async def test_change_password_rotates_session_and_invalidates_old_token(db_session, test_app):
     old_password = "oldpassword123"
     new_password = "newpassword123"
     db_session.add(_make_user("changepwuser", old_password, UserRole.admin))
@@ -187,19 +188,68 @@ async def test_change_password_returns_empty_204(db_session, test_app):
         json={"username": "changepwuser", "password": old_password},
     )
     assert login_resp.status_code == 200
+    old_token = login_resp.json()["access_token"]
 
     change_resp = await test_app.post(
         "/api/auth/change-password",
         json={"current_password": old_password, "new_password": new_password},
     )
 
-    assert change_resp.status_code == 204
-    assert change_resp.content == b""
+    assert change_resp.status_code == 200
+    new_token = change_resp.json()["access_token"]
+    assert new_token != old_token
+    assert (
+        await test_app.get(
+            "/api/users/me",
+            headers={"Authorization": f"Bearer {old_token}"},
+        )
+    ).status_code == 401
+    assert (
+        await test_app.get(
+            "/api/users/me",
+            headers={"Authorization": f"Bearer {new_token}"},
+        )
+    ).status_code == 200
     relogin_resp = await test_app.post(
         "/api/auth/login",
         json={"username": "changepwuser", "password": new_password},
     )
     assert relogin_resp.status_code == 200
+
+
+async def test_forced_password_user_is_limited_to_session_and_password_change(
+    db_session,
+    test_app,
+):
+    password = "temporarypassword123"
+    user = _make_user("forcedchange", password, UserRole.admin)
+    user.must_change_password = True
+    db_session.add(user)
+    await db_session.commit()
+
+    login_resp = await test_app.post(
+        "/api/auth/login",
+        json={"username": user.username, "password": password},
+    )
+    assert login_resp.status_code == 200
+    assert (await test_app.get("/api/auth/session")).status_code == 200
+    blocked = await test_app.get("/api/licenses")
+    assert blocked.status_code == 403
+    assert blocked.json()["detail"] == "Password change required before using this endpoint"
+
+
+async def test_inactive_local_user_cannot_log_in(db_session, test_app):
+    user = _make_user("inactiveuser", "correctpassword123", UserRole.admin)
+    user.is_active = False
+    db_session.add(user)
+    await db_session.commit()
+
+    response = await test_app.post(
+        "/api/auth/login",
+        json={"username": user.username, "password": "correctpassword123"},
+    )
+
+    assert response.status_code == 401
 
 
 async def test_oidc_user_cannot_use_local_login(db_session, test_app):
@@ -415,6 +465,50 @@ async def test_oidc_callback_oidc_user_match(db_session, test_app):
     assert "error" not in resp.headers.get("location", "")
     all_cookies = "\n".join(resp.headers.get_list("set-cookie"))
     assert _app_auth.settings.SESSION_COOKIE_NAME in all_cookies
+    await db_session.refresh(user)
+    assert user.oidc_issuer == _ISSUER
+    assert user.oidc_subject == "oidc|oidcssouser@test.local"
+
+
+@pytest.mark.parametrize(
+    ("claim_overrides", "expected_stage"),
+    [
+        ({"email_verified": False}, "email_not_verified"),
+        ({"aud": [_CLIENT_ID, "another-client"]}, "invalid_authorized_party"),
+    ],
+)
+async def test_oidc_callback_rejects_untrusted_identity_claims(
+    db_session,
+    test_app,
+    caplog,
+    claim_overrides,
+    expected_stage,
+):
+    caplog.set_level(logging.WARNING, logger="app.routes.auth_oidc")
+    await _add_oidc_settings(db_session)
+    db_session.add(_make_user("claimuser", "unused", auth_provider=AuthProvider.oidc))
+    await db_session.commit()
+    state = f"state-{expected_stage}"
+    nonce = f"nonce-{expected_stage}"
+    id_token = _build_id_token("claimuser@test.local", nonce, **claim_overrides)
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.get(_DISCOVERY_URL).mock(return_value=httpx.Response(200, json=_DISCOVERY_DOC))
+        mock.get(_JWKS_URI).mock(return_value=httpx.Response(200, json=_TEST_JWKS))
+        mock.post(_TOKEN_ENDPOINT).mock(
+            return_value=httpx.Response(
+                200,
+                json={"access_token": "mock-access-token", "id_token": id_token},
+            )
+        )
+        test_app.cookies.set(_app_auth.OIDC_FLOW_COOKIE, _flow_cookie(state, nonce), path="/")
+        response = await test_app.get(
+            f"/api/auth/oidc/callback?state={state}&code=test-code"
+        )
+
+    assert response.status_code == 302
+    assert "error=oidc_failed" in response.headers["location"]
+    assert f"stage={expected_stage}" in caplog.text
 
 
 async def test_oidc_callback_local_account_match(db_session, test_app, caplog):

@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime, timezone
 from time import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -15,6 +16,7 @@ from app.schemas.user import ChangePasswordRequest
 from app.services.audit_service import log_event
 from app.services.oidc_service import get_oidc_availability
 from app.services.settings_service import get_global_settings
+from app.services.user_service import bump_security_version
 
 # Failed-login counters are tracked independently by username and by source IP.
 # Keying only on username (as the original implementation did) let a password
@@ -157,12 +159,23 @@ async def session(
     try:
         payload = auth.decode_access_token(token)
         user_id = int(payload["sub"])
+        token_version = int(payload.get("security_version", 0))
     except Exception:
         return SessionResponse(authenticated=False)
 
     user = await db.scalar(select(User).where(User.id == user_id))
-    if user is None or not user.is_active:
+    if (
+        user is None
+        or not user.is_active
+        or token_version != int(user.security_version or 0)
+    ):
         return SessionResponse(authenticated=False)
+    gs = await get_global_settings(db)
+    issued_at = int(payload.get("iat", 0) or 0)
+    if gs and gs.session_timeout > 0:
+        token_age = datetime.now(timezone.utc).timestamp() - issued_at
+        if not issued_at or token_age < -60 or token_age > gs.session_timeout * 60:
+            return SessionResponse(authenticated=False)
 
     return SessionResponse(authenticated=True, user=_user_out(user))
 
@@ -191,7 +204,7 @@ async def login(
         )
 
     if user is not None:
-        password_valid = auth.verify_password(body.password, user.hashed_password)
+        password_valid = auth.verify_password(body.password, user.hashed_password) and user.is_active
     else:
         # Verify against a dummy hash so a missing user costs the same time as a
         # wrong password, closing the username-enumeration timing side channel.
@@ -221,7 +234,13 @@ async def login(
         )
 
     _clear_attempts(body.username, ip)
-    token = auth.create_access_token(user.id, user.role)
+    gs = await get_global_settings(db)
+    token = auth.create_access_token(
+        user.id,
+        user.role,
+        security_version=user.security_version,
+        lifetime_minutes=gs.session_timeout if gs and gs.session_timeout > 0 else None,
+    )
     auth.set_session_cookie(response, token)
 
     await log_event(
@@ -275,13 +294,14 @@ async def logout(
     )
 
 
-@router.post("/change-password", status_code=204, response_class=Response)
+@router.post("/change-password", status_code=200)
 async def change_password(
     body: ChangePasswordRequest,
     request: Request,
+    response: Response,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-) -> Response:
+) -> dict:
     """Change the authenticated user's own password."""
     if current_user.auth_provider == AuthProvider.oidc:
         raise HTTPException(
@@ -305,6 +325,7 @@ async def change_password(
     current_user.hashed_password = auth.hash_password(body.new_password)
     if current_user.must_change_password:
         current_user.must_change_password = False
+    bump_security_version(current_user)
 
     ip = request.client.host if request.client else None
     await log_event(
@@ -317,4 +338,11 @@ async def change_password(
         target_label=current_user.email,
     )
     await db.commit()
-    return Response(status_code=204)
+    session_token = auth.create_access_token(
+        current_user.id,
+        current_user.role,
+        security_version=current_user.security_version,
+        lifetime_minutes=gs.session_timeout if gs and gs.session_timeout > 0 else None,
+    )
+    auth.set_session_cookie(response, session_token)
+    return {"access_token": session_token, "token_type": "bearer"}

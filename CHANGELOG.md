@@ -15,6 +15,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Added
 
+- Added stable OIDC issuer/subject identity binding, per-user session security
+  versions, backup schema manifests, restore maintenance coordination, and
+  durable audit events for operational and data-export activity.
 - Added optional line-item creation to `POST /api/pending-orders`, allowing a
   pending-order header and its initial lines to be created atomically while
   preserving compatibility with header-only requests.
@@ -24,6 +27,13 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Changed
 
+- Enforced the configured session timeout on the backend as an absolute JWT
+  lifetime, rotated sessions after password changes, and invalidated existing
+  sessions after security-sensitive user or access changes.
+- Expanded audit coverage for document downloads, CSV exports, contract
+  folders, import mappings, notifications, webhooks, backups, and restores,
+  with consistent Procurement filtering across list totals, pagination, and
+  export.
 - Prefilled subscription, SaaS, and maintenance renewal sourcing lines with an
   editable one-year term that starts the day after the predecessor ends, while
   leaving missing-date and non-standard renewal terms for manual review.
@@ -42,6 +52,17 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- Enforced forced-password changes at the API boundary, rejected inactive local
+  logins, and hardened OIDC validation for normalized issuers, verified email,
+  authorized parties, and matching UserInfo subjects.
+- Hardened database restore by quiescing ordinary requests, validating archive
+  structure and schema compatibility, migrating and revalidating the staged
+  database before replacement, preserving recovery snapshots, and recording
+  post-restore outcomes without binding audits to unrelated restored users.
+- Prevented department-scoped Viewers from accessing shared procurement
+  evidence or contracts when any related license belongs to an unassigned
+  department, including retired contract links, while retaining per-user
+  document-download controls.
 - Hardened contract access and editing with authoritative record links, safe
   legacy-number fallback, clearable notes, validated contract and folder names,
   surfaced document errors, and synchronized contract document state.

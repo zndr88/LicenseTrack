@@ -19,7 +19,7 @@ from app.schemas.document_processing import (
     DocumentProcessingResultResponse,
     DocumentProcessingReviewResponse,
 )
-from app.services.access_service import can_view_license
+from app.services.access_service import can_view_license, can_view_procurement_document
 from app.services.audit_service import format_audit_detail, log_event
 from app.services.custom_fields_service import build_custom_field_value
 from app.services.license_write_service import (
@@ -194,10 +194,9 @@ async def _resolve_document_context(
         raise HTTPException(status_code=404, detail="Document not found")
 
     licenses = await get_procurement_document_licenses(db, document)
-    visible = [license_obj for license_obj in licenses if await can_view_license(current_user, license_obj, db)]
-    if not visible:
+    if not licenses or not await can_view_procurement_document(current_user, licenses, db):
         raise HTTPException(status_code=404, detail="Document not found")
-    return document.original_filename, visible[0].id
+    return document.original_filename, licenses[0].id
 
 
 async def _get_source_document_filename(

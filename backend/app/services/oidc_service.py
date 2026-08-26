@@ -5,7 +5,7 @@ import importlib.util
 import logging
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunsplit
 
 import httpx
 
@@ -64,6 +64,20 @@ def validate_oidc_url(url: str, *, purpose: str = "OIDC URL") -> None:
         )
     if not app_settings.ALLOW_PRIVATE_OIDC_DISCOVERY:
         check_ssrf(normalized_url)
+
+
+def normalize_oidc_issuer(issuer: str) -> str:
+    """Validate and canonicalize an issuer URL for stable account binding."""
+    normalized = (issuer or "").strip().rstrip("/")
+    validate_oidc_url(normalized, purpose="OIDC issuer")
+    parsed = urlparse(normalized)
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError("OIDC issuer must not contain credentials, query parameters, or fragments")
+    return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), parsed.path.rstrip("/"), "", ""))
+
+
+def normalize_oidc_email(email: str) -> str:
+    return (email or "").strip().casefold()
 
 
 async def validate_oidc_fetch_url(url: str, *, purpose: str = "OIDC URL") -> None:
