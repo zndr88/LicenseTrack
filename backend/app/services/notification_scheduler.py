@@ -81,20 +81,53 @@ async def _run_backup(gs: GlobalSettings) -> None:
             log.error("Scheduled backup failure audit failed", exc_info=True)
 
 
+async def _run_initial_audit_prune() -> None:
+    """Load retention settings and perform the startup prune without escaping errors."""
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
+            gs = result.scalar_one_or_none()
+            retention_days = gs.audit_log_retention_days if gs else 90
+        await _prune_audit_log(retention_days)
+    except Exception as exc:
+        log.error(f"Initial audit log prune failed: {exc}", exc_info=True)
+
+
+async def _load_scheduler_settings() -> tuple[int, int, bool, int]:
+    """Load scheduler settings, returning safe defaults when the database is unavailable."""
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
+            gs = result.scalar_one_or_none()
+            return (
+                gs.notification_send_hour if gs else 7,
+                gs.backup_hour if gs else 2,
+                gs.backup_enabled if gs else False,
+                gs.audit_log_retention_days if gs else 90,
+            )
+    except Exception as exc:
+        log.warning(f"Could not load scheduler settings from DB: {exc}. Using defaults.")
+        return 7, 2, False, 90
+
+
+async def _load_backup_settings() -> GlobalSettings | None:
+    """Reload backup settings immediately before a scheduled backup."""
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
+            return result.scalar_one_or_none()
+    except Exception as exc:
+        log.error(f"Backup job failed to load settings: {exc}", exc_info=True)
+        return None
+
+
 async def start_scheduler():
     """Background loop that runs notifications, backups, and audit log pruning once per day."""
     log.info("Notification scheduler started")
 
     # Run initial audit log prune shortly after startup
     await asyncio.sleep(5)
-    try:
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
-            gs_init = result.scalar_one_or_none()
-            retention_init = gs_init.audit_log_retention_days if gs_init else 90
-        await _prune_audit_log(retention_init)
-    except Exception as exc:
-        log.error(f"Initial audit log prune failed: {exc}", exc_info=True)
+    await _run_initial_audit_prune()
 
     last_prune_day: int | None = None  # track calendar day of last prune
 
@@ -115,21 +148,9 @@ async def start_scheduler():
 
         now = datetime.now(timezone.utc)
 
-        # Load settings from GlobalSettings
-        try:
-            async with AsyncSessionLocal() as db:
-                result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
-                gs = result.scalar_one_or_none()
-                send_hour = gs.notification_send_hour if gs else 7
-                backup_hour = gs.backup_hour if gs else 2
-                backup_enabled = gs.backup_enabled if gs else False
-                retention_days = gs.audit_log_retention_days if gs else 90
-        except Exception as exc:
-            log.warning(f"Could not load scheduler settings from DB: {exc}. Using defaults.")
-            send_hour = 7
-            backup_hour = 2
-            backup_enabled = False
-            retention_days = 90
+        send_hour, backup_hour, backup_enabled, retention_days = (
+            await _load_scheduler_settings()
+        )
 
         # Sleep until whichever of the two jobs fires next
         notif_wait = _seconds_until_hour(now, send_hour)
@@ -184,14 +205,9 @@ async def start_scheduler():
             if now >= backup_target:
                 backup_target = backup_target + timedelta(days=1)
             if now_after >= backup_target:
-                try:
-                    async with AsyncSessionLocal() as db:
-                        result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
-                        gs_fresh = result.scalar_one_or_none()
-                    if gs_fresh:
-                        await _run_backup(gs_fresh)
-                except Exception as exc:
-                    log.error(f"Backup job failed to load settings: {exc}", exc_info=True)
+                gs_fresh = await _load_backup_settings()
+                if gs_fresh:
+                    await _run_backup(gs_fresh)
 
         # Run audit log prune once per calendar day (at notification time or backup time)
         today_day = now_after.date().day

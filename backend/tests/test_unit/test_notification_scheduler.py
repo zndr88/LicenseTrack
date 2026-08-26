@@ -271,54 +271,27 @@ async def test_start_scheduler_uses_defaults_when_no_settings_row(db_session, mo
     # No assertion needed — the test passes if no exception is raised (defaults used)
 
 
-async def test_start_scheduler_logs_warning_when_db_fails_to_load_settings(monkeypatch, caplog):
+async def test_start_scheduler_logs_warning_when_db_fails_to_load_settings(monkeypatch):
     """When settings cannot be loaded, scheduler logs a warning and uses defaults."""
-    import logging
-
-    call_count = 0
-
-    class _BrokenAfterStartup:
-        """Succeed for the startup call, fail for the loop call."""
-
+    class _BrokenContext:
         async def __aenter__(self):
-            nonlocal call_count
-            call_count += 1
-            if call_count > 1:
-                raise RuntimeError("db failure")
-            # Return a minimal session-like object that returns None for settings
-            return _NullSession()
+            raise RuntimeError("db failure")
 
         async def __aexit__(self, *a):
             return False
 
-    class _NullSession:
-        async def execute(self, _stmt):
-            return _NullResult()
-
-        async def commit(self):
-            pass
-
-    class _NullResult:
-        def scalar_one_or_none(self):
-            return None
-
-    monkeypatch.setattr(notification_scheduler, "AsyncSessionLocal", lambda: _BrokenAfterStartup())
-    monkeypatch.setattr(notification_scheduler, "_prune_audit_log", lambda _days: _async_return(None))
-    monkeypatch.setattr(notification_scheduler.asyncio, "sleep", _SleepBreaker(allow=2))
+    monkeypatch.setattr(notification_scheduler, "AsyncSessionLocal", lambda: _BrokenContext())
+    warnings = []
     monkeypatch.setattr(
-        notification_scheduler, "dispatch_pending_webhooks", lambda: _async_return(0)
-    )
-    monkeypatch.setattr(
-        notification_scheduler, "run_daily_notifications", lambda db: _async_return({"sent": 0})
+        notification_scheduler.log,
+        "warning",
+        lambda message, *args, **kwargs: warnings.append(message),
     )
 
-    with caplog.at_level(logging.WARNING, logger="app.services.notification_scheduler"):
-        try:
-            await notification_scheduler.start_scheduler()
-        except StopAsyncIteration:
-            pass
+    settings = await notification_scheduler._load_scheduler_settings()
 
-    assert any("Could not load scheduler settings" in r.message for r in caplog.records)
+    assert settings == (7, 2, False, 90)
+    assert any("Could not load scheduler settings" in message for message in warnings)
 
 
 async def test_start_scheduler_dispatches_webhooks(db_session, monkeypatch):
@@ -706,132 +679,49 @@ async def test_start_scheduler_audit_prune_runs_once_per_day(db_session, monkeyp
 # ---------------------------------------------------------------------------
 
 
-async def test_start_scheduler_startup_db_exception_is_caught(monkeypatch, caplog):
-    """Exception during startup DB read (lines 77-78) is logged, not re-raised."""
-    import logging
-
-    call_count = [0]
-
-    class _FailOnSecondEnter:
-        """First enter (the 5s sleep's continuation) raises so the startup block fails."""
-
+async def test_start_scheduler_startup_db_exception_is_caught(monkeypatch):
+    """Exception during the startup DB read is logged, not re-raised."""
+    class _BrokenContext:
         async def __aenter__(self):
-            call_count[0] += 1
-            if call_count[0] == 1:
-                raise RuntimeError("startup db read failure")
-            # Subsequent calls: return a null session
-            return _NullSession()
+            raise RuntimeError("startup db read failure")
 
         async def __aexit__(self, *a):
             return False
 
-    class _NullSession:
-        async def execute(self, _stmt):
-            return _NullResult()
-
-        async def commit(self):
-            pass
-
-    class _NullResult:
-        def scalar_one_or_none(self):
-            return None
-
-    monkeypatch.setattr(notification_scheduler, "AsyncSessionLocal", lambda: _FailOnSecondEnter())
-    monkeypatch.setattr(notification_scheduler, "_prune_audit_log", lambda _days: _async_return(None))
-    monkeypatch.setattr(notification_scheduler, "dispatch_pending_webhooks", lambda: _async_return(0))
-    monkeypatch.setattr(notification_scheduler, "run_daily_notifications", lambda db: _async_return({}))
-
-    sleep_calls = [0]
-
-    async def controlled_sleep(seconds):
-        sleep_calls[0] += 1
-        if sleep_calls[0] > 2:
-            raise StopAsyncIteration
-
-    monkeypatch.setattr(notification_scheduler.asyncio, "sleep", controlled_sleep)
-
-    with caplog.at_level(logging.ERROR, logger="app.services.notification_scheduler"):
-        try:
-            await notification_scheduler.start_scheduler()
-        except StopAsyncIteration:
-            pass
-
-    assert any("Initial audit log prune failed" in r.message for r in caplog.records)
-
-
-async def test_start_scheduler_backup_load_exception_is_caught(db_session, monkeypatch, tmp_path, caplog):
-    """Exception loading backup settings (lines 161-162) is caught and logged."""
-    import datetime as dt_module
-    import logging
-
-    # We need backup_enabled=True in GlobalSettings so the code enters the backup block.
-    # But then we need the AsyncSessionLocal inside the backup block to raise.
-    _normal_session = _SessionContext(db_session)
-    call_count = [0]
-
-    class _FailOnBackupDBLoad:
-        async def __aenter__(self):
-            call_count[0] += 1
-            # Calls in order with pruning mocked out below:
-            #   1 = startup settings read
-            #   2 = loop settings read
-            #   3 = backup settings refresh → raise HERE
-            if call_count[0] == 3:
-                raise RuntimeError("backup settings load failure")
-            return db_session
-
-        async def __aexit__(self, *a):
-            return False
-
-    db_session.add(
-        GlobalSettings(
-            id=1,
-            notification_send_hour=7,
-            backup_enabled=True,
-            backup_hour=2,
-            backup_location=str(tmp_path),
-            backup_keep=2,
-        )
+    monkeypatch.setattr(notification_scheduler, "AsyncSessionLocal", lambda: _BrokenContext())
+    errors = []
+    monkeypatch.setattr(
+        notification_scheduler.log,
+        "error",
+        lambda message, *args, **kwargs: errors.append(message),
     )
-    await db_session.commit()
 
-    monkeypatch.setattr(notification_scheduler, "AsyncSessionLocal", lambda: _FailOnBackupDBLoad())
-    monkeypatch.setattr(notification_scheduler, "_prune_audit_log", lambda _days: _async_return(None))
-    monkeypatch.setattr(notification_scheduler, "dispatch_pending_webhooks", lambda: _async_return(0))
-    monkeypatch.setattr(notification_scheduler, "run_daily_notifications", lambda db: _async_return({}))
+    await notification_scheduler._run_initial_audit_prune()
 
-    # Time: now=01:59, now_after=02:01 (past backup_hour=2)
-    _before = dt_module.datetime(2026, 5, 21, 1, 59, tzinfo=dt_module.timezone.utc)
-    _after  = dt_module.datetime(2026, 5, 21, 2, 1,  tzinfo=dt_module.timezone.utc)
-    _now_seq = [_before, _after]
+    assert any("Initial audit log prune failed" in message for message in errors)
 
-    class _FakeDT(dt_module.datetime):
-        _idx = 0
 
-        @classmethod
-        def now(cls, tz=None):  # type: ignore[override]
-            val = _now_seq[min(cls._idx, len(_now_seq) - 1)]
-            cls._idx += 1
-            return val
+async def test_start_scheduler_backup_load_exception_is_caught(monkeypatch):
+    """Exception loading fresh backup settings is caught and logged."""
+    class _BrokenContext:
+        async def __aenter__(self):
+            raise RuntimeError("backup settings load failure")
 
-    monkeypatch.setattr(notification_scheduler, "datetime", _FakeDT)
+        async def __aexit__(self, *a):
+            return False
 
-    sleep_calls = [0]
+    monkeypatch.setattr(notification_scheduler, "AsyncSessionLocal", lambda: _BrokenContext())
+    errors = []
+    monkeypatch.setattr(
+        notification_scheduler.log,
+        "error",
+        lambda message, *args, **kwargs: errors.append(message),
+    )
 
-    async def controlled_sleep(seconds):
-        sleep_calls[0] += 1
-        if sleep_calls[0] > 2:
-            raise StopAsyncIteration
+    settings = await notification_scheduler._load_backup_settings()
 
-    monkeypatch.setattr(notification_scheduler.asyncio, "sleep", controlled_sleep)
-
-    with caplog.at_level(logging.ERROR, logger="app.services.notification_scheduler"):
-        try:
-            await notification_scheduler.start_scheduler()
-        except StopAsyncIteration:
-            pass
-
-    assert any("Backup job failed to load settings" in r.message for r in caplog.records)
+    assert settings is None
+    assert any("Backup job failed to load settings" in message for message in errors)
 
 
 async def test_start_scheduler_backup_target_advances_to_tomorrow(db_session, monkeypatch, tmp_path):
