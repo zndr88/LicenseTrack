@@ -22,6 +22,7 @@ import app.models  # noqa: F401 — side-effect import registers every ORM model
 from app.main import app
 
 from app.models.user import User, UserRole
+from app.routes import backup as backup_module
 
 _TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -74,7 +75,7 @@ async def db_session():
 
 
 @pytest.fixture
-async def test_app(db_session):
+async def test_app(db_session, monkeypatch):
     """httpx.AsyncClient wired to the real FastAPI app via ASGITransport.
 
     The get_db dependency is overridden to use the in-memory test session.
@@ -85,6 +86,12 @@ async def test_app(db_session):
     async def override_get_db():
         yield db_session
 
+    session_factory = async_sessionmaker(
+        bind=db_session.bind,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    monkeypatch.setattr(backup_module, "AsyncSessionLocal", session_factory)
     app.dependency_overrides[get_db] = override_get_db
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
