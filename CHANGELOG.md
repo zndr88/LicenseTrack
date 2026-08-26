@@ -15,99 +15,67 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Added
 
-- Added stable OIDC issuer/subject identity binding, per-user session security
-  versions, backup schema manifests, restore maintenance coordination, and
-  durable audit events for operational and data-export activity.
-- Added optional line-item creation to `POST /api/pending-orders`, allowing a
-  pending-order header and its initial lines to be created atomically while
-  preserving compatibility with header-only requests.
-- Added durable sourcing-quote provenance to procurement documents and retired
-  license indicators to procurement responses, keeping historical evidence and
-  navigation useful after conversion and retirement.
+- Added filtered detailed-report APIs and complete, formula-safe CSV and
+  paginated PDF exports with native-currency totals.
+- Added persistent notification-run status for successful, partial, blocked,
+  failed, skipped, and no-work outcomes.
+- Added stable OIDC identity binding and per-user session invalidation.
+- Added optional atomic line-item creation to `POST /api/pending-orders` while
+  preserving header-only requests.
+- Added sourcing-quote provenance and retired-license context to procurement
+  history.
 
 ### Changed
 
-- Enforced the configured session timeout on the backend as an absolute JWT
-  lifetime, rotated sessions after password changes, and invalidated existing
-  sessions after security-sensitive user or access changes.
-- Expanded audit coverage for document downloads, CSV exports, contract
-  folders, import mappings, notifications, webhooks, backups, and restores,
-  with consistent Procurement filtering across list totals, pagination, and
-  export.
-- Prefilled subscription, SaaS, and maintenance renewal sourcing lines with an
-  editable one-year term that starts the day after the predecessor ends, while
-  leaving missing-date and non-standard renewal terms for manual review.
-- Required a budget owner before renewal initiation from License Details, the
-  Renewal Workbench, or the API. The Workbench now follows the same PO and
-  end-date bundle rules as License Details and excludes upcoming or
-  otherwise ineligible sibling licenses.
-- Restricted **Link existing successor** to the same entitlement identity,
-  including publisher, product, SKU, license metric, and license type, and
-  required every converted renewal successor to advance the predecessor term.
-- Made coterm financial handling preserve each line's own value. Within a
-  coterm merge, mixed unit prices are supported while currencies and license
-  types must match. Explicit line totals remain authoritative, and no
-  representative unit price or incomplete aggregate is invented when the
-  merged values cannot be stated accurately.
+- Unified report cards, forecasts, detailed views, CSV, and PDF around the same
+  filtered, currency-safe calculations.
+- Improved notification classification, delivery outcomes, loading errors, and
+  retry guidance across scheduled and manual runs.
+- Enforced backend session timeouts, rotated tokens after password changes, and
+  invalidated sessions after security-sensitive account changes.
+- Expanded audit coverage for downloads, exports, folders, mappings,
+  notifications, webhooks, backups, and restores.
+- Prefilled standard renewals with an editable one-year successor term and
+  required a budget owner before renewal initiation.
+- Aligned Renewal Workbench bundle eligibility with License Details and
+  restricted existing-successor links to matching entitlements with advancing
+  terms.
+- Preserved individual line values in coterm merges, including mixed unit
+  prices, while continuing to reject mixed currencies and license types.
 
 ### Fixed
 
+- Corrected reports for mixed currencies, shared procurement and maintenance
+  costs, invalid prices, and undated recurring records.
+- Strengthened notification recipient validation and prevented repeated
+  automatic retries after an unsuccessful daily attempt.
 - Enforced forced-password changes at the API boundary, rejected inactive local
-  logins, and hardened OIDC validation for normalized issuers, verified email,
-  authorized parties, and matching UserInfo subjects.
-- Hardened database restore by quiescing ordinary requests, validating archive
-  structure and schema compatibility, migrating and revalidating the staged
-  database before replacement, preserving recovery snapshots, and recording
-  post-restore outcomes without binding audits to unrelated restored users.
-- Prevented department-scoped Viewers from accessing shared procurement
-  evidence or contracts when any related license belongs to an unassigned
-  department, including retired contract links, while retaining per-user
-  document-download controls.
-- Hardened contract access and editing with authoritative record links, safe
-  legacy-number fallback, clearable notes, validated contract and folder names,
-  surfaced document errors, and synchronized contract document state.
-- Kept quote, purchase-order, and invoice evidence on the correct procurement
-  scope, preserved legacy license-specific evidence, and made upload rollback,
-  deletion cleanup, missing-file states, and permission-controlled downloads
-  more resilient.
-- Hardened native and mapped CSV imports with quote-aware delimiter detection,
-  duplicate and ambiguous header rejection, mapping-target and custom-field
-  validation, order-independent native aliases, and scalable duplicate
-  matching that preserves whitespace and Unicode case-folding behavior.
-- Kept Registry purchase-order totals and overrides isolated by both PO number
-  and currency, and made pending-order export line ordering deterministic.
-- Enforced a shared uniqueness namespace across canonical organization and
-  cost-centre names and their aliases, including race-safe renames, merges,
-  deactivation-aware lookup behavior, and an upgrade check that requires
-  existing namespace collisions to be resolved before migration.
-- Reduced reference-data administration and combobox query overhead with
-  grouped usage counts and lightweight lookup responses, kept their caches
-  synchronized after mutations and imports, and made custom-field reordering
-  a single atomic operation.
-- Reserved sourcing items and requests before conversion so concurrent SQLite
-  requests cannot create duplicate pending orders or license records.
-- Scoped license-level renewal cancellation to the selected renewal instead of
-  cancelling every line in its sourcing request, and based renewal emails on
-  the actual expiration state so upcoming licenses are not reported as
-  expiring.
-- Updated shared maintenance renewal to activate the successor for every linked
-  parent in deterministic order, while preserving coverage snapshots when
-  active maintenance is replaced or disabled.
-- Omitted inaccessible maintenance periods and commercial fields from scoped
-  coverage history, kept Coverage History available after disabling a linked
-  contract, and refreshed both maintenance and coverage history after changes.
-- Deduplicated shared maintenance costs in portfolio totals while retaining the
-  contract on every relevant parent row, and corrected prior-record cost
-  fallback to use the maintenance line's quantity and unit price.
-- Hardened final-line pending-order deletion for incomplete and partially
-  processed orders while retaining document and quote context in history, and
-  surfaced document-upload partial success without duplicate resubmission.
-- Extended the durable procurement-evidence workflow with explicit transfer
-  failure status and operator retry controls.
-- Made sourcing and pending-order history navigation locate, expand, and scroll
-  to highlighted records on the correct filtered and sorted page.
-- Extended existing procurement-trail links so they remain usable after a
-  linked license is retired, with navigation labelled accordingly.
+  logins, and tightened OIDC issuer, audience, email, and subject validation.
+- Made database restore maintenance-safe with archive and schema validation,
+  pre-swap migrations, recovery snapshots, and reliable outcome auditing.
+- Prevented department-scoped Viewers from accessing shared contracts or
+  procurement evidence connected to an unassigned department.
+- Improved contract authorization, validation, legacy matching, document error
+  handling, and synchronized document state.
+- Kept quote, purchase-order, and invoice evidence on the correct scope and
+  improved upload rollback, deletion cleanup, and missing-file handling.
+- Strengthened CSV import parsing, header and mapping validation, custom-field
+  handling, and duplicate detection.
+- Isolated purchase-order totals by PO number and currency and made exports
+  deterministic.
+- Enforced unique organization and cost-centre names and aliases, with an
+  upgrade check for existing conflicts.
+- Reduced reference-data query overhead and made custom-field reordering atomic.
+- Prevented concurrent sourcing conversions from creating duplicate pending
+  orders or licenses.
+- Scoped renewal cancellation correctly and stopped upcoming licenses from
+  generating expiry notifications.
+- Corrected shared-maintenance renewal, coverage history access and refresh,
+  and maintenance-cost calculations.
+- Improved final-line pending-order deletion, partial document-upload handling,
+  and procurement-evidence transfer recovery.
+- Kept procurement history navigation and links usable for filtered, converted,
+  and retired records.
 
 ## [1.1.13] - 2026-08-25
 
