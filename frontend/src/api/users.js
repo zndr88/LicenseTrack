@@ -1,15 +1,13 @@
 /**
- * User management API - admin user CRUD, role/password changes, and department
+ * User management API - admin user CRUD, password changes, and department
  * scope assignment.
  *
  * Endpoints:
  *   GET    /api/users - list users
  *   POST   /api/users - create user
  *   PUT    /api/users/{id} - update user profile/provider/role
- *   PUT    /api/users/{id}/role - legacy role-only update
  *   PUT    /api/users/{id}/reset-password - force password reset
  *   DELETE /api/users/{id} - delete user
- *   GET    /api/licenses/departments - list assignable departments
  *   GET    /api/users/{id}/departments - list user department assignments
  *   PUT    /api/users/{id}/departments - replace department assignments
  */
@@ -47,17 +45,6 @@ export async function updateUser(userId, userData) {
 }
 
 /**
- * Change the role of an existing user (admin only).
- *
- * @param {number} userId
- * @param {string} role - "admin" | "editor" | "viewer"
- * @returns {Promise<{ data: object | null, error: string | null }>}
- */
-export async function updateRole(userId, role) {
-  return put(`/api/users/${userId}/role`, { role });
-}
-
-/**
  * Delete a user (admin only).
  *
  * @param {number} userId
@@ -77,14 +64,6 @@ export async function deleteUser(userId) {
  */
 export async function resetUserPassword(userId, newPassword) {
   return put(`/api/users/${userId}/reset-password`, { new_password: newPassword });
-}
-
-/**
- * Fetch distinct department values available for assignment.
- * @returns {Promise<{ data: string[] | null, error: string | null }>}
- */
-export async function getDepartments() {
-  return get("/api/licenses/departments");
 }
 
 /**

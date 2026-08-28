@@ -69,10 +69,13 @@ describe("frontend API endpoint contracts", () => {
     });
 
     await licensesApi.patchLicenseField(7, "publisherName", "Acme");
-    expect(client.request).toHaveBeenLastCalledWith("/api/licenses/7/field", {
-      method: "PATCH",
-      body: JSON.stringify({ field: "publisherName", value: "Acme" }),
-    });
+    expect(client.patch).toHaveBeenLastCalledWith(
+      "/api/licenses/7/field",
+      { field: "publisherName", value: "Acme" },
+    );
+
+    await licensesApi.clearPoTotalOverride(7);
+    expect(client.del).toHaveBeenLastCalledWith("/api/licenses/7/po-total-override");
 
     await licensesApi.markLicenseNoticeHandled(7);
     expect(client.post).toHaveBeenLastCalledWith("/api/licenses/7/notice/handled", {});
@@ -119,17 +122,8 @@ describe("frontend API endpoint contracts", () => {
     await settingsApi.listExtensionCapabilities();
     expect(client.get).toHaveBeenLastCalledWith("/api/extensions/capabilities");
 
-    await settingsApi.upsertExtensionCapability("licensetrack-ai", { name: "AI", capabilityType: "document.processing" });
-    expect(client.put).toHaveBeenLastCalledWith(
-      "/api/extensions/capabilities/licensetrack-ai",
-      { name: "AI", capabilityType: "document.processing" }
-    );
-
     await settingsApi.deleteExtensionCapability("licensetrack-ai");
     expect(client.del).toHaveBeenLastCalledWith("/api/extensions/capabilities/licensetrack-ai");
-
-    await usersApi.updateRole(3, "editor");
-    expect(client.put).toHaveBeenLastCalledWith("/api/users/3/role", { role: "editor" });
 
     await usersApi.updateUserDepartments(3, ["Finance", "IT"]);
     expect(client.put).toHaveBeenLastCalledWith("/api/users/3/departments", { departments: ["Finance", "IT"] });

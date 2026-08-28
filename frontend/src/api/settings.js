@@ -220,11 +220,6 @@ export async function listExtensionCapabilities() {
   return get("/api/extensions/capabilities");
 }
 
-/** @returns {Promise<{ data: object | null, error: string | null }>} */
-export async function upsertExtensionCapability(key, payload) {
-  return put(`/api/extensions/capabilities/${key}`, payload);
-}
-
 /** @returns {Promise<{ data: null, error: string | null }>} */
 export async function deleteExtensionCapability(key) {
   return del(`/api/extensions/capabilities/${key}`);

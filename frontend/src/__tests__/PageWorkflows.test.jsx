@@ -74,7 +74,6 @@ vi.mock("../api/licenses.js", () => ({
   initiateRenewal: vi.fn(),
   initiateRenewalBundle: vi.fn(),
   cancelRenewal: vi.fn(),
-  getAllCustomFieldValues: vi.fn(),
   getCustomFieldValues: vi.fn(),
   upsertCustomFieldValues: vi.fn(),
   getMaintenanceForParent: vi.fn(),
@@ -120,7 +119,6 @@ vi.mock("../api/settings.js", () => ({
   retryWebhookDelivery: vi.fn(),
   testWebhook: vi.fn(),
   listExtensionCapabilities: vi.fn(),
-  upsertExtensionCapability: vi.fn(),
   deleteExtensionCapability: vi.fn(),
 }));
 
@@ -128,10 +126,8 @@ vi.mock("../api/users.js", () => ({
   getUsers: vi.fn(),
   createUser: vi.fn(),
   updateUser: vi.fn(),
-  updateRole: vi.fn(),
   deleteUser: vi.fn(),
   resetUserPassword: vi.fn(),
-  getDepartments: vi.fn(),
   getUserDepartments: vi.fn(),
   updateUserDepartments: vi.fn(),
 }));
@@ -157,14 +153,11 @@ vi.mock("../api/sourcing.js", () => ({
   getSourcingItems: vi.fn(),
   getSourcingRequestHistory: vi.fn(),
   getSourcingRequests: vi.fn(),
-  getSourcingItem: vi.fn(),
-  createSourcingItem: vi.fn(),
   createSourcingRequest: vi.fn(),
   addSourcingRequestItem: vi.fn(),
   updateSourcingItem: vi.fn(),
   deleteSourcingItem: vi.fn(),
   deleteSourcingRequest: vi.fn(),
-  convertSourcingItem: vi.fn(),
   convertSourcingRequest: vi.fn(),
   convertFreewareSourcingItem: vi.fn(),
   convertFreewareSourcingRequest: vi.fn(),
@@ -376,7 +369,6 @@ function setupDefaultApiMocks() {
   licensesApi.getLicense.mockResolvedValue({ data: null, error: null });
   licensesApi.getCustomFieldValues.mockResolvedValue({ data: { values: [] }, error: null });
   licensesApi.getStats.mockResolvedValue({ data: { total: 0, active: 0, expiring: 0, expired: 0, renewed: 0 }, error: null });
-  licensesApi.getAllCustomFieldValues.mockResolvedValue({ data: { values: [] }, error: null });
   sourcingApi.getSourcingItems.mockResolvedValue({ data: [], error: null });
   sourcingApi.getSourcingRequestHistory.mockResolvedValue({ data: [], error: null });
   sourcingApi.getSourcingRequests.mockResolvedValue({ data: [], error: null });
@@ -436,7 +428,6 @@ function setupDefaultApiMocks() {
   });
   csvImportApi.listImportMappings.mockResolvedValue({ data: [], error: null });
   usersApi.getUsers.mockResolvedValue({ data: [], error: null });
-  usersApi.getDepartments.mockResolvedValue({ data: [], error: null });
   usersApi.getUserDepartments.mockResolvedValue({ data: [], error: null });
   settingsApi.updateSettings.mockResolvedValue({ data: {}, error: null });
   settingsApi.updateGlobalSettings.mockResolvedValue({ data: {}, error: null });
@@ -1087,7 +1078,6 @@ describe("UsersPage workflows", () => {
       }],
       error: null,
     });
-    usersApi.getDepartments.mockResolvedValueOnce({ data: ["IT"], error: null });
     usersApi.getUserDepartments.mockResolvedValueOnce({ data: ["IT"], error: null });
     usersApi.updateUser.mockResolvedValueOnce({
       data: {

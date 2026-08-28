@@ -51,7 +51,6 @@ vi.mock('../api/licenses.js', () => ({
   }),
   getLicense: vi.fn(),
   upsertCustomFieldValues: vi.fn(),
-  getAllCustomFieldValues: vi.fn(),
   getLicenses: vi.fn(),
   updateLicense: vi.fn(),
   patchLicenseField: vi.fn(),

@@ -6,7 +6,6 @@ import { queryKeys } from "../../queryKeys.js";
 
 vi.mock("../../api/licenses.js", () => ({
   getLicenses: vi.fn().mockResolvedValue({ data: [{ id: 1, licenseRef: "L-001" }], error: null }),
-  getAllCustomFieldValues: vi.fn().mockResolvedValue({ data: { values: [] }, error: null }),
 }));
 vi.mock("../../api/pendingOrders.js", () => ({
   createPendingOrder: vi.fn(),

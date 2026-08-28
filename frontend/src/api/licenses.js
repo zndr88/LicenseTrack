@@ -1,17 +1,16 @@
 /**
- * License API - CRUD, stats, and CSV export.
+ * License API - CRUD and stats.
  *
  * Endpoints:
  *   GET    /api/licenses - list licenses (active by default)
  *   GET    /api/licenses/stats - dashboard statistics
- *   GET    /api/licenses/export - download CSV
  *   GET    /api/licenses/{id} - single license
  *   POST   /api/licenses - create license
  *   PUT    /api/licenses/{id} - update license
  *   DELETE /api/licenses/{id} - delete license (+ its documents)
  */
 
-import { del, get, post, put, request } from "./client.js";
+import { del, get, patch, post, put, request } from "./client.js";
 
 /**
  * Fetch all licenses.
@@ -182,10 +181,7 @@ export async function initiateRenewalBundle(licenseIds) {
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
 export async function patchLicenseField(id, field, value) {
-  return request(`/api/licenses/${id}/field`, {
-    method: "PATCH",
-    body: JSON.stringify({ field, value }),
-  });
+  return patch(`/api/licenses/${id}/field`, { field, value });
 }
 
 /** Set the shared total PO value override for every license with this PO. */
@@ -195,7 +191,7 @@ export async function setPoTotalOverride(id, value) {
 
 /** Clear the shared total PO value override for every license with this PO. */
 export async function clearPoTotalOverride(id) {
-  return request(`/api/licenses/${id}/po-total-override`, { method: "DELETE" });
+  return del(`/api/licenses/${id}/po-total-override`);
 }
 
 /**
@@ -230,15 +226,6 @@ export async function getCustomFieldValues(licenseId) {
 }
 
 /**
- * GET /api/custom-fields/values
- * Returns all custom field values across all licenses in a single request.
- * Returns { values: CustomFieldValueResponse[] }.
- */
-export async function getAllCustomFieldValues() {
-  return get("/api/custom-fields/values");
-}
-
-/**
  * PUT /api/licenses/{id}/custom-fields
  * Partial upsert - only fields in the payload are updated.
  * payload: { values: [{ customFieldDefId, valueText?, valueCurrency? }] }
@@ -249,30 +236,4 @@ export async function getAllCustomFieldValues() {
  */
 export async function upsertCustomFieldValues(licenseId, payload) {
   return put(`/api/licenses/${licenseId}/custom-fields/`, payload);
-}
-
-/**
- * Trigger a CSV export and initiate a browser file download.
- * Returns { data: null, error } - the download is handled as a side-effect.
- *
- * @returns {Promise<{ data: null, error: string | null }>}
- */
-export async function exportCsv() {
-  const { data: response, error } = await get("/api/licenses/export");
-  if (error || !response) {
-    return { data: null, error: error ?? "Export failed" };
-  }
-
-  // Trigger browser download from the streamed response
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "licenses_export.csv";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-
-  return { data: null, error: null };
 }
