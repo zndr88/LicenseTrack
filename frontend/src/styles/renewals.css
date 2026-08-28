@@ -1,20 +1,5 @@
 /* Renewal Workbench */
 .rw-page { display: flex; flex-direction: column; gap: 12px; }
-.rw-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 0; }
-.rw-toolbar { align-items: flex-start; }
-.rw-view-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.rw-chip { appearance: none; font-family: var(--font-sans); }
-.rw-chip.active { background: var(--bg-3); color: var(--text-1); border-color: var(--border-strong); }
-.rw-chip-count {
-  margin-left: 2px;
-  padding: 1px 5px;
-  border-radius: 999px;
-  background: var(--bg-1);
-  color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: 9px;
-}
-.rw-chip.active .rw-chip-count { color: var(--text-1); background: var(--bg-2); }
 .rw-state {
   display: flex;
   align-items: center;
@@ -29,7 +14,6 @@
 .rw-table th:nth-child(7) { width: 118px; }
 .rw-table th:nth-child(8) { width: 140px; }
 .rw-table th:nth-child(10) { width: 230px; }
-.rw-column-picker { position: relative; margin-left: auto; }
 .rw-column-btn { height: 30px; }
 .rw-column-menu {
   position: absolute;
@@ -75,8 +59,4 @@
 .rw-actions { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .rw-action-btn { padding: 4px 8px; font-size: 11px; min-height: 26px; }
 .rw-action-btn:disabled { opacity: .55; cursor: wait; }
-
-@media (max-width: 1180px) {
-  .rw-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
 

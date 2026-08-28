@@ -4,16 +4,6 @@
 .login-card { width: 400px; background: var(--bg-1); border: 1px solid var(--border-strong); border-radius: var(--r); padding: 40px; position: relative; z-index: 1; box-shadow: var(--shadow-md); }
 .login-brand { text-align: center; margin-bottom: 32px; }
 .login-form { margin-top: 20px; }
-.login-divider { text-align: center; color: var(--text-3); font-size: 12px; margin: 20px 0; position: relative; }
-.login-divider::before, .login-divider::after { content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: var(--border); }
-.login-divider::before { left: 0; }
-.login-divider::after { right: 0; }
-.mfa-step { text-align: center; }
-.mfa-step h3 { font-size: 15px; margin-bottom: 8px; }
-.mfa-step p { font-size: 12px; color: var(--text-2); margin-bottom: 20px; }
-.mfa-inputs { display: flex; gap: 8px; justify-content: center; margin-bottom: 20px; }
-.mfa-inputs input { width: 44px; height: 52px; text-align: center; font-family: var(--font-mono); font-size: 20px; font-weight: 700; background: var(--bg-2); border: 1.5px solid var(--border); border-radius: var(--r); color: var(--text-1); outline: none; transition: border-color .15s; }
-.mfa-inputs input:focus { border-color: var(--text-2); }
 
 /* Layout */
 .app { display: flex; min-height: 100vh; }
@@ -38,14 +28,6 @@
   font-size: 13px;
   letter-spacing: 0.08em;
   color: var(--brand-color);
-  line-height: 1;
-}
-.sb-sub {
-  font-family: var(--font-mono);
-  font-size: 7px;
-  letter-spacing: 0.2em;
-  color: var(--brand-color);
-  opacity: 0.35;
   line-height: 1;
 }
 
@@ -85,7 +67,6 @@
 }
 .nav-item:hover { background: var(--bg-3); color: var(--text-1); }
 .nav-item.active { background: var(--bg-2); color: var(--text-1); border-left-color: var(--text-1); }
-.nav-item.disabled { opacity: .4; pointer-events: none; }
 .nav-badge {
   position: absolute;
   right: 10px;
@@ -102,11 +83,7 @@
   justify-content: center;
   padding: 1px 5px;
 }
-.sb-user { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
 .sb-avatar { width: 32px; height: 32px; border-radius: 8px; background: var(--bg-3); color: var(--text-2); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: var(--font-mono); }
-.sb-user-info { flex: 1; min-width: 0; }
-.sb-user-info .name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-1); }
-.sb-user-info .role { font-size: 11px; color: var(--text-3); }
 
 /* App-right wrapper (topbar + main column) */
 .app-right {

@@ -51,11 +51,6 @@
   text-transform: uppercase;
   color: var(--orange-text);
 }
-.csv-parent-select {
-  width: 100%;
-  min-width: 0;
-  font-size: 11px;
-}
 .csv-parent-picker { position: relative; display: grid; gap: 6px; }
 .csv-parent-search { width: 100%; }
 .csv-parent-results {

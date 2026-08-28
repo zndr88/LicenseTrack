@@ -201,26 +201,34 @@
 .set-field-name-input { flex: 2; min-width: 160px; }
 .set-field-type-input { flex: 1; min-width: 100px; }
 .set-field-form-actions { display: flex; gap: 6px; padding-bottom: 1px; }
-.set-token-panel {
+.set-token-panel,
+.set-webhook-secret-panel {
   border: 1px solid var(--border);
   background: var(--bg-2);
   border-radius: 6px;
   padding: 12px;
   margin-bottom: 14px;
 }
-.set-token-panel-header {
+.set-token-panel-header,
+.set-webhook-secret-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;
 }
-.set-token-title { font-size: 13px; }
-.set-token-dismiss { font-size: 11px; padding: 3px 8px; }
-.set-token-panel-note { font-size: 12px; color: var(--text-2); margin: 0 0 8px; }
-.set-token-copy-row { display: flex; gap: 8px; align-items: center; }
-.set-token-input { font-size: 12px; }
-.set-token-copy-button { font-size: 12px; white-space: nowrap; }
+.set-token-title,
+.set-webhook-secret-title { font-size: 13px; }
+.set-token-dismiss,
+.set-webhook-secret-dismiss { font-size: 11px; padding: 3px 8px; }
+.set-token-panel-note,
+.set-webhook-secret-note { font-size: 12px; color: var(--text-2); margin: 0 0 8px; }
+.set-token-copy-row,
+.set-webhook-secret-copy-row { display: flex; gap: 8px; align-items: center; }
+.set-token-input,
+.set-webhook-secret-input { font-size: 12px; }
+.set-token-copy-button,
+.set-webhook-secret-copy-button { font-size: 12px; white-space: nowrap; }
 .set-token-empty { margin-bottom: 12px; }
 .set-token-table { margin-top: 12px; }
 .set-token-table th {
@@ -303,26 +311,6 @@
 .set-ext-error { color: var(--red); font-size: 12px; margin-top: 3px; }
 
 /* Settings webhooks */
-.set-webhook-secret-panel {
-  border: 1px solid var(--border);
-  background: var(--bg-2);
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 14px;
-}
-.set-webhook-secret-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.set-webhook-secret-title { font-size: 13px; }
-.set-webhook-secret-dismiss { font-size: 11px; padding: 3px 8px; }
-.set-webhook-secret-note { font-size: 12px; color: var(--text-2); margin: 0 0 8px; }
-.set-webhook-secret-copy-row { display: flex; gap: 8px; align-items: center; }
-.set-webhook-secret-input { font-size: 12px; }
-.set-webhook-secret-copy-button { font-size: 12px; white-space: nowrap; }
 .set-webhook-row-inactive { opacity: .6; }
 .set-webhook-name { font-size: 13px; font-weight: 600; }
 .set-webhook-url,

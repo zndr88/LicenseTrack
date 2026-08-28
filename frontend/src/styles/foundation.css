@@ -9,6 +9,20 @@
   --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.15);
   --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.40);
   --detail-panel-w: 440px;
+  /* Legacy aliases for JSX compatibility */
+  --text:       var(--text-1);
+  --border-lt:  var(--border-strong);
+  --bg-hover:   var(--bg-2);
+  --bg-active:  var(--bg-3);
+  --accent:     var(--text-1);
+  --accent-m:   var(--bg-3);
+  --accent-h:   var(--text-1);
+  --green-m:    var(--green-dim);
+  --orange-m:   var(--orange-dim);
+  --red-m:      var(--red-dim);
+  --mono:       var(--font-mono);
+  --sans:       var(--font-sans);
+  --surface-2:  var(--bg-2);
 }
 
 /* Focus visible - system default */
@@ -27,10 +41,6 @@
   color: var(--text-1);
   outline: 2px solid var(--text-2);
   outline-offset: -2px;
-}
-.role-sel:focus-visible {
-  outline: 2px solid var(--text-2);
-  outline-offset: 1px;
 }
 .chip select:focus-visible {
   outline: 2px solid var(--text-2);
@@ -75,20 +85,6 @@
   --steel-dim:    rgba(58,122,156,0.15);
   --steel-border: rgba(58,122,156,0.30);
   --steel-text:   #79bed8;
-  /* Legacy aliases for JSX compatibility */
-  --text:       var(--text-1);
-  --border-lt:  var(--border-strong);
-  --bg-hover:   var(--bg-2);
-  --bg-active:  var(--bg-3);
-  --accent:     var(--text-1);
-  --accent-m:   var(--bg-3);
-  --accent-h:   var(--text-1);
-  --green-m:    var(--green-dim);
-  --orange-m:   var(--orange-dim);
-  --red-m:      var(--red-dim);
-  --mono:       var(--font-mono);
-  --sans:       var(--font-sans);
-  --surface-2:  var(--bg-2);
 }
 
 /* Dark theme (Onyx - near-black) */
@@ -124,20 +120,6 @@
   --steel-dim:    rgba(58,122,156,0.15);
   --steel-border: rgba(58,122,156,0.30);
   --steel-text:   #5aaac8;
-  /* Legacy aliases */
-  --text:       var(--text-1);
-  --border-lt:  var(--border-strong);
-  --bg-hover:   var(--bg-2);
-  --bg-active:  var(--bg-3);
-  --accent:     var(--text-1);
-  --accent-m:   var(--bg-3);
-  --accent-h:   var(--text-1);
-  --green-m:    var(--green-dim);
-  --orange-m:   var(--orange-dim);
-  --red-m:      var(--red-dim);
-  --mono:       var(--font-mono);
-  --sans:       var(--font-sans);
-  --surface-2:  var(--bg-2);
 }
 
 /* Light theme */
@@ -173,20 +155,6 @@
   --steel-dim:    rgba(58,122,156,0.12);
   --steel-border: rgba(58,122,156,0.25);
   --steel-text:   #2a6a8c;
-  /* Legacy aliases for JSX compatibility */
-  --text:       var(--text-1);
-  --border-lt:  var(--border-strong);
-  --bg-hover:   var(--bg-2);
-  --bg-active:  var(--bg-3);
-  --accent:     var(--text-1);
-  --accent-m:   var(--bg-3);
-  --accent-h:   var(--text-1);
-  --green-m:    var(--green-dim);
-  --orange-m:   var(--orange-dim);
-  --red-m:      var(--red-dim);
-  --mono:       var(--font-mono);
-  --sans:       var(--font-sans);
-  --surface-2:  var(--bg-2);
 }
 
 /* Base reset */
