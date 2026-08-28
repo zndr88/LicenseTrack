@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSession, logout as apiLogout, logoutSession } from "../api/auth.js";
+import { getSession, logoutSession } from "../api/auth.js";
 import { useSessionTimeout } from "./useSessionTimeout.js";
 
 function toCurrentUser(apiUser) {
@@ -22,7 +22,6 @@ export function useAuth({ sessionTimeout, showToast }) {
 
   const handleSessionTimeout = useCallback(async () => {
     await logoutSession();
-    apiLogout();
     setCurrentUser(null);
     showToast("Session expired due to inactivity.", "info");
   }, [showToast]);
@@ -41,7 +40,6 @@ export function useAuth({ sessionTimeout, showToast }) {
 
   const handleLogout = useCallback(async () => {
     await logoutSession();
-    apiLogout();
     setCurrentUser(null);
   }, []);
 

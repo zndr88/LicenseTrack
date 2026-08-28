@@ -49,7 +49,6 @@ vi.mock("../components/ui/Icon.jsx", () => ({
 
 vi.mock("../api/auth.js", () => ({
   getSession: vi.fn(),
-  logout: vi.fn(),
   logoutSession: vi.fn(),
 }));
 

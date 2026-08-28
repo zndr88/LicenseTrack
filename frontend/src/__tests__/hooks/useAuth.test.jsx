@@ -1,14 +1,17 @@
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { useAuth } from "../../hooks/useAuth.js";
 import * as authApi from "../../api/auth.js";
 
 vi.mock("../../api/auth.js", () => ({
   getSession: vi.fn(),
-  logout: vi.fn(),
   logoutSession: vi.fn(),
 }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -50,8 +53,36 @@ describe("useAuth", () => {
     });
 
     expect(authApi.logoutSession).toHaveBeenCalledTimes(1);
-    expect(authApi.logout).toHaveBeenCalledTimes(1);
     expect(result.current.currentUser).toBeNull();
     expect(showToast).toHaveBeenCalledWith("Session expired due to inactivity.", "info");
+  });
+
+  test("explicit logout clears local auth state after requesting server cleanup", async () => {
+    authApi.getSession.mockResolvedValueOnce({
+      data: {
+        authenticated: true,
+        user: {
+          id: 1,
+          username: "admin",
+          role: "admin",
+          must_change_password: false,
+          auth_provider: "local",
+        },
+      },
+      error: null,
+    });
+    authApi.getSession.mockResolvedValue({ data: { authenticated: false, user: null }, error: null });
+    authApi.logoutSession.mockResolvedValue({ error: "Server cleanup failed" });
+    const { result } = renderHook(() => useAuth({ sessionTimeout: 0, showToast: vi.fn() }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await result.current.handleLogout();
+    });
+
+    expect(authApi.logoutSession).toHaveBeenCalledTimes(1);
+    expect(result.current.currentUser).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 /**
- * Authentication API - public auth mode, login/session, logout, current user,
- * and password change.
+ * Authentication API - public auth mode, login/session, logout, and password
+ * change.
  *
  * Endpoints:
  *   GET  /api/auth/mode - public auth mode
@@ -8,7 +8,6 @@
  *   POST /api/auth/login - obtain JWT and set session cookie
  *   POST /api/auth/logout - clear session cookie
  *   POST /api/auth/change-password - change own password (authenticated)
- *   GET  /api/users/me - current user profile
  */
 
 import { apiUrl, clearToken, get, post, setToken } from "./client.js";
@@ -47,26 +46,10 @@ export async function login(username, password) {
   return { data, error };
 }
 
-/**
- * Log out the current user by clearing the in-memory token.
- */
-export function logout() {
-  clearToken();
-}
-
 export async function logoutSession() {
   const { error } = await post("/api/auth/logout");
   clearToken();
   return { error };
-}
-
-/**
- * Fetch the authenticated user's own profile.
- *
- * @returns {Promise<{ data: object | null, error: string | null }>}
- */
-export async function getCurrentUser() {
-  return get("/api/users/me", { redirectOn401: false });
 }
 
 /**

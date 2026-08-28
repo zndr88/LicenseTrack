@@ -29,11 +29,6 @@ export function clearToken() {
   _token = null;
 }
 
-/** Return the currently stored token (or null). */
-export function getToken() {
-  return _token;
-}
-
 /**
  * Make an authenticated request to the backend.
  *
