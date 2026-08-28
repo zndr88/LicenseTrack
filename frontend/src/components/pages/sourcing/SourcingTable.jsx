@@ -43,19 +43,6 @@ function downloadDocumentLabel(document, fallback) {
   return isFileAvailable(document) ? `Download ${filename}` : `${documentAvailabilityLabel(document)}: ${filename}`;
 }
 
-function SourcingStatusBadges({ item }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      {item.isRenewal && (
-        <span className="badge badge-pending">
-          {item.cotermPredecessorIds?.length > 0 ? "Coterm Renewal" : "Renewal"}
-        </span>
-      )}
-
-    </div>
-  );
-}
-
 function hasLinkedPendingOrder(item) {
   return Boolean(item.pendingOrderId);
 }
@@ -157,7 +144,9 @@ function SourcingItemsRow({
                   <td>
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       {si.isRenewal ? (
-                        <SourcingStatusBadges item={si} />
+                        <span className="badge badge-pending">
+                          {si.cotermPredecessorIds?.length > 0 ? "Coterm Renewal" : "Renewal"}
+                        </span>
                       ) : si.licenseType === "freeware" ? (
                         <span className="badge badge-blue">Freeware / Open Source</span>
                       ) : !readOnly && hasLinkedPendingOrder(si) ? (
@@ -410,7 +399,7 @@ export default function SourcingTable({
                 }
               };
               const quoteDocuments = request.quoteDocuments ?? [];
-              const historyMenuItems = [
+              const quoteMenuItems = [
                 ...quoteDocuments.map((document, index) => ({
                   key: `quote-${document.id ?? index}`,
                   label: downloadDocumentLabel(document, "quote"),
@@ -444,23 +433,7 @@ export default function SourcingTable({
                   hidden: !perms.canEdit,
                   onClick: () => onUploadQuote(request),
                 },
-                ...quoteDocuments.map((document, index) => ({
-                  key: `quote-${document.id ?? index}`,
-                  label: downloadDocumentLabel(document, "quote"),
-                  icon: "download",
-                  disabled: !isFileAvailable(document),
-                  title: documentAvailabilityHelp(document),
-                  onClick: () => onDownloadQuote(document),
-                })),
-                ...quoteDocuments.map((document, index) => ({
-                  key: `delete-quote-${document.id ?? index}`,
-                  label: `Delete ${documentFilename(document, "quote")}`,
-                  icon: "trash",
-                  danger: true,
-                  separatorBefore: index === 0,
-                  hidden: !perms.canEdit,
-                  onClick: () => onDeleteQuote(document),
-                })),
+                ...quoteMenuItems,
                 {
                   key: "add-line",
                   label: "Add License Line",
@@ -510,7 +483,7 @@ export default function SourcingTable({
                           {renderReferenceCell(request)}
                           <RowActionsMenu
                             label={`More document actions for sourcing request ${request.id}`}
-                            items={historyMenuItems}
+                            items={quoteMenuItems}
                           />
                         </div>
                       ) : (

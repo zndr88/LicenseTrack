@@ -2,6 +2,36 @@ import React from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { DonutLegend, EmptyState, PALETTE, Section } from "./reportShared.jsx";
 
+function DonutPanel({ title, data, total }) {
+  return (
+    <div style={{ flex: 1, minWidth: 0, width: "50%" }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: "var(--text-2)" }}>{title}</div>
+      {data.length === 0 ? <EmptyState /> : (
+        <>
+          <ResponsiveContainer width="100%" height={320}>
+            <PieChart height={320}>
+              <Pie data={data} cx="50%" cy="50%" innerRadius={70} outerRadius={120} dataKey="value" stroke="none">
+                {data.map((_, index) => (
+                  <Cell key={index} fill={PALETTE[index % PALETTE.length]} />
+                ))}
+              </Pie>
+              <Tooltip content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                return (
+                  <div style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 12px", fontSize: 12 }}>
+                    <span style={{ fontWeight: 600 }}>{payload[0].name}</span>: {payload[0].value}
+                  </div>
+                );
+              }} />
+            </PieChart>
+          </ResponsiveContainer>
+          <DonutLegend data={data} total={total} />
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function PortfolioBreakdownSection({ portfolioData, totalCount, isOpen, onToggle, forceOpen }) {
   return (
     <Section
@@ -17,71 +47,8 @@ export default function PortfolioBreakdownSection({ portfolioData, totalCount, i
     >
       {totalCount === 0 ? <EmptyState /> : (
         <div style={{ display: "flex", flexDirection: "row", width: "100%", gap: "24px" }}>
-          <div style={{ flex: 1, minWidth: 0, width: "50%" }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: "var(--text-2)" }}>By License Type</div>
-            {portfolioData.byType.length === 0 ? <EmptyState /> : (
-              <>
-                <ResponsiveContainer width="100%" height={320}>
-                  <PieChart height={320}>
-                    <Pie
-                      data={portfolioData.byType}
-                      cx="50%" cy="50%"
-                      innerRadius={70} outerRadius={120}
-                      dataKey="value" stroke="none"
-                    >
-                      {portfolioData.byType.map((_, i) => (
-                        <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null;
-                        return (
-                          <div style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 12px", fontSize: 12 }}>
-                            <span style={{ fontWeight: 600 }}>{payload[0].name}</span>: {payload[0].value}
-                          </div>
-                        );
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <DonutLegend data={portfolioData.byType} total={totalCount} />
-              </>
-            )}
-          </div>
-
-          <div style={{ flex: 1, minWidth: 0, width: "50%" }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: "var(--text-2)" }}>By Billing Metric</div>
-            {portfolioData.byMetric.length === 0 ? <EmptyState /> : (
-              <>
-                <ResponsiveContainer width="100%" height={320}>
-                  <PieChart height={320}>
-                    <Pie
-                      data={portfolioData.byMetric}
-                      cx="50%" cy="50%"
-                      innerRadius={70} outerRadius={120}
-                      dataKey="value" stroke="none"
-                    >
-                      {portfolioData.byMetric.map((_, i) => (
-                        <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null;
-                        return (
-                          <div style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 12px", fontSize: 12 }}>
-                            <span style={{ fontWeight: 600 }}>{payload[0].name}</span>: {payload[0].value}
-                          </div>
-                        );
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <DonutLegend data={portfolioData.byMetric} total={totalCount} />
-              </>
-            )}
-          </div>
+          <DonutPanel title="By License Type" data={portfolioData.byType} total={totalCount} />
+          <DonutPanel title="By Billing Metric" data={portfolioData.byMetric} total={totalCount} />
         </div>
       )}
     </Section>

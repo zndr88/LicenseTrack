@@ -55,6 +55,14 @@ function normalizeDelivery(delivery) {
   };
 }
 
+function selectWebhookEvent(current, event) {
+  if (event === "*") return current.includes("*") ? ["license.created"] : ["*"];
+  const withoutAll = current.filter((item) => item !== "*");
+  return withoutAll.includes(event)
+    ? withoutAll.filter((item) => item !== event)
+    : [...withoutAll, event].sort();
+}
+
 function deliveryStatusClass(status) {
   if (status === "succeeded") return "set-webhook-delivery-status-succeeded";
   if (status === "failed") return "set-webhook-delivery-status-failed";
@@ -118,13 +126,7 @@ export default function WebhooksSection({ isOpen, isDirty, onToggle, onError, on
   };
 
   const toggleEvent = (event) => {
-    setEvents((current) => {
-      if (event === "*") return current.includes("*") ? ["license.created"] : ["*"];
-      const withoutAll = current.filter((item) => item !== "*");
-      return withoutAll.includes(event)
-        ? withoutAll.filter((item) => item !== event)
-        : [...withoutAll, event].sort();
-    });
+    setEvents((current) => selectWebhookEvent(current, event));
   };
 
   const handleCreate = async () => {
@@ -169,13 +171,7 @@ export default function WebhooksSection({ isOpen, isDirty, onToggle, onError, on
   };
 
   const toggleEditEvent = (event) => {
-    setEditEvents((current) => {
-      if (event === "*") return current.includes("*") ? ["license.created"] : ["*"];
-      const withoutAll = current.filter((item) => item !== "*");
-      return withoutAll.includes(event)
-        ? withoutAll.filter((item) => item !== event)
-        : [...withoutAll, event].sort();
-    });
+    setEditEvents((current) => selectWebhookEvent(current, event));
   };
 
   const handleSaveEdit = async () => {

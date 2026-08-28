@@ -278,7 +278,7 @@ function CreateReference({ kind, onCreated, onError, onToast }) {
   );
 }
 
-function ReferenceGroup({ kind, isOpen, isDirty, onToggle, onError, onToast }) {
+export default function ReferenceDataSection({ kind, isOpen, isDirty, onToggle, onError, onToast }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -308,8 +308,4 @@ function ReferenceGroup({ kind, isOpen, isDirty, onToggle, onError, onToast }) {
       </div>
     </div>
   );
-}
-
-export default function ReferenceDataSection({ kind, isOpen, isDirty, onToggle, onError, onToast }) {
-  return <ReferenceGroup kind={kind} isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} onError={onError} onToast={onToast} />;
 }
