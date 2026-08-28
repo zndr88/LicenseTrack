@@ -1,13 +1,9 @@
 import { NON_ENTITLEMENT_LICENSE_TYPES, NON_EXPIRING_LICENSE_TYPES } from "../constants/licenseData.js";
 
-// Utility Functions
-export const generateId = () => Math.random().toString(36).substr(2, 9);
-
 // Permission Helpers
 export const isAdmin = (user) => user?.role === "admin";
 export const isEditorOrAdmin = (user) => user?.role === "admin" || user?.role === "editor";
 export const canEdit = (user) => isEditorOrAdmin(user);
-export const canManageUsers = (user) => isAdmin(user);
 export const todayStr = () => new Date().toISOString().split("T")[0];
 export const daysBetween = (a, b) => Math.ceil((new Date(b) - new Date(a)) / 86400000);
 
@@ -60,13 +56,6 @@ export function formatPriceInput(value, locale = "en-US") {
     return value;
   }
 }
-
-export const formatFileSize = (bytes) => {
-  if (!bytes) return "";
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / 1048576).toFixed(1) + " MB";
-};
 
 export const getPoTotal = (poNumber, currency, allLicenses) => {
   if (!poNumber || !currency) return 0;

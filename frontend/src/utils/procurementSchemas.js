@@ -56,12 +56,6 @@ export const licenseFormSchema = z.object({
   notes:               z.string(),
 });
 
-/** ConvertAllModal - one item per sourcing row (adds array-only fields). */
-export const convertAllItemSchema = licenseFormSchema.extend({
-  sourcingItemId: z.number(),
-  isRenewal:      z.boolean(),
-});
-
 const sourcingRequestLineSchema = (settings) => {
   const optionalNumber = z.string().refine(
     (value) => !value || parseLocalizedNumber(value, settings) !== null,
