@@ -54,7 +54,7 @@ export default function CommercialSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit license type"
                     onClick={() => openFieldEdit({ fieldKey: "licenseType", fieldLabel: "License Type", currentValue: license.licenseType || "", inputType: "select", selectOptions: LICENSE_TYPES })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -73,7 +73,7 @@ export default function CommercialSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit portal URL"
                     onClick={() => openFieldEdit({ fieldKey: "portalUrl", fieldLabel: "Portal URL", currentValue: license.portalUrl || "", inputType: "text" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -92,7 +92,7 @@ export default function CommercialSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit license metric"
                     onClick={() => openFieldEdit({ fieldKey: "licenseMetric", fieldLabel: "License Metric", currentValue: license.licenseMetric || "", inputType: "select", selectOptions: LICENSE_METRICS })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -107,7 +107,7 @@ export default function CommercialSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit purchase quantity"
                     onClick={() => openFieldEdit({ fieldKey: "quantity", fieldLabel: "Purchase Quantity", currentValue: license.quantity || "", inputType: "text" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -122,7 +122,7 @@ export default function CommercialSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit quantity per unit"
                     onClick={() => openFieldEdit({ fieldKey: "quantityPerUnit", fieldLabel: "Quantity per Unit", currentValue: license.quantityPerUnit || "1", inputType: "text" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -143,7 +143,7 @@ export default function CommercialSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit SKU code"
                     onClick={() => openFieldEdit({ fieldKey: "skuCode", fieldLabel: "SKU Code", currentValue: license.skuCode || "", inputType: "text" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -158,7 +158,7 @@ export default function CommercialSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit unit price"
                     onClick={() => openFieldEdit({ fieldKey: "unitPrice", fieldLabel: "Unit Price", currentValue: license.unitPrice || "", inputType: "text" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -201,7 +201,7 @@ export default function CommercialSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit currency"
                     onClick={() => openFieldEdit({ fieldKey: "currency", fieldLabel: "Currency", currentValue: license.currency || "", inputType: "select", selectOptions: CURRENCIES.map((c) => ({ value: c, label: c })) })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}

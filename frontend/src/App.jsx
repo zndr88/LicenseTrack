@@ -182,11 +182,8 @@ export default function App() {
         setPage={handleSetPage}
         setSelectedId={handleSetSelectedId}
         currentUser={currentUser}
-        notifications={notifications}
-        onLogout={handleLogout}
         collapsed={userSettings.sidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
-        userSettings={userSettings}
         stats={sidebarStats}
       />
 

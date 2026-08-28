@@ -9,7 +9,6 @@ export default function DetailSectionHeader({ sectionKey, title, isOpen, onToggl
       onClick={() => onToggle(sectionKey)}
       aria-expanded={isOpen}
       aria-controls={`dp-section-${sectionKey}`}
-      onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}
     >
       <span className="dp-section-title">{children ?? title}</span>
       <span style={{ display: "inline-flex", flexShrink: 0, transform: isOpen ? "none" : "rotate(90deg)", transition: "transform 0.15s" }}>

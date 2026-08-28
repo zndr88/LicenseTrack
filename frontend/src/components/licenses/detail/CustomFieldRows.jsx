@@ -68,7 +68,6 @@ export default function CustomFieldRows({
                   onSaveCallback: onCloseFieldEdit,
                 })
               }
-              onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}
             >
               <Icon name="edit" size={11} />
             </button>

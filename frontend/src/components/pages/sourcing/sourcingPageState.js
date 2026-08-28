@@ -20,9 +20,6 @@ export function sortSourcingRequests(requests, sortCol, sortDir) {
     const aVal = requestValue(a, sortCol);
     const bVal = requestValue(b, sortCol);
 
-    if (aVal === null || aVal === undefined) return 1;
-    if (bVal === null || bVal === undefined) return -1;
-
     const comparison = typeof aVal === "number"
       ? aVal - bVal
       : String(aVal).localeCompare(String(bVal), undefined, { sensitivity: "base" });

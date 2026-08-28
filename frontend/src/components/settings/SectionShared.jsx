@@ -17,9 +17,6 @@ export function SectionHeader({
       className="settings-section-header"
       onClick={() => onToggle(sectionKey)}
       aria-expanded={!!isOpen}
-      onKeyDown={(event) => {
-        if (event.key === " ") event.preventDefault();
-      }}
     >
       <div>
         <h3 className="settings-section-title">

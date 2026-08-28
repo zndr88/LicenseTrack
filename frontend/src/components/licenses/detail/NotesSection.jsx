@@ -34,7 +34,7 @@ export function NotesSection({
               <button type="button" className="dp-field-edit-icon" aria-label="Edit notes"
                 style={{ marginLeft: 0, marginTop: 1 }}
                 onClick={() => openFieldEdit({ fieldKey: "notes", fieldLabel: "Notes", currentValue: license.notes || "", inputType: "textarea" })}
-                onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+              >
                 <Icon name="edit" size={11} />
               </button>
             )}

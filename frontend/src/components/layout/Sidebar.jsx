@@ -1,10 +1,8 @@
 import React from "react";
 import { APP_VERSION } from "../../version.js";
-import { ROLE_PERMISSIONS } from "../../constants/permissions.js";
 import Icon from "../ui/Icon.jsx";
 
-export default function Sidebar({ page, setPage, setSelectedId, currentUser, notifications: _notifications, collapsed, onToggleCollapse, userSettings: _userSettings, stats = { active: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 } }) {
-  const perms = ROLE_PERMISSIONS[currentUser.role];
+export default function Sidebar({ page, setPage, setSelectedId, currentUser, collapsed, onToggleCollapse, stats = { active: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 } }) {
   const role = currentUser.role;
 
   const allNavItems = [
@@ -14,7 +12,7 @@ export default function Sidebar({ page, setPage, setSelectedId, currentUser, not
     { id: "licenses",       icon: "list",   label: "License Overview" },
     { id: "contracts",      icon: "file",   label: "Contracts" },
     { id: "user-settings",  icon: "settings", label: "My Settings",    showIf: role === "viewer" },
-  ].filter((item) => !(item.need && !perms[item.need]) && item.showIf !== false);
+  ].filter((item) => item.showIf !== false);
 
   const pipelineItems = allNavItems.filter((item) =>
     ["sourcing", "pending-orders", "renewal-workbench", "licenses"].includes(item.id)

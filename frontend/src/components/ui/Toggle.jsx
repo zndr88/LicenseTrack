@@ -8,12 +8,6 @@ const Toggle = ({ value, onChange, ariaLabel }) => (
     type="button"
     className={`toggle ${value ? "on" : ""}`}
     onClick={() => onChange(!value)}
-    onKeyDown={(e) => {
-      if (e.key === " " || e.key === "Enter") {
-        e.preventDefault();
-        onChange(!value);
-      }
-    }}
   >
     <div className="toggle-k" />
   </button>

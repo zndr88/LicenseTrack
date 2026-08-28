@@ -82,7 +82,7 @@ export default function IdentitySection({
               {perms.canEdit && (
                 <button type="button" className="dp-field-edit-icon" aria-label="Edit publisher"
                   onClick={() => openFieldEdit({ fieldKey: "publisherName", fieldLabel: "Publisher", currentValue: license.publisherName || "", inputType: "text" })}
-                  onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                >
                   <Icon name="edit" size={11} />
                 </button>
               )}
@@ -92,7 +92,7 @@ export default function IdentitySection({
               {perms.canEdit && (
                 <button type="button" className="dp-field-edit-icon" aria-label="Edit description"
                   onClick={() => openFieldEdit({ fieldKey: "softwareDescription", fieldLabel: "Description", currentValue: license.softwareDescription || "", inputType: "text" })}
-                  onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                >
                   <Icon name="edit" size={11} />
                 </button>
               )}
@@ -127,7 +127,7 @@ export default function IdentitySection({
                   {perms.canEdit && (
                     <button type="button" className="dp-field-edit-icon" aria-label="Edit license type"
                       onClick={() => openFieldEdit({ fieldKey: "licenseType", fieldLabel: "License Type", currentValue: license.licenseType || "", inputType: "select", selectOptions: LICENSE_TYPES })}
-                      onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                    >
                       <Icon name="edit" size={11} />
                     </button>
                   )}

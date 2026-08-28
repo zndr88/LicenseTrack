@@ -257,7 +257,6 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
                 <button
                   type="button"
                   onClick={() => setLicensesOpen((v) => !v)}
-                  onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setLicensesOpen((v) => !v); } }}
                   aria-expanded={licensesOpen}
                   style={{ margin: licensesOpen ? "0 0 12px" : 0, fontSize: 13, fontWeight: 600, fontFamily: "inherit", color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", appearance: "none", background: "none", border: "none", padding: 0, width: "100%", textAlign: "left" }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; }}
@@ -279,7 +278,6 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
                         key={lic.id}
                         type="button"
                         onClick={() => handleLicenseClick(lic.id)}
-                        onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); handleLicenseClick(lic.id); } }}
                         aria-label={`View license: ${lic.publisherName} — ${lic.softwareDescription}`}
                         style={{
                           display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -365,4 +363,3 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
     </>
   );
 }
-

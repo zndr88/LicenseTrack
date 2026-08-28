@@ -19,11 +19,6 @@ import { getLicenses } from "../../api/licenses.js";
 const PRIMARY_LINE_ID = "primary";
 const PROCUREMENT_DOCUMENT_CATEGORIES = new Set(["invoice", "quote", "purchase_order"]);
 
-const formatStrategyLabel = (data) => {
-  if (data.strategyUsed === "manual") return "Manual entry";
-  return "Manual entry";
-};
-
 const DOC_CATEGORY_OPTIONS = [
   { value: "invoice", label: "Invoice" },
   { value: "quote", label: "Quote" },
@@ -285,7 +280,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     >
         <div className="modal-bd">
           <div className="fs">
-            <h4><Icon name="shield" size={14} color="var(--accent)" /> {formatStrategyLabel(data)}: {data.fileName}</h4>
+            <h4><Icon name="shield" size={14} color="var(--accent)" /> Manual entry: {data.fileName}</h4>
             <p style={{ fontSize: 11, color: "var(--text-3)" }}>Review and correct any fields before saving.</p>
           </div>
           {/* Attach document - kept at the top so it sits with the Parse Document

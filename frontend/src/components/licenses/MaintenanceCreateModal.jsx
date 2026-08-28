@@ -135,10 +135,6 @@ export default function MaintenanceCreateModal({
     return createLicense(payload);
   };
 
-  const handleLinkExisting = () => (
-    linkMaintenanceToParent(parentLicense.id, Number(selectedMaintenanceId))
-  );
-
   const handleSave = async () => {
     if (!canSave) return;
     setSaving(true);
@@ -146,7 +142,7 @@ export default function MaintenanceCreateModal({
 
     const { error: apiError } = mode === "create"
       ? await handleCreate()
-      : await handleLinkExisting();
+      : await linkMaintenanceToParent(parentLicense.id, Number(selectedMaintenanceId));
     setSaving(false);
     if (apiError) {
       setError(apiError);

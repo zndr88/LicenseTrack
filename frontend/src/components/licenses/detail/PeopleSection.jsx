@@ -97,7 +97,7 @@ export default function PeopleSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit supplier"
                     onClick={() => openFieldEdit({ fieldKey: "supplier", fieldLabel: "Supplier", currentValue: license.supplier || "", inputType: "text" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -112,7 +112,7 @@ export default function PeopleSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit cost centre"
                     onClick={() => openFieldEdit({ fieldKey: "costCentre", fieldLabel: "Cost Centre/Dept", currentValue: license.costCentre || "", inputType: "text" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -129,7 +129,7 @@ export default function PeopleSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit publisher contact"
                     onClick={() => openFieldEdit({ fieldKey: "contactEmail", fieldLabel: "Publisher Contact", currentValue: license.contactEmail || "", inputType: "email" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -144,7 +144,7 @@ export default function PeopleSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit publisher contact"
                     onClick={() => openFieldEdit({ fieldKey: "contactEmail", fieldLabel: "Publisher Contact", currentValue: license.contactEmail || "", inputType: "email" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -175,14 +175,14 @@ export default function PeopleSection({
               {perms.canEdit && (
                 <button type="button" className="dp-field-edit-icon" aria-label="Edit budget owner"
                   onClick={() => openFieldEdit({ fieldKey: "budgetOwnerEmail", fieldLabel: "Budget Owner", currentValue: license.budgetOwnerEmail || "", inputType: "email" })}
-                  onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                >
                   <Icon name="edit" size={11} />
                 </button>
               )}
               {perms.canEdit && (
                 <button type="button" className="dp-field-edit-icon" aria-label="Edit secondary contacts"
                   onClick={openSecondaryContactsEdit}
-                  onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                >
                   <Icon name="plus" size={11} />
                 </button>
               )}

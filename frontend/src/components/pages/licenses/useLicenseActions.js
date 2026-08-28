@@ -125,14 +125,6 @@ export function useLicenseActions({
     invalidateNotifications(queryClient);
   }, [updateLicensesInCache, onPortfolioStateChange, showError, queryClient]);
 
-  const handleCreateRenewal = useCallback(async (licenseId) => {
-    return startRenewal(licenseId);
-  }, [startRenewal]);
-
-  const handleCreateRenewalBundle = useCallback(async (licenseIds) => {
-    return startRenewalBundle(licenseIds);
-  }, [startRenewalBundle]);
-
   const handleCancelRenewal = useCallback(async (licenseId) => {
     const result = await cancelRenewalWorkflow(licenseId);
     return result.ok;
@@ -184,8 +176,8 @@ export function useLicenseActions({
     handleLicenseFieldPatch,
     handlePoTotalOverride,
     handleLicenseDelete,
-    handleCreateRenewal,
-    handleCreateRenewalBundle,
+    handleCreateRenewal: startRenewal,
+    handleCreateRenewalBundle: startRenewalBundle,
     handleCancelRenewal,
     handleUnlinkExistingSuccessor,
     handleBulkDelete,

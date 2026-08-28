@@ -5,8 +5,6 @@ import {
 import { getCustomFields, sortText } from "./workbenchRules.js";
 import { formatDate as formatDateUtil } from "../../../utils/formatting.js";
 
-export const REQUIRED_COLUMN_IDS = new Set(["license", "dueDate", "status", "actions"]);
-
 export const BUILT_IN_COLUMNS = [
   { id: "dueDate", label: "Due Date", required: true, defaultVisible: true },
   { id: "days", label: "Days", required: false, defaultVisible: true },
@@ -100,7 +98,7 @@ export function buildWorkbenchColumns(rows = [], definitions = []) {
 
 export function getVisibleWorkbenchColumns(columns, savedVisibility = {}) {
   return columns.filter((column) => {
-    if (column.required || REQUIRED_COLUMN_IDS.has(column.id)) return true;
+    if (column.required) return true;
     if (Object.prototype.hasOwnProperty.call(savedVisibility, column.id)) {
       return savedVisibility[column.id] !== false;
     }

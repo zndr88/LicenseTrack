@@ -157,7 +157,6 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
           <button
             type="button"
             onClick={() => setDocumentsOpen((v) => !v)}
-            onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setDocumentsOpen((v) => !v); } }}
             aria-expanded={documentsOpen}
             style={{ margin: 0, fontSize: 13, fontWeight: 600, fontFamily: "inherit", color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", appearance: "none", background: "none", border: "none", padding: 0, textAlign: "left" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; }}
@@ -206,7 +205,6 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
                     <button
                       type="button"
                       onClick={() => toggleFolder("general")}
-                      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleFolder("general"); } }}
                       aria-expanded={generalIsExpanded}
                       aria-label="Toggle General folder"
                       style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, cursor: "pointer", color: "var(--text)", appearance: "none", background: "none", border: "none", padding: 0, fontFamily: "inherit", textAlign: "left" }}
@@ -265,7 +263,6 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
                       <button
                         type="button"
                         onClick={() => toggleFolder(folder.id)}
-                        onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleFolder(folder.id); } }}
                         aria-expanded={isExpanded}
                         aria-label={`Toggle ${folder.name} folder`}
                         style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, cursor: "pointer", color: "var(--text)", appearance: "none", background: "none", border: "none", padding: 0, fontFamily: "inherit", textAlign: "left" }}
@@ -351,14 +348,14 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
   );
 }
 
-function DocSection({ docs, canEdit, canDownload = true, hideUpload, uploading, downloadingId, onUpload, onDownload, onDeleteRequest }) {
+function DocSection({ docs, canEdit, canDownload = true, uploading, downloadingId, onUpload, onDownload, onDeleteRequest }) {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) onUpload(file);
     e.target.value = "";
   };
 
-  const showUpload = canEdit && !hideUpload;
+  const showUpload = canEdit;
 
   return (
     <div style={{ background: "var(--bg-2)", borderRadius: "var(--r)", padding: "10px 14px" }}>

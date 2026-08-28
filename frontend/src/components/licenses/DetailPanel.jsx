@@ -69,7 +69,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     coverageHistory, setCoverageHistory,
     historyLoading,
     fetchMaintenanceHistory,
-    documents, docsLoading, uploadingCategory, docCount, docAvailabilitySummary,
+    documents, docsLoading, uploadingCategory, docCount,
     documentActions, documentActionBusy,
     processingResults, processingResultHistory, processingResultsLoading, processingRequestPending, processingReviewBusy,
     handleFileUpload, handleFileRemove, handleFileDownload, handleFilePreview, handleDocumentAction,
@@ -256,7 +256,6 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               documents={documents}
               docsLoading={docsLoading}
               docCount={docCount}
-              docAvailabilitySummary={docAvailabilitySummary}
               uploadingCategory={uploadingCategory}
               documentActions={documentActions}
               documentActionBusy={documentActionBusy}

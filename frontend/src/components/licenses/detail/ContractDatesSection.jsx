@@ -50,7 +50,7 @@ export default function ContractDatesSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit start date"
                     onClick={() => openFieldEdit({ fieldKey: "startDate", fieldLabel: "Start Date", currentValue: license.startDate || "", inputType: "date" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -63,7 +63,7 @@ export default function ContractDatesSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit end date"
                     onClick={() => openFieldEdit({ fieldKey: "endDate", fieldLabel: "End Date", currentValue: license.endDate || "", inputType: "date" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -78,7 +78,7 @@ export default function ContractDatesSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit procurement reference"
                     onClick={() => openFieldEdit({ fieldKey: "procurementReference", fieldLabel: "Procurement reference", currentValue: license.procurementReference || "", inputType: "text" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -93,7 +93,7 @@ export default function ContractDatesSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit request date"
                     onClick={() => openFieldEdit({ fieldKey: "requestDate", fieldLabel: "Request Date", currentValue: license.requestDate?.slice(0, 10) || "", inputType: "date" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -106,7 +106,7 @@ export default function ContractDatesSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit purchase date"
                     onClick={() => openFieldEdit({ fieldKey: "purchaseDate", fieldLabel: "Purchase Date", currentValue: license.purchaseDate?.slice(0, 10) || "", inputType: "date" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -121,7 +121,7 @@ export default function ContractDatesSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit notice date"
                     onClick={() => openFieldEdit({ fieldKey: "noticeDate", fieldLabel: "Notice Date", currentValue: license.noticeDate || "", inputType: "date" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -155,7 +155,7 @@ export default function ContractDatesSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit PO number"
                     onClick={() => openFieldEdit({ fieldKey: "poNumber", fieldLabel: "PO #", currentValue: license.poNumber || "", inputType: "text" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -170,7 +170,7 @@ export default function ContractDatesSection({
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit contract number"
                     onClick={() => openFieldEdit({ fieldKey: "contractNumber", fieldLabel: "Contract #", currentValue: license.contractNumber || "", inputType: "text" })}
-                    onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                  >
                     <Icon name="edit" size={11} />
                   </button>
                 )}
@@ -214,14 +214,14 @@ export default function ContractDatesSection({
               {perms.canEdit && (
                 <button type="button" className="dp-field-edit-icon" aria-label="Edit invoice numbers"
                   onClick={openInvoiceNumbersEdit}
-                  onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                >
                   <Icon name="edit" size={11} />
                 </button>
               )}
               {perms.canEdit && (
                 <button type="button" className="dp-field-edit-icon invoice-add-icon" aria-label="Add invoice number"
                   onClick={openInvoiceNumbersEdit}
-                  onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}>
+                >
                   <Icon name="plus" size={11} />
                 </button>
               )}
