@@ -9,6 +9,7 @@
  */
 
 import { del, get, post } from "./client.js";
+import { downloadApiFile } from "./download.js";
 
 async function createPdfPreviewUrl(path) {
   const { data: response, error } = await get(path);
@@ -70,45 +71,11 @@ export async function getDocuments(licenseId) {
  * @returns {Promise<{ data: null, error: string | null }>}
  */
 export async function downloadDocument(documentId, filename) {
-  const { data: response, error } = await get(
-    `/api/documents/${documentId}/download`
-  );
-  if (error || !response) {
-    return { data: null, error: error ?? "Download failed" };
-  }
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  if (filename) anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-
-  return { data: null, error: null };
+  return downloadApiFile(`/api/documents/${documentId}/download`, { filename });
 }
 
 export async function downloadProcurementDocument(documentId, filename) {
-  const { data: response, error } = await get(
-    `/api/procurement-documents/${documentId}/download`
-  );
-  if (error || !response) {
-    return { data: null, error: error ?? "Download failed" };
-  }
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  if (filename) anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-
-  return { data: null, error: null };
+  return downloadApiFile(`/api/procurement-documents/${documentId}/download`, { filename });
 }
 
 export async function previewDocument(documentId) {

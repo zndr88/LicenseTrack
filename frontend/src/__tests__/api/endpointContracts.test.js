@@ -163,6 +163,20 @@ describe("frontend API endpoint contracts", () => {
       createObjectURL,
       revokeObjectURL,
     });
+    vi.spyOn(window.HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    client.get.mockResolvedValueOnce({
+      data: { blob: vi.fn().mockResolvedValue(new Blob(["document"])) },
+      error: null,
+    });
+    await documentsApi.downloadDocument(3, "license.pdf");
+    expect(client.get).toHaveBeenLastCalledWith("/api/documents/3/download");
+    client.get.mockResolvedValueOnce({
+      data: { blob: vi.fn().mockResolvedValue(new Blob(["procurement"])) },
+      error: null,
+    });
+    await documentsApi.downloadProcurementDocument(4, "po.pdf");
+    expect(client.get).toHaveBeenLastCalledWith("/api/procurement-documents/4/download");
+
     client.get.mockResolvedValueOnce({
       data: { blob: vi.fn().mockResolvedValue(new Blob(["pdf"], { type: "application/pdf" })) },
       error: null,

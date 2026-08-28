@@ -1,4 +1,5 @@
 import { get } from "./client.js";
+import { downloadApiFile } from "./download.js";
 
 /**
  * Fetch a paginated audit log.
@@ -35,20 +36,8 @@ export async function exportAuditLog(params = {}) {
   }).filter(([, v]) => v !== null && v !== undefined && v !== "");
 
   const qs = new URLSearchParams(entries);
-  const { data: response, error } = await get(`/api/audit-log/export?${qs}`);
-  if (error || !response) {
-    return { data: null, error: error ?? "Export failed" };
-  }
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "audit_log.csv";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-
-  return { data: null, error: null };
+  return downloadApiFile(`/api/audit-log/export?${qs}`, {
+    filename: "audit_log.csv",
+    fallbackError: "Export failed",
+  });
 }

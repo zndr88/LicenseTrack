@@ -38,6 +38,7 @@ describe("audit log API", () => {
     expect(url).toBe("/api/audit-log/export?action=license&search=Atlas");
     expect(options.credentials).toBe("include");
     expect(options.headers.Authorization).toBe("Bearer audit-token");
+    expect(window.HTMLAnchorElement.prototype.click.mock.instances[0].download).toBe("audit_log.csv");
     expect(result).toEqual({ data: null, error: null });
   });
 
