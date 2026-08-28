@@ -33,7 +33,6 @@ const CSVImportPage = ({
             importDateFormat={state.importDateFormat}
             setImportDateFormat={state.setImportDateFormat}
             error={state.error}
-            setError={() => {}}
             dragOver={state.dragOver}
             setDragOver={state.setDragOver}
             loading={state.loading}

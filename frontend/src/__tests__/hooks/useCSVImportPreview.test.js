@@ -7,7 +7,46 @@ vi.mock("../../api/csvImport.js", () => ({
 }));
 
 import { confirmCsvImport, previewCsvImport } from "../../api/csvImport.js";
-import { serializeImportRowOverrides, useCSVImportPreview } from "../../hooks/useCSVImportPreview.js";
+import {
+  isMaintenanceParentError,
+  rowHasOnlyMaintenanceParentError,
+  rowNeedsMaintenanceParent,
+  serializeImportRowOverrides,
+  useCSVImportPreview,
+} from "../../hooks/useCSVImportPreview.js";
+
+describe("maintenance-parent preview predicates", () => {
+  const parentError = "Maintenance rows require a 'parent_license_ref' column";
+
+  it("classifies parent errors for maintenance rows only", () => {
+    expect(isMaintenanceParentError(parentError)).toBe(true);
+    expect(isMaintenanceParentError("Maintenance parent is required")).toBe(true);
+    expect(isMaintenanceParentError("Invalid date")).toBe(false);
+    expect(rowNeedsMaintenanceParent({
+      licenseType: "maintenance",
+      importStatus: "error",
+      validationErrors: [parentError],
+    })).toBe(true);
+    expect(rowNeedsMaintenanceParent({
+      licenseType: "subscription",
+      importStatus: "error",
+      validationErrors: [parentError],
+    })).toBe(false);
+  });
+
+  it("distinguishes parent-only failures from mixed validation failures", () => {
+    const row = {
+      licenseType: "maintenance",
+      importStatus: "error",
+      validationErrors: [parentError],
+    };
+    expect(rowHasOnlyMaintenanceParentError(row)).toBe(true);
+    expect(rowHasOnlyMaintenanceParentError({
+      ...row,
+      validationErrors: [parentError, "Invalid date"],
+    })).toBe(false);
+  });
+});
 
 describe("useCSVImportPreview — handleConfirmImport", () => {
   beforeEach(() => {

@@ -630,6 +630,17 @@ describe("LicensesPage workflows", () => {
 });
 
 describe("CSVImportPage workflows", () => {
+  test("keeps template download failures silent", async () => {
+    const user = userEvent.setup();
+    csvImportApi.downloadCsvTemplate.mockResolvedValue({ error: "Template unavailable" });
+
+    render(<CSVImportPage onImportComplete={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: /download csv template/i }));
+
+    expect(csvImportApi.downloadCsvTemplate).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Template unavailable")).not.toBeInTheDocument();
+  });
+
   test("handles invalid file errors, loading, preview, and import completion", async () => {
     const user = userEvent.setup();
     const onImportComplete = vi.fn();

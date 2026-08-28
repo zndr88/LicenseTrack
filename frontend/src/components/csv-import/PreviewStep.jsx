@@ -6,6 +6,11 @@ import Badge from "../ui/Badge.jsx";
 import Icon from "../ui/Icon.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import Toggle from "../ui/Toggle.jsx";
+import {
+  isMaintenanceParentError,
+  rowHasOnlyMaintenanceParentError,
+  rowNeedsMaintenanceParent,
+} from "../../hooks/useCSVImportPreview.js";
 
 const IMPORTER_COLUMNS = [
   ["publisher", "Publisher"],
@@ -35,21 +40,8 @@ function statusBadge(status) {
   return <Badge type="gray">{status}</Badge>;
 }
 
-function needsMaintenanceParent(row) {
-  if (row.licenseType !== "maintenance" || row.importStatus !== "error") return false;
-  return (row.validationErrors || []).some((error) => (
-    error.includes("parent_license_ref") || error.toLowerCase().includes("maintenance parent")
-  ));
-}
-
 function isMaintenanceCreateRow(row) {
   return row.licenseType === "maintenance" && row.importAction !== "update";
-}
-
-function hasOnlyParentError(row) {
-  return needsMaintenanceParent(row) && (row.validationErrors || []).every((error) => (
-    error.includes("parent_license_ref") || error.toLowerCase().includes("maintenance parent")
-  ));
 }
 
 function maintenanceParentLabel(parent) {
@@ -469,11 +461,11 @@ export default function PreviewStep({
   const showColumn = (key) => visibleColumns.has(key);
 
   const actionRequiredCount = previewData.rows.filter((row) => (
-    hasOnlyParentError(row) && !rowOverrides[row.rowNumber]?.action
+    rowHasOnlyMaintenanceParentError(row) && !rowOverrides[row.rowNumber]?.action
   )).length;
   const unresolvedErrorCount = previewData.rows.filter((row) => (
     row.importStatus === "error"
-    && !(hasOnlyParentError(row) && rowOverrides[row.rowNumber]?.action)
+    && !(rowHasOnlyMaintenanceParentError(row) && rowOverrides[row.rowNumber]?.action)
   )).length;
   const unresolvedReferenceCount = (previewData.referenceSummary?.candidates || []).filter((candidate) => (
     (candidate.status === "possible_duplicate" || candidate.status === "inactive_conflict")
@@ -709,23 +701,19 @@ export default function PreviewStep({
             <tbody>
               {previewData.rows.map((row) => {
                 const isSkipped = skippedRows.has(row.rowNumber);
-                const needsParent = needsMaintenanceParent(row);
+                const needsParent = rowNeedsMaintenanceParent(row);
                 const override = rowOverrides[row.rowNumber] || {};
                 const selectedParentId = override.parentLicenseId || "";
                 const legacySelected = override.action === "import_legacy_unlinked";
                 const parentResolved = (needsParent || legacySelected) && (
                   legacySelected || (override.action === "link_existing" && Number(selectedParentId) > 0)
                 );
-                const parentOnlyError = hasOnlyParentError(row);
+                const parentOnlyError = rowHasOnlyMaintenanceParentError(row);
                 const canSelect = row.importStatus !== "error" || (parentOnlyError && parentResolved);
                 const validationErrors = parentResolved && parentOnlyError
-                  ? (row.validationErrors || []).filter((error) => (
-                    !error.includes("parent_license_ref") && !error.toLowerCase().includes("maintenance parent")
-                  ))
+                  ? (row.validationErrors || []).filter((error) => !isMaintenanceParentError(error))
                   : needsParent
-                    ? (row.validationErrors || []).filter((error) => (
-                      !error.includes("parent_license_ref") && !error.toLowerCase().includes("maintenance parent")
-                    ))
+                    ? (row.validationErrors || []).filter((error) => !isMaintenanceParentError(error))
                   : row.validationErrors;
                 return (
                   <tr

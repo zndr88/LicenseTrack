@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { confirmCsvImport, previewCsvImport } from "../api/csvImport.js";
 
-function rowNeedsMaintenanceParent(row) {
-  if (row.licenseType !== "maintenance" || row.importStatus !== "error") return false;
-  return (row.validationErrors || []).some((error) => (
-    error.includes("parent_license_ref") || error.toLowerCase().includes("maintenance parent")
-  ));
+export function isMaintenanceParentError(error) {
+  return error.includes("parent_license_ref") || error.toLowerCase().includes("maintenance parent");
 }
 
-function rowHasOnlyMaintenanceParentError(row) {
+export function rowNeedsMaintenanceParent(row) {
+  if (row.licenseType !== "maintenance" || row.importStatus !== "error") return false;
+  return (row.validationErrors || []).some(isMaintenanceParentError);
+}
+
+export function rowHasOnlyMaintenanceParentError(row) {
   if (!rowNeedsMaintenanceParent(row)) return false;
-  return (row.validationErrors || []).every((error) => (
-    error.includes("parent_license_ref") || error.toLowerCase().includes("maintenance parent")
-  ));
+  return (row.validationErrors || []).every(isMaintenanceParentError);
 }
 
 function rowHasMaintenanceParentOverride(row, rowOverrides) {

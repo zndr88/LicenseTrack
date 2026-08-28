@@ -7,7 +7,7 @@ export default function UploadStep({
   savedMappings, selectedMappingId, setSelectedMappingId, loadingMappings,
   importNumberFormatLocale, setImportNumberFormatLocale,
   importDateFormat, setImportDateFormat,
-  error, setError,
+  error,
   dragOver, setDragOver,
   loading,
   fileInputRef,
@@ -69,10 +69,7 @@ export default function UploadStep({
 
       <div className="csv-dl-row">
         {source === "standard" && (
-          <button className="btn btn-g" style={{ fontSize: 12 }} onClick={async () => {
-            const { error: err } = await downloadCsvTemplate();
-            if (err) setError(err);
-          }}>
+          <button className="btn btn-g" style={{ fontSize: 12 }} onClick={() => downloadCsvTemplate()}>
             <Icon name="download" size={13} /> Download CSV Template
           </button>
         )}
