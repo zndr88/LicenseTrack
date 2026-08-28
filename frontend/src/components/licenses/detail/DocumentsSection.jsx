@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { formatDateTime, formatFileSize } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
@@ -10,6 +10,7 @@ import {
   isFileAvailable,
 } from "../../../utils/documentAvailability.js";
 import { isPreviewablePdf } from "../../../utils/documentPreview.js";
+import SuggestionReviewCard from "./SuggestionReviewCard.jsx";
 
 const DOC_CATEGORIES = [
   { key: "quote", label: "Quote", icon: "file", color: "var(--purple-text)" },
@@ -28,16 +29,6 @@ function fileIconColor(name) {
   return "var(--text-3)";
 }
 
-function formatSuggestedValue(value) {
-  if (value === null || value === undefined || value === "") return "Empty";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  return String(value);
-}
-
-function lookupKey(value) {
-  return String(value ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-}
-
 function documentTypeFor(doc) {
   return doc.scope === "po" ? "procurement_document" : "license_document";
 }
@@ -47,108 +38,6 @@ function formatProcessingStatus(status) {
   if (status === "rejected") return "Rejected";
   if (status === "superseded") return "Superseded";
   return "Pending";
-}
-
-function getFieldCurrentValue(fieldName, license, customFieldValues, customFieldDefs) {
-  if (Object.prototype.hasOwnProperty.call(license ?? {}, fieldName)) {
-    return license[fieldName];
-  }
-
-  const target = lookupKey(fieldName);
-  const definition = customFieldDefs.find((def) => {
-    const fieldKey = def.fieldKey ?? def.field_key ?? "";
-    const baseKey = fieldKey.startsWith("cf_") ? fieldKey.slice(3) : fieldKey;
-    return [fieldKey, baseKey, def.name].some((value) => lookupKey(value) === target);
-  });
-  if (!definition) return undefined;
-
-  const value = customFieldValues.find((item) => item.customFieldDefId === definition.id);
-  if (!value) return undefined;
-  return definition.fieldType === "currency" ? value.valueCurrency : value.valueText;
-}
-
-function ProcessingResultCard({
-  result,
-  license,
-  customFieldValues,
-  customFieldDefs,
-  accepting,
-  rejecting,
-  canEdit,
-  onAccept,
-  onReject,
-}) {
-  const suggestions = useMemo(() => result.suggestedFields || [], [result.suggestedFields]);
-  const [selectedIndexes, setSelectedIndexes] = useState(() => suggestions.map((_field, index) => index));
-
-  useEffect(() => {
-    setSelectedIndexes(suggestions.map((_field, index) => index));
-  }, [result.id, suggestions]);
-
-  const selectedSet = new Set(selectedIndexes);
-  const toggleIndex = (index) => {
-    setSelectedIndexes((prev) => (
-      prev.includes(index) ? prev.filter((item) => item !== index) : [...prev, index].sort((a, b) => a - b)
-    ));
-  };
-
-  return (
-    <div className="doc-processing-card">
-      <div className="doc-processing-summary">
-        <div>
-          <strong>{result.summary || "Document processor suggested changes"}</strong>
-          <span>{result.capabilityKey}</span>
-        </div>
-        <span className="doc-processing-status">Pending review</span>
-      </div>
-      <div className="doc-processing-fields">
-        {suggestions.map((field, index) => {
-          const currentValue = getFieldCurrentValue(field.field, license, customFieldValues, customFieldDefs);
-          return (
-            <label key={`${field.field}-${index}`} className="doc-processing-field">
-              <input
-                type="checkbox"
-                checked={selectedSet.has(index)}
-                onChange={() => toggleIndex(index)}
-              />
-              <span className="doc-processing-field-name">{field.field}</span>
-              <span className="doc-processing-value">
-                <small>Current</small>
-                <strong>{formatSuggestedValue(currentValue)}</strong>
-              </span>
-              <Icon name="arrow-right" size={12} />
-              <span className="doc-processing-value suggested">
-                <small>Suggested</small>
-                <strong>{formatSuggestedValue(field.value)}</strong>
-              </span>
-              <span className="doc-processing-meta">
-                {field.confidence != null && <em>{Math.round(field.confidence * 100)}%</em>}
-                {field.source && <small>{field.source}</small>}
-              </span>
-            </label>
-          );
-        })}
-      </div>
-      {canEdit && <div className="doc-processing-actions">
-        <button
-          className="btn btn-s"
-          disabled={accepting || rejecting || selectedIndexes.length === 0}
-          onClick={() => onAccept(result, selectedIndexes)}
-        >
-          <Icon name={accepting ? "clock" : "check"} size={13} />
-          {accepting ? "Applying..." : `Accept Selected (${selectedIndexes.length})`}
-        </button>
-        <button
-          className="btn btn-ghost"
-          disabled={accepting || rejecting}
-          onClick={() => onReject(result)}
-        >
-          <Icon name={rejecting ? "clock" : "x"} size={13} />
-          {rejecting ? "Rejecting..." : "Reject All"}
-        </button>
-      </div>}
-    </div>
-  );
 }
 
 export default function DocumentsSection({
@@ -347,9 +236,9 @@ export default function DocumentsSection({
                 const accepting = processingReviewBusy === `accept:${result.id}`;
                 const rejecting = processingReviewBusy === `reject:${result.id}`;
                 return (
-                  <ProcessingResultCard
+                  <SuggestionReviewCard
                     key={result.id}
-                    result={result}
+                    item={result}
                     license={license}
                     customFieldValues={customFieldValues}
                     customFieldDefs={customFieldDefs}
@@ -358,6 +247,9 @@ export default function DocumentsSection({
                     canEdit={perms.canEdit}
                     onAccept={handleAcceptProcessingResult}
                     onReject={handleRejectProcessingResult}
+                    summaryFallback="Document processor suggested changes"
+                    summaryMeta={result.capabilityKey}
+                    status="Pending review"
                   />
                 );
               })}
