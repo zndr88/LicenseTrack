@@ -7,6 +7,15 @@ export function invalidateNotifications(queryClient) {
   return queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
 }
 
+// Invalidate the shared portfolio and report views derived from license state.
+export function invalidatePortfolioState(queryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed }),
+  ]);
+}
+
 // Invalidate all queries affected by a renewal workflow mutation.
 // Covers licenses, sourcing views/items, renewals, portfolio counts, and notifications.
 export function invalidateRenewalWorkflow(queryClient) {
@@ -16,9 +25,7 @@ export function invalidateRenewalWorkflow(queryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.sourcingHistory });
   queryClient.invalidateQueries({ queryKey: queryKeys.sourcingItems });
   queryClient.invalidateQueries({ queryKey: queryKeys.renewals });
-  queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
-  queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
-  queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
+  invalidatePortfolioState(queryClient);
   queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
 }
 
@@ -34,9 +41,7 @@ export function invalidateProcurementRenewalState(queryClient) {
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders }),
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory }),
     queryClient.invalidateQueries({ queryKey: queryKeys.renewals }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed }),
+    invalidatePortfolioState(queryClient),
     queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
   ]);
 }
@@ -46,9 +51,7 @@ export function invalidateProcurementRenewalState(queryClient) {
 export function invalidateCompletenessRules(queryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
   queryClient.invalidateQueries({ queryKey: queryKeys.licenseStats });
-  queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
-  queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
-  queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
+  invalidatePortfolioState(queryClient);
   queryClient.invalidateQueries({ queryKey: queryKeys.renewals });
   queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
 }
@@ -89,9 +92,7 @@ export function invalidateImportState(queryClient) {
     queryClient.invalidateQueries({ queryKey: queryKeys.renewals }),
     queryClient.invalidateQueries({ queryKey: queryKeys.referenceData }),
     queryClient.invalidateQueries({ queryKey: queryKeys.referenceDataLookup }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed }),
+    invalidatePortfolioState(queryClient),
     queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
   ]);
 }

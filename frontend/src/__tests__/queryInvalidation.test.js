@@ -6,6 +6,7 @@ import {
   invalidateCustomFieldDefinitions,
   invalidateImportState,
   invalidateNotifications,
+  invalidatePortfolioState,
   invalidateProcurementRenewalState,
   invalidateRenewalWorkflow,
 } from "../queryInvalidation.js";
@@ -22,6 +23,20 @@ describe("query invalidation helpers", () => {
     invalidateNotifications(queryClient);
 
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.notifications });
+  });
+
+  test("invalidates every shared portfolio and report cache", async () => {
+    const queryClient = makeQueryClient();
+
+    const invalidation = invalidatePortfolioState(queryClient);
+
+    expect(invalidation).toBeInstanceOf(Promise);
+    await invalidation;
+    expect(queryClient.invalidateQueries.mock.calls.map(([arg]) => arg.queryKey)).toEqual([
+      queryKeys.portfolioStats,
+      queryKeys.reportsPortfolioStats,
+      queryKeys.reportsDetailed,
+    ]);
   });
 
   test("invalidates every cache touched by renewal workflow mutations", () => {
