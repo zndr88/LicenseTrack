@@ -1,4 +1,5 @@
 import { del, get, post, put } from "./client.js";
+import { downloadApiFile } from "./download.js";
 
 export const getContracts = () => get("/api/contracts");
 export const getContract = (id) => get(`/api/contracts/${id}`);
@@ -27,20 +28,7 @@ export async function uploadContractDocument(contractId, file, folderId = null) 
 }
 
 export async function downloadContractDocument(contractId, docId, filename) {
-  const { data: response, error } = await get(
-    `/api/contracts/${contractId}/documents/${docId}/download`
-  );
-  if (error || !response) return { data: null, error: error ?? "Download failed" };
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  if (filename) anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-  return { data: null, error: null };
+  return downloadApiFile(`/api/contracts/${contractId}/documents/${docId}/download`, { filename });
 }
 
 export const deleteContractDocument = (contractId, docId) =>

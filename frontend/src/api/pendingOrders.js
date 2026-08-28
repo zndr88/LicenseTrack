@@ -1,4 +1,5 @@
 import { del, get, post, put } from "./client.js";
+import { downloadApiFile } from "./download.js";
 
 export function getPendingOrders(options = {}) {
   const params = new URLSearchParams();
@@ -32,22 +33,7 @@ export function uploadPendingOrderDocument(orderId, file) {
 }
 
 export async function downloadPendingOrderDocument(documentId, filename) {
-  const { data: response, error } = await get(`/api/pending-orders/documents/${documentId}/download`);
-  if (error || !response) {
-    return { data: null, error: error ?? "Download failed" };
-  }
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  if (filename) anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-
-  return { data: null, error: null };
+  return downloadApiFile(`/api/pending-orders/documents/${documentId}/download`, { filename });
 }
 
 export const deletePendingOrderDocument = (id) => del(`/api/pending-orders/documents/${id}`);
@@ -75,20 +61,8 @@ export const addItemsToPendingOrderBulk = (poId, items) =>
   post(`/api/pending-orders/${poId}/items/bulk`, items);
 
 export async function exportPendingOrdersCsv() {
-  const { data: response, error } = await get("/api/pending-orders/export");
-  if (error || !response) {
-    return { data: null, error: error ?? "Export failed" };
-  }
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "pending_orders_export.csv";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-
-  return { data: null, error: null };
+  return downloadApiFile("/api/pending-orders/export", {
+    filename: "pending_orders_export.csv",
+    fallbackError: "Export failed",
+  });
 }

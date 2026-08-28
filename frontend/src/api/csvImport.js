@@ -8,6 +8,7 @@
  */
 
 import { get, post, put, del } from "./client.js";
+import { downloadApiFile } from "./download.js";
 
 /**
  * Upload a CSV file for preview.  Returns per-row classification and
@@ -148,20 +149,8 @@ export async function putImportMapping(id, name, mapping) {
  * @returns {Promise<{ data: null, error: string | null }>}
  */
 export async function downloadCsvTemplate() {
-  const { data: response, error } = await get("/api/import/template");
-  if (error || !response) {
-    return { data: null, error: error ?? "Template download failed" };
-  }
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "license_lifecycle_template.csv";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-
-  return { data: null, error: null };
+  return downloadApiFile("/api/import/template", {
+    filename: "license_lifecycle_template.csv",
+    fallbackError: "Template download failed",
+  });
 }

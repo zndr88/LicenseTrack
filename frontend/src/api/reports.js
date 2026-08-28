@@ -1,4 +1,5 @@
 import { get } from "./client.js";
+import { downloadApiFile } from "./download.js";
 import { LICENSE_METRICS, LICENSE_TYPES } from "../constants/licenseData.js";
 
 const TYPE_LABELS = Object.fromEntries(LICENSE_TYPES.map(({ value, label }) => [value, label]));
@@ -113,16 +114,8 @@ export async function getDetailedReport(filters) {
 }
 
 export async function exportDetailedReport(filters) {
-  const { data: response, error } = await get(`/api/reports/detailed/export${reportQuery(filters)}`);
-  if (error || !response) return { data: null, error: error ?? "Report CSV export failed" };
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "licensetrack_report.csv";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-  return { data: null, error: null };
+  return downloadApiFile(`/api/reports/detailed/export${reportQuery(filters)}`, {
+    filename: "licensetrack_report.csv",
+    fallbackError: "Report CSV export failed",
+  });
 }

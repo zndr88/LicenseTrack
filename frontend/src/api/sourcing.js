@@ -1,4 +1,5 @@
 import { del, get, post, put } from "./client.js";
+import { downloadApiFile } from "./download.js";
 
 export const getSourcingItems = () => get("/api/sourcing");
 export const getSourcingRequests = () => get("/api/sourcing/requests");
@@ -25,41 +26,14 @@ export function uploadSourcingQuoteDocument(requestId, file) {
 }
 
 export async function downloadSourcingQuoteDocument(documentId, filename) {
-  const { data: response, error } = await get(`/api/sourcing/quote-documents/${documentId}/download`);
-  if (error || !response) {
-    return { data: null, error: error ?? "Download failed" };
-  }
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  if (filename) anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-
-  return { data: null, error: null };
+  return downloadApiFile(`/api/sourcing/quote-documents/${documentId}/download`, { filename });
 }
 
 export const deleteSourcingQuoteDocument = (id) => del(`/api/sourcing/quote-documents/${id}`);
 
 export async function exportSourcingCsv() {
-  const { data: response, error } = await get("/api/sourcing/export");
-  if (error || !response) {
-    return { data: null, error: error ?? "Export failed" };
-  }
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "sourcing_export.csv";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-
-  return { data: null, error: null };
+  return downloadApiFile("/api/sourcing/export", {
+    filename: "sourcing_export.csv",
+    fallbackError: "Export failed",
+  });
 }
