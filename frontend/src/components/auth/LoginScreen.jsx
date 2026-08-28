@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { apiUrl } from "../../api/client.js";
 import { getAuthMode, login as apiLogin } from "../../api/auth.js";
+import { toCurrentUser } from "../../hooks/useAuth.js";
 import Icon from "../ui/Icon.jsx";
 
 const ERROR_MESSAGES = {
@@ -39,12 +40,9 @@ const LoginScreen = ({ onLogin }) => {
     }
   }, [authMode]);
 
-  const oidcInfo = useMemo(() => {
-    if (authMode?.oidc_enabled && !authMode.oidc_available) {
-      return "SSO is configured but currently unavailable. Local login is still available.";
-    }
-    return null;
-  }, [authMode]);
+  const oidcInfo = authMode?.oidc_enabled && !authMode.oidc_available
+    ? "SSO is configured but currently unavailable. Local login is still available."
+    : null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -60,17 +58,7 @@ const LoginScreen = ({ onLogin }) => {
       setError(loginError);
       return;
     }
-    onLogin({
-      id: data.user.id,
-      username: data.user.username,
-      name: data.user.username,
-      role: data.user.role,
-      allowDownloads: data.user.allow_downloads ?? true,
-      avatar: data.user.username.slice(0, 2).toUpperCase(),
-      mustChangePassword: data.user.must_change_password,
-      authProvider: data.user.auth_provider ?? "local",
-      isBreakGlassAdmin: !!data.user.is_break_glass_admin,
-    });
+    onLogin(toCurrentUser(data.user));
   };
 
   return (

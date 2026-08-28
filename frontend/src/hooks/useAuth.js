@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getSession, logoutSession } from "../api/auth.js";
 import { useSessionTimeout } from "./useSessionTimeout.js";
 
-function toCurrentUser(apiUser) {
+export function toCurrentUser(apiUser) {
   return {
     id: apiUser.id,
     username: apiUser.username,

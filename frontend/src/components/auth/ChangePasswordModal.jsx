@@ -13,7 +13,6 @@ const ChangePasswordModal = ({ onSuccess }) => {
     e.preventDefault();
     if (!currentPwd || !newPwd || !confirmPwd) { setError("All fields are required."); return; }
     if (newPwd !== confirmPwd) { setError("New passwords do not match."); return; }
-    if (newPwd.length < 12) { setError("New password must be at least 12 characters."); return; }
     setError(null);
     setSaving(true);
     const { error: apiError } = await changePassword(currentPwd, newPwd);
