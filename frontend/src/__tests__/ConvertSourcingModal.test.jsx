@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ConvertSourcingModal from "../components/procurement/ConvertSourcingModal.jsx";
 import { getPendingOrders } from "../api/pendingOrders.js";
+import { queryKeys } from "../queryKeys.js";
 
 vi.mock("../api/pendingOrders.js", () => ({
   getPendingOrders: vi.fn(),
@@ -17,8 +18,8 @@ const REQUEST = {
   items: [{ id: 31 }, { id: 32 }],
 };
 
-function renderWithQueryClient(ui) {
-  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>);
+function renderWithQueryClient(ui, queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
 }
 
 describe("ConvertSourcingModal supplier contract", () => {
@@ -71,5 +72,23 @@ describe("ConvertSourcingModal supplier contract", () => {
     fireEvent.click(screen.getByRole("button", { name: /add to existing/i }));
     expect(screen.queryByRole("option", { name: /PO-BLANK/i })).not.toBeInTheDocument();
     expect(screen.getByRole("option", { name: /PO-READY/i })).toBeInTheDocument();
+  });
+
+  it("uses pending orders already available in the query cache", () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(queryKeys.pendingOrders, [
+      { id: 2, poNumber: "PO-CACHED", supplier: "Cached Reseller" },
+    ]);
+
+    renderWithQueryClient(
+      <ConvertSourcingModal
+        item={{ ...REQUEST, supplier: "Cached Reseller" }}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+      queryClient,
+    );
+
+    expect(screen.getByRole("button", { name: /add to existing/i })).toBeEnabled();
   });
 });

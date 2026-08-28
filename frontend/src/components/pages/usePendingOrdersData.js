@@ -6,7 +6,6 @@ import {
   cancelPendingOrder as apiCancelPendingOrder,
   convertPendingOrder,
   createPendingOrder as apiCreatePendingOrder,
-  deletePendingOrder as apiDeletePendingOrder,
   deletePendingOrderDocument,
   deletePendingOrderItem as apiDeletePendingOrderItem,
   downloadPendingOrderDocument,
@@ -142,15 +141,6 @@ export function usePendingOrdersData({
     showSuccess("Pending order moved to history.");
     return true;
   }, [showError, showSuccess, queryClient, onPortfolioStateChange, onRenewalsReload]);
-
-  const handleDeletePendingOrder = useCallback(async (id) => {
-    const { error } = await apiDeletePendingOrder(id);
-    if (error) { showError(error); return false; }
-    await invalidateProcurementRenewalState(queryClient);
-    onPortfolioStateChange?.();
-    onRenewalsReload?.();
-    return true;
-  }, [showError, queryClient, onPortfolioStateChange, onRenewalsReload]);
 
   const handleConvertToLicense = useCallback(async (orderId, licenseData, file) => {
     const { data, error } = await convertPendingOrder(orderId, licenseData, file);
@@ -330,7 +320,6 @@ export function usePendingOrdersData({
     handleCancelPendingOrder,
     handleCreatePendingOrder,
     handleUpdatePendingOrder,
-    handleDeletePendingOrder,
     handleConvertToLicense,
     handleAddPOItems,
     handleUpdatePOItem,

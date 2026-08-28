@@ -115,7 +115,6 @@ const SourcingItemModal = ({
 
   // "new request" mode: add mode with no parent request - supports multi-line and quote parse
   const isNewRequest = !item?.id && !requestId;
-  const canAddMaintenanceCompanion = isNewRequest || !!pendingOrderId || !!requestId || !!item?.id;
 
   const {
     register,
@@ -607,7 +606,7 @@ const SourcingItemModal = ({
             currency={watch("currency")}
             locale={locale}
             onChange={(field, value) => setValue(field, value, { shouldDirty: true })}
-            onAddSeparate={canAddMaintenanceCompanion ? addMaintenanceLine : undefined}
+            onAddSeparate={addMaintenanceLine}
             separateLineAdded={maintenanceLineAdded}
           />
           <div className="fr">
@@ -749,7 +748,7 @@ const SourcingItemModal = ({
           </div>
 
           {/* Additional lines (new-request mode only) */}
-          {canAddMaintenanceCompanion && additionalLines.map((line, idx) => (
+          {additionalLines.map((line, idx) => (
             <div key={line.id} style={{ borderTop: "1px solid var(--border-lt)", paddingTop: 12, marginTop: 4 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)" }}>Line {idx + 2}</span>

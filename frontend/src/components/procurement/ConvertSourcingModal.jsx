@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { getPendingOrders } from "../../api/pendingOrders.js";
@@ -9,18 +10,31 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import { pendingOrderOptionLabel } from "../../utils/procurementLabels.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import { queryKeys } from "../../queryKeys.js";
 
 const sourcingPoFormSchema = poFormSchema.extend({
   supplier: z.string().trim().min(1, "Supplier is required."),
 });
 
+async function fetchPendingOrders() {
+  const { data, error } = await getPendingOrders();
+  if (error) throw new Error(error);
+  return data ?? [];
+}
+
 const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
   const [mode, setMode] = useState("new"); // "new" | "existing"
   const [modeEverChanged, setModeEverChanged] = useState(false);
-  const [localOrders, setLocalOrders] = useState([]);
-  const [loadingOrders, setLoadingOrders] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState("");
   const [converting, setConverting] = useState(false);
+  const { data: pendingOrders = [], isLoading: loadingOrders } = useQuery({
+    queryKey: queryKeys.pendingOrders,
+    queryFn: fetchPendingOrders,
+  });
+  const localOrders = useMemo(
+    () => pendingOrders.filter((order) => (order.supplier ?? "").trim() !== ""),
+    [pendingOrders],
+  );
 
   const {
     register,
@@ -45,13 +59,8 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty: combinedDirty, onClose: onCancel });
 
   useEffect(() => {
-    getPendingOrders().then(({ data }) => {
-      const orders = (data ?? []).filter((order) => (order.supplier ?? "").trim() !== "");
-      setLocalOrders(orders);
-      if (orders.length > 0) setSelectedOrderId(orders[0].id);
-      setLoadingOrders(false);
-    });
-  }, []);
+    if (localOrders.length > 0 && selectedOrderId === "") setSelectedOrderId(localOrders[0].id);
+  }, [localOrders, selectedOrderId]);
 
   const switchMode = (newMode) => {
     if (newMode !== mode) setModeEverChanged(true);

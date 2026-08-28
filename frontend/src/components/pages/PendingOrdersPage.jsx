@@ -297,19 +297,10 @@ export default function PendingOrdersPage({
                 locale={locale}
                 mode="history"
                 settings={userSettings}
-                onDelete={() => {}}
-                onEdit={() => {}}
-                onEditItem={() => {}}
-                onDeleteItem={() => {}}
-                onUploadPurchaseOrder={() => {}}
                 onDownloadPurchaseOrder={handleDownloadPurchaseOrderDocument}
                 onDeletePurchaseOrder={setDeletePurchaseOrderDocumentTarget}
                 onDownloadQuote={handleDownloadSourcingQuote}
                 onDeleteQuote={setDeleteQuoteTarget}
-                onRetryEvidenceTransfer={() => {}}
-                onOpenAddItems={() => {}}
-                onOpenConvert={() => {}}
-                onOpenConvertAll={() => {}}
                 onNavigateToLicense={onNavigateToLicense}
                 onRefetch={refetchHistory}
                 onRowToggle={setExpandedHistoryPendingOrderId}

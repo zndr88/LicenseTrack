@@ -9,9 +9,9 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import Icon from "../ui/Icon.jsx";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
+import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
 import ConvertItemForm, { isItemReady } from "./ConvertItemForm.jsx";
 import PendingOrderInvoiceField from "./PendingOrderInvoiceField.jsx";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 
@@ -80,42 +80,11 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
     setSaving(true);
     const payload = data.items.map((item, idx) => {
       const si = unconvertedItems[idx];
-      const entry = {
-        sourcingItemId:      si.id,
-        publisherName:       item.publisherName.trim(),
-        softwareDescription: item.softwareDescription.trim(),
-        startDate:           item.startDate || null,
-        endDate:             item.isPerpetual ? null : item.endDate || null,
-        purchaseDate:        item.purchaseDate || null,
-        contractNumber:      item.contractNumber,
-        poNumber:            item.poNumber,
-        procurementReference: item.procurementReference,
-        invoiceNumber:       item.invoiceNumber,
-        contactEmail:        item.contactEmail,
-        supplier:            item.supplier,
-        costCentre:          item.costCentre,
-        licenseType:         item.licenseType || "subscription",
-        licenseMetric:       item.licenseMetric || "per_user",
-        portalUrl:           item.licenseType === "saas" ? (item.portalUrl || null) : null,
-        ...(item.licenseType === "maintenance" && item.parentLicenseId ? { parentLicenseId: parseInt(item.parentLicenseId, 10) } : {}),
+      return {
+        ...buildPendingOrderConversionPayload(item, userSettings),
+        sourcingItemId: si.id,
         ...(item.licenseType === "maintenance" && item.parentSourcingItemId ? { parentSourcingItemId: parseInt(item.parentSourcingItemId, 10) } : {}),
-        maintenanceCoverage: item.maintenanceCoverage || "unknown",
-        maintenanceStartDate: item.maintenanceStartDate || null,
-        maintenanceEndDate: item.maintenanceEndDate || null,
-        maintenancePricingBasis: item.maintenancePricingBasis || null,
-        maintenanceQuantity: (parseLocalizedNumber(item.maintenanceQuantity, userSettings) ?? item.maintenanceQuantity) || null,
-        maintenanceUnitPrice: (parseLocalizedNumber(item.maintenanceUnitPrice, userSettings) ?? item.maintenanceUnitPrice) || null,
-        maintenanceCost: (parseLocalizedNumber(item.maintenanceCost, userSettings) ?? item.maintenanceCost) || null,
-        quantity:            parseLocalizedNumber(item.quantity, userSettings) ?? item.quantity,
-        quantityPerUnit:     (parseLocalizedNumber(item.quantityPerUnit, userSettings) ?? item.quantityPerUnit) || "1",
-        skuCode:             item.skuCode,
-        unitPrice:           item.licenseType === "freeware" ? "" : item.unitPrice,
-        totalPoPrice:        item.licenseType === "freeware" ? "" : item.totalPoPrice,
-        currency:            item.currency,
-        budgetOwnerEmail:    item.budgetOwnerEmail,
-        notes:               item.notes || null,
       };
-      return entry;
     });
     const ok = await onConfirm(order.id, payload, invoiceFile);
     if (!ok) setSaving(false);
