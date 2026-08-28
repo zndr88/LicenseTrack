@@ -60,7 +60,6 @@ const CSVImportPage = ({
             restoreRows={state.restoreRows}
             rowOverrides={state.rowOverrides}
             referenceOverrides={state.referenceOverrides}
-            setMaintenanceParentOverride={state.setMaintenanceParentOverride}
             setMaintenanceParentAction={state.setMaintenanceParentAction}
             applyLegacyUnlinkedToEligible={state.applyLegacyUnlinkedToEligible}
             clearLegacyUnlinkedSelections={state.clearLegacyUnlinkedSelections}

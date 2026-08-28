@@ -108,7 +108,7 @@ describe("PreviewStep — warning summary", () => {
   });
 
   it("lets a maintenance parent error choose an existing parent license", () => {
-    const setMaintenanceParentOverride = vi.fn();
+    const setMaintenanceParentAction = vi.fn();
     const props = {
       ...defaultProps,
       previewData: {
@@ -149,7 +149,7 @@ describe("PreviewStep — warning summary", () => {
         softwareDescription: "Widget",
         poNumber: "PO-42",
       }],
-      setMaintenanceParentOverride,
+      setMaintenanceParentAction,
     };
 
     render(<PreviewStep {...props} />);
@@ -159,7 +159,7 @@ describe("PreviewStep — warning summary", () => {
     fireEvent.change(parentSearch, { target: { value: "42" } });
     fireEvent.click(screen.getByRole("option", { name: /LT-2026-00042/i }));
 
-    expect(setMaintenanceParentOverride).toHaveBeenCalledWith(4, "42");
+    expect(setMaintenanceParentAction).toHaveBeenCalledWith(4, "link_existing", "42");
   });
 
   it("lets users hide importer columns without hiding workflow columns", () => {

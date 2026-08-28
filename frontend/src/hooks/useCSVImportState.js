@@ -69,7 +69,6 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     setError,
     onImportComplete: handleImportComplete,
     importFormats,
-    canManageImportMappings,
   });
 
   const analysis = useCSVImportAnalysis({
@@ -172,7 +171,6 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     toggleAllSelectableRows: preview.toggleAllSelectableRows,
     skipRows: preview.skipRows,
     restoreRows: preview.restoreRows,
-    setMaintenanceParentOverride: preview.setMaintenanceParentOverride,
     setMaintenanceParentAction: preview.setMaintenanceParentAction,
     applyLegacyUnlinkedToEligible: preview.applyLegacyUnlinkedToEligible,
     clearLegacyUnlinkedSelections: preview.clearLegacyUnlinkedSelections,

@@ -362,7 +362,6 @@ export function useLicenseData(licenses, {
   );
 
   const departments = useMemo(() => [...new Set(licenses.map((l) => l.costCentre).filter(Boolean))].sort(), [licenses]);
-  const startYears = useMemo(() => [...new Set(licenses.map((l) => l.startDate?.slice(0, 4)).filter(Boolean))].sort().reverse(), [licenses]);
 
   return {
     enriched,
@@ -372,6 +371,5 @@ export function useLicenseData(licenses, {
     paginatedItems,
     totalPages,
     departments,
-    startYears,
   };
 }

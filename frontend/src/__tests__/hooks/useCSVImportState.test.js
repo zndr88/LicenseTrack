@@ -35,7 +35,6 @@ function previewMock(overrides = {}) {
     toggleAllSelectableRows: vi.fn(),
     skipRows: vi.fn(),
     restoreRows: vi.fn(),
-    setMaintenanceParentOverride: vi.fn(),
     setMaintenanceParentAction: vi.fn(),
     applyLegacyUnlinkedToEligible: vi.fn(),
     clearLegacyUnlinkedSelections: vi.fn(),

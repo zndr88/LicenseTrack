@@ -115,7 +115,7 @@ describe("useCSVImportPreview — handleConfirmImport", () => {
     );
 
     act(() => {
-      result.current.setMaintenanceParentOverride(3, 42);
+      result.current.setMaintenanceParentAction(3, "link_existing", 42);
     });
 
     await act(async () => {

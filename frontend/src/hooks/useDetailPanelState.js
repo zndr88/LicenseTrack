@@ -236,7 +236,6 @@ export function useDetailPanelState({
 
   const perms = ROLE_PERMISSIONS[user.role];
   const vis = userSettings.visibleInDetail;
-  const cfBySection = customFieldsBySection;
 
   // Field edit modal
   const openFieldEdit = (config) => setFieldEdit(config);
@@ -337,13 +336,6 @@ export function useDetailPanelState({
     return { data, error: null };
   };
 
-  const getCustomFieldDisplayValue = (fieldDef) => {
-    const val = customFieldValues.find((v) => v.customFieldDefId === fieldDef.id);
-    if (!val) return null;
-    if (fieldDef.fieldType === "currency") return val.valueCurrency ?? null;
-    return val.valueText ?? null;
-  };
-
   return {
     // Modal / action state
     confirmAction, setConfirmAction,
@@ -386,10 +378,10 @@ export function useDetailPanelState({
     handleAcceptPluginSuggestion, handleRejectPluginSuggestion,
 
     // Custom fields (from useCustomFields)
-    customFieldValues, customFieldsBySection,
+    customFieldValues,
     customFieldsLoading,
-    cfBySection,
-    makeCustomFieldSaveFn, getCustomFieldDisplayValue,
+    cfBySection: customFieldsBySection,
+    makeCustomFieldSaveFn,
 
     // Computed / derived
     comp, exp, perms, vis,

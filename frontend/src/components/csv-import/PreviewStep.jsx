@@ -385,7 +385,6 @@ export default function PreviewStep({
   skipRows, restoreRows,
   rowOverrides = {},
   referenceOverrides = {},
-  setMaintenanceParentOverride: _setMaintenanceParentOverride = () => {},
   setMaintenanceParentAction = () => {},
   applyLegacyUnlinkedToEligible = () => {},
   clearLegacyUnlinkedSelections = () => {},
@@ -791,10 +790,7 @@ export default function PreviewStep({
                                   rowNumber={row.rowNumber}
                                   selectedParentId={selectedParentId}
                                   parents={eligibleMaintenanceParents}
-                                  onSelect={(number, id) => {
-                                    _setMaintenanceParentOverride(number, id);
-                                    setMaintenanceParentAction(number, "link_existing", id);
-                                  }}
+                                  onSelect={(number, id) => setMaintenanceParentAction(number, "link_existing", id)}
                                 />
                               )}
                               {legacySelected && (
