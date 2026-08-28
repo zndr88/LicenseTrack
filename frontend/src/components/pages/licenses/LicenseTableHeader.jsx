@@ -1,5 +1,6 @@
 import LicenseTableFilters from "./LicenseTableFilters.jsx";
-import { isColumnFilterable, isColumnSortable } from "./licenseTableShared.js";
+import { isColumnFilterable } from "./licenseTableShared.js";
+import { hasSortAccessor } from "../../../utils/sort.js";
 
 function SortIndicator({ active, sortDir }) {
   if (!active) return null;
@@ -69,10 +70,8 @@ export default function LicenseTableHeader({
             );
           }
 
+          const sortable = hasSortAccessor(col);
           return (
-            (() => {
-              const sortable = isColumnSortable(col);
-              return (
             <th
               scope="col"
               key={col.key}
@@ -140,8 +139,6 @@ export default function LicenseTableHeader({
                 </span>
               )}
             </th>
-              );
-            })()
           );
         })}
       </tr>

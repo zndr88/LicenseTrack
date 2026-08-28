@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../../constants/licenseData.js";
 import { formatCost, getEffectiveQuantity, getPoTotal } from "../../../utils/helpers.js";
+import { formatQuantity } from "../../../utils/quantity.js";
 import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
@@ -9,11 +10,7 @@ import PoTotalOverrideModal from "../PoTotalOverrideModal.jsx";
 
 function formatQuantityDisplay(value, userSettings) {
   if (value === null || value === undefined || value === "") return "—";
-  const number = Number(value);
-  if (!Number.isFinite(number)) return value;
-  return new Intl.NumberFormat(userSettings?.numberFormatLocale ?? "en-US", {
-    maximumFractionDigits: 4,
-  }).format(number);
+  return formatQuantity(value, userSettings) || value;
 }
 
 export default function CommercialSection({

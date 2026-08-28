@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { LICENSE_TYPES, LICENSE_METRICS, MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
 import { formatCost, getPoTotal } from "../../../utils/helpers.js";
 import Badge from "../../ui/Badge.jsx";
-import { formatBooleanCustomField } from "./licenseColumns.js";
 import { parseLocalizedNumber, formatDate, formatDateTime } from "../../../utils/formatting.js";
+import { formatCustomFieldValue } from "../../../utils/customFieldPresentation.js";
+import { formatQuantity } from "../../../utils/quantity.js";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
 import { getCalcTotalValue } from "../../../utils/sort.js";
 
@@ -31,17 +32,6 @@ function normalizeInlineValue(fieldKey, value, userSettings) {
     return parseLocalizedNumber(value, userSettings) ?? String(value ?? "");
   }
   return value ?? "";
-}
-
-function formatQuantityCell(value, userSettings) {
-  const quantity = Number(value);
-  if (!Number.isFinite(quantity)) return "-";
-  const locale = userSettings?.numberFormatLocale ?? "en-US";
-  try {
-    return new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(quantity);
-  } catch {
-    return String(value);
-  }
 }
 
 function InlineEditableCell({ license, col, config, currentValue, onInlineFieldSave, userSettings }) {
@@ -180,7 +170,7 @@ function renderCustomFieldCell({ col, license, customFieldValuesMap, displayCurr
   }
 
   if (col._cfDef.fieldType === "boolean") {
-    return <td key={col.key} className="lp-td">{formatBooleanCustomField(value.valueText) ?? "-"}</td>;
+    return <td key={col.key} className="lp-td">{formatCustomFieldValue(value.valueText, { fieldType: "boolean" }) ?? "-"}</td>;
   }
 
   return <td key={col.key} className="lp-td">{value.valueText || "-"}</td>;
@@ -280,13 +270,13 @@ export default function LicenseTableRowCells({
       case "licenseMetric":
         return <td key="licenseMetric" className="lp-td">{license.licenseMetric ? (LICENSE_METRICS.find((metric) => metric.value === license.licenseMetric)?.label || license.licenseMetric) : "-"}</td>;
       case "quantity": {
-        return <td key="quantity" className="mono td-center">{formatQuantityCell(license.quantity, userSettings)}</td>;
+        return <td key="quantity" className="mono td-center">{formatQuantity(license.quantity, userSettings) || "-"}</td>;
       }
       case "effectiveQuantity": {
-        return <td key="effectiveQuantity" className="mono td-center">{formatQuantityCell(license.effectiveQuantity, userSettings)}</td>;
+        return <td key="effectiveQuantity" className="mono td-center">{formatQuantity(license.effectiveQuantity, userSettings) || "-"}</td>;
       }
       case "quantityPerUnit": {
-        return <td key="quantityPerUnit" className="mono td-center">{formatQuantityCell(license.quantityPerUnit, userSettings)}</td>;
+        return <td key="quantityPerUnit" className="mono td-center">{formatQuantity(license.quantityPerUnit, userSettings) || "-"}</td>;
       }
       case "skuCode":
         return <td key="skuCode" className="mono lp-sku">{license.skuCode || "-"}</td>;

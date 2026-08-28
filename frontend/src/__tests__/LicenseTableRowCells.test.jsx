@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import LicenseTableRowCells from "../components/pages/licenses/LicenseTableRowCells.jsx";
 
-function renderCells(license, visibleColumns = [{ key: "docs" }]) {
+function renderCells(license, visibleColumns = [{ key: "docs" }], userSettings = { numberFormatLocale: "en-US" }) {
   render(
     <table>
       <tbody>
@@ -15,7 +15,7 @@ function renderCells(license, visibleColumns = [{ key: "docs" }]) {
             licenses={[license]}
             customFieldValuesMap={new Map()}
             displayCurrency="EUR"
-            userSettings={{ numberFormatLocale: "en-US" }}
+            userSettings={userSettings}
             inlineEditEnabled={false}
           />
         </tr>
@@ -64,6 +64,38 @@ describe("LicenseTableRowCells record identity", () => {
     }, [{ key: "recordId" }]);
 
     expect(screen.getByText("42")).toBeInTheDocument();
+  });
+});
+
+describe("LicenseTableRowCells quantities", () => {
+  test("preserves canonical decimal precision", () => {
+    renderCells({
+      id: 1,
+      quantity: "1234.123456789",
+      expiration: { status: "active", label: "Active" },
+    }, [{ key: "quantity" }]);
+
+    expect(screen.getByText("1,234.123456789")).toBeInTheDocument();
+  });
+
+  test("uses the configured locale without truncating the fraction", () => {
+    renderCells({
+      id: 1,
+      quantityPerUnit: "1234.56789",
+      expiration: { status: "active", label: "Active" },
+    }, [{ key: "quantityPerUnit" }], { numberFormatLocale: "de-DE" });
+
+    expect(screen.getByText("1.234,56789")).toBeInTheDocument();
+  });
+
+  test("renders a dash for an invalid canonical quantity", () => {
+    renderCells({
+      id: 1,
+      effectiveQuantity: "invalid",
+      expiration: { status: "active", label: "Active" },
+    }, [{ key: "effectiveQuantity" }]);
+
+    expect(screen.getByText("-")).toBeInTheDocument();
   });
 });
 

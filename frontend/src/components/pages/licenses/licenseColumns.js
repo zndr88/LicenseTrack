@@ -1,5 +1,3 @@
-import { formatCustomFieldValue } from "../../../utils/customFieldPresentation.js";
-
 export const LICENSE_COLUMN_GROUPS = [
   { key: "standard", label: "Standard" },
   { key: "advanced", label: "Advanced" },
@@ -91,8 +89,4 @@ export function orderColumnDefs(columnDefs, columnOrder = []) {
 
 export function getFullExportColumns(columnDefs) {
   return columnDefs.filter((column) => !column.tableOnly);
-}
-
-export function formatBooleanCustomField(value) {
-  return formatCustomFieldValue(value, { fieldType: "boolean" });
 }

@@ -6,14 +6,6 @@ import { formatCost, formatCostByCurrency, formatSignedCostByCurrency } from "..
 import Icon from "../ui/Icon.jsx";
 import { EmptyState, PALETTE, ReportTableToolbar, Section } from "./reportShared.jsx";
 
-function formatSpendByCurrency(byCurrency, locale) {
-  const entries = Object.entries(byCurrency ?? {});
-  if (entries.length === 0) return "—";
-  return entries
-    .map(([currency, amount]) => formatCost(amount, currency, locale))
-    .join(" · ");
-}
-
 export default function CostForecastSection({
   filteredCount,
   costOverview,
@@ -49,7 +41,7 @@ export default function CostForecastSection({
       onToggle={onToggle}
       forceOpen={forceOpen}
       summary={filteredCount > 0
-        ? `${filteredCount} records · ${formatSpendByCurrency(costOverview.poSpendByCurrency, locale)} by PO value`
+        ? `${filteredCount} records · ${formatCostByCurrency(costOverview.poSpendByCurrency, locale, { includeZero: true })} by PO value`
         : "No matching records"}
       title="Cost Overview & Forecast"
       subtitle="License-line spend, PO-value spend, and license-based future budget needs"
@@ -60,7 +52,7 @@ export default function CostForecastSection({
             <div>
               <div className="report-metric-label">Spend by License</div>
               <div className="report-metric-value">
-                {formatSpendByCurrency(costOverview.licenseSpendByCurrency, locale)}
+                {formatCostByCurrency(costOverview.licenseSpendByCurrency, locale, { includeZero: true })}
               </div>
               <div className="report-metric-note">
                 Calculated from each license line; used for breakdowns and forecasts
@@ -69,7 +61,7 @@ export default function CostForecastSection({
             <div>
               <div className="report-metric-label">Spend by PO Value</div>
               <div className="report-metric-value">
-                {formatSpendByCurrency(costOverview.poSpendByCurrency, locale)}
+                {formatCostByCurrency(costOverview.poSpendByCurrency, locale, { includeZero: true })}
               </div>
               <div className="report-metric-note">
                 {costOverview.poCount > 0 ? `${costOverview.poCount} unique PO${costOverview.poCount === 1 ? "" : "s"}` : "No keyed POs"}

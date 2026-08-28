@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { getVisibleColumns, isColumnFilterable, isColumnSortable } from "../components/pages/licenses/licenseTableShared.js";
+import { getVisibleColumns, isColumnFilterable } from "../components/pages/licenses/licenseTableShared.js";
 import { hasSortAccessor } from "../utils/sort.js";
 import {
   COLUMN_DEFS,
@@ -61,15 +61,15 @@ describe("getVisibleColumns", () => {
 
 describe("license column registry", () => {
   test("advertises only supported header capabilities", () => {
-    expect(isColumnSortable({ key: "select" })).toBe(false);
-    expect(isColumnSortable({ key: "procurementReference" })).toBe(true);
-    expect(isColumnSortable({ key: "cf_owner", _cfDef: { id: 1, fieldKey: "owner", fieldType: "text" } })).toBe(true);
+    expect(hasSortAccessor({ key: "select" })).toBe(false);
+    expect(hasSortAccessor({ key: "procurementReference" })).toBe(true);
+    expect(hasSortAccessor({ key: "cf_owner", _cfDef: { id: 1, fieldKey: "owner", fieldType: "text" } })).toBe(true);
     expect(isColumnFilterable({ key: "totalPoPrice" })).toBe(false);
     expect(isColumnFilterable({ key: "calcTotal" })).toBe(false);
     expect(isColumnFilterable({ key: "effectiveQuantity" })).toBe(true);
     expect(isColumnFilterable({ key: "cf_owner", _cfDef: { id: 1 } })).toBe(true);
-    expect(isColumnSortable({ key: "unknown" })).toBe(false);
-    expect(isColumnSortable({ key: "cf_owner" })).toBe(false);
+    expect(hasSortAccessor({ key: "unknown" })).toBe(false);
+    expect(hasSortAccessor({ key: "cf_owner" })).toBe(false);
   });
 
   test("keeps the sortable registry contract aligned with every static column", () => {

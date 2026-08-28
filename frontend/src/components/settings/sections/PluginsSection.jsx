@@ -16,6 +16,7 @@ import ConfirmDialog from "../../ui/ConfirmDialog.jsx";
 import ModalShell from "../../ui/ModalShell.jsx";
 import Toggle from "../../ui/Toggle.jsx";
 import { SectionHeader } from "../SectionShared.jsx";
+import { formatFileSize } from "../../../utils/formatting.js";
 
 function normalizePlugin(plugin) {
   return {
@@ -43,13 +44,6 @@ function riskBadgeType(risk) {
   if (risk === "high") return "red";
   if (risk === "medium") return "orange";
   return "gray";
-}
-
-function formatBytes(bytes) {
-  if (!Number.isFinite(bytes)) return "-";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function PreviewPill({ label, value }) {
@@ -130,7 +124,7 @@ function PluginInstallModal({ hostStatus, onClose, onInstalled, onError, onToast
           </button>
           <div className="plugin-file-meta">
             <strong>{file?.name || "No package selected"}</strong>
-            <span>{file ? formatBytes(file.size) : "Choose a package from an official LicenseTrack release channel."}</span>
+            <span>{file ? formatFileSize(file.size) : "Choose a package from an official LicenseTrack release channel."}</span>
           </div>
         </div>
 
@@ -159,7 +153,7 @@ function PluginInstallModal({ hostStatus, onClose, onInstalled, onError, onToast
               <PreviewPill label="Verified signer" value={preview.signerIdentity} />
               <PreviewPill label="Signing key" value={preview.signerKeyId} />
               <PreviewPill label="SHA-256" value={preview.checksumSha256} />
-              <PreviewPill label="Size" value={formatBytes(preview.packageSizeBytes)} />
+              <PreviewPill label="Size" value={Number.isFinite(preview.packageSizeBytes) ? formatFileSize(preview.packageSizeBytes) : "-"} />
             </div>
 
             <div className={`plugin-trust-warning ${preview.trustStatus === "verified" ? "verified" : "developer"}`}>
