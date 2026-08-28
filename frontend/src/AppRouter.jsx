@@ -1,7 +1,13 @@
 import React, { lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "./queryKeys.js";
-import { invalidateCompletenessRules, invalidateCustomFieldDefinitions, invalidateImportState, invalidateNotifications } from "./queryInvalidation.js";
+import {
+  invalidateCompletenessRules,
+  invalidateCustomFieldDefinitions,
+  invalidateImportState,
+  invalidateNotifications,
+  invalidatePortfolioState,
+} from "./queryInvalidation.js";
 import LicensesPage from "./components/pages/LicensesPage.jsx";
 import InvoiceConfirmModal from "./components/licenses/InvoiceConfirmModal.jsx";
 import { createManualEntryData } from "./constants/licenseData.js";
@@ -61,38 +67,34 @@ export default function AppRouter({
 
   return (
     <>
-      {page === "licenses" && (
-        <LicensesPage
-          selectedId={selectedId}
-          setSelectedId={handleSetSelectedId}
-          user={currentUser}
-          userSettings={userSettings}
-          setUserSettings={setUserSettings}
-          globalSettings={globalSettings}
-          showError={showError}
-          showSuccess={showSuccess}
-          showToast={showToast}
-          onAddLicense={() => setConfirmData(createManualEntryData())}
-          fullView={licenseFullView}
-          onFullView={handleFullView}
-          statsVisible={statsVisible}
-          onSetStatsVisible={setStatsVisible}
-          onNavigateToSourcing={(id) => { setPage("sourcing"); setHighlightSourcingId(id); }}
-          onNavigateToPendingOrder={(id) => { setPage("pending-orders"); setHighlightPendingOrderId(id); }}
-          onNavigateToContract={(id) => { setPage("contracts"); setOpenContractId(id); }}
-          onCreateContract={handleCreateContract}
-          onSourcingCreated={() => queryClient.invalidateQueries({ queryKey: queryKeys.sourcing })}
-          onStatsChange={handleSidebarStatsChange}
-          onPortfolioStateChange={() => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
-            queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
-            queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
-          }}
-        />
-      )}
+      <Suspense fallback={<div className="page-loading">Loading...</div>}>
+        {page === "licenses" && (
+          <LicensesPage
+            selectedId={selectedId}
+            setSelectedId={handleSetSelectedId}
+            user={currentUser}
+            userSettings={userSettings}
+            setUserSettings={setUserSettings}
+            globalSettings={globalSettings}
+            showError={showError}
+            showSuccess={showSuccess}
+            showToast={showToast}
+            onAddLicense={() => setConfirmData(createManualEntryData())}
+            fullView={licenseFullView}
+            onFullView={handleFullView}
+            statsVisible={statsVisible}
+            onSetStatsVisible={setStatsVisible}
+            onNavigateToSourcing={(id) => { setPage("sourcing"); setHighlightSourcingId(id); }}
+            onNavigateToPendingOrder={(id) => { setPage("pending-orders"); setHighlightPendingOrderId(id); }}
+            onNavigateToContract={(id) => { setPage("contracts"); setOpenContractId(id); }}
+            onCreateContract={handleCreateContract}
+            onSourcingCreated={() => queryClient.invalidateQueries({ queryKey: queryKeys.sourcing })}
+            onStatsChange={handleSidebarStatsChange}
+            onPortfolioStateChange={() => invalidatePortfolioState(queryClient)}
+          />
+        )}
 
-      {page === "renewal-workbench" && (
-        <Suspense fallback={<div className="page-loading">Loading...</div>}>
+        {page === "renewal-workbench" && (
           <RenewalWorkbenchPage
             user={currentUser}
             userSettings={userSettings}
@@ -104,12 +106,9 @@ export default function AppRouter({
             onNavigateToSourcing={(id) => { setPage("sourcing"); setHighlightSourcingId(id); }}
             onNavigateToPendingOrder={(id) => { setPage("pending-orders"); setHighlightPendingOrderId(id); }}
           />
-        </Suspense>
-      )}
+        )}
 
-
-      {page === "sourcing" && currentUser.role !== "viewer" && (
-        <Suspense fallback={<div className="page-loading">Loading...</div>}>
+        {page === "sourcing" && currentUser.role !== "viewer" && (
           <SourcingPage
             user={currentUser}
             userSettings={userSettings}
@@ -117,19 +116,13 @@ export default function AppRouter({
             onClearHighlight={() => setHighlightSourcingId(null)}
             onPendingOrdersReload={() => queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders })}
             onRenewalsReload={() => queryClient.invalidateQueries({ queryKey: queryKeys.renewals })}
-            onPortfolioStateChange={() => {
-              queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
-              queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
-              queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
-            }}
+            onPortfolioStateChange={() => invalidatePortfolioState(queryClient)}
             onNavigateToPendingOrder={(id) => { setPage("pending-orders"); setHighlightPendingOrderId(id); }}
             onNavigateToLicense={(id) => { setPage("licenses"); handleSetSelectedId(id); }}
           />
-        </Suspense>
-      )}
+        )}
 
-      {page === "pending-orders" && currentUser.role !== "viewer" && (
-        <Suspense fallback={<div className="page-loading">Loading...</div>}>
+        {page === "pending-orders" && currentUser.role !== "viewer" && (
           <PendingOrdersPage
             user={currentUser}
             userSettings={userSettings}
@@ -137,21 +130,15 @@ export default function AppRouter({
             showSuccess={showSuccess}
             onLicensesReload={() => queryClient.invalidateQueries({ queryKey: queryKeys.licenses })}
             onRenewalsReload={() => queryClient.invalidateQueries({ queryKey: queryKeys.renewals })}
-            onPortfolioStateChange={() => {
-              queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
-              queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
-              queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
-            }}
+            onPortfolioStateChange={() => invalidatePortfolioState(queryClient)}
             onNotificationsReload={() => invalidateNotifications(queryClient)}
             onNavigateToLicense={(id) => { handleSetSelectedId(id); setPage("licenses"); }}
             highlightId={highlightPendingOrderId}
             onClearHighlight={() => setHighlightPendingOrderId(null)}
           />
-        </Suspense>
-      )}
+        )}
 
-      {page === "notifications" && (
-        <Suspense fallback={<div className="page-loading">Loading...</div>}>
+        {page === "notifications" && (
           <NotificationsPage
             notifications={notifications}
             notificationData={notificationData}
@@ -163,17 +150,9 @@ export default function AppRouter({
             setSelectedId={setSelectedId}
             setPage={setPage}
           />
-        </Suspense>
-      )}
+        )}
 
-      {page === "settings" && (
-        <Suspense fallback={<div className="page-loading">Loading...</div>}>
-          <SettingsPage userSettings={userSettings} setUserSettings={setUserSettings} globalSettings={globalSettings} setGlobalSettings={setGlobalSettings} user={currentUser} onError={showError} onToast={showToast} onRefreshLicenses={() => queryClient.invalidateQueries({ queryKey: queryKeys.licenses })} onRefreshNotifications={() => invalidateNotifications(queryClient)} onCompletenessRulesChanged={() => invalidateCompletenessRules(queryClient)} onCustomFieldsChanged={() => invalidateCustomFieldDefinitions(queryClient)} navGuard={{ navigate: setPage, registerNavGuard: handleRegisterNavGuard, discard: handleSettingsDiscard, sectionSaved: handleSectionSaved }} _mySettingsOnly={true} />
-        </Suspense>
-      )}
-
-      {page === "admin" && perms.canAdminSettings && (
-        <Suspense fallback={<div className="page-loading">Loading...</div>}>
+        {page === "admin" && perms.canAdminSettings && (
           <AdminPage
             userSettings={userSettings}
             setUserSettings={setUserSettings}
@@ -195,17 +174,13 @@ export default function AppRouter({
             }}
             currentUserId={currentUser.id}
           />
-        </Suspense>
-      )}
+        )}
 
-      {page === "user-settings" && (
-        <Suspense fallback={<div className="page-loading">Loading...</div>}>
+        {page === "user-settings" && (
           <SettingsPage userSettings={userSettings} setUserSettings={setUserSettings} globalSettings={globalSettings} setGlobalSettings={setGlobalSettings} user={currentUser} onError={showError} onToast={showToast} onRefreshLicenses={() => queryClient.invalidateQueries({ queryKey: queryKeys.licenses })} onRefreshNotifications={() => invalidateNotifications(queryClient)} onCompletenessRulesChanged={() => invalidateCompletenessRules(queryClient)} onCustomFieldsChanged={() => invalidateCustomFieldDefinitions(queryClient)} navGuard={{ navigate: setPage, registerNavGuard: handleRegisterNavGuard, discard: handleSettingsDiscard, sectionSaved: handleSectionSaved }} _mySettingsOnly={true} />
-        </Suspense>
-      )}
+        )}
 
-      {page === "import" && currentUser.role !== "viewer" && (
-        <Suspense fallback={<div className="page-loading">Loading...</div>}>
+        {page === "import" && currentUser.role !== "viewer" && (
           <CSVImportPage
             userSettings={userSettings}
             canManageImportMappings={currentUser.role === "admin"}
@@ -214,17 +189,13 @@ export default function AppRouter({
             }}
             onGoToLicenses={() => { invalidateNotifications(queryClient); setPage("licenses"); }}
           />
-        </Suspense>
-      )}
+        )}
 
-      {page === "reports" && (
-        <Suspense fallback={<div className="page-loading">Loading...</div>}>
+        {page === "reports" && (
           <ReportsPage userSettings={userSettings} globalSettings={globalSettings} onError={showError} />
-        </Suspense>
-      )}
+        )}
 
-      {page === "contracts" && (
-        <Suspense fallback={<div className="page-loading">Loading...</div>}>
+        {page === "contracts" && (
           <ContractsPage
             user={currentUser}
             userSettings={userSettings}
@@ -233,14 +204,12 @@ export default function AppRouter({
             openContractId={openContractId}
             onClearOpenContractId={() => setOpenContractId(null)}
           />
-        </Suspense>
-      )}
+        )}
 
-      {page === "help" && (
-        <Suspense fallback={<div className="page-loading">Loading...</div>}>
+        {page === "help" && (
           <HelpPage />
-        </Suspense>
-      )}
+        )}
+      </Suspense>
 
       {confirmData && perms.canUpload && (
         <InvoiceConfirmModal

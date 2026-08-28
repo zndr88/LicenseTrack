@@ -7,7 +7,7 @@ import { getNotifications } from "./api/notifications.js";
 import { getPendingOrders } from "./api/pendingOrders.js";
 import AppRouter from "./AppRouter.jsx";
 import { queryKeys } from "./queryKeys.js";
-import { invalidateNotifications } from "./queryInvalidation.js";
+import { invalidateNotifications, invalidatePortfolioState } from "./queryInvalidation.js";
 import { createManualEntryData } from "./constants/licenseData.js";
 
 async function fetchNotifications() {
@@ -212,9 +212,7 @@ export default function App() {
     setConfirmData(null);
     setPage("licenses");
     queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
-    queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats });
-    queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats });
-    queryClient.invalidateQueries({ queryKey: queryKeys.reportsDetailed });
+    invalidatePortfolioState(queryClient);
     invalidateNotifications(queryClient);
     return true;
   }, [showError, queryClient, setConfirmData, setPage, setSelectedId]);
@@ -245,92 +243,90 @@ export default function App() {
   const sidebarW = userSettings.sidebarCollapsed ? 52 : 240;
 
   return (
-    <>
-      <div className="app" style={{ paddingLeft: sidebarW }}>
-        <Sidebar
+    <div className="app" style={{ paddingLeft: sidebarW }}>
+      <Sidebar
+        page={page}
+        setPage={handleSetPage}
+        setSelectedId={handleSetSelectedId}
+        currentUser={currentUser}
+        notifications={notifications}
+        onLogout={handleLogout}
+        collapsed={userSettings.sidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
+        userSettings={userSettings}
+        stats={sidebarStats}
+      />
+
+      <div className="app-right">
+        <TopBar
           page={page}
-          setPage={handleSetPage}
-          setSelectedId={handleSetSelectedId}
+          onNavigate={handleSetPage}
           currentUser={currentUser}
           notifications={notifications}
+          notificationsAvailable={notificationDataAvailable}
+          notificationsLoading={notificationQuery.isPending}
           onLogout={handleLogout}
-          collapsed={userSettings.sidebarCollapsed}
-          onToggleCollapse={handleToggleSidebar}
-          userSettings={userSettings}
-          stats={sidebarStats}
+          perms={perms}
+          onAddLicense={() => setConfirmData(createManualEntryData())}
         />
-
-        <div className="app-right">
-          <TopBar
-            page={page}
-            onNavigate={handleSetPage}
-            currentUser={currentUser}
-            notifications={notifications}
-            notificationsAvailable={notificationDataAvailable}
-            notificationsLoading={notificationQuery.isPending}
-            onLogout={handleLogout}
-            perms={perms}
-            onAddLicense={() => setConfirmData(createManualEntryData())}
-          />
-          {DEMO_MODE && (
-            <div className="demo-banner" role="status">
-              Demo mode - sample data, stored only in your browser, resets on logout or refresh.
-            </div>
-          )}
-
-          <main className="main">
-            <AppRouter
-              page={page}
-              setPage={setPage}
-              perms={perms}
-              currentUser={currentUser}
-              userSettings={userSettings}
-              setUserSettings={setUserSettings}
-              globalSettings={globalSettings}
-              setGlobalSettings={setGlobalSettings}
-              showError={showError}
-              showSuccess={showSuccess}
-              showToast={showToast}
-              confirmData={confirmData}
-              setConfirmData={setConfirmData}
-              selectedId={selectedId}
-              setSelectedId={setSelectedId}
-              handleSetSelectedId={handleSetSelectedId}
-              statsVisible={statsVisible}
-              setStatsVisible={setStatsVisible}
-              notifications={notifications}
-              notificationData={notificationQuery.data ?? null}
-              notificationsLoading={notificationQuery.isPending}
-              notificationsError={notificationQuery.isError ? notificationQuery.error?.message : null}
-              notificationsFetching={notificationQuery.isFetching}
-              onRetryNotifications={notificationQuery.refetch}
-              licenseFullView={licenseFullView}
-              handleFullView={handleFullView}
-              highlightSourcingId={highlightSourcingId}
-              setHighlightSourcingId={setHighlightSourcingId}
-              highlightPendingOrderId={highlightPendingOrderId}
-              setHighlightPendingOrderId={setHighlightPendingOrderId}
-              openContractId={openContractId}
-              setOpenContractId={setOpenContractId}
-              handleConfirm={handleConfirm}
-              handleCreateContract={handleCreateContract}
-              handleRegisterNavGuard={handleRegisterNavGuard}
-              handleSettingsDiscard={handleSettingsDiscard}
-              handleSectionSaved={handleSectionSaved}
-              handleSidebarStatsChange={handleSidebarStatsChange}
-            />
-          </main>
-        </div>
-
-        {toast && toastConfig && (
-          <div className="toast" style={{ borderColor: toastConfig.border }}>
-            <Icon name={toastConfig.icon} size={16} color={toastConfig.color} />
-            <span style={{ flex: 1 }}>{toast.msg}</span>
-            {toast.action && <button onClick={() => { toast.action.onClick(); dismissToast(); }} className="toast-action" style={{ borderColor: toastConfig.border, color: toastConfig.color }}>{toast.action.label}</button>}
-            <button onClick={dismissToast} className="toast-dismiss" aria-label="Dismiss notification"><Icon name="x" size={14} /></button>
+        {DEMO_MODE && (
+          <div className="demo-banner" role="status">
+            Demo mode - sample data, stored only in your browser, resets on logout or refresh.
           </div>
         )}
+
+        <main className="main">
+          <AppRouter
+            page={page}
+            setPage={setPage}
+            perms={perms}
+            currentUser={currentUser}
+            userSettings={userSettings}
+            setUserSettings={setUserSettings}
+            globalSettings={globalSettings}
+            setGlobalSettings={setGlobalSettings}
+            showError={showError}
+            showSuccess={showSuccess}
+            showToast={showToast}
+            confirmData={confirmData}
+            setConfirmData={setConfirmData}
+            selectedId={selectedId}
+            setSelectedId={setSelectedId}
+            handleSetSelectedId={handleSetSelectedId}
+            statsVisible={statsVisible}
+            setStatsVisible={setStatsVisible}
+            notifications={notifications}
+            notificationData={notificationQuery.data ?? null}
+            notificationsLoading={notificationQuery.isPending}
+            notificationsError={notificationQuery.isError ? notificationQuery.error?.message : null}
+            notificationsFetching={notificationQuery.isFetching}
+            onRetryNotifications={notificationQuery.refetch}
+            licenseFullView={licenseFullView}
+            handleFullView={handleFullView}
+            highlightSourcingId={highlightSourcingId}
+            setHighlightSourcingId={setHighlightSourcingId}
+            highlightPendingOrderId={highlightPendingOrderId}
+            setHighlightPendingOrderId={setHighlightPendingOrderId}
+            openContractId={openContractId}
+            setOpenContractId={setOpenContractId}
+            handleConfirm={handleConfirm}
+            handleCreateContract={handleCreateContract}
+            handleRegisterNavGuard={handleRegisterNavGuard}
+            handleSettingsDiscard={handleSettingsDiscard}
+            handleSectionSaved={handleSectionSaved}
+            handleSidebarStatsChange={handleSidebarStatsChange}
+          />
+        </main>
       </div>
-    </>
+
+      {toast && toastConfig && (
+        <div className="toast" style={{ borderColor: toastConfig.border }}>
+          <Icon name={toastConfig.icon} size={16} color={toastConfig.color} />
+          <span style={{ flex: 1 }}>{toast.msg}</span>
+          {toast.action && <button onClick={() => { toast.action.onClick(); dismissToast(); }} className="toast-action" style={{ borderColor: toastConfig.border, color: toastConfig.color }}>{toast.action.label}</button>}
+          <button onClick={dismissToast} className="toast-dismiss" aria-label="Dismiss notification"><Icon name="x" size={14} /></button>
+        </div>
+      )}
+    </div>
   );
 }
