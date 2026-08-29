@@ -2,8 +2,11 @@
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
+
 from app.models.settings import UserSettings
 from app.models.user import AuthProvider, User
+from app.schemas.user import UserCreate
 from app.services.user_service import (
     INHERITED_SETTING_FIELDS,
     apply_user_update,
@@ -32,6 +35,15 @@ def make_user(**overrides) -> User:
     }
     defaults.update(overrides)
     return User(**defaults)
+
+
+def test_local_user_schema_requires_password():
+    with pytest.raises(ValidationError, match="Password is required for local users"):
+        UserCreate(
+            username="local-user",
+            email="local-user@example.com",
+            auth_provider=AuthProvider.local,
+        )
 
 
 # ---------------------------------------------------------------------------

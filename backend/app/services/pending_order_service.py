@@ -7,6 +7,7 @@ preserving the existing business rules around deletions and item creation.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -24,7 +25,18 @@ from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate, Sourcin
 from app.services.document_availability_service import with_file_availability
 from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.reference_data_service import resolve_organization, resolve_procurement_reference_fields
-from app.services.sourcing_service import resolve_sourcing_item_references, sync_sourcing_item_support_defaults
+from app.services.sourcing_service import (
+    handle_delete_side_effects,
+    resolve_sourcing_item_references,
+    sync_sourcing_item_support_defaults,
+)
+
+
+@dataclass(frozen=True)
+class PendingOrderItemDeleteResult:
+    order: PendingOrder
+    label: str
+    order_cancelled: bool
 
 
 _CURRENCY_SYMBOLS: dict[str, str] = {
@@ -422,7 +434,7 @@ async def delete_pending_order_item_record(
     db: AsyncSession,
     order_id: int,
     item_id: int,
-) -> tuple[PendingOrder, str, list[int], bool]:
+) -> PendingOrderItemDeleteResult:
     order = await get_pending_order_or_404(db, order_id, include_items=True)
     ensure_pending_order_editable(order, action="delete items from")
 
@@ -437,7 +449,17 @@ async def delete_pending_order_item_record(
     if order_cancelled:
         order.status = PendingOrderStatus.cancelled
     await db.flush()
-    return order, label, renewal_license_ids, order_cancelled
+    await handle_delete_side_effects(
+        db,
+        renewal_license_id=None,
+        parent_order_id=None,
+        renewal_license_ids=renewal_license_ids,
+    )
+    return PendingOrderItemDeleteResult(
+        order=order,
+        label=label,
+        order_cancelled=order_cancelled,
+    )
 
 
 def ensure_pending_order_editable(order: PendingOrder, *, action: str = "modify") -> None:

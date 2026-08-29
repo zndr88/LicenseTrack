@@ -15,27 +15,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import auth
 from app.database import get_db
 from app.dependencies import CurrentUser, require_admin
-from app.models.api_token import ApiToken
-from app.models.contract import Contract, ContractDocument
-from app.models.document import Document, ProcurementDocument
-from app.models.document_processing import DocumentProcessingResult
-from app.models.extension import ExtensionCapability
-from app.models.license import License
-from app.models.pending_order import PendingOrder
-from app.models.plugin import PluginPermission, PluginSettingValue
-from app.models.plugin_suggestion import PluginSuggestion
 from app.models.reference_data import CostCentre
 from app.models.settings import GlobalSettings, UserSettings
-from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingRequest
 from app.models.user import AuthProvider, User
 from app.models.user_department_access import UserDepartmentAccess
-from app.models.webhook import WebhookEndpoint
 from app.schemas.user import (
     DepartmentAssignment,
     ResetPasswordRequest,
@@ -45,13 +34,14 @@ from app.schemas.user import (
     UserUpdate,
 )
 from app.services.audit_service import diff_fields, log_event
-from app.services.reference_data_service import resolve_department_assignment_names
 from app.services.user_service import (
     apply_user_update,
     build_inherited_user_settings,
+    bump_security_version,
+    delete_user_record,
     ensure_local_admin_invariant,
     reject_break_glass_change,
-    bump_security_version,
+    replace_user_department_access,
 )
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -93,11 +83,6 @@ async def create_user(
     min_length = gs.password_min_length if gs else 12
 
     if payload.auth_provider == AuthProvider.local:
-        if payload.password is None:
-            raise HTTPException(
-                status_code=422,
-                detail="Password is required for local users.",
-            )
         if len(payload.password) < min_length:
             raise HTTPException(
                 status_code=422,
@@ -232,64 +217,7 @@ async def delete_user(
     db: DbSession,
     current_user: User = Depends(require_admin),
 ) -> Response:
-    if user_id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot delete your own account")
-
-    user = await db.scalar(select(User).where(User.id == user_id))
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    if user.is_break_glass_admin:
-        raise HTTPException(status_code=400, detail="Break-glass admin cannot be deleted")
-
-    await ensure_local_admin_invariant(
-        db,
-        target_user=user,
-        new_role=user.role,
-        new_auth_provider=user.auth_provider,
-        new_is_active=False,
-    )
-
-    label = user.email
-
-    await db.execute(delete(ApiToken).where(ApiToken.created_by == user_id))
-    await db.execute(delete(UserDepartmentAccess).where(UserDepartmentAccess.user_id == user_id))
-    await db.execute(delete(WebhookEndpoint).where(WebhookEndpoint.created_by == user_id))
-
-    await db.execute(update(Contract).where(Contract.created_by == user_id).values(created_by=None))
-    await db.execute(update(ContractDocument).where(ContractDocument.created_by == user_id).values(created_by=None))
-    await db.execute(update(Document).where(Document.uploaded_by == user_id).values(uploaded_by=None))
-    await db.execute(
-        update(ProcurementDocument).where(ProcurementDocument.uploaded_by == user_id).values(uploaded_by=None)
-    )
-    await db.execute(update(License).where(License.created_by == user_id).values(created_by=None))
-    await db.execute(update(SourcingRequest).where(SourcingRequest.created_by == user_id).values(created_by=None))
-    await db.execute(
-        update(SourcingQuoteDocument).where(SourcingQuoteDocument.uploaded_by == user_id).values(uploaded_by=None)
-    )
-    await db.execute(update(SourcingItem).where(SourcingItem.created_by == user_id).values(created_by=None))
-    await db.execute(update(PendingOrder).where(PendingOrder.created_by == user_id).values(created_by=None))
-    await db.execute(
-        update(DocumentProcessingResult).where(DocumentProcessingResult.created_by == user_id).values(created_by=None)
-    )
-    await db.execute(
-        update(DocumentProcessingResult).where(DocumentProcessingResult.reviewed_by == user_id).values(reviewed_by=None)
-    )
-    await db.execute(
-        update(ExtensionCapability).where(ExtensionCapability.created_by == user_id).values(created_by=None)
-    )
-    await db.execute(
-        update(ExtensionCapability).where(ExtensionCapability.updated_by == user_id).values(updated_by=None)
-    )
-    await db.execute(update(PluginPermission).where(PluginPermission.granted_by == user_id).values(granted_by=None))
-    await db.execute(update(PluginSettingValue).where(PluginSettingValue.updated_by == user_id).values(updated_by=None))
-    await db.execute(update(PluginSuggestion).where(PluginSuggestion.created_by == user_id).values(created_by=None))
-    await db.execute(update(PluginSuggestion).where(PluginSuggestion.reviewed_by == user_id).values(reviewed_by=None))
-
-    user_settings = await db.scalar(select(UserSettings).where(UserSettings.user_id == user_id))
-    if user_settings is not None:
-        await db.delete(user_settings)
-
-    await db.delete(user)
+    label = await delete_user_record(db, user_id, current_user_id=current_user.id)
 
     ip = request.client.host if request.client else None
     await log_event(
@@ -416,37 +344,7 @@ async def update_user_departments(
     db: DbSession,
     _admin: User = Depends(require_admin),
 ) -> dict:
-    user = await db.scalar(select(User).where(User.id == user_id))
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    before_result = await db.execute(
-        select(UserDepartmentAccess.department)
-        .where(UserDepartmentAccess.user_id == user_id)
-        .order_by(UserDepartmentAccess.department)
-    )
-    before_departments = sorted([row[0] for row in before_result.all()])
-    current_access_result = await db.execute(
-        select(UserDepartmentAccess.cost_centre_id).where(UserDepartmentAccess.user_id == user_id)
-    )
-    current_access_ids = {row[0] for row in current_access_result.all() if row[0] is not None}
-    cost_centres = await resolve_department_assignment_names(
-        db,
-        payload.departments,
-        currently_assigned_ids=current_access_ids,
-    )
-    after_departments = [cost_centre.name for cost_centre in cost_centres]
-
-    await db.execute(delete(UserDepartmentAccess).where(UserDepartmentAccess.user_id == user_id))
-    for cost_centre in cost_centres:
-        db.add(
-            UserDepartmentAccess(
-                user_id=user_id,
-                department=cost_centre.name,
-                cost_centre_id=cost_centre.id,
-            )
-        )
-    bump_security_version(user)
+    outcome = await replace_user_department_access(db, user_id, payload.departments)
 
     ip = request.client.host if request.client else None
     await log_event(
@@ -456,8 +354,8 @@ async def update_user_departments(
         ip_address=ip,
         target_type="user",
         target_id=str(user_id),
-        target_label=user.email,
-        detail=f"departments: {before_departments} → {after_departments}",
+        target_label=outcome.user.email,
+        detail=f"departments: {outcome.before} → {outcome.after}",
     )
     await db.commit()
-    return {"departments": after_departments}
+    return {"departments": outcome.after}
