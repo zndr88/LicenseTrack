@@ -35,6 +35,8 @@ from app.services.license_response_service import (
     get_mandatory_fields,
     get_notification_days,
     get_procurement_documents_by_scope,
+    load_enriched_license_response,
+    load_enriched_license_responses,
 )
 from app.services.license_write_service import (
     apply_license_field_patch,
@@ -244,7 +246,7 @@ async def set_po_total_override(
         ),
     )
     await db.commit()
-    return await get_license(license_id, db, _editor)
+    return await load_enriched_license_response(db, license_id)
 
 
 @router.delete("/{license_id}/po-total-override", response_model=LicenseResponse)
@@ -274,7 +276,7 @@ async def clear_po_total_override(
         ),
     )
     await db.commit()
-    return await get_license(license_id, db, _editor)
+    return await load_enriched_license_response(db, license_id)
 
 
 @router.post("", response_model=LicenseResponse, status_code=201)
@@ -284,8 +286,6 @@ async def create_license(
     db: DbSession,
     current_user: User = Depends(require_editor_or_admin),
 ) -> LicenseResponse:
-    mandatory_fields = await get_mandatory_fields(db)
-    notification_days = await get_notification_days(db)
     license_obj = await create_license_record(
         db,
         payload,
@@ -305,28 +305,7 @@ async def create_license(
     )
     await db.commit()
 
-    result = await db.execute(
-        select(License)
-        .where(License.id == license_obj.id)
-        .options(
-            selectinload(License.documents),
-            selectinload(License.creator),
-            selectinload(License.maintenance_parent_links),
-            selectinload(License.maintenance_child_links),
-        )
-    )
-    license_obj = result.scalar_one()
-    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
-    custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, [license_obj.id])
-    storage_base = await get_document_storage_base(db)
-    return enrich_license_response(
-        license_obj,
-        mandatory_fields,
-        notification_days,
-        procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
-        custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
-        storage_base=storage_base,
-    )
+    return await load_enriched_license_response(db, license_obj.id)
 
 
 @router.post("/batch", response_model=list[LicenseResponse], status_code=201)
@@ -361,34 +340,8 @@ async def create_license_batch(
         raise
 
     created_ids = [license_obj.id for license_obj in created]
-    result = await db.execute(
-        select(License)
-        .where(License.id.in_(created_ids))
-        .options(
-            selectinload(License.documents),
-            selectinload(License.creator),
-            selectinload(License.maintenance_parent_links),
-            selectinload(License.maintenance_child_links),
-        )
-    )
-    created_by_id = {license_obj.id: license_obj for license_obj in result.scalars().all()}
-    ordered = [created_by_id[license_id] for license_id in created_ids]
-    mandatory_fields = await get_mandatory_fields(db)
-    notification_days = await get_notification_days(db)
-    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, ordered)
-    custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, created_ids)
-    storage_base = await get_document_storage_base(db)
-    return [
-        enrich_license_response(
-            license_obj,
-            mandatory_fields,
-            notification_days,
-            procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
-            custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
-            storage_base=storage_base,
-        )
-        for license_obj in ordered
-    ]
+    responses = await load_enriched_license_responses(db, created_ids)
+    return [responses[license_id] for license_id in created_ids]
 
 
 @router.post("/{license_id}/repair-lifecycle", response_model=LicenseResponse)
@@ -400,8 +353,6 @@ async def repair_license_lifecycle(
     _admin: User = Depends(require_admin),
 ) -> LicenseResponse:
     """Admin-only repair endpoint for lifecycle and renewal-chain fields."""
-    mandatory_fields = await get_mandatory_fields(db)
-    notification_days = await get_notification_days(db)
     payload_data = payload.model_dump(by_alias=False, exclude_unset=True)
     reason = payload_data.pop("reason")
     update_data = payload_data
@@ -430,28 +381,7 @@ async def repair_license_lifecycle(
 
     await db.commit()
 
-    result = await db.execute(
-        select(License)
-        .where(License.id == license_id)
-        .options(
-            selectinload(License.documents),
-            selectinload(License.creator),
-            selectinload(License.maintenance_parent_links),
-            selectinload(License.maintenance_child_links),
-        )
-    )
-    license_obj = result.scalar_one()
-    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
-    custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, [license_obj.id])
-    storage_base = await get_document_storage_base(db)
-    return enrich_license_response(
-        license_obj,
-        mandatory_fields,
-        notification_days,
-        procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
-        custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
-        storage_base=storage_base,
-    )
+    return await load_enriched_license_response(db, license_id)
 
 
 @router.put("/{license_id}", response_model=LicenseResponse)
@@ -462,8 +392,6 @@ async def update_license(
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> LicenseResponse:
-    mandatory_fields = await get_mandatory_fields(db)
-    notification_days = await get_notification_days(db)
     license_obj, before, after = await apply_license_update(db, license_id, payload)
 
     diff = diff_fields(before, after)
@@ -482,28 +410,7 @@ async def update_license(
 
     await db.commit()
 
-    result = await db.execute(
-        select(License)
-        .where(License.id == license_id)
-        .options(
-            selectinload(License.documents),
-            selectinload(License.creator),
-            selectinload(License.maintenance_parent_links),
-            selectinload(License.maintenance_child_links),
-        )
-    )
-    license_obj = result.scalar_one()
-    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
-    custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, [license_obj.id])
-    storage_base = await get_document_storage_base(db)
-    return enrich_license_response(
-        license_obj,
-        mandatory_fields,
-        notification_days,
-        procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
-        custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
-        storage_base=storage_base,
-    )
+    return await load_enriched_license_response(db, license_id)
 
 
 @router.post("/{license_id}/notice/handled", response_model=LicenseResponse)
@@ -514,8 +421,6 @@ async def mark_notice_handled(
     current_user: User = Depends(require_editor_or_admin),
 ) -> LicenseResponse:
     """Mark a license notice deadline as handled for reminder suppression."""
-    mandatory_fields = await get_mandatory_fields(db)
-    notification_days = await get_notification_days(db)
     license_obj, before, after = await mark_license_notice_handled(
         db,
         license_id,
@@ -537,28 +442,7 @@ async def mark_notice_handled(
 
     await db.commit()
 
-    result = await db.execute(
-        select(License)
-        .where(License.id == license_id)
-        .options(
-            selectinload(License.documents),
-            selectinload(License.creator),
-            selectinload(License.maintenance_parent_links),
-            selectinload(License.maintenance_child_links),
-        )
-    )
-    license_obj = result.scalar_one()
-    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
-    custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, [license_obj.id])
-    storage_base = await get_document_storage_base(db)
-    return enrich_license_response(
-        license_obj,
-        mandatory_fields,
-        notification_days,
-        procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
-        custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
-        storage_base=storage_base,
-    )
+    return await load_enriched_license_response(db, license_id)
 
 
 @router.patch("/{license_id}/field", response_model=LicenseResponse)
@@ -572,8 +456,6 @@ async def patch_license_field(
     """Update a single named field on a license."""
     field = payload.field
     value = payload.value
-    mandatory_fields = await get_mandatory_fields(db)
-    notification_days = await get_notification_days(db)
     license_obj = await apply_license_field_patch(db, license_id, field=field, value=value)
 
     await log_event(
@@ -588,28 +470,7 @@ async def patch_license_field(
     )
     await db.commit()
 
-    result = await db.execute(
-        select(License)
-        .where(License.id == license_id)
-        .options(
-            selectinload(License.documents),
-            selectinload(License.creator),
-            selectinload(License.maintenance_parent_links),
-            selectinload(License.maintenance_child_links),
-        )
-    )
-    license_obj = result.scalar_one()
-    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, [license_obj])
-    custom_field_values_by_license_id = await get_custom_field_values_by_license_id(db, [license_obj.id])
-    storage_base = await get_document_storage_base(db)
-    return enrich_license_response(
-        license_obj,
-        mandatory_fields,
-        notification_days,
-        procurement_documents=procurement_documents_by_license_id.get(license_obj.id, []),
-        custom_field_values=custom_field_values_by_license_id.get(license_obj.id, []),
-        storage_base=storage_base,
-    )
+    return await load_enriched_license_response(db, license_id)
 
 
 @router.delete("/bulk", status_code=200)

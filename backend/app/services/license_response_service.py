@@ -18,6 +18,7 @@ from app.models.document import ProcurementDocument
 from app.schemas.custom_fields import CustomFieldValueResponse
 from app.schemas.license import LicenseResponse
 from app.services.document_availability_service import inspect_document_availability
+from app.services.document_availability_service import get_document_storage_base
 from app.services.license_service import (
     calc_effective_quantity,
     compute_completeness,
@@ -125,7 +126,10 @@ def enrich_license_response(
         response.maintenance_parent_ids = [response.parent_license_id]
     child_links = license_obj.__dict__.get("maintenance_child_links")
     if child_links is not None:
-        response.linked_maintenance_ids = sorted({link.maintenance_license_id for link in child_links})
+        linked_ids = sorted({link.maintenance_license_id for link in child_links})
+        response.linked_maintenance_ids = linked_ids
+        if not linked_ids and response.active_maintenance_id is not None:
+            response.linked_maintenance_ids = [response.active_maintenance_id]
     elif response.active_maintenance_id is not None:
         response.linked_maintenance_ids = [response.active_maintenance_id]
     creator = license_obj.__dict__.get("creator")
@@ -141,3 +145,62 @@ def enrich_license_response(
     response.unavailable_document_count = document_counts["unavailable"]
     response.custom_fields = [CustomFieldValueResponse.model_validate(value) for value in custom_field_values or []]
     return response
+
+
+async def load_enriched_license_responses(
+    db: AsyncSession,
+    license_ids: list[int],
+    *,
+    populate_existing: bool = False,
+) -> dict[int, LicenseResponse]:
+    """Reload and enrich licenses by id after a workflow mutation."""
+    if not license_ids:
+        return {}
+
+    from app.models.license import License
+
+    query = (
+        select(License)
+        .where(License.id.in_(license_ids))
+        .options(
+            selectinload(License.documents),
+            selectinload(License.creator),
+            selectinload(License.maintenance_parent_links),
+            selectinload(License.maintenance_child_links),
+        )
+    )
+    if populate_existing:
+        query = query.execution_options(populate_existing=True)
+    result = await db.execute(query)
+    licenses = list(result.scalars().all())
+    mandatory_fields = await get_mandatory_fields(db)
+    notification_days = await get_notification_days(db)
+    procurement_documents = await get_procurement_documents_by_scope(db, licenses)
+    custom_field_values = await get_custom_field_values_by_license_id(db, license_ids)
+    storage_base = await get_document_storage_base(db)
+    return {
+        license_obj.id: enrich_license_response(
+            license_obj,
+            mandatory_fields,
+            notification_days,
+            procurement_documents=procurement_documents.get(license_obj.id, []),
+            custom_field_values=custom_field_values.get(license_obj.id, []),
+            storage_base=storage_base,
+        )
+        for license_obj in licenses
+    }
+
+
+async def load_enriched_license_response(
+    db: AsyncSession,
+    license_id: int,
+    *,
+    populate_existing: bool = False,
+) -> LicenseResponse:
+    """Reload and enrich one license after a workflow mutation."""
+    responses = await load_enriched_license_responses(
+        db,
+        [license_id],
+        populate_existing=populate_existing,
+    )
+    return responses[license_id]
