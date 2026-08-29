@@ -187,19 +187,7 @@ async def list_pending_order_records(
             ),
         )
 
-    query = (
-        select(PendingOrder)
-        .where(status_filter)
-        .options(
-            selectinload(PendingOrder.items)
-            .selectinload(SourcingItem.sourcing_request)
-            .selectinload(SourcingRequest.quote_documents),
-            selectinload(PendingOrder.documents),
-            selectinload(PendingOrder.licenses),
-        )
-        .order_by(PendingOrder.created_at.desc())
-        .offset(offset)
-    )
+    query = _pending_order_list_query(status_filter).order_by(PendingOrder.created_at.desc()).offset(offset)
     if limit is not None:
         query = query.limit(limit)
     result = await db.execute(query)
@@ -213,14 +201,8 @@ async def list_pending_order_history_records(
     offset: int,
 ) -> list[PendingOrder]:
     query = (
-        select(PendingOrder)
-        .where(PendingOrder.status.in_([PendingOrderStatus.converted, PendingOrderStatus.cancelled]))
-        .options(
-            selectinload(PendingOrder.items)
-            .selectinload(SourcingItem.sourcing_request)
-            .selectinload(SourcingRequest.quote_documents),
-            selectinload(PendingOrder.documents),
-            selectinload(PendingOrder.licenses),
+        _pending_order_list_query(
+            PendingOrder.status.in_([PendingOrderStatus.converted, PendingOrderStatus.cancelled])
         )
         .order_by(PendingOrder.updated_at.desc(), PendingOrder.created_at.desc())
         .offset(offset)
@@ -239,16 +221,7 @@ async def create_pending_order_record(
 ) -> PendingOrder:
     create_data = payload.model_dump(by_alias=False)
     create_data.pop("items", None)
-    create_data["po_number"] = (create_data.get("po_number") or "").strip()
-    create_data["procurement_reference"] = (create_data.get("procurement_reference") or "").strip()
-    supplier_value = create_data.get("supplier")
-    if isinstance(supplier_value, str) and supplier_value.strip():
-        supplier = await resolve_organization(db, supplier_value, role="supplier", create_if_missing=True)
-        create_data["supplier"] = supplier.name
-        create_data["supplier_id"] = supplier.id
-    else:
-        create_data["supplier"] = None
-        create_data["supplier_id"] = None
+    await _normalize_pending_order_data(db, create_data)
     order = PendingOrder(**create_data, created_by=created_by)
     db.add(order)
     await db.flush()
@@ -272,19 +245,7 @@ async def apply_pending_order_update(
     before = {column.name: getattr(order, column.name) for column in order.__table__.columns}
 
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
-    if "po_number" in update_data:
-        update_data["po_number"] = (update_data.get("po_number") or "").strip()
-    if "procurement_reference" in update_data:
-        update_data["procurement_reference"] = (update_data.get("procurement_reference") or "").strip()
-    if "supplier" in update_data:
-        supplier_value = update_data.get("supplier")
-        if isinstance(supplier_value, str) and supplier_value.strip():
-            supplier = await resolve_organization(db, supplier_value, role="supplier", create_if_missing=True)
-            update_data["supplier"] = supplier.name
-            update_data["supplier_id"] = supplier.id
-        else:
-            update_data["supplier"] = None
-            update_data["supplier_id"] = None
+    await _normalize_pending_order_data(db, update_data)
     if "status" in update_data and update_data["status"] not in {
         PendingOrderStatus.pending,
         PendingOrderStatus.invoice_received,
@@ -368,13 +329,12 @@ async def add_pending_order_item_record(
     *,
     created_by: int,
 ) -> PendingOrder:
-    order = await get_pending_order_or_404(db, order_id, include_items=True)
-    ensure_pending_order_editable(order, action="add items to")
-
-    item = _build_pending_order_item(payload, order_id=order_id, created_by=created_by)
-    await resolve_sourcing_item_references(db, item)
-    db.add(item)
-    return order
+    return await add_pending_order_items_bulk_record(
+        db,
+        order_id,
+        [payload],
+        created_by=created_by,
+    )
 
 
 async def add_pending_order_items_bulk_record(
@@ -493,3 +453,29 @@ def _build_pending_order_item(
         pending_order_id=order_id,
         created_by=created_by,
     )
+
+
+def _pending_order_list_query(status_filter):
+    return select(PendingOrder).where(status_filter).options(
+        selectinload(PendingOrder.items)
+        .selectinload(SourcingItem.sourcing_request)
+        .selectinload(SourcingRequest.quote_documents),
+        selectinload(PendingOrder.documents),
+        selectinload(PendingOrder.licenses),
+    )
+
+
+async def _normalize_pending_order_data(db: AsyncSession, data: dict) -> None:
+    for field in ("po_number", "procurement_reference"):
+        if field in data:
+            data[field] = (data.get(field) or "").strip()
+    if "supplier" not in data:
+        return
+    supplier_value = data.get("supplier")
+    if isinstance(supplier_value, str) and supplier_value.strip():
+        supplier = await resolve_organization(db, supplier_value, role="supplier", create_if_missing=True)
+        data["supplier"] = supplier.name
+        data["supplier_id"] = supplier.id
+    else:
+        data["supplier"] = None
+        data["supplier_id"] = None

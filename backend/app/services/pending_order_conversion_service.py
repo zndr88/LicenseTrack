@@ -96,6 +96,44 @@ def _require_order_po_number(order: PendingOrder) -> str:
     return po_number
 
 
+async def _load_convertible_order(db: AsyncSession, order_id: int) -> PendingOrder:
+    result = await db.execute(
+        select(PendingOrder)
+        .where(PendingOrder.id == order_id)
+        .options(selectinload(PendingOrder.items), selectinload(PendingOrder.documents))
+    )
+    order = result.scalar_one_or_none()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Pending order not found")
+    if order.status == PendingOrderStatus.converted:
+        raise HTTPException(status_code=409, detail="Pending order has already been converted")
+    if order.status == PendingOrderStatus.cancelled:
+        raise HTTPException(status_code=409, detail="Pending order has been cancelled")
+    return order
+
+
+async def _lock_pending_order(db: AsyncSession, order: PendingOrder) -> None:
+    lock_result = await db.execute(
+        update(PendingOrder)
+        .where(PendingOrder.id == order.id)
+        .where(PendingOrder.status.in_([PendingOrderStatus.pending, PendingOrderStatus.invoice_received]))
+        .values(notes=order.notes)
+        .execution_options(synchronize_session=False)
+    )
+    try:
+        await db.flush()
+    except InvalidRequestError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Pending order has already been converted",
+        ) from exc
+    if lock_result.rowcount == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Pending order has already been converted",
+        )
+
+
 def _cleanup_written_procurement_files(paths: list[StoredProcurementPath]) -> None:
     for path, storage_base in paths:
         try:
@@ -171,8 +209,105 @@ async def _run_evidence_transfer_after_conversion_commit(
         )
 
 
-async def _validate_invoice_file(file: UploadFile) -> tuple[bytes, str, str]:
-    return await validate_invoice_file(file)
+async def _transfer_conversion_evidence(
+    *,
+    db: AsyncSession,
+    order_id: int,
+    order_po_number: str,
+    actor_id: int | None,
+    file_data: tuple[bytes, str, str] | None,
+    quote_request_ids: list[int],
+) -> list[StoredProcurementPath]:
+    written_paths: list[StoredProcurementPath] = []
+    if file_data is not None:
+        content, filename, mime_type = file_data
+        written_paths.append(
+            await write_invoice_procurement_document(
+                db,
+                content,
+                filename,
+                mime_type,
+                order_po_number,
+                order_id,
+                actor_id,
+            )
+        )
+        try:
+            await db.commit()
+        except Exception:
+            _cleanup_written_procurement_files(written_paths)
+            await db.rollback()
+            raise
+
+    if quote_request_ids:
+        written_paths.extend(
+            await copy_quote_documents_to_procurement_documents(
+                db,
+                order_po_number,
+                order_id,
+                quote_request_ids,
+                actor_id,
+            )
+        )
+    await db.commit()
+    return written_paths
+
+
+async def _complete_conversion(
+    *,
+    db: AsyncSession,
+    order: PendingOrder,
+    order_po_number: str,
+    current_user: User,
+    actor_snapshot: SimpleNamespace,
+    ip_address: str | None,
+    file_data: tuple[bytes, str, str] | None,
+    quote_request_ids: list[int],
+    evidence_transfer_required: bool,
+    new_license_entries: list[tuple[int, str]],
+    predecessor_ids: list[int],
+) -> list[LicenseResponse]:
+    refresh_order_status(order)
+    order_label = order.po_number or order.supplier or ""
+    if evidence_transfer_required:
+        order.evidence_transfer_status = EvidenceTransferStatus.pending
+        order.evidence_invoice_required = file_data is not None
+        order.evidence_transfer_detail = None
+        order.evidence_transfer_failed_at = None
+
+    await log_event(
+        db,
+        "po.converted",
+        actor=current_user,
+        ip_address=ip_address,
+        target_type="pending_order",
+        target_id=str(order.id),
+        target_label=order_label,
+        detail=f"{len(new_license_entries)} license(s) created",
+    )
+    await db.commit()
+
+    if evidence_transfer_required:
+        async def transfer_evidence() -> list[StoredProcurementPath]:
+            return await _transfer_conversion_evidence(
+                db=db,
+                order_id=order.id,
+                order_po_number=order_po_number,
+                actor_id=actor_snapshot.id,
+                file_data=file_data,
+                quote_request_ids=quote_request_ids,
+            )
+
+        await _run_evidence_transfer_after_conversion_commit(
+            db=db,
+            order_id=order.id,
+            order_label=order_label,
+            actor=actor_snapshot,
+            ip_address=ip_address,
+            transfer=transfer_evidence,
+        )
+
+    return await build_conversion_response(db, new_license_entries, predecessor_ids)
 
 
 async def convert_pending_order_to_licenses(
@@ -191,18 +326,7 @@ async def convert_pending_order_to_licenses(
     if file is not None:
         file_data = await validate_invoice_file(file)
 
-    result = await db.execute(
-        select(PendingOrder)
-        .where(PendingOrder.id == order_id)
-        .options(selectinload(PendingOrder.items), selectinload(PendingOrder.documents))
-    )
-    order = result.scalar_one_or_none()
-    if order is None:
-        raise HTTPException(status_code=404, detail="Pending order not found")
-    if order.status == PendingOrderStatus.converted:
-        raise HTTPException(status_code=409, detail="Pending order has already been converted")
-    if order.status == PendingOrderStatus.cancelled:
-        raise HTTPException(status_code=409, detail="Pending order has been cancelled")
+    order = await _load_convertible_order(db, order_id)
     order_po_number = _require_order_po_number(order)
     submitted_fields = convert_payload.model_fields_set
     effective_po_number = (
@@ -216,26 +340,8 @@ async def convert_pending_order_to_licenses(
         convert_payload.currency,
         pending_order_id=order_id,
     )
-    # F5: Acquire a write lock before creating any licenses.
-    _lock = await db.execute(
-        update(PendingOrder)
-        .where(PendingOrder.id == order_id)
-        .where(PendingOrder.status.in_([PendingOrderStatus.pending, PendingOrderStatus.invoice_received]))
-        .values(notes=order.notes)
-        .execution_options(synchronize_session=False)
-    )
-    try:
-        await db.flush()
-    except InvalidRequestError:
-        raise HTTPException(
-            status_code=409,
-            detail="Pending order has already been converted",
-        )
-    if _lock.rowcount == 0:
-        raise HTTPException(
-            status_code=409,
-            detail="Pending order has already been converted",
-        )
+    # Acquire the conditional write lock before creating any licenses.
+    await _lock_pending_order(db, order)
     form_data = convert_payload.model_dump(by_alias=False)
     form_data["po_total_override"] = inherited_po_total_override
     form_data["pending_order_id"] = order_id
@@ -351,62 +457,19 @@ async def convert_pending_order_to_licenses(
     for item in order.items:
         mark_item_converted(item)
 
-    refresh_order_status(order)
-    order_label = order.po_number or order.supplier or ""
-    if evidence_transfer_required:
-        order.evidence_transfer_status = EvidenceTransferStatus.pending
-        order.evidence_invoice_required = file_data is not None
-        order.evidence_transfer_detail = None
-        order.evidence_transfer_failed_at = None
-
-    await log_event(
-        db,
-        "po.converted",
-        actor=current_user,
+    return await _complete_conversion(
+        db=db,
+        order=order,
+        order_po_number=order_po_number,
+        current_user=current_user,
+        actor_snapshot=actor_snapshot,
         ip_address=ip_address,
-        target_type="pending_order",
-        target_id=str(order_id),
-        target_label=order_label,
-        detail=f"{len(new_license_entries)} license(s) created",
+        file_data=file_data,
+        quote_request_ids=quote_request_ids,
+        evidence_transfer_required=evidence_transfer_required,
+        new_license_entries=new_license_entries,
+        predecessor_ids=predecessor_ids,
     )
-    await db.commit()
-
-    async def transfer_evidence() -> list[StoredProcurementPath]:
-        written_paths: list[StoredProcurementPath] = []
-        if file_data is not None:
-            content, filename, mime_type = file_data
-            written_paths.append(
-                await write_invoice_procurement_document(
-                    db, content, filename, mime_type, order_po_number, order_id, actor_snapshot.id
-                )
-            )
-            try:
-                await db.commit()
-            except Exception:
-                _cleanup_written_procurement_files(written_paths)
-                await db.rollback()
-                raise
-
-        if quote_request_ids:
-            written_paths.extend(
-                await copy_quote_documents_to_procurement_documents(
-                    db, order_po_number, order_id, quote_request_ids, actor_snapshot.id
-                )
-            )
-        await db.commit()
-        return written_paths
-
-    if evidence_transfer_required:
-        await _run_evidence_transfer_after_conversion_commit(
-            db=db,
-            order_id=order_id,
-            order_label=order_label,
-            actor=actor_snapshot,
-            ip_address=ip_address,
-            transfer=transfer_evidence,
-        )
-
-    return await build_conversion_response(db, new_license_entries, predecessor_ids)
 
 
 async def batch_convert_pending_order_to_licenses(
@@ -424,40 +487,11 @@ async def batch_convert_pending_order_to_licenses(
     if file is not None:
         file_data = await validate_invoice_file(file)
 
-    result = await db.execute(
-        select(PendingOrder)
-        .where(PendingOrder.id == order_id)
-        .options(selectinload(PendingOrder.items), selectinload(PendingOrder.documents))
-    )
-    order = result.scalar_one_or_none()
-    if order is None:
-        raise HTTPException(status_code=404, detail="Pending order not found")
-    if order.status == PendingOrderStatus.converted:
-        raise HTTPException(status_code=409, detail="Pending order has already been converted")
-    if order.status == PendingOrderStatus.cancelled:
-        raise HTTPException(status_code=409, detail="Pending order has been cancelled")
+    order = await _load_convertible_order(db, order_id)
     order_item_map = await _validate_batch_coverage(db, order, payload)
     order_po_number = _require_order_po_number(order)
-    # F5: Acquire a write lock before creating any licenses.
-    _lock = await db.execute(
-        update(PendingOrder)
-        .where(PendingOrder.id == order_id)
-        .where(PendingOrder.status.in_([PendingOrderStatus.pending, PendingOrderStatus.invoice_received]))
-        .values(notes=order.notes)
-        .execution_options(synchronize_session=False)
-    )
-    try:
-        await db.flush()
-    except InvalidRequestError:
-        raise HTTPException(
-            status_code=409,
-            detail="Pending order has already been converted",
-        )
-    if _lock.rowcount == 0:
-        raise HTTPException(
-            status_code=409,
-            detail="Pending order has already been converted",
-        )
+    # Acquire the conditional write lock before creating any licenses.
+    await _lock_pending_order(db, order)
 
     for batch_item in payload:
         _enforce_order_supplier(
@@ -573,61 +607,19 @@ async def batch_convert_pending_order_to_licenses(
             evidence_transfer_required = True
         mark_item_converted(sourcing_item)
 
-    refresh_order_status(order)
-    order_label = order.po_number or order.supplier or ""
-    if evidence_transfer_required:
-        order.evidence_transfer_status = EvidenceTransferStatus.pending
-        order.evidence_invoice_required = file_data is not None
-        order.evidence_transfer_detail = None
-        order.evidence_transfer_failed_at = None
-
-    await log_event(
-        db,
-        "po.converted",
-        actor=current_user,
+    return await _complete_conversion(
+        db=db,
+        order=order,
+        order_po_number=order_po_number,
+        current_user=current_user,
+        actor_snapshot=actor_snapshot,
         ip_address=ip_address,
-        target_type="pending_order",
-        target_id=str(order_id),
-        target_label=order_label,
-        detail=f"{len(new_license_entries)} license(s) created",
+        file_data=file_data,
+        quote_request_ids=quote_request_ids,
+        evidence_transfer_required=evidence_transfer_required,
+        new_license_entries=new_license_entries,
+        predecessor_ids=predecessor_ids,
     )
-    await db.commit()
-
-    async def transfer_evidence() -> list[StoredProcurementPath]:
-        written_paths: list[StoredProcurementPath] = []
-        if file_data is not None:
-            content, filename, mime_type = file_data
-            written_paths.append(
-                await write_invoice_procurement_document(
-                    db, content, filename, mime_type, order_po_number, order_id, actor_snapshot.id
-                )
-            )
-            try:
-                await db.commit()
-            except Exception:
-                _cleanup_written_procurement_files(written_paths)
-                await db.rollback()
-                raise
-        if quote_request_ids:
-            written_paths.extend(
-                await copy_quote_documents_to_procurement_documents(
-                    db, order_po_number, order_id, quote_request_ids, actor_snapshot.id
-                )
-            )
-        await db.commit()
-        return written_paths
-
-    if evidence_transfer_required:
-        await _run_evidence_transfer_after_conversion_commit(
-            db=db,
-            order_id=order_id,
-            order_label=order_label,
-            actor=actor_snapshot,
-            ip_address=ip_address,
-            transfer=transfer_evidence,
-        )
-
-    return await build_conversion_response(db, new_license_entries, predecessor_ids)
 
 
 async def retry_evidence_transfer(
