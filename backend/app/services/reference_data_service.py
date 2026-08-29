@@ -505,48 +505,40 @@ async def _assert_name_available(db: AsyncSession, normalized: str, *, organizat
         raise _conflict("That canonical name or alias is already in use.")
 
 
-async def _rename_organization(db: AsyncSession, organization: Organization, cleaned: str, normalized: str) -> None:
+async def _rename_reference(
+    db: AsyncSession,
+    reference,
+    cleaned: str,
+    normalized: str,
+    *,
+    alias_model,
+    alias_owner_column,
+    add_alias,
+    sync_mirrors,
+    conflict_detail: str,
+) -> None:
     try:
         async with db.begin_nested():
-            await _assert_name_available(db, normalized, organization_id=organization.id)
+            if isinstance(reference, Organization):
+                await _assert_name_available(db, normalized, organization_id=reference.id)
+            else:
+                await _assert_name_available(db, normalized, cost_centre_id=reference.id)
             own_alias = await db.scalar(
-                select(OrganizationAlias).where(
-                    OrganizationAlias.organization_id == organization.id,
-                    OrganizationAlias.normalized_name == normalized,
+                select(alias_model).where(
+                    alias_owner_column == reference.id,
+                    alias_model.normalized_name == normalized,
                 )
             )
             if own_alias is not None:
                 await db.delete(own_alias)
                 await db.flush()
-            old_name = organization.name
-            organization.name = cleaned
-            organization.normalized_name = normalized
-            await _add_organization_alias(db, organization, old_name)
-            await _sync_organization_mirrors(db, organization)
+            old_name = reference.name
+            reference.name = cleaned
+            reference.normalized_name = normalized
+            await add_alias(db, reference, old_name)
+            await sync_mirrors(db, reference)
     except IntegrityError as exc:
-        raise _conflict("That organization name or alias is already in use.") from exc
-
-
-async def _rename_cost_centre(db: AsyncSession, cost_centre: CostCentre, cleaned: str, normalized: str) -> None:
-    try:
-        async with db.begin_nested():
-            await _assert_name_available(db, normalized, cost_centre_id=cost_centre.id)
-            own_alias = await db.scalar(
-                select(CostCentreAlias).where(
-                    CostCentreAlias.cost_centre_id == cost_centre.id,
-                    CostCentreAlias.normalized_name == normalized,
-                )
-            )
-            if own_alias is not None:
-                await db.delete(own_alias)
-                await db.flush()
-            old_name = cost_centre.name
-            cost_centre.name = cleaned
-            cost_centre.normalized_name = normalized
-            await _add_cost_centre_alias(db, cost_centre, CostCentreAliasCreate(name=old_name))
-            await _sync_cost_centre_mirrors(db, cost_centre)
-    except IntegrityError as exc:
-        raise _conflict("That cost centre name or alias is already in use.") from exc
+        raise _conflict(conflict_detail) from exc
 
 
 async def update_organization(db: AsyncSession, organization_id: int, data: OrganizationUpdate) -> Organization:
@@ -567,7 +559,17 @@ async def update_organization(db: AsyncSession, organization_id: int, data: Orga
         cleaned = clean_reference_name(data.name)
         normalized = normalize_reference_name(cleaned)
         if normalized != organization.normalized_name:
-            await _rename_organization(db, organization, cleaned, normalized)
+            await _rename_reference(
+                db,
+                organization,
+                cleaned,
+                normalized,
+                alias_model=OrganizationAlias,
+                alias_owner_column=OrganizationAlias.organization_id,
+                add_alias=_add_organization_alias,
+                sync_mirrors=_sync_organization_mirrors,
+                conflict_detail="That organization name or alias is already in use.",
+            )
         else:
             organization.name = cleaned
             organization.normalized_name = normalized
@@ -589,7 +591,17 @@ async def update_cost_centre(db: AsyncSession, cost_centre_id: int, data: CostCe
         cleaned = clean_reference_name(data.name)
         normalized = normalize_reference_name(cleaned)
         if normalized != cost_centre.normalized_name:
-            await _rename_cost_centre(db, cost_centre, cleaned, normalized)
+            await _rename_reference(
+                db,
+                cost_centre,
+                cleaned,
+                normalized,
+                alias_model=CostCentreAlias,
+                alias_owner_column=CostCentreAlias.cost_centre_id,
+                add_alias=_add_cost_centre_alias,
+                sync_mirrors=_sync_cost_centre_mirrors,
+                conflict_detail="That cost centre name or alias is already in use.",
+            )
         else:
             cost_centre.name = cleaned
             cost_centre.normalized_name = normalized

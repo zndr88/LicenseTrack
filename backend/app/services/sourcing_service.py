@@ -367,32 +367,20 @@ def is_direct_freeware_item(item: SourcingItem) -> bool:
 def assert_sourcing_item_editable(item: SourcingItem) -> None:
     """Reject mutations to sourcing items once the sourcing workflow is converted."""
     if item.status == SourcingStatus.converted or item.pending_order_id is not None:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=409, detail="Cannot modify a converted sourcing item")
     if item.status == SourcingStatus.cancelled:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=409, detail="Cannot modify a cancelled sourcing item")
     request = getattr(item, "sourcing_request", None)
     if request is not None and request.status == SourcingStatus.converted:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=409, detail="Cannot modify an item in a converted sourcing request")
     if request is not None and request.status == SourcingStatus.cancelled:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=409, detail="Cannot modify an item in a cancelled sourcing request")
 
 
 def assert_sourcing_request_editable(request: SourcingRequest) -> None:
     if request.status == SourcingStatus.converted:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=409, detail="Cannot modify a converted sourcing request")
     if request.status == SourcingStatus.cancelled:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=409, detail="Cannot modify a cancelled sourcing request")
 
 
@@ -888,8 +876,6 @@ async def get_sourcing_request_or_404(db: AsyncSession, request_id: int) -> Sour
     )
     request = result.scalar_one_or_none()
     if request is None:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail="Sourcing request not found")
     return request
 
@@ -1082,8 +1068,6 @@ async def delete_sourcing_request_record(db: AsyncSession, request_id: int) -> s
     request = await get_sourcing_request_or_404(db, request_id)
     assert_sourcing_request_editable(request)
     if any(item.status == SourcingStatus.converted for item in request.items):
-        from fastapi import HTTPException
-
         raise HTTPException(
             status_code=409,
             detail="Cannot delete a sourcing request after any line has been converted",
@@ -1159,6 +1143,70 @@ def _build_request_item(
     )
 
 
+async def _resolve_conversion_order(
+    db: AsyncSession,
+    *,
+    request: SourcingRequest | None,
+    pending_order_id: int | None,
+    supplier_candidates: Iterable[str | None],
+    po_number: str | None,
+    procurement_reference: str | None,
+    notes: str | None,
+    created_by: int | None,
+) -> PendingOrder:
+    if pending_order_id is not None:
+        order = await db.get(PendingOrder, pending_order_id)
+        if order is None:
+            raise ValueError("Pending order not found")
+        order_supplier = clean_procurement_identity(order.supplier)
+        if order_supplier is None:
+            raise HTTPException(status_code=422, detail="The selected pending order must have a supplier")
+        supplier_record = await resolve_organization(
+            db,
+            order_supplier,
+            role="supplier",
+            create_if_missing=True,
+        )
+        order.supplier = supplier_record.name
+        order.supplier_id = supplier_record.id
+        if request is not None and request.supplier_id is not None and request.supplier_id != supplier_record.id:
+            raise HTTPException(
+                status_code=409,
+                detail="The sourcing request supplier conflicts with the selected pending order supplier",
+            )
+    else:
+        target_supplier = next(
+            (cleaned for value in supplier_candidates if (cleaned := clean_procurement_identity(value)) is not None),
+            None,
+        )
+        if target_supplier is None:
+            raise HTTPException(status_code=422, detail="Supplier is required to create a pending order")
+        supplier_record = await resolve_organization(
+            db,
+            target_supplier,
+            role="supplier",
+            create_if_missing=True,
+        )
+        order = PendingOrder(
+            po_number=(po_number or "").strip(),
+            procurement_reference=(procurement_reference or "").strip(),
+            supplier=supplier_record.name,
+            supplier_id=supplier_record.id,
+            notes=notes,
+            created_by=created_by,
+        )
+        db.add(order)
+        await db.flush()
+
+    if request is not None:
+        synchronize_open_request_identity(
+            request,
+            supplier=order.supplier,
+            supplier_id=order.supplier_id,
+        )
+    return order
+
+
 async def convert_sourcing_item_to_order(
     db: AsyncSession,
     item: SourcingItem,
@@ -1185,54 +1233,16 @@ async def convert_sourcing_item_to_order(
     if request is not None:
         await _resolve_request_supplier(db, request)
 
-    if pending_order_id is not None:
-        order = await db.get(PendingOrder, pending_order_id)
-        if order is None:
-            raise ValueError("Pending order not found")
-        order_supplier = clean_procurement_identity(order.supplier)
-        if order_supplier is None:
-            raise HTTPException(status_code=422, detail="The selected pending order must have a supplier")
-        order_supplier_record = await resolve_organization(db, order_supplier, role="supplier", create_if_missing=True)
-        order.supplier = order_supplier_record.name
-        order.supplier_id = order_supplier_record.id
-        if request is not None and request.supplier_id is not None and request.supplier_id != order_supplier_record.id:
-            raise HTTPException(
-                status_code=409,
-                detail="The sourcing request supplier conflicts with the selected pending order supplier",
-            )
-        if request is not None:
-            synchronize_open_request_identity(
-                request,
-                supplier=order_supplier_record.name,
-                supplier_id=order.supplier_id,
-            )
-    else:
-        target_supplier = clean_procurement_identity(supplier) or (
-            clean_procurement_identity(request.supplier) if request is not None else None
-        ) or clean_procurement_identity(item.supplier)
-        if target_supplier is None:
-            raise HTTPException(status_code=422, detail="Supplier is required to create a pending order")
-        target_supplier_record = await resolve_organization(db, target_supplier, role="supplier", create_if_missing=True)
-        target_supplier = target_supplier_record.name
-        if request is not None:
-            synchronize_open_request_identity(
-                request,
-                supplier=target_supplier,
-                supplier_id=target_supplier_record.id,
-            )
-        else:
-            item.supplier = target_supplier
-            item.supplier_id = target_supplier_record.id
-        order = PendingOrder(
-            po_number=(po_number or "").strip(),
-            procurement_reference=(procurement_reference or "").strip(),
-            supplier=target_supplier,
-            supplier_id=target_supplier_record.id,
-            notes=notes,
-            created_by=created_by,
-        )
-        db.add(order)
-        await db.flush()
+    order = await _resolve_conversion_order(
+        db,
+        request=request,
+        pending_order_id=pending_order_id,
+        supplier_candidates=(supplier, request.supplier if request is not None else None, item.supplier),
+        po_number=po_number,
+        procurement_reference=procurement_reference,
+        notes=notes,
+        created_by=created_by,
+    )
 
     item.pending_order_id = order.id
     item.status = SourcingStatus.converted
@@ -1266,51 +1276,16 @@ async def convert_sourcing_request_to_order(
     if not purchase_items:
         raise ValueError("No purchase items are available to convert to a pending order")
 
-    if pending_order_id is not None:
-        order = await db.get(PendingOrder, pending_order_id)
-        if order is None:
-            raise ValueError("Pending order not found")
-        order_supplier = clean_procurement_identity(order.supplier)
-        if order_supplier is None:
-            raise HTTPException(status_code=422, detail="The selected pending order must have a supplier")
-        order_supplier_record = await resolve_organization(db, order_supplier, role="supplier", create_if_missing=True)
-        order.supplier = order_supplier_record.name
-        order.supplier_id = order_supplier_record.id
-        if request.supplier_id is not None and request.supplier_id != order_supplier_record.id:
-            raise HTTPException(
-                status_code=409,
-                detail="The sourcing request supplier conflicts with the selected pending order supplier",
-            )
-        synchronize_open_request_identity(
-            request,
-            supplier=order_supplier_record.name,
-            supplier_id=order.supplier_id,
-        )
-    else:
-        target_supplier = (
-            clean_procurement_identity(supplier)
-            or clean_procurement_identity(request.supplier)
-            or next((clean_procurement_identity(item.supplier) for item in request.items if item.supplier), None)
-        )
-        if target_supplier is None:
-            raise HTTPException(status_code=422, detail="Supplier is required to create a pending order")
-        target_supplier_record = await resolve_organization(db, target_supplier, role="supplier", create_if_missing=True)
-        target_supplier = target_supplier_record.name
-        synchronize_open_request_identity(
-            request,
-            supplier=target_supplier,
-            supplier_id=target_supplier_record.id,
-        )
-        order = PendingOrder(
-            po_number=(po_number or "").strip(),
-            procurement_reference=(procurement_reference or "").strip(),
-            supplier=target_supplier,
-            supplier_id=target_supplier_record.id,
-            notes=notes if notes is not None else request.notes,
-            created_by=created_by,
-        )
-        db.add(order)
-        await db.flush()
+    order = await _resolve_conversion_order(
+        db,
+        request=request,
+        pending_order_id=pending_order_id,
+        supplier_candidates=(supplier, request.supplier, *(item.supplier for item in request.items)),
+        po_number=po_number,
+        procurement_reference=procurement_reference,
+        notes=notes if notes is not None else request.notes,
+        created_by=created_by,
+    )
 
     for item in purchase_items:
         item.pending_order_id = order.id
