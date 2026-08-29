@@ -8,80 +8,6 @@ from app.config import settings
 from app.database import Base
 
 
-# ---------------------------------------------------------------------------
-# Default JSON blobs - mirrors the prototype's settings shape exactly
-# ---------------------------------------------------------------------------
-
-_DEFAULT_VISIBLE_IN_LIST: dict = {
-    "select": True,
-    "licenseRef": False,
-    "externalRef": False,
-    "publisher": True,
-    "description": True,
-    "contractNumber": True,
-    "poNumber": True,
-    "invoiceNumber": False,
-    "dates": True,
-    "startDate": True,
-    "endDate": True,
-    "noticeDate": False,
-    "supplier": True,
-    "costCentre": True,
-    "contactEmail": False,
-    "budgetOwnerEmail": False,
-    "licenseType": True,
-    "licenseMetric": True,
-    "quantity": True,
-    "skuCode": False,
-    "unitPrice": False,
-    "totalPoPrice": True,
-    "currency": False,
-    "requestDate": False,
-    "purchaseDate": False,
-    "portalUrl": False,
-    "notes": False,
-    "docs": True,
-    "calcTotal": False,
-    "createdBy": False,
-    "createdAt": False,
-    "updatedAt": False,
-    "lifecycleStatus": False,
-    "syncStatus": False,
-    "lastSyncedAt": False,
-    "maintenanceCoverage": False,
-    "maintenanceStartDate": False,
-    "maintenanceEndDate": False,
-    "maintenanceCost": False,
-}
-
-_DEFAULT_VISIBLE_IN_DETAIL: dict = {
-    "supplier": True,
-    "costCentre": True,
-    "licenseType": True,
-    "licenseMetric": True,
-    "quantity": True,
-    "effectiveQuantity": True,
-    "quantityPerUnit": True,
-    "skuCode": True,
-    "unitPrice": True,
-    "totalPoPrice": True,
-    "notes": True,
-    "licenseRef": True,
-}
-
-_DEFAULT_RENEWAL_WORKBENCH_COLUMNS: dict = {
-    "dueDate": True,
-    "days": True,
-    "license": True,
-    "licenseRef": True,
-    "supplier": True,
-    "budgetOwner": True,
-    "value": True,
-    "status": True,
-    "riskFlags": True,
-    "actions": True,
-}
-
 _DEFAULT_MANDATORY_FIELDS: dict = {
     "invoice": False,
     "eula": False,
@@ -107,8 +33,8 @@ class UserSettings(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, unique=True, index=True)
 
     # Column visibility - stored as JSON blobs matching prototype camelCase keys
-    visible_in_list: Mapped[dict] = mapped_column(JSON, nullable=False, default=_DEFAULT_VISIBLE_IN_LIST)
-    visible_in_detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=_DEFAULT_VISIBLE_IN_DETAIL)
+    visible_in_list: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    visible_in_detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     # Notification preferences
     notification_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
@@ -126,7 +52,7 @@ class UserSettings(Base):
     renewal_workbench_columns: Mapped[dict] = mapped_column(
         JSON,
         nullable=False,
-        default=_DEFAULT_RENEWAL_WORKBENCH_COLUMNS,
+        default=dict,
     )
 
     # Sidebar state
