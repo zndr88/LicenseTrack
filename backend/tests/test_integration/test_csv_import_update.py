@@ -7,10 +7,7 @@ from app.models.audit_log import AuditLog
 from app.models.custom_fields import CustomFieldValue
 from app.models.license import License
 from app.services.csv_importer import ParsedRow
-from app.services.import_.license_matcher import (
-    ResolveOutcome,
-    resolve_update_target,
-)
+from app.services.import_.license_matcher import annotate_update_targets
 
 
 def _row(license_ref):
@@ -40,56 +37,6 @@ async def _create_license(client, headers, **overrides):
     resp = await client.post("/api/licenses", json=await _minimal_payload(**overrides), headers=headers)
     assert resp.status_code == 201, resp.text
     return resp.json()
-
-
-async def test_resolve_matches_active_chain_head(test_app, auth_headers, db_session):
-    created = await _create_license(test_app, auth_headers)
-    ref = created["licenseRef"]
-
-    result = await resolve_update_target(db_session, _row(ref))
-
-    assert result.outcome == ResolveOutcome.MATCH
-    assert result.license_id == created["id"]
-
-
-async def test_resolve_no_match_for_unknown_ref(test_app, auth_headers, db_session):
-    result = await resolve_update_target(db_session, _row("LT-2099-99999"))
-    assert result.outcome == ResolveOutcome.NO_MATCH
-    assert result.license_id is None
-
-
-async def test_resolve_no_match_for_empty_ref(test_app, auth_headers, db_session):
-    result = await resolve_update_target(db_session, _row(None))
-    assert result.outcome == ResolveOutcome.NO_MATCH
-
-
-async def test_resolve_ambiguous_when_two_active_heads_share_ref(test_app, auth_headers, db_session):
-    a = await _create_license(test_app, auth_headers)
-    ref = a["licenseRef"]
-    # Force a second active, non-renewed license to share the same ref.
-    second = await _create_license(test_app, auth_headers, softwareDescription="Second")
-    obj = await db_session.get(License, second["id"])
-    obj.license_ref = ref
-    await db_session.commit()
-
-    result = await resolve_update_target(db_session, _row(ref))
-
-    assert result.outcome == ResolveOutcome.AMBIGUOUS
-
-
-async def test_resolve_no_match_when_only_retired_shares_ref(test_app, auth_headers, db_session):
-    created = await _create_license(test_app, auth_headers)
-    ref = created["licenseRef"]
-    obj = await db_session.get(License, created["id"])
-    obj.is_retired = True
-    await db_session.commit()
-
-    result = await resolve_update_target(db_session, _row(ref))
-
-    assert result.outcome == ResolveOutcome.NO_MATCH
-
-
-from app.services.import_.license_matcher import annotate_update_targets
 
 
 async def test_annotate_marks_update_and_create(test_app, auth_headers, db_session):
@@ -175,7 +122,7 @@ async def test_row_database_failure_does_not_poison_remaining_import_rows(
     invalid = _full_row(None, license_type="maintenance")
     valid = _full_row(None, row_number=2, software_description="Surviving Row")
 
-    created, updated, skipped, errors, _cf_failures = await run_import_rows(
+    result = await run_import_rows(
         [invalid, valid],
         [{}, {}],
         set(),
@@ -184,8 +131,8 @@ async def test_row_database_failure_does_not_poison_remaining_import_rows(
     )
     await db_session.commit()
 
-    assert (created, updated, skipped) == (1, 0, 1)
-    assert len(errors) == 1
+    assert (result.created_count, result.updated_count, result.skipped_count) == (1, 0, 1)
+    assert len(result.errors) == 1
     surviving = await db_session.scalar(
         select(License).where(License.software_description == "Surviving Row")
     )

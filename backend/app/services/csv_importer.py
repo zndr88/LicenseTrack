@@ -616,12 +616,30 @@ def _parse_datetime(raw: str, date_format: str) -> tuple[Optional[datetime], str
     return None, (f"Unrecognised date format: {raw!r}; expected ISO YYYY-MM-DD or declared format {date_format}")
 
 
+def _parse_date_field(
+    data: dict[str, object],
+    field_name: str,
+    date_format: str,
+    errors: list[str],
+    warnings: list[str],
+) -> tuple[date | None, str | None, bool]:
+    raw = _field_text(data, field_name)
+    if not raw:
+        return None, None, False
+    parsed, _is_perpetual, error, warning = parse_import_date(raw, date_format)
+    if error:
+        errors.append(f"{field_name}: {error}")
+        return None, None, True
+    if warning:
+        warnings.append(f"{field_name}: {warning}")
+    return parsed, parsed.isoformat() if parsed is not None else None, False
+
+
 def _classify_row(
     publisher_name: str,
     software_description: str,
     db_end_date: Optional[date],
     license_type: str,
-    db_start_date: Optional[date],
 ) -> tuple[str, str | None, bool]:
     """Return (import_status, lifecycle_status, is_completeness_exempt).
 
@@ -670,84 +688,26 @@ def _parse_row(
     software_description = _field_text(data, "software_description")
 
     # -- Date fields ------------------------------------------------------
-    db_start_date: Optional[date] = None
-    db_end_date: Optional[date] = None
-    db_notice_date: Optional[date] = None
-    db_maintenance_start_date: Optional[date] = None
-    db_maintenance_end_date: Optional[date] = None
-    start_date_str: Optional[str] = None
-    end_date_str: Optional[str] = None
-    notice_date_str: Optional[str] = None
-    maintenance_start_date_str: Optional[str] = None
-    maintenance_end_date_str: Optional[str] = None
-
-    start_raw = _field_text(data, "start_date")
-    if start_raw:
-        sd, _, sd_err, sd_warn = parse_import_date(start_raw, date_format)
-        if sd_err:
-            errors.append(f"start_date: {sd_err}")
-            has_parse_error = True
-        else:
-            if sd_warn:
-                warnings.append(f"start_date: {sd_warn}")
-            if sd is not None:
-                db_start_date = sd
-                start_date_str = sd.isoformat()
-
-    end_raw = _field_text(data, "end_date")
-    if end_raw:
-        ed, ed_perp, ed_err, ed_warn = parse_import_date(end_raw, date_format)
-        if ed_err:
-            errors.append(f"end_date: {ed_err}")
-            has_parse_error = True
-        else:
-            if ed_warn:
-                warnings.append(f"end_date: {ed_warn}")
-            if ed is not None:
-                db_end_date = ed
-                end_date_str = ed.isoformat()
-            # perpetual → db_end_date stays None, end_date_str stays None
-
-    notice_raw = _field_text(data, "notice_date")
-    if notice_raw:
-        nd, _, nd_err, nd_warn = parse_import_date(notice_raw, date_format)
-        if nd_err:
-            errors.append(f"notice_date: {nd_err}")
-            has_parse_error = True
-        else:
-            if nd_warn:
-                warnings.append(f"notice_date: {nd_warn}")
-            if nd is not None:
-                db_notice_date = nd
-                notice_date_str = nd.isoformat()
-                if db_end_date is not None and nd > db_end_date:
-                    warnings.append("notice_date falls after end_date")
-
-    maintenance_start_raw = _field_text(data, "maintenance_start_date")
-    if maintenance_start_raw:
-        msd, _, msd_err, msd_warn = parse_import_date(maintenance_start_raw, date_format)
-        if msd_err:
-            errors.append(f"maintenance_start_date: {msd_err}")
-            has_parse_error = True
-        else:
-            if msd_warn:
-                warnings.append(f"maintenance_start_date: {msd_warn}")
-            if msd is not None:
-                db_maintenance_start_date = msd
-                maintenance_start_date_str = msd.isoformat()
-
-    maintenance_end_raw = _field_text(data, "maintenance_end_date")
-    if maintenance_end_raw:
-        med, _, med_err, med_warn = parse_import_date(maintenance_end_raw, date_format)
-        if med_err:
-            errors.append(f"maintenance_end_date: {med_err}")
-            has_parse_error = True
-        else:
-            if med_warn:
-                warnings.append(f"maintenance_end_date: {med_warn}")
-            if med is not None:
-                db_maintenance_end_date = med
-                maintenance_end_date_str = med.isoformat()
+    db_start_date, start_date_str, start_error = _parse_date_field(
+        data, "start_date", date_format, errors, warnings
+    )
+    db_end_date, end_date_str, end_error = _parse_date_field(
+        data, "end_date", date_format, errors, warnings
+    )
+    db_notice_date, notice_date_str, notice_error = _parse_date_field(
+        data, "notice_date", date_format, errors, warnings
+    )
+    db_maintenance_start_date, maintenance_start_date_str, maintenance_start_error = _parse_date_field(
+        data, "maintenance_start_date", date_format, errors, warnings
+    )
+    db_maintenance_end_date, maintenance_end_date_str, maintenance_end_error = _parse_date_field(
+        data, "maintenance_end_date", date_format, errors, warnings
+    )
+    has_parse_error = any(
+        (start_error, end_error, notice_error, maintenance_start_error, maintenance_end_error)
+    )
+    if db_notice_date is not None and db_end_date is not None and db_notice_date > db_end_date:
+        warnings.append("notice_date falls after end_date")
 
     # -- Procurement milestone datetimes ----------------------------------
     db_request_date, request_err = _parse_datetime(_field_text(data, "request_date"), date_format)
@@ -860,7 +820,7 @@ def _parse_row(
         warnings.append(EXPIRED_MAINTENANCE_WARNING)
 
     import_status, lifecycle_status, is_completeness_exempt = _classify_row(
-        publisher_name, software_description, db_end_date, license_type, db_start_date
+        publisher_name, software_description, db_end_date, license_type
     )
 
     if import_status == "error":

@@ -1,53 +1,11 @@
 # backend/app/services/import_/license_matcher.py
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum
-from typing import Optional
-
-from sqlalchemy import select as sa_select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License
 from app.services.csv_importer import ParsedRow
-
-
-class ResolveOutcome(Enum):
-    MATCH = "match"
-    NO_MATCH = "no_match"
-    AMBIGUOUS = "ambiguous"
-
-
-@dataclass
-class ResolveResult:
-    outcome: ResolveOutcome
-    license_id: Optional[int] = None
-
-
-async def resolve_update_target(db: AsyncSession, row: ParsedRow) -> ResolveResult:
-    """Resolve a row's LT Ref to the license it should update.
-
-    Match target = the current chain head sharing the ref: is_retired = false
-    AND renewed_to_id IS NULL. Exactly one -> MATCH; none -> NO_MATCH (create);
-    two or more active heads -> AMBIGUOUS (skip with error).
-    """
-    ref = (row.license_ref or "").strip()
-    if not ref:
-        return ResolveResult(ResolveOutcome.NO_MATCH)
-
-    result = await db.execute(
-        sa_select(License).where(
-            License.license_ref == ref,
-            License.is_retired.is_(False),
-            License.renewed_to_id.is_(None),
-        )
-    )
-    heads = result.scalars().all()
-    if len(heads) == 1:
-        return ResolveResult(ResolveOutcome.MATCH, heads[0].id)
-    if len(heads) == 0:
-        return ResolveResult(ResolveOutcome.NO_MATCH)
-    return ResolveResult(ResolveOutcome.AMBIGUOUS)
 
 
 async def annotate_update_targets(db: AsyncSession, rows: list[ParsedRow]) -> None:
@@ -57,16 +15,30 @@ async def annotate_update_targets(db: AsyncSession, rows: list[ParsedRow]) -> No
     AMBIGUOUS -> import_status="error" with a validation error (skipped later).
     Error rows and rows without an LT Ref are left as "create".
     """
-    for row in rows:
-        if row.import_status == "error":
-            continue
+    importable_rows = [row for row in rows if row.import_status != "error"]
+    refs = {(row.license_ref or "").strip() for row in importable_rows}
+    refs.discard("")
+    heads_by_ref: dict[str, list[License]] = {}
+    if refs:
+        result = await db.execute(
+            select(License).where(
+                License.license_ref.in_(refs),
+                License.is_retired.is_(False),
+                License.renewed_to_id.is_(None),
+            )
+        )
+        for license_obj in result.scalars().all():
+            heads_by_ref.setdefault(license_obj.license_ref, []).append(license_obj)
+
+    for row in importable_rows:
         row.import_action = "create"
         row.matched_license_id = None
-        result = await resolve_update_target(db, row)
-        if result.outcome == ResolveOutcome.MATCH:
+        ref = (row.license_ref or "").strip()
+        heads = heads_by_ref.get(ref, [])
+        if len(heads) == 1:
             row.import_action = "update"
-            row.matched_license_id = result.license_id
-        elif result.outcome == ResolveOutcome.AMBIGUOUS:
+            row.matched_license_id = heads[0].id
+        elif len(heads) > 1:
             row.validation_errors.append(
                 f"LT Ref {row.license_ref!r} is ambiguous: it matches multiple "
                 f"active licenses. Resolve the duplicate refs before importing."

@@ -3,7 +3,11 @@ import json
 import pytest
 from fastapi import HTTPException
 
-from app.routes.csv_import import _load_row_parent_overrides
+from app.services.import_.import_workflow import parse_import_execution_options
+
+
+def _load_row_parent_overrides(payload: str):
+    return parse_import_execution_options(None, payload, None).row_parent_overrides
 
 
 def test_legacy_unlinked_action_normalizes_without_parent():

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date
 from typing import Optional
@@ -17,6 +18,7 @@ from app.schemas.csv_import import (
     CSVImportError,
     CSVImportPreviewResponse,
     CSVImportPreviewRow,
+    ImportReferenceResult,
     ImportWarningSummary,
     ImportReferenceOverride,
 )
@@ -62,6 +64,16 @@ class ImportExecutionOptions:
 class ImportExecutionResult:
     response: CSVImportConfirmResponse
     audit_detail: str | None
+
+
+@dataclass(frozen=True)
+class ImportRowsResult:
+    created_count: int
+    updated_count: int
+    skipped_count: int
+    errors: list[CSVImportError]
+    custom_field_failure_count: int
+    reference_result: ImportReferenceResult
 
 
 def _restore_import_status(row: ParsedRow) -> None:
@@ -393,53 +405,24 @@ def build_warning_summary(rows: list[ParsedRow], skipped_rows: set[int] | None =
 
 
 def _row_to_schema(row: ParsedRow) -> CSVImportPreviewRow:
-    return CSVImportPreviewRow(
-        row_number=row.row_number,
-        publisher_name=row.publisher_name,
-        software_description=row.software_description,
-        start_date=row.start_date,
-        end_date=row.end_date,
-        notice_date=row.notice_date,
-        request_date=row.db_request_date.isoformat() if row.db_request_date else None,
-        purchase_date=row.db_purchase_date.isoformat() if row.db_purchase_date else None,
-        contract_number=row.contract_number,
-        po_number=row.po_number,
-        procurement_reference=row.procurement_reference,
-        invoice_number=row.invoice_number,
-        contact_email=row.contact_email,
-        supplier=row.supplier,
-        cost_centre=row.cost_centre,
-        license_type=row.license_type,
-        license_metric=row.license_metric,
-        quantity=row.quantity,
-        quantity_per_unit=row.quantity_per_unit,
-        effective_quantity=row.effective_quantity,
-        sku_code=row.sku_code,
-        unit_price=row.unit_price,
-        total_po_price=row.total_po_price,
-        currency=row.currency,
-        notes=row.notes,
-        budget_owner_email=row.budget_owner_email,
-        secondary_contacts=row.secondary_contacts,
-        parent_license_ref=row.parent_license_ref,
-        import_status=row.import_status,
-        validation_errors=row.validation_errors,
-        warnings=row.warnings,
-        duplicate_warnings=row.duplicate_warnings,
-        import_action=row.import_action,
-        matched_license_id=row.matched_license_id,
-        maintenance_parent_action=row.maintenance_parent_action,
-        inferred_parent_row_number=row.parent_import_row_number,
+    return CSVImportPreviewRow.model_validate(
+        {
+            **vars(row),
+            "request_date": row.db_request_date.isoformat() if row.db_request_date else None,
+            "purchase_date": row.db_purchase_date.isoformat() if row.db_purchase_date else None,
+            "inferred_parent_row_number": row.parent_import_row_number,
+        }
     )
 
 
 def build_preview_response(result: ParsedImportResult, reference_summary=None) -> CSVImportPreviewResponse:
     """Build the HTTP preview response schema from a ParsedImportResult."""
     row_schemas = [_row_to_schema(r) for r in result.rows]
-    legacy_exempt_count = sum(1 for r in result.rows if r.import_status == "legacy_exempt")
-    active_count = sum(1 for r in result.rows if r.import_status == "active")
-    legacy_incomplete_count = sum(1 for r in result.rows if r.import_status == "legacy_incomplete")
-    error_count = sum(1 for r in result.rows if r.import_status == "error")
+    status_counts = Counter(row.import_status for row in result.rows)
+    legacy_exempt_count = status_counts["legacy_exempt"]
+    active_count = status_counts["active"]
+    legacy_incomplete_count = status_counts["legacy_incomplete"]
+    error_count = status_counts["error"]
     create_count = sum(1 for r in result.rows if r.import_status != "error" and r.import_action == "create")
     update_count = sum(1 for r in result.rows if r.import_status != "error" and r.import_action == "update")
     warning_summary = build_warning_summary(result.rows)
@@ -470,13 +453,9 @@ async def run_import_rows(
     date_format: str | None = None,
     update_existing: bool = False,
     reference_overrides: dict | None = None,
-    include_reference_result: bool = False,
-) -> tuple:
+    raise_reference_conflicts: bool = False,
+) -> ImportRowsResult:
     """Persist importable rows.
-
-    Returns the established five-value result tuple. When
-    ``include_reference_result`` is true, appends the reference-resolution
-    result as a sixth value for the CSV API workflow.
 
     custom_rows must be a parallel list to rows. Pass a list of empty dicts
     (one per row) for callers that do not provide custom field values.
@@ -583,7 +562,7 @@ async def run_import_rows(
                     log.warning("run_import_rows: custom field key %r not found, skipping", cf_key)
 
         except ImportReferenceConflict as exc:
-            if include_reference_result:
+            if raise_reference_conflicts:
                 raise
             log.error("import failed on row %s: %s", parsed.row_number, exc, exc_info=True)
             skipped_count += 1
@@ -597,10 +576,14 @@ async def run_import_rows(
             skipped_count += 1
             import_errors.append(CSVImportError(row_number=parsed.row_number, reason=str(exc)))
 
-    result = (created_count, updated_count, skipped_count, import_errors, custom_field_failure_count)
-    if include_reference_result:
-        return (*result, reference_tracker.result())
-    return result
+    return ImportRowsResult(
+        created_count=created_count,
+        updated_count=updated_count,
+        skipped_count=skipped_count,
+        errors=import_errors,
+        custom_field_failure_count=custom_field_failure_count,
+        reference_result=reference_tracker.result(),
+    )
 
 
 async def execute_import_workflow(
@@ -652,20 +635,24 @@ async def execute_import_workflow(
             },
         )
 
-    imported_count, updated_count, skipped_count, import_errors, custom_field_failures, reference_result = (
-        await run_import_rows(
-            rows,
-            custom_rows,
-            skipped_rows,
-            user_id,
-            db,
-            number_format_locale,
-            date_format,
-            update_existing=update_existing,
-            reference_overrides=options.reference_overrides,
-            include_reference_result=True,
-        )
+    rows_result = await run_import_rows(
+        rows,
+        custom_rows,
+        skipped_rows,
+        user_id,
+        db,
+        number_format_locale,
+        date_format,
+        update_existing=update_existing,
+        reference_overrides=options.reference_overrides,
+        raise_reference_conflicts=True,
     )
+    imported_count = rows_result.created_count
+    updated_count = rows_result.updated_count
+    skipped_count = rows_result.skipped_count
+    import_errors = rows_result.errors
+    custom_field_failures = rows_result.custom_field_failure_count
+    reference_result = rows_result.reference_result
     audit_detail = None
     if imported_count > 0 or updated_count > 0:
         audit_detail = format_audit_detail(

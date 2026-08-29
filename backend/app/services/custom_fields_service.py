@@ -30,7 +30,7 @@ class CustomFieldValueChange:
     after_currency: str | None
 
 
-async def generate_field_key(name: str) -> str:
+def generate_field_key(name: str) -> str:
     """
     Convert display name to a URL/storage-safe slug.
     Lowercase, replace spaces and special chars with underscores,
@@ -86,7 +86,7 @@ async def create_definition(db: AsyncSession, data: CustomFieldDefinitionCreate)
     Generate field_key from name. Check uniqueness of both name and field_key
     before inserting - raise HTTPException 409 on conflict.
     """
-    field_key = await generate_field_key(data.name)
+    field_key = generate_field_key(data.name)
 
     # Check name uniqueness
     existing_name = await db.scalar(
@@ -227,6 +227,32 @@ def build_custom_field_value(
     )
 
 
+def _set_or_add_custom_field_value(
+    db: AsyncSession,
+    existing_by_definition_id: dict[int, CustomFieldValue],
+    *,
+    license_id: int,
+    definition: CustomFieldDefinition,
+    value_text: str | None,
+    value_currency: str | None,
+) -> tuple[str | None, str | None]:
+    existing = existing_by_definition_id.get(definition.id)
+    if existing is not None:
+        before = (existing.value_text, existing.value_currency)
+        existing.value_text = value_text
+        existing.value_currency = value_currency
+        return before
+    db.add(
+        CustomFieldValue(
+            license_id=license_id,
+            custom_field_def_id=definition.id,
+            value_text=value_text,
+            value_currency=value_currency,
+        )
+    )
+    return None, None
+
+
 async def upsert_imported_values_for_license(
     db: AsyncSession,
     license_id: int,
@@ -247,6 +273,16 @@ async def upsert_imported_values_for_license(
         select(CustomFieldDefinition).where(CustomFieldDefinition.field_key.in_(values_by_field_key.keys()))
     )
     definitions_by_key = {definition.field_key: definition for definition in result.scalars().all()}
+    definition_ids = [definition.id for definition in definitions_by_key.values()]
+    existing_result = await db.execute(
+        select(CustomFieldValue).where(
+            CustomFieldValue.license_id == license_id,
+            CustomFieldValue.custom_field_def_id.in_(definition_ids),
+        )
+    )
+    existing_by_definition_id = {
+        value.custom_field_def_id: value for value in existing_result.scalars().all()
+    }
 
     missing_keys: list[str] = []
     for field_key, raw_value in values_by_field_key.items():
@@ -255,18 +291,21 @@ async def upsert_imported_values_for_license(
             missing_keys.append(field_key)
             continue
 
-        existing = await db.scalar(
-            select(CustomFieldValue).where(
-                CustomFieldValue.license_id == license_id,
-                CustomFieldValue.custom_field_def_id == definition.id,
-            )
+        value_text, value_currency = normalize_custom_field_value(
+            definition,
+            value_text=None if definition.field_type == "currency" else raw_value,
+            value_currency=raw_value if definition.field_type == "currency" else None,
+            number_format_locale=number_format_locale,
+            date_format=date_format,
         )
-        if existing is not None:
-            value = build_custom_field_value(license_id, definition, raw_value, number_format_locale, date_format)
-            existing.value_text = value.value_text
-            existing.value_currency = value.value_currency
-        else:
-            db.add(build_custom_field_value(license_id, definition, raw_value, number_format_locale, date_format))
+        _set_or_add_custom_field_value(
+            db,
+            existing_by_definition_id,
+            license_id=license_id,
+            definition=definition,
+            value_text=value_text,
+            value_currency=value_currency,
+        )
 
     return missing_keys
 
@@ -298,10 +337,10 @@ async def validate_imported_custom_rows(
                 row.validation_errors.append(f"Unknown custom field: {field_key}")
                 continue
             try:
-                build_custom_field_value(
-                    license_id=0,
-                    definition=definition,
-                    raw_value=raw_value,
+                normalize_custom_field_value(
+                    definition,
+                    value_text=None if definition.field_type == "currency" else raw_value,
+                    value_currency=raw_value if definition.field_type == "currency" else None,
                     number_format_locale=number_format_locale,
                     date_format=date_format,
                 )
@@ -426,6 +465,16 @@ async def upsert_values_for_license(
             detail=f"Unknown custom_field_def_id(s): {missing}",
         )
 
+    existing_result = await db.execute(
+        select(CustomFieldValue).where(
+            CustomFieldValue.license_id == license_id,
+            CustomFieldValue.custom_field_def_id.in_(def_ids),
+        )
+    )
+    existing_by_definition_id = {
+        value.custom_field_def_id: value for value in existing_result.scalars().all()
+    }
+
     changes: list[CustomFieldValueChange] = []
     for item in data.values:
         definition = definitions_by_id[item.custom_field_def_id]
@@ -435,27 +484,14 @@ async def upsert_values_for_license(
             value_currency=item.value_currency,
         )
 
-        existing = await db.scalar(
-            select(CustomFieldValue).where(
-                CustomFieldValue.license_id == license_id,
-                CustomFieldValue.custom_field_def_id == item.custom_field_def_id,
-            )
+        before_text, before_currency = _set_or_add_custom_field_value(
+            db,
+            existing_by_definition_id,
+            license_id=license_id,
+            definition=definition,
+            value_text=value_text,
+            value_currency=value_currency,
         )
-        if existing is not None:
-            before_text = existing.value_text
-            before_currency = existing.value_currency
-            existing.value_text = value_text
-            existing.value_currency = value_currency
-        else:
-            before_text = None
-            before_currency = None
-            new_value = CustomFieldValue(
-                license_id=license_id,
-                custom_field_def_id=item.custom_field_def_id,
-                value_text=value_text,
-                value_currency=value_currency,
-            )
-            db.add(new_value)
 
         if (before_text, before_currency) != (value_text, value_currency):
             changes.append(

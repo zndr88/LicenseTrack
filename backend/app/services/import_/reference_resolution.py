@@ -41,6 +41,7 @@ class _Candidate:
     role_usage: set[str] = field(default_factory=set)
     spellings: list[str] = field(default_factory=list)
     row_numbers: list[int] = field(default_factory=list)
+    occurrence_count: int = 0
 
 
 @dataclass
@@ -96,6 +97,7 @@ def _add_candidate(
         candidate.role_usage.add(role)
     if cleaned not in candidate.spellings:
         candidate.spellings.append(cleaned)
+    candidate.occurrence_count += 1
     if row_number not in candidate.row_numbers and len(candidate.row_numbers) < _MAX_SAMPLE_ROWS:
         candidate.row_numbers.append(row_number)
 
@@ -210,13 +212,7 @@ async def build_reference_summary(db: AsyncSession, rows: list[ParsedRow]) -> Im
                 candidate_key=candidate.candidate_key,
                 proposed_name=candidate.proposed_name,
                 source_spellings=candidate.spellings,
-                occurrence_count=sum(
-                    1
-                    for row in rows
-                    if _row_can_be_reference_candidate(row)
-                    for value_kind, value, _role in _row_reference_values(row)
-                    if _candidate_key(value_kind, value) == candidate.candidate_key
-                ),
+                occurrence_count=candidate.occurrence_count,
                 sample_row_numbers=candidate.row_numbers,
                 status=candidate_status,
                 matched=matched_schema,
@@ -245,6 +241,34 @@ def _conflict(message: str) -> HTTPException:
     return ImportReferenceConflict(status_code=status.HTTP_409_CONFLICT, detail=message)
 
 
+def _override_resolution_value(cleaned: str, override: ImportReferenceOverride | None) -> str:
+    if override and override.action in {"accept_new", "keep_separate"}:
+        return override.display_name or cleaned
+    return cleaned
+
+
+async def _mapped_override_target(
+    db: AsyncSession,
+    override: ImportReferenceOverride | None,
+    model,
+    *,
+    noun: str,
+):
+    if not override or override.action != "map_existing":
+        return None
+    mapped_noun = noun.replace(" ", "-")
+    if override.target_id is None:
+        raise _conflict(f"A mapped {mapped_noun} override requires targetId.")
+    record = await db.get(model, override.target_id)
+    if record is None:
+        raise _conflict(f"The selected {noun} was deleted or merged after preview.")
+    if not override.target_name or record.name != clean_reference_name(override.target_name):
+        raise _conflict(f"The selected {noun} changed after preview; preview the import again.")
+    if not record.is_active:
+        raise _conflict(f"{noun.capitalize()} '{record.name}' is inactive and requires admin action.")
+    return record
+
+
 async def _resolve_organization_value(
     db: AsyncSession,
     value: str,
@@ -253,16 +277,8 @@ async def _resolve_organization_value(
     tracker: _ReferenceTracker,
 ) -> tuple[str, int]:
     cleaned = clean_reference_name(value)
-    if override and override.action == "map_existing":
-        if override.target_id is None:
-            raise _conflict("A mapped organization override requires targetId.")
-        record = await db.get(Organization, override.target_id)
-        if record is None:
-            raise _conflict("The selected organization was deleted or merged after preview.")
-        if not override.target_name or record.name != clean_reference_name(override.target_name):
-            raise _conflict("The selected organization changed after preview; preview the import again.")
-        if not record.is_active:
-            raise _conflict(f"Organization '{record.name}' is inactive and requires admin action.")
+    record = await _mapped_override_target(db, override, Organization, noun="organization")
+    if record is not None:
         for role in roles:
             if role == "publisher":
                 record.is_publisher = True
@@ -271,13 +287,7 @@ async def _resolve_organization_value(
         tracker.reused_ids.add(("organization", record.id))
         return record.name, record.id
 
-    value_to_resolve = (
-        override.display_name
-        if override and override.action == "accept_new" and override.display_name
-        else cleaned
-    )
-    if override and override.action == "keep_separate":
-        value_to_resolve = override.display_name or cleaned
+    value_to_resolve = _override_resolution_value(cleaned, override)
     normalized = normalize_reference_name(value_to_resolve)
     before = await db.scalar(select(Organization).where(Organization.normalized_name == normalized))
     if before is None:
@@ -310,25 +320,11 @@ async def _resolve_cost_centre_value(
     tracker: _ReferenceTracker,
 ) -> tuple[str, int]:
     cleaned = clean_reference_name(value)
-    if override and override.action == "map_existing":
-        if override.target_id is None:
-            raise _conflict("A mapped cost-centre override requires targetId.")
-        record = await db.get(CostCentre, override.target_id)
-        if record is None:
-            raise _conflict("The selected cost centre was deleted or merged after preview.")
-        if not override.target_name or record.name != clean_reference_name(override.target_name):
-            raise _conflict("The selected cost centre changed after preview; preview the import again.")
-        if not record.is_active:
-            raise _conflict(f"Cost centre '{record.name}' is inactive and requires admin action.")
+    record = await _mapped_override_target(db, override, CostCentre, noun="cost centre")
+    if record is not None:
         tracker.reused_ids.add(("cost_centre", record.id))
         return record.name, record.id
-    value_to_resolve = (
-        override.display_name
-        if override and override.action == "accept_new" and override.display_name
-        else cleaned
-    )
-    if override and override.action == "keep_separate":
-        value_to_resolve = override.display_name or cleaned
+    value_to_resolve = _override_resolution_value(cleaned, override)
     normalized = normalize_reference_name(value_to_resolve)
     before = await db.scalar(select(CostCentre).where(CostCentre.normalized_name == normalized))
     if before is None:
