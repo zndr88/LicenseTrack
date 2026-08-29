@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import Integer, cast, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -429,7 +429,6 @@ async def cancel_renewal(
     db: AsyncSession,
     license_id: int,
     actor: User,
-    ip_address: str | None,
 ) -> CancelRenewalResult:
     """
     Cancel a pending renewal and clean up a sourcing-only renewal item.
@@ -444,16 +443,21 @@ async def cancel_renewal(
         raise HTTPException(status_code=404, detail="License not found")
     assert_can_cancel_renewal(license_obj)
 
+    coterm_ids = func.json_each(SourcingItem.coterm_predecessor_ids).table_valued("value").alias("coterm_ids")
+    predecessor_filter = or_(
+        SourcingItem.renewal_for_license_id == license_id,
+        exists(
+            select(1)
+            .select_from(coterm_ids)
+            .where(cast(coterm_ids.c.value, Integer) == license_id)
+        ),
+    )
     sourcing_result = await db.execute(
         select(SourcingItem)
-        .where(SourcingItem.status == SourcingStatus.sourcing)
+        .where(SourcingItem.status == SourcingStatus.sourcing, predecessor_filter)
         .options(selectinload(SourcingItem.sourcing_request))
     )
-    sourcing_only_items = [
-        item
-        for item in sourcing_result.scalars().all()
-        if license_id in sourcing_item_predecessor_ids(item)
-    ]
+    sourcing_only_items = list(sourcing_result.scalars().all())
     for item in sourcing_only_items:
         predecessor_ids = sourcing_item_predecessor_ids(item)
         if len(predecessor_ids) > 1:
@@ -483,12 +487,9 @@ async def cancel_renewal(
         await clear_pending_renewal_if_no_open_sourcing(db, license_id)
 
     po_result = await db.execute(
-        select(SourcingItem).where(SourcingItem.status == SourcingStatus.converted)
+        select(SourcingItem).where(SourcingItem.status == SourcingStatus.converted, predecessor_filter)
     )
-    po_warning = any(
-        license_id in sourcing_item_predecessor_ids(item)
-        for item in po_result.scalars().all()
-    )
+    po_warning = po_result.scalars().first() is not None
 
     if license_obj.lifecycle_status == "pending_renewal":
         clear_pending_renewal(license_obj)
@@ -503,7 +504,6 @@ async def create_renewal_successor_from_sourcing_item(
     license_data: dict,
     created_by: int | None,
     missing_license_detail: str,
-    primary_predecessor: License | None = None,
     validate_maintenance_parent: bool = False,
     validation_detail_prefix: str = "",
 ) -> RenewalConversionResult:

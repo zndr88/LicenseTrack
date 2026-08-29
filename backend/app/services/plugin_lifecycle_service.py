@@ -32,7 +32,7 @@ async def enable_plugin(db: AsyncSession, plugin_key: str, *, actor_id: int | No
         plugin.enabled = False
         plugin.status = "unverified" if plugin.trust_status == "unverified" else "disabled"
         plugin.last_error = str(exc)
-        await _set_actions_enabled(plugin, enabled=False)
+        _set_actions_enabled(plugin, enabled=False)
         await db.flush()
         raise PluginLifecycleError(str(exc)) from exc
     if plugin.compatibility_status != "compatible":
@@ -43,7 +43,7 @@ async def enable_plugin(db: AsyncSession, plugin_key: str, *, actor_id: int | No
         plugin.status = "misconfigured"
         plugin.enabled = False
         plugin.last_error = f"Missing required Official Extension setting(s): {', '.join(settings_response.missing_required)}"
-        await _set_actions_enabled(plugin, enabled=False)
+        _set_actions_enabled(plugin, enabled=False)
         await db.flush()
         raise PluginLifecycleError(plugin.last_error)
 
@@ -55,7 +55,7 @@ async def enable_plugin(db: AsyncSession, plugin_key: str, *, actor_id: int | No
         permission.granted_by = actor_id
         permission.granted_at = now
 
-    await _set_actions_enabled(plugin, enabled=True)
+    _set_actions_enabled(plugin, enabled=True)
     await _set_manifest_capabilities(db, plugin, status="available", actor_id=actor_id)
     plugin.enabled = True
     plugin.status = "enabled"
@@ -68,8 +68,13 @@ async def enable_plugin(db: AsyncSession, plugin_key: str, *, actor_id: int | No
     try:
         await restart_plugin_runtime(db, plugin.key)
     except Exception as exc:
-        await _set_actions_enabled(plugin, enabled=False)
-        await _set_manifest_capabilities(db, plugin, status="unavailable", actor_id=actor_id, last_error=str(exc))
+        await _disable_plugin_surfaces(
+            db,
+            plugin,
+            actor_id=actor_id,
+            last_error=str(exc),
+            stop_runtime=False,
+        )
         plugin.enabled = False
         plugin.status = "error"
         plugin.last_error = str(exc)
@@ -85,9 +90,7 @@ async def enable_plugin(db: AsyncSession, plugin_key: str, *, actor_id: int | No
 
 async def disable_plugin(db: AsyncSession, plugin_key: str, *, actor_id: int | None) -> Plugin:
     plugin = await _get_plugin(db, plugin_key)
-    await stop_plugin_runtime(db, plugin.key)
-    await _set_actions_enabled(plugin, enabled=False)
-    await _set_manifest_capabilities(db, plugin, status="unavailable", actor_id=actor_id)
+    await _disable_plugin_surfaces(db, plugin, actor_id=actor_id)
     plugin.enabled = False
     plugin.status = "disabled"
     plugin.last_error = None
@@ -97,9 +100,7 @@ async def disable_plugin(db: AsyncSession, plugin_key: str, *, actor_id: int | N
 
 async def uninstall_plugin(db: AsyncSession, plugin_key: str, *, actor_id: int | None) -> None:
     plugin = await _get_plugin(db, plugin_key)
-    await stop_plugin_runtime(db, plugin.key)
-    await _set_actions_enabled(plugin, enabled=False)
-    await _set_manifest_capabilities(db, plugin, status="unavailable", actor_id=actor_id)
+    await _disable_plugin_surfaces(db, plugin, actor_id=actor_id)
     install_path = _safe_install_path(plugin.install_path)
     await db.execute(update(PluginSuggestion).where(PluginSuggestion.plugin_id == plugin.id).values(plugin_id=None))
     await db.delete(plugin)
@@ -118,10 +119,7 @@ async def stop_all_plugin_runtimes(db: AsyncSession) -> None:
     handles. This iterates every enabled plugin key and delegates to stop_plugin_runtime
     so process termination, token cleanup, and DB status updates go through the normal path.
     """
-    from sqlalchemy import select as sa_select
-    from app.models.plugin import Plugin as _Plugin
-
-    result = await db.execute(sa_select(_Plugin.key).where(_Plugin.enabled.is_(True)))
+    result = await db.execute(select(Plugin.key).where(Plugin.enabled.is_(True)))
     keys = list(result.scalars().all())
     for key in keys:
         try:
@@ -152,10 +150,30 @@ async def _get_plugin(db: AsyncSession, plugin_key: str) -> Plugin:
     return plugin
 
 
-async def _set_actions_enabled(plugin: Plugin, *, enabled: bool) -> None:
+def _set_actions_enabled(plugin: Plugin, *, enabled: bool) -> None:
     for action in plugin.actions:
         if isinstance(action, PluginAction):
             action.enabled = enabled
+
+
+async def _disable_plugin_surfaces(
+    db: AsyncSession,
+    plugin: Plugin,
+    *,
+    actor_id: int | None,
+    last_error: str | None = None,
+    stop_runtime: bool = True,
+) -> None:
+    if stop_runtime:
+        await stop_plugin_runtime(db, plugin.key)
+    _set_actions_enabled(plugin, enabled=False)
+    await _set_manifest_capabilities(
+        db,
+        plugin,
+        status="unavailable",
+        actor_id=actor_id,
+        last_error=last_error,
+    )
 
 
 async def _set_manifest_capabilities(

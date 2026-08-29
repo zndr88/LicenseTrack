@@ -34,7 +34,6 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 @router.post("/{license_id}/cancel-renewal", response_model=CancelRenewalResponse)
 async def cancel_renewal(
     license_id: int,
-    request: Request,
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> CancelRenewalResponse:
@@ -50,7 +49,6 @@ async def cancel_renewal(
         db=db,
         license_id=license_id,
         actor=_editor,
-        ip_address=request.client.host if request.client else None,
     )
     await db.commit()
 

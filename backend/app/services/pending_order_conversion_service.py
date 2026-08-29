@@ -316,7 +316,6 @@ async def convert_pending_order_to_licenses(
                     license_data=item_data,
                     created_by=current_user.id,
                     missing_license_detail=f"License {item.renewal_for_license_id} not found for renewal",
-                    primary_predecessor=old_lic,
                     validate_maintenance_parent=True,
                 )
                 new_lic = renewal_result.successor
@@ -529,7 +528,6 @@ async def batch_convert_pending_order_to_licenses(
                     f"Item {batch_item.sourcing_item_id}: license "
                     f"{sourcing_item.renewal_for_license_id} not found for renewal"
                 ),
-                primary_predecessor=old_lic,
                 validate_maintenance_parent=True,
                 validation_detail_prefix=f"Item {batch_item.sourcing_item_id}: ",
             )

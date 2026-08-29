@@ -287,3 +287,38 @@ async def test_cancel_renewal_cancels_multiple_sourcing_only_items(
         )
     )
     assert completed_requests == 2
+
+
+async def test_cancel_secondary_coterm_predecessor_rejects_grouped_renewal(
+    test_app,
+    db_session,
+    auth_headers,
+):
+    primary = await _create_license(test_app, auth_headers, softwareDescription="Primary Coterm")
+    secondary = await _create_license(test_app, auth_headers, softwareDescription="Secondary Coterm")
+    primary_row = await db_session.get(License, primary["id"])
+    secondary_row = await db_session.get(License, secondary["id"])
+    primary_row.lifecycle_status = "pending_renewal"
+    secondary_row.lifecycle_status = "pending_renewal"
+    request = SourcingRequest(supplier="Acme Direct", status=SourcingStatus.sourcing)
+    db_session.add(request)
+    await db_session.flush()
+    db_session.add(
+        SourcingItem(
+            sourcing_request_id=request.id,
+            publisher_name="Acme",
+            software_description="Grouped coterm renewal",
+            status=SourcingStatus.sourcing,
+            renewal_for_license_id=primary["id"],
+            coterm_predecessor_ids=[primary["id"], secondary["id"]],
+        )
+    )
+    await db_session.commit()
+
+    response = await test_app.post(
+        f"/api/licenses/{secondary['id']}/cancel-renewal",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 409
+    assert "coterm sourcing line" in response.json()["detail"]
