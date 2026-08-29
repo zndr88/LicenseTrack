@@ -176,15 +176,13 @@ def _parse_procurement_milestone_datetime(value: str) -> datetime:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
 
 
-async def _resolve_contract_id(db: AsyncSession, contract_number: str | None) -> int | None:
-    """Return the Contract.id matching contract_number (case-insensitive), or None."""
-    return await resolve_contract_id_for_number(db, contract_number)
-
-
-def normalise_perpetual_end_date(update_data: dict) -> None:
-    """Perpetual licenses never carry an end date in persisted state."""
-    if update_data.get("license_type") == LicenseType.perpetual:
-        update_data["end_date"] = None
+def normalise_license_type_fields(data: dict) -> None:
+    """Apply persisted field invariants determined solely by license type."""
+    if data.get("license_type") == LicenseType.freeware:
+        data["unit_price"] = ""
+        data["total_po_price"] = ""
+    if data.get("license_type") == LicenseType.perpetual:
+        data["end_date"] = None
 
 
 def validate_term_dates(start_date: date | None, end_date: date | None) -> None:
@@ -192,10 +190,6 @@ def validate_term_dates(start_date: date | None, end_date: date | None) -> None:
         validate_term_date_order(start_date, end_date)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-def _apply_support_defaults_to_create_data(create_data: dict) -> None:
-    apply_included_support_defaults(create_data)
 
 
 def _sync_support_defaults_on_license(license_obj: License) -> None:
@@ -270,11 +264,11 @@ async def create_license_record(
 
     if payload.license_type == LicenseType.maintenance:
         create_data = payload.model_dump(by_alias=False)
-        _apply_support_defaults_to_create_data(create_data)
+        apply_included_support_defaults(create_data)
         _sync_invoice_numbers(create_data)
         await resolve_license_reference_fields(db, create_data)
         create_data["procurement_bundle_id"] = procurement_bundle_id
-        create_data["contract_id"] = await _resolve_contract_id(db, create_data.get("contract_number"))
+        create_data["contract_id"] = await resolve_contract_id_for_number(db, create_data.get("contract_number"))
         await inherit_po_total_override(db, create_data)
         maintenance_license = await create_maintenance_for_parent(
             db,
@@ -298,10 +292,8 @@ async def create_license_record(
         assert_coverage_allowed_for_type(payload.license_type, create_data["maintenance_coverage"])
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    if payload.license_type == LicenseType.freeware:
-        create_data["unit_price"] = ""
-        create_data["total_po_price"] = ""
-    _apply_support_defaults_to_create_data(create_data)
+    normalise_license_type_fields(create_data)
+    apply_included_support_defaults(create_data)
 
     # F1: chain and lifecycle fields cannot be set at create time.
     _CREATE_CHAIN_FIELDS = REPAIR_ONLY_UPDATE_FIELDS
@@ -318,9 +310,8 @@ async def create_license_record(
             detail="lifecycle_status cannot be set on create except to 'legacy'.",
         )
 
-    normalise_perpetual_end_date(create_data)
     validate_term_dates(create_data.get("start_date"), create_data.get("end_date"))
-    create_data["contract_id"] = await _resolve_contract_id(db, create_data.get("contract_number"))
+    create_data["contract_id"] = await resolve_contract_id_for_number(db, create_data.get("contract_number"))
     await inherit_po_total_override(db, create_data)
     license_obj = License(**create_data, created_by=created_by)
     db.add(license_obj)
@@ -382,16 +373,21 @@ async def apply_license_update(
         and license_obj.active_maintenance_id is None
     ):
         update_data["maintenance_coverage"] = default_maintenance_coverage(update_data["license_type"])
-    normalise_perpetual_end_date(update_data)
+    type_normalization_data = {
+        "license_type": update_data.get("license_type", license_obj.license_type),
+        "unit_price": update_data.get("unit_price", license_obj.unit_price),
+        "total_po_price": update_data.get("total_po_price", license_obj.total_po_price),
+        "end_date": update_data.get("end_date", license_obj.end_date),
+    }
+    normalise_license_type_fields(type_normalization_data)
+    for field in ("unit_price", "total_po_price", "end_date"):
+        if type_normalization_data[field] != getattr(license_obj, field) or field in update_data:
+            update_data[field] = type_normalization_data[field]
     if "start_date" in update_data or "end_date" in update_data:
         validate_term_dates(
             update_data.get("start_date", license_obj.start_date),
             update_data.get("end_date", license_obj.end_date),
         )
-    if update_data.get("license_type", license_obj.license_type) == LicenseType.freeware:
-        update_data["unit_price"] = ""
-        update_data["total_po_price"] = ""
-
     validate_general_license_update_fields(update_data, license_obj)
     if "po_number" in update_data or "currency" in update_data:
         update_data["po_total_override"] = await resolve_reassigned_po_total_override(
@@ -430,7 +426,7 @@ async def apply_license_update(
     _sync_support_defaults_on_license(license_obj)
 
     if "contract_number" in update_data:
-        license_obj.contract_id = await _resolve_contract_id(db, update_data.get("contract_number"))
+        license_obj.contract_id = await resolve_contract_id_for_number(db, update_data.get("contract_number"))
 
     _validate_active_maintenance_parent_update(license_obj, before)
     await _reconcile_maintenance_relationships_after_update(
@@ -443,7 +439,7 @@ async def apply_license_update(
     await _sync_active_maintenance_parent_if_needed(db, license_obj)
 
     # Build `after` from `before` + applied changes rather than re-reading from
-    # the ORM object. The db.execute() in _resolve_contract_id triggers autoflush
+    # the ORM object. Contract resolution triggers autoflush
     # (the session has pending changes), which causes SQLAlchemy to expire
     # server-generated columns like `updated_at` (onupdate=func.now()). Accessing
     # them afterwards in an async context raises MissingGreenlet.
@@ -578,7 +574,7 @@ async def apply_license_field_patch(
         license_obj.maintenance_coverage = new_coverage
     elif field == "contractNumber":
         license_obj.contract_number = value or ""
-        license_obj.contract_id = await _resolve_contract_id(db, value)
+        license_obj.contract_id = await resolve_contract_id_for_number(db, value)
     elif field == "invoiceNumber":
         primary = value or ""
         license_obj.invoice_number = primary
@@ -720,18 +716,24 @@ async def bulk_delete_license_records(db: AsyncSession, license_ids: list[int]) 
     found = list(result.scalars().all())
     if not found:
         return DeletedLicenseBatch(ids=(), document_paths=())
+    return await _delete_loaded_license_records(db, found)
 
-    await _assert_license_delete_allowed(db, found)
 
-    found_ids = [license_obj.id for license_obj in found]
+async def _delete_loaded_license_records(
+    db: AsyncSession,
+    licenses: list[License],
+) -> DeletedLicenseBatch:
+    await _assert_license_delete_allowed(db, licenses)
 
-    await _prepare_maintenance_relationships_for_delete(db, found)
-    for license_obj in found:
+    found_ids = [license_obj.id for license_obj in licenses]
+
+    await _prepare_maintenance_relationships_for_delete(db, licenses)
+    for license_obj in licenses:
         if license_obj.license_type == LicenseType.maintenance:
             license_obj.is_retired = True
 
     document_paths = await _cleanup_license_delete_references(db, found_ids)
-    for license_obj in found:
+    for license_obj in licenses:
         await db.delete(license_obj)
 
     return DeletedLicenseBatch(ids=tuple(found_ids), document_paths=document_paths)
@@ -744,17 +746,9 @@ async def delete_license_record(db: AsyncSession, license_id: int) -> DeletedLic
     if license_obj is None:
         raise HTTPException(status_code=404, detail="License not found")
 
-    await _assert_license_delete_allowed(db, [license_obj])
-
-    await _prepare_maintenance_relationships_for_delete(db, [license_obj])
-
-    if license_obj.license_type == LicenseType.maintenance:
-        license_obj.is_retired = True
-
     label = license_obj.software_description
-    document_paths = await _cleanup_license_delete_references(db, [license_id])
-    await db.delete(license_obj)
-    return DeletedLicenseRecord(label=label, document_paths=document_paths)
+    deleted = await _delete_loaded_license_records(db, [license_obj])
+    return DeletedLicenseRecord(label=label, document_paths=deleted.document_paths)
 
 
 async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list[int]) -> tuple[str, ...]:
@@ -927,11 +921,16 @@ def apply_license_type_patch(license_obj: License, value: str | None) -> None:
         license_obj.is_legacy_unlinked_maintenance = False
     if license_obj.active_maintenance_id is None:
         license_obj.maintenance_coverage = default_maintenance_coverage(new_type)
-    if new_type == LicenseType.freeware:
-        license_obj.unit_price = ""
-        license_obj.total_po_price = ""
-    if new_type == LicenseType.perpetual:
-        license_obj.end_date = None
+    type_data = {
+        "license_type": new_type,
+        "unit_price": license_obj.unit_price,
+        "total_po_price": license_obj.total_po_price,
+        "end_date": license_obj.end_date,
+    }
+    normalise_license_type_fields(type_data)
+    license_obj.unit_price = type_data["unit_price"]
+    license_obj.total_po_price = type_data["total_po_price"]
+    license_obj.end_date = type_data["end_date"]
     _sync_support_defaults_on_license(license_obj)
 
 

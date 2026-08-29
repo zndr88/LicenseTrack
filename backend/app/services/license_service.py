@@ -5,6 +5,7 @@ Business logic for license computed fields and statistics.
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -114,6 +115,17 @@ _RECURRING_LICENSE_TYPES = frozenset(
 
 _ENTITLEMENT_DOCUMENT_FIELDS = frozenset({"entitlement", "eula"})
 
+_DIRECT_MANDATORY_FIELDS = {
+    "startDate": "start_date",
+    "noticeDate": "notice_date",
+    "contractNumber": "contract_number",
+    "poNumber": "po_number",
+    "invoiceNumber": "invoice_number",
+    "contactEmail": "contact_email",
+    "costCentre": "cost_centre",
+    "budgetOwnerEmail": "budget_owner_email",
+}
+
 
 def _has_paid_included_support(license: "License") -> bool:
     if getattr(license, "maintenance_coverage", None) != MaintenanceCoverage.included:
@@ -145,25 +157,12 @@ def _check_mandatory_field(
 ) -> bool:
     if key in _DOCUMENT_CATEGORIES:
         return _DOCUMENT_CATEGORIES[key] in doc_categories
-    if key == "startDate":
-        return license.start_date is not None
     if key == "endDate":
         # Non-expiring license types intentionally allow no end date.
         return license.end_date is not None or license.license_type in _NON_EXPIRING_LICENSE_TYPES
-    if key == "noticeDate":
-        return license.notice_date is not None
-    if key == "contractNumber":
-        return bool(license.contract_number)
-    if key == "poNumber":
-        return bool(license.po_number)
-    if key == "invoiceNumber":
-        return bool(license.invoice_number)
-    if key == "contactEmail":
-        return bool(license.contact_email)
-    if key == "costCentre":
-        return bool(license.cost_centre)
-    if key == "budgetOwnerEmail":
-        return bool(license.budget_owner_email)
+    attribute = _DIRECT_MANDATORY_FIELDS.get(key)
+    if attribute is not None:
+        return bool(getattr(license, attribute))
     return False
 
 
@@ -319,15 +318,8 @@ def compute_stats(
     today = date.today()
 
     total = len(licenses)
-    total_active = 0
-    total_expiring = 0
-    total_expired = 0
-    total_upcoming = 0
-    total_pending = 0
     total_incomplete = 0
-    total_retired = 0
-    total_renewed = 0
-    total_legacy = 0
+    status_counts: Counter[str] = Counter()
     annual_cost_by_currency: dict[str, Decimal] = {}
     excluded_from_totals = 0
 
@@ -336,23 +328,7 @@ def compute_stats(
         status = compute_expiration_status(lic, today, notification_days)
         completeness = compute_completeness(lic, docs, mandatory_fields)
 
-        if status == "retired":
-            total_retired += 1
-        elif status == "legacy":
-            total_legacy += 1
-        elif status == "renewed":
-            total_renewed += 1
-        elif status == "pending_renewal":
-            total_pending += 1
-        elif status == "upcoming":
-            total_upcoming += 1
-        elif status == "expired":
-            total_expired += 1
-        elif status == "expiring":
-            total_expiring += 1
-            total_active += 1
-        elif status in ("active", "perpetual"):
-            total_active += 1
+        status_counts[status] += 1
 
         # Incomplete: completeness < 100, not retired/renewed/pending/legacy, not exempt
         if (
@@ -409,15 +385,15 @@ def compute_stats(
 
     return {
         "total": total,
-        "total_active": total_active,
-        "total_expiring": total_expiring,
-        "total_expired": total_expired,
-        "total_upcoming": total_upcoming,
-        "total_pending": total_pending,
+        "total_active": status_counts["active"] + status_counts["perpetual"] + status_counts["expiring"],
+        "total_expiring": status_counts["expiring"],
+        "total_expired": status_counts["expired"],
+        "total_upcoming": status_counts["upcoming"],
+        "total_pending": status_counts["pending_renewal"],
         "total_incomplete": total_incomplete,
-        "total_retired": total_retired,
-        "total_renewed": total_renewed,
-        "total_legacy": total_legacy,
+        "total_retired": status_counts["retired"],
+        "total_renewed": status_counts["renewed"],
+        "total_legacy": status_counts["legacy"],
         "annual_cost_by_currency": {k: float(v) for k, v in annual_cost_by_currency.items()},
         "excluded_from_totals": excluded_from_totals,
     }

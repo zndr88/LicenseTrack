@@ -969,7 +969,7 @@ async def test_update_license_accepts_detail_panel_blank_date_payload(test_app, 
 
 
 async def test_update_license_with_nonempty_contract_number_does_not_crash(test_app, auth_headers):
-    """PUT with a non-empty contractNumber triggers _resolve_contract_id's db.execute,
+    """PUT with a non-empty contractNumber triggers contract resolution's db.execute,
     which causes autoflush. This expired server-generated columns (updated_at) and
     previously caused MissingGreenlet when building the `after` diff dict."""
     created = await _create_license(test_app, auth_headers)
