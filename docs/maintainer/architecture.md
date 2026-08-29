@@ -27,6 +27,30 @@ Server state is managed with TanStack Query.
 
 When a mutation affects multiple domains, prefer a named invalidation helper once the same group appears more than once. Keep optimistic cache updates local when they are simple and well-tested.
 
+## Frontend Application And Shared Workflow Boundaries
+
+`App.jsx` owns the authenticated application shell, top-level modal state, and
+cross-page composition. `AppRouter.jsx` owns page selection, role/capability
+gates, and route rendering. Keep page authorization and route selection out of
+`App.jsx`, and do not move domain workflows back into either shell.
+
+Direct license creation is coordinated by
+`frontend/src/hooks/useLicenseCreation.js`. It owns batch payload construction,
+the atomic create request, optional post-commit attachment handling, navigation,
+and affected-query invalidation. License registry update, patch, delete, and
+renewal actions remain in `components/pages/licenses/useLicenseActions.js`.
+
+Cross-domain query invalidation groups live only in
+`frontend/src/queryInvalidation.js`. Authentication-aware browser downloads use
+`frontend/src/api/download.js`; domain API modules provide only their endpoint,
+filename, and fallback error. Do not recreate anchor/blob handling in feature
+components or API modules.
+
+Registry column defaults are derived from the frontend column catalog in
+`components/pages/licenses/licenseColumns.js` and merged with persisted values
+by `useAppSettings.js`. The backend stores explicit user settings as JSON but
+does not own or duplicate the presentation catalog.
+
 ## LicensesPage Sub-Module Pattern
 
 `LicensesPage.jsx` is a composition layer. Its responsibilities are split across sub-modules in `frontend/src/components/pages/licenses/`:
@@ -34,7 +58,7 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | Module | Owns |
 |--------|------|
 | `useLicensesPageData.js` | Server data fetching (licenses, stats, sourcing, contracts, custom fields) |
-| `useLicenseActions.js` | Mutation handlers (create, update, single-field patch, delete, renewal, bulk delete) |
+| `useLicenseActions.js` | Registry mutation handlers (update, single-field patch, delete, renewal, bulk delete) |
 | `useLicenseTableState.js` | All table UI state (search, filters, sort, selection, pagination) |
 | `LicenseTable.jsx` | Table rendering, virtualizer, inline edit mode handoff, capability-gated column drag/sort/hide, pagination |
 | `LicenseToolbar.jsx` | Search, saved views dropdown, Current View / Full Data / localized Current View CSV exports, inline edit, filter/stats/full-view toggles |
@@ -65,6 +89,8 @@ When a mutation affects multiple domains, prefer a named invalidation helper onc
 | `PeopleSection.jsx` | Supplier, cost centre, publisher contact link, budget owner, secondary contacts |
 | `EmailPublisherAction.jsx` | Bottom Email Publisher action, same-PO/same-publisher scope prompt, mailto construction |
 | `DocumentsSection.jsx` | License/procurement document display, upload/download/delete/preview controls, and integration-backed document action buttons |
+| `SuggestionReviewCard.jsx` | Shared selected-field review UI for document-processing and Official Extension suggestions |
+| `PluginSuggestionsSection.jsx` | Official Extension suggestion list and target-specific review metadata, composed through `SuggestionReviewCard` |
 | `CompletenessFlagsSection.jsx` | Completeness checklist and retired/legacy/exempt toggles |
 | `NotesSection.jsx` | Notes display; also exports `CatchallCustomFieldsSection` for unassigned custom fields |
 
@@ -318,6 +344,13 @@ New or migrated complex forms should use React Hook Form and Zod.
 
 Settings still use the existing dirty-section navigation guard. Do not replace that globally unless the whole Settings flow is deliberately redesigned.
 
+User-setting persistence contains operator choices, not duplicated frontend
+catalog defaults. `useAppSettings.js` merges stored registry visibility with
+`VISIBLE_IN_LIST_DEFAULTS` from `licenseColumns.js`; renewal-workbench columns
+apply their own frontend catalog defaults. Keep new presentation defaults with
+the catalog that renders them so adding a column does not require a backend
+model change or database migration.
+
 Notification and backup schedule inputs use the shared `0..23` hour contract.
 Frontend parsing must preserve integer zero as midnight and leave blank or
 invalid input for schema validation; do not use truthiness-based fallbacks for
@@ -458,6 +491,9 @@ Do not add new procurement endpoints to the aggregator files.
 
 Current important service boundaries:
 
+- license calculations (mandatory-field applicability, completeness, expiry,
+  line/effective quantities, recurring annual cost, and portfolio counters):
+  `backend/app/services/license_service.py`;
 - license response assembly (mandatory fields, completeness/expiry enrichment, creator account labels, scoped procurement document lookup): `backend/app/services/license_response_service.py`;
 - license write workflow (single and atomic batch create, update/patch/delete invariants, maintenance relationship reconciliation, cancelled-renewal-history detachment during eligible deletes, post-commit managed-file cleanup inputs, editable procurement milestone parsing, maintenance-parent validation, manual procurement-bundle assignment, contract_id resolution from contract_number through `contract_identity_service.py`, predecessor_id wiring on renewal successors, create-time rejection of lifecycle chain fields via `REPAIR_ONLY_UPDATE_FIELDS`): `backend/app/services/license_write_service.py`;
 - shared PO-total override workflow (set/clear replication, create-time
@@ -467,32 +503,77 @@ Current important service boundaries:
 - contract-number identity checks (case-insensitive duplicate detection and unambiguous license `contract_id` resolution): `backend/app/services/contract_identity_service.py`;
 - lifecycle rules (ordinary update guardrails, pending-renewal transitions, single-successor predecessor enforcement, renewed predecessor marking, admin repair target/cycle validation, and the canonical `REPAIR_ONLY_UPDATE_FIELDS` set that gates both the update and create paths): `backend/app/services/lifecycle_rules.py`;
 - maintenance invariants (parent type eligibility, parent retirement checks, non-maintenance parent guard, active-maintenance type-change and retirement guards): `backend/app/services/maintenance_rules.py` — all call sites import from here; no inline maintenance checks outside this module;
-- document storage abstraction (`StorageBackend` ABC with `write`/`read`/`delete`/`exists`; `LocalStorageBackend` as the active implementation wired via a module-level `_backend` variable; all public helpers delegate I/O through `_backend`): `backend/app/services/storage.py`;
-- sourcing workflow (SourcingRequest parent orchestration, child line creation, coterm merge, conversion to pending order, delete side effects): `backend/app/services/sourcing_service.py`;
+- document storage abstraction, canonical path resolution, upload validation,
+  scoped attachment directories, and shared upload/byte persistence
+  (`StorageBackend` ABC with `LocalStorageBackend` as the active implementation):
+  `backend/app/services/storage.py`; contract storage retains only its
+  contract-specific MIME policy and unavailable-storage message in
+  `contract_storage_service.py`;
+- sourcing workflow (request/item list and mutation operations, reference and
+  support normalization, coterm merge, conditional conversion reservation,
+  pending-order/supplier creation, freeware conversion, status refresh, and
+  delete side effects): `backend/app/services/sourcing_service.py`;
 - sourcing CSV export assembly: `backend/app/services/sourcing_export_service.py`;
 - pending-order CSV export assembly, including flat one-row-per-line-item output with repeated PO metadata and parent-only rows for orders with no items: `backend/app/services/pending_order_export_service.py`;
 - CSV formula-injection neutralization for exported cells: `backend/app/services/csv_safety.py`;
-- pending-order CRUD and line-item management (add, edit, delete before conversion, with converted-order mutation guards): `backend/app/services/pending_order_service.py`;
-- pending-order conversion orchestration (order loading, complete one-to-one batch coverage validation, conversion-path selection, transaction order, evidence-transfer status and persisted invoice requirement, audit logging, response handoff): `backend/app/services/pending_order_conversion_service.py`;
+- pending-order list/history queries, response assembly, create/update/delete,
+  and single/bulk line-item management with shared editable-order guards:
+  `backend/app/services/pending_order_service.py`;
+- pending-order conversion orchestration (shared order loading and conditional
+  write-lock, complete one-to-one batch coverage validation, conversion-path
+  selection, transaction finalization, evidence-transfer status and persisted
+  invoice requirement, audit logging, response handoff):
+  `backend/app/services/pending_order_conversion_service.py`;
 - pending-order conversion helpers (new purchase license creation, maintenance parent resolution, status transitions): `backend/app/services/conversion/license_converter.py`, `backend/app/services/conversion/maintenance_linker.py`, and `backend/app/services/conversion/pending_order_status.py`;
 - pending-order conversion document transfer (invoice validation/write and quote carry-forward into pending-order-scoped procurement documents): `backend/app/services/procurement_document_transfer_service.py`;
 - pending-order conversion response enrichment: `backend/app/services/conversion_response_service.py`;
 - license procurement trail response assembly:
   `backend/app/services/license_procurement_trail_service.py`;
-- custom field normalization/upsert: `backend/app/services/custom_fields_service.py`;
+- native CSV decoding and row classification:
+  `backend/app/services/csv_importer.py`; preview preparation, warning gates,
+  update-target annotation, and row execution belong in
+  `backend/app/services/import_/import_workflow.py`; mapped decoding remains in
+  `import_/mapped_parser.py`, batched LT-reference matching in
+  `import_/license_matcher.py`, and reference candidate/override resolution in
+  `import_/reference_resolution.py`;
+- custom field definition operations, typed normalization, validation, and
+  batched normal/import upsert paths:
+  `backend/app/services/custom_fields_service.py`;
 - renewal read model (async DB queries): `backend/app/services/renewal_service.py`;
 - renewal workbench computation (pure, no DB, including annualized term value): `backend/app/services/renewal_workbench_model.py`;
 - renewal command orchestration (start/cancel workflow, single and coterm successor creation, pre-creation predecessor guards): `backend/app/services/renewal_orchestrator.py`;
-- user domain invariants (break-glass, active-admin guard, apply-update): `backend/app/services/user_service.py`;
+- user account workflow and invariants (list/create/update/delete, break-glass,
+  active-admin guard, department assignment, password hashing, and security
+  version changes): `backend/app/services/user_service.py`;
 - maintenance link management, coverage snapshots, and mirror synchronization: `backend/app/services/maintenance_service.py` owns creation/linking/unlinking of `LicenseMaintenanceLink` rows, legacy-unlinked recovery, primary-parent reassignment, retirement cleanup, immutable `LicenseCoverageHistory` snapshots when active coverage changes, active-maintenance mirror updates on parents, and the compatibility behavior where `parent_license_id` remains the primary parent for older create/import flows while `maintenanceParentIds`/`linkedMaintenanceIds` expose multi-parent links in responses;
-- canonical organization and cost-centre identity, aliases, roles, active state, usage, merge/delete invariants, mirror synchronization, and CSV reference resolution: `backend/app/services/reference_data_service.py` and `backend/app/services/import_/reference_resolution.py`;
-- authoritative Decimal report calculations, shared recurring eligibility, renewal-event model, native-currency summaries, and scoped detailed report read model: `backend/app/services/reporting_service.py` — `GET /api/reports/detailed`;
+- canonical organization and cost-centre identity, aliases, roles, active state,
+  usage, shared rename/alias-transfer mechanics, merge/delete invariants, mirror
+  synchronization, and CSV reference resolution:
+  `backend/app/services/reference_data_service.py` and
+  `backend/app/services/import_/reference_resolution.py`;
+- authoritative Decimal report calculations, shared recurring eligibility,
+  renewal-event model, native-currency summaries, grouped spend accumulation,
+  and one final response-serialization boundary:
+  `backend/app/services/reporting_service.py` — `GET /api/reports/detailed`;
 - report-specific CSV serialization with formula-injection protection: `backend/app/services/report_export_service.py` — `GET /api/reports/detailed/export`;
 - portfolio summary statistics (including the backwards-compatible numeric `annual_cost_by_currency` plus canonical `annual_cost_by_currency_decimal`): `backend/app/routes/reports.py` — `GET /api/reports/portfolio-stats`;
 - audit logging and data-change webhook enqueueing: `backend/app/services/audit_service.py`;
 - reusable structured audit detail contracts beyond generic field diffs: `backend/app/services/audit_contracts.py`;
 - API token generation, hashing, scope encoding, and last-used mutation: `backend/app/services/api_token_service.py`;
-- webhook event matching, signing, delivery, and retry dispatch: `backend/app/services/webhook_service.py`.
+- webhook event matching, signing, delivery, and retry dispatch: `backend/app/services/webhook_service.py`;
+- notification-run claim/finalization, license-alert classification inputs,
+  recipient grouping, delivery, and persisted summary accounting:
+  `backend/app/services/notification_sender.py`; reusable eligibility and
+  severity rules remain in `notification_classification.py`;
+- document-processing result creation, supersession, selected-field
+  validation/application, and review state changes:
+  `backend/app/services/document_processing_service.py`; routes own document
+  authorization, audit, and webhook publication only;
+- Official Extension setting record loading/decoding/configuration checks:
+  `backend/app/services/plugin_settings_service.py`; managed process and scoped
+  runtime access remain in `plugin_runtime_service.py`, lifecycle transitions
+  in `plugin_lifecycle_service.py`, and reviewable suggestion persistence and
+  acceptance in `plugin_suggestion_service.py`.
 
 SQLite foreign-key enforcement is enabled at the connection level via `enable_sqlite_foreign_keys` in `backend/app/database.py`. It registers a `connect` event listener that executes `PRAGMA foreign_keys=ON` for every DBAPI connection. This means every `ForeignKey` declared in the ORM models is enforced at the database layer — not just by the ORM. Do not remove this listener. The test engine in `conftest.py` applies the same function. Note: the pragma only affects new writes; existing rows with dangling references are not retroactively rechecked on deploy.
 
@@ -508,6 +589,13 @@ migration makes active parentless maintenance valid only when the explicit
 `backend/app/routes/licenses.py` is now a thin route module. It should own auth, request parsing, query composition for reads, and audit-log wiring. It should not reintroduce field-level patch validation, maintenance-parent invariants, or response enrichment logic that now live in the license services.
 
 Settings routes are split by responsibility while preserving existing API paths. `backend/app/routes/user_settings.py` owns `GET/PUT /api/settings`; `backend/app/routes/global_settings.py` owns global settings read/update endpoints; `backend/app/routes/integrations.py` owns admin integration actions such as test email and manual notification trigger; `backend/app/routes/backup.py` owns database backup/restore; and `backend/app/routes/operations.py` owns destructive operational maintenance such as the fixed-scope portfolio reset. `backend/app/routes/settings.py` remains only as a compatibility aggregator for older imports.
+
+`backend/app/routes/csv_import.py`, `document_processing.py`, `users.py`,
+`license_renewals.py`, and `license_maintenance.py` are endpoint boundaries,
+not workflow owners. They resolve authentication and access, translate request
+schemas, call the canonical services above, and coordinate audit/webhook
+publication. Do not rebuild row execution, suggestion application, account
+mutation, renewal, or maintenance workflows inside those route modules.
 
 File I/O in `procurement_document_transfer_service` follows a post-conversion, phase-commit pattern coordinated by `pending_order_conversion_service`: invoice validation happens before conversion writes; licenses and the pending evidence state commit first; each invoice or quote transfer phase then writes files, commits its document rows, and compensates only that phase's files if its own commit fails. A later status-update failure must not delete already committed evidence because retries are idempotent. The pending order persists whether invoice evidence was required, and completion/retry checks that at least one matching invoice row still has a stored file before marking transfer complete. Evidence transfer records `pending`, `complete`, or `failed`; a failure is retryable/recoverable state and must not roll back the created licenses.
 
@@ -574,7 +662,12 @@ The integration foundation currently includes:
 - Webhook endpoints and deliveries in `backend/app/routes/webhooks.py`, backed by `WebhookEndpoint` and `WebhookDelivery`, with signing secrets encrypted and delivery retries dispatched by the scheduler.
 - Extension capability declarations in `backend/app/routes/extensions.py`, stored as `ExtensionCapability` records. Capabilities tell core that an external sidecar or connector is available; they do not load third-party code into core.
 - Document actions in `backend/app/routes/document_actions.py`, exposed to the frontend only when the required capability and webhook subscriber exist.
-- Document processing results in `backend/app/routes/document_processing.py`, where integrations can submit proposed extraction output for review. Core stores those results, supersedes older pending results for the same processor/document, lets editors/admins accept selected suggestions or reject the result, and applies accepted fields through normal license/custom-field update paths.
+- Document-processing endpoints in
+  `backend/app/routes/document_processing.py`, backed by the workflow owner
+  `backend/app/services/document_processing_service.py`. Integrations can
+  submit proposed extraction output for review; the service supersedes older
+  pending results, applies accepted license/custom-field suggestions through
+  their canonical services, and records review state.
 
 The Official Extensions host uses the existing internal `plugin_*` names to
 avoid a broad implementation rename. Its foundation includes:

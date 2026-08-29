@@ -13,6 +13,24 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.15] - 2026-08-30
+
+### Changed
+
+- Consolidated frontend routing, license creation, authenticated downloads,
+  query invalidation, CSV preview rules, and suggestion review around their
+  canonical hooks, API helpers, and components.
+- Moved duplicated backend route and workflow logic into the owning license,
+  sourcing, pending-order, import, document-processing, user, and plugin
+  services.
+- Unified internal storage, custom-field, reference-data, lifecycle,
+  reporting, and notification operations while preserving existing public
+  API and operator behavior.
+- Kept registry column defaults in the frontend while retaining persisted user
+  overrides and existing settings contracts.
+
+This release introduces no database migration or configuration change.
+
 ## [1.1.14] - 2026-08-26
 
 ### Added
@@ -1293,7 +1311,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.14...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.15...HEAD
+[1.1.15]: https://github.com/zndr88/LicenseTrack/compare/v1.1.14...v1.1.15
 [1.1.14]: https://github.com/zndr88/LicenseTrack/compare/v1.1.13...v1.1.14
 [1.1.13]: https://github.com/zndr88/LicenseTrack/compare/v1.1.12...v1.1.13
 [1.1.12]: https://github.com/zndr88/LicenseTrack/compare/v1.1.11...v1.1.12

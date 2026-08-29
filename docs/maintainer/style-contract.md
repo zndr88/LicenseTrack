@@ -64,6 +64,11 @@ The backend is a FastAPI, SQLAlchemy, and Pydantic application. Keep that shape.
 
 - Services own business workflows and cross-model rules.
 - Prefer small pure helpers for parsing, normalization, and derived values.
+- Keep one canonical owner for each operation. Routes, adjacent services, and
+  tests should call that owner directly instead of preserving forwarding-only
+  wrappers or private aliases for convenience.
+- A compatibility wrapper is justified only by a supported external or public
+  contract. Name the contract and test it at that boundary.
 - Use module-level loggers consistently: `logger = logging.getLogger(__name__)`.
 - Avoid silent `except Exception` blocks. If broad exception handling is necessary, log enough context or return an explicit failure path.
 - Keep `type: ignore` rare and explained when used.
@@ -74,6 +79,8 @@ The backend is a FastAPI, SQLAlchemy, and Pydantic application. Keep that shape.
 - Avoid mutable defaults for schema fields unless Pydantic semantics make the intent explicit. Prefer default factories for lists and dicts.
 - Keep alias/camelCase configuration consistent with nearby schemas.
 - Shared schema behavior should live in shared schema helpers, not repeated per route.
+- Import ORM types from their owning model modules. `models/__init__.py` exists
+  for SQLAlchemy/Alembic discovery, not as a second public model API.
 
 ### Imports And Formatting
 
@@ -115,10 +122,15 @@ The frontend is a React/Vite JavaScript app. Keep the current architecture and i
 ### API And Data Shape
 
 - API wrappers live in `frontend/src/api`.
+- Authenticated file downloads belong in `frontend/src/api/download.js`; domain
+  API modules supply paths, filenames, and domain-specific error text.
 - Query keys live in `frontend/src/queryKeys.js`.
 - Repeated invalidation groups belong in `frontend/src/queryInvalidation.js`.
 - Normalize snake_case API responses at the boundary, not throughout render code.
 - Settings response normalization belongs in one normalization layer. Avoid adding new one-off mappers.
+- UI-owned defaults, including registry column visibility, belong beside the
+  frontend catalog that interprets them. Persisted settings store overrides;
+  backend models should not mirror frontend presentation catalogs.
 
 ### Utilities
 
@@ -179,6 +191,8 @@ Match test effort to risk.
 - Formatting-only changes need lint/build checks.
 - Shared utility changes need focused unit tests where behavior is non-trivial.
 - Route/service changes need backend tests when they affect workflow behavior.
+- Tests should exercise the canonical owner or the supported public boundary;
+  do not keep a removed private wrapper alive only to satisfy a test import.
 - Frontend workflow changes should cover the user path with component or integration tests when practical.
 - Demo-mode behavior should stay tested, especially the guarantee that demo-only behavior is isolated from normal production builds.
 
