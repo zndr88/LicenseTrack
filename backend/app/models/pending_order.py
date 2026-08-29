@@ -47,7 +47,6 @@ class PendingOrder(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
-    creator: Mapped["User | None"] = relationship("User", foreign_keys=[created_by])  # noqa: F821
     items: Mapped[list["SourcingItem"]] = relationship(  # noqa: F821
         "SourcingItem",
         back_populates="pending_order",

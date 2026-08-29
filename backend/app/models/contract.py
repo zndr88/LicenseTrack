@@ -21,9 +21,6 @@ class Contract(Base):
     folders: Mapped[list["ContractFolder"]] = relationship(
         "ContractFolder", back_populates="contract", cascade="all, delete-orphan"
     )
-    publisher: Mapped["Organization | None"] = relationship(  # noqa: F821
-        "Organization", foreign_keys=[publisher_id]
-    )
 
 
 class ContractFolder(Base):

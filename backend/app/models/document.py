@@ -37,9 +37,6 @@ class Document(Base):
 
     # Relationships
     license: Mapped["License"] = relationship("License", back_populates="documents")  # noqa: F821
-    uploader: Mapped["User | None"] = relationship(  # noqa: F821
-        "User", back_populates="documents_uploaded", foreign_keys=[uploaded_by]
-    )
 
 
 class ProcurementDocument(Base):
@@ -71,5 +68,3 @@ class ProcurementDocument(Base):
     category: Mapped[ProcurementDocumentCategory] = mapped_column(Enum(ProcurementDocumentCategory), nullable=False)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     uploaded_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
-
-    uploader: Mapped["User | None"] = relationship("User", foreign_keys=[uploaded_by])  # noqa: F821

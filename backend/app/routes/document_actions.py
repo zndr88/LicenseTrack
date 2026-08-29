@@ -117,8 +117,7 @@ async def invoke_document_action(
             f"documentType={payload.document_type}",
             f"filename={document.original_filename}",
         ]
-        if license_obj is not None:
-            detail_parts.append(f"licenseId={license_obj.id}")
+        detail_parts.append(f"licenseId={license_obj.id}")
         if document.pending_order_id is not None:
             detail_parts.append(f"pendingOrderId={document.pending_order_id}")
         if document.procurement_bundle_id is not None:

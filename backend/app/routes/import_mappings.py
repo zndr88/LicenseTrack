@@ -33,10 +33,6 @@ router = APIRouter(prefix="/api/import", tags=["import"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
 @router.get("/mappings", response_model=list[ImportMappingResponse])
 async def list_mappings(
     db: DbSession,
@@ -95,7 +91,7 @@ async def update_mapping(
 
     row.name = body.name
     row.mapping = [{"raw_header": e.raw_header, "target": e.target} for e in body.mapping]
-    row.updated_at = _utc_now()
+    row.updated_at = datetime.now(timezone.utc)
     await db.flush()
     await db.refresh(row)
     await log_event(db, "import_mapping.updated", actor=_admin, ip_address=request.client.host if request.client else None, target_type="import_mapping", target_id=str(row.id), target_label=row.name)

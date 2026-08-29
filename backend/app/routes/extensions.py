@@ -18,10 +18,6 @@ router = APIRouter(prefix="/api/extensions", tags=["extensions"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
-def _serialize_capability(capability: ExtensionCapability) -> ExtensionCapabilityResponse:
-    return ExtensionCapabilityResponse.model_validate(capability)
-
-
 @router.get("/capabilities", response_model=list[ExtensionCapabilityResponse])
 async def list_extension_capabilities(
     db: DbSession,
@@ -34,7 +30,7 @@ async def list_extension_capabilities(
             ExtensionCapability.id.asc(),
         )
     )
-    return [_serialize_capability(capability) for capability in result.scalars().all()]
+    return [ExtensionCapabilityResponse.model_validate(capability) for capability in result.scalars().all()]
 
 
 @router.put("/capabilities/{capability_key}", response_model=ExtensionCapabilityResponse)
@@ -85,7 +81,7 @@ async def upsert_extension_capability(
     )
     await db.commit()
     await db.refresh(capability)
-    return _serialize_capability(capability)
+    return ExtensionCapabilityResponse.model_validate(capability)
 
 
 @router.delete("/capabilities/{capability_key}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)

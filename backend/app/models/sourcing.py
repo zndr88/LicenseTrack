@@ -33,7 +33,6 @@ class SourcingRequest(Base):
     )
     created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 
-    creator: Mapped["User | None"] = relationship("User", foreign_keys=[created_by])  # noqa: F821
     items: Mapped[list["SourcingItem"]] = relationship(
         "SourcingItem",
         back_populates="sourcing_request",
@@ -62,7 +61,6 @@ class SourcingQuoteDocument(Base):
     uploaded_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 
     sourcing_request: Mapped["SourcingRequest"] = relationship("SourcingRequest", back_populates="quote_documents")
-    uploader: Mapped["User | None"] = relationship("User", foreign_keys=[uploaded_by])  # noqa: F821
 
 
 class SourcingItem(Base):
@@ -116,7 +114,6 @@ class SourcingItem(Base):
     )
     pending_order_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("pending_orders.id"), nullable=True)
     created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
-    creator: Mapped["User | None"] = relationship("User", foreign_keys=[created_by])  # noqa: F821
     sourcing_request: Mapped["SourcingRequest | None"] = relationship(  # noqa: F821
         "SourcingRequest", back_populates="items", foreign_keys=[sourcing_request_id]
     )

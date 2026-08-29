@@ -19,7 +19,6 @@ PluginStatus = Literal[
 ]
 PluginCompatibilityStatus = Literal["compatible", "incompatible", "unknown"]
 PluginTrustStatus = Literal["unverified", "verified", "developer"]
-PluginHealthStatus = Literal["unknown", "starting", "healthy", "unhealthy", "stopped", "error"]
 PluginSettingType = Literal["text", "secret", "boolean", "number", "select", "url", "textarea"]
 PluginRequiredRole = Literal["viewer", "editor", "admin"]
 PluginRuntimeType = Literal["managedProcess"]
@@ -468,14 +467,6 @@ class PluginRuntimeLogsResponse(BaseModel):
     log: str
     truncated: bool = False
     max_bytes: int
-
-
-class PluginRuntimeHealthResponse(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-    status: Literal["ok", "error"]
-    version: str | None = None
-    details: dict = Field(default_factory=dict)
 
 
 class PluginRuntimeSettingValue(BaseModel):

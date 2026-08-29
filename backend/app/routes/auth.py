@@ -81,7 +81,7 @@ def _record_attempt(username: str, ip: str | None) -> None:
     _enforce_key_cap(_login_attempts_by_ip, now)
 
 
-def _clear_attempts(username: str, ip: str | None) -> None:
+def _clear_attempts(username: str) -> None:
     """Reset the successful username counter without clearing the IP spray bucket."""
     _login_attempts_by_user.pop(username, None)
 
@@ -233,7 +233,7 @@ async def login(
             detail="Invalid credentials",
         )
 
-    _clear_attempts(body.username, ip)
+    _clear_attempts(body.username)
     gs = await get_global_settings(db)
     token = auth.create_access_token(
         user.id,

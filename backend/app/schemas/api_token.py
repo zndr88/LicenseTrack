@@ -16,9 +16,6 @@ ApiTokenScope = Literal[
     "extensions:write",
 ]
 
-ALLOWED_API_TOKEN_SCOPES: set[str] = set(ApiTokenScope.__args__)
-
-
 class ApiTokenCreate(BaseModel):
     name: str = Field(min_length=1, max_length=150)
     scopes: list[ApiTokenScope]

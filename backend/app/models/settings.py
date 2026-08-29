@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import Date, JSON, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.config import settings
 from app.database import Base
@@ -144,9 +144,6 @@ class UserSettings(Base):
     )
     time_format: Mapped[str] = mapped_column(String(5), nullable=False, default="24h", server_default="24h")
     time_zone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC", server_default="UTC")
-
-    # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="settings")  # noqa: F821
 
 
 class GlobalSettings(Base):

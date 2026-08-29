@@ -45,13 +45,6 @@ class User(Base):
     )
 
     # Relationships
-    settings: Mapped["UserSettings"] = relationship("UserSettings", back_populates="user", uselist=False)  # noqa: F821
     licenses_created: Mapped[list["License"]] = relationship(  # noqa: F821
         "License", back_populates="creator", foreign_keys="License.created_by"
-    )
-    documents_uploaded: Mapped[list["Document"]] = relationship(  # noqa: F821
-        "Document", back_populates="uploader", foreign_keys="Document.uploaded_by"
-    )
-    api_tokens: Mapped[list["ApiToken"]] = relationship(  # noqa: F821
-        "ApiToken", back_populates="creator", cascade="all, delete-orphan"
     )

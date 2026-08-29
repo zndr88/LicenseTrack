@@ -101,8 +101,6 @@ async def reorder_definitions(
 async def get_definition(def_id: int, db: DbSession, _current_user: CurrentUser):
     definition = await custom_fields_service.get_definition_by_id(db, def_id)
     if definition is None:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail=f"Custom field definition {def_id} not found.")
     return definition
 
@@ -139,8 +137,6 @@ async def delete_definition(
 ):
     definition = await custom_fields_service.get_definition_by_id(db, def_id)
     if definition is None:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail=f"Custom field definition {def_id} not found.")
     field_name = definition.name
     result = await custom_fields_service.delete_definition(db, def_id)
