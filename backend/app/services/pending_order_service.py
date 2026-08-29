@@ -7,6 +7,8 @@ preserving the existing business rules around deletions and item creation.
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from fastapi import HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,8 +22,30 @@ from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.pending_order import PendingOrderCreate, PendingOrderResponse, PendingOrderUpdate, SourcingItemSummary
 from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate, SourcingQuoteDocumentResponse
 from app.services.document_availability_service import with_file_availability
+from app.services.procurement_totals import procurement_line_total
 from app.services.reference_data_service import resolve_organization, resolve_procurement_reference_fields
 from app.services.sourcing_service import resolve_sourcing_item_references
+
+
+_CURRENCY_SYMBOLS: dict[str, str] = {
+    "EUR": "€",
+    "USD": "$",
+    "GBP": "£",
+}
+
+
+def pending_order_total(items: list[object]) -> str | None:
+    totals: dict[str, Decimal] = {}
+    for item in items:
+        line_total = procurement_line_total(item)
+        if line_total is not None:
+            totals[item.currency] = totals.get(item.currency, Decimal("0")) + line_total
+    if not totals:
+        return None
+    return " + ".join(
+        f"{_CURRENCY_SYMBOLS.get(currency, currency + chr(160))}{amount:,.2f}"
+        for currency, amount in totals.items()
+    )
 
 
 def to_pending_order_response(order: PendingOrder, storage_base: str | None = None) -> PendingOrderResponse:
@@ -50,6 +74,7 @@ def to_pending_order_response(order: PendingOrder, storage_base: str | None = No
             "evidence_transfer_status": order.evidence_transfer_status,
             "evidence_transfer_detail": order.evidence_transfer_detail,
             "evidence_transfer_failed_at": order.evidence_transfer_failed_at,
+            "total_po_value": pending_order_total(items),
             **order_license_payload,
             "items": [
                 SourcingItemSummary.model_validate(

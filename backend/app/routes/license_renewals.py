@@ -20,7 +20,7 @@ from app.schemas.license import (
     LinkExistingSuccessorResponse,
     LicenseResponse,
 )
-from app.schemas.sourcing import SourcingItemResponse, SourcingRequestResponse
+from app.schemas.sourcing import SourcingItemResponse
 from app.services import renewal_orchestrator
 from app.services.document_availability_service import available_documents
 from app.services.license_service import (
@@ -29,6 +29,7 @@ from app.services.license_service import (
     compute_expiration_status,
 )
 from app.services.settings_service import get_global_settings as _get_cached_global_settings
+from app.services.sourcing_service import to_sourcing_request_response
 
 router = APIRouter(prefix="/api/licenses", tags=["license-renewals"])
 
@@ -243,5 +244,5 @@ async def initiate_renewal_bundle(
             _enrich(licenses_by_id[license_obj.id], mandatory_fields, notification_days, storage_base)
             for license_obj in result.licenses
         ],
-        sourcing_request=SourcingRequestResponse.model_validate(sourcing_request),
+        sourcing_request=to_sourcing_request_response(sourcing_request, storage_base),
     )

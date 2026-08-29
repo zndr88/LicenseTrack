@@ -11,10 +11,17 @@ from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder
 from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
-from app.schemas.sourcing import SourcingItemCreate, SourcingRequestCreate, SourcingRequestUpdate
+from app.schemas.sourcing import (
+    SourcingItemCreate,
+    SourcingRequestCreate,
+    SourcingRequestResponse,
+    SourcingRequestUpdate,
+)
+from app.services.document_availability_service import with_file_availability
 from app.services.lifecycle_rules import clear_pending_renewal_if_current
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.money import MoneyParseError, parse_money
+from app.services.procurement_totals import procurement_line_total
 from app.services.reference_data_service import (
     resolve_organization,
     resolve_procurement_reference_fields,
@@ -22,6 +29,29 @@ from app.services.reference_data_service import (
 
 
 _IDENTITY_UNSET = object()
+
+
+def sourcing_request_total(items: list[object]) -> str | None:
+    totals: dict[str, Decimal] = {}
+    for item in items:
+        line_total = procurement_line_total(item)
+        if line_total is not None:
+            totals[item.currency] = totals.get(item.currency, Decimal("0")) + line_total
+    if not totals:
+        return None
+    return " + ".join(f"{currency} {amount:,.2f}" for currency, amount in totals.items())
+
+
+def to_sourcing_request_response(
+    sourcing_request: SourcingRequest,
+    storage_base: str | None = None,
+) -> SourcingRequestResponse:
+    response = SourcingRequestResponse.model_validate(sourcing_request)
+    response.total_estimated_value = sourcing_request_total(response.items)
+    quote_documents = list(sourcing_request.quote_documents) if "quote_documents" in sourcing_request.__dict__ else []
+    for document_response, document in zip(response.quote_documents, quote_documents, strict=False):
+        with_file_availability(document_response, document, storage_base)
+    return response
 
 
 def sourcing_item_predecessor_ids(item: SourcingItem) -> list[int]:

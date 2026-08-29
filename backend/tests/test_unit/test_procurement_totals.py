@@ -1,12 +1,11 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from types import SimpleNamespace
 
 from app.models.license import MaintenanceCoverage, MaintenancePricingBasis
-from app.models.pending_order import PendingOrderStatus
-from app.models.sourcing import SourcingStatus
-from app.schemas.pending_order import PendingOrderResponse
-from app.schemas.sourcing import SourcingItemCreate, SourcingRequestResponse
+from app.schemas.sourcing import SourcingItemCreate
+from app.services.pending_order_service import pending_order_total
 from app.services.procurement_totals import procurement_line_total
+from app.services.sourcing_service import sourcing_request_total
 
 
 def _item(**overrides):
@@ -15,6 +14,7 @@ def _item(**overrides):
         estimated_total_price=overrides.get("estimated_total_price"),
         maintenance_coverage=overrides.get("maintenance_coverage"),
         maintenance_cost=overrides.get("maintenance_cost"),
+        currency=overrides.get("currency", "EUR"),
     )
 
 
@@ -96,67 +96,24 @@ def test_sourcing_subscription_included_support_mirrors_term_and_line_total() ->
 
 
 def test_sourcing_response_total_preserves_decimal_precision_and_string_contract() -> None:
-    now = datetime.now(timezone.utc)
-    response = SourcingRequestResponse(
-        id=1,
-        status=SourcingStatus.sourcing,
-        created_at=now,
-        updated_at=now,
-        items=[
-            {
-                "id": 1,
-                "publisher_name": "Acme",
-                "software_description": "Suite A",
-                "estimated_total_price": "9007199254740992.01",
-                "currency": "USD",
-                "status": SourcingStatus.sourcing,
-                "created_at": now,
-                "updated_at": now,
-            },
-            {
-                "id": 2,
-                "publisher_name": "Acme",
-                "software_description": "Suite B",
-                "estimated_total_price": "0.01",
-                "currency": "USD",
-                "status": SourcingStatus.sourcing,
-                "created_at": now,
-                "updated_at": now,
-            },
-        ],
+    total = sourcing_request_total(
+        [
+            _item(estimated_total_price="9007199254740992.01", currency="USD"),
+            _item(estimated_total_price="0.01", currency="USD"),
+        ]
     )
 
-    assert response.total_estimated_value == "USD 9,007,199,254,740,992.02"
-    assert isinstance(response.total_estimated_value, str)
+    assert total == "USD 9,007,199,254,740,992.02"
+    assert isinstance(total, str)
 
 
 def test_pending_order_response_total_preserves_decimal_precision_and_string_contract() -> None:
-    now = datetime.now(timezone.utc)
-    response = PendingOrderResponse(
-        id=1,
-        po_number="PO-1",
-        status=PendingOrderStatus.pending,
-        created_at=now,
-        updated_at=now,
-        items=[
-            {
-                "id": 1,
-                "publisher_name": "Acme",
-                "software_description": "Suite A",
-                "estimated_total_price": "9007199254740992.01",
-                "currency": "USD",
-                "status": SourcingStatus.converted,
-            },
-            {
-                "id": 2,
-                "publisher_name": "Acme",
-                "software_description": "Suite B",
-                "estimated_total_price": "0.01",
-                "currency": "USD",
-                "status": SourcingStatus.converted,
-            },
-        ],
+    total = pending_order_total(
+        [
+            _item(estimated_total_price="9007199254740992.01", currency="USD"),
+            _item(estimated_total_price="0.01", currency="USD"),
+        ]
     )
 
-    assert response.total_po_value == "$9,007,199,254,740,992.02"
-    assert isinstance(response.total_po_value, str)
+    assert total == "$9,007,199,254,740,992.02"
+    assert isinstance(total, str)

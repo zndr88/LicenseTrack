@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from decimal import Decimal
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -14,18 +13,6 @@ from app.services.support_coverage_defaults import apply_bundled_included_suppor
 from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.sourcing import SourcingQuoteDocumentResponse
 from app.schemas.sourcing import SourcingItemCreate
-
-
-_CURRENCY_SYMBOLS: dict[str, str] = {
-    "EUR": "€",
-    "USD": "$",
-    "GBP": "£",
-}
-
-
-def _format_currency(amount: Decimal, currency: str) -> str:
-    symbol = _CURRENCY_SYMBOLS.get(currency, currency + "\u00a0")
-    return f"{symbol}{amount:,.2f}"
 
 
 class SourcingItemSummary(BaseModel):
@@ -128,23 +115,6 @@ class PendingOrderResponse(BaseModel):
     converted_license_retired: bool = False
     converted_license_ids: list[int] = []
     direct_registry_count: int = 0
-
-    @model_validator(mode="after")
-    def _compute_total_po_value(self) -> "PendingOrderResponse":
-        from app.services.procurement_totals import procurement_line_total
-
-        totals: dict[str, Decimal] = {}
-        for item in self.items:
-            line_total = procurement_line_total(item)
-            if line_total is not None:
-                totals[item.currency] = totals.get(item.currency, Decimal("0")) + line_total
-        if not totals:
-            self.total_po_value = None
-        else:
-            parts = [_format_currency(amt, cur) for cur, amt in totals.items()]
-            self.total_po_value = " + ".join(parts)
-        return self
-
 
 class PendingOrderConvertRequest(BaseModel):
     """License fields submitted when converting a pending order to a live license."""
