@@ -37,6 +37,28 @@ async def read_plugin_settings(db: AsyncSession, plugin_key: str) -> PluginSetti
     return _build_response(plugin.key, definitions, values, missing_required)
 
 
+async def load_plugin_setting_records(
+    db: AsyncSession,
+    plugin_id: int,
+) -> tuple[list[PluginSettingDefinition], dict[str, PluginSettingValue]]:
+    """Load canonical setting definitions and stored values for internal consumers."""
+    return await _get_definitions(db, plugin_id), await _get_values_by_key(db, plugin_id)
+
+
+def decode_plugin_setting_value(
+    definition: PluginSettingDefinition,
+    value: PluginSettingValue | None,
+):
+    return _decode_value(definition, value) if value is not None else None
+
+
+def is_plugin_setting_configured(
+    definition: PluginSettingDefinition,
+    value: PluginSettingValue | None,
+) -> bool:
+    return _is_configured(definition, value)
+
+
 async def update_plugin_settings(
     db: AsyncSession,
     plugin_key: str,

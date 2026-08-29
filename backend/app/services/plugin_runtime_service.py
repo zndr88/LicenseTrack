@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import os
@@ -15,13 +14,13 @@ import sys
 from typing import Any
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.models.document import Document, ProcurementDocument
-from app.models.plugin import Plugin, PluginRuntimeStatus, PluginSettingDefinition, PluginSettingValue
+from app.models.plugin import Plugin, PluginRuntimeStatus
 from app.models.sourcing import SourcingQuoteDocument
 from app.schemas.plugin import (
     PluginRuntimeDocumentContentResponse,
@@ -30,8 +29,12 @@ from app.schemas.plugin import (
     PluginRuntimeSettingsResponse,
 )
 from app.services import storage
-from app.services.crypto_service import decrypt_secret
-from app.services.plugin_settings_service import read_plugin_settings
+from app.services.plugin_settings_service import (
+    decode_plugin_setting_value,
+    is_plugin_setting_configured,
+    load_plugin_setting_records,
+    read_plugin_settings,
+)
 from app.services.plugin_host_service import ensure_plugin_can_run
 from app.services.plugin_utils import int_list as _int_list, int_or_none as _int_or_none
 
@@ -229,11 +232,10 @@ async def reset_stale_runtime_statuses(db: AsyncSession) -> None:
     (health == 'healthy') from returning stale results until the operator re-enables
     the plugin or triggers a restart from Admin Settings.
     """
-    from sqlalchemy import update as sa_update
-    from app.models.plugin import PluginRuntimeStatus as _PRS
-
     await db.execute(
-        sa_update(_PRS).where(_PRS.health.notin_({"stopped", "unknown"})).values(health="stopped", pid=None, port=None)
+        update(PluginRuntimeStatus)
+        .where(PluginRuntimeStatus.health.notin_({"stopped", "unknown"}))
+        .values(health="stopped", pid=None, port=None)
     )
     await db.flush()
 
@@ -253,14 +255,13 @@ async def authenticate_plugin_runtime_request(db: AsyncSession, plugin_key: str,
 async def read_plugin_runtime_settings(db: AsyncSession, plugin_key: str) -> PluginRuntimeSettingsResponse:
     plugin = await _get_plugin(db, plugin_key)
     _require_granted_permission(plugin, "plugin:settings:read")
-    definitions = await _setting_definitions(db, plugin.id)
-    values_by_key = await _setting_values(db, plugin.id)
+    definitions, values_by_key = await load_plugin_setting_records(db, plugin.id)
     missing_required: list[str] = []
     runtime_values: list[PluginRuntimeSettingValue] = []
     for definition in definitions:
         value_row = values_by_key.get(definition.setting_key)
-        value = _decode_setting_value(definition, value_row)
-        configured = _setting_is_configured(value)
+        value = decode_plugin_setting_value(definition, value_row)
+        configured = is_plugin_setting_configured(definition, value_row)
         if definition.required and not configured:
             missing_required.append(definition.setting_key)
         runtime_values.append(
@@ -406,12 +407,11 @@ async def invoke_plugin_runtime_action(
 
     timeout = timeout_seconds or int(runtime.get("timeoutSeconds") or 30)
     try:
-        return await _post_runtime_action(runtime, token, port, handler, payload, timeout)
-    except httpx.TimeoutException as exc:
-        status.health = "error"
-        status.last_error = f"Official Extension action '{handler}' timed out after {timeout} second(s)"
-        await db.flush()
-        raise PluginRuntimeActionTimeout(status.last_error) from exc
+        return await _request_runtime_action(
+            db, status, runtime, token, port, handler, payload, timeout
+        )
+    except PluginRuntimeActionTimeout:
+        raise
     except httpx.TransportError:
         status = await restart_plugin_runtime(db, plugin.key)
         token = _runtime_token(plugin.key, status)
@@ -419,12 +419,11 @@ async def invoke_plugin_runtime_action(
         if not token or not port or status.health != "healthy":
             raise PluginRuntimeError(f"Official Extension '{plugin_key}' runtime is not healthy")
         try:
-            return await _post_runtime_action(runtime, token, port, handler, payload, timeout)
-        except httpx.TimeoutException as exc:
-            status.health = "error"
-            status.last_error = f"Official Extension action '{handler}' timed out after {timeout} second(s)"
-            await db.flush()
-            raise PluginRuntimeActionTimeout(status.last_error) from exc
+            return await _request_runtime_action(
+                db, status, runtime, token, port, handler, payload, timeout
+            )
+        except PluginRuntimeActionTimeout:
+            raise
         except Exception as exc:
             status.health = "error"
             status.last_error = f"Official Extension action '{handler}' failed after runtime restart: {exc}"
@@ -435,6 +434,25 @@ async def invoke_plugin_runtime_action(
         status.last_error = f"Official Extension action '{handler}' failed: {exc}"
         await db.flush()
         raise PluginRuntimeError(status.last_error) from exc
+
+
+async def _request_runtime_action(
+    db: AsyncSession,
+    status: PluginRuntimeStatus,
+    runtime: dict,
+    token: str,
+    port: int,
+    handler: str,
+    payload: dict[str, Any],
+    timeout: int,
+) -> dict[str, Any]:
+    try:
+        return await _post_runtime_action(runtime, token, port, handler, payload, timeout)
+    except httpx.TimeoutException as exc:
+        status.health = "error"
+        status.last_error = f"Official Extension action '{handler}' timed out after {timeout} second(s)"
+        await db.flush()
+        raise PluginRuntimeActionTimeout(status.last_error) from exc
 
 
 async def _post_runtime_action(
@@ -681,50 +699,19 @@ async def _redaction_values(db: AsyncSession, plugin: Plugin, status: PluginRunt
     token = _runtime_token(plugin.key, status)
     if token:
         values.append(token)
-    definitions = {definition.setting_key: definition for definition in await _setting_definitions(db, plugin.id)}
-    result = await db.execute(select(PluginSettingValue).where(PluginSettingValue.plugin_id == plugin.id))
-    for value in result.scalars().all():
+    definition_rows, values_by_key = await load_plugin_setting_records(db, plugin.id)
+    definitions = {definition.setting_key: definition for definition in definition_rows}
+    for value in values_by_key.values():
         definition = definitions.get(value.setting_key)
         if definition is None or value.encrypted_value is None:
             continue
         try:
-            decoded = (
-                decrypt_secret(value.encrypted_value) if definition.setting_type == "secret" else value.encrypted_value
-            )
+            decoded = decode_plugin_setting_value(definition, value)
         except Exception:
             continue
         if isinstance(decoded, str) and decoded:
             values.append(decoded)
     return values
-
-
-async def _setting_definitions(db: AsyncSession, plugin_id: int) -> list[PluginSettingDefinition]:
-    result = await db.execute(select(PluginSettingDefinition).where(PluginSettingDefinition.plugin_id == plugin_id))
-    return list(result.scalars().all())
-
-
-async def _setting_values(db: AsyncSession, plugin_id: int) -> dict[str, PluginSettingValue]:
-    result = await db.execute(select(PluginSettingValue).where(PluginSettingValue.plugin_id == plugin_id))
-    return {value.setting_key: value for value in result.scalars().all()}
-
-
-def _decode_setting_value(definition: PluginSettingDefinition, value: PluginSettingValue | None):
-    if value is None or value.encrypted_value is None:
-        return None
-    if definition.setting_type == "secret":
-        return decrypt_secret(value.encrypted_value)
-    try:
-        return json.loads(value.encrypted_value)
-    except json.JSONDecodeError:
-        return value.encrypted_value
-
-
-def _setting_is_configured(value: Any) -> bool:
-    if value is None:
-        return False
-    if isinstance(value, str):
-        return bool(value.strip())
-    return True
 
 
 def _require_granted_permission(plugin: Plugin, permission_name: str) -> None:

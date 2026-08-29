@@ -16,12 +16,18 @@ from app.models.plugin import Plugin, PluginPermission
 from app.models.plugin_suggestion import PluginSuggestion
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User
+from app.schemas.custom_fields import CustomFieldValueItem, CustomFieldValuesUpsert
+from app.schemas.license import LicenseUpdate
 from app.schemas.plugin_suggestion import PluginSuggestedField, PluginSuggestionLineItem
-from app.services.access_service import can_view_license
-from app.services.custom_fields_service import build_custom_field_value
+from app.services.access_service import (
+    apply_department_filter,
+    can_view_license,
+    get_user_departments_for_scope,
+)
+from app.services.custom_fields_service import normalize_custom_field_value, upsert_values_for_license
 from app.services.license_write_service import (
     ALLOWED_PATCH_FIELDS,
-    apply_license_field_patch,
+    apply_license_update,
     validate_patch_field_input,
 )
 
@@ -146,7 +152,11 @@ async def _validate_license_suggestion_fields(
         definition = custom_by_key.get(_custom_field_lookup_key(field_name))
         if definition is not None:
             try:
-                build_custom_field_value(license_id, definition, raw_value)
+                normalize_custom_field_value(
+                    definition,
+                    value_text=raw_value if definition.field_type != "currency" else None,
+                    value_currency=raw_value if definition.field_type == "currency" else None,
+                )
             except HTTPException as exc:
                 raise PluginSuggestionError(str(exc.detail)) from exc
             continue
@@ -371,20 +381,13 @@ async def list_plugin_suggestions(
         query = query.where(PluginSuggestion.license_id == license_id)
     if status_filter is not None:
         query = query.where(PluginSuggestion.status == status_filter)
+    departments = await get_user_departments_for_scope(actor, db)
+    if departments is not None:
+        query = query.join(License, License.id == PluginSuggestion.license_id)
+        query = apply_department_filter(query, departments)
 
     result = await db.execute(query)
-    rows = list(result.scalars().all())
-    if str(getattr(actor.role, "value", actor.role)) != "viewer":
-        return rows
-
-    visible: list[PluginSuggestion] = []
-    for row in rows:
-        if row.license_id is None:
-            continue
-        license_obj = await db.get(License, row.license_id)
-        if license_obj is not None and await can_view_license(actor, license_obj, db):
-            visible.append(row)
-    return visible
+    return list(result.scalars().all())
 
 
 async def _get_pending_suggestion(
@@ -403,27 +406,6 @@ async def _get_pending_suggestion(
     if suggestion.status != "pending":
         raise PluginSuggestionError(f"Official Extension suggestion is already {suggestion.status}")
     return suggestion
-
-
-async def _apply_custom_field_value(
-    db: AsyncSession,
-    *,
-    license_id: int,
-    definition: CustomFieldDefinition,
-    raw_value: str | None,
-) -> None:
-    value = build_custom_field_value(license_id, definition, raw_value)
-    existing = await db.scalar(
-        select(CustomFieldValue).where(
-            CustomFieldValue.license_id == license_id,
-            CustomFieldValue.custom_field_def_id == definition.id,
-        )
-    )
-    if existing is not None:
-        existing.value_text = value.value_text
-        existing.value_currency = value.value_currency
-    else:
-        db.add(value)
 
 
 async def accept_plugin_suggestion(
@@ -474,37 +456,60 @@ async def accept_plugin_suggestion(
 
     applied_fields: list[str] = []
     applied_changes: list[str] = []
-    for field_name, raw_value in license_field_ops:
+    if license_field_ops:
         license_obj = await db.get(License, suggestion.license_id)
-        snake_field = ALLOWED_PATCH_FIELDS[field_name]
-        before_value = getattr(license_obj, snake_field) if license_obj is not None else None
-        updated_license = await apply_license_field_patch(db, suggestion.license_id, field=field_name, value=raw_value)
-        after_value = getattr(updated_license, snake_field)
-        applied_fields.append(field_name)
-        applied_changes.append(f"{field_name}: {before_value or ''} -> {after_value or ''}")
+        if license_obj is None:
+            raise PluginSuggestionError("License not found")
+        patch_values = dict(license_field_ops)
+        before_values = {
+            field_name: getattr(license_obj, ALLOWED_PATCH_FIELDS[field_name])
+            for field_name in patch_values
+        }
+        updated_license, _before, _after = await apply_license_update(
+            db,
+            suggestion.license_id,
+            LicenseUpdate.model_validate(patch_values),
+        )
+        for field_name in patch_values:
+            after_value = getattr(updated_license, ALLOWED_PATCH_FIELDS[field_name])
+            applied_fields.append(field_name)
+            applied_changes.append(
+                f"{field_name}: {before_values[field_name] or ''} -> {after_value or ''}"
+            )
 
-    for definition, raw_value in custom_field_ops:
-        existing = await db.scalar(
+    if custom_field_ops:
+        definition_ids = [definition.id for definition, _raw_value in custom_field_ops]
+        existing_result = await db.execute(
             select(CustomFieldValue).where(
                 CustomFieldValue.license_id == suggestion.license_id,
-                CustomFieldValue.custom_field_def_id == definition.id,
+                CustomFieldValue.custom_field_def_id.in_(definition_ids),
             )
         )
-        before_value = (
-            existing.value_currency
-            if definition.field_type == "currency" and existing
-            else existing.value_text
-            if existing
-            else None
-        )
-        await _apply_custom_field_value(
+        existing_by_definition_id = {
+            value.custom_field_def_id: (
+                value.value_currency if value.value_currency is not None else value.value_text
+            )
+            for value in existing_result.scalars().all()
+        }
+        values = [
+            CustomFieldValueItem(
+                custom_field_def_id=definition.id,
+                value_text=raw_value if definition.field_type != "currency" else None,
+                value_currency=raw_value if definition.field_type == "currency" else None,
+            )
+            for definition, raw_value in custom_field_ops
+        ]
+        await upsert_values_for_license(
             db,
-            license_id=suggestion.license_id,
-            definition=definition,
-            raw_value=raw_value,
+            suggestion.license_id,
+            CustomFieldValuesUpsert(values=values),
         )
-        applied_fields.append(definition.field_key)
-        applied_changes.append(f"{definition.field_key}: {before_value or ''} -> {raw_value or ''}")
+        for definition, raw_value in custom_field_ops:
+            before_value = existing_by_definition_id.get(definition.id)
+            applied_fields.append(definition.field_key)
+            applied_changes.append(
+                f"{definition.field_key}: {before_value or ''} -> {raw_value or ''}"
+            )
 
     suggestion.status = "accepted"
     suggestion.reviewed_by = actor.id
