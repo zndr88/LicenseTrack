@@ -120,17 +120,21 @@ def _resolve_base(storage_base: Optional[str] = None) -> Path:
 
 def _license_dir(license_id: int, storage_base: Optional[str] = None) -> Path:
     """Return the per-license storage directory path."""
-    return _resolve_base(storage_base) / _ATTACHMENTS_DIRECTORY / "licenses" / str(license_id)
+    return _attachment_scope_dir("licenses", license_id, storage_base)
 
 
 def _contract_dir(contract_id: int, storage_base: Optional[str] = None) -> Path:
     """Return the per-contract storage directory path."""
-    return _resolve_base(storage_base) / _ATTACHMENTS_DIRECTORY / "contracts" / str(contract_id)
+    return _attachment_scope_dir("contracts", contract_id, storage_base)
 
 
 def _sourcing_request_dir(sourcing_request_id: int, storage_base: Optional[str] = None) -> Path:
     """Return the per-sourcing-request storage directory path."""
-    return _resolve_base(storage_base) / _ATTACHMENTS_DIRECTORY / "sourcing_requests" / str(sourcing_request_id)
+    return _attachment_scope_dir("sourcing_requests", sourcing_request_id, storage_base)
+
+
+def _attachment_scope_dir(scope: str, scope_id: int | str, storage_base: Optional[str] = None) -> Path:
+    return _resolve_base(storage_base) / _ATTACHMENTS_DIRECTORY / scope / str(scope_id)
 
 
 def _procurement_document_dir(
@@ -179,6 +183,26 @@ def _stored_upload_name(filename: str | None) -> str:
     return f"{uuid.uuid4().hex}{suffix}"
 
 
+def _save_bytes(
+    content: bytes,
+    filename: str | None,
+    directory: Path,
+    storage_base: Optional[str],
+) -> tuple[str, int]:
+    base = _resolve_base(storage_base)
+    dest = _stored_file_path(base, directory, _stored_upload_name(filename))
+    _backend.write(dest, content)
+    return str(dest.relative), len(content)
+
+
+async def _save_upload(
+    file: UploadFile,
+    directory: Path,
+    storage_base: Optional[str],
+) -> tuple[str, int]:
+    return _save_bytes(await file.read(), file.filename, directory, storage_base)
+
+
 # ---------------------------------------------------------------------------
 # Public API - delegates I/O to _backend
 # ---------------------------------------------------------------------------
@@ -195,15 +219,7 @@ async def save_file(file: UploadFile, license_id: int, storage_base: Optional[st
     file_size : int
         Number of bytes written.
     """
-    stored_name = _stored_upload_name(file.filename)
-    base = _resolve_base(storage_base)
-    dest = _stored_file_path(base, _license_dir(license_id, storage_base), stored_name)
-
-    contents = await file.read()
-    _backend.write(dest, contents)
-
-    relative = dest.relative
-    return str(relative), len(contents)
+    return await _save_upload(file, _license_dir(license_id, storage_base), storage_base)
 
 
 def save_file_bytes(
@@ -217,14 +233,7 @@ def save_file_bytes(
     Unlike save_file(), this accepts bytes directly so the disk write can be
     deferred until after a DB commit. Returns (relative_stored_path, byte_count).
     """
-    stored_name = _stored_upload_name(filename)
-    base = _resolve_base(storage_base)
-    dest = _stored_file_path(base, _license_dir(license_id, storage_base), stored_name)
-
-    _backend.write(dest, content)
-
-    relative = dest.relative
-    return str(relative), len(content)
+    return _save_bytes(content, filename, _license_dir(license_id, storage_base), storage_base)
 
 
 async def save_contract_file(file: UploadFile, contract_id: int, storage_base: Optional[str] = None) -> tuple[str, int]:
@@ -238,15 +247,7 @@ async def save_contract_file(file: UploadFile, contract_id: int, storage_base: O
     file_size : int
         Number of bytes written.
     """
-    stored_name = _stored_upload_name(file.filename)
-    base = _resolve_base(storage_base)
-    dest = _stored_file_path(base, _contract_dir(contract_id, storage_base), stored_name)
-
-    contents = await file.read()
-    _backend.write(dest, contents)
-
-    relative = dest.relative
-    return str(relative), len(contents)
+    return await _save_upload(file, _contract_dir(contract_id, storage_base), storage_base)
 
 
 async def save_sourcing_request_file(
@@ -255,15 +256,11 @@ async def save_sourcing_request_file(
     storage_base: Optional[str] = None,
 ) -> tuple[str, int]:
     """Persist *file* under <storage_base>/attachments/sourcing_requests/{id}/{uuid}."""
-    stored_name = _stored_upload_name(file.filename)
-    base = _resolve_base(storage_base)
-    dest = _stored_file_path(base, _sourcing_request_dir(sourcing_request_id, storage_base), stored_name)
-
-    contents = await file.read()
-    _backend.write(dest, contents)
-
-    relative = dest.relative
-    return str(relative), len(contents)
+    return await _save_upload(
+        file,
+        _sourcing_request_dir(sourcing_request_id, storage_base),
+        storage_base,
+    )
 
 
 async def save_procurement_document_file(
@@ -273,15 +270,11 @@ async def save_procurement_document_file(
     storage_base: Optional[str] = None,
 ) -> tuple[str, int]:
     """Persist a procurement file under its immutable ownership scope."""
-    stored_name = _stored_upload_name(file.filename)
-    base = _resolve_base(storage_base)
-    dest = _stored_file_path(base, _procurement_document_dir(scope, scope_id, storage_base), stored_name)
-
-    contents = await file.read()
-    _backend.write(dest, contents)
-
-    relative = dest.relative
-    return str(relative), len(contents)
+    return await _save_upload(
+        file,
+        _procurement_document_dir(scope, scope_id, storage_base),
+        storage_base,
+    )
 
 
 def save_procurement_document_bytes(
@@ -292,14 +285,12 @@ def save_procurement_document_bytes(
     storage_base: Optional[str] = None,
 ) -> tuple[str, int]:
     """Write procurement bytes under their immutable ownership scope."""
-    stored_name = _stored_upload_name(filename)
-    base = _resolve_base(storage_base)
-    dest = _stored_file_path(base, _procurement_document_dir(scope, scope_id, storage_base), stored_name)
-
-    _backend.write(dest, content)
-
-    relative = dest.relative
-    return str(relative), len(content)
+    return _save_bytes(
+        content,
+        filename,
+        _procurement_document_dir(scope, scope_id, storage_base),
+        storage_base,
+    )
 
 
 def delete_file(stored_path: str, storage_base: Optional[str] = None) -> None:
@@ -380,7 +371,12 @@ def validate_upload(
             )
 
 
-async def resolve_storage_path(db: AsyncSession) -> str | None:
+async def resolve_storage_path(
+    db: AsyncSession,
+    *,
+    require_available: bool = True,
+    unavailable_detail: str = "Document storage is not configured.",
+) -> str | None:
     """
     Resolve the active document storage path from DB settings.
 
@@ -392,9 +388,11 @@ async def resolve_storage_path(db: AsyncSession) -> str | None:
     gs = gs_result.scalar_one_or_none()
     custom = (gs.storage_path if gs else "") or ""
     if custom:
-        if not Path(custom).is_dir():
-            raise HTTPException(status_code=503, detail="Document storage is not configured.")
+        if require_available and not Path(custom).is_dir():
+            raise HTTPException(status_code=503, detail=unavailable_detail)
         return custom
     if Path(settings.STORAGE_PATH).is_dir():
         return None
-    raise HTTPException(status_code=503, detail="Document storage is not configured.")
+    if require_available:
+        raise HTTPException(status_code=503, detail=unavailable_detail)
+    return None
