@@ -312,7 +312,7 @@ def _money_issue_counts(licenses: list[License]) -> tuple[int, int]:
     return unpriced, excluded
 
 
-def _serialize_common_row(row: dict) -> dict:
+def _serialize_common_row(row: object):
     if isinstance(row, Decimal):
         return _fmt(row)
     if isinstance(row, dict):
@@ -323,6 +323,33 @@ def _serialize_common_row(row: dict) -> dict:
     if isinstance(row, list):
         return [_serialize_common_row(value) for value in row]
     return row
+
+
+def _accumulate_spend_group(
+    groups: dict,
+    key,
+    identity: dict,
+    *,
+    currency: str,
+    amount: Decimal | None,
+    value_source: str,
+) -> None:
+    group = groups.setdefault(
+        key,
+        {
+            **identity,
+            "license_count": 0,
+            "total_spend_by_currency": {},
+            "total_spend": ZERO,
+            "has_unpriced_licenses": False,
+        },
+    )
+    group["license_count"] += 1
+    if amount is not None and value_source != "excluded":
+        _add(group["total_spend_by_currency"], currency, amount)
+        group["total_spend"] += amount
+    elif value_source == "missing":
+        group["has_unpriced_licenses"] = True
 
 
 def build_report_model(licenses: list[License], options: ReportOptions) -> DetailedReportResponse:
@@ -408,22 +435,24 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
                 group["override"] = override
 
         publisher = license_obj.publisher_name or "Unknown"
-        publisher_group = publisher_groups.setdefault(publisher, {"publisher": publisher, "total_spend_by_currency": {}, "total_spend": ZERO, "license_count": 0, "has_unpriced_licenses": False})
-        publisher_group["license_count"] += 1
-        if allocated_calculated is not None and calculated_source != "excluded":
-            _add(publisher_group["total_spend_by_currency"], currency, allocated_calculated)
-            publisher_group["total_spend"] += allocated_calculated
-        elif calculated_source == "missing":
-            publisher_group["has_unpriced_licenses"] = True
+        _accumulate_spend_group(
+            publisher_groups,
+            publisher,
+            {"publisher": publisher},
+            currency=currency,
+            amount=allocated_calculated,
+            value_source=calculated_source,
+        )
 
         supplier = license_obj.supplier or ""
-        vendor_group = vendor_groups.setdefault((publisher, supplier), {"publisher": publisher, "supplier": supplier, "license_count": 0, "total_spend_by_currency": {}, "total_spend": ZERO, "has_unpriced_licenses": False})
-        vendor_group["license_count"] += 1
-        if allocated_calculated is not None and calculated_source != "excluded":
-            _add(vendor_group["total_spend_by_currency"], currency, allocated_calculated)
-            vendor_group["total_spend"] += allocated_calculated
-        elif calculated_source == "missing":
-            vendor_group["has_unpriced_licenses"] = True
+        _accumulate_spend_group(
+            vendor_groups,
+            (publisher, supplier),
+            {"publisher": publisher, "supplier": supplier},
+            currency=currency,
+            amount=allocated_calculated,
+            value_source=calculated_source,
+        )
 
         recurring_value = None
         recurring_source = "missing"
@@ -601,20 +630,20 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
         })
 
     financial_summaries = {
-        "license_spend_by_currency": _serialize_map(license_spend),
-        "po_spend_by_currency": _serialize_map(po_spend),
-        "spend_difference_by_currency": _serialize_map(difference),
-        "recurring_annual_cost_by_currency": _serialize_map(recurring_amount),
-        "lifecycle_budget_by_status": {status: _serialize_map(values) for status, values in lifecycle_budget.items()},
-        "unallocated_values_by_currency": _serialize_map(unallocated_values),
+        "license_spend_by_currency": license_spend,
+        "po_spend_by_currency": po_spend,
+        "spend_difference_by_currency": difference,
+        "recurring_annual_cost_by_currency": recurring_amount,
+        "lifecycle_budget_by_status": lifecycle_budget,
+        "unallocated_values_by_currency": unallocated_values,
     }
     sorted_po_groups = sorted(
         po_groups.values(),
         key=lambda row: (-(row["po_value"] or ZERO), row["currency"], row["identity_key"]),
     )
-    po_rows = [_serialize_common_row(group) for group in sorted_po_groups]
-    publisher_rows = [_serialize_common_row(row) for row in sorted(publisher_groups.values(), key=lambda row: row["total_spend"], reverse=True)]
-    vendor_rows = [_serialize_common_row(row) for row in sorted(vendor_groups.values(), key=lambda row: row["total_spend"], reverse=True)]
+    po_rows = list(sorted_po_groups)
+    publisher_rows = sorted(publisher_groups.values(), key=lambda row: row["total_spend"], reverse=True)
+    vendor_rows = sorted(vendor_groups.values(), key=lambda row: row["total_spend"], reverse=True)
     recurring_records.sort(key=lambda row: row["annual_cost"], reverse=True)
     counts = {
         "records": len(visible),
@@ -640,8 +669,8 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
         "available_cost_centres": sorted({license_obj.cost_centre for license_obj in licenses if license_obj.cost_centre}),
         "currency_disclaimer": "All monetary values remain in their native currencies. No currency conversion is applied.",
         "counts": counts,
-        "financial_summaries": _serialize_common_row(financial_summaries),
-        "cost_overview": _serialize_common_row({
+        "financial_summaries": financial_summaries,
+        "cost_overview": {
             **financial_summaries,
             "recurring_count": recurring_contributor_count,
             "po_count": sum(1 for row in sorted_po_groups if row["identity_type"] != "unkeyed"),
@@ -653,44 +682,44 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
             "excluded_count": excluded_count,
             "undated_count": undated_count,
             "is_period_allocated": selected is not None,
-        }),
-        "budget_forecast": _serialize_common_row({
-            "forecast_rows": [_serialize_common_row(row) for row in forecast_rows],
-            "recurring_records": [_serialize_common_row(row) for row in recurring_records],
-            "baseline_by_currency": _serialize_map(baseline_by_currency),
+        },
+        "budget_forecast": {
+            "forecast_rows": forecast_rows,
+            "recurring_records": recurring_records,
+            "baseline_by_currency": baseline_by_currency,
             "single_currency": single_currency,
             "fallback_count": 0,
-        }),
+        },
         "publisher_data": publisher_rows,
         "vendor_data": vendor_rows,
-        "portfolio_data": _serialize_common_row({
+        "portfolio_data": {
             "by_type": [{"name": key, "value": value} for key, value in sorted(portfolio_type.items(), key=lambda item: item[1], reverse=True)],
             "by_metric": [{"name": key, "value": value} for key, value in sorted(portfolio_metric.items(), key=lambda item: item[1], reverse=True)],
-        }),
-        "renewal_data": _serialize_common_row([
-            {"quarter_label": quarter["quarter_label"], "count": quarter["count"], "estimated_value_by_currency": _serialize_map(quarter["value"]), "events": [_serialize_common_row(event) for event in quarter["events"]]}
+        },
+        "renewal_data": [
+            {"quarter_label": quarter["quarter_label"], "count": quarter["count"], "estimated_value_by_currency": quarter["value"], "events": quarter["events"]}
             for quarter in renewal_quarters
-        ]),
-        "perpetual_maintenance_data": _serialize_common_row({
-            "rows": [_serialize_common_row(row) for row in perpetual_rows],
-            "purchase_by_currency": _serialize_map(purchase_by_currency),
-            "maintenance_by_currency": _serialize_map(maintenance_totals),
-            "total_by_currency": _serialize_map(total_by_currency),
+        ],
+        "perpetual_maintenance_data": {
+            "rows": perpetual_rows,
+            "purchase_by_currency": purchase_by_currency,
+            "maintenance_by_currency": maintenance_totals,
+            "total_by_currency": total_by_currency,
             "included_count": sum(1 for row in perpetual_rows if row["maintenance_source"].startswith("included")),
             "separately_tracked_count": sum(1 for row in perpetual_rows if row["maintenance_source"] == "separately_tracked"),
-        }),
-        "purchase_order_data": _serialize_common_row({
+        },
+        "purchase_order_data": {
             "rows": po_rows,
-            "totals_by_currency": _serialize_map(po_spend),
-            "line_totals_by_currency": _serialize_map({currency: sum((row["line_value"] for row in po_groups.values() if row["currency"] == currency), ZERO) for currency in {row["currency"] for row in po_groups.values()}}),
+            "totals_by_currency": po_spend,
+            "line_totals_by_currency": {currency: sum((row["line_value"] for row in po_groups.values() if row["currency"] == currency), ZERO) for currency in {row["currency"] for row in po_groups.values()}},
             "po_count": sum(1 for row in sorted_po_groups if row["identity_type"] != "unkeyed"),
             "unkeyed_count": sum(
                 row["line_count"] for row in sorted_po_groups if row["identity_type"] == "unkeyed"
             ),
             "overridden_count": sum(1 for row in sorted_po_groups if row["override"] is not None),
-        }),
+        },
     }
-    return DetailedReportResponse.model_validate(response)
+    return DetailedReportResponse.model_validate(_serialize_common_row(response))
 
 
 async def get_detailed_report(db: AsyncSession, user: User, options: ReportOptions) -> DetailedReportResponse:

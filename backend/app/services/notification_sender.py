@@ -189,61 +189,14 @@ async def _deliver_notifications(
     gs: GlobalSettings,
     token: str,
 ) -> dict[str, Any]:
-    expiry_window_days = gs.notification_days or 30
-    notice_window_days = gs.notice_notification_days or 30
-    mandatory_fields = gs.mandatory_fields or {}
     today = date.today()
     allowed_domains = [d.strip() for d in (gs.allowed_email_domains or "").split(",") if d.strip()]
 
-    lic_result = await db.execute(
-        select(License).where(License.is_retired.is_(False)).options(selectinload(License.documents))
+    expiring_by_owner, all_notifications = await _classify_notifications(db, gs, today)
+    summary = _notification_summary(
+        total_notifications=len(all_notifications),
+        intended_messages=len(expiring_by_owner),
     )
-    all_licenses = list(lic_result.scalars().all())
-    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, all_licenses)
-
-    parent_ids = {lic.parent_license_id for lic in all_licenses if lic.parent_license_id is not None}
-    parent_map: dict[int, License] = {}
-    if parent_ids:
-        parent_result = await db.execute(select(License).where(License.id.in_(parent_ids)))
-        parent_map = {parent.id: parent for parent in parent_result.scalars().all()}
-
-    expiring_by_owner: dict[str, list[dict[str, Any]]] = {}
-    all_notifications: list[dict[str, Any]] = []
-    for license_obj in all_licenses:
-        documents = available_documents(
-            [
-                *list(license_obj.documents),
-                *procurement_documents_by_license_id.get(license_obj.id, []),
-            ],
-            gs.storage_path or None,
-        )
-        alerts = classify_license_alerts(
-            license_obj,
-            documents,
-            mandatory_fields,
-            expiry_window_days,
-            notice_window_days,
-            today=today,
-            expiry_notifications_enabled=getattr(license_obj, "renewal_notifications_enabled", True),
-        )
-        for alert in alerts:
-            entry = _build_license_entry(license_obj, alert, parent_map=parent_map)
-            all_notifications.append(entry)
-            if alert["type"] in {"expired", "expiring"} and license_obj.budget_owner_email:
-                expiring_by_owner.setdefault(license_obj.budget_owner_email, []).append(entry)
-
-    summary: dict[str, Any] = {
-        "status": "",
-        "budget_owner_emails_sent": 0,
-        "digest_sent": False,
-        "total_notifications": len(all_notifications),
-        "intended_messages": len(expiring_by_owner),
-        "errors": [],
-        "blocked": [],
-        "blocked_owner_count": 0,
-        "blocked_secondary_contact_count": 0,
-        "blocked_manager_count": 0,
-    }
 
     for owner_email, licenses_list in expiring_by_owner.items():
         await _require_notification_run_ownership(db, token)
@@ -332,6 +285,70 @@ async def _deliver_notifications(
     return summary
 
 
+def _notification_summary(*, total_notifications: int = 0, intended_messages: int = 0) -> dict[str, Any]:
+    return {
+        "status": "",
+        "budget_owner_emails_sent": 0,
+        "digest_sent": False,
+        "total_notifications": total_notifications,
+        "intended_messages": intended_messages,
+        "errors": [],
+        "blocked": [],
+        "blocked_owner_count": 0,
+        "blocked_secondary_contact_count": 0,
+        "blocked_manager_count": 0,
+    }
+
+
+async def _classify_notifications(
+    db: AsyncSession,
+    gs: GlobalSettings,
+    today: date,
+) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
+    expiry_window_days = gs.notification_days or 30
+    notice_window_days = gs.notice_notification_days or 30
+    mandatory_fields = gs.mandatory_fields or {}
+
+    lic_result = await db.execute(
+        select(License).where(License.is_retired.is_(False)).options(selectinload(License.documents))
+    )
+    all_licenses = list(lic_result.scalars().all())
+    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, all_licenses)
+
+    parent_ids = {lic.parent_license_id for lic in all_licenses if lic.parent_license_id is not None}
+    parent_map: dict[int, License] = {}
+    if parent_ids:
+        parent_result = await db.execute(select(License).where(License.id.in_(parent_ids)))
+        parent_map = {parent.id: parent for parent in parent_result.scalars().all()}
+
+    expiring_by_owner: dict[str, list[dict[str, Any]]] = {}
+    all_notifications: list[dict[str, Any]] = []
+    for license_obj in all_licenses:
+        documents = available_documents(
+            [
+                *list(license_obj.documents),
+                *procurement_documents_by_license_id.get(license_obj.id, []),
+            ],
+            gs.storage_path or None,
+        )
+        alerts = classify_license_alerts(
+            license_obj,
+            documents,
+            mandatory_fields,
+            expiry_window_days,
+            notice_window_days,
+            today=today,
+            expiry_notifications_enabled=getattr(license_obj, "renewal_notifications_enabled", True),
+        )
+        for alert in alerts:
+            entry = _build_license_entry(license_obj, alert, parent_map=parent_map)
+            all_notifications.append(entry)
+            if alert["type"] in {"expired", "expiring"} and license_obj.budget_owner_email:
+                expiring_by_owner.setdefault(license_obj.budget_owner_email, []).append(entry)
+
+    return expiring_by_owner, all_notifications
+
+
 async def run_daily_notifications(db: AsyncSession) -> dict[str, Any]:
     """Claim, deliver, and finalize one notification run."""
     gs = (await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))).scalar_one_or_none()
@@ -352,18 +369,9 @@ async def run_daily_notifications(db: AsyncSession) -> dict[str, Any]:
             summary = await _deliver_notifications(db, gs, token)
         except Exception as exc:
             log.error("Daily notification delivery failed before completion: %s", exc, exc_info=True)
-            summary = {
-                "status": "failed",
-                "total_notifications": 0,
-                "intended_messages": 0,
-                "budget_owner_emails_sent": 0,
-                "digest_sent": False,
-                "blocked": [],
-                "blocked_owner_count": 0,
-                "blocked_secondary_contact_count": 0,
-                "blocked_manager_count": 0,
-                "errors": [_delivery_error(None, "run", exc)],
-            }
+            summary = _notification_summary()
+            summary["status"] = "failed"
+            summary["errors"].append(_delivery_error(None, "run", exc))
 
     try:
         await _finalize_notification_run(db, token, summary)
