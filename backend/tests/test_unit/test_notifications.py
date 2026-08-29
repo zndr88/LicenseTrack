@@ -2,7 +2,6 @@
 Unit tests for the email/notification pipeline.
 
 Covers:
-  notification_sender._is_domain_allowed()
   email_templates.budget_owner_alert()
   email_templates.manager_digest()
   notification_sender.run_daily_notifications()  (with send_email mocked)
@@ -24,7 +23,6 @@ from app.services.notification_classification import classify_license_alerts
 from app.services.notification_sender import (
     _claim_notification_run,
     _finalize_notification_run,
-    _is_domain_allowed,
     _refresh_notification_run,
     run_daily_notifications,
 )
@@ -64,36 +62,6 @@ def _make_license_entry(
         "parent_publisher_name": None,
         "parent_software_description": parent_software_description,
     }
-
-
-# ---------------------------------------------------------------------------
-# _is_domain_allowed
-# ---------------------------------------------------------------------------
-
-def test_is_domain_allowed_empty_whitelist_permits_any_domain():
-    assert _is_domain_allowed("user@anything.com", []) is True
-
-
-def test_is_domain_allowed_matching_domain_permitted():
-    assert _is_domain_allowed("user@example.com", ["example.com"]) is True
-
-
-def test_is_domain_allowed_non_matching_domain_blocked():
-    assert _is_domain_allowed("user@evil.com", ["example.com"]) is False
-
-
-def test_is_domain_allowed_is_case_insensitive():
-    assert _is_domain_allowed("user@EXAMPLE.COM", ["example.com"]) is True
-
-
-def test_is_domain_allowed_multiple_domains():
-    allowed = ["example.com", "corp.org"]
-    assert _is_domain_allowed("user@corp.org", allowed) is True
-    assert _is_domain_allowed("user@other.net", allowed) is False
-
-
-def test_is_domain_allowed_supports_display_name_addresses():
-    assert _is_domain_allowed("Owner Name <owner@example.com>", ["example.com"]) is True
 
 
 # ---------------------------------------------------------------------------

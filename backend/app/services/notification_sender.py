@@ -36,33 +36,6 @@ def notification_run_succeeded(summary: dict) -> bool:
     return summary.get("status") in {"success", "no_work"}
 
 
-def _is_domain_allowed(email: str, allowed: list[str]) -> bool:
-    """Compatibility wrapper around the shared mailbox/domain parser."""
-    return is_email_domain_allowed(email, allowed)
-
-
-def _add_recipient(recipients: list[str], seen: set[str], email: str | None) -> None:
-    email = (email or "").strip()
-    if not email:
-        return
-    key = email.casefold()
-    if key in seen:
-        return
-    seen.add(key)
-    recipients.append(email)
-
-
-def _budget_owner_cc_recipients(owner_email: str, licenses_list: list, manager_email: str | None) -> list[str]:
-    """Return unique secondary contacts and manager CC candidates."""
-    seen = {owner_email.casefold()}
-    recipients: list[str] = []
-    for license_entry in licenses_list:
-        for email in license_entry.get("secondary_contacts", []) or []:
-            _add_recipient(recipients, seen, email)
-    _add_recipient(recipients, seen, manager_email)
-    return recipients
-
-
 def _budget_owner_cc_candidates(
     owner_email: str,
     licenses_list: list[dict[str, Any]],
@@ -274,14 +247,14 @@ async def _deliver_notifications(
 
     for owner_email, licenses_list in expiring_by_owner.items():
         await _require_notification_run_ownership(db, token)
-        owner_allowed = _is_domain_allowed(owner_email, allowed_domains)
+        owner_allowed = is_email_domain_allowed(owner_email, allowed_domains)
         if not owner_allowed:
             summary["blocked"].append(_blocked_delivery(owner_email, "budget_owner"))
             summary["blocked_owner_count"] += 1
 
         cc: list[str] = []
         for role, recipient in _budget_owner_cc_candidates(owner_email, licenses_list, gs.manager_email):
-            if _is_domain_allowed(recipient, allowed_domains):
+            if is_email_domain_allowed(recipient, allowed_domains):
                 if owner_allowed:
                     cc.append(recipient)
             else:
@@ -319,7 +292,7 @@ async def _deliver_notifications(
     if gs.manager_email and has_manager_notifications:
         await _require_notification_run_ownership(db, token)
         summary["intended_messages"] += 1
-        if not _is_domain_allowed(gs.manager_email, allowed_domains):
+        if not is_email_domain_allowed(gs.manager_email, allowed_domains):
             summary["blocked"].append(_blocked_delivery(gs.manager_email, "manager"))
             summary["blocked_manager_count"] += 1
             log.warning("Skipping manager digest %s because its domain is not allowed", gs.manager_email)

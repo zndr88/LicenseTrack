@@ -8,9 +8,8 @@ Tests cover:
   - send_email: aiosmtplib.send called with correct SMTP parameters
   - send_email: smtp_username/smtp_password None-passthrough when blank
   - send_email: encryption mode maps to correct TLS/STARTTLS parameters
-  - send_test_email: delegates to _send_test_email_impl which calls send_email
+  - send_test_email: renders configuration details and calls send_email
   - send_test_email: HTML body contains host/port/encryption/sender tokens
-  - _send_test_email_impl: calls send_email with fixed subject
 """
 
 from __future__ import annotations
@@ -23,7 +22,6 @@ import pytest
 from app.services.email_service import (
     send_email,
     send_test_email,
-    _send_test_email_impl,
 )
 
 
@@ -390,41 +388,14 @@ async def test_send_test_email_html_shows_plain_smtp():
 async def test_send_test_email_delegates_to_send_email_with_correct_to():
     gs = _make_gs()
     captured_to: list[str] = []
+    captured_subjects: list[str] = []
 
     async def fake_send_email(gs_arg, to_arg, subject_arg, html_body_arg, cc=None):
         captured_to.append(to_arg)
+        captured_subjects.append(subject_arg)
 
     with patch("app.services.email_service.send_email", new=fake_send_email):
         await send_test_email(gs, "recipient@example.com")
 
     assert captured_to == ["recipient@example.com"]
-
-
-# ---------------------------------------------------------------------------
-# _send_test_email_impl — subject line
-# ---------------------------------------------------------------------------
-
-async def test_send_test_email_impl_uses_fixed_subject():
-    gs = _make_gs()
-    captured_subjects: list[str] = []
-
-    async def fake_send_email(gs_arg, to_arg, subject_arg, html_body_arg, cc=None):
-        captured_subjects.append(subject_arg)
-
-    with patch("app.services.email_service.send_email", new=fake_send_email):
-        await _send_test_email_impl(gs, "to@example.com", "<p>test</p>")
-
     assert captured_subjects == ["License Lifecycle Management - Test Email"]
-
-
-async def test_send_test_email_impl_forwards_html_body():
-    gs = _make_gs()
-    captured_html: list[str] = []
-
-    async def fake_send_email(gs_arg, to_arg, subject_arg, html_body_arg, cc=None):
-        captured_html.append(html_body_arg)
-
-    with patch("app.services.email_service.send_email", new=fake_send_email):
-        await _send_test_email_impl(gs, "to@example.com", "<p>custom-content</p>")
-
-    assert captured_html == ["<p>custom-content</p>"]

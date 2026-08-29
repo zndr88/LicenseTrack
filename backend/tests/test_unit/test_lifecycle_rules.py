@@ -10,7 +10,6 @@ from app.services.lifecycle_rules import (
     clear_pending_renewal,
     entitlement_identity,
     validate_lifecycle_repair_update,
-    validate_renewal_link_invariants,
 )
 
 
@@ -30,16 +29,6 @@ def _license(label: str) -> License:
 async def _persist(db_session, *licenses: License) -> None:
     db_session.add_all(licenses)
     await db_session.flush()
-
-
-def test_intermediate_license_may_have_incoming_and_outgoing_links():
-    intermediate = _license("B")
-    intermediate.id = 2
-    intermediate.renewed_from_id = 1
-    intermediate.predecessor_id = 1
-    intermediate.renewed_to_id = 3
-
-    validate_renewal_link_invariants(intermediate)
 
 
 def test_clear_pending_renewal_preserves_existing_coterm_ancestry():

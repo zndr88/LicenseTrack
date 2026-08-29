@@ -27,7 +27,6 @@ from app.services.lifecycle_rules import (
     REPAIR_ONLY_UPDATE_FIELDS,
     validate_general_license_update_fields,
     validate_lifecycle_repair_update,
-    validate_renewal_link_invariants,
 )
 from app.services.maintenance_rules import (
     assert_active_maintenance_allows_retirement,
@@ -433,7 +432,6 @@ async def apply_license_update(
     if "contract_number" in update_data:
         license_obj.contract_id = await _resolve_contract_id(db, update_data.get("contract_number"))
 
-    validate_renewal_link_invariants(license_obj)
     _validate_active_maintenance_parent_update(license_obj, before)
     await _reconcile_maintenance_relationships_after_update(
         db,
@@ -492,7 +490,6 @@ async def apply_license_lifecycle_repair(
     for field, value in update_data.items():
         setattr(license_obj, field, value)
 
-    validate_renewal_link_invariants(license_obj)
     after = dict(before)
     for field, value in update_data.items():
         if field in after:

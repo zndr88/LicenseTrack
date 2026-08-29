@@ -2,8 +2,9 @@
 Email HTML templates for automated license lifecycle notifications.
 
 Functions:
-  budget_owner_alert(licenses, manager_name) -> str
-  manager_digest(notifications, settings) -> str
+  budget_owner_alert(licenses) -> str
+  manager_digest(notifications) -> str
+  test_email(settings) -> str
 """
 
 from __future__ import annotations
@@ -50,17 +51,6 @@ def _html_plain_text(value: object) -> str:
     return _html_text(value).replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>")
 
 
-def _label_row(label: str, value: str) -> str:
-    if not value:
-        return ""
-    return (
-        f"<tr>"
-        f'<td style="padding: 3px 12px 3px 0; color: #64748b; font-size: 12px; white-space: nowrap;">{_html_text(label)}</td>'
-        f'<td style="padding: 3px 0; font-size: 12px; color: #1e293b;">{_html_text(value)}</td>'
-        f"</tr>"
-    )
-
-
 # ---------------------------------------------------------------------------
 # budget_owner_alert
 # ---------------------------------------------------------------------------
@@ -79,7 +69,6 @@ _DEFAULT_MANAGER_INTRO = "Your daily license summary \u2014 {total} item(s) requ
 
 def budget_owner_alert(
     licenses: list[dict[str, Any]],
-    manager_name: str = "",
     intro_text: str | None = None,
     signoff_text: str | None = None,
 ) -> str:
@@ -199,7 +188,6 @@ def budget_owner_alert(
 
 def manager_digest(
     notifications: list[dict[str, Any]],
-    settings: dict[str, Any] | None = None,
     intro_text: str | None = None,
 ) -> str:
     """
@@ -316,4 +304,29 @@ def manager_digest(
         + _BODY_END
         + _FOOTER
         + _WRAPPER_END
+    )
+
+
+def test_email(*, host: object, port: object, encryption: object, sender: object) -> str:
+    """Render the SMTP configuration test message."""
+    return """
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1e293b; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+        <h2 style="margin: 0;">Software License Lifecycle Management</h2>
+        <p style="margin: 4px 0 0; opacity: 0.7; font-size: 14px;">Email Configuration Test</p>
+      </div>
+      <div style="padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
+        <p>This is a test email from your license lifecycle management system.</p>
+        <p>If you are reading this, your SMTP configuration is working correctly.</p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #94a3b8;">
+          Server: {host}:{port} | Encryption: {encryption} | Sender: {sender}
+        </p>
+      </div>
+    </div>
+    """.format(
+        host=_html_text(host),
+        port=_html_text(port),
+        encryption=_html_text(encryption),
+        sender=_html_text(sender),
     )

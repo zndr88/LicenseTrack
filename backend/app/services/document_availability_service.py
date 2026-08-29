@@ -5,10 +5,7 @@ from collections.abc import Iterable
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.contract import ContractDocument
-from app.models.document import Document, ProcurementDocument
 from app.models.settings import GlobalSettings
-from app.models.sourcing import SourcingQuoteDocument
 from app.services import storage
 
 
@@ -19,20 +16,9 @@ async def get_document_storage_base(db: AsyncSession) -> str | None:
     return (settings_row.storage_path if settings_row else "") or None
 
 
-def document_availability(document, storage_base: str | None = None) -> storage.DocumentFileAvailability:
-    return storage.get_file_availability(document.filename, storage_base)
-
-
 def with_file_availability(response, document, storage_base: str | None = None):
-    response.file_availability = document_availability(document, storage_base)
+    response.file_availability = storage.get_file_availability(document.filename, storage_base)
     return response
-
-
-def count_file_availability(
-    documents: Iterable,
-    storage_base: str | None = None,
-) -> dict[str, int]:
-    return inspect_document_availability(documents, storage_base)[1]
 
 
 def inspect_document_availability(
@@ -49,7 +35,7 @@ def inspect_document_availability(
     available = []
     for document in documents:
         counts["total"] += 1
-        availability = document_availability(document, storage_base)
+        availability = storage.get_file_availability(document.filename, storage_base)
         counts[availability] += 1
         if availability == "available":
             available.append(document)
@@ -62,15 +48,3 @@ def available_documents(
 ) -> list:
     """Return only document records whose managed file currently exists."""
     return inspect_document_availability(documents, storage_base)[0]
-
-
-async def reconcile_document_storage(db: AsyncSession, storage_base: str | None = None) -> dict[str, int]:
-    """Count managed document records against currently available managed files."""
-    effective_base = storage_base
-    if effective_base is None:
-        effective_base = await get_document_storage_base(db)
-    documents = []
-    for model in (Document, ProcurementDocument, SourcingQuoteDocument, ContractDocument):
-        result = await db.execute(select(model))
-        documents.extend(result.scalars().all())
-    return count_file_availability(documents, effective_base)

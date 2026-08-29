@@ -247,7 +247,3 @@ async def _assert_no_successor_cycle(db: AsyncSession, *, start_id: int | None, 
         seen.add(current_id)
         current = await db.get(License, current_id)
         current_id = current.renewed_to_id if current is not None else None
-
-
-def validate_renewal_link_invariants(license_obj: License) -> None:
-    """Validate renewal links that can be checked without loading related rows."""

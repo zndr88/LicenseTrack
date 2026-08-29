@@ -1,12 +1,11 @@
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from html import escape
-
 import aiosmtplib
 
 from app.models.settings import GlobalSettings
 from app.services.crypto_service import decrypt_secret
+from app.services.email_templates import test_email
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +24,10 @@ def _smtp_encryption_mode(gs: GlobalSettings) -> str:
     return "tls" if getattr(gs, "smtp_use_tls", False) else "starttls"
 
 
+def _contains_forbidden_email_chars(value: str) -> bool:
+    return any(char in value for char in _FORBIDDEN_RECIPIENT_CHARS)
+
+
 def _reject_crlf_recipient(address: str) -> None:
     """Raise ValueError if *address* contains CR/LF/NUL bytes.
 
@@ -33,12 +36,12 @@ def _reject_crlf_recipient(address: str) -> None:
     to the input-boundary validation on the Pydantic schemas that feed this
     function (budget_owner_email, manager_email, etc).
     """
-    if any(ch in address for ch in _FORBIDDEN_RECIPIENT_CHARS):
+    if _contains_forbidden_email_chars(address):
         raise ValueError(f"Refusing to send: recipient address contains line breaks or null bytes: {address!r}")
 
 
 def _reject_crlf_header(value: str, name: str) -> None:
-    if any(ch in value for ch in _FORBIDDEN_RECIPIENT_CHARS):
+    if _contains_forbidden_email_chars(value):
         raise ValueError(f"Refusing to send: {name} contains line breaks or null bytes")
 
 
@@ -84,29 +87,10 @@ async def send_email(
 
 async def send_test_email(gs: GlobalSettings, to: str) -> None:
     """Send a test email to verify SMTP configuration."""
-    html = """
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <div style="background: #1e293b; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-        <h2 style="margin: 0;">Software License Lifecycle Management</h2>
-        <p style="margin: 4px 0 0; opacity: 0.7; font-size: 14px;">Email Configuration Test</p>
-      </div>
-      <div style="padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-        <p>This is a test email from your license lifecycle management system.</p>
-        <p>If you are reading this, your SMTP configuration is working correctly.</p>
-        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #94a3b8;">
-          Server: {host}:{port} | Encryption: {encryption} | Sender: {sender}
-        </p>
-      </div>
-    </div>
-    """.format(
-        host=escape(str(gs.smtp_host), quote=True),
+    html = test_email(
+        host=gs.smtp_host,
         port=gs.smtp_port,
         encryption=_SMTP_ENCRYPTION_LABELS[_smtp_encryption_mode(gs)],
-        sender=escape(str(gs.smtp_sender), quote=True),
+        sender=gs.smtp_sender,
     )
-    await _send_test_email_impl(gs, to, html)
-
-
-async def _send_test_email_impl(gs: GlobalSettings, to: str, html: str) -> None:
     await send_email(gs, to, "License Lifecycle Management - Test Email", html)
