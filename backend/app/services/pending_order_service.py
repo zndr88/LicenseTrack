@@ -22,9 +22,9 @@ from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.pending_order import PendingOrderCreate, PendingOrderResponse, PendingOrderUpdate, SourcingItemSummary
 from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate, SourcingQuoteDocumentResponse
 from app.services.document_availability_service import with_file_availability
-from app.services.procurement_totals import procurement_line_total
+from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.reference_data_service import resolve_organization, resolve_procurement_reference_fields
-from app.services.sourcing_service import resolve_sourcing_item_references
+from app.services.sourcing_service import resolve_sourcing_item_references, sync_sourcing_item_support_defaults
 
 
 _CURRENCY_SYMBOLS: dict[str, str] = {
@@ -412,6 +412,7 @@ async def update_pending_order_item_record(
             update_data["supplier_id"] = reference_data["supplier_id"]
     for field, value in update_data.items():
         setattr(item, field, value)
+    sync_sourcing_item_support_defaults(item)
 
     await db.flush()
     return order
@@ -462,6 +463,7 @@ def _build_pending_order_item(
     item_data.pop("renewal_for_license_id", None)
     item_data.pop("sourcing_request_id", None)
     item_data.pop("parent_item_index", None)
+    apply_included_support_defaults(item_data)
 
     return SourcingItem(
         **item_data,

@@ -56,7 +56,7 @@ from app.services.reference_data_service import (
     resolve_license_reference_fields,
     resolve_license_reference_updates,
 )
-from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
+from app.services.procurement_totals import apply_included_support_defaults
 from app.services.sourcing_service import sourcing_item_predecessor_ids
 
 logger = logging.getLogger(__name__)
@@ -127,7 +127,7 @@ BLANKABLE_STRING_UPDATE_FIELDS = {
     for field in BLANKABLE_STRING_PATCH_FIELDS
 }
 MAINTENANCE_COVERAGE_VALUES = {coverage.value for coverage in MaintenanceCoverage}
-BUNDLED_SUPPORT_MIRROR_FIELDS = (
+SUPPORT_DEFAULT_FIELDS = (
     "maintenance_start_date",
     "maintenance_end_date",
     "maintenance_pricing_basis",
@@ -195,11 +195,11 @@ def validate_term_dates(start_date: date | None, end_date: date | None) -> None:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-def _apply_bundled_support_defaults_to_create_data(create_data: dict) -> None:
-    apply_bundled_included_support_defaults(create_data)
+def _apply_support_defaults_to_create_data(create_data: dict) -> None:
+    apply_included_support_defaults(create_data)
 
 
-def _sync_bundled_support_defaults_on_license(license_obj: License) -> None:
+def _sync_support_defaults_on_license(license_obj: License) -> None:
     data = {
         "license_type": license_obj.license_type,
         "maintenance_coverage": license_obj.maintenance_coverage,
@@ -215,8 +215,8 @@ def _sync_bundled_support_defaults_on_license(license_obj: License) -> None:
         "maintenance_unit_price": license_obj.maintenance_unit_price,
         "maintenance_cost": license_obj.maintenance_cost,
     }
-    apply_bundled_included_support_defaults(data)
-    for field in BUNDLED_SUPPORT_MIRROR_FIELDS:
+    apply_included_support_defaults(data)
+    for field in SUPPORT_DEFAULT_FIELDS:
         setattr(license_obj, field, data.get(field))
 
 
@@ -271,6 +271,7 @@ async def create_license_record(
 
     if payload.license_type == LicenseType.maintenance:
         create_data = payload.model_dump(by_alias=False)
+        _apply_support_defaults_to_create_data(create_data)
         _sync_invoice_numbers(create_data)
         await resolve_license_reference_fields(db, create_data)
         create_data["procurement_bundle_id"] = procurement_bundle_id
@@ -301,7 +302,7 @@ async def create_license_record(
     if payload.license_type == LicenseType.freeware:
         create_data["unit_price"] = ""
         create_data["total_po_price"] = ""
-    _apply_bundled_support_defaults_to_create_data(create_data)
+    _apply_support_defaults_to_create_data(create_data)
 
     # F1: chain and lifecycle fields cannot be set at create time.
     _CREATE_CHAIN_FIELDS = REPAIR_ONLY_UPDATE_FIELDS
@@ -427,7 +428,7 @@ async def apply_license_update(
     _clear_notice_handled_if_date_changed(license_obj, update_data)
     for field, value in update_data.items():
         setattr(license_obj, field, value)
-    _sync_bundled_support_defaults_on_license(license_obj)
+    _sync_support_defaults_on_license(license_obj)
 
     if "contract_number" in update_data:
         license_obj.contract_id = await _resolve_contract_id(db, update_data.get("contract_number"))
@@ -461,7 +462,7 @@ async def apply_license_update(
         # contract_id is derived from contract_number but set separately above;
         # read from instance __dict__ to avoid any instrumentation lazy-load path
         after["contract_id"] = license_obj.__dict__.get("contract_id", before.get("contract_id"))
-    for field in BUNDLED_SUPPORT_MIRROR_FIELDS:
+    for field in SUPPORT_DEFAULT_FIELDS:
         if field in after:
             after[field] = getattr(license_obj, field)
     if parent_update_requested or before.get("parent_license_id") != license_obj.parent_license_id:
@@ -621,7 +622,7 @@ async def apply_license_field_patch(
     else:
         setattr(license_obj, snake_field, value)
 
-    _sync_bundled_support_defaults_on_license(license_obj)
+    _sync_support_defaults_on_license(license_obj)
     await _sync_active_maintenance_parent_if_needed(db, license_obj)
     return license_obj
 
@@ -934,7 +935,7 @@ def apply_license_type_patch(license_obj: License, value: str | None) -> None:
         license_obj.total_po_price = ""
     if new_type == LicenseType.perpetual:
         license_obj.end_date = None
-    _sync_bundled_support_defaults_on_license(license_obj)
+    _sync_support_defaults_on_license(license_obj)
 
 
 async def _validate_maintenance_parent_transition(

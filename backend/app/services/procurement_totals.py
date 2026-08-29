@@ -1,8 +1,11 @@
 from decimal import Decimal
 
-from app.models.license import MaintenanceCoverage
+from app.models.license import MaintenanceCoverage, MaintenancePricingBasis
 from app.services.money import MoneyParseError, parse_money
-from app.services.support_coverage_defaults import is_bundled_included_support
+from app.services.support_coverage_defaults import (
+    apply_bundled_included_support_defaults,
+    is_bundled_included_support,
+)
 
 
 def _optional_money(value: object) -> Decimal | None:
@@ -34,3 +37,21 @@ def calculate_per_unit_support_total(quantity: object, unit_price: object) -> st
     if parsed_quantity is None or parsed_unit_price is None:
         return None
     return format(parsed_quantity * parsed_unit_price, "f")
+
+
+def apply_included_support_defaults(data: dict) -> None:
+    """Apply canonical per-unit or bundled included-support values in place."""
+    coverage = data.get("maintenance_coverage")
+    pricing_basis = data.get("maintenance_pricing_basis")
+    if (
+        (coverage == MaintenanceCoverage.included or coverage == MaintenanceCoverage.included.value)
+        and (
+            pricing_basis == MaintenancePricingBasis.per_unit
+            or pricing_basis == MaintenancePricingBasis.per_unit.value
+        )
+    ):
+        data["maintenance_cost"] = calculate_per_unit_support_total(
+            data.get("maintenance_quantity"),
+            data.get("maintenance_unit_price"),
+        )
+    apply_bundled_included_support_defaults(data)

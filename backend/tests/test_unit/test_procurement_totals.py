@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from app.models.license import MaintenanceCoverage, MaintenancePricingBasis
 from app.schemas.sourcing import SourcingItemCreate
 from app.services.pending_order_service import pending_order_total
-from app.services.procurement_totals import procurement_line_total
+from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.sourcing_service import sourcing_request_total
 
 
@@ -60,7 +60,7 @@ def test_line_total_does_not_double_count_separately_tracked_support() -> None:
 
 
 def test_per_unit_support_total_is_derived_server_side() -> None:
-    item = SourcingItemCreate(
+    data = SourcingItemCreate(
         publisher_name="LibreOffice",
         software_description="Calc",
         maintenance_coverage=MaintenanceCoverage.included,
@@ -68,13 +68,14 @@ def test_per_unit_support_total_is_derived_server_side() -> None:
         maintenance_quantity="3",
         maintenance_unit_price="12.50",
         maintenance_cost="999.00",
-    )
+    ).model_dump()
+    apply_included_support_defaults(data)
 
-    assert item.maintenance_cost == "37.50"
+    assert data["maintenance_cost"] == "37.50"
 
 
 def test_sourcing_subscription_included_support_mirrors_term_and_line_total() -> None:
-    item = SourcingItemCreate(
+    data = SourcingItemCreate(
         publisher_name="Neypla",
         software_description="Neypla Subscription",
         license_type="subscription",
@@ -87,12 +88,13 @@ def test_sourcing_subscription_included_support_mirrors_term_and_line_total() ->
         estimated_total_price="3600.00",
         start_date=date(2026, 1, 1),
         end_date=date(2027, 6, 30),
-    )
+    ).model_dump()
+    apply_included_support_defaults(data)
 
-    assert item.maintenance_start_date == date(2026, 1, 1)
-    assert item.maintenance_end_date == date(2027, 6, 30)
-    assert item.maintenance_pricing_basis == MaintenancePricingBasis.flat
-    assert item.maintenance_cost == "3600.00"
+    assert data["maintenance_start_date"] == date(2026, 1, 1)
+    assert data["maintenance_end_date"] == date(2027, 6, 30)
+    assert data["maintenance_pricing_basis"] == MaintenancePricingBasis.flat
+    assert data["maintenance_cost"] == "3600.00"
 
 
 def test_sourcing_response_total_preserves_decimal_precision_and_string_contract() -> None:

@@ -21,7 +21,7 @@ from app.services.document_availability_service import with_file_availability
 from app.services.lifecycle_rules import clear_pending_renewal_if_current
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.money import MoneyParseError, parse_money
-from app.services.procurement_totals import procurement_line_total
+from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.reference_data_service import (
     resolve_organization,
     resolve_procurement_reference_fields,
@@ -29,6 +29,14 @@ from app.services.reference_data_service import (
 
 
 _IDENTITY_UNSET = object()
+_SUPPORT_DEFAULT_FIELDS = (
+    "maintenance_start_date",
+    "maintenance_end_date",
+    "maintenance_pricing_basis",
+    "maintenance_quantity",
+    "maintenance_unit_price",
+    "maintenance_cost",
+)
 
 
 def sourcing_request_total(items: list[object]) -> str | None:
@@ -170,6 +178,27 @@ async def resolve_sourcing_item_references(db: AsyncSession, item: SourcingItem)
     return item
 
 
+def sync_sourcing_item_support_defaults(item: SourcingItem) -> None:
+    data = {
+        "license_type": item.license_type,
+        "maintenance_coverage": item.maintenance_coverage,
+        "start_date": item.start_date,
+        "end_date": item.end_date,
+        "quantity": item.quantity,
+        "estimated_unit_price": item.estimated_unit_price,
+        "estimated_total_price": item.estimated_total_price,
+        "maintenance_start_date": item.maintenance_start_date,
+        "maintenance_end_date": item.maintenance_end_date,
+        "maintenance_pricing_basis": item.maintenance_pricing_basis,
+        "maintenance_quantity": item.maintenance_quantity,
+        "maintenance_unit_price": item.maintenance_unit_price,
+        "maintenance_cost": item.maintenance_cost,
+    }
+    apply_included_support_defaults(data)
+    for field in _SUPPORT_DEFAULT_FIELDS:
+        setattr(item, field, data.get(field))
+
+
 async def apply_sourcing_item_update(
     db: AsyncSession,
     item: SourcingItem,
@@ -194,6 +223,7 @@ async def apply_sourcing_item_update(
         supplier_id = supplier_data["supplier_id"]
     for field, value in update_data.items():
         setattr(item, field, value)
+    sync_sourcing_item_support_defaults(item)
 
     if request is None:
         if supplier is not _IDENTITY_UNSET:
@@ -843,6 +873,7 @@ def _build_request_item(
     if item_data.get("license_type") == LicenseType.freeware:
         item_data["estimated_unit_price"] = None
         item_data["estimated_total_price"] = None
+    apply_included_support_defaults(item_data)
     item_data["supplier"] = supplier
     item_data["contact_email"] = contact_email
     return SourcingItem(

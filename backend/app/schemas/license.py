@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -15,8 +14,6 @@ from app.models.license import (
 from app.schemas.custom_fields import CustomFieldValueResponse
 from app.services.email_validation import reject_email_crlf
 from app.services.money import is_canonical_money
-from app.services.procurement_totals import calculate_per_unit_support_total
-from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 
 
 def normalise_invoice_numbers(value: object) -> list[str]:
@@ -157,30 +154,6 @@ class LicenseBase(BaseModel):
     @classmethod
     def _normalise_secondary_contacts(cls, value: object) -> list[str]:
         return normalise_secondary_contacts(value)
-
-    @model_validator(mode="after")
-    def _normalise_included_support(self) -> "LicenseBase":
-        data = self.model_dump(by_alias=False)
-        if (
-            self.maintenance_coverage == MaintenanceCoverage.included
-            and self.maintenance_pricing_basis == MaintenancePricingBasis.per_unit
-        ):
-            data["maintenance_cost"] = calculate_per_unit_support_total(
-                data.get("maintenance_quantity"),
-                data.get("maintenance_unit_price"),
-            )
-        apply_bundled_included_support_defaults(data)
-        for field in (
-            "maintenance_start_date",
-            "maintenance_end_date",
-            "maintenance_pricing_basis",
-            "maintenance_quantity",
-            "maintenance_unit_price",
-            "maintenance_cost",
-        ):
-            setattr(self, field, data.get(field))
-        return self
-
 
 class LicenseCreate(LicenseBase):
     maintenance_parent_ids: list[int] = Field(default_factory=list)
@@ -385,21 +358,6 @@ class LicenseResponse(LicenseBase):
         populate_by_name=True,
         from_attributes=True,
     )
-
-    @model_validator(mode="after")
-    def _calculate_effective_quantity(self) -> "LicenseResponse":
-        if self.effective_quantity is not None:
-            return self
-        if not self.quantity:
-            return self
-        try:
-            quantity = Decimal(self.quantity)
-            quantity_per_unit = Decimal(self.quantity_per_unit or "1")
-        except InvalidOperation:
-            return self
-        self.effective_quantity = format(quantity * quantity_per_unit, "f")
-        return self
-
 
 class LicenseCoverageHistoryResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, from_attributes=True)
