@@ -20,6 +20,7 @@ from app.models.license import License, LicenseMetric, LicenseType, MaintenanceC
 from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
+from app.schemas.sourcing import SourcingItemCreate
 from app.services.money import MoneyParseError
 from app.services.pending_order_service import (
     cancel_pending_order_record,
@@ -30,12 +31,35 @@ from app.services.sourcing_service import (
     build_merged_sourcing_item,
     cancel_sourcing_request_record,
     convert_sourcing_item_to_order,
+    create_sourcing_item_record,
     delete_sourcing_request_record,
     handle_delete_side_effects,
     reserve_sourcing_item_conversion,
     reserve_sourcing_request_conversion,
     sourcing_item_predecessor_ids,
 )
+
+
+@pytest.mark.asyncio
+async def test_create_sourcing_item_applies_included_support_defaults(db_session):
+    item = await create_sourcing_item_record(
+        db_session,
+        SourcingItemCreate(
+            publisher_name="Acme",
+            software_description="Acme Subscription",
+            license_type=LicenseType.subscription,
+            maintenance_coverage=MaintenanceCoverage.included,
+            quantity="2",
+            estimated_total_price="2400.00",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        ),
+        created_by=None,
+    )
+
+    assert item.maintenance_start_date == date(2026, 1, 1)
+    assert item.maintenance_end_date == date(2026, 12, 31)
+    assert item.maintenance_cost == "2400.00"
 
 
 # ---------------------------------------------------------------------------
