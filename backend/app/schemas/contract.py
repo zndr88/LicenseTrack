@@ -76,16 +76,8 @@ class ContractFolderCreate(BaseModel):
         return value
 
 
-class ContractFolderUpdate(BaseModel):
-    name: str = Field(max_length=255)
-
-    @field_validator("name")
-    @classmethod
-    def require_name(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("must not be blank")
-        return value
+class ContractFolderUpdate(ContractFolderCreate):
+    pass
 
 
 class ContractDocumentResponse(BaseModel):

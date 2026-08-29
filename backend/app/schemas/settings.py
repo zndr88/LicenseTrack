@@ -32,32 +32,16 @@ class UserSettingsUpdate(BaseModel):
     saved_views: Optional[list] = None
     renewal_workbench_columns: Optional[dict] = None
     sidebar_collapsed: Optional[bool] = None
-    ui_size: Optional[str] = None
-    date_format: Optional[str] = None
-    time_format: Optional[str] = None
+    ui_size: Optional[Literal["normal", "large", "larger"]] = None
+    date_format: Optional[Literal["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"]] = None
+    time_format: Optional[Literal["12h", "24h"]] = None
     time_zone: Optional[str] = None
-
-    @field_validator("date_format")
-    @classmethod
-    def _validate_date_format(cls, v: str | None) -> str | None:
-        allowed = {"DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"}
-        if v is not None and v not in allowed:
-            raise ValueError(f"date_format must be one of {sorted(allowed)}; got {v!r}.")
-        return v
 
     @field_validator("number_format_locale")
     @classmethod
     def _validate_number_format_locale(cls, v: str | None) -> str | None:
         if v is not None and v not in SUPPORTED_NUMBER_FORMAT_LOCALES:
             raise ValueError(f"Unsupported number_format_locale: {v!r}.")
-        return v
-
-    @field_validator("time_format")
-    @classmethod
-    def _validate_time_format(cls, v: str | None) -> str | None:
-        allowed = {"12h", "24h"}
-        if v is not None and v not in allowed:
-            raise ValueError(f"time_format must be one of {sorted(allowed)}; got {v!r}.")
         return v
 
     @field_validator("time_zone")
@@ -67,14 +51,6 @@ class UserSettingsUpdate(BaseModel):
         # and may omit "UTC" on minimal Docker images without tzdata installed.
         if v is not None and v not in _VALID_TIMEZONES and v != "UTC":
             raise ValueError(f"time_zone {v!r} is not a recognised IANA timezone.")
-        return v
-
-    @field_validator("ui_size")
-    @classmethod
-    def _validate_ui_size(cls, v: str | None) -> str | None:
-        allowed = {"normal", "large", "larger"}
-        if v is not None and v not in allowed:
-            raise ValueError(f"ui_size must be one of {sorted(allowed)}; got {v!r}.")
         return v
 
     @field_validator("manager_email", mode="before")
