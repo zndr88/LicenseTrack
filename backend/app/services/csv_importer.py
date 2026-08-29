@@ -183,6 +183,7 @@ _RECOMMENDED_FIELDS = [
     "po_number",
     "license_type",
 ]
+_REQUIRED_IMPORT_FIELDS = ("publisher_name", "software_description")
 
 _VALID_LICENSE_TYPES = {
     "subscription",
@@ -319,6 +320,27 @@ class ParsedImportResult:
     headers_found: list[str]  # internal field names detected in the file
     headers_missing: list[str]  # recommended fields not present in the file
     custom_rows: list[dict[str, str]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class HeaderColumnMatch:
+    raw_header: str
+    internal_field: str
+    sample_values: list[str]
+
+
+@dataclass(frozen=True)
+class UnrecognizedHeader:
+    raw_header: str
+    sample_values: list[str]
+
+
+@dataclass(frozen=True)
+class CSVHeaderAnalysis:
+    total_rows: int
+    matched_columns: list[HeaderColumnMatch]
+    unrecognized_columns: list[UnrecognizedHeader]
+    missing_required: list[str]
 
 
 # ---------------------------------------------------------------------------
@@ -965,6 +987,77 @@ def read_csv_dict_rows(contents: bytes) -> tuple[list[str], list[dict[str, str]]
         raise ValueError(f"CSV contains duplicate header name(s): {', '.join(repr(item) for item in duplicates)}")
     rows = [dict(zip(raw_headers, row + [""] * (len(raw_headers) - len(row)))) for row in reader]
     return raw_headers, rows
+
+
+def analyze_csv_headers(
+    contents: bytes,
+    custom_field_header_map: dict[str, str] | None = None,
+) -> CSVHeaderAnalysis:
+    """Resolve native and custom CSV headers with parser-compatible precedence."""
+    raw_headers, rows = read_csv_dict_rows(contents)
+    sample_rows = rows[:3]
+    custom_headers = custom_field_header_map or {}
+    matched_fields: set[str] = set()
+    matched_columns: list[HeaderColumnMatch] = []
+    matched_column_indexes: dict[str, int] = {}
+    unrecognized_columns: list[UnrecognizedHeader] = []
+
+    for raw_header in raw_headers:
+        normalized = _normalise_header(raw_header)
+        if normalized in _IGNORED_HEADERS:
+            continue
+        internal_field = _HEADER_MAP.get(normalized) or custom_headers.get(normalized)
+        samples = [
+            row.get(raw_header, "").strip()
+            for row in sample_rows
+            if row.get(raw_header, "").strip()
+        ][:3]
+        if internal_field and internal_field not in matched_fields:
+            matched_fields.add(internal_field)
+            matched_column_indexes[internal_field] = len(matched_columns)
+            matched_columns.append(
+                HeaderColumnMatch(
+                    raw_header=raw_header,
+                    internal_field=internal_field,
+                    sample_values=samples,
+                )
+            )
+            continue
+        if internal_field:
+            existing_index = matched_column_indexes[internal_field]
+            existing = matched_columns[existing_index]
+            existing_normalized = _normalise_header(existing.raw_header)
+            if existing_normalized in _FALLBACK_HEADER_ALIASES and normalized not in _FALLBACK_HEADER_ALIASES:
+                matched_columns[existing_index] = HeaderColumnMatch(
+                    raw_header=raw_header,
+                    internal_field=internal_field,
+                    sample_values=samples,
+                )
+                unrecognized_columns.append(
+                    UnrecognizedHeader(
+                        raw_header=existing.raw_header,
+                        sample_values=existing.sample_values,
+                    )
+                )
+            else:
+                unrecognized_columns.append(
+                    UnrecognizedHeader(raw_header=raw_header, sample_values=samples)
+                )
+            continue
+        unrecognized_columns.append(
+            UnrecognizedHeader(raw_header=raw_header, sample_values=samples)
+        )
+
+    return CSVHeaderAnalysis(
+        total_rows=len(rows),
+        matched_columns=matched_columns,
+        unrecognized_columns=unrecognized_columns,
+        missing_required=[
+            field_name
+            for field_name in _REQUIRED_IMPORT_FIELDS
+            if field_name not in matched_fields
+        ],
+    )
 
 
 def parse_csv(

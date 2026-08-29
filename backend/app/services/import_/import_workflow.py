@@ -1,28 +1,36 @@
 # backend/app/services/import_/import_workflow.py
 from __future__ import annotations
 
+import json
 import logging
+from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.settings import UserSettings
 from app.schemas.csv_import import (
+    CSVImportConfirmResponse,
     CSVImportError,
     CSVImportPreviewResponse,
     CSVImportPreviewRow,
     ImportWarningSummary,
+    ImportReferenceOverride,
 )
+from app.services.audit_service import format_audit_detail
 from app.services.csv_importer import (
     EXPIRED_MAINTENANCE_WARNING,
     PRICE_MISMATCH_WARNING_PREFIX,
     ParsedImportResult,
     ParsedRow,
 )
-from app.services.custom_fields_service import upsert_imported_values_for_license
+from app.services.custom_fields_service import (
+    upsert_imported_values_for_license,
+    validate_imported_custom_rows,
+)
 from app.services.import_.duplicate_detection import add_duplicate_warnings
 from app.services.import_.import_update import apply_import_update
 from app.services.import_.license_builder import build_license
@@ -31,7 +39,9 @@ from app.services.import_.maintenance_parenting import infer_batch_maintenance_p
 from app.services.import_.reference_resolution import (
     _ReferenceTracker,
     ImportReferenceConflict,
+    parse_reference_overrides,
     resolve_import_row_references,
+    validate_reference_overrides,
 )
 from app.services.license_service import generate_license_ref
 from app.models.license import License, LicenseType
@@ -39,6 +49,19 @@ from app.services.lifecycle_rules import mark_predecessor_renewed
 from app.services.maintenance_service import activate_maintenance_for_parent, validate_parent_license
 
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ImportExecutionOptions:
+    skipped_rows: set[int]
+    row_parent_overrides: dict[int, dict[str, int | str]]
+    reference_overrides: dict
+
+
+@dataclass(frozen=True)
+class ImportExecutionResult:
+    response: CSVImportConfirmResponse
+    audit_detail: str | None
 
 
 def _restore_import_status(row: ParsedRow) -> None:
@@ -68,6 +91,135 @@ async def get_import_defaults(db: AsyncSession, user_id: int) -> tuple[str, str,
         settings.display_currency or "EUR",
         settings.number_format_locale or "en-US",
         settings.date_format or "DD/MM/YYYY",
+    )
+
+
+def parse_import_execution_options(
+    skipped_rows_json: str | None,
+    row_overrides_json: str | None,
+    reference_overrides_json: str | None,
+) -> ImportExecutionOptions:
+    skipped_rows: set[int] = set()
+    if skipped_rows_json:
+        try:
+            raw_skipped_rows = json.loads(skipped_rows_json)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="skipped_rows_json is not valid JSON",
+            ) from exc
+        if not isinstance(raw_skipped_rows, list) or not all(
+            isinstance(row, int) for row in raw_skipped_rows
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="skipped_rows_json must be a JSON array of row numbers",
+            )
+        skipped_rows = set(raw_skipped_rows)
+
+    row_parent_overrides: dict[int, dict[str, int | str]] = {}
+    if row_overrides_json:
+        try:
+            raw_row_overrides = json.loads(row_overrides_json)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="row_overrides_json is not valid JSON",
+            ) from exc
+        if not isinstance(raw_row_overrides, list):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="row_overrides_json must be a JSON array",
+            )
+        for item in raw_row_overrides:
+            if not isinstance(item, dict):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="row_overrides_json entries must be objects",
+                )
+            allowed_keys = {
+                "rowNumber",
+                "row_number",
+                "action",
+                "parentLicenseId",
+                "parent_license_id",
+            }
+            if set(item) - allowed_keys:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="row_overrides_json entries contain unknown fields",
+                )
+            row_number = item.get("rowNumber", item.get("row_number"))
+            action = item.get("action")
+            parent_license_id = item.get(
+                "parentLicenseId",
+                item.get("parent_license_id"),
+            )
+            if isinstance(row_number, bool) or not isinstance(row_number, int) or row_number <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="row_overrides_json entries require a positive integer rowNumber",
+                )
+            if action is None and parent_license_id is not None:
+                action = "link_existing"
+            if action not in {"link_existing", "import_legacy_unlinked"}:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="row_overrides_json entries require a supported action",
+                )
+            if row_number in row_parent_overrides:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=f"row_overrides_json contains duplicate rowNumber {row_number}",
+                )
+            if action == "link_existing":
+                if (
+                    isinstance(parent_license_id, bool)
+                    or not isinstance(parent_license_id, int)
+                    or parent_license_id <= 0
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        detail="link_existing requires a positive integer parentLicenseId",
+                    )
+                row_parent_overrides[row_number] = {
+                    "action": action,
+                    "parent_license_id": parent_license_id,
+                }
+            else:
+                if parent_license_id is not None:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        detail="import_legacy_unlinked must not include parentLicenseId",
+                    )
+                row_parent_overrides[row_number] = {"action": action}
+
+    reference_overrides: dict = {}
+    if reference_overrides_json:
+        try:
+            raw_reference_overrides = json.loads(reference_overrides_json)
+            if not isinstance(raw_reference_overrides, list):
+                raise ValueError
+            reference_overrides = parse_reference_overrides(
+                [
+                    ImportReferenceOverride.model_validate(item)
+                    for item in raw_reference_overrides
+                ]
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(
+                    "reference_overrides_json is not valid JSON or does not match expected schema"
+                ),
+            ) from exc
+
+    return ImportExecutionOptions(
+        skipped_rows=skipped_rows,
+        row_parent_overrides=row_parent_overrides,
+        reference_overrides=reference_overrides,
     )
 
 
@@ -449,3 +601,106 @@ async def run_import_rows(
     if include_reference_result:
         return (*result, reference_tracker.result())
     return result
+
+
+async def execute_import_workflow(
+    rows: list[ParsedRow],
+    custom_rows: list[dict[str, str]],
+    *,
+    options: ImportExecutionOptions,
+    acknowledge_warnings: bool,
+    update_existing: bool,
+    user_id: int,
+    db: AsyncSession,
+    number_format_locale: str,
+    date_format: str,
+    import_mode: str,
+) -> ImportExecutionResult:
+    """Validate and persist one native or mapped CSV import transaction."""
+    await validate_imported_custom_rows(
+        db,
+        rows,
+        custom_rows,
+        number_format_locale,
+        date_format,
+    )
+    await prepare_import_rows(
+        rows,
+        db,
+        update_existing=update_existing,
+        row_parent_overrides=options.row_parent_overrides,
+    )
+    skipped_rows = expand_skipped_inferred_rows(rows, options.skipped_rows)
+    await validate_reference_overrides(
+        db,
+        rows,
+        skipped_rows,
+        options.reference_overrides,
+    )
+
+    warning_summary = build_warning_summary(rows, skipped_rows)
+    if warning_summary.has_warnings and not acknowledge_warnings:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "warnings_require_acknowledgement",
+                "message": (
+                    "Import has warnings that require acknowledgement. "
+                    "Resubmit with acknowledgeWarnings=true."
+                ),
+                "warningSummary": warning_summary.model_dump(by_alias=True),
+            },
+        )
+
+    imported_count, updated_count, skipped_count, import_errors, custom_field_failures, reference_result = (
+        await run_import_rows(
+            rows,
+            custom_rows,
+            skipped_rows,
+            user_id,
+            db,
+            number_format_locale,
+            date_format,
+            update_existing=update_existing,
+            reference_overrides=options.reference_overrides,
+            include_reference_result=True,
+        )
+    )
+    audit_detail = None
+    if imported_count > 0 or updated_count > 0:
+        audit_detail = format_audit_detail(
+            "csv_import",
+            {
+                "importMode": import_mode,
+                "insertedCount": str(imported_count),
+                "updatedCount": str(updated_count),
+                "skippedCount": str(skipped_count),
+                "errorCount": str(len(import_errors)),
+                "defaultedEnumCount": str(warning_summary.defaulted_enum_count),
+                "ambiguousDateCount": str(warning_summary.ambiguous_date_count),
+                "inferredParentCount": str(warning_summary.inferred_parent_count),
+                "duplicateWarningCount": str(warning_summary.duplicate_warning_count),
+                "priceMismatchCount": str(warning_summary.price_mismatch_count),
+                "expiredMaintenanceCount": str(warning_summary.expired_maintenance_count),
+                "legacyUnlinkedMaintenanceCount": str(
+                    warning_summary.legacy_unlinked_maintenance_count
+                ),
+                "customFieldFailureCount": str(custom_field_failures),
+                "acknowledgedWarnings": str(acknowledge_warnings).lower(),
+                "referenceCreatedCount": str(reference_result.created_count),
+                "referenceReusedCount": str(reference_result.reused_count),
+            },
+        )
+    return ImportExecutionResult(
+        response=CSVImportConfirmResponse(
+            imported_count=imported_count,
+            updated_count=updated_count,
+            skipped_count=skipped_count,
+            error_count=len(import_errors),
+            errors=import_errors,
+            warning_summary=warning_summary,
+            warnings_acknowledged=acknowledge_warnings,
+            reference_result=reference_result,
+        ),
+        audit_detail=audit_detail,
+    )
