@@ -789,5 +789,5 @@ async def test_notification_run_finalization_records_success_and_releases_claim(
     assert settings.notification_run_token is None
     assert settings.notification_run_started_at is None
     assert settings.last_notification_status == "success"
-    assert settings.last_notification_sent_date == date.today()
+    assert settings.last_notification_sent_date == datetime.now(timezone.utc).date()
     assert settings.last_notification_summary["budget_owner_emails_sent"] == 1
