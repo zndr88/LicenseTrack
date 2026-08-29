@@ -308,6 +308,44 @@ async def test_non_freeware_sourcing_item_cannot_bypass_pending_orders(test_app,
     assert "is not Freeware / Open Source" in resp.json()["detail"]
 
 
+async def test_freeware_sourcing_request_converts_directly_to_registry(test_app, auth_headers):
+    request_resp = await test_app.post(
+        "/api/sourcing/requests",
+        json={
+            "supplier": "Community Supplier",
+            "items": [
+                {
+                    "publisherName": "Community Publisher",
+                    "softwareDescription": "Community App A",
+                    "licenseType": "freeware",
+                },
+                {
+                    "publisherName": "Community Publisher",
+                    "softwareDescription": "Community App B",
+                    "licenseType": "freeware",
+                },
+            ],
+        },
+        headers=auth_headers,
+    )
+    assert request_resp.status_code == 201, request_resp.text
+    request = request_resp.json()
+
+    response = await test_app.post(
+        f"/api/sourcing/requests/{request['id']}/convert-freeware",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    assert len(response.json()) == 2
+    assert {license_obj["licenseType"] for license_obj in response.json()} == {"freeware"}
+    request_state = await test_app.get(
+        f"/api/sourcing/requests/{request['id']}",
+        headers=auth_headers,
+    )
+    assert request_state.json()["status"] == "converted"
+
+
 async def test_mixed_sourcing_request_splits_freeware_to_registry_and_paid_line_to_po(test_app, auth_headers):
     request_resp = await test_app.post(
         "/api/sourcing/requests",

@@ -62,6 +62,36 @@ class SourcingItemDeleteResult:
     label: str
 
 
+@dataclass(frozen=True)
+class FreewareRequestConversionResult:
+    request: SourcingRequest
+    licenses: tuple[License, ...]
+    identity_before: dict
+    identity_after: dict
+
+
+@dataclass(frozen=True)
+class FreewareItemConversionResult:
+    item: SourcingItem
+    license: License
+
+
+@dataclass(frozen=True)
+class SourcingRequestConversionResult:
+    request: SourcingRequest
+    order_id: int
+    direct_registry_count: int
+
+
+@dataclass(frozen=True)
+class SourcingItemConversionResult:
+    item: SourcingItem
+    request: SourcingRequest | None
+    order_id: int
+    identity_before: dict | None
+    identity_after: dict | None
+
+
 def sourcing_request_total(items: list[object]) -> str | None:
     totals: dict[str, Decimal] = {}
     for item in items:
@@ -1307,3 +1337,177 @@ async def refresh_sourcing_request_status(
     )
     if remaining == 0:
         request.status = SourcingStatus.converted
+
+
+def _request_identity(request: SourcingRequest) -> dict:
+    return {
+        "supplier": request.supplier,
+        "contact_email": request.contact_email,
+    }
+
+
+async def convert_freeware_sourcing_request_record(
+    db: AsyncSession,
+    request_id: int,
+    *,
+    created_by: int,
+) -> FreewareRequestConversionResult:
+    from app.services.sourcing_license_conversion_service import convert_freeware_sourcing_items
+
+    await reserve_sourcing_request_conversion(db, request_id)
+    request = await get_sourcing_request_for_update_or_404(db, request_id)
+    identity_before = _request_identity(request)
+    open_items = [
+        item for item in request.items if item.status == SourcingStatus.sourcing
+    ]
+    if any(not is_direct_freeware_item(item) for item in open_items):
+        raise HTTPException(
+            status_code=422,
+            detail="Convert purchase lines to a pending order before converting this request directly",
+        )
+    licenses = await convert_freeware_sourcing_items(
+        db=db,
+        items=open_items,
+        created_by=created_by,
+    )
+    return FreewareRequestConversionResult(
+        request=request,
+        licenses=tuple(licenses),
+        identity_before=identity_before,
+        identity_after=_request_identity(request),
+    )
+
+
+async def convert_freeware_sourcing_item_record(
+    db: AsyncSession,
+    item_id: int,
+    *,
+    created_by: int,
+) -> FreewareItemConversionResult:
+    from app.services.sourcing_license_conversion_service import convert_freeware_sourcing_items
+
+    await reserve_sourcing_item_conversion(db, item_id)
+    result = await db.execute(
+        select(SourcingItem)
+        .where(SourcingItem.id == item_id)
+        .options(selectinload(SourcingItem.sourcing_request))
+        .with_for_update()
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Sourcing item not found")
+    licenses = await convert_freeware_sourcing_items(
+        db=db,
+        items=[item],
+        created_by=created_by,
+    )
+    return FreewareItemConversionResult(item=item, license=licenses[0])
+
+
+async def convert_sourcing_request_workflow(
+    db: AsyncSession,
+    request_id: int,
+    *,
+    pending_order_id: int | None,
+    po_number: str | None,
+    procurement_reference: str | None,
+    supplier: str | None,
+    notes: str | None,
+    created_by: int,
+) -> SourcingRequestConversionResult:
+    from app.services.sourcing_license_conversion_service import convert_freeware_sourcing_items
+
+    await reserve_sourcing_request_conversion(db, request_id)
+    request = await get_sourcing_request_or_404(db, request_id)
+    freeware_items = [
+        item
+        for item in request.items
+        if item.status == SourcingStatus.sourcing
+        and is_direct_freeware_item(item)
+        and item.renewal_for_license_id is None
+    ]
+    order = await convert_sourcing_request_to_order(
+        db,
+        request,
+        pending_order_id=pending_order_id,
+        po_number=po_number,
+        procurement_reference=procurement_reference,
+        supplier=supplier,
+        notes=notes,
+        created_by=created_by,
+    )
+    direct_licenses = (
+        await convert_freeware_sourcing_items(
+            db=db,
+            items=freeware_items,
+            created_by=created_by,
+        )
+        if freeware_items
+        else []
+    )
+    return SourcingRequestConversionResult(
+        request=request,
+        order_id=order.id,
+        direct_registry_count=len(direct_licenses),
+    )
+
+
+async def convert_sourcing_item_workflow(
+    db: AsyncSession,
+    item_id: int,
+    *,
+    pending_order_id: int | None,
+    po_number: str | None,
+    procurement_reference: str | None,
+    supplier: str | None,
+    notes: str | None,
+    created_by: int,
+) -> SourcingItemConversionResult:
+    await reserve_sourcing_item_conversion(db, item_id)
+    result = await db.execute(
+        select(SourcingItem)
+        .where(SourcingItem.id == item_id)
+        .options(selectinload(SourcingItem.sourcing_request).selectinload(SourcingRequest.items))
+        .with_for_update()
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Sourcing item not found")
+    assert_sourcing_item_editable(item)
+    request = item.sourcing_request
+    identity_before = _request_identity(request) if request is not None else None
+    await ensure_sourcing_request_for_item(db, item, created_by=created_by)
+    order = await convert_sourcing_item_to_order(
+        db,
+        item,
+        pending_order_id=pending_order_id,
+        po_number=po_number,
+        procurement_reference=procurement_reference,
+        supplier=supplier,
+        notes=notes,
+        created_by=created_by,
+    )
+    return SourcingItemConversionResult(
+        item=item,
+        request=request,
+        order_id=order.id,
+        identity_before=identity_before,
+        identity_after=_request_identity(request) if request is not None else None,
+    )
+
+
+async def load_sourcing_conversion_order(
+    db: AsyncSession,
+    order_id: int,
+) -> PendingOrder:
+    result = await db.execute(
+        select(PendingOrder)
+        .where(PendingOrder.id == order_id)
+        .options(
+            selectinload(PendingOrder.items)
+            .selectinload(SourcingItem.sourcing_request)
+            .selectinload(SourcingRequest.quote_documents),
+            selectinload(PendingOrder.documents),
+        )
+    )
+    return result.scalar_one()
