@@ -68,7 +68,6 @@ const DEFAULT_GLOBAL_SETTINGS = {
     costCentre: false,
     budgetOwnerEmail: false,
   },
-  auth_method: "mfa",
   session_timeout: 30,
   password_min_length: 12,
   storage_path: "",

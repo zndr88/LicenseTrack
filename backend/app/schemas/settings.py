@@ -23,8 +23,6 @@ class UserSettingsUpdate(BaseModel):
 
     visible_in_list: Optional[dict] = None
     visible_in_detail: Optional[dict] = None
-    notification_days: Optional[int] = Field(default=None, ge=1, le=365)
-    manager_email: Optional[str] = Field(default=None, max_length=255)
     theme: Optional[str] = Field(default=None, max_length=20)
     display_currency: Optional[str] = Field(default=None, max_length=10)
     number_format_locale: Optional[str] = Field(default=None, max_length=10)
@@ -53,14 +51,6 @@ class UserSettingsUpdate(BaseModel):
             raise ValueError(f"time_zone {v!r} is not a recognised IANA timezone.")
         return v
 
-    @field_validator("manager_email", mode="before")
-    @classmethod
-    def _reject_manager_email_crlf(cls, v: object) -> object:
-        if not isinstance(v, str):
-            return v
-        return reject_email_crlf(v)
-
-
 class UserSettingsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -68,8 +58,6 @@ class UserSettingsResponse(BaseModel):
     user_id: int
     visible_in_list: dict
     visible_in_detail: dict
-    notification_days: int
-    manager_email: str
     theme: str
     display_currency: str
     number_format_locale: str = "en-US"
@@ -94,7 +82,6 @@ class GlobalSettingsUpdate(BaseModel):
     """Partial update - all fields optional."""
 
     mandatory_fields: Optional[dict] = None
-    auth_method: Optional[str] = Field(default=None, max_length=20)
     session_timeout: Optional[int] = Field(default=None, ge=1)
     password_min_length: Optional[int] = Field(default=None, ge=6, le=128)
     storage_path: Optional[str] = Field(default=None, max_length=500)
@@ -139,7 +126,6 @@ class GlobalSettingsResponse(BaseModel):
 
     id: int
     mandatory_fields: dict
-    auth_method: str
     session_timeout: int
     password_min_length: int
     storage_path: str

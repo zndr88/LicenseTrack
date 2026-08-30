@@ -84,21 +84,6 @@ def test_user_settings_response_has_time_zone_default():
 
 # ── manager_email CRLF injection guard (CVE-2026-53533 / GHSA-v3q9-hj7j-63hq) ─
 
-def test_user_settings_update_manager_email_allows_none():
-    m = UserSettingsUpdate(manager_email=None)
-    assert m.manager_email is None
-
-
-def test_user_settings_update_manager_email_allows_normal_address():
-    m = UserSettingsUpdate(manager_email="manager@example.com")
-    assert m.manager_email == "manager@example.com"
-
-
-def test_user_settings_update_manager_email_rejects_crlf():
-    with pytest.raises(ValidationError):
-        UserSettingsUpdate(manager_email="a@b.com\r\nRCPT TO:<evil@x>")
-
-
 def test_global_settings_update_manager_email_allows_none():
     m = GlobalSettingsUpdate(manager_email=None)
     assert m.manager_email is None

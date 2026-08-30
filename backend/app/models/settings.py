@@ -36,10 +36,6 @@ class UserSettings(Base):
     visible_in_list: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     visible_in_detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
-    # Notification preferences
-    notification_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
-    manager_email: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-
     # UI preference
     theme: Mapped[str] = mapped_column(String(20), nullable=False, default="light")
 
@@ -83,7 +79,6 @@ class GlobalSettings(Base):
     mandatory_fields: Mapped[dict] = mapped_column(JSON, nullable=False, default=_DEFAULT_MANDATORY_FIELDS)
 
     # Auth policy
-    auth_method: Mapped[str] = mapped_column(String(20), nullable=False, default="mfa")
     session_timeout: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
     password_min_length: Mapped[int] = mapped_column(Integer, nullable=False, default=12)
 
