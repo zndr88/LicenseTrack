@@ -220,13 +220,13 @@ describe("ReportsPage interactions", () => {
 
     await user.click(section);
     expect(section).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Spend by License")).toBeInTheDocument();
-    expect(screen.getByText("Spend by PO Value")).toBeInTheDocument();
+    expect(await screen.findByText("Spend by License", {}, LAZY_SECTION_TIMEOUT)).toBeInTheDocument();
+    expect(await screen.findByText("Spend by PO Value", {}, LAZY_SECTION_TIMEOUT)).toBeInTheDocument();
 
     await user.click(section);
     expect(section).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Spend by PO Value")).not.toBeInTheDocument();
-  });
+  }, 15_000);
 
   test("shows license spend and overridden PO spend as separate totals", async () => {
     const user = userEvent.setup();
@@ -241,15 +241,15 @@ describe("ReportsPage interactions", () => {
     renderReportsPage();
 
     await user.click(await screen.findByRole("button", { name: /Cost Overview & Forecast/ }, LAZY_SECTION_TIMEOUT));
-    const licenseMetric = screen.getByText("Spend by License").parentElement;
-    const poMetric = screen.getByText("Spend by PO Value").parentElement;
-    const differenceMetric = screen.getByText("Difference").parentElement;
+    const licenseMetric = (await screen.findByText("Spend by License", {}, LAZY_SECTION_TIMEOUT)).parentElement;
+    const poMetric = (await screen.findByText("Spend by PO Value", {}, LAZY_SECTION_TIMEOUT)).parentElement;
+    const differenceMetric = (await screen.findByText("Difference", {}, LAZY_SECTION_TIMEOUT)).parentElement;
 
     expect(within(licenseMetric).getByText("€0.00")).toBeInTheDocument();
     expect(within(poMetric).getByText("€1,250.00")).toBeInTheDocument();
     expect(within(differenceMetric).getByText("€1,250.00")).toBeInTheDocument();
     expect(screen.getByText(/included in PO-value spend but excluded from license breakdowns and forecasts/i)).toBeInTheDocument();
-  });
+  }, 15_000);
 
   test("filters by cost centre and warns when visible rows use mixed currencies", async () => {
     const user = userEvent.setup();
