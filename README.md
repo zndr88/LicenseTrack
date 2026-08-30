@@ -147,9 +147,7 @@ LicenseTrack is under active development. The current focus is strengthening
 the 1.1.x foundation, preparing the first Official Extension for document
 processing, and expanding native Linux validation.
 
-Delivered changes are recorded in the [changelog](CHANGELOG.md). Planned
-release work is tracked through the project's
-[GitHub milestones](https://github.com/zndr88/LicenseTrack/milestones).
+Delivered changes are recorded in the [changelog](CHANGELOG.md). 
 
 ## Technology
 
