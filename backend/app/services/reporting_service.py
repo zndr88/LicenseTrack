@@ -352,37 +352,27 @@ def _accumulate_spend_group(
         group["has_unpriced_licenses"] = True
 
 
-def build_report_model(licenses: list[License], options: ReportOptions) -> DetailedReportResponse:
-    selected = _range(options)
-    today = date.today()
-    visible = [license_obj for license_obj in licenses if _visible(license_obj, options, selected)]
-    unpriced_count, excluded_count = _money_issue_counts(visible)
-
+def _build_lifecycle_spend_data(
+    visible: list[License],
+    *,
+    selected: tuple[date, date] | None,
+    today: date,
+    notification_days: int,
+) -> dict:
     lifecycle_counts = {"active": 0, "upcoming": 0, "expiring": 0, "expired": 0}
     license_spend: dict[str, Decimal] = {}
-    po_spend: dict[str, Decimal] = {}
-    difference: dict[str, Decimal] = {}
-    recurring_amount: dict[str, Decimal] = {}
-    forecast_baseline: dict[str, Decimal] = {}
     lifecycle_budget = {"active": {}, "expiring": {}, "expired": {}}
     unallocated_values: dict[str, Decimal] = {}
-    po_groups: dict[tuple[str, str], dict] = {}
     publisher_groups: dict[str, dict] = {}
     vendor_groups: dict[tuple[str, str], dict] = {}
-    recurring_records: list[dict] = []
-    recurring_contributor_count = 0
     undated_count = 0
 
     for license_obj in visible:
-        status = compute_expiration_status(license_obj, today, options.notification_days)
+        status = compute_expiration_status(license_obj, today, notification_days)
         if status in {"active", "perpetual"}:
             lifecycle_counts["active"] += 1
-        elif status == "upcoming":
-            lifecycle_counts["upcoming"] += 1
-        elif status == "expiring":
-            lifecycle_counts["expiring"] += 1
-        elif status == "expired":
-            lifecycle_counts["expired"] += 1
+        elif status in lifecycle_counts:
+            lifecycle_counts[status] += 1
 
         line_value, line_source = _line_value(license_obj)
         allocated_line, allocation_status = _allocation(license_obj, line_value, selected)
@@ -393,46 +383,22 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
                 _add(unallocated_values, currency, line_value)
         elif allocated_line is not None and line_source != "excluded":
             _add(license_spend, currency, allocated_line)
-        if selected is not None and _is_recurring(license_obj) and _term(license_obj) is None and allocation_status != "undated":
+        if (
+            selected is not None
+            and _is_recurring(license_obj)
+            and _term(license_obj) is None
+            and allocation_status != "undated"
+        ):
             undated_count += 1
             if line_value is not None:
                 _add(unallocated_values, currency, line_value)
 
         calculated, calculated_source = _calculated_value(license_obj)
         allocated_calculated, calculated_status = _allocation(license_obj, calculated, selected)
-        if calculated_status == "undated":
-            pass
-        elif allocated_calculated is not None and calculated_source != "excluded":
+        if calculated_status != "undated" and allocated_calculated is not None and calculated_source != "excluded":
             lifecycle_status = "active" if status == "perpetual" else status
             if lifecycle_status in lifecycle_budget:
                 _add(lifecycle_budget[lifecycle_status], currency, allocated_calculated)
-
-        if line_source != "excluded":
-            identity, identity_currency = _identity(license_obj)
-            group_key = (identity, identity_currency)
-            group = po_groups.setdefault(group_key, {
-                "identity_key": identity,
-                "identity_type": "pending_order" if identity.startswith("pending-order:") else "procurement_bundle" if identity.startswith("procurement-bundle:") else "po_number" if identity.startswith("po:") else "unkeyed",
-                "po_number": (license_obj.po_number or "").strip() or None,
-                "currency": currency,
-                "publisher_names": [],
-                "line_count": 0,
-                "priced_line_count": 0,
-                "line_value": ZERO,
-                "override": None,
-                "has_undated": False,
-            })
-            group["line_count"] += 1
-            if license_obj.publisher_name and license_obj.publisher_name not in group["publisher_names"]:
-                group["publisher_names"].append(license_obj.publisher_name)
-            if allocated_line is not None:
-                group["priced_line_count"] += 1
-                group["line_value"] += allocated_line
-            if selected is not None and _is_recurring(license_obj) and _term(license_obj) is None:
-                group["has_undated"] = True
-            override = _money(license_obj.po_total_override)
-            if group["override"] is None and override is not None:
-                group["override"] = override
 
         publisher = license_obj.publisher_name or "Unknown"
         _accumulate_spend_group(
@@ -443,7 +409,6 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
             amount=allocated_calculated,
             value_source=calculated_source,
         )
-
         supplier = license_obj.supplier or ""
         _accumulate_spend_group(
             vendor_groups,
@@ -454,12 +419,152 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
             value_source=calculated_source,
         )
 
+    return {
+        "counts": lifecycle_counts,
+        "license_spend": license_spend,
+        "lifecycle_budget": lifecycle_budget,
+        "unallocated_values": unallocated_values,
+        "publisher_data": sorted(
+            publisher_groups.values(), key=lambda row: row["total_spend"], reverse=True
+        ),
+        "vendor_data": sorted(
+            vendor_groups.values(), key=lambda row: row["total_spend"], reverse=True
+        ),
+        "undated_count": undated_count,
+    }
+
+
+def _build_procurement_data(
+    visible: list[License],
+    *,
+    selected: tuple[date, date] | None,
+) -> dict:
+    groups: dict[tuple[str, str], dict] = {}
+    for license_obj in visible:
+        line_value, line_source = _line_value(license_obj)
+        if line_source == "excluded":
+            continue
+        allocated_line, _allocation_status = _allocation(license_obj, line_value, selected)
+        currency = _currency(license_obj)
+        identity, identity_currency = _identity(license_obj)
+        group = groups.setdefault(
+            (identity, identity_currency),
+            {
+                "identity_key": identity,
+                "identity_type": (
+                    "pending_order"
+                    if identity.startswith("pending-order:")
+                    else "procurement_bundle"
+                    if identity.startswith("procurement-bundle:")
+                    else "po_number"
+                    if identity.startswith("po:")
+                    else "unkeyed"
+                ),
+                "po_number": (license_obj.po_number or "").strip() or None,
+                "currency": currency,
+                "publisher_names": [],
+                "line_count": 0,
+                "priced_line_count": 0,
+                "line_value": ZERO,
+                "override": None,
+                "has_undated": False,
+            },
+        )
+        group["line_count"] += 1
+        if license_obj.publisher_name and license_obj.publisher_name not in group["publisher_names"]:
+            group["publisher_names"].append(license_obj.publisher_name)
+        if allocated_line is not None:
+            group["priced_line_count"] += 1
+            group["line_value"] += allocated_line
+        if selected is not None and _is_recurring(license_obj) and _term(license_obj) is None:
+            group["has_undated"] = True
+        override = _money(license_obj.po_total_override)
+        if group["override"] is None and override is not None:
+            group["override"] = override
+
+    po_spend: dict[str, Decimal] = {}
+    difference: dict[str, Decimal] = {}
+    for group in groups.values():
+        value = group["override"] if group["override"] is not None else group["line_value"]
+        if selected is not None and group["has_undated"] and group["override"] is not None:
+            value = None
+        _add(po_spend, group["currency"], value)
+        difference_value = value - group["line_value"] if value is not None else None
+        if difference_value is not None:
+            difference[group["currency"]] = difference.get(group["currency"], ZERO) + difference_value
+        publisher_names = group.pop("publisher_names")
+        group.pop("has_undated")
+        group["po_value"] = value
+        group["difference"] = difference_value
+        group["publisher"] = (
+            "Unknown publisher"
+            if not publisher_names
+            else publisher_names[0]
+            if len(publisher_names) == 1
+            else "Multiple publishers"
+        )
+        group["status"] = (
+            "unallocated"
+            if value is None
+            else "unkeyed"
+            if group["identity_type"] == "unkeyed"
+            else "override"
+            if group["override"] is not None and difference_value != ZERO
+            else "reconciled"
+            if difference_value == ZERO
+            else "difference"
+        )
+
+    rows = sorted(
+        groups.values(),
+        key=lambda row: (-(row["po_value"] or ZERO), row["currency"], row["identity_key"]),
+    )
+    po_count = sum(1 for row in rows if row["identity_type"] != "unkeyed")
+    unkeyed_count = sum(row["line_count"] for row in rows if row["identity_type"] == "unkeyed")
+    overridden_count = sum(1 for row in rows if row["override"] is not None)
+    currencies = {row["currency"] for row in groups.values()}
+    return {
+        "po_spend": po_spend,
+        "difference": difference,
+        "po_count": po_count,
+        "unkeyed_count": unkeyed_count,
+        "overridden_count": overridden_count,
+        "response": {
+            "rows": rows,
+            "totals_by_currency": po_spend,
+            "line_totals_by_currency": {
+                currency: sum(
+                    (row["line_value"] for row in groups.values() if row["currency"] == currency),
+                    ZERO,
+                )
+                for currency in currencies
+            },
+            "po_count": po_count,
+            "unkeyed_count": unkeyed_count,
+            "overridden_count": overridden_count,
+        },
+    }
+
+
+def _build_recurring_forecast_data(
+    visible: list[License],
+    *,
+    selected: tuple[date, date] | None,
+    today: date,
+    options: ReportOptions,
+) -> dict:
+    recurring_amount: dict[str, Decimal] = {}
+    forecast_baseline: dict[str, Decimal] = {}
+    records: list[dict] = []
+    contributor_count = 0
+    for license_obj in visible:
+        currency = _currency(license_obj)
         recurring_value = None
         recurring_source = "missing"
         if selected is None and _current_baseline_eligible(license_obj, today):
             recurring_value, recurring_source = _annual_recurring_value(license_obj)
         elif selected is not None and _is_recurring(license_obj):
-            recurring_term_value, recurring_term_source = _recurring_term_value(license_obj)
+            recurring_term_value, _recurring_term_source = _recurring_term_value(license_obj)
             recurring_value, recurring_status = _allocation(
                 license_obj,
                 recurring_term_value,
@@ -467,47 +572,43 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
                 recurring_value=True,
             )
             recurring_source = "allocated" if recurring_status == "allocated" else recurring_status
-        if recurring_value is not None and recurring_source not in {"missing", "outside", "undated", "not_recurring"}:
+        if recurring_value is not None and recurring_source not in {
+            "missing",
+            "outside",
+            "undated",
+            "not_recurring",
+        }:
             _add(recurring_amount, currency, recurring_value)
-            recurring_contributor_count += 1
+            contributor_count += 1
 
         if _current_baseline_eligible(license_obj, today):
             annual_value, annual_source = _annual_recurring_value(license_obj)
             if annual_value is not None and annual_source != "not_recurring":
                 _add(forecast_baseline, currency, annual_value)
-                recurring_records.append({
-                    "license_id": license_obj.id,
-                    "publisher": publisher,
-                    "software_description": license_obj.software_description or "",
-                    "supplier": supplier,
-                    "budget_owner_email": license_obj.budget_owner_email or "",
-                    "cost_centre": license_obj.cost_centre or "",
-                    "license_type": license_obj.license_type.value,
-                    "currency": currency,
-                    "annual_cost": annual_value,
-                    "cost_source": "included_support" if _has_included_support_record(license_obj) else "line",
-                    "start_date": _term(license_obj)[0] if _term(license_obj) else None,
-                    "end_date": _term(license_obj)[1] if _term(license_obj) else None,
-                })
-
-    for group in po_groups.values():
-        value = group["override"] if group["override"] is not None else group["line_value"]
-        if selected is not None and group["has_undated"] and group["override"] is not None:
-            value = None
-        _add(po_spend, group["currency"], value)
-        publisher_names = group["publisher_names"]
-        difference_value = value - group["line_value"] if value is not None else None
-        if difference_value is not None:
-            difference[group["currency"]] = difference.get(group["currency"], ZERO) + difference_value
-        group["po_value"] = value
-        group["difference"] = difference_value
-        group["publisher"] = "Unknown publisher" if not publisher_names else publisher_names[0] if len(publisher_names) == 1 else "Multiple publishers"
-        group["status"] = "unallocated" if value is None else "unkeyed" if group["identity_type"] == "unkeyed" else "override" if group["override"] is not None and difference_value != ZERO else "reconciled" if difference_value == ZERO else "difference"
-        group.pop("publisher_names")
-        group.pop("has_undated")
+                term = _term(license_obj)
+                records.append(
+                    {
+                        "license_id": license_obj.id,
+                        "publisher": license_obj.publisher_name or "Unknown",
+                        "software_description": license_obj.software_description or "",
+                        "supplier": license_obj.supplier or "",
+                        "budget_owner_email": license_obj.budget_owner_email or "",
+                        "cost_centre": license_obj.cost_centre or "",
+                        "license_type": license_obj.license_type.value,
+                        "currency": currency,
+                        "annual_cost": annual_value,
+                        "cost_source": (
+                            "included_support" if _has_included_support_record(license_obj) else "line"
+                        ),
+                        "start_date": term[0] if term else None,
+                        "end_date": term[1] if term else None,
+                    }
+                )
 
     baseline_by_currency = dict(forecast_baseline)
-    baseline_currencies = sorted(currency for currency, amount in baseline_by_currency.items() if amount > ZERO)
+    baseline_currencies = sorted(
+        currency for currency, amount in baseline_by_currency.items() if amount > ZERO
+    )
     single_currency = baseline_currencies[0] if len(baseline_currencies) == 1 else None
     growth = max(options.annual_uplift_pct, ZERO) / Decimal("100")
     forecast_rows = []
@@ -515,15 +616,53 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
         baseline = baseline_by_currency[single_currency]
         for index in range(options.forecast_years):
             projected = baseline * ((Decimal("1") + growth) ** index)
-            forecast_rows.append({"year": today.year + index + 1, "baseline": baseline, "growth_amount": projected - baseline, "projected_budget": projected})
+            forecast_rows.append(
+                {
+                    "year": today.year + index + 1,
+                    "baseline": baseline,
+                    "growth_amount": projected - baseline,
+                    "projected_budget": projected,
+                }
+            )
+    records.sort(key=lambda row: row["annual_cost"], reverse=True)
+    return {
+        "recurring_amount": recurring_amount,
+        "contributor_count": contributor_count,
+        "response": {
+            "forecast_rows": forecast_rows,
+            "recurring_records": records,
+            "baseline_by_currency": baseline_by_currency,
+            "single_currency": single_currency,
+            "fallback_count": 0,
+        },
+    }
 
-    portfolio_type: dict[str, int] = defaultdict(int)
-    portfolio_metric: dict[str, int] = defaultdict(int)
+
+def _build_portfolio_data(visible: list[License]) -> dict:
+    by_type: dict[str, int] = defaultdict(int)
+    by_metric: dict[str, int] = defaultdict(int)
     for license_obj in visible:
-        portfolio_type[license_obj.license_type.value] += 1
-        portfolio_metric[license_obj.license_metric.value] += 1
+        by_type[license_obj.license_type.value] += 1
+        by_metric[license_obj.license_metric.value] += 1
+    return {
+        "by_type": [
+            {"name": key, "value": value}
+            for key, value in sorted(by_type.items(), key=lambda item: item[1], reverse=True)
+        ],
+        "by_metric": [
+            {"name": key, "value": value}
+            for key, value in sorted(by_metric.items(), key=lambda item: item[1], reverse=True)
+        ],
+    }
 
-    renewal_quarters = _renewal_quarters(options.fiscal_year_start_month, today)
+
+def _build_renewal_data(
+    visible: list[License],
+    *,
+    fiscal_year_start_month: int,
+    today: date,
+) -> list[dict]:
+    quarters = _renewal_quarters(fiscal_year_start_month, today)
     for license_obj in visible:
         if license_obj.is_retired or license_obj.lifecycle_status in {"legacy", "renewed", "pending_renewal"}:
             continue
@@ -532,7 +671,11 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
             maintenance_value = _money(license_obj.maintenance_cost)
             if maintenance_value is None:
                 maintenance_value = _line_value(license_obj)[0]
-            value = annualize_term_cost(maintenance_value, license_obj.start_date, license_obj.end_date) if maintenance_value is not None else None
+            value = (
+                annualize_term_cost(maintenance_value, license_obj.start_date, license_obj.end_date)
+                if maintenance_value is not None
+                else None
+            )
             value_source = "maintenance_record"
             renewal_kind = "maintenance_record"
         elif license_obj.license_type in {LicenseType.subscription, LicenseType.saas}:
@@ -547,37 +690,56 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
             continue
         if event_date is None or event_date < today:
             continue
-        for quarter in renewal_quarters:
+        for quarter in quarters:
             if quarter["from"] <= event_date <= quarter["to"]:
                 quarter["count"] += 1
                 if value is not None:
                     _add(quarter["value"], _currency(license_obj), value)
-                event = {
-                    "license_id": license_obj.id,
-                    "license_ref": license_obj.license_ref,
-                    "publisher": license_obj.publisher_name or "Unknown",
-                    "software_description": license_obj.software_description or "",
-                    "renewal_kind": renewal_kind,
-                    "event_date": event_date,
-                    "currency": _currency(license_obj),
-                    "renewal_value": value,
-                    "value_source": value_source,
-                }
-                quarter["events"].append(event)
+                quarter["events"].append(
+                    {
+                        "license_id": license_obj.id,
+                        "license_ref": license_obj.license_ref,
+                        "publisher": license_obj.publisher_name or "Unknown",
+                        "software_description": license_obj.software_description or "",
+                        "renewal_kind": renewal_kind,
+                        "event_date": event_date,
+                        "currency": _currency(license_obj),
+                        "renewal_value": value,
+                        "value_source": value_source,
+                    }
+                )
                 break
+    return [
+        {
+            "quarter_label": quarter["quarter_label"],
+            "count": quarter["count"],
+            "estimated_value_by_currency": quarter["value"],
+            "events": quarter["events"],
+        }
+        for quarter in quarters
+    ]
 
+
+def _build_perpetual_maintenance_data(visible: list[License]) -> dict:
     maintenance_by_parent: dict[int, list[License]] = defaultdict(list)
-    maintenance_by_id = {license_obj.id: license_obj for license_obj in visible if license_obj.license_type == LicenseType.maintenance}
+    maintenance_by_id = {
+        license_obj.id: license_obj
+        for license_obj in visible
+        if license_obj.license_type == LicenseType.maintenance
+    }
     for maintenance in maintenance_by_id.values():
         parent_ids = {maintenance.parent_license_id}
-        parent_ids.update(link.parent_license_id for link in getattr(maintenance, "maintenance_parent_links", []) or [])
+        parent_ids.update(
+            link.parent_license_id
+            for link in getattr(maintenance, "maintenance_parent_links", []) or []
+        )
         for parent_id in filter(None, parent_ids):
             maintenance_by_parent[parent_id].append(maintenance)
 
     purchase_by_currency: dict[str, Decimal] = {}
     maintenance_totals: dict[str, Decimal] = {}
     total_by_currency: dict[str, Decimal] = {}
-    perpetual_rows = []
+    rows = []
     counted_maintenance: set[int] = set()
     for license_obj in visible:
         if license_obj.license_type != LicenseType.perpetual:
@@ -604,55 +766,97 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
         if purchase is not None:
             _add(purchase_by_currency, currency, purchase)
             _add(total_by_currency, currency, purchase)
-        for maintenance_currency, amount in maintenance_by_currency.items():
+        for maintenance_currency in maintenance_by_currency:
             for record in records:
                 if _currency(record) == maintenance_currency and record.id not in counted_maintenance:
                     counted_maintenance.add(record.id)
                     _add(maintenance_totals, maintenance_currency, _calculated_value(record)[0])
                     _add(total_by_currency, maintenance_currency, _calculated_value(record)[0])
-        perpetual_rows.append({
-            "license_id": license_obj.id,
-            "publisher": license_obj.publisher_name or "Unknown",
-            "description": license_obj.software_description or "",
-            "po_number": license_obj.po_number or "",
-            "currency": currency,
-            "purchase_value": purchase,
-            "purchase_source": purchase_source,
-            "maintenance_by_currency": maintenance_by_currency,
-            "maintenance_source": maintenance_source,
-            "linked_maintenance_count": len(records),
-            "start_date": _term(license_obj)[0] if _term(license_obj) else license_obj.start_date,
-            "end_date": _term(license_obj)[1] if _term(license_obj) else license_obj.end_date,
-            "maintenance_records": [
-                {"license_id": record.id, "publisher": record.publisher_name or "Unknown", "description": record.software_description or "", "currency": _currency(record), "amount": _calculated_value(record)[0], "po_number": record.po_number or "", "start_date": record.start_date, "end_date": record.end_date}
-                for record in records
-            ],
-        })
+        term = _term(license_obj)
+        rows.append(
+            {
+                "license_id": license_obj.id,
+                "publisher": license_obj.publisher_name or "Unknown",
+                "description": license_obj.software_description or "",
+                "po_number": license_obj.po_number or "",
+                "currency": currency,
+                "purchase_value": purchase,
+                "purchase_source": purchase_source,
+                "maintenance_by_currency": maintenance_by_currency,
+                "maintenance_source": maintenance_source,
+                "linked_maintenance_count": len(records),
+                "start_date": term[0] if term else license_obj.start_date,
+                "end_date": term[1] if term else license_obj.end_date,
+                "maintenance_records": [
+                    {
+                        "license_id": record.id,
+                        "publisher": record.publisher_name or "Unknown",
+                        "description": record.software_description or "",
+                        "currency": _currency(record),
+                        "amount": _calculated_value(record)[0],
+                        "po_number": record.po_number or "",
+                        "start_date": record.start_date,
+                        "end_date": record.end_date,
+                    }
+                    for record in records
+                ],
+            }
+        )
+
+    return {
+        "rows": rows,
+        "purchase_by_currency": purchase_by_currency,
+        "maintenance_by_currency": maintenance_totals,
+        "total_by_currency": total_by_currency,
+        "included_count": sum(1 for row in rows if row["maintenance_source"].startswith("included")),
+        "separately_tracked_count": sum(
+            1 for row in rows if row["maintenance_source"] == "separately_tracked"
+        ),
+    }
+
+
+def build_report_model(licenses: list[License], options: ReportOptions) -> DetailedReportResponse:
+    selected = _range(options)
+    today = date.today()
+    visible = [license_obj for license_obj in licenses if _visible(license_obj, options, selected)]
+    unpriced_count, excluded_count = _money_issue_counts(visible)
+    lifecycle_spend = _build_lifecycle_spend_data(
+        visible,
+        selected=selected,
+        today=today,
+        notification_days=options.notification_days,
+    )
+    procurement = _build_procurement_data(visible, selected=selected)
+    recurring_forecast = _build_recurring_forecast_data(
+        visible,
+        selected=selected,
+        today=today,
+        options=options,
+    )
+
+    renewal_data = _build_renewal_data(
+        visible,
+        fiscal_year_start_month=options.fiscal_year_start_month,
+        today=today,
+    )
+    perpetual_maintenance_data = _build_perpetual_maintenance_data(visible)
 
     financial_summaries = {
-        "license_spend_by_currency": license_spend,
-        "po_spend_by_currency": po_spend,
-        "spend_difference_by_currency": difference,
-        "recurring_annual_cost_by_currency": recurring_amount,
-        "lifecycle_budget_by_status": lifecycle_budget,
-        "unallocated_values_by_currency": unallocated_values,
+        "license_spend_by_currency": lifecycle_spend["license_spend"],
+        "po_spend_by_currency": procurement["po_spend"],
+        "spend_difference_by_currency": procurement["difference"],
+        "recurring_annual_cost_by_currency": recurring_forecast["recurring_amount"],
+        "lifecycle_budget_by_status": lifecycle_spend["lifecycle_budget"],
+        "unallocated_values_by_currency": lifecycle_spend["unallocated_values"],
     }
-    sorted_po_groups = sorted(
-        po_groups.values(),
-        key=lambda row: (-(row["po_value"] or ZERO), row["currency"], row["identity_key"]),
-    )
-    po_rows = list(sorted_po_groups)
-    publisher_rows = sorted(publisher_groups.values(), key=lambda row: row["total_spend"], reverse=True)
-    vendor_rows = sorted(vendor_groups.values(), key=lambda row: row["total_spend"], reverse=True)
-    recurring_records.sort(key=lambda row: row["annual_cost"], reverse=True)
     counts = {
         "records": len(visible),
         "total_records": len(licenses),
-        **lifecycle_counts,
+        **lifecycle_spend["counts"],
         "unpriced": unpriced_count,
         "excluded": excluded_count,
-        "undated": undated_count,
-        "unallocated": undated_count,
+        "undated": lifecycle_spend["undated_count"],
+        "unallocated": lifecycle_spend["undated_count"],
     }
     response = {
         "generated_at": datetime.now().astimezone(),
@@ -672,52 +876,22 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
         "financial_summaries": financial_summaries,
         "cost_overview": {
             **financial_summaries,
-            "recurring_count": recurring_contributor_count,
-            "po_count": sum(1 for row in sorted_po_groups if row["identity_type"] != "unkeyed"),
-            "overridden_po_count": sum(1 for row in sorted_po_groups if row["override"] is not None),
-            "unkeyed_count": sum(
-                row["line_count"] for row in sorted_po_groups if row["identity_type"] == "unkeyed"
-            ),
+            "recurring_count": recurring_forecast["contributor_count"],
+            "po_count": procurement["po_count"],
+            "overridden_po_count": procurement["overridden_count"],
+            "unkeyed_count": procurement["unkeyed_count"],
             "unpriced_count": unpriced_count,
             "excluded_count": excluded_count,
-            "undated_count": undated_count,
+            "undated_count": lifecycle_spend["undated_count"],
             "is_period_allocated": selected is not None,
         },
-        "budget_forecast": {
-            "forecast_rows": forecast_rows,
-            "recurring_records": recurring_records,
-            "baseline_by_currency": baseline_by_currency,
-            "single_currency": single_currency,
-            "fallback_count": 0,
-        },
-        "publisher_data": publisher_rows,
-        "vendor_data": vendor_rows,
-        "portfolio_data": {
-            "by_type": [{"name": key, "value": value} for key, value in sorted(portfolio_type.items(), key=lambda item: item[1], reverse=True)],
-            "by_metric": [{"name": key, "value": value} for key, value in sorted(portfolio_metric.items(), key=lambda item: item[1], reverse=True)],
-        },
-        "renewal_data": [
-            {"quarter_label": quarter["quarter_label"], "count": quarter["count"], "estimated_value_by_currency": quarter["value"], "events": quarter["events"]}
-            for quarter in renewal_quarters
-        ],
-        "perpetual_maintenance_data": {
-            "rows": perpetual_rows,
-            "purchase_by_currency": purchase_by_currency,
-            "maintenance_by_currency": maintenance_totals,
-            "total_by_currency": total_by_currency,
-            "included_count": sum(1 for row in perpetual_rows if row["maintenance_source"].startswith("included")),
-            "separately_tracked_count": sum(1 for row in perpetual_rows if row["maintenance_source"] == "separately_tracked"),
-        },
-        "purchase_order_data": {
-            "rows": po_rows,
-            "totals_by_currency": po_spend,
-            "line_totals_by_currency": {currency: sum((row["line_value"] for row in po_groups.values() if row["currency"] == currency), ZERO) for currency in {row["currency"] for row in po_groups.values()}},
-            "po_count": sum(1 for row in sorted_po_groups if row["identity_type"] != "unkeyed"),
-            "unkeyed_count": sum(
-                row["line_count"] for row in sorted_po_groups if row["identity_type"] == "unkeyed"
-            ),
-            "overridden_count": sum(1 for row in sorted_po_groups if row["override"] is not None),
-        },
+        "budget_forecast": recurring_forecast["response"],
+        "publisher_data": lifecycle_spend["publisher_data"],
+        "vendor_data": lifecycle_spend["vendor_data"],
+        "portfolio_data": _build_portfolio_data(visible),
+        "renewal_data": renewal_data,
+        "perpetual_maintenance_data": perpetual_maintenance_data,
+        "purchase_order_data": procurement["response"],
     }
     return DetailedReportResponse.model_validate(_serialize_common_row(response))
 
