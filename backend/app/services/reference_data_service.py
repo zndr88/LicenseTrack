@@ -61,7 +61,8 @@ async def _flush_new(db: AsyncSession, instance) -> None:
         raise _conflict("That reference name or alias already exists.") from exc
 
 
-async def _find_organization(db: AsyncSession, normalized: str) -> Organization | None:
+async def find_organization(db: AsyncSession, normalized: str) -> Organization | None:
+    """Find an organization by normalized canonical or alias name."""
     canonical = await db.scalar(select(Organization).where(Organization.normalized_name == normalized))
     if canonical is not None:
         return canonical
@@ -69,6 +70,17 @@ async def _find_organization(db: AsyncSession, normalized: str) -> Organization 
     if alias is None:
         return None
     return await db.get(Organization, alias.organization_id)
+
+
+async def find_cost_centre(db: AsyncSession, normalized: str) -> CostCentre | None:
+    """Find a cost centre by normalized canonical or alias name."""
+    canonical = await db.scalar(select(CostCentre).where(CostCentre.normalized_name == normalized))
+    if canonical is not None:
+        return canonical
+    alias = await db.scalar(select(CostCentreAlias).where(CostCentreAlias.normalized_name == normalized))
+    if alias is None:
+        return None
+    return await db.get(CostCentre, alias.cost_centre_id)
 
 
 async def resolve_organization(
@@ -84,7 +96,7 @@ async def resolve_organization(
     if role not in {"publisher", "supplier"}:
         raise ValueError(f"Unsupported organization role: {role}")
 
-    organization = await _find_organization(db, normalized)
+    organization = await find_organization(db, normalized)
     if organization is not None:
         if not organization.is_active:
             raise _conflict(f"Organization '{organization.name}' is inactive and requires admin action.")
@@ -108,7 +120,7 @@ async def resolve_organization(
     except HTTPException as exc:
         if exc.status_code != status.HTTP_409_CONFLICT:
             raise
-        organization = await _find_organization(db, normalized)
+        organization = await find_organization(db, normalized)
         if organization is None:
             raise
         if not organization.is_active:
@@ -123,11 +135,7 @@ async def resolve_organization(
 async def resolve_cost_centre(db: AsyncSession, value: str, *, create_if_missing: bool = False) -> CostCentre:
     cleaned = clean_reference_name(value)
     normalized = normalize_reference_name(cleaned)
-    cost_centre = await db.scalar(select(CostCentre).where(CostCentre.normalized_name == normalized))
-    if cost_centre is None:
-        alias = await db.scalar(select(CostCentreAlias).where(CostCentreAlias.normalized_name == normalized))
-        if alias is not None:
-            cost_centre = await db.get(CostCentre, alias.cost_centre_id)
+    cost_centre = await find_cost_centre(db, normalized)
     if cost_centre is not None:
         if not cost_centre.is_active:
             raise _conflict(f"Cost centre '{cost_centre.name}' is inactive and requires admin action.")
@@ -140,11 +148,7 @@ async def resolve_cost_centre(db: AsyncSession, value: str, *, create_if_missing
     except HTTPException as exc:
         if exc.status_code != status.HTTP_409_CONFLICT:
             raise
-        cost_centre = await db.scalar(select(CostCentre).where(CostCentre.normalized_name == normalized))
-        if cost_centre is None:
-            alias = await db.scalar(select(CostCentreAlias).where(CostCentreAlias.normalized_name == normalized))
-            if alias is not None:
-                cost_centre = await db.get(CostCentre, alias.cost_centre_id)
+        cost_centre = await find_cost_centre(db, normalized)
         if cost_centre is None:
             raise
         if not cost_centre.is_active:
@@ -256,11 +260,7 @@ async def resolve_department_assignment_names(
     for value in names:
         cleaned = clean_reference_name(value)
         normalized = normalize_reference_name(cleaned)
-        cost_centre = await db.scalar(select(CostCentre).where(CostCentre.normalized_name == normalized))
-        if cost_centre is None:
-            alias = await db.scalar(select(CostCentreAlias).where(CostCentreAlias.normalized_name == normalized))
-            if alias is not None:
-                cost_centre = await db.get(CostCentre, alias.cost_centre_id)
+        cost_centre = await find_cost_centre(db, normalized)
         if cost_centre is None:
             cost_centre = await resolve_cost_centre(db, cleaned, create_if_missing=True)
         elif not cost_centre.is_active and cost_centre.id not in current_ids:
@@ -468,7 +468,7 @@ async def create_organization(db: AsyncSession, data: OrganizationCreate) -> Org
     cleaned = clean_reference_name(data.name)
     if not data.is_publisher and not data.is_supplier:
         raise HTTPException(status_code=422, detail="An organization must have a publisher or supplier role.")
-    if await _find_organization(db, normalize_reference_name(cleaned)) is not None:
+    if await find_organization(db, normalize_reference_name(cleaned)) is not None:
         raise _conflict(f"An organization matching '{cleaned}' already exists.")
     organization = Organization(
         name=cleaned,
@@ -484,10 +484,7 @@ async def create_organization(db: AsyncSession, data: OrganizationCreate) -> Org
 async def create_cost_centre(db: AsyncSession, data: CostCentreCreate) -> CostCentre:
     cleaned = clean_reference_name(data.name)
     normalized = normalize_reference_name(cleaned)
-    if (
-        await db.scalar(select(CostCentre).where(CostCentre.normalized_name == normalized)) is not None
-        or await db.scalar(select(CostCentreAlias).where(CostCentreAlias.normalized_name == normalized)) is not None
-    ):
+    if await find_cost_centre(db, normalized) is not None:
         raise _conflict(f"A cost centre matching '{cleaned}' already exists.")
     cost_centre = CostCentre(name=cleaned, normalized_name=normalized, is_active=True)
     await _flush_new(db, cost_centre)
@@ -613,17 +610,36 @@ async def update_cost_centre(db: AsyncSession, cost_centre_id: int, data: CostCe
     return cost_centre
 
 
+def _alias_addition_is_idempotent(
+    *,
+    existing_owner_id: int | None,
+    owner_id: int,
+    canonical_exists: bool,
+    assigned_elsewhere_detail: str,
+    canonical_collision_detail: str,
+) -> bool:
+    if existing_owner_id is not None:
+        if existing_owner_id != owner_id:
+            raise _conflict(assigned_elsewhere_detail)
+        return True
+    if canonical_exists:
+        raise _conflict(canonical_collision_detail)
+    return False
+
+
 async def _add_organization_alias(db: AsyncSession, organization: Organization, name: str) -> OrganizationAlias:
     cleaned = clean_reference_name(name)
     normalized = normalize_reference_name(cleaned)
     existing = await db.scalar(select(OrganizationAlias).where(OrganizationAlias.normalized_name == normalized))
-    if existing is not None:
-        if existing.organization_id == organization.id:
-            return existing
-        raise _conflict("That alias is already assigned to another organization.")
     canonical = await db.scalar(select(Organization).where(Organization.normalized_name == normalized))
-    if canonical is not None:
-        raise _conflict("An alias cannot duplicate a canonical organization name.")
+    if _alias_addition_is_idempotent(
+        existing_owner_id=existing.organization_id if existing is not None else None,
+        owner_id=organization.id,
+        canonical_exists=canonical is not None,
+        assigned_elsewhere_detail="That alias is already assigned to another organization.",
+        canonical_collision_detail="An alias cannot duplicate a canonical organization name.",
+    ):
+        return existing
     alias = OrganizationAlias(organization_id=organization.id, name=cleaned, normalized_name=normalized)
     await _flush_new(db, alias)
     return alias
@@ -651,11 +667,13 @@ async def _add_cost_centre_alias(
     normalized = normalize_reference_name(cleaned)
     existing = await db.scalar(select(CostCentreAlias).where(CostCentreAlias.normalized_name == normalized))
     canonical = await db.scalar(select(CostCentre).where(CostCentre.normalized_name == normalized))
-    if existing is not None and existing.cost_centre_id != cost_centre.id:
-        raise _conflict("That alias is already in use by another cost centre.")
-    if canonical is not None:
-        raise _conflict("An alias cannot duplicate a canonical cost centre name.")
-    if existing is not None:
+    if _alias_addition_is_idempotent(
+        existing_owner_id=existing.cost_centre_id if existing is not None else None,
+        owner_id=cost_centre.id,
+        canonical_exists=canonical is not None,
+        assigned_elsewhere_detail="That alias is already in use by another cost centre.",
+        canonical_collision_detail="An alias cannot duplicate a canonical cost centre name.",
+    ):
         return existing
     alias = CostCentreAlias(cost_centre_id=cost_centre.id, name=cleaned, normalized_name=normalized)
     await _flush_new(db, alias)

@@ -17,7 +17,6 @@ export function normalizeGlobalSettings(data, current) {
   return {
     ...current,
     mandatoryFields: data.mandatory_fields ?? current.mandatoryFields,
-    authMethod: data.auth_method ?? current.authMethod,
     sessionTimeout: data.session_timeout ?? current.sessionTimeout,
     passwordMinLength: data.password_min_length ?? current.passwordMinLength,
     storagePath: data.storage_path ?? current.storagePath,

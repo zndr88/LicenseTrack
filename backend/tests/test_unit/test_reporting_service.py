@@ -1,8 +1,11 @@
 from datetime import date, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 
 from app.models.license import LicenseMetric, LicenseType, MaintenanceCoverage
 from app.services.report_export_service import build_report_export_csv
+from app.services import reporting_service
+from app.services.license_service import compute_stats
 from app.services.reporting_service import ReportOptions, build_portfolio_stats, build_report_model
 
 
@@ -99,6 +102,18 @@ def test_non_recurring_portfolio_has_no_forecast_and_counts_perpetual_as_active(
     assert stats.total_active == 1
 
 
+def test_license_stats_and_detailed_report_intentionally_treat_blank_recurring_values_differently():
+    blank = make_license(quantity="", unit_price="")
+
+    license_stats = compute_stats([blank], {}, {})
+    report = build_report_model([blank], ReportOptions())
+
+    assert license_stats["annual_cost_by_currency"] == {"EUR": 0.0}
+    assert license_stats["excluded_from_totals"] == 0
+    assert report.cost_overview["recurringAnnualCostByCurrency"] == {}
+    assert report.counts.unpriced == 1
+
+
 def test_reused_po_text_is_reconciled_by_durable_identity_and_keeps_signed_difference():
     first = make_license(id=1, pending_order_id=10, quantity="1", unit_price="100", po_total_override="50")
     second = make_license(id=2, pending_order_id=20, quantity="1", unit_price="200")
@@ -143,6 +158,145 @@ def test_included_support_coverage_creates_a_renewal_event():
     assert len(events) == 1
     assert events[0]["renewalKind"] == "included_support"
     assert events[0]["renewalValue"] == "240"
+
+
+def test_detailed_report_phase_contracts_remain_stable(monkeypatch):
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 6, 15)
+
+    monkeypatch.setattr(reporting_service, "date", FixedDate)
+    today = FixedDate.today()
+    licenses = [
+        make_license(
+            id=1,
+            pending_order_id=10,
+            quantity="2",
+            unit_price="100",
+            po_total_override="450",
+            start_date=today - timedelta(days=100),
+            end_date=today + timedelta(days=30),
+        ),
+        make_license(
+            id=2,
+            license_ref="LT-2026-00002",
+            publisher_name="Beta",
+            software_description="Beta Cloud",
+            license_type=LicenseType.saas,
+            currency="USD",
+            supplier="Cloud Vendor",
+            cost_centre="FIN",
+            po_number="PO-2",
+            procurement_bundle_id="bundle-x",
+            quantity="3",
+            unit_price="50",
+            start_date=today - timedelta(days=180),
+            end_date=today + timedelta(days=184),
+        ),
+        make_license(
+            id=3,
+            license_ref="LT-2026-00003",
+            publisher_name="Gamma",
+            software_description="Gamma Server",
+            license_type=LicenseType.perpetual,
+            end_date=None,
+            quantity="1",
+            unit_price="1000",
+            po_number="PO-3",
+            maintenance_coverage=MaintenanceCoverage.included,
+            maintenance_start_date=today - timedelta(days=305),
+            maintenance_end_date=today + timedelta(days=59),
+            maintenance_cost="1200",
+        ),
+        make_license(
+            id=4,
+            license_ref="LT-2026-00004",
+            publisher_name="Gamma",
+            software_description="Gamma Support",
+            license_type=LicenseType.maintenance,
+            parent_license_id=3,
+            quantity="1",
+            unit_price="300",
+            total_po_price="300",
+            po_number="PO-4",
+            start_date=today - timedelta(days=274),
+            end_date=today + timedelta(days=90),
+            maintenance_cost="300",
+        ),
+    ]
+
+    report = build_report_model(
+        licenses,
+        ReportOptions(forecast_years=2, annual_uplift_pct=Decimal("10")),
+    )
+
+    assert report.counts.model_dump() == {
+        "records": 4,
+        "total_records": 4,
+        "active": 2,
+        "upcoming": 1,
+        "expiring": 1,
+        "expired": 0,
+        "unpriced": 0,
+        "excluded": 0,
+        "undated": 0,
+        "unallocated": 0,
+    }
+    assert report.financial_summaries == {
+        "licenseSpendByCurrency": {"EUR": "1500", "USD": "150"},
+        "poSpendByCurrency": {"EUR": "1750", "USD": "150"},
+        "spendDifferenceByCurrency": {"EUR": "250", "USD": "0"},
+        "recurringAnnualCostByCurrency": {"EUR": "500", "USD": "150"},
+        "lifecycleBudgetByStatus": {
+            "active": {"USD": "150", "EUR": "300"},
+            "expiring": {"EUR": "200"},
+            "expired": {},
+        },
+        "unallocatedValuesByCurrency": {},
+    }
+    assert report.budget_forecast["baselineByCurrency"] == {"EUR": "500", "USD": "150"}
+    assert report.budget_forecast["singleCurrency"] is None
+    assert report.budget_forecast["forecastRows"] == []
+    assert [
+        (row["licenseId"], row["annualCost"], row["costSource"])
+        for row in report.budget_forecast["recurringRecords"]
+    ] == [(4, "300", "line"), (1, "200", "line"), (2, "150", "line")]
+    assert [
+        (row["identityKey"], row["lineValue"], row["poValue"], row["difference"], row["status"])
+        for row in report.purchase_order_data["rows"]
+    ] == [
+        ("po:po-3", "1000", "1000", "0", "reconciled"),
+        ("pending-order:10", "200", "450", "250", "override"),
+        ("po:po-4", "300", "300", "0", "reconciled"),
+        ("procurement-bundle:bundle-x", "150", "150", "0", "reconciled"),
+    ]
+    assert report.purchase_order_data["totalsByCurrency"] == {"EUR": "1750", "USD": "150"}
+    assert report.purchase_order_data["lineTotalsByCurrency"] == {"EUR": "1500", "USD": "150"}
+    assert [
+        (
+            quarter["quarterLabel"],
+            quarter["count"],
+            quarter["estimatedValueByCurrency"],
+            [(event["licenseId"], event["renewalKind"], event["renewalValue"]) for event in quarter["events"]],
+        )
+        for quarter in report.renewal_data
+    ] == [
+        ("Q2 2026", 0, {}, []),
+        (
+            "Q3 2026",
+            3,
+            {"EUR": "1700"},
+            [(1, "license_term", "200"), (3, "included_support", "1200"), (4, "maintenance_record", "300")],
+        ),
+        ("Q4 2026", 1, {"USD": "150"}, [(2, "license_term", "150")]),
+        ("Q1 2027", 0, {}, []),
+    ]
+    assert report.perpetual_maintenance_data["purchaseByCurrency"] == {"EUR": "1000"}
+    assert report.perpetual_maintenance_data["maintenanceByCurrency"] == {"EUR": "1500"}
+    assert report.perpetual_maintenance_data["totalByCurrency"] == {"EUR": "2500"}
+    assert report.perpetual_maintenance_data["rows"][0]["maintenanceSource"] == "included"
+    assert report.perpetual_maintenance_data["rows"][0]["maintenanceRecords"][0]["amount"] == "300"
 
 
 def test_report_csv_neutralizes_formula_like_text():

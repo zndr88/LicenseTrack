@@ -1020,6 +1020,32 @@ def analyze_csv_headers(
     )
 
 
+def _assemble_import_row(
+    raw_row: dict[str, str],
+    column_to_target: dict[str, str],
+    *,
+    omit_blank_native_values: bool,
+) -> tuple[dict[str, object], dict[str, str]]:
+    """Split one mapped raw row into native and custom-field input."""
+    native_data: dict[str, object] = {}
+    custom_data: dict[str, str] = {}
+    for raw_header, target in column_to_target.items():
+        raw_value = raw_row.get(raw_header) or ""
+        stripped = raw_value.strip()
+        if target.startswith("cf_"):
+            if stripped:
+                custom_data[target] = stripped
+            continue
+        if omit_blank_native_values and not stripped:
+            continue
+        value = stripped if omit_blank_native_values else raw_value
+        if target in MULTI_VALUE_TARGETS:
+            native_data.setdefault(target, []).append(value)
+        else:
+            native_data[target] = value
+    return native_data, custom_data
+
+
 def parse_csv(
     file_contents: bytes,
     default_currency: str = "EUR",
@@ -1083,20 +1109,11 @@ def parse_csv(
     rows: list[ParsedRow] = []
     custom_rows: list[dict[str, str]] = []
     for row_idx, raw_row in enumerate(raw_rows, start=1):
-        row_data: dict[str, object] = {}
-        for raw_h, target in header_mapping.items():
-            if target.startswith("cf_"):
-                continue
-            value = raw_row.get(raw_h) or ""
-            if target in MULTI_VALUE_TARGETS:
-                row_data.setdefault(target, []).append(value)
-            else:
-                row_data[target] = value
-        custom_data: dict[str, str] = {
-            target: (raw_row.get(raw_h) or "").strip()
-            for raw_h, target in header_mapping.items()
-            if target.startswith("cf_") and (raw_row.get(raw_h) or "").strip()
-        }
+        row_data, custom_data = _assemble_import_row(
+            raw_row,
+            header_mapping,
+            omit_blank_native_values=False,
+        )
         rows.append(
             _parse_row(
                 row_idx,

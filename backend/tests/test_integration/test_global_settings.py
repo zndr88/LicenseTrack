@@ -93,6 +93,7 @@ async def test_admin_global_settings_get_masks_secrets(db_session, test_app, aut
 
     assert response.status_code == 200
     body = response.json()
+    assert "auth_method" not in body
     assert body["smtp_password"] == SECRET_MASK
     assert body["oidc_client_secret"] == SECRET_MASK
     assert "stored-smtp-secret" not in response.text

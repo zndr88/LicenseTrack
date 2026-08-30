@@ -13,6 +13,41 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.16] - 2026-08-30
+
+### Fixed
+
+- Invalidated cached global settings after a successful database restore so
+  subsequent requests cannot continue using values from the replaced database.
+
+### Changed
+
+- Removed three inert persisted settings fields while retaining all active
+  notification, manager-email, appearance, locale, security, backup, and
+  integration settings contracts.
+- Consolidated the shared prepared-item execution used by single and batch
+  pending-order conversion while preserving the early SQLite write lock,
+  transaction ordering, partial-failure behavior, audit events, response
+  contracts, and evidence-transfer recovery.
+- Split detailed-report construction into focused lifecycle-spend,
+  procurement, recurring-forecast, portfolio, renewal, and perpetual-
+  maintenance builders without changing response shape or currency semantics.
+- Aligned canonical and alias lookup and alias-addition validation for
+  organizations and cost centres while retaining their distinct merge,
+  synchronization, and access rules.
+- Shared native and mapped CSV row assembly while preserving localized
+  parsing, preview values, warnings, nested transactions, reference updates,
+  maintenance inference, and row-level errors.
+- Documented that license statistics and detailed reporting intentionally keep
+  separate recurring-cost ownership because their unpriced-value semantics
+  differ.
+
+This release includes an Alembic migration that removes only the unused
+per-user `notification_days` and `manager_email` columns and the unused global
+`auth_method` column. Downgrade recreates those inert columns with their
+historical defaults. No public API, configuration, or visible product workflow
+is removed.
+
 ## [1.1.15] - 2026-08-30
 
 ### Changed
@@ -1311,7 +1346,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.15...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.16...HEAD
+[1.1.16]: https://github.com/zndr88/LicenseTrack/compare/v1.1.15...v1.1.16
 [1.1.15]: https://github.com/zndr88/LicenseTrack/compare/v1.1.14...v1.1.15
 [1.1.14]: https://github.com/zndr88/LicenseTrack/compare/v1.1.13...v1.1.14
 [1.1.13]: https://github.com/zndr88/LicenseTrack/compare/v1.1.12...v1.1.13

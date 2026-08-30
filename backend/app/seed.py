@@ -64,7 +64,6 @@ async def seed() -> None:
                 "costCentre": False,
                 "budgetOwnerEmail": False,
             },
-            auth_method="mfa",
             session_timeout=30,
             password_min_length=12,
         )

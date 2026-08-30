@@ -31,11 +31,19 @@ from app.models.settings import GlobalSettings
 from app.models.document import Document, DocumentCategory
 from app.models.license import License, LicenseMetric, LicenseType
 from app.models.user import User, UserRole
+from app.services import settings_service
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _reset_global_settings_cache():
+    settings_service.invalidate_global_settings_cache()
+    yield
+    settings_service.invalidate_global_settings_cache()
 
 def _make_sqlite_db(path) -> None:
     """Create a minimal empty SQLite database file at *path*."""
@@ -175,6 +183,30 @@ async def test_list_backups_returns_entries(db_session, test_app, auth_headers, 
         assert "created_at" in entry
 
 
+async def test_list_backups_reads_current_settings_instead_of_shared_cache(
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    backup_dir = tmp_path / "current-backups"
+    backup_dir.mkdir()
+    archive = backup_dir / "license_lifecycle_backup_20240101_000000.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("licenses.db", _compatible_db_bytes())
+
+    db_session.add(GlobalSettings(id=1, backup_location=str(backup_dir)))
+    await db_session.commit()
+    monkeypatch.setattr(
+        settings_service,
+        "_cache",
+        (GlobalSettings(id=1, backup_location=str(tmp_path / "stale-backups")), float("inf")),
+    )
+
+    entries = await backup_module.list_backups(db_session, _admin=None)
+
+    assert [entry["filename"] for entry in entries] == [archive.name]
+
+
 # ---------------------------------------------------------------------------
 # 3e — Non-admin (editor) is rejected from backup routes
 # ---------------------------------------------------------------------------
@@ -261,9 +293,19 @@ async def test_restore_sanitises_error(test_app, auth_headers, monkeypatch):
 # 3i — Restore success returns before scheduling process termination
 # ---------------------------------------------------------------------------
 
-async def test_restore_success_can_skip_process_restart(test_app, auth_headers, monkeypatch):
+async def test_restore_success_can_skip_process_restart(
+    db_session,
+    test_app,
+    auth_headers,
+    monkeypatch,
+):
     restored_paths = []
     killed = []
+
+    db_session.add(GlobalSettings(id=1))
+    await db_session.commit()
+    assert await settings_service.get_global_settings(db_session) is not None
+    assert settings_service._cache is not None
 
     def _restore(path, *, storage_location, safety_archive):
         restored_paths.append(path)
@@ -310,6 +352,7 @@ async def test_restore_success_can_skip_process_restart(test_app, auth_headers, 
     }
     assert len(restored_paths) == 1
     assert killed == []
+    assert settings_service._cache is None
 
 
 async def test_restore_success_returns_before_scheduled_restart(test_app, auth_headers, monkeypatch):

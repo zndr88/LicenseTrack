@@ -222,8 +222,8 @@ then normalized PO number and currency; records without an identity remain
 individual rows. `frontend/src/utils/reportHelpers.js` remains a compatibility
 utility for older callers, but ReportsPage uses the server model. Structured
 CSV export is assembled by `report_export_service.py` from that same response.
-`frontend/src/api/reportCompatibility.js` is only a legacy demo/test adapter
-for installations whose API shim predates the detailed endpoint.
+`frontend/src/api/reports.js` owns detailed-report requests and converts the
+server's canonical decimal strings to presentation numbers at the API boundary.
 
 Date-only report values stay calendar-date based. The backend parses date query
 parameters as `date` values before date-range and renewal-calendar comparisons,
@@ -519,10 +519,11 @@ Current important service boundaries:
 - pending-order list/history queries, response assembly, create/update/delete,
   and single/bulk line-item management with shared editable-order guards:
   `backend/app/services/pending_order_service.py`;
-- pending-order conversion orchestration (shared order loading and conditional
-  write-lock, complete one-to-one batch coverage validation, conversion-path
-  selection, transaction finalization, evidence-transfer status and persisted
-  invoice requirement, audit logging, response handoff):
+- pending-order conversion orchestration (shared order loading, early
+  conditional SQLite write-lock, complete one-to-one batch coverage
+  validation, mode-specific payload preparation, shared prepared-item
+  execution, mode-specific transaction finalization, evidence-transfer status
+  and persisted invoice requirement, audit logging, response handoff):
   `backend/app/services/pending_order_conversion_service.py`;
 - pending-order conversion helpers (new purchase license creation, maintenance parent resolution, status transitions): `backend/app/services/conversion/license_converter.py`, `backend/app/services/conversion/maintenance_linker.py`, and `backend/app/services/conversion/pending_order_status.py`;
 - pending-order conversion document transfer (invoice validation/write and quote carry-forward into pending-order-scoped procurement documents): `backend/app/services/procurement_document_transfer_service.py`;
@@ -530,8 +531,10 @@ Current important service boundaries:
 - license procurement trail response assembly:
   `backend/app/services/license_procurement_trail_service.py`;
 - native CSV decoding and row classification:
-  `backend/app/services/csv_importer.py`; preview preparation, warning gates,
-  update-target annotation, and row execution belong in
+  `backend/app/services/csv_importer.py`; native and mapped parsers share raw
+  row assembly while retaining separate field-presence rules and the typed
+  persistence/display-value boundary in `ParsedRow`; preview preparation,
+  warning gates, update-target annotation, and row execution belong in
   `backend/app/services/import_/import_workflow.py`; mapped decoding remains in
   `import_/mapped_parser.py`, batched LT-reference matching in
   `import_/license_matcher.py`, and reference candidate/override resolution in
@@ -547,13 +550,17 @@ Current important service boundaries:
   version changes): `backend/app/services/user_service.py`;
 - maintenance link management, coverage snapshots, and mirror synchronization: `backend/app/services/maintenance_service.py` owns creation/linking/unlinking of `LicenseMaintenanceLink` rows, legacy-unlinked recovery, primary-parent reassignment, retirement cleanup, immutable `LicenseCoverageHistory` snapshots when active coverage changes, active-maintenance mirror updates on parents, and the compatibility behavior where `parent_license_id` remains the primary parent for older create/import flows while `maintenanceParentIds`/`linkedMaintenanceIds` expose multi-parent links in responses;
 - canonical organization and cost-centre identity, aliases, roles, active state,
-  usage, shared rename/alias-transfer mechanics, merge/delete invariants, mirror
-  synchronization, and CSV reference resolution:
+  usage, explicit canonical-or-alias lookup, shared pure alias-addition
+  validation, shared rename/alias-transfer mechanics, merge/delete invariants,
+  mirror synchronization, and CSV reference resolution:
   `backend/app/services/reference_data_service.py` and
-  `backend/app/services/import_/reference_resolution.py`;
-- authoritative Decimal report calculations, shared recurring eligibility,
-  renewal-event model, native-currency summaries, grouped spend accumulation,
-  and one final response-serialization boundary:
+  `backend/app/services/import_/reference_resolution.py`; organization and
+  cost-centre persistence remain domain-specific and must not be replaced by a
+  generic repository abstraction;
+- authoritative Decimal report calculations, report-specific recurring eligibility,
+  focused lifecycle-spend, procurement, recurring-forecast, portfolio,
+  renewal, and perpetual-maintenance builders, native-currency summaries,
+  grouped spend accumulation, and one final response-serialization boundary:
   `backend/app/services/reporting_service.py` — `GET /api/reports/detailed`;
 - report-specific CSV serialization with formula-injection protection: `backend/app/services/report_export_service.py` — `GET /api/reports/detailed/export`;
 - portfolio summary statistics (including the backwards-compatible numeric `annual_cost_by_currency` plus canonical `annual_cost_by_currency_decimal`): `backend/app/routes/reports.py` — `GET /api/reports/portfolio-stats`;
@@ -575,6 +582,13 @@ Current important service boundaries:
   in `plugin_lifecycle_service.py`, and reviewable suggestion persistence and
   acceptance in `plugin_suggestion_service.py`.
 
+License statistics and detailed reporting are sibling consumers of shared pure
+money helpers, not consumers of each other. Their recurring-cost semantics are
+intentionally different for incomplete rows: portfolio statistics retain the
+currency bucket with a zero value, while detailed reports classify the row as
+unpriced and omit it from spend. Do not extract a shared higher-level
+calculation unless new characterization proves those contracts have converged.
+
 SQLite foreign-key enforcement is enabled at the connection level via `enable_sqlite_foreign_keys` in `backend/app/database.py`. It registers a `connect` event listener that executes `PRAGMA foreign_keys=ON` for every DBAPI connection. This means every `ForeignKey` declared in the ORM models is enforced at the database layer — not just by the ORM. Do not remove this listener. The test engine in `conftest.py` applies the same function. Note: the pragma only affects new writes; existing rows with dangling references are not retroactively rechecked on deploy.
 
 The 1.1.12 integrity migrations rebuild the affected SQLite tables to restore
@@ -586,9 +600,17 @@ operator data. The following migration persists
 migration makes active parentless maintenance valid only when the explicit
 `is_legacy_unlinked_maintenance` exception is set.
 
+The 1.1.16 settings migration removes only three inert columns:
+`UserSettings.notification_days`, `UserSettings.manager_email`, and
+`GlobalSettings.auth_method`. Active notification timing and manager-email
+configuration remain on `GlobalSettings`. Downgrade recreates the removed
+columns with their historical defaults so the 1.1.15 ORM can start after a
+code-and-schema rollback; the native upgrade workflow's recovery archive is
+the authoritative way to preserve the exact pre-upgrade database.
+
 `backend/app/routes/licenses.py` is now a thin route module. It should own auth, request parsing, query composition for reads, and audit-log wiring. It should not reintroduce field-level patch validation, maintenance-parent invariants, or response enrichment logic that now live in the license services.
 
-Settings routes are split by responsibility while preserving existing API paths. `backend/app/routes/user_settings.py` owns `GET/PUT /api/settings`; `backend/app/routes/global_settings.py` owns global settings read/update endpoints; `backend/app/routes/integrations.py` owns admin integration actions such as test email and manual notification trigger; `backend/app/routes/backup.py` owns database backup/restore; and `backend/app/routes/operations.py` owns destructive operational maintenance such as the fixed-scope portfolio reset. `backend/app/routes/settings.py` remains only as a compatibility aggregator for older imports.
+Settings routes are split by responsibility while preserving existing API paths. `backend/app/routes/user_settings.py` owns `GET/PUT /api/settings`; `backend/app/routes/global_settings.py` owns global settings read/update endpoints; `backend/app/routes/integrations.py` owns admin integration actions such as test email and manual notification trigger; `backend/app/routes/backup.py` owns database backup/restore; and `backend/app/routes/operations.py` owns destructive operational maintenance such as the fixed-scope portfolio reset. `backend/app/routes/settings.py` remains only as a compatibility aggregator for older imports. Backup operations read their decision settings directly from the request session because those values must be authoritative; they must not use the TTL-cached settings service. A successful database restore invalidates the shared settings cache immediately after the replacement database is installed.
 
 `backend/app/routes/csv_import.py`, `document_processing.py`, `users.py`,
 `license_renewals.py`, and `license_maintenance.py` are endpoint boundaries,
