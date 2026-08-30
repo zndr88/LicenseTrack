@@ -37,6 +37,7 @@ from app.services.backup_service import (
     restore_backup_archive,
 )
 from app.services.restore_maintenance import restore_maintenance
+from app.services.settings_service import invalidate_global_settings_cache
 
 log = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ async def _terminate_process_after_restore(restore_owner: object) -> None:
 
 
 async def _get_global_settings(db: AsyncSession) -> GlobalSettings:
+    """Read authoritative settings for filesystem and database operations."""
     result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
     gs = result.scalar_one_or_none()
     if gs is None:
@@ -253,6 +255,7 @@ async def _perform_restore(
             storage_location=storage_location,
             safety_archive=safety_archive,
         )
+        invalidate_global_settings_cache()
     except Exception as exc:
         log.error("Backup restore failed: %s", exc, exc_info=True)
         try:
