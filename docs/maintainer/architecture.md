@@ -222,8 +222,8 @@ then normalized PO number and currency; records without an identity remain
 individual rows. `frontend/src/utils/reportHelpers.js` remains a compatibility
 utility for older callers, but ReportsPage uses the server model. Structured
 CSV export is assembled by `report_export_service.py` from that same response.
-`frontend/src/api/reportCompatibility.js` is only a legacy demo/test adapter
-for installations whose API shim predates the detailed endpoint.
+`frontend/src/api/reports.js` owns detailed-report requests and converts the
+server's canonical decimal strings to presentation numbers at the API boundary.
 
 Date-only report values stay calendar-date based. The backend parses date query
 parameters as `date` values before date-range and renewal-calendar comparisons,
