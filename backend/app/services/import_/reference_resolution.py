@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.reference_data import CostCentre, CostCentreAlias, Organization, OrganizationAlias
+from app.models.reference_data import CostCentre, Organization
 from app.schemas.csv_import import (
     ImportReferenceCandidate,
     ImportReferenceCounts,
@@ -20,6 +20,8 @@ from app.schemas.csv_import import (
 from app.services.csv_importer import ParsedRow
 from app.services.reference_data_service import (
     clean_reference_name,
+    find_cost_centre,
+    find_organization,
     normalize_reference_name,
     resolve_cost_centre,
     resolve_organization,
@@ -289,10 +291,7 @@ async def _resolve_organization_value(
 
     value_to_resolve = _override_resolution_value(cleaned, override)
     normalized = normalize_reference_name(value_to_resolve)
-    before = await db.scalar(select(Organization).where(Organization.normalized_name == normalized))
-    if before is None:
-        alias = await db.scalar(select(OrganizationAlias).where(OrganizationAlias.normalized_name == normalized))
-        before = await db.get(Organization, alias.organization_id) if alias else None
+    before = await find_organization(db, normalized)
     if before is not None and not before.is_active:
         raise _conflict(f"Organization '{before.name}' is inactive and requires admin action.")
     if before is None and not override:
@@ -326,10 +325,7 @@ async def _resolve_cost_centre_value(
         return record.name, record.id
     value_to_resolve = _override_resolution_value(cleaned, override)
     normalized = normalize_reference_name(value_to_resolve)
-    before = await db.scalar(select(CostCentre).where(CostCentre.normalized_name == normalized))
-    if before is None:
-        alias = await db.scalar(select(CostCentreAlias).where(CostCentreAlias.normalized_name == normalized))
-        before = await db.get(CostCentre, alias.cost_centre_id) if alias else None
+    before = await find_cost_centre(db, normalized)
     if before is not None and not before.is_active:
         raise _conflict(f"Cost centre '{before.name}' is inactive and requires admin action.")
     if before is None and not override:
