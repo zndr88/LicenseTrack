@@ -69,6 +69,16 @@ The backend is a FastAPI, SQLAlchemy, and Pydantic application. Keep that shape.
   wrappers or private aliases for convenience.
 - A compatibility wrapper is justified only by a supported external or public
   contract. Name the contract and test it at that boundary.
+- Share calculations or workflow kernels only after characterization proves
+  their semantics and failure boundaries are identical. Similar output is not
+  sufficient reason to make sibling services depend directly on each other.
+- Preserve conditional write locks, commit order, partial-failure behavior,
+  audit publication, and recovery state when extracting transaction-heavy
+  workflows. Keep mode-specific preparation and finalization explicit when
+  their ordering differs.
+- Cached settings are for ordinary reads. Backup and restore decisions must
+  use authoritative session data, and replacing a database must invalidate
+  process-local settings caches.
 - Use module-level loggers consistently: `logger = logging.getLogger(__name__)`.
 - Avoid silent `except Exception` blocks. If broad exception handling is necessary, log enough context or return an explicit failure path.
 - Keep `type: ignore` rare and explained when used.
@@ -81,6 +91,10 @@ The backend is a FastAPI, SQLAlchemy, and Pydantic application. Keep that shape.
 - Shared schema behavior should live in shared schema helpers, not repeated per route.
 - Import ORM types from their owning model modules. `models/__init__.py` exists
   for SQLAlchemy/Alembic discovery, not as a second public model API.
+- Removing persisted fields requires repository-wide usage evidence plus an
+  Alembic upgrade/downgrade assessment. Characterize active values that must
+  survive, document what downgrade can restore, and test both directions from
+  the preceding release revision.
 
 ### Imports And Formatting
 

@@ -13,19 +13,19 @@ Connect to your machine through your own means and move to the working folder wh
 Grab the latest release from GitHub. Here I use `wget`:
 
 ```bash
-wget https://github.com/zndr88/LicenseTrack/archive/refs/tags/v1.1.15.zip
+wget https://github.com/zndr88/LicenseTrack/archive/refs/tags/v1.1.16.zip
 ```
 
 !!! note "Always use the current latest version"
-    The commands here use `v1.1.15`. Check the [latest release](https://github.com/zndr88/LicenseTrack/releases/latest) and substitute its version tag throughout. Some screenshots on this page were captured on an earlier version — the look and feel is unchanged, only the version number differs.
+    The commands here use `v1.1.16`. Check the [latest release](https://github.com/zndr88/LicenseTrack/releases/latest) and substitute its version tag throughout. Some screenshots on this page were captured on an earlier version — the look and feel is unchanged, only the version number differs.
 
 ![Downloading the release archive with wget](../assets/install-02-wget-download.png)
 
 ## 3. Unzip and enter the folder
 
 ```bash
-unzip v1.1.15.zip
-cd LicenseTrack-1.1.15
+unzip v1.1.16.zip
+cd LicenseTrack-1.1.16
 ```
 
 ![Unzipping the archive and changing into the folder](../assets/install-03-unzip-cd.png)
