@@ -2402,6 +2402,69 @@ async def test_batch_partial_conversion_is_rejected_before_any_write(test_app, a
     assert stored_order.status != PendingOrderStatus.converted
 
 
+async def test_batch_item_failure_rolls_back_all_license_and_status_writes(
+    test_app,
+    auth_headers,
+    db_session,
+    monkeypatch,
+):
+    first = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Atomic App One")
+    second = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Atomic App Two")
+    order = await _convert_sourcing_to_po(test_app, auth_headers, first["id"])
+    await _attach_sourcing_to_po(test_app, auth_headers, second["id"], order["id"])
+    statuses_before = (
+        await db_session.execute(
+            select(SourcingItem.status).where(SourcingItem.id.in_([first["id"], second["id"]]))
+        )
+    ).scalars().all()
+    real_create = _conversion_service.create_purchase_license
+    calls = 0
+
+    async def fail_second_item(**kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("simulated second-item conversion failure")
+        return await real_create(**kwargs)
+
+    monkeypatch.setattr(_conversion_service, "create_purchase_license", fail_second_item)
+
+    response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert-all",
+        json=[
+            _batch_convert_item(first["id"], softwareDescription="Atomic App One"),
+            _batch_convert_item(second["id"], softwareDescription="Atomic App Two"),
+        ],
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 500
+    await db_session.rollback()
+    licenses = (
+        await db_session.execute(
+            select(License).where(License.source_sourcing_item_id.in_([first["id"], second["id"]]))
+        )
+    ).scalars().all()
+    assert licenses == []
+    stored_order = await db_session.get(PendingOrder, order["id"])
+    assert stored_order.status != PendingOrderStatus.converted
+    statuses = (
+        await db_session.execute(
+            select(SourcingItem.status).where(SourcingItem.id.in_([first["id"], second["id"]]))
+        )
+    ).scalars().all()
+    assert statuses == statuses_before
+    converted_audits = (
+        await db_session.execute(
+            select(AuditLog).where(
+                AuditLog.action == "po.converted",
+                AuditLog.target_id == str(order["id"]),
+            )
+        )
+    ).scalars().all()
+    assert converted_audits == []
+
+
 async def test_batch_duplicate_item_ids_are_rejected_before_any_write(test_app, auth_headers, db_session):
     item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Duplicate Batch App")
     order = await _convert_sourcing_to_po(test_app, auth_headers, item["id"])
@@ -4066,3 +4129,84 @@ async def test_concurrent_conversion_only_one_succeeds(test_app, auth_headers, d
     assert len(licenses) == 1, (
         f"Expected exactly 1 license to be created, but found {len(licenses)}"
     )
+
+
+async def test_concurrent_single_and_batch_conversion_only_one_succeeds(
+    tmp_path,
+):
+    from httpx import ASGITransport, AsyncClient
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.auth import create_access_token
+    from app.database import Base, enable_sqlite_foreign_keys, get_db
+    from app.main import app
+    from app.models.user import User, UserRole
+
+    database_path = tmp_path / "cross-endpoint-conversion.sqlite"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{database_path.as_posix()}")
+    enable_sqlite_foreign_keys(engine.sync_engine)
+    session_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    async with session_factory() as session:
+        user = User(
+            username="concurrent-admin",
+            email="concurrent-admin@example.com",
+            hashed_password="not-used",
+            role="admin",
+            is_active=True,
+            must_change_password=False,
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        headers = {
+            "Authorization": f"Bearer {create_access_token(user.id, UserRole.admin.value)}"
+        }
+
+    async def override_get_db():
+        async with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            sourcing_item = await _create_sourcing_item(
+                client,
+                headers,
+                softwareDescription="Cross Endpoint Concurrent App",
+            )
+            order = await _convert_sourcing_to_po(client, headers, sourcing_item["id"])
+
+            single_response, batch_response = await asyncio.gather(
+                client.post(
+                    f"/api/pending-orders/{order['id']}/convert",
+                    data={"data": json.dumps(_single_convert_form())},
+                    headers=headers,
+                ),
+                client.post(
+                    f"/api/pending-orders/{order['id']}/convert-all",
+                    json=[
+                        _batch_convert_item(
+                            sourcing_item["id"],
+                            softwareDescription="Cross Endpoint Concurrent App",
+                        )
+                    ],
+                    headers=headers,
+                ),
+            )
+
+        assert sorted([single_response.status_code, batch_response.status_code]) == [200, 409]
+        async with session_factory() as session:
+            licenses = (
+                await session.execute(
+                    select(License).where(License.source_sourcing_item_id == sourcing_item["id"])
+                )
+            ).scalars().all()
+            assert len(licenses) == 1
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        await engine.dispose()

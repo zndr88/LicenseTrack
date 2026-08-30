@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.database import AsyncSessionLocal
 from app.models.license import License, LicenseType
 from app.models.pending_order import EvidenceTransferStatus, PendingOrder, PendingOrderStatus
-from app.models.sourcing import SourcingStatus
+from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User
 from app.schemas.license import LicenseResponse
 from app.schemas.pending_order import BatchConvertItem, PendingOrderConvertRequest
@@ -132,6 +132,40 @@ async def _lock_pending_order(db: AsyncSession, order: PendingOrder) -> None:
             status_code=409,
             detail="Pending order has already been converted",
         )
+
+
+async def _create_prepared_conversion_license(
+    *,
+    db: AsyncSession,
+    item_data: dict,
+    created_by: int | None,
+    created_parent_by_sourcing_item_id: dict[int, License],
+    item_id: int,
+    sourcing_item: SourcingItem | None = None,
+    missing_license_detail: str = "",
+    validation_detail_prefix: str = "",
+) -> tuple[License, str, list[int]]:
+    """Create one already-prepared purchase or renewal conversion result."""
+    if sourcing_item is not None and sourcing_item.renewal_for_license_id is not None:
+        renewal_result = await renewal_orchestrator.create_renewal_successor_from_sourcing_item(
+            db=db,
+            sourcing_item=sourcing_item,
+            license_data=item_data,
+            created_by=created_by,
+            missing_license_detail=missing_license_detail,
+            validate_maintenance_parent=True,
+            validation_detail_prefix=validation_detail_prefix,
+        )
+        return renewal_result.successor, "renewed", renewal_result.predecessor_ids
+
+    license_obj = await create_purchase_license(
+        db=db,
+        item_data=item_data,
+        created_by=created_by,
+        created_parent_by_sourcing_item_id=created_parent_by_sourcing_item_id,
+        item_id=item_id,
+    )
+    return license_obj, "new_purchase", []
 
 
 def _cleanup_written_procurement_files(paths: list[StoredProcurementPath]) -> None:
@@ -385,14 +419,15 @@ async def convert_pending_order_to_licenses(
     evidence_transfer_required = file_data is not None
 
     if not order.items:
-        new_lic = await create_purchase_license(
+        new_lic, conversion_type, item_predecessor_ids = await _create_prepared_conversion_license(
             db=db,
             item_data=form_data,
             created_by=current_user.id,
             created_parent_by_sourcing_item_id={},
             item_id=order_id,
         )
-        new_license_entries.append((new_lic.id, "new_purchase"))
+        new_license_entries.append((new_lic.id, conversion_type))
+        predecessor_ids.extend(item_predecessor_ids)
     else:
         for item in order.items:
             if item.renewal_for_license_id is not None:
@@ -416,17 +451,17 @@ async def convert_pending_order_to_licenses(
                 )
                 item_data["source_sourcing_item_id"] = item.id
 
-                renewal_result = await renewal_orchestrator.create_renewal_successor_from_sourcing_item(
+                new_lic, conversion_type, item_predecessor_ids = await _create_prepared_conversion_license(
                     db=db,
-                    sourcing_item=item,
-                    license_data=item_data,
+                    item_data=item_data,
                     created_by=current_user.id,
+                    created_parent_by_sourcing_item_id={},
+                    item_id=item.id,
+                    sourcing_item=item,
                     missing_license_detail=f"License {item.renewal_for_license_id} not found for renewal",
-                    validate_maintenance_parent=True,
                 )
-                new_lic = renewal_result.successor
-                predecessor_ids.extend(renewal_result.predecessor_ids)
-                new_license_entries.append((new_lic.id, "renewed"))
+                predecessor_ids.extend(item_predecessor_ids)
+                new_license_entries.append((new_lic.id, conversion_type))
                 if item.sourcing_request_id is not None:
                     quote_request_ids.append(item.sourcing_request_id)
                     evidence_transfer_required = True
@@ -442,14 +477,15 @@ async def convert_pending_order_to_licenses(
                     order_notes=order.notes,
                 )
                 item_data["source_sourcing_item_id"] = item.id
-                new_lic = await create_purchase_license(
+                new_lic, conversion_type, item_predecessor_ids = await _create_prepared_conversion_license(
                     db=db,
                     item_data=item_data,
                     created_by=current_user.id,
                     created_parent_by_sourcing_item_id={},
                     item_id=item.id,
                 )
-                new_license_entries.append((new_lic.id, "new_purchase"))
+                predecessor_ids.extend(item_predecessor_ids)
+                new_license_entries.append((new_lic.id, conversion_type))
                 if item.sourcing_request_id is not None:
                     quote_request_ids.append(item.sourcing_request_id)
                     evidence_transfer_required = True
@@ -553,21 +589,21 @@ async def batch_convert_pending_order_to_licenses(
         if sourcing_item.renewal_for_license_id is not None:
             item_data.pop("parent_sourcing_item_id", None)
 
-            renewal_result = await renewal_orchestrator.create_renewal_successor_from_sourcing_item(
+            new_lic, conversion_type, item_predecessor_ids = await _create_prepared_conversion_license(
                 db=db,
-                sourcing_item=sourcing_item,
-                license_data=item_data,
+                item_data=item_data,
                 created_by=current_user.id,
+                created_parent_by_sourcing_item_id=created_parent_by_sourcing_item_id,
+                item_id=batch_item.sourcing_item_id,
+                sourcing_item=sourcing_item,
                 missing_license_detail=(
                     f"Item {batch_item.sourcing_item_id}: license "
                     f"{sourcing_item.renewal_for_license_id} not found for renewal"
                 ),
-                validate_maintenance_parent=True,
                 validation_detail_prefix=f"Item {batch_item.sourcing_item_id}: ",
             )
-            new_lic = renewal_result.successor
-            predecessor_ids.extend(renewal_result.predecessor_ids)
-            new_license_entries.append((new_lic.id, "renewed"))
+            predecessor_ids.extend(item_predecessor_ids)
+            new_license_entries.append((new_lic.id, conversion_type))
             if sourcing_item.sourcing_request_id is not None:
                 quote_request_ids.append(sourcing_item.sourcing_request_id)
                 evidence_transfer_required = True
@@ -576,7 +612,7 @@ async def batch_convert_pending_order_to_licenses(
                 pending_maintenance_items.append((batch_item, item_data))
                 continue
 
-            new_lic = await create_purchase_license(
+            new_lic, conversion_type, item_predecessor_ids = await _create_prepared_conversion_license(
                 db=db,
                 item_data=item_data,
                 created_by=current_user.id,
@@ -585,7 +621,8 @@ async def batch_convert_pending_order_to_licenses(
             )
             if item_data.get("license_type") in (LicenseType.perpetual, LicenseType.oem, LicenseType.freeware):
                 created_parent_by_sourcing_item_id[batch_item.sourcing_item_id] = new_lic
-            new_license_entries.append((new_lic.id, "new_purchase"))
+            predecessor_ids.extend(item_predecessor_ids)
+            new_license_entries.append((new_lic.id, conversion_type))
             if sourcing_item.sourcing_request_id is not None:
                 quote_request_ids.append(sourcing_item.sourcing_request_id)
                 evidence_transfer_required = True
@@ -594,14 +631,15 @@ async def batch_convert_pending_order_to_licenses(
 
     for batch_item, item_data in pending_maintenance_items:
         sourcing_item = order_item_map[batch_item.sourcing_item_id]
-        new_lic = await create_purchase_license(
+        new_lic, conversion_type, item_predecessor_ids = await _create_prepared_conversion_license(
             db=db,
             item_data=item_data,
             created_by=current_user.id,
             created_parent_by_sourcing_item_id=created_parent_by_sourcing_item_id,
             item_id=batch_item.sourcing_item_id,
         )
-        new_license_entries.append((new_lic.id, "new_purchase"))
+        predecessor_ids.extend(item_predecessor_ids)
+        new_license_entries.append((new_lic.id, conversion_type))
         if sourcing_item.sourcing_request_id is not None:
             quote_request_ids.append(sourcing_item.sourcing_request_id)
             evidence_transfer_required = True
