@@ -172,6 +172,77 @@ def test_mapped_import_boolean_maintenance_flag_maps_to_included_coverage():
     assert row.warnings == []
 
 
+def test_native_and_mapped_row_assembly_preserve_equivalent_parsed_values():
+    csv_bytes = _csv(
+        [
+            "Publisher",
+            "Description",
+            "Start Date",
+            "End Date",
+            "Quantity",
+            "Unit Price",
+            "Application Owner",
+            "Technical Owner",
+            "Asset Owner",
+        ],
+        [
+            {
+                "Publisher": "  Acme  ",
+                "Description": " Widget ",
+                "Start Date": "01/02/2026",
+                "End Date": "31/01/2027",
+                "Quantity": "2",
+                "Unit Price": "1.234,50",
+                "Application Owner": "owner-one@example.com",
+                "Technical Owner": "owner-two@example.com",
+                "Asset Owner": " Alice ",
+            }
+        ],
+    )
+    native = parse_csv(
+        csv_bytes,
+        number_format_locale="nl-BE",
+        date_format="DD/MM/YYYY",
+        custom_field_header_map={"asset_owner": "cf_asset_owner"},
+    )
+    mapped, mapped_custom_rows = parse_mapped_csv(
+        csv_bytes,
+        {
+            "Publisher": "publisher_name",
+            "Description": "software_description",
+            "Start Date": "start_date",
+            "End Date": "end_date",
+            "Quantity": "quantity",
+            "Unit Price": "unit_price",
+            "Application Owner": "secondary_contacts",
+            "Technical Owner": "secondary_contacts",
+            "Asset Owner": "cf_asset_owner",
+        },
+        default_currency="EUR",
+        number_format_locale="nl-BE",
+        date_format="DD/MM/YYYY",
+    )
+
+    native_row = native.rows[0]
+    mapped_row = mapped.rows[0]
+    for field_name in (
+        "publisher_name",
+        "software_description",
+        "start_date",
+        "end_date",
+        "quantity",
+        "unit_price",
+        "secondary_contacts",
+        "db_start_date",
+        "db_end_date",
+        "validation_errors",
+        "warnings",
+        "import_status",
+    ):
+        assert getattr(native_row, field_name) == getattr(mapped_row, field_name)
+    assert native.custom_rows == mapped_custom_rows == [{"cf_asset_owner": "Alice"}]
+
+
 def test_item_fallback_does_not_override_explicit_software_description():
     csv_bytes = _csv(
         ["publisher_name", "Item", "software_description"],
