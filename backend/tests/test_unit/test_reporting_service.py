@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from app.models.license import LicenseMetric, LicenseType, MaintenanceCoverage
 from app.services.report_export_service import build_report_export_csv
 from app.services import reporting_service
+from app.services.license_service import compute_stats
 from app.services.reporting_service import ReportOptions, build_portfolio_stats, build_report_model
 
 
@@ -99,6 +100,18 @@ def test_non_recurring_portfolio_has_no_forecast_and_counts_perpetual_as_active(
     assert report.budget_forecast["forecastRows"] == []
     assert report.budget_forecast["singleCurrency"] is None
     assert stats.total_active == 1
+
+
+def test_license_stats_and_detailed_report_intentionally_treat_blank_recurring_values_differently():
+    blank = make_license(quantity="", unit_price="")
+
+    license_stats = compute_stats([blank], {}, {})
+    report = build_report_model([blank], ReportOptions())
+
+    assert license_stats["annual_cost_by_currency"] == {"EUR": 0.0}
+    assert license_stats["excluded_from_totals"] == 0
+    assert report.cost_overview["recurringAnnualCostByCurrency"] == {}
+    assert report.counts.unpriced == 1
 
 
 def test_reused_po_text_is_reconciled_by_durable_identity_and_keeps_signed_difference():
