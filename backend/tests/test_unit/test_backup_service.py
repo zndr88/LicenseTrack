@@ -36,8 +36,21 @@ from app.services.backup_service import (
 def _make_db(path) -> None:
     """Create a minimal database satisfying the restore compatibility contract."""
     conn = sqlite3.connect(str(path))
-    for table in ("users", "global_settings", "licenses", "audit_log"):
+    for table in ("users", "licenses", "audit_log"):
         conn.execute(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)")
+    conn.execute(
+        """CREATE TABLE user_settings (
+            id INTEGER PRIMARY KEY,
+            notification_days INTEGER NOT NULL DEFAULT 30,
+            manager_email VARCHAR(255) NOT NULL DEFAULT ''
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE global_settings (
+            id INTEGER PRIMARY KEY,
+            auth_method VARCHAR(20) NOT NULL DEFAULT 'mfa'
+        )"""
+    )
     conn.execute("CREATE TABLE alembic_version (version_num TEXT NOT NULL)")
     conn.execute(
         "INSERT INTO alembic_version (version_num) VALUES (?)",
@@ -492,8 +505,17 @@ def test_restore_backup_replaces_db(tmp_path, monkeypatch):
     # The mutation must be gone (restored content predates it).
     conn = sqlite3.connect(str(db_path))
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    user_settings_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(user_settings)")
+    }
+    global_settings_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(global_settings)")
+    }
     conn.close()
     assert "test_marker" not in tables
+    assert "notification_days" not in user_settings_columns
+    assert "manager_email" not in user_settings_columns
+    assert "auth_method" not in global_settings_columns
 
 
 def test_restore_migration_failure_leaves_live_database_untouched(tmp_path, monkeypatch):
