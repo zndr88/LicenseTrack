@@ -208,8 +208,8 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
                 <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-end`}>End Date</label><input id={`sourcing-request-item-${item.id}-end`} type="date" className="fi" {...register(`items.${index}.endDate`)} /></div>
               </div>
               <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-notes`}>Line Notes</label><textarea id={`sourcing-request-item-${item.id}-notes`} className="fi" rows={2} {...register(`items.${index}.notes`)} /></div>
-              <fieldset className="fs">
-                <legend>License record details</legend>
+              <div className="fs">
+                <h4>License record details</h4>
                 <div className="fr">
                   <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-metric`}>License Metric</label><select id={`sourcing-request-item-${item.id}-metric`} className="fi fi-select" {...register(`items.${index}.licenseMetric`)}>{LICENSE_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
                   <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-quantity-per-unit`}>Quantity per Unit</label><input id={`sourcing-request-item-${item.id}-quantity-per-unit`} className="fi" inputMode="decimal" {...register(`items.${index}.quantityPerUnit`)} /></div>
@@ -230,14 +230,14 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
                   <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-budget`}>Budget Owner Email</label><input id={`sourcing-request-item-${item.id}-budget`} className="fi" {...register(`items.${index}.budgetOwnerEmail`)} /></div>
                 </div>
                 <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-secondary`}>Secondary Contacts</label><input id={`sourcing-request-item-${item.id}-secondary`} className="fi" {...register(`items.${index}.secondaryContacts`)} /></div>
-              </fieldset>
-              <CustomFieldFormFields
-                definitions={customFieldDefs}
-                values={watchedItem.customFieldValues || {}}
-                onChange={(values) => setValue(`items.${index}.customFieldValues`, values, { shouldDirty: true })}
-                idPrefix={`sourcing-request-item-${item.id}`}
-                loading={customFieldsLoading}
-              />
+                <CustomFieldFormFields
+                  definitions={customFieldDefs}
+                  values={watchedItem.customFieldValues || {}}
+                  onChange={(values) => setValue(`items.${index}.customFieldValues`, values, { shouldDirty: true })}
+                  idPrefix={`sourcing-request-item-${item.id}`}
+                  loading={customFieldsLoading}
+                />
+              </div>
             </fieldset>
           );
         })}

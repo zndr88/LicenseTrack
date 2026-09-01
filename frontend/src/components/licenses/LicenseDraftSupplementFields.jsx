@@ -34,8 +34,8 @@ export default function LicenseDraftSupplementFields({
   });
   return (
     <>
-      <fieldset className="fs">
-        <legend>License record details</legend>
+      <div className="fs">
+        <h4>License record details</h4>
         <div className="fr">
           <div className="fg"><label htmlFor={`${idPrefix}-type`}>License Type</label><select id={`${idPrefix}-type`} className="fi fi-select" {...field("licenseType")}><option value="">Not specified</option>{LICENSE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
           <div className="fg"><label htmlFor={`${idPrefix}-metric`}>License Metric</label><select id={`${idPrefix}-metric`} className="fi fi-select" {...field("licenseMetric")}>{LICENSE_METRICS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
@@ -62,14 +62,14 @@ export default function LicenseDraftSupplementFields({
         </div>
         <div className="fg"><label htmlFor={`${idPrefix}-secondary`}>Secondary Contacts</label><input id={`${idPrefix}-secondary`} className="fi" placeholder="Separate email addresses with commas" {...field("secondaryContacts")} /></div>
         <div className="fg"><label htmlFor={`${idPrefix}-notes`}>Line Notes</label><textarea id={`${idPrefix}-notes`} className="fi" rows={2} {...field("notes")} /></div>
-      </fieldset>
-      <CustomFieldFormFields
-        definitions={customFieldDefs}
-        values={item.customFieldValues || {}}
-        onChange={(values) => onChange("customFieldValues", values)}
-        idPrefix={idPrefix}
-        loading={customFieldsLoading}
-      />
+        <CustomFieldFormFields
+          definitions={customFieldDefs}
+          values={item.customFieldValues || {}}
+          onChange={(values) => onChange("customFieldValues", values)}
+          idPrefix={idPrefix}
+          loading={customFieldsLoading}
+        />
+      </div>
     </>
   );
 }

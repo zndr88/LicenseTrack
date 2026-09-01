@@ -1,5 +1,3 @@
-import { getCustomFieldSectionLabel } from "../../utils/customFieldPresentation.js";
-
 function CustomFieldInput({ definition, value, onChange, idPrefix }) {
   const id = `${idPrefix}-custom-${definition.id}`;
   if (definition.fieldType === "boolean") {
@@ -29,32 +27,27 @@ export default function CustomFieldFormFields({
   onChange,
   idPrefix,
   loading = false,
+  section,
 }) {
   if (loading) return <p className="set-muted-text">Loading custom fields...</p>;
-  if (!definitions.length) return null;
+  const fields = section === undefined
+    ? definitions
+    : definitions.filter((definition) => (definition.section || "__catchall__") === section);
+  if (!fields.length) return null;
 
-  const grouped = definitions.reduce((groups, definition) => {
-    const section = definition.section || "__catchall__";
-    groups[section] = [...(groups[section] || []), definition];
-    return groups;
-  }, {});
-
-  return Object.entries(grouped).map(([section, fields]) => (
-    <fieldset className="fs" key={section}>
-      <legend>{getCustomFieldSectionLabel(section)}</legend>
-      <div className="fr">
-        {fields.map((definition) => (
-          <div className="fg" key={definition.id}>
-            <label htmlFor={`${idPrefix}-custom-${definition.id}`}>{definition.name}</label>
-            <CustomFieldInput
-              definition={definition}
-              value={values[definition.id]}
-              onChange={(value) => onChange({ ...values, [definition.id]: value })}
-              idPrefix={idPrefix}
-            />
-          </div>
-        ))}
-      </div>
-    </fieldset>
-  ));
+  return (
+    <div className="fr">
+      {fields.map((definition) => (
+        <div className="fg" key={definition.id}>
+          <label htmlFor={`${idPrefix}-custom-${definition.id}`}>{definition.name}</label>
+          <CustomFieldInput
+            definition={definition}
+            value={values[definition.id]}
+            onChange={(value) => onChange({ ...values, [definition.id]: value })}
+            idPrefix={idPrefix}
+          />
+        </div>
+      ))}
+    </div>
+  );
 }

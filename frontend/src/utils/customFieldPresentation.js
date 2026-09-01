@@ -4,11 +4,11 @@ const CUSTOM_FIELD_PREFIX = "cf_";
 
 const SECTION_LABELS = {
   identity: "Identity",
-  dates: "Dates & Contract",
+  dates: "Key Dates & Contract",
   commercial: "Details",
-  people: "People & Org",
+  people: "Relationships",
   documents: "Documents",
-  maintenance: "Maintenance",
+  maintenance: "Maintenance / Support",
   notes: "Notes",
   __catchall__: "Custom Fields",
 };

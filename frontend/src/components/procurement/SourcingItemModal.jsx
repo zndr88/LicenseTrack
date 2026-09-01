@@ -743,8 +743,8 @@ const SourcingItemModal = ({
             <label htmlFor="si-notes">Notes</label>
             <textarea id="si-notes" className="fi" rows={3} placeholder="Procurement notes" style={{ resize: "vertical" }} {...register("notes")} />
           </div>
-          <fieldset className="fs">
-            <legend>License record details</legend>
+          <div className="fs">
+            <h4>License record details</h4>
             <div className="fr">
               <div className="fg"><label htmlFor="si-license-metric">License Metric</label><select id="si-license-metric" className="fi fi-select" {...register("licenseMetric")}>{LICENSE_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
               <div className="fg"><label htmlFor="si-quantity-per-unit">Quantity per Unit</label><input id="si-quantity-per-unit" className="fi" inputMode="decimal" {...register("quantityPerUnit")} /></div>
@@ -765,14 +765,14 @@ const SourcingItemModal = ({
               <div className="fg"><label htmlFor="si-budget-owner">Budget Owner Email</label><input id="si-budget-owner" className="fi" {...register("budgetOwnerEmail")} /></div>
             </div>
             <div className="fg"><label htmlFor="si-secondary-contacts">Secondary Contacts</label><input id="si-secondary-contacts" className="fi" placeholder="Separate email addresses with commas" {...register("secondaryContacts")} /></div>
-          </fieldset>
-          <CustomFieldFormFields
-            definitions={customFieldDefs}
-            values={currentFields.customFieldValues || {}}
-            onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })}
-            idPrefix="si"
-            loading={customFieldsLoading}
-          />
+            <CustomFieldFormFields
+              definitions={customFieldDefs}
+              values={currentFields.customFieldValues || {}}
+              onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })}
+              idPrefix="si"
+              loading={customFieldsLoading}
+            />
+          </div>
 
           {/* Additional lines (new-request mode only) */}
           {additionalLines.map((line, idx) => (
@@ -924,8 +924,8 @@ const SourcingItemModal = ({
                   </div>
                 </>
               )}
-              <fieldset className="fs">
-                <legend>License record details</legend>
+              <div className="fs">
+                <h4>License record details</h4>
                 <div className="fr">
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-metric`}>License Metric</label><select id={`sourcing-line-${line.id}-metric`} className="fi fi-select" value={line.licenseMetric} onChange={(event) => updateAdditionalLine(line.id, "licenseMetric", event.target.value)}>{LICENSE_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-quantity-per-unit`}>Quantity per Unit</label><input id={`sourcing-line-${line.id}-quantity-per-unit`} className="fi" inputMode="decimal" value={line.quantityPerUnit} onChange={(event) => updateAdditionalLine(line.id, "quantityPerUnit", event.target.value)} /></div>
@@ -946,14 +946,14 @@ const SourcingItemModal = ({
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-budget-owner`}>Budget Owner Email</label><input id={`sourcing-line-${line.id}-budget-owner`} className="fi" value={line.budgetOwnerEmail} onChange={(event) => updateAdditionalLine(line.id, "budgetOwnerEmail", event.target.value)} /></div>
                 </div>
                 <div className="fg"><label htmlFor={`sourcing-line-${line.id}-secondary`}>Secondary Contacts</label><input id={`sourcing-line-${line.id}-secondary`} className="fi" value={line.secondaryContacts} onChange={(event) => updateAdditionalLine(line.id, "secondaryContacts", event.target.value)} /></div>
-              </fieldset>
-              <CustomFieldFormFields
-                definitions={customFieldDefs}
-                values={line.customFieldValues || {}}
-                onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)}
-                idPrefix={`sourcing-line-${line.id}`}
-                loading={customFieldsLoading}
-              />
+                <CustomFieldFormFields
+                  definitions={customFieldDefs}
+                  values={line.customFieldValues || {}}
+                  onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)}
+                  idPrefix={`sourcing-line-${line.id}`}
+                  loading={customFieldsLoading}
+                />
+              </div>
             </div>
           ))}
 
