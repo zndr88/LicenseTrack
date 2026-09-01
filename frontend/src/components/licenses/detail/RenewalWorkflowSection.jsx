@@ -30,6 +30,9 @@ export default function RenewalWorkflowSection({
   const [unlinkingSuccessor, setUnlinkingSuccessor] = useState(false);
   const canStartRenewal = !NON_RENEWABLE_LICENSE_TYPES.includes(license.licenseType);
   const canLinkExistingSuccessor = Boolean(license.poNumber?.trim());
+  const successor = license.renewedToId
+    ? allLicenses.find((candidate) => candidate.id === license.renewedToId)
+    : null;
 
   const confirmUnlinkExistingSuccessor = () => {
     setConfirmAction({
@@ -64,7 +67,7 @@ export default function RenewalWorkflowSection({
             {license.budgetOwnerEmail
               ? bundleCount > 1
                 ? `${bundleCount} licenses share PO ${license.poNumber} and the same end date. One sourcing request with ${bundleCount} license lines will be created.`
-                : `Initiating renewal will create a sourcing record routed through procurement. This license will be retired once the renewal is complete and a successor license will be created with the new dates.`
+                : `Initiating renewal will create a sourcing record routed through procurement. Once a successor is created, this license remains current until its own end date.`
               : "Set a budget owner email above to start procurement, or link the next term if it was already purchased under this PO."}
           </div>
           {perms.canEdit && (
@@ -107,14 +110,29 @@ export default function RenewalWorkflowSection({
         </div>
       )}
 
-      {/* Draft already created */}
-      {(exp.status === "expiring" || exp.status === "active") && license.renewedToId && (
+      {/* Successor secured while the predecessor still owns current coverage. */}
+      {["active", "expiring", "expired"].includes(exp.status) && license.renewedToId && (
         <div className="dp-purple-box" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div className="dp-purple-title">Renewal Draft Created</div>
-            <div className="dp-toggle-desc">Notification sent to budget owner. Draft awaiting procurement.</div>
+            <div className="dp-purple-title">Successor Linked</div>
+            <div className="dp-toggle-desc">
+              {exp.status === "expired"
+                ? `This term has ended. The successor${successor?.startDate ? ` starts ${formatDate(successor.startDate, userSettings)}` : " is not active yet"}.`
+                : ["active", "expiring", "perpetual"].includes(successor?.expirationStatus)
+                  ? `This license remains ${exp.status} until its own end date. The successor is already active, so coverage overlaps until then.`
+                : successor?.startDate
+                  ? `This license remains ${exp.status} until its own end date. The successor starts ${formatDate(successor.startDate, userSettings)}.`
+                  : `This license remains ${exp.status} until its own end date.`}
+            </div>
           </div>
-          <button className="btn btn-g btn-sm" onClick={() => onNavigate(license.renewedToId)}>View Draft →</button>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button className="btn btn-g btn-sm" onClick={() => onNavigate(license.renewedToId)}>View Successor →</button>
+            {perms.canEdit && license.existingSuccessorLinkedAt && (
+              <button className="btn btn-g btn-sm" disabled={unlinkingSuccessor} onClick={confirmUnlinkExistingSuccessor}>
+                {unlinkingSuccessor ? "Unlinking..." : "Unlink"}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -159,7 +177,7 @@ export default function RenewalWorkflowSection({
           <div className="dp-purple-box">
             <div className="dp-purple-title">Renewal in Progress</div>
             <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2, lineHeight: 1.5 }}>
-              Sourcing record created — renewal is being processed through the procurement pipeline. This license will be retired once the renewal is complete and a successor license will be created with the new dates.
+              Sourcing record created — renewal is being processed through the procurement pipeline. When the successor is created, this license remains current until its own end date.
             </div>
             <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
               {linkedPo && (

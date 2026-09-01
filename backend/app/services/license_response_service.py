@@ -138,7 +138,13 @@ def enrich_license_response(
     available_docs, document_counts = inspect_document_availability(documents, storage_base)
     response.completeness_pct = compute_completeness(license_obj, available_docs, mandatory_fields)
     response.days_until_expiry = compute_days_until_expiry(license_obj, today)
-    response.expiration_status = compute_expiration_status(license_obj, today, notification_days)
+    successor = license_obj.__dict__.get("renewed_to")
+    response.expiration_status = compute_expiration_status(
+        license_obj,
+        today,
+        notification_days,
+        successor_start_date=successor.start_date if successor is not None else None,
+    )
     response.document_count = document_counts["total"]
     response.available_document_count = document_counts["available"]
     response.missing_document_count = document_counts["missing"]
@@ -167,6 +173,7 @@ async def load_enriched_license_responses(
             selectinload(License.creator),
             selectinload(License.maintenance_parent_links),
             selectinload(License.maintenance_child_links),
+            selectinload(License.renewed_to),
         )
     )
     if populate_existing:

@@ -661,7 +661,13 @@ operation uses the ordinary `renewed_to_id`, `renewed_from_id`, and
 `predecessor_id` chain, preserves the successor's former LT reference in
 `license_ref_aliases`, and stores link provenance on the predecessor so the
 History procurement trail can explain the missing sourcing stages and the
-link can be safely undone.
+link can be safely undone. The chain edge resolves renewal workflow immediately
+but does not replace coverage state: a predecessor remains Active or Expiring
+through its own end date, remains Expired during any gap before the successor
+starts, and is presented as Renewed only after its term has ended and successor
+coverage has begun. Renewal actions, alerts, and workbench rows are suppressed
+as soon as the successor is secured. Current-cost reporting continues to include
+the predecessor while its coverage remains current.
 
 The renewal graph permits an intermediate license to have both incoming and
 outgoing renewal links, but each predecessor may have at most one immediate

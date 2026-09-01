@@ -138,10 +138,10 @@ export const getExpirationStatus = (
   renewedToId,
   startDate = null,
   licenseType = null,
+  successorStartDate = null,
 ) => {
   if (retired) return { status: "retired", days: null, label: "Retired" };
   if (lifecycleStatus === "legacy") return { status: "legacy", days: null, label: "Legacy" };
-  if (lifecycleStatus === "renewed") return { status: "renewed", days: null, label: "Renewed" };
   if (lifecycleStatus === "pending_renewal") return { status: "pending_renewal", days: null, label: "Pending Renewal" };
   if (startDate) {
     const daysUntilStart = daysBetween(todayStr(), startDate);
@@ -156,7 +156,9 @@ export const getExpirationStatus = (
   const days = daysBetween(todayStr(), endDate);
   // End date passed - either renewed (successor exists) or expired (no successor)
   if (days < 0) {
-    if (renewedToId) return { status: "renewed", days: Math.abs(days), label: "Renewed" };
+    const successorHasStarted = !successorStartDate || daysBetween(todayStr(), successorStartDate) <= 0;
+    if (renewedToId && successorHasStarted) return { status: "renewed", days: Math.abs(days), label: "Renewed" };
+    if (!renewedToId && lifecycleStatus === "renewed") return { status: "renewed", days: Math.abs(days), label: "Renewed" };
     return { status: "expired", days: Math.abs(days), label: `Expired ${Math.abs(days)}d ago` };
   }
   if (days <= notificationDays) return { status: "expiring", days, label: `Expires in ${days}d` };

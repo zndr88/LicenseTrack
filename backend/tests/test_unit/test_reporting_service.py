@@ -114,6 +114,31 @@ def test_license_stats_and_detailed_report_intentionally_treat_blank_recurring_v
     assert report.counts.unpriced == 1
 
 
+def test_linked_predecessor_remains_in_current_reporting_until_its_term_ends():
+    today = date.today()
+    predecessor = make_license(
+        id=1,
+        lifecycle_status="renewed",
+        renewed_to_id=2,
+        end_date=today + timedelta(days=10),
+        quantity="2",
+        unit_price="50",
+    )
+    successor = make_license(
+        id=2,
+        start_date=today + timedelta(days=11),
+        end_date=today + timedelta(days=376),
+        quantity="1",
+        unit_price="999",
+    )
+
+    report = build_report_model([predecessor, successor], ReportOptions())
+
+    assert report.counts.expiring == 1
+    assert report.counts.upcoming == 1
+    assert report.budget_forecast["baselineByCurrency"] == {"EUR": "100"}
+
+
 def test_reused_po_text_is_reconciled_by_durable_identity_and_keeps_signed_difference():
     first = make_license(id=1, pending_order_id=10, quantity="1", unit_price="100", po_total_override="50")
     second = make_license(id=2, pending_order_id=20, quantity="1", unit_price="200")

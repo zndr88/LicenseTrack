@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from app.models.license import License
 
 log = logging.getLogger(__name__)
+_SUCCESSOR_START_UNKNOWN = object()
 
 
 def validate_term_date_order(start_date: date | None, end_date: date | None) -> None:
@@ -212,15 +213,17 @@ def compute_expiration_status(
     license: "License",
     today: date,
     notification_days: int = 30,
+    *,
+    successor_start_date: date | None | object = _SUCCESSOR_START_UNKNOWN,
 ) -> str:
     """
     Priority order:
     1. retired   - is_retired flag
     2. legacy    - lifecycle_status == "legacy"
-    3. renewed   - lifecycle_status == "renewed"
-    4. pending_renewal - lifecycle_status == "pending_renewal"
-    5. upcoming  - start_date is in the future
-    6. perpetual - a non-expiring license type with no end_date
+    3. pending_renewal - lifecycle_status == "pending_renewal"
+    4. upcoming  - start_date is in the future
+    5. perpetual - a non-expiring license type with no end_date
+    6. renewed   - own term ended and linked successor coverage has started
     7. expired   - end_date in the past
     8. expiring  - end_date within notification_days
     9. active    - everything else
@@ -229,8 +232,6 @@ def compute_expiration_status(
         return "retired"
     if license.lifecycle_status == "legacy":
         return "legacy"
-    if license.lifecycle_status == "renewed":
-        return "renewed"
     if license.lifecycle_status == "pending_renewal":
         return "pending_renewal"
     if license.start_date is not None and license.start_date > today:
@@ -238,6 +239,18 @@ def compute_expiration_status(
     if license.end_date is None:
         return "perpetual" if license.license_type in _NON_EXPIRING_LICENSE_TYPES else "active"
     if license.end_date < today:
+        if license.renewed_to_id is not None:
+            if successor_start_date is _SUCCESSOR_START_UNKNOWN:
+                # Preserve compatibility for isolated callers that do not have
+                # the successor row. Portfolio/read-model callers pass the
+                # authoritative start date so a coverage gap remains Expired.
+                return "renewed"
+            if successor_start_date is not None and successor_start_date <= today:
+                return "renewed"
+        elif license.lifecycle_status == "renewed":
+            # Lifecycle repair may intentionally mark a historical row without
+            # reconstructing a missing chain edge.
+            return "renewed"
         return "expired"
     if license.end_date <= today + timedelta(days=notification_days):
         return "expiring"
@@ -322,10 +335,17 @@ def compute_stats(
     status_counts: Counter[str] = Counter()
     annual_cost_by_currency: dict[str, Decimal] = {}
     excluded_from_totals = 0
+    licenses_by_id = {lic.id: lic for lic in licenses}
 
     for lic in licenses:
         docs = documents_by_license_id.get(lic.id, [])
-        status = compute_expiration_status(lic, today, notification_days)
+        successor = licenses_by_id.get(lic.renewed_to_id) or lic.__dict__.get("renewed_to")
+        status = compute_expiration_status(
+            lic,
+            today,
+            notification_days,
+            successor_start_date=successor.start_date if successor is not None else None,
+        )
         completeness = compute_completeness(lic, docs, mandatory_fields)
 
         status_counts[status] += 1
@@ -344,7 +364,7 @@ def compute_stats(
         # maintenance, that maintenance is a separate License record
         # (license_type="maintenance") which contributes on its own below.
         # Freeware contributes zero.
-        if status in ("active", "perpetual", "expiring") and lic.renewed_to_id is None:
+        if status in ("active", "perpetual", "expiring"):
             if lic.license_type in _RECURRING_LICENSE_TYPES:
                 annual_cost = calc_recurring_annual_cost(lic)
                 if annual_cost is not None:

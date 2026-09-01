@@ -174,3 +174,34 @@ describe("getExpirationStatus without an end date", () => {
     });
   });
 });
+
+describe("getExpirationStatus with a linked successor", () => {
+  test("keeps the predecessor expiring until its own end date", () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    expect(getExpirationStatus(
+      tomorrow.toISOString().slice(0, 10),
+      30,
+      false,
+      "renewed",
+      2,
+    ).status).toBe("expiring");
+  });
+
+  test("keeps a coverage gap expired until the successor starts", () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    expect(getExpirationStatus(
+      yesterday.toISOString().slice(0, 10),
+      30,
+      false,
+      "renewed",
+      2,
+      null,
+      "subscription",
+      tomorrow.toISOString().slice(0, 10),
+    ).status).toBe("expired");
+  });
+});

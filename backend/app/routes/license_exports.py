@@ -39,7 +39,10 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
     storage_base = await get_document_storage_base(db)
 
     departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
-    query = select(License).where(License.is_retired.is_(False)).options(selectinload(License.documents))
+    query = select(License).where(License.is_retired.is_(False)).options(
+        selectinload(License.documents),
+        selectinload(License.renewed_to),
+    )
     query = apply_department_filter(query, departments)
     result = await db.execute(query)
     licenses = list(result.scalars().all())
@@ -137,7 +140,12 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
                     lic.budget_owner_email,
                     lic.lifecycle_status or "",
                     compute_completeness(lic, docs, mandatory_fields),
-                    compute_expiration_status(lic, today, notification_days),
+                    compute_expiration_status(
+                        lic,
+                        today,
+                        notification_days,
+                        successor_start_date=lic.renewed_to.start_date if lic.renewed_to else None,
+                    ),
                     compute_days_until_expiry(lic, today) if lic.end_date else "",
                     lic.notes or "",
                 ]

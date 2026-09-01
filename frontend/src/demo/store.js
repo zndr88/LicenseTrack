@@ -138,9 +138,14 @@ export function nextId() {
 export function decorateLicense(license) {
   withDefaultMaintenanceCoverage(license);
   license.daysUntilExpiry = daysUntil(license.endDate);
+  const successor = license.renewedToId == null
+    ? null
+    : store.licenses.find((candidate) => candidate.id === license.renewedToId);
   license.expirationStatus = computeExpirationStatus({
     isRetired: license.isRetired,
     lifecycleStatus: license.lifecycleStatus,
+    renewedToId: license.renewedToId,
+    successorStartDate: successor?.startDate ?? null,
     startDate: license.startDate,
     endDate: license.endDate,
   });
@@ -192,7 +197,7 @@ export function computeStats() {
       totalIncomplete++;
     }
 
-    if (["active", "perpetual", "expiring"].includes(status) && lic.renewedToId == null) {
+    if (["active", "perpetual", "expiring"].includes(status)) {
       if (["subscription", "saas", "maintenance"].includes(lic.licenseType)) {
         const qty = Number(lic.quantity) || 0;
         const price = Number(lic.unitPrice) || 0;

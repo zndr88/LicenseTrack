@@ -93,7 +93,10 @@ async def get_stats(db: DbSession, _current_user: CurrentUser) -> dict:
     notification_days = await get_notification_days(db)
 
     departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
-    query = select(License).options(selectinload(License.documents))
+    query = select(License).options(
+        selectinload(License.documents),
+        selectinload(License.renewed_to),
+    )
     query = apply_department_filter(query, departments)
     result = await db.execute(query)
     all_licenses = list(result.scalars().all())
@@ -129,6 +132,7 @@ async def list_licenses(
         selectinload(License.creator),
         selectinload(License.maintenance_parent_links),
         selectinload(License.maintenance_child_links),
+        selectinload(License.renewed_to),
     )
     if not include_retired:
         query = query.where(License.is_retired.is_(False))
@@ -197,6 +201,7 @@ async def get_license(license_id: int, db: DbSession, _current_user: CurrentUser
             selectinload(License.creator),
             selectinload(License.maintenance_parent_links),
             selectinload(License.maintenance_child_links),
+            selectinload(License.renewed_to),
         )
     )
     license_obj = result.scalar_one_or_none()

@@ -96,6 +96,9 @@ export function useLicenseData(licenses, {
       else label = l.expirationStatus;
       expiration = { status: l.expirationStatus, days, label };
     } else {
+      const successor = l.renewedToId
+        ? licenses.find((candidate) => candidate.id === l.renewedToId)
+        : null;
       expiration = getExpirationStatus(
         l.endDate,
         globalSettings.notificationDays,
@@ -104,6 +107,7 @@ export function useLicenseData(licenses, {
         l.renewedToId,
         l.startDate,
         l.licenseType,
+        successor?.startDate ?? null,
       );
     }
 
@@ -323,8 +327,8 @@ export function useLicenseData(licenses, {
 
     // Client-side fallback: group cost by currency
     const costByCurrency = {};
-    for (const l of licenses) {
-      if (l.retired || l.lifecycleStatus === "pending_renewal" || l.lifecycleStatus === "legacy" || l.renewedToId) continue;
+    for (const l of enriched) {
+      if (!["active", "perpetual", "expiring"].includes(l.expiration.status)) continue;
       const cost = (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0);
       if (cost > 0) {
         const cur = l.currency || "USD";
