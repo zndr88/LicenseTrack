@@ -257,6 +257,7 @@ async def add_security_headers(request: Request, call_next):
         "img-src 'self' data:; "
         "font-src 'self' data:; "
         "connect-src 'self'; "
+        "frame-src 'self' blob:; "
         "frame-ancestors 'none';"
     )
     return response
