@@ -115,8 +115,12 @@ def build_renewal_sourcing_item(
         publisher_name=license_obj.publisher_name,
         software_description=license_obj.software_description,
         license_type=license_type,
+        license_metric=license_obj.license_metric,
+        portal_url=license_obj.portal_url,
         maintenance_coverage=MaintenanceCoverage(maintenance_coverage),
         quantity=license_obj.quantity or None,
+        quantity_per_unit=license_obj.quantity_per_unit or "1",
+        sku_code=license_obj.sku_code or None,
         estimated_unit_price=license_obj.unit_price or None,
         # Seed with this license's own line total (qty × unit price), not the
         # stored total_po_price: that column is a deprecated whole-PO aggregate.
@@ -128,6 +132,13 @@ def build_renewal_sourcing_item(
         currency=license_obj.currency,
         supplier=license_obj.supplier or None,
         contact_email=license_obj.contact_email or None,
+        cost_centre=license_obj.cost_centre or None,
+        budget_owner_email=license_obj.budget_owner_email or None,
+        secondary_contacts=list(license_obj.secondary_contacts or []),
+        contract_number=license_obj.contract_number or None,
+        # New-term procurement identifiers intentionally start blank.
+        invoice_number=None,
+        external_ref=None,
         start_date=start_date,
         end_date=end_date,
         status=SourcingStatus.sourcing,
@@ -171,10 +182,11 @@ def build_pending_order_item_license_data(
         getattr(old_license, "software_description", None),
     )
     apply_fallback("license_type", item.license_type, getattr(old_license, "license_type", None))
-    apply_fallback("license_metric", getattr(old_license, "license_metric", None))
-    apply_fallback("portal_url", getattr(old_license, "portal_url", None))
+    apply_fallback("license_metric", item.license_metric, getattr(old_license, "license_metric", None))
+    apply_fallback("portal_url", item.portal_url, getattr(old_license, "portal_url", None))
     apply_fallback("quantity", item.quantity, getattr(old_license, "quantity", None))
-    apply_fallback("quantity_per_unit", getattr(old_license, "quantity_per_unit", None))
+    apply_fallback("quantity_per_unit", item.quantity_per_unit, getattr(old_license, "quantity_per_unit", None))
+    apply_fallback("sku_code", item.sku_code, getattr(old_license, "sku_code", None))
     apply_fallback("unit_price", item.estimated_unit_price, getattr(old_license, "unit_price", None))
     apply_fallback(
         "total_po_price",
@@ -191,16 +203,20 @@ def build_pending_order_item_license_data(
         getattr(old_license, "supplier", None),
     )
     apply_fallback("contact_email", item.contact_email)
-    apply_fallback("contract_number", getattr(old_license, "contract_number", None))
+    apply_fallback("notice_date", item.notice_date)
+    apply_fallback("purchase_date", item.purchase_date)
+    apply_fallback("contract_number", item.contract_number, getattr(old_license, "contract_number", None))
     apply_fallback("po_number", order_po_number)
     apply_fallback(
         "procurement_reference",
         order_procurement_reference,
         getattr(old_license, "procurement_reference", None),
     )
-    apply_fallback("sku_code", getattr(old_license, "sku_code", None))
-    apply_fallback("cost_centre", getattr(old_license, "cost_centre", None))
-    apply_fallback("budget_owner_email", getattr(old_license, "budget_owner_email", None))
+    apply_fallback("invoice_number", item.invoice_number)
+    apply_fallback("external_ref", item.external_ref)
+    apply_fallback("cost_centre", item.cost_centre, getattr(old_license, "cost_centre", None))
+    apply_fallback("budget_owner_email", item.budget_owner_email, getattr(old_license, "budget_owner_email", None))
+    apply_fallback("secondary_contacts", item.secondary_contacts, getattr(old_license, "secondary_contacts", None))
     apply_fallback("parent_sourcing_item_id", item.parent_sourcing_item_id)
     apply_fallback("maintenance_coverage", item.maintenance_coverage, getattr(old_license, "maintenance_coverage", None))
     apply_fallback(

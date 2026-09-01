@@ -11,7 +11,7 @@ from app.models.license import (
     MaintenanceCoverage,
     MaintenancePricingBasis,
 )
-from app.schemas.custom_fields import CustomFieldValueResponse
+from app.schemas.custom_fields import CustomFieldValueItem, CustomFieldValueResponse
 from app.services.email_validation import reject_email_crlf
 from app.services.money import is_canonical_money
 
@@ -157,6 +157,7 @@ class LicenseBase(BaseModel):
 
 class LicenseCreate(LicenseBase):
     maintenance_parent_ids: list[int] = Field(default_factory=list)
+    custom_field_values: list[CustomFieldValueItem] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _validate_term_dates(self) -> "LicenseCreate":
@@ -247,6 +248,7 @@ class LicenseUpdate(BaseModel):
     renewed_to_id: Optional[int] = None
     predecessor_id: Optional[int] = None
     coterm_from_ids: Optional[list[int]] = None
+    custom_field_values: Optional[list[CustomFieldValueItem]] = None
 
     @field_validator("start_date", "end_date", "notice_date", mode="before")
     @classmethod

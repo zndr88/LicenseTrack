@@ -20,6 +20,10 @@ import MaintenanceCoverageFields, {
 } from "./MaintenanceCoverageFields.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
+import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
+import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
+import { FULL_LICENSE_FORM_VISIBILITY } from "../../utils/licenseFormVisibility.js";
 
 const APPLYABLE_PLUGIN_FIELDS = new Set([
   "publisherName",
@@ -71,7 +75,8 @@ const ConvertPendingOrderModal = ({
 }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const isRenewal = order?.items?.some((item) => item.isRenewal);
-  const vis = userSettings.visibleInDetail;
+  const vis = FULL_LICENSE_FORM_VISIBILITY;
+  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
 
   const [saving, setSaving] = useState(false);
   const [invoiceFile, setInvoiceFile] = useState(null);
@@ -98,12 +103,14 @@ const ConvertPendingOrderModal = ({
       softwareDescription: prefill.softwareDescription || "",
       startDate:           prefill.startDate           || "",
       endDate:             prefill.endDate             || "",
+      noticeDate:          prefill.noticeDate          || "",
       purchaseDate:        prefill.purchaseDate        || "",
       isPerpetual:         prefill.licenseType === "perpetual",
       contractNumber:      prefill.contractNumber      || "",
       poNumber:            prefill.poNumber            || "",
       procurementReference: prefill.procurementReference || "",
       invoiceNumber:       prefill.invoiceNumber       || "",
+      externalRef:         prefill.externalRef         || "",
       contactEmail:        prefill.contactEmail        || "",
       supplier:            prefill.supplier            || "",
       costCentre:          prefill.costCentre          || "",
@@ -126,7 +133,9 @@ const ConvertPendingOrderModal = ({
       totalPoPrice:        prefill.totalPoPrice        || "",
       currency:            prefill.currency            || "EUR",
       budgetOwnerEmail:    prefill.budgetOwnerEmail    || "",
+      secondaryContacts:   (prefill.secondaryContacts || []).join(", "),
       notes:               prefill.notes               || "",
+      customFieldValues:   customFieldValueMap(prefill.customFieldValues),
     },
   });
 
@@ -151,6 +160,7 @@ const ConvertPendingOrderModal = ({
   const publisherVal = watch("publisherName");
   const softwareVal  = watch("softwareDescription");
   const conversionDraftFields = watch();
+  const customFieldValues = watch("customFieldValues") || {};
 
   // Auto-compute totalPoPrice from quantity x unitPrice when not manually edited.
   useEffect(() => {
@@ -215,7 +225,14 @@ const ConvertPendingOrderModal = ({
   const onSubmit = useCallback(async (data) => {
     setSaving(true);
     try {
-      const licenseData = buildPendingOrderConversionPayload(data, userSettings);
+      const licenseData = buildPendingOrderConversionPayload({
+        ...data,
+        customFieldValuesPayload: buildCustomFieldValuePayload(
+          customFieldDefs,
+          data.customFieldValues,
+          userSettings,
+        ),
+      }, userSettings);
       const confirmed = await onConfirm(licenseData, invoiceFile);
       if (confirmed) {
         reset();
@@ -224,7 +241,7 @@ const ConvertPendingOrderModal = ({
     } finally {
       setSaving(false);
     }
-  }, [onConfirm, reset, invoiceFile, userSettings]);
+  }, [onConfirm, reset, invoiceFile, userSettings, customFieldDefs]);
 
   return (
     <>
@@ -333,6 +350,10 @@ const ConvertPendingOrderModal = ({
                 />
               </div>
             </div>
+          </div>
+          <div className="fr">
+            <div className="fg"><label htmlFor="cpo-notice-date">Notice Date</label><input id="cpo-notice-date" type="date" className="fi" {...register("noticeDate")} /></div>
+            <div className="fg"><label htmlFor="cpo-external-ref">External Reference</label><input id="cpo-external-ref" className="fi" {...register("externalRef")} /></div>
           </div>
           <div className="fg">
             <label htmlFor="cpo-purchase-date">Purchase Date</label>
@@ -527,12 +548,23 @@ const ConvertPendingOrderModal = ({
             <input id="cpo-budget-owner" className="fi" placeholder="owner@example.com" {...register("budgetOwnerEmail")} />
             {errors.budgetOwnerEmail && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.budgetOwnerEmail.message}</span>}
           </div>
+          <div className="fg">
+            <label htmlFor="cpo-secondary-contacts">Secondary Contacts</label>
+            <input id="cpo-secondary-contacts" className="fi" placeholder="Separate email addresses with commas" {...register("secondaryContacts")} />
+          </div>
           {vis.notes && (
             <div className="fg">
               <label htmlFor="cpo-notes">Notes / Comments</label>
               <textarea id="cpo-notes" className="fi" rows={3} style={{ resize: "vertical" }} {...register("notes")} />
             </div>
           )}
+          <CustomFieldFormFields
+            definitions={customFieldDefs}
+            values={customFieldValues}
+            onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })}
+            idPrefix="cpo"
+            loading={customFieldsLoading}
+          />
         </div>
         </div>
 

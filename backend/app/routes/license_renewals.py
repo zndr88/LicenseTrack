@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import require_editor_or_admin
-from app.models.sourcing import SourcingRequest
+from app.models.sourcing import SourcingItem, SourcingRequest
 from app.models.user import User
 from app.schemas.license import (
     CancelRenewalResponse,
@@ -81,11 +81,16 @@ async def initiate_renewal(
         ip_address=request.client.host if request.client else None,
     )
     await db.commit()
-    await db.refresh(result.sourcing_item)
+    sourcing_result = await db.execute(
+        select(SourcingItem)
+        .where(SourcingItem.id == result.sourcing_item.id)
+        .options(selectinload(SourcingItem.custom_field_values))
+    )
+    sourcing_item = sourcing_result.scalar_one()
 
     return InitiateRenewalResponse(
         license=await load_enriched_license_response(db, license_id),
-        sourcing_item=SourcingItemResponse.model_validate(result.sourcing_item),
+        sourcing_item=SourcingItemResponse.model_validate(sourcing_item),
     )
 
 
@@ -169,7 +174,10 @@ async def initiate_renewal_bundle(
     request_result = await db.execute(
         select(SourcingRequest)
         .where(SourcingRequest.id == result.sourcing_request.id)
-        .options(selectinload(SourcingRequest.items), selectinload(SourcingRequest.quote_documents))
+        .options(
+            selectinload(SourcingRequest.items).selectinload(SourcingItem.custom_field_values),
+            selectinload(SourcingRequest.quote_documents),
+        )
     )
     sourcing_request = request_result.scalar_one()
 

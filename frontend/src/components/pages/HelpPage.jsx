@@ -57,6 +57,7 @@ const HELP_ARTICLES = [
           "When conversion completes, LicenseTrack creates and links the successor while preserving the renewal chain. The predecessor keeps its date-based Active or Expiring state until its own term ends.",
           "If the next term was already purchased as another active or upcoming license under the same PO, use Link Existing Successor from the expiring license instead. LicenseTrack adopts that record as the normal renewal successor without creating duplicate sourcing or pending-order work.",
           "Renewal sourcing and conversion preserve the predecessor's maintenance/support classification. Older recurring records without a stored value receive the type-appropriate default instead of losing coverage during renewal.",
+          "Admins can configure each custom field to start blank or copy its current value into renewal sourcing. A copied value is a snapshot taken when renewal starts and remains editable throughout sourcing, pending order, and final conversion.",
           "A maintenance record imported as legacy unlinked can renew without a parent. If it is still unlinked at conversion, the successor keeps the legacy-unlinked marker; linking the predecessor before conversion or the successor afterward creates the normal parent link and mirror.",
         ],
       },

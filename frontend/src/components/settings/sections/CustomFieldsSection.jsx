@@ -4,6 +4,7 @@ import {
   deleteCustomField,
   listCustomFields,
   reorderCustomFields,
+  updateCustomField,
   updateCustomFieldSection,
 } from "../../../api/settings.js";
 import { getCustomFieldSectionLabel } from "../../../utils/customFieldPresentation.js";
@@ -91,6 +92,20 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
     onCustomFieldsChanged?.();
   };
 
+  const handleUpdateRenewalBehavior = async (fieldId, carryForwardOnRenewal) => {
+    const previous = customFields;
+    setCustomFields((fields) => fields.map((field) => (
+      field.id === fieldId ? { ...field, carryForwardOnRenewal } : field
+    )));
+    const { error } = await updateCustomField(fieldId, { carryForwardOnRenewal });
+    if (error) {
+      setCustomFields(previous);
+      onError(error);
+      return;
+    }
+    onCustomFieldsChanged?.();
+  };
+
   return (
     <>
       <div className="setsec">
@@ -110,6 +125,7 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
                       <th scope="col">Type</th>
                       <th scope="col">Key</th>
                       <th scope="col" className="set-field-section-col">Section</th>
+                      <th scope="col">Renewal behavior</th>
                       <th scope="col" className="set-field-actions-col"></th>
                     </tr>
                   </thead>
@@ -125,6 +141,17 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
                             {CUSTOM_FIELD_SECTION_KEYS.map((section) => (
                               <option key={section} value={section}>{getCustomFieldSectionLabel(section)}</option>
                             ))}
+                          </select>
+                        </td>
+                        <td>
+                          <select
+                            className="fi fi-select set-compact-select"
+                            value={field.carryForwardOnRenewal ? "copy" : "blank"}
+                            onChange={(event) => handleUpdateRenewalBehavior(field.id, event.target.value === "copy")}
+                            aria-label={`Renewal behavior for ${field.name}`}
+                          >
+                            <option value="blank">Start blank</option>
+                            <option value="copy">Copy previous value</option>
                           </select>
                         </td>
                         <td className="set-field-actions-cell">

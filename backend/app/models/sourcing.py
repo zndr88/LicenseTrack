@@ -5,7 +5,7 @@ from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, JSON, String, 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.models.license import LicenseType, MaintenanceCoverage, MaintenancePricingBasis
+from app.models.license import LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 
 
 class SourcingStatus(str, enum.Enum):
@@ -76,6 +76,8 @@ class SourcingItem(Base):
     )
     software_description: Mapped[str] = mapped_column(String(500), nullable=False)
     license_type: Mapped[LicenseType | None] = mapped_column(Enum(LicenseType), nullable=True)
+    license_metric: Mapped[LicenseMetric | None] = mapped_column(Enum(LicenseMetric), nullable=True)
+    portal_url: Mapped[str | None] = mapped_column(String, nullable=True)
     maintenance_coverage: Mapped[MaintenanceCoverage | None] = mapped_column(
         Enum(MaintenanceCoverage), nullable=True
     )
@@ -94,16 +96,26 @@ class SourcingItem(Base):
         index=True,
     )
     quantity: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    quantity_per_unit: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    sku_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     estimated_unit_price: Mapped[str | None] = mapped_column(String(50), nullable=True)
     estimated_total_price: Mapped[str | None] = mapped_column(String(50), nullable=True)
     currency: Mapped[str] = mapped_column(String(10), nullable=False, default="EUR")
     start_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
+    notice_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
+    purchase_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
+    contract_number: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    invoice_number: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    external_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
     supplier: Mapped[str | None] = mapped_column(String(255), nullable=True)
     supplier_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("organizations.id"), nullable=True, index=True
     )
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cost_centre: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    budget_owner_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    secondary_contacts: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[SourcingStatus] = mapped_column(
         Enum(SourcingStatus), nullable=False, default=SourcingStatus.sourcing
@@ -139,6 +151,9 @@ class SourcingItem(Base):
         back_populates="source_sourcing_item",
         foreign_keys="[License.source_sourcing_item_id]",
         viewonly=True,
+    )
+    custom_field_values: Mapped[list["SourcingItemCustomFieldValue"]] = relationship(  # noqa: F821
+        "SourcingItemCustomFieldValue", back_populates="sourcing_item", cascade="all, delete-orphan"
     )
 
     @property

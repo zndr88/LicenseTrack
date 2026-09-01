@@ -76,7 +76,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     handleAcceptProcessingResult, handleRejectProcessingResult,
     pluginSuggestions, pluginSuggestionsLoading, pluginSuggestionReviewBusy,
     handleAcceptPluginSuggestion, handleRejectPluginSuggestion,
-    customFieldValues, customFieldsLoading,
+    customFieldValues, customFieldDefs, customFieldsLoading,
     cfBySection,
     makeCustomFieldSaveFn,
     comp, exp, perms, vis,
@@ -114,6 +114,8 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
             displayUnitPrice={displayUnitPrice}
             setDisplayUnitPrice={setDisplayUnitPrice}
             userSettings={userSettings}
+            customFieldDefs={customFieldDefs}
+            customFieldsLoading={customFieldsLoading}
             onSave={handleFullEditSave}
             onCancel={() => setEditingLicense(false)}
           />

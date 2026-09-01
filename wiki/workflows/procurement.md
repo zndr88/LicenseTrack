@@ -16,8 +16,12 @@ procurement workspaces.
 
 A sourcing request is the quote-stage parent. It stores supplier and contact
 context, notes, quote evidence, and one or more planned license lines. Each line
-holds the publisher, description, optional license type, quantity, estimated
-pricing, currency, dates, and renewal context for one intended entitlement.
+holds the applicable license-record fields, including publisher, description,
+type and metric, quantity and quantity per unit, pricing, currency, dates,
+references, ownership contacts, notes, and custom fields for one intended
+entitlement. Those line values remain editable through pending order and final
+conversion so the active license does not silently lose information entered
+earlier in procurement.
 
 Use multiple lines when one supplier quote covers several products. Expand the
 request row to edit individual lines. Request-level actions manage the quote,
@@ -50,7 +54,9 @@ while preserving their predecessor relationships. If the historical supplier
 suggestions differ, the new request remains unassigned until procurement chooses
 one target supplier. Coterm lines must use one currency, but their historical
 unit prices may differ. The merged request sums each line's own value and leaves
-the merged unit price blank when there is no single representative price.
+the merged unit price blank when there is no single representative price. For
+other standard and custom fields, one common nonblank value is retained;
+conflicting values are left blank for review on the merged line.
 
 For freeware or open-source requests, set the line's optional **License Type**
 to **Freeware / Open Source**. Converting that line creates an active Registry

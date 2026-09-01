@@ -14,6 +14,7 @@ class CustomFieldDefinitionCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     field_type: str = Field(..., pattern="^(text|currency|date|boolean)$")
     display_order: int = Field(default=0, ge=0)
+    carry_forward_on_renewal: bool = False
 
 
 class CustomFieldDefinitionUpdate(BaseModel):
@@ -28,6 +29,7 @@ class CustomFieldDefinitionUpdate(BaseModel):
         default=None,
         pattern="^(identity|dates|commercial|people|documents|notes)$",
     )
+    carry_forward_on_renewal: Optional[bool] = None
     # field_type and field_key are immutable after creation - not included here
 
 
@@ -50,6 +52,7 @@ class CustomFieldDefinitionResponse(BaseModel):
     field_type: str
     display_order: int
     section: Optional[str] = None
+    carry_forward_on_renewal: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -60,6 +63,7 @@ class CustomFieldValueItem(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
+        from_attributes=True,
     )
 
     custom_field_def_id: int

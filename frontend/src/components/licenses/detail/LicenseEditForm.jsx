@@ -8,6 +8,7 @@ import {
 } from "../../../utils/maintenanceCoverage.js";
 import Icon from "../../ui/Icon.jsx";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
+import CustomFieldFormFields from "../CustomFieldFormFields.jsx";
 
 /**
  * Full-panel edit form shown when editingLicense is true.
@@ -21,6 +22,8 @@ export default function LicenseEditForm({
   displayUnitPrice,
   setDisplayUnitPrice,
   userSettings,
+  customFieldDefs = [],
+  customFieldsLoading = false,
   onSave,
   onCancel,
 }) {
@@ -64,6 +67,10 @@ export default function LicenseEditForm({
         {noticeAfterEnd && <div className="dp-field-warning">Notice date is after the license end date.</div>}
       </div>
       <div className="fr">
+        <div className="fg"><label htmlFor="license-edit-purchase-date">Purchase Date</label><input id="license-edit-purchase-date" className="fi" type="date" value={editFields.purchaseDate || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, purchaseDate: e.target.value }))} /></div>
+        <div className="fg"><label htmlFor="license-edit-external-ref">External Reference</label><input id="license-edit-external-ref" className="fi" value={editFields.externalRef || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, externalRef: e.target.value }))} /></div>
+      </div>
+      <div className="fr">
         <div className="fg">
           <label htmlFor="license-edit-contract">Contract #</label>
           <input id="license-edit-contract" className="fi" value={editFields.contractNumber} onChange={(e) => setEditFields((p) => ({ ...p, contractNumber: e.target.value }))} />
@@ -89,6 +96,7 @@ export default function LicenseEditForm({
         <label htmlFor="license-edit-budget-owner">Budget Owner Email</label>
         <input id="license-edit-budget-owner" className="fi" type="email" value={editFields.budgetOwnerEmail || ""} onChange={(e) => setEditFields((p) => ({ ...p, budgetOwnerEmail: e.target.value }))} placeholder="owner@example.com" />
       </div>
+      <div className="fg"><label htmlFor="license-edit-secondary-contacts">Secondary Contacts</label><input id="license-edit-secondary-contacts" className="fi" value={editFields.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(e) => setEditFields((previous) => ({ ...previous, secondaryContacts: e.target.value }))} /></div>
       <div className="fr">
         <div className="fg">
           <label htmlFor="license-edit-supplier">Supplier</label>
@@ -99,6 +107,15 @@ export default function LicenseEditForm({
           <ReferenceCombobox id="license-edit-cost-centre" mode="costCentre" value={editFields.costCentre} onChange={(value) => setEditFields((p) => ({ ...p, costCentre: value }))} />
         </div>
       </div>
+      <div className="fg"><label htmlFor="license-edit-total-price">Total PO Price</label><input id="license-edit-total-price" className="fi" inputMode="decimal" value={editFields.totalPoPrice || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, totalPoPrice: parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value }))} /></div>
+      <div className="fg"><label htmlFor="license-edit-notes">Notes / Comments</label><textarea id="license-edit-notes" className="fi" rows={3} value={editFields.notes || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, notes: e.target.value }))} /></div>
+      <CustomFieldFormFields
+        definitions={customFieldDefs}
+        values={editFields.customFieldValues || {}}
+        onChange={(values) => setEditFields((previous) => ({ ...previous, customFieldValues: values }))}
+        idPrefix="license-edit"
+        loading={customFieldsLoading}
+      />
       <div className="fr">
         <div className="fg">
           <label htmlFor="license-edit-type">License Type</label>

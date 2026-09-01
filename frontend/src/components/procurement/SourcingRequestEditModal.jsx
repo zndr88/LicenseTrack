@@ -1,13 +1,16 @@
 import React, { useMemo } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CURRENCIES, LICENSE_TYPES } from "../../constants/licenseData.js";
+import { CURRENCIES, LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { createSourcingRequestEditSchema } from "../../utils/procurementSchemas.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
+import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
+import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
 
 function itemDefaults(item) {
   return {
@@ -16,12 +19,25 @@ function itemDefaults(item) {
     publisherName: item.publisherName ?? "",
     softwareDescription: item.softwareDescription ?? "",
     licenseType: item.licenseType ?? "",
+    licenseMetric: item.licenseMetric ?? "per_user",
+    portalUrl: item.portalUrl ?? "",
     quantity: item.quantity ?? "",
+    quantityPerUnit: item.quantityPerUnit ?? "1",
+    skuCode: item.skuCode ?? "",
     estimatedUnitPrice: item.estimatedUnitPrice ?? "",
     estimatedTotalPrice: item.estimatedTotalPrice ?? "",
     currency: item.currency ?? "EUR",
     startDate: item.startDate ?? "",
     endDate: item.endDate ?? "",
+    noticeDate: item.noticeDate ?? "",
+    purchaseDate: item.purchaseDate ?? "",
+    contractNumber: item.contractNumber ?? "",
+    invoiceNumber: item.invoiceNumber ?? "",
+    externalRef: item.externalRef ?? "",
+    costCentre: item.costCentre ?? "",
+    budgetOwnerEmail: item.budgetOwnerEmail ?? "",
+    secondaryContacts: (item.secondaryContacts ?? []).join(", "),
+    customFieldValues: customFieldValueMap(item.customFieldValues),
     notes: item.notes ?? "",
   };
 }
@@ -31,11 +47,14 @@ function normalizeOptionalNumber(value, userSettings) {
 }
 
 export default function SourcingRequestEditModal({ request, userSettings, onSave, onCancel }) {
+  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
   const schema = useMemo(() => createSourcingRequestEditSchema(userSettings), [userSettings]);
   const {
     control,
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isDirty, isSubmitting, isValid },
   } = useForm({
     resolver: zodResolver(schema),
@@ -61,12 +80,25 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
         publisherName: item.publisherName.trim(),
         softwareDescription: item.softwareDescription.trim(),
         licenseType: item.licenseType || null,
+        licenseMetric: item.licenseMetric || null,
+        portalUrl: item.licenseType === "saas" ? item.portalUrl || null : null,
         quantity: normalizeOptionalNumber(item.quantity, userSettings),
+        quantityPerUnit: normalizeOptionalNumber(item.quantityPerUnit, userSettings) || "1",
+        skuCode: item.skuCode || null,
         estimatedUnitPrice: normalizeOptionalNumber(item.estimatedUnitPrice, userSettings),
         estimatedTotalPrice: normalizeOptionalNumber(item.estimatedTotalPrice, userSettings),
         currency: item.currency,
         startDate: item.startDate || null,
         endDate: item.endDate || null,
+        noticeDate: item.noticeDate || null,
+        purchaseDate: item.purchaseDate || null,
+        contractNumber: item.contractNumber || null,
+        invoiceNumber: item.invoiceNumber || null,
+        externalRef: item.externalRef || null,
+        costCentre: item.costCentre || null,
+        budgetOwnerEmail: item.budgetOwnerEmail || null,
+        secondaryContacts: String(item.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+        customFieldValues: buildCustomFieldValuePayload(customFieldDefs, item.customFieldValues, userSettings),
         notes: item.notes || null,
       }));
     const saved = await onSave({
@@ -124,6 +156,7 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
         {fields.map((item, index) => {
           const readOnly = item.status === "converted" || item.status === "cancelled";
           const itemErrors = errors.items?.[index] || {};
+          const watchedItem = watch(`items.${index}`) || {};
           return (
             <fieldset key={item.formKey} className="sourcing-request-edit-line" disabled={readOnly}>
               <input type="hidden" {...register(`items.${index}.id`, { valueAsNumber: true })} />
@@ -175,6 +208,36 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
                 <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-end`}>End Date</label><input id={`sourcing-request-item-${item.id}-end`} type="date" className="fi" {...register(`items.${index}.endDate`)} /></div>
               </div>
               <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-notes`}>Line Notes</label><textarea id={`sourcing-request-item-${item.id}-notes`} className="fi" rows={2} {...register(`items.${index}.notes`)} /></div>
+              <fieldset className="fs">
+                <legend>License record details</legend>
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-metric`}>License Metric</label><select id={`sourcing-request-item-${item.id}-metric`} className="fi fi-select" {...register(`items.${index}.licenseMetric`)}>{LICENSE_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
+                  <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-quantity-per-unit`}>Quantity per Unit</label><input id={`sourcing-request-item-${item.id}-quantity-per-unit`} className="fi" inputMode="decimal" {...register(`items.${index}.quantityPerUnit`)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-sku`}>SKU Code</label><input id={`sourcing-request-item-${item.id}-sku`} className="fi" {...register(`items.${index}.skuCode`)} /></div>
+                </div>
+                {watchedItem.licenseType === "saas" && <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-portal`}>Portal URL</label><input id={`sourcing-request-item-${item.id}-portal`} className="fi" {...register(`items.${index}.portalUrl`)} /></div>}
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-notice`}>Notice Date</label><input id={`sourcing-request-item-${item.id}-notice`} type="date" className="fi" {...register(`items.${index}.noticeDate`)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-purchase`}>Purchase Date</label><input id={`sourcing-request-item-${item.id}-purchase`} type="date" className="fi" {...register(`items.${index}.purchaseDate`)} /></div>
+                </div>
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-contract`}>Contract Number</label><input id={`sourcing-request-item-${item.id}-contract`} className="fi" {...register(`items.${index}.contractNumber`)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-invoice`}>Invoice Number</label><input id={`sourcing-request-item-${item.id}-invoice`} className="fi" {...register(`items.${index}.invoiceNumber`)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-external`}>External Reference</label><input id={`sourcing-request-item-${item.id}-external`} className="fi" {...register(`items.${index}.externalRef`)} /></div>
+                </div>
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-cost`}>Cost Centre / Department</label><input id={`sourcing-request-item-${item.id}-cost`} className="fi" {...register(`items.${index}.costCentre`)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-budget`}>Budget Owner Email</label><input id={`sourcing-request-item-${item.id}-budget`} className="fi" {...register(`items.${index}.budgetOwnerEmail`)} /></div>
+                </div>
+                <div className="fg"><label htmlFor={`sourcing-request-item-${item.id}-secondary`}>Secondary Contacts</label><input id={`sourcing-request-item-${item.id}-secondary`} className="fi" {...register(`items.${index}.secondaryContacts`)} /></div>
+              </fieldset>
+              <CustomFieldFormFields
+                definitions={customFieldDefs}
+                values={watchedItem.customFieldValues || {}}
+                onChange={(values) => setValue(`items.${index}.customFieldValues`, values, { shouldDirty: true })}
+                idPrefix={`sourcing-request-item-${item.id}`}
+                loading={customFieldsLoading}
+              />
             </fieldset>
           );
         })}

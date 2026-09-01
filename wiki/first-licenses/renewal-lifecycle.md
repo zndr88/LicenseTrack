@@ -51,6 +51,10 @@ is ready to track, convert it to a **pending order**. The predecessor's explicit
 maintenance/support classification travels with the renewal; older recurring
 records without a stored classification use the type-appropriate default so
 coverage is not lost during sourcing, coterm merging, or final conversion.
+Admins can also choose, per custom-field definition, whether its value is
+copied into a renewal. Copied values are a snapshot taken when renewal starts;
+fields configured to start blank can be completed for the new term during
+sourcing or pending-order review.
 
 ![Editing the sourcing record and attaching the quote](../assets/renewal-05-edit-sourcing.png)
 

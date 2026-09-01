@@ -16,6 +16,10 @@ import MaintenanceCoverageFields, {
 } from "../procurement/MaintenanceCoverageFields.jsx";
 import ParentLicensePicker from "../procurement/ParentLicensePicker.jsx";
 import { getLicenses } from "../../api/licenses.js";
+import CustomFieldFormFields from "./CustomFieldFormFields.jsx";
+import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
+import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
+import { FULL_LICENSE_FORM_VISIBILITY } from "../../utils/licenseFormVisibility.js";
 
 const PRIMARY_LINE_ID = "primary";
 const PROCUREMENT_DOCUMENT_CATEGORIES = new Set(["invoice", "quote", "purchase_order"]);
@@ -36,6 +40,7 @@ const emptyAdditionalLine = (primaryForm) => ({
   startDate: primaryForm.startDate || "",
   endDate: primaryForm.endDate || "",
   noticeDate: primaryForm.noticeDate || "",
+  purchaseDate: primaryForm.purchaseDate || "",
   isPerpetual: primaryForm.isPerpetual || false,
   quantity: "",
   quantityPerUnit: primaryForm.quantityPerUnit || "1",
@@ -44,6 +49,9 @@ const emptyAdditionalLine = (primaryForm) => ({
   totalPoPrice: "",
   currency: primaryForm.currency || "EUR",
   notes: "",
+  externalRef: "",
+  secondaryContacts: "",
+  customFieldValues: {},
   portalUrl: "",
   maintenanceCoverage: "unknown",
   maintenanceStartDate: "",
@@ -74,6 +82,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const [formTouched, setFormTouched] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [eligibleParentLicenses, setEligibleParentLicenses] = useState([]);
+  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
   const submitLockRef = useRef(false);
 
   const handleFileChange = (file) => {
@@ -87,7 +96,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const [form, setForm] = useState({
     publisherName: data.publisherName || "", softwareDescription: data.softwareDescription || "",
     startDate: data.startDate || "", endDate: data.endDate || "", noticeDate: data.noticeDate || "",
+    purchaseDate: data.purchaseDate || "",
     contractNumber: data.contractNumber || "", poNumber: data.poNumber || "",
+    procurementReference: data.procurementReference || "",
     invoiceNumber: data.invoiceNumber || "", contactEmail: data.contactEmail || "",
     isPerpetual: data.endDate === "Perpetual",
     supplier: data.supplier || "", costCentre: data.costCentre || "",
@@ -96,6 +107,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     quantity: data.quantity || "", quantityPerUnit: data.quantityPerUnit || "1", skuCode: data.skuCode || "", unitPrice: data.unitPrice || "",
     totalPoPrice: data.totalPoPrice || "", currency: data.currency || "EUR", notes: data.notes || "",
     budgetOwnerEmail: data.budgetOwnerEmail || "",
+    externalRef: data.externalRef || "",
+    secondaryContacts: (data.secondaryContacts || []).join(", "),
+    customFieldValues: customFieldValueMap(data.customFieldValues || data.customFields),
     maintenanceCoverage: data.maintenanceCoverage || "unknown",
     maintenanceStartDate: data.maintenanceStartDate || "",
     maintenanceEndDate: data.maintenanceEndDate || "",
@@ -106,7 +120,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     parentLicenseId: data.parentLicenseId || "",
   });
   const u = (k, v) => { setFormTouched(true); setForm((f) => ({ ...f, [k]: v })); };
-  const vis = userSettings.visibleInDetail;
+  const vis = FULL_LICENSE_FORM_VISIBILITY;
 
   useEffect(() => {
     if (form.licenseType !== "maintenance") return undefined;
@@ -194,6 +208,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
       poNumber: form.poNumber,
       invoiceNumber: form.invoiceNumber,
       budgetOwnerEmail: form.budgetOwnerEmail,
+      procurementReference: form.procurementReference,
     };
     const lineIndexById = new Map(additionalLines.map((line, index) => [line.id, index + 1]));
     const allForms = [
@@ -202,6 +217,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         unitPrice: isFreewareLicenseType(form.licenseType) ? "" : form.unitPrice,
         totalPoPrice: isFreewareLicenseType(form.licenseType) ? "" : form.totalPoPrice,
         quantityPerUnit: normalizeLocalizedValue(form.quantityPerUnit, userSettings) || "1",
+        secondaryContacts: String(form.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+        customFieldValues: buildCustomFieldValuePayload(customFieldDefs, form.customFieldValues, userSettings),
         maintenanceQuantity: normalizeLocalizedValue(form.maintenanceQuantity, userSettings),
         maintenanceUnitPrice: normalizeLocalizedValue(form.maintenanceUnitPrice, userSettings),
         maintenanceCost: normalizeLocalizedValue(form.maintenanceCost, userSettings),
@@ -216,6 +233,10 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         isPerpetual: line.isPerpetual,
         quantity: line.quantity,
         quantityPerUnit: normalizeLocalizedValue(line.quantityPerUnit, userSettings) || "1",
+        purchaseDate: line.purchaseDate || form.purchaseDate,
+        externalRef: line.externalRef,
+        secondaryContacts: String(line.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+        customFieldValues: buildCustomFieldValuePayload(customFieldDefs, line.customFieldValues, userSettings),
         skuCode: line.skuCode,
         unitPrice: isFreewareLicenseType(line.licenseType)
           ? ""
@@ -413,9 +434,14 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           </div>
           <div className="fg"><label htmlFor="inv-notice-date">Notice Date</label><input id="inv-notice-date" type="date" className="fi" value={form.noticeDate || ""} onChange={(e) => u("noticeDate", e.target.value)} />{form.noticeDate && form.endDate && form.endDate !== "Perpetual" && form.noticeDate > form.endDate && <div className="dp-field-warning">Notice date is after the license end date.</div>}</div>
           <div className="fr">
+            <div className="fg"><label htmlFor="inv-purchase-date">Purchase Date</label><input id="inv-purchase-date" type="date" className="fi" value={form.purchaseDate || ""} onChange={(e) => u("purchaseDate", e.target.value)} /></div>
+            <div className="fg"><label htmlFor="inv-external-ref">External Reference</label><input id="inv-external-ref" className="fi" value={form.externalRef || ""} onChange={(e) => u("externalRef", e.target.value)} /></div>
+          </div>
+          <div className="fr">
             <div className="fg"><label htmlFor="inv-contract-number">Contract Number</label><input id="inv-contract-number" className="fi" value={form.contractNumber} onChange={(e) => u("contractNumber", e.target.value)} /></div>
             <div className="fg"><label htmlFor="inv-po-number">PO Number</label><input id="inv-po-number" className="fi" value={form.poNumber} onChange={(e) => u("poNumber", e.target.value)} /></div>
           </div>
+          <div className="fg"><label htmlFor="inv-procurement-reference">Procurement Reference</label><input id="inv-procurement-reference" className="fi" value={form.procurementReference || ""} onChange={(e) => u("procurementReference", e.target.value)} /></div>
           <div className="fr">
             <div className="fg"><label htmlFor="inv-invoice-number">Invoice Number</label><input id="inv-invoice-number" className="fi" value={form.invoiceNumber} onChange={(e) => u("invoiceNumber", e.target.value)} /></div>
             <div className="fg"><label htmlFor="inv-contact-email">Contact Email</label><input id="inv-contact-email" className="fi" value={form.contactEmail} onChange={(e) => u("contactEmail", e.target.value)} /></div>
@@ -551,7 +577,15 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             </div>
           )}
           <div className="fg"><label htmlFor="inv-budget-owner">Budget Owner Email</label><input id="inv-budget-owner" className="fi" value={form.budgetOwnerEmail} placeholder="owner@example.com" onChange={(e) => u("budgetOwnerEmail", e.target.value)} /></div>
+          <div className="fg"><label htmlFor="inv-secondary-contacts">Secondary Contacts</label><input id="inv-secondary-contacts" className="fi" value={form.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(e) => u("secondaryContacts", e.target.value)} /></div>
           {vis.notes && <div className="fg"><label htmlFor="inv-notes">Notes / Comments</label><textarea id="inv-notes" className="fi" rows={3} value={form.notes} onChange={(e) => u("notes", e.target.value)} style={{ resize: "vertical" }} /></div>}
+          <CustomFieldFormFields
+            definitions={customFieldDefs}
+            values={form.customFieldValues}
+            onChange={(values) => u("customFieldValues", values)}
+            idPrefix="inv"
+            loading={customFieldsLoading}
+          />
 
           {/* Additional license lines */}
           {additionalLines.map((line, idx) => (
@@ -592,6 +626,10 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   <input id={`inv-line-${line.id}-notice-date`} type="date" className="fi" value={line.noticeDate || ""} onChange={(e) => updateLine(line.id, "noticeDate", e.target.value)} />
                   {line.noticeDate && line.endDate && line.endDate !== "Perpetual" && line.noticeDate > line.endDate && <div className="dp-field-warning">Notice date is after the license end date.</div>}
                 </div>
+              </div>
+              <div className="fr">
+                <div className="fg"><label htmlFor={`inv-line-${line.id}-purchase-date`}>Purchase Date</label><input id={`inv-line-${line.id}-purchase-date`} type="date" className="fi" value={line.purchaseDate || ""} onChange={(e) => updateLine(line.id, "purchaseDate", e.target.value)} /></div>
+                <div className="fg"><label htmlFor={`inv-line-${line.id}-external-ref`}>External Reference</label><input id={`inv-line-${line.id}-external-ref`} className="fi" value={line.externalRef || ""} onChange={(e) => updateLine(line.id, "externalRef", e.target.value)} /></div>
               </div>
               <div className="fr">
                 {vis.licenseType && (
@@ -720,6 +758,14 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   <textarea id={`inv-line-${line.id}-notes`} className="fi" rows={2} value={line.notes} onChange={(e) => updateLine(line.id, "notes", e.target.value)} style={{ resize: "vertical" }} />
                 </div>
               )}
+              <div className="fg"><label htmlFor={`inv-line-${line.id}-secondary-contacts`}>Secondary Contacts</label><input id={`inv-line-${line.id}-secondary-contacts`} className="fi" value={line.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(e) => updateLine(line.id, "secondaryContacts", e.target.value)} /></div>
+              <CustomFieldFormFields
+                definitions={customFieldDefs}
+                values={line.customFieldValues || {}}
+                onChange={(values) => updateLine(line.id, "customFieldValues", values)}
+                idPrefix={`inv-line-${line.id}`}
+                loading={customFieldsLoading}
+              />
             </div>
           ))}
 

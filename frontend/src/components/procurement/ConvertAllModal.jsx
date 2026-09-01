@@ -15,6 +15,8 @@ import PendingOrderInvoiceField from "./PendingOrderInvoiceField.jsx";
 import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
+import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
+import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 
 const formSchema = z.object({ items: z.array(licenseFormSchema) });
 
@@ -34,6 +36,7 @@ const SHARED_FIELD_KEYS = [
 export default function ConvertAllModal({ order, licenses, userSettings, onConfirm, onCancel }) {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const unconvertedItems = order.items ?? [];
+  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
 
   const {
     register,
@@ -82,7 +85,14 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
     const payload = data.items.map((item, idx) => {
       const si = unconvertedItems[idx];
       return {
-        ...buildPendingOrderConversionPayload(item, userSettings),
+        ...buildPendingOrderConversionPayload({
+          ...item,
+          customFieldValuesPayload: buildCustomFieldValuePayload(
+            customFieldDefs,
+            item.customFieldValues,
+            userSettings,
+          ),
+        }, userSettings),
         sourcingItemId: si.id,
         ...(item.licenseType === "maintenance" && item.parentSourcingItemId ? { parentSourcingItemId: parseInt(item.parentSourcingItemId, 10) } : {}),
       };
@@ -197,6 +207,8 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
               register={register}
               setValue={setValue}
               locale={locale}
+              customFieldDefs={customFieldDefs}
+              customFieldsLoading={customFieldsLoading}
             />
           ))}
         </div>

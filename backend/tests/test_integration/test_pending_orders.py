@@ -8,6 +8,7 @@ from sqlalchemy import select, text
 
 from app.config import settings
 from app.models.audit_log import AuditLog
+from app.models.custom_fields import SourcingItemCustomFieldValue
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import (
     License,
@@ -802,6 +803,63 @@ async def test_coterm_merge_deletes_empty_original_sourcing_requests(
     assert original_request_ids.isdisjoint(history_ids)
 
 
+async def test_coterm_merge_keeps_common_custom_values_and_blanks_conflicts(
+    test_app,
+    auth_headers,
+):
+    definitions = []
+    for name in ("Shared renewal context", "Conflicting renewal context"):
+        response = await test_app.post(
+            "/api/custom-fields/",
+            json={"name": name, "fieldType": "text", "carryForwardOnRenewal": True},
+            headers=auth_headers,
+        )
+        assert response.status_code == 201, response.text
+        definitions.append(response.json())
+
+    first = await _create_license(
+        test_app,
+        auth_headers,
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+        contractNumber="CONTRACT-A",
+        customFieldValues=[
+            {"customFieldDefId": definitions[0]["id"], "valueText": "Same value"},
+            {"customFieldDefId": definitions[1]["id"], "valueText": "First value"},
+        ],
+    )
+    second = await _create_license(
+        test_app,
+        auth_headers,
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+        contractNumber="CONTRACT-B",
+        customFieldValues=[
+            {"customFieldDefId": definitions[0]["id"], "valueText": "Same value"},
+            {"customFieldDefId": definitions[1]["id"], "valueText": "Second value"},
+        ],
+    )
+    first_item = await _initiate_renewal(test_app, auth_headers, first["id"])
+    second_item = await _initiate_renewal(test_app, auth_headers, second["id"])
+
+    response = await test_app.post(
+        "/api/sourcing/merge",
+        json={"sourcingItemIds": [first_item["id"], second_item["id"]]},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 201, response.text
+    merged = response.json()
+    assert merged["contractNumber"] is None
+    assert merged["customFieldValues"] == [
+        {
+            "customFieldDefId": definitions[0]["id"],
+            "valueText": "Same value",
+            "valueCurrency": None,
+        }
+    ]
+
+
 async def test_coterm_merge_preserves_original_request_with_unrelated_item(
     test_app,
     auth_headers,
@@ -1105,6 +1163,93 @@ async def test_batch_convert_all_new_purchase_items(test_app, auth_headers):
     assert by_description["Batch App One"]["requestDate"] == first["createdAt"]
     assert by_description["Batch App Two"]["requestDate"] == second["createdAt"]
     assert {item["purchaseDate"] for item in converted} == {"2026-02-01T00:00:00"}
+
+
+async def test_staged_license_fields_and_custom_values_survive_procurement_conversion(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    definition_response = await test_app.post(
+        "/api/custom-fields/",
+        json={"name": "Implementation context", "fieldType": "text"},
+        headers=auth_headers,
+    )
+    assert definition_response.status_code == 201, definition_response.text
+    definition = definition_response.json()
+
+    item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        softwareDescription="Complete staged record",
+        licenseType="saas",
+        licenseMetric="per_device",
+        portalUrl="https://staged.example.test",
+        quantityPerUnit="5",
+        skuCode="STAGED-SKU",
+        noticeDate="2026-11-30",
+        contractNumber="CONTRACT-STAGED",
+        externalRef="EXT-STAGED",
+        costCentre="Operations",
+        budgetOwnerEmail="budget@example.test",
+        secondaryContacts=["secondary@example.test"],
+        customFieldValues=[
+            {"customFieldDefId": definition["id"], "valueText": "Preserved through PO"}
+        ],
+    )
+    assert item["customFieldValues"][0]["valueText"] == "Preserved through PO"
+    staged_values = list(
+        await db_session.scalars(
+            select(SourcingItemCustomFieldValue).where(
+                SourcingItemCustomFieldValue.sourcing_item_id == item["id"]
+            )
+        )
+    )
+    assert len(staged_values) == 1
+    order = await _convert_sourcing_to_po(test_app, auth_headers, item["id"])
+    db_session.expire_all()
+    staged_values = list(
+        await db_session.scalars(
+            select(SourcingItemCustomFieldValue).where(
+                SourcingItemCustomFieldValue.sourcing_item_id == item["id"]
+            )
+        )
+    )
+    assert len(staged_values) == 1
+    order_item = next(order_item for order_item in order["items"] if order_item["id"] == item["id"])
+    assert order_item["customFieldValues"][0]["valueText"] == "Preserved through PO"
+    response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert-all",
+        json=[
+            _batch_convert_item(
+                item["id"],
+                softwareDescription="Complete staged record",
+                licenseType="saas",
+                licenseMetric="per_device",
+            )
+        ],
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    converted = response.json()[0]
+    _assert_license_fields(
+        converted,
+        {
+            "licenseMetric": "per_device",
+            "portalUrl": "https://staged.example.test",
+            "quantityPerUnit": "5",
+            "skuCode": "STAGED-SKU",
+            "noticeDate": "2026-11-30",
+            "contractNumber": "CONTRACT-STAGED",
+            "externalRef": "EXT-STAGED",
+            "costCentre": "Operations",
+            "budgetOwnerEmail": "budget@example.test",
+            "secondaryContacts": ["secondary@example.test"],
+        },
+    )
+    assert converted["customFields"][0]["customFieldDefId"] == definition["id"]
+    assert converted["customFields"][0]["valueText"] == "Preserved through PO"
 
 
 async def test_pending_order_can_wait_for_po_before_active_license_conversion(test_app, auth_headers):

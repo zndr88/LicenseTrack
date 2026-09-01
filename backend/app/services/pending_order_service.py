@@ -23,6 +23,7 @@ from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.pending_order import PendingOrderCreate, PendingOrderResponse, PendingOrderUpdate, SourcingItemSummary
 from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate, SourcingQuoteDocumentResponse
 from app.services.document_availability_service import with_file_availability
+from app.services.custom_fields_service import replace_values_for_sourcing_item
 from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.reference_data_service import resolve_organization, resolve_procurement_reference_fields
 from app.services.sourcing_service import (
@@ -93,6 +94,7 @@ def to_pending_order_response(order: PendingOrder, storage_base: str | None = No
                     {
                         **{column.name: getattr(item, column.name) for column in item.__table__.columns},
                         "quote_documents": _quote_document_responses(item, storage_base),
+                        "custom_field_values": list(item.custom_field_values),
                         **converted_license_refs.get(item.id, {}),
                     }
                 )
@@ -153,6 +155,7 @@ async def get_pending_order_or_404(
             selectinload(PendingOrder.items)
             .selectinload(SourcingItem.sourcing_request)
             .selectinload(SourcingRequest.quote_documents),
+            selectinload(PendingOrder.items).selectinload(SourcingItem.custom_field_values),
             selectinload(PendingOrder.documents),
             selectinload(PendingOrder.licenses),
         )
@@ -354,6 +357,8 @@ async def add_pending_order_items_bulk_record(
         item = _build_pending_order_item(item_payload, order_id=order_id, created_by=created_by)
         await resolve_sourcing_item_references(db, item)
         db.add(item)
+        await db.flush()
+        await replace_values_for_sourcing_item(db, item.id, item_payload.custom_field_values)
 
     return order
 
@@ -369,6 +374,7 @@ async def update_pending_order_item_record(
 
     item = _find_order_item(order, item_id)
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+    custom_field_values = update_data.pop("custom_field_values", None)
     update_data.pop("status", None)
     if "publisher_name" in update_data or "supplier" in update_data:
         reference_data = {
@@ -385,6 +391,8 @@ async def update_pending_order_item_record(
     for field, value in update_data.items():
         setattr(item, field, value)
     sync_sourcing_item_support_defaults(item)
+    if custom_field_values is not None:
+        await replace_values_for_sourcing_item(db, item.id, custom_field_values)
 
     await db.flush()
     return order
@@ -441,6 +449,7 @@ def _build_pending_order_item(
     created_by: int,
 ) -> SourcingItem:
     item_data = payload.model_dump(by_alias=False)
+    item_data.pop("custom_field_values", None)
     item_data.pop("status", None)
     item_data.pop("renewal_for_license_id", None)
     item_data.pop("sourcing_request_id", None)
@@ -460,6 +469,7 @@ def _pending_order_list_query(status_filter):
         selectinload(PendingOrder.items)
         .selectinload(SourcingItem.sourcing_request)
         .selectinload(SourcingRequest.quote_documents),
+        selectinload(PendingOrder.items).selectinload(SourcingItem.custom_field_values),
         selectinload(PendingOrder.documents),
         selectinload(PendingOrder.licenses),
     )

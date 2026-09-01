@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CURRENCIES, LICENSE_TYPES } from "../../constants/licenseData.js";
+import { CURRENCIES, LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import {
@@ -22,11 +22,16 @@ import MaintenanceCoverageFields, {
   supportsSeparateMaintenanceLine,
 } from "./MaintenanceCoverageFields.jsx";
 import { defaultMaintenanceCoverageForLicenseType } from "../../utils/maintenanceCoverage.js";
+import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
+import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
+import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
   softwareDescription: z.string().min(1, "Software description is required."),
   licenseType:         z.string(),
+  licenseMetric:       z.string(),
+  portalUrl:           z.string(),
   maintenanceCoverage: z.string(),
   maintenanceStartDate: z.string(),
   maintenanceEndDate:  z.string(),
@@ -35,11 +40,22 @@ const schema = z.object({
   maintenanceUnitPrice: z.string(),
   maintenanceCost:     z.string(),
   quantity:            z.string(),
+  quantityPerUnit:     z.string(),
+  skuCode:             z.string(),
   estimatedUnitPrice:  z.string(),
   estimatedTotalPrice: z.string(),
   currency:            z.string(),
   startDate:           z.string(),
   endDate:             z.string(),
+  noticeDate:          z.string(),
+  purchaseDate:        z.string(),
+  contractNumber:      z.string(),
+  invoiceNumber:       z.string(),
+  externalRef:         z.string(),
+  costCentre:          z.string(),
+  budgetOwnerEmail:    z.string(),
+  secondaryContacts:   z.string(),
+  customFieldValues:   z.record(z.string(), z.union([z.string(), z.boolean()])),
   supplier:            z.string(),
   contactEmail:        z.string().refine(
     (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
@@ -62,12 +78,25 @@ const emptyAdditionalLine = (overrides = {}) => ({
   publisherName: "",
   softwareDescription: "",
   licenseType: "",
+  licenseMetric: "per_user",
+  portalUrl: "",
   quantity: "",
+  quantityPerUnit: "1",
+  skuCode: "",
   estimatedUnitPrice: "",
   estimatedTotalPrice: "",
   currency: "EUR",
   startDate: "",
   endDate: "",
+  noticeDate: "",
+  purchaseDate: "",
+  contractNumber: "",
+  invoiceNumber: "",
+  externalRef: "",
+  costCentre: "",
+  budgetOwnerEmail: "",
+  secondaryContacts: "",
+  customFieldValues: {},
   supplier: "",
   contactEmail: "",
   notes: "",
@@ -90,6 +119,7 @@ const SourcingItemModal = ({
   onCancel,
 }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
+  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
   const pendingOrderId = item?.pendingOrderId ?? item?.pending_order_id ?? null;
   const sourcingRequestId = item?.sourcingRequestId
     ?? item?.sourcing_request_id
@@ -117,6 +147,8 @@ const SourcingItemModal = ({
       publisherName:       item?.publisherName ?? "",
       softwareDescription: item?.softwareDescription ?? "",
       licenseType:         item?.licenseType ?? "",
+      licenseMetric:       item?.licenseMetric ?? "per_user",
+      portalUrl:           item?.portalUrl ?? "",
       maintenanceCoverage: item?.maintenanceCoverage
         ?? (item?.isRenewal || item?.renewalForLicenseId != null
           ? defaultMaintenanceCoverageForLicenseType(item?.licenseType)
@@ -128,11 +160,22 @@ const SourcingItemModal = ({
       maintenanceUnitPrice: item?.maintenanceUnitPrice ?? "",
       maintenanceCost:     item?.maintenanceCost ?? "",
       quantity:            item?.quantity ?? "",
+      quantityPerUnit:     item?.quantityPerUnit ?? "1",
+      skuCode:             item?.skuCode ?? "",
       estimatedUnitPrice:  item?.estimatedUnitPrice ?? "",
       estimatedTotalPrice: computeInitialTotal(item),
       currency:            item?.currency ?? "EUR",
       startDate:           item?.startDate ?? "",
       endDate:             item?.endDate ?? "",
+      noticeDate:          item?.noticeDate ?? "",
+      purchaseDate:        item?.purchaseDate ?? "",
+      contractNumber:      item?.contractNumber ?? "",
+      invoiceNumber:       item?.invoiceNumber ?? "",
+      externalRef:         item?.externalRef ?? "",
+      costCentre:          item?.costCentre ?? "",
+      budgetOwnerEmail:    item?.budgetOwnerEmail ?? "",
+      secondaryContacts:   (item?.secondaryContacts ?? []).join(", "),
+      customFieldValues:   customFieldValueMap(item?.customFieldValues),
       supplier:            effectiveSupplier,
       contactEmail:        effectiveContactEmail,
       notes:               item?.notes ?? "",
@@ -290,6 +333,7 @@ const SourcingItemModal = ({
     if (items.length > 1) {
       setAdditionalLines(
         items.slice(1).map((it) => ({
+          ...emptyAdditionalLine(),
           id: `${Date.now()}-${Math.random()}`,
           publisherName: it.publisherName ?? "",
           softwareDescription: it.softwareDescription ?? "",
@@ -314,6 +358,8 @@ const SourcingItemModal = ({
           publisherName: data.publisherName,
           softwareDescription: data.softwareDescription,
           licenseType: data.licenseType || null,
+          licenseMetric: data.licenseMetric || null,
+          portalUrl: data.licenseType === "saas" ? data.portalUrl || null : null,
           maintenanceCoverage: supportsMaintenanceCoverage(data.licenseType)
             ? (data.maintenanceCoverage || "unknown")
             : null,
@@ -336,6 +382,8 @@ const SourcingItemModal = ({
             ? normalizeOptionalNumber(data.maintenanceCost, userSettings)
             : null,
           quantity: (parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity) || null,
+          quantityPerUnit: normalizeOptionalNumber(data.quantityPerUnit, userSettings) || "1",
+          skuCode: data.skuCode || null,
           estimatedUnitPrice: isFreewareLicenseType(data.licenseType)
             ? null
             : (parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice) || null,
@@ -345,6 +393,15 @@ const SourcingItemModal = ({
           currency: data.currency || "EUR",
           startDate: data.startDate || null,
           endDate: data.endDate || null,
+          noticeDate: data.noticeDate || null,
+          purchaseDate: data.purchaseDate || null,
+          contractNumber: data.contractNumber || null,
+          invoiceNumber: data.invoiceNumber || null,
+          externalRef: data.externalRef || null,
+          costCentre: data.costCentre || null,
+          budgetOwnerEmail: data.budgetOwnerEmail || null,
+          secondaryContacts: String(data.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+          customFieldValues: buildCustomFieldValuePayload(customFieldDefs, data.customFieldValues, userSettings),
         };
         const saved = await onSave({
           items: [
@@ -353,12 +410,25 @@ const SourcingItemModal = ({
               publisherName: l.publisherName,
               softwareDescription: l.softwareDescription,
               licenseType: l.licenseType || null,
+              licenseMetric: l.licenseMetric || null,
+              portalUrl: l.licenseType === "saas" ? l.portalUrl || null : null,
               quantity: normalizeOptionalNumber(l.quantity, userSettings),
+              quantityPerUnit: normalizeOptionalNumber(l.quantityPerUnit, userSettings) || "1",
+              skuCode: l.skuCode || null,
               estimatedUnitPrice: normalizeOptionalNumber(l.estimatedUnitPrice, userSettings),
               estimatedTotalPrice: normalizeOptionalNumber(l.estimatedTotalPrice, userSettings),
               currency: l.currency || "EUR",
               startDate: l.startDate || null,
               endDate: l.endDate || null,
+              noticeDate: l.noticeDate || null,
+              purchaseDate: l.purchaseDate || null,
+              contractNumber: l.contractNumber || null,
+              invoiceNumber: l.invoiceNumber || null,
+              externalRef: l.externalRef || null,
+              costCentre: l.costCentre || null,
+              budgetOwnerEmail: l.budgetOwnerEmail || null,
+              secondaryContacts: String(l.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+              customFieldValues: buildCustomFieldValuePayload(customFieldDefs, l.customFieldValues, userSettings),
               supplier: l.supplier || null,
               contactEmail: l.contactEmail || null,
               notes: l.notes || null,
@@ -379,6 +449,8 @@ const SourcingItemModal = ({
         const maintenanceCompanion = additionalLines.find((line) => line.isMaintenanceCompanion);
         const saved = await onSave({
           ...data,
+          customFieldValues: buildCustomFieldValuePayload(customFieldDefs, data.customFieldValues, userSettings),
+          secondaryContacts: String(data.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
           quantity: parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity,
           estimatedUnitPrice: isFreewareLicenseType(data.licenseType)
             ? null
@@ -671,6 +743,36 @@ const SourcingItemModal = ({
             <label htmlFor="si-notes">Notes</label>
             <textarea id="si-notes" className="fi" rows={3} placeholder="Procurement notes" style={{ resize: "vertical" }} {...register("notes")} />
           </div>
+          <fieldset className="fs">
+            <legend>License record details</legend>
+            <div className="fr">
+              <div className="fg"><label htmlFor="si-license-metric">License Metric</label><select id="si-license-metric" className="fi fi-select" {...register("licenseMetric")}>{LICENSE_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
+              <div className="fg"><label htmlFor="si-quantity-per-unit">Quantity per Unit</label><input id="si-quantity-per-unit" className="fi" inputMode="decimal" {...register("quantityPerUnit")} /></div>
+              <div className="fg"><label htmlFor="si-sku-code">SKU Code</label><input id="si-sku-code" className="fi" {...register("skuCode")} /></div>
+            </div>
+            {licenseType === "saas" && <div className="fg"><label htmlFor="si-portal-url">Portal URL</label><input id="si-portal-url" className="fi" {...register("portalUrl")} /></div>}
+            <div className="fr">
+              <div className="fg"><label htmlFor="si-notice-date">Notice Date</label><input id="si-notice-date" type="date" className="fi" {...register("noticeDate")} /></div>
+              <div className="fg"><label htmlFor="si-purchase-date">Purchase Date</label><input id="si-purchase-date" type="date" className="fi" {...register("purchaseDate")} /></div>
+            </div>
+            <div className="fr">
+              <div className="fg"><label htmlFor="si-contract-number">Contract Number</label><input id="si-contract-number" className="fi" {...register("contractNumber")} /></div>
+              <div className="fg"><label htmlFor="si-invoice-number">Invoice Number</label><input id="si-invoice-number" className="fi" {...register("invoiceNumber")} /></div>
+              <div className="fg"><label htmlFor="si-external-ref">External Reference</label><input id="si-external-ref" className="fi" {...register("externalRef")} /></div>
+            </div>
+            <div className="fr">
+              <div className="fg"><label htmlFor="si-cost-centre">Cost Centre / Department</label><input id="si-cost-centre" className="fi" {...register("costCentre")} /></div>
+              <div className="fg"><label htmlFor="si-budget-owner">Budget Owner Email</label><input id="si-budget-owner" className="fi" {...register("budgetOwnerEmail")} /></div>
+            </div>
+            <div className="fg"><label htmlFor="si-secondary-contacts">Secondary Contacts</label><input id="si-secondary-contacts" className="fi" placeholder="Separate email addresses with commas" {...register("secondaryContacts")} /></div>
+          </fieldset>
+          <CustomFieldFormFields
+            definitions={customFieldDefs}
+            values={currentFields.customFieldValues || {}}
+            onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })}
+            idPrefix="si"
+            loading={customFieldsLoading}
+          />
 
           {/* Additional lines (new-request mode only) */}
           {additionalLines.map((line, idx) => (
@@ -822,6 +924,36 @@ const SourcingItemModal = ({
                   </div>
                 </>
               )}
+              <fieldset className="fs">
+                <legend>License record details</legend>
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-metric`}>License Metric</label><select id={`sourcing-line-${line.id}-metric`} className="fi fi-select" value={line.licenseMetric} onChange={(event) => updateAdditionalLine(line.id, "licenseMetric", event.target.value)}>{LICENSE_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-quantity-per-unit`}>Quantity per Unit</label><input id={`sourcing-line-${line.id}-quantity-per-unit`} className="fi" inputMode="decimal" value={line.quantityPerUnit} onChange={(event) => updateAdditionalLine(line.id, "quantityPerUnit", event.target.value)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-sku`}>SKU Code</label><input id={`sourcing-line-${line.id}-sku`} className="fi" value={line.skuCode} onChange={(event) => updateAdditionalLine(line.id, "skuCode", event.target.value)} /></div>
+                </div>
+                {line.licenseType === "saas" && <div className="fg"><label htmlFor={`sourcing-line-${line.id}-portal`}>Portal URL</label><input id={`sourcing-line-${line.id}-portal`} className="fi" value={line.portalUrl} onChange={(event) => updateAdditionalLine(line.id, "portalUrl", event.target.value)} /></div>}
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-notice`}>Notice Date</label><input id={`sourcing-line-${line.id}-notice`} type="date" className="fi" value={line.noticeDate} onChange={(event) => updateAdditionalLine(line.id, "noticeDate", event.target.value)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-purchase`}>Purchase Date</label><input id={`sourcing-line-${line.id}-purchase`} type="date" className="fi" value={line.purchaseDate} onChange={(event) => updateAdditionalLine(line.id, "purchaseDate", event.target.value)} /></div>
+                </div>
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-contract`}>Contract Number</label><input id={`sourcing-line-${line.id}-contract`} className="fi" value={line.contractNumber} onChange={(event) => updateAdditionalLine(line.id, "contractNumber", event.target.value)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-invoice`}>Invoice Number</label><input id={`sourcing-line-${line.id}-invoice`} className="fi" value={line.invoiceNumber} onChange={(event) => updateAdditionalLine(line.id, "invoiceNumber", event.target.value)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-external`}>External Reference</label><input id={`sourcing-line-${line.id}-external`} className="fi" value={line.externalRef} onChange={(event) => updateAdditionalLine(line.id, "externalRef", event.target.value)} /></div>
+                </div>
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-cost-centre`}>Cost Centre / Department</label><input id={`sourcing-line-${line.id}-cost-centre`} className="fi" value={line.costCentre} onChange={(event) => updateAdditionalLine(line.id, "costCentre", event.target.value)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-budget-owner`}>Budget Owner Email</label><input id={`sourcing-line-${line.id}-budget-owner`} className="fi" value={line.budgetOwnerEmail} onChange={(event) => updateAdditionalLine(line.id, "budgetOwnerEmail", event.target.value)} /></div>
+                </div>
+                <div className="fg"><label htmlFor={`sourcing-line-${line.id}-secondary`}>Secondary Contacts</label><input id={`sourcing-line-${line.id}-secondary`} className="fi" value={line.secondaryContacts} onChange={(event) => updateAdditionalLine(line.id, "secondaryContacts", event.target.value)} /></div>
+              </fieldset>
+              <CustomFieldFormFields
+                definitions={customFieldDefs}
+                values={line.customFieldValues || {}}
+                onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)}
+                idPrefix={`sourcing-line-${line.id}`}
+                loading={customFieldsLoading}
+              />
             </div>
           ))}
 

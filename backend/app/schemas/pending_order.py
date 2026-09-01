@@ -13,6 +13,7 @@ from app.services.support_coverage_defaults import apply_bundled_included_suppor
 from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.sourcing import SourcingQuoteDocumentResponse
 from app.schemas.sourcing import SourcingItemCreate
+from app.schemas.custom_fields import CustomFieldValueItem
 
 
 class SourcingItemSummary(BaseModel):
@@ -29,6 +30,8 @@ class SourcingItemSummary(BaseModel):
     publisher_name: str
     software_description: str
     license_type: Optional[LicenseType] = None
+    license_metric: Optional[LicenseMetric] = None
+    portal_url: Optional[str] = None
     maintenance_coverage: Optional[MaintenanceCoverage] = None
     maintenance_start_date: Optional[date] = None
     maintenance_end_date: Optional[date] = None
@@ -38,14 +41,25 @@ class SourcingItemSummary(BaseModel):
     maintenance_cost: Optional[str] = None
     parent_sourcing_item_id: Optional[int] = None
     quantity: Optional[str] = None
+    quantity_per_unit: Optional[str] = None
+    sku_code: Optional[str] = None
     estimated_unit_price: Optional[str] = None
     estimated_total_price: Optional[str] = None
     currency: str
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    notice_date: Optional[date] = None
+    purchase_date: Optional[date] = None
+    contract_number: Optional[str] = None
+    invoice_number: Optional[str] = None
+    external_ref: Optional[str] = None
     supplier: Optional[str] = None
     contact_email: Optional[str] = None
+    cost_centre: Optional[str] = None
+    budget_owner_email: Optional[str] = None
+    secondary_contacts: list[str] = []
     notes: Optional[str] = None
+    custom_field_values: list[CustomFieldValueItem] = []
     status: str
     renewal_for_license_id: Optional[int] = None
     coterm_predecessor_ids: Optional[list[int]] = None
@@ -152,6 +166,7 @@ class PendingOrderConvertRequest(BaseModel):
     # Dates
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    notice_date: Optional[date] = None
     purchase_date: Optional[date] = None
 
     # References
@@ -159,16 +174,19 @@ class PendingOrderConvertRequest(BaseModel):
     po_number: str = ""
     procurement_reference: str = ""
     invoice_number: str = ""
+    external_ref: Optional[str] = None
 
     # Contact / ownership
     contact_email: str = ""
     supplier: str = ""
     cost_centre: str = ""
     budget_owner_email: str = ""
+    secondary_contacts: list[str] = []
 
     notes: Optional[str] = None
+    custom_field_values: list[CustomFieldValueItem] = []
 
-    @field_validator("start_date", "end_date", "purchase_date", mode="before")
+    @field_validator("start_date", "end_date", "notice_date", "purchase_date", mode="before")
     @classmethod
     def _normalise_date(cls, v: object) -> object:
         """Accept ISO dates, DD/MM/YYYY strings, empty strings, and None."""

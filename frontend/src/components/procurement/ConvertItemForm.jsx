@@ -8,6 +8,7 @@ import ParentLicensePicker from "./ParentLicensePicker.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
 } from "./MaintenanceCoverageFields.jsx";
+import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 /**
@@ -43,6 +44,8 @@ export default function ConvertItemForm({
   register,
   setValue,
   locale,
+  customFieldDefs = [],
+  customFieldsLoading = false,
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [unitPriceDisplay, setUnitPriceDisplay] = useState(
@@ -366,6 +369,18 @@ export default function ConvertItemForm({
               {...register(`items.${idx}.notes`)}
             />
           </div>
+          <div className="fr">
+            <div className="fg"><label htmlFor={`ca-notice-date-${idx}`}>Notice Date</label><input id={`ca-notice-date-${idx}`} type="date" className="fi" {...register(`items.${idx}.noticeDate`)} /></div>
+            <div className="fg"><label htmlFor={`ca-external-ref-${idx}`}>External Reference</label><input id={`ca-external-ref-${idx}`} className="fi" {...register(`items.${idx}.externalRef`)} /></div>
+          </div>
+          <div className="fg"><label htmlFor={`ca-secondary-contacts-${idx}`}>Secondary Contacts</label><input id={`ca-secondary-contacts-${idx}`} className="fi" placeholder="Separate email addresses with commas" {...register(`items.${idx}.secondaryContacts`)} /></div>
+          <CustomFieldFormFields
+            definitions={customFieldDefs}
+            values={watchedItem.customFieldValues || {}}
+            onChange={(values) => setValue(`items.${idx}.customFieldValues`, values, { shouldDirty: true })}
+            idPrefix={`ca-${idx}`}
+            loading={customFieldsLoading}
+          />
 
         </div>
       )}

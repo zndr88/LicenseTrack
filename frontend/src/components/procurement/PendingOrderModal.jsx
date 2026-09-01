@@ -11,10 +11,14 @@ import PluginSlot from "../plugins/PluginSlot.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import LicenseDraftSupplementFields, { licenseDraftSupplementDefaults } from "../licenses/LicenseDraftSupplementFields.jsx";
+import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
+import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
 const emptyItem = () => ({
+  ...licenseDraftSupplementDefaults,
   id: `${Date.now()}-${Math.random()}`,
   publisherName: "",
   softwareDescription: "",
@@ -29,6 +33,7 @@ const emptyItem = () => ({
 const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
   const isNewOrder = !order;
   const locale = userSettings?.numberFormatLocale ?? "en-US";
+  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
 
   const {
     register,
@@ -89,7 +94,16 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
     setSaving(true);
     try {
       if (isNewOrder) {
-        const saved = await onSave({ ...data, items, quoteFile: attachedFile || null });
+        const normalizedItems = items.map((item) => ({
+          ...item,
+          quantity: parseLocalizedNumber(item.quantity, userSettings) ?? item.quantity,
+          quantityPerUnit: parseLocalizedNumber(item.quantityPerUnit, userSettings) ?? item.quantityPerUnit,
+          estimatedUnitPrice: parseLocalizedNumber(item.estimatedUnitPrice, userSettings) ?? item.estimatedUnitPrice,
+          estimatedTotalPrice: parseLocalizedNumber(item.estimatedTotalPrice, userSettings) ?? item.estimatedTotalPrice,
+          secondaryContacts: String(item.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+          customFieldValues: buildCustomFieldValuePayload(customFieldDefs, item.customFieldValues, userSettings),
+        }));
+        const saved = await onSave({ ...data, items: normalizedItems, quoteFile: attachedFile || null });
         if (saved) {
           reset();
           setItems([emptyItem()]);
@@ -159,6 +173,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
                   if (first.procurementReference) setValue("procurementReference", first.procurementReference, { shouldDirty: true });
                   if (first.supplier) setValue("supplier", first.supplier, { shouldDirty: true });
                   setItems(mis.map((item) => ({
+                    ...licenseDraftSupplementDefaults,
                     id: `${Date.now()}-${Math.random()}`,
                     publisherName: item.publisherName ?? "",
                     softwareDescription: item.softwareDescription ?? "",
@@ -262,6 +277,13 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
                       <input id={`pending-item-${item.id}-total-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("5000", locale)}`} value={item.estimatedTotalPrice} onChange={(e) => updateItem(item.id, "estimatedTotalPrice", e.target.value)} />
                     </div>
                   </div>
+                  <LicenseDraftSupplementFields
+                    item={item}
+                    onChange={(field, value) => updateItem(item.id, field, value)}
+                    idPrefix={`pending-item-${item.id}`}
+                    customFieldDefs={customFieldDefs}
+                    customFieldsLoading={customFieldsLoading}
+                  />
                 </div>
               ))}
               <button type="button" className="btn btn-g" style={{ fontSize: 12, marginTop: 2 }} onClick={addItem}>

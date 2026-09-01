@@ -9,6 +9,7 @@ import {
   deleteCustomField,
   listCustomFields,
   reorderCustomFields,
+  updateCustomField,
   updateCustomFieldSection,
 } from "../api/settings.js";
 
@@ -16,6 +17,7 @@ vi.mock("../api/settings.js", () => ({
   listCustomFields: vi.fn(),
   createCustomField: vi.fn(),
   reorderCustomFields: vi.fn(),
+  updateCustomField: vi.fn(),
   deleteCustomField: vi.fn(),
   updateCustomFieldSection: vi.fn(),
 }));
@@ -60,6 +62,7 @@ beforeEach(() => {
   });
   reorderCustomFields.mockResolvedValue({ data: [], error: null });
   updateCustomFieldSection.mockResolvedValue({ data: {}, error: null });
+  updateCustomField.mockResolvedValue({ data: {}, error: null });
   deleteCustomField.mockResolvedValue({ data: { affectedLicenses: 3 }, error: null });
 });
 
@@ -95,6 +98,21 @@ describe("CustomFieldsSection", () => {
     await user.selectOptions(sectionSelect, "people");
 
     expect(updateCustomFieldSection).toHaveBeenCalledWith(1, "people");
+    expect(onCustomFieldsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  test("configures whether a custom field is copied into renewal drafts", async () => {
+    const user = userEvent.setup();
+    const onCustomFieldsChanged = vi.fn();
+    renderSection({ onCustomFieldsChanged });
+
+    const behaviorSelect = await screen.findByRole("combobox", {
+      name: /renewal behavior for contract owner/i,
+    });
+    expect(behaviorSelect).toHaveValue("blank");
+    await user.selectOptions(behaviorSelect, "copy");
+
+    expect(updateCustomField).toHaveBeenCalledWith(1, { carryForwardOnRenewal: true });
     expect(onCustomFieldsChanged).toHaveBeenCalledTimes(1);
   });
 

@@ -390,7 +390,7 @@ describe("ConvertPendingOrderModal", () => {
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
   });
 
-  test("valid submit payload shape remains identical", async () => {
+  test("valid submit payload includes the shared license-field baseline", async () => {
     const user = userEvent.setup();
     const { onConfirm } = renderModal({
       prefill: {
@@ -422,12 +422,15 @@ describe("ConvertPendingOrderModal", () => {
       softwareDescription: "Acme Suite",
       startDate: "2026-01-01",
       endDate: "2026-12-31",
+      noticeDate: null,
       purchaseDate: null,
       contractNumber: "CN-1",
       poNumber: "PO-1",
       procurementReference: "",
       invoiceNumber: "INV-1",
+      externalRef: null,
       contactEmail: "owner@example.com",
+      secondaryContacts: [],
       supplier: "Supplier A",
       costCentre: "IT",
       licenseType: "saas",
@@ -448,6 +451,7 @@ describe("ConvertPendingOrderModal", () => {
       currency: "EUR",
       budgetOwnerEmail: "budget@example.com",
       notes: "Ship it",
+      customFieldValues: [],
     }, null);
   });
 
@@ -974,7 +978,7 @@ describe("ConvertAllModal", () => {
     }));
   });
 
-  test("valid submit payload shape remains identical for multiple items", async () => {
+  test("valid submit payload includes the shared baseline for multiple items", async () => {
     const user = userEvent.setup();
     const { onConfirm } = renderModal({ order: MULTI_ORDER, licenses: RENEWAL_LICENSES });
 
@@ -999,12 +1003,15 @@ describe("ConvertAllModal", () => {
           softwareDescription: "SaaS App",
           startDate: "2026-01-01",
           endDate: "2026-12-31",
+          noticeDate: null,
           purchaseDate: null,
           contractNumber: "",
           poNumber: "PO-2",
           procurementReference: "",
           invoiceNumber: "",
+          externalRef: null,
           contactEmail: "",
+          secondaryContacts: [],
           supplier: "Order Supplier",
           costCentre: "",
           licenseType: "saas",
@@ -1025,6 +1032,7 @@ describe("ConvertAllModal", () => {
           currency: "USD",
           budgetOwnerEmail: "",
           notes: null,
+          customFieldValues: [],
         },
         {
           sourcingItemId: 22,
@@ -1032,12 +1040,15 @@ describe("ConvertAllModal", () => {
           softwareDescription: "Renew App",
           startDate: "2026-02-01",
           endDate: "2027-01-31",
+          noticeDate: null,
           purchaseDate: null,
           contractNumber: "CN-OLD",
           poNumber: "PO-2",
           procurementReference: "",
           invoiceNumber: "",
+          externalRef: null,
           contactEmail: "renew@example.com",
+          secondaryContacts: [],
           supplier: "Order Supplier",
           costCentre: "Renewals",
           licenseType: "saas",
@@ -1058,6 +1069,7 @@ describe("ConvertAllModal", () => {
           currency: "EUR",
           budgetOwnerEmail: "budget-renew@example.com",
           notes: null,
+          customFieldValues: [],
         },
       ],
       null,
