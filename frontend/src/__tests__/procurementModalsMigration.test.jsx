@@ -79,6 +79,24 @@ describe("PendingOrderModal", () => {
     expect(payload).toHaveProperty("quoteFile", null);
   });
 
+  test("previews an attached purchase order with the native PDF viewer", async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:po-preview");
+    URL.revokeObjectURL = vi.fn();
+    try {
+      renderModal();
+      const file = new File(["%PDF-1.7"], "purchase-order.pdf", { type: "application/pdf" });
+      fireEvent.change(screen.getByLabelText(/upload purchase order document/i), { target: { files: [file] } });
+      const frame = await screen.findByTitle("Preview of purchase-order.pdf");
+      expect(frame).toHaveAttribute("src", "blob:po-preview#zoom=page-width");
+      expect(frame).not.toHaveAttribute("sandbox");
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+    }
+  });
+
   test("Cancel calls onCancel immediately when untouched", () => {
     const { onCancel } = renderModal();
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
@@ -331,6 +349,22 @@ describe("ConvertPendingOrderModal", () => {
   test("Save is enabled when required fields are filled", () => {
     renderModal();
     expect(screen.getByRole("button", { name: /confirm & create license/i })).not.toBeDisabled();
+  });
+
+  test("previews an invoice during single conversion", async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:invoice-preview");
+    URL.revokeObjectURL = vi.fn();
+    try {
+      renderModal();
+      const file = new File(["%PDF-1.7"], "invoice.pdf", { type: "application/pdf" });
+      fireEvent.change(screen.getByLabelText(/invoice document/i), { target: { files: [file] } });
+      expect(await screen.findByTitle("Preview of invoice.pdf")).not.toHaveAttribute("sandbox");
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+    }
   });
 
   test("invalid contact email blocks submit and shows error", async () => {
@@ -660,6 +694,22 @@ describe("ConvertAllModal", () => {
   test("Confirm is disabled when item is missing startDate", () => {
     renderModal();
     expect(screen.getByRole("button", { name: /confirm & create licenses/i })).toBeDisabled();
+  });
+
+  test("previews an invoice during batch conversion", async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:batch-invoice-preview");
+    URL.revokeObjectURL = vi.fn();
+    try {
+      renderModal();
+      const file = new File(["%PDF-1.7"], "batch-invoice.pdf", { type: "application/pdf" });
+      fireEvent.change(screen.getByLabelText(/invoice document/i), { target: { files: [file] } });
+      expect(await screen.findByTitle("Preview of batch-invoice.pdf")).not.toHaveAttribute("sandbox");
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+    }
   });
 
   test("single and batch conversion show equivalent defaults for a one-line coterm order", () => {

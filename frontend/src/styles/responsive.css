@@ -59,12 +59,29 @@
   .doc-processing-history-meta {
     white-space: normal;
   }
-  .lp-document-preview {
+  .document-preview-panel:not(.document-assisted-preview) {
     min-height: calc(100vh - 140px);
   }
-  .lp-document-preview-frame,
-  .lp-document-preview-loading {
+  .document-preview-panel:not(.document-assisted-preview) .lp-document-preview-frame,
+  .document-preview-panel:not(.document-assisted-preview) .lp-document-preview-loading {
     min-height: 420px;
+  }
+}
+
+@media (max-width: 820px) {
+  .document-assisted-modal-layout.has-document-preview {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .document-assisted-preview {
+    order: 2;
+    margin: 0 18px 18px;
+    min-height: 300px;
+  }
+
+  .document-assisted-preview .document-preview-body {
+    height: 320px;
   }
 }
 

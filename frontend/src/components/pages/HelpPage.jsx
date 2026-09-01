@@ -19,6 +19,7 @@ const HELP_ARTICLES = [
           "When the licenses are ready to enter the portfolio, convert the pending order. Each line becomes a license record, procurement evidence is retained, the actual delivered entitlement and support dates are confirmed, and converted orders are locked.",
           "Sourcing Overview active rows start expanded and can be collapsed independently. History buttons on Sourcing Overview and Pending Orders open second, read-only tables below the active work. Converted and cancelled records stay searchable there without cluttering the live pipeline.",
           "Edit Sourcing Request updates the supplier, contact, notes, and all open line items in one atomic save; converted and cancelled lines remain read-only. A newly attached PDF, image, or text quote can be reviewed in a split or expanded preview before the request is saved.",
+          "New Purchase Order documents, conversion invoices, and documents attached during Add License use the same split or expanded preview while their forms remain editable.",
         ],
       },
       {
@@ -234,6 +235,7 @@ const HELP_ARTICLES = [
           "A file payload may be exactly as large as the configured upload limit. Anything larger is rejected; multipart request overhead is checked separately.",
           "Documents are stored on the server filesystem under the configured storage path.",
           "PDF license and procurement documents can be previewed from License Details while the details panel stays usable. Download remains available.",
+          "Before upload, supported PDF, PNG/JPEG, and plain-text files can be previewed beside sourcing, pending-order, conversion, and Add License forms. Other permitted file types can still be uploaded without an in-form preview.",
           "If a database-only restore is used before document storage is restored, document records remain visible and affected rows are marked File missing or Storage unavailable until the managed files are available again.",
           "Editors and admins can request document processing from the document row when an active document processor webhook is configured and a document.processing integration capability is available. This sends an audited event for configured integrations; LicenseTrack does not process the document by itself, and this is not an Official Extension action.",
           "When an external processor submits suggested values, pending suggestions appear in the Documents section. Editors and admins can compare current and suggested values, accept selected fields, or reject the result without changing the license.",

@@ -11,6 +11,7 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
 import PendingOrderInvoiceField from "./PendingOrderInvoiceField.jsx";
+import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
 import ParentLicensePicker from "./ParentLicensePicker.jsx";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
@@ -232,6 +233,12 @@ const ConvertPendingOrderModal = ({
         titleId="dialog-title-convert-po"
         onClose={requestClose}
         onEscape={requestClose}
+        modalClassName={`modal${invoiceFile ? " document-assisted-modal" : ""}`}
+        modalStyle={invoiceFile ? {
+          width: "min(1120px, 94vw)",
+          maxWidth: "min(1120px, 94vw)",
+          overflow: "hidden",
+        } : undefined}
         footer={(
           <>
             <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
@@ -243,7 +250,13 @@ const ConvertPendingOrderModal = ({
           </>
         )}
       >
-        <div className="modal-bd">
+        <div className={`document-assisted-modal-layout${invoiceFile ? " has-document-preview" : ""}`}>
+          <LocalDocumentPreviewPanel
+            ariaLabel="Attached invoice preview"
+            file={invoiceFile}
+            label="Invoice Preview"
+          />
+          <div className="modal-bd document-assisted-modal-form">
 
           {/* Renewal notice */}
           {isRenewal && (
@@ -520,8 +533,7 @@ const ConvertPendingOrderModal = ({
               <textarea id="cpo-notes" className="fi" rows={3} style={{ resize: "vertical" }} {...register("notes")} />
             </div>
           )}
-
-
+        </div>
         </div>
 
       </ModalShell>

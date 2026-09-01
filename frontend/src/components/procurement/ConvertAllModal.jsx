@@ -12,6 +12,7 @@ import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.j
 import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
 import ConvertItemForm, { isItemReady } from "./ConvertItemForm.jsx";
 import PendingOrderInvoiceField from "./PendingOrderInvoiceField.jsx";
+import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 
@@ -101,7 +102,15 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
         titleId="dialog-title-convert-all"
         onClose={requestClose}
         onEscape={requestClose}
-        modalStyle={{ maxWidth: "min(720px, 92vw)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}
+        modalClassName="modal document-assisted-modal"
+        modalStyle={{
+          width: invoiceFile ? "min(1120px, 94vw)" : undefined,
+          maxWidth: invoiceFile ? "min(1120px, 94vw)" : "min(720px, 92vw)",
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+          overflow: invoiceFile ? "hidden" : undefined,
+        }}
         footer={(
           <>
             <span style={{ flex: 1, fontSize: 12, color: "var(--text-2)" }}>
@@ -117,7 +126,13 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
           </>
         )}
       >
-        <div className="modal-bd" style={{ overflowY: "auto", flex: 1 }}>
+        <div className={`document-assisted-modal-layout${invoiceFile ? " has-document-preview" : ""}`}>
+          <LocalDocumentPreviewPanel
+            ariaLabel="Attached invoice preview"
+            file={invoiceFile}
+            label="Invoice Preview"
+          />
+          <div className="modal-bd document-assisted-modal-form">
           {order?.id && (
             <div className="plugin-slot-form-row">
               <PluginSlot
@@ -184,6 +199,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
               locale={locale}
             />
           ))}
+        </div>
         </div>
       </ModalShell>
 

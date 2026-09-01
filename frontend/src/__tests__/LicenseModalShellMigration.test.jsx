@@ -153,6 +153,29 @@ describe("license modal shell migration", () => {
     expect(category).toBe("invoice");
   });
 
+  test("InvoiceConfirmModal previews an attached document", async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:manual-preview");
+    URL.revokeObjectURL = vi.fn();
+    try {
+      render(
+        <InvoiceConfirmModal
+          data={{ fileName: "manual-entry", strategyUsed: "manual" }}
+          userSettings={userSettings}
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />
+      );
+      const file = new File(["%PDF-1.7"], "manual-invoice.pdf", { type: "application/pdf" });
+      fireEvent.change(screen.getByLabelText(/attach document/i), { target: { files: [file] } });
+      expect(await screen.findByTitle("Preview of manual-invoice.pdf")).not.toHaveAttribute("sandbox");
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+    }
+  });
+
   test("additional perpetual lines can add their own linked maintenance companion", async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn();

@@ -103,7 +103,11 @@ PDF document preview is coordinated at `LicensesPage.jsx` level through
 the registry area while the selected license detail panel remains mounted and
 usable. `useLicenseDocuments.js` gates preview eligibility with
 `utils/documentPreview.js` and continues to use authenticated API download
-helpers rather than direct browser navigation.
+helpers rather than direct browser navigation. The shared rendering surface is
+`components/ui/DocumentPreviewPanel.jsx`; staged uploads use
+`useLocalDocumentPreview.js` and `LocalDocumentPreviewPanel.jsx` for native
+PDF, image, and plain-text previews with object-URL cleanup. Modal owners retain
+their form and upload state and only compose that shared presentation.
 
 ## RenewalWorkbenchPage Sub-Module Pattern
 

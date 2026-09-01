@@ -6,6 +6,7 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import Icon from "../ui/Icon.jsx";
+import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
@@ -52,7 +53,10 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
   const [slotHasActions, setSlotHasActions] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose: onCancel });
+  const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
+    isDirty: isDirty || !!attachedFile,
+    onClose: onCancel,
+  });
 
   const handleFileChange = (file) => {
     setAttachedFile(file);
@@ -106,7 +110,14 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
         title={order ? "Edit Pending Order" : "Add Pending Order"}
         titleId="dialog-title-pending-order"
         onClose={requestClose}
-        modalStyle={{ maxWidth: isNewOrder ? "min(640px, 96vw)" : "min(480px, 92vw)" }}
+        modalClassName={`modal${attachedFile ? " document-assisted-modal" : ""}`}
+        modalStyle={{
+          width: attachedFile ? "min(1120px, 94vw)" : undefined,
+          maxWidth: attachedFile
+            ? "min(1120px, 94vw)"
+            : isNewOrder ? "min(640px, 96vw)" : "min(480px, 92vw)",
+          overflow: attachedFile ? "hidden" : undefined,
+        }}
         footer={(
           <>
             <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
@@ -118,7 +129,13 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
           </>
         )}
       >
-        <div className="modal-bd">
+        <div className={`document-assisted-modal-layout${attachedFile ? " has-document-preview" : ""}`}>
+          <LocalDocumentPreviewPanel
+            ariaLabel="Attached purchase order preview"
+            file={attachedFile}
+            label="Purchase Order Preview"
+          />
+          <div className="modal-bd document-assisted-modal-form">
           {/* Plugin slot - always mounted so it can discover actions; visually hidden when no actions */}
           {isNewOrder && (
             <div className="plugin-slot-form-row" style={slotHasActions ? undefined : { display: "none" }}>
@@ -252,6 +269,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
               </button>
             </div>
           )}
+        </div>
         </div>
       </ModalShell>
       {showDiscardDialog && (

@@ -53,7 +53,7 @@ describe("required field validation", () => {
         expect(screen.getByRole("complementary", { name: /attached quote preview/i })).toBeInTheDocument();
         expect(screen.getByTitle("vendor-quote.pdf")).toBeInTheDocument();
         expect(screen.getByTitle("Preview of vendor-quote.pdf")).toHaveAttribute("src", "blob:quote-preview#zoom=page-width");
-        expect(screen.getByTitle("Preview of vendor-quote.pdf")).toHaveAttribute("sandbox", "allow-same-origin");
+        expect(screen.getByTitle("Preview of vendor-quote.pdf")).not.toHaveAttribute("sandbox");
       });
     } finally {
       URL.createObjectURL = originalCreateObjectURL;

@@ -4,6 +4,7 @@ import Checkbox from "../ui/Checkbox.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import Icon from "../ui/Icon.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
+import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
@@ -266,6 +267,12 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
       }}
       closeButtonDisabled={isSubmitting}
       closeOnOverlayClick={!isSubmitting}
+      modalClassName={`modal${attachedFile ? " document-assisted-modal" : ""}`}
+      modalStyle={attachedFile ? {
+        width: "min(1120px, 94vw)",
+        maxWidth: "min(1120px, 94vw)",
+        overflow: "hidden",
+      } : undefined}
       footer={(
         <>
           <button className="btn btn-g" onClick={requestClose} disabled={isSubmitting}>Cancel</button>
@@ -278,7 +285,13 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         </>
       )}
     >
-        <div className="modal-bd">
+        <div className={`document-assisted-modal-layout${attachedFile ? " has-document-preview" : ""}`}>
+          <LocalDocumentPreviewPanel
+            ariaLabel="Attached license document preview"
+            file={attachedFile}
+            label="Document Preview"
+          />
+          <div className="modal-bd document-assisted-modal-form">
           <div className="fs">
             <h4><Icon name="shield" size={14} color="var(--accent)" /> Manual entry: {data.fileName}</h4>
             <p style={{ fontSize: 11, color: "var(--text-3)" }}>Review and correct any fields before saving.</p>
@@ -718,6 +731,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           >
             <Icon name="plus" size={12} /> Add additional license line
           </button>
+        </div>
         </div>
     </ModalShell>
     {showDiscardDialog && (
