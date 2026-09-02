@@ -23,6 +23,7 @@ export default function DocumentPreviewPanel({
     className,
   ].filter(Boolean).join(" ");
   const previewUrl = safePreviewBlobUrl(url);
+  const encodedPreviewUrl = previewUrl ? encodeURI(previewUrl) : null;
 
   return (
     <Root className={classes} aria-label={ariaLabel}>
@@ -77,11 +78,11 @@ export default function DocumentPreviewPanel({
             <span>Loading preview...</span>
           </div>
         )}
-        {!loading && kind === "pdf" && previewUrl && (
-          <iframe title={`Preview of ${filename}`} src={`${previewUrl}#zoom=page-width`} />
+        {!loading && kind === "pdf" && encodedPreviewUrl && (
+          <iframe title={`Preview of ${filename}`} src={`${encodedPreviewUrl}#zoom=page-width`} />
         )}
-        {!loading && kind === "image" && previewUrl && (
-          <img src={previewUrl} alt={`Preview of ${filename}`} />
+        {!loading && kind === "image" && encodedPreviewUrl && (
+          <img src={encodedPreviewUrl} alt={`Preview of ${filename}`} />
         )}
         {!loading && kind === "text" && (
           <pre>{text || "Loading document..."}</pre>
