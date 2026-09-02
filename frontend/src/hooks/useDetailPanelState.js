@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { formatPriceInput, getCompleteness, getExpirationStatus, normalizeLicense } from "../utils/helpers.js";
+import { formatPriceInput, getCompleteness, getExpirationPresentation, normalizeLicense } from "../utils/helpers.js";
 import { ROLE_PERMISSIONS } from "../constants/permissions.js";
 import {
   getLicense,
@@ -16,6 +16,7 @@ import {
 import { useLicenseDocuments } from "./useLicenseDocuments.js";
 import { useCustomFields } from "./useCustomFields.js";
 import { parseLocalizedNumber } from "../utils/formatting.js";
+import { buildCustomFieldValuePayload, customFieldValueMap } from "../utils/customFieldFormValues.js";
 
 /**
  * Encapsulates all state, effects, handlers, and derived values for DetailPanel.
@@ -98,6 +99,7 @@ export function useDetailPanelState({
   // Custom fields
   const {
     customFieldValues,
+    customFieldDefs,
     setCustomFieldValues,
     refreshCustomFields,
     customFieldsBySection,
@@ -224,15 +226,7 @@ export function useDetailPanelState({
     ? { percentage: null, checks: [], isComplete: false, isPending: false, isExempt: true }
     : getCompleteness({ ...license, documents: liveDocs }, globalSettings.mandatoryFields);
 
-  const exp = getExpirationStatus(
-    license.endDate,
-    globalSettings.notificationDays,
-    license.retired,
-    license.lifecycleStatus,
-    license.renewedToId,
-    license.startDate,
-    license.licenseType,
-  );
+  const exp = getExpirationPresentation(license);
 
   const perms = ROLE_PERMISSIONS[user.role];
   const vis = userSettings.visibleInDetail;
@@ -269,12 +263,17 @@ export function useDetailPanelState({
   const handleFullEditSave = async () => {
     setSavingLicense(true);
     setEditError(null);
-    const ok = await onUpdate(license.id, editFields);
+    const ok = await onUpdate(license.id, {
+      ...editFields,
+      secondaryContacts: String(editFields.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+      customFieldValues: buildCustomFieldValuePayload(customFieldDefs, editFields.customFieldValues, userSettings),
+    });
     setSavingLicense(false);
     if (ok === false) {
       setEditError("Save failed. Review the message above and try again.");
       return;
     }
+    await refreshCustomFields();
     setEditingLicense(false);
   };
 
@@ -285,12 +284,15 @@ export function useDetailPanelState({
       startDate: license.startDate || "",
       endDate: license.endDate || "",
       noticeDate: license.noticeDate || "",
+      purchaseDate: license.purchaseDate?.slice?.(0, 10) || "",
       contractNumber: license.contractNumber || "",
       poNumber: license.poNumber || "",
       procurementReference: license.procurementReference || "",
       invoiceNumber: license.invoiceNumber || "",
+      externalRef: license.externalRef || "",
       contactEmail: license.contactEmail || "",
       budgetOwnerEmail: license.budgetOwnerEmail || "",
+      secondaryContacts: (license.secondaryContacts || []).join(", "),
       supplier: license.supplier || "",
       costCentre: license.costCentre || "",
       licenseType: license.licenseType || "",
@@ -300,8 +302,11 @@ export function useDetailPanelState({
       quantityPerUnit: license.quantityPerUnit || "1",
       skuCode: license.skuCode || "",
       unitPrice: license.unitPrice || "",
+      totalPoPrice: license.totalPoPrice || "",
       currency: license.currency || "EUR",
       maintenanceCoverage: license.maintenanceCoverage || "unknown",
+      notes: license.notes || "",
+      customFieldValues: customFieldValueMap(customFieldValues),
     });
     setDisplayUnitPrice(
       formatPriceInput(license.unitPrice || "", userSettings?.numberFormatLocale ?? "en-US")
@@ -379,6 +384,7 @@ export function useDetailPanelState({
 
     // Custom fields (from useCustomFields)
     customFieldValues,
+    customFieldDefs,
     customFieldsLoading,
     cfBySection: customFieldsBySection,
     makeCustomFieldSaveFn,

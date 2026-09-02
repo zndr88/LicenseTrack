@@ -100,14 +100,14 @@ describe("AppRouter permissions", () => {
       confirmData,
       userSettings,
     });
-    expect(screen.queryByRole("dialog", { name: /review license data/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /add manual license/i })).not.toBeInTheDocument();
 
     rerender(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <AppRouter {...baseProps} page="licenses" perms={{ canUpload: true, canAdminSettings: false }} confirmData={confirmData} userSettings={userSettings} />
       </QueryClientProvider>,
     );
-    expect(screen.getByRole("dialog", { name: /review license data/i })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /add manual license/i })).toBeInTheDocument();
   });
 
   test("requires admin permission for admin route", () => {
@@ -167,7 +167,7 @@ describe("AppRouter permissions", () => {
     });
 
     expect(screen.getByText("Loading...")).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: /review license data/i })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /add manual license/i })).toBeInTheDocument();
     expect(await screen.findByText("Help page")).toBeInTheDocument();
   });
 

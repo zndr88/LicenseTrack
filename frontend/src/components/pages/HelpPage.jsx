@@ -19,6 +19,7 @@ const HELP_ARTICLES = [
           "When the licenses are ready to enter the portfolio, convert the pending order. Each line becomes a license record, procurement evidence is retained, the actual delivered entitlement and support dates are confirmed, and converted orders are locked.",
           "Sourcing Overview active rows start expanded and can be collapsed independently. History buttons on Sourcing Overview and Pending Orders open second, read-only tables below the active work. Converted and cancelled records stay searchable there without cluttering the live pipeline.",
           "Edit Sourcing Request updates the supplier, contact, notes, and all open line items in one atomic save; converted and cancelled lines remain read-only. A newly attached PDF, image, or text quote can be reviewed in a split or expanded preview before the request is saved.",
+          "New Purchase Order documents, conversion invoices, and documents attached during Add License use the same split or expanded preview while their forms remain editable.",
         ],
       },
       {
@@ -53,9 +54,10 @@ const HELP_ARTICLES = [
         body: [
           "The renewal workbench surfaces licenses approaching expiry and flags records that need attention, such as missing documents or high value.",
           "Starting a renewal marks the current license as pending renewal and creates sourcing-stage work. The successor license is not created until the related pending order is converted.",
-          "When conversion completes, LicenseTrack creates the successor, marks the predecessor renewed, and preserves the renewal chain.",
+          "When conversion completes, LicenseTrack creates and links the successor while preserving the renewal chain. The predecessor keeps its date-based Active or Expiring state until its own term ends.",
           "If the next term was already purchased as another active or upcoming license under the same PO, use Link Existing Successor from the expiring license instead. LicenseTrack adopts that record as the normal renewal successor without creating duplicate sourcing or pending-order work.",
           "Renewal sourcing and conversion preserve the predecessor's maintenance/support classification. Older recurring records without a stored value receive the type-appropriate default instead of losing coverage during renewal.",
+          "Admins can configure each custom field to start blank or copy its current value into renewal sourcing. A copied value is a snapshot taken when renewal starts and remains editable throughout sourcing, pending order, and final conversion.",
           "A maintenance record imported as legacy unlinked can renew without a parent. If it is still unlinked at conversion, the successor keeps the legacy-unlinked marker; linking the predecessor before conversion or the successor afterward creates the normal parent link and mirror.",
         ],
       },
@@ -64,6 +66,7 @@ const HELP_ARTICLES = [
         bullets: [
           "Renewal successors inherit the predecessor license reference.",
           "When an existing license is linked as the successor, its former LT reference remains reserved, searchable, and visible in the procurement trail.",
+          "A secured successor removes further renewal actions and workbench alerts. The predecessor becomes Renewed only after its own term has ended and successor coverage has started; a date gap remains Expired until then.",
           "Cancel renewal work before it reaches a pending order when the purchasing motion changes.",
           "Coterm renewals merge multiple renewal lines so several predecessor licenses can align to one successor period.",
           "Estimated annual value in the Renewal Workbench annualizes a multi-year term rather than showing the complete term cost as one year.",
@@ -234,6 +237,7 @@ const HELP_ARTICLES = [
           "A file payload may be exactly as large as the configured upload limit. Anything larger is rejected; multipart request overhead is checked separately.",
           "Documents are stored on the server filesystem under the configured storage path.",
           "PDF license and procurement documents can be previewed from License Details while the details panel stays usable. Download remains available.",
+          "Before upload, supported PDF, PNG/JPEG, and plain-text files can be previewed beside sourcing, pending-order, conversion, and Add License forms. Other permitted file types can still be uploaded without an in-form preview.",
           "If a database-only restore is used before document storage is restored, document records remain visible and affected rows are marked File missing or Storage unavailable until the managed files are available again.",
           "Editors and admins can request document processing from the document row when an active document processor webhook is configured and a document.processing integration capability is available. This sends an audited event for configured integrations; LicenseTrack does not process the document by itself, and this is not an Official Extension action.",
           "When an external processor submits suggested values, pending suggestions appear in the Documents section. Editors and admins can compare current and suggested values, accept selected fields, or reject the result without changing the license.",

@@ -6,10 +6,14 @@ import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import LicenseDraftSupplementFields, { licenseDraftSupplementDefaults } from "../licenses/LicenseDraftSupplementFields.jsx";
+import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
+import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
 const emptyItem = () => ({
+  ...licenseDraftSupplementDefaults,
   publisherName: "",
   softwareDescription: "",
   quantity: "",
@@ -23,6 +27,7 @@ const emptyItem = () => ({
 const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => {
   const [items, setItems] = useState([emptyItem()]);
   const locale = userSettings?.numberFormatLocale ?? "en-US";
+  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
 
   const update = (idx, field, value) =>
     setItems((prev) => prev.map((item, i) => {
@@ -61,6 +66,9 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
       quantity: parseLocalizedNumber(item.quantity, userSettings) ?? item.quantity,
       estimatedUnitPrice: parseLocalizedNumber(item.estimatedUnitPrice, userSettings) ?? item.estimatedUnitPrice,
       estimatedTotalPrice: parseLocalizedNumber(item.estimatedTotalPrice, userSettings) ?? item.estimatedTotalPrice,
+      quantityPerUnit: parseLocalizedNumber(item.quantityPerUnit, userSettings) ?? item.quantityPerUnit,
+      secondaryContacts: String(item.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+      customFieldValues: buildCustomFieldValuePayload(customFieldDefs, item.customFieldValues, userSettings),
     })));
   };
 
@@ -195,6 +203,13 @@ const AddPOLineItemsModal = ({ po, onSave, onCancel, saving, userSettings }) => 
                 />
               </div>
             </div>
+            <LicenseDraftSupplementFields
+              item={item}
+              onChange={(field, value) => update(idx, field, value)}
+              idPrefix={`po-line-${idx}`}
+              customFieldDefs={customFieldDefs}
+              customFieldsLoading={customFieldsLoading}
+            />
           </div>
         ))}
         <button

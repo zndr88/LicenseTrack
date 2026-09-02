@@ -1,5 +1,6 @@
 import { del, get, post, put } from "./client.js";
 import { downloadApiFile } from "./download.js";
+import { createPdfPreviewUrl } from "./documentPreview.js";
 
 export const getSourcingItems = () => get("/api/sourcing");
 export const getSourcingRequests = () => get("/api/sourcing/requests");
@@ -24,6 +25,10 @@ export function uploadSourcingQuoteDocument(requestId, file) {
 
 export async function downloadSourcingQuoteDocument(documentId, filename) {
   return downloadApiFile(`/api/sourcing/quote-documents/${documentId}/download`, { filename });
+}
+
+export function previewSourcingQuoteDocument(documentId) {
+  return createPdfPreviewUrl(`/api/sourcing/quote-documents/${documentId}/download`);
 }
 
 export const deleteSourcingQuoteDocument = (id) => del(`/api/sourcing/quote-documents/${id}`);

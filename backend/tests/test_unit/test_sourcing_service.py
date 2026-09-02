@@ -14,7 +14,7 @@ from datetime import date
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect, select
 
 from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder, PendingOrderStatus
@@ -34,10 +34,24 @@ from app.services.sourcing_service import (
     create_sourcing_item_record,
     delete_sourcing_request_record,
     handle_delete_side_effects,
+    load_sourcing_conversion_order,
     reserve_sourcing_item_conversion,
     reserve_sourcing_request_conversion,
     sourcing_item_predecessor_ids,
 )
+
+
+@pytest.mark.asyncio
+async def test_load_conversion_order_does_not_expire_unrelated_session_objects(db_session):
+    unrelated = make_license()
+    order = make_pending_order()
+    db_session.add_all([unrelated, order])
+    await db_session.flush()
+
+    loaded = await load_sourcing_conversion_order(db_session, order.id)
+
+    assert loaded.id == order.id
+    assert inspect(unrelated).expired is False
 
 
 @pytest.mark.asyncio

@@ -163,6 +163,48 @@ async def test_session_probe_returns_user_with_cookie(db_session, test_app):
     assert data["user"]["username"] == "sessionuser"
 
 
+async def test_session_refresh_rotates_active_human_session(db_session, test_app, monkeypatch):
+    password = "correctpassword123"
+    db_session.add_all([
+        _make_user("refreshuser", password, UserRole.admin),
+        GlobalSettings(id=1, session_timeout=30),
+    ])
+    await db_session.commit()
+    invalidate_global_settings_cache()
+
+    login_resp = await test_app.post("/api/auth/login", json={"username": "refreshuser", "password": password})
+    assert login_resp.status_code == 200
+
+    original_create_access_token = auth_module.auth.create_access_token
+    issued_with: list[int | None] = []
+
+    def capture_lifetime(user_id, role, *, security_version=0, lifetime_minutes=None):
+        issued_with.append(lifetime_minutes)
+        return original_create_access_token(
+            user_id,
+            role,
+            security_version=security_version,
+            lifetime_minutes=lifetime_minutes,
+        )
+
+    monkeypatch.setattr(auth_module.auth, "create_access_token", capture_lifetime)
+    refresh_resp = await test_app.post("/api/auth/refresh")
+
+    assert refresh_resp.status_code == 200
+    assert refresh_resp.json()["access_token"]
+    assert refresh_resp.json()["token_type"] == "bearer"
+    assert issued_with == [30]
+    assert "set-cookie" in refresh_resp.headers
+
+
+async def test_session_refresh_requires_authentication(test_app):
+    test_app.cookies.clear()
+
+    refresh_resp = await test_app.post("/api/auth/refresh")
+
+    assert refresh_resp.status_code == 401
+
+
 async def test_logout_clears_session_cookie(db_session, test_app):
     password = "correctpassword123"
     db_session.add(_make_user("logoutuser", password, UserRole.admin))

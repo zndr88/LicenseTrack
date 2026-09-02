@@ -25,11 +25,13 @@ export function buildPendingOrderConversionPayload(data, settings) {
     softwareDescription: data.softwareDescription.trim(),
     startDate:           normalizeDate(data.startDate),
     endDate:             data.isPerpetual ? null : normalizeDate(data.endDate),
+    noticeDate:          normalizeDate(data.noticeDate),
     purchaseDate:        normalizeDate(data.purchaseDate),
     contractNumber:      data.contractNumber,
     poNumber:            data.poNumber,
     procurementReference: data.procurementReference,
     invoiceNumber:       data.invoiceNumber,
+    externalRef:         data.externalRef || null,
     contactEmail:        data.contactEmail,
     supplier:            data.supplier,
     costCentre:          data.costCentre,
@@ -51,6 +53,8 @@ export function buildPendingOrderConversionPayload(data, settings) {
     totalPoPrice:        data.licenseType === "freeware" ? null : canonicalizeNumber(data.totalPoPrice, settings),
     currency:            data.currency,
     budgetOwnerEmail:    data.budgetOwnerEmail,
+    secondaryContacts:   String(data.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+    customFieldValues:   data.customFieldValuesPayload || [],
     notes:               data.notes || null,
   };
 }

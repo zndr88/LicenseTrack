@@ -49,7 +49,10 @@ async def get_portfolio_stats(
 
     departments = await get_viewer_departments(_current_user.id, db) if _current_user.role == "viewer" else None
 
-    query = select(License).options(selectinload(License.documents))
+    query = select(License).options(
+        selectinload(License.documents),
+        selectinload(License.renewed_to),
+    )
     query = apply_department_filter(query, departments)
     result = await db.execute(query)
     all_licenses = list(result.scalars().all())

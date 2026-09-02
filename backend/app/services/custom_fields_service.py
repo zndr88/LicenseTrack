@@ -9,11 +9,11 @@ from dataclasses import dataclass
 from datetime import date
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.custom_fields import CustomFieldDefinition, CustomFieldValue
+from app.models.custom_fields import CustomFieldDefinition, CustomFieldValue, SourcingItemCustomFieldValue
 from app.models.license import License
 from app.schemas.custom_fields import CustomFieldDefinitionCreate, CustomFieldDefinitionUpdate, CustomFieldValuesUpsert
 from app.services.import_.date_parser import parse_import_date
@@ -111,6 +111,7 @@ async def create_definition(db: AsyncSession, data: CustomFieldDefinitionCreate)
         field_key=field_key,
         field_type=data.field_type,
         display_order=data.display_order,
+        carry_forward_on_renewal=data.carry_forward_on_renewal,
     )
     db.add(definition)
     await db.flush()
@@ -382,6 +383,8 @@ async def update_definition(db: AsyncSession, def_id: int, data: CustomFieldDefi
 
     if "section" in data.model_fields_set:
         definition.section = data.section
+    if data.carry_forward_on_renewal is not None:
+        definition.carry_forward_on_renewal = data.carry_forward_on_renewal
 
     await db.flush()
     await db.refresh(definition)
@@ -506,3 +509,168 @@ async def upsert_values_for_license(
             )
 
     return await get_values_for_license(db, license_id), changes
+
+
+async def _validated_value_rows(
+    db: AsyncSession,
+    values: list[object],
+) -> list[tuple[CustomFieldDefinition, str | None, str | None]]:
+    """Validate and normalize embedded write values without committing."""
+    if not values:
+        return []
+
+    def value_attribute(item: object, name: str):
+        if isinstance(item, dict):
+            return item.get(name)
+        return getattr(item, name)
+
+    definition_ids = [value_attribute(item, "custom_field_def_id") for item in values]
+    if len(definition_ids) != len(set(definition_ids)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Each custom field can appear only once in an embedded write.",
+        )
+    definitions = await db.scalars(
+        select(CustomFieldDefinition).where(CustomFieldDefinition.id.in_(definition_ids))
+    )
+    definitions_by_id = {definition.id: definition for definition in definitions}
+    missing = sorted(set(definition_ids) - set(definitions_by_id))
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Unknown custom_field_def_id(s): {missing}",
+        )
+    return [
+        (
+            definitions_by_id[value_attribute(item, "custom_field_def_id")],
+            *normalize_custom_field_value(
+                definitions_by_id[value_attribute(item, "custom_field_def_id")],
+                value_text=value_attribute(item, "value_text"),
+                value_currency=value_attribute(item, "value_currency"),
+            ),
+        )
+        for item in values
+    ]
+
+
+async def replace_values_for_sourcing_item(
+    db: AsyncSession,
+    sourcing_item_id: int,
+    values: list[object],
+) -> None:
+    """Replace a procurement line's complete custom-field snapshot."""
+    normalized = await _validated_value_rows(db, values)
+    await db.execute(
+        delete(SourcingItemCustomFieldValue).where(
+            SourcingItemCustomFieldValue.sourcing_item_id == sourcing_item_id
+        )
+    )
+    for definition, value_text, value_currency in normalized:
+        db.add(
+            SourcingItemCustomFieldValue(
+                sourcing_item_id=sourcing_item_id,
+                custom_field_def_id=definition.id,
+                value_text=value_text,
+                value_currency=value_currency,
+            )
+        )
+
+
+async def replace_values_for_license(
+    db: AsyncSession,
+    license_id: int,
+    values: list[object],
+) -> None:
+    """Replace embedded license values inside a larger atomic write."""
+    normalized = await _validated_value_rows(db, values)
+    await db.execute(delete(CustomFieldValue).where(CustomFieldValue.license_id == license_id))
+    for definition, value_text, value_currency in normalized:
+        db.add(
+            CustomFieldValue(
+                license_id=license_id,
+                custom_field_def_id=definition.id,
+                value_text=value_text,
+                value_currency=value_currency,
+            )
+        )
+
+
+async def snapshot_renewal_values(
+    db: AsyncSession,
+    predecessor_id: int,
+    sourcing_item_id: int,
+) -> None:
+    """Copy only definition-approved predecessor values into a new renewal draft."""
+    values = await db.scalars(
+        select(CustomFieldValue)
+        .join(CustomFieldDefinition, CustomFieldDefinition.id == CustomFieldValue.custom_field_def_id)
+        .where(
+            CustomFieldValue.license_id == predecessor_id,
+            CustomFieldDefinition.carry_forward_on_renewal.is_(True),
+        )
+    )
+    for value in values:
+        db.add(
+            SourcingItemCustomFieldValue(
+                sourcing_item_id=sourcing_item_id,
+                custom_field_def_id=value.custom_field_def_id,
+                value_text=value.value_text,
+                value_currency=value.value_currency,
+            )
+        )
+
+
+async def merge_sourcing_values(
+    db: AsyncSession,
+    source_item_ids: list[int],
+    target_item_id: int,
+) -> None:
+    """Merge coterm snapshots, retaining only unambiguous nonblank values."""
+    if not source_item_ids:
+        return
+    values = await db.scalars(
+        select(SourcingItemCustomFieldValue).where(
+            SourcingItemCustomFieldValue.sourcing_item_id.in_(source_item_ids)
+        )
+    )
+    values_by_definition: dict[int, set[tuple[str | None, str | None]]] = {}
+    for value in values:
+        normalized = (value.value_text or None, value.value_currency or None)
+        if normalized == (None, None):
+            continue
+        values_by_definition.setdefault(value.custom_field_def_id, set()).add(normalized)
+
+    for definition_id, distinct_values in values_by_definition.items():
+        if len(distinct_values) != 1:
+            continue
+        value_text, value_currency = next(iter(distinct_values))
+        db.add(
+            SourcingItemCustomFieldValue(
+                sourcing_item_id=target_item_id,
+                custom_field_def_id=definition_id,
+                value_text=value_text,
+                value_currency=value_currency,
+            )
+        )
+
+
+async def transfer_sourcing_values_to_license(
+    db: AsyncSession,
+    sourcing_item_id: int,
+    license_id: int,
+) -> None:
+    """Copy the reviewed procurement snapshot to the resulting license."""
+    values = await db.scalars(
+        select(SourcingItemCustomFieldValue).where(
+            SourcingItemCustomFieldValue.sourcing_item_id == sourcing_item_id
+        )
+    )
+    for value in values:
+        db.add(
+            CustomFieldValue(
+                license_id=license_id,
+                custom_field_def_id=value.custom_field_def_id,
+                value_text=value.value_text,
+                value_currency=value.value_currency,
+            )
+        )

@@ -130,37 +130,23 @@ export const getCompleteness = (license, mandatoryFields) => {
   return { percentage: checks.length > 0 ? Math.round((met.length / checks.length) * 100) : 100, checks, isComplete: met.length === checks.length };
 };
 
-export const getExpirationStatus = (
-  endDate,
-  notificationDays,
-  retired,
-  lifecycleStatus,
-  renewedToId,
-  startDate = null,
-  licenseType = null,
-) => {
-  if (retired) return { status: "retired", days: null, label: "Retired" };
-  if (lifecycleStatus === "legacy") return { status: "legacy", days: null, label: "Legacy" };
-  if (lifecycleStatus === "renewed") return { status: "renewed", days: null, label: "Renewed" };
-  if (lifecycleStatus === "pending_renewal") return { status: "pending_renewal", days: null, label: "Pending Renewal" };
-  if (startDate) {
-    const daysUntilStart = daysBetween(todayStr(), startDate);
-    if (daysUntilStart > 0) return { status: "upcoming", days: daysUntilStart, label: `Starts in ${daysUntilStart}d` };
-  }
-  if (!endDate || endDate === "Perpetual") {
-    if (!licenseType || NON_EXPIRING_LICENSE_TYPES.includes(licenseType)) {
-      return { status: "perpetual", days: null, label: "Perpetual" };
-    }
-    return { status: "active", days: null, label: "Active" };
-  }
-  const days = daysBetween(todayStr(), endDate);
-  // End date passed - either renewed (successor exists) or expired (no successor)
-  if (days < 0) {
-    if (renewedToId) return { status: "renewed", days: Math.abs(days), label: "Renewed" };
-    return { status: "expired", days: Math.abs(days), label: `Expired ${Math.abs(days)}d ago` };
-  }
-  if (days <= notificationDays) return { status: "expiring", days, label: `Expires in ${days}d` };
-  return { status: "active", days, label: `${days}d remaining` };
+export const getExpirationPresentation = (license) => {
+  const status = license.expirationStatus || "unknown";
+  const days = license.daysUntilExpiry ?? null;
+  let label = status;
+  if (status === "expired") label = `Expired ${Math.abs(days ?? 0)}d ago`;
+  else if (status === "expiring") label = `Expires in ${days}d`;
+  else if (status === "active") label = days !== null ? `${days}d remaining` : "Active";
+  else if (status === "upcoming") {
+    const startDays = license.startDate ? daysBetween(todayStr(), license.startDate) : null;
+    label = startDays !== null && startDays > 0 ? `Starts in ${startDays}d` : "Upcoming";
+  } else if (status === "perpetual") label = "Perpetual";
+  else if (status === "renewed") label = "Renewed";
+  else if (status === "pending_renewal") label = "Pending Renewal";
+  else if (status === "retired") label = "Retired";
+  else if (status === "legacy") label = "Legacy";
+  else if (status === "unknown") label = "Unknown";
+  return { status, days, label };
 };
 
 // Map an API license response to the shape the frontend expects.

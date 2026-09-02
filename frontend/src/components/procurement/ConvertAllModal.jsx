@@ -11,9 +11,12 @@ import Icon from "../ui/Icon.jsx";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
 import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
 import ConvertItemForm, { isItemReady } from "./ConvertItemForm.jsx";
-import PendingOrderInvoiceField from "./PendingOrderInvoiceField.jsx";
+import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
+import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
+import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
+import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 
 const formSchema = z.object({ items: z.array(licenseFormSchema) });
 
@@ -33,6 +36,7 @@ const SHARED_FIELD_KEYS = [
 export default function ConvertAllModal({ order, licenses, userSettings, onConfirm, onCancel }) {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const unconvertedItems = order.items ?? [];
+  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
 
   const {
     register,
@@ -81,7 +85,14 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
     const payload = data.items.map((item, idx) => {
       const si = unconvertedItems[idx];
       return {
-        ...buildPendingOrderConversionPayload(item, userSettings),
+        ...buildPendingOrderConversionPayload({
+          ...item,
+          customFieldValuesPayload: buildCustomFieldValuePayload(
+            customFieldDefs,
+            item.customFieldValues,
+            userSettings,
+          ),
+        }, userSettings),
         sourcingItemId: si.id,
         ...(item.licenseType === "maintenance" && item.parentSourcingItemId ? { parentSourcingItemId: parseInt(item.parentSourcingItemId, 10) } : {}),
       };
@@ -101,7 +112,15 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
         titleId="dialog-title-convert-all"
         onClose={requestClose}
         onEscape={requestClose}
-        modalStyle={{ maxWidth: "min(720px, 92vw)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}
+        modalClassName="modal document-assisted-modal"
+        modalStyle={{
+          width: "min(1120px, 94vw)",
+          maxWidth: "min(1120px, 94vw)",
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
         footer={(
           <>
             <span style={{ flex: 1, fontSize: 12, color: "var(--text-2)" }}>
@@ -117,7 +136,8 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
           </>
         )}
       >
-        <div className="modal-bd" style={{ overflowY: "auto", flex: 1 }}>
+        <div className="license-intake-modal-layout">
+          <div className="modal-bd document-assisted-modal-form">
           {order?.id && (
             <div className="plugin-slot-form-row">
               <PluginSlot
@@ -133,7 +153,6 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
               />
             </div>
           )}
-          <PendingOrderInvoiceField invoiceFile={invoiceFile} onChange={setInvoiceFile} />
           {fields.length > 1 && (
             <div
               style={{
@@ -182,8 +201,12 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
               register={register}
               setValue={setValue}
               locale={locale}
+              customFieldDefs={customFieldDefs}
+              customFieldsLoading={customFieldsLoading}
             />
           ))}
+        </div>
+          <ProcurementDocumentWorkspace documents={order?.documents ?? []} file={invoiceFile} inputId="convert-all-invoice-file" label="Invoice Document" onFileChange={setInvoiceFile} previewDocument={previewPendingOrderDocument} />
         </div>
       </ModalShell>
 

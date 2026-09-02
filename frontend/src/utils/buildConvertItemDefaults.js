@@ -44,12 +44,14 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       softwareDescription: si.softwareDescription || renewal?.softwareDescription || "",
       startDate:           si.startDate || "",
       endDate:             si.endDate || "",
+      noticeDate:          si.noticeDate || "",
       purchaseDate:        si.purchaseDate || renewal?.purchaseDate || "",
       isPerpetual:         licenseType === "perpetual",
       contractNumber:      renewal?.contractNumber || "",
       poNumber:            order.poNumber || "",
       procurementReference: order.procurementReference || "",
       invoiceNumber:       "",
+      externalRef:         si.externalRef || "",
       contactEmail:        si.contactEmail || renewal?.contactEmail || "",
       supplier:            order.supplier || si.supplier || renewal?.supplier || "",
       costCentre:          renewal?.costCentre || "",
@@ -72,6 +74,11 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       totalPoPrice:        si.estimatedTotalPrice || renewal?.totalPoPrice || "",
       currency:            si.currency || renewal?.currency || defaultCurrency,
       budgetOwnerEmail:    renewal?.budgetOwnerEmail || "",
+      secondaryContacts:   (si.secondaryContacts || renewal?.secondaryContacts || []).join(", "),
+      customFieldValues:   Object.fromEntries((si.customFieldValues || []).map((value) => [
+        value.customFieldDefId,
+        value.valueCurrency ?? value.valueText ?? "",
+      ])),
       notes:               buildNotes(order.notes, si.notes, renewal?.notes),
     };
   });

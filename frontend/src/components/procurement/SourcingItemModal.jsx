@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CURRENCIES, LICENSE_TYPES } from "../../constants/licenseData.js";
+import { CURRENCIES, LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import {
@@ -21,11 +21,20 @@ import MaintenanceCoverageFields, {
   supportsSeparateMaintenanceLine,
 } from "./MaintenanceCoverageFields.jsx";
 import { defaultMaintenanceCoverageForLicenseType } from "../../utils/maintenanceCoverage.js";
+import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
+import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
+import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
+import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
+import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
+import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
+import { previewSourcingQuoteDocument } from "../../api/sourcing.js";
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
   softwareDescription: z.string().min(1, "Software description is required."),
   licenseType:         z.string(),
+  licenseMetric:       z.string(),
+  portalUrl:           z.string(),
   maintenanceCoverage: z.string(),
   maintenanceStartDate: z.string(),
   maintenanceEndDate:  z.string(),
@@ -34,11 +43,22 @@ const schema = z.object({
   maintenanceUnitPrice: z.string(),
   maintenanceCost:     z.string(),
   quantity:            z.string(),
+  quantityPerUnit:     z.string(),
+  skuCode:             z.string(),
   estimatedUnitPrice:  z.string(),
   estimatedTotalPrice: z.string(),
   currency:            z.string(),
   startDate:           z.string(),
   endDate:             z.string(),
+  noticeDate:          z.string(),
+  purchaseDate:        z.string(),
+  contractNumber:      z.string(),
+  invoiceNumber:       z.string(),
+  externalRef:         z.string(),
+  costCentre:          z.string(),
+  budgetOwnerEmail:    z.string(),
+  secondaryContacts:   z.string(),
+  customFieldValues:   z.record(z.string(), z.union([z.string(), z.boolean()])),
   supplier:            z.string(),
   contactEmail:        z.string().refine(
     (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
@@ -61,12 +81,25 @@ const emptyAdditionalLine = (overrides = {}) => ({
   publisherName: "",
   softwareDescription: "",
   licenseType: "",
+  licenseMetric: "per_user",
+  portalUrl: "",
   quantity: "",
+  quantityPerUnit: "1",
+  skuCode: "",
   estimatedUnitPrice: "",
   estimatedTotalPrice: "",
   currency: "EUR",
   startDate: "",
   endDate: "",
+  noticeDate: "",
+  purchaseDate: "",
+  contractNumber: "",
+  invoiceNumber: "",
+  externalRef: "",
+  costCentre: "",
+  budgetOwnerEmail: "",
+  secondaryContacts: "",
+  customFieldValues: {},
   supplier: "",
   contactEmail: "",
   notes: "",
@@ -74,20 +107,6 @@ const emptyAdditionalLine = (overrides = {}) => ({
   isMaintenanceCompanion: false,
   ...overrides,
 });
-
-function quotePreviewKind(file) {
-  if (!file) return null;
-  const mimeType = file.type.split(";", 1)[0].trim().toLowerCase();
-  if (mimeType === "application/pdf") return "pdf";
-  if (["image/png", "image/jpeg"].includes(mimeType)) return "image";
-  if (mimeType === "text/plain") return "text";
-  if (mimeType) return null;
-
-  if (/\.pdf$/i.test(file.name)) return "pdf";
-  if (/\.(png|jpe?g)$/i.test(file.name)) return "image";
-  if (/\.txt$/i.test(file.name)) return "text";
-  return null;
-}
 
 function normalizeOptionalNumber(value, settings) {
   return (parseLocalizedNumber(value, settings) ?? value) || null;
@@ -97,13 +116,16 @@ const SourcingItemModal = ({
   item,
   requestId,
   sourcingRequest,
+  documents = [],
+  pendingOrderId: parentPendingOrderId = null,
   userSettings,
   title,
   onSave,
   onCancel,
 }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
-  const pendingOrderId = item?.pendingOrderId ?? item?.pending_order_id ?? null;
+  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
+  const pendingOrderId = parentPendingOrderId ?? item?.pendingOrderId ?? item?.pending_order_id ?? null;
   const sourcingRequestId = item?.sourcingRequestId
     ?? item?.sourcing_request_id
     ?? sourcingRequest?.id
@@ -130,6 +152,8 @@ const SourcingItemModal = ({
       publisherName:       item?.publisherName ?? "",
       softwareDescription: item?.softwareDescription ?? "",
       licenseType:         item?.licenseType ?? "",
+      licenseMetric:       item?.licenseMetric ?? "per_user",
+      portalUrl:           item?.portalUrl ?? "",
       maintenanceCoverage: item?.maintenanceCoverage
         ?? (item?.isRenewal || item?.renewalForLicenseId != null
           ? defaultMaintenanceCoverageForLicenseType(item?.licenseType)
@@ -141,11 +165,22 @@ const SourcingItemModal = ({
       maintenanceUnitPrice: item?.maintenanceUnitPrice ?? "",
       maintenanceCost:     item?.maintenanceCost ?? "",
       quantity:            item?.quantity ?? "",
+      quantityPerUnit:     item?.quantityPerUnit ?? "1",
+      skuCode:             item?.skuCode ?? "",
       estimatedUnitPrice:  item?.estimatedUnitPrice ?? "",
       estimatedTotalPrice: computeInitialTotal(item),
       currency:            item?.currency ?? "EUR",
       startDate:           item?.startDate ?? "",
       endDate:             item?.endDate ?? "",
+      noticeDate:          item?.noticeDate ?? "",
+      purchaseDate:        item?.purchaseDate ?? "",
+      contractNumber:      item?.contractNumber ?? "",
+      invoiceNumber:       item?.invoiceNumber ?? "",
+      externalRef:         item?.externalRef ?? "",
+      costCentre:          item?.costCentre ?? "",
+      budgetOwnerEmail:    item?.budgetOwnerEmail ?? "",
+      secondaryContacts:   (item?.secondaryContacts ?? []).join(", "),
+      customFieldValues:   customFieldValueMap(item?.customFieldValues),
       supplier:            effectiveSupplier,
       contactEmail:        effectiveContactEmail,
       notes:               item?.notes ?? "",
@@ -157,36 +192,8 @@ const SourcingItemModal = ({
   const [slotHasActions, setSlotHasActions] = useState(false);
   const [additionalLines, setAdditionalLines] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [quotePreviewUrl, setQuotePreviewUrl] = useState(null);
-  const [quoteText, setQuoteText] = useState("");
-  const [quotePreviewExpanded, setQuotePreviewExpanded] = useState(false);
-
-  const quotePreviewType = quotePreviewKind(attachedFile);
-
-  useEffect(() => {
-    if (!attachedFile || !quotePreviewType || quotePreviewType === "text") {
-      setQuotePreviewUrl(null);
-      return undefined;
-    }
-    const url = encodeURI(URL.createObjectURL(attachedFile));
-    setQuotePreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [attachedFile, quotePreviewType]);
-
-  useEffect(() => {
-    let active = true;
-    setQuoteText("");
-    if (attachedFile && quotePreviewType === "text") {
-      attachedFile.text().then((value) => {
-        if (active) setQuoteText(value);
-      });
-    }
-    return () => { active = false; };
-  }, [attachedFile, quotePreviewType]);
-
   const handleFileChange = (file) => {
     setAttachedFile(file);
-    setQuotePreviewExpanded(false);
     if (!file) { setAttachedFileBase64(null); return; }
     const reader = new FileReader();
     reader.onload = () => setAttachedFileBase64(reader.result.split(",")[1] ?? null);
@@ -209,7 +216,10 @@ const SourcingItemModal = ({
     formatPriceInput(computeInitialTotal(item), locale)
   );
 
-  const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose: onCancel });
+  const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
+    isDirty: isDirty || !!attachedFile,
+    onClose: onCancel,
+  });
 
   const quantity = watch("quantity");
   const estimatedUnitPrice = watch("estimatedUnitPrice");
@@ -328,6 +338,7 @@ const SourcingItemModal = ({
     if (items.length > 1) {
       setAdditionalLines(
         items.slice(1).map((it) => ({
+          ...emptyAdditionalLine(),
           id: `${Date.now()}-${Math.random()}`,
           publisherName: it.publisherName ?? "",
           softwareDescription: it.softwareDescription ?? "",
@@ -352,6 +363,8 @@ const SourcingItemModal = ({
           publisherName: data.publisherName,
           softwareDescription: data.softwareDescription,
           licenseType: data.licenseType || null,
+          licenseMetric: data.licenseMetric || null,
+          portalUrl: data.licenseType === "saas" ? data.portalUrl || null : null,
           maintenanceCoverage: supportsMaintenanceCoverage(data.licenseType)
             ? (data.maintenanceCoverage || "unknown")
             : null,
@@ -374,6 +387,8 @@ const SourcingItemModal = ({
             ? normalizeOptionalNumber(data.maintenanceCost, userSettings)
             : null,
           quantity: (parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity) || null,
+          quantityPerUnit: normalizeOptionalNumber(data.quantityPerUnit, userSettings) || "1",
+          skuCode: data.skuCode || null,
           estimatedUnitPrice: isFreewareLicenseType(data.licenseType)
             ? null
             : (parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice) || null,
@@ -383,6 +398,15 @@ const SourcingItemModal = ({
           currency: data.currency || "EUR",
           startDate: data.startDate || null,
           endDate: data.endDate || null,
+          noticeDate: data.noticeDate || null,
+          purchaseDate: data.purchaseDate || null,
+          contractNumber: data.contractNumber || null,
+          invoiceNumber: data.invoiceNumber || null,
+          externalRef: data.externalRef || null,
+          costCentre: data.costCentre || null,
+          budgetOwnerEmail: data.budgetOwnerEmail || null,
+          secondaryContacts: String(data.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+          customFieldValues: buildCustomFieldValuePayload(customFieldDefs, data.customFieldValues, userSettings),
         };
         const saved = await onSave({
           items: [
@@ -391,12 +415,25 @@ const SourcingItemModal = ({
               publisherName: l.publisherName,
               softwareDescription: l.softwareDescription,
               licenseType: l.licenseType || null,
+              licenseMetric: l.licenseMetric || null,
+              portalUrl: l.licenseType === "saas" ? l.portalUrl || null : null,
               quantity: normalizeOptionalNumber(l.quantity, userSettings),
+              quantityPerUnit: normalizeOptionalNumber(l.quantityPerUnit, userSettings) || "1",
+              skuCode: l.skuCode || null,
               estimatedUnitPrice: normalizeOptionalNumber(l.estimatedUnitPrice, userSettings),
               estimatedTotalPrice: normalizeOptionalNumber(l.estimatedTotalPrice, userSettings),
               currency: l.currency || "EUR",
               startDate: l.startDate || null,
               endDate: l.endDate || null,
+              noticeDate: l.noticeDate || null,
+              purchaseDate: l.purchaseDate || null,
+              contractNumber: l.contractNumber || null,
+              invoiceNumber: l.invoiceNumber || null,
+              externalRef: l.externalRef || null,
+              costCentre: l.costCentre || null,
+              budgetOwnerEmail: l.budgetOwnerEmail || null,
+              secondaryContacts: String(l.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+              customFieldValues: buildCustomFieldValuePayload(customFieldDefs, l.customFieldValues, userSettings),
               supplier: l.supplier || null,
               contactEmail: l.contactEmail || null,
               notes: l.notes || null,
@@ -417,6 +454,8 @@ const SourcingItemModal = ({
         const maintenanceCompanion = additionalLines.find((line) => line.isMaintenanceCompanion);
         const saved = await onSave({
           ...data,
+          customFieldValues: buildCustomFieldValuePayload(customFieldDefs, data.customFieldValues, userSettings),
+          secondaryContacts: String(data.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
           quantity: parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity,
           estimatedUnitPrice: isFreewareLicenseType(data.licenseType)
             ? null
@@ -427,6 +466,7 @@ const SourcingItemModal = ({
           maintenanceQuantity: normalizeOptionalNumber(data.maintenanceQuantity, userSettings),
           maintenanceUnitPrice: normalizeOptionalNumber(data.maintenanceUnitPrice, userSettings),
           maintenanceCost: normalizeOptionalNumber(data.maintenanceCost, userSettings),
+          quoteFile: attachedFile || null,
           ...(maintenanceCompanion ? {
             maintenanceCompanion: {
               publisherName: maintenanceCompanion.publisherName,
@@ -452,7 +492,12 @@ const SourcingItemModal = ({
   };
 
   const lineCount = 1 + additionalLines.length;
-  const showQuotePreview = Boolean(attachedFile);
+  const hasCatchallCustomFields = customFieldDefs.some(
+    (definition) => !definition.section || definition.section === "__catchall__"
+  );
+  const hasDocumentCustomFields = customFieldDefs.some(
+    (definition) => definition.section === "documents"
+  );
 
   return (
     <>
@@ -460,10 +505,10 @@ const SourcingItemModal = ({
         title={title ?? (item ? "Edit Sourcing Item" : "Add Sourcing Item")}
         titleId="dialog-title-sourcing-item"
         onClose={requestClose}
-        modalClassName="modal sourcing-item-modal"
+        modalClassName="modal document-assisted-modal"
         modalStyle={{
-          width: showQuotePreview ? "min(1120px, 94vw)" : "min(560px, 92vw)",
-          maxWidth: showQuotePreview ? "min(1120px, 94vw)" : "min(560px, 92vw)",
+          width: "min(1120px, 94vw)",
+          maxWidth: "min(1120px, 94vw)",
           overflow: "hidden",
         }}
         footer={(
@@ -475,71 +520,36 @@ const SourcingItemModal = ({
           </>
         )}
       >
-        <div className={`sourcing-item-modal-layout${showQuotePreview ? " has-quote-preview" : ""}`}>
-          {showQuotePreview && (
-            <aside className={`lp-document-preview sourcing-quote-preview${quotePreviewExpanded ? " is-expanded" : ""}`} aria-label="Attached quote preview">
-              <div className="lp-document-preview-hd">
-                <div className="lp-document-preview-title">
-                  <span>Quote Preview</span>
-                  <small title={attachedFile.name}>{attachedFile.name}</small>
-                </div>
-                <div className="lp-document-preview-actions">
-                  <button
-                    className="doc-action-btn"
-                    title={quotePreviewExpanded ? "Restore split view" : "Expand quote preview"}
-                    aria-label={quotePreviewExpanded ? "Restore split view" : "Expand quote preview"}
-                    onClick={() => setQuotePreviewExpanded((expanded) => !expanded)}
-                  >
-                    <Icon name={quotePreviewExpanded ? "minimize" : "maximize"} size={14} />
-                  </button>
-                  <Icon name="file" size={15} color="var(--text-2)" />
-                </div>
+        <div className="license-intake-modal-layout">
+          <div className="modal-bd document-assisted-modal-form">
+          <div className="license-form-stack">
+            <LicenseFormSection title="Identity">
+              <div className="fg">
+                <label htmlFor="si-publisher">Publisher <span style={{ color: "var(--red)" }}>*</span></label>
+                <Controller name="publisherName" control={control} render={({ field }) => <ReferenceCombobox id="si-publisher" mode="publisher" placeholder="Software publisher" {...field} />} />
+                {errors.publisherName && <span className="field-error">{errors.publisherName.message}</span>}
               </div>
-              <div className="sourcing-quote-preview-body lp-document-preview-frame">
-                {quotePreviewType === "pdf" && quotePreviewUrl && (
-                  <iframe
-                    title={`Preview of ${attachedFile.name}`}
-                    src={`${quotePreviewUrl}#zoom=page-width`}
-                    sandbox="allow-same-origin"
-                  />
-                )}
-                {quotePreviewType === "image" && quotePreviewUrl && (
-                  <img src={quotePreviewUrl} alt={`Preview of ${attachedFile.name}`} />
-                )}
-                {quotePreviewType === "text" && (
-                  <pre>{quoteText || "Loading quote..."}</pre>
-                )}
-                {!quotePreviewType && (
-                  <div className="sourcing-quote-preview-empty">
-                    <Icon name="file" size={22} color="var(--text-3)" />
-                    <span>Preview is not available for this file type.</span>
-                  </div>
-                )}
+              <div className="fg">
+                <label htmlFor="si-software-desc">Software Description <span style={{ color: "var(--red)" }}>*</span></label>
+                <input id="si-software-desc" className="fi" placeholder="Product or service name" {...register("softwareDescription")} />
+                {errors.softwareDescription && <span className="field-error">{errors.softwareDescription.message}</span>}
               </div>
-            </aside>
-          )}
-          <div className="modal-bd sourcing-item-form">
-          {/* Quote upload - always available (document attaches to the request).
-              Parse Quote action is layered on below when a plugin is active. */}
-          {isNewRequest && (
-            <>
-              <div className="fg" style={{ borderBottom: "1px solid var(--border-lt)", paddingBottom: 12, marginBottom: 4 }}>
-                {attachedFile ? (
-                  <div className="fg-label">Upload Quote <span style={{ fontWeight: 400, color: "var(--text-3)" }}>{slotHasActions ? "(optional — use Parse Quote to auto-fill)" : "(optional)"}</span></div>
-                ) : (
-                  <label htmlFor="sourcing-quote-file">Upload Quote <span style={{ fontWeight: 400, color: "var(--text-3)" }}>{slotHasActions ? "(optional — use Parse Quote to auto-fill)" : "(optional)"}</span></label>
-                )}
-                {attachedFile ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                    <Icon name="file" size={14} color="var(--text-2)" />
-                    <span style={{ fontSize: 12, color: "var(--text-1)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attachedFile.name}</span>
-                    <button type="button" className="btn btn-g" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => handleFileChange(null)}>Remove</button>
-                  </div>
-                ) : (
-                  <input id="sourcing-quote-file" type="file" className="fi" style={{ marginTop: 4 }} accept=".pdf,.png,.jpg,.jpeg,.txt" onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)} />
-                )}
+              <div className="fg">
+                <label htmlFor="si-license-type">License Type <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></label>
+                <select id="si-license-type" className="fi fi-select" {...register("licenseType")}>
+                  <option value="">Not specified</option>
+                  {LICENSE_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+                </select>
               </div>
-              {/* PluginSlot always mounted to discover actions; hidden via CSS when empty */}
+              <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="identity" />
+            </LicenseFormSection>
+            {hasDocumentCustomFields && (
+              <LicenseFormSection title="Documents" icon="upload">
+                <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="documents" />
+              </LicenseFormSection>
+            )}
+
+            {isNewRequest && (
               <div className="plugin-slot-form-row" style={slotHasActions ? undefined : { display: "none" }}>
                 <PluginSlot
                   slot="sourcing.quote.add.actions"
@@ -556,195 +566,82 @@ const SourcingItemModal = ({
                   onResult={handleParseResult}
                 />
               </div>
-            </>
-          )}
+            )}
 
-          {/* Primary line */}
-          <div className="fr">
-            <div className="fg" style={{ flex: 1 }}>
-              <label htmlFor="si-publisher">Publisher <span style={{ color: "var(--red)" }}>*</span></label>
-              <Controller
-                name="publisherName"
-                control={control}
-                render={({ field }) => (
-                  <ReferenceCombobox id="si-publisher" mode="publisher" placeholder="Software publisher" {...field} />
-                )}
-              />
-              {errors.publisherName && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.publisherName.message}</span>}
-            </div>
-          </div>
-          <div className="fg">
-            <label htmlFor="si-software-desc">Software Description <span style={{ color: "var(--red)" }}>*</span></label>
-            <input id="si-software-desc" className="fi" placeholder="Product or service name" {...register("softwareDescription")} />
-            {errors.softwareDescription && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.softwareDescription.message}</span>}
-          </div>
-          <div className="fg">
-            <label htmlFor="si-license-type">
-              License Type <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span>
-            </label>
-            <select id="si-license-type" className="fi fi-select" {...register("licenseType")}>
-              <option value="">Not specified</option>
-              {LICENSE_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>{type.label}</option>
-              ))}
-            </select>
-          </div>
-          <MaintenanceCoverageFields
-            idPrefix="si"
-            licenseType={licenseType}
-            coverage={maintenanceCoverage}
-            startDate={maintenanceStartDate}
-            endDate={maintenanceEndDate}
-            pricingBasis={maintenancePricingBasis}
-            supportQuantity={maintenanceQuantity}
-            supportUnitPrice={maintenanceUnitPrice}
-            cost={maintenanceCost}
-            licenseQuantity={quantity}
-            licenseStartDate={startDate}
-            licenseEndDate={endDate}
-            licenseTotalCost={estimatedTotalPrice}
-            currency={watch("currency")}
-            locale={locale}
-            onChange={(field, value) => setValue(field, value, { shouldDirty: true })}
-            onAddSeparate={addMaintenanceLine}
-            separateLineAdded={maintenanceLineAdded}
-          />
-          <div className="fr">
-            <div className="fg" style={{ flex: 1 }}>
-              <label htmlFor="si-quantity">Purchase Quantity</label>
-              <Controller
-                name="quantity"
-                control={control}
-                render={({ field }) => (
-                  <input
-                    id="si-quantity"
-                    className="fi"
-                    inputMode="decimal"
-                    placeholder="e.g. 25"
-                    value={displayQuantity}
-                    onChange={(event) => {
-                      const raw = event.target.value;
-                      const canonical = canonicalizeQuantityInput(raw, userSettings);
-                      setDisplayQuantity(raw);
-                      field.onChange(canonical ?? raw);
-                    }}
-                    onBlur={() => {
-                      const canonical = canonicalizeQuantityInput(field.value, userSettings);
-                      if (canonical != null) {
-                        field.onChange(canonical);
-                        setDisplayQuantity(formatQuantity(canonical, userSettings));
-                      }
-                      field.onBlur();
-                    }}
-                  />
-                )}
-              />
-            </div>
-            <div className="fg" style={{ flex: 1 }}>
-              <label htmlFor="si-currency">Currency</label>
-              <select id="si-currency" className="fi" {...register("currency")}>
-                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          </div>
-          {!isFreewareLicenseType(licenseType) && (
-          <div className="fr">
-            <div className="fg" style={{ flex: 1 }}>
-              <label htmlFor="si-unit-price">Est. Unit Price <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(excl. tax)</span></label>
-              <Controller
-                name="estimatedUnitPrice"
-                control={control}
-                render={({ field }) => (
-                  <input
-                    id="si-unit-price"
-                    className="fi"
-                    value={displayUnitPrice}
-                    onFocus={() => setDisplayUnitPrice(field.value)}
-                    onChange={(e) => {
-                      const raw = parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value;
-                      setDisplayUnitPrice(e.target.value);
-                      field.onChange(raw);
-                    }}
-                    onBlur={() => {
-                      setDisplayUnitPrice(formatPriceInput(field.value, locale));
-                      field.onBlur();
-                    }}
-                    placeholder={`e.g. ${formatPriceInput("15.00", locale)}`}
-                  />
-                )}
-              />
-            </div>
-            <div className="fg" style={{ flex: 1 }}>
-              <label htmlFor="si-total-price">Est. Total Price {showAutoLabel && <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(auto)</span>}</label>
-              <Controller
-                name="estimatedTotalPrice"
-                control={control}
-                render={({ field }) => (
-                  <input
-                    id="si-total-price"
-                    className="fi"
-                    value={displayTotalPrice}
-                    onFocus={() => setDisplayTotalPrice(field.value)}
-                    onChange={(e) => {
-                      const raw = parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value;
-                      setTotalManuallyEdited(true);
-                      setDisplayTotalPrice(e.target.value);
-                      field.onChange(raw);
-                    }}
-                    onBlur={() => {
-                      setDisplayTotalPrice(formatPriceInput(field.value, locale));
-                      field.onBlur();
-                    }}
-                    placeholder={`e.g. ${formatPriceInput("4500.00", locale)}`}
-                  />
-                )}
-              />
-            </div>
-          </div>
-          )}
-          <div className="fr">
-            <div className="fg" style={{ flex: 1 }}>
-              <label htmlFor="si-start-date">Start Date</label>
-              <input id="si-start-date" className="fi" type="date" {...register("startDate")} />
-            </div>
-            <div className="fg" style={{ flex: 1 }}>
-              <label htmlFor="si-end-date">End Date</label>
-              <input id="si-end-date" className="fi" type="date" {...register("endDate")} />
-            </div>
-          </div>
-          <div className="fr">
-            <div className="fg" style={{ flex: 1 }}>
-              <label htmlFor="si-supplier">Request supplier</label>
-              <Controller
-                name="supplier"
-                control={control}
-                render={({ field }) => (
-                  <ReferenceCombobox
-                    id="si-supplier"
-                    mode="supplier"
-                    placeholder="Reseller or direct supplier"
-                    {...field}
-                    onChange={(value) => {
-                      const previousSupplier = watch("supplier");
-                      field.onChange(value);
-                      if (String(previousSupplier || "").trim().toLocaleLowerCase() !== value.trim().toLocaleLowerCase()) {
-                        setValue("contactEmail", "", { shouldDirty: true });
-                      }
-                    }}
-                  />
-                )}
-              />
-              <span className="field-hint">Applies to every line in this sourcing request.</span>
-            </div>
-            <div className="fg" style={{ flex: 1 }}>
-              <label htmlFor="si-contact-email">Contact Email</label>
-              <input id="si-contact-email" className="fi" type="email" placeholder="contact@example.com" {...register("contactEmail")} />
-              {errors.contactEmail && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.contactEmail.message}</span>}
-            </div>
-          </div>
-          <div className="fg">
-            <label htmlFor="si-notes">Notes</label>
-            <textarea id="si-notes" className="fi" rows={3} placeholder="Procurement notes" style={{ resize: "vertical" }} {...register("notes")} />
+            <LicenseFormSection title="Key Dates & Contract">
+              <div className="fr">
+                <div className="fg"><label htmlFor="si-start-date">Start Date</label><input id="si-start-date" className="fi" type="date" {...register("startDate")} /></div>
+                <div className="fg"><label htmlFor="si-end-date">End Date</label><input id="si-end-date" className="fi" type="date" {...register("endDate")} /></div>
+              </div>
+              <div className="fr">
+                <div className="fg"><label htmlFor="si-notice-date">Notice Date</label><input id="si-notice-date" type="date" className="fi" {...register("noticeDate")} /></div>
+                <div className="fg"><label htmlFor="si-purchase-date">Purchase Date</label><input id="si-purchase-date" type="date" className="fi" {...register("purchaseDate")} /></div>
+              </div>
+              <div className="fr">
+                <div className="fg"><label htmlFor="si-contract-number">Contract Number</label><input id="si-contract-number" className="fi" {...register("contractNumber")} /></div>
+                <div className="fg"><label htmlFor="si-invoice-number">Invoice Number</label><input id="si-invoice-number" className="fi" {...register("invoiceNumber")} /></div>
+                <div className="fg"><label htmlFor="si-external-ref">External Reference</label><input id="si-external-ref" className="fi" {...register("externalRef")} /></div>
+              </div>
+              <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="dates" />
+            </LicenseFormSection>
+
+            {supportsMaintenanceCoverage(licenseType) && (
+              <LicenseFormSection title="Maintenance / Support">
+                <MaintenanceCoverageFields idPrefix="si" licenseType={licenseType} coverage={maintenanceCoverage} startDate={maintenanceStartDate} endDate={maintenanceEndDate} pricingBasis={maintenancePricingBasis} supportQuantity={maintenanceQuantity} supportUnitPrice={maintenanceUnitPrice} cost={maintenanceCost} licenseQuantity={quantity} licenseStartDate={startDate} licenseEndDate={endDate} licenseTotalCost={estimatedTotalPrice} currency={watch("currency")} locale={locale} onChange={(field, value) => setValue(field, value, { shouldDirty: true })} onAddSeparate={addMaintenanceLine} separateLineAdded={maintenanceLineAdded} embedded />
+                <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="maintenance" />
+              </LicenseFormSection>
+            )}
+
+            <LicenseFormSection title="Details">
+              <div className="fr">
+                <div className="fg">
+                  <label htmlFor="si-quantity">Purchase Quantity</label>
+                  <Controller name="quantity" control={control} render={({ field }) => <input id="si-quantity" className="fi" inputMode="decimal" placeholder="e.g. 25" value={displayQuantity} onChange={(event) => { const raw = event.target.value; const canonical = canonicalizeQuantityInput(raw, userSettings); setDisplayQuantity(raw); field.onChange(canonical ?? raw); }} onBlur={() => { const canonical = canonicalizeQuantityInput(field.value, userSettings); if (canonical != null) { field.onChange(canonical); setDisplayQuantity(formatQuantity(canonical, userSettings)); } field.onBlur(); }} />} />
+                </div>
+                <div className="fg"><label htmlFor="si-quantity-per-unit">Quantity per Unit</label><input id="si-quantity-per-unit" className="fi" inputMode="decimal" {...register("quantityPerUnit")} /></div>
+                <div className="fg"><label htmlFor="si-sku-code">SKU Code</label><input id="si-sku-code" className="fi" {...register("skuCode")} /></div>
+              </div>
+              <div className="fr">
+                <div className="fg"><label htmlFor="si-license-metric">License Metric</label><select id="si-license-metric" className="fi fi-select" {...register("licenseMetric")}>{LICENSE_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
+                <div className="fg"><label htmlFor="si-currency">Currency</label><select id="si-currency" className="fi fi-select" {...register("currency")}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+              </div>
+              {!isFreewareLicenseType(licenseType) && (
+                <div className="fr">
+                  <div className="fg"><label htmlFor="si-unit-price">Est. Unit Price <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(excl. tax)</span></label><Controller name="estimatedUnitPrice" control={control} render={({ field }) => <input id="si-unit-price" className="fi" value={displayUnitPrice} onFocus={() => setDisplayUnitPrice(field.value)} onChange={(e) => { const raw = parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value; setDisplayUnitPrice(e.target.value); field.onChange(raw); }} onBlur={() => { setDisplayUnitPrice(formatPriceInput(field.value, locale)); field.onBlur(); }} placeholder={`e.g. ${formatPriceInput("15.00", locale)}`} />} /></div>
+                  <div className="fg"><label htmlFor="si-total-price">Est. Total Price {showAutoLabel && <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(auto)</span>}</label><Controller name="estimatedTotalPrice" control={control} render={({ field }) => <input id="si-total-price" className="fi" value={displayTotalPrice} onFocus={() => setDisplayTotalPrice(field.value)} onChange={(e) => { const raw = parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value; setTotalManuallyEdited(true); setDisplayTotalPrice(e.target.value); field.onChange(raw); }} onBlur={() => { setDisplayTotalPrice(formatPriceInput(field.value, locale)); field.onBlur(); }} placeholder={`e.g. ${formatPriceInput("4500.00", locale)}`} />} /></div>
+                </div>
+              )}
+              {licenseType === "saas" && <div className="fg"><label htmlFor="si-portal-url">Portal URL</label><input id="si-portal-url" className="fi" {...register("portalUrl")} /></div>}
+              <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="commercial" />
+            </LicenseFormSection>
+
+            <LicenseFormSection title="Relationships">
+              <div className="fr">
+                <div className="fg">
+                  <label htmlFor="si-supplier">{pendingOrderId ? "Order supplier" : "Request supplier"}</label>
+                  <Controller name="supplier" control={control} render={({ field }) => <ReferenceCombobox id="si-supplier" mode="supplier" placeholder="Reseller or direct supplier" {...field} onChange={(value) => { const previousSupplier = watch("supplier"); field.onChange(value); if (String(previousSupplier || "").trim().toLocaleLowerCase() !== value.trim().toLocaleLowerCase()) setValue("contactEmail", "", { shouldDirty: true }); }} />} />
+                  <span className="field-hint">Applies to every line in this {pendingOrderId ? "pending order" : "sourcing request"}.</span>
+                </div>
+                <div className="fg"><label htmlFor="si-contact-email">Contact Email</label><input id="si-contact-email" className="fi" type="email" placeholder="contact@example.com" {...register("contactEmail")} />{errors.contactEmail && <span className="field-error">{errors.contactEmail.message}</span>}</div>
+              </div>
+              <div className="fr">
+                <div className="fg"><label htmlFor="si-cost-centre">Cost Centre / Department</label><Controller name="costCentre" control={control} render={({ field }) => <ReferenceCombobox id="si-cost-centre" mode="costCentre" {...field} />} /></div>
+                <div className="fg"><label htmlFor="si-budget-owner">Budget Owner Email</label><input id="si-budget-owner" className="fi" {...register("budgetOwnerEmail")} /></div>
+              </div>
+              <div className="fg"><label htmlFor="si-secondary-contacts">Secondary Contacts</label><input id="si-secondary-contacts" className="fi" placeholder="Separate email addresses with commas" {...register("secondaryContacts")} /></div>
+              <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="people" />
+            </LicenseFormSection>
+
+            <LicenseFormSection title="Notes">
+              <div className="fg"><label htmlFor="si-notes">Notes</label><textarea id="si-notes" className="fi" rows={3} placeholder="Procurement notes" style={{ resize: "vertical" }} {...register("notes")} /></div>
+              <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="notes" />
+            </LicenseFormSection>
+
+            {hasCatchallCustomFields && (
+              <LicenseFormSection title="Custom Fields">
+                <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="__catchall__" />
+              </LicenseFormSection>
+            )}
           </div>
 
           {/* Additional lines (new-request mode only) */}
@@ -897,6 +794,36 @@ const SourcingItemModal = ({
                   </div>
                 </>
               )}
+              <div className="fs">
+                <h4>License record details</h4>
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-metric`}>License Metric</label><select id={`sourcing-line-${line.id}-metric`} className="fi fi-select" value={line.licenseMetric} onChange={(event) => updateAdditionalLine(line.id, "licenseMetric", event.target.value)}>{LICENSE_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-quantity-per-unit`}>Quantity per Unit</label><input id={`sourcing-line-${line.id}-quantity-per-unit`} className="fi" inputMode="decimal" value={line.quantityPerUnit} onChange={(event) => updateAdditionalLine(line.id, "quantityPerUnit", event.target.value)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-sku`}>SKU Code</label><input id={`sourcing-line-${line.id}-sku`} className="fi" value={line.skuCode} onChange={(event) => updateAdditionalLine(line.id, "skuCode", event.target.value)} /></div>
+                </div>
+                {line.licenseType === "saas" && <div className="fg"><label htmlFor={`sourcing-line-${line.id}-portal`}>Portal URL</label><input id={`sourcing-line-${line.id}-portal`} className="fi" value={line.portalUrl} onChange={(event) => updateAdditionalLine(line.id, "portalUrl", event.target.value)} /></div>}
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-notice`}>Notice Date</label><input id={`sourcing-line-${line.id}-notice`} type="date" className="fi" value={line.noticeDate} onChange={(event) => updateAdditionalLine(line.id, "noticeDate", event.target.value)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-purchase`}>Purchase Date</label><input id={`sourcing-line-${line.id}-purchase`} type="date" className="fi" value={line.purchaseDate} onChange={(event) => updateAdditionalLine(line.id, "purchaseDate", event.target.value)} /></div>
+                </div>
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-contract`}>Contract Number</label><input id={`sourcing-line-${line.id}-contract`} className="fi" value={line.contractNumber} onChange={(event) => updateAdditionalLine(line.id, "contractNumber", event.target.value)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-invoice`}>Invoice Number</label><input id={`sourcing-line-${line.id}-invoice`} className="fi" value={line.invoiceNumber} onChange={(event) => updateAdditionalLine(line.id, "invoiceNumber", event.target.value)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-external`}>External Reference</label><input id={`sourcing-line-${line.id}-external`} className="fi" value={line.externalRef} onChange={(event) => updateAdditionalLine(line.id, "externalRef", event.target.value)} /></div>
+                </div>
+                <div className="fr">
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-cost-centre`}>Cost Centre / Department</label><input id={`sourcing-line-${line.id}-cost-centre`} className="fi" value={line.costCentre} onChange={(event) => updateAdditionalLine(line.id, "costCentre", event.target.value)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-budget-owner`}>Budget Owner Email</label><input id={`sourcing-line-${line.id}-budget-owner`} className="fi" value={line.budgetOwnerEmail} onChange={(event) => updateAdditionalLine(line.id, "budgetOwnerEmail", event.target.value)} /></div>
+                </div>
+                <div className="fg"><label htmlFor={`sourcing-line-${line.id}-secondary`}>Secondary Contacts</label><input id={`sourcing-line-${line.id}-secondary`} className="fi" value={line.secondaryContacts} onChange={(event) => updateAdditionalLine(line.id, "secondaryContacts", event.target.value)} /></div>
+                <CustomFieldFormFields
+                  definitions={customFieldDefs}
+                  values={line.customFieldValues || {}}
+                  onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)}
+                  idPrefix={`sourcing-line-${line.id}`}
+                  loading={customFieldsLoading}
+                />
+              </div>
             </div>
           ))}
 
@@ -928,6 +855,14 @@ const SourcingItemModal = ({
             </div>
           )}
         </div>
+          <ProcurementDocumentWorkspace
+            documents={documents}
+            file={attachedFile}
+            inputId="sourcing-quote-file"
+            label={pendingOrderId ? "Purchase Order Document" : "Quote Document"}
+            onFileChange={handleFileChange}
+            previewDocument={pendingOrderId ? previewPendingOrderDocument : previewSourcingQuoteDocument}
+          />
         </div>
       </ModalShell>
       {showDiscardDialog && (

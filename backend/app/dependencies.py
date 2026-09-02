@@ -209,6 +209,7 @@ async def get_current_user(
 
     if user.must_change_password and request.url.path not in {
         "/api/auth/session",
+        "/api/auth/refresh",
         "/api/auth/change-password",
         "/api/auth/logout",
         "/api/users/me",

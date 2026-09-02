@@ -17,6 +17,7 @@ function render(ui, options) {
 
 vi.mock("../api/pendingOrders.js", () => ({
   getPendingOrders: vi.fn().mockResolvedValue({ data: [] }),
+  previewPendingOrderDocument: vi.fn().mockResolvedValue({ data: null, error: null }),
 }));
 
 beforeEach(() => {
@@ -77,6 +78,24 @@ describe("PendingOrderModal", () => {
     }));
     expect(Array.isArray(payload.items)).toBe(true);
     expect(payload).toHaveProperty("quoteFile", null);
+  });
+
+  test("previews an attached purchase order with the native PDF viewer", async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:po-preview");
+    URL.revokeObjectURL = vi.fn();
+    try {
+      renderModal();
+      const file = new File(["%PDF-1.7"], "purchase-order.pdf", { type: "application/pdf" });
+      fireEvent.change(screen.getByLabelText(/upload purchase order document/i), { target: { files: [file] } });
+      const frame = await screen.findByTitle("Preview of purchase-order.pdf");
+      expect(frame).toHaveAttribute("src", "blob:po-preview#zoom=page-width");
+      expect(frame).not.toHaveAttribute("sandbox");
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+    }
   });
 
   test("Cancel calls onCancel immediately when untouched", () => {
@@ -333,6 +352,22 @@ describe("ConvertPendingOrderModal", () => {
     expect(screen.getByRole("button", { name: /confirm & create license/i })).not.toBeDisabled();
   });
 
+  test("previews an invoice during single conversion", async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:invoice-preview");
+    URL.revokeObjectURL = vi.fn();
+    try {
+      renderModal();
+      const file = new File(["%PDF-1.7"], "invoice.pdf", { type: "application/pdf" });
+      fireEvent.change(screen.getByLabelText(/invoice document/i), { target: { files: [file] } });
+      expect(await screen.findByTitle("Preview of invoice.pdf")).not.toHaveAttribute("sandbox");
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+    }
+  });
+
   test("invalid contact email blocks submit and shows error", async () => {
     const { onConfirm } = renderModal();
 
@@ -356,7 +391,7 @@ describe("ConvertPendingOrderModal", () => {
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
   });
 
-  test("valid submit payload shape remains identical", async () => {
+  test("valid submit payload includes the shared license-field baseline", async () => {
     const user = userEvent.setup();
     const { onConfirm } = renderModal({
       prefill: {
@@ -388,12 +423,15 @@ describe("ConvertPendingOrderModal", () => {
       softwareDescription: "Acme Suite",
       startDate: "2026-01-01",
       endDate: "2026-12-31",
+      noticeDate: null,
       purchaseDate: null,
       contractNumber: "CN-1",
       poNumber: "PO-1",
       procurementReference: "",
       invoiceNumber: "INV-1",
+      externalRef: null,
       contactEmail: "owner@example.com",
+      secondaryContacts: [],
       supplier: "Supplier A",
       costCentre: "IT",
       licenseType: "saas",
@@ -414,6 +452,7 @@ describe("ConvertPendingOrderModal", () => {
       currency: "EUR",
       budgetOwnerEmail: "budget@example.com",
       notes: "Ship it",
+      customFieldValues: [],
     }, null);
   });
 
@@ -660,6 +699,22 @@ describe("ConvertAllModal", () => {
   test("Confirm is disabled when item is missing startDate", () => {
     renderModal();
     expect(screen.getByRole("button", { name: /confirm & create licenses/i })).toBeDisabled();
+  });
+
+  test("previews an invoice during batch conversion", async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:batch-invoice-preview");
+    URL.revokeObjectURL = vi.fn();
+    try {
+      renderModal();
+      const file = new File(["%PDF-1.7"], "batch-invoice.pdf", { type: "application/pdf" });
+      fireEvent.change(screen.getByLabelText(/invoice document/i), { target: { files: [file] } });
+      expect(await screen.findByTitle("Preview of batch-invoice.pdf")).not.toHaveAttribute("sandbox");
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+    }
   });
 
   test("single and batch conversion show equivalent defaults for a one-line coterm order", () => {
@@ -924,7 +979,7 @@ describe("ConvertAllModal", () => {
     }));
   });
 
-  test("valid submit payload shape remains identical for multiple items", async () => {
+  test("valid submit payload includes the shared baseline for multiple items", async () => {
     const user = userEvent.setup();
     const { onConfirm } = renderModal({ order: MULTI_ORDER, licenses: RENEWAL_LICENSES });
 
@@ -949,12 +1004,15 @@ describe("ConvertAllModal", () => {
           softwareDescription: "SaaS App",
           startDate: "2026-01-01",
           endDate: "2026-12-31",
+          noticeDate: null,
           purchaseDate: null,
           contractNumber: "",
           poNumber: "PO-2",
           procurementReference: "",
           invoiceNumber: "",
+          externalRef: null,
           contactEmail: "",
+          secondaryContacts: [],
           supplier: "Order Supplier",
           costCentre: "",
           licenseType: "saas",
@@ -975,6 +1033,7 @@ describe("ConvertAllModal", () => {
           currency: "USD",
           budgetOwnerEmail: "",
           notes: null,
+          customFieldValues: [],
         },
         {
           sourcingItemId: 22,
@@ -982,12 +1041,15 @@ describe("ConvertAllModal", () => {
           softwareDescription: "Renew App",
           startDate: "2026-02-01",
           endDate: "2027-01-31",
+          noticeDate: null,
           purchaseDate: null,
           contractNumber: "CN-OLD",
           poNumber: "PO-2",
           procurementReference: "",
           invoiceNumber: "",
+          externalRef: null,
           contactEmail: "renew@example.com",
+          secondaryContacts: [],
           supplier: "Order Supplier",
           costCentre: "Renewals",
           licenseType: "saas",
@@ -1008,6 +1070,7 @@ describe("ConvertAllModal", () => {
           currency: "EUR",
           budgetOwnerEmail: "budget-renew@example.com",
           notes: null,
+          customFieldValues: [],
         },
       ],
       null,

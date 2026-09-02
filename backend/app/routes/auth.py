@@ -134,6 +134,11 @@ class SessionResponse(BaseModel):
     user: UserOut | None = None
 
 
+class SessionRefreshResponse(BaseModel):
+    access_token: str
+    token_type: str
+
+
 def _user_out(user: User) -> UserOut:
     return UserOut(
         id=user.id,
@@ -178,6 +183,24 @@ async def session(
             return SessionResponse(authenticated=False)
 
     return SessionResponse(authenticated=True, user=_user_out(user))
+
+
+@router.post("/refresh", response_model=SessionRefreshResponse)
+async def refresh_session(
+    response: Response,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> SessionRefreshResponse:
+    """Rotate an active human-session token to provide a sliding idle timeout."""
+    gs = await get_global_settings(db)
+    token = auth.create_access_token(
+        current_user.id,
+        current_user.role,
+        security_version=current_user.security_version,
+        lifetime_minutes=gs.session_timeout if gs and gs.session_timeout > 0 else None,
+    )
+    auth.set_session_cookie(response, token)
+    return SessionRefreshResponse(access_token=token, token_type="bearer")
 
 
 @router.post("/login", response_model=LoginResponse)

@@ -4,8 +4,9 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
-from app.models.license import LicenseType, MaintenanceCoverage, MaintenancePricingBasis
+from app.models.license import LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.models.sourcing import SourcingStatus
+from app.schemas.custom_fields import CustomFieldValueItem
 from app.services.money import is_canonical_money
 
 
@@ -18,6 +19,8 @@ class SourcingItemCreate(BaseModel):
     publisher_name: str
     software_description: str
     license_type: Optional[LicenseType] = None
+    license_metric: Optional[LicenseMetric] = None
+    portal_url: Optional[str] = None
     maintenance_coverage: Optional[MaintenanceCoverage] = None
     maintenance_start_date: Optional[date] = None
     maintenance_end_date: Optional[date] = None
@@ -28,20 +31,32 @@ class SourcingItemCreate(BaseModel):
     parent_sourcing_item_id: Optional[int] = None
     parent_item_index: Optional[int] = None
     quantity: Optional[str] = None
+    quantity_per_unit: Optional[str] = None
+    sku_code: Optional[str] = None
     estimated_unit_price: Optional[str] = None
     estimated_total_price: Optional[str] = None
     currency: str = "EUR"
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    notice_date: Optional[date] = None
+    purchase_date: Optional[date] = None
+    contract_number: Optional[str] = None
+    invoice_number: Optional[str] = None
+    external_ref: Optional[str] = None
     supplier: Optional[str] = None
     contact_email: Optional[str] = None
+    cost_centre: Optional[str] = None
+    budget_owner_email: Optional[str] = None
+    secondary_contacts: list[str] = []
     notes: Optional[str] = None
+    custom_field_values: list[CustomFieldValueItem] = []
     status: SourcingStatus = SourcingStatus.sourcing
     renewal_for_license_id: Optional[int] = None
     sourcing_request_id: Optional[int] = None
 
     @field_validator(
         "quantity",
+        "quantity_per_unit",
         "estimated_unit_price",
         "estimated_total_price",
         "maintenance_quantity",
@@ -66,6 +81,8 @@ class SourcingItemUpdate(BaseModel):
     publisher_name: Optional[str] = None
     software_description: Optional[str] = None
     license_type: Optional[LicenseType] = None
+    license_metric: Optional[LicenseMetric] = None
+    portal_url: Optional[str] = None
     maintenance_coverage: Optional[MaintenanceCoverage] = None
     maintenance_start_date: Optional[date] = None
     maintenance_end_date: Optional[date] = None
@@ -75,18 +92,30 @@ class SourcingItemUpdate(BaseModel):
     maintenance_cost: Optional[str] = None
     parent_sourcing_item_id: Optional[int] = None
     quantity: Optional[str] = None
+    quantity_per_unit: Optional[str] = None
+    sku_code: Optional[str] = None
     estimated_unit_price: Optional[str] = None
     estimated_total_price: Optional[str] = None
     currency: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    notice_date: Optional[date] = None
+    purchase_date: Optional[date] = None
+    contract_number: Optional[str] = None
+    invoice_number: Optional[str] = None
+    external_ref: Optional[str] = None
     supplier: Optional[str] = None
     contact_email: Optional[str] = None
+    cost_centre: Optional[str] = None
+    budget_owner_email: Optional[str] = None
+    secondary_contacts: Optional[list[str]] = None
     notes: Optional[str] = None
+    custom_field_values: Optional[list[CustomFieldValueItem]] = None
     status: Optional[SourcingStatus] = None
 
     @field_validator(
         "quantity",
+        "quantity_per_unit",
         "estimated_unit_price",
         "estimated_total_price",
         "maintenance_quantity",
@@ -114,6 +143,8 @@ class SourcingItemResponse(BaseModel):
     publisher_name: str
     software_description: str
     license_type: Optional[LicenseType] = None
+    license_metric: Optional[LicenseMetric] = None
+    portal_url: Optional[str] = None
     maintenance_coverage: Optional[MaintenanceCoverage] = None
     maintenance_start_date: Optional[date] = None
     maintenance_end_date: Optional[date] = None
@@ -123,14 +154,25 @@ class SourcingItemResponse(BaseModel):
     maintenance_cost: Optional[str] = None
     parent_sourcing_item_id: Optional[int] = None
     quantity: Optional[str] = None
+    quantity_per_unit: Optional[str] = None
+    sku_code: Optional[str] = None
     estimated_unit_price: Optional[str] = None
     estimated_total_price: Optional[str] = None
     currency: str
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    notice_date: Optional[date] = None
+    purchase_date: Optional[date] = None
+    contract_number: Optional[str] = None
+    invoice_number: Optional[str] = None
+    external_ref: Optional[str] = None
     supplier: Optional[str] = None
     contact_email: Optional[str] = None
+    cost_centre: Optional[str] = None
+    budget_owner_email: Optional[str] = None
+    secondary_contacts: list[str] = []
     notes: Optional[str] = None
+    custom_field_values: list[CustomFieldValueItem] = []
     status: SourcingStatus
     pending_order_id: Optional[int] = None
     pending_order_status: Optional[str] = None
@@ -185,15 +227,28 @@ class SourcingRequestItemUpdate(BaseModel):
     publisher_name: Optional[str] = None
     software_description: Optional[str] = None
     license_type: Optional[LicenseType] = None
+    license_metric: Optional[LicenseMetric] = None
+    portal_url: Optional[str] = None
     quantity: Optional[str] = None
+    quantity_per_unit: Optional[str] = None
+    sku_code: Optional[str] = None
     estimated_unit_price: Optional[str] = None
     estimated_total_price: Optional[str] = None
     currency: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    notice_date: Optional[date] = None
+    purchase_date: Optional[date] = None
+    contract_number: Optional[str] = None
+    invoice_number: Optional[str] = None
+    external_ref: Optional[str] = None
+    cost_centre: Optional[str] = None
+    budget_owner_email: Optional[str] = None
+    secondary_contacts: Optional[list[str]] = None
     notes: Optional[str] = None
+    custom_field_values: Optional[list[CustomFieldValueItem]] = None
 
-    @field_validator("quantity", "estimated_unit_price", "estimated_total_price", mode="before")
+    @field_validator("quantity", "quantity_per_unit", "estimated_unit_price", "estimated_total_price", mode="before")
     @classmethod
     def _validate_canonical_money(cls, value: object) -> object:
         if value is None or value == "":

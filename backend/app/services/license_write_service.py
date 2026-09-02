@@ -23,6 +23,7 @@ from app.models.sourcing import SourcingItem, SourcingStatus
 from app.schemas.license import LicenseBatchCreateItem, LicenseCreate, LicenseUpdate
 from app.services import storage
 from app.services.contract_identity_service import resolve_contract_id_for_number
+from app.services.custom_fields_service import replace_values_for_license
 from app.services.lifecycle_rules import (
     REPAIR_ONLY_UPDATE_FIELDS,
     validate_general_license_update_fields,
@@ -264,6 +265,7 @@ async def create_license_record(
 
     if payload.license_type == LicenseType.maintenance:
         create_data = payload.model_dump(by_alias=False)
+        custom_field_values = create_data.pop("custom_field_values", [])
         apply_included_support_defaults(create_data)
         _sync_invoice_numbers(create_data)
         await resolve_license_reference_fields(db, create_data)
@@ -278,9 +280,11 @@ async def create_license_record(
         )
         for extra_parent in parent_licenses[1:]:
             await activate_maintenance_for_parent(db, maintenance_license, extra_parent)
+        await replace_values_for_license(db, maintenance_license.id, custom_field_values)
         return maintenance_license
 
     create_data = payload.model_dump(by_alias=False)
+    custom_field_values = create_data.pop("custom_field_values", [])
     create_data.pop("maintenance_parent_ids", None)
     _sync_invoice_numbers(create_data)
     await resolve_license_reference_fields(db, create_data)
@@ -317,6 +321,7 @@ async def create_license_record(
     db.add(license_obj)
     await db.flush()
     license_obj.license_ref = await generate_license_ref(db)
+    await replace_values_for_license(db, license_obj.id, custom_field_values)
     return license_obj
 
 
@@ -360,6 +365,7 @@ async def apply_license_update(
         raise HTTPException(status_code=404, detail="License not found")
 
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+    custom_field_values = update_data.pop("custom_field_values", None)
     for field in BLANKABLE_STRING_UPDATE_FIELDS.intersection(update_data):
         if update_data[field] is None:
             update_data[field] = ""
@@ -437,6 +443,8 @@ async def apply_license_update(
         parent_update_requested=parent_update_requested,
     )
     await _sync_active_maintenance_parent_if_needed(db, license_obj)
+    if custom_field_values is not None:
+        await replace_values_for_license(db, license_obj.id, custom_field_values)
 
     # Build `after` from `before` + applied changes rather than re-reading from
     # the ORM object. Contract resolution triggers autoflush

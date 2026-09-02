@@ -160,6 +160,7 @@ export default function SourcingPage({
   const {
     handleCreateSourcingItem,
     handleCreateSourcingRequest,
+    handleUploadSourcingQuote,
     handleUpdateSourcingItem,
     handleUpdateSourcingRequest,
     handleDeleteSourcingItem,
@@ -496,6 +497,7 @@ export default function SourcingPage({
           item={showSourcingModal.item}
           requestId={showSourcingModal.request?.id ?? null}
           sourcingRequest={showSourcingModal.request}
+          documents={showSourcingModal.request?.quoteDocuments ?? []}
           userSettings={userSettings}
           onCancel={() => setShowSourcingModal(null)}
           onSave={async (form) => {
@@ -512,11 +514,13 @@ export default function SourcingPage({
               return success;
             }
             // Single item
-            const { maintenanceCompanion, ...itemForm } = form;
+            const { maintenanceCompanion, quoteFile, ...itemForm } = form;
             const payload = {
               publisherName: itemForm.publisherName,
               softwareDescription: itemForm.softwareDescription,
               licenseType: itemForm.licenseType || null,
+              licenseMetric: itemForm.licenseMetric || null,
+              portalUrl: itemForm.portalUrl || null,
               maintenanceCoverage: itemForm.maintenanceCoverage || null,
               maintenanceStartDate: itemForm.maintenanceStartDate || null,
               maintenanceEndDate: itemForm.maintenanceEndDate || null,
@@ -525,11 +529,22 @@ export default function SourcingPage({
               maintenanceUnitPrice: itemForm.maintenanceUnitPrice || null,
               maintenanceCost: itemForm.maintenanceCost || null,
               quantity: itemForm.quantity || null,
+              quantityPerUnit: itemForm.quantityPerUnit || "1",
+              skuCode: itemForm.skuCode || null,
               estimatedUnitPrice: itemForm.estimatedUnitPrice || null,
               estimatedTotalPrice: itemForm.estimatedTotalPrice || null,
               currency: itemForm.currency || "EUR",
               startDate: itemForm.startDate || null,
               endDate: itemForm.endDate || null,
+              noticeDate: itemForm.noticeDate || null,
+              purchaseDate: itemForm.purchaseDate || null,
+              contractNumber: itemForm.contractNumber || null,
+              invoiceNumber: itemForm.invoiceNumber || null,
+              externalRef: itemForm.externalRef || null,
+              costCentre: itemForm.costCentre || null,
+              budgetOwnerEmail: itemForm.budgetOwnerEmail || null,
+              secondaryContacts: itemForm.secondaryContacts || [],
+              customFieldValues: itemForm.customFieldValues || [],
               supplier: itemForm.supplier || null,
               contactEmail: itemForm.contactEmail || null,
               notes: itemForm.notes || null,
@@ -543,6 +558,10 @@ export default function SourcingPage({
               ? await handleUpdateSourcingItem(showSourcingModal.item.id, payload)
               : await handleCreateSourcingItem(payload, parentRequestId);
             if (!saved) return false;
+            if (quoteFile && parentRequestId) {
+              const uploaded = await handleUploadSourcingQuote(parentRequestId, quoteFile);
+              if (!uploaded) return false;
+            }
             if (!parentItemId) {
               parentItemId = findCreatedSourcingItem(saved, payload)?.id ?? null;
             }

@@ -110,6 +110,7 @@ const baseLicense = {
   portalUrl: null,
   retired: false,
   lifecycleStatus: 'active',
+  expirationStatus: 'active',
   isCompletenessExempt: false,
   renewedToId: null,
   renewedFromId: null,
@@ -179,6 +180,7 @@ describe('DetailPanel existing renewal successor', () => {
       licenseRef: 'LT-2026-00002',
       softwareDescription: baseLicense.softwareDescription,
       lifecycleStatus: null,
+      expirationStatus: 'active',
       startDate: '2026-01-01',
       endDate: '2028-01-01',
       renewedFromId: null,
@@ -209,6 +211,7 @@ describe('DetailPanel existing renewal successor', () => {
       <DetailPanel
         {...baseProps}
         user={{ id: 2, role: 'admin' }}
+        license={{ ...baseLicense, expirationStatus: 'expiring' }}
         allLicenses={[baseLicense, successor]}
         onUpdate={onUpdate}
       />
@@ -532,6 +535,7 @@ describe('DetailPanel renewal bundles', () => {
       budgetOwnerEmail: 'owner@example.com',
       poNumber: 'PO-BUNDLE-1',
       endDate: '2026-01-01',
+      expirationStatus: 'expiring',
     }
     const sibling = {
       ...baseLicense,
@@ -540,6 +544,7 @@ describe('DetailPanel renewal bundles', () => {
       budgetOwnerEmail: 'owner@example.com',
       poNumber: 'PO-BUNDLE-1',
       endDate: '2026-01-01',
+      expirationStatus: 'expiring',
     }
 
     render(

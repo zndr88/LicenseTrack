@@ -1,5 +1,6 @@
 import { del, get, post, put } from "./client.js";
 import { downloadApiFile } from "./download.js";
+import { createPdfPreviewUrl } from "./documentPreview.js";
 
 export function getPendingOrders(options = {}) {
   const params = new URLSearchParams();
@@ -34,6 +35,10 @@ export function uploadPendingOrderDocument(orderId, file) {
 
 export async function downloadPendingOrderDocument(documentId, filename) {
   return downloadApiFile(`/api/pending-orders/documents/${documentId}/download`, { filename });
+}
+
+export function previewPendingOrderDocument(documentId) {
+  return createPdfPreviewUrl(`/api/pending-orders/documents/${documentId}/download`);
 }
 
 export const deletePendingOrderDocument = (id) => del(`/api/pending-orders/documents/${id}`);

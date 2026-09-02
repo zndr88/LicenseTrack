@@ -4,7 +4,7 @@ import { linkExistingSuccessor } from "../../api/licenses.js";
 import { queryKeys } from "../../queryKeys.js";
 import { invalidateRenewalWorkflow } from "../../queryInvalidation.js";
 import { formatDate } from "../../utils/formatting.js";
-import { getExpirationStatus, normalizeLicense } from "../../utils/helpers.js";
+import { getExpirationPresentation, normalizeLicense } from "../../utils/helpers.js";
 import ModalShell from "../ui/ModalShell.jsx";
 
 const NON_RENEWABLE_TYPES = new Set(["service", "other"]);
@@ -23,7 +23,7 @@ function entitlementIdentity(license) {
   ].map(normalized).join("|");
 }
 
-export function getExistingSuccessorCandidates(predecessor, allLicenses, notificationDays) {
+export function getExistingSuccessorCandidates(predecessor, allLicenses) {
   const predecessorPo = normalized(predecessor.poNumber);
   if (!predecessorPo) return [];
 
@@ -36,19 +36,11 @@ export function getExistingSuccessorCandidates(predecessor, allLicenses, notific
     .filter((candidate) => !candidate.renewedFromId && !candidate.predecessorId && !candidate.renewedToId)
     .filter((candidate) => candidate.endDate && candidate.endDate > predecessor.endDate)
     .filter((candidate) => !predecessor.startDate || (candidate.startDate && candidate.startDate > predecessor.startDate))
+    .filter((candidate) => candidate.expirationStatus === "active" || candidate.expirationStatus === "upcoming")
     .map((candidate) => ({
       candidate,
-      expiration: getExpirationStatus(
-        candidate.endDate,
-        notificationDays,
-        candidate.retired,
-        candidate.lifecycleStatus,
-        candidate.renewedToId,
-        candidate.startDate,
-        candidate.licenseType,
-      ),
+      expiration: getExpirationPresentation(candidate),
     }))
-    .filter(({ expiration }) => expiration.status === "active" || expiration.status === "upcoming")
     .sort((a, b) => String(a.candidate.startDate || "").localeCompare(String(b.candidate.startDate || "")));
 }
 
@@ -66,7 +58,6 @@ function dateRelationship(predecessor, successor) {
 export default function ExistingSuccessorModal({
   predecessor,
   allLicenses,
-  globalSettings,
   userSettings,
   onUpdate,
   onSuccess,
@@ -80,8 +71,7 @@ export default function ExistingSuccessorModal({
   const candidates = useMemo(() => getExistingSuccessorCandidates(
     predecessor,
     allLicenses,
-    globalSettings.notificationDays,
-  ), [predecessor, allLicenses, globalSettings.notificationDays]);
+  ), [predecessor, allLicenses]);
   const filtered = candidates.filter(({ candidate }) => (
     `${candidate.licenseRef || ""} ${(candidate.licenseRefAliases || []).join(" ")} ${candidate.publisherName || ""} ${candidate.softwareDescription || ""}`
       .toLowerCase()

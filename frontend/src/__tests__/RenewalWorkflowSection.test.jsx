@@ -51,6 +51,33 @@ function renderSection({
 }
 
 describe('RenewalWorkflowSection pending ancestry', () => {
+  it('shows a linked successor without offering another renewal while coverage is expiring', () => {
+    const successor = {
+      ...baseLicense,
+      id: 30,
+      lifecycleStatus: null,
+      renewedFromId: baseLicense.id,
+      startDate: '2028-01-01',
+      expirationStatus: 'upcoming',
+    }
+    const predecessor = {
+      ...baseLicense,
+      lifecycleStatus: 'renewed',
+      renewedToId: successor.id,
+    }
+    const handlers = renderSection({
+      license: predecessor,
+      exp: { status: 'expiring' },
+      allLicenses: [predecessor, successor],
+    })
+
+    expect(screen.getByText('Successor Linked')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /initiate renewal/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('Renewal Draft Created')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /view successor/i }))
+    expect(handlers.onNavigate).toHaveBeenCalledWith(successor.id)
+  })
+
   it('shows progress without ancestry for a base license and keeps sourcing and cancellation actions wired', () => {
     const handlers = renderSection({
       sourcingItems: [

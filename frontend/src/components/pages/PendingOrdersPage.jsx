@@ -357,7 +357,7 @@ export default function PendingOrdersPage({
               items: form.items,
               quoteFile: form.quoteFile,
             };
-            const success = showPendingOrderModal.order
+            let success = showPendingOrderModal.order
               ? await handleUpdatePendingOrder(showPendingOrderModal.order.id, {
                 poNumber: payload.poNumber,
                 procurementReference: payload.procurementReference,
@@ -365,6 +365,9 @@ export default function PendingOrdersPage({
                 notes: payload.notes,
               })
               : await handleCreatePendingOrder(payload);
+            if (success && showPendingOrderModal.order && payload.quoteFile) {
+              success = await handleUploadPurchaseOrderDocument(showPendingOrderModal.order.id, payload.quoteFile);
+            }
             if (success === true || success?.ok) {
               setShowPendingOrderModal(null);
               if (!showPendingOrderModal.order && success.data?.id) {
@@ -396,15 +399,19 @@ export default function PendingOrdersPage({
         <SourcingItemModal
           key={showEditPOItemModal.item?.id ?? "new"}
           item={showEditPOItemModal.item}
+          documents={showEditPOItemModal.order?.documents ?? []}
+          pendingOrderId={showEditPOItemModal.order?.id ?? null}
           userSettings={userSettings}
           title="Edit PO Line Item"
           onCancel={() => setShowEditPOItemModal(null)}
           onSave={async (form) => {
-            const { maintenanceCompanion, ...itemForm } = form;
+            const { maintenanceCompanion, quoteFile, ...itemForm } = form;
             const payload = {
               publisherName: itemForm.publisherName,
               softwareDescription: itemForm.softwareDescription,
               licenseType: itemForm.licenseType || null,
+              licenseMetric: itemForm.licenseMetric || null,
+              portalUrl: itemForm.portalUrl || null,
               maintenanceCoverage: itemForm.maintenanceCoverage || null,
               maintenanceStartDate: itemForm.maintenanceStartDate || null,
               maintenanceEndDate: itemForm.maintenanceEndDate || null,
@@ -413,11 +420,22 @@ export default function PendingOrdersPage({
               maintenanceUnitPrice: itemForm.maintenanceUnitPrice || null,
               maintenanceCost: itemForm.maintenanceCost || null,
               quantity: itemForm.quantity || null,
+              quantityPerUnit: itemForm.quantityPerUnit || "1",
+              skuCode: itemForm.skuCode || null,
               estimatedUnitPrice: itemForm.estimatedUnitPrice || null,
               estimatedTotalPrice: itemForm.estimatedTotalPrice || null,
               currency: itemForm.currency || "EUR",
               startDate: itemForm.startDate || null,
               endDate: itemForm.endDate || null,
+              noticeDate: itemForm.noticeDate || null,
+              purchaseDate: itemForm.purchaseDate || null,
+              contractNumber: itemForm.contractNumber || null,
+              invoiceNumber: itemForm.invoiceNumber || null,
+              externalRef: itemForm.externalRef || null,
+              costCentre: itemForm.costCentre || null,
+              budgetOwnerEmail: itemForm.budgetOwnerEmail || null,
+              secondaryContacts: itemForm.secondaryContacts || [],
+              customFieldValues: itemForm.customFieldValues || [],
               supplier: itemForm.supplier || null,
               contactEmail: itemForm.contactEmail || null,
               notes: itemForm.notes || null,
@@ -427,6 +445,9 @@ export default function PendingOrdersPage({
               showEditPOItemModal.item.id,
               payload,
             );
+            if (success && quoteFile) {
+              success = await handleUploadPurchaseOrderDocument(showEditPOItemModal.order.id, quoteFile);
+            }
             if (success && maintenanceCompanion) {
               success = await handleAddPOItems(showEditPOItemModal.order.id, [maintenanceCompanion]);
             }

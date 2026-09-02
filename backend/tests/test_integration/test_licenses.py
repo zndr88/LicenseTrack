@@ -112,6 +112,7 @@ async def test_link_existing_successor_reuses_standard_renewal_chain_and_preserv
     assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["predecessor"]["lifecycleStatus"] == "renewed"
+    assert payload["predecessor"]["expirationStatus"] == "expiring"
     assert payload["predecessor"]["renewedToId"] == successor["id"]
     assert payload["successor"]["renewedFromId"] == predecessor["id"]
     assert payload["successor"]["predecessorId"] == predecessor["id"]

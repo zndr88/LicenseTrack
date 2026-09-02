@@ -10,15 +10,22 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
-import PendingOrderInvoiceField from "./PendingOrderInvoiceField.jsx";
+import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
+import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import ParentLicensePicker from "./ParentLicensePicker.jsx";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
+  supportsMaintenanceCoverage,
 } from "./MaintenanceCoverageFields.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
+import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
+import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
+import { FULL_LICENSE_FORM_VISIBILITY } from "../../utils/licenseFormVisibility.js";
+import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 
 const APPLYABLE_PLUGIN_FIELDS = new Set([
   "publisherName",
@@ -70,7 +77,8 @@ const ConvertPendingOrderModal = ({
 }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const isRenewal = order?.items?.some((item) => item.isRenewal);
-  const vis = userSettings.visibleInDetail;
+  const vis = FULL_LICENSE_FORM_VISIBILITY;
+  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
 
   const [saving, setSaving] = useState(false);
   const [invoiceFile, setInvoiceFile] = useState(null);
@@ -97,12 +105,14 @@ const ConvertPendingOrderModal = ({
       softwareDescription: prefill.softwareDescription || "",
       startDate:           prefill.startDate           || "",
       endDate:             prefill.endDate             || "",
+      noticeDate:          prefill.noticeDate          || "",
       purchaseDate:        prefill.purchaseDate        || "",
       isPerpetual:         prefill.licenseType === "perpetual",
       contractNumber:      prefill.contractNumber      || "",
       poNumber:            prefill.poNumber            || "",
       procurementReference: prefill.procurementReference || "",
       invoiceNumber:       prefill.invoiceNumber       || "",
+      externalRef:         prefill.externalRef         || "",
       contactEmail:        prefill.contactEmail        || "",
       supplier:            prefill.supplier            || "",
       costCentre:          prefill.costCentre          || "",
@@ -125,7 +135,9 @@ const ConvertPendingOrderModal = ({
       totalPoPrice:        prefill.totalPoPrice        || "",
       currency:            prefill.currency            || "EUR",
       budgetOwnerEmail:    prefill.budgetOwnerEmail    || "",
+      secondaryContacts:   (prefill.secondaryContacts || []).join(", "),
       notes:               prefill.notes               || "",
+      customFieldValues:   customFieldValueMap(prefill.customFieldValues),
     },
   });
 
@@ -150,6 +162,7 @@ const ConvertPendingOrderModal = ({
   const publisherVal = watch("publisherName");
   const softwareVal  = watch("softwareDescription");
   const conversionDraftFields = watch();
+  const customFieldValues = watch("customFieldValues") || {};
 
   // Auto-compute totalPoPrice from quantity x unitPrice when not manually edited.
   useEffect(() => {
@@ -214,7 +227,14 @@ const ConvertPendingOrderModal = ({
   const onSubmit = useCallback(async (data) => {
     setSaving(true);
     try {
-      const licenseData = buildPendingOrderConversionPayload(data, userSettings);
+      const licenseData = buildPendingOrderConversionPayload({
+        ...data,
+        customFieldValuesPayload: buildCustomFieldValuePayload(
+          customFieldDefs,
+          data.customFieldValues,
+          userSettings,
+        ),
+      }, userSettings);
       const confirmed = await onConfirm(licenseData, invoiceFile);
       if (confirmed) {
         reset();
@@ -223,7 +243,11 @@ const ConvertPendingOrderModal = ({
     } finally {
       setSaving(false);
     }
-  }, [onConfirm, reset, invoiceFile, userSettings]);
+  }, [onConfirm, reset, invoiceFile, userSettings, customFieldDefs]);
+  const hasCatchallCustomFields = customFieldDefs.some(
+    (definition) => !definition.section || definition.section === "__catchall__"
+  );
+  const hasDocumentCustomFields = customFieldDefs.some((definition) => definition.section === "documents");
 
   return (
     <>
@@ -232,6 +256,12 @@ const ConvertPendingOrderModal = ({
         titleId="dialog-title-convert-po"
         onClose={requestClose}
         onEscape={requestClose}
+        modalClassName="modal document-assisted-modal"
+        modalStyle={{
+          width: "min(1120px, 94vw)",
+          maxWidth: "min(1120px, 94vw)",
+          overflow: "hidden",
+        }}
         footer={(
           <>
             <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
@@ -243,7 +273,9 @@ const ConvertPendingOrderModal = ({
           </>
         )}
       >
-        <div className="modal-bd">
+        <div className="license-intake-modal-layout">
+          <div className="modal-bd document-assisted-modal-form">
+          <div className="license-form-stack">
 
           {/* Renewal notice */}
           {isRenewal && (
@@ -269,6 +301,7 @@ const ConvertPendingOrderModal = ({
             </div>
           )}
 
+          <LicenseFormSection title="Identity">
           <div className="fg">
             <label htmlFor="cpo-publisher-name">Publisher Name <span style={{ color: "var(--red)" }}>*</span></label>
             <Controller
@@ -285,6 +318,25 @@ const ConvertPendingOrderModal = ({
             <input id="cpo-software-desc" className="fi" placeholder="Product or service name" {...register("softwareDescription")} />
             {errors.softwareDescription && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.softwareDescription.message}</span>}
           </div>
+          {(vis.licenseType || vis.licenseMetric) && (
+            <div className="fr">
+              {vis.licenseType && (
+                <div className="fg">
+                  <label htmlFor="cpo-license-type">License Type</label>
+                  <select id="cpo-license-type" className="fi fi-select" {...register("licenseType", { onChange: (e) => { const nextType = e.target.value; if (nextType !== "saas") setValue("portalUrl", "", { shouldDirty: true }); if (nextType !== "maintenance") setValue("parentLicenseId", "", { shouldDirty: true }); if (nextType === "perpetual") { setValue("isPerpetual", true, { shouldDirty: true }); setValue("endDate", "", { shouldDirty: true }); } else if (isPerpetual) setValue("isPerpetual", false, { shouldDirty: true }); } })}>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
+                </div>
+              )}
+              {vis.licenseMetric && <div className="fg"><label htmlFor="cpo-license-metric">License Metric</label><select id="cpo-license-metric" className="fi fi-select" {...register("licenseMetric")}>{LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>}
+            </div>
+          )}
+          <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="identity" />
+          </LicenseFormSection>
+
+          {hasDocumentCustomFields && <LicenseFormSection title="Document Data" icon="file">
+            <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="documents" />
+          </LicenseFormSection>}
+
+          <LicenseFormSection title="Key Dates & Contract">
           <div className="fr">
             <div className="fg">
               <label htmlFor="cpo-start-date">Start Date</label>
@@ -321,6 +373,10 @@ const ConvertPendingOrderModal = ({
               </div>
             </div>
           </div>
+          <div className="fr">
+            <div className="fg"><label htmlFor="cpo-notice-date">Notice Date</label><input id="cpo-notice-date" type="date" className="fi" {...register("noticeDate")} /></div>
+            <div className="fg"><label htmlFor="cpo-external-ref">External Reference</label><input id="cpo-external-ref" className="fi" {...register("externalRef")} /></div>
+          </div>
           <div className="fg">
             <label htmlFor="cpo-purchase-date">Purchase Date</label>
             <input id="cpo-purchase-date" type="date" className="fi" {...register("purchaseDate")} />
@@ -338,87 +394,11 @@ const ConvertPendingOrderModal = ({
               <label htmlFor="cpo-invoice-number">Invoice Number</label>
               <input id="cpo-invoice-number" className="fi" {...register("invoiceNumber")} />
             </div>
-            <div className="fg">
-              <label htmlFor="cpo-contact-email">Contact Email</label>
-              <input id="cpo-contact-email" className="fi" {...register("contactEmail")} />
-              {errors.contactEmail && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.contactEmail.message}</span>}
-            </div>
           </div>
-          <PendingOrderInvoiceField invoiceFile={invoiceFile} onChange={setInvoiceFile} />
-          {(vis.supplier || vis.costCentre) && (
-            <div className="fr">
-              {vis.supplier && (
-                <div className="fg"><label htmlFor="cpo-supplier">Supplier</label>
-                  <Controller
-                    name="supplier"
-                    control={control}
-                    render={({ field }) => <ReferenceCombobox id="cpo-supplier" mode="supplier" placeholder="Reseller or direct supplier" {...field} />}
-                  />
-                </div>
-              )}
-              {vis.costCentre && (
-                <div className="fg"><label htmlFor="cpo-cost-centre">Cost Centre / Department</label>
-                  <Controller
-                    name="costCentre"
-                    control={control}
-                    render={({ field }) => <ReferenceCombobox id="cpo-cost-centre" mode="costCentre" placeholder="Department or cost centre" {...field} />}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-          {(vis.licenseType || vis.licenseMetric) && (
-            <div className="fr">
-              {vis.licenseType && (
-                <div className="fg">
-                  <label htmlFor="cpo-license-type">License Type</label>
-                  <select
-                    id="cpo-license-type"
-                    className="fi fi-select"
-                    {...register("licenseType", {
-                      onChange: (e) => {
-                        const nextType = e.target.value;
-                        if (nextType !== "saas") setValue("portalUrl", "", { shouldDirty: true });
-                        if (nextType !== "maintenance") setValue("parentLicenseId", "", { shouldDirty: true });
-                        if (nextType === "perpetual") {
-                          setValue("isPerpetual", true, { shouldDirty: true });
-                          setValue("endDate", "", { shouldDirty: true });
-                        } else if (isPerpetual) {
-                          setValue("isPerpetual", false, { shouldDirty: true });
-                        }
-                      },
-                    })}
-                  >
-                    {LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
-              )}
-              {vis.licenseMetric && (
-                <div className="fg">
-                  <label htmlFor="cpo-license-metric">License Metric</label>
-                  <select id="cpo-license-metric" className="fi fi-select" {...register("licenseMetric")}>
-                    {LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                  </select>
-                </div>
-              )}
-            </div>
-          )}
-          {licenseType === "saas" && (
-            <div className="fg">
-              <label htmlFor="cpo-portal-url">Portal URL</label>
-              <input id="cpo-portal-url" className="fi" placeholder="https://..." {...register("portalUrl")} />
-            </div>
-          )}
-          {licenseType === "maintenance" && (
-            <ParentLicensePicker
-              id="cpo-parent-license"
-              licenses={licenses}
-              parentLicenseId={parentLicenseId}
-              onSelectExisting={(value) => setValue("parentLicenseId", value, { shouldDirty: true })}
-              onSelectPoItem={() => {}}
-              error={errors.parentLicenseId?.message}
-            />
-          )}
+          <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="dates" />
+          </LicenseFormSection>
+
+          {supportsMaintenanceCoverage(licenseType) && <LicenseFormSection title="Maintenance / Support">
           <MaintenanceCoverageFields
             idPrefix="cpo"
             licenseType={licenseType}
@@ -436,7 +416,12 @@ const ConvertPendingOrderModal = ({
             currency={currency}
             locale={locale}
             onChange={(field, value) => setValue(field, value, { shouldDirty: true })}
+            embedded
           />
+          <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="maintenance" />
+          </LicenseFormSection>}
+
+          <LicenseFormSection title="Details">
           {(vis.quantity || vis.quantityPerUnit || vis.skuCode) && (
             <div className="fr">
               {vis.quantity && <div className="fg"><label htmlFor="cpo-quantity">Purchase Quantity <span style={{ color: "var(--red)" }}>*</span></label><input id="cpo-quantity" className="fi" {...register("quantity")} /></div>}
@@ -509,19 +494,27 @@ const ConvertPendingOrderModal = ({
               </select>
             </div>
           )}
-          <div className="fg">
-            <label htmlFor="cpo-budget-owner">Budget Owner Email</label>
-            <input id="cpo-budget-owner" className="fi" placeholder="owner@example.com" {...register("budgetOwnerEmail")} />
-            {errors.budgetOwnerEmail && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 2, display: "block" }}>{errors.budgetOwnerEmail.message}</span>}
+          {licenseType === "saas" && <div className="fg"><label htmlFor="cpo-portal-url">Portal URL</label><input id="cpo-portal-url" className="fi" placeholder="https://..." {...register("portalUrl")} /></div>}
+          <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="commercial" />
+          </LicenseFormSection>
+
+          <LicenseFormSection title="Relationships">
+            {licenseType === "maintenance" && <ParentLicensePicker id="cpo-parent-license" licenses={licenses} parentLicenseId={parentLicenseId} onSelectExisting={(value) => setValue("parentLicenseId", value, { shouldDirty: true })} onSelectPoItem={() => {}} error={errors.parentLicenseId?.message} />}
+            {(vis.supplier || vis.costCentre) && <div className="fr">{vis.supplier && <div className="fg"><label htmlFor="cpo-supplier">Supplier</label><Controller name="supplier" control={control} render={({ field }) => <ReferenceCombobox id="cpo-supplier" mode="supplier" placeholder="Reseller or direct supplier" {...field} />} /></div>}{vis.costCentre && <div className="fg"><label htmlFor="cpo-cost-centre">Cost Centre / Department</label><Controller name="costCentre" control={control} render={({ field }) => <ReferenceCombobox id="cpo-cost-centre" mode="costCentre" placeholder="Department or cost centre" {...field} />} /></div>}</div>}
+            <div className="fr"><div className="fg"><label htmlFor="cpo-contact-email">Contact Email</label><input id="cpo-contact-email" className="fi" {...register("contactEmail")} />{errors.contactEmail && <span className="field-error">{errors.contactEmail.message}</span>}</div><div className="fg"><label htmlFor="cpo-budget-owner">Budget Owner Email</label><input id="cpo-budget-owner" className="fi" placeholder="owner@example.com" {...register("budgetOwnerEmail")} />{errors.budgetOwnerEmail && <span className="field-error">{errors.budgetOwnerEmail.message}</span>}</div></div>
+            <div className="fg"><label htmlFor="cpo-secondary-contacts">Secondary Contacts</label><input id="cpo-secondary-contacts" className="fi" placeholder="Separate email addresses with commas" {...register("secondaryContacts")} /></div>
+            <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="people" />
+          </LicenseFormSection>
+
+          <LicenseFormSection title="Notes">
+            {vis.notes && <div className="fg"><label htmlFor="cpo-notes">Notes / Comments</label><textarea id="cpo-notes" className="fi" rows={3} style={{ resize: "vertical" }} {...register("notes")} /></div>}
+            <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="notes" />
+          </LicenseFormSection>
+
+          {hasCatchallCustomFields && <LicenseFormSection title="Custom Fields"><CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="__catchall__" /></LicenseFormSection>}
           </div>
-          {vis.notes && (
-            <div className="fg">
-              <label htmlFor="cpo-notes">Notes / Comments</label>
-              <textarea id="cpo-notes" className="fi" rows={3} style={{ resize: "vertical" }} {...register("notes")} />
-            </div>
-          )}
-
-
+        </div>
+          <ProcurementDocumentWorkspace documents={order?.documents ?? []} file={invoiceFile} inputId="cpo-invoice-file" label="Invoice Document" onFileChange={setInvoiceFile} previewDocument={previewPendingOrderDocument} />
         </div>
 
       </ModalShell>

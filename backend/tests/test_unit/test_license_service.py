@@ -96,7 +96,52 @@ def test_status_legacy():
 
 
 def test_status_renewed():
-    assert compute_expiration_status(make_license(lifecycle_status="renewed"), date.today()) == "renewed"
+    today = date.today()
+    assert (
+        compute_expiration_status(
+            make_license(
+                lifecycle_status="renewed",
+                renewed_to_id=2,
+                end_date=today - timedelta(days=1),
+            ),
+            today,
+            successor_start_date=today,
+        )
+        == "renewed"
+    )
+
+
+def test_linked_successor_does_not_replace_current_coverage_status():
+    today = date.today()
+    assert (
+        compute_expiration_status(
+            make_license(
+                lifecycle_status="renewed",
+                renewed_to_id=2,
+                end_date=today + timedelta(days=5),
+            ),
+            today,
+            notification_days=30,
+            successor_start_date=today + timedelta(days=6),
+        )
+        == "expiring"
+    )
+
+
+def test_expired_predecessor_stays_expired_during_successor_gap():
+    today = date.today()
+    assert (
+        compute_expiration_status(
+            make_license(
+                lifecycle_status="renewed",
+                renewed_to_id=2,
+                end_date=today - timedelta(days=1),
+            ),
+            today,
+            successor_start_date=today + timedelta(days=5),
+        )
+        == "expired"
+    )
 
 
 def test_status_pending_renewal():
@@ -438,6 +483,32 @@ def test_compute_stats_excludes_upcoming_recurring_license_from_annual_cost():
         notification_days=30,
     )
 
+    assert stats["annual_cost_by_currency"] == {"EUR": 100.0}
+
+
+def test_compute_stats_includes_current_predecessor_after_successor_is_linked():
+    today = date.today()
+    predecessor = make_license(
+        id=1,
+        lifecycle_status="renewed",
+        renewed_to_id=2,
+        end_date=today + timedelta(days=10),
+        quantity="2",
+        unit_price="50",
+    )
+    successor = make_license(
+        id=2,
+        start_date=today + timedelta(days=11),
+        end_date=today + timedelta(days=376),
+        quantity="1",
+        unit_price="999",
+    )
+
+    stats = compute_stats([predecessor, successor], {}, {}, notification_days=30)
+
+    assert stats["total_expiring"] == 1
+    assert stats["total_upcoming"] == 1
+    assert stats["total_renewed"] == 0
     assert stats["annual_cost_by_currency"] == {"EUR": 100.0}
 
 

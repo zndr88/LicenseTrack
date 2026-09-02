@@ -337,6 +337,8 @@ function license(overrides = {}) {
     supplier: "Acme Supplier",
     costCentre: "IT",
     isRetired: false,
+    expirationStatus: "active",
+    daysUntilExpiry: 200,
     documentCount: 0,
     ...overrides,
   };

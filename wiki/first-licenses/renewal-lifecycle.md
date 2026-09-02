@@ -16,11 +16,14 @@ From either view you can start the renewal, provided all conditions are met.
 
 If the next entitlement period was already purchased and exists as an Active
 or Upcoming license under the same PO, choose **Link Existing Successor**
-instead. This marks the current record renewed and adopts the selected record
-as its normal successor without creating another sourcing request or pending
-order. The selected record inherits the renewal-chain LT reference; its former
-reference remains reserved and searchable in history. Date gaps and overlaps
-are shown for confirmation before linking.
+instead. This secures the renewal and adopts the selected record as its normal
+successor without creating another sourcing request or pending order. The
+current record remains Active or Expiring through its own end date, while the
+renewal actions and workbench alert disappear immediately. The selected record
+inherits the renewal-chain LT reference; its former reference remains reserved
+and searchable in history. Date gaps and overlaps are shown for confirmation
+before linking. If there is a gap, the predecessor remains Expired until the
+successor starts; it is shown as Renewed only after successor coverage begins.
 
 The workbench's estimated annual value annualizes multi-year term cost, so a
 two- or three-year purchase is not presented as though the complete term value
@@ -48,6 +51,10 @@ is ready to track, convert it to a **pending order**. The predecessor's explicit
 maintenance/support classification travels with the renewal; older recurring
 records without a stored classification use the type-appropriate default so
 coverage is not lost during sourcing, coterm merging, or final conversion.
+Admins can also choose, per custom-field definition, whether its value is
+copied into a renewal. Copied values are a snapshot taken when renewal starts;
+fields configured to start blank can be completed for the new term during
+sourcing or pending-order review.
 
 ![Editing the sourcing record and attaching the quote](../assets/renewal-05-edit-sourcing.png)
 
@@ -86,7 +93,9 @@ download or remove evidence from the row action menu.
 
 ## The lifecycle closes
 
-The new record becomes the **active** license. The previous record — which was in the pending state — is marked **renewed**.
+The successor becomes **active** on its own start date. The previous record
+continues to show its date-based coverage state through its end date and is
+shown as **renewed** once its term has ended and successor coverage has begun.
 
 Looking the license up in the License Overview, you'll see the historical link back to the previous term via **View Previous**.
 

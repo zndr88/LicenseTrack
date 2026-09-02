@@ -48,9 +48,9 @@ describe("customFieldPresentation", () => {
 
   it("returns known section labels and a catchall fallback", () => {
     expect(getCustomFieldSectionLabel("identity")).toBe("Identity");
-    expect(getCustomFieldSectionLabel("dates")).toBe("Dates & Contract");
+    expect(getCustomFieldSectionLabel("dates")).toBe("Key Dates & Contract");
     expect(getCustomFieldSectionLabel("commercial")).toBe("Details");
-    expect(getCustomFieldSectionLabel("people")).toBe("People & Org");
+    expect(getCustomFieldSectionLabel("people")).toBe("Relationships");
     expect(getCustomFieldSectionLabel("documents")).toBe("Documents");
     expect(getCustomFieldSectionLabel("notes")).toBe("Notes");
     expect(getCustomFieldSectionLabel(null)).toBe("Custom Fields");

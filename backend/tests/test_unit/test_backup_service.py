@@ -51,6 +51,11 @@ def _make_db(path) -> None:
             auth_method VARCHAR(20) NOT NULL DEFAULT 'mfa'
         )"""
     )
+    # These tables are not part of REQUIRED_RESTORE_TABLES, but they exist at
+    # revision 8a9b0c1d2e3f and are touched by later forward migrations. Keep
+    # the compact restore fixture structurally valid for that stamped revision.
+    conn.execute("CREATE TABLE custom_field_definitions (id INTEGER PRIMARY KEY)")
+    conn.execute("CREATE TABLE sourcing_items (id INTEGER PRIMARY KEY)")
     conn.execute("CREATE TABLE alembic_version (version_num TEXT NOT NULL)")
     conn.execute(
         "INSERT INTO alembic_version (version_num) VALUES (?)",

@@ -344,7 +344,7 @@ async def get_contract_licenses(
     license_query = select(License).where(
         license_contract_match(contract),
         License.is_retired.is_(False),
-    )
+    ).options(selectinload(License.renewed_to))
     departments = await get_user_departments_for_scope(_current_user, db)
     license_query = apply_department_filter(license_query, departments)
     lics_result = await db.execute(license_query)
@@ -352,10 +352,14 @@ async def get_contract_licenses(
 
     notification_days = await _get_notification_days(db)
     today = date.today()
-
     responses: list[LinkedLicenseResponse] = []
     for lic in licenses:
-        expiration_status = compute_expiration_status(lic, today, notification_days)
+        expiration_status = compute_expiration_status(
+            lic,
+            today,
+            notification_days,
+            successor_start_date=lic.renewed_to.start_date if lic.renewed_to else None,
+        )
         responses.append(
             LinkedLicenseResponse(
                 id=lic.id,

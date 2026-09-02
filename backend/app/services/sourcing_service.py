@@ -20,6 +20,7 @@ from app.schemas.sourcing import (
     SourcingRequestUpdate,
 )
 from app.services.document_availability_service import with_file_availability
+from app.services.custom_fields_service import merge_sourcing_values, replace_values_for_sourcing_item
 from app.services.lifecycle_rules import clear_pending_renewal_if_current
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.money import MoneyParseError, parse_money
@@ -259,6 +260,7 @@ async def apply_sourcing_item_update(
     update_data: dict,
 ) -> None:
     """Apply a line edit while keeping request-owned identity atomic."""
+    custom_field_values = update_data.pop("custom_field_values", None)
     if update_data.get("license_type", item.license_type) == LicenseType.freeware:
         update_data["estimated_unit_price"] = None
         update_data["estimated_total_price"] = None
@@ -289,6 +291,8 @@ async def apply_sourcing_item_update(
             item.contact_email = clean_procurement_identity(contact_email)
         elif supplier is not _IDENTITY_UNSET:
             item.contact_email = None
+        if custom_field_values is not None:
+            await replace_values_for_sourcing_item(db, item.id, custom_field_values)
         return
 
     synchronize_open_request_identity(
@@ -297,6 +301,8 @@ async def apply_sourcing_item_update(
         supplier_id=supplier_id if supplier is not _IDENTITY_UNSET else _IDENTITY_UNSET,
         contact_email=contact_email,
     )
+    if custom_field_values is not None:
+        await replace_values_for_sourcing_item(db, item.id, custom_field_values)
 
 
 async def apply_sourcing_request_update(db: AsyncSession, request: SourcingRequest, update_data: dict) -> None:
@@ -564,11 +570,19 @@ async def merge_coterm_sourcing_items_record(
     merged = await build_merged_sourcing_item(db, items, predecessors, created_by=created_by)
     db.add(merged)
     await ensure_sourcing_request_for_item(db, merged, created_by=created_by)
+    await db.flush()
+    await merge_sourcing_values(db, list(source_item_ids), merged.id)
     for item in items:
         await db.delete(item)
     await db.flush()
     await delete_empty_sourcing_requests(db, original_request_ids)
-    return CotermMergeResult(item=merged, source_item_ids=source_item_ids)
+    refreshed = await db.execute(
+        select(SourcingItem)
+        .where(SourcingItem.id == merged.id)
+        .options(selectinload(SourcingItem.custom_field_values))
+        .execution_options(populate_existing=True)
+    )
+    return CotermMergeResult(item=refreshed.scalar_one(), source_item_ids=source_item_ids)
 
 
 async def build_merged_sourcing_item(
@@ -669,18 +683,41 @@ async def build_merged_sourcing_item(
     ]
     target_contact = _common_nonblank_identity(source_contacts) if target_supplier is not None else None
 
+    def common_nonblank(attribute: str):
+        values = [getattr(item, attribute, None) for item in items]
+        populated = [value for value in values if value not in (None, "", [])]
+        if not populated:
+            return None
+        first = populated[0]
+        return first if all(value == first for value in populated) else None
+
     merged = SourcingItem(
         publisher_name=primary_item.publisher_name,
         software_description=primary_item.software_description,
         license_type=merged_license_type,
+        license_metric=primary_item.license_metric or primary_pred.license_metric,
+        portal_url=common_nonblank("portal_url"),
         maintenance_coverage=MaintenanceCoverage(maintenance_coverage),
         quantity=format(total_quantity, "f") if total_quantity else None,
+        quantity_per_unit=common_nonblank("quantity_per_unit"),
+        sku_code=common_nonblank("sku_code"),
         estimated_unit_price=common_unit_price,
         estimated_total_price=merged_total_price,
         currency=primary_item.currency,
         supplier=target_supplier,
         supplier_id=target_supplier_id,
         contact_email=target_contact,
+        start_date=common_nonblank("start_date"),
+        end_date=common_nonblank("end_date"),
+        notice_date=common_nonblank("notice_date"),
+        purchase_date=common_nonblank("purchase_date"),
+        contract_number=common_nonblank("contract_number"),
+        invoice_number=common_nonblank("invoice_number"),
+        external_ref=common_nonblank("external_ref"),
+        cost_centre=common_nonblank("cost_centre"),
+        budget_owner_email=common_nonblank("budget_owner_email"),
+        secondary_contacts=common_nonblank("secondary_contacts") or [],
+        notes=common_nonblank("notes"),
         status=SourcingStatus.sourcing,
         renewal_for_license_id=primary_pred.id,
         coterm_predecessor_ids=[lic.id for lic in sorted_preds],
@@ -728,6 +765,7 @@ async def create_sourcing_item_record(
     created_by: int | None,
 ) -> SourcingItem:
     item_data = payload.model_dump(by_alias=False)
+    custom_field_values = item_data.pop("custom_field_values", [])
     item_data.pop("parent_item_index", None)
     if item_data.get("license_type") == LicenseType.freeware:
         item_data["estimated_unit_price"] = None
@@ -737,7 +775,14 @@ async def create_sourcing_item_record(
     await ensure_sourcing_request_for_item(db, item, created_by=created_by)
     db.add(item)
     await db.flush()
-    return item
+    await replace_values_for_sourcing_item(db, item.id, custom_field_values)
+    refreshed = await db.execute(
+        select(SourcingItem)
+        .where(SourcingItem.id == item.id)
+        .options(selectinload(SourcingItem.custom_field_values))
+        .execution_options(populate_existing=True)
+    )
+    return refreshed.scalar_one()
 
 
 def _orm_snapshot(value: object) -> dict:
@@ -773,7 +818,12 @@ async def update_sourcing_item_record(
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
     await apply_sourcing_item_update(db, item, request, update_data)
     await db.flush()
-    after_result = await db.execute(select(SourcingItem).where(SourcingItem.id == item_id))
+    after_result = await db.execute(
+        select(SourcingItem)
+        .where(SourcingItem.id == item_id)
+        .options(selectinload(SourcingItem.custom_field_values))
+        .execution_options(populate_existing=True)
+    )
     item = after_result.scalar_one()
     after = _orm_snapshot(item)
     request_after = None
@@ -841,6 +891,7 @@ async def list_sourcing_request_records(db: AsyncSession) -> list[SourcingReques
         .options(
             selectinload(SourcingRequest.items).selectinload(SourcingItem.pending_order),
             selectinload(SourcingRequest.items).selectinload(SourcingItem.converted_licenses),
+            selectinload(SourcingRequest.items).selectinload(SourcingItem.custom_field_values),
             selectinload(SourcingRequest.quote_documents),
         )
         .order_by(SourcingRequest.created_at.desc())
@@ -856,6 +907,7 @@ async def list_sourcing_request_history_records(db: AsyncSession) -> list[Sourci
         .options(
             selectinload(SourcingRequest.items).selectinload(SourcingItem.pending_order),
             selectinload(SourcingRequest.items).selectinload(SourcingItem.converted_licenses),
+            selectinload(SourcingRequest.items).selectinload(SourcingItem.custom_field_values),
             selectinload(SourcingRequest.quote_documents),
         )
         .order_by(SourcingRequest.updated_at.desc(), SourcingRequest.created_at.desc())
@@ -870,6 +922,7 @@ async def get_sourcing_request_or_404(db: AsyncSession, request_id: int) -> Sour
         .options(
             selectinload(SourcingRequest.items).selectinload(SourcingItem.pending_order),
             selectinload(SourcingRequest.items).selectinload(SourcingItem.converted_licenses),
+            selectinload(SourcingRequest.items).selectinload(SourcingItem.custom_field_values),
             selectinload(SourcingRequest.quote_documents),
         )
         .execution_options(populate_existing=True)
@@ -887,7 +940,9 @@ async def get_sourcing_request_for_update_or_404(
     result = await db.execute(
         select(SourcingRequest)
         .where(SourcingRequest.id == request_id)
-        .options(selectinload(SourcingRequest.items))
+        .options(
+            selectinload(SourcingRequest.items).selectinload(SourcingItem.custom_field_values)
+        )
         .with_for_update()
     )
     request = result.scalar_one_or_none()
@@ -1004,6 +1059,7 @@ async def create_sourcing_request_record(
         await resolve_sourcing_item_references(db, item)
         db.add(item)
         await db.flush()
+        await replace_values_for_sourcing_item(db, item.id, item_payload.custom_field_values)
         created_items.append(item)
     return request
 
@@ -1061,6 +1117,7 @@ async def add_sourcing_request_item_record(
     await resolve_sourcing_item_references(db, item)
     db.add(item)
     await db.flush()
+    await replace_values_for_sourcing_item(db, item.id, payload.custom_field_values)
     return request
 
 
@@ -1126,6 +1183,7 @@ def _build_request_item(
     contact_email: str | None,
 ) -> SourcingItem:
     item_data = payload.model_dump(by_alias=False)
+    item_data.pop("custom_field_values", None)
     item_data.pop("sourcing_request_id", None)
     item_data.pop("status", None)
     item_data.pop("parent_item_index", None)
@@ -1482,7 +1540,9 @@ async def load_sourcing_conversion_order(
             selectinload(PendingOrder.items)
             .selectinload(SourcingItem.sourcing_request)
             .selectinload(SourcingRequest.quote_documents),
+            selectinload(PendingOrder.items).selectinload(SourcingItem.custom_field_values),
             selectinload(PendingOrder.documents),
         )
+        .execution_options(populate_existing=True)
     )
     return result.scalar_one()

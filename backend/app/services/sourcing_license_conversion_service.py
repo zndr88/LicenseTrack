@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.license import License, LicenseMetric, LicenseType
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.services.conversion.license_converter import create_purchase_license
+from app.services.custom_fields_service import transfer_sourcing_values_to_license
 from app.services.sourcing_service import is_direct_freeware_item, refresh_sourcing_request_status
 
 
@@ -55,22 +56,25 @@ async def convert_freeware_sourcing_items(
                 "publisher_name": item.publisher_name,
                 "software_description": item.software_description,
                 "license_type": LicenseType.freeware,
-                "license_metric": LicenseMetric.per_user,
+                "license_metric": item.license_metric or LicenseMetric.per_user,
+                "portal_url": item.portal_url,
                 "quantity": item.quantity or "",
-                "sku_code": "",
+                "quantity_per_unit": item.quantity_per_unit or "1",
+                "sku_code": item.sku_code or "",
                 "unit_price": "",
                 "total_po_price": "",
                 "currency": item.currency,
                 "start_date": item.start_date,
                 "end_date": item.end_date,
-                "contract_number": "",
+                "notice_date": item.notice_date,
+                "contract_number": item.contract_number or "",
                 "po_number": "",
-                "invoice_number": "",
+                "invoice_number": item.invoice_number or "",
                 "invoice_numbers": [],
                 "pending_order_id": None,
                 "source_sourcing_item_id": item.id,
                 "request_date": item.created_at,
-                "purchase_date": None,
+                "purchase_date": item.purchase_date,
                 "maintenance_coverage": item.maintenance_coverage,
                 "maintenance_start_date": item.maintenance_start_date,
                 "maintenance_end_date": item.maintenance_end_date,
@@ -80,15 +84,17 @@ async def convert_freeware_sourcing_items(
                 "maintenance_cost": item.maintenance_cost,
                 "contact_email": contact_email,
                 "supplier": supplier,
-                "cost_centre": "",
-                "budget_owner_email": "",
-                "portal_url": None,
+                "cost_centre": item.cost_centre or "",
+                "budget_owner_email": item.budget_owner_email or "",
+                "secondary_contacts": list(item.secondary_contacts or []),
+                "external_ref": item.external_ref,
                 "notes": notes,
             },
             created_by=created_by,
             created_parent_by_sourcing_item_id={},
             item_id=item.id,
         )
+        await transfer_sourcing_values_to_license(db, item.id, license_obj.id)
         item.status = SourcingStatus.converted
         created.append(license_obj)
 

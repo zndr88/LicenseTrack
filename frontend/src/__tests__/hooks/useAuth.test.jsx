@@ -7,10 +7,12 @@ import * as authApi from "../../api/auth.js";
 vi.mock("../../api/auth.js", () => ({
   getSession: vi.fn(),
   logoutSession: vi.fn(),
+  refreshSession: vi.fn(),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.sessionStorage.clear();
 });
 
 afterEach(() => {
@@ -57,7 +59,48 @@ describe("useAuth", () => {
     expect(showToast).toHaveBeenCalledWith("Session expired due to inactivity.", "info");
   });
 
+  test("active sessions rotate their token before the server lifetime expires", async () => {
+    vi.useFakeTimers();
+    authApi.getSession.mockResolvedValueOnce({
+      data: {
+        authenticated: true,
+        user: {
+          id: 1,
+          username: "admin",
+          role: "admin",
+          must_change_password: false,
+          auth_provider: "local",
+        },
+      },
+      error: null,
+    });
+    authApi.refreshSession.mockResolvedValue({ data: { access_token: "rotated" }, error: null });
+
+    const { result } = renderHook(() => useAuth({ sessionTimeout: 1, showToast: vi.fn() }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      window.dispatchEvent(new KeyboardEvent("keydown"));
+      await Promise.resolve();
+    });
+    expect(authApi.refreshSession).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      window.dispatchEvent(new MouseEvent("mousedown"));
+      await Promise.resolve();
+    });
+
+    expect(authApi.refreshSession).toHaveBeenCalledTimes(2);
+    expect(authApi.logoutSession).not.toHaveBeenCalled();
+    expect(result.current.currentUser?.username).toBe("admin");
+  });
+
   test("explicit logout clears local auth state after requesting server cleanup", async () => {
+    window.sessionStorage.setItem("licensetrack.licenses.dismissedAttentionIds", "[12,34]");
     authApi.getSession.mockResolvedValueOnce({
       data: {
         authenticated: true,
@@ -84,5 +127,6 @@ describe("useAuth", () => {
 
     expect(authApi.logoutSession).toHaveBeenCalledTimes(1);
     expect(result.current.currentUser).toBeNull();
+    expect(window.sessionStorage.getItem("licensetrack.licenses.dismissedAttentionIds")).toBeNull();
   });
 });

@@ -138,9 +138,14 @@ export function nextId() {
 export function decorateLicense(license) {
   withDefaultMaintenanceCoverage(license);
   license.daysUntilExpiry = daysUntil(license.endDate);
+  const successor = license.renewedToId == null
+    ? null
+    : store.licenses.find((candidate) => candidate.id === license.renewedToId);
   license.expirationStatus = computeExpirationStatus({
     isRetired: license.isRetired,
     lifecycleStatus: license.lifecycleStatus,
+    renewedToId: license.renewedToId,
+    successorStartDate: successor?.startDate ?? null,
     startDate: license.startDate,
     endDate: license.endDate,
   });
@@ -192,7 +197,7 @@ export function computeStats() {
       totalIncomplete++;
     }
 
-    if (["active", "perpetual", "expiring"].includes(status) && lic.renewedToId == null) {
+    if (["active", "perpetual", "expiring"].includes(status)) {
       if (["subscription", "saas", "maintenance"].includes(lic.licenseType)) {
         const qty = Number(lic.quantity) || 0;
         const price = Number(lic.unitPrice) || 0;
@@ -906,6 +911,8 @@ export function buildSourcingItem(payload, overrides = {}) {
     publisherName: payload.publisherName,
     softwareDescription: payload.softwareDescription,
     licenseType: payload.licenseType ?? null,
+    licenseMetric: payload.licenseMetric ?? null,
+    portalUrl: payload.portalUrl ?? null,
     maintenanceCoverage: payload.maintenanceCoverage ?? null,
     maintenanceStartDate: payload.maintenanceStartDate ?? null,
     maintenanceEndDate: payload.maintenanceEndDate ?? null,
@@ -915,14 +922,25 @@ export function buildSourcingItem(payload, overrides = {}) {
     maintenanceCost: payload.maintenanceCost ?? null,
     parentSourcingItemId: payload.parentSourcingItemId ?? null,
     quantity: payload.quantity ?? null,
+    quantityPerUnit: payload.quantityPerUnit ?? null,
+    skuCode: payload.skuCode ?? null,
     estimatedUnitPrice: payload.licenseType === "freeware" ? null : payload.estimatedUnitPrice ?? null,
     estimatedTotalPrice: payload.licenseType === "freeware" ? null : payload.estimatedTotalPrice ?? null,
     currency: payload.currency || "EUR",
     startDate: payload.startDate ?? null,
     endDate: payload.endDate ?? null,
+    noticeDate: payload.noticeDate ?? null,
+    purchaseDate: payload.purchaseDate ?? null,
+    contractNumber: payload.contractNumber ?? null,
+    invoiceNumber: payload.invoiceNumber ?? null,
+    externalRef: payload.externalRef ?? null,
     supplier: payload.supplier ?? null,
     contactEmail: payload.contactEmail ?? null,
+    costCentre: payload.costCentre ?? null,
+    budgetOwnerEmail: payload.budgetOwnerEmail ?? null,
+    secondaryContacts: payload.secondaryContacts ?? [],
     notes: payload.notes ?? null,
+    customFieldValues: payload.customFieldValues ?? [],
     status: overrides.status ?? "sourcing",
     pendingOrderId: overrides.pendingOrderId ?? null,
     convertedLicenseId: null,
@@ -1526,6 +1544,10 @@ function buildPendingOrderItemLicenseData(formData, item, oldLicense) {
   data.requestDate = item.createdAt;
 
   if (item.quantity != null) data.quantity = item.quantity;
+  if (item.quantityPerUnit != null) data.quantityPerUnit = item.quantityPerUnit;
+  if (item.licenseMetric != null) data.licenseMetric = item.licenseMetric;
+  if (item.portalUrl != null) data.portalUrl = item.portalUrl;
+  if (item.skuCode != null) data.skuCode = item.skuCode;
   if (item.estimatedUnitPrice != null) data.unitPrice = item.estimatedUnitPrice;
   if (item.estimatedTotalPrice != null) data.totalPoPrice = item.estimatedTotalPrice;
   if (item.maintenanceCoverage != null) data.maintenanceCoverage = item.maintenanceCoverage;
@@ -1538,6 +1560,13 @@ function buildPendingOrderItemLicenseData(formData, item, oldLicense) {
   if (item.currency) data.currency = item.currency;
   if (!data.supplier && item.supplier) data.supplier = item.supplier;
   if (item.contactEmail) data.contactEmail = item.contactEmail;
+  for (const field of [
+    "startDate", "endDate", "noticeDate", "purchaseDate", "contractNumber",
+    "invoiceNumber", "externalRef", "costCentre", "budgetOwnerEmail",
+    "secondaryContacts", "notes",
+  ]) {
+    if (item[field] != null && item[field] !== "") data[field] = item[field];
+  }
 
   if (oldLicense != null) {
     data.notes = null;

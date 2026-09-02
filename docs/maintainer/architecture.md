@@ -103,7 +103,11 @@ PDF document preview is coordinated at `LicensesPage.jsx` level through
 the registry area while the selected license detail panel remains mounted and
 usable. `useLicenseDocuments.js` gates preview eligibility with
 `utils/documentPreview.js` and continues to use authenticated API download
-helpers rather than direct browser navigation.
+helpers rather than direct browser navigation. The shared rendering surface is
+`components/ui/DocumentPreviewPanel.jsx`; staged uploads use
+`useLocalDocumentPreview.js` and `LocalDocumentPreviewPanel.jsx` for native
+PDF, image, and plain-text previews with object-URL cleanup. Modal owners retain
+their form and upload state and only compose that shared presentation.
 
 ## RenewalWorkbenchPage Sub-Module Pattern
 
@@ -469,6 +473,8 @@ Custom field behavior has two sources of truth:
 - Backend definitions, keys, section, type, and value normalization live in `backend/app/services/custom_fields_service.py`.
 - Frontend presentation helpers live in `frontend/src/utils/customFieldPresentation.js`.
 
+Procurement-stage custom values are normalized rows in `sourcing_item_custom_values`; they are not embedded JSON and must be written through `custom_fields_service`. A definition's `carry_forward_on_renewal` flag controls the one-time snapshot made when renewal sourcing begins. Later predecessor edits do not mutate that snapshot. Pending-order conversion transfers the reviewed sourcing snapshot atomically to the resulting license. Coterm merge retains a custom value only when the nonblank source values agree; conflicts remain blank for review.
+
 Use `getCustomColumnId(def)` rather than manually building `cf_` keys. This prevents double-prefix values such as `cf_cf_contract_owner` and preserves compatibility with older field-key shapes.
 
 CSV import should create custom field values through the custom-fields service helpers, not by constructing `CustomFieldValue` rows directly.
@@ -648,7 +654,7 @@ optional deletion reason. Direct license custom-field upserts emit
 `license.custom_fields_updated` with normalized before/after field diffs only
 when at least one value changes; definition auditing remains separate.
 
-Renewal command side effects belong in `backend/app/services/renewal_orchestrator.py`, with chain invariants delegated to `backend/app/services/lifecycle_rules.py`. Do not spread renewal lifecycle mutations across pages or routes. Successor creation must validate every predecessor before creating a new license row so stale single or coterm pending-order work cannot fork a renewal chain. Renewal sourcing and coterm merge rows carry the predecessor's explicit maintenance coverage, or the type-appropriate default for older records, and conversion validates that coverage before creating the successor. Renewal conversion rereads the primary predecessor at the conversion boundary: an active parentless maintenance row is allowed to carry `is_legacy_unlinked_maintenance=true` only when that flag already exists on the persisted predecessor. Linked maintenance successors clear the flag, inherit the current primary parent, and create the normal association row and parent mirror; no parent link, mirror, or coverage snapshot is fabricated for an unlinked successor. Coterm successors use the same primary-predecessor rule.
+Renewal command side effects belong in `backend/app/services/renewal_orchestrator.py`, with chain invariants delegated to `backend/app/services/lifecycle_rules.py`. Do not spread renewal lifecycle mutations across pages or routes. Successor creation must validate every predecessor before creating a new license row so stale single or coterm pending-order work cannot fork a renewal chain. Sourcing items are the editable license-field carrier through procurement: applicable standard fields and staged custom-field values must survive sourcing, pending-order editing, and conversion unless the user changes them. Renewal sourcing and coterm merge rows carry the predecessor's explicit maintenance coverage, or the type-appropriate default for older records, and conversion validates that coverage before creating the successor. Renewal conversion rereads the primary predecessor at the conversion boundary: an active parentless maintenance row is allowed to carry `is_legacy_unlinked_maintenance=true` only when that flag already exists on the persisted predecessor. Linked maintenance successors clear the flag, inherit the current primary parent, and create the normal association row and parent mirror; no parent link, mirror, or coverage snapshot is fabricated for an unlinked successor. Coterm successors use the same primary-predecessor rule.
 
 Existing-successor linking is also owned by `renewal_orchestrator.py`. It is
 available only for an Expiring or Expired predecessor and an Active or Upcoming
@@ -657,7 +663,13 @@ operation uses the ordinary `renewed_to_id`, `renewed_from_id`, and
 `predecessor_id` chain, preserves the successor's former LT reference in
 `license_ref_aliases`, and stores link provenance on the predecessor so the
 History procurement trail can explain the missing sourcing stages and the
-link can be safely undone.
+link can be safely undone. The chain edge resolves renewal workflow immediately
+but does not replace coverage state: a predecessor remains Active or Expiring
+through its own end date, remains Expired during any gap before the successor
+starts, and is presented as Renewed only after its term has ended and successor
+coverage has begun. Renewal actions, alerts, and workbench rows are suppressed
+as soon as the successor is secured. Current-cost reporting continues to include
+the predecessor while its coverage remains current.
 
 The renewal graph permits an intermediate license to have both incoming and
 outgoing renewal links, but each predecessor may have at most one immediate

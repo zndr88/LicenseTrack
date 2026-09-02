@@ -21,6 +21,7 @@ from app.services.audit_service import log_event
 from app.services.conversion.license_converter import create_purchase_license
 from app.services.conversion.pending_order_status import mark_item_converted, refresh_order_status
 from app.services.conversion_response_service import build_conversion_response
+from app.services.custom_fields_service import replace_values_for_license, transfer_sourcing_values_to_license
 from app.services.procurement_document_transfer_service import (
     StoredProcurementPath,
     copy_quote_documents_to_procurement_documents,
@@ -146,6 +147,7 @@ async def _create_prepared_conversion_license(
     validation_detail_prefix: str = "",
 ) -> tuple[License, str, list[int]]:
     """Create one already-prepared purchase or renewal conversion result."""
+    custom_field_values = item_data.pop("custom_field_values", [])
     if sourcing_item is not None and sourcing_item.renewal_for_license_id is not None:
         renewal_result = await renewal_orchestrator.create_renewal_successor_from_sourcing_item(
             db=db,
@@ -156,16 +158,25 @@ async def _create_prepared_conversion_license(
             validate_maintenance_parent=True,
             validation_detail_prefix=validation_detail_prefix,
         )
-        return renewal_result.successor, "renewed", renewal_result.predecessor_ids
+        license_obj = renewal_result.successor
+        conversion_type = "renewed"
+        predecessor_ids = renewal_result.predecessor_ids
+    else:
+        license_obj = await create_purchase_license(
+            db=db,
+            item_data=item_data,
+            created_by=created_by,
+            created_parent_by_sourcing_item_id=created_parent_by_sourcing_item_id,
+            item_id=item_id,
+        )
+        conversion_type = "new_purchase"
+        predecessor_ids = []
 
-    license_obj = await create_purchase_license(
-        db=db,
-        item_data=item_data,
-        created_by=created_by,
-        created_parent_by_sourcing_item_id=created_parent_by_sourcing_item_id,
-        item_id=item_id,
-    )
-    return license_obj, "new_purchase", []
+    if custom_field_values:
+        await replace_values_for_license(db, license_obj.id, custom_field_values)
+    elif sourcing_item is not None:
+        await transfer_sourcing_values_to_license(db, sourcing_item.id, license_obj.id)
+    return license_obj, conversion_type, predecessor_ids
 
 
 def _cleanup_written_procurement_files(paths: list[StoredProcurementPath]) -> None:
@@ -483,6 +494,7 @@ async def convert_pending_order_to_licenses(
                     created_by=current_user.id,
                     created_parent_by_sourcing_item_id={},
                     item_id=item.id,
+                    sourcing_item=item,
                 )
                 predecessor_ids.extend(item_predecessor_ids)
                 new_license_entries.append((new_lic.id, conversion_type))
@@ -618,6 +630,7 @@ async def batch_convert_pending_order_to_licenses(
                 created_by=current_user.id,
                 created_parent_by_sourcing_item_id=created_parent_by_sourcing_item_id,
                 item_id=batch_item.sourcing_item_id,
+                sourcing_item=sourcing_item,
             )
             if item_data.get("license_type") in (LicenseType.perpetual, LicenseType.oem, LicenseType.freeware):
                 created_parent_by_sourcing_item_id[batch_item.sourcing_item_id] = new_lic
@@ -637,6 +650,7 @@ async def batch_convert_pending_order_to_licenses(
             created_by=current_user.id,
             created_parent_by_sourcing_item_id=created_parent_by_sourcing_item_id,
             item_id=batch_item.sourcing_item_id,
+            sourcing_item=sourcing_item,
         )
         predecessor_ids.extend(item_predecessor_ids)
         new_license_entries.append((new_lic.id, conversion_type))

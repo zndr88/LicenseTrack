@@ -30,6 +30,22 @@ router = APIRouter(prefix="/api/sourcing", tags=["sourcing"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
+async def _load_response_item(db: AsyncSession, item_id: int) -> SourcingItem:
+    result = await db.execute(
+        select(SourcingItem)
+        .where(SourcingItem.id == item_id)
+        .options(
+            selectinload(SourcingItem.converted_licenses),
+            selectinload(SourcingItem.custom_field_values),
+        )
+        .execution_options(populate_existing=True)
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Sourcing item not found")
+    return item
+
+
 @router.get("", response_model=list[SourcingItemResponse])
 async def list_sourcing_items(
     db: DbSession,
@@ -51,7 +67,10 @@ async def list_sourcing_items(
     )
     if limit is not None:
         query = query.limit(limit)
-    query = query.options(selectinload(SourcingItem.converted_licenses))
+    query = query.options(
+        selectinload(SourcingItem.converted_licenses),
+        selectinload(SourcingItem.custom_field_values),
+    )
     result = await db.execute(query)
     items = list(result.scalars().all())
     return [SourcingItemResponse.model_validate(item) for item in items]
@@ -96,7 +115,7 @@ async def merge_coterm_sourcing_items(
         detail=f"merged {len(outcome.source_item_ids)} items: {list(outcome.source_item_ids)}",
     )
     await db.commit()
-    await db.refresh(merged)
+    merged = await _load_response_item(db, merged.id)
 
     return SourcingItemResponse.model_validate(merged)
 
@@ -107,14 +126,7 @@ async def get_sourcing_item(
     db: DbSession,
     _editor: User = Depends(require_editor_or_admin),
 ) -> SourcingItemResponse:
-    result = await db.execute(
-        select(SourcingItem)
-        .where(SourcingItem.id == item_id)
-        .options(selectinload(SourcingItem.converted_licenses))
-    )
-    item = result.scalar_one_or_none()
-    if item is None:
-        raise HTTPException(status_code=404, detail="Sourcing item not found")
+    item = await _load_response_item(db, item_id)
     return SourcingItemResponse.model_validate(item)
 
 
@@ -138,7 +150,7 @@ async def create_sourcing_item(
         target_label=item.software_description,
     )
     await db.commit()
-    await db.refresh(item)
+    item = await _load_response_item(db, item.id)
     return SourcingItemResponse.model_validate(item)
 
 
@@ -187,7 +199,7 @@ async def update_sourcing_item(
         )
 
     await db.commit()
-    await db.refresh(item)
+    item = await _load_response_item(db, item.id)
     return SourcingItemResponse.model_validate(item)
 
 

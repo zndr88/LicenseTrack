@@ -230,7 +230,7 @@ def _recurring_term_value(license_obj: License) -> tuple[Decimal | None, str]:
 def _current_baseline_eligible(license_obj: License, today: date) -> bool:
     if not _is_recurring(license_obj):
         return False
-    if license_obj.is_retired or license_obj.lifecycle_status in {"legacy", "renewed", "pending_renewal"}:
+    if license_obj.is_retired or license_obj.lifecycle_status in {"legacy", "pending_renewal"}:
         return False
     status = compute_expiration_status(license_obj, today)
     if status not in {"active", "expiring", "perpetual"}:
@@ -280,6 +280,7 @@ async def _load_licenses(db: AsyncSession, user: User) -> list[License]:
     query = select(License).options(
         selectinload(License.maintenance_parent_links),
         selectinload(License.maintenance_child_links),
+        selectinload(License.renewed_to),
     )
     query = apply_department_filter(query, departments).order_by(License.id)
     result = await db.execute(query)
@@ -358,6 +359,7 @@ def _build_lifecycle_spend_data(
     selected: tuple[date, date] | None,
     today: date,
     notification_days: int,
+    successor_start_dates: dict[int, date | None],
 ) -> dict:
     lifecycle_counts = {"active": 0, "upcoming": 0, "expiring": 0, "expired": 0}
     license_spend: dict[str, Decimal] = {}
@@ -368,7 +370,12 @@ def _build_lifecycle_spend_data(
     undated_count = 0
 
     for license_obj in visible:
-        status = compute_expiration_status(license_obj, today, notification_days)
+        status = compute_expiration_status(
+            license_obj,
+            today,
+            notification_days,
+            successor_start_date=successor_start_dates.get(license_obj.renewed_to_id),
+        )
         if status in {"active", "perpetual"}:
             lifecycle_counts["active"] += 1
         elif status in lifecycle_counts:
@@ -818,6 +825,16 @@ def _build_perpetual_maintenance_data(visible: list[License]) -> dict:
 def build_report_model(licenses: list[License], options: ReportOptions) -> DetailedReportResponse:
     selected = _range(options)
     today = date.today()
+    successor_start_dates = {
+        license_obj.id: license_obj.start_date for license_obj in licenses
+    }
+    successor_start_dates.update(
+        {
+            license_obj.renewed_to.id: license_obj.renewed_to.start_date
+            for license_obj in licenses
+            if license_obj.__dict__.get("renewed_to") is not None
+        }
+    )
     visible = [license_obj for license_obj in licenses if _visible(license_obj, options, selected)]
     unpriced_count, excluded_count = _money_issue_counts(visible)
     lifecycle_spend = _build_lifecycle_spend_data(
@@ -825,6 +842,7 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
         selected=selected,
         today=today,
         notification_days=options.notification_days,
+        successor_start_dates=successor_start_dates,
     )
     procurement = _build_procurement_data(visible, selected=selected)
     recurring_forecast = _build_recurring_forecast_data(
@@ -912,8 +930,15 @@ def build_portfolio_stats(
     by_type: dict[str, int] = {license_type.value: 0 for license_type in LicenseType}
     excluded = 0
     incomplete = 0
+    licenses_by_id = {license_obj.id: license_obj for license_obj in licenses}
     for license_obj in licenses:
-        status = compute_expiration_status(license_obj, today, notification_days)
+        successor = licenses_by_id.get(license_obj.renewed_to_id) or license_obj.__dict__.get("renewed_to")
+        status = compute_expiration_status(
+            license_obj,
+            today,
+            notification_days,
+            successor_start_date=successor.start_date if successor is not None else None,
+        )
         if status == "perpetual":
             counts["active"] += 1
         elif status in counts:

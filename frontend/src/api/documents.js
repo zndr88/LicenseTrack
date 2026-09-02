@@ -10,29 +10,7 @@
 
 import { del, get, post } from "./client.js";
 import { downloadApiFile } from "./download.js";
-
-async function createPdfPreviewUrl(path) {
-  const { data: response, error } = await get(path);
-  if (error || !response) {
-    return { data: null, error: error ?? "Preview failed" };
-  }
-
-  let blob;
-  try {
-    blob = await response.blob();
-  } catch {
-    return { data: null, error: "Preview failed" };
-  }
-
-  const previewBlob = blob.type === "application/pdf"
-    ? blob
-    : new Blob([blob], { type: "application/pdf" });
-
-  return {
-    data: { url: URL.createObjectURL(previewBlob) },
-    error: null,
-  };
-}
+import { createPdfPreviewUrl } from "./documentPreview.js";
 
 /**
  * Upload a file and attach it to a license.

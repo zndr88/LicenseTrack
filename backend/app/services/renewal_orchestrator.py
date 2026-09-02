@@ -34,6 +34,7 @@ from app.services.maintenance_rules import (
 from app.services.po_total_override_service import inherit_po_total_override
 from app.services.reference_data_service import resolve_license_reference_fields, resolve_organization
 from app.services.renewal_workflow import build_renewal_sourcing_item
+from app.services.custom_fields_service import snapshot_renewal_values
 from app.services.sourcing_service import (
     ensure_sourcing_request_for_item,
     sourcing_item_predecessor_ids,
@@ -304,6 +305,7 @@ async def initiate_renewal(
     sourcing_item.supplier_id = license_obj.supplier_id
     db.add(sourcing_item)
     await db.flush()
+    await snapshot_renewal_values(db, license_obj.id, sourcing_item.id)
     await ensure_sourcing_request_for_item(db, sourcing_item, created_by=actor.id)
 
     await log_event(
@@ -408,6 +410,9 @@ async def initiate_renewal_bundle(
         db.add(sourcing_item)
         sourcing_items.append(sourcing_item)
     await db.flush()
+
+    for license_obj, sourcing_item in zip(licenses, sourcing_items):
+        await snapshot_renewal_values(db, license_obj.id, sourcing_item.id)
 
     for license_obj, sourcing_item in zip(licenses, sourcing_items):
         await log_event(

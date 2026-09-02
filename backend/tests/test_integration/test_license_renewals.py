@@ -83,6 +83,74 @@ async def test_initiate_recurring_renewal_suggests_next_annual_term(test_app, au
     assert sourcing_item["endDate"] == "2026-12-31"
 
 
+async def test_initiate_renewal_snapshots_only_custom_fields_configured_to_carry(
+    test_app,
+    auth_headers,
+):
+    copy_response = await test_app.post(
+        "/api/custom-fields/",
+        json={
+            "name": "Additional note",
+            "fieldType": "text",
+            "carryForwardOnRenewal": True,
+        },
+        headers=auth_headers,
+    )
+    blank_response = await test_app.post(
+        "/api/custom-fields/",
+        json={
+            "name": "Invoice received date",
+            "fieldType": "date",
+            "carryForwardOnRenewal": False,
+        },
+        headers=auth_headers,
+    )
+    assert copy_response.status_code == 201, copy_response.text
+    assert blank_response.status_code == 201, blank_response.text
+    copy_field = copy_response.json()
+    blank_field = blank_response.json()
+
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        customFieldValues=[
+            {"customFieldDefId": copy_field["id"], "valueText": "Keep this context"},
+            {"customFieldDefId": blank_field["id"], "valueText": "2026-08-15"},
+        ],
+    )
+    response = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/initiate-renewal",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    sourcing_item = response.json()["sourcingItem"]
+    assert sourcing_item["customFieldValues"] == [
+        {
+            "customFieldDefId": copy_field["id"],
+            "valueText": "Keep this context",
+            "valueCurrency": None,
+        }
+    ]
+
+    update_response = await test_app.put(
+        f"/api/licenses/{predecessor['id']}/custom-fields/",
+        json={
+            "values": [
+                {"customFieldDefId": copy_field["id"], "valueText": "Changed after initiation"}
+            ]
+        },
+        headers=auth_headers,
+    )
+    assert update_response.status_code == 200, update_response.text
+    sourcing_response = await test_app.get(
+        f"/api/sourcing/{sourcing_item['id']}",
+        headers=auth_headers,
+    )
+    assert sourcing_response.status_code == 200, sourcing_response.text
+    assert sourcing_response.json()["customFieldValues"][0]["valueText"] == "Keep this context"
+
+
 async def test_cancel_successor_renewal_from_license_preserves_established_ancestry(
     test_app,
     db_session,

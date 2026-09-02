@@ -6,6 +6,7 @@
  *   GET  /api/auth/mode - public auth mode
  *   GET  /api/auth/session - cookie-backed session state
  *   POST /api/auth/login - obtain JWT and set session cookie
+ *   POST /api/auth/refresh - rotate an active session token
  *   POST /api/auth/logout - clear session cookie
  *   POST /api/auth/change-password - change own password (authenticated)
  */
@@ -60,6 +61,13 @@ export async function logoutSession() {
  */
 export async function getSession() {
   return get("/api/auth/session", { redirectOn401: false });
+}
+
+/** Rotate the current token so active users retain a sliding session. */
+export async function refreshSession() {
+  const result = await post("/api/auth/refresh", undefined, { redirectOn401: false });
+  if (result.data?.access_token) setToken(result.data.access_token);
+  return result;
 }
 
 /**
