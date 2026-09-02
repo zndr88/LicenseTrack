@@ -205,6 +205,18 @@ class TestParseLocalizedMoney:
         from app.services.money import parse_localized_money
         assert parse_localized_money("EUR 11.000,00", "de-DE") == "11000.00"
 
+    def test_accepts_currency_suffixes(self):
+        from app.services.money import parse_localized_money
+        assert parse_localized_money("11.000,00 EUR", "de-DE") == "11000.00"
+        assert parse_localized_money("11.000,00 €", "de-DE") == "11000.00"
+
+    def test_handles_long_untrusted_currency_affixes_without_regex_backtracking(self):
+        from app.services.money import parse_localized_money
+        spacing = " " * 100_000
+        assert parse_localized_money(f"USD{spacing}1234.50", "en-US") == "1234.50"
+        with pytest.raises(MoneyParseError):
+            parse_localized_money(f"USD{spacing}not-a-number", "en-US")
+
     # --- Unparseable → MoneyParseError ---
 
     def test_rejects_garbage(self):

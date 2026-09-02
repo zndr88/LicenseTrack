@@ -22,11 +22,9 @@ from decimal import Decimal
 
 # Pattern for canonical decimal: optional minus, digits, optional fractional part.
 _CANONICAL_RE = re.compile(r"^-?\d+(\.\d+)?$")
-_CURRENCY_SYMBOL_RE = re.compile(r"^\s*([$€£¥₹₩₪₺₽])\s*|\s*([$€£¥₹₩₪₺₽])\s*$")
-_CURRENCY_CODE_RE = re.compile(
-    r"^\s*(AUD|BRL|CAD|CHF|CNY|CZK|DKK|EUR|GBP|HKD|HUF|ILS|INR|JPY|KRW|MXN|NOK|NZD|PLN|RON|SEK|SGD|USD|ZAR)\s+"
-    r"|\s+(AUD|BRL|CAD|CHF|CNY|CZK|DKK|EUR|GBP|HKD|HUF|ILS|INR|JPY|KRW|MXN|NOK|NZD|PLN|RON|SEK|SGD|USD|ZAR)\s*$",
-    re.IGNORECASE,
+_CURRENCY_SYMBOLS = frozenset("$€£¥₹₩₪₺₽")
+_CURRENCY_CODES = frozenset(
+    "AUD BRL CAD CHF CNY CZK DKK EUR GBP HKD HUF ILS INR JPY KRW MXN NOK NZD PLN RON SEK SGD USD ZAR".split()
 )
 
 # Locale separator lookup: (decimal_sep, group_sep).
@@ -80,6 +78,24 @@ class MoneyParseError(ValueError):
     """Raised when a value is not a canonical decimal money string."""
 
 
+def _strip_currency_affixes(raw: str) -> str:
+    """Remove supported currency symbols/codes without backtracking regexes."""
+    value = raw.strip()
+    if value[:1] in _CURRENCY_SYMBOLS:
+        value = value[1:].strip()
+    if value[-1:] in _CURRENCY_SYMBOLS:
+        value = value[:-1].strip()
+
+    prefix_parts = value.split(maxsplit=1)
+    if len(prefix_parts) == 2 and prefix_parts[0].upper() in _CURRENCY_CODES:
+        value = prefix_parts[1].strip()
+
+    suffix_parts = value.rsplit(maxsplit=1)
+    if len(suffix_parts) == 2 and suffix_parts[1].upper() in _CURRENCY_CODES:
+        value = suffix_parts[0].strip()
+    return value
+
+
 def is_canonical_money(raw: str) -> bool:
     """Return True iff *raw* is a canonical decimal string (e.g. '1234.50')."""
     return bool(_CANONICAL_RE.match(raw.strip()))
@@ -98,9 +114,7 @@ def parse_localized_money(raw: str | None, number_format_locale: str) -> str | N
     if raw is None or not raw.strip():
         return None
 
-    s = raw.strip()
-    s = _CURRENCY_SYMBOL_RE.sub("", s)
-    s = _CURRENCY_CODE_RE.sub("", s)
+    s = _strip_currency_affixes(raw)
 
     dec_sep, grp_sep = _LOCALE_SEPS.get(number_format_locale, (".", ","))
 

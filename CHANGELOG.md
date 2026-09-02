@@ -37,8 +37,11 @@ contracts will be called out under a **Breaking** heading in future releases.
   ends, including overlapping and upcoming successor messaging.
 - Kept License Overview Attention-banner dismissals for the authenticated browser
   session and cleared them on logout or session expiry.
-- Improved document preview compatibility and hardened staged-field migrations,
-  backup restore coverage, and targeted sourcing-order reloads.
+- Improved document preview compatibility while restricting rendered previews
+  to generated blob URLs, and replaced backtracking currency-affix parsing with
+  deterministic handling of untrusted values.
+- Hardened staged-field migrations, backup restore coverage, and targeted
+  sourcing-order reloads.
 
 This release includes an Alembic migration that adds staged license fields and
 custom-field values to sourcing items plus the custom-field renewal carry-forward

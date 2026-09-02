@@ -1,4 +1,5 @@
 import Icon from "./Icon.jsx";
+import { safePreviewBlobUrl } from "../../utils/documentPreview.js";
 
 export default function DocumentPreviewPanel({
   as: Root = "aside",
@@ -21,6 +22,7 @@ export default function DocumentPreviewPanel({
     expanded ? "is-expanded" : "",
     className,
   ].filter(Boolean).join(" ");
+  const previewUrl = safePreviewBlobUrl(url);
 
   return (
     <Root className={classes} aria-label={ariaLabel}>
@@ -75,16 +77,16 @@ export default function DocumentPreviewPanel({
             <span>Loading preview...</span>
           </div>
         )}
-        {!loading && kind === "pdf" && url && (
-          <iframe title={`Preview of ${filename}`} src={`${url}#zoom=page-width`} />
+        {!loading && kind === "pdf" && previewUrl && (
+          <iframe title={`Preview of ${filename}`} src={`${previewUrl}#zoom=page-width`} />
         )}
-        {!loading && kind === "image" && url && (
-          <img src={url} alt={`Preview of ${filename}`} />
+        {!loading && kind === "image" && previewUrl && (
+          <img src={previewUrl} alt={`Preview of ${filename}`} />
         )}
         {!loading && kind === "text" && (
           <pre>{text || "Loading document..."}</pre>
         )}
-        {!loading && (!kind || ((kind === "pdf" || kind === "image") && !url)) && (
+        {!loading && (!kind || ((kind === "pdf" || kind === "image") && !previewUrl)) && (
           <div className="document-preview-empty">
             <Icon name="file" size={22} color="var(--text-3)" />
             <span>Preview is not available for this file type.</span>

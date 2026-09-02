@@ -24,6 +24,10 @@ export function localDocumentPreviewKind(file) {
   return null;
 }
 
+export function safePreviewBlobUrl(url) {
+  return typeof url === "string" && url.startsWith("blob:") ? url : null;
+}
+
 export function isPreviewablePdf(document) {
   if (!isFileAvailable(document)) return false;
 

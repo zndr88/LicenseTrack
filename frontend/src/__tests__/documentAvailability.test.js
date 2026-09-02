@@ -5,7 +5,7 @@ import {
   formatDocumentAvailabilitySummary,
   isFileAvailable,
 } from "../utils/documentAvailability.js";
-import { isPreviewablePdf, localDocumentPreviewKind } from "../utils/documentPreview.js";
+import { isPreviewablePdf, localDocumentPreviewKind, safePreviewBlobUrl } from "../utils/documentPreview.js";
 
 describe("document availability helpers", () => {
   test("summarizes total records separately from currently available files", () => {
@@ -49,5 +49,13 @@ describe("document availability helpers", () => {
     expect(localDocumentPreviewKind(new File([], "notes.txt", { type: "text/plain" }))).toBe("text");
     expect(localDocumentPreviewKind(new File([], "quote.pdf", { type: "text/html" }))).toBeNull();
     expect(localDocumentPreviewKind(new File([], "quote.pdf"))).toBe("pdf");
+  });
+
+  test("allows generated blob preview URLs and rejects executable or remote schemes", () => {
+    expect(safePreviewBlobUrl("blob:https://licensetrack.example/preview-id")).toBe(
+      "blob:https://licensetrack.example/preview-id",
+    );
+    expect(safePreviewBlobUrl("javascript:alert(1)")).toBeNull();
+    expect(safePreviewBlobUrl("https://example.com/untrusted.pdf")).toBeNull();
   });
 });
