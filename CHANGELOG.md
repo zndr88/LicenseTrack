@@ -13,6 +13,38 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.17] - 2026-09-02
+
+### Added
+
+- Added complete license-field and section-aware custom-field capture throughout
+  sourcing and pending-order intake, conversion, and renewal workflows, including
+  optional custom-field carry-forward on renewal.
+
+### Changed
+
+- Unified procurement intake and conversion forms around shared field sections
+  and a consistent document preview workspace for staged and stored files.
+- Made backend-provided lifecycle and expiration status authoritative across the
+  registry, license details, renewal actions, reports, and exports.
+
+### Fixed
+
+- Renewed active sessions before expiry so users working in the application are
+  no longer logged out after a fixed interval; the configured inactivity timeout
+  still applies.
+- Preserved a renewed predecessor's own date-based coverage state until its term
+  ends, including overlapping and upcoming successor messaging.
+- Kept License Overview Attention-banner dismissals for the authenticated browser
+  session and cleared them on logout or session expiry.
+- Improved document preview compatibility and hardened staged-field migrations,
+  backup restore coverage, and targeted sourcing-order reloads.
+
+This release includes an Alembic migration that adds staged license fields and
+custom-field values to sourcing items plus the custom-field renewal carry-forward
+flag. Downgrade removes those additions. No configuration change or breaking
+public API change is required.
+
 ## [1.1.16] - 2026-08-30
 
 ### Fixed
@@ -1346,7 +1378,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.16...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.17...HEAD
+[1.1.17]: https://github.com/zndr88/LicenseTrack/compare/v1.1.16...v1.1.17
 [1.1.16]: https://github.com/zndr88/LicenseTrack/compare/v1.1.15...v1.1.16
 [1.1.15]: https://github.com/zndr88/LicenseTrack/compare/v1.1.14...v1.1.15
 [1.1.14]: https://github.com/zndr88/LicenseTrack/compare/v1.1.13...v1.1.14
