@@ -160,6 +160,7 @@ export default function SourcingPage({
   const {
     handleCreateSourcingItem,
     handleCreateSourcingRequest,
+    handleUploadSourcingQuote,
     handleUpdateSourcingItem,
     handleUpdateSourcingRequest,
     handleDeleteSourcingItem,
@@ -496,6 +497,7 @@ export default function SourcingPage({
           item={showSourcingModal.item}
           requestId={showSourcingModal.request?.id ?? null}
           sourcingRequest={showSourcingModal.request}
+          documents={showSourcingModal.request?.quoteDocuments ?? []}
           userSettings={userSettings}
           onCancel={() => setShowSourcingModal(null)}
           onSave={async (form) => {
@@ -512,7 +514,7 @@ export default function SourcingPage({
               return success;
             }
             // Single item
-            const { maintenanceCompanion, ...itemForm } = form;
+            const { maintenanceCompanion, quoteFile, ...itemForm } = form;
             const payload = {
               publisherName: itemForm.publisherName,
               softwareDescription: itemForm.softwareDescription,
@@ -556,6 +558,10 @@ export default function SourcingPage({
               ? await handleUpdateSourcingItem(showSourcingModal.item.id, payload)
               : await handleCreateSourcingItem(payload, parentRequestId);
             if (!saved) return false;
+            if (quoteFile && parentRequestId) {
+              const uploaded = await handleUploadSourcingQuote(parentRequestId, quoteFile);
+              if (!uploaded) return false;
+            }
             if (!parentItemId) {
               parentItemId = findCreatedSourcingItem(saved, payload)?.id ?? null;
             }

@@ -164,9 +164,18 @@ export function useSourcingActions({
     return true;
   }, [showToast, queryClient, setExpandedRequestId]);
 
+  const handleUploadSourcingQuote = useCallback(async (requestId, file) => {
+    const { error } = await uploadSourcingQuoteDocument(requestId, file);
+    if (error) { showToast(error, "error"); return false; }
+    await invalidateSourcingCaches(queryClient);
+    showToast("Quote uploaded.", "success");
+    return true;
+  }, [showToast, queryClient]);
+
   return {
     handleCreateSourcingItem,
     handleCreateSourcingRequest,
+    handleUploadSourcingQuote,
     handleUpdateSourcingItem,
     handleUpdateSourcingRequest,
     handleDeleteSourcingItem,

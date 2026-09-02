@@ -11,8 +11,8 @@ import Icon from "../ui/Icon.jsx";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
 import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
 import ConvertItemForm, { isItemReady } from "./ConvertItemForm.jsx";
-import PendingOrderInvoiceField from "./PendingOrderInvoiceField.jsx";
-import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
+import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
+import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
@@ -114,12 +114,12 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
         onEscape={requestClose}
         modalClassName="modal document-assisted-modal"
         modalStyle={{
-          width: invoiceFile ? "min(1120px, 94vw)" : undefined,
-          maxWidth: invoiceFile ? "min(1120px, 94vw)" : "min(720px, 92vw)",
+          width: "min(1120px, 94vw)",
+          maxWidth: "min(1120px, 94vw)",
           maxHeight: "90vh",
           display: "flex",
           flexDirection: "column",
-          overflow: invoiceFile ? "hidden" : undefined,
+          overflow: "hidden",
         }}
         footer={(
           <>
@@ -136,12 +136,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
           </>
         )}
       >
-        <div className={`document-assisted-modal-layout${invoiceFile ? " has-document-preview" : ""}`}>
-          <LocalDocumentPreviewPanel
-            ariaLabel="Attached invoice preview"
-            file={invoiceFile}
-            label="Invoice Preview"
-          />
+        <div className="license-intake-modal-layout">
           <div className="modal-bd document-assisted-modal-form">
           {order?.id && (
             <div className="plugin-slot-form-row">
@@ -158,7 +153,6 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
               />
             </div>
           )}
-          <PendingOrderInvoiceField invoiceFile={invoiceFile} onChange={setInvoiceFile} />
           {fields.length > 1 && (
             <div
               style={{
@@ -212,6 +206,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
             />
           ))}
         </div>
+          <ProcurementDocumentWorkspace documents={order?.documents ?? []} file={invoiceFile} inputId="convert-all-invoice-file" label="Invoice Document" onFileChange={setInvoiceFile} previewDocument={previewPendingOrderDocument} />
         </div>
       </ModalShell>
 

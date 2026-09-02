@@ -357,7 +357,7 @@ export default function PendingOrdersPage({
               items: form.items,
               quoteFile: form.quoteFile,
             };
-            const success = showPendingOrderModal.order
+            let success = showPendingOrderModal.order
               ? await handleUpdatePendingOrder(showPendingOrderModal.order.id, {
                 poNumber: payload.poNumber,
                 procurementReference: payload.procurementReference,
@@ -365,6 +365,9 @@ export default function PendingOrdersPage({
                 notes: payload.notes,
               })
               : await handleCreatePendingOrder(payload);
+            if (success && showPendingOrderModal.order && payload.quoteFile) {
+              success = await handleUploadPurchaseOrderDocument(showPendingOrderModal.order.id, payload.quoteFile);
+            }
             if (success === true || success?.ok) {
               setShowPendingOrderModal(null);
               if (!showPendingOrderModal.order && success.data?.id) {
@@ -396,11 +399,13 @@ export default function PendingOrdersPage({
         <SourcingItemModal
           key={showEditPOItemModal.item?.id ?? "new"}
           item={showEditPOItemModal.item}
+          documents={showEditPOItemModal.order?.documents ?? []}
+          pendingOrderId={showEditPOItemModal.order?.id ?? null}
           userSettings={userSettings}
           title="Edit PO Line Item"
           onCancel={() => setShowEditPOItemModal(null)}
           onSave={async (form) => {
-            const { maintenanceCompanion, ...itemForm } = form;
+            const { maintenanceCompanion, quoteFile, ...itemForm } = form;
             const payload = {
               publisherName: itemForm.publisherName,
               softwareDescription: itemForm.softwareDescription,
@@ -440,6 +445,9 @@ export default function PendingOrdersPage({
               showEditPOItemModal.item.id,
               payload,
             );
+            if (success && quoteFile) {
+              success = await handleUploadPurchaseOrderDocument(showEditPOItemModal.order.id, quoteFile);
+            }
             if (success && maintenanceCompanion) {
               success = await handleAddPOItems(showEditPOItemModal.order.id, [maintenanceCompanion]);
             }

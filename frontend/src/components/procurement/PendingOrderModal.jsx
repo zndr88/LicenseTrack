@@ -6,7 +6,6 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import Icon from "../ui/Icon.jsx";
-import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
@@ -14,6 +13,12 @@ import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import LicenseDraftSupplementFields, { licenseDraftSupplementDefaults } from "../licenses/LicenseDraftSupplementFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
+import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
+import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
+import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
+import MaintenanceCoverageFields, { supportsMaintenanceCoverage } from "./MaintenanceCoverageFields.jsx";
+import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
+import { LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -110,7 +115,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
           handleFileChange(null);
         }
       } else {
-        const saved = await onSave(data);
+        const saved = await onSave({ ...data, quoteFile: attachedFile || null });
         if (saved) reset();
       }
     } finally {
@@ -124,13 +129,11 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
         title={order ? "Edit Pending Order" : "Add Pending Order"}
         titleId="dialog-title-pending-order"
         onClose={requestClose}
-        modalClassName={`modal${attachedFile ? " document-assisted-modal" : ""}`}
+        modalClassName="modal document-assisted-modal"
         modalStyle={{
-          width: attachedFile ? "min(1120px, 94vw)" : undefined,
-          maxWidth: attachedFile
-            ? "min(1120px, 94vw)"
-            : isNewOrder ? "min(640px, 96vw)" : "min(480px, 92vw)",
-          overflow: attachedFile ? "hidden" : undefined,
+          width: "min(1120px, 94vw)",
+          maxWidth: "min(1120px, 94vw)",
+          overflow: "hidden",
         }}
         footer={(
           <>
@@ -143,13 +146,9 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
           </>
         )}
       >
-        <div className={`document-assisted-modal-layout${attachedFile ? " has-document-preview" : ""}`}>
-          <LocalDocumentPreviewPanel
-            ariaLabel="Attached purchase order preview"
-            file={attachedFile}
-            label="Purchase Order Preview"
-          />
+        <div className="license-intake-modal-layout">
           <div className="modal-bd document-assisted-modal-form">
+          <div className="license-form-stack">
           {/* Plugin slot - always mounted so it can discover actions; visually hidden when no actions */}
           {isNewOrder && (
             <div className="plugin-slot-form-row" style={slotHasActions ? undefined : { display: "none" }}>
@@ -189,27 +188,8 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
             </div>
           )}
 
-          {/* Document upload - always shown in new-PO mode */}
-          {isNewOrder && (
-            <div className="fg" style={{ marginBottom: 4 }}>
-              {attachedFile ? (
-                <div className="fg-label">Upload Purchase Order Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></div>
-              ) : (
-                <label htmlFor="pending-order-file">Upload Purchase Order Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></label>
-              )}
-              {attachedFile ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                  <Icon name="file" size={14} color="var(--text-2)" />
-                  <span style={{ fontSize: 12, color: "var(--text-1)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attachedFile.name}</span>
-                  <button type="button" className="btn btn-g" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => handleFileChange(null)}>Remove</button>
-                </div>
-              ) : (
-                <input id="pending-order-file" type="file" className="fi" style={{ marginTop: 4 }} accept=".pdf,.png,.jpg,.jpeg,.txt" onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)} />
-              )}
-            </div>
-          )}
-
           {/* Pending order header fields */}
+          <LicenseFormSection title="Order Details">
           <div className="fg">
             <label htmlFor="po-number">PO Number</label>
             <input id="po-number" className="fi" placeholder="e.g. PO-2026-0042" {...register("poNumber")} />
@@ -232,6 +212,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
             <label htmlFor="po-notes">Notes</label>
             <textarea id="po-notes" className="fi" rows={2} placeholder="PO notes" style={{ resize: "vertical" }} {...register("notes")} />
           </div>
+          </LicenseFormSection>
 
           {/* Inline line items - new order only */}
           {isNewOrder && (
@@ -240,7 +221,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
                 <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)" }}>License Line Items <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional — add now or after saving)</span></span>
               </div>
               {items.map((item, idx) => (
-                <div key={item.id} style={{ border: "1px solid var(--border)", borderRadius: 6, padding: "10px 12px", marginBottom: 8, background: "var(--bg-2)" }}>
+                <div key={item.id} className="pending-order-license-line">
                   {items.length > 1 && (
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>Item {idx + 1}</span>
@@ -249,6 +230,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
                       </button>
                     </div>
                   )}
+                  <LicenseFormSection title="Identity">
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 10px" }}>
                     <div className="fg" style={{ gridColumn: "1 / -1" }}>
                       <label htmlFor={`pending-item-${item.id}-publisher`}>Publisher</label>
@@ -258,31 +240,53 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
                       <label htmlFor={`pending-item-${item.id}-software`}>Software Description</label>
                       <input id={`pending-item-${item.id}-software`} className="fi" placeholder="Product or service name" value={item.softwareDescription} onChange={(e) => updateItem(item.id, "softwareDescription", e.target.value)} />
                     </div>
-                    <div className="fg">
-                      <label htmlFor={`pending-item-${item.id}-quantity`}>Qty</label>
-                      <input id={`pending-item-${item.id}-quantity`} className="fi" inputMode="decimal" placeholder="e.g. 10" value={item.quantity} onChange={(e) => updateItem(item.id, "quantity", e.target.value)} />
-                    </div>
-                    <div className="fg">
-                      <label htmlFor={`pending-item-${item.id}-currency`}>Currency</label>
-                      <select id={`pending-item-${item.id}-currency`} className="fi fi-select" value={item.currency} onChange={(e) => updateItem(item.id, "currency", e.target.value)}>
-                        {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    <div className="fg" style={{ gridColumn: "1 / -1" }}>
+                      <label htmlFor={`pending-item-${item.id}-type`}>License Type</label>
+                      <select id={`pending-item-${item.id}-type`} className="fi fi-select" value={item.licenseType} onChange={(event) => updateItem(item.id, "licenseType", event.target.value)}>
+                        <option value="">Not specified</option>
+                        {LICENSE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                       </select>
                     </div>
-                    <div className="fg">
-                      <label htmlFor={`pending-item-${item.id}-unit-price`}>Unit Price</label>
-                      <input id={`pending-item-${item.id}-unit-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("500", locale)}`} value={item.estimatedUnitPrice} onChange={(e) => updateItem(item.id, "estimatedUnitPrice", e.target.value)} />
-                    </div>
-                    <div className="fg">
-                      <label htmlFor={`pending-item-${item.id}-total-price`}>Total Price</label>
-                      <input id={`pending-item-${item.id}-total-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("5000", locale)}`} value={item.estimatedTotalPrice} onChange={(e) => updateItem(item.id, "estimatedTotalPrice", e.target.value)} />
-                    </div>
                   </div>
+                  <CustomFieldFormFields definitions={customFieldDefs} values={item.customFieldValues || {}} onChange={(values) => updateItem(item.id, "customFieldValues", values)} idPrefix={`pending-item-${item.id}`} loading={customFieldsLoading} section="identity" />
+                  </LicenseFormSection>
+                  {customFieldDefs.some((definition) => definition.section === "documents") && (
+                    <LicenseFormSection title="Documents">
+                      <CustomFieldFormFields definitions={customFieldDefs} values={item.customFieldValues || {}} onChange={(values) => updateItem(item.id, "customFieldValues", values)} idPrefix={`pending-item-${item.id}`} loading={customFieldsLoading} section="documents" />
+                    </LicenseFormSection>
+                  )}
                   <LicenseDraftSupplementFields
                     item={item}
                     onChange={(field, value) => updateItem(item.id, field, value)}
                     idPrefix={`pending-item-${item.id}`}
                     customFieldDefs={customFieldDefs}
                     customFieldsLoading={customFieldsLoading}
+                    sectioned
+                    commercialSummary={(
+                      <>
+                        <div className="fr">
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-quantity`}>Purchase Quantity</label><input id={`pending-item-${item.id}-quantity`} className="fi" inputMode="decimal" placeholder="e.g. 10" value={item.quantity} onChange={(e) => updateItem(item.id, "quantity", e.target.value)} /></div>
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-quantity-per-unit`}>Quantity per Unit</label><input id={`pending-item-${item.id}-quantity-per-unit`} className="fi" inputMode="decimal" value={item.quantityPerUnit} onChange={(e) => updateItem(item.id, "quantityPerUnit", e.target.value)} /></div>
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-sku`}>SKU Code</label><input id={`pending-item-${item.id}-sku`} className="fi" value={item.skuCode} onChange={(e) => updateItem(item.id, "skuCode", e.target.value)} /></div>
+                        </div>
+                        <div className="fr">
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-metric`}>License Metric</label><select id={`pending-item-${item.id}-metric`} className="fi fi-select" value={item.licenseMetric} onChange={(event) => updateItem(item.id, "licenseMetric", event.target.value)}>{LICENSE_METRICS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-currency`}>Currency</label><select id={`pending-item-${item.id}-currency`} className="fi fi-select" value={item.currency} onChange={(e) => updateItem(item.id, "currency", e.target.value)}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+                        </div>
+                        <div className="fr">
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-unit-price`}>Unit Price</label><input id={`pending-item-${item.id}-unit-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("500", locale)}`} value={item.estimatedUnitPrice} onChange={(e) => updateItem(item.id, "estimatedUnitPrice", e.target.value)} /></div>
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-total-price`}>Total Price</label><input id={`pending-item-${item.id}-total-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("5000", locale)}`} value={item.estimatedTotalPrice} onChange={(e) => updateItem(item.id, "estimatedTotalPrice", e.target.value)} /></div>
+                        </div>
+                        {item.licenseType === "saas" && <div className="fg"><label htmlFor={`pending-item-${item.id}-portal`}>Portal URL</label><input id={`pending-item-${item.id}-portal`} className="fi" value={item.portalUrl} onChange={(event) => updateItem(item.id, "portalUrl", event.target.value)} /></div>}
+                      </>
+                    )}
+                    showCoreDetails={false}
+                    maintenanceSection={supportsMaintenanceCoverage(item.licenseType) ? (
+                      <LicenseFormSection title="Maintenance / Support">
+                        <MaintenanceCoverageFields idPrefix={`pending-item-${item.id}`} licenseType={item.licenseType} coverage={item.maintenanceCoverage} startDate={item.maintenanceStartDate} endDate={item.maintenanceEndDate} pricingBasis={item.maintenancePricingBasis} supportQuantity={item.maintenanceQuantity} supportUnitPrice={item.maintenanceUnitPrice} cost={item.maintenanceCost} licenseQuantity={item.quantity} licenseStartDate={item.startDate} licenseEndDate={item.endDate} licenseTotalCost={item.estimatedTotalPrice} currency={item.currency} locale={locale} onChange={(field, value) => updateItem(item.id, field, value)} embedded />
+                        <CustomFieldFormFields definitions={customFieldDefs} values={item.customFieldValues || {}} onChange={(values) => updateItem(item.id, "customFieldValues", values)} idPrefix={`pending-item-${item.id}`} loading={customFieldsLoading} section="maintenance" />
+                      </LicenseFormSection>
+                    ) : null}
                   />
                 </div>
               ))}
@@ -291,7 +295,16 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
               </button>
             </div>
           )}
+          </div>
         </div>
+          <ProcurementDocumentWorkspace
+            documents={order?.documents ?? []}
+            file={attachedFile}
+            inputId="pending-order-file"
+            label="Purchase Order Document"
+            onFileChange={handleFileChange}
+            previewDocument={previewPendingOrderDocument}
+          />
         </div>
       </ModalShell>
       {showDiscardDialog && (

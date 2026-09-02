@@ -4,7 +4,6 @@ import Checkbox from "../ui/Checkbox.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import Icon from "../ui/Icon.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
-import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
@@ -12,6 +11,7 @@ import { parseLocalizedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
+  supportsMaintenanceCoverage,
   supportsSeparateMaintenanceLine,
 } from "../procurement/MaintenanceCoverageFields.jsx";
 import ParentLicensePicker from "../procurement/ParentLicensePicker.jsx";
@@ -20,6 +20,8 @@ import CustomFieldFormFields from "./CustomFieldFormFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
 import { FULL_LICENSE_FORM_VISIBILITY } from "../../utils/licenseFormVisibility.js";
+import LicenseFormSection from "./LicenseFormSection.jsx";
+import ProcurementDocumentWorkspace from "../procurement/ProcurementDocumentWorkspace.jsx";
 
 const PRIMARY_LINE_ID = "primary";
 const PROCUREMENT_DOCUMENT_CATEGORIES = new Set(["invoice", "quote", "purchase_order"]);
@@ -78,6 +80,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const [attachedFile, setAttachedFile] = useState(null);
   const [attachedFileCategory, setAttachedFileCategory] = useState("invoice");
   const [attachedFileBase64, setAttachedFileBase64] = useState(null);
+  const [documentActionsAvailable, setDocumentActionsAvailable] = useState(false);
   const [additionalLines, setAdditionalLines] = useState([]);
   const [formTouched, setFormTouched] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -274,26 +277,31 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   };
 
   const lineCount = 1 + additionalLines.length;
-  const attachmentScopeHint = lineCount > 1 && PROCUREMENT_DOCUMENT_CATEGORIES.has(attachedFileCategory)
-    ? `shared across all ${lineCount} licenses in this batch`
-    : "attached to first license";
+  const attachedDocumentType = DOC_CATEGORY_OPTIONS.find((option) => option.value === attachedFileCategory)?.label ?? "Document";
+  const attachmentScopeHelp = PROCUREMENT_DOCUMENT_CATEGORIES.has(attachedFileCategory)
+    ? `Procurement documents are shared with every license created in this batch${lineCount > 1 ? ` (${lineCount} licenses)` : ""}.`
+    : `${attachedDocumentType} documents attach only to the first license in this batch.`;
+  const hasCatchallCustomFields = customFieldDefs.some(
+    (definition) => !definition.section || definition.section === "__catchall__"
+  );
+  const hasDocumentCustomFields = customFieldDefs.some((definition) => definition.section === "documents");
 
   return (
     <>
     <ModalShell
-      title="Review License Data"
+      title="Add Manual License"
       titleId="dialog-title-invoice-confirm"
       onClose={() => {
         if (!submitLockRef.current) requestClose();
       }}
       closeButtonDisabled={isSubmitting}
       closeOnOverlayClick={!isSubmitting}
-      modalClassName={`modal${attachedFile ? " document-assisted-modal" : ""}`}
-      modalStyle={attachedFile ? {
+      modalClassName="modal document-assisted-modal"
+      modalStyle={{
         width: "min(1120px, 94vw)",
         maxWidth: "min(1120px, 94vw)",
         overflow: "hidden",
-      } : undefined}
+      }}
       footer={(
         <>
           <button className="btn btn-g" onClick={requestClose} disabled={isSubmitting}>Cancel</button>
@@ -306,45 +314,17 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         </>
       )}
     >
-        <div className={`document-assisted-modal-layout${attachedFile ? " has-document-preview" : ""}`}>
-          <LocalDocumentPreviewPanel
-            ariaLabel="Attached license document preview"
-            file={attachedFile}
-            label="Document Preview"
-          />
+        <div className="license-intake-modal-layout">
           <div className="modal-bd document-assisted-modal-form">
-          <div className="fs">
-            <h4><Icon name="shield" size={14} color="var(--accent)" /> Manual entry: {data.fileName}</h4>
-            <p style={{ fontSize: 11, color: "var(--text-3)" }}>Review and correct any fields before saving.</p>
-          </div>
-          {/* Attach document - kept at the top so it sits with the Parse Document
-              action it feeds, matching the sourcing and pending-order modals. */}
-          <div className="fg" style={{ borderBottom: "1px solid var(--border-lt)", paddingBottom: 12, marginBottom: 4 }}>
-            {attachedFile ? (
-              <div className="fg-label">Attach Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional — {attachmentScopeHint})</span></div>
-            ) : (
-              <label htmlFor="inv-attach-file">Attach Document <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional — {attachmentScopeHint})</span></label>
-            )}
-            {attachedFile ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                <Icon name="file" size={14} color="var(--text-2)" />
-                <span style={{ fontSize: 12, color: "var(--text-1)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attachedFile.name}</span>
-                <button type="button" className="btn btn-g" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => handleFileChange(null)}>Remove</button>
-              </div>
-            ) : (
-              <input id="inv-attach-file" type="file" className="fi" style={{ marginTop: 4 }} onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)} />
-            )}
-          </div>
-          {attachedFile && (
-            <div className="fg" style={{ marginBottom: 4 }}>
-              <label htmlFor="inv-attach-category">Document Category</label>
-              <select id="inv-attach-category" className="fi fi-select" value={attachedFileCategory} onChange={(e) => setAttachedFileCategory(e.target.value)}>
-                {DOC_CATEGORY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="license-form-stack">
+          <LicenseFormSection title="Identity">
+            <div className="fg"><label htmlFor="inv-publisher-name">Publisher Name</label><ReferenceCombobox id="inv-publisher-name" mode="publisher" value={form.publisherName} onChange={(value) => u("publisherName", value)} /></div>
+            <div className="fg"><label htmlFor="inv-software-desc">Software Description</label><input id="inv-software-desc" className="fi" value={form.softwareDescription} onChange={(e) => u("softwareDescription", e.target.value)} /></div>
+            {vis.licenseType && <div className="fg"><label htmlFor="inv-license-type">License Type</label><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}) })); if (isFreewareLicenseType(next)) { setDisplayUnitPrice(""); setDisplayTotalPrice(""); } if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>}
+            <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="identity" />
+          </LicenseFormSection>
+          <div style={hasDocumentCustomFields || documentActionsAvailable ? undefined : { display: "none" }}>
+          <LicenseFormSection title="Document Data" icon="file">
           <div className="plugin-slot-form-row">
             <PluginSlot
               slot="license.add.review.actions"
@@ -362,6 +342,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   contentType: attachedFile?.type || "application/pdf",
                 } : {}),
               }}
+              onActionsLoaded={(count) => setDocumentActionsAvailable(count > 0)}
               onResult={(result) => {
                 // Multi-item parse: fill primary form + create additional lines
                 if (Array.isArray(result?.multiItems) && result.multiItems.length > 0) {
@@ -422,170 +403,66 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               }}
             />
           </div>
-          <div className="fg"><label htmlFor="inv-publisher-name">Publisher Name</label><ReferenceCombobox id="inv-publisher-name" mode="publisher" value={form.publisherName} onChange={(value) => u("publisherName", value)} /></div>
-          <div className="fg"><label htmlFor="inv-software-desc">Software Description</label><input id="inv-software-desc" className="fi" value={form.softwareDescription} onChange={(e) => u("softwareDescription", e.target.value)} /></div>
-          <div className="fr">
-            <div className="fg"><label htmlFor="inv-start-date">Start Date</label><input id="inv-start-date" type="date" className="fi" value={form.startDate} onChange={(e) => u("startDate", e.target.value)} /></div>
-            <div className="fg">
-              <label htmlFor="inv-end-date">End Date</label>
-              {form.isPerpetual ? <input id="inv-end-date" className="fi" value="Perpetual" disabled /> : <input id="inv-end-date" type="date" className="fi" value={form.endDate} onChange={(e) => u("endDate", e.target.value)} />}
-              <div style={{ marginTop: 5 }}><Checkbox checked={form.isPerpetual} onChange={(v) => { u("isPerpetual", v); if (v) u("endDate", "Perpetual"); else u("endDate", ""); }} label="Perpetual license" /></div>
+          <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="documents" />
+          </LicenseFormSection>
+          </div>
+          <LicenseFormSection title="Key Dates & Contract">
+            <div className="fr">
+              <div className="fg"><label htmlFor="inv-start-date">Start Date</label><input id="inv-start-date" type="date" className="fi" value={form.startDate} onChange={(e) => u("startDate", e.target.value)} /></div>
+              <div className="fg"><label htmlFor="inv-end-date">End Date</label>{form.isPerpetual ? <input id="inv-end-date" className="fi" value="Perpetual" disabled /> : <input id="inv-end-date" type="date" className="fi" value={form.endDate} onChange={(e) => u("endDate", e.target.value)} />}<div style={{ marginTop: 5 }}><Checkbox checked={form.isPerpetual} onChange={(v) => { u("isPerpetual", v); u("endDate", v ? "Perpetual" : ""); }} label="Perpetual license" /></div></div>
             </div>
-          </div>
-          <div className="fg"><label htmlFor="inv-notice-date">Notice Date</label><input id="inv-notice-date" type="date" className="fi" value={form.noticeDate || ""} onChange={(e) => u("noticeDate", e.target.value)} />{form.noticeDate && form.endDate && form.endDate !== "Perpetual" && form.noticeDate > form.endDate && <div className="dp-field-warning">Notice date is after the license end date.</div>}</div>
-          <div className="fr">
-            <div className="fg"><label htmlFor="inv-purchase-date">Purchase Date</label><input id="inv-purchase-date" type="date" className="fi" value={form.purchaseDate || ""} onChange={(e) => u("purchaseDate", e.target.value)} /></div>
-            <div className="fg"><label htmlFor="inv-external-ref">External Reference</label><input id="inv-external-ref" className="fi" value={form.externalRef || ""} onChange={(e) => u("externalRef", e.target.value)} /></div>
-          </div>
-          <div className="fr">
-            <div className="fg"><label htmlFor="inv-contract-number">Contract Number</label><input id="inv-contract-number" className="fi" value={form.contractNumber} onChange={(e) => u("contractNumber", e.target.value)} /></div>
-            <div className="fg"><label htmlFor="inv-po-number">PO Number</label><input id="inv-po-number" className="fi" value={form.poNumber} onChange={(e) => u("poNumber", e.target.value)} /></div>
-          </div>
-          <div className="fg"><label htmlFor="inv-procurement-reference">Procurement Reference</label><input id="inv-procurement-reference" className="fi" value={form.procurementReference || ""} onChange={(e) => u("procurementReference", e.target.value)} /></div>
-          <div className="fr">
-            <div className="fg"><label htmlFor="inv-invoice-number">Invoice Number</label><input id="inv-invoice-number" className="fi" value={form.invoiceNumber} onChange={(e) => u("invoiceNumber", e.target.value)} /></div>
-            <div className="fg"><label htmlFor="inv-contact-email">Contact Email</label><input id="inv-contact-email" className="fi" value={form.contactEmail} onChange={(e) => u("contactEmail", e.target.value)} /></div>
-          </div>
+            <div className="fr">
+              <div className="fg"><label htmlFor="inv-notice-date">Notice Date</label><input id="inv-notice-date" type="date" className="fi" value={form.noticeDate || ""} onChange={(e) => u("noticeDate", e.target.value)} />{form.noticeDate && form.endDate && form.endDate !== "Perpetual" && form.noticeDate > form.endDate && <div className="dp-field-warning">Notice date is after the license end date.</div>}</div>
+              <div className="fg"><label htmlFor="inv-purchase-date">Purchase Date</label><input id="inv-purchase-date" type="date" className="fi" value={form.purchaseDate || ""} onChange={(e) => u("purchaseDate", e.target.value)} /></div>
+            </div>
+            <div className="fr">
+              <div className="fg"><label htmlFor="inv-contract-number">Contract Number</label><input id="inv-contract-number" className="fi" value={form.contractNumber} onChange={(e) => u("contractNumber", e.target.value)} /></div>
+              <div className="fg"><label htmlFor="inv-po-number">PO Number</label><input id="inv-po-number" className="fi" value={form.poNumber} onChange={(e) => u("poNumber", e.target.value)} /></div>
+            </div>
+            <div className="fr">
+              <div className="fg"><label htmlFor="inv-procurement-reference">Procurement Reference</label><input id="inv-procurement-reference" className="fi" value={form.procurementReference || ""} onChange={(e) => u("procurementReference", e.target.value)} /></div>
+              <div className="fg"><label htmlFor="inv-invoice-number">Invoice Number</label><input id="inv-invoice-number" className="fi" value={form.invoiceNumber} onChange={(e) => u("invoiceNumber", e.target.value)} /></div>
+              <div className="fg"><label htmlFor="inv-external-ref">External Reference</label><input id="inv-external-ref" className="fi" value={form.externalRef || ""} onChange={(e) => u("externalRef", e.target.value)} /></div>
+            </div>
+            <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="dates" />
+          </LicenseFormSection>
 
-          {/* Toggleable categories */}
-          {(vis.supplier || vis.costCentre) && (
-            <div className="fr">
-              {vis.supplier && <div className="fg"><label htmlFor="inv-supplier">Supplier</label><ReferenceCombobox id="inv-supplier" mode="supplier" value={form.supplier} placeholder="Reseller or direct supplier" onChange={(value) => u("supplier", value)} /></div>}
-              {vis.costCentre && <div className="fg"><label htmlFor="inv-cost-centre">Cost Centre / Department</label><ReferenceCombobox id="inv-cost-centre" mode="costCentre" value={form.costCentre} placeholder="Department or cost centre" onChange={(value) => u("costCentre", value)} /></div>}
-            </div>
+          {supportsMaintenanceCoverage(form.licenseType) && (
+            <LicenseFormSection title="Maintenance / Support">
+              <MaintenanceCoverageFields idPrefix="inv" licenseType={form.licenseType} coverage={form.maintenanceCoverage} startDate={form.maintenanceStartDate} endDate={form.maintenanceEndDate} pricingBasis={form.maintenancePricingBasis} supportQuantity={form.maintenanceQuantity} supportUnitPrice={form.maintenanceUnitPrice} cost={form.maintenanceCost} licenseQuantity={form.quantity} licenseStartDate={form.startDate} licenseEndDate={form.isPerpetual ? "" : form.endDate} licenseTotalCost={form.totalPoPrice} currency={form.currency} locale={locale} onChange={updatePrimaryMaintenance} onAddSeparate={() => addMaintenanceLine(PRIMARY_LINE_ID, form)} separateLineAdded={hasMaintenanceCompanion(PRIMARY_LINE_ID)} embedded />
+              <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="maintenance" />
+            </LicenseFormSection>
           )}
-          {(vis.licenseType || vis.licenseMetric) && (
-            <div className="fr">
-              {vis.licenseType && (
-                <div className="fg"><label htmlFor="inv-license-type">License Type</label>
-                  <select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => {
-                    const next = e.target.value;
-                    setFormTouched(true);
-                    setForm((f) => ({
-                      ...f,
-                      licenseType: next,
-                      ...(next !== "maintenance" ? { parentLicenseId: "" } : {}),
-                      ...(next !== "saas" ? { portalUrl: "" } : {}),
-                      ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}),
-                    }));
-                    if (isFreewareLicenseType(next)) {
-                      setDisplayUnitPrice("");
-                      setDisplayTotalPrice("");
-                    }
-                    if (!supportsSeparateMaintenanceLine(next)) {
-                      removeMaintenanceCompanion(PRIMARY_LINE_ID);
-                    }
-                  }}>
-                    <option value="">Select...</option>
-                    {LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
-              )}
-              {vis.licenseMetric && (
-                <div className="fg"><label htmlFor="inv-license-metric">License Metric</label>
-                  <select id="inv-license-metric" className="fi fi-select" value={form.licenseMetric} onChange={(e) => u("licenseMetric", e.target.value)}>
-                    <option value="">Select...</option>
-                    {LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                  </select>
-                </div>
-              )}
-            </div>
-          )}
-          <MaintenanceCoverageFields
-            idPrefix="inv"
-            licenseType={form.licenseType}
-            coverage={form.maintenanceCoverage}
-            startDate={form.maintenanceStartDate}
-            endDate={form.maintenanceEndDate}
-            pricingBasis={form.maintenancePricingBasis}
-            supportQuantity={form.maintenanceQuantity}
-            supportUnitPrice={form.maintenanceUnitPrice}
-            cost={form.maintenanceCost}
-            licenseQuantity={form.quantity}
-            licenseStartDate={form.startDate}
-            licenseEndDate={form.isPerpetual ? "" : form.endDate}
-            licenseTotalCost={form.totalPoPrice}
-            currency={form.currency}
-            locale={locale}
-            onChange={updatePrimaryMaintenance}
-            onAddSeparate={() => addMaintenanceLine(PRIMARY_LINE_ID, form)}
-            separateLineAdded={hasMaintenanceCompanion(PRIMARY_LINE_ID)}
-          />
-          {form.licenseType === "maintenance" && (
-            <ParentLicensePicker
-              id="inv-parent-license"
-              licenses={eligibleParentLicenses}
-              parentLicenseId={form.parentLicenseId}
-              parentSourcingItemId={null}
-              onSelectExisting={(value) => u("parentLicenseId", value)}
-              onSelectPoItem={() => {}}
-              error={!form.parentLicenseId ? "Select the perpetual, OEM, or freeware license this maintenance record supports." : null}
-            />
-          )}
-          {form.licenseType === "saas" && (
-            <div className="fg">
-              <label htmlFor="inv-portal-url">Portal URL</label>
-              <input id="inv-portal-url" className="fi" value={form.portalUrl} onChange={(e) => u("portalUrl", e.target.value)} placeholder="https://..." />
-            </div>
-          )}
-          {(vis.quantity || vis.quantityPerUnit || vis.skuCode) && (
+
+          <LicenseFormSection title="Details">
             <div className="fr">
               {vis.quantity && <div className="fg"><label htmlFor="inv-quantity">Purchase Quantity</label><input id="inv-quantity" className="fi" type="number" value={form.quantity} onChange={(e) => u("quantity", e.target.value)} /></div>}
               {vis.quantityPerUnit && <div className="fg"><label htmlFor="inv-quantity-per-unit">Quantity per Unit</label><input id="inv-quantity-per-unit" className="fi" inputMode="decimal" value={form.quantityPerUnit} onChange={(e) => u("quantityPerUnit", e.target.value)} /></div>}
               {vis.skuCode && <div className="fg"><label htmlFor="inv-sku-code">SKU Code</label><input id="inv-sku-code" className="fi" value={form.skuCode} placeholder="SKU or product code" onChange={(e) => u("skuCode", e.target.value)} /></div>}
             </div>
-          )}
-          {!isFreewareLicenseType(form.licenseType) && (vis.unitPrice || vis.totalPoPrice) && (
             <div className="fr">
-              {vis.unitPrice && (
-                <div className="fg">
-                  <label htmlFor="inv-unit-price">Unit Price</label>
-                  <input
-                    id="inv-unit-price"
-                    className="fi"
-                    value={displayUnitPrice}
-                    onChange={(e) => {
-                      setDisplayUnitPrice(e.target.value);
-                      u("unitPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value);
-                    }}
-                    onBlur={() => setDisplayUnitPrice(formatPriceInput(form.unitPrice, locale))}
-                  />
-                </div>
-              )}
-              {vis.totalPoPrice && (
-                <div className="fg">
-                  <label htmlFor="inv-total-price">Total PO Price</label>
-                  <input
-                    id="inv-total-price"
-                    className="fi"
-                    value={displayTotalPrice}
-                    onChange={(e) => {
-                      setDisplayTotalPrice(e.target.value);
-                      u("totalPoPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value);
-                    }}
-                    onBlur={() => setDisplayTotalPrice(formatPriceInput(form.totalPoPrice, locale))}
-                  />
-                </div>
-              )}
+              {vis.licenseMetric && <div className="fg"><label htmlFor="inv-license-metric">License Metric</label><select id="inv-license-metric" className="fi fi-select" value={form.licenseMetric} onChange={(e) => u("licenseMetric", e.target.value)}><option value="">Select...</option>{LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>}
+              <div className="fg"><label htmlFor="inv-currency">Currency</label><select id="inv-currency" className="fi fi-select" value={form.currency} onChange={(e) => u("currency", e.target.value)}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
             </div>
-          )}
-          {(isFreewareLicenseType(form.licenseType) || vis.unitPrice || vis.totalPoPrice) && (
-            <div className="fg"><label htmlFor="inv-currency">Currency</label>
-              <select id="inv-currency" className="fi fi-select" value={form.currency} onChange={(e) => u("currency", e.target.value)}>
-                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          )}
-          <div className="fg"><label htmlFor="inv-budget-owner">Budget Owner Email</label><input id="inv-budget-owner" className="fi" value={form.budgetOwnerEmail} placeholder="owner@example.com" onChange={(e) => u("budgetOwnerEmail", e.target.value)} /></div>
-          <div className="fg"><label htmlFor="inv-secondary-contacts">Secondary Contacts</label><input id="inv-secondary-contacts" className="fi" value={form.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(e) => u("secondaryContacts", e.target.value)} /></div>
-          {vis.notes && <div className="fg"><label htmlFor="inv-notes">Notes / Comments</label><textarea id="inv-notes" className="fi" rows={3} value={form.notes} onChange={(e) => u("notes", e.target.value)} style={{ resize: "vertical" }} /></div>}
-          <CustomFieldFormFields
-            definitions={customFieldDefs}
-            values={form.customFieldValues}
-            onChange={(values) => u("customFieldValues", values)}
-            idPrefix="inv"
-            loading={customFieldsLoading}
-          />
+            {!isFreewareLicenseType(form.licenseType) && (vis.unitPrice || vis.totalPoPrice) && <div className="fr">{vis.unitPrice && <div className="fg"><label htmlFor="inv-unit-price">Unit Price</label><input id="inv-unit-price" className="fi" value={displayUnitPrice} onChange={(e) => { setDisplayUnitPrice(e.target.value); u("unitPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayUnitPrice(formatPriceInput(form.unitPrice, locale))} /></div>}{vis.totalPoPrice && <div className="fg"><label htmlFor="inv-total-price">Total PO Price</label><input id="inv-total-price" className="fi" value={displayTotalPrice} onChange={(e) => { setDisplayTotalPrice(e.target.value); u("totalPoPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayTotalPrice(formatPriceInput(form.totalPoPrice, locale))} /></div>}</div>}
+            {form.licenseType === "saas" && <div className="fg"><label htmlFor="inv-portal-url">Portal URL</label><input id="inv-portal-url" className="fi" value={form.portalUrl} onChange={(e) => u("portalUrl", e.target.value)} placeholder="https://..." /></div>}
+            <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="commercial" />
+          </LicenseFormSection>
+
+          <LicenseFormSection title="Relationships">
+            {form.licenseType === "maintenance" && <ParentLicensePicker id="inv-parent-license" licenses={eligibleParentLicenses} parentLicenseId={form.parentLicenseId} parentSourcingItemId={null} onSelectExisting={(value) => u("parentLicenseId", value)} onSelectPoItem={() => {}} error={!form.parentLicenseId ? "Select the perpetual, OEM, or freeware license this maintenance record supports." : null} />}
+            {(vis.supplier || vis.costCentre) && <div className="fr">{vis.supplier && <div className="fg"><label htmlFor="inv-supplier">Supplier</label><ReferenceCombobox id="inv-supplier" mode="supplier" value={form.supplier} placeholder="Reseller or direct supplier" onChange={(value) => u("supplier", value)} /></div>}{vis.costCentre && <div className="fg"><label htmlFor="inv-cost-centre">Cost Centre / Department</label><ReferenceCombobox id="inv-cost-centre" mode="costCentre" value={form.costCentre} placeholder="Department or cost centre" onChange={(value) => u("costCentre", value)} /></div>}</div>}
+            <div className="fr"><div className="fg"><label htmlFor="inv-contact-email">Contact Email</label><input id="inv-contact-email" className="fi" value={form.contactEmail} onChange={(e) => u("contactEmail", e.target.value)} /></div><div className="fg"><label htmlFor="inv-budget-owner">Budget Owner Email</label><input id="inv-budget-owner" className="fi" value={form.budgetOwnerEmail} placeholder="owner@example.com" onChange={(e) => u("budgetOwnerEmail", e.target.value)} /></div></div>
+            <div className="fg"><label htmlFor="inv-secondary-contacts">Secondary Contacts</label><input id="inv-secondary-contacts" className="fi" value={form.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(e) => u("secondaryContacts", e.target.value)} /></div>
+            <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="people" />
+          </LicenseFormSection>
+
+          <LicenseFormSection title="Notes">
+            {vis.notes && <div className="fg"><label htmlFor="inv-notes">Notes / Comments</label><textarea id="inv-notes" className="fi" rows={3} value={form.notes} onChange={(e) => u("notes", e.target.value)} style={{ resize: "vertical" }} /></div>}
+            <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="notes" />
+          </LicenseFormSection>
+
+          {hasCatchallCustomFields && <LicenseFormSection title="Custom Fields"><CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="__catchall__" /></LicenseFormSection>}
 
           {/* Additional license lines */}
           {additionalLines.map((line, idx) => (
@@ -778,6 +655,31 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             <Icon name="plus" size={12} /> Add additional license line
           </button>
         </div>
+        </div>
+          <ProcurementDocumentWorkspace
+            file={attachedFile}
+            inputId="inv-attach-file"
+            label={`${attachedDocumentType} Document`}
+            onFileChange={handleFileChange}
+          >
+            <div className="fg">
+              <div className="procurement-document-label-row">
+                <label htmlFor="inv-attach-category">Document Type</label>
+                <button
+                  type="button"
+                  className="procurement-document-scope-help"
+                  aria-label={`Document attachment scope: ${attachmentScopeHelp}`}
+                  data-tooltip={attachmentScopeHelp}
+                  title={attachmentScopeHelp}
+                >
+                  <Icon name="info" size={12} />
+                </button>
+              </div>
+              <select id="inv-attach-category" className="fi fi-select" value={attachedFileCategory} onChange={(e) => setAttachedFileCategory(e.target.value)}>
+                {DOC_CATEGORY_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </select>
+            </div>
+          </ProcurementDocumentWorkspace>
         </div>
     </ModalShell>
     {showDiscardDialog && (

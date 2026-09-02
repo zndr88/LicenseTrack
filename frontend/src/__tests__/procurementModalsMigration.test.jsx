@@ -17,6 +17,7 @@ function render(ui, options) {
 
 vi.mock("../api/pendingOrders.js", () => ({
   getPendingOrders: vi.fn().mockResolvedValue({ data: [] }),
+  previewPendingOrderDocument: vi.fn().mockResolvedValue({ data: null, error: null }),
 }));
 
 beforeEach(() => {

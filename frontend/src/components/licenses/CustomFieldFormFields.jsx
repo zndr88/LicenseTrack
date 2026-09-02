@@ -29,7 +29,9 @@ export default function CustomFieldFormFields({
   loading = false,
   section,
 }) {
-  if (loading) return <p className="set-muted-text">Loading custom fields...</p>;
+  if (loading) {
+    return section === undefined ? <p className="set-muted-text">Loading custom fields...</p> : null;
+  }
   const fields = section === undefined
     ? definitions
     : definitions.filter((definition) => (definition.section || "__catchall__") === section);
