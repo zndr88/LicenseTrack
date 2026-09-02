@@ -1,9 +1,13 @@
 import { renderHook, act } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
 import { useLicenseTableState } from "../components/pages/licenses/useLicenseTableState.js";
 import { DEFAULT_STATUS_FILTERS } from "../constants/licenseData.js";
 
 describe("useLicenseTableState", () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
   test("initializes with default status filters", () => {
     const { result } = renderHook(() => useLicenseTableState());
     expect(result.current.statusFilters).toEqual(DEFAULT_STATUS_FILTERS);
@@ -97,5 +101,14 @@ describe("useLicenseTableState", () => {
   test("dismissedAttentionIds initializes as empty Set", () => {
     const { result } = renderHook(() => useLicenseTableState());
     expect(result.current.dismissedAttentionIds.size).toBe(0);
+  });
+
+  test("dismissed attention items survive leaving and revisiting the page", () => {
+    const firstVisit = renderHook(() => useLicenseTableState());
+    act(() => firstVisit.result.current.setDismissedAttentionIds(new Set([12, 34])));
+    firstVisit.unmount();
+
+    const secondVisit = renderHook(() => useLicenseTableState());
+    expect([...secondVisit.result.current.dismissedAttentionIds]).toEqual([12, 34]);
   });
 });

@@ -1,5 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DEFAULT_STATUS_FILTERS } from "../../../constants/licenseData.js";
+import {
+  loadDismissedAttentionIds,
+  saveDismissedAttentionIds,
+} from "../../../utils/licenseAttentionSession.js";
 
 export function useLicenseTableState() {
   const [search, setSearch] = useState("");
@@ -13,7 +17,11 @@ export function useLicenseTableState() {
   const [filterRowOpen, setFilterRowOpen] = useState(false);
   const [columnFilters, setColumnFilters] = useState({});
   const [hoveredCol, setHoveredCol] = useState(null);
-  const [dismissedAttentionIds, setDismissedAttentionIds] = useState(new Set());
+  const [dismissedAttentionIds, setDismissedAttentionIds] = useState(loadDismissedAttentionIds);
+
+  useEffect(() => {
+    saveDismissedAttentionIds(dismissedAttentionIds);
+  }, [dismissedAttentionIds]);
 
   const hasColumnFilters = Object.values(columnFilters).some((v) =>
     Array.isArray(v) ? v.length > 0 : (v && v.trim())

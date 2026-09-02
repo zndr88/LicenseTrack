@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSession, logoutSession, refreshSession } from "../api/auth.js";
+import { clearDismissedAttentionIds } from "../utils/licenseAttentionSession.js";
 import { useSessionTimeout } from "./useSessionTimeout.js";
 
 export function toCurrentUser(apiUser) {
@@ -24,6 +25,7 @@ export function useAuth({ sessionTimeout, showToast }) {
 
   const handleSessionTimeout = useCallback(async () => {
     await logoutSession();
+    clearDismissedAttentionIds();
     setCurrentUser(null);
     showToast("Session expired due to inactivity.", "info");
   }, [showToast]);
@@ -60,6 +62,8 @@ export function useAuth({ sessionTimeout, showToast }) {
       if (data?.authenticated && data.user) {
         lastRefreshAttemptRef.current = Date.now();
         setCurrentUser(toCurrentUser(data.user));
+      } else {
+        clearDismissedAttentionIds();
       }
       setAuthBootstrapping(false);
     });
@@ -67,6 +71,7 @@ export function useAuth({ sessionTimeout, showToast }) {
 
   const handleLogout = useCallback(async () => {
     await logoutSession();
+    clearDismissedAttentionIds();
     setCurrentUser(null);
   }, []);
 

@@ -12,6 +12,7 @@ vi.mock("../../api/auth.js", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.sessionStorage.clear();
 });
 
 afterEach(() => {
@@ -99,6 +100,7 @@ describe("useAuth", () => {
   });
 
   test("explicit logout clears local auth state after requesting server cleanup", async () => {
+    window.sessionStorage.setItem("licensetrack.licenses.dismissedAttentionIds", "[12,34]");
     authApi.getSession.mockResolvedValueOnce({
       data: {
         authenticated: true,
@@ -125,5 +127,6 @@ describe("useAuth", () => {
 
     expect(authApi.logoutSession).toHaveBeenCalledTimes(1);
     expect(result.current.currentUser).toBeNull();
+    expect(window.sessionStorage.getItem("licensetrack.licenses.dismissedAttentionIds")).toBeNull();
   });
 });
