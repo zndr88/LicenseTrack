@@ -12,7 +12,6 @@ export default function RenewalWorkflowSection({
   allLicenses,
   sourcingItems,
   pendingOrders,
-  globalSettings,
   userSettings,
   onCreateRenewal,
   onCreateRenewalBundle,
@@ -25,7 +24,7 @@ export default function RenewalWorkflowSection({
   setConfirmAction,
   setToast,
 }) {
-  const { poSiblings, bundleCount } = useRenewalPanelModel({ license, allLicenses, globalSettings });
+  const { poSiblings, bundleCount } = useRenewalPanelModel({ license, allLicenses });
   const [initiatingRenewal, setInitiatingRenewal] = useState(false);
   const [unlinkingSuccessor, setUnlinkingSuccessor] = useState(false);
   const canStartRenewal = !NON_RENEWABLE_LICENSE_TYPES.includes(license.licenseType);

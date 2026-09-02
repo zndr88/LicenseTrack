@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getCompleteness, getExpirationStatus, getPoTotal, normalizeLicense } from "../utils/helpers.js";
+import { getCompleteness, getExpirationPresentation, getPoTotal, normalizeLicense } from "../utils/helpers.js";
 
 describe("getPoTotal", () => {
   it("uses a shared PO override before calculated line totals", () => {
@@ -164,44 +164,20 @@ describe("getCompleteness end date", () => {
   });
 });
 
-describe("getExpirationStatus without an end date", () => {
-  it("only labels non-expiring license types as perpetual", () => {
-    expect(getExpirationStatus(null, 30, false, null, null, null, "perpetual").status).toBe("perpetual");
-    expect(getExpirationStatus(null, 30, false, null, null, null, "subscription")).toEqual({
-      status: "active",
+describe("getExpirationPresentation", () => {
+  test("formats the authoritative backend status without reclassifying it", () => {
+    expect(getExpirationPresentation({
+      expirationStatus: "expired",
+      daysUntilExpiry: -3,
+      renewedToId: 2,
+    })).toEqual({ status: "expired", days: -3, label: "Expired 3d ago" });
+  });
+
+  test("makes a missing backend status explicit", () => {
+    expect(getExpirationPresentation({})).toEqual({
+      status: "unknown",
       days: null,
-      label: "Active",
+      label: "Unknown",
     });
-  });
-});
-
-describe("getExpirationStatus with a linked successor", () => {
-  test("keeps the predecessor expiring until its own end date", () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    expect(getExpirationStatus(
-      tomorrow.toISOString().slice(0, 10),
-      30,
-      false,
-      "renewed",
-      2,
-    ).status).toBe("expiring");
-  });
-
-  test("keeps a coverage gap expired until the successor starts", () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    expect(getExpirationStatus(
-      yesterday.toISOString().slice(0, 10),
-      30,
-      false,
-      "renewed",
-      2,
-      null,
-      "subscription",
-      tomorrow.toISOString().slice(0, 10),
-    ).status).toBe("expired");
   });
 });

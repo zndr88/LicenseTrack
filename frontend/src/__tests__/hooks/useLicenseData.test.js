@@ -10,12 +10,11 @@ vi.mock("../../utils/helpers.js", () => ({
     isPending: false,
     isExempt: false,
   })),
-  getExpirationStatus: vi.fn(() => ({
-    status: "active",
-    days: 60,
-    label: "60d remaining",
+  getExpirationPresentation: vi.fn((license) => ({
+    status: license.expirationStatus ?? "unknown",
+    days: license.daysUntilExpiry ?? null,
+    label: license.expirationStatus ?? "Unknown",
   })),
-  todayStr: vi.fn(() => "2026-01-01"),
 }))
 
 const defaultOptions = {

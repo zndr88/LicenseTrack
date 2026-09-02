@@ -12,6 +12,7 @@ const makeLicense = (overrides = {}) => ({
   retired: false,
   lifecycleStatus: "active",
   renewedToId: null,
+  expirationStatus: "expiring",
   ...overrides,
 });
 
@@ -113,7 +114,12 @@ describe("useRenewalPanelModel — poSiblings", () => {
     const endDate = end.toISOString().slice(0, 10);
 
     const license = makeLicense({ endDate });
-    const upcoming = makeLicense({ id: 2, startDate: start.toISOString().slice(0, 10), endDate });
+    const upcoming = makeLicense({
+      id: 2,
+      startDate: start.toISOString().slice(0, 10),
+      endDate,
+      expirationStatus: "upcoming",
+    });
     const { result } = renderHook(() =>
       useRenewalPanelModel({ license, allLicenses: [license, upcoming], globalSettings: makeSettings() })
     );
@@ -132,7 +138,7 @@ describe("useRenewalPanelModel — poSiblings", () => {
     const expiringDate = expiring.toISOString().slice(0, 10);
 
     const license = makeLicense({ endDate: expiringDate });
-    const active = makeLicense({ id: 2, endDate: far });
+    const active = makeLicense({ id: 2, endDate: far, expirationStatus: "active" });
     const { result } = renderHook(() =>
       useRenewalPanelModel({ license, allLicenses: [license, active], globalSettings: makeSettings() })
     );

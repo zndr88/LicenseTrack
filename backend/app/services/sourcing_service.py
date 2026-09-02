@@ -1533,9 +1533,6 @@ async def load_sourcing_conversion_order(
     db: AsyncSession,
     order_id: int,
 ) -> PendingOrder:
-    # Conversion callers commit before assembling this response. Expire any
-    # workflow-loaded collections so the response reflects staged line values.
-    db.expire_all()
     result = await db.execute(
         select(PendingOrder)
         .where(PendingOrder.id == order_id)

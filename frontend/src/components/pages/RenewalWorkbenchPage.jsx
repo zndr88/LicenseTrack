@@ -147,7 +147,6 @@ export default function RenewalWorkbenchPage({
     const siblings = getRenewalBundleMembers(
       bundleLicense,
       bundleCandidates,
-      globalSettings?.notificationDays ?? 30,
     );
     const licenseIds = [row.licenseId, ...siblings.map((sibling) => sibling.id)];
     const result = licenseIds.length > 1

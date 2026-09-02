@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { formatPriceInput, getCompleteness, getExpirationStatus, normalizeLicense } from "../utils/helpers.js";
+import { formatPriceInput, getCompleteness, getExpirationPresentation, normalizeLicense } from "../utils/helpers.js";
 import { ROLE_PERMISSIONS } from "../constants/permissions.js";
 import {
   getLicense,
@@ -226,15 +226,7 @@ export function useDetailPanelState({
     ? { percentage: null, checks: [], isComplete: false, isPending: false, isExempt: true }
     : getCompleteness({ ...license, documents: liveDocs }, globalSettings.mandatoryFields);
 
-  const exp = getExpirationStatus(
-    license.endDate,
-    globalSettings.notificationDays,
-    license.retired,
-    license.lifecycleStatus,
-    license.renewedToId,
-    license.startDate,
-    license.licenseType,
-  );
+  const exp = getExpirationPresentation(license);
 
   const perms = ROLE_PERMISSIONS[user.role];
   const vis = userSettings.visibleInDetail;

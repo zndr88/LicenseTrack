@@ -149,7 +149,6 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               allLicenses={allLicenses}
               sourcingItems={sourcingItems}
               pendingOrders={pendingOrders}
-              globalSettings={globalSettings}
               userSettings={userSettings}
               onCreateRenewal={onCreateRenewal}
               onCreateRenewalBundle={onCreateRenewalBundle}
@@ -433,7 +432,6 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
         <ExistingSuccessorModal
           predecessor={license}
           allLicenses={allLicenses}
-          globalSettings={globalSettings}
           userSettings={userSettings}
           onUpdate={onUpdate}
           onClose={() => setShowExistingSuccessorModal(false)}

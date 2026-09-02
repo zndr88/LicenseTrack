@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { daysBetween, getCompleteness, getExpirationStatus, todayStr } from "../utils/helpers.js";
+import { getCompleteness, getExpirationPresentation } from "../utils/helpers.js";
 import { parseLocalizedNumber } from "../utils/formatting.js";
 import { finiteNumber, getSortValue } from "../utils/sort.js";
 
@@ -77,42 +77,10 @@ export function useLicenseData(licenses, {
       completeness = getCompleteness(l, globalSettings.mandatoryFields ?? {});
     }
 
-    let expiration;
-    if (l.expirationStatus) {
-      const days = l.daysUntilExpiry;
-      let label;
-      if (l.expirationStatus === "expired") label = `Expired ${Math.abs(days ?? 0)}d ago`;
-      else if (l.expirationStatus === "expiring") label = `Expires in ${days}d`;
-      else if (l.expirationStatus === "active") label = days !== null && days !== undefined ? `${days}d remaining` : "Active";
-      else if (l.expirationStatus === "upcoming") {
-        const startDays = l.startDate ? daysBetween(todayStr(), l.startDate) : null;
-        label = startDays !== null && startDays > 0 ? `Starts in ${startDays}d` : "Upcoming";
-      }
-      else if (l.expirationStatus === "perpetual") label = "Perpetual";
-      else if (l.expirationStatus === "renewed") label = "Renewed";
-      else if (l.expirationStatus === "pending_renewal") label = "Pending Renewal";
-      else if (l.expirationStatus === "retired") label = "Retired";
-      else if (l.expirationStatus === "legacy") label = "Legacy";
-      else label = l.expirationStatus;
-      expiration = { status: l.expirationStatus, days, label };
-    } else {
-      const successor = l.renewedToId
-        ? licenses.find((candidate) => candidate.id === l.renewedToId)
-        : null;
-      expiration = getExpirationStatus(
-        l.endDate,
-        globalSettings.notificationDays,
-        l.retired,
-        l.lifecycleStatus,
-        l.renewedToId,
-        l.startDate,
-        l.licenseType,
-        successor?.startDate ?? null,
-      );
-    }
+    const expiration = getExpirationPresentation(l);
 
     return { ...l, completeness, expiration };
-  }), [licenses, globalSettings.mandatoryFields, globalSettings.notificationDays]);
+  }), [licenses, globalSettings.mandatoryFields]);
 
   const filtered = useMemo(() => enriched.filter((l) => {
     if (normalizedSearch) {
