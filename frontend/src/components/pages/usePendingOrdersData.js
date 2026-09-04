@@ -30,24 +30,30 @@ import { uploadDocument } from "../../api/documents.js";
 
 const EMPTY_PENDING_ORDERS = [];
 
-function normalizeConversionAttachment(attachment) {
-  if (!attachment) return null;
-  return attachment.file ? attachment : { file: attachment, category: "invoice" };
+function normalizeConversionAttachments(attachmentInput) {
+  if (!attachmentInput) return [];
+  const attachments = Array.isArray(attachmentInput) ? attachmentInput : [attachmentInput];
+  return attachments.map((attachment) => (
+    attachment.file ? attachment : { file: attachment, category: "invoice" }
+  ));
 }
 
 function createdConversionLicenses(licenses) {
   return (licenses ?? []).filter((license) => license.conversionType !== "renewed_predecessor");
 }
 
-async function uploadPostConversionAttachment(attachment, affectedLicenses) {
-  if (!attachment || attachment.category === "invoice") return null;
+async function uploadPostConversionAttachments(attachments, affectedLicenses, forwardedInvoice) {
   const createdLicenses = createdConversionLicenses(affectedLicenses);
-  const target = attachment.targetSourcingItemId
-    ? createdLicenses.find((license) => license.sourceSourcingItemId === attachment.targetSourcingItemId)
-    : createdLicenses[0];
-  if (!target) return "The selected converted license could not be found.";
-  const { error } = await uploadDocument(target.id, attachment.file, attachment.category);
-  return error;
+  for (const attachment of attachments) {
+    if (attachment === forwardedInvoice) continue;
+    const target = attachment.targetSourcingItemId
+      ? createdLicenses.find((license) => license.sourceSourcingItemId === attachment.targetSourcingItemId)
+      : createdLicenses[0];
+    if (!target) return `${attachment.file.name}: the selected converted license could not be found.`;
+    const { error } = await uploadDocument(target.id, attachment.file, attachment.category);
+    if (error) return `${attachment.file.name}: ${error}`;
+  }
+  return null;
 }
 
 async function fetchPendingOrders() {
@@ -186,12 +192,13 @@ export function usePendingOrdersData({
   }, [showError, showSuccess, queryClient, onPortfolioStateChange, onRenewalsReload]);
 
   const handleConvertToLicense = useCallback(async (orderId, licenseData, attachmentInput) => {
-    const attachment = normalizeConversionAttachment(attachmentInput);
-    const invoiceFile = attachment?.category === "invoice" ? attachment.file : null;
+    const attachments = normalizeConversionAttachments(attachmentInput);
+    const forwardedInvoice = attachments.find((attachment) => attachment.category === "invoice");
+    const invoiceFile = forwardedInvoice?.file ?? null;
     const { data, error } = await convertPendingOrder(orderId, licenseData, invoiceFile);
     if (error) { showError(error); return false; }
     const affectedLicenses = data ?? [];
-    const attachmentError = await uploadPostConversionAttachment(attachment, affectedLicenses);
+    const attachmentError = await uploadPostConversionAttachments(attachments, affectedLicenses, forwardedInvoice);
     queryClient.setQueryData(queryKeys.pendingOrders, (prev) =>
       (prev ?? []).filter((o) => o.id !== orderId)
     );
@@ -351,12 +358,13 @@ export function usePendingOrdersData({
   }, [showError, showSuccess, queryClient]);
 
   const handleBatchConvert = useCallback(async (orderId, items, poNumber, attachmentInput = null) => {
-    const attachment = normalizeConversionAttachment(attachmentInput);
-    const invoiceFile = attachment?.category === "invoice" ? attachment.file : null;
+    const attachments = normalizeConversionAttachments(attachmentInput);
+    const forwardedInvoice = attachments.find((attachment) => attachment.category === "invoice");
+    const invoiceFile = forwardedInvoice?.file ?? null;
     const { data, error } = await batchConvertPendingOrder(orderId, items, invoiceFile);
     if (error) { showError(error); return false; }
     const affectedLicenses = data ?? [];
-    const attachmentError = await uploadPostConversionAttachment(attachment, affectedLicenses);
+    const attachmentError = await uploadPostConversionAttachments(attachments, affectedLicenses, forwardedInvoice);
     queryClient.setQueryData(queryKeys.pendingOrders, (prev) =>
       (prev ?? []).filter((o) => o.id !== orderId)
     );

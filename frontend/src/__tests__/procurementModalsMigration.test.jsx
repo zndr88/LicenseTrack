@@ -368,22 +368,28 @@ describe("ConvertPendingOrderModal", () => {
     }
   });
 
-  test("offers the manual-license document categories during single conversion", async () => {
+  test("offers dedicated document categories and stages multiple files during single conversion", async () => {
     const user = userEvent.setup();
     const { onConfirm } = renderModal();
-    const documentType = screen.getByLabelText("Document Type");
-    expect(Array.from(documentType.options).map((option) => option.textContent)).toEqual([
-      "Invoice", "Quote", "Purchase Order", "EULA", "Entitlement / License Key",
-    ]);
+    expect(screen.getByLabelText("Upload Invoice Document")).toBeInTheDocument();
+    expect(screen.getByLabelText("Upload Quote Document")).toBeInTheDocument();
+    expect(screen.getByLabelText("Upload Purchase Order Document")).toBeInTheDocument();
+    expect(screen.getByLabelText("Upload EULA Document")).toBeInTheDocument();
+    expect(screen.getByLabelText("Upload Entitlement / License Key Document")).toBeInTheDocument();
+    expect(screen.getAllByText("Shared across PO")).toHaveLength(3);
+    expect(screen.getAllByText("One license")).toHaveLength(2);
 
-    await user.selectOptions(documentType, "entitlement");
-    expect(screen.getByRole("button", { name: /entitlement.*attaches only to the created license/i })).toBeInTheDocument();
-    const file = new File(["license-key"], "entitlement.txt", { type: "text/plain" });
-    fireEvent.change(screen.getByLabelText(/^upload entitlement.*document$/i), { target: { files: [file] } });
+    const entitlement = new File(["license-key"], "entitlement.txt", { type: "text/plain" });
+    const eula = new File(["terms"], "eula.txt", { type: "text/plain" });
+    await user.upload(screen.getByLabelText("Upload Entitlement / License Key Document"), entitlement);
+    await user.upload(screen.getByLabelText("Upload EULA Document"), eula);
     await user.click(screen.getByRole("button", { name: /confirm & create license/i }));
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
-    expect(onConfirm.mock.calls[0][1]).toEqual({ file, category: "entitlement" });
+    expect(onConfirm.mock.calls[0][1]).toEqual([
+      expect.objectContaining({ file: entitlement, category: "entitlement" }),
+      expect.objectContaining({ file: eula, category: "eula" }),
+    ]);
   });
 
   test("invalid contact email blocks submit and shows error", async () => {
@@ -739,15 +745,13 @@ describe("ConvertAllModal", () => {
     const user = userEvent.setup();
     const { onConfirm } = renderModal({ order: MULTI_ORDER, licenses: RENEWAL_LICENSES });
 
-    await user.selectOptions(screen.getByLabelText("Document Type"), "eula");
-    const target = screen.getByLabelText("Attach to License");
+    const file = new File(["terms"], "eula.txt", { type: "text/plain" });
+    await user.upload(screen.getByLabelText("Upload EULA Document"), file);
+    const target = screen.getByLabelText("Attach eula.txt to license");
     expect(Array.from(target.options).map((option) => option.textContent)).toEqual([
       "SaaS Co — SaaS App", "Renew Co — Renew App",
     ]);
     await user.selectOptions(target, "22");
-    const file = new File(["terms"], "eula.txt", { type: "text/plain" });
-    fireEvent.change(screen.getByLabelText(/^upload eula document$/i), { target: { files: [file] } });
-
     for (const input of screen.getAllByLabelText(/start date/i)) {
       fireEvent.change(input, { target: { value: "2026-01-01" } });
     }
@@ -757,11 +761,9 @@ describe("ConvertAllModal", () => {
     await user.click(screen.getByRole("button", { name: /confirm & create licenses/i }));
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
-    expect(onConfirm.mock.calls[0][2]).toEqual({
-      file,
-      category: "eula",
-      targetSourcingItemId: 22,
-    });
+    expect(onConfirm.mock.calls[0][2]).toEqual([
+      expect.objectContaining({ file, category: "eula", targetSourcingItemId: 22 }),
+    ]);
   });
 
   test("single and batch conversion show equivalent defaults for a one-line coterm order", () => {
@@ -951,7 +953,9 @@ describe("ConvertAllModal", () => {
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     expect(onConfirm.mock.calls[0][0]).toBe(1);
-    expect(onConfirm.mock.calls[0][2]).toEqual({ file: invoice, category: "invoice" });
+    expect(onConfirm.mock.calls[0][2]).toEqual([
+      expect.objectContaining({ file: invoice, category: "invoice" }),
+    ]);
   });
 
   test("submits preserved PO and line-item notes", async () => {

@@ -11,15 +11,14 @@ import Icon from "../ui/Icon.jsx";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
 import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
 import ConvertItemForm, { isItemReady } from "./ConvertItemForm.jsx";
-import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
 import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
-import DocumentAttachmentControls from "./DocumentAttachmentControls.jsx";
-import { documentCategoryLabel, isProcurementDocumentCategory } from "../../utils/documentCategories.js";
+import ConversionDocumentsWorkspace from "./ConversionDocumentsWorkspace.jsx";
+import { useConversionAttachments } from "./useConversionAttachments.js";
 
 const formSchema = z.object({ items: z.array(licenseFormSchema) });
 
@@ -59,13 +58,15 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
   const { fields } = useFieldArray({ control, name: "items" });
 
   const [saving, setSaving] = useState(false);
-  const [attachedFile, setAttachedFile] = useState(null);
-  const [attachedFileCategory, setAttachedFileCategory] = useState("invoice");
-  const [attachmentTargetItemId, setAttachmentTargetItemId] = useState(
-    String(unconvertedItems[0]?.id ?? "")
-  );
+  const {
+    attachments,
+    addFiles: addAttachmentFiles,
+    removeAttachment,
+    changeTarget: changeAttachmentTarget,
+    clearAttachments,
+  } = useConversionAttachments(unconvertedItems[0]?.id);
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
-    isDirty: isDirty || !!attachedFile,
+    isDirty: isDirty || attachments.length > 0,
     onClose: onCancel,
   });
 
@@ -104,27 +105,14 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
         ...(item.licenseType === "maintenance" && item.parentSourcingItemId ? { parentSourcingItemId: parseInt(item.parentSourcingItemId, 10) } : {}),
       };
     });
-    const attachment = attachedFile ? {
-      file: attachedFile,
-      category: attachedFileCategory,
-      ...(!isProcurementDocumentCategory(attachedFileCategory) && attachmentTargetItemId
-        ? { targetSourcingItemId: Number(attachmentTargetItemId) }
-        : {}),
-    } : null;
-    const ok = await onConfirm(order.id, payload, attachment);
+    const ok = await onConfirm(order.id, payload, attachments.length ? attachments : null);
     if (!ok) setSaving(false);
     else {
       reset();
-      setAttachedFile(null);
+      clearAttachments();
     }
   };
-  const attachedDocumentType = documentCategoryLabel(attachedFileCategory);
-  const attachmentScopeHelp = isProcurementDocumentCategory(attachedFileCategory)
-    ? "This procurement document is shared with every license created from the pending order."
-    : `This ${attachedDocumentType} document attaches only to the selected created license.`;
-  const attachmentTargetOptions = isProcurementDocumentCategory(attachedFileCategory)
-    ? []
-    : unconvertedItems.map((item) => ({
+  const attachmentTargetOptions = unconvertedItems.map((item) => ({
       value: String(item.id),
       label: `${item.publisherName} — ${item.softwareDescription}`,
     }));
@@ -230,30 +218,23 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
             />
           ))}
         </div>
-          <ProcurementDocumentWorkspace
+          <ConversionDocumentsWorkspace
+            attachments={attachments}
             documents={order?.documents ?? []}
-            file={attachedFile}
-            inputId="convert-all-attachment-file"
-            label={`${attachedDocumentType} Document`}
-            onFileChange={setAttachedFile}
+            inputIdPrefix="convert-all-attachment"
+            onAddFiles={addAttachmentFiles}
+            onRemoveAttachment={removeAttachment}
+            onTargetChange={changeAttachmentTarget}
             previewDocument={previewPendingOrderDocument}
-          >
-            <DocumentAttachmentControls
-              category={attachedFileCategory}
-              idPrefix="convert-all-attachment"
-              onCategoryChange={setAttachedFileCategory}
-              onTargetChange={setAttachmentTargetItemId}
-              scopeHelp={attachmentScopeHelp}
-              targetOptions={attachmentTargetOptions}
-              targetValue={attachmentTargetItemId}
-            />
-          </ProcurementDocumentWorkspace>
+            targetOptions={attachmentTargetOptions}
+            userSettings={userSettings}
+          />
         </div>
       </ModalShell>
 
       {showDiscardDialog && (
         <DiscardChangesDialog
-          onDiscard={() => { reset(); setAttachedFile(null); onCancel(); }}
+          onDiscard={() => { reset(); clearAttachments(); onCancel(); }}
           onKeep={() => setShowDiscardDialog(false)}
         />
       )}

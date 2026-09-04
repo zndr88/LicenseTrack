@@ -11,23 +11,11 @@ import {
 } from "../../../utils/documentAvailability.js";
 import { isPreviewablePdf } from "../../../utils/documentPreview.js";
 import SuggestionReviewCard from "./SuggestionReviewCard.jsx";
-
-const DOC_CATEGORIES = [
-  { key: "quote", label: "Quote", icon: "file", color: "var(--purple-text)" },
-  { key: "purchase_order", label: "Purchase Order", icon: "file", color: "var(--accent)" },
-  { key: "invoice", label: "Invoice", icon: "file", color: "var(--green-text)" },
-  { key: "eula", label: "EULA Documents", icon: "shield", color: "var(--green)" },
-  { key: "entitlement", label: "Proof of Entitlement / Serial Keys", icon: "key", color: "var(--orange)" },
-];
-
-const PROCUREMENT_CATEGORIES = new Set(["quote", "purchase_order", "invoice"]);
-
-function fileIconColor(name) {
-  if (name.endsWith(".pdf")) return "var(--red)";
-  if (name.endsWith(".txt") || name.endsWith(".lic")) return "var(--text-2)";
-  if (name.endsWith(".docx") || name.endsWith(".doc")) return "var(--accent)";
-  return "var(--text-3)";
-}
+import {
+  DOCUMENT_CATEGORIES,
+  documentFileIconColor,
+  isProcurementDocumentCategory,
+} from "../../../utils/documentCategories.js";
 
 function documentTypeFor(doc) {
   return doc.scope === "po" ? "procurement_document" : "license_document";
@@ -100,12 +88,12 @@ export default function DocumentsSection({
       {isOpen && (
         <div className="dp-section-body" id="dp-section-documents">
           <div className="dp-docs">
-            {DOC_CATEGORIES.map((cat) => {
+            {DOCUMENT_CATEGORIES.map((cat) => {
               const files = (documents || []).filter((d) => d.category === cat.key);
               const isUploading = uploadingCategory === cat.key;
               const isSharedProcurementCategory = Boolean(
                 (license.pendingOrderId || license.procurementBundleId)
-                && PROCUREMENT_CATEGORIES.has(cat.key)
+                && isProcurementDocumentCategory(cat.key)
               );
               return (
                 <div key={cat.key} className="doc-cat">
@@ -123,7 +111,7 @@ export default function DocumentsSection({
                   {files.map((doc) => (
                     <div key={doc.id} className={`doc-file ${isFileAvailable(doc) ? "" : "is-missing"}`}>
                       <div className="doc-file-icon" style={{ background: "var(--bg-3)" }}>
-                        <Icon name="file" size={15} color={fileIconColor(doc.original_filename)} />
+                        <Icon name="file" size={15} color={documentFileIconColor(doc.original_filename)} />
                       </div>
                       <div className="doc-file-info">
                         <div className="doc-file-title-row">

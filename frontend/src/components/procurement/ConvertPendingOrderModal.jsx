@@ -10,7 +10,6 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
-import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
 import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import ParentLicensePicker from "./ParentLicensePicker.jsx";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
@@ -27,8 +26,8 @@ import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/c
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { FULL_LICENSE_FORM_VISIBILITY } from "../../utils/licenseFormVisibility.js";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
-import DocumentAttachmentControls from "./DocumentAttachmentControls.jsx";
-import { documentCategoryLabel, isProcurementDocumentCategory } from "../../utils/documentCategories.js";
+import ConversionDocumentsWorkspace from "./ConversionDocumentsWorkspace.jsx";
+import { useConversionAttachments } from "./useConversionAttachments.js";
 
 const APPLYABLE_PLUGIN_FIELDS = new Set([
   "publisherName",
@@ -85,8 +84,13 @@ const ConvertPendingOrderModal = ({
   const customFieldDefs = filterCustomFieldDefinitionsForRenewal(allCustomFieldDefs, isRenewal);
 
   const [saving, setSaving] = useState(false);
-  const [attachedFile, setAttachedFile] = useState(null);
-  const [attachedFileCategory, setAttachedFileCategory] = useState("invoice");
+  const {
+    attachments,
+    addFiles: addAttachmentFiles,
+    removeAttachment,
+    changeTarget: changeAttachmentTarget,
+    clearAttachments,
+  } = useConversionAttachments(order?.items?.[0]?.id);
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
   const [displayUnitPrice, setDisplayUnitPrice] = useState(
     formatPriceInput(prefill.unitPrice || "", locale)
@@ -146,7 +150,7 @@ const ConvertPendingOrderModal = ({
     },
   });
 
-  const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty: isDirty || !!attachedFile, onClose: onCancel });
+  const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty: isDirty || attachments.length > 0, onClose: onCancel });
 
   const quantity     = watch("quantity");
   const unitPrice    = watch("unitPrice");
@@ -240,24 +244,19 @@ const ConvertPendingOrderModal = ({
           userSettings,
         ),
       }, userSettings);
-      const attachment = attachedFile ? { file: attachedFile, category: attachedFileCategory } : null;
-      const confirmed = await onConfirm(licenseData, attachment);
+      const confirmed = await onConfirm(licenseData, attachments.length ? attachments : null);
       if (confirmed) {
         reset();
-        setAttachedFile(null);
+        clearAttachments();
       }
     } finally {
       setSaving(false);
     }
-  }, [onConfirm, reset, attachedFile, attachedFileCategory, userSettings, customFieldDefs]);
+  }, [onConfirm, reset, attachments, clearAttachments, userSettings, customFieldDefs]);
   const hasCatchallCustomFields = customFieldDefs.some(
     (definition) => !definition.section || definition.section === "__catchall__"
   );
   const hasDocumentCustomFields = customFieldDefs.some((definition) => definition.section === "documents");
-  const attachedDocumentType = documentCategoryLabel(attachedFileCategory);
-  const attachmentScopeHelp = isProcurementDocumentCategory(attachedFileCategory)
-    ? "This procurement document is shared with every license created from the pending order."
-    : `This ${attachedDocumentType} document attaches only to the created license.`;
 
   return (
     <>
@@ -524,27 +523,26 @@ const ConvertPendingOrderModal = ({
           {hasCatchallCustomFields && <LicenseFormSection title="Custom Fields"><CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="__catchall__" /></LicenseFormSection>}
           </div>
         </div>
-          <ProcurementDocumentWorkspace
+          <ConversionDocumentsWorkspace
+            attachments={attachments}
             documents={order?.documents ?? []}
-            file={attachedFile}
-            inputId="cpo-attachment-file"
-            label={`${attachedDocumentType} Document`}
-            onFileChange={setAttachedFile}
+            inputIdPrefix="cpo-attachment"
+            onAddFiles={addAttachmentFiles}
+            onRemoveAttachment={removeAttachment}
+            onTargetChange={changeAttachmentTarget}
             previewDocument={previewPendingOrderDocument}
-          >
-            <DocumentAttachmentControls
-              category={attachedFileCategory}
-              idPrefix="cpo-attachment"
-              onCategoryChange={setAttachedFileCategory}
-              scopeHelp={attachmentScopeHelp}
-            />
-          </ProcurementDocumentWorkspace>
+            targetOptions={(order?.items ?? []).map((item) => ({
+              value: String(item.id),
+              label: `${item.publisherName} — ${item.softwareDescription}`,
+            }))}
+            userSettings={userSettings}
+          />
         </div>
 
       </ModalShell>
       {showDiscardDialog && (
         <DiscardChangesDialog
-          onDiscard={() => { reset(); onCancel(); }}
+          onDiscard={() => { reset(); clearAttachments(); onCancel(); }}
           onKeep={() => setShowDiscardDialog(false)}
         />
       )}

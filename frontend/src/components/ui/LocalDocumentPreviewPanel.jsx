@@ -6,6 +6,7 @@ export default function LocalDocumentPreviewPanel({
   ariaLabel,
   file,
   label,
+  onClose,
 }) {
   const [expanded, setExpanded] = useState(false);
   const preview = useLocalDocumentPreview(file);
@@ -25,6 +26,7 @@ export default function LocalDocumentPreviewPanel({
       kind={preview.kind}
       label={label}
       loading={(preview.kind === "pdf" || preview.kind === "image") && !preview.url}
+      onClose={onClose}
       onToggleExpanded={() => setExpanded((value) => !value)}
       text={preview.text}
       url={preview.url}

@@ -399,6 +399,14 @@
 .procurement-document-workspace { min-width: 0; overflow-y: auto; padding: 20px 18px; background: var(--bg-1); }
 .procurement-document-workspace-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
 .procurement-document-workspace-header h3 { margin: 0; font-family: var(--font-brand); font-size: 12px; font-weight: 650; color: var(--text-1); }
+.conversion-documents-intro { margin: -4px 0 4px; color: var(--text-3); font-size: 11px; line-height: 1.45; }
+.conversion-doc-category { padding-bottom: 3px; }
+.conversion-document-scope { flex-shrink: 0; color: var(--text-3); font-family: var(--font-mono); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.conversion-staged-document { align-items: flex-start; }
+.conversion-document-target { display: flex; flex-direction: column; gap: 3px; margin-top: 7px; }
+.conversion-document-target span { color: var(--text-3); font-family: var(--font-mono); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.conversion-document-target .fi { height: 30px; padding: 4px 28px 4px 8px; font-size: 10px; }
+.conversion-document-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
 .procurement-document-tools { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .procurement-document-tools .fg { margin-bottom: 0; }
 .procurement-document-label-row { display: flex; align-items: center; gap: 5px; }

@@ -162,4 +162,39 @@ describe("usePendingOrdersData — licenses", () => {
     );
     expect(documentsApi.uploadDocument).toHaveBeenCalledWith(45, file, "eula");
   });
+
+  it("forwards the first invoice and uploads every remaining staged document", async () => {
+    documentsApi.uploadDocument.mockClear();
+    pendingOrdersApi.batchConvertPendingOrder.mockResolvedValueOnce({
+      data: [
+        { id: 44, conversionType: "new_purchase", sourceSourcingItemId: 21 },
+        { id: 45, conversionType: "new_purchase", sourceSourcingItemId: 22 },
+      ],
+      error: null,
+    });
+    documentsApi.uploadDocument.mockResolvedValue({ data: {}, error: null });
+    const firstInvoice = new File(["one"], "invoice-1.pdf", { type: "application/pdf" });
+    const secondInvoice = new File(["two"], "invoice-2.pdf", { type: "application/pdf" });
+    const entitlement = new File(["key"], "key.txt", { type: "text/plain" });
+    const { result } = renderHook(
+      () => usePendingOrdersData({ showError: vi.fn(), showSuccess: vi.fn() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await result.current.handleBatchConvert(9, [{ sourcingItemId: 21 }, { sourcingItemId: 22 }], "PO-9", [
+        { id: "one", file: firstInvoice, category: "invoice" },
+        { id: "two", file: secondInvoice, category: "invoice" },
+        { id: "three", file: entitlement, category: "entitlement", targetSourcingItemId: 22 },
+      ]);
+    });
+
+    expect(pendingOrdersApi.batchConvertPendingOrder).toHaveBeenCalledWith(
+      9,
+      [{ sourcingItemId: 21 }, { sourcingItemId: 22 }],
+      firstInvoice,
+    );
+    expect(documentsApi.uploadDocument).toHaveBeenNthCalledWith(1, 44, secondInvoice, "invoice");
+    expect(documentsApi.uploadDocument).toHaveBeenNthCalledWith(2, 45, entitlement, "entitlement");
+  });
 });
