@@ -8,14 +8,18 @@ vi.mock("../../api/licenses.js", () => ({
   getLicenses: vi.fn().mockResolvedValue({ data: [{ id: 1, licenseRef: "L-001" }], error: null }),
 }));
 vi.mock("../../api/pendingOrders.js", () => ({
+  batchConvertPendingOrder: vi.fn(),
+  convertPendingOrder: vi.fn(),
   createPendingOrder: vi.fn(),
   getPendingOrders: vi.fn().mockResolvedValue({ data: [], error: null }),
   uploadPendingOrderDocument: vi.fn(),
 }));
+vi.mock("../../api/documents.js", () => ({ uploadDocument: vi.fn() }));
 vi.mock("../../api/sourcing.js", () => ({}));
 
 import { usePendingOrdersData } from "../../components/pages/usePendingOrdersData.js";
 import * as pendingOrdersApi from "../../api/pendingOrders.js";
+import * as documentsApi from "../../api/documents.js";
 
 function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -97,5 +101,65 @@ describe("usePendingOrdersData — licenses", () => {
     expect(pendingOrdersApi.uploadPendingOrderDocument).toHaveBeenCalledWith(12, quoteFile);
     expect(showError).toHaveBeenCalledWith(expect.stringMatching(/partial completion.*storage unavailable/i));
     expect(onPortfolioStateChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("uploads a license-specific attachment to the converted license", async () => {
+    const showSuccess = vi.fn();
+    pendingOrdersApi.convertPendingOrder.mockResolvedValueOnce({
+      data: [{ id: 44, conversionType: "new_purchase", sourceSourcingItemId: 11 }],
+      error: null,
+    });
+    documentsApi.uploadDocument.mockResolvedValueOnce({ data: {}, error: null });
+    const file = new File(["key"], "entitlement.txt", { type: "text/plain" });
+    const { result } = renderHook(
+      () => usePendingOrdersData({ showError: vi.fn(), showSuccess }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await result.current.handleConvertToLicense(9, { publisherName: "Acme" }, {
+        file,
+        category: "entitlement",
+      });
+    });
+
+    expect(pendingOrdersApi.convertPendingOrder).toHaveBeenCalledWith(
+      9,
+      { publisherName: "Acme" },
+      null,
+    );
+    expect(documentsApi.uploadDocument).toHaveBeenCalledWith(44, file, "entitlement");
+    expect(showSuccess).toHaveBeenCalled();
+  });
+
+  it("uses the selected converted line as the batch attachment target", async () => {
+    pendingOrdersApi.batchConvertPendingOrder.mockResolvedValueOnce({
+      data: [
+        { id: 44, conversionType: "new_purchase", sourceSourcingItemId: 21 },
+        { id: 45, conversionType: "renewed", sourceSourcingItemId: 22 },
+      ],
+      error: null,
+    });
+    documentsApi.uploadDocument.mockResolvedValueOnce({ data: {}, error: null });
+    const file = new File(["terms"], "eula.txt", { type: "text/plain" });
+    const { result } = renderHook(
+      () => usePendingOrdersData({ showError: vi.fn(), showSuccess: vi.fn() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await result.current.handleBatchConvert(9, [{ sourcingItemId: 21 }, { sourcingItemId: 22 }], "PO-9", {
+        file,
+        category: "eula",
+        targetSourcingItemId: 22,
+      });
+    });
+
+    expect(pendingOrdersApi.batchConvertPendingOrder).toHaveBeenCalledWith(
+      9,
+      [{ sourcingItemId: 21 }, { sourcingItemId: 22 }],
+      null,
+    );
+    expect(documentsApi.uploadDocument).toHaveBeenCalledWith(45, file, "eula");
   });
 });

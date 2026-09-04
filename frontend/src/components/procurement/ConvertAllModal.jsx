@@ -18,6 +18,8 @@ import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
+import DocumentAttachmentControls from "./DocumentAttachmentControls.jsx";
+import { documentCategoryLabel, isProcurementDocumentCategory } from "../../utils/documentCategories.js";
 
 const formSchema = z.object({ items: z.array(licenseFormSchema) });
 
@@ -57,9 +59,13 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
   const { fields } = useFieldArray({ control, name: "items" });
 
   const [saving, setSaving] = useState(false);
-  const [invoiceFile, setInvoiceFile] = useState(null);
+  const [attachedFile, setAttachedFile] = useState(null);
+  const [attachedFileCategory, setAttachedFileCategory] = useState("invoice");
+  const [attachmentTargetItemId, setAttachmentTargetItemId] = useState(
+    String(unconvertedItems[0]?.id ?? "")
+  );
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
-    isDirty: isDirty || !!invoiceFile,
+    isDirty: isDirty || !!attachedFile,
     onClose: onCancel,
   });
 
@@ -98,13 +104,30 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
         ...(item.licenseType === "maintenance" && item.parentSourcingItemId ? { parentSourcingItemId: parseInt(item.parentSourcingItemId, 10) } : {}),
       };
     });
-    const ok = await onConfirm(order.id, payload, invoiceFile);
+    const attachment = attachedFile ? {
+      file: attachedFile,
+      category: attachedFileCategory,
+      ...(!isProcurementDocumentCategory(attachedFileCategory) && attachmentTargetItemId
+        ? { targetSourcingItemId: Number(attachmentTargetItemId) }
+        : {}),
+    } : null;
+    const ok = await onConfirm(order.id, payload, attachment);
     if (!ok) setSaving(false);
     else {
       reset();
-      setInvoiceFile(null);
+      setAttachedFile(null);
     }
   };
+  const attachedDocumentType = documentCategoryLabel(attachedFileCategory);
+  const attachmentScopeHelp = isProcurementDocumentCategory(attachedFileCategory)
+    ? "This procurement document is shared with every license created from the pending order."
+    : `This ${attachedDocumentType} document attaches only to the selected created license.`;
+  const attachmentTargetOptions = isProcurementDocumentCategory(attachedFileCategory)
+    ? []
+    : unconvertedItems.map((item) => ({
+      value: String(item.id),
+      label: `${item.publisherName} — ${item.softwareDescription}`,
+    }));
 
   return (
     <>
@@ -207,13 +230,30 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
             />
           ))}
         </div>
-          <ProcurementDocumentWorkspace documents={order?.documents ?? []} file={invoiceFile} inputId="convert-all-invoice-file" label="Invoice Document" onFileChange={setInvoiceFile} previewDocument={previewPendingOrderDocument} />
+          <ProcurementDocumentWorkspace
+            documents={order?.documents ?? []}
+            file={attachedFile}
+            inputId="convert-all-attachment-file"
+            label={`${attachedDocumentType} Document`}
+            onFileChange={setAttachedFile}
+            previewDocument={previewPendingOrderDocument}
+          >
+            <DocumentAttachmentControls
+              category={attachedFileCategory}
+              idPrefix="convert-all-attachment"
+              onCategoryChange={setAttachedFileCategory}
+              onTargetChange={setAttachmentTargetItemId}
+              scopeHelp={attachmentScopeHelp}
+              targetOptions={attachmentTargetOptions}
+              targetValue={attachmentTargetItemId}
+            />
+          </ProcurementDocumentWorkspace>
         </div>
       </ModalShell>
 
       {showDiscardDialog && (
         <DiscardChangesDialog
-          onDiscard={() => { reset(); setInvoiceFile(null); onCancel(); }}
+          onDiscard={() => { reset(); setAttachedFile(null); onCancel(); }}
           onKeep={() => setShowDiscardDialog(false)}
         />
       )}

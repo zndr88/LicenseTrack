@@ -26,8 +26,29 @@ import { invalidateProcurementRenewalState } from "../../queryInvalidation.js";
 import { fetchLicensesData } from "./licenses/useLicensesPageData.js";
 import { getLicensesFromQueryData } from "../../utils/licenseQueryData.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { uploadDocument } from "../../api/documents.js";
 
 const EMPTY_PENDING_ORDERS = [];
+
+function normalizeConversionAttachment(attachment) {
+  if (!attachment) return null;
+  return attachment.file ? attachment : { file: attachment, category: "invoice" };
+}
+
+function createdConversionLicenses(licenses) {
+  return (licenses ?? []).filter((license) => license.conversionType !== "renewed_predecessor");
+}
+
+async function uploadPostConversionAttachment(attachment, affectedLicenses) {
+  if (!attachment || attachment.category === "invoice") return null;
+  const createdLicenses = createdConversionLicenses(affectedLicenses);
+  const target = attachment.targetSourcingItemId
+    ? createdLicenses.find((license) => license.sourceSourcingItemId === attachment.targetSourcingItemId)
+    : createdLicenses[0];
+  if (!target) return "The selected converted license could not be found.";
+  const { error } = await uploadDocument(target.id, attachment.file, attachment.category);
+  return error;
+}
 
 async function fetchPendingOrders() {
   const { data, error } = await getPendingOrders({ includeEvidenceIssues: true });
@@ -164,10 +185,13 @@ export function usePendingOrdersData({
     return true;
   }, [showError, showSuccess, queryClient, onPortfolioStateChange, onRenewalsReload]);
 
-  const handleConvertToLicense = useCallback(async (orderId, licenseData, file) => {
-    const { data, error } = await convertPendingOrder(orderId, licenseData, file);
+  const handleConvertToLicense = useCallback(async (orderId, licenseData, attachmentInput) => {
+    const attachment = normalizeConversionAttachment(attachmentInput);
+    const invoiceFile = attachment?.category === "invoice" ? attachment.file : null;
+    const { data, error } = await convertPendingOrder(orderId, licenseData, invoiceFile);
     if (error) { showError(error); return false; }
-    const affectedLicenses = data;
+    const affectedLicenses = data ?? [];
+    const attachmentError = await uploadPostConversionAttachment(attachment, affectedLicenses);
     queryClient.setQueryData(queryKeys.pendingOrders, (prev) =>
       (prev ?? []).filter((o) => o.id !== orderId)
     );
@@ -183,12 +207,16 @@ export function usePendingOrdersData({
     if (newCount > 0) parts.push(`${newCount} new license${newCount > 1 ? "s" : ""} created`);
     const toastMsg = parts.length > 0 ? parts.join(", ") : "Conversion complete";
     const firstNew = affectedLicenses.find((al) => al.conversionType === "renewed" || al.conversionType === "new_purchase");
-    showSuccess(
-      toastMsg,
-      firstNew && onNavigateToLicense
-        ? { label: "View License", onClick: () => onNavigateToLicense(firstNew.id) }
-        : undefined,
-    );
+    if (attachmentError) {
+      showError(`${toastMsg}, but document upload failed: ${attachmentError}. Retry the attachment from License Details.`);
+    } else {
+      showSuccess(
+        toastMsg,
+        firstNew && onNavigateToLicense
+          ? { label: "View License", onClick: () => onNavigateToLicense(firstNew.id) }
+          : undefined,
+      );
+    }
     return true;
   }, [showError, showSuccess, queryClient, onLicensesReload, onRenewalsReload, onPortfolioStateChange, onNotificationsReload, onNavigateToLicense]);
 
@@ -322,10 +350,13 @@ export function usePendingOrdersData({
     return true;
   }, [showError, showSuccess, queryClient]);
 
-  const handleBatchConvert = useCallback(async (orderId, items, poNumber, file = null) => {
-    const { data, error } = await batchConvertPendingOrder(orderId, items, file);
+  const handleBatchConvert = useCallback(async (orderId, items, poNumber, attachmentInput = null) => {
+    const attachment = normalizeConversionAttachment(attachmentInput);
+    const invoiceFile = attachment?.category === "invoice" ? attachment.file : null;
+    const { data, error } = await batchConvertPendingOrder(orderId, items, invoiceFile);
     if (error) { showError(error); return false; }
-    const affectedLicenses = data;
+    const affectedLicenses = data ?? [];
+    const attachmentError = await uploadPostConversionAttachment(attachment, affectedLicenses);
     queryClient.setQueryData(queryKeys.pendingOrders, (prev) =>
       (prev ?? []).filter((o) => o.id !== orderId)
     );
@@ -334,7 +365,12 @@ export function usePendingOrdersData({
     onRenewalsReload?.();
     onPortfolioStateChange?.();
     const newCount = affectedLicenses.filter((al) => al.conversionType !== "renewed_predecessor").length;
-    showSuccess(`${newCount} license${newCount !== 1 ? "s" : ""} created from ${poNumber ?? `Pending Order #${orderId}`}`);
+    const successMessage = `${newCount} license${newCount !== 1 ? "s" : ""} created from ${poNumber ?? `Pending Order #${orderId}`}`;
+    if (attachmentError) {
+      showError(`${successMessage}, but document upload failed: ${attachmentError}. Retry the attachment from License Details.`);
+    } else {
+      showSuccess(successMessage);
+    }
     onNotificationsReload?.();
     return true;
   }, [showError, showSuccess, queryClient, onLicensesReload, onRenewalsReload, onPortfolioStateChange, onNotificationsReload]);

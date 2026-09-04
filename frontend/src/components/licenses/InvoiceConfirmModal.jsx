@@ -22,17 +22,13 @@ import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/c
 import { FULL_LICENSE_FORM_VISIBILITY } from "../../utils/licenseFormVisibility.js";
 import LicenseFormSection from "./LicenseFormSection.jsx";
 import ProcurementDocumentWorkspace from "../procurement/ProcurementDocumentWorkspace.jsx";
+import DocumentAttachmentControls from "../procurement/DocumentAttachmentControls.jsx";
+import {
+  documentCategoryLabel,
+  isProcurementDocumentCategory,
+} from "../../utils/documentCategories.js";
 
 const PRIMARY_LINE_ID = "primary";
-const PROCUREMENT_DOCUMENT_CATEGORIES = new Set(["invoice", "quote", "purchase_order"]);
-
-const DOC_CATEGORY_OPTIONS = [
-  { value: "invoice", label: "Invoice" },
-  { value: "quote", label: "Quote" },
-  { value: "purchase_order", label: "Purchase Order" },
-  { value: "eula", label: "EULA" },
-  { value: "entitlement", label: "Entitlement / License Key" },
-];
 
 const emptyAdditionalLine = (primaryForm) => ({
   id: `${Date.now()}-${Math.random()}`,
@@ -277,8 +273,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   };
 
   const lineCount = 1 + additionalLines.length;
-  const attachedDocumentType = DOC_CATEGORY_OPTIONS.find((option) => option.value === attachedFileCategory)?.label ?? "Document";
-  const attachmentScopeHelp = PROCUREMENT_DOCUMENT_CATEGORIES.has(attachedFileCategory)
+  const attachedDocumentType = documentCategoryLabel(attachedFileCategory);
+  const attachmentScopeHelp = isProcurementDocumentCategory(attachedFileCategory)
     ? `Procurement documents are shared with every license created in this batch${lineCount > 1 ? ` (${lineCount} licenses)` : ""}.`
     : `${attachedDocumentType} documents attach only to the first license in this batch.`;
   const hasCatchallCustomFields = customFieldDefs.some(
@@ -662,23 +658,12 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             label={`${attachedDocumentType} Document`}
             onFileChange={handleFileChange}
           >
-            <div className="fg">
-              <div className="procurement-document-label-row">
-                <label htmlFor="inv-attach-category">Document Type</label>
-                <button
-                  type="button"
-                  className="procurement-document-scope-help"
-                  aria-label={`Document attachment scope: ${attachmentScopeHelp}`}
-                  data-tooltip={attachmentScopeHelp}
-                  title={attachmentScopeHelp}
-                >
-                  <Icon name="info" size={12} />
-                </button>
-              </div>
-              <select id="inv-attach-category" className="fi fi-select" value={attachedFileCategory} onChange={(e) => setAttachedFileCategory(e.target.value)}>
-                {DOC_CATEGORY_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-              </select>
-            </div>
+            <DocumentAttachmentControls
+              category={attachedFileCategory}
+              idPrefix="inv-attach"
+              onCategoryChange={setAttachedFileCategory}
+              scopeHelp={attachmentScopeHelp}
+            />
           </ProcurementDocumentWorkspace>
         </div>
     </ModalShell>

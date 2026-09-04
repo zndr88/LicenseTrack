@@ -352,8 +352,8 @@ export default function PendingOrdersPage({
           order={showConvertAllModal}
           licenses={licenses}
           userSettings={userSettings}
-          onConfirm={async (orderId, payload, file = null) => {
-            const ok = await handleBatchConvert(orderId, payload, pendingOrderLabel(showConvertAllModal), file);
+          onConfirm={async (orderId, payload, attachment = null) => {
+            const ok = await handleBatchConvert(orderId, payload, pendingOrderLabel(showConvertAllModal), attachment);
             if (ok) setShowConvertAllModal(null);
             return ok;
           }}
@@ -406,8 +406,8 @@ export default function PendingOrdersPage({
           licenses={licenses}
           userSettings={userSettings}
           onCancel={() => setShowConvertToLicenseModal(null)}
-          onConfirm={async (licenseData, file) => {
-            const ok = await handleConvertToLicense(showConvertToLicenseModal.order.id, licenseData, file);
+          onConfirm={async (licenseData, attachment) => {
+            const ok = await handleConvertToLicense(showConvertToLicenseModal.order.id, licenseData, attachment);
             if (ok) setShowConvertToLicenseModal(null);
             return ok;
           }}

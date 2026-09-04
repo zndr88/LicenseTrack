@@ -368,6 +368,24 @@ describe("ConvertPendingOrderModal", () => {
     }
   });
 
+  test("offers the manual-license document categories during single conversion", async () => {
+    const user = userEvent.setup();
+    const { onConfirm } = renderModal();
+    const documentType = screen.getByLabelText("Document Type");
+    expect(Array.from(documentType.options).map((option) => option.textContent)).toEqual([
+      "Invoice", "Quote", "Purchase Order", "EULA", "Entitlement / License Key",
+    ]);
+
+    await user.selectOptions(documentType, "entitlement");
+    expect(screen.getByRole("button", { name: /entitlement.*attaches only to the created license/i })).toBeInTheDocument();
+    const file = new File(["license-key"], "entitlement.txt", { type: "text/plain" });
+    fireEvent.change(screen.getByLabelText(/^upload entitlement.*document$/i), { target: { files: [file] } });
+    await user.click(screen.getByRole("button", { name: /confirm & create license/i }));
+
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+    expect(onConfirm.mock.calls[0][1]).toEqual({ file, category: "entitlement" });
+  });
+
   test("invalid contact email blocks submit and shows error", async () => {
     const { onConfirm } = renderModal();
 
@@ -717,6 +735,35 @@ describe("ConvertAllModal", () => {
     }
   });
 
+  test("targets license-specific batch attachments at the selected converted line", async () => {
+    const user = userEvent.setup();
+    const { onConfirm } = renderModal({ order: MULTI_ORDER, licenses: RENEWAL_LICENSES });
+
+    await user.selectOptions(screen.getByLabelText("Document Type"), "eula");
+    const target = screen.getByLabelText("Attach to License");
+    expect(Array.from(target.options).map((option) => option.textContent)).toEqual([
+      "SaaS Co — SaaS App", "Renew Co — Renew App",
+    ]);
+    await user.selectOptions(target, "22");
+    const file = new File(["terms"], "eula.txt", { type: "text/plain" });
+    fireEvent.change(screen.getByLabelText(/^upload eula document$/i), { target: { files: [file] } });
+
+    for (const input of screen.getAllByLabelText(/start date/i)) {
+      fireEvent.change(input, { target: { value: "2026-01-01" } });
+    }
+    for (const input of screen.getAllByLabelText(/^end date/i)) {
+      fireEvent.change(input, { target: { value: "2026-12-31" } });
+    }
+    await user.click(screen.getByRole("button", { name: /confirm & create licenses/i }));
+
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+    expect(onConfirm.mock.calls[0][2]).toEqual({
+      file,
+      category: "eula",
+      targetSourcingItemId: 22,
+    });
+  });
+
   test("single and batch conversion show equivalent defaults for a one-line coterm order", () => {
     const cotermOrder = {
       id: 3,
@@ -904,7 +951,7 @@ describe("ConvertAllModal", () => {
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     expect(onConfirm.mock.calls[0][0]).toBe(1);
-    expect(onConfirm.mock.calls[0][2]).toBe(invoice);
+    expect(onConfirm.mock.calls[0][2]).toEqual({ file: invoice, category: "invoice" });
   });
 
   test("submits preserved PO and line-item notes", async () => {
