@@ -163,6 +163,7 @@ vi.mock("../api/sourcing.js", () => ({
   convertFreewareSourcingRequest: vi.fn(),
   mergeSourcingItems: vi.fn(),
   uploadSourcingQuoteDocument: vi.fn(),
+  previewSourcingQuoteDocument: vi.fn(),
   downloadSourcingQuoteDocument: vi.fn(),
   deleteSourcingQuoteDocument: vi.fn(),
   exportSourcingCsv: vi.fn(),
@@ -381,6 +382,7 @@ function setupDefaultApiMocks() {
   sourcingApi.addSourcingRequestItem.mockResolvedValue({ data: { id: 99, items: [] }, error: null });
   sourcingApi.deleteSourcingRequest.mockResolvedValue({ error: null });
   sourcingApi.uploadSourcingQuoteDocument.mockResolvedValue({ data: null, error: null });
+  sourcingApi.previewSourcingQuoteDocument.mockResolvedValue({ data: { url: "blob:quote-preview" }, error: null });
   sourcingApi.downloadSourcingQuoteDocument.mockResolvedValue({ data: null, error: null });
   sourcingApi.deleteSourcingQuoteDocument.mockResolvedValue({ error: null });
   sourcingApi.exportSourcingCsv.mockResolvedValue({ data: null, error: null });
@@ -2300,7 +2302,7 @@ describe("PendingOrdersPage workflows", () => {
       />
     );
 
-    expect(await screen.findByText(/1 PO · 1 unavailable/i)).toBeInTheDocument();
+    expect(await screen.findByText(/1 PO · 1 quote · 2 unavailable/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
     const poDownload = screen.getByRole("menuitem", { name: /file missing: missing-po\.pdf/i });
     const quoteDownload = screen.getByRole("menuitem", { name: /storage unavailable: unavailable-quote\.pdf/i });
@@ -2347,6 +2349,18 @@ describe("PendingOrdersPage workflows", () => {
     );
 
     expect(await screen.findByText("PO-QUOTE")).toBeInTheDocument();
+    expect(screen.getByText("1 quote")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
+    await user.click(screen.getByRole("menuitem", { name: /preview pending-quote\.pdf/i }));
+
+    expect(await screen.findByRole("region", { name: /quote preview/i })).toBeInTheDocument();
+    expect(sourcingApi.previewSourcingQuoteDocument).toHaveBeenCalledWith(66);
+    expect(screen.getByTitle("Preview of pending-quote.pdf")).toHaveAttribute(
+      "src",
+      "blob:quote-preview#zoom=page-width",
+    );
+    await user.click(screen.getByRole("button", { name: /close document preview/i }));
+
     await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
     await user.click(screen.getByRole("menuitem", { name: /download pending-quote\.pdf/i }));
     expect(sourcingApi.downloadSourcingQuoteDocument).toHaveBeenCalledWith(66, "pending-quote.pdf");

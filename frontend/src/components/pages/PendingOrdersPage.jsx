@@ -16,6 +16,9 @@ import ProcurementTablePagination, {
   getPaginationDetails,
   paginateRows,
 } from "../procurement/ProcurementTablePagination.jsx";
+import DocumentPreviewPanel from "../ui/DocumentPreviewPanel.jsx";
+import { getPreviewFilename } from "../../utils/documentPreview.js";
+import { usePendingOrderQuotePreview } from "./pendingOrders/usePendingOrderQuotePreview.js";
 
 export default function PendingOrdersPage({
   user, userSettings,
@@ -85,6 +88,7 @@ export default function PendingOrdersPage({
 
   const perms = ROLE_PERMISSIONS[user.role];
   const locale = userSettings.numberFormatLocale ?? "en-US";
+  const { quotePreview, openQuotePreview, closeQuotePreview } = usePendingOrderQuotePreview({ showError });
 
   const handleOpenPurchaseOrderUpload = (po) => {
     purchaseOrderTargetRef.current = po;
@@ -226,13 +230,26 @@ export default function PendingOrdersPage({
         </div>
       </div>
       <div className="page-content">
-        {pendingOrdersLoading && (
+        {quotePreview && (
+          <DocumentPreviewPanel
+            as="section"
+            ariaLabel="Quote preview"
+            filename={getPreviewFilename(quotePreview.document)}
+            kind="pdf"
+            label="Quote Preview"
+            loading={quotePreview.loading}
+            onClose={closeQuotePreview}
+            onDownload={() => handleDownloadSourcingQuote(quotePreview.document)}
+            url={quotePreview.url}
+          />
+        )}
+        {!quotePreview && pendingOrdersLoading && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 0", color: "var(--text-2)", fontSize: 13 }}>
             <div className="spinner" style={{ margin: 0, width: 18, height: 18 }} />
             Loading pending orders...
           </div>
         )}
-        {!pendingOrdersLoading && pendingOrders.length === 0 ? (
+        {!quotePreview && (!pendingOrdersLoading && pendingOrders.length === 0 ? (
           <div className="empty">
             <Icon name="clock" size={32} color="var(--text-3)" />
             <h3>No pending orders yet</h3>
@@ -252,6 +269,7 @@ export default function PendingOrdersPage({
             onUploadPurchaseOrder={handleOpenPurchaseOrderUpload}
             onDownloadPurchaseOrder={handleDownloadPurchaseOrderDocument}
             onDeletePurchaseOrder={setDeletePurchaseOrderDocumentTarget}
+            onPreviewQuote={openQuotePreview}
             onDownloadQuote={handleDownloadSourcingQuote}
             onDeleteQuote={setDeleteQuoteTarget}
             onRetryEvidenceTransfer={handleRetryEvidenceTransfer}
@@ -276,8 +294,8 @@ export default function PendingOrdersPage({
             sortDir={sortDir}
             onSort={handleSort}
           />
-        )}
-        {showHistory && (
+        ))}
+        {!quotePreview && showHistory && (
           <div style={{ marginTop: 24 }}>
             <h3 style={{ margin: "0 0 4px", fontSize: 14 }}>Pending Order History</h3>
             <p style={{ margin: "0 0 8px", color: "var(--text-2)", fontSize: 12 }}>
@@ -299,6 +317,7 @@ export default function PendingOrdersPage({
                 settings={userSettings}
                 onDownloadPurchaseOrder={handleDownloadPurchaseOrderDocument}
                 onDeletePurchaseOrder={setDeletePurchaseOrderDocumentTarget}
+                onPreviewQuote={openQuotePreview}
                 onDownloadQuote={handleDownloadSourcingQuote}
                 onDeleteQuote={setDeleteQuoteTarget}
                 onNavigateToLicense={onNavigateToLicense}

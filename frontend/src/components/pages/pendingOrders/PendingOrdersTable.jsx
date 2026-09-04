@@ -8,6 +8,7 @@ import { formatDateTime, formatNumber } from "../../../utils/formatting.js";
 import { procurementLineTotal } from "../../../utils/procurementTotals.js";
 import { hasPurchaseOrderNumber, pendingOrderLabel } from "../../../utils/procurementLabels.js";
 import { documentAvailabilityHelp, documentAvailabilityLabel, documentAvailabilitySummary, isFileAvailable } from "../../../utils/documentAvailability.js";
+import { isPreviewablePdf } from "../../../utils/documentPreview.js";
 
 function SortIndicator({ active, dir }) {
   if (!active) return null;
@@ -39,16 +40,20 @@ function SortableHeader({ column, label, sortCol, sortDir, onSort }) {
   );
 }
 
-function PurchaseOrderDocumentsCell({ documents }) {
-  const purchaseOrderDocuments = (documents ?? []).filter((document) => document.category === "purchase_order");
+function OrderDocumentsCell({ order }) {
+  const purchaseOrderDocuments = (order.documents ?? []).filter((document) => document.category === "purchase_order");
+  const quoteDocuments = quoteDocumentsForOrder(order);
 
-  if (!purchaseOrderDocuments.length) {
-    return <span style={{ fontSize: 11, color: "var(--text-3)" }}>No PO</span>;
+  if (!purchaseOrderDocuments.length && !quoteDocuments.length) {
+    return <span style={{ fontSize: 11, color: "var(--text-3)" }}>None</span>;
   }
 
-  const summary = documentAvailabilitySummary(purchaseOrderDocuments);
-  return <span className="badge badge-gray" title={summary.available === summary.total ? "All PO files available" : `${summary.missing + summary.unavailable} PO file(s) need attention`}>
-    {purchaseOrderDocuments.length === 1 ? "1 PO" : `${purchaseOrderDocuments.length} POs`}
+  const summary = documentAvailabilitySummary([...purchaseOrderDocuments, ...quoteDocuments]);
+  const labels = [];
+  if (purchaseOrderDocuments.length) labels.push(purchaseOrderDocuments.length === 1 ? "1 PO" : `${purchaseOrderDocuments.length} POs`);
+  if (quoteDocuments.length) labels.push(quoteDocuments.length === 1 ? "1 quote" : `${quoteDocuments.length} quotes`);
+  return <span className="badge badge-gray" title={summary.available === summary.total ? "All files available" : `${summary.missing + summary.unavailable} file(s) need attention`}>
+    {labels.join(" · ")}
     {summary.available !== summary.total ? ` · ${summary.missing + summary.unavailable} unavailable` : ""}
   </span>;
 }
@@ -194,6 +199,7 @@ export default function PendingOrdersTable({
   onUploadPurchaseOrder,
   onDownloadPurchaseOrder,
   onDeletePurchaseOrder,
+  onPreviewQuote,
   onDownloadQuote,
   onDeleteQuote,
   onRetryEvidenceTransfer,
@@ -282,7 +288,7 @@ export default function PendingOrdersTable({
               <SortableHeader column="itemCount" label="Items" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <SortableHeader column="totalValue" label="Total PO Value" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <SortableHeader column="created" label="Created" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
-              <th scope="col">PO</th>
+              <th scope="col">Documents</th>
               <SortableHeader column="status" label="Status" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <th scope="col">{readOnly ? "Reference" : "Actions"}</th>
             </tr>
@@ -313,6 +319,16 @@ export default function PendingOrdersTable({
                   disabled: !isFileAvailable(document),
                   title: documentAvailabilityHelp(document),
                   onClick: () => onDownloadPurchaseOrder(document),
+                })),
+                ...quoteDocuments.map((document, index) => ({
+                  key: `preview-quote-${document.id ?? index}`,
+                  label: `Preview ${documentFilename(document, "quote")}`,
+                  icon: "eye",
+                  disabled: !isPreviewablePdf(document),
+                  title: !isFileAvailable(document)
+                    ? documentAvailabilityHelp(document)
+                    : "Preview is available for PDF quote documents",
+                  onClick: () => onPreviewQuote(document),
                 })),
                 ...quoteDocuments.map((document, index) => ({
                   key: `quote-${document.id ?? index}`,
@@ -427,7 +443,7 @@ export default function PendingOrdersTable({
                       {formatDateTime(po.createdAt, settings)}
                     </td>
                     <td>
-                      <PurchaseOrderDocumentsCell documents={po.documents} />
+                      <OrderDocumentsCell order={po} />
                     </td>
                     <td>
                       <span className={`badge ${statusClass}`}>
