@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Icon from "../ui/Icon.jsx";
 import DocumentPreviewPanel from "../ui/DocumentPreviewPanel.jsx";
 import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
@@ -36,13 +36,13 @@ export default function DocumentStagingWorkspace({
   const requestRef = useRef(0);
   const previousAttachmentCountRef = useRef(attachments.length);
 
-  const clearStoredPreview = () => {
+  const clearStoredPreview = useCallback(() => {
     requestRef.current += 1;
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     previewUrlRef.current = null;
     setStoredPreview(null);
     setExpanded(false);
-  };
+  }, []);
 
   useEffect(() => () => {
     requestRef.current += 1;
@@ -55,9 +55,7 @@ export default function DocumentStagingWorkspace({
       clearStoredPreview();
     }
     previousAttachmentCountRef.current = attachments.length;
-  // clearStoredPreview only owns preview resources and is intentionally run when a new file is staged.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attachments]);
+  }, [attachments, clearStoredPreview]);
 
   const openStoredPreview = async (document) => {
     if (!isPdf(document) || !previewDocument) return;

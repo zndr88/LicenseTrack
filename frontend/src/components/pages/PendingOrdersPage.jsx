@@ -5,7 +5,6 @@ import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import PendingOrderModal from "../procurement/PendingOrderModal.jsx";
 import ConvertPendingOrderModal from "../procurement/ConvertPendingOrderModal.jsx";
 import ConvertAllModal from "../procurement/ConvertAllModal.jsx";
-import AddPOLineItemsModal from "../procurement/AddPOLineItemsModal.jsx";
 import SourcingItemModal from "../procurement/SourcingItemModal.jsx";
 import PendingOrdersTable from "./pendingOrders/PendingOrdersTable.jsx";
 import { filterAndSortPendingOrders, usePendingOrdersPageState } from "./pendingOrders/usePendingOrdersPageState.js";
@@ -58,7 +57,6 @@ export default function PendingOrdersPage({
     refetch,
     refetchHistory,
     licenses,
-    addingPOItems,
     handleCancelPendingOrder,
     handleCreatePendingOrder,
     handleUpdatePendingOrder,
@@ -533,15 +531,35 @@ export default function PendingOrdersPage({
       )}
 
       {showAddPOItemsModal !== null && (
-        <AddPOLineItemsModal
+        <SourcingItemModal
           key={showAddPOItemsModal.order?.id ?? "new"}
-          po={showAddPOItemsModal.order}
-          saving={addingPOItems}
+          item={null}
+          sourcingRequest={showAddPOItemsModal.order}
+          documents={showAddPOItemsModal.order?.documents ?? []}
+          pendingOrderId={showAddPOItemsModal.order?.id ?? null}
           userSettings={userSettings}
+          title="Add License Line"
           onCancel={() => setShowAddPOItemsModal(null)}
-          onSave={async (items) => {
-            const ok = await handleAddPOItems(showAddPOItemsModal.order.id, items);
-            if (ok) setShowAddPOItemsModal(null);
+          onSave={async ({ items, supplier, contactEmail, notes, quoteFile }) => {
+            const inheritedContext = {
+              supplier: supplier || null,
+              contactEmail: contactEmail || null,
+              notes: notes || null,
+            };
+            let success = await handleAddPOItems(
+              showAddPOItemsModal.order.id,
+              items.map((line) => ({
+                ...line,
+                supplier: line.supplier || inheritedContext.supplier,
+                contactEmail: line.contactEmail || inheritedContext.contactEmail,
+                notes: line.notes || inheritedContext.notes,
+              })),
+            );
+            if (success && quoteFile) {
+              success = await handleUploadPurchaseOrderDocument(showAddPOItemsModal.order.id, quoteFile);
+            }
+            if (success) setShowAddPOItemsModal(null);
+            return success;
           }}
         />
       )}

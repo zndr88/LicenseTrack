@@ -438,14 +438,13 @@
   grid-template-columns: minmax(500px, 0.95fr) minmax(620px, 1.05fr);
 }
 .document-assisted-modal:has(.procurement-document-workspace .document-assisted-preview) .procurement-document-workspace {
+  grid-column: 2;
+  grid-row: 1;
+}
+.document-assisted-modal:has(.procurement-document-workspace .document-assisted-preview) .document-assisted-modal-form {
   grid-column: 1;
   grid-row: 1;
   border-right: 1px solid var(--border);
-}
-.document-assisted-modal:has(.procurement-document-workspace .document-assisted-preview) .document-assisted-modal-form {
-  grid-column: 2;
-  grid-row: 1;
-  border-right: 0;
 }
 .document-assisted-modal:has(.procurement-document-workspace .document-assisted-preview) .procurement-document-workspace .document-assisted-preview {
   min-height: 560px;

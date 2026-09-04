@@ -210,14 +210,14 @@ vi.mock("../components/contracts/ContractModal.jsx", () => ({
 }));
 
 vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
-  default: ({ item, sourcingRequest, onSave, onCancel }) => (
+  default: ({ item, sourcingRequest, pendingOrderId, title, onSave, onCancel }) => (
     <form
       role="dialog"
       aria-label="Sourcing item form"
       onSubmit={(event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
-        onSave({
+        const line = {
           publisherName: "Created Publisher",
           softwareDescription: "Created Sourcing App",
           quantity: "3",
@@ -236,9 +236,17 @@ vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
               parentSourcingItemId: item?.id ?? null,
             },
           } : {}),
-        });
+        };
+        onSave(!item && pendingOrderId ? {
+          items: [line],
+          supplier: formData.get("supplier"),
+          contactEmail: null,
+          notes: null,
+          quoteFile: null,
+        } : line);
       }}
     >
+      {title && <span>{title}</span>}
       <label>
         Request supplier
         <input
@@ -2098,6 +2106,55 @@ describe("SourcingPage workflows", () => {
 });
 
 describe("PendingOrdersPage workflows", () => {
+  test("uses the shared sourcing baseline when adding a pending-order line", async () => {
+    const user = userEvent.setup();
+    const order = {
+      id: 4,
+      poNumber: "PO-SHARED",
+      supplier: "Shared Supplier",
+      status: "pending",
+      items: [{
+        id: 41,
+        publisherName: "Existing Publisher",
+        softwareDescription: "Existing App",
+        quantity: "1",
+        currency: "EUR",
+      }],
+      documents: [],
+      createdAt: "2026-02-01T00:00:00Z",
+    };
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: [order], error: null });
+    pendingOrdersApi.addItemsToPendingOrderBulk.mockResolvedValueOnce({ data: order, error: null });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    await user.click(await screen.findByText("PO-SHARED"));
+    await user.click(screen.getByRole("button", { name: /add license line/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /sourcing item form/i });
+    expect(within(dialog).getByText("Add License Line")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Request supplier")).toHaveValue("Shared Supplier");
+
+    await user.click(within(dialog).getByRole("button", { name: /save sourcing item/i }));
+
+    await waitFor(() => {
+      expect(pendingOrdersApi.addItemsToPendingOrderBulk).toHaveBeenCalledWith(4, [
+        expect.objectContaining({
+          publisherName: "Created Publisher",
+          softwareDescription: "Created Sourcing App",
+          supplier: "Shared Supplier",
+        }),
+      ]);
+    });
+  });
+
   test("preserves start and end dates when editing a pending-order line", async () => {
     const user = userEvent.setup();
     const item = {

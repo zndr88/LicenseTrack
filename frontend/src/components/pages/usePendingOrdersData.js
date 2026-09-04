@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addItemsToPendingOrderBulk,
@@ -105,7 +105,6 @@ export function usePendingOrdersData({
   });
   const licenses = licensesData ?? [];
 
-  const [addingPOItems, setAddingPOItems] = useState(false);
 
   useEffect(() => {
     if (queryError) showError(queryError.message);
@@ -228,7 +227,6 @@ export function usePendingOrdersData({
   }, [showError, showSuccess, queryClient, onLicensesReload, onRenewalsReload, onPortfolioStateChange, onNotificationsReload, onNavigateToLicense]);
 
   const handleAddPOItems = useCallback(async (orderId, items) => {
-    setAddingPOItems(true);
     const payload = items.map((item) => ({
       publisherName: item.publisherName.trim(),
       softwareDescription: item.softwareDescription.trim(),
@@ -265,7 +263,6 @@ export function usePendingOrdersData({
       contactEmail: item.contactEmail || null,
     }));
     const { error } = await addItemsToPendingOrderBulk(orderId, payload);
-    setAddingPOItems(false);
     if (error) { showError(error); return false; }
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
     showSuccess(`${items.length} item${items.length > 1 ? "s" : ""} added to pending order`);
@@ -396,7 +393,6 @@ export function usePendingOrdersData({
     refetch,
     refetchHistory,
     licenses,
-    addingPOItems,
     handleCancelPendingOrder,
     handleCreatePendingOrder,
     handleUpdatePendingOrder,

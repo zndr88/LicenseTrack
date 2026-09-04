@@ -141,8 +141,10 @@ const SourcingItemModal = ({
   const pluginSlot = pendingOrderId ? "pendingOrder.line.edit.actions" : "sourcing.item.edit.actions";
   const pluginTargetType = pendingOrderId ? "pending_order_item" : "sourcing_item";
 
-  // "new request" mode: add mode with no parent request - supports multi-line and quote parse
-  const isNewRequest = !item?.id && !requestId;
+  // Parent-create mode supports multiple lines. Pending-order additions reuse that
+  // line editor, while sourcing-only quote actions remain limited to new requests.
+  const isNewLineCollection = !item?.id && !requestId;
+  const isNewSourcingRequest = isNewLineCollection && !pendingOrderId;
 
   const {
     register,
@@ -361,10 +363,10 @@ const SourcingItemModal = ({
   const onSubmit = async (data) => {
     setSaving(true);
     try {
-      // New requests always go through the request-create path (items + optional
-      // quoteFile), so an attached quote is uploaded even for a single line.
+      // Parent-create flows use a line collection plus an optional document so
+      // single and multi-line submissions share one payload shape.
       // Edit / add-to-existing-request modes (no upload field) use the plain payload.
-      if (isNewRequest) {
+      if (isNewLineCollection) {
         const primaryItem = {
           publisherName: data.publisherName,
           softwareDescription: data.softwareDescription,
@@ -555,7 +557,7 @@ const SourcingItemModal = ({
               </LicenseFormSection>
             )}
 
-            {isNewRequest && (
+            {isNewSourcingRequest && (
               <div className="plugin-slot-form-row" style={slotHasActions ? undefined : { display: "none" }}>
                 <PluginSlot
                   slot="sourcing.quote.add.actions"
@@ -845,7 +847,7 @@ const SourcingItemModal = ({
             </div>
           ))}
 
-          {isNewRequest && (
+          {isNewLineCollection && (
             <button
               type="button"
               className="btn btn-g"

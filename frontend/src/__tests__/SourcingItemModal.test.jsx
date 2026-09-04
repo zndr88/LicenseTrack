@@ -167,6 +167,35 @@ describe("contact email validation", () => {
 // ─── Payload shape ────────────────────────────────────────────────────────────
 
 describe("request supplier context", () => {
+  test("uses pending-order context while retaining the multi-line creation payload", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderModal({
+      pendingOrderId: 12,
+      sourcingRequest: {
+        id: 12,
+        supplier: "Pending Order Supplier",
+        contactEmail: "orders@example.test",
+      },
+    });
+
+    expect(screen.getByLabelText(/order supplier/i)).toHaveValue("Pending Order Supplier");
+    expect(screen.queryByText(/sourcing quote draft/i)).not.toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText(/software publisher/i), "Acme");
+    await user.type(screen.getByPlaceholderText(/product or service name/i), "Acme Suite");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({
+      supplier: "Pending Order Supplier",
+      contactEmail: "orders@example.test",
+      items: [expect.objectContaining({
+        publisherName: "Acme",
+        softwareDescription: "Acme Suite",
+      })],
+    }));
+  });
+
   test("falls back to request supplier and contact when compatibility line fields are blank", () => {
     renderModal({
       item: { ...VALID_ITEM, id: 42, supplier: null, contactEmail: null },
