@@ -19,25 +19,35 @@
 .sourcing-request-edit-modal .optional-label { color: var(--text-3); font-weight: 400; }
 .procurement-inline-toggle { font-size: 12px; }
 .procurement-inline-toggle-active { border-color: var(--steel-border); background: var(--steel-dim); color: var(--steel-text); }
-.sourcing-request-row-inline-edit, .sourcing-row-inline-edit {
+.sourcing-request-row-inline-edit, .sourcing-row-inline-edit,
+.pending-order-row-inline-edit, .pending-order-line-row-inline-edit {
   background-image: linear-gradient(90deg, var(--steel-dim), transparent 72%);
 }
-.sourcing-request-row-inline-edit .lp-inline-input, .sourcing-row-inline-edit .lp-inline-input {
+.sourcing-request-row-inline-edit .lp-inline-input, .sourcing-row-inline-edit .lp-inline-input,
+.pending-order-row-inline-edit .lp-inline-input, .pending-order-line-row-inline-edit .lp-inline-input {
   border-color: var(--steel-border);
   background: var(--bg-1);
 }
-.sourcing-request-row-inline-edit .lp-inline-input:focus, .sourcing-row-inline-edit .lp-inline-input:focus { border-color: var(--steel); }
-.sourcing-request-row-inline-edit:focus-within, .sourcing-row-inline-edit:focus-within { position: relative; z-index: 40; }
-.sourcing-request-row-inline-edit .lp-editable-td:focus-within, .sourcing-row-inline-edit .lp-editable-td:focus-within {
+.sourcing-request-row-inline-edit .lp-inline-input:focus, .sourcing-row-inline-edit .lp-inline-input:focus,
+.pending-order-row-inline-edit .lp-inline-input:focus, .pending-order-line-row-inline-edit .lp-inline-input:focus { border-color: var(--steel); }
+.sourcing-request-row-inline-edit:focus-within, .sourcing-row-inline-edit:focus-within,
+.pending-order-row-inline-edit:focus-within, .pending-order-line-row-inline-edit:focus-within { position: relative; z-index: 40; }
+.sourcing-request-row-inline-edit .lp-editable-td:focus-within, .sourcing-row-inline-edit .lp-editable-td:focus-within,
+.pending-order-row-inline-edit .lp-editable-td:focus-within, .pending-order-line-row-inline-edit .lp-editable-td:focus-within {
   position: relative;
   z-index: 41;
   overflow: visible;
 }
-.sourcing-request-row-inline-edit .reference-combobox:focus-within, .sourcing-row-inline-edit .reference-combobox:focus-within { z-index: 42; }
+.sourcing-request-row-inline-edit .reference-combobox:focus-within, .sourcing-row-inline-edit .reference-combobox:focus-within,
+.pending-order-row-inline-edit .reference-combobox:focus-within, .pending-order-line-row-inline-edit .reference-combobox:focus-within { z-index: 42; }
 .sourcing-request-row-inline-edit .sourcing-inline-supplier { min-width: 220px; }
 .sourcing-row-inline-edit .lp-editable-td { min-width: 104px; }
 .sourcing-row-inline-edit .sourcing-inline-publisher { min-width: 170px; }
 .sourcing-row-inline-edit .sourcing-inline-description { min-width: 190px; }
+.pending-order-row-inline-edit .pending-order-inline-supplier { min-width: 220px; }
+.pending-order-line-row-inline-edit .lp-editable-td { min-width: 104px; }
+.pending-order-line-row-inline-edit .pending-order-inline-publisher { min-width: 170px; padding-left: 40px; }
+.pending-order-line-row-inline-edit .pending-order-inline-description { min-width: 190px; }
 .sourcing-inline-context { margin-top: 3px; color: var(--text-3); font-size: 9px; font-weight: 400; line-height: 1.25; }
 
 /* Pipeline strip */

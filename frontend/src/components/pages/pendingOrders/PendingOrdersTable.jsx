@@ -2,10 +2,13 @@ import React from "react";
 import Icon from "../../ui/Icon.jsx";
 import SearchBox from "../../ui/SearchBox.jsx";
 import RowActionsMenu from "../../ui/RowActionsMenu.jsx";
+import ProcurementInlineEditCell from "../../procurement/ProcurementInlineEditCell.jsx";
+import { CURRENCIES } from "../../../constants/licenseData.js";
 import { formatCost } from "../../../utils/helpers.js";
 import { formatPoTotal } from "./usePendingOrdersPageState.js";
-import { formatDateTime, formatNumber } from "../../../utils/formatting.js";
+import { formatDateTime } from "../../../utils/formatting.js";
 import { procurementLineTotal } from "../../../utils/procurementTotals.js";
+import { formatQuantity } from "../../../utils/quantity.js";
 import { hasPurchaseOrderNumber, pendingOrderLabel } from "../../../utils/procurementLabels.js";
 import { documentAvailabilityHelp, documentAvailabilityLabel, documentAvailabilitySummary, isFileAvailable } from "../../../utils/documentAvailability.js";
 import { isPreviewablePdf } from "../../../utils/documentPreview.js";
@@ -77,16 +80,27 @@ function quoteDocumentsForOrder(order) {
   });
 }
 
+function isPendingOrderEditable(order) {
+  return order.status === "pending" || order.status === "invoice_received";
+}
+
 function PendingOrderItemsRow({
   po,
   locale,
+  userSettings,
   perms,
   readOnly = false,
   onAddItem,
   onDeleteItem,
   onEditItem,
   onNavigateToLicense,
+  inlineEditEnabled,
+  onInlineItemFieldSave,
 }) {
+  const saveItemField = (itemId, fieldKey, value) => (
+    onInlineItemFieldSave(po.id, itemId, fieldKey, value)
+  );
+
   return (
     <tr>
       <td colSpan={9} style={{ padding: 0, background: "var(--bg-2)" }}>
@@ -103,25 +117,66 @@ function PendingOrderItemsRow({
             </tr>
           </thead>
           <tbody>
-            {po.items.map((item) => (
-              <tr key={item.id} style={{ background: "var(--bg-2)" }}>
-                <td style={{ paddingLeft: 40, fontWeight: 600 }}>
-                  {item.publisherName}
-                  <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
-                    Pending Order Line ID #{item.id}
-                  </div>
-                  {item.isRenewal && (
-                    <span className="badge badge-pending po-inline-badge">
-                      Renewal
-                    </span>
+            {po.items.map((item) => {
+              const canInlineEdit = inlineEditEnabled && !readOnly && isPendingOrderEditable(po) && perms.canEdit;
+              return (
+                <tr
+                  key={item.id}
+                  data-po-item-row={item.id}
+                  className={canInlineEdit ? "pending-order-line-row-inline-edit" : undefined}
+                  style={{ backgroundColor: "var(--bg-2)" }}
+                >
+                  {canInlineEdit ? (
+                    <ProcurementInlineEditCell
+                      item={item}
+                      fieldKey="publisherName"
+                      label="Publisher"
+                      currentValue={item.publisherName}
+                      required
+                      referenceMode="publisher"
+                      className="pending-order-inline-publisher"
+                      userSettings={userSettings}
+                      onSave={saveItemField}
+                    >
+                      <div className="sourcing-inline-context">Pending Order Line ID #{item.id}</div>
+                      {item.isRenewal && <span className="badge badge-pending po-inline-badge">Renewal</span>}
+                    </ProcurementInlineEditCell>
+                  ) : (
+                    <td style={{ paddingLeft: 40, fontWeight: 600 }}>
+                      {item.publisherName}
+                      <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
+                        Pending Order Line ID #{item.id}
+                      </div>
+                      {item.isRenewal && (
+                        <span className="badge badge-pending po-inline-badge">
+                          Renewal
+                        </span>
+                      )}
+                    </td>
                   )}
-                </td>
-                <td>{item.softwareDescription}</td>
-                <td>{(() => { const q = parseFloat(item.quantity); return isNaN(q) ? "-" : formatNumber(q, { numberFormatLocale: locale }); })()}</td>
-                <td>{formatCost(item.estimatedUnitPrice, item.currency, locale)}</td>
-                <td>{formatCost(procurementLineTotal(item), item.currency, locale)}</td>
-                <td>{item.currency}</td>
-                <td>
+                  {canInlineEdit ? (
+                    <ProcurementInlineEditCell
+                      item={item}
+                      fieldKey="softwareDescription"
+                      label="Description"
+                      currentValue={item.softwareDescription}
+                      required
+                      className="pending-order-inline-description"
+                      userSettings={userSettings}
+                      onSave={saveItemField}
+                    />
+                  ) : <td>{item.softwareDescription}</td>}
+                  {canInlineEdit ? (
+                    <ProcurementInlineEditCell item={item} fieldKey="quantity" label="Quantity" currentValue={item.quantity} valueType="quantity" userSettings={userSettings} onSave={saveItemField} />
+                  ) : <td>{formatQuantity(item.quantity, userSettings) || "-"}</td>}
+                  {canInlineEdit ? (
+                    <ProcurementInlineEditCell item={item} fieldKey="estimatedUnitPrice" label="Estimated unit price" currentValue={item.estimatedUnitPrice} valueType="money" userSettings={userSettings} onSave={saveItemField} />
+                  ) : <td>{formatCost(item.estimatedUnitPrice, item.currency, locale)}</td>}
+                  <td>{formatCost(procurementLineTotal(item), item.currency, locale)}</td>
+                  {canInlineEdit ? (
+                    <ProcurementInlineEditCell item={item} fieldKey="currency" label="Currency" currentValue={item.currency} options={CURRENCIES} userSettings={userSettings} onSave={saveItemField} />
+                  ) : <td>{item.currency}</td>}
+                  <td>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                     {readOnly && (
                       <span className={`badge ${item.isRenewal ? "badge-pending" : "badge-gray"}`}>
@@ -154,9 +209,10 @@ function PendingOrderItemsRow({
                       </button>
                     )}
                   </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
             {!readOnly && perms.canEdit && (
               <tr style={{ background: "var(--bg-2)" }}>
                 <td colSpan={7} style={{ paddingLeft: 40 }}>
@@ -216,6 +272,10 @@ export default function PendingOrdersTable({
   sortCol,
   sortDir,
   onSort,
+  inlineEditEnabled = false,
+  onToggleInlineEdit,
+  onInlineOrderFieldSave,
+  onInlineItemFieldSave,
   footer = null,
 }) {
   const readOnly = mode === "history";
@@ -269,6 +329,19 @@ export default function PendingOrdersTable({
         {!readOnly && (
           <>
             <div style={{ flex: 1 }} />
+            {perms.canEdit && (
+              <button
+                type="button"
+                className={`btn btn-g procurement-inline-toggle ${inlineEditEnabled ? "procurement-inline-toggle-active" : ""}`}
+                onClick={onToggleInlineEdit}
+                title={inlineEditEnabled ? "Finish editing" : "Edit pending orders"}
+                aria-label={inlineEditEnabled ? "Done editing" : "Edit"}
+                aria-pressed={inlineEditEnabled}
+              >
+                <Icon name={inlineEditEnabled ? "check" : "edit"} size={13} />
+                {inlineEditEnabled ? "Done" : "Edit"}
+              </button>
+            )}
             <button className="btn btn-g" onClick={onRefetch} title="Refresh pending orders" style={{ fontSize: 12 }}>
               <Icon name="refresh" size={13} />Refresh
             </button>
@@ -302,6 +375,7 @@ export default function PendingOrdersTable({
               </tr>
             ) : displayed.map((po) => {
               const isExpanded = expandedPendingOrderId === po.id;
+              const canInlineEditOrder = inlineEditEnabled && !readOnly && isPendingOrderEditable(po) && perms.canEdit;
               const canDelete = po.status === "pending" || po.status === "invoice_received";
               const isInvoiceReceived = po.status === "invoice_received";
               const evidenceStatus = po.evidenceTransferStatus ?? po.evidence_transfer_status;
@@ -416,6 +490,7 @@ export default function PendingOrdersTable({
                 <React.Fragment key={po.id}>
                   <tr
                     data-po-row={po.id}
+                    className={canInlineEditOrder ? "pending-order-row-inline-edit" : undefined}
                     style={{
                       cursor: po.items?.length > 0 ? "pointer" : "default",
                       ...(highlightedRowId === po.id
@@ -436,7 +511,18 @@ export default function PendingOrdersTable({
                         <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>{po.procurementReference}</div>
                       )}
                     </td>
-                    <td>{po.supplier || "-"}</td>
+                    {canInlineEditOrder ? (
+                      <ProcurementInlineEditCell
+                        item={po}
+                        fieldKey="supplier"
+                        label="Supplier"
+                        currentValue={po.supplier}
+                        referenceMode="supplier"
+                        className="pending-order-inline-supplier"
+                        userSettings={settings}
+                        onSave={onInlineOrderFieldSave}
+                      />
+                    ) : <td>{po.supplier || "-"}</td>}
                     <td style={{ color: "var(--text-2)" }}>{po.items?.length ?? 0}</td>
                     <td className="mono" style={{ fontWeight: 600 }}>{formatPoTotal(po, locale)}</td>
                     <td style={{ color: "var(--text-2)", fontSize: 12 }}>
@@ -519,12 +605,15 @@ export default function PendingOrdersTable({
                     <PendingOrderItemsRow
                       po={po}
                       locale={locale}
+                      userSettings={settings}
                       perms={perms}
                       readOnly={readOnly}
                       onAddItem={onOpenAddItems}
                       onDeleteItem={onDeleteItem}
                       onEditItem={onEditItem}
                       onNavigateToLicense={onNavigateToLicense}
+                      inlineEditEnabled={inlineEditEnabled}
+                      onInlineItemFieldSave={onInlineItemFieldSave}
                     />
                   )}
                 </React.Fragment>

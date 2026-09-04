@@ -2191,6 +2191,95 @@ describe("SourcingPage workflows", () => {
 });
 
 describe("PendingOrdersPage workflows", () => {
+  test("edits pending-order supplier and common line fields from the overview", async () => {
+    const user = userEvent.setup();
+    const commaSettings = { ...userSettings, numberFormatLocale: "de-DE" };
+    let supplier = "Pending Supplier";
+    let item = {
+      id: 81,
+      publisherName: "Pending Publisher",
+      softwareDescription: "Pending Suite",
+      quantity: "2",
+      estimatedUnitPrice: "30.00",
+      currency: "EUR",
+      isRenewal: false,
+    };
+    const order = () => ({
+      id: 8,
+      poNumber: "PO-INLINE",
+      supplier,
+      status: "pending",
+      items: [item],
+      documents: [],
+      createdAt: "2026-03-01T00:00:00Z",
+    });
+    pendingOrdersApi.getPendingOrders.mockImplementation(async () => ({ data: [order()], error: null }));
+    pendingOrdersApi.updatePendingOrder.mockImplementation(async (_id, payload) => {
+      supplier = payload.supplier;
+      return { data: order(), error: null };
+    });
+    pendingOrdersApi.updatePendingOrderItem.mockImplementation(async (_orderId, _itemId, payload) => {
+      item = { ...item, ...payload };
+      return { data: order(), error: null };
+    });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={commaSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    await user.click(await screen.findByText("PO-INLINE"));
+    await user.click(screen.getByRole("button", { name: /^edit$/i, pressed: false }));
+
+    expect(screen.getByRole("combobox", { name: /edit supplier/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /edit publisher/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /edit description/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /edit quantity/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /edit estimated unit price/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /edit currency/i })).toBeInTheDocument();
+
+    const supplierInput = screen.getByRole("combobox", { name: /edit supplier/i });
+    await user.clear(supplierInput);
+    await user.type(supplierInput, "Updated Pending Supplier");
+    await user.tab();
+
+    await waitFor(() => {
+      expect(pendingOrdersApi.updatePendingOrder).toHaveBeenCalledWith(8, {
+        supplier: "Updated Pending Supplier",
+      });
+    });
+
+    const description = screen.getByRole("textbox", { name: /edit description/i });
+    await user.clear(description);
+    await user.type(description, "Updated Pending Suite");
+    await user.tab();
+
+    await waitFor(() => {
+      expect(pendingOrdersApi.updatePendingOrderItem).toHaveBeenCalledWith(8, 81, {
+        softwareDescription: "Updated Pending Suite",
+      });
+    });
+
+    const quantity = screen.getByRole("textbox", { name: /edit quantity/i });
+    await user.clear(quantity);
+    await user.type(quantity, "2,5");
+    await user.tab();
+
+    await waitFor(() => {
+      expect(pendingOrdersApi.updatePendingOrderItem).toHaveBeenCalledWith(8, 81, { quantity: "2.5" });
+    });
+
+    await user.click(screen.getByRole("button", { name: /done editing/i, pressed: true }));
+    expect(await screen.findByText("Updated Pending Supplier")).toBeInTheDocument();
+    expect(await screen.findByText("Updated Pending Suite")).toBeInTheDocument();
+    expect(screen.getByText("2,5")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   test("uses the shared sourcing baseline when adding a pending-order line", async () => {
     const user = userEvent.setup();
     const order = {
@@ -2275,7 +2364,8 @@ describe("PendingOrdersPage workflows", () => {
     );
 
     await user.click(await screen.findByText("PO-DATED"));
-    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+    const pendingOrderLine = document.querySelector('[data-po-item-row="41"]');
+    await user.click(within(pendingOrderLine).getByRole("button", { name: /^edit$/i }));
     await user.click(screen.getByRole("button", { name: /save sourcing item/i }));
 
     await waitFor(() => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ROLE_PERMISSIONS } from "../../constants/permissions.js";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
@@ -35,6 +35,7 @@ export default function PendingOrdersPage({
   const [showConvertAllModal, setShowConvertAllModal] = useState(null);
   const [showAddPOItemsModal, setShowAddPOItemsModal] = useState(null);
   const [showEditPOItemModal, setShowEditPOItemModal] = useState(null);
+  const [inlineEditEnabled, setInlineEditEnabled] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [deletePurchaseOrderDocumentTarget, setDeletePurchaseOrderDocumentTarget] = useState(null);
   const [deleteQuoteTarget, setDeleteQuoteTarget] = useState(null);
@@ -206,6 +207,16 @@ export default function PendingOrdersPage({
     ? `This is the last line on ${pendingOrderLabel(deletePOItemTarget?.order)}. Deleting "${deletePOItemLabel}" will cancel the pending order and move it to history. Attached PO documents and sourcing quote context will be kept for reference.`
     : `Delete "${deletePOItemLabel}" from this pending order?`;
 
+  const handleInlinePendingOrderSave = useCallback(async (orderId, fieldKey, value) => {
+    const saved = await handleUpdatePendingOrder(orderId, { [fieldKey]: value });
+    return { ok: Boolean(saved), error: saved ? null : "Save failed" };
+  }, [handleUpdatePendingOrder]);
+
+  const handleInlinePOItemSave = useCallback(async (orderId, itemId, fieldKey, value) => {
+    const saved = await handleUpdatePOItem(orderId, itemId, { [fieldKey]: value });
+    return { ok: Boolean(saved), error: saved ? null : "Save failed" };
+  }, [handleUpdatePOItem]);
+
   return (
     <>
       <div className="page-header">
@@ -285,6 +296,10 @@ export default function PendingOrdersPage({
             onRefetch={refetch}
             onExportCsv={handleExportPendingOrdersCsv}
             onRowToggle={setExpandedPendingOrderId}
+            inlineEditEnabled={inlineEditEnabled}
+            onToggleInlineEdit={() => setInlineEditEnabled((enabled) => !enabled)}
+            onInlineOrderFieldSave={handleInlinePendingOrderSave}
+            onInlineItemFieldSave={handleInlinePOItemSave}
             perms={perms}
             search={search}
             setSearch={setSearch}

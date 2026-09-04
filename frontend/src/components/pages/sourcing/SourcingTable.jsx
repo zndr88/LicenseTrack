@@ -119,7 +119,7 @@ function SourcingItemsRow({
                   key={si.id}
                   data-sourcing-row={si.id}
                   className={canInlineEdit ? "sourcing-row-inline-edit" : undefined}
-                  style={highlightedRowId === si.id ? { background: "var(--accent-m)", transition: "background 0.3s" } : { background: "var(--bg-2)" }}
+                  style={highlightedRowId === si.id ? { backgroundColor: "var(--accent-m)", transition: "background 0.3s" } : { backgroundColor: "var(--bg-2)" }}
                 >
                   <td style={{ paddingLeft: 40, textAlign: "center", verticalAlign: "middle" }}>
                     {!readOnly && isOpenSourcingItem(si) && si.isRenewal ? (
