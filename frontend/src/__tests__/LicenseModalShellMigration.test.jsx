@@ -135,15 +135,13 @@ describe("license modal shell migration", () => {
     expect(screen.getByDisplayValue("Acme")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Acme Suite")).toBeInTheDocument();
     expect(screen.getByDisplayValue("INV-1")).toBeInTheDocument();
-    const documentType = screen.getByLabelText("Document Type");
-    expect(documentType).toBeInTheDocument();
-    expect(Array.from(documentType.options).map((option) => option.textContent)).toEqual([
-      "Invoice", "Quote", "Purchase Order", "EULA", "Entitlement / License Key",
-    ]);
-    expect(screen.getByRole("button", { name: /document attachment scope: procurement documents are shared/i })).toBeInTheDocument();
-    await user.selectOptions(documentType, "eula");
-    expect(screen.getByRole("button", { name: /eula documents attach only to the first license/i })).toBeInTheDocument();
-    await user.selectOptions(documentType, "invoice");
+    expect(screen.queryByLabelText("Upload Invoice Document")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Documents/ }));
+    expect(screen.getByLabelText("Upload Invoice Document")).toBeInTheDocument();
+    expect(screen.getByLabelText("Upload Quote Document")).toBeInTheDocument();
+    expect(screen.getByLabelText("Upload Purchase Order Document")).toBeInTheDocument();
+    expect(screen.getByLabelText("Upload EULA Document")).toBeInTheDocument();
+    expect(screen.getByLabelText("Upload Entitlement / License Key Document")).toBeInTheDocument();
     const sections = ["Identity", "Key Dates & Contract", "Details", "Relationships", "Notes"]
       .map((name) => screen.getByRole("region", { name }));
     expect(screen.getByRole("complementary", { name: "Document workspace" })).toBeInTheDocument();
@@ -155,17 +153,14 @@ describe("license modal shell migration", () => {
     await user.type(screen.getByLabelText(/budget owner email/i), "owner@example.com");
     await user.click(screen.getByRole("button", { name: /save license/i }));
 
-    // onConfirm is called as (allForms, attachedFile, category); allForms is an
-    // array of license rows (multi-line support), so assert against the first row.
-    const [allForms, attachedFile, category] = onConfirm.mock.calls[0];
+    const [allForms, attachments] = onConfirm.mock.calls[0];
     expect(allForms[0]).toEqual(expect.objectContaining({
       publisherName: "Acme",
       softwareDescription: "Acme Suite",
       invoiceNumber: "INV-1",
       budgetOwnerEmail: "owner@example.com",
     }));
-    expect(attachedFile).toBeNull();
-    expect(category).toBe("invoice");
+    expect(attachments).toBeNull();
   });
 
   test("InvoiceConfirmModal previews an attached document", async () => {
@@ -182,6 +177,7 @@ describe("license modal shell migration", () => {
           onCancel={vi.fn()}
         />
       );
+      fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
       const file = new File(["%PDF-1.7"], "manual-invoice.pdf", { type: "application/pdf" });
       fireEvent.change(screen.getByLabelText(/upload invoice document/i), { target: { files: [file] } });
       expect(await screen.findByTitle("Preview of manual-invoice.pdf")).not.toHaveAttribute("sandbox");
@@ -189,6 +185,48 @@ describe("license modal shell migration", () => {
       URL.createObjectURL = originalCreateObjectURL;
       URL.revokeObjectURL = originalRevokeObjectURL;
     }
+  });
+
+  test("manual multi-line creation targets license-specific documents per file", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(
+      <InvoiceConfirmModal
+        data={{
+          publisherName: "Acme",
+          softwareDescription: "Primary Suite",
+          licenseType: "subscription",
+          licenseMetric: "per_user",
+          fileName: "manual-entry",
+          strategyUsed: "manual",
+        }}
+        userSettings={userSettings}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /add additional license line/i }));
+    await user.type(screen.getAllByLabelText(/software description/i)[1], "Secondary Suite");
+    await user.click(screen.getByRole("button", { name: /Documents/ }));
+    const eula = new File(["terms"], "eula.txt", { type: "text/plain" });
+    await user.upload(screen.getByLabelText("Upload EULA Document"), eula);
+    const target = screen.getByLabelText("Attach eula.txt to license");
+    expect(Array.from(target.options).map((option) => option.textContent)).toEqual([
+      "Acme — Primary Suite",
+      "Acme — Secondary Suite",
+    ]);
+    await user.selectOptions(target, target.options[1].value);
+    await user.click(screen.getByRole("button", { name: /save 2 licenses/i }));
+
+    const [forms, attachments] = onConfirm.mock.calls[0];
+    expect(attachments).toEqual([
+      expect.objectContaining({
+        file: eula,
+        category: "eula",
+        targetKey: forms[1]._documentTargetKey,
+      }),
+    ]);
   });
 
   test("additional perpetual lines can add their own linked maintenance companion", async () => {
@@ -253,8 +291,6 @@ describe("license modal shell migration", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /add additional license line/i }));
-    expect(screen.getByRole("button", { name: /shared with every license created in this batch \(2 licenses\)/i })).toBeInTheDocument();
-
     const additionalUnitPrice = screen.getAllByLabelText(/^unit price$/i)[1];
     const additionalTotalPrice = screen.getAllByLabelText(/^total po price$/i)[1];
     expect(additionalUnitPrice).toHaveAttribute("placeholder", "0,00");

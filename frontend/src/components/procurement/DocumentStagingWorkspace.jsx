@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "../ui/Icon.jsx";
 import DocumentPreviewPanel from "../ui/DocumentPreviewPanel.jsx";
 import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
+import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import { formatFileSize } from "../../utils/formatting.js";
 import {
   DOCUMENT_CATEGORIES,
@@ -16,7 +17,7 @@ const isPdf = (document) => {
   return mimeType === "application/pdf" || filenameFor(document).toLowerCase().endsWith(".pdf");
 };
 
-export default function ConversionDocumentsWorkspace({
+export default function DocumentStagingWorkspace({
   attachments,
   documents = [],
   inputIdPrefix,
@@ -26,6 +27,7 @@ export default function ConversionDocumentsWorkspace({
   previewDocument,
   targetOptions = [],
   userSettings,
+  defaultOpen = false,
 }) {
   const [localPreviewId, setLocalPreviewId] = useState(null);
   const [storedPreview, setStoredPreview] = useState(null);
@@ -84,16 +86,18 @@ export default function ConversionDocumentsWorkspace({
   const localPreview = attachments.find((attachment) => attachment.id === localPreviewId);
 
   return (
-    <aside className="procurement-document-workspace conversion-documents-workspace" aria-label="Document workspace">
-      <div className="procurement-document-workspace-header">
-        <Icon name="upload" size={14} color="var(--text-2)" />
-        <h3>Documents</h3>
-      </div>
-      <p className="conversion-documents-intro">
-        Add everything available now. Purchase documents are shared across the order; license documents stay with one created license.
-      </p>
+    <aside className="procurement-document-workspace document-staging-workspace" aria-label="Document workspace">
+      <LicenseFormSection
+        title={attachments.length ? `Documents · ${attachments.length} ready` : "Documents"}
+        icon="upload"
+        defaultOpen={defaultOpen}
+        className="document-staging-section"
+      >
+        <p className="document-staging-intro">
+          Add everything available now. Purchase documents are shared across the batch; license documents stay with one created license.
+        </p>
 
-      <div className="dp-docs">
+        <div className="dp-docs">
         {DOCUMENT_CATEGORIES.map((category) => {
           const staged = attachments.filter((attachment) => attachment.category === category.key);
           const existing = documents.filter((document) => categoryFor(document) === category.key);
@@ -102,7 +106,7 @@ export default function ConversionDocumentsWorkspace({
           const inputId = `${inputIdPrefix}-${category.key}`;
 
           return (
-            <section key={category.key} className="doc-cat conversion-doc-category">
+            <section key={category.key} className="doc-cat document-staging-category">
               <div className="doc-cat-hd">
                 <h5>
                   <Icon name={category.icon} size={13} color={category.color} />
@@ -117,7 +121,7 @@ export default function ConversionDocumentsWorkspace({
                     {count}
                   </span>
                 </h5>
-                <span className="conversion-document-scope">{shared ? "Shared across PO" : "One license"}</span>
+                <span className="document-staging-scope">{shared ? "Shared across PO" : "One license"}</span>
               </div>
 
               {existing.map((document) => (
@@ -140,7 +144,7 @@ export default function ConversionDocumentsWorkspace({
               ))}
 
               {staged.map((attachment) => (
-                <div key={attachment.id} className="doc-file conversion-staged-document">
+                <div key={attachment.id} className="doc-file document-staging-file">
                   <div className="doc-file-icon" style={{ background: "var(--bg-3)" }}>
                     <Icon name="file" size={15} color={documentFileIconColor(attachment.file.name)} />
                   </div>
@@ -148,13 +152,13 @@ export default function ConversionDocumentsWorkspace({
                     <div className="doc-file-name">{attachment.file.name}</div>
                     <div className="doc-file-meta">{formatFileSize(attachment.file.size, userSettings)} · Ready to upload</div>
                     {!shared && targetOptions.length > 1 && (
-                      <label className="conversion-document-target">
+                      <label className="document-staging-target">
                         <span>Attach to license</span>
                         <select
                           className="fi fi-select"
                           aria-label={`Attach ${attachment.file.name} to license`}
-                          value={String(attachment.targetSourcingItemId ?? targetOptions[0]?.value ?? "")}
-                          onChange={(event) => onTargetChange(attachment.id, Number(event.target.value))}
+                          value={String(attachment.targetKey ?? targetOptions[0]?.value ?? "")}
+                          onChange={(event) => onTargetChange(attachment.id, event.target.value)}
                         >
                           {targetOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
@@ -187,7 +191,7 @@ export default function ConversionDocumentsWorkspace({
               </label>
               <input
                 id={inputId}
-                className="conversion-document-input"
+                className="document-staging-input"
                 type="file"
                 multiple
                 aria-label={`Upload ${category.shortLabel} Document`}
@@ -200,30 +204,31 @@ export default function ConversionDocumentsWorkspace({
             </section>
           );
         })}
-      </div>
+        </div>
 
-      {localPreview && (
-        <LocalDocumentPreviewPanel
-          ariaLabel={`Attached ${localPreview.file.name} preview`}
-          file={localPreview.file}
-          label="Staged Document Preview"
-          onClose={() => setLocalPreviewId(null)}
-        />
-      )}
-      {storedPreview && (
-        <DocumentPreviewPanel
-          ariaLabel={`${filenameFor(storedPreview.document)} preview`}
-          className="document-assisted-preview"
-          expanded={expanded}
-          filename={filenameFor(storedPreview.document)}
-          kind={storedPreview.error ? null : "pdf"}
-          label="Attached Document Preview"
-          loading={storedPreview.loading}
-          onClose={clearStoredPreview}
-          onToggleExpanded={() => setExpanded((value) => !value)}
-          url={storedPreview.url}
-        />
-      )}
+        {localPreview && (
+          <LocalDocumentPreviewPanel
+            ariaLabel={`Attached ${localPreview.file.name} preview`}
+            file={localPreview.file}
+            label="Staged Document Preview"
+            onClose={() => setLocalPreviewId(null)}
+          />
+        )}
+        {storedPreview && (
+          <DocumentPreviewPanel
+            ariaLabel={`${filenameFor(storedPreview.document)} preview`}
+            className="document-assisted-preview"
+            expanded={expanded}
+            filename={filenameFor(storedPreview.document)}
+            kind={storedPreview.error ? null : "pdf"}
+            label="Attached Document Preview"
+            loading={storedPreview.loading}
+            onClose={clearStoredPreview}
+            onToggleExpanded={() => setExpanded((value) => !value)}
+            url={storedPreview.url}
+          />
+        )}
+      </LicenseFormSection>
     </aside>
   );
 }

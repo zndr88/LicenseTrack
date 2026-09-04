@@ -359,6 +359,7 @@ describe("ConvertPendingOrderModal", () => {
     URL.revokeObjectURL = vi.fn();
     try {
       renderModal();
+      fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
       const file = new File(["%PDF-1.7"], "invoice.pdf", { type: "application/pdf" });
       fireEvent.change(screen.getByLabelText(/invoice document/i), { target: { files: [file] } });
       expect(await screen.findByTitle("Preview of invoice.pdf")).not.toHaveAttribute("sandbox");
@@ -371,6 +372,8 @@ describe("ConvertPendingOrderModal", () => {
   test("offers dedicated document categories and stages multiple files during single conversion", async () => {
     const user = userEvent.setup();
     const { onConfirm } = renderModal();
+    expect(screen.queryByLabelText("Upload Invoice Document")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Documents/ }));
     expect(screen.getByLabelText("Upload Invoice Document")).toBeInTheDocument();
     expect(screen.getByLabelText("Upload Quote Document")).toBeInTheDocument();
     expect(screen.getByLabelText("Upload Purchase Order Document")).toBeInTheDocument();
@@ -732,6 +735,7 @@ describe("ConvertAllModal", () => {
     URL.revokeObjectURL = vi.fn();
     try {
       renderModal();
+      fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
       const file = new File(["%PDF-1.7"], "batch-invoice.pdf", { type: "application/pdf" });
       fireEvent.change(screen.getByLabelText(/invoice document/i), { target: { files: [file] } });
       expect(await screen.findByTitle("Preview of batch-invoice.pdf")).not.toHaveAttribute("sandbox");
@@ -745,6 +749,7 @@ describe("ConvertAllModal", () => {
     const user = userEvent.setup();
     const { onConfirm } = renderModal({ order: MULTI_ORDER, licenses: RENEWAL_LICENSES });
 
+    await user.click(screen.getByRole("button", { name: /Documents/ }));
     const file = new File(["terms"], "eula.txt", { type: "text/plain" });
     await user.upload(screen.getByLabelText("Upload EULA Document"), file);
     const target = screen.getByLabelText("Attach eula.txt to license");
@@ -946,6 +951,7 @@ describe("ConvertAllModal", () => {
     const invoice = new File(["invoice"], "invoice.pdf", { type: "application/pdf" });
     const { onConfirm } = renderModal();
 
+    await user.click(screen.getByRole("button", { name: /Documents/ }));
     await user.upload(screen.getByLabelText(/invoice document/i), invoice);
     fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: "2026-01-01" } });
     fireEvent.change(screen.getByLabelText(/^end date/i), { target: { value: "2026-12-31" } });

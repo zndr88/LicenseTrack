@@ -26,8 +26,8 @@ import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/c
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { FULL_LICENSE_FORM_VISIBILITY } from "../../utils/licenseFormVisibility.js";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
-import ConversionDocumentsWorkspace from "./ConversionDocumentsWorkspace.jsx";
-import { useConversionAttachments } from "./useConversionAttachments.js";
+import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
+import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
 
 const APPLYABLE_PLUGIN_FIELDS = new Set([
   "publisherName",
@@ -90,7 +90,7 @@ const ConvertPendingOrderModal = ({
     removeAttachment,
     changeTarget: changeAttachmentTarget,
     clearAttachments,
-  } = useConversionAttachments(order?.items?.[0]?.id);
+  } = useStagedDocumentAttachments(order?.items?.[0]?.id);
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
   const [displayUnitPrice, setDisplayUnitPrice] = useState(
     formatPriceInput(prefill.unitPrice || "", locale)
@@ -244,7 +244,11 @@ const ConvertPendingOrderModal = ({
           userSettings,
         ),
       }, userSettings);
-      const confirmed = await onConfirm(licenseData, attachments.length ? attachments : null);
+      const normalizedAttachments = attachments.map(({ targetKey, ...attachment }) => ({
+        ...attachment,
+        ...(targetKey ? { targetSourcingItemId: Number(targetKey) } : {}),
+      }));
+      const confirmed = await onConfirm(licenseData, normalizedAttachments.length ? normalizedAttachments : null);
       if (confirmed) {
         reset();
         clearAttachments();
@@ -523,7 +527,7 @@ const ConvertPendingOrderModal = ({
           {hasCatchallCustomFields && <LicenseFormSection title="Custom Fields"><CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="__catchall__" /></LicenseFormSection>}
           </div>
         </div>
-          <ConversionDocumentsWorkspace
+          <DocumentStagingWorkspace
             attachments={attachments}
             documents={order?.documents ?? []}
             inputIdPrefix="cpo-attachment"

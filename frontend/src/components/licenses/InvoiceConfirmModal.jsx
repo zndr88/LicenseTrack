@@ -21,12 +21,8 @@ import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
 import { FULL_LICENSE_FORM_VISIBILITY } from "../../utils/licenseFormVisibility.js";
 import LicenseFormSection from "./LicenseFormSection.jsx";
-import ProcurementDocumentWorkspace from "../procurement/ProcurementDocumentWorkspace.jsx";
-import DocumentAttachmentControls from "../procurement/DocumentAttachmentControls.jsx";
-import {
-  documentCategoryLabel,
-  isProcurementDocumentCategory,
-} from "../../utils/documentCategories.js";
+import DocumentStagingWorkspace from "../procurement/DocumentStagingWorkspace.jsx";
+import { useStagedDocumentAttachments } from "../procurement/useStagedDocumentAttachments.js";
 
 const PRIMARY_LINE_ID = "primary";
 
@@ -73,9 +69,13 @@ const formatLocalizedPriceInput = (value, userSettings) => {
 
 const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
-  const [attachedFile, setAttachedFile] = useState(null);
-  const [attachedFileCategory, setAttachedFileCategory] = useState("invoice");
-  const [attachedFileBase64, setAttachedFileBase64] = useState(null);
+  const {
+    attachments,
+    addFiles: addAttachmentFiles,
+    removeAttachment,
+    changeTarget: changeAttachmentTarget,
+  } = useStagedDocumentAttachments(PRIMARY_LINE_ID);
+  const [pluginAttachment, setPluginAttachment] = useState(null);
   const [documentActionsAvailable, setDocumentActionsAvailable] = useState(false);
   const [additionalLines, setAdditionalLines] = useState([]);
   const [formTouched, setFormTouched] = useState(false);
@@ -84,12 +84,22 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
   const submitLockRef = useRef(false);
 
-  const handleFileChange = (file) => {
-    setAttachedFile(file);
-    if (!file) { setAttachedFileBase64(null); return; }
+  const handleAttachmentFiles = (category, files) => {
+    addAttachmentFiles(category, files);
+    const file = files.at(-1);
+    if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => setAttachedFileBase64(reader.result.split(",")[1] ?? null);
+    reader.onload = () => setPluginAttachment({
+      file,
+      base64: reader.result.split(",")[1] ?? null,
+    });
     reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAttachment = (id) => {
+    const removed = attachments.find((attachment) => attachment.id === id);
+    if (removed?.file === pluginAttachment?.file) setPluginAttachment(null);
+    removeAttachment(id);
   };
 
   const [form, setForm] = useState({
@@ -169,13 +179,28 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     });
   };
   const removeMaintenanceCompanion = (parentLineId) => {
+    const removedIds = new Set(additionalLines
+      .filter((line) => line.isMaintenanceCompanion && line.parentLineId === parentLineId)
+      .map((line) => line.id));
+    attachments
+      .filter((attachment) => removedIds.has(attachment.targetKey))
+      .forEach((attachment) => changeAttachmentTarget(attachment.id, PRIMARY_LINE_ID));
     setAdditionalLines((prev) => prev.filter(
       (line) => !(line.isMaintenanceCompanion && line.parentLineId === parentLineId)
     ));
   };
-  const removeLine = (id) => setAdditionalLines((prev) => prev.filter(
-    (line) => line.id !== id && line.parentLineId !== id
-  ));
+  const removeLine = (id) => {
+    const removedIds = new Set([
+      id,
+      ...additionalLines.filter((line) => line.parentLineId === id).map((line) => line.id),
+    ]);
+    attachments
+      .filter((attachment) => removedIds.has(attachment.targetKey))
+      .forEach((attachment) => changeAttachmentTarget(attachment.id, PRIMARY_LINE_ID));
+    setAdditionalLines((prev) => prev.filter(
+      (line) => line.id !== id && line.parentLineId !== id
+    ));
+  };
   const updateLine = (id, field, value) =>
     setAdditionalLines((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
   const updatePrimaryMaintenance = (field, value) => {
@@ -191,7 +216,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     }
   };
 
-  const isDirty = formTouched || additionalLines.length > 0 || !!attachedFile;
+  const isDirty = formTouched || additionalLines.length > 0 || attachments.length > 0;
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose: onCancel });
 
   const handleSave = async () => {
@@ -213,6 +238,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     const allForms = [
       {
         ...form,
+        _documentTargetKey: PRIMARY_LINE_ID,
         unitPrice: isFreewareLicenseType(form.licenseType) ? "" : form.unitPrice,
         totalPoPrice: isFreewareLicenseType(form.licenseType) ? "" : form.totalPoPrice,
         quantityPerUnit: normalizeLocalizedValue(form.quantityPerUnit, userSettings) || "1",
@@ -224,6 +250,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
       },
       ...additionalLines.map((line) => ({
         ...sharedFields,
+        _documentTargetKey: line.id,
         softwareDescription: line.softwareDescription,
         licenseType: line.licenseType,
         licenseMetric: line.licenseMetric,
@@ -261,7 +288,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     submitLockRef.current = true;
     setIsSubmitting(true);
     try {
-      const completed = await onConfirm(allForms, attachedFile, attachedFileCategory);
+      const completed = await onConfirm(allForms, attachments.length ? attachments : null);
       if (completed === false) {
         submitLockRef.current = false;
         setIsSubmitting(false);
@@ -273,10 +300,16 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   };
 
   const lineCount = 1 + additionalLines.length;
-  const attachedDocumentType = documentCategoryLabel(attachedFileCategory);
-  const attachmentScopeHelp = isProcurementDocumentCategory(attachedFileCategory)
-    ? `Procurement documents are shared with every license created in this batch${lineCount > 1 ? ` (${lineCount} licenses)` : ""}.`
-    : `${attachedDocumentType} documents attach only to the first license in this batch.`;
+  const attachmentTargetOptions = [
+    {
+      value: PRIMARY_LINE_ID,
+      label: `${form.publisherName || "License 1"} — ${form.softwareDescription || "Untitled license"}`,
+    },
+    ...additionalLines.map((line, index) => ({
+      value: line.id,
+      label: `${form.publisherName || `License ${index + 2}`} — ${line.softwareDescription || "Untitled license"}`,
+    })),
+  ];
   const hasCatchallCustomFields = customFieldDefs.some(
     (definition) => !definition.section || definition.section === "__catchall__"
   );
@@ -332,10 +365,10 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 documentIds: data.documentIds || [],
                 stagedFileToken: data.stagedFileToken,
                 detectedDocumentCategory: data.detectedDocumentCategory,
-                ...(attachedFileBase64 ? {
-                  fileContentBase64: attachedFileBase64,
-                  fileName: attachedFile?.name,
-                  contentType: attachedFile?.type || "application/pdf",
+                ...(pluginAttachment?.base64 ? {
+                  fileContentBase64: pluginAttachment.base64,
+                  fileName: pluginAttachment.file.name,
+                  contentType: pluginAttachment.file.type || "application/pdf",
                 } : {}),
               }}
               onActionsLoaded={(count) => setDocumentActionsAvailable(count > 0)}
@@ -652,19 +685,15 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           </button>
         </div>
         </div>
-          <ProcurementDocumentWorkspace
-            file={attachedFile}
-            inputId="inv-attach-file"
-            label={`${attachedDocumentType} Document`}
-            onFileChange={handleFileChange}
-          >
-            <DocumentAttachmentControls
-              category={attachedFileCategory}
-              idPrefix="inv-attach"
-              onCategoryChange={setAttachedFileCategory}
-              scopeHelp={attachmentScopeHelp}
-            />
-          </ProcurementDocumentWorkspace>
+          <DocumentStagingWorkspace
+            attachments={attachments}
+            inputIdPrefix="inv-attach"
+            onAddFiles={handleAttachmentFiles}
+            onRemoveAttachment={handleRemoveAttachment}
+            onTargetChange={changeAttachmentTarget}
+            targetOptions={attachmentTargetOptions}
+            userSettings={userSettings}
+          />
         </div>
     </ModalShell>
     {showDiscardDialog && (

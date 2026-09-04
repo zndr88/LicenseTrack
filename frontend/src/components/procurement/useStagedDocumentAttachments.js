@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { isProcurementDocumentCategory } from "../../utils/documentCategories.js";
 
-export function useConversionAttachments(defaultTargetSourcingItemId = null) {
+export function useStagedDocumentAttachments(defaultTargetKey = null) {
   const [attachments, setAttachments] = useState([]);
   const nextId = useRef(1);
 
@@ -13,20 +13,20 @@ export function useConversionAttachments(defaultTargetSourcingItemId = null) {
         id: `conversion-document-${nextId.current++}`,
         file,
         category,
-        ...(!isProcurementDocumentCategory(category) && defaultTargetSourcingItemId != null
-          ? { targetSourcingItemId: Number(defaultTargetSourcingItemId) }
+        ...(!isProcurementDocumentCategory(category) && defaultTargetKey != null
+          ? { targetKey: String(defaultTargetKey) }
           : {}),
       })),
     ]);
-  }, [defaultTargetSourcingItemId]);
+  }, [defaultTargetKey]);
 
   const removeAttachment = useCallback((id) => {
     setAttachments((current) => current.filter((attachment) => attachment.id !== id));
   }, []);
 
-  const changeTarget = useCallback((id, targetSourcingItemId) => {
+  const changeTarget = useCallback((id, targetKey) => {
     setAttachments((current) => current.map((attachment) => (
-      attachment.id === id ? { ...attachment, targetSourcingItemId } : attachment
+      attachment.id === id ? { ...attachment, targetKey: String(targetKey) } : attachment
     )));
   }, []);
 

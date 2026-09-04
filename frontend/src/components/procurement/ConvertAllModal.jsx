@@ -17,8 +17,8 @@ import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
-import ConversionDocumentsWorkspace from "./ConversionDocumentsWorkspace.jsx";
-import { useConversionAttachments } from "./useConversionAttachments.js";
+import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
+import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
 
 const formSchema = z.object({ items: z.array(licenseFormSchema) });
 
@@ -64,7 +64,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
     removeAttachment,
     changeTarget: changeAttachmentTarget,
     clearAttachments,
-  } = useConversionAttachments(unconvertedItems[0]?.id);
+  } = useStagedDocumentAttachments(unconvertedItems[0]?.id);
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
     isDirty: isDirty || attachments.length > 0,
     onClose: onCancel,
@@ -105,7 +105,11 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
         ...(item.licenseType === "maintenance" && item.parentSourcingItemId ? { parentSourcingItemId: parseInt(item.parentSourcingItemId, 10) } : {}),
       };
     });
-    const ok = await onConfirm(order.id, payload, attachments.length ? attachments : null);
+    const normalizedAttachments = attachments.map(({ targetKey, ...attachment }) => ({
+      ...attachment,
+      ...(targetKey ? { targetSourcingItemId: Number(targetKey) } : {}),
+    }));
+    const ok = await onConfirm(order.id, payload, normalizedAttachments.length ? normalizedAttachments : null);
     if (!ok) setSaving(false);
     else {
       reset();
@@ -218,7 +222,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
             />
           ))}
         </div>
-          <ConversionDocumentsWorkspace
+          <DocumentStagingWorkspace
             attachments={attachments}
             documents={order?.documents ?? []}
             inputIdPrefix="convert-all-attachment"

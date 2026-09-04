@@ -152,7 +152,7 @@ describe("useLicenseCreation", () => {
     expect(uploadDocument).toHaveBeenCalledWith(41, file, "invoice");
     expect(setSelectedId).toHaveBeenCalledWith(41);
     expect(showError).toHaveBeenCalledWith(expect.stringContaining(
-      "Licenses saved, but document upload failed: Storage unavailable."
+      "Licenses saved, but document upload failed: invoice.pdf: Storage unavailable."
     ));
     expect(setConfirmData).toHaveBeenCalledWith(null);
     expect(setPage).toHaveBeenCalledWith("licenses");
@@ -163,5 +163,28 @@ describe("useLicenseCreation", () => {
       queryKeys.reportsDetailed,
       queryKeys.notifications,
     ]);
+  });
+
+  test("uploads multiple staged documents to their selected created licenses", async () => {
+    createLicenseBatch.mockResolvedValueOnce({ data: [{ id: 41 }, { id: 42 }], error: null });
+    const { result } = renderCreation();
+    const invoice = new File(["invoice"], "invoice.pdf", { type: "application/pdf" });
+    const entitlement = new File(["key"], "key.txt", { type: "text/plain" });
+
+    await act(async () => {
+      await result.current(
+        [
+          makeForm({ _documentTargetKey: "primary" }),
+          makeForm({ _documentTargetKey: "secondary" }),
+        ],
+        [
+          { file: invoice, category: "invoice" },
+          { file: entitlement, category: "entitlement", targetKey: "secondary" },
+        ],
+      );
+    });
+
+    expect(uploadDocument).toHaveBeenNthCalledWith(1, 41, invoice, "invoice");
+    expect(uploadDocument).toHaveBeenNthCalledWith(2, 42, entitlement, "entitlement");
   });
 });

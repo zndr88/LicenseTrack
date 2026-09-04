@@ -4,6 +4,7 @@ import { createLicenseBatch } from "../api/licenses.js";
 import { uploadDocument } from "../api/documents.js";
 import { queryKeys } from "../queryKeys.js";
 import { invalidateNotifications, invalidatePortfolioState } from "../queryInvalidation.js";
+import { isProcurementDocumentCategory } from "../utils/documentCategories.js";
 
 function buildLicensePayload(form) {
   return {
@@ -55,8 +56,13 @@ export function useLicenseCreation({
 }) {
   const queryClient = useQueryClient();
 
-  return useCallback(async (forms, attachedFile, attachedFileCategory) => {
+  return useCallback(async (forms, attachmentInput, legacyCategory = "invoice") => {
     const formList = Array.isArray(forms) ? forms : [forms];
+    const attachments = !attachmentInput
+      ? []
+      : (Array.isArray(attachmentInput)
+        ? attachmentInput
+        : [{ file: attachmentInput, category: legacyCategory }]);
     const items = formList.map((form) => {
       const hasBatchParent = Number.isInteger(form.parentLineIndex);
       return {
@@ -73,16 +79,27 @@ export function useLicenseCreation({
       return false;
     }
 
-    const firstCreatedId = created[0]?.id ?? null;
-    if (attachedFile && firstCreatedId) {
-      const { error: docError } = await uploadDocument(firstCreatedId, attachedFile, attachedFileCategory);
+    let documentUploadError = null;
+    let documentErrorTargetId = created[0]?.id ?? null;
+    for (const attachment of attachments) {
+      const targetIndex = isProcurementDocumentCategory(attachment.category)
+        ? 0
+        : Math.max(0, formList.findIndex((form) => String(form._documentTargetKey) === String(attachment.targetKey)));
+      const targetId = created[targetIndex]?.id ?? created[0]?.id ?? null;
+      if (!targetId) continue;
+      const { error: docError } = await uploadDocument(targetId, attachment.file, attachment.category);
       if (docError) {
-        setSelectedId(firstCreatedId);
-        showError(
-          `License${formList.length > 1 ? "s" : ""} saved, but document upload failed: ${docError}. `
-          + "Retry the attachment from the first license's Documents section; do not resubmit the licenses."
-        );
+        documentUploadError = `${attachment.file.name}: ${docError}`;
+        documentErrorTargetId = targetId;
+        break;
       }
+    }
+    if (documentUploadError) {
+      setSelectedId(documentErrorTargetId);
+      showError(
+        `License${formList.length > 1 ? "s" : ""} saved, but document upload failed: ${documentUploadError}. `
+        + "Retry the attachment from License Details; do not resubmit the licenses."
+      );
     }
     setConfirmData(null);
     setPage("licenses");

@@ -9,9 +9,9 @@ import {
   invalidatePortfolioState,
 } from "./queryInvalidation.js";
 import LicensesPage from "./components/pages/LicensesPage.jsx";
-import InvoiceConfirmModal from "./components/licenses/InvoiceConfirmModal.jsx";
 import { createManualEntryData } from "./constants/licenseData.js";
 
+const InvoiceConfirmModal = lazy(() => import("./components/licenses/InvoiceConfirmModal.jsx"));
 const RenewalWorkbenchPage = lazy(() => import("./components/pages/RenewalWorkbenchPage.jsx"));
 const SourcingPage = lazy(() => import("./components/pages/SourcingPage.jsx"));
 const PendingOrdersPage = lazy(() => import("./components/pages/PendingOrdersPage.jsx"));
@@ -212,12 +212,14 @@ export default function AppRouter({
       </Suspense>
 
       {confirmData && perms.canUpload && (
-        <InvoiceConfirmModal
-          data={confirmData}
-          userSettings={userSettings}
-          onConfirm={handleConfirm}
-          onCancel={() => setConfirmData(null)}
-        />
+        <Suspense fallback={null}>
+          <InvoiceConfirmModal
+            data={confirmData}
+            userSettings={userSettings}
+            onConfirm={handleConfirm}
+            onCancel={() => setConfirmData(null)}
+          />
+        </Suspense>
       )}
     </>
   );
