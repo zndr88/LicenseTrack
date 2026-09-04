@@ -37,6 +37,10 @@
   color: var(--green);
 }
 
+.sb-portfolio-upcoming-val {
+  color: var(--steel-text);
+}
+
 .sb-portfolio-warn-val {
   color: var(--orange);
 }

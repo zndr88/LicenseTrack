@@ -2,7 +2,7 @@ import React from "react";
 import { APP_VERSION } from "../../version.js";
 import Icon from "../ui/Icon.jsx";
 
-export default function Sidebar({ page, setPage, setSelectedId, currentUser, collapsed, onToggleCollapse, stats = { active: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 } }) {
+export default function Sidebar({ page, setPage, setSelectedId, currentUser, collapsed, onToggleCollapse, stats = { active: 0, upcoming: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 } }) {
   const role = currentUser.role;
 
   const allNavItems = [
@@ -99,6 +99,10 @@ export default function Sidebar({ page, setPage, setSelectedId, currentUser, col
             <div className="sb-portfolio-row">
               <span>Active</span>
               <span className="sb-portfolio-count sb-portfolio-active-val">{stats.active}</span>
+            </div>
+            <div className="sb-portfolio-row">
+              <span>Upcoming</span>
+              <span className="sb-portfolio-count sb-portfolio-upcoming-val">{stats.upcoming}</span>
             </div>
             <div className="sb-portfolio-row">
               <span>Pending</span>

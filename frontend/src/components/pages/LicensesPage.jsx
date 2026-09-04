@@ -192,6 +192,7 @@ export default function LicensesPage({
     if (onStatsChange && stats) {
       onStatsChange({
         active: stats.active ?? 0,
+        upcoming: stats.upcoming ?? 0,
         pending: activePendingCount,
         expiring: stats.expiring ?? 0,
         expired: stats.expired ?? 0,

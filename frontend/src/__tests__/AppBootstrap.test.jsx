@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 vi.mock("../components/layout/Sidebar.jsx", () => ({
-  default: () => <nav aria-label="Sidebar" />,
+  default: ({ stats }) => <nav aria-label="Sidebar" data-upcoming={stats.upcoming} />,
 }));
 
 vi.mock("../components/layout/TopBar.jsx", () => ({
@@ -98,6 +98,7 @@ describe("App bootstrap", () => {
     licensesApi.getStats.mockResolvedValue({
       data: {
         total_active: 5,
+        total_upcoming: 3,
         total_expiring: 1,
         total_expired: 0,
         total_renewed: 2,
@@ -117,6 +118,7 @@ describe("App bootstrap", () => {
       expect(licensesApi.getStats).toHaveBeenCalledTimes(1);
       expect(pendingOrdersApi.getPendingOrders).toHaveBeenCalledTimes(1);
     });
+    expect(screen.getByRole("navigation", { name: "Sidebar" })).toHaveAttribute("data-upcoming", "3");
   });
 
   test("renders login screen after anonymous session probe without loading app data", async () => {

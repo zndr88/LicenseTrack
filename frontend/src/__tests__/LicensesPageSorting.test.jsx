@@ -39,7 +39,7 @@ vi.mock("../hooks/useLicenseData.js", () => ({
       { id: 2, publisherName: "Acme", softwareDescription: "Acme Suite", expiration: { status: "active" }, completeness: { isComplete: true } },
       { id: 1, publisherName: "Zulu", softwareDescription: "Zulu Suite", expiration: { status: "active" }, completeness: { isComplete: true } },
     ],
-    stats: { active: 2, expiring: 0, expired: 0, renewed: 0, legacy: 0 },
+    stats: { active: 2, upcoming: 1, expiring: 0, expired: 0, renewed: 0, legacy: 0 },
     enriched: [],
     paginatedItems: [],
     totalPages: 1,
@@ -110,6 +110,7 @@ describe("LicensesPage sorting handoff", () => {
   });
 
   test("passes sorted rows to the table so virtualized rendering keeps the requested order", () => {
+    const onStatsChange = vi.fn();
     render(
       <LicensesPage
         selectedId={null}
@@ -130,12 +131,13 @@ describe("LicensesPage sorting handoff", () => {
         onNavigateToContract={vi.fn()}
         onCreateContract={vi.fn()}
         onSourcingCreated={vi.fn()}
-        onStatsChange={vi.fn()}
+        onStatsChange={onStatsChange}
         onPortfolioStateChange={vi.fn()}
       />
     );
 
     expect(screen.getByTestId("license-table-order")).toHaveTextContent("Acme|Zulu");
+    expect(onStatsChange).toHaveBeenCalledWith(expect.objectContaining({ upcoming: 1 }));
   });
 
   test("loads the preferred saved view when License Overview opens", async () => {

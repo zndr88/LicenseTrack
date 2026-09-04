@@ -31,6 +31,7 @@ function buildSidebarStats(stats, orders) {
   if (!stats) return null;
   return {
     active: (stats.total_active ?? 0) - (stats.total_expiring ?? 0),
+    upcoming: stats.total_upcoming ?? 0,
     pending: orders.filter((po) => po.status !== "converted").length,
     expiring: stats.total_expiring ?? 0,
     expired: stats.total_expired ?? 0,
@@ -63,7 +64,7 @@ import { useAuth } from "./hooks/useAuth.js";
 import { useLicenseCreation } from "./hooks/useLicenseCreation.js";
 import { useToast } from "./hooks/useToast.js";
 
-const DEFAULT_SIDEBAR_STATS = { active: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 };
+const DEFAULT_SIDEBAR_STATS = { active: 0, upcoming: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 };
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
 export default function App() {
