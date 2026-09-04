@@ -426,12 +426,12 @@ export default function SourcingTable({
             type="button"
             className={`btn btn-g procurement-inline-toggle ${inlineEditEnabled ? "procurement-inline-toggle-active" : ""}`}
             onClick={onToggleInlineEdit}
-            title={inlineEditEnabled ? "Finish inline editing" : "Inline edit sourcing lines"}
-            aria-label={inlineEditEnabled ? "Exit inline edit" : "Inline edit"}
+            title={inlineEditEnabled ? "Finish editing" : "Edit sourcing lines"}
+            aria-label={inlineEditEnabled ? "Done editing" : "Edit"}
             aria-pressed={inlineEditEnabled}
           >
             <Icon name={inlineEditEnabled ? "check" : "edit"} size={13} />
-            {inlineEditEnabled ? "Done Editing" : "Inline Edit"}
+            {inlineEditEnabled ? "Done" : "Edit"}
           </button>
         )}
         <button className="btn btn-g" onClick={onRefetch} title="Refresh sourcing items" style={{ fontSize: 12 }}>

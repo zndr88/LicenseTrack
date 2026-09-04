@@ -1431,7 +1431,7 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={commaSettings} />);
 
     expect(await screen.findByText("Inline Suite")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^inline edit$/i }));
+    await user.click(screen.getByRole("button", { name: /^edit$/i, pressed: false }));
 
     expect(screen.getByRole("combobox", { name: /edit publisher/i })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /edit supplier/i })).toBeInTheDocument();
@@ -1471,7 +1471,7 @@ describe("SourcingPage workflows", () => {
       expect(sourcingApi.updateSourcingItem).toHaveBeenCalledWith(301, { quantity: "4.125" });
     });
 
-    await user.click(screen.getByRole("button", { name: /exit inline edit/i }));
+    await user.click(screen.getByRole("button", { name: /done editing/i, pressed: true }));
     expect(await screen.findByText("Updated Supplier")).toBeInTheDocument();
     expect(await screen.findByText("Updated Inline Suite")).toBeInTheDocument();
     expect(screen.getByText("4,125")).toBeInTheDocument();
@@ -1556,7 +1556,8 @@ describe("SourcingPage workflows", () => {
 
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
     expect(await screen.findByText("Unassigned supplier")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+    const sourcingLine = document.querySelector('[data-sourcing-row="70"]');
+    await user.click(within(sourcingLine).getByRole("button", { name: /^edit$/i }));
     await user.type(screen.getByLabelText(/request supplier/i), "Adobe Direct");
     await user.click(screen.getByRole("button", { name: /save sourcing item/i }));
 
