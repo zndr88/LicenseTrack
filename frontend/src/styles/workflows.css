@@ -17,6 +17,12 @@
 .sourcing-request-edit-line-heading .badge { text-transform: capitalize; }
 .sourcing-request-edit-modal .required-mark { color: var(--red); }
 .sourcing-request-edit-modal .optional-label { color: var(--text-3); font-weight: 400; }
+.procurement-inline-toggle { font-size: 12px; }
+.procurement-inline-toggle-active { border-color: var(--border-strong); background: var(--bg-3); color: var(--text-1); }
+.sourcing-row-inline-edit .lp-editable-td { min-width: 104px; }
+.sourcing-row-inline-edit .sourcing-inline-publisher { min-width: 170px; }
+.sourcing-row-inline-edit .sourcing-inline-description { min-width: 190px; }
+.sourcing-inline-context { margin-top: 3px; color: var(--text-3); font-size: 9px; font-weight: 400; line-height: 1.25; }
 
 /* Pipeline strip */
 .ps-sticky-wrap {

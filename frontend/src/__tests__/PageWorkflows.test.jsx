@@ -1394,6 +1394,71 @@ describe("SourcingPage workflows", () => {
     expect(screen.getByText("First Suite")).toBeInTheDocument();
   });
 
+  test("inline edits common sourcing-line fields without opening the full modal", async () => {
+    const user = userEvent.setup();
+    const commaSettings = { ...userSettings, numberFormatLocale: "de-DE" };
+    let item = {
+      id: 301,
+      publisherName: "Inline Publisher",
+      softwareDescription: "Inline Suite",
+      quantity: "4",
+      estimatedUnitPrice: "25.00",
+      currency: "EUR",
+      status: "sourcing",
+      isRenewal: false,
+    };
+    const request = () => ({
+      id: 30,
+      supplier: "Inline Supplier",
+      contactEmail: null,
+      status: "sourcing",
+      createdAt: "2026-03-01T00:00:00Z",
+      quoteDocuments: [],
+      items: [item],
+    });
+    sourcingApi.getSourcingRequests.mockImplementation(async () => ({ data: [request()], error: null }));
+    sourcingApi.updateSourcingItem.mockImplementation(async (_id, payload) => {
+      item = { ...item, ...payload };
+      return { data: item, error: null };
+    });
+
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={commaSettings} />);
+
+    expect(await screen.findByText("Inline Suite")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^inline edit$/i }));
+
+    expect(screen.getByRole("combobox", { name: /edit publisher/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /edit description/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /edit quantity/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /edit estimated unit price/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /edit currency/i })).toBeInTheDocument();
+
+    const description = screen.getByRole("textbox", { name: /edit description/i });
+    await user.clear(description);
+    await user.type(description, "Updated Inline Suite");
+    await user.tab();
+
+    await waitFor(() => {
+      expect(sourcingApi.updateSourcingItem).toHaveBeenCalledWith(301, {
+        softwareDescription: "Updated Inline Suite",
+      });
+    });
+
+    const quantity = screen.getByRole("textbox", { name: /edit quantity/i });
+    await user.clear(quantity);
+    await user.type(quantity, "4,125");
+    await user.tab();
+
+    await waitFor(() => {
+      expect(sourcingApi.updateSourcingItem).toHaveBeenCalledWith(301, { quantity: "4.125" });
+    });
+
+    await user.click(screen.getByRole("button", { name: /exit inline edit/i }));
+    expect(await screen.findByText("Updated Inline Suite")).toBeInTheDocument();
+    expect(screen.getByText("4,125")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   test("renders renewal sourcing rows when the shared licenses cache is already populated", async () => {
     const queryClient = createTestQueryClient();
     const cachedLicense = license({

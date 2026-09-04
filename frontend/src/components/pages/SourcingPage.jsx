@@ -95,6 +95,7 @@ export default function SourcingPage({
   const [collapsedRequestIds, setCollapsedRequestIds] = useState(() => new Set());
   const [expandedHistoryRequestId, setExpandedHistoryRequestId] = useState(null);
   const [localToast, setLocalToast] = useState(null);
+  const [inlineEditEnabled, setInlineEditEnabled] = useState(false);
   const tableRef = useRef(null);
 
   const showToast = useCallback((msg, type = "success", action = null) => {
@@ -307,6 +308,11 @@ export default function SourcingPage({
     else { setHistorySortCol(null); setHistorySortDir("asc"); }
   };
 
+  const handleInlineFieldSave = useCallback(async (itemId, fieldKey, value) => {
+    const saved = await handleUpdateSourcingItem(itemId, { [fieldKey]: value });
+    return { ok: Boolean(saved), error: saved ? null : "Save failed" };
+  }, [handleUpdateSourcingItem]);
+
   const handleSelectGroup = (groupIds) => {
     setSelectedForMerge(new Set(groupIds));
     const groupSet = new Set(groupIds);
@@ -409,6 +415,9 @@ export default function SourcingPage({
             onNavigateToLicense={onNavigateToLicense}
             onRefetch={refetch}
             onExportCsv={handleExportSourcingCsv}
+            inlineEditEnabled={inlineEditEnabled}
+            onToggleInlineEdit={() => setInlineEditEnabled((enabled) => !enabled)}
+            onInlineFieldSave={handleInlineFieldSave}
           />
         )}
 

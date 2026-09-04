@@ -2,6 +2,8 @@ import React from "react";
 import Icon from "../../ui/Icon.jsx";
 import SearchBox from "../../ui/SearchBox.jsx";
 import RowActionsMenu from "../../ui/RowActionsMenu.jsx";
+import ProcurementInlineEditCell from "../../procurement/ProcurementInlineEditCell.jsx";
+import { CURRENCIES } from "../../../constants/licenseData.js";
 import { formatCost, formatPriceInput } from "../../../utils/helpers.js";
 import { formatDateTime } from "../../../utils/formatting.js";
 import { procurementLineTotal, procurementTotalsByCurrency } from "../../../utils/procurementTotals.js";
@@ -72,6 +74,7 @@ function SourcingItemsRow({
   request,
   licenses,
   locale,
+  userSettings,
   perms,
   readOnly = false,
   highlightedRowId,
@@ -83,6 +86,8 @@ function SourcingItemsRow({
   onEditItem,
   onDeleteItem,
   onAddItem,
+  inlineEditEnabled,
+  onInlineFieldSave,
 }) {
   return (
     <tr>
@@ -104,8 +109,14 @@ function SourcingItemsRow({
             {(request.items ?? []).map((si) => {
               const renewalLicense = si.isRenewal ? licenses.find((l) => l.id === si.renewalForLicenseId) : null;
               const isChecked = selectedForMerge.has(si.id);
+              const canInlineEdit = inlineEditEnabled && !readOnly && isOpenSourcingItem(si) && perms.canEdit;
               return (
-                <tr key={si.id} data-sourcing-row={si.id} style={highlightedRowId === si.id ? { background: "var(--accent-m)", transition: "background 0.3s" } : { background: "var(--bg-2)" }}>
+                <tr
+                  key={si.id}
+                  data-sourcing-row={si.id}
+                  className={canInlineEdit ? "sourcing-row-inline-edit" : undefined}
+                  style={highlightedRowId === si.id ? { background: "var(--accent-m)", transition: "background 0.3s" } : { background: "var(--bg-2)" }}
+                >
                   <td style={{ paddingLeft: 40, textAlign: "center", verticalAlign: "middle" }}>
                     {!readOnly && isOpenSourcingItem(si) && si.isRenewal ? (
                       <input
@@ -118,29 +129,73 @@ function SourcingItemsRow({
                       <input type="checkbox" disabled style={{ opacity: 0.2, width: 14, height: 14 }} />
                     )}
                   </td>
-                  <td style={{ fontWeight: 600 }}>
-                    {si.publisherName}
-                    <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
-                      Sourcing Line ID #{si.id}
-                    </div>
-                    {renewalLicense && (
+                  {canInlineEdit ? (
+                    <ProcurementInlineEditCell
+                      item={si}
+                      fieldKey="publisherName"
+                      label="Publisher"
+                      currentValue={si.publisherName}
+                      required
+                      referenceMode="publisher"
+                      className="sourcing-inline-publisher"
+                      userSettings={userSettings}
+                      onSave={onInlineFieldSave}
+                    >
+                      <div className="sourcing-inline-context">Sourcing Line ID #{si.id}</div>
+                      {renewalLicense && <div className="sourcing-inline-context">Renewing: {renewalLicense.publisherName}</div>}
+                    </ProcurementInlineEditCell>
+                  ) : (
+                    <td style={{ fontWeight: 600 }}>
+                      {si.publisherName}
                       <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
-                        Renewing: {renewalLicense.publisherName}
+                        Sourcing Line ID #{si.id}
                       </div>
-                    )}
-                  </td>
-                  <td>
-                    {si.softwareDescription}
-                    {renewalLicense && (
-                      <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>
-                        {renewalLicense.softwareDescription}
-                      </div>
-                    )}
-                  </td>
-                  <td>{formatQuantity(si.quantity, { numberFormatLocale: locale }) || "-"}</td>
-                  <td>{si.estimatedUnitPrice ? formatPriceInput(si.estimatedUnitPrice, locale) : "-"}</td>
+                      {renewalLicense && (
+                        <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
+                          Renewing: {renewalLicense.publisherName}
+                        </div>
+                      )}
+                    </td>
+                  )}
+                  {canInlineEdit ? (
+                    <ProcurementInlineEditCell
+                      item={si}
+                      fieldKey="softwareDescription"
+                      label="Description"
+                      currentValue={si.softwareDescription}
+                      required
+                      className="sourcing-inline-description"
+                      userSettings={userSettings}
+                      onSave={onInlineFieldSave}
+                    >
+                      {renewalLicense && <div className="sourcing-inline-context">{renewalLicense.softwareDescription}</div>}
+                    </ProcurementInlineEditCell>
+                  ) : (
+                    <td>
+                      {si.softwareDescription}
+                      {renewalLicense && (
+                        <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>
+                          {renewalLicense.softwareDescription}
+                        </div>
+                      )}
+                    </td>
+                  )}
+                  {canInlineEdit ? (
+                    <ProcurementInlineEditCell item={si} fieldKey="quantity" label="Quantity" currentValue={si.quantity} valueType="quantity" userSettings={userSettings} onSave={onInlineFieldSave} />
+                  ) : (
+                    <td>{formatQuantity(si.quantity, { numberFormatLocale: locale }) || "-"}</td>
+                  )}
+                  {canInlineEdit ? (
+                    <ProcurementInlineEditCell item={si} fieldKey="estimatedUnitPrice" label="Estimated unit price" currentValue={si.estimatedUnitPrice} valueType="money" userSettings={userSettings} onSave={onInlineFieldSave} />
+                  ) : (
+                    <td>{si.estimatedUnitPrice ? formatPriceInput(si.estimatedUnitPrice, locale) : "-"}</td>
+                  )}
                   <td>{procurementLineTotal(si) != null ? formatPriceInput(procurementLineTotal(si), locale) : "-"}</td>
-                  <td>{si.currency}</td>
+                  {canInlineEdit ? (
+                    <ProcurementInlineEditCell item={si} fieldKey="currency" label="Currency" currentValue={si.currency} options={CURRENCIES} userSettings={userSettings} onSave={onInlineFieldSave} />
+                  ) : (
+                    <td>{si.currency}</td>
+                  )}
                   <td>
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       {si.isRenewal ? (
@@ -250,6 +305,9 @@ export default function SourcingTable({
   onConvertFreeware,
   onRefetch,
   onExportCsv,
+  inlineEditEnabled = false,
+  onToggleInlineEdit,
+  onInlineFieldSave,
   footer = null,
 }) {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
@@ -358,6 +416,19 @@ export default function SourcingTable({
           </button>
         )}
         <div style={{ flex: 1 }} />
+        {!readOnly && perms.canEdit && (
+          <button
+            type="button"
+            className={`btn btn-g procurement-inline-toggle ${inlineEditEnabled ? "procurement-inline-toggle-active" : ""}`}
+            onClick={onToggleInlineEdit}
+            title={inlineEditEnabled ? "Finish inline editing" : "Inline edit sourcing lines"}
+            aria-label={inlineEditEnabled ? "Exit inline edit" : "Inline edit"}
+            aria-pressed={inlineEditEnabled}
+          >
+            <Icon name={inlineEditEnabled ? "check" : "edit"} size={13} />
+            {inlineEditEnabled ? "Done Editing" : "Inline Edit"}
+          </button>
+        )}
         <button className="btn btn-g" onClick={onRefetch} title="Refresh sourcing items" style={{ fontSize: 12 }}>
           <Icon name="refresh" size={13} />Refresh
         </button>
@@ -509,6 +580,7 @@ export default function SourcingTable({
                       request={request}
                       licenses={licenses}
                       locale={locale}
+                      userSettings={userSettings}
                       perms={perms}
                       readOnly={readOnly}
                       highlightedRowId={highlightedRowId}
@@ -520,6 +592,8 @@ export default function SourcingTable({
                       onEditItem={onEditItem}
                       onDeleteItem={onDeleteItem}
                       onAddItem={onAddItem}
+                      inlineEditEnabled={inlineEditEnabled}
+                      onInlineFieldSave={onInlineFieldSave}
                     />
                   )}
                 </React.Fragment>
