@@ -155,6 +155,33 @@ def test_shared_classification_alerts_at_eighty_percent_completeness():
     assert incomplete["completeness_pct"] == 80
 
 
+def test_shared_classification_suppresses_all_alerts_after_successor_is_secured():
+    today = date(2026, 8, 26)
+    license_obj = License(
+        publisher_name="Vendor",
+        software_description="Covered App",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        end_date=today + timedelta(days=10),
+        notice_date=today + timedelta(days=5),
+        po_number="",
+        renewed_to_id=99,
+        is_retired=False,
+    )
+
+    alerts = classify_license_alerts(
+        license_obj,
+        [],
+        {"poNumber": True},
+        30,
+        30,
+        today=today,
+    )
+
+    assert alerts == []
+
+
 def test_budget_owner_alert_shows_expired_label_for_negative_days():
     entry = _make_license_entry(alert_type="expired", days_until_expiry=-5)
     html = email_templates.budget_owner_alert([entry])

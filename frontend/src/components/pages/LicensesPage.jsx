@@ -3,6 +3,7 @@ import { DEFAULT_STATUS_FILTERS } from "../../constants/licenseData.js";
 import { DEFAULT_DISPLAY_CURRENCY } from "../../constants/currencies.js";
 import { formatCostByCurrency } from "../../utils/helpers.js";
 import { formatNumber } from "../../utils/formatting.js";
+import { getLicenseAttentionItems } from "../../utils/licenseAttention.js";
 import { useLicenseData } from "../../hooks/useLicenseData.js";
 import { useUserSettings } from "../../hooks/useUserSettings.js";
 import Icon from "../ui/Icon.jsx";
@@ -126,9 +127,7 @@ export default function LicensesPage({
   );
 
   const attentionItems = useMemo(
-    () => enriched
-      .filter((l) => (l.expiration.status === "expiring" || l.expiration.status === "expired") && !dismissedAttentionIds.has(l.id))
-      .sort((a, b) => (a.expiration.days ?? 0) - (b.expiration.days ?? 0)),
+    () => getLicenseAttentionItems(enriched, dismissedAttentionIds),
     [enriched, dismissedAttentionIds]
   );
   const attentionLayoutVersion = `${attentionItems.length}:${dismissedAttentionIds.size}:${statsVisible}`;

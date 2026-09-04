@@ -101,6 +101,32 @@ async def test_notifications_exclude_future_start_from_expiration_alerts(
     assert "Future Contract Year" not in expiration_rows
 
 
+async def test_notifications_exclude_predecessor_after_successor_is_secured(
+    db_session, test_app, auth_headers
+):
+    successor = _license(
+        software_description="Secured Successor",
+        start_date=date.today() + timedelta(days=11),
+        end_date=date.today() + timedelta(days=376),
+    )
+    db_session.add(successor)
+    await db_session.flush()
+    predecessor = _license(
+        software_description="Covered Predecessor",
+        end_date=date.today() + timedelta(days=10),
+        notice_date=date.today() + timedelta(days=5),
+        renewed_to_id=successor.id,
+    )
+    db_session.add(predecessor)
+    await db_session.commit()
+
+    response = await test_app.get("/api/notifications", headers=auth_headers)
+
+    assert response.status_code == 200
+    names = {row["software_name"] for row in response.json()}
+    assert "Covered Predecessor" not in names
+
+
 async def test_notifications_respect_notification_day_setting(
     db_session, test_app, auth_headers
 ):

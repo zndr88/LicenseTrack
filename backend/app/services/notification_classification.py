@@ -75,15 +75,19 @@ def classify_license_alerts(
 ) -> list[dict[str, Any]]:
     """Return all eligible alerts for one visible, non-retired license.
 
-    Legacy and renewed records are excluded from every alert category. Upcoming
-    records are excluded from expiry and notice alerts but may still be
-    incomplete. The expiry flag is intentionally a delivery-specific option:
-    in-app callers leave it enabled, while email callers pass the license's
-    renewal-notification setting.
+    Legacy, renewed, and successor-linked records are excluded from every alert
+    category. Upcoming records are excluded from expiry and notice alerts but
+    may still be incomplete. The expiry flag is intentionally a
+    delivery-specific option: in-app callers leave it enabled, while email
+    callers pass the license's renewal-notification setting.
     """
     today = today or date.today()
     lifecycle_status = getattr(license_obj.lifecycle_status, "value", license_obj.lifecycle_status)
-    if license_obj.is_retired or lifecycle_status in {"legacy", "renewed"}:
+    if (
+        license_obj.is_retired
+        or lifecycle_status in {"legacy", "renewed"}
+        or getattr(license_obj, "renewed_to_id", None) is not None
+    ):
         return []
 
     expiration_status = compute_expiration_status(license_obj, today, expiry_window_days)
