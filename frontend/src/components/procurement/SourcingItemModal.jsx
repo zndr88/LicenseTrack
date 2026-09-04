@@ -28,6 +28,9 @@ import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/c
 import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
 import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import { previewSourcingQuoteDocument } from "../../api/sourcing.js";
+import { getProcurementFormVisibility } from "../../utils/procurementFormVisibility.js";
+
+const SOURCING_FIELD_VISIBILITY = getProcurementFormVisibility("sourcing");
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
@@ -575,12 +578,18 @@ const SourcingItemModal = ({
               </div>
               <div className="fr">
                 <div className="fg"><label htmlFor="si-notice-date">Notice Date</label><input id="si-notice-date" type="date" className="fi" {...register("noticeDate")} /></div>
-                <div className="fg"><label htmlFor="si-purchase-date">Purchase Date</label><input id="si-purchase-date" type="date" className="fi" {...register("purchaseDate")} /></div>
+                {SOURCING_FIELD_VISIBILITY.purchaseDate && (
+                  <div className="fg"><label htmlFor="si-purchase-date">Purchase Date</label><input id="si-purchase-date" type="date" className="fi" {...register("purchaseDate")} /></div>
+                )}
               </div>
               <div className="fr">
                 <div className="fg"><label htmlFor="si-contract-number">Contract Number</label><input id="si-contract-number" className="fi" {...register("contractNumber")} /></div>
-                <div className="fg"><label htmlFor="si-invoice-number">Invoice Number</label><input id="si-invoice-number" className="fi" {...register("invoiceNumber")} /></div>
-                <div className="fg"><label htmlFor="si-external-ref">External Reference</label><input id="si-external-ref" className="fi" {...register("externalRef")} /></div>
+                {SOURCING_FIELD_VISIBILITY.invoiceNumber && (
+                  <div className="fg"><label htmlFor="si-invoice-number">Invoice Number</label><input id="si-invoice-number" className="fi" {...register("invoiceNumber")} /></div>
+                )}
+                {SOURCING_FIELD_VISIBILITY.externalRef && (
+                  <div className="fg"><label htmlFor="si-external-ref">External Reference</label><input id="si-external-ref" className="fi" {...register("externalRef")} /></div>
+                )}
               </div>
               <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="dates" />
             </LicenseFormSection>
@@ -804,12 +813,18 @@ const SourcingItemModal = ({
                 {line.licenseType === "saas" && <div className="fg"><label htmlFor={`sourcing-line-${line.id}-portal`}>Portal URL</label><input id={`sourcing-line-${line.id}-portal`} className="fi" value={line.portalUrl} onChange={(event) => updateAdditionalLine(line.id, "portalUrl", event.target.value)} /></div>}
                 <div className="fr">
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-notice`}>Notice Date</label><input id={`sourcing-line-${line.id}-notice`} type="date" className="fi" value={line.noticeDate} onChange={(event) => updateAdditionalLine(line.id, "noticeDate", event.target.value)} /></div>
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-purchase`}>Purchase Date</label><input id={`sourcing-line-${line.id}-purchase`} type="date" className="fi" value={line.purchaseDate} onChange={(event) => updateAdditionalLine(line.id, "purchaseDate", event.target.value)} /></div>
+                  {SOURCING_FIELD_VISIBILITY.purchaseDate && (
+                    <div className="fg"><label htmlFor={`sourcing-line-${line.id}-purchase`}>Purchase Date</label><input id={`sourcing-line-${line.id}-purchase`} type="date" className="fi" value={line.purchaseDate} onChange={(event) => updateAdditionalLine(line.id, "purchaseDate", event.target.value)} /></div>
+                  )}
                 </div>
                 <div className="fr">
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-contract`}>Contract Number</label><input id={`sourcing-line-${line.id}-contract`} className="fi" value={line.contractNumber} onChange={(event) => updateAdditionalLine(line.id, "contractNumber", event.target.value)} /></div>
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-invoice`}>Invoice Number</label><input id={`sourcing-line-${line.id}-invoice`} className="fi" value={line.invoiceNumber} onChange={(event) => updateAdditionalLine(line.id, "invoiceNumber", event.target.value)} /></div>
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-external`}>External Reference</label><input id={`sourcing-line-${line.id}-external`} className="fi" value={line.externalRef} onChange={(event) => updateAdditionalLine(line.id, "externalRef", event.target.value)} /></div>
+                  {SOURCING_FIELD_VISIBILITY.invoiceNumber && (
+                    <div className="fg"><label htmlFor={`sourcing-line-${line.id}-invoice`}>Invoice Number</label><input id={`sourcing-line-${line.id}-invoice`} className="fi" value={line.invoiceNumber} onChange={(event) => updateAdditionalLine(line.id, "invoiceNumber", event.target.value)} /></div>
+                  )}
+                  {SOURCING_FIELD_VISIBILITY.externalRef && (
+                    <div className="fg"><label htmlFor={`sourcing-line-${line.id}-external`}>External Reference</label><input id={`sourcing-line-${line.id}-external`} className="fi" value={line.externalRef} onChange={(event) => updateAdditionalLine(line.id, "externalRef", event.target.value)} /></div>
+                  )}
                 </div>
                 <div className="fr">
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-cost-centre`}>Cost Centre / Department</label><input id={`sourcing-line-${line.id}-cost-centre`} className="fi" value={line.costCentre} onChange={(event) => updateAdditionalLine(line.id, "costCentre", event.target.value)} /></div>

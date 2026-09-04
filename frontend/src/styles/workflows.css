@@ -1,5 +1,10 @@
-.sourcing-request-edit-modal { width: min(760px, 94vw); }
+.sourcing-request-edit-modal {
+  width: min(1120px, 94vw);
+  max-width: min(1120px, 94vw);
+  overflow: hidden;
+}
 .sourcing-request-edit-heading { margin-top: 14px; }
+.sourcing-request-edit-heading h4 { margin: 0 0 3px; color: var(--text-1); font-size: 12px; }
 .sourcing-request-edit-heading p { color: var(--text-3); font-size: 11px; }
 .sourcing-request-edit-line {
   border: 1px solid var(--border);
@@ -8,6 +13,10 @@
   padding: 12px;
 }
 .sourcing-request-edit-line:disabled { opacity: 0.65; }
+.sourcing-request-edit-line-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: var(--text-2); font-size: 12px; font-weight: 600; }
+.sourcing-request-edit-line-heading .badge { text-transform: capitalize; }
+.sourcing-request-edit-modal .required-mark { color: var(--red); }
+.sourcing-request-edit-modal .optional-label { color: var(--text-3); font-weight: 400; }
 
 /* Pipeline strip */
 .ps-sticky-wrap {

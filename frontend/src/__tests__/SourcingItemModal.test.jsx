@@ -38,6 +38,14 @@ function renderModal(props = {}) {
 // ─── Required fields ──────────────────────────────────────────────────────────
 
 describe("required field validation", () => {
+  test("hides fulfillment-only identifiers during sourcing", () => {
+    renderModal({ item: { ...VALID_ITEM, invoiceNumber: "INV-1", externalRef: "EXT-1" } });
+
+    expect(screen.queryByLabelText("Purchase Date")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Invoice Number")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("External Reference")).not.toBeInTheDocument();
+  });
+
   test("shows an attached PDF quote beside the form", async () => {
     const originalCreateObjectURL = URL.createObjectURL;
     const originalRevokeObjectURL = URL.revokeObjectURL;
