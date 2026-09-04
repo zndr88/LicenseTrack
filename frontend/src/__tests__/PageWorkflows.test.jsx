@@ -154,6 +154,7 @@ vi.mock("../api/sourcing.js", () => ({
   getSourcingRequestHistory: vi.fn(),
   getSourcingRequests: vi.fn(),
   createSourcingRequest: vi.fn(),
+  updateSourcingRequest: vi.fn(),
   addSourcingRequestItem: vi.fn(),
   updateSourcingItem: vi.fn(),
   deleteSourcingItem: vi.fn(),
@@ -1407,9 +1408,10 @@ describe("SourcingPage workflows", () => {
       status: "sourcing",
       isRenewal: false,
     };
+    let supplier = "Inline Supplier";
     const request = () => ({
       id: 30,
-      supplier: "Inline Supplier",
+      supplier,
       contactEmail: null,
       status: "sourcing",
       createdAt: "2026-03-01T00:00:00Z",
@@ -1421,6 +1423,10 @@ describe("SourcingPage workflows", () => {
       item = { ...item, ...payload };
       return { data: item, error: null };
     });
+    sourcingApi.updateSourcingRequest.mockImplementation(async (_id, payload) => {
+      supplier = payload.supplier;
+      return { data: request(), error: null };
+    });
 
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={commaSettings} />);
 
@@ -1428,10 +1434,22 @@ describe("SourcingPage workflows", () => {
     await user.click(screen.getByRole("button", { name: /^inline edit$/i }));
 
     expect(screen.getByRole("combobox", { name: /edit publisher/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /edit supplier/i })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /edit description/i })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /edit quantity/i })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /edit estimated unit price/i })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /edit currency/i })).toBeInTheDocument();
+
+    const supplierInput = screen.getByRole("combobox", { name: /edit supplier/i });
+    await user.clear(supplierInput);
+    await user.type(supplierInput, "Updated Supplier");
+    await user.tab();
+
+    await waitFor(() => {
+      expect(sourcingApi.updateSourcingRequest).toHaveBeenCalledWith(30, {
+        supplier: "Updated Supplier",
+      });
+    });
 
     const description = screen.getByRole("textbox", { name: /edit description/i });
     await user.clear(description);
@@ -1454,6 +1472,7 @@ describe("SourcingPage workflows", () => {
     });
 
     await user.click(screen.getByRole("button", { name: /exit inline edit/i }));
+    expect(await screen.findByText("Updated Supplier")).toBeInTheDocument();
     expect(await screen.findByText("Updated Inline Suite")).toBeInTheDocument();
     expect(screen.getByText("4,125")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

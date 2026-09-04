@@ -164,6 +164,7 @@ export default function SourcingPage({
     handleUploadSourcingQuote,
     handleUpdateSourcingItem,
     handleUpdateSourcingRequest,
+    handleUpdateSourcingRequestField,
     handleDeleteSourcingItem,
     handleCancelSourcingRequest,
     handleConvertSourcingRequest,
@@ -313,6 +314,11 @@ export default function SourcingPage({
     return { ok: Boolean(saved), error: saved ? null : "Save failed" };
   }, [handleUpdateSourcingItem]);
 
+  const handleInlineRequestFieldSave = useCallback(async (requestId, fieldKey, value) => {
+    const saved = await handleUpdateSourcingRequestField(requestId, fieldKey, value);
+    return { ok: Boolean(saved), error: saved ? null : "Save failed" };
+  }, [handleUpdateSourcingRequestField]);
+
   const handleSelectGroup = (groupIds) => {
     setSelectedForMerge(new Set(groupIds));
     const groupSet = new Set(groupIds);
@@ -418,6 +424,7 @@ export default function SourcingPage({
             inlineEditEnabled={inlineEditEnabled}
             onToggleInlineEdit={() => setInlineEditEnabled((enabled) => !enabled)}
             onInlineFieldSave={handleInlineFieldSave}
+            onInlineRequestFieldSave={handleInlineRequestFieldSave}
           />
         )}
 

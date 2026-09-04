@@ -70,6 +70,13 @@ export function useSourcingActions({
     return true;
   }, [showToast, queryClient]);
 
+  const handleUpdateSourcingRequestField = useCallback(async (requestId, fieldKey, value) => {
+    const { error } = await apiUpdateSourcingRequest(requestId, { [fieldKey]: value });
+    if (error) { showToast(error, "error"); return false; }
+    await invalidateSourcingCaches(queryClient);
+    return true;
+  }, [showToast, queryClient]);
+
   const handleDeleteSourcingItem = useCallback(async (id) => {
     const { error } = await apiDeleteSourcingItem(id);
     if (error) { showToast(error, "error"); return false; }
@@ -178,6 +185,7 @@ export function useSourcingActions({
     handleUploadSourcingQuote,
     handleUpdateSourcingItem,
     handleUpdateSourcingRequest,
+    handleUpdateSourcingRequestField,
     handleDeleteSourcingItem,
     handleDeleteSourcingRequest,
     handleCancelSourcingRequest,

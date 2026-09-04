@@ -53,6 +53,10 @@ function isOpenSourcingItem(item) {
   return item.status == null || item.status === "sourcing";
 }
 
+function isOpenSourcingRequest(request) {
+  return request.status == null || request.status === "sourcing";
+}
+
 export function isDirectFreewareItem(item) {
   if (item.licenseType !== "freeware") return false;
   return !(
@@ -308,6 +312,7 @@ export default function SourcingTable({
   inlineEditEnabled = false,
   onToggleInlineEdit,
   onInlineFieldSave,
+  onInlineRequestFieldSave,
   footer = null,
 }) {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
@@ -457,6 +462,7 @@ export default function SourcingTable({
               <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text-3)", padding: "24px 0", fontSize: 13 }}>{emptyMessage}</td></tr>
             ) : displayed.map((request) => {
               const hasItems = (request.items?.length ?? 0) > 0;
+              const canInlineEditRequest = inlineEditEnabled && !readOnly && isOpenSourcingRequest(request) && perms.canEdit;
               const shouldExpand = collapsedRequestIds
                 ? !collapsedRequestIds.has(request.id)
                 : expandedRequestId === request.id;
@@ -526,19 +532,38 @@ export default function SourcingTable({
                 <React.Fragment key={request.id}>
                   <tr
                     data-sourcing-request-row={request.id}
+                    className={canInlineEditRequest ? "sourcing-request-row-inline-edit" : undefined}
                     style={{ cursor: hasItems ? "pointer" : "default" }}
                     onClick={handleRowToggle}
                   >
                     <td style={{ color: "var(--text-3)", fontSize: 11, textAlign: "center" }}>
                       {hasItems ? (isExpanded ? "▾" : "▸") : ""}
                     </td>
-                    <td style={{ fontWeight: 600 }}>
-                      {request.supplier || "Unassigned supplier"}
-                      <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
-                        Sourcing Request ID #{request.id}
-                        {request.contactEmail ? ` · ${request.contactEmail}` : ""}
-                      </div>
-                    </td>
+                    {canInlineEditRequest ? (
+                      <ProcurementInlineEditCell
+                        item={request}
+                        fieldKey="supplier"
+                        label="Supplier"
+                        currentValue={request.supplier}
+                        referenceMode="supplier"
+                        className="sourcing-inline-supplier"
+                        userSettings={userSettings}
+                        onSave={onInlineRequestFieldSave}
+                      >
+                        <div className="sourcing-inline-context">
+                          Sourcing Request ID #{request.id}
+                          {request.contactEmail ? ` · ${request.contactEmail}` : ""}
+                        </div>
+                      </ProcurementInlineEditCell>
+                    ) : (
+                      <td style={{ fontWeight: 600 }}>
+                        {request.supplier || "Unassigned supplier"}
+                        <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
+                          Sourcing Request ID #{request.id}
+                          {request.contactEmail ? ` · ${request.contactEmail}` : ""}
+                        </div>
+                      </td>
+                    )}
                     <td style={{ color: "var(--text-2)" }}>{request.items?.length ?? 0}</td>
                     <td className="mono" style={{ fontWeight: 600 }}>{requestTotal(request, locale)}</td>
                     <td style={{ color: "var(--text-2)", fontSize: 12 }}>
