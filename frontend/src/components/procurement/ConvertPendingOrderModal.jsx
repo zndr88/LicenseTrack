@@ -24,6 +24,7 @@ import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
+import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { FULL_LICENSE_FORM_VISIBILITY } from "../../utils/licenseFormVisibility.js";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 
@@ -78,7 +79,8 @@ const ConvertPendingOrderModal = ({
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const isRenewal = order?.items?.some((item) => item.isRenewal);
   const vis = FULL_LICENSE_FORM_VISIBILITY;
-  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
+  const { definitions: allCustomFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
+  const customFieldDefs = filterCustomFieldDefinitionsForRenewal(allCustomFieldDefs, isRenewal);
 
   const [saving, setSaving] = useState(false);
   const [invoiceFile, setInvoiceFile] = useState(null);

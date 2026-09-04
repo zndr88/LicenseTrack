@@ -1,9 +1,16 @@
 from datetime import datetime
+from enum import Enum
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+
+class CustomFieldRenewalBehavior(str, Enum):
+    clear = "clear"
+    copy = "copy"
+    hide = "hide"
 
 
 class CustomFieldDefinition(Base):
@@ -15,8 +22,8 @@ class CustomFieldDefinition(Base):
     field_type: Mapped[str] = mapped_column(String(20), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     section: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
-    carry_forward_on_renewal: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="0"
+    renewal_behavior: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=CustomFieldRenewalBehavior.clear.value, server_default="clear"
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
@@ -29,6 +36,11 @@ class CustomFieldDefinition(Base):
     values: Mapped[list["CustomFieldValue"]] = relationship(
         "CustomFieldValue", back_populates="definition", cascade="all, delete-orphan"
     )
+
+    @property
+    def carry_forward_on_renewal(self) -> bool:
+        """Deprecated compatibility projection for pre-renewal-behavior API clients."""
+        return self.renewal_behavior == CustomFieldRenewalBehavior.copy.value
 
 
 class CustomFieldValue(Base):

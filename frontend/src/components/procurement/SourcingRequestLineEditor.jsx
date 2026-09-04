@@ -1,6 +1,7 @@
 import { Controller } from "react-hook-form";
 import { CURRENCIES, LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
 import { getProcurementFormVisibility } from "../../utils/procurementFormVisibility.js";
+import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
@@ -22,9 +23,10 @@ export default function SourcingRequestLineEditor({
   const values = watch(`items.${index}`) || {};
   const idPrefix = `sourcing-request-item-${item.id}`;
   const fieldName = (name) => `items.${index}.${name}`;
+  const visibleCustomFieldDefs = filterCustomFieldDefinitionsForRenewal(customFieldDefs, item.isRenewal);
   const customFields = (section) => (
     <CustomFieldFormFields
-      definitions={customFieldDefs}
+      definitions={visibleCustomFieldDefs}
       values={values.customFieldValues || {}}
       onChange={(nextValues) => setValue(fieldName("customFieldValues"), nextValues, { shouldDirty: true })}
       idPrefix={idPrefix}
@@ -32,8 +34,8 @@ export default function SourcingRequestLineEditor({
       section={section}
     />
   );
-  const hasDocumentCustomFields = customFieldDefs.some((definition) => definition.section === "documents");
-  const hasCatchallCustomFields = customFieldDefs.some(
+  const hasDocumentCustomFields = visibleCustomFieldDefs.some((definition) => definition.section === "documents");
+  const hasCatchallCustomFields = visibleCustomFieldDefs.some(
     (definition) => !definition.section || definition.section === "__catchall__"
   );
 
@@ -41,6 +43,7 @@ export default function SourcingRequestLineEditor({
     <fieldset className="sourcing-request-edit-line" disabled={readOnly}>
       <input type="hidden" {...register(fieldName("id"), { valueAsNumber: true })} />
       <input type="hidden" {...register(fieldName("status"))} />
+      <input type="hidden" {...register(fieldName("isRenewal"))} />
       <div className="sourcing-request-edit-line-heading">
         <span>Line {index + 1}</span>
         {readOnly && <span className="badge badge-gray">{item.status}</span>}

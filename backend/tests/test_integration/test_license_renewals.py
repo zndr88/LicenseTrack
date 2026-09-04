@@ -83,7 +83,7 @@ async def test_initiate_recurring_renewal_suggests_next_annual_term(test_app, au
     assert sourcing_item["endDate"] == "2026-12-31"
 
 
-async def test_initiate_renewal_snapshots_only_custom_fields_configured_to_carry(
+async def test_initiate_renewal_snapshots_only_custom_fields_configured_to_copy(
     test_app,
     auth_headers,
 ):
@@ -92,7 +92,7 @@ async def test_initiate_renewal_snapshots_only_custom_fields_configured_to_carry
         json={
             "name": "Additional note",
             "fieldType": "text",
-            "carryForwardOnRenewal": True,
+            "renewalBehavior": "copy",
         },
         headers=auth_headers,
     )
@@ -101,7 +101,7 @@ async def test_initiate_renewal_snapshots_only_custom_fields_configured_to_carry
         json={
             "name": "Invoice received date",
             "fieldType": "date",
-            "carryForwardOnRenewal": False,
+            "renewalBehavior": "clear",
         },
         headers=auth_headers,
     )
@@ -109,6 +109,17 @@ async def test_initiate_renewal_snapshots_only_custom_fields_configured_to_carry
     assert blank_response.status_code == 201, blank_response.text
     copy_field = copy_response.json()
     blank_field = blank_response.json()
+    hide_response = await test_app.post(
+        "/api/custom-fields/",
+        json={
+            "name": "Prior approval reference",
+            "fieldType": "text",
+            "renewalBehavior": "hide",
+        },
+        headers=auth_headers,
+    )
+    assert hide_response.status_code == 201, hide_response.text
+    hidden_field = hide_response.json()
 
     predecessor = await _create_license(
         test_app,
@@ -116,6 +127,7 @@ async def test_initiate_renewal_snapshots_only_custom_fields_configured_to_carry
         customFieldValues=[
             {"customFieldDefId": copy_field["id"], "valueText": "Keep this context"},
             {"customFieldDefId": blank_field["id"], "valueText": "2026-08-15"},
+            {"customFieldDefId": hidden_field["id"], "valueText": "APPROVAL-OLD"},
         ],
     )
     response = await test_app.post(
@@ -129,6 +141,25 @@ async def test_initiate_renewal_snapshots_only_custom_fields_configured_to_carry
         {
             "customFieldDefId": copy_field["id"],
             "valueText": "Keep this context",
+            "valueCurrency": None,
+        }
+    ]
+
+    sourcing_update = await test_app.put(
+        f"/api/sourcing/{sourcing_item['id']}",
+        json={
+            "customFieldValues": [
+                {"customFieldDefId": copy_field["id"], "valueText": "Reviewed context"},
+                {"customFieldDefId": hidden_field["id"], "valueText": "SHOULD-NOT-PERSIST"},
+            ]
+        },
+        headers=auth_headers,
+    )
+    assert sourcing_update.status_code == 200, sourcing_update.text
+    assert sourcing_update.json()["customFieldValues"] == [
+        {
+            "customFieldDefId": copy_field["id"],
+            "valueText": "Reviewed context",
             "valueCurrency": None,
         }
     ]
@@ -148,7 +179,7 @@ async def test_initiate_renewal_snapshots_only_custom_fields_configured_to_carry
         headers=auth_headers,
     )
     assert sourcing_response.status_code == 200, sourcing_response.text
-    assert sourcing_response.json()["customFieldValues"][0]["valueText"] == "Keep this context"
+    assert sourcing_response.json()["customFieldValues"][0]["valueText"] == "Reviewed context"
 
 
 async def test_cancel_successor_renewal_from_license_preserves_established_ancestry(

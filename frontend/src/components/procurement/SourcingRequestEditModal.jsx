@@ -6,6 +6,7 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { createSourcingRequestEditSchema } from "../../utils/procurementSchemas.js";
+import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
@@ -16,6 +17,7 @@ function itemDefaults(item) {
   return {
     id: item.id,
     status: item.status ?? null,
+    isRenewal: Boolean(item.isRenewal || item.renewalForLicenseId != null),
     publisherName: item.publisherName ?? "",
     softwareDescription: item.softwareDescription ?? "",
     licenseType: item.licenseType ?? "",
@@ -98,7 +100,11 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
         costCentre: item.costCentre || null,
         budgetOwnerEmail: item.budgetOwnerEmail || null,
         secondaryContacts: String(item.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
-        customFieldValues: buildCustomFieldValuePayload(customFieldDefs, item.customFieldValues, userSettings),
+        customFieldValues: buildCustomFieldValuePayload(
+          filterCustomFieldDefinitionsForRenewal(customFieldDefs, item.isRenewal),
+          item.customFieldValues,
+          userSettings,
+        ),
         notes: item.notes || null,
       }));
     const saved = await onSave({

@@ -10,6 +10,7 @@ import MaintenanceCoverageFields, {
 } from "./MaintenanceCoverageFields.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 
 /**
  * Determines whether a watched form item has all required fields filled.
@@ -58,6 +59,10 @@ export default function ConvertItemForm({
   const wi = watchedItem ?? {};
   const ready = isItemReady(wi);
   const itemErrors = errors;
+  const visibleCustomFieldDefs = filterCustomFieldDefinitionsForRenewal(
+    customFieldDefs,
+    sourcingItem.isRenewal,
+  );
 
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: "var(--r)", marginBottom: 12 }}>
@@ -375,7 +380,7 @@ export default function ConvertItemForm({
           </div>
           <div className="fg"><label htmlFor={`ca-secondary-contacts-${idx}`}>Secondary Contacts</label><input id={`ca-secondary-contacts-${idx}`} className="fi" placeholder="Separate email addresses with commas" {...register(`items.${idx}.secondaryContacts`)} /></div>
           <CustomFieldFormFields
-            definitions={customFieldDefs}
+            definitions={visibleCustomFieldDefs}
             values={watchedItem.customFieldValues || {}}
             onChange={(values) => setValue(`items.${idx}.customFieldValues`, values, { shouldDirty: true })}
             idPrefix={`ca-${idx}`}

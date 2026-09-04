@@ -29,6 +29,7 @@ import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
 import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import { previewSourcingQuoteDocument } from "../../api/sourcing.js";
 import { getProcurementFormVisibility } from "../../utils/procurementFormVisibility.js";
+import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 
 const SOURCING_FIELD_VISIBILITY = getProcurementFormVisibility("sourcing");
 
@@ -127,7 +128,9 @@ const SourcingItemModal = ({
   onCancel,
 }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
-  const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
+  const { definitions: allCustomFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
+  const isRenewal = Boolean(item?.isRenewal || item?.renewalForLicenseId != null);
+  const customFieldDefs = filterCustomFieldDefinitionsForRenewal(allCustomFieldDefs, isRenewal);
   const pendingOrderId = parentPendingOrderId ?? item?.pendingOrderId ?? item?.pending_order_id ?? null;
   const sourcingRequestId = item?.sourcingRequestId
     ?? item?.sourcing_request_id

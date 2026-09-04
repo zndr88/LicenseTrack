@@ -68,6 +68,7 @@ const sourcingRequestLineSchema = (settings) => {
   return z.object({
     id: z.number(),
     status: z.string().nullable(),
+    isRenewal: z.boolean(),
     publisherName: z.string(),
     softwareDescription: z.string(),
     licenseType: z.union([z.literal(""), z.enum(LICENSE_TYPES.map((option) => option.value))]),

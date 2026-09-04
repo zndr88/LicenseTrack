@@ -13,7 +13,13 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.custom_fields import CustomFieldDefinition, CustomFieldValue, SourcingItemCustomFieldValue
+from app.models.custom_fields import (
+    CustomFieldDefinition,
+    CustomFieldRenewalBehavior,
+    CustomFieldValue,
+    SourcingItemCustomFieldValue,
+)
+from app.models.sourcing import SourcingItem
 from app.models.license import License
 from app.schemas.custom_fields import CustomFieldDefinitionCreate, CustomFieldDefinitionUpdate, CustomFieldValuesUpsert
 from app.services.import_.date_parser import parse_import_date
@@ -111,7 +117,7 @@ async def create_definition(db: AsyncSession, data: CustomFieldDefinitionCreate)
         field_key=field_key,
         field_type=data.field_type,
         display_order=data.display_order,
-        carry_forward_on_renewal=data.carry_forward_on_renewal,
+        renewal_behavior=data.renewal_behavior.value,
     )
     db.add(definition)
     await db.flush()
@@ -383,8 +389,8 @@ async def update_definition(db: AsyncSession, def_id: int, data: CustomFieldDefi
 
     if "section" in data.model_fields_set:
         definition.section = data.section
-    if data.carry_forward_on_renewal is not None:
-        definition.carry_forward_on_renewal = data.carry_forward_on_renewal
+    if data.renewal_behavior is not None:
+        definition.renewal_behavior = data.renewal_behavior.value
 
     await db.flush()
     await db.refresh(definition)
@@ -560,6 +566,14 @@ async def replace_values_for_sourcing_item(
 ) -> None:
     """Replace a procurement line's complete custom-field snapshot."""
     normalized = await _validated_value_rows(db, values)
+    renewal_for_license_id = await db.scalar(
+        select(SourcingItem.renewal_for_license_id).where(SourcingItem.id == sourcing_item_id)
+    )
+    if renewal_for_license_id is not None:
+        normalized = [
+            row for row in normalized
+            if row[0].renewal_behavior != CustomFieldRenewalBehavior.hide.value
+        ]
     await db.execute(
         delete(SourcingItemCustomFieldValue).where(
             SourcingItemCustomFieldValue.sourcing_item_id == sourcing_item_id
@@ -580,9 +594,16 @@ async def replace_values_for_license(
     db: AsyncSession,
     license_id: int,
     values: list[object],
+    *,
+    exclude_renewal_hidden: bool = False,
 ) -> None:
     """Replace embedded license values inside a larger atomic write."""
     normalized = await _validated_value_rows(db, values)
+    if exclude_renewal_hidden:
+        normalized = [
+            row for row in normalized
+            if row[0].renewal_behavior != CustomFieldRenewalBehavior.hide.value
+        ]
     await db.execute(delete(CustomFieldValue).where(CustomFieldValue.license_id == license_id))
     for definition, value_text, value_currency in normalized:
         db.add(
@@ -606,7 +627,7 @@ async def snapshot_renewal_values(
         .join(CustomFieldDefinition, CustomFieldDefinition.id == CustomFieldValue.custom_field_def_id)
         .where(
             CustomFieldValue.license_id == predecessor_id,
-            CustomFieldDefinition.carry_forward_on_renewal.is_(True),
+            CustomFieldDefinition.renewal_behavior == CustomFieldRenewalBehavior.copy.value,
         )
     )
     for value in values:
@@ -629,8 +650,11 @@ async def merge_sourcing_values(
     if not source_item_ids:
         return
     values = await db.scalars(
-        select(SourcingItemCustomFieldValue).where(
-            SourcingItemCustomFieldValue.sourcing_item_id.in_(source_item_ids)
+        select(SourcingItemCustomFieldValue)
+        .join(CustomFieldDefinition, CustomFieldDefinition.id == SourcingItemCustomFieldValue.custom_field_def_id)
+        .where(
+            SourcingItemCustomFieldValue.sourcing_item_id.in_(source_item_ids),
+            CustomFieldDefinition.renewal_behavior != CustomFieldRenewalBehavior.hide.value,
         )
     )
     values_by_definition: dict[int, set[tuple[str | None, str | None]]] = {}
@@ -660,11 +684,19 @@ async def transfer_sourcing_values_to_license(
     license_id: int,
 ) -> None:
     """Copy the reviewed procurement snapshot to the resulting license."""
-    values = await db.scalars(
-        select(SourcingItemCustomFieldValue).where(
-            SourcingItemCustomFieldValue.sourcing_item_id == sourcing_item_id
-        )
+    renewal_for_license_id = await db.scalar(
+        select(SourcingItem.renewal_for_license_id).where(SourcingItem.id == sourcing_item_id)
     )
+    query = (
+        select(SourcingItemCustomFieldValue)
+        .join(CustomFieldDefinition, CustomFieldDefinition.id == SourcingItemCustomFieldValue.custom_field_def_id)
+        .where(SourcingItemCustomFieldValue.sourcing_item_id == sourcing_item_id)
+    )
+    if renewal_for_license_id is not None:
+        query = query.where(
+            CustomFieldDefinition.renewal_behavior != CustomFieldRenewalBehavior.hide.value
+        )
+    values = await db.scalars(query)
     for value in values:
         db.add(
             CustomFieldValue(

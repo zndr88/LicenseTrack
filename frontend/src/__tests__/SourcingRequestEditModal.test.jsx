@@ -1,12 +1,14 @@
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import SourcingRequestEditModal from "../components/procurement/SourcingRequestEditModal.jsx";
 
+const customFieldState = vi.hoisted(() => ({ definitions: [] }));
+
 vi.mock("../hooks/useCustomFieldDefinitions.js", () => ({
-  useCustomFieldDefinitions: () => ({ definitions: [], loading: false }),
+  useCustomFieldDefinitions: () => ({ definitions: customFieldState.definitions, loading: false }),
 }));
 
 const request = {
@@ -34,13 +36,13 @@ const request = {
   }],
 };
 
-function renderModal() {
+function renderModal(requestValue = request) {
   const onSave = vi.fn().mockResolvedValue(true);
   const onCancel = vi.fn();
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <SourcingRequestEditModal
-        request={request}
+        request={requestValue}
         userSettings={{ numberFormatLocale: "en-US" }}
         onSave={onSave}
         onCancel={onCancel}
@@ -51,6 +53,10 @@ function renderModal() {
 }
 
 describe("SourcingRequestEditModal", () => {
+  beforeEach(() => {
+    customFieldState.definitions = [];
+  });
+
   test("uses the sectioned procurement modal baseline and sourcing-stage fields", () => {
     renderModal();
 
@@ -82,5 +88,19 @@ describe("SourcingRequestEditModal", () => {
       externalRef: "LEGACY-EXT",
     }));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  test("omits custom fields configured as hidden from renewal lines", () => {
+    customFieldState.definitions = [
+      { id: 1, name: "Renewal owner", fieldType: "text", section: "identity", renewalBehavior: "clear" },
+      { id: 2, name: "Historical approval", fieldType: "text", section: "identity", renewalBehavior: "hide" },
+    ];
+    renderModal({
+      ...request,
+      items: [{ ...request.items[0], isRenewal: true }],
+    });
+
+    expect(screen.getByLabelText("Renewal owner")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Historical approval")).not.toBeInTheDocument();
   });
 });

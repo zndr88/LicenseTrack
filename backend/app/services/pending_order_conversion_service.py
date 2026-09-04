@@ -173,7 +173,14 @@ async def _create_prepared_conversion_license(
         predecessor_ids = []
 
     if custom_field_values:
-        await replace_values_for_license(db, license_obj.id, custom_field_values)
+        await replace_values_for_license(
+            db,
+            license_obj.id,
+            custom_field_values,
+            exclude_renewal_hidden=(
+                sourcing_item is not None and sourcing_item.renewal_for_license_id is not None
+            ),
+        )
     elif sourcing_item is not None:
         await transfer_sourcing_values_to_license(db, sourcing_item.id, license_obj.id)
     return license_obj, conversion_type, predecessor_ids

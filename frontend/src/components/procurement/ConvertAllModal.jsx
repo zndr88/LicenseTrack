@@ -17,6 +17,7 @@ import PluginSlot from "../plugins/PluginSlot.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
+import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 
 const formSchema = z.object({ items: z.array(licenseFormSchema) });
 
@@ -88,7 +89,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
         ...buildPendingOrderConversionPayload({
           ...item,
           customFieldValuesPayload: buildCustomFieldValuePayload(
-            customFieldDefs,
+            filterCustomFieldDefinitionsForRenewal(customFieldDefs, si.isRenewal),
             item.customFieldValues,
             userSettings,
           ),

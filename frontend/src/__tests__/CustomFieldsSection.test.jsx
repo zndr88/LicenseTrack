@@ -109,11 +109,13 @@ describe("CustomFieldsSection", () => {
     const behaviorSelect = await screen.findByRole("combobox", {
       name: /renewal behavior for contract owner/i,
     });
-    expect(behaviorSelect).toHaveValue("blank");
+    expect(behaviorSelect).toHaveValue("clear");
     await user.selectOptions(behaviorSelect, "copy");
 
-    expect(updateCustomField).toHaveBeenCalledWith(1, { carryForwardOnRenewal: true });
-    expect(onCustomFieldsChanged).toHaveBeenCalledTimes(1);
+    expect(updateCustomField).toHaveBeenNthCalledWith(1, 1, { renewalBehavior: "copy" });
+    await user.selectOptions(behaviorSelect, "hide");
+    expect(updateCustomField).toHaveBeenNthCalledWith(2, 1, { renewalBehavior: "hide" });
+    expect(onCustomFieldsChanged).toHaveBeenCalledTimes(2);
   });
 
   test("rolls back a custom field section when the API rejects the update", async () => {

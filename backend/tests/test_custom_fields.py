@@ -112,6 +112,46 @@ async def test_create_definition_success(test_app, auth_headers):
     assert data["fieldKey"] == "cf_contract_owner"
     assert data["name"] == "Contract Owner"
     assert data["fieldType"] == "text"
+    assert data["renewalBehavior"] == "clear"
+    assert data["carryForwardOnRenewal"] is False
+
+
+async def test_definition_supports_hide_renewal_behavior_and_legacy_copy_input(test_app, auth_headers):
+    hidden = await test_app.post(
+        "/api/custom-fields/",
+        json={"name": "Historical Approval", "fieldType": "text", "renewalBehavior": "hide"},
+        headers=auth_headers,
+    )
+    legacy_copy = await test_app.post(
+        "/api/custom-fields/",
+        json={"name": "Renewal Owner", "fieldType": "text", "carryForwardOnRenewal": True},
+        headers=auth_headers,
+    )
+
+    assert hidden.status_code == 201, hidden.text
+    assert hidden.json()["renewalBehavior"] == "hide"
+    assert hidden.json()["carryForwardOnRenewal"] is False
+    assert legacy_copy.status_code == 201, legacy_copy.text
+    assert legacy_copy.json()["renewalBehavior"] == "copy"
+    assert legacy_copy.json()["carryForwardOnRenewal"] is True
+
+    updated = await test_app.patch(
+        f"/api/custom-fields/{legacy_copy.json()['id']}",
+        json={"renewalBehavior": "hide"},
+        headers=auth_headers,
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["renewalBehavior"] == "hide"
+
+
+async def test_definition_rejects_unknown_renewal_behavior(test_app, auth_headers):
+    response = await test_app.post(
+        "/api/custom-fields/",
+        json={"name": "Invalid Renewal Rule", "fieldType": "text", "renewalBehavior": "archive"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
 
 
 async def test_create_definition_duplicate_name_returns_409(test_app, auth_headers):

@@ -8,6 +8,7 @@ import {
   updateCustomFieldSection,
 } from "../../../api/settings.js";
 import { getCustomFieldSectionLabel } from "../../../utils/customFieldPresentation.js";
+import { getCustomFieldRenewalBehavior } from "../../../utils/customFieldRenewal.js";
 import Icon from "../../ui/Icon.jsx";
 import ConfirmDialog from "../../ui/ConfirmDialog.jsx";
 import { SectionHeader } from "../SectionShared.jsx";
@@ -92,12 +93,12 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
     onCustomFieldsChanged?.();
   };
 
-  const handleUpdateRenewalBehavior = async (fieldId, carryForwardOnRenewal) => {
+  const handleUpdateRenewalBehavior = async (fieldId, renewalBehavior) => {
     const previous = customFields;
     setCustomFields((fields) => fields.map((field) => (
-      field.id === fieldId ? { ...field, carryForwardOnRenewal } : field
+      field.id === fieldId ? { ...field, renewalBehavior } : field
     )));
-    const { error } = await updateCustomField(fieldId, { carryForwardOnRenewal });
+    const { error } = await updateCustomField(fieldId, { renewalBehavior });
     if (error) {
       setCustomFields(previous);
       onError(error);
@@ -146,12 +147,13 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
                         <td>
                           <select
                             className="fi fi-select set-compact-select"
-                            value={field.carryForwardOnRenewal ? "copy" : "blank"}
-                            onChange={(event) => handleUpdateRenewalBehavior(field.id, event.target.value === "copy")}
+                            value={getCustomFieldRenewalBehavior(field)}
+                            onChange={(event) => handleUpdateRenewalBehavior(field.id, event.target.value)}
                             aria-label={`Renewal behavior for ${field.name}`}
                           >
-                            <option value="blank">Start blank</option>
+                            <option value="clear">Start blank</option>
                             <option value="copy">Copy previous value</option>
+                            <option value="hide">Hide on renewal</option>
                           </select>
                         </td>
                         <td className="set-field-actions-cell">

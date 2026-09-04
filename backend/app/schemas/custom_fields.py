@@ -1,8 +1,31 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 from pydantic.alias_generators import to_camel
+
+from app.models.custom_fields import CustomFieldRenewalBehavior
+
+_BOOLEAN_ADAPTER = TypeAdapter(bool)
+
+
+def _migrate_legacy_renewal_behavior(value: object) -> object:
+    if not isinstance(value, dict):
+        return value
+    if "renewalBehavior" in value or "renewal_behavior" in value:
+        return value
+    legacy_value = value.get("carryForwardOnRenewal", value.get("carry_forward_on_renewal"))
+    if legacy_value is not None:
+        carry_forward = _BOOLEAN_ADAPTER.validate_python(legacy_value)
+        return {
+            **value,
+            "renewalBehavior": (
+                CustomFieldRenewalBehavior.copy.value
+                if carry_forward
+                else CustomFieldRenewalBehavior.clear.value
+            ),
+        }
+    return value
 
 
 class CustomFieldDefinitionCreate(BaseModel):
@@ -14,7 +37,9 @@ class CustomFieldDefinitionCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     field_type: str = Field(..., pattern="^(text|currency|date|boolean)$")
     display_order: int = Field(default=0, ge=0)
-    carry_forward_on_renewal: bool = False
+    renewal_behavior: CustomFieldRenewalBehavior = CustomFieldRenewalBehavior.clear
+
+    _migrate_legacy_behavior = model_validator(mode="before")(_migrate_legacy_renewal_behavior)
 
 
 class CustomFieldDefinitionUpdate(BaseModel):
@@ -29,7 +54,9 @@ class CustomFieldDefinitionUpdate(BaseModel):
         default=None,
         pattern="^(identity|dates|commercial|people|documents|notes)$",
     )
-    carry_forward_on_renewal: Optional[bool] = None
+    renewal_behavior: Optional[CustomFieldRenewalBehavior] = None
+
+    _migrate_legacy_behavior = model_validator(mode="before")(_migrate_legacy_renewal_behavior)
     # field_type and field_key are immutable after creation - not included here
 
 
@@ -52,6 +79,7 @@ class CustomFieldDefinitionResponse(BaseModel):
     field_type: str
     display_order: int
     section: Optional[str] = None
+    renewal_behavior: CustomFieldRenewalBehavior = CustomFieldRenewalBehavior.clear
     carry_forward_on_renewal: bool = False
     created_at: datetime
     updated_at: datetime
