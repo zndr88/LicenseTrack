@@ -89,6 +89,7 @@ async def _load_candidate_licenses(
     query = (
         select(License)
         .where(License.is_retired.is_(False))
+        .where(License.retirement_scheduled.is_(False))
         .where(License.license_type.notin_(NON_RENEWABLE_LICENSE_TYPES))
         .where(or_(License.lifecycle_status.is_(None), License.lifecycle_status.notin_(["renewed", "legacy"])))
         .where(or_(License.end_date.isnot(None), License.lifecycle_status == "pending_renewal"))

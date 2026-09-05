@@ -31,6 +31,7 @@ from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User, UserRole
 from app.services.settings_service import invalidate_global_settings_cache
+from app.services.license_retirement_service import retire_due_licenses
 
 
 # ---------------------------------------------------------------------------
@@ -817,6 +818,66 @@ async def test_get_license_not_found(test_app, auth_headers):
 # ---------------------------------------------------------------------------
 # 2e — PUT updates a field and reflects it in the response
 # ---------------------------------------------------------------------------
+
+async def test_future_dated_retirement_stays_current_until_term_end(test_app, auth_headers):
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        endDate=(date.today() + timedelta(days=10)).isoformat(),
+    )
+
+    response = await test_app.put(
+        f"/api/licenses/{created['id']}",
+        json={"isRetired": True},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["isRetired"] is False
+    assert body["retirementScheduled"] is True
+    assert body["expirationStatus"] == "expiring"
+
+    current = await test_app.get("/api/licenses", headers=auth_headers)
+    assert created["id"] in {license_data["id"] for license_data in current.json()}
+
+    cancelled = await test_app.put(
+        f"/api/licenses/{created['id']}",
+        json={"isRetired": False},
+        headers=auth_headers,
+    )
+    assert cancelled.status_code == 200
+    assert cancelled.json()["isRetired"] is False
+    assert cancelled.json()["retirementScheduled"] is False
+
+
+async def test_due_scheduled_retirement_is_materialized(test_app, auth_headers, db_session):
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        endDate=(date.today() - timedelta(days=1)).isoformat(),
+    )
+    license_obj = await db_session.get(License, created["id"])
+    license_obj.retirement_scheduled = True
+    license_obj.is_retired = False
+    await db_session.commit()
+
+    assert await retire_due_licenses(db_session) == 1
+
+    await db_session.refresh(license_obj)
+    assert license_obj.retirement_scheduled is False
+    assert license_obj.is_retired is True
+
+    audit_result = await db_session.execute(
+        select(AuditLog).where(
+            AuditLog.action == "license.updated",
+            AuditLog.target_id == str(created["id"]),
+            AuditLog.actor_email == "system",
+        )
+    )
+    audit_entry = audit_result.scalar_one()
+    assert "scheduled retirement reached term end" in audit_entry.detail
+
 
 async def test_update_license(test_app, auth_headers):
     created = await _create_license(test_app, auth_headers)

@@ -554,7 +554,9 @@ async def merge_coterm_sourcing_items_record(
     ineligible = [
         license_obj.id
         for license_obj in predecessors
-        if license_obj.lifecycle_status in ("renewed", "legacy") or license_obj.is_retired
+        if license_obj.lifecycle_status in ("renewed", "legacy")
+        or license_obj.is_retired
+        or getattr(license_obj, "retirement_scheduled", False)
     ]
     if ineligible:
         raise HTTPException(

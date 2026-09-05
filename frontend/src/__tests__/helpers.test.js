@@ -181,3 +181,10 @@ describe("getExpirationPresentation", () => {
     });
   });
 });
+
+describe("normalizeLicense retirement state", () => {
+  it("preserves the scheduled retirement flag from API responses", () => {
+    expect(normalizeLicense({ retirementScheduled: true }).retirementScheduled).toBe(true);
+    expect(normalizeLicense({ retirement_scheduled: true }).retirementScheduled).toBe(true);
+  });
+});

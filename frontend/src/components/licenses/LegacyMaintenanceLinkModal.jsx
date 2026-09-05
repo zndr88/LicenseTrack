@@ -14,7 +14,7 @@ export default function LegacyMaintenanceLinkModal({ license, allLicenses = [], 
   const [error, setError] = useState("");
   const [linkedRefreshFailed, setLinkedRefreshFailed] = useState(false);
   const parents = useMemo(() => allLicenses
-    .filter((item) => PARENT_TYPES.has(item.licenseType) && !item.isRetired && !item.retired)
+    .filter((item) => PARENT_TYPES.has(item.licenseType) && !item.isRetired && !item.retired && !item.retirementScheduled)
     .filter((item) => `${item.licenseRef || ""} ${item.publisherName || ""} ${item.softwareDescription || ""}`.toLowerCase().includes(query.trim().toLowerCase())), [allLicenses, query]);
 
   const save = async () => {

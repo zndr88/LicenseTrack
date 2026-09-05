@@ -32,7 +32,7 @@ export function getExistingSuccessorCandidates(predecessor, allLicenses) {
     .filter((candidate) => normalized(candidate.poNumber) === predecessorPo)
     .filter((candidate) => entitlementIdentity(candidate) === entitlementIdentity(predecessor))
     .filter((candidate) => !NON_RENEWABLE_TYPES.has(candidate.licenseType))
-    .filter((candidate) => !candidate.retired && !candidate.isRetired && !candidate.lifecycleStatus)
+    .filter((candidate) => !candidate.retired && !candidate.isRetired && !candidate.retirementScheduled && !candidate.lifecycleStatus)
     .filter((candidate) => !candidate.renewedFromId && !candidate.predecessorId && !candidate.renewedToId)
     .filter((candidate) => candidate.endDate && candidate.endDate > predecessor.endDate)
     .filter((candidate) => !predecessor.startDate || (candidate.startDate && candidate.startDate > predecessor.startDate))

@@ -169,6 +169,28 @@ describe('DetailPanel identity references', () => {
   })
 })
 
+describe('DetailPanel scheduled retirement', () => {
+  it('explains that a future-dated retirement remains scheduled', async () => {
+    const user = userEvent.setup()
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 1, role: 'admin' }}
+        license={{
+          ...baseLicense,
+          endDate: '2027-12-31',
+          retirementScheduled: true,
+        }}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /completeness & flags/i }))
+
+    expect(screen.getByText('Retirement Scheduled')).toBeInTheDocument()
+    expect(screen.getByText(/scheduled to retire after 2027-12-31/i)).toBeInTheDocument()
+  })
+})
+
 describe('DetailPanel existing renewal successor', () => {
   it('links an already-purchased active license without requiring a budget owner', async () => {
     const user = userEvent.setup()

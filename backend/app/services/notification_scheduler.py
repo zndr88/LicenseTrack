@@ -6,6 +6,7 @@ from app.database import AsyncSessionLocal
 from app.models.audit_log import AuditLog
 from app.models.settings import GlobalSettings
 from app.services.notification_sender import run_daily_notifications
+from app.services.license_retirement_service import retire_due_licenses
 from app.services.pending_order_conversion_service import sweep_stale_evidence_transfers
 from app.services.webhook_service import dispatch_pending_webhooks
 
@@ -145,6 +146,14 @@ async def start_scheduler():
                 log.info(f"Evidence transfer sweep attempted for {swept_count} order(s)")
         except Exception as exc:
             log.error(f"Evidence transfer sweep failed: {exc}", exc_info=True)
+
+        try:
+            async with AsyncSessionLocal() as db:
+                retired_count = await retire_due_licenses(db)
+            if retired_count:
+                log.info(f"Completed {retired_count} scheduled license retirement(s)")
+        except Exception as exc:
+            log.error(f"Scheduled license retirement failed: {exc}", exc_info=True)
 
         now = datetime.now(timezone.utc)
 

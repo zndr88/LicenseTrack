@@ -116,7 +116,11 @@ def _assert_existing_successor_candidate(
     predecessor_status = compute_expiration_status(predecessor, date.today(), notification_days)
     if predecessor_status not in {"expiring", "expired"}:
         raise HTTPException(status_code=400, detail="Only expiring or expired licenses can link an existing successor")
-    if predecessor.is_retired or predecessor.lifecycle_status in {"renewed", "legacy", "pending_renewal"}:
+    if (
+        predecessor.is_retired
+        or getattr(predecessor, "retirement_scheduled", False)
+        or predecessor.lifecycle_status in {"renewed", "legacy", "pending_renewal"}
+    ):
         raise HTTPException(status_code=409, detail="This license is not eligible to link an existing successor")
     if predecessor.end_date is None or predecessor.license_type in {LicenseType.service, LicenseType.other}:
         raise HTTPException(status_code=400, detail="This license type is not eligible for renewal")
@@ -124,7 +128,11 @@ def _assert_existing_successor_candidate(
 
     if successor.id == predecessor.id:
         raise HTTPException(status_code=400, detail="A license cannot be its own successor")
-    if successor.is_retired or successor.lifecycle_status is not None:
+    if (
+        successor.is_retired
+        or getattr(successor, "retirement_scheduled", False)
+        or successor.lifecycle_status is not None
+    ):
         raise HTTPException(status_code=409, detail="The selected successor is not an active or upcoming license")
     if successor.renewed_from_id is not None or successor.predecessor_id is not None or successor.coterm_from_ids:
         raise HTTPException(status_code=409, detail="The selected license already has a predecessor")

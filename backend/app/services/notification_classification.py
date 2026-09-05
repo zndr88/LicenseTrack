@@ -85,6 +85,7 @@ def classify_license_alerts(
     lifecycle_status = getattr(license_obj.lifecycle_status, "value", license_obj.lifecycle_status)
     if (
         license_obj.is_retired
+        or getattr(license_obj, "retirement_scheduled", False)
         or lifecycle_status in {"legacy", "renewed"}
         or getattr(license_obj, "renewed_to_id", None) is not None
     ):

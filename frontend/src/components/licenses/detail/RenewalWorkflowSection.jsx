@@ -57,7 +57,7 @@ export default function RenewalWorkflowSection({
     <>
       {/* Renewal Workflow box */}
       {(exp.status === "expiring" || exp.status === "expired") &&
-        !license.renewedToId && !license.retired && canStartRenewal && (
+        !license.renewedToId && !license.retired && !license.retirementScheduled && canStartRenewal && (
         <div className="dp-purple-box" style={{ padding: "12px 14px" }}>
           <div className="dp-renewal-title">
             <Icon name="clock" size={14} color="var(--purple-text)" /> Renewal Workflow

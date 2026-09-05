@@ -12,6 +12,15 @@ export default function CompletenessFlagsSection({
   onToggle,
   onUpdate,
 }) {
+  const retirementSelected = license.retired || license.retirementScheduled;
+  const retirementDescription = license.retirementScheduled
+    ? `Scheduled to retire after ${license.endDate}; expiration alerts are suppressed`
+    : license.retired
+      ? "Retired and excluded from expiration alerts"
+      : license.endDate
+        ? "Retire automatically after the current term ends"
+        : "Retire immediately and suppress alerts";
+
   return (
     <>
       <DetailSectionHeader sectionKey="completeness" title="Completeness &amp; Flags" isOpen={isOpen} onToggle={onToggle} />
@@ -38,15 +47,17 @@ export default function CompletenessFlagsSection({
           <div style={{ height: 1, background: "var(--border)", margin: "0 0 10px" }} />
 
           {!license.renewedToId && license.lifecycleStatus !== "pending_renewal" && (
-            <div className="dp-toggle-row" style={{ background: license.retired ? "var(--orange-m)" : "var(--bg-2)", borderColor: license.retired ? "var(--orange-border)" : "var(--border)" }}>
+            <div className="dp-toggle-row" style={{ background: retirementSelected ? "var(--orange-m)" : "var(--bg-2)", borderColor: retirementSelected ? "var(--orange-border)" : "var(--border)" }}>
               <div className="dp-toggle-inner">
-                <Icon name="eye" size={14} color={license.retired ? "var(--orange)" : "var(--text-3)"} />
+                <Icon name="eye" size={14} color={retirementSelected ? "var(--orange)" : "var(--text-3)"} />
                 <div>
-                  <div className="dp-toggle-title" style={{ color: license.retired ? "var(--orange-text)" : "var(--text-2)" }}>Retired License</div>
-                  <div className="dp-toggle-desc">{license.retired ? "Excluded from expiration alerts" : "Mark as retired to suppress alerts"}</div>
+                  <div className="dp-toggle-title" style={{ color: retirementSelected ? "var(--orange-text)" : "var(--text-2)" }}>
+                    {license.retirementScheduled ? "Retirement Scheduled" : "Retired License"}
+                  </div>
+                  <div className="dp-toggle-desc">{retirementDescription}</div>
                 </div>
               </div>
-              {perms.canEdit && <Toggle value={license.retired || false} onChange={(v) => onUpdate(license.id, { retired: v })} />}
+              {perms.canEdit && <Toggle value={retirementSelected} onChange={(v) => onUpdate(license.id, { retired: v })} />}
             </div>
           )}
 

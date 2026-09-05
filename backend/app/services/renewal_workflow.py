@@ -58,7 +58,7 @@ def derive_renewal_workflow_state(
     sourcing_item: SourcingItem | None = None,
 ) -> RenewalWorkflowState:
     """Return the current renewal workflow state from persisted carriers."""
-    if license_obj.is_retired:
+    if license_obj.is_retired or getattr(license_obj, "retirement_scheduled", False):
         return "retired"
     if license_obj.lifecycle_status == "legacy":
         return "legacy"

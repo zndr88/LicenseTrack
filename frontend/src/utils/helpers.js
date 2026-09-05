@@ -162,6 +162,7 @@ export const normalizeLicense = (l) => ({
   effectiveQuantity: l.effectiveQuantity ?? l.effective_quantity ?? "",
   // API uses isRetired; frontend uses retired
   retired: l.isRetired ?? l.retired ?? false,
+  retirementScheduled: l.retirementScheduled ?? l.retirement_scheduled ?? false,
   // API returns null for no end date; frontend uses "" for perpetual display
   endDate: l.endDate ?? "",
   startDate: l.startDate ?? "",

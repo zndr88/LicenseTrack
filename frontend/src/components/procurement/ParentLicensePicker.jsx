@@ -4,7 +4,8 @@ function isEligibleExistingParent(license) {
   return (
     (license.licenseType === "perpetual" || license.licenseType === "oem" || license.licenseType === "freeware") &&
     !license.isRetired &&
-    !license.retired
+    !license.retired &&
+    !license.retirementScheduled
   );
 }
 

@@ -18,6 +18,7 @@ from app.services.license_service import (
     compute_expiration_status,
     compute_stats,
 )
+from app.services.license_retirement_service import normalize_retirement_update
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -59,6 +60,33 @@ def make_doc(category_value: str) -> SimpleNamespace:
 
 def test_status_retired():
     assert compute_expiration_status(make_license(is_retired=True), date.today()) == "retired"
+
+
+def test_future_dated_retirement_is_scheduled_until_term_ends():
+    today = date.today()
+    update_data = {"is_retired": True}
+
+    normalize_retirement_update(
+        make_license(end_date=today + timedelta(days=10)),
+        update_data,
+        today=today,
+    )
+
+    assert update_data == {"is_retired": False, "retirement_scheduled": True}
+
+
+def test_scheduled_retirement_becomes_immediate_when_end_date_moves_to_past():
+    today = date.today()
+    update_data = {"end_date": today - timedelta(days=1)}
+    license_obj = make_license(
+        end_date=today + timedelta(days=10),
+        retirement_scheduled=True,
+    )
+
+    normalize_retirement_update(license_obj, update_data, today=today)
+
+    assert update_data["is_retired"] is True
+    assert update_data["retirement_scheduled"] is False
 
 
 def test_calc_effective_quantity_uses_purchase_quantity_multiplier():

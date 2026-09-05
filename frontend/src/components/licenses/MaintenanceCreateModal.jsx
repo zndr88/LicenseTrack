@@ -83,6 +83,7 @@ export default function MaintenanceCreateModal({
         license.licenseType === "maintenance" &&
         !license.isRetired &&
         !license.retired &&
+        !license.retirementScheduled &&
         !isLinkedToParent(license, parentLicense.id)
       ))
       .filter((license) => !q || optionSearchText(license).includes(q))

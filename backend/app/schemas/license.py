@@ -106,6 +106,7 @@ class LicenseBase(BaseModel):
     last_synced_at: Optional[datetime] = None
     sync_status: Optional[str] = None
     is_retired: bool = False
+    retirement_scheduled: bool = False
     is_completeness_exempt: bool = False
     renewal_notifications_enabled: bool = True
     lifecycle_status: Optional[LifecycleStatus] = None

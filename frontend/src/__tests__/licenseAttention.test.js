@@ -29,4 +29,11 @@ describe("getLicenseAttentionItems", () => {
 
     expect(items.map((item) => item.id)).toEqual([2]);
   });
+
+  test("excludes a license whose retirement is already scheduled", () => {
+    const scheduled = license(1, "expiring", 10);
+    scheduled.retirementScheduled = true;
+
+    expect(getLicenseAttentionItems([scheduled], new Set())).toEqual([]);
+  });
 });

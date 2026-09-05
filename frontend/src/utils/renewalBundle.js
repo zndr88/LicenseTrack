@@ -5,7 +5,7 @@ export function getRenewalBundleMembers(license, candidates) {
     if (!candidate || candidate.id === license.id) return false;
     if (candidate.poNumber !== license.poNumber || candidate.endDate !== license.endDate) return false;
     if (!candidate.budgetOwnerEmail?.trim()) return false;
-    if (candidate.renewedToId || candidate.retired || candidate.lifecycleStatus === "pending_renewal") return false;
+    if (candidate.renewedToId || candidate.retired || candidate.retirementScheduled || candidate.lifecycleStatus === "pending_renewal") return false;
 
     return candidate.expirationStatus === "expiring" || candidate.expirationStatus === "expired";
   });

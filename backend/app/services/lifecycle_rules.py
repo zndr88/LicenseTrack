@@ -92,6 +92,8 @@ def validate_general_license_update_fields(update_data: dict, license_obj: Licen
 
 
 def assert_can_initiate_renewal(license_obj: License) -> None:
+    if license_obj.is_retired or getattr(license_obj, "retirement_scheduled", False):
+        raise HTTPException(status_code=409, detail="Retired licenses are not eligible for renewal")
     if license_obj.lifecycle_status == "pending_renewal":
         raise HTTPException(status_code=409, detail="Renewal already initiated for this license")
     if license_obj.lifecycle_status == "renewed":

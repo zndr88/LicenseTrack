@@ -48,6 +48,7 @@ from app.services.maintenance_service import (
 )
 from app.services.money import is_canonical_money
 from app.services.license_service import validate_term_date_order
+from app.services.license_retirement_service import normalize_retirement_update
 from app.services.po_total_override_service import (
     inherit_po_total_override,
     resolve_reassigned_po_total_override,
@@ -298,6 +299,7 @@ async def create_license_record(
         raise HTTPException(status_code=400, detail=str(exc))
     normalise_license_type_fields(create_data)
     apply_included_support_defaults(create_data)
+    normalize_retirement_update(None, create_data)
 
     # F1: chain and lifecycle fields cannot be set at create time.
     _CREATE_CHAIN_FIELDS = REPAIR_ONLY_UPDATE_FIELDS
@@ -394,6 +396,7 @@ async def apply_license_update(
             update_data.get("start_date", license_obj.start_date),
             update_data.get("end_date", license_obj.end_date),
         )
+    normalize_retirement_update(license_obj, update_data)
     validate_general_license_update_fields(update_data, license_obj)
     if "po_number" in update_data or "currency" in update_data:
         update_data["po_total_override"] = await resolve_reassigned_po_total_override(
@@ -975,8 +978,8 @@ def _validate_active_maintenance_parent_update(license_obj: License, before: dic
         assert_active_maintenance_allows_type_change(license_obj.active_maintenance_id, license_obj.license_type)
         assert_active_maintenance_allows_retirement(
             license_obj.active_maintenance_id,
-            was_retired=bool(before.get("is_retired", False)),
-            now_retired=license_obj.is_retired,
+            was_retired=bool(before.get("is_retired", False) or before.get("retirement_scheduled", False)),
+            now_retired=license_obj.is_retired or license_obj.retirement_scheduled,
         )
         assert_active_maintenance_allows_coverage_change(
             license_obj.active_maintenance_id,

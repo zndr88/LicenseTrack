@@ -168,6 +168,7 @@ class License(Base):
 
     # Soft delete / lifecycle
     is_retired: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    retirement_scheduled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     lifecycle_status: Mapped[LifecycleStatus | None] = mapped_column(Enum(LifecycleStatus), nullable=True)
     is_completeness_exempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     renewal_notifications_enabled: Mapped[bool] = mapped_column(

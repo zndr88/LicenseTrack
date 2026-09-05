@@ -66,7 +66,7 @@ def assert_parent_type_eligible(parent: "License") -> None:
 
 def assert_parent_not_retired(parent: "License") -> None:
     """Raise ValueError when *parent* is retired and cannot accept a new maintenance child."""
-    if parent.is_retired:
+    if parent.is_retired or getattr(parent, "retirement_scheduled", False):
         raise ValueError(f"parent_license_id={parent.id} is retired; cannot attach new maintenance")
 
 
