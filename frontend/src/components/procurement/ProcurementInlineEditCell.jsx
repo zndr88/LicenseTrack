@@ -22,7 +22,7 @@ function normalizedValue(value, valueType, userSettings) {
   return trimmed;
 }
 
-export default function ProcurementInlineEditCell({
+export function ProcurementInlineEditField({
   item,
   fieldKey,
   label,
@@ -34,7 +34,7 @@ export default function ProcurementInlineEditCell({
   className = "",
   userSettings,
   onSave,
-  children,
+  placeholder,
 }) {
   const formattedCurrentValue = useMemo(
     () => displayValue(currentValue, valueType, userSettings),
@@ -101,6 +101,7 @@ export default function ProcurementInlineEditCell({
     "aria-label": `Edit ${label}`,
     "aria-invalid": Boolean(error),
     className: `lp-inline-input ${error ? "lp-inline-input-error" : ""}`,
+    placeholder,
     onBlur: commit,
     onChange: (event) => setValue(event.target.value),
     onClick: (event) => event.stopPropagation(),
@@ -108,39 +109,45 @@ export default function ProcurementInlineEditCell({
   };
 
   return (
+    <div className={`lp-inline-edit-wrap ${className}`.trim()}>
+      {options ? (
+        <select {...inputProps} className={`${inputProps.className} fi-select`}>
+          {options.map((option) => (
+            <option key={option.value ?? option} value={option.value ?? option}>
+              {option.label ?? option}
+            </option>
+          ))}
+        </select>
+      ) : referenceMode ? (
+        <ReferenceCombobox
+          mode={referenceMode}
+          value={value}
+          onChange={setValue}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          disabled={saving}
+          className={inputProps.className}
+          aria-label={inputProps["aria-label"]}
+          aria-invalid={inputProps["aria-invalid"]}
+          onClick={inputProps.onClick}
+        />
+      ) : (
+        <input
+          {...inputProps}
+          type="text"
+          inputMode={valueType === "quantity" || valueType === "money" ? "decimal" : undefined}
+        />
+      )}
+      {saving && <span className="lp-inline-save-dot" aria-label={`Saving ${label}`} />}
+      {error && <span className="lp-inline-error" title={error}>!</span>}
+    </div>
+  );
+}
+
+export default function ProcurementInlineEditCell({ className = "", children, ...fieldProps }) {
+  return (
     <td className={`lp-editable-td ${className}`.trim()}>
-      <div className="lp-inline-edit-wrap">
-        {options ? (
-          <select {...inputProps} className={`${inputProps.className} fi-select`}>
-            {options.map((option) => (
-              <option key={option.value ?? option} value={option.value ?? option}>
-                {option.label ?? option}
-              </option>
-            ))}
-          </select>
-        ) : referenceMode ? (
-          <ReferenceCombobox
-            mode={referenceMode}
-            value={value}
-            onChange={setValue}
-            onBlur={commit}
-            onKeyDown={handleKeyDown}
-            disabled={saving}
-            className={inputProps.className}
-            aria-label={inputProps["aria-label"]}
-            aria-invalid={inputProps["aria-invalid"]}
-            onClick={inputProps.onClick}
-          />
-        ) : (
-          <input
-            {...inputProps}
-            type="text"
-            inputMode={valueType === "quantity" || valueType === "money" ? "decimal" : undefined}
-          />
-        )}
-        {saving && <span className="lp-inline-save-dot" aria-label={`Saving ${label}`} />}
-        {error && <span className="lp-inline-error" title={error}>!</span>}
-      </div>
+      <ProcurementInlineEditField {...fieldProps} />
       {children}
     </td>
   );

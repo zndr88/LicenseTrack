@@ -2191,6 +2191,55 @@ describe("SourcingPage workflows", () => {
 });
 
 describe("PendingOrdersPage workflows", () => {
+  test("inline edits blank PO and procurement reference numbers", async () => {
+    const user = userEvent.setup();
+    let order = {
+      id: 18,
+      poNumber: "",
+      supplier: "Reference Supplier",
+      status: "pending",
+      items: [],
+      documents: [],
+      createdAt: "2026-03-01T00:00:00Z",
+    };
+    pendingOrdersApi.getPendingOrders.mockImplementation(async () => ({ data: [order], error: null }));
+    pendingOrdersApi.updatePendingOrder.mockImplementation(async (_id, payload) => {
+      order = { ...order, ...payload };
+      return { data: order, error: null };
+    });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText("Pending Order #18")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^edit$/i, pressed: false }));
+
+    const poNumber = screen.getByRole("textbox", { name: /edit po number/i });
+    const procurementReference = screen.getByRole("textbox", { name: /edit procurement reference/i });
+    expect(poNumber).toHaveAttribute("placeholder", "Add PO number");
+    expect(procurementReference).toHaveAttribute("placeholder", "Add procurement reference");
+
+    await user.type(poNumber, "PO-NEW-18");
+    await user.tab();
+    await waitFor(() => {
+      expect(pendingOrdersApi.updatePendingOrder).toHaveBeenCalledWith(18, { poNumber: "PO-NEW-18" });
+    });
+
+    await user.type(procurementReference, "PROC-REF-18");
+    await user.tab();
+    await waitFor(() => {
+      expect(pendingOrdersApi.updatePendingOrder).toHaveBeenCalledWith(18, {
+        procurementReference: "PROC-REF-18",
+      });
+    });
+  });
+
   test("edits pending-order supplier and common line fields from the overview", async () => {
     const user = userEvent.setup();
     const commaSettings = { ...userSettings, numberFormatLocale: "de-DE" };

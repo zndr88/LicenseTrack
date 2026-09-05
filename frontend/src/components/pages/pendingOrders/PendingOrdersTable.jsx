@@ -2,7 +2,7 @@ import React from "react";
 import Icon from "../../ui/Icon.jsx";
 import SearchBox from "../../ui/SearchBox.jsx";
 import RowActionsMenu from "../../ui/RowActionsMenu.jsx";
-import ProcurementInlineEditCell from "../../procurement/ProcurementInlineEditCell.jsx";
+import ProcurementInlineEditCell, { ProcurementInlineEditField } from "../../procurement/ProcurementInlineEditCell.jsx";
 import { CURRENCIES } from "../../../constants/licenseData.js";
 import { formatCost } from "../../../utils/helpers.js";
 import { formatPoTotal } from "./usePendingOrdersPageState.js";
@@ -502,15 +502,40 @@ export default function PendingOrdersTable({
                     <td style={{ color: "var(--text-3)", fontSize: 11, textAlign: "center" }}>
                       {po.items?.length > 0 ? (isExpanded ? "\u25be" : "\u25b8") : ""}
                     </td>
-                    <td>
-                      <div className="mono" style={{ fontWeight: 600 }}>{pendingOrderLabel(po)}</div>
-                      {hasPoNumber && (
-                        <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>Pending Order #{po.id}</div>
-                      )}
-                      {po.procurementReference && (
-                        <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>{po.procurementReference}</div>
-                      )}
-                    </td>
+                    {canInlineEditOrder ? (
+                      <td className="lp-editable-td pending-order-inline-identifiers">
+                        <ProcurementInlineEditField
+                          item={po}
+                          fieldKey="poNumber"
+                          label="PO number"
+                          currentValue={po.poNumber}
+                          placeholder="Add PO number"
+                          userSettings={settings}
+                          onSave={onInlineOrderFieldSave}
+                        />
+                        <div className="sourcing-inline-context">Pending Order #{po.id}</div>
+                        <ProcurementInlineEditField
+                          item={po}
+                          fieldKey="procurementReference"
+                          label="procurement reference"
+                          currentValue={po.procurementReference}
+                          placeholder="Add procurement reference"
+                          userSettings={settings}
+                          onSave={onInlineOrderFieldSave}
+                          className="pending-order-inline-procurement-reference"
+                        />
+                      </td>
+                    ) : (
+                      <td>
+                        <div className="mono" style={{ fontWeight: 600 }}>{pendingOrderLabel(po)}</div>
+                        {hasPoNumber && (
+                          <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>Pending Order #{po.id}</div>
+                        )}
+                        {po.procurementReference && (
+                          <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>{po.procurementReference}</div>
+                        )}
+                      </td>
+                    )}
                     {canInlineEditOrder ? (
                       <ProcurementInlineEditCell
                         item={po}
