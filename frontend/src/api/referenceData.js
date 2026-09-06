@@ -50,6 +50,11 @@ export async function searchReferenceData(kind, search) {
     : { data: (result.data || []).map(normalizeReference), error: null };
 }
 
+export async function searchContactReferences(search) {
+  const params = new URLSearchParams({ search });
+  return get(`/api/reference-data/contacts/search?${params.toString()}`);
+}
+
 export async function getCostCentres({ active } = {}) {
   const params = new URLSearchParams();
   if (active !== undefined) params.set("active", String(active));

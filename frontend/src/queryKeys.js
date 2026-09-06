@@ -18,4 +18,5 @@ export const queryKeys = {
   referenceDataLookup: ["reference-data-lookup"],
   referenceDataSearch: (kind, search = "") => ["reference-data", kind, search],
   referenceDataLookupSearch: (kind, search = "") => ["reference-data-lookup", kind, search],
+  contactReferenceSearch: (search = "") => ["contact-reference-search", search],
 };
