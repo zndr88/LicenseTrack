@@ -8,15 +8,6 @@ export const DOCUMENT_CATEGORIES = [
   { key: "entitlement", label: "Proof of Entitlement / Serial Keys", shortLabel: "Entitlement / License Key", icon: "key", color: "var(--orange)" },
 ];
 
-export const DOCUMENT_CATEGORY_OPTIONS = ["invoice", "quote", "purchase_order", "eula", "entitlement"].map((key) => {
-  const category = DOCUMENT_CATEGORIES.find((item) => item.key === key);
-  return { value: key, label: category.shortLabel };
-});
-
-export function documentCategoryLabel(category) {
-  return DOCUMENT_CATEGORY_OPTIONS.find((option) => option.value === category)?.label ?? "Document";
-}
-
 export function isProcurementDocumentCategory(category) {
   return PROCUREMENT_DOCUMENT_CATEGORIES.has(category);
 }

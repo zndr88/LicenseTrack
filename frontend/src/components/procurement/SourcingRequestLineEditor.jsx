@@ -1,12 +1,9 @@
 import { Controller } from "react-hook-form";
 import { CURRENCIES, LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
-import { getProcurementFormVisibility } from "../../utils/procurementFormVisibility.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
-
-const SOURCING_FIELD_VISIBILITY = getProcurementFormVisibility("sourcing");
 
 export default function SourcingRequestLineEditor({
   item,
@@ -99,30 +96,12 @@ export default function SourcingRequestLineEditor({
               <label htmlFor={`${idPrefix}-notice`}>Notice Date</label>
               <input id={`${idPrefix}-notice`} type="date" className="fi" {...register(fieldName("noticeDate"))} />
             </div>
-            {SOURCING_FIELD_VISIBILITY.purchaseDate && (
-              <div className="fg">
-                <label htmlFor={`${idPrefix}-purchase`}>Purchase Date</label>
-                <input id={`${idPrefix}-purchase`} type="date" className="fi" {...register(fieldName("purchaseDate"))} />
-              </div>
-            )}
           </div>
           <div className="fr">
             <div className="fg">
               <label htmlFor={`${idPrefix}-contract`}>Contract Number</label>
               <input id={`${idPrefix}-contract`} className="fi" {...register(fieldName("contractNumber"))} />
             </div>
-            {SOURCING_FIELD_VISIBILITY.invoiceNumber && (
-              <div className="fg">
-                <label htmlFor={`${idPrefix}-invoice`}>Invoice Number</label>
-                <input id={`${idPrefix}-invoice`} className="fi" {...register(fieldName("invoiceNumber"))} />
-              </div>
-            )}
-            {SOURCING_FIELD_VISIBILITY.externalRef && (
-              <div className="fg">
-                <label htmlFor={`${idPrefix}-external`}>External Reference</label>
-                <input id={`${idPrefix}-external`} className="fi" {...register(fieldName("externalRef"))} />
-              </div>
-            )}
           </div>
           {customFields("dates")}
         </LicenseFormSection>

@@ -90,7 +90,7 @@ describe("AppRouter permissions", () => {
     expect(await screen.findByText("Notifications page")).toBeInTheDocument();
   });
 
-  test("opens the manual add-license modal only with upload permission", () => {
+  test("opens the manual add-license modal only with upload permission", async () => {
     const confirmData = { publisherName: "", strategyUsed: "manual", currency: "EUR", fileName: "manual-entry" };
     const userSettings = { numberFormatLocale: "en-US", visibleInDetail: {} };
 
@@ -107,7 +107,7 @@ describe("AppRouter permissions", () => {
         <AppRouter {...baseProps} page="licenses" perms={{ canUpload: true, canAdminSettings: false }} confirmData={confirmData} userSettings={userSettings} />
       </QueryClientProvider>,
     );
-    expect(screen.getByRole("dialog", { name: /add manual license/i })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: /add manual license/i })).toBeInTheDocument();
   });
 
   test("requires admin permission for admin route", () => {
