@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
 import Checkbox from "../ui/Checkbox.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import ContactCombobox from "../ui/ContactCombobox.jsx";
 import Icon from "../ui/Icon.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
@@ -478,8 +479,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           <LicenseFormSection title="Relationships">
             {form.licenseType === "maintenance" && <ParentLicensePicker id="inv-parent-license" licenses={eligibleParentLicenses} parentLicenseId={form.parentLicenseId} parentSourcingItemId={null} onSelectExisting={(value) => u("parentLicenseId", value)} onSelectPoItem={() => {}} error={!form.parentLicenseId ? "Select the perpetual, OEM, or freeware license this maintenance record supports." : null} />}
             <div className="fr"><div className="fg"><label htmlFor="inv-supplier">Supplier</label><ReferenceCombobox id="inv-supplier" mode="supplier" value={form.supplier} placeholder="Reseller or direct supplier" onChange={(value) => u("supplier", value)} /></div><div className="fg"><label htmlFor="inv-cost-centre">Cost Centre / Department</label><ReferenceCombobox id="inv-cost-centre" mode="costCentre" value={form.costCentre} placeholder="Department or cost centre" onChange={(value) => u("costCentre", value)} /></div></div>
-            <div className="fr"><div className="fg"><label htmlFor="inv-contact-email">Contact Email</label><input id="inv-contact-email" className="fi" value={form.contactEmail} onChange={(e) => u("contactEmail", e.target.value)} /></div><div className="fg"><label htmlFor="inv-budget-owner">Budget Owner Email</label><input id="inv-budget-owner" className="fi" value={form.budgetOwnerEmail} placeholder="owner@example.com" onChange={(e) => u("budgetOwnerEmail", e.target.value)} /></div></div>
-            <div className="fg"><label htmlFor="inv-secondary-contacts">Secondary Contacts</label><input id="inv-secondary-contacts" className="fi" value={form.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(e) => u("secondaryContacts", e.target.value)} /></div>
+            <div className="fr"><div className="fg"><label htmlFor="inv-contact-email">Contact Email</label><input id="inv-contact-email" className="fi" value={form.contactEmail} onChange={(e) => u("contactEmail", e.target.value)} /></div><div className="fg"><label htmlFor="inv-budget-owner">Budget Owner Email</label><ContactCombobox id="inv-budget-owner" value={form.budgetOwnerEmail} placeholder="owner@example.com" onChange={(value) => u("budgetOwnerEmail", value)} /></div></div>
+            <div className="fg"><label htmlFor="inv-secondary-contacts">Secondary Contacts</label><ContactCombobox id="inv-secondary-contacts" multiple value={form.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(value) => u("secondaryContacts", value)} /></div>
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="people" />
           </LicenseFormSection>
 
@@ -645,7 +646,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 <label htmlFor={`inv-line-${line.id}-notes`}>Notes</label>
                 <textarea id={`inv-line-${line.id}-notes`} className="fi" rows={2} value={line.notes} onChange={(e) => updateLine(line.id, "notes", e.target.value)} style={{ resize: "vertical" }} />
               </div>
-              <div className="fg"><label htmlFor={`inv-line-${line.id}-secondary-contacts`}>Secondary Contacts</label><input id={`inv-line-${line.id}-secondary-contacts`} className="fi" value={line.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(e) => updateLine(line.id, "secondaryContacts", e.target.value)} /></div>
+              <div className="fg"><label htmlFor={`inv-line-${line.id}-secondary-contacts`}>Secondary Contacts</label><ContactCombobox id={`inv-line-${line.id}-secondary-contacts`} multiple value={line.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(value) => updateLine(line.id, "secondaryContacts", value)} /></div>
               <CustomFieldFormFields
                 definitions={customFieldDefs}
                 values={line.customFieldValues || {}}

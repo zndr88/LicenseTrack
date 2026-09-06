@@ -19,6 +19,7 @@ const ContactCombobox = forwardRef(function ContactCombobox({
   onBlur,
   className = "fi",
   disabled = false,
+  multiple = false,
   ...inputProps
 }, forwardedRef) {
   const generatedId = useId();
@@ -29,7 +30,8 @@ const ContactCombobox = forwardRef(function ContactCombobox({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputValue = String(value || "");
-  const cleanedValue = cleanSearch(inputValue);
+  const tokenStart = multiple ? inputValue.lastIndexOf(",") + 1 : 0;
+  const cleanedValue = cleanSearch(inputValue.slice(tokenStart));
   const canSearch = cleanedValue.length >= MIN_SEARCH_LENGTH;
 
   useEffect(() => {
@@ -72,7 +74,8 @@ const ContactCombobox = forwardRef(function ContactCombobox({
   }, [activeIndex, options.length]);
 
   const choose = (contact) => {
-    onChange(contact.email);
+    const prefix = multiple && tokenStart > 0 ? `${inputValue.slice(0, tokenStart).trimEnd()} ` : "";
+    onChange(`${prefix}${contact.email}`);
     setIsOpen(false);
     setActiveIndex(-1);
   };
@@ -108,6 +111,7 @@ const ContactCombobox = forwardRef(function ContactCombobox({
         id={inputId}
         className={className}
         type="email"
+        multiple={multiple || undefined}
         value={inputValue}
         disabled={disabled}
         role="combobox"
@@ -119,7 +123,10 @@ const ContactCombobox = forwardRef(function ContactCombobox({
           onChange(event.target.value);
           setIsOpen(true);
         }}
-        onFocus={() => setIsOpen(true)}
+        onFocus={(event) => {
+          setIsOpen(true);
+          inputProps.onFocus?.(event);
+        }}
         onBlur={(event) => {
           if (!rootRef.current?.contains(event.relatedTarget)) setIsOpen(false);
           onBlur?.(event);

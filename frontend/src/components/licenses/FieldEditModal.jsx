@@ -6,6 +6,7 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import ContactCombobox from "../ui/ContactCombobox.jsx";
 
 /**
  * Single-field edit modal.
@@ -123,6 +124,14 @@ export default function FieldEditModal({
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+          ) : fieldKey === "budgetOwnerEmail" ? (
+            <ContactCombobox
+              id="field-edit-value"
+              value={value}
+              onChange={setValue}
+              onKeyDown={handleKeyDown}
+              autoFocus
+            />
           ) : referenceMode ? (
             <ReferenceCombobox
               id="field-edit-value"

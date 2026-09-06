@@ -8,6 +8,7 @@ import {
 } from "../../../utils/maintenanceCoverage.js";
 import Icon from "../../ui/Icon.jsx";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
+import ContactCombobox from "../../ui/ContactCombobox.jsx";
 import CustomFieldFormFields from "../CustomFieldFormFields.jsx";
 
 /**
@@ -106,9 +107,9 @@ export default function LicenseEditForm({
       </div>
       <div className="fg">
         <label htmlFor="license-edit-budget-owner">Budget Owner Email</label>
-        <input id="license-edit-budget-owner" className="fi" type="email" value={editFields.budgetOwnerEmail || ""} onChange={(e) => setEditFields((p) => ({ ...p, budgetOwnerEmail: e.target.value }))} placeholder="owner@example.com" />
+        <ContactCombobox id="license-edit-budget-owner" value={editFields.budgetOwnerEmail || ""} onChange={(value) => setEditFields((p) => ({ ...p, budgetOwnerEmail: value }))} placeholder="owner@example.com" />
       </div>
-      <div className="fg"><label htmlFor="license-edit-secondary-contacts">Secondary Contacts</label><input id="license-edit-secondary-contacts" className="fi" value={editFields.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(e) => setEditFields((previous) => ({ ...previous, secondaryContacts: e.target.value }))} /></div>
+      <div className="fg"><label htmlFor="license-edit-secondary-contacts">Secondary Contacts</label><ContactCombobox id="license-edit-secondary-contacts" multiple value={editFields.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(value) => setEditFields((previous) => ({ ...previous, secondaryContacts: value }))} /></div>
       <div className="fr">
         <div className="fg">
           <label htmlFor="license-edit-supplier">Supplier</label>

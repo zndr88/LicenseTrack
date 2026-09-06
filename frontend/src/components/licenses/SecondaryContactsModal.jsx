@@ -4,6 +4,7 @@ import ModalShell from "../ui/ModalShell.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import Icon from "../ui/Icon.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
+import ContactCombobox from "../ui/ContactCombobox.jsx";
 
 function normaliseContacts(values) {
   const seen = new Set();
@@ -117,12 +118,11 @@ export default function SecondaryContactsModal({
               <div className="invoice-number-row" key={index}>
                 <div className="fg invoice-number-input">
                   <label htmlFor={`secondary-contact-${index}`}>Secondary contact</label>
-                  <input
+                  <ContactCombobox
                     id={`secondary-contact-${index}`}
-                    className="fi"
                     value={row}
                     placeholder="contact@example.com"
-                    onChange={(event) => setRow(index, event.target.value)}
+                    onChange={(value) => setRow(index, value)}
                     onKeyDown={handleKeyDown}
                     autoFocus={index === rows.length - 1 && row === ""}
                   />

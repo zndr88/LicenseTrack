@@ -24,6 +24,15 @@ function renderCombobox() {
   );
 }
 
+function renderMultipleCombobox() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Harness() {
+    const [value, setValue] = useState("first@example.com, ");
+    return <ContactCombobox multiple value={value} onChange={setValue} aria-label="Secondary contacts" />;
+  }
+  return render(<QueryClientProvider client={queryClient}><Harness /></QueryClientProvider>);
+}
+
 describe("ContactCombobox", () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -54,5 +63,21 @@ describe("ContactCombobox", () => {
 
     expect(input).toHaveValue("new@example.com");
     await waitFor(() => expect(screen.getByText("No matching contact found.")).toBeInTheDocument());
+  });
+
+  test("searches and replaces the active token in a comma-separated contact list", async () => {
+    referenceDataApi.searchContactReferences.mockResolvedValue({
+      data: [{ email: "second@example.com" }],
+      error: null,
+    });
+    const user = userEvent.setup();
+    renderMultipleCombobox();
+
+    const input = screen.getByRole("combobox", { name: "Secondary contacts" });
+    await user.type(input, "sec");
+    await waitFor(() => expect(referenceDataApi.searchContactReferences).toHaveBeenCalledWith("sec"));
+    await user.click(screen.getByRole("option", { name: "second@example.com" }));
+
+    expect(input).toHaveValue("first@example.com,second@example.com");
   });
 });

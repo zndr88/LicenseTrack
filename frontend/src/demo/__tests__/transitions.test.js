@@ -182,6 +182,24 @@ describe("renewal golden path transitions", () => {
     expect(new Set(data).size).toBe(data.length);
   });
 
+  it("contact suggestions combine budget owners and secondary contacts", async () => {
+    store.licenses[0].budgetOwnerEmail = "Owner@example.com";
+    store.licenses[0].secondaryContacts = ["secondary@example.com"];
+    store.licenses[1].budgetOwnerEmail = "secondary@EXAMPLE.com";
+
+    const { data, error } = await demoRequest(
+      "/api/reference-data/contacts/search?search=example",
+      { method: "GET" },
+    );
+
+    expect(error).toBeNull();
+    expect(data.map((item) => item.email.toLowerCase())).toEqual(expect.arrayContaining([
+      "owner@example.com",
+      "secondary@example.com",
+    ]));
+    expect(data.filter((item) => item.email.toLowerCase() === "secondary@example.com")).toHaveLength(1);
+  });
+
   it("converting a sourcing item creates/joins a pending order", async () => {
     const target = store.licenses.find((l) => l.daysUntilExpiry === 20);
     const init = await demoRequest(`/api/licenses/${target.id}/initiate-renewal`, { method: "POST", body: JSON.stringify({}) });

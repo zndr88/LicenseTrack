@@ -439,6 +439,28 @@ export const routes = [
   { method: "GET", pattern: /^\/api\/backup\/list$/, handler: async () => ({ data: [], error: null }) },
   { method: "GET", pattern: /^\/api\/audit-log$/, handler: async () => ({ data: { results: [], total: 0 }, error: null }) },
 
+  {
+    method: "GET", pattern: /^\/api\/reference-data\/contacts\/search$/,
+    handler: async ({ query }) => {
+      const search = String(query.get("search") || "").trim().toLowerCase();
+      const contacts = new Map();
+      for (const license of store.licenses) {
+        for (const value of [license.budgetOwnerEmail, ...(license.secondaryContacts || [])]) {
+          const email = String(value || "").trim();
+          const key = email.toLowerCase();
+          if (key && key.includes(search) && !contacts.has(key)) contacts.set(key, email);
+        }
+      }
+      return {
+        data: [...contacts.entries()]
+          .sort(([left], [right]) => left.localeCompare(right))
+          .slice(0, 25)
+          .map(([, email]) => ({ email })),
+        error: null,
+      };
+    },
+  },
+
   // Reference-data management - mirrors the admin API in an isolated demo store.
   {
     method: "GET", pattern: /^\/api\/reference-data\/(?<kind>organizations|cost-centres)$/,
