@@ -19,6 +19,7 @@ import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import MaintenanceCoverageFields, { supportsMaintenanceCoverage } from "./MaintenanceCoverageFields.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import { LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
+import { parseSecondaryContacts } from "../../utils/secondaryContacts.js";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -105,7 +106,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
           quantityPerUnit: parseLocalizedNumber(item.quantityPerUnit, userSettings) ?? item.quantityPerUnit,
           estimatedUnitPrice: parseLocalizedNumber(item.estimatedUnitPrice, userSettings) ?? item.estimatedUnitPrice,
           estimatedTotalPrice: parseLocalizedNumber(item.estimatedTotalPrice, userSettings) ?? item.estimatedTotalPrice,
-          secondaryContacts: String(item.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+          secondaryContacts: parseSecondaryContacts(item.secondaryContacts),
           customFieldValues: buildCustomFieldValuePayload(customFieldDefs, item.customFieldValues, userSettings),
         }));
         const saved = await onSave({ ...data, items: normalizedItems, quoteFile: attachedFile || null });

@@ -1,4 +1,5 @@
 import { defaultMaintenanceCoverageForLicenseType } from "./maintenanceCoverage.js";
+import { formatSecondaryContacts } from "./secondaryContacts.js";
 
 /**
  * Builds conversion form defaults for pending-order items.
@@ -74,7 +75,7 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       totalPoPrice:        si.estimatedTotalPrice || renewal?.totalPoPrice || "",
       currency:            si.currency || renewal?.currency || defaultCurrency,
       budgetOwnerEmail:    renewal?.budgetOwnerEmail || "",
-      secondaryContacts:   (si.secondaryContacts || renewal?.secondaryContacts || []).join(", "),
+      secondaryContacts:   formatSecondaryContacts(si.secondaryContacts || renewal?.secondaryContacts),
       customFieldValues:   Object.fromEntries((si.customFieldValues || []).map((value) => [
         value.customFieldDefId,
         value.valueCurrency ?? value.valueText ?? "",

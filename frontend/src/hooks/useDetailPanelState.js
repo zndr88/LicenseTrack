@@ -17,6 +17,7 @@ import { useLicenseDocuments } from "./useLicenseDocuments.js";
 import { useCustomFields } from "./useCustomFields.js";
 import { parseLocalizedNumber } from "../utils/formatting.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../utils/customFieldFormValues.js";
+import { formatSecondaryContacts, parseSecondaryContacts } from "../utils/secondaryContacts.js";
 
 /**
  * Encapsulates all state, effects, handlers, and derived values for DetailPanel.
@@ -265,7 +266,7 @@ export function useDetailPanelState({
     setEditError(null);
     const ok = await onUpdate(license.id, {
       ...editFields,
-      secondaryContacts: String(editFields.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+      secondaryContacts: parseSecondaryContacts(editFields.secondaryContacts),
       customFieldValues: buildCustomFieldValuePayload(customFieldDefs, editFields.customFieldValues, userSettings),
     });
     setSavingLicense(false);
@@ -292,7 +293,7 @@ export function useDetailPanelState({
       externalRef: license.externalRef || "",
       contactEmail: license.contactEmail || "",
       budgetOwnerEmail: license.budgetOwnerEmail || "",
-      secondaryContacts: (license.secondaryContacts || []).join(", "),
+      secondaryContacts: formatSecondaryContacts(license.secondaryContacts),
       supplier: license.supplier || "",
       costCentre: license.costCentre || "",
       licenseType: license.licenseType || "",

@@ -12,6 +12,7 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import SourcingRequestLineEditor from "./SourcingRequestLineEditor.jsx";
+import { formatSecondaryContacts, parseSecondaryContacts } from "../../utils/secondaryContacts.js";
 
 function itemDefaults(item) {
   return {
@@ -38,7 +39,7 @@ function itemDefaults(item) {
     externalRef: item.externalRef ?? "",
     costCentre: item.costCentre ?? "",
     budgetOwnerEmail: item.budgetOwnerEmail ?? "",
-    secondaryContacts: (item.secondaryContacts ?? []).join(", "),
+    secondaryContacts: formatSecondaryContacts(item.secondaryContacts),
     customFieldValues: customFieldValueMap(item.customFieldValues),
     notes: item.notes ?? "",
   };
@@ -99,7 +100,7 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
         externalRef: item.externalRef || null,
         costCentre: item.costCentre || null,
         budgetOwnerEmail: item.budgetOwnerEmail || null,
-        secondaryContacts: String(item.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+        secondaryContacts: parseSecondaryContacts(item.secondaryContacts),
         customFieldValues: buildCustomFieldValuePayload(
           filterCustomFieldDefinitionsForRenewal(customFieldDefs, item.isRenewal),
           item.customFieldValues,

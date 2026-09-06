@@ -26,6 +26,7 @@ import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
 import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
+import { formatSecondaryContacts, parseSecondaryContacts } from "../../utils/secondaryContacts.js";
 import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import { previewSourcingQuoteDocument } from "../../api/sourcing.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
@@ -184,7 +185,7 @@ const SourcingItemModal = ({
       externalRef:         item?.externalRef ?? "",
       costCentre:          item?.costCentre ?? "",
       budgetOwnerEmail:    item?.budgetOwnerEmail ?? "",
-      secondaryContacts:   (item?.secondaryContacts ?? []).join(", "),
+      secondaryContacts:   formatSecondaryContacts(item?.secondaryContacts),
       customFieldValues:   customFieldValueMap(item?.customFieldValues),
       supplier:            effectiveSupplier,
       contactEmail:        effectiveContactEmail,
@@ -410,7 +411,7 @@ const SourcingItemModal = ({
           externalRef: data.externalRef || null,
           costCentre: data.costCentre || null,
           budgetOwnerEmail: data.budgetOwnerEmail || null,
-          secondaryContacts: String(data.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+          secondaryContacts: parseSecondaryContacts(data.secondaryContacts),
           customFieldValues: buildCustomFieldValuePayload(customFieldDefs, data.customFieldValues, userSettings),
         };
         const saved = await onSave({
@@ -437,7 +438,7 @@ const SourcingItemModal = ({
               externalRef: l.externalRef || null,
               costCentre: l.costCentre || null,
               budgetOwnerEmail: l.budgetOwnerEmail || null,
-              secondaryContacts: String(l.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+              secondaryContacts: parseSecondaryContacts(l.secondaryContacts),
               customFieldValues: buildCustomFieldValuePayload(customFieldDefs, l.customFieldValues, userSettings),
               supplier: l.supplier || null,
               contactEmail: l.contactEmail || null,
@@ -460,7 +461,7 @@ const SourcingItemModal = ({
         const saved = await onSave({
           ...data,
           customFieldValues: buildCustomFieldValuePayload(customFieldDefs, data.customFieldValues, userSettings),
-          secondaryContacts: String(data.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+          secondaryContacts: parseSecondaryContacts(data.secondaryContacts),
           quantity: parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity,
           estimatedUnitPrice: isFreewareLicenseType(data.licenseType)
             ? null

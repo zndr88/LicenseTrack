@@ -19,6 +19,7 @@ import { getLicenses } from "../../api/licenses.js";
 import CustomFieldFormFields from "./CustomFieldFormFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
+import { formatSecondaryContacts, parseSecondaryContacts } from "../../utils/secondaryContacts.js";
 import LicenseFormSection from "./LicenseFormSection.jsx";
 import DocumentStagingWorkspace from "../procurement/DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "../procurement/useStagedDocumentAttachments.js";
@@ -116,7 +117,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     totalPoPrice: data.totalPoPrice || "", currency: data.currency || "EUR", notes: data.notes || "",
     budgetOwnerEmail: data.budgetOwnerEmail || "",
     externalRef: data.externalRef || "",
-    secondaryContacts: (data.secondaryContacts || []).join(", "),
+    secondaryContacts: formatSecondaryContacts(data.secondaryContacts),
     customFieldValues: customFieldValueMap(data.customFieldValues || data.customFields),
     maintenanceCoverage: data.maintenanceCoverage || "unknown",
     maintenanceStartDate: data.maintenanceStartDate || "",
@@ -240,7 +241,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         unitPrice: isFreewareLicenseType(form.licenseType) ? "" : form.unitPrice,
         totalPoPrice: isFreewareLicenseType(form.licenseType) ? "" : form.totalPoPrice,
         quantityPerUnit: normalizeLocalizedValue(form.quantityPerUnit, userSettings) || "1",
-        secondaryContacts: String(form.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+        secondaryContacts: parseSecondaryContacts(form.secondaryContacts),
         customFieldValues: buildCustomFieldValuePayload(customFieldDefs, form.customFieldValues, userSettings),
         maintenanceQuantity: normalizeLocalizedValue(form.maintenanceQuantity, userSettings),
         maintenanceUnitPrice: normalizeLocalizedValue(form.maintenanceUnitPrice, userSettings),
@@ -259,7 +260,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         quantityPerUnit: normalizeLocalizedValue(line.quantityPerUnit, userSettings) || "1",
         purchaseDate: line.purchaseDate || form.purchaseDate,
         externalRef: line.externalRef,
-        secondaryContacts: String(line.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+        secondaryContacts: parseSecondaryContacts(line.secondaryContacts),
         customFieldValues: buildCustomFieldValuePayload(customFieldDefs, line.customFieldValues, userSettings),
         skuCode: line.skuCode,
         unitPrice: isFreewareLicenseType(line.licenseType)

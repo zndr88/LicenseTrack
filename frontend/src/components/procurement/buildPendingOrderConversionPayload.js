@@ -1,4 +1,5 @@
 import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseSecondaryContacts } from "../../utils/secondaryContacts.js";
 
 function normalizeDate(dateValue) {
   if (!dateValue) return null;
@@ -53,7 +54,7 @@ export function buildPendingOrderConversionPayload(data, settings) {
     totalPoPrice:        data.licenseType === "freeware" ? null : canonicalizeNumber(data.totalPoPrice, settings),
     currency:            data.currency,
     budgetOwnerEmail:    data.budgetOwnerEmail,
-    secondaryContacts:   String(data.secondaryContacts || "").split(/[\n,;]/).map((value) => value.trim()).filter(Boolean),
+    secondaryContacts:   parseSecondaryContacts(data.secondaryContacts),
     customFieldValues:   data.customFieldValuesPayload || [],
     notes:               data.notes || null,
   };

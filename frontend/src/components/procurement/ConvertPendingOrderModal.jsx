@@ -19,6 +19,7 @@ import MaintenanceCoverageFields, {
   supportsMaintenanceCoverage,
 } from "./MaintenanceCoverageFields.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
+import { formatSecondaryContacts } from "../../utils/secondaryContacts.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
@@ -142,7 +143,7 @@ const ConvertPendingOrderModal = ({
       totalPoPrice:        prefill.totalPoPrice        || "",
       currency:            prefill.currency            || "EUR",
       budgetOwnerEmail:    prefill.budgetOwnerEmail    || "",
-      secondaryContacts:   (prefill.secondaryContacts || []).join(", "),
+      secondaryContacts:   formatSecondaryContacts(prefill.secondaryContacts),
       notes:               prefill.notes               || "",
       customFieldValues:   customFieldValueMap(prefill.customFieldValues),
     },
