@@ -4,8 +4,8 @@ import { getContracts } from "../../../api/contracts.js";
 import { getLicenses, getStats } from "../../../api/licenses.js";
 import { getPendingOrders } from "../../../api/pendingOrders.js";
 import { getSourcingItems } from "../../../api/sourcing.js";
-import { listCustomFields } from "../../../api/settings.js";
 import { queryKeys } from "../../../queryKeys.js";
+import { fetchCustomFieldDefinitions } from "../../../hooks/useCustomFieldDefinitions.js";
 import { normalizeLicense } from "../../../utils/helpers.js";
 import {
   getCustomFieldValuesMapFromQueryData,
@@ -50,12 +50,6 @@ async function fetchContracts() {
   return data ?? EMPTY_ARRAY;
 }
 
-async function fetchCustomFieldDefs() {
-  const { data, error } = await listCustomFields();
-  if (error) throw new Error(error);
-  return data ?? EMPTY_ARRAY;
-}
-
 export function useLicensesPageData({ showError, includeContracts = false }) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.licenses,
@@ -92,7 +86,7 @@ export function useLicensesPageData({ showError, includeContracts = false }) {
 
   const customFieldDefsQuery = useQuery({
     queryKey: queryKeys.customFieldDefs,
-    queryFn: fetchCustomFieldDefs,
+    queryFn: fetchCustomFieldDefinitions,
   });
 
   const auxiliaryIssues = useMemo(() => [

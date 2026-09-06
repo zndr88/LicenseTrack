@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRenewalWorkbench } from "../../api/renewals.js";
-import { listCustomFields, updateSettings } from "../../api/settings.js";
+import { updateSettings } from "../../api/settings.js";
 import { isEditorOrAdmin } from "../../utils/helpers.js";
 import { queryKeys } from "../../queryKeys.js";
 import { useRenewalWorkflowActions } from "../../hooks/useRenewalWorkflowActions.js";
+import { fetchCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import Icon from "../ui/Icon.jsx";
 import {
   HIGH_VALUE_THRESHOLD,
@@ -27,12 +28,6 @@ const EMPTY_ROWS = [];
 
 async function fetchRenewalRows(view) {
   const { data, error } = await getRenewalWorkbench({ window_days: WINDOW_DAYS, view });
-  if (error) throw new Error(error);
-  return data ?? [];
-}
-
-async function fetchCustomFieldDefs() {
-  const { data, error } = await listCustomFields();
   if (error) throw new Error(error);
   return data ?? [];
 }
@@ -65,7 +60,7 @@ export default function RenewalWorkbenchPage({
   });
   const qCustomFields = useQuery({
     queryKey: queryKeys.customFieldDefs,
-    queryFn: fetchCustomFieldDefs,
+    queryFn: fetchCustomFieldDefinitions,
   });
 
   const rows = view === "all" ? (qAll.data ?? EMPTY_ROWS) : (qSelected.data ?? EMPTY_ROWS);
