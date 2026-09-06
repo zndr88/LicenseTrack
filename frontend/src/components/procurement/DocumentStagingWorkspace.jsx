@@ -9,13 +9,9 @@ import {
   documentFileIconColor,
   isProcurementDocumentCategory,
 } from "../../utils/documentCategories.js";
+import { getPreviewFilename, isPreviewablePdf } from "../../utils/documentPreview.js";
 
-const filenameFor = (document) => document.originalFilename ?? document.original_filename ?? "Document";
 const categoryFor = (document) => document.category ?? document.documentCategory ?? document.document_category ?? "purchase_order";
-const isPdf = (document) => {
-  const mimeType = document.mimeType ?? document.mime_type ?? "";
-  return mimeType === "application/pdf" || filenameFor(document).toLowerCase().endsWith(".pdf");
-};
 
 export default function DocumentStagingWorkspace({
   attachments,
@@ -59,7 +55,7 @@ export default function DocumentStagingWorkspace({
   }, [attachments, clearStoredPreview]);
 
   const openStoredPreview = async (document) => {
-    if (!isPdf(document) || !previewDocument) return;
+    if (!isPreviewablePdf(document) || !previewDocument) return;
     setLocalPreviewId(null);
     clearStoredPreview();
     const requestId = ++requestRef.current;
@@ -130,15 +126,15 @@ export default function DocumentStagingWorkspace({
               {existing.map((document) => (
                 <div key={`existing-${document.id}`} className="doc-file">
                   <div className="doc-file-icon" style={{ background: "var(--bg-3)" }}>
-                    <Icon name="file" size={15} color={documentFileIconColor(filenameFor(document))} />
+                    <Icon name="file" size={15} color={documentFileIconColor(getPreviewFilename(document))} />
                   </div>
                   <div className="doc-file-info">
-                    <div className="doc-file-name">{filenameFor(document)}</div>
+                    <div className="doc-file-name">{getPreviewFilename(document)}</div>
                     <div className="doc-file-meta">Already attached · Shared across this PO</div>
                   </div>
-                  {isPdf(document) && (
+                  {isPreviewablePdf(document) && (
                     <div className="doc-file-actions">
-                      <button type="button" className="doc-action-btn preview" aria-label={`Preview ${filenameFor(document)}`} onClick={() => openStoredPreview(document)}>
+                      <button type="button" className="doc-action-btn preview" aria-label={`Preview ${getPreviewFilename(document)}`} onClick={() => openStoredPreview(document)}>
                         <Icon name="eye" size={14} />
                       </button>
                     </div>
@@ -219,10 +215,10 @@ export default function DocumentStagingWorkspace({
         )}
         {storedPreview && (
           <DocumentPreviewPanel
-            ariaLabel={`${filenameFor(storedPreview.document)} preview`}
+            ariaLabel={`${getPreviewFilename(storedPreview.document)} preview`}
             className="document-assisted-preview"
             expanded={expanded}
-            filename={filenameFor(storedPreview.document)}
+            filename={getPreviewFilename(storedPreview.document)}
             kind={storedPreview.error ? null : "pdf"}
             label="Attached Document Preview"
             loading={storedPreview.loading}

@@ -369,6 +369,25 @@ describe("ConvertPendingOrderModal", () => {
     }
   });
 
+  test("does not offer preview for an unavailable stored PDF", () => {
+    renderModal({
+      order: {
+        ...ORDER,
+        documents: [{
+          id: 9,
+          original_filename: "missing-invoice.pdf",
+          mime_type: "application/pdf",
+          file_availability: "missing",
+          category: "invoice",
+        }],
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
+    expect(screen.getByText("missing-invoice.pdf")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Preview missing-invoice.pdf" })).not.toBeInTheDocument();
+  });
+
   test("offers dedicated document categories and stages multiple files during single conversion", async () => {
     const user = userEvent.setup();
     const { onConfirm } = renderModal();
