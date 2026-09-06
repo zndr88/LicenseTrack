@@ -5,7 +5,7 @@ import {
   formatDocumentAvailabilitySummary,
   isFileAvailable,
 } from "../utils/documentAvailability.js";
-import { isPreviewablePdf, localDocumentPreviewKind, safePreviewBlobUrl } from "../utils/documentPreview.js";
+import { getPreviewFilename, isPreviewablePdf, localDocumentPreviewKind, safePreviewBlobUrl } from "../utils/documentPreview.js";
 
 describe("document availability helpers", () => {
   test("summarizes total records separately from currently available files", () => {
@@ -41,6 +41,13 @@ describe("document availability helpers", () => {
     expect(isPreviewablePdf({ mimeType: "application/octet-stream", originalFilename: "invoice.PDF" })).toBe(true);
     expect(isPreviewablePdf({ mime_type: "text/plain", original_filename: "notes.txt" })).toBe(false);
     expect(isPreviewablePdf({ mime_type: "application/pdf", fileAvailability: "missing" })).toBe(false);
+  });
+
+  test("normalizes preview filenames from current and compatibility response shapes", () => {
+    expect(getPreviewFilename({ original_filename: "invoice.pdf" })).toBe("invoice.pdf");
+    expect(getPreviewFilename({ originalFilename: "quote.pdf" })).toBe("quote.pdf");
+    expect(getPreviewFilename({ filename: "legacy.pdf" })).toBe("legacy.pdf");
+    expect(getPreviewFilename({})).toBe("Document");
   });
 
   test("classifies safe local preview types and rejects MIME conflicts", () => {

@@ -2,12 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "../ui/Icon.jsx";
 import DocumentPreviewPanel from "../ui/DocumentPreviewPanel.jsx";
 import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
-
-const filenameFor = (document) => document.originalFilename ?? document.original_filename ?? "Document";
-const isPdf = (document) => {
-  const mimeType = document.mimeType ?? document.mime_type ?? "";
-  return mimeType === "application/pdf" || filenameFor(document).toLowerCase().endsWith(".pdf");
-};
+import { getPreviewFilename, isPreviewablePdf } from "../../utils/documentPreview.js";
 
 export default function ProcurementDocumentWorkspace({
   documents = [],
@@ -43,7 +38,7 @@ export default function ProcurementDocumentWorkspace({
   }, [file]);
 
   const openPreview = async (document) => {
-    if (!isPdf(document) || !previewDocument) return;
+    if (!isPreviewablePdf(document) || !previewDocument) return;
     clearPreview();
     const requestId = ++requestRef.current;
     setPreview({ document, loading: true, url: null });
@@ -97,13 +92,13 @@ export default function ProcurementDocumentWorkspace({
               key={document.id}
               type="button"
               className="procurement-document-row"
-              disabled={!isPdf(document)}
-              title={isPdf(document) ? `Preview ${filenameFor(document)}` : "Preview is available for PDF documents"}
+              disabled={!isPreviewablePdf(document)}
+              title={isPreviewablePdf(document) ? `Preview ${getPreviewFilename(document)}` : "Preview is available for PDF documents"}
               onClick={() => openPreview(document)}
             >
               <Icon name="file" size={13} />
-              <span>{filenameFor(document)}</span>
-              {isPdf(document) && <Icon name="eye" size={13} />}
+              <span>{getPreviewFilename(document)}</span>
+              {isPreviewablePdf(document) && <Icon name="eye" size={13} />}
             </button>
           ))}
         </div>
@@ -121,7 +116,7 @@ export default function ProcurementDocumentWorkspace({
           ariaLabel={`${documentKind} preview`}
           className="document-assisted-preview"
           expanded={expanded}
-          filename={filenameFor(preview.document)}
+          filename={getPreviewFilename(preview.document)}
           kind={preview.error ? null : "pdf"}
           label={`${label} Preview`}
           loading={preview.loading}

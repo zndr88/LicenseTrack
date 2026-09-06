@@ -69,6 +69,21 @@ describe("required field validation", () => {
     }
   });
 
+  test("keeps an unavailable stored PDF visible but disables its preview", () => {
+    renderModal({
+      documents: [{
+        id: 7,
+        original_filename: "missing-quote.pdf",
+        mime_type: "application/pdf",
+        file_availability: "missing",
+      }],
+    });
+
+    const documentButton = screen.getByRole("button", { name: /missing-quote\.pdf/i });
+    expect(documentButton).toBeDisabled();
+    expect(documentButton).toHaveAttribute("title", "Preview is available for PDF documents");
+  });
+
   test("does not preview a file whose declared MIME type conflicts with its PDF extension", async () => {
     const originalCreateObjectURL = URL.createObjectURL;
     URL.createObjectURL = vi.fn(() => "blob:quote-preview");
