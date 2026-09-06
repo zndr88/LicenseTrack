@@ -34,6 +34,15 @@ export default function LicenseEditForm({
   )
     ? editFields.maintenanceCoverage
     : "unknown";
+  const customFields = (section) => (
+    <CustomFieldFormFields
+      definitions={customFieldDefs}
+      values={editFields.customFieldValues || {}}
+      onChange={(values) => setEditFields((previous) => ({ ...previous, customFieldValues: values }))}
+      idPrefix="license-edit"
+      section={section}
+    />
+  );
 
   return (
     <div className="dp-edit-form">
@@ -52,13 +61,7 @@ export default function LicenseEditForm({
         <label htmlFor="license-edit-software">Software Description</label>
         <input id="license-edit-software" className="fi" value={editFields.softwareDescription} onChange={(e) => setEditFields((p) => ({ ...p, softwareDescription: e.target.value }))} />
       </div>
-      <CustomFieldFormFields
-        definitions={customFieldDefs}
-        values={editFields.customFieldValues || {}}
-        onChange={(values) => setEditFields((previous) => ({ ...previous, customFieldValues: values }))}
-        idPrefix="license-edit"
-        section="identity"
-      />
+      {customFields("identity")}
       <div className="fr">
         <div className="fg">
           <label htmlFor="license-edit-start-date">Start Date</label>
@@ -96,13 +99,7 @@ export default function LicenseEditForm({
         <label htmlFor="license-edit-invoice">Invoice #</label>
         <input id="license-edit-invoice" className="fi" value={editFields.invoiceNumber} onChange={(e) => setEditFields((p) => ({ ...p, invoiceNumber: e.target.value }))} />
       </div>
-      <CustomFieldFormFields
-        definitions={customFieldDefs}
-        values={editFields.customFieldValues || {}}
-        onChange={(values) => setEditFields((previous) => ({ ...previous, customFieldValues: values }))}
-        idPrefix="license-edit"
-        section="dates"
-      />
+      {customFields("dates")}
       <div className="fg">
         <label htmlFor="license-edit-contact">Publisher Contact Email</label>
         <input id="license-edit-contact" className="fi" type="email" value={editFields.contactEmail} onChange={(e) => setEditFields((p) => ({ ...p, contactEmail: e.target.value }))} />
@@ -122,22 +119,10 @@ export default function LicenseEditForm({
           <ReferenceCombobox id="license-edit-cost-centre" mode="costCentre" value={editFields.costCentre} onChange={(value) => setEditFields((p) => ({ ...p, costCentre: value }))} />
         </div>
       </div>
-      <CustomFieldFormFields
-        definitions={customFieldDefs}
-        values={editFields.customFieldValues || {}}
-        onChange={(values) => setEditFields((previous) => ({ ...previous, customFieldValues: values }))}
-        idPrefix="license-edit"
-        section="people"
-      />
+      {customFields("people")}
       <div className="fg"><label htmlFor="license-edit-total-price">Total PO Price</label><input id="license-edit-total-price" className="fi" inputMode="decimal" value={editFields.totalPoPrice || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, totalPoPrice: parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value }))} /></div>
       <div className="fg"><label htmlFor="license-edit-notes">Notes / Comments</label><textarea id="license-edit-notes" className="fi" rows={3} value={editFields.notes || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, notes: e.target.value }))} /></div>
-      <CustomFieldFormFields
-        definitions={customFieldDefs}
-        values={editFields.customFieldValues || {}}
-        onChange={(values) => setEditFields((previous) => ({ ...previous, customFieldValues: values }))}
-        idPrefix="license-edit"
-        section="notes"
-      />
+      {customFields("notes")}
       <div className="fr">
         <div className="fg">
           <label htmlFor="license-edit-type">License Type</label>
@@ -182,13 +167,7 @@ export default function LicenseEditForm({
           </select>
         </div>
       )}
-      <CustomFieldFormFields
-        definitions={customFieldDefs}
-        values={editFields.customFieldValues || {}}
-        onChange={(values) => setEditFields((previous) => ({ ...previous, customFieldValues: values }))}
-        idPrefix="license-edit"
-        section="maintenance"
-      />
+      {customFields("maintenance")}
       <div className="fr">
         <div className="fg">
           <label htmlFor="license-edit-quantity">Purchase Quantity</label>
@@ -231,27 +210,9 @@ export default function LicenseEditForm({
           </select>
         </div>
       </div>
-      <CustomFieldFormFields
-        definitions={customFieldDefs}
-        values={editFields.customFieldValues || {}}
-        onChange={(values) => setEditFields((previous) => ({ ...previous, customFieldValues: values }))}
-        idPrefix="license-edit"
-        section="commercial"
-      />
-      <CustomFieldFormFields
-        definitions={customFieldDefs}
-        values={editFields.customFieldValues || {}}
-        onChange={(values) => setEditFields((previous) => ({ ...previous, customFieldValues: values }))}
-        idPrefix="license-edit"
-        section="documents"
-      />
-      <CustomFieldFormFields
-        definitions={customFieldDefs}
-        values={editFields.customFieldValues || {}}
-        onChange={(values) => setEditFields((previous) => ({ ...previous, customFieldValues: values }))}
-        idPrefix="license-edit"
-        section="__catchall__"
-      />
+      {customFields("commercial")}
+      {customFields("documents")}
+      {customFields("__catchall__")}
       <div className="dp-btn-row">
         <button className="btn btn-g btn-sm" disabled={savingLicense} onClick={onCancel}>Cancel</button>
         <button className="btn btn-p btn-sm" disabled={savingLicense} onClick={onSave}>
