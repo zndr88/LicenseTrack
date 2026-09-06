@@ -23,10 +23,15 @@ import MaintenanceCoverageFields, {
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
-import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
-import { parseSecondaryContacts } from "../../utils/secondaryContacts.js";
-import { getSourcingItemInitialTotal, sourcingItemToFormDefaults } from "../../utils/sourcingItemFormModel.js";
+import {
+  getSourcingItemInitialTotal,
+  maintenanceCompanionToPayload,
+  sourcingAdditionalLineToPayload,
+  sourcingEditFormToPayload,
+  sourcingItemToFormDefaults,
+  sourcingPrimaryFormToPayload,
+} from "../../utils/sourcingItemFormModel.js";
 import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import { previewSourcingQuoteDocument } from "../../api/sourcing.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
@@ -100,10 +105,6 @@ const emptyAdditionalLine = (overrides = {}) => ({
   isMaintenanceCompanion: false,
   ...overrides,
 });
-
-function normalizeOptionalNumber(value, settings) {
-  return (parseLocalizedNumber(value, settings) ?? value) || null;
-}
 
 const SourcingItemModal = ({
   item,
@@ -318,86 +319,13 @@ const SourcingItemModal = ({
       // single and multi-line submissions share one payload shape.
       // Edit / add-to-existing-request modes (no upload field) use the plain payload.
       if (isNewLineCollection) {
-        const primaryItem = {
-          publisherName: data.publisherName,
-          softwareDescription: data.softwareDescription,
-          licenseType: data.licenseType || null,
-          licenseMetric: data.licenseMetric || null,
-          portalUrl: data.licenseType === "saas" ? data.portalUrl || null : null,
-          maintenanceCoverage: supportsMaintenanceCoverage(data.licenseType)
-            ? (data.maintenanceCoverage || "unknown")
-            : null,
-          maintenanceStartDate: data.maintenanceCoverage === "included"
-            ? (data.maintenanceStartDate || null)
-            : null,
-          maintenanceEndDate: data.maintenanceCoverage === "included"
-            ? (data.maintenanceEndDate || null)
-            : null,
-          maintenancePricingBasis: data.maintenanceCoverage === "included"
-            ? (data.maintenancePricingBasis || "flat")
-            : null,
-          maintenanceQuantity: data.maintenanceCoverage === "included"
-            ? normalizeOptionalNumber(data.maintenanceQuantity, userSettings)
-            : null,
-          maintenanceUnitPrice: data.maintenanceCoverage === "included"
-            ? normalizeOptionalNumber(data.maintenanceUnitPrice, userSettings)
-            : null,
-          maintenanceCost: data.maintenanceCoverage === "included"
-            ? normalizeOptionalNumber(data.maintenanceCost, userSettings)
-            : null,
-          quantity: (parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity) || null,
-          quantityPerUnit: normalizeOptionalNumber(data.quantityPerUnit, userSettings) || "1",
-          skuCode: data.skuCode || null,
-          estimatedUnitPrice: isFreewareLicenseType(data.licenseType)
-            ? null
-            : (parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice) || null,
-          estimatedTotalPrice: isFreewareLicenseType(data.licenseType)
-            ? null
-            : (parseLocalizedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice) || null,
-          currency: data.currency || "EUR",
-          startDate: data.startDate || null,
-          endDate: data.endDate || null,
-          noticeDate: data.noticeDate || null,
-          purchaseDate: data.purchaseDate || null,
-          contractNumber: data.contractNumber || null,
-          invoiceNumber: data.invoiceNumber || null,
-          externalRef: data.externalRef || null,
-          costCentre: data.costCentre || null,
-          budgetOwnerEmail: data.budgetOwnerEmail || null,
-          secondaryContacts: parseSecondaryContacts(data.secondaryContacts),
-          customFieldValues: buildCustomFieldValuePayload(customFieldDefs, data.customFieldValues, userSettings),
-        };
+        const primaryItem = sourcingPrimaryFormToPayload(data, customFieldDefs, userSettings);
         const saved = await onSave({
           items: [
             primaryItem,
-            ...additionalLines.map((l) => ({
-              publisherName: l.publisherName,
-              softwareDescription: l.softwareDescription,
-              licenseType: l.licenseType || null,
-              licenseMetric: l.licenseMetric || null,
-              portalUrl: l.licenseType === "saas" ? l.portalUrl || null : null,
-              quantity: normalizeOptionalNumber(l.quantity, userSettings),
-              quantityPerUnit: normalizeOptionalNumber(l.quantityPerUnit, userSettings) || "1",
-              skuCode: l.skuCode || null,
-              estimatedUnitPrice: normalizeOptionalNumber(l.estimatedUnitPrice, userSettings),
-              estimatedTotalPrice: normalizeOptionalNumber(l.estimatedTotalPrice, userSettings),
-              currency: l.currency || "EUR",
-              startDate: l.startDate || null,
-              endDate: l.endDate || null,
-              noticeDate: l.noticeDate || null,
-              purchaseDate: l.purchaseDate || null,
-              contractNumber: l.contractNumber || null,
-              invoiceNumber: l.invoiceNumber || null,
-              externalRef: l.externalRef || null,
-              costCentre: l.costCentre || null,
-              budgetOwnerEmail: l.budgetOwnerEmail || null,
-              secondaryContacts: parseSecondaryContacts(l.secondaryContacts),
-              customFieldValues: buildCustomFieldValuePayload(customFieldDefs, l.customFieldValues, userSettings),
-              supplier: l.supplier || null,
-              contactEmail: l.contactEmail || null,
-              notes: l.notes || null,
-              parentItemIndex: l.parentItemIndex,
-            })),
+            ...additionalLines.map((line) => sourcingAdditionalLineToPayload(
+              line, customFieldDefs, userSettings,
+            )),
           ],
           supplier: data.supplier || null,
           contactEmail: data.contactEmail || null,
@@ -412,35 +340,12 @@ const SourcingItemModal = ({
       } else {
         const maintenanceCompanion = additionalLines.find((line) => line.isMaintenanceCompanion);
         const saved = await onSave({
-          ...data,
-          customFieldValues: buildCustomFieldValuePayload(customFieldDefs, data.customFieldValues, userSettings),
-          secondaryContacts: parseSecondaryContacts(data.secondaryContacts),
-          quantity: parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity,
-          estimatedUnitPrice: isFreewareLicenseType(data.licenseType)
-            ? null
-            : parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice,
-          estimatedTotalPrice: isFreewareLicenseType(data.licenseType)
-            ? null
-            : parseLocalizedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice,
-          maintenanceQuantity: normalizeOptionalNumber(data.maintenanceQuantity, userSettings),
-          maintenanceUnitPrice: normalizeOptionalNumber(data.maintenanceUnitPrice, userSettings),
-          maintenanceCost: normalizeOptionalNumber(data.maintenanceCost, userSettings),
+          ...sourcingEditFormToPayload(data, customFieldDefs, userSettings),
           quoteFile: attachedFile || null,
           ...(maintenanceCompanion ? {
-            maintenanceCompanion: {
-              publisherName: maintenanceCompanion.publisherName,
-              softwareDescription: maintenanceCompanion.softwareDescription,
-              licenseType: "maintenance",
-              quantity: normalizeOptionalNumber(maintenanceCompanion.quantity, userSettings),
-              estimatedUnitPrice: normalizeOptionalNumber(maintenanceCompanion.estimatedUnitPrice, userSettings),
-              estimatedTotalPrice: normalizeOptionalNumber(maintenanceCompanion.estimatedTotalPrice, userSettings),
-              currency: maintenanceCompanion.currency || "EUR",
-              startDate: maintenanceCompanion.startDate || null,
-              endDate: maintenanceCompanion.endDate || null,
-              supplier: maintenanceCompanion.supplier || null,
-              contactEmail: maintenanceCompanion.contactEmail || null,
-              parentSourcingItemId: item?.id ?? null,
-            },
+            maintenanceCompanion: maintenanceCompanionToPayload(
+              maintenanceCompanion, item?.id, userSettings,
+            ),
           } : {}),
         });
         if (saved) reset();
