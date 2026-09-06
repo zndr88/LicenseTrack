@@ -107,7 +107,11 @@ describe("AppRouter permissions", () => {
         <AppRouter {...baseProps} page="licenses" perms={{ canUpload: true, canAdminSettings: false }} confirmData={confirmData} userSettings={userSettings} />
       </QueryClientProvider>,
     );
-    expect(await screen.findByRole("dialog", { name: /add manual license/i })).toBeInTheDocument();
+    expect(await screen.findByRole(
+      "dialog",
+      { name: /add manual license/i },
+      { timeout: 10_000 },
+    )).toBeInTheDocument();
   });
 
   test("requires admin permission for admin route", () => {

@@ -19,7 +19,6 @@ import { getLicenses } from "../../api/licenses.js";
 import CustomFieldFormFields from "./CustomFieldFormFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
-import { FULL_LICENSE_FORM_VISIBILITY } from "../../utils/licenseFormVisibility.js";
 import LicenseFormSection from "./LicenseFormSection.jsx";
 import DocumentStagingWorkspace from "../procurement/DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "../procurement/useStagedDocumentAttachments.js";
@@ -129,7 +128,6 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     parentLicenseId: data.parentLicenseId || "",
   });
   const u = (k, v) => { setFormTouched(true); setForm((f) => ({ ...f, [k]: v })); };
-  const vis = FULL_LICENSE_FORM_VISIBILITY;
 
   useEffect(() => {
     if (form.licenseType !== "maintenance") return undefined;
@@ -349,7 +347,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           <LicenseFormSection title="Identity">
             <div className="fg"><label htmlFor="inv-publisher-name">Publisher Name</label><ReferenceCombobox id="inv-publisher-name" mode="publisher" value={form.publisherName} onChange={(value) => u("publisherName", value)} /></div>
             <div className="fg"><label htmlFor="inv-software-desc">Software Description</label><input id="inv-software-desc" className="fi" value={form.softwareDescription} onChange={(e) => u("softwareDescription", e.target.value)} /></div>
-            {vis.licenseType && <div className="fg"><label htmlFor="inv-license-type">License Type</label><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}) })); if (isFreewareLicenseType(next)) { setDisplayUnitPrice(""); setDisplayTotalPrice(""); } if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>}
+            <div className="fg"><label htmlFor="inv-license-type">License Type</label><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}) })); if (isFreewareLicenseType(next)) { setDisplayUnitPrice(""); setDisplayTotalPrice(""); } if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="identity" />
           </LicenseFormSection>
           <div style={hasDocumentCustomFields || documentActionsAvailable ? undefined : { display: "none" }}>
@@ -465,29 +463,29 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
 
           <LicenseFormSection title="Details">
             <div className="fr">
-              {vis.quantity && <div className="fg"><label htmlFor="inv-quantity">Purchase Quantity</label><input id="inv-quantity" className="fi" type="number" value={form.quantity} onChange={(e) => u("quantity", e.target.value)} /></div>}
-              {vis.quantityPerUnit && <div className="fg"><label htmlFor="inv-quantity-per-unit">Quantity per Unit</label><input id="inv-quantity-per-unit" className="fi" inputMode="decimal" value={form.quantityPerUnit} onChange={(e) => u("quantityPerUnit", e.target.value)} /></div>}
-              {vis.skuCode && <div className="fg"><label htmlFor="inv-sku-code">SKU Code</label><input id="inv-sku-code" className="fi" value={form.skuCode} placeholder="SKU or product code" onChange={(e) => u("skuCode", e.target.value)} /></div>}
+              <div className="fg"><label htmlFor="inv-quantity">Purchase Quantity</label><input id="inv-quantity" className="fi" type="number" value={form.quantity} onChange={(e) => u("quantity", e.target.value)} /></div>
+              <div className="fg"><label htmlFor="inv-quantity-per-unit">Quantity per Unit</label><input id="inv-quantity-per-unit" className="fi" inputMode="decimal" value={form.quantityPerUnit} onChange={(e) => u("quantityPerUnit", e.target.value)} /></div>
+              <div className="fg"><label htmlFor="inv-sku-code">SKU Code</label><input id="inv-sku-code" className="fi" value={form.skuCode} placeholder="SKU or product code" onChange={(e) => u("skuCode", e.target.value)} /></div>
             </div>
             <div className="fr">
-              {vis.licenseMetric && <div className="fg"><label htmlFor="inv-license-metric">License Metric</label><select id="inv-license-metric" className="fi fi-select" value={form.licenseMetric} onChange={(e) => u("licenseMetric", e.target.value)}><option value="">Select...</option>{LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>}
+              <div className="fg"><label htmlFor="inv-license-metric">License Metric</label><select id="inv-license-metric" className="fi fi-select" value={form.licenseMetric} onChange={(e) => u("licenseMetric", e.target.value)}><option value="">Select...</option>{LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
               <div className="fg"><label htmlFor="inv-currency">Currency</label><select id="inv-currency" className="fi fi-select" value={form.currency} onChange={(e) => u("currency", e.target.value)}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
             </div>
-            {!isFreewareLicenseType(form.licenseType) && (vis.unitPrice || vis.totalPoPrice) && <div className="fr">{vis.unitPrice && <div className="fg"><label htmlFor="inv-unit-price">Unit Price</label><input id="inv-unit-price" className="fi" value={displayUnitPrice} onChange={(e) => { setDisplayUnitPrice(e.target.value); u("unitPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayUnitPrice(formatPriceInput(form.unitPrice, locale))} /></div>}{vis.totalPoPrice && <div className="fg"><label htmlFor="inv-total-price">Total PO Price</label><input id="inv-total-price" className="fi" value={displayTotalPrice} onChange={(e) => { setDisplayTotalPrice(e.target.value); u("totalPoPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayTotalPrice(formatPriceInput(form.totalPoPrice, locale))} /></div>}</div>}
+            {!isFreewareLicenseType(form.licenseType) && <div className="fr"><div className="fg"><label htmlFor="inv-unit-price">Unit Price</label><input id="inv-unit-price" className="fi" value={displayUnitPrice} onChange={(e) => { setDisplayUnitPrice(e.target.value); u("unitPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayUnitPrice(formatPriceInput(form.unitPrice, locale))} /></div><div className="fg"><label htmlFor="inv-total-price">Total PO Price</label><input id="inv-total-price" className="fi" value={displayTotalPrice} onChange={(e) => { setDisplayTotalPrice(e.target.value); u("totalPoPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayTotalPrice(formatPriceInput(form.totalPoPrice, locale))} /></div></div>}
             {form.licenseType === "saas" && <div className="fg"><label htmlFor="inv-portal-url">Portal URL</label><input id="inv-portal-url" className="fi" value={form.portalUrl} onChange={(e) => u("portalUrl", e.target.value)} placeholder="https://..." /></div>}
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="commercial" />
           </LicenseFormSection>
 
           <LicenseFormSection title="Relationships">
             {form.licenseType === "maintenance" && <ParentLicensePicker id="inv-parent-license" licenses={eligibleParentLicenses} parentLicenseId={form.parentLicenseId} parentSourcingItemId={null} onSelectExisting={(value) => u("parentLicenseId", value)} onSelectPoItem={() => {}} error={!form.parentLicenseId ? "Select the perpetual, OEM, or freeware license this maintenance record supports." : null} />}
-            {(vis.supplier || vis.costCentre) && <div className="fr">{vis.supplier && <div className="fg"><label htmlFor="inv-supplier">Supplier</label><ReferenceCombobox id="inv-supplier" mode="supplier" value={form.supplier} placeholder="Reseller or direct supplier" onChange={(value) => u("supplier", value)} /></div>}{vis.costCentre && <div className="fg"><label htmlFor="inv-cost-centre">Cost Centre / Department</label><ReferenceCombobox id="inv-cost-centre" mode="costCentre" value={form.costCentre} placeholder="Department or cost centre" onChange={(value) => u("costCentre", value)} /></div>}</div>}
+            <div className="fr"><div className="fg"><label htmlFor="inv-supplier">Supplier</label><ReferenceCombobox id="inv-supplier" mode="supplier" value={form.supplier} placeholder="Reseller or direct supplier" onChange={(value) => u("supplier", value)} /></div><div className="fg"><label htmlFor="inv-cost-centre">Cost Centre / Department</label><ReferenceCombobox id="inv-cost-centre" mode="costCentre" value={form.costCentre} placeholder="Department or cost centre" onChange={(value) => u("costCentre", value)} /></div></div>
             <div className="fr"><div className="fg"><label htmlFor="inv-contact-email">Contact Email</label><input id="inv-contact-email" className="fi" value={form.contactEmail} onChange={(e) => u("contactEmail", e.target.value)} /></div><div className="fg"><label htmlFor="inv-budget-owner">Budget Owner Email</label><input id="inv-budget-owner" className="fi" value={form.budgetOwnerEmail} placeholder="owner@example.com" onChange={(e) => u("budgetOwnerEmail", e.target.value)} /></div></div>
             <div className="fg"><label htmlFor="inv-secondary-contacts">Secondary Contacts</label><input id="inv-secondary-contacts" className="fi" value={form.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(e) => u("secondaryContacts", e.target.value)} /></div>
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="people" />
           </LicenseFormSection>
 
           <LicenseFormSection title="Notes">
-            {vis.notes && <div className="fg"><label htmlFor="inv-notes">Notes / Comments</label><textarea id="inv-notes" className="fi" rows={3} value={form.notes} onChange={(e) => u("notes", e.target.value)} style={{ resize: "vertical" }} /></div>}
+            <div className="fg"><label htmlFor="inv-notes">Notes / Comments</label><textarea id="inv-notes" className="fi" rows={3} value={form.notes} onChange={(e) => u("notes", e.target.value)} style={{ resize: "vertical" }} /></div>
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="notes" />
           </LicenseFormSection>
 
@@ -538,8 +536,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 <div className="fg"><label htmlFor={`inv-line-${line.id}-external-ref`}>External Reference</label><input id={`inv-line-${line.id}-external-ref`} className="fi" value={line.externalRef || ""} onChange={(e) => updateLine(line.id, "externalRef", e.target.value)} /></div>
               </div>
               <div className="fr">
-                {vis.licenseType && (
-                  <div className="fg">
+                <div className="fg">
                     <label htmlFor={`inv-line-${line.id}-license-type`}>License Type</label>
                     <select id={`inv-line-${line.id}-license-type`} className="fi fi-select" value={line.licenseType} onChange={(e) => {
                       const next = e.target.value;
@@ -556,17 +553,14 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                       <option value="">Select...</option>
                       {LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
-                  </div>
-                )}
-                {vis.licenseMetric && (
-                  <div className="fg">
+                </div>
+                <div className="fg">
                     <label htmlFor={`inv-line-${line.id}-license-metric`}>License Metric</label>
                     <select id={`inv-line-${line.id}-license-metric`} className="fi fi-select" value={line.licenseMetric} onChange={(e) => updateLine(line.id, "licenseMetric", e.target.value)}>
                       <option value="">Select...</option>
                       {LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
-                  </div>
-                )}
+                </div>
               </div>
               <MaintenanceCoverageFields
                 idPrefix={`inv-line-${line.id}`}
@@ -595,29 +589,22 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 </div>
               )}
               <div className="fr">
-                {vis.quantity && (
-                  <div className="fg">
+                <div className="fg">
                     <label htmlFor={`inv-line-${line.id}-quantity`}>Purchase Quantity</label>
                     <input id={`inv-line-${line.id}-quantity`} type="number" className="fi" value={line.quantity} onChange={(e) => updateLine(line.id, "quantity", e.target.value)} />
-                  </div>
-                )}
-                {vis.quantityPerUnit && (
-                  <div className="fg">
+                </div>
+                <div className="fg">
                     <label htmlFor={`inv-line-${line.id}-quantity-per-unit`}>Quantity per Unit</label>
                     <input id={`inv-line-${line.id}-quantity-per-unit`} className="fi" inputMode="decimal" value={line.quantityPerUnit} onChange={(e) => updateLine(line.id, "quantityPerUnit", e.target.value)} />
-                  </div>
-                )}
-                {vis.skuCode && (
-                  <div className="fg">
+                </div>
+                <div className="fg">
                     <label htmlFor={`inv-line-${line.id}-sku-code`}>SKU Code</label>
                     <input id={`inv-line-${line.id}-sku-code`} className="fi" value={line.skuCode} onChange={(e) => updateLine(line.id, "skuCode", e.target.value)} placeholder="SKU or product code" />
-                  </div>
-                )}
+                </div>
               </div>
-              {!isFreewareLicenseType(line.licenseType) && (vis.unitPrice || vis.totalPoPrice) && (
+              {!isFreewareLicenseType(line.licenseType) && (
                 <div className="fr">
-                  {vis.unitPrice && (
-                    <div className="fg">
+                  <div className="fg">
                       <label htmlFor={`inv-line-${line.id}-unit-price`}>Unit Price</label>
                       <input
                         id={`inv-line-${line.id}-unit-price`}
@@ -631,10 +618,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                         )}
                         placeholder={formatPriceInput("0.00", locale)}
                       />
-                    </div>
-                  )}
-                  {vis.totalPoPrice && (
-                    <div className="fg">
+                  </div>
+                  <div className="fg">
                       <label htmlFor={`inv-line-${line.id}-total-price`}>Total PO Price</label>
                       <input
                         id={`inv-line-${line.id}-total-price`}
@@ -648,8 +633,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                         )}
                         placeholder={formatPriceInput("0.00", locale)}
                       />
-                    </div>
-                  )}
+                  </div>
                   <div className="fg" style={{ flex: "0 0 90px" }}>
                     <label htmlFor={`inv-line-${line.id}-currency`}>Currency</label>
                     <select id={`inv-line-${line.id}-currency`} className="fi fi-select" value={line.currency} onChange={(e) => updateLine(line.id, "currency", e.target.value)}>
@@ -658,12 +642,10 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   </div>
                 </div>
               )}
-              {vis.notes && (
-                <div className="fg">
-                  <label htmlFor={`inv-line-${line.id}-notes`}>Notes</label>
-                  <textarea id={`inv-line-${line.id}-notes`} className="fi" rows={2} value={line.notes} onChange={(e) => updateLine(line.id, "notes", e.target.value)} style={{ resize: "vertical" }} />
-                </div>
-              )}
+              <div className="fg">
+                <label htmlFor={`inv-line-${line.id}-notes`}>Notes</label>
+                <textarea id={`inv-line-${line.id}-notes`} className="fi" rows={2} value={line.notes} onChange={(e) => updateLine(line.id, "notes", e.target.value)} style={{ resize: "vertical" }} />
+              </div>
               <div className="fg"><label htmlFor={`inv-line-${line.id}-secondary-contacts`}>Secondary Contacts</label><input id={`inv-line-${line.id}-secondary-contacts`} className="fi" value={line.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(e) => updateLine(line.id, "secondaryContacts", e.target.value)} /></div>
               <CustomFieldFormFields
                 definitions={customFieldDefs}
