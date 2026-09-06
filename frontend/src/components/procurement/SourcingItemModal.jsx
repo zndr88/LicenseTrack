@@ -22,6 +22,8 @@ import MaintenanceCoverageFields, {
 } from "./MaintenanceCoverageFields.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
+import LicenseIdentityFormSection from "../licenses/LicenseIdentityFormSection.jsx";
+import LicenseDatesContractFormSection from "../licenses/LicenseDatesContractFormSection.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
 import {
@@ -387,26 +389,10 @@ const SourcingItemModal = ({
         <div className="license-intake-modal-layout">
           <div className="modal-bd document-assisted-modal-form">
           <div className="license-form-stack">
-            <LicenseFormSection title="Identity">
-              <div className="fg">
-                <label htmlFor="si-publisher">Publisher <span style={{ color: "var(--red)" }}>*</span></label>
-                <Controller name="publisherName" control={control} render={({ field }) => <ReferenceCombobox id="si-publisher" mode="publisher" placeholder="Software publisher" {...field} />} />
-                {errors.publisherName && <span className="field-error">{errors.publisherName.message}</span>}
-              </div>
-              <div className="fg">
-                <label htmlFor="si-software-desc">Software Description <span style={{ color: "var(--red)" }}>*</span></label>
-                <input id="si-software-desc" className="fi" placeholder="Product or service name" {...register("softwareDescription")} />
-                {errors.softwareDescription && <span className="field-error">{errors.softwareDescription.message}</span>}
-              </div>
-              <div className="fg">
-                <label htmlFor="si-license-type">License Type <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></label>
-                <select id="si-license-type" className="fi fi-select" {...register("licenseType")}>
-                  <option value="">Not specified</option>
-                  {LICENSE_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-                </select>
-              </div>
+            <LicenseIdentityFormSection idPrefix="si" control={control} register={register} errors={errors}
+              fieldIds={{ softwareDescription: "software-desc", licenseType: "license-type" }}>
               <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="identity" />
-            </LicenseFormSection>
+            </LicenseIdentityFormSection>
             {hasDocumentCustomFields && (
               <LicenseFormSection title="Documents" icon="upload">
                 <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="documents" />
@@ -432,19 +418,10 @@ const SourcingItemModal = ({
               </div>
             )}
 
-            <LicenseFormSection title="Key Dates & Contract">
-              <div className="fr">
-                <div className="fg"><label htmlFor="si-start-date">Start Date</label><input id="si-start-date" className="fi" type="date" {...register("startDate")} /></div>
-                <div className="fg"><label htmlFor="si-end-date">End Date</label><input id="si-end-date" className="fi" type="date" {...register("endDate")} /></div>
-              </div>
-              <div className="fr">
-                <div className="fg"><label htmlFor="si-notice-date">Notice Date</label><input id="si-notice-date" type="date" className="fi" {...register("noticeDate")} /></div>
-              </div>
-              <div className="fr">
-                <div className="fg"><label htmlFor="si-contract-number">Contract Number</label><input id="si-contract-number" className="fi" {...register("contractNumber")} /></div>
-              </div>
+            <LicenseDatesContractFormSection idPrefix="si" register={register}
+              fieldIds={{ startDate: "start-date", endDate: "end-date", noticeDate: "notice-date", contractNumber: "contract-number" }}>
               <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="dates" />
-            </LicenseFormSection>
+            </LicenseDatesContractFormSection>
 
             {supportsMaintenanceCoverage(licenseType) && (
               <LicenseFormSection title="Maintenance / Support">

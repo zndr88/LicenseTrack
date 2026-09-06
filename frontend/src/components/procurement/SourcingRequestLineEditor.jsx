@@ -1,9 +1,11 @@
 import { Controller } from "react-hook-form";
-import { CURRENCIES, LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
+import { CURRENCIES, LICENSE_METRICS } from "../../constants/licenseData.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import LicenseIdentityFormSection from "../licenses/LicenseIdentityFormSection.jsx";
+import LicenseDatesContractFormSection from "../licenses/LicenseDatesContractFormSection.jsx";
 
 export default function SourcingRequestLineEditor({
   item,
@@ -47,32 +49,10 @@ export default function SourcingRequestLineEditor({
       </div>
 
       <div className="license-form-stack license-line-item-sections">
-        <LicenseFormSection title="Identity">
-          <div className="fg">
-            <label htmlFor={`${idPrefix}-publisher`}>Publisher <span className="required-mark">*</span></label>
-            <Controller
-              name={fieldName("publisherName")}
-              control={control}
-              render={({ field }) => (
-                <ReferenceCombobox id={`${idPrefix}-publisher`} mode="publisher" disabled={readOnly} {...field} />
-              )}
-            />
-            {errors.publisherName && <span className="field-error">{errors.publisherName.message}</span>}
-          </div>
-          <div className="fg">
-            <label htmlFor={`${idPrefix}-description`}>Software Description <span className="required-mark">*</span></label>
-            <input id={`${idPrefix}-description`} className="fi" {...register(fieldName("softwareDescription"))} />
-            {errors.softwareDescription && <span className="field-error">{errors.softwareDescription.message}</span>}
-          </div>
-          <div className="fg">
-            <label htmlFor={`${idPrefix}-type`}>License Type <span className="optional-label">(optional)</span></label>
-            <select id={`${idPrefix}-type`} className="fi fi-select" {...register(fieldName("licenseType"))}>
-              <option value="">Not specified</option>
-              {LICENSE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </div>
+        <LicenseIdentityFormSection idPrefix={idPrefix} control={control} register={register}
+          errors={errors} fieldName={fieldName} disabled={readOnly}>
           {customFields("identity")}
-        </LicenseFormSection>
+        </LicenseIdentityFormSection>
 
         {hasDocumentCustomFields && (
           <LicenseFormSection title="Documents" icon="upload">
@@ -80,31 +60,9 @@ export default function SourcingRequestLineEditor({
           </LicenseFormSection>
         )}
 
-        <LicenseFormSection title="Key Dates & Contract">
-          <div className="fr">
-            <div className="fg">
-              <label htmlFor={`${idPrefix}-start`}>Start Date</label>
-              <input id={`${idPrefix}-start`} type="date" className="fi" {...register(fieldName("startDate"))} />
-            </div>
-            <div className="fg">
-              <label htmlFor={`${idPrefix}-end`}>End Date</label>
-              <input id={`${idPrefix}-end`} type="date" className="fi" {...register(fieldName("endDate"))} />
-            </div>
-          </div>
-          <div className="fr">
-            <div className="fg">
-              <label htmlFor={`${idPrefix}-notice`}>Notice Date</label>
-              <input id={`${idPrefix}-notice`} type="date" className="fi" {...register(fieldName("noticeDate"))} />
-            </div>
-          </div>
-          <div className="fr">
-            <div className="fg">
-              <label htmlFor={`${idPrefix}-contract`}>Contract Number</label>
-              <input id={`${idPrefix}-contract`} className="fi" {...register(fieldName("contractNumber"))} />
-            </div>
-          </div>
+        <LicenseDatesContractFormSection idPrefix={idPrefix} register={register} fieldName={fieldName}>
           {customFields("dates")}
-        </LicenseFormSection>
+        </LicenseDatesContractFormSection>
 
         <LicenseFormSection title="Details">
           <div className="fr">
