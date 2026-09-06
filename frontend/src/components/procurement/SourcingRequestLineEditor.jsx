@@ -1,7 +1,7 @@
 import { Controller } from "react-hook-form";
 import { CURRENCIES, LICENSE_METRICS } from "../../constants/licenseData.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
-import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
+import CustomFieldFormSection, { CustomFieldPlacement } from "../licenses/CustomFieldFormSection.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import LicenseIdentityFormSection from "../licenses/LicenseIdentityFormSection.jsx";
@@ -24,7 +24,7 @@ export default function SourcingRequestLineEditor({
   const fieldName = (name) => `items.${index}.${name}`;
   const visibleCustomFieldDefs = filterCustomFieldDefinitionsForRenewal(customFieldDefs, item.isRenewal);
   const customFields = (section) => (
-    <CustomFieldFormFields
+    <CustomFieldPlacement
       definitions={visibleCustomFieldDefs}
       values={values.customFieldValues || {}}
       onChange={(nextValues) => setValue(fieldName("customFieldValues"), nextValues, { shouldDirty: true })}
@@ -32,10 +32,6 @@ export default function SourcingRequestLineEditor({
       loading={customFieldsLoading}
       section={section}
     />
-  );
-  const hasDocumentCustomFields = visibleCustomFieldDefs.some((definition) => definition.section === "documents");
-  const hasCatchallCustomFields = visibleCustomFieldDefs.some(
-    (definition) => !definition.section || definition.section === "__catchall__"
   );
 
   return (
@@ -54,11 +50,10 @@ export default function SourcingRequestLineEditor({
           {customFields("identity")}
         </LicenseIdentityFormSection>
 
-        {hasDocumentCustomFields && (
-          <LicenseFormSection title="Documents" icon="upload">
-            {customFields("documents")}
-          </LicenseFormSection>
-        )}
+        <CustomFieldFormSection title="Documents" icon="upload" section="documents"
+          definitions={visibleCustomFieldDefs} values={values.customFieldValues || {}}
+          onChange={(nextValues) => setValue(fieldName("customFieldValues"), nextValues, { shouldDirty: true })}
+          idPrefix={idPrefix} loading={customFieldsLoading} />
 
         <LicenseDatesContractFormSection idPrefix={idPrefix} register={register} fieldName={fieldName}>
           {customFields("dates")}
@@ -146,9 +141,10 @@ export default function SourcingRequestLineEditor({
           {customFields("notes")}
         </LicenseFormSection>
 
-        {hasCatchallCustomFields && (
-          <LicenseFormSection title="Custom Fields">{customFields("__catchall__")}</LicenseFormSection>
-        )}
+        <CustomFieldFormSection title="Custom Fields" section="__catchall__"
+          definitions={visibleCustomFieldDefs} values={values.customFieldValues || {}}
+          onChange={(nextValues) => setValue(fieldName("customFieldValues"), nextValues, { shouldDirty: true })}
+          idPrefix={idPrefix} loading={customFieldsLoading} />
       </div>
     </fieldset>
   );

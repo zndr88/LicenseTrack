@@ -1,5 +1,5 @@
 import { LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
-import CustomFieldFormFields from "./CustomFieldFormFields.jsx";
+import CustomFieldFormSection, { CustomFieldPlacement } from "./CustomFieldFormSection.jsx";
 import LicenseFormSection from "./LicenseFormSection.jsx";
 
 export default function LicenseDraftSupplementFields({
@@ -8,7 +8,7 @@ export default function LicenseDraftSupplementFields({
 }) {
   const field = (name) => ({ value: item[name] ?? "", onChange: (event) => onChange(name, event.target.value) });
   const customFields = (section) => (
-    <CustomFieldFormFields definitions={customFieldDefs} values={item.customFieldValues || {}}
+    <CustomFieldPlacement definitions={customFieldDefs} values={item.customFieldValues || {}}
       onChange={(values) => onChange("customFieldValues", values)} idPrefix={idPrefix}
       loading={customFieldsLoading} section={section} />
   );
@@ -47,20 +47,22 @@ export default function LicenseDraftSupplementFields({
   </>;
 
   if (sectioned) {
-    const hasCatchall = customFieldDefs.some((definition) => !definition.section || definition.section === "__catchall__");
     return <div className="license-form-stack license-line-item-sections">
       <LicenseFormSection title="Key Dates & Contract">{dates}{customFields("dates")}</LicenseFormSection>
       {maintenanceSection}
       <LicenseFormSection title="Details">{commercialSummary}{showCoreDetails && details}{customFields("commercial")}</LicenseFormSection>
       <LicenseFormSection title="Relationships">{relationships}{customFields("people")}</LicenseFormSection>
       <LicenseFormSection title="Notes"><div className="fg"><label htmlFor={`${idPrefix}-notes`}>Line Notes</label><textarea id={`${idPrefix}-notes`} className="fi" rows={2} {...field("notes")} /></div>{customFields("notes")}</LicenseFormSection>
-      {hasCatchall && <LicenseFormSection title="Custom Fields">{customFields("__catchall__")}</LicenseFormSection>}
+      <CustomFieldFormSection title="Custom Fields" section="__catchall__"
+        definitions={customFieldDefs} values={item.customFieldValues || {}}
+        onChange={(values) => onChange("customFieldValues", values)} idPrefix={idPrefix}
+        loading={customFieldsLoading} />
     </div>;
   }
 
   return <div className="fs">
     <h4>License record details</h4>{details}{dates}{relationships}
     <div className="fg"><label htmlFor={`${idPrefix}-notes`}>Line Notes</label><textarea id={`${idPrefix}-notes`} className="fi" rows={2} {...field("notes")} /></div>
-    <CustomFieldFormFields definitions={customFieldDefs} values={item.customFieldValues || {}} onChange={(values) => onChange("customFieldValues", values)} idPrefix={idPrefix} loading={customFieldsLoading} />
+    <CustomFieldPlacement definitions={customFieldDefs} values={item.customFieldValues || {}} onChange={(values) => onChange("customFieldValues", values)} idPrefix={idPrefix} loading={customFieldsLoading} />
   </div>;
 }

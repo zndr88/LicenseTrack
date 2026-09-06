@@ -20,7 +20,7 @@ import MaintenanceCoverageFields, {
   supportsMaintenanceCoverage,
   supportsSeparateMaintenanceLine,
 } from "./MaintenanceCoverageFields.jsx";
-import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
+import CustomFieldFormSection, { CustomFieldPlacement } from "../licenses/CustomFieldFormSection.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import LicenseIdentityFormSection from "../licenses/LicenseIdentityFormSection.jsx";
 import LicenseDatesContractFormSection from "../licenses/LicenseDatesContractFormSection.jsx";
@@ -358,11 +358,10 @@ const SourcingItemModal = ({
   };
 
   const lineCount = 1 + additionalLines.length;
-  const hasCatchallCustomFields = customFieldDefs.some(
-    (definition) => !definition.section || definition.section === "__catchall__"
-  );
-  const hasDocumentCustomFields = customFieldDefs.some(
-    (definition) => definition.section === "documents"
+  const customFields = (section) => (
+    <CustomFieldPlacement definitions={customFieldDefs} values={currentFields.customFieldValues || {}}
+      onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })}
+      idPrefix="si" loading={customFieldsLoading} section={section} />
   );
 
   return (
@@ -391,13 +390,12 @@ const SourcingItemModal = ({
           <div className="license-form-stack">
             <LicenseIdentityFormSection idPrefix="si" control={control} register={register} errors={errors}
               fieldIds={{ softwareDescription: "software-desc", licenseType: "license-type" }}>
-              <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="identity" />
+              {customFields("identity")}
             </LicenseIdentityFormSection>
-            {hasDocumentCustomFields && (
-              <LicenseFormSection title="Documents" icon="upload">
-                <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="documents" />
-              </LicenseFormSection>
-            )}
+            <CustomFieldFormSection title="Documents" icon="upload" section="documents"
+              definitions={customFieldDefs} values={currentFields.customFieldValues || {}}
+              onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })}
+              idPrefix="si" loading={customFieldsLoading} />
 
             {isNewSourcingRequest && (
               <div className="plugin-slot-form-row" style={slotHasActions ? undefined : { display: "none" }}>
@@ -420,13 +418,13 @@ const SourcingItemModal = ({
 
             <LicenseDatesContractFormSection idPrefix="si" register={register}
               fieldIds={{ startDate: "start-date", endDate: "end-date", noticeDate: "notice-date", contractNumber: "contract-number" }}>
-              <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="dates" />
+              {customFields("dates")}
             </LicenseDatesContractFormSection>
 
             {supportsMaintenanceCoverage(licenseType) && (
               <LicenseFormSection title="Maintenance / Support">
                 <MaintenanceCoverageFields idPrefix="si" licenseType={licenseType} coverage={maintenanceCoverage} startDate={maintenanceStartDate} endDate={maintenanceEndDate} pricingBasis={maintenancePricingBasis} supportQuantity={maintenanceQuantity} supportUnitPrice={maintenanceUnitPrice} cost={maintenanceCost} licenseQuantity={quantity} licenseStartDate={startDate} licenseEndDate={endDate} licenseTotalCost={estimatedTotalPrice} currency={watch("currency")} locale={locale} onChange={(field, value) => setValue(field, value, { shouldDirty: true })} onAddSeparate={addMaintenanceLine} separateLineAdded={maintenanceLineAdded} embedded />
-                <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="maintenance" />
+                {customFields("maintenance")}
               </LicenseFormSection>
             )}
 
@@ -450,7 +448,7 @@ const SourcingItemModal = ({
                 </div>
               )}
               {licenseType === "saas" && <div className="fg"><label htmlFor="si-portal-url">Portal URL</label><input id="si-portal-url" className="fi" {...register("portalUrl")} /></div>}
-              <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="commercial" />
+              {customFields("commercial")}
             </LicenseFormSection>
 
             <LicenseFormSection title="Relationships">
@@ -467,19 +465,18 @@ const SourcingItemModal = ({
                 <div className="fg"><label htmlFor="si-budget-owner">Budget Owner Email</label><input id="si-budget-owner" className="fi" {...register("budgetOwnerEmail")} /></div>
               </div>
               <div className="fg"><label htmlFor="si-secondary-contacts">Secondary Contacts</label><input id="si-secondary-contacts" className="fi" placeholder="Separate email addresses with commas" {...register("secondaryContacts")} /></div>
-              <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="people" />
+              {customFields("people")}
             </LicenseFormSection>
 
             <LicenseFormSection title="Notes">
               <div className="fg"><label htmlFor="si-notes">Notes</label><textarea id="si-notes" className="fi" rows={3} placeholder="Procurement notes" style={{ resize: "vertical" }} {...register("notes")} /></div>
-              <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="notes" />
+              {customFields("notes")}
             </LicenseFormSection>
 
-            {hasCatchallCustomFields && (
-              <LicenseFormSection title="Custom Fields">
-                <CustomFieldFormFields definitions={customFieldDefs} values={currentFields.customFieldValues || {}} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="si" loading={customFieldsLoading} section="__catchall__" />
-              </LicenseFormSection>
-            )}
+            <CustomFieldFormSection title="Custom Fields" section="__catchall__"
+              definitions={customFieldDefs} values={currentFields.customFieldValues || {}}
+              onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })}
+              idPrefix="si" loading={customFieldsLoading} />
           </div>
 
           {/* Additional lines (new-request mode only) */}
@@ -651,7 +648,7 @@ const SourcingItemModal = ({
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-budget-owner`}>Budget Owner Email</label><input id={`sourcing-line-${line.id}-budget-owner`} className="fi" value={line.budgetOwnerEmail} onChange={(event) => updateAdditionalLine(line.id, "budgetOwnerEmail", event.target.value)} /></div>
                 </div>
                 <div className="fg"><label htmlFor={`sourcing-line-${line.id}-secondary`}>Secondary Contacts</label><input id={`sourcing-line-${line.id}-secondary`} className="fi" value={line.secondaryContacts} onChange={(event) => updateAdditionalLine(line.id, "secondaryContacts", event.target.value)} /></div>
-                <CustomFieldFormFields
+                <CustomFieldPlacement
                   definitions={customFieldDefs}
                   values={line.customFieldValues || {}}
                   onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)}
