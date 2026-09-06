@@ -266,6 +266,7 @@ export function useDetailPanelState({
     setEditError(null);
     const ok = await onUpdate(license.id, {
       ...editFields,
+      purchaseDate: editFields.purchaseDate || null,
       secondaryContacts: parseSecondaryContacts(editFields.secondaryContacts),
       customFieldValues: buildCustomFieldValuePayload(customFieldDefs, editFields.customFieldValues, userSettings),
     });

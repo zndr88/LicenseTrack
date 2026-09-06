@@ -490,6 +490,31 @@ describe('DetailPanel secondary contacts', () => {
 })
 
 describe('DetailPanel procurement milestones', () => {
+  it('normalizes a blank purchase date when saving the full edit form', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn().mockResolvedValue(true)
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        license={{ ...baseLicense, purchaseDate: null }}
+        onUpdate={onUpdate}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.clear(screen.getByLabelText('End Date'))
+    await user.type(screen.getByLabelText('End Date'), '2026-10-06')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(1, expect.objectContaining({
+        endDate: '2026-10-06',
+        purchaseDate: null,
+      }))
+    })
+  })
+
   it('shows request and purchase dates under key dates and contract', async () => {
     const user = userEvent.setup()
     render(

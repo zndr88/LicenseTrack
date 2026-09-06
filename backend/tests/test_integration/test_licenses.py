@@ -1010,6 +1010,8 @@ async def test_update_license_accepts_detail_panel_blank_date_payload(test_app, 
             "currency": "EUR",
             "startDate": "",
             "endDate": "",
+            "requestDate": "",
+            "purchaseDate": "",
             "contractNumber": "",
             "poNumber": "",
             "invoiceNumber": "",
@@ -1028,6 +1030,8 @@ async def test_update_license_accepts_detail_panel_blank_date_payload(test_app, 
     assert body["softwareDescription"] == "Panel Edited Suite"
     assert body["startDate"] is None
     assert body["endDate"] is None
+    assert body["requestDate"] is None
+    assert body["purchaseDate"] is None
 
 
 async def test_update_license_with_nonempty_contract_number_does_not_crash(test_app, auth_headers):

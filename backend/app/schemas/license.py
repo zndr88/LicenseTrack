@@ -258,6 +258,13 @@ class LicenseUpdate(BaseModel):
             return None
         return value
 
+    @field_validator("request_date", "purchase_date", mode="before")
+    @classmethod
+    def _normalise_blank_procurement_datetimes(cls, value: object) -> object:
+        if value == "":
+            return None
+        return value
+
     @field_validator("quantity", "quantity_per_unit", "unit_price", "total_po_price", mode="before")
     @classmethod
     def _validate_canonical_money(cls, v: object) -> object:
