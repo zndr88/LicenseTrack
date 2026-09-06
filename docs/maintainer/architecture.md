@@ -132,12 +132,14 @@ The procurement pipeline is split across the sourcing and pending-order pages. K
 
 | Module | Owns |
 |--------|------|
-| `SourcingTable.jsx` | Parent sourcing request rows, quote evidence indicators, expandable license-line rows, search box, merge-selected action, sortable sourcing table, primary Convert action, row action menu items, read-only history reference actions, child line actions, and row badges |
+| `SourcingTable.jsx` | Parent sourcing request rows, quote evidence indicators, expandable license-line rows, search box, merge-selected action, sortable sourcing table, primary Convert action, row action menu items, read-only history reference actions, child line actions, row badges, and inline-edit mode wiring for open requests/lines |
 | `MergeSourcingModal.jsx` | Merge confirmation UI, selected item summary, final merged quantity input |
 | `CotermSuggestionBanner.jsx` | Coterm renewal opportunity banner and select-group action |
 | `SourcingToast.jsx` | Page-local success/error toast presentation |
-| `components/procurement/SourcingRequestEditModal.jsx` | Atomic request-level editing for supplier/contact/notes and all eligible open lines; converted/cancelled lines remain read-only |
-| `components/procurement/SourcingItemModal.jsx` | New-request and line-entry form, including local pre-save PDF/image/text quote preview |
+| `components/procurement/SourcingRequestEditModal.jsx` | Atomic request-level editing for supplier/contact/notes and all eligible open lines, composed with `SourcingRequestLineEditor`; converted/cancelled lines remain read-only |
+| `components/procurement/SourcingItemModal.jsx` | New-request and line-entry form shell, including local pre-save PDF/image/text quote preview |
+| `components/procurement/ProcurementInlineEditCell.jsx` | Shared click-to-edit field/cell mechanics, localized numeric parsing, reference pickers, and save/cancel keyboard behavior for sourcing and pending-order tables |
+| `utils/sourcingItemFormModel.js` | Sourcing defaults plus primary, additional-line, edit, and maintenance-companion payload normalization |
 | `useSourcingPageData.js` | TanStack Query setup for active and historical sourcing requests plus license context load for coterm detection |
 | `useSourcingActions.js` | Create/update/delete/convert/export mutation handlers and cross-page invalidation callbacks |
 | `useSourcingMerge.js` | Selected-for-merge state, merge quantity, merge submit lifecycle |
@@ -151,9 +153,10 @@ The procurement pipeline is split across the sourcing and pending-order pages. K
 
 | Module | Owns |
 |--------|------|
-| `usePendingOrdersData.js` | Active and historical pending-order queries, shared licenses query context, create/update/delete/convert/batch-convert/add/update/delete-item handlers, purchase-order document upload/download/delete, sourcing quote download/delete from pending-order context, CSV export, related query invalidation |
-| `PendingOrdersPage.jsx` | Active and history search/sort/pagination/expanded-row state, highlight behavior, table rendering, modal orchestration, conversion prefill builder, pending line-item edit/delete confirmation wiring |
-| `pendingOrders/PendingOrdersTable.jsx` | Pending-order parent rows, PO and carried-forward quote evidence indicators, expanded line-item rows, primary Convert action, row action menu items, read-only history reference actions, line-item quote/download action buttons, and status badges |
+| `usePendingOrdersData.js` | Active and historical pending-order queries, shared licenses query context, create/update/delete/convert/batch-convert/add/update/delete-item handlers, parent/line inline-field saves, purchase-order document upload/download/delete, sourcing quote download/delete/preview from pending-order context, CSV export, related query invalidation |
+| `PendingOrdersPage.jsx` | Active and history search/sort/pagination/expanded-row state, highlight and inline-edit mode state, table rendering, modal orchestration, conversion prefill builder, pending line-item edit/delete confirmation wiring |
+| `pendingOrders/PendingOrdersTable.jsx` | Pending-order parent rows, PO and carried-forward quote evidence indicators, expanded line-item rows, primary Convert action, row action menu items, read-only history reference actions, inline editing for eligible parent/line fields, line-item quote preview/download actions, and status badges |
+| `pendingOrders/usePendingOrderQuotePreview.js` | Authenticated carried-forward quote preview lifecycle and object-URL cleanup |
 
 Keep new pending-order API handlers in `usePendingOrdersData.js` unless they are purely local UI actions.
 
@@ -174,6 +177,8 @@ Batch pending-order conversion is decomposed so `ConvertAllModal.jsx` remains th
 | `frontend/src/utils/buildConvertItemDefaults.js` | Pure default-value construction for one form item per sourcing row |
 | `frontend/src/components/procurement/ConvertItemForm.jsx` | Single conversion item card, local expand/collapse, price display state, item readiness helper, maintenance parent picker wiring |
 | `frontend/src/components/procurement/ParentLicensePicker.jsx` | Explicit maintenance/support parent selection for existing perpetual/OEM/freeware licenses and eligible same-conversion parent rows |
+| `frontend/src/components/procurement/DocumentStagingWorkspace.jsx` | Shared categorized attachment selection, stored/local preview UI, Shared/Single scope controls, and per-license targeting |
+| `frontend/src/components/procurement/useStagedDocumentAttachments.js` | Staged attachment, category-scope, target, and reset state shared by direct creation and conversion modals |
 `ConvertAllModal.jsx` owns the batch-level copy action for shared PO fields. The action copies PO number, procurement reference, contract number, invoice number, contact email, supplier, cost centre, currency, and budget owner email from the first conversion item into the remaining items. Do not reintroduce per-item price formatting, readiness checks, or default-value construction into `ConvertAllModal.jsx`.
 
 Single pending-order conversion is similarly decomposed:
@@ -430,12 +435,18 @@ contract. `create_license_batch_records` creates the ordered rows and resolves
 transaction; route-level `license.created` audits commit with the same
 transaction. Any validation, write, or audit failure rolls the whole batch
 back. The Review License Data modal holds a synchronous submit lock until the
-request settles. Optional filesystem attachment is deliberately post-commit:
-failure leaves the batch intact and the UI directs the operator to retry from
-the first license rather than resubmit. Batches containing more than one row
+request settles. Optional filesystem attachments are deliberately post-commit.
+Each staged file has a category and an explicit shared or license scope;
+license-scoped files also identify their target row. An upload failure leaves
+the batch intact and the UI directs the operator to retry from the created
+license rather than resubmit. Batches containing more than one row
 receive a `procurement_bundle_id`; Quote, Purchase Order, and Invoice uploads
 use that scope so every batch member sees the same evidence without matching on
-PO text. Other document categories remain license-owned.
+PO text by default. EULA and Entitlement are also procurement document
+categories, but default to license ownership. The upload route accepts
+`scope=auto|shared|license`; only procurement categories may use shared
+ownership, and an explicit license scope overrides the historical category
+default.
 
 Single and bulk license deletion collect only license-owned `Document` paths
 inside the transaction, commit database and audit changes first, then remove
@@ -471,9 +482,11 @@ Use `ConfirmDialog` for confirmation prompts and `DiscardChangesDialog` for dirt
 Custom field behavior has two sources of truth:
 
 - Backend definitions, keys, section, type, and value normalization live in `backend/app/services/custom_fields_service.py`.
-- Frontend presentation helpers live in `frontend/src/utils/customFieldPresentation.js`.
+- Frontend presentation helpers live in `frontend/src/utils/customFieldPresentation.js`;
+  renewal and sourcing filters live in `customFieldRenewal.js` and
+  `customFieldSourcing.js`.
 
-Procurement-stage custom values are normalized rows in `sourcing_item_custom_values`; they are not embedded JSON and must be written through `custom_fields_service`. A definition's `carry_forward_on_renewal` flag controls the one-time snapshot made when renewal sourcing begins. Later predecessor edits do not mutate that snapshot. Pending-order conversion transfers the reviewed sourcing snapshot atomically to the resulting license. Coterm merge retains a custom value only when the nonblank source values agree; conflicts remain blank for review.
+Procurement-stage custom values are normalized rows in `sourcing_item_custom_values`; they are not embedded JSON and must be written through `custom_fields_service`. A definition's `renewal_behavior` is `clear`, `copy`, or `hide`: copy makes a one-time snapshot when renewal sourcing begins, clear presents an empty editable field, and hide excludes the field throughout renewal procurement and conversion. Later predecessor edits do not mutate copied snapshots. `show_on_sourcing_forms` independently controls ordinary sourcing-form visibility; hidden ordinary-sourcing values are preserved when visible values are replaced. Pending-order conversion transfers the reviewed sourcing snapshot atomically to the resulting license. Coterm merge retains a visible custom value only when the nonblank source values agree; conflicts remain blank for review. The response-only `carry_forward_on_renewal` property remains as a deprecated compatibility projection of `renewal_behavior=copy`.
 
 Use `getCustomColumnId(def)` rather than manually building `cf_` keys. This prevents double-prefix values such as `cf_cf_contract_owner` and preserves compatibility with older field-key shapes.
 
@@ -502,6 +515,11 @@ Current important service boundaries:
   `backend/app/services/license_service.py`;
 - license response assembly (mandatory fields, completeness/expiry enrichment, creator account labels, scoped procurement document lookup): `backend/app/services/license_response_service.py`;
 - license write workflow (single and atomic batch create, update/patch/delete invariants, maintenance relationship reconciliation, cancelled-renewal-history detachment during eligible deletes, post-commit managed-file cleanup inputs, editable procurement milestone parsing, maintenance-parent validation, manual procurement-bundle assignment, contract_id resolution from contract_number through `contract_identity_service.py`, predecessor_id wiring on renewal successors, create-time rejection of lifecycle chain fields via `REPAIR_ONLY_UPDATE_FIELDS`): `backend/app/services/license_write_service.py`;
+- scheduled retirement normalization and due-date materialization, including
+  maintenance retirement side effects and audit events:
+  `backend/app/services/license_retirement_service.py`; the scheduler invokes
+  it on its normal loop, and scheduled records are treated as retired by
+  renewal, sourcing, maintenance-parent, and notification eligibility rules;
 - shared PO-total override workflow (set/clear replication, create-time
   inheritance, and PO reassignment semantics across direct writes, imports,
   conversions, maintenance creation, and renewal successors):
