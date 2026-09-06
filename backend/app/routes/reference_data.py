@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -13,6 +13,7 @@ from app.schemas.reference_data import (
     CostCentreLookupResponse,
     CostCentreResponse,
     CostCentreUpdate,
+    ContactReferenceResponse,
     MergePreviewResponse,
     MergeRequest,
     MergeResponse,
@@ -23,10 +24,21 @@ from app.schemas.reference_data import (
     OrganizationUpdate,
 )
 from app.services import reference_data_service as service
+from app.services.contact_reference_service import search_contact_references
 from app.services.audit_service import format_audit_detail, log_event
 
 router = APIRouter(prefix="/api/reference-data", tags=["reference-data"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+
+@router.get("/contacts/search", response_model=list[ContactReferenceResponse])
+async def search_contacts(
+    db: DbSession,
+    search: str,
+    _editor: User = Depends(require_editor_or_admin),
+    limit: int = Query(default=25, ge=1, le=50),
+) -> list[ContactReferenceResponse]:
+    return [ContactReferenceResponse.model_validate(item) for item in await search_contact_references(db, search, limit=limit)]
 
 
 def _organization_response(view: dict) -> OrganizationResponse:

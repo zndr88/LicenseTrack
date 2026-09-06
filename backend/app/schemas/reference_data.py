@@ -8,6 +8,10 @@ class ReferenceModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, from_attributes=True)
 
 
+class ContactReferenceResponse(ReferenceModel):
+    email: str
+
+
 class OrganizationCreate(ReferenceModel):
     name: str = Field(min_length=1, max_length=255)
     is_publisher: bool = False
