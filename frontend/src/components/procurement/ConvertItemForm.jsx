@@ -10,6 +10,7 @@ import MaintenanceCoverageFields, {
 } from "./MaintenanceCoverageFields.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import ContactCombobox from "../ui/ContactCombobox.jsx";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 
 /**
@@ -360,7 +361,7 @@ export default function ConvertItemForm({
             </div>
             <div className="fg">
               <label htmlFor={`ca-budget-owner-${idx}`}>Budget Owner Email</label>
-              <input id={`ca-budget-owner-${idx}`} className="fi" placeholder="owner@example.com" {...register(`items.${idx}.budgetOwnerEmail`)} />
+              <Controller control={control} name={`items.${idx}.budgetOwnerEmail`} render={({ field }) => <ContactCombobox id={`ca-budget-owner-${idx}`} placeholder="owner@example.com" {...field} />} />
               {itemErrors?.budgetOwnerEmail && <span className="field-error">{itemErrors.budgetOwnerEmail.message}</span>}
             </div>
           </div>
@@ -378,7 +379,7 @@ export default function ConvertItemForm({
             <div className="fg"><label htmlFor={`ca-notice-date-${idx}`}>Notice Date</label><input id={`ca-notice-date-${idx}`} type="date" className="fi" {...register(`items.${idx}.noticeDate`)} /></div>
             <div className="fg"><label htmlFor={`ca-external-ref-${idx}`}>External Reference</label><input id={`ca-external-ref-${idx}`} className="fi" {...register(`items.${idx}.externalRef`)} /></div>
           </div>
-          <div className="fg"><label htmlFor={`ca-secondary-contacts-${idx}`}>Secondary Contacts</label><input id={`ca-secondary-contacts-${idx}`} className="fi" placeholder="Separate email addresses with commas" {...register(`items.${idx}.secondaryContacts`)} /></div>
+          <div className="fg"><label htmlFor={`ca-secondary-contacts-${idx}`}>Secondary Contacts</label><Controller control={control} name={`items.${idx}.secondaryContacts`} render={({ field }) => <ContactCombobox id={`ca-secondary-contacts-${idx}`} multiple placeholder="Separate email addresses with commas" {...field} />} /></div>
           <CustomFieldFormFields
             definitions={visibleCustomFieldDefs}
             values={watchedItem.customFieldValues || {}}

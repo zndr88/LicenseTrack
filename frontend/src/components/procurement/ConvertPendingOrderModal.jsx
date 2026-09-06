@@ -21,6 +21,7 @@ import MaintenanceCoverageFields, {
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 import { formatSecondaryContacts } from "../../utils/secondaryContacts.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import ContactCombobox from "../ui/ContactCombobox.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
@@ -499,8 +500,8 @@ const ConvertPendingOrderModal = ({
           <LicenseFormSection title="Relationships">
             {licenseType === "maintenance" && <ParentLicensePicker id="cpo-parent-license" licenses={licenses} parentLicenseId={parentLicenseId} onSelectExisting={(value) => setValue("parentLicenseId", value, { shouldDirty: true })} onSelectPoItem={() => {}} error={errors.parentLicenseId?.message} />}
             <div className="fr"><div className="fg"><label htmlFor="cpo-supplier">Supplier</label><Controller name="supplier" control={control} render={({ field }) => <ReferenceCombobox id="cpo-supplier" mode="supplier" placeholder="Reseller or direct supplier" {...field} />} /></div><div className="fg"><label htmlFor="cpo-cost-centre">Cost Centre / Department</label><Controller name="costCentre" control={control} render={({ field }) => <ReferenceCombobox id="cpo-cost-centre" mode="costCentre" placeholder="Department or cost centre" {...field} />} /></div></div>
-            <div className="fr"><div className="fg"><label htmlFor="cpo-contact-email">Contact Email</label><input id="cpo-contact-email" className="fi" {...register("contactEmail")} />{errors.contactEmail && <span className="field-error">{errors.contactEmail.message}</span>}</div><div className="fg"><label htmlFor="cpo-budget-owner">Budget Owner Email</label><input id="cpo-budget-owner" className="fi" placeholder="owner@example.com" {...register("budgetOwnerEmail")} />{errors.budgetOwnerEmail && <span className="field-error">{errors.budgetOwnerEmail.message}</span>}</div></div>
-            <div className="fg"><label htmlFor="cpo-secondary-contacts">Secondary Contacts</label><input id="cpo-secondary-contacts" className="fi" placeholder="Separate email addresses with commas" {...register("secondaryContacts")} /></div>
+            <div className="fr"><div className="fg"><label htmlFor="cpo-contact-email">Contact Email</label><input id="cpo-contact-email" className="fi" {...register("contactEmail")} />{errors.contactEmail && <span className="field-error">{errors.contactEmail.message}</span>}</div><div className="fg"><label htmlFor="cpo-budget-owner">Budget Owner Email</label><Controller name="budgetOwnerEmail" control={control} render={({ field }) => <ContactCombobox id="cpo-budget-owner" placeholder="owner@example.com" {...field} />} />{errors.budgetOwnerEmail && <span className="field-error">{errors.budgetOwnerEmail.message}</span>}</div></div>
+            <div className="fg"><label htmlFor="cpo-secondary-contacts">Secondary Contacts</label><Controller name="secondaryContacts" control={control} render={({ field }) => <ContactCombobox id="cpo-secondary-contacts" multiple placeholder="Separate email addresses with commas" {...field} />} /></div>
             <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="people" />
           </LicenseFormSection>
 

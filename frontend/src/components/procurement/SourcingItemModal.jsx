@@ -14,6 +14,7 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import Icon from "../ui/Icon.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import ContactCombobox from "../ui/ContactCombobox.jsx";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
@@ -462,9 +463,9 @@ const SourcingItemModal = ({
               </div>
               <div className="fr">
                 <div className="fg"><label htmlFor="si-cost-centre">Cost Centre / Department</label><Controller name="costCentre" control={control} render={({ field }) => <ReferenceCombobox id="si-cost-centre" mode="costCentre" {...field} />} /></div>
-                <div className="fg"><label htmlFor="si-budget-owner">Budget Owner Email</label><input id="si-budget-owner" className="fi" {...register("budgetOwnerEmail")} /></div>
+                <div className="fg"><label htmlFor="si-budget-owner">Budget Owner Email</label><Controller name="budgetOwnerEmail" control={control} render={({ field }) => <ContactCombobox id="si-budget-owner" {...field} />} /></div>
               </div>
-              <div className="fg"><label htmlFor="si-secondary-contacts">Secondary Contacts</label><input id="si-secondary-contacts" className="fi" placeholder="Separate email addresses with commas" {...register("secondaryContacts")} /></div>
+              <div className="fg"><label htmlFor="si-secondary-contacts">Secondary Contacts</label><Controller name="secondaryContacts" control={control} render={({ field }) => <ContactCombobox id="si-secondary-contacts" multiple placeholder="Separate email addresses with commas" {...field} />} /></div>
               {customFields("people")}
             </LicenseFormSection>
 
@@ -645,9 +646,9 @@ const SourcingItemModal = ({
                 </div>
                 <div className="fr">
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-cost-centre`}>Cost Centre / Department</label><input id={`sourcing-line-${line.id}-cost-centre`} className="fi" value={line.costCentre} onChange={(event) => updateAdditionalLine(line.id, "costCentre", event.target.value)} /></div>
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-budget-owner`}>Budget Owner Email</label><input id={`sourcing-line-${line.id}-budget-owner`} className="fi" value={line.budgetOwnerEmail} onChange={(event) => updateAdditionalLine(line.id, "budgetOwnerEmail", event.target.value)} /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-budget-owner`}>Budget Owner Email</label><ContactCombobox id={`sourcing-line-${line.id}-budget-owner`} value={line.budgetOwnerEmail} onChange={(value) => updateAdditionalLine(line.id, "budgetOwnerEmail", value)} /></div>
                 </div>
-                <div className="fg"><label htmlFor={`sourcing-line-${line.id}-secondary`}>Secondary Contacts</label><input id={`sourcing-line-${line.id}-secondary`} className="fi" value={line.secondaryContacts} onChange={(event) => updateAdditionalLine(line.id, "secondaryContacts", event.target.value)} /></div>
+                <div className="fg"><label htmlFor={`sourcing-line-${line.id}-secondary`}>Secondary Contacts</label><ContactCombobox id={`sourcing-line-${line.id}-secondary`} multiple value={line.secondaryContacts} onChange={(value) => updateAdditionalLine(line.id, "secondaryContacts", value)} /></div>
                 <CustomFieldPlacement
                   definitions={customFieldDefs}
                   values={line.customFieldValues || {}}

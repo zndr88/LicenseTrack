@@ -444,8 +444,8 @@ export const routes = [
     handler: async ({ query }) => {
       const search = String(query.get("search") || "").trim().toLowerCase();
       const contacts = new Map();
-      for (const license of store.licenses) {
-        for (const value of [license.budgetOwnerEmail, ...(license.secondaryContacts || [])]) {
+      for (const record of [...store.licenses, ...store.sourcingItems]) {
+        for (const value of [record.budgetOwnerEmail, ...(record.secondaryContacts || [])]) {
           const email = String(value || "").trim();
           const key = email.toLowerCase();
           if (key && key.includes(search) && !contacts.has(key)) contacts.set(key, email);

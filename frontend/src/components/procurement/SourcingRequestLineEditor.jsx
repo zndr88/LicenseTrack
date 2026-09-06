@@ -5,6 +5,7 @@ import { filterCustomFieldDefinitionsForSourcing } from "../../utils/customField
 import CustomFieldFormSection, { CustomFieldPlacement } from "../licenses/CustomFieldFormSection.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import ContactCombobox from "../ui/ContactCombobox.jsx";
 import LicenseIdentityFormSection from "../licenses/LicenseIdentityFormSection.jsx";
 import LicenseDatesContractFormSection from "../licenses/LicenseDatesContractFormSection.jsx";
 
@@ -126,12 +127,12 @@ export default function SourcingRequestLineEditor({
             </div>
             <div className="fg">
               <label htmlFor={`${idPrefix}-budget`}>Budget Owner Email</label>
-              <input id={`${idPrefix}-budget`} className="fi" {...register(fieldName("budgetOwnerEmail"))} />
+              <Controller name={fieldName("budgetOwnerEmail")} control={control} render={({ field }) => <ContactCombobox id={`${idPrefix}-budget`} {...field} />} />
             </div>
           </div>
           <div className="fg">
             <label htmlFor={`${idPrefix}-secondary`}>Secondary Contacts</label>
-            <input id={`${idPrefix}-secondary`} className="fi" placeholder="Separate email addresses with commas" {...register(fieldName("secondaryContacts"))} />
+            <Controller name={fieldName("secondaryContacts")} control={control} render={({ field }) => <ContactCombobox id={`${idPrefix}-secondary`} multiple placeholder="Separate email addresses with commas" {...field} />} />
           </div>
           {customFields("people")}
         </LicenseFormSection>

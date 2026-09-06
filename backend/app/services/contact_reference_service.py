@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License
+from app.models.sourcing import SourcingItem
 
 
 def normalize_contact_email(value: object) -> str:
@@ -28,9 +29,12 @@ async def search_contact_references(
     if not search_key:
         return []
 
-    rows = (await db.execute(select(License.budget_owner_email, License.secondary_contacts))).all()
+    license_rows = (await db.execute(select(License.budget_owner_email, License.secondary_contacts))).all()
+    procurement_rows = (
+        await db.execute(select(SourcingItem.budget_owner_email, SourcingItem.secondary_contacts))
+    ).all()
     contacts: dict[str, str] = {}
-    for budget_owner_email, secondary_contacts in rows:
+    for budget_owner_email, secondary_contacts in [*license_rows, *procurement_rows]:
         candidates = [budget_owner_email, *(secondary_contacts or [])]
         for candidate in candidates:
             key = normalize_contact_email(candidate)

@@ -1,5 +1,7 @@
 """HTTP coverage for the derived license-contact suggestion source."""
 
+from app.models.sourcing import SourcingItem
+
 
 def _license_payload(description: str, owner: str, secondary: list[str]) -> dict:
     return {
@@ -58,3 +60,28 @@ async def test_contact_search_rejects_an_invalid_limit(test_app, auth_headers):
     )
 
     assert response.status_code == 422
+
+
+async def test_contact_search_includes_sourcing_and_pending_order_lines(test_app, auth_headers, db_session):
+    db_session.add(
+        SourcingItem(
+            publisher_name="Draft Publisher",
+            software_description="Draft license",
+            currency="EUR",
+            budget_owner_email="draft.owner@example.com",
+            secondary_contacts=["draft.secondary@example.com"],
+        )
+    )
+    await db_session.commit()
+
+    response = await test_app.get(
+        "/api/reference-data/contacts/search",
+        params={"search": "draft."},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"email": "draft.owner@example.com"},
+        {"email": "draft.secondary@example.com"},
+    ]
