@@ -35,7 +35,12 @@ does not edit the stored license fields.
 
 Custom fields add installation-specific Text, Currency, Date, or True/False
 values to every license. Each definition has a stable key used by CSV and API
-integrations. Deleting a definition also deletes its stored values.
+integrations. **Renewal behavior** controls whether a renewal starts blank,
+copies the predecessor value, or hides the field for that renewal. **Sourcing
+forms** separately controls whether the field appears while creating or editing
+sourcing requests and sourcing lines. Hiding a field from sourcing does not
+remove an existing procurement value or hide it during pending-order conversion
+or on license records. Deleting a definition also deletes its stored values.
 
 ## Notifications
 

@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -24,6 +24,9 @@ class CustomFieldDefinition(Base):
     section: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
     renewal_behavior: Mapped[str] = mapped_column(
         String(20), nullable=False, default=CustomFieldRenewalBehavior.clear.value, server_default="clear"
+    )
+    show_on_sourcing_forms: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="1"
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

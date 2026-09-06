@@ -37,6 +37,7 @@ import {
 import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import { previewSourcingQuoteDocument } from "../../api/sourcing.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
+import { filterCustomFieldDefinitionsForSourcing } from "../../utils/customFieldSourcing.js";
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
@@ -122,8 +123,11 @@ const SourcingItemModal = ({
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const { definitions: allCustomFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
   const isRenewal = Boolean(item?.isRenewal || item?.renewalForLicenseId != null);
-  const customFieldDefs = filterCustomFieldDefinitionsForRenewal(allCustomFieldDefs, isRenewal);
   const pendingOrderId = parentPendingOrderId ?? item?.pendingOrderId ?? item?.pending_order_id ?? null;
+  const renewalCustomFieldDefs = filterCustomFieldDefinitionsForRenewal(allCustomFieldDefs, isRenewal);
+  const customFieldDefs = pendingOrderId
+    ? renewalCustomFieldDefs
+    : filterCustomFieldDefinitionsForSourcing(renewalCustomFieldDefs);
   const sourcingRequestId = item?.sourcingRequestId
     ?? item?.sourcing_request_id
     ?? sourcingRequest?.id

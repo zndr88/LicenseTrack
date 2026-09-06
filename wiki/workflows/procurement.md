@@ -23,6 +23,11 @@ entitlement. Those line values remain editable through pending order and final
 conversion so the active license does not silently lose information entered
 earlier in procurement.
 
+Admins can hide a custom field from sourcing forms when its value is only known
+later, such as an invoice date. The field remains available during pending-order
+conversion and on the resulting license. If an existing sourcing line already
+has a value when the field is hidden, editing the line preserves that value.
+
 Use multiple lines when one supplier quote covers several products. Expand the
 request row to edit individual lines. Request-level actions manage the quote,
 conversion, or cancellation of the whole request.

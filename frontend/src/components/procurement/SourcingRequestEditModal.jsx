@@ -7,6 +7,7 @@ import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/c
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { createSourcingRequestEditSchema } from "../../utils/procurementSchemas.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
+import { filterCustomFieldDefinitionsForSourcing } from "../../utils/customFieldSourcing.js";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
@@ -102,7 +103,9 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
         budgetOwnerEmail: item.budgetOwnerEmail || null,
         secondaryContacts: parseSecondaryContacts(item.secondaryContacts),
         customFieldValues: buildCustomFieldValuePayload(
-          filterCustomFieldDefinitionsForRenewal(customFieldDefs, item.isRenewal),
+          filterCustomFieldDefinitionsForSourcing(
+            filterCustomFieldDefinitionsForRenewal(customFieldDefs, item.isRenewal),
+          ),
           item.customFieldValues,
           userSettings,
         ),

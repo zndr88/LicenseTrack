@@ -118,6 +118,7 @@ async def create_definition(db: AsyncSession, data: CustomFieldDefinitionCreate)
         field_type=data.field_type,
         display_order=data.display_order,
         renewal_behavior=data.renewal_behavior.value,
+        show_on_sourcing_forms=data.show_on_sourcing_forms,
     )
     db.add(definition)
     await db.flush()
@@ -391,6 +392,8 @@ async def update_definition(db: AsyncSession, def_id: int, data: CustomFieldDefi
         definition.section = data.section
     if data.renewal_behavior is not None:
         definition.renewal_behavior = data.renewal_behavior.value
+    if data.show_on_sourcing_forms is not None:
+        definition.show_on_sourcing_forms = data.show_on_sourcing_forms
 
     await db.flush()
     await db.refresh(definition)
@@ -563,9 +566,13 @@ async def replace_values_for_sourcing_item(
     db: AsyncSession,
     sourcing_item_id: int,
     values: list[object],
+    *,
+    respect_sourcing_visibility: bool = False,
 ) -> None:
-    """Replace a procurement line's complete custom-field snapshot."""
+    """Replace procurement values, optionally preserving sourcing-hidden snapshots."""
     normalized = await _validated_value_rows(db, values)
+    if respect_sourcing_visibility:
+        normalized = [row for row in normalized if row[0].show_on_sourcing_forms]
     renewal_for_license_id = await db.scalar(
         select(SourcingItem.renewal_for_license_id).where(SourcingItem.id == sourcing_item_id)
     )
@@ -574,11 +581,17 @@ async def replace_values_for_sourcing_item(
             row for row in normalized
             if row[0].renewal_behavior != CustomFieldRenewalBehavior.hide.value
         ]
-    await db.execute(
-        delete(SourcingItemCustomFieldValue).where(
-            SourcingItemCustomFieldValue.sourcing_item_id == sourcing_item_id
-        )
+    delete_query = delete(SourcingItemCustomFieldValue).where(
+        SourcingItemCustomFieldValue.sourcing_item_id == sourcing_item_id
     )
+    if respect_sourcing_visibility:
+        sourcing_visible_definition_ids = select(CustomFieldDefinition.id).where(
+            CustomFieldDefinition.show_on_sourcing_forms.is_(True)
+        )
+        delete_query = delete_query.where(
+            SourcingItemCustomFieldValue.custom_field_def_id.in_(sourcing_visible_definition_ids)
+        )
+    await db.execute(delete_query)
     for definition, value_text, value_currency in normalized:
         db.add(
             SourcingItemCustomFieldValue(

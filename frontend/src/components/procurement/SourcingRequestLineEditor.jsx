@@ -1,6 +1,7 @@
 import { Controller } from "react-hook-form";
 import { CURRENCIES, LICENSE_METRICS } from "../../constants/licenseData.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
+import { filterCustomFieldDefinitionsForSourcing } from "../../utils/customFieldSourcing.js";
 import CustomFieldFormSection, { CustomFieldPlacement } from "../licenses/CustomFieldFormSection.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
@@ -22,7 +23,9 @@ export default function SourcingRequestLineEditor({
   const values = watch(`items.${index}`) || {};
   const idPrefix = `sourcing-request-item-${item.id}`;
   const fieldName = (name) => `items.${index}.${name}`;
-  const visibleCustomFieldDefs = filterCustomFieldDefinitionsForRenewal(customFieldDefs, item.isRenewal);
+  const visibleCustomFieldDefs = filterCustomFieldDefinitionsForSourcing(
+    filterCustomFieldDefinitionsForRenewal(customFieldDefs, item.isRenewal),
+  );
   const customFields = (section) => (
     <CustomFieldPlacement
       definitions={visibleCustomFieldDefs}

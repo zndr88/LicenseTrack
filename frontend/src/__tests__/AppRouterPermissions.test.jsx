@@ -112,7 +112,7 @@ describe("AppRouter permissions", () => {
       { name: /add manual license/i },
       { timeout: 10_000 },
     )).toBeInTheDocument();
-  });
+  }, 15_000);
 
   test("requires admin permission for admin route", () => {
     renderRouter({

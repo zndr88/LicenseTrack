@@ -38,6 +38,7 @@ class CustomFieldDefinitionCreate(BaseModel):
     field_type: str = Field(..., pattern="^(text|currency|date|boolean)$")
     display_order: int = Field(default=0, ge=0)
     renewal_behavior: CustomFieldRenewalBehavior = CustomFieldRenewalBehavior.clear
+    show_on_sourcing_forms: bool = True
 
     _migrate_legacy_behavior = model_validator(mode="before")(_migrate_legacy_renewal_behavior)
 
@@ -55,6 +56,7 @@ class CustomFieldDefinitionUpdate(BaseModel):
         pattern="^(identity|dates|commercial|people|documents|notes)$",
     )
     renewal_behavior: Optional[CustomFieldRenewalBehavior] = None
+    show_on_sourcing_forms: Optional[bool] = None
 
     _migrate_legacy_behavior = model_validator(mode="before")(_migrate_legacy_renewal_behavior)
     # field_type and field_key are immutable after creation - not included here
@@ -80,6 +82,7 @@ class CustomFieldDefinitionResponse(BaseModel):
     display_order: int
     section: Optional[str] = None
     renewal_behavior: CustomFieldRenewalBehavior = CustomFieldRenewalBehavior.clear
+    show_on_sourcing_forms: bool = True
     carry_forward_on_renewal: bool = False
     created_at: datetime
     updated_at: datetime

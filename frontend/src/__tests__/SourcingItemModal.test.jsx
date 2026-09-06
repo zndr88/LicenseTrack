@@ -2,8 +2,14 @@ import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { describe, test, expect, vi } from "vitest";
+import { beforeEach, describe, test, expect, vi } from "vitest";
 import SourcingItemModal from "../components/procurement/SourcingItemModal.jsx";
+
+const customFieldState = vi.hoisted(() => ({ definitions: [] }));
+
+vi.mock("../hooks/useCustomFieldDefinitions.js", () => ({
+  useCustomFieldDefinitions: () => ({ definitions: customFieldState.definitions, loading: false }),
+}));
 
 const USER_SETTINGS = { numberFormatLocale: "en-US" };
 
@@ -22,7 +28,7 @@ const VALID_ITEM = {
 function renderModal(props = {}) {
   const onSave = vi.fn();
   const onCancel = vi.fn();
-  render(
+  const view = render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <SourcingItemModal
       userSettings={USER_SETTINGS}
@@ -32,8 +38,12 @@ function renderModal(props = {}) {
     />
     </QueryClientProvider>
   );
-  return { onSave, onCancel };
+  return { onSave, onCancel, unmount: view.unmount };
 }
+
+beforeEach(() => {
+  customFieldState.definitions = [];
+});
 
 // ─── Required fields ──────────────────────────────────────────────────────────
 
@@ -44,6 +54,19 @@ describe("required field validation", () => {
     expect(screen.queryByLabelText("Purchase Date")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Invoice Number")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("External Reference")).not.toBeInTheDocument();
+  });
+
+  test("hides sourcing-disabled custom fields but keeps them available on pending-order lines", () => {
+    customFieldState.definitions = [
+      { id: 1, name: "Invoice date", fieldType: "date", section: "dates", showOnSourcingForms: false },
+    ];
+
+    const sourcing = renderModal();
+    expect(screen.queryByLabelText("Invoice date")).not.toBeInTheDocument();
+    sourcing.unmount();
+
+    renderModal({ pendingOrderId: 12 });
+    expect(screen.getByLabelText("Invoice date")).toBeInTheDocument();
   });
 
   test("shows an attached PDF quote beside the form", async () => {

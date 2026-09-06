@@ -118,6 +118,21 @@ describe("CustomFieldsSection", () => {
     expect(onCustomFieldsChanged).toHaveBeenCalledTimes(2);
   });
 
+  test("configures whether a custom field appears on sourcing forms", async () => {
+    const user = userEvent.setup();
+    const onCustomFieldsChanged = vi.fn();
+    renderSection({ onCustomFieldsChanged });
+
+    const sourcingCheckbox = await screen.findByRole("checkbox", {
+      name: /show contract owner on sourcing forms/i,
+    });
+    expect(sourcingCheckbox).toBeChecked();
+    await user.click(sourcingCheckbox);
+
+    expect(updateCustomField).toHaveBeenCalledWith(1, { showOnSourcingForms: false });
+    expect(onCustomFieldsChanged).toHaveBeenCalledTimes(1);
+  });
+
   test("rolls back a custom field section when the API rejects the update", async () => {
     const user = userEvent.setup();
     const onError = vi.fn();

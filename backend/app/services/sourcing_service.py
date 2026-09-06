@@ -292,7 +292,9 @@ async def apply_sourcing_item_update(
         elif supplier is not _IDENTITY_UNSET:
             item.contact_email = None
         if custom_field_values is not None:
-            await replace_values_for_sourcing_item(db, item.id, custom_field_values)
+            await replace_values_for_sourcing_item(
+                db, item.id, custom_field_values, respect_sourcing_visibility=True
+            )
         return
 
     synchronize_open_request_identity(
@@ -302,7 +304,9 @@ async def apply_sourcing_item_update(
         contact_email=contact_email,
     )
     if custom_field_values is not None:
-        await replace_values_for_sourcing_item(db, item.id, custom_field_values)
+        await replace_values_for_sourcing_item(
+            db, item.id, custom_field_values, respect_sourcing_visibility=True
+        )
 
 
 async def apply_sourcing_request_update(db: AsyncSession, request: SourcingRequest, update_data: dict) -> None:
@@ -777,7 +781,9 @@ async def create_sourcing_item_record(
     await ensure_sourcing_request_for_item(db, item, created_by=created_by)
     db.add(item)
     await db.flush()
-    await replace_values_for_sourcing_item(db, item.id, custom_field_values)
+    await replace_values_for_sourcing_item(
+        db, item.id, custom_field_values, respect_sourcing_visibility=True
+    )
     refreshed = await db.execute(
         select(SourcingItem)
         .where(SourcingItem.id == item.id)
@@ -1061,7 +1067,9 @@ async def create_sourcing_request_record(
         await resolve_sourcing_item_references(db, item)
         db.add(item)
         await db.flush()
-        await replace_values_for_sourcing_item(db, item.id, item_payload.custom_field_values)
+        await replace_values_for_sourcing_item(
+            db, item.id, item_payload.custom_field_values, respect_sourcing_visibility=True
+        )
         created_items.append(item)
     return request
 
@@ -1119,7 +1127,9 @@ async def add_sourcing_request_item_record(
     await resolve_sourcing_item_references(db, item)
     db.add(item)
     await db.flush()
-    await replace_values_for_sourcing_item(db, item.id, payload.custom_field_values)
+    await replace_values_for_sourcing_item(
+        db, item.id, payload.custom_field_values, respect_sourcing_visibility=True
+    )
     return request
 
 

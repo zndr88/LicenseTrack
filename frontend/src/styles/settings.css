@@ -177,6 +177,7 @@
 .set-field-row { border-top: 1px solid var(--border); }
 .set-field-section-col { width: 160px; }
 .set-field-actions-col { width: 80px; }
+.set-field-checkbox { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .set-field-type {
   color: var(--text-2);
   font-family: var(--font-mono);

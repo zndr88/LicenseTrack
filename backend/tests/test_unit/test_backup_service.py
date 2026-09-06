@@ -36,8 +36,15 @@ from app.services.backup_service import (
 def _make_db(path) -> None:
     """Create a minimal database satisfying the restore compatibility contract."""
     conn = sqlite3.connect(str(path))
-    for table in ("users", "licenses", "audit_log"):
+    for table in ("users", "audit_log"):
         conn.execute(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)")
+    conn.execute(
+        """CREATE TABLE licenses (
+            id INTEGER PRIMARY KEY,
+            is_retired BOOLEAN NOT NULL DEFAULT 0,
+            end_date DATE
+        )"""
+    )
     conn.execute(
         """CREATE TABLE user_settings (
             id INTEGER PRIMARY KEY,

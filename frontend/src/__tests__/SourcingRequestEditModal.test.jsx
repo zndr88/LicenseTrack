@@ -103,4 +103,15 @@ describe("SourcingRequestEditModal", () => {
     expect(screen.getByLabelText("Renewal owner")).toBeInTheDocument();
     expect(screen.queryByLabelText("Historical approval")).not.toBeInTheDocument();
   });
+
+  test("omits sourcing-hidden custom fields from ordinary and renewal lines", () => {
+    customFieldState.definitions = [
+      { id: 1, name: "Sourcing owner", fieldType: "text", section: "identity", showOnSourcingForms: true },
+      { id: 2, name: "Invoice date", fieldType: "date", section: "dates", showOnSourcingForms: false },
+    ];
+    renderModal();
+
+    expect(screen.getByLabelText("Sourcing owner")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Invoice date")).not.toBeInTheDocument();
+  });
 });

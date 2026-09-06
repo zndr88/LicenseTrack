@@ -107,6 +107,20 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
     onCustomFieldsChanged?.();
   };
 
+  const handleUpdateSourcingVisibility = async (fieldId, showOnSourcingForms) => {
+    const previous = customFields;
+    setCustomFields((fields) => fields.map((field) => (
+      field.id === fieldId ? { ...field, showOnSourcingForms } : field
+    )));
+    const { error } = await updateCustomField(fieldId, { showOnSourcingForms });
+    if (error) {
+      setCustomFields(previous);
+      onError(error);
+      return;
+    }
+    onCustomFieldsChanged?.();
+  };
+
   return (
     <>
       <div className="setsec">
@@ -127,6 +141,7 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
                       <th scope="col">Key</th>
                       <th scope="col" className="set-field-section-col">Section</th>
                       <th scope="col">Renewal behavior</th>
+                      <th scope="col" title="Controls visibility while creating or editing sourcing requests and sourcing line items.">Sourcing forms</th>
                       <th scope="col" className="set-field-actions-col"></th>
                     </tr>
                   </thead>
@@ -155,6 +170,20 @@ export default function CustomFieldsSection({ isOpen, isDirty, onToggle, onError
                             <option value="copy">Copy previous value</option>
                             <option value="hide">Hide on renewal</option>
                           </select>
+                        </td>
+                        <td>
+                          <label
+                            className="set-field-checkbox"
+                            title="When disabled, this field is hidden when creating or editing sourcing requests and sourcing line items. It remains available during conversion and on license records."
+                          >
+                            <input
+                              type="checkbox"
+                              checked={field.showOnSourcingForms !== false}
+                              onChange={(event) => handleUpdateSourcingVisibility(field.id, event.target.checked)}
+                              aria-label={`Show ${field.name} on sourcing forms`}
+                            />
+                            <span>Show</span>
+                          </label>
                         </td>
                         <td className="set-field-actions-cell">
                           <button type="button" className="btn btn-g set-icon-button" disabled={customFieldsReordering || index === 0} onClick={() => handleMoveCustomField(index, "up")} aria-label={`Move ${field.name} up`} title={`Move ${field.name} up`}>
