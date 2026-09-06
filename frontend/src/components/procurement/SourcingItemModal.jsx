@@ -20,13 +20,13 @@ import MaintenanceCoverageFields, {
   supportsMaintenanceCoverage,
   supportsSeparateMaintenanceLine,
 } from "./MaintenanceCoverageFields.jsx";
-import { defaultMaintenanceCoverageForLicenseType } from "../../utils/maintenanceCoverage.js";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
-import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
+import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
-import { formatSecondaryContacts, parseSecondaryContacts } from "../../utils/secondaryContacts.js";
+import { parseSecondaryContacts } from "../../utils/secondaryContacts.js";
+import { getSourcingItemInitialTotal, sourcingItemToFormDefaults } from "../../utils/sourcingItemFormModel.js";
 import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
 import { previewSourcingQuoteDocument } from "../../api/sourcing.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
@@ -68,15 +68,6 @@ const schema = z.object({
   ),
   notes:               z.string(),
 });
-
-// Compute total from qty x unit, falling back to the supplied total value.
-const computeInitialTotal = (itemData) => {
-  if (!itemData) return "";
-  const qty = parseFloat(itemData.quantity ?? "");
-  const unit = parseFloat(itemData.estimatedUnitPrice ?? "");
-  if (!isNaN(qty) && !isNaN(unit) && qty > 0 && unit > 0) return (qty * unit).toFixed(2);
-  return itemData.estimatedTotalPrice ?? "";
-};
 
 const emptyAdditionalLine = (overrides = {}) => ({
   id: `${Date.now()}-${Math.random()}`,
@@ -134,8 +125,6 @@ const SourcingItemModal = ({
     ?? item?.sourcing_request_id
     ?? sourcingRequest?.id
     ?? null;
-  const effectiveSupplier = item?.supplier || sourcingRequest?.supplier || "";
-  const effectiveContactEmail = item?.contactEmail || sourcingRequest?.contactEmail || "";
   const pluginSlot = pendingOrderId ? "pendingOrder.line.edit.actions" : "sourcing.item.edit.actions";
   const pluginTargetType = pendingOrderId ? "pending_order_item" : "sourcing_item";
 
@@ -154,43 +143,7 @@ const SourcingItemModal = ({
     reset,
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: {
-      publisherName:       item?.publisherName ?? "",
-      softwareDescription: item?.softwareDescription ?? "",
-      licenseType:         item?.licenseType ?? "",
-      licenseMetric:       item?.licenseMetric ?? "per_user",
-      portalUrl:           item?.portalUrl ?? "",
-      maintenanceCoverage: item?.maintenanceCoverage
-        ?? (item?.isRenewal || item?.renewalForLicenseId != null
-          ? defaultMaintenanceCoverageForLicenseType(item?.licenseType)
-          : "unknown"),
-      maintenanceStartDate: item?.maintenanceStartDate ?? "",
-      maintenanceEndDate:  item?.maintenanceEndDate ?? "",
-      maintenancePricingBasis: item?.maintenancePricingBasis ?? "flat",
-      maintenanceQuantity: item?.maintenanceQuantity ?? "",
-      maintenanceUnitPrice: item?.maintenanceUnitPrice ?? "",
-      maintenanceCost:     item?.maintenanceCost ?? "",
-      quantity:            item?.quantity ?? "",
-      quantityPerUnit:     item?.quantityPerUnit ?? "1",
-      skuCode:             item?.skuCode ?? "",
-      estimatedUnitPrice:  item?.estimatedUnitPrice ?? "",
-      estimatedTotalPrice: computeInitialTotal(item),
-      currency:            item?.currency ?? "EUR",
-      startDate:           item?.startDate ?? "",
-      endDate:             item?.endDate ?? "",
-      noticeDate:          item?.noticeDate ?? "",
-      purchaseDate:        item?.purchaseDate ?? "",
-      contractNumber:      item?.contractNumber ?? "",
-      invoiceNumber:       item?.invoiceNumber ?? "",
-      externalRef:         item?.externalRef ?? "",
-      costCentre:          item?.costCentre ?? "",
-      budgetOwnerEmail:    item?.budgetOwnerEmail ?? "",
-      secondaryContacts:   formatSecondaryContacts(item?.secondaryContacts),
-      customFieldValues:   customFieldValueMap(item?.customFieldValues),
-      supplier:            effectiveSupplier,
-      contactEmail:        effectiveContactEmail,
-      notes:               item?.notes ?? "",
-    },
+    defaultValues: sourcingItemToFormDefaults(item, sourcingRequest),
   });
 
   const [attachedFile, setAttachedFile] = useState(null);
@@ -219,7 +172,7 @@ const SourcingItemModal = ({
     formatPriceInput(item?.estimatedUnitPrice ?? "", locale)
   );
   const [displayTotalPrice, setDisplayTotalPrice] = useState(
-    formatPriceInput(computeInitialTotal(item), locale)
+    formatPriceInput(getSourcingItemInitialTotal(item), locale)
   );
 
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
