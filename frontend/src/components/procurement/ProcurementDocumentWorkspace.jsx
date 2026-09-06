@@ -11,6 +11,7 @@ export default function ProcurementDocumentWorkspace({
   label,
   onFileChange,
   previewDocument,
+  onPreviewVisibilityChange,
   children,
 }) {
   const documentKind = label.replace(/ Document$/, "");
@@ -36,6 +37,10 @@ export default function ProcurementDocumentWorkspace({
     if (file) clearPreview();
   // A selected local file deliberately replaces the stored-document preview.
   }, [file]);
+
+  useEffect(() => {
+    onPreviewVisibilityChange?.(Boolean(file || preview));
+  }, [file, preview, onPreviewVisibilityChange]);
 
   const openPreview = async (document) => {
     if (!isPreviewablePdf(document) || !previewDocument) return;

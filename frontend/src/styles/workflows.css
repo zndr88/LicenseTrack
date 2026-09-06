@@ -1,3 +1,20 @@
+.procurement-document-modal {
+  width: min(1120px, 94vw);
+  max-width: min(1120px, 94vw);
+  overflow: hidden;
+}
+.procurement-document-modal.has-document-preview { width: min(1480px, calc(100vw - 24px)); max-width: min(1480px, calc(100vw - 24px)); }
+.license-intake-modal-layout { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(310px, 38%); flex: 1; }
+.license-intake-modal-layout > .document-assisted-modal-form { border-right: 1px solid var(--border); }
+.procurement-document-modal.has-document-preview .license-intake-modal-layout { grid-template-columns: minmax(500px, 0.95fr) minmax(620px, 1.05fr); }
+.procurement-document-modal.has-document-preview .document-assisted-modal-form { grid-column: 1; grid-row: 1; }
+.procurement-document-modal.has-document-preview .procurement-document-workspace { grid-column: 2; grid-row: 1; }
+.procurement-document-modal.has-document-preview .procurement-document-workspace .document-assisted-preview { min-height: 560px; }
+.procurement-document-modal.has-document-preview .procurement-document-workspace .document-assisted-preview .document-preview-body { height: calc(90vh - 280px); min-height: 480px; }
+.pending-order-license-line { min-width: 0; margin-bottom: 12px; }
+.pending-order-license-line + .pending-order-license-line { padding-top: 18px; border-top: 1px solid var(--border-lt); }
+.pending-order-license-line .license-form-section:first-child, .license-line-item-sections .license-form-section:first-child { padding-top: 0; border-top: 0; }
+
 .sourcing-request-edit-modal {
   width: min(1120px, 94vw);
   max-width: min(1120px, 94vw);

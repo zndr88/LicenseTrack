@@ -154,6 +154,7 @@ const SourcingItemModal = ({
   const [slotHasActions, setSlotHasActions] = useState(false);
   const [additionalLines, setAdditionalLines] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [documentPreviewVisible, setDocumentPreviewVisible] = useState(false);
   const handleFileChange = (file) => {
     setAttachedFile(file);
     if (!file) { setAttachedFileBase64(null); return; }
@@ -370,12 +371,7 @@ const SourcingItemModal = ({
         title={title ?? (item ? "Edit Sourcing Item" : "Add Sourcing Item")}
         titleId="dialog-title-sourcing-item"
         onClose={requestClose}
-        modalClassName="modal document-assisted-modal"
-        modalStyle={{
-          width: "min(1120px, 94vw)",
-          maxWidth: "min(1120px, 94vw)",
-          overflow: "hidden",
-        }}
+        modalClassName={`modal document-assisted-modal procurement-document-modal${documentPreviewVisible ? " has-document-preview" : ""}`}
         footer={(
           <>
             <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
@@ -694,6 +690,7 @@ const SourcingItemModal = ({
             label={pendingOrderId ? "Purchase Order Document" : "Quote Document"}
             onFileChange={handleFileChange}
             previewDocument={pendingOrderId ? previewPendingOrderDocument : previewSourcingQuoteDocument}
+            onPreviewVisibilityChange={setDocumentPreviewVisible}
           />
         </div>
       </ModalShell>

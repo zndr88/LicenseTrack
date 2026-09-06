@@ -327,6 +327,51 @@ td {
 .document-assisted-preview .lp-document-preview-hd { position: static; padding: 10px 12px; }
 .document-assisted-preview .document-preview-body { height: calc(90vh - 150px); }
 .document-assisted-preview.is-expanded .document-preview-body { height: calc(100vh - 70px); }
+.license-form-stack { display: flex; flex-direction: column; gap: 24px; }
+.license-form-section { min-width: 0; padding-top: 18px; border-top: 1px solid var(--border-lt); }
+.license-form-section:first-child { padding-top: 0; border-top: 0; }
+.license-form-section-header { appearance: none; width: 100%; padding: 0; border: 0; background: none; color: inherit; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; cursor: pointer; text-align: left; }
+.license-form-section-title { display: inline-flex; align-items: center; gap: 8px; color: var(--text-1); font-family: var(--font-brand); font-size: 12px; font-weight: 650; letter-spacing: 0.01em; }
+.license-form-section-header:hover .license-form-section-title { color: var(--accent); }
+.license-form-section-body { min-width: 0; }
+.license-form-section-body > :last-child, .maintenance-coverage-fields > :last-child { margin-bottom: 0; }
+.license-form-document-upload { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 12px; border: 1px dashed var(--border-strong); border-radius: var(--r); background: var(--bg-2); }
+.license-form-document-upload .fi { min-width: 0; }
+.license-form-section .fr { gap: 12px; }
+.procurement-document-workspace { min-width: 0; overflow-y: auto; padding: 20px 18px; background: var(--bg-1); }
+.procurement-document-workspace-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.procurement-document-workspace-header h3 { margin: 0; font-family: var(--font-brand); font-size: 12px; font-weight: 650; color: var(--text-1); }
+.document-staging-intro { margin: -4px 0 4px; color: var(--text-3); font-size: 11px; line-height: 1.45; }
+.document-staging-section { padding-top: 0; border-top: 0; }
+.document-staging-section > .license-form-section-header[aria-expanded="false"] { margin-bottom: 0; }
+.document-staging-category { padding-bottom: 3px; }
+.document-staging-scope { flex-shrink: 0; color: var(--text-3); font-family: var(--font-mono); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.document-staging-file { align-items: flex-start; }
+.document-staging-target { display: flex; flex-direction: column; gap: 3px; margin-top: 7px; }
+.document-staging-target span { color: var(--text-3); font-family: var(--font-mono); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.document-staging-target .fi { height: 30px; padding: 4px 28px 4px 8px; font-size: 10px; }
+.document-staging-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
+.procurement-document-tools { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.procurement-document-tools .fg { margin-bottom: 0; }
+.procurement-document-label-row { display: flex; align-items: center; gap: 5px; }
+.procurement-document-label-row label { margin-bottom: 0; }
+.procurement-document-scope-help { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: 0; background: transparent; color: var(--text-3); cursor: help; }
+.procurement-document-scope-help:hover, .procurement-document-scope-help:focus-visible { color: var(--text-1); }
+.procurement-document-scope-help::after { position: absolute; z-index: 20; left: 0; bottom: calc(100% + 7px); width: max-content; max-width: 250px; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-3); color: var(--text-1); box-shadow: var(--shadow-md); content: attr(data-tooltip); font-family: var(--font-body); font-size: 11px; font-weight: 400; line-height: 1.35; opacity: 0; pointer-events: none; text-align: left; text-transform: none; transform: translateY(3px); transition: opacity 120ms ease, transform 120ms ease; white-space: normal; }
+.procurement-document-scope-help:hover::after, .procurement-document-scope-help:focus-visible::after { opacity: 1; transform: translateY(0); }
+.procurement-document-upload { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px dashed var(--border-strong); border-radius: var(--r); background: var(--bg-2); }
+.procurement-document-upload-copy { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 2px; }
+.procurement-document-upload-copy span { overflow: hidden; color: var(--text-1); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.procurement-document-upload-copy small, .procurement-document-list-label { color: var(--text-3); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; }
+.procurement-document-upload input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
+.procurement-document-list { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.procurement-document-list-label { margin-bottom: 2px; }
+.procurement-document-row { appearance: none; width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 9px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-2); color: var(--text-2); cursor: pointer; text-align: left; }
+.procurement-document-row span { min-width: 0; flex: 1; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.procurement-document-row:hover:not(:disabled) { border-color: var(--accent); color: var(--text-1); }
+.procurement-document-row:disabled { cursor: default; opacity: 0.7; }
+.procurement-document-workspace .document-assisted-preview { min-height: 440px; margin-top: 16px; }
+.procurement-document-workspace .document-assisted-preview .document-preview-body { height: 52vh; min-height: 360px; }
 .confirm-dialog-overlay { z-index: 300; }
 .confirm-dialog-modal { width: 400px; max-width: 92vw; }
 .confirm-dialog-body { padding-bottom: 8px; }

@@ -83,6 +83,7 @@ const ConvertPendingOrderModal = ({
   const customFieldDefs = filterCustomFieldDefinitionsForRenewal(allCustomFieldDefs, isRenewal);
 
   const [saving, setSaving] = useState(false);
+  const [documentPreviewVisible, setDocumentPreviewVisible] = useState(false);
   const {
     attachments,
     addFiles: addAttachmentFiles,
@@ -268,12 +269,7 @@ const ConvertPendingOrderModal = ({
         titleId="dialog-title-convert-po"
         onClose={requestClose}
         onEscape={requestClose}
-        modalClassName="modal document-assisted-modal"
-        modalStyle={{
-          width: "min(1120px, 94vw)",
-          maxWidth: "min(1120px, 94vw)",
-          overflow: "hidden",
-        }}
+        modalClassName={`modal document-assisted-modal procurement-document-modal${documentPreviewVisible ? " has-document-preview" : ""}`}
         footer={(
           <>
             <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
@@ -522,6 +518,7 @@ const ConvertPendingOrderModal = ({
             onRemoveAttachment={removeAttachment}
             onTargetChange={changeAttachmentTarget}
             previewDocument={previewPendingOrderDocument}
+            onPreviewVisibilityChange={setDocumentPreviewVisible}
             targetOptions={(order?.items ?? []).map((item) => ({
               value: String(item.id),
               label: `${item.publisherName} — ${item.softwareDescription}`,

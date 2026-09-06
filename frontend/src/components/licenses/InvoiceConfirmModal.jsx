@@ -80,6 +80,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const [additionalLines, setAdditionalLines] = useState([]);
   const [formTouched, setFormTouched] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [documentPreviewVisible, setDocumentPreviewVisible] = useState(false);
   const [eligibleParentLicenses, setEligibleParentLicenses] = useState([]);
   const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
   const submitLockRef = useRef(false);
@@ -324,12 +325,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
       }}
       closeButtonDisabled={isSubmitting}
       closeOnOverlayClick={!isSubmitting}
-      modalClassName="modal document-assisted-modal"
-      modalStyle={{
-        width: "min(1120px, 94vw)",
-        maxWidth: "min(1120px, 94vw)",
-        overflow: "hidden",
-      }}
+      modalClassName={`modal document-assisted-modal procurement-document-modal${documentPreviewVisible ? " has-document-preview" : ""}`}
       footer={(
         <>
           <button className="btn btn-g" onClick={requestClose} disabled={isSubmitting}>Cancel</button>
@@ -674,6 +670,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             onAddFiles={handleAttachmentFiles}
             onRemoveAttachment={handleRemoveAttachment}
             onTargetChange={changeAttachmentTarget}
+            onPreviewVisibilityChange={setDocumentPreviewVisible}
             targetOptions={attachmentTargetOptions}
             userSettings={userSettings}
           />

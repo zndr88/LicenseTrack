@@ -25,6 +25,7 @@ export default function DocumentStagingWorkspace({
   onRemoveAttachment,
   onTargetChange,
   previewDocument,
+  onPreviewVisibilityChange,
   targetOptions = [],
   userSettings,
   defaultOpen = false,
@@ -82,6 +83,10 @@ export default function DocumentStagingWorkspace({
   };
 
   const localPreview = attachments.find((attachment) => attachment.id === localPreviewId);
+
+  useEffect(() => {
+    onPreviewVisibilityChange?.(Boolean(localPreview || storedPreview));
+  }, [localPreview, storedPreview, onPreviewVisibilityChange]);
 
   return (
     <aside className="procurement-document-workspace document-staging-workspace" aria-label="Document workspace">

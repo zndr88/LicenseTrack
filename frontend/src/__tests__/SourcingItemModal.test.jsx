@@ -54,6 +54,8 @@ describe("required field validation", () => {
 
     try {
       renderModal();
+      expect(screen.getByRole("dialog")).toHaveClass("procurement-document-modal");
+      expect(screen.getByRole("dialog")).not.toHaveClass("has-document-preview");
       const quote = new File(["%PDF-1.7"], "vendor-quote.pdf", { type: "application/pdf" });
       fireEvent.change(document.getElementById("sourcing-quote-file"), { target: { files: [quote] } });
 
@@ -62,6 +64,7 @@ describe("required field validation", () => {
         expect(screen.getByTitle("vendor-quote.pdf")).toBeInTheDocument();
         expect(screen.getByTitle("Preview of vendor-quote.pdf")).toHaveAttribute("src", "blob:quote-preview#zoom=page-width");
         expect(screen.getByTitle("Preview of vendor-quote.pdf")).not.toHaveAttribute("sandbox");
+        expect(screen.getByRole("dialog")).toHaveClass("has-document-preview");
       });
     } finally {
       URL.createObjectURL = originalCreateObjectURL;
