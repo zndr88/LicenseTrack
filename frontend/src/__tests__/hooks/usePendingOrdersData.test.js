@@ -128,7 +128,7 @@ describe("usePendingOrdersData — licenses", () => {
       { publisherName: "Acme" },
       null,
     );
-    expect(documentsApi.uploadDocument).toHaveBeenCalledWith(44, file, "entitlement");
+    expect(documentsApi.uploadDocument).toHaveBeenCalledWith(44, file, "entitlement", "license");
     expect(showSuccess).toHaveBeenCalled();
   });
 
@@ -160,7 +160,7 @@ describe("usePendingOrdersData — licenses", () => {
       [{ sourcingItemId: 21 }, { sourcingItemId: 22 }],
       null,
     );
-    expect(documentsApi.uploadDocument).toHaveBeenCalledWith(45, file, "eula");
+    expect(documentsApi.uploadDocument).toHaveBeenCalledWith(45, file, "eula", "license");
   });
 
   it("forwards the first invoice and uploads every remaining staged document", async () => {
@@ -194,7 +194,41 @@ describe("usePendingOrdersData — licenses", () => {
       [{ sourcingItemId: 21 }, { sourcingItemId: 22 }],
       firstInvoice,
     );
-    expect(documentsApi.uploadDocument).toHaveBeenNthCalledWith(1, 44, secondInvoice, "invoice");
-    expect(documentsApi.uploadDocument).toHaveBeenNthCalledWith(2, 45, entitlement, "entitlement");
+    expect(documentsApi.uploadDocument).toHaveBeenNthCalledWith(1, 44, secondInvoice, "invoice", "shared");
+    expect(documentsApi.uploadDocument).toHaveBeenNthCalledWith(2, 45, entitlement, "entitlement", "license");
+  });
+
+  it("uploads a license-scoped invoice instead of forwarding it as shared evidence", async () => {
+    pendingOrdersApi.convertPendingOrder.mockResolvedValueOnce({
+      data: [{ id: 44, conversionType: "new_purchase", sourceSourcingItemId: 11 }],
+      error: null,
+    });
+    documentsApi.uploadDocument.mockResolvedValueOnce({ data: {}, error: null });
+    const invoice = new File(["invoice"], "line-invoice.pdf", { type: "application/pdf" });
+    const { result } = renderHook(
+      () => usePendingOrdersData({ showError: vi.fn(), showSuccess: vi.fn() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await result.current.handleConvertToLicense(9, { publisherName: "Acme" }, {
+        file: invoice,
+        category: "invoice",
+        scope: "license",
+        targetSourcingItemId: 11,
+      });
+    });
+
+    expect(pendingOrdersApi.convertPendingOrder).toHaveBeenCalledWith(
+      9,
+      { publisherName: "Acme" },
+      null,
+    );
+    expect(documentsApi.uploadDocument).toHaveBeenCalledWith(
+      44,
+      invoice,
+      "invoice",
+      "license",
+    );
   });
 });

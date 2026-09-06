@@ -18,12 +18,14 @@ import { createPdfPreviewUrl } from "./documentPreview.js";
  * @param {number} licenseId
  * @param {File} file - the File object from an <input type="file">
  * @param {string} category - DocumentCategory value, e.g. "invoice" | "contract" | "other"
+ * @param {"auto" | "shared" | "license"} scope - document ownership; auto preserves legacy category defaults
  * @returns {Promise<{ data: object | null, error: string | null }>}
  */
-export async function uploadDocument(licenseId, file, category) {
+export async function uploadDocument(licenseId, file, category, scope = "auto") {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("category", category);
+  formData.append("scope", scope);
 
   // Pass FormData directly - client.js omits Content-Type so the browser sets
   // the correct multipart boundary automatically.

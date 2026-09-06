@@ -20,6 +20,8 @@ class ProcurementDocumentCategory(str, enum.Enum):
     quote = "quote"
     purchase_order = "purchase_order"
     invoice = "invoice"
+    eula = "eula"
+    entitlement = "entitlement"
 
 
 class Document(Base):

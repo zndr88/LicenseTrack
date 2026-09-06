@@ -345,7 +345,9 @@ td {
 .document-staging-section { padding-top: 0; border-top: 0; }
 .document-staging-section > .license-form-section-header[aria-expanded="false"] { margin-bottom: 0; }
 .document-staging-category { padding-bottom: 3px; }
-.document-staging-scope { flex-shrink: 0; color: var(--text-3); font-family: var(--font-mono); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.document-staging-scope-toggle { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.document-staging-scope-toggle > span { color: var(--text-3); font-family: var(--font-mono); font-size: 8px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; transition: color .15s; }
+.document-staging-scope-toggle > span.active { color: var(--text-1); }
 .document-staging-file { align-items: flex-start; }
 .document-staging-target { display: flex; flex-direction: column; gap: 3px; margin-top: 7px; }
 .document-staging-target span { color: var(--text-3); font-family: var(--font-mono); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }

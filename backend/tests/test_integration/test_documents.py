@@ -329,13 +329,38 @@ async def test_pending_order_upload_is_shared_and_preserves_legacy_license_evide
     assert shared_document["procurement_bundle_id"] is None
     assert f"attachments/procurement/pending_orders/{order.id}/" in shared_document["filename"].replace("\\", "/")
 
+    shared_eula_response = await test_app.post(
+        f"/api/licenses/{first.id}/documents",
+        files={"file": ("shared-eula.pdf", b"%PDF-1.4 shared eula", "application/pdf")},
+        data={"category": "eula", "scope": "shared"},
+        headers=auth_headers,
+    )
+    license_invoice_response = await test_app.post(
+        f"/api/licenses/{first.id}/documents",
+        files={"file": ("line-invoice.pdf", b"%PDF-1.4 line invoice", "application/pdf")},
+        data={"category": "invoice", "scope": "license"},
+        headers=auth_headers,
+    )
+    assert shared_eula_response.status_code == 201, shared_eula_response.text
+    assert shared_eula_response.json()["pending_order_id"] == order.id
+    assert license_invoice_response.status_code == 201, license_invoice_response.text
+    assert license_invoice_response.json()["license_id"] == first.id
+
     first_resp = await test_app.get(f"/api/licenses/{first.id}/documents", headers=auth_headers)
     second_resp = await test_app.get(f"/api/licenses/{second.id}/documents", headers=auth_headers)
 
     assert first_resp.status_code == 200
-    assert {doc["id"] for doc in first_resp.json()} == {legacy_document.id, shared_document["id"]}
+    assert {doc["id"] for doc in first_resp.json()} == {
+        legacy_document.id,
+        shared_document["id"],
+        shared_eula_response.json()["id"],
+        license_invoice_response.json()["id"],
+    }
     assert second_resp.status_code == 200
-    assert [doc["id"] for doc in second_resp.json()] == [shared_document["id"]]
+    assert {doc["id"] for doc in second_resp.json()} == {
+        shared_document["id"],
+        shared_eula_response.json()["id"],
+    }
 
 
 async def test_license_overview_counts_license_scoped_procurement_documents(test_app, auth_headers):
@@ -398,7 +423,6 @@ async def test_manual_batch_procurement_document_is_shared_without_po_number_fal
     db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}))
     await db_session.commit()
     invalidate_global_settings_cache()
-
     license_payload = {
         "publisherName": "Acme Corp",
         "licenseType": "subscription",
@@ -488,6 +512,69 @@ async def test_manual_batch_procurement_document_is_shared_without_po_number_fal
     assert second_delete.status_code == 204
     assert await db_session.get(ProcurementDocument, document["id"]) is None
     invalidate_global_settings_cache()
+
+
+async def test_manual_batch_all_conversion_categories_support_shared_or_license_scope(
+    test_app,
+    auth_headers,
+):
+    license_payload = {
+        "publisherName": "Acme Corp",
+        "licenseType": "subscription",
+        "licenseMetric": "per_user",
+        "quantity": "1",
+        "currency": "EUR",
+        "poNumber": "PO-SCOPE-CHOICE",
+    }
+    batch_response = await test_app.post(
+        "/api/licenses/batch",
+        json={
+            "items": [
+                {"license": {**license_payload, "softwareDescription": "Scope A"}},
+                {"license": {**license_payload, "softwareDescription": "Scope B"}},
+            ]
+        },
+        headers=auth_headers,
+    )
+    assert batch_response.status_code == 201, batch_response.text
+    first, second = batch_response.json()
+
+    categories = ("quote", "purchase_order", "invoice", "eula", "entitlement")
+    shared_ids = set()
+    license_ids = set()
+    for category in categories:
+        shared_response = await test_app.post(
+            f"/api/licenses/{first['id']}/documents",
+            files={"file": (f"shared-{category}.pdf", b"%PDF-1.4 shared", "application/pdf")},
+            data={"category": category, "scope": "shared"},
+            headers=auth_headers,
+        )
+        assert shared_response.status_code == 201, shared_response.text
+        shared_document = shared_response.json()
+        assert shared_document["license_id"] is None
+        assert shared_document["procurement_bundle_id"] == first["procurementBundleId"]
+        shared_ids.add(shared_document["id"])
+
+        license_response = await test_app.post(
+            f"/api/licenses/{first['id']}/documents",
+            files={"file": (f"license-{category}.pdf", b"%PDF-1.4 license", "application/pdf")},
+            data={"category": category, "scope": "license"},
+            headers=auth_headers,
+        )
+        assert license_response.status_code == 201, license_response.text
+        license_document = license_response.json()
+        assert license_document["license_id"] == first["id"]
+        assert license_document["scope"] == "license"
+        license_ids.add(license_document["id"])
+
+    first_documents = await test_app.get(
+        f"/api/licenses/{first['id']}/documents", headers=auth_headers
+    )
+    second_documents = await test_app.get(
+        f"/api/licenses/{second['id']}/documents", headers=auth_headers
+    )
+    assert {document["id"] for document in first_documents.json()} == shared_ids | license_ids
+    assert {document["id"] for document in second_documents.json()} == shared_ids
 
 
 async def test_procurement_document_download_and_delete(test_app, auth_headers):

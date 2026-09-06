@@ -361,7 +361,7 @@ describe("ConvertPendingOrderModal", () => {
       renderModal();
       fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
       const file = new File(["%PDF-1.7"], "invoice.pdf", { type: "application/pdf" });
-      fireEvent.change(screen.getByLabelText(/invoice document/i), { target: { files: [file] } });
+      fireEvent.change(screen.getByLabelText("Upload Invoice Document"), { target: { files: [file] } });
       expect(await screen.findByTitle("Preview of invoice.pdf")).not.toHaveAttribute("sandbox");
     } finally {
       URL.createObjectURL = originalCreateObjectURL;
@@ -398,8 +398,16 @@ describe("ConvertPendingOrderModal", () => {
     expect(screen.getByLabelText("Upload Purchase Order Document")).toBeInTheDocument();
     expect(screen.getByLabelText("Upload EULA Document")).toBeInTheDocument();
     expect(screen.getByLabelText("Upload Entitlement / License Key Document")).toBeInTheDocument();
-    expect(screen.getAllByText("Shared across PO")).toHaveLength(3);
-    expect(screen.getAllByText("One license")).toHaveLength(2);
+    expect(screen.getByRole("switch", { name: "Invoice document scope: Shared" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "EULA document scope: Single" })).not.toBeChecked();
+
+    const entitlementScope = screen.getByRole("switch", {
+      name: "Entitlement / License Key document scope: Single",
+    });
+    await user.click(entitlementScope);
+    expect(screen.getByRole("switch", {
+      name: "Entitlement / License Key document scope: Shared",
+    })).toBeChecked();
 
     const entitlement = new File(["license-key"], "entitlement.txt", { type: "text/plain" });
     const eula = new File(["terms"], "eula.txt", { type: "text/plain" });
@@ -409,8 +417,8 @@ describe("ConvertPendingOrderModal", () => {
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     expect(onConfirm.mock.calls[0][1]).toEqual([
-      expect.objectContaining({ file: entitlement, category: "entitlement" }),
-      expect.objectContaining({ file: eula, category: "eula" }),
+      expect.objectContaining({ file: entitlement, category: "entitlement", scope: "shared" }),
+      expect.objectContaining({ file: eula, category: "eula", scope: "license" }),
     ]);
   });
 
@@ -756,7 +764,7 @@ describe("ConvertAllModal", () => {
       renderModal();
       fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
       const file = new File(["%PDF-1.7"], "batch-invoice.pdf", { type: "application/pdf" });
-      fireEvent.change(screen.getByLabelText(/invoice document/i), { target: { files: [file] } });
+      fireEvent.change(screen.getByLabelText("Upload Invoice Document"), { target: { files: [file] } });
       expect(await screen.findByTitle("Preview of batch-invoice.pdf")).not.toHaveAttribute("sandbox");
     } finally {
       URL.createObjectURL = originalCreateObjectURL;
@@ -971,7 +979,7 @@ describe("ConvertAllModal", () => {
     const { onConfirm } = renderModal();
 
     await user.click(screen.getByRole("button", { name: /Documents/ }));
-    await user.upload(screen.getByLabelText(/invoice document/i), invoice);
+    await user.upload(screen.getByLabelText("Upload Invoice Document"), invoice);
     fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: "2026-01-01" } });
     fireEvent.change(screen.getByLabelText(/^end date/i), { target: { value: "2026-12-31" } });
     await user.click(screen.getByRole("button", { name: /confirm & create licenses/i }));

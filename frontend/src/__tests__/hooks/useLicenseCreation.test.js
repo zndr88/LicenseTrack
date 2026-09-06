@@ -149,7 +149,7 @@ describe("useLicenseCreation", () => {
     });
 
     expect(succeeded).toBe(true);
-    expect(uploadDocument).toHaveBeenCalledWith(41, file, "invoice");
+    expect(uploadDocument).toHaveBeenCalledWith(41, file, "invoice", "shared");
     expect(setSelectedId).toHaveBeenCalledWith(41);
     expect(showError).toHaveBeenCalledWith(expect.stringContaining(
       "Licenses saved, but document upload failed: invoice.pdf: Storage unavailable."
@@ -184,7 +184,30 @@ describe("useLicenseCreation", () => {
       );
     });
 
-    expect(uploadDocument).toHaveBeenNthCalledWith(1, 41, invoice, "invoice");
-    expect(uploadDocument).toHaveBeenNthCalledWith(2, 42, entitlement, "entitlement");
+    expect(uploadDocument).toHaveBeenNthCalledWith(1, 41, invoice, "invoice", "shared");
+    expect(uploadDocument).toHaveBeenNthCalledWith(2, 42, entitlement, "entitlement", "license");
+  });
+
+  test("honors explicit scope overrides for procurement and entitlement categories", async () => {
+    createLicenseBatch.mockResolvedValueOnce({ data: [{ id: 41 }, { id: 42 }], error: null });
+    const { result } = renderCreation();
+    const invoice = new File(["invoice"], "invoice.pdf", { type: "application/pdf" });
+    const eula = new File(["terms"], "eula.pdf", { type: "application/pdf" });
+
+    await act(async () => {
+      await result.current(
+        [
+          makeForm({ _documentTargetKey: "primary" }),
+          makeForm({ _documentTargetKey: "secondary" }),
+        ],
+        [
+          { file: invoice, category: "invoice", scope: "license", targetKey: "secondary" },
+          { file: eula, category: "eula", scope: "shared" },
+        ],
+      );
+    });
+
+    expect(uploadDocument).toHaveBeenNthCalledWith(1, 42, invoice, "invoice", "license");
+    expect(uploadDocument).toHaveBeenNthCalledWith(2, 41, eula, "eula", "shared");
   });
 });

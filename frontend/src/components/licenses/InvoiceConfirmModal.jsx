@@ -71,9 +71,11 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const {
     attachments,
+    categoryScopes,
     addFiles: addAttachmentFiles,
     removeAttachment,
     changeTarget: changeAttachmentTarget,
+    changeCategoryScope: changeAttachmentCategoryScope,
   } = useStagedDocumentAttachments(PRIMARY_LINE_ID);
   const [pluginAttachment, setPluginAttachment] = useState(null);
   const [documentActionsAvailable, setDocumentActionsAvailable] = useState(false);
@@ -666,10 +668,12 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         </div>
           <DocumentStagingWorkspace
             attachments={attachments}
+            categoryScopes={categoryScopes}
             inputIdPrefix="inv-attach"
             onAddFiles={handleAttachmentFiles}
             onRemoveAttachment={handleRemoveAttachment}
             onTargetChange={changeAttachmentTarget}
+            onCategoryScopeChange={changeAttachmentCategoryScope}
             onPreviewVisibilityChange={setDocumentPreviewVisible}
             targetOptions={attachmentTargetOptions}
             userSettings={userSettings}

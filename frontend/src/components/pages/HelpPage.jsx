@@ -223,16 +223,16 @@ const HELP_ARTICLES = [
       {
         heading: "Document scopes",
         body: [
-          "License-owned documents attach to one license and include evidence such as EULAs, entitlement certificates, and other supporting files.",
-          "Procurement documents include Quote, Purchase Order, and Invoice evidence. These can be scoped to a license or to the pending order that created a group of licenses.",
+          "License-owned documents attach to one license. During manual or pending-order conversion, Quote, Purchase Order, Invoice, EULA, and Entitlement uploads can each be assigned to one resulting license.",
+          "Shared documents attach to the pending order or manual creation batch and appear on every license created from that purchase.",
         ],
       },
       {
         heading: "Things to know",
         bullets: [
           "PO number is metadata, not the document-sharing key.",
-          "Procurement documents are shared across licenses from the same pending order.",
-          "When several licenses are saved together through Add License, an uploaded Quote, Purchase Order, or Invoice is shared across that created batch. Other document categories attach only to the first license.",
+          "Conversion defaults Quote, Purchase Order, and Invoice to shared scope, and EULA and Entitlement to one license. A Single / Shared switch controls the staged files in each category.",
+          "A shared conversion document is visible on every license from the same pending order or manual creation batch; a specific-license document is visible only on its selected license.",
           "If the optional document upload fails after a manual batch is saved, retry the attachment from the first license's Documents section; do not submit the licenses again.",
           "A file payload may be exactly as large as the configured upload limit. Anything larger is rejected; multipart request overhead is checked separately.",
           "Documents are stored on the server filesystem under the configured storage path.",

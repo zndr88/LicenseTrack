@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import mimetypes
 import logging
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
@@ -57,6 +57,11 @@ _ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
         "application/octet-stream",
     }
 )
+_DEFAULT_SHARED_CATEGORIES = {
+    DocumentCategory.quote,
+    DocumentCategory.purchase_order,
+    DocumentCategory.invoice,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -75,6 +80,7 @@ async def upload_document(
     db: DbSession,
     file: UploadFile,
     category: DocumentCategory = Form(...),
+    scope: Literal["auto", "shared", "license"] = Form("auto"),
     current_user: User = Depends(require_editor_or_admin),
 ) -> DocumentResponse | ProcurementDocumentResponse:
     """Upload a file and attach it to a license."""
@@ -94,7 +100,13 @@ async def upload_document(
 
     storage_base = await storage.resolve_storage_path(db)
     is_procurement_category = category.value in {member.value for member in ProcurementDocumentCategory}
-    if is_procurement_category:
+    use_shared_ownership = scope == "shared" or (scope == "auto" and category in _DEFAULT_SHARED_CATEGORIES)
+    if use_shared_ownership:
+        if not is_procurement_category:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Document category '{category.value}' cannot be shared across a purchase",
+            )
         is_pending_order_document = lic.pending_order_id is not None
         is_bundle_document = not is_pending_order_document and lic.procurement_bundle_id is not None
         storage_scope = "pending_order" if is_pending_order_document else "bundle" if is_bundle_document else "license"

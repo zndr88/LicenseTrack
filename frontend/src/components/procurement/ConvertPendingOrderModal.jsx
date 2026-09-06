@@ -86,9 +86,11 @@ const ConvertPendingOrderModal = ({
   const [documentPreviewVisible, setDocumentPreviewVisible] = useState(false);
   const {
     attachments,
+    categoryScopes,
     addFiles: addAttachmentFiles,
     removeAttachment,
     changeTarget: changeAttachmentTarget,
+    changeCategoryScope: changeAttachmentCategoryScope,
     clearAttachments,
   } = useStagedDocumentAttachments(order?.items?.[0]?.id);
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
@@ -512,11 +514,13 @@ const ConvertPendingOrderModal = ({
         </div>
           <DocumentStagingWorkspace
             attachments={attachments}
+            categoryScopes={categoryScopes}
             documents={order?.documents ?? []}
             inputIdPrefix="cpo-attachment"
             onAddFiles={addAttachmentFiles}
             onRemoveAttachment={removeAttachment}
             onTargetChange={changeAttachmentTarget}
+            onCategoryScopeChange={changeAttachmentCategoryScope}
             previewDocument={previewPendingOrderDocument}
             onPreviewVisibilityChange={setDocumentPreviewVisible}
             targetOptions={(order?.items ?? []).map((item) => ({

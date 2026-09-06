@@ -4,7 +4,7 @@ import { createLicenseBatch } from "../api/licenses.js";
 import { uploadDocument } from "../api/documents.js";
 import { queryKeys } from "../queryKeys.js";
 import { invalidateNotifications, invalidatePortfolioState } from "../queryInvalidation.js";
-import { isProcurementDocumentCategory } from "../utils/documentCategories.js";
+import { defaultDocumentScope } from "../utils/documentCategories.js";
 
 function buildLicensePayload(form) {
   return {
@@ -82,12 +82,18 @@ export function useLicenseCreation({
     let documentUploadError = null;
     let documentErrorTargetId = created[0]?.id ?? null;
     for (const attachment of attachments) {
-      const targetIndex = isProcurementDocumentCategory(attachment.category)
+      const attachmentScope = attachment.scope ?? defaultDocumentScope(attachment.category);
+      const targetIndex = attachmentScope === "shared"
         ? 0
         : Math.max(0, formList.findIndex((form) => String(form._documentTargetKey) === String(attachment.targetKey)));
       const targetId = created[targetIndex]?.id ?? created[0]?.id ?? null;
       if (!targetId) continue;
-      const { error: docError } = await uploadDocument(targetId, attachment.file, attachment.category);
+      const { error: docError } = await uploadDocument(
+        targetId,
+        attachment.file,
+        attachment.category,
+        attachmentScope,
+      );
       if (docError) {
         documentUploadError = `${attachment.file.name}: ${docError}`;
         documentErrorTargetId = targetId;

@@ -60,9 +60,11 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
   const [saving, setSaving] = useState(false);
   const {
     attachments,
+    categoryScopes,
     addFiles: addAttachmentFiles,
     removeAttachment,
     changeTarget: changeAttachmentTarget,
+    changeCategoryScope: changeAttachmentCategoryScope,
     clearAttachments,
   } = useStagedDocumentAttachments(unconvertedItems[0]?.id);
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
@@ -224,11 +226,13 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
         </div>
           <DocumentStagingWorkspace
             attachments={attachments}
+            categoryScopes={categoryScopes}
             documents={order?.documents ?? []}
             inputIdPrefix="convert-all-attachment"
             onAddFiles={addAttachmentFiles}
             onRemoveAttachment={removeAttachment}
             onTargetChange={changeAttachmentTarget}
+            onCategoryScopeChange={changeAttachmentCategoryScope}
             previewDocument={previewPendingOrderDocument}
             targetOptions={attachmentTargetOptions}
             userSettings={userSettings}

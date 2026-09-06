@@ -143,9 +143,11 @@ describe("frontend API endpoint contracts", () => {
   test("document, pending-order, and sourcing APIs use multipart bodies for uploads and conversion attachments", async () => {
     const file = new File(["hello"], "invoice.pdf", { type: "application/pdf" });
 
-    await documentsApi.uploadDocument(9, file, "invoice");
+    await documentsApi.uploadDocument(9, file, "invoice", "license");
     expect(client.post.mock.calls.at(-1)[0]).toBe("/api/licenses/9/documents");
-    expect(client.post.mock.calls.at(-1)[1]).toBeInstanceOf(FormData);
+    const documentForm = client.post.mock.calls.at(-1)[1];
+    expect(documentForm).toBeInstanceOf(FormData);
+    expect(documentForm.get("scope")).toBe("license");
 
     await documentsApi.listDocumentActions();
     expect(client.get).toHaveBeenLastCalledWith("/api/document-actions");

@@ -23,9 +23,10 @@ Price fields use your personal number format. LicenseTrack saves all lines as on
 if any line fails, no part of the batch is created.
 
 An optional Quote, Purchase Order, or Invoice selected for a multi-license batch
-is shared across the licenses created in that batch. Other document categories
-attach only to the first license. The document upload happens after the license
-batch is committed; if it fails, open the first created license and retry the
+is shared across the licenses created in that batch by default. Every staged
+Quote, Purchase Order, Invoice, EULA, or Entitlement category can instead be
+switched between the whole batch and one selected license. The document upload happens after
+the license batch is committed; if it fails, open the intended created license and retry the
 attachment from **Documents** instead of submitting the licenses again.
 
 For freeware and open-source software, choose **Freeware / Open Source** in the

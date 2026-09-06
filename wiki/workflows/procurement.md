@@ -148,6 +148,13 @@ During conversion you can:
 - select explicit parents for maintenance lines; and
 - confirm renewal successors and coterm relationships.
 
+Each staged Quote, Purchase Order, Invoice, EULA, or Entitlement category has a
+**Single / Shared** scope switch. **Shared** makes its files visible on every license
+created from that order or manual batch. **Specific license** attaches it only
+to the selected resulting line. Quote, Purchase Order, and Invoice default to
+shared scope; EULA and Entitlement default to one license, preserving the
+earlier behavior unless the scope is changed.
+
 Conversion captures Request Date from the sourcing line. The license manager
 confirms the actual Purchase Date during conversion; it is not inferred from
 the pending-order creation timestamp. Those milestones remain editable for
@@ -164,10 +171,10 @@ Evidence is scoped to the workflow record that owns it:
 | Evidence | Initial scope | After license conversion |
 | --- | --- | --- |
 | Quote | Sourcing request | Copied into the pending-order procurement bundle |
-| Purchase order | Pending order | Shared by licenses created from that order |
-| Invoice uploaded during conversion | Pending order | Shared by licenses created from that order |
-| Quote, PO, or invoice uploaded during direct multi-license entry | Manual creation batch | Shared by licenses created in that batch |
-| EULA or entitlement | License | Remains attached to that license |
+| Purchase order | Pending order | Shared by default; one resulting license when selected |
+| Invoice uploaded during conversion | Pending order | Shared by default; one resulting license when selected |
+| Quote, PO, invoice, EULA, or entitlement uploaded during conversion | Pending order or manual creation batch | Per-category choice between all resulting licenses and one selected license |
+| Document added later from License Details | License | Remains attached to that license |
 
 Two unrelated pending orders or direct-creation batches do not share documents
 merely because their PO numbers match. The pending-order relationship or manual

@@ -1,8 +1,15 @@
 import { useCallback, useRef, useState } from "react";
-import { isProcurementDocumentCategory } from "../../utils/documentCategories.js";
+import { DOCUMENT_CATEGORIES, defaultDocumentScope } from "../../utils/documentCategories.js";
+
+function initialCategoryScopes() {
+  return Object.fromEntries(
+    DOCUMENT_CATEGORIES.map((category) => [category.key, category.defaultScope]),
+  );
+}
 
 export function useStagedDocumentAttachments(defaultTargetKey = null) {
   const [attachments, setAttachments] = useState([]);
+  const [categoryScopes, setCategoryScopes] = useState(initialCategoryScopes);
   const nextId = useRef(1);
 
   const addFiles = useCallback((category, files) => {
@@ -13,12 +20,13 @@ export function useStagedDocumentAttachments(defaultTargetKey = null) {
         id: `conversion-document-${nextId.current++}`,
         file,
         category,
-        ...(!isProcurementDocumentCategory(category) && defaultTargetKey != null
+        scope: categoryScopes[category] ?? defaultDocumentScope(category),
+        ...((categoryScopes[category] ?? defaultDocumentScope(category)) === "license" && defaultTargetKey != null
           ? { targetKey: String(defaultTargetKey) }
           : {}),
       })),
     ]);
-  }, [defaultTargetKey]);
+  }, [categoryScopes, defaultTargetKey]);
 
   const removeAttachment = useCallback((id) => {
     setAttachments((current) => current.filter((attachment) => attachment.id !== id));
@@ -30,7 +38,34 @@ export function useStagedDocumentAttachments(defaultTargetKey = null) {
     )));
   }, []);
 
+  const changeCategoryScope = useCallback((category, scope) => {
+    setCategoryScopes((current) => ({ ...current, [category]: scope }));
+    setAttachments((current) => current.map((attachment) => {
+      if (attachment.category !== category) return attachment;
+      if (scope === "shared") {
+        const nextAttachment = { ...attachment, scope };
+        delete nextAttachment.targetKey;
+        return nextAttachment;
+      }
+      return {
+        ...attachment,
+        scope,
+        ...(attachment.targetKey == null && defaultTargetKey != null
+          ? { targetKey: String(defaultTargetKey) }
+          : {}),
+      };
+    }));
+  }, [defaultTargetKey]);
+
   const clearAttachments = useCallback(() => setAttachments([]), []);
 
-  return { attachments, addFiles, removeAttachment, changeTarget, clearAttachments };
+  return {
+    attachments,
+    categoryScopes,
+    addFiles,
+    removeAttachment,
+    changeTarget,
+    changeCategoryScope,
+    clearAttachments,
+  };
 }

@@ -27,15 +27,20 @@ import { fetchLicensesData } from "./licenses/useLicensesPageData.js";
 import { getLicensesFromQueryData } from "../../utils/licenseQueryData.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { uploadDocument } from "../../api/documents.js";
+import { defaultDocumentScope } from "../../utils/documentCategories.js";
 
 const EMPTY_PENDING_ORDERS = [];
 
 function normalizeConversionAttachments(attachmentInput) {
   if (!attachmentInput) return [];
   const attachments = Array.isArray(attachmentInput) ? attachmentInput : [attachmentInput];
-  return attachments.map((attachment) => (
-    attachment.file ? attachment : { file: attachment, category: "invoice" }
-  ));
+  return attachments.map((attachment) => {
+    const normalized = attachment.file ? attachment : { file: attachment, category: "invoice" };
+    return {
+      ...normalized,
+      scope: normalized.scope ?? defaultDocumentScope(normalized.category),
+    };
+  });
 }
 
 function createdConversionLicenses(licenses) {
@@ -46,11 +51,16 @@ async function uploadPostConversionAttachments(attachments, affectedLicenses, fo
   const createdLicenses = createdConversionLicenses(affectedLicenses);
   for (const attachment of attachments) {
     if (attachment === forwardedInvoice) continue;
-    const target = attachment.targetSourcingItemId
+    const target = attachment.scope !== "shared" && attachment.targetSourcingItemId
       ? createdLicenses.find((license) => license.sourceSourcingItemId === attachment.targetSourcingItemId)
       : createdLicenses[0];
     if (!target) return `${attachment.file.name}: the selected converted license could not be found.`;
-    const { error } = await uploadDocument(target.id, attachment.file, attachment.category);
+    const { error } = await uploadDocument(
+      target.id,
+      attachment.file,
+      attachment.category,
+      attachment.scope ?? "auto",
+    );
     if (error) return `${attachment.file.name}: ${error}`;
   }
   return null;
@@ -192,7 +202,9 @@ export function usePendingOrdersData({
 
   const handleConvertToLicense = useCallback(async (orderId, licenseData, attachmentInput) => {
     const attachments = normalizeConversionAttachments(attachmentInput);
-    const forwardedInvoice = attachments.find((attachment) => attachment.category === "invoice");
+    const forwardedInvoice = attachments.find((attachment) => (
+      attachment.category === "invoice" && attachment.scope !== "license"
+    ));
     const invoiceFile = forwardedInvoice?.file ?? null;
     const { data, error } = await convertPendingOrder(orderId, licenseData, invoiceFile);
     if (error) { showError(error); return false; }
@@ -356,7 +368,9 @@ export function usePendingOrdersData({
 
   const handleBatchConvert = useCallback(async (orderId, items, poNumber, attachmentInput = null) => {
     const attachments = normalizeConversionAttachments(attachmentInput);
-    const forwardedInvoice = attachments.find((attachment) => attachment.category === "invoice");
+    const forwardedInvoice = attachments.find((attachment) => (
+      attachment.category === "invoice" && attachment.scope !== "license"
+    ));
     const invoiceFile = forwardedInvoice?.file ?? null;
     const { data, error } = await batchConvertPendingOrder(orderId, items, invoiceFile);
     if (error) { showError(error); return false; }

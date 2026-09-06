@@ -3,11 +3,12 @@ import Icon from "../ui/Icon.jsx";
 import DocumentPreviewPanel from "../ui/DocumentPreviewPanel.jsx";
 import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
+import Toggle from "../ui/Toggle.jsx";
 import { formatFileSize } from "../../utils/formatting.js";
 import {
   DOCUMENT_CATEGORIES,
+  defaultDocumentScope,
   documentFileIconColor,
-  isProcurementDocumentCategory,
 } from "../../utils/documentCategories.js";
 import { getPreviewFilename, isPreviewablePdf } from "../../utils/documentPreview.js";
 
@@ -15,11 +16,13 @@ const categoryFor = (document) => document.category ?? document.documentCategory
 
 export default function DocumentStagingWorkspace({
   attachments,
+  categoryScopes,
   documents = [],
   inputIdPrefix,
   onAddFiles,
   onRemoveAttachment,
   onTargetChange,
+  onCategoryScopeChange,
   previewDocument,
   onPreviewVisibilityChange,
   targetOptions = [],
@@ -93,14 +96,14 @@ export default function DocumentStagingWorkspace({
         className="document-staging-section"
       >
         <p className="document-staging-intro">
-          Add everything available now. Purchase documents are shared across the batch; license documents stay with one created license.
+          Add everything available now. Set each category to Shared or Single before creating the licenses.
         </p>
 
         <div className="dp-docs">
         {DOCUMENT_CATEGORIES.map((category) => {
           const staged = attachments.filter((attachment) => attachment.category === category.key);
           const existing = documents.filter((document) => categoryFor(document) === category.key);
-          const shared = isProcurementDocumentCategory(category.key);
+          const categoryScope = categoryScopes?.[category.key] ?? defaultDocumentScope(category.key);
           const count = staged.length + existing.length;
           const inputId = `${inputIdPrefix}-${category.key}`;
 
@@ -120,7 +123,18 @@ export default function DocumentStagingWorkspace({
                     {count}
                   </span>
                 </h5>
-                <span className="document-staging-scope">{shared ? "Shared across PO" : "One license"}</span>
+                <div className="document-staging-scope-toggle">
+                  <span className={categoryScope === "license" ? "active" : ""}>Single</span>
+                  <Toggle
+                    value={categoryScope === "shared"}
+                    onChange={(isShared) => onCategoryScopeChange(
+                      category.key,
+                      isShared ? "shared" : "license",
+                    )}
+                    ariaLabel={`${category.shortLabel} document scope: ${categoryScope === "shared" ? "Shared" : "Single"}`}
+                  />
+                  <span className={categoryScope === "shared" ? "active" : ""}>Shared</span>
+                </div>
               </div>
 
               {existing.map((document) => (
@@ -150,7 +164,7 @@ export default function DocumentStagingWorkspace({
                   <div className="doc-file-info">
                     <div className="doc-file-name">{attachment.file.name}</div>
                     <div className="doc-file-meta">{formatFileSize(attachment.file.size, userSettings)} · Ready to upload</div>
-                    {!shared && targetOptions.length > 1 && (
+                    {(attachment.scope ?? defaultDocumentScope(attachment.category)) === "license" && targetOptions.length > 1 && (
                       <label className="document-staging-target">
                         <span>Attach to license</span>
                         <select
