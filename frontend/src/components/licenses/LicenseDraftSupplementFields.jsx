@@ -2,15 +2,6 @@ import { LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
 import CustomFieldFormFields from "./CustomFieldFormFields.jsx";
 import LicenseFormSection from "./LicenseFormSection.jsx";
 
-export const licenseDraftSupplementDefaults = {
-  licenseType: "", licenseMetric: "per_user", portalUrl: "", quantityPerUnit: "1", skuCode: "",
-  maintenanceCoverage: "unknown", maintenanceStartDate: "", maintenanceEndDate: "",
-  maintenancePricingBasis: "flat", maintenanceQuantity: "", maintenanceUnitPrice: "", maintenanceCost: "",
-  startDate: "", endDate: "", noticeDate: "", purchaseDate: "", contractNumber: "",
-  invoiceNumber: "", externalRef: "", costCentre: "", budgetOwnerEmail: "",
-  secondaryContacts: "", notes: "", customFieldValues: {},
-};
-
 export default function LicenseDraftSupplementFields({
   item, onChange, idPrefix, customFieldDefs = [], customFieldsLoading = false, sectioned = false,
   commercialSummary = null, maintenanceSection = null, showCoreDetails = true,

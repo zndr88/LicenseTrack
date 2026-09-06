@@ -10,7 +10,7 @@ import PluginSlot from "../plugins/PluginSlot.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
-import LicenseDraftSupplementFields, { licenseDraftSupplementDefaults } from "../licenses/LicenseDraftSupplementFields.jsx";
+import LicenseDraftSupplementFields from "../licenses/LicenseDraftSupplementFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
@@ -20,11 +20,12 @@ import MaintenanceCoverageFields, { supportsMaintenanceCoverage } from "./Mainte
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import { LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
 import { parseSecondaryContacts } from "../../utils/secondaryContacts.js";
+import { createLicenseDraftSupplementDefaults } from "../../utils/licenseFormDefaults.js";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
 const emptyItem = () => ({
-  ...licenseDraftSupplementDefaults,
+  ...createLicenseDraftSupplementDefaults(),
   id: `${Date.now()}-${Math.random()}`,
   publisherName: "",
   softwareDescription: "",
@@ -173,7 +174,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
                   if (first.procurementReference) setValue("procurementReference", first.procurementReference, { shouldDirty: true });
                   if (first.supplier) setValue("supplier", first.supplier, { shouldDirty: true });
                   setItems(mis.map((item) => ({
-                    ...licenseDraftSupplementDefaults,
+                    ...createLicenseDraftSupplementDefaults(),
                     id: `${Date.now()}-${Math.random()}`,
                     publisherName: item.publisherName ?? "",
                     softwareDescription: item.softwareDescription ?? "",
