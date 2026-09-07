@@ -64,6 +64,10 @@
 .pending-order-row-inline-edit .pending-order-inline-supplier { min-width: 220px; }
 .pending-order-row-inline-edit .pending-order-inline-identifiers { min-width: 190px; }
 .pending-order-inline-procurement-reference { margin-top: 4px; }
+.pending-order-reference { font-size: 13px; font-weight: 700; color: var(--text-1); }
+.pending-order-summary-row > td { border-top: 1px solid var(--border); }
+.pending-order-lines-table { width: 100%; min-width: 960px; table-layout: fixed; border-top: 1px solid var(--border); border-left: 3px solid var(--border); }
+.pending-order-lines-table td, .pending-order-lines-table th { overflow-wrap: anywhere; }
 .pending-order-line-row-inline-edit .lp-editable-td { min-width: 104px; }
 .pending-order-line-row-inline-edit .pending-order-inline-publisher { min-width: 170px; padding-left: 40px; }
 .pending-order-line-row-inline-edit .pending-order-inline-description { min-width: 190px; }

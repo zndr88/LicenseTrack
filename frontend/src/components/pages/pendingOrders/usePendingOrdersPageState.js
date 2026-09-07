@@ -81,7 +81,18 @@ export function usePendingOrdersPageState({
   onClearHighlight,
 }) {
   const [cancelPendingOrderId, setCancelPendingOrderId] = useState(null);
-  const [expandedPendingOrderId, setExpandedPendingOrderId] = useState(null);
+  const [expandedPendingOrderIds, setExpandedPendingOrderIds] = useState(() => new Set());
+  const openPendingOrder = useCallback((id) => {
+    setExpandedPendingOrderIds((previous) => new Set([...previous, id]));
+  }, []);
+  const togglePendingOrder = useCallback((id) => {
+    setExpandedPendingOrderIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
   const [highlightedRowId, setHighlightedRowId] = useState(null);
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState(null);
@@ -91,7 +102,7 @@ export function usePendingOrdersPageState({
     if (!highlightId) return;
     if (!pendingOrders.some((po) => po.id === highlightId)) return;
 
-    setExpandedPendingOrderId(highlightId);
+    openPendingOrder(highlightId);
     const element = document.querySelector(`[data-po-row="${highlightId}"]`);
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -104,7 +115,7 @@ export function usePendingOrdersPageState({
     }, 2000);
 
     return () => clearTimeout(timeoutId);
-  }, [highlightId, pendingOrders, onClearHighlight]);
+  }, [highlightId, pendingOrders, onClearHighlight, openPendingOrder]);
 
   const handleSort = useCallback((column) => {
     if (sortCol !== column) {
@@ -127,12 +138,21 @@ export function usePendingOrdersPageState({
   return {
     cancelPendingOrderId,
     displayed,
-    expandedPendingOrderId,
+    expandedPendingOrderIds,
+    openPendingOrder,
+    togglePendingOrder,
+    setAllExpanded: (expanded) => setExpandedPendingOrderIds((previous) => {
+      const next = new Set(previous);
+      displayed.forEach((order) => {
+        if (expanded) next.add(order.id);
+        else next.delete(order.id);
+      });
+      return next;
+    }),
     handleSort,
     highlightedRowId,
     search,
     setCancelPendingOrderId,
-    setExpandedPendingOrderId,
     setSearch,
     sortCol,
     sortDir,

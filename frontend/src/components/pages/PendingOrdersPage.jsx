@@ -105,12 +105,14 @@ export default function PendingOrdersPage({
   const {
     cancelPendingOrderId,
     displayed,
-    expandedPendingOrderId,
+    expandedPendingOrderIds,
+    openPendingOrder,
+    togglePendingOrder,
+    setAllExpanded,
     handleSort,
     highlightedRowId,
     search,
     setCancelPendingOrderId,
-    setExpandedPendingOrderId,
     setSearch,
     sortCol,
     sortDir,
@@ -267,7 +269,9 @@ export default function PendingOrdersPage({
         ) : (
           <PendingOrdersTable
             displayed={displayed}
-            expandedPendingOrderId={expandedPendingOrderId}
+            expandedPendingOrderIds={expandedPendingOrderIds}
+            onSetAllExpanded={setAllExpanded}
+            licenses={licenses}
             highlightedRowId={highlightedRowId}
             locale={locale}
             settings={userSettings}
@@ -295,7 +299,7 @@ export default function PendingOrdersPage({
             onNavigateToLicense={onNavigateToLicense}
             onRefetch={refetch}
             onExportCsv={handleExportPendingOrdersCsv}
-            onRowToggle={setExpandedPendingOrderId}
+            onRowToggle={togglePendingOrder}
             inlineEditEnabled={inlineEditEnabled}
             onToggleInlineEdit={() => setInlineEditEnabled((enabled) => !enabled)}
             onInlineOrderFieldSave={handleInlinePendingOrderSave}
@@ -324,6 +328,7 @@ export default function PendingOrdersPage({
               <PendingOrdersTable
                 displayed={paginatedHistory}
                 expandedPendingOrderId={expandedHistoryPendingOrderId}
+                licenses={licenses}
                 highlightedRowId={highlightedHistoryRowId}
                 locale={locale}
                 mode="history"
@@ -403,7 +408,7 @@ export default function PendingOrdersPage({
             if (success === true || success?.ok) {
               setShowPendingOrderModal(null);
               if (!showPendingOrderModal.order && success.data?.id) {
-                setExpandedPendingOrderId(success.data.id);
+                openPendingOrder(success.data.id);
               }
             }
             return success;

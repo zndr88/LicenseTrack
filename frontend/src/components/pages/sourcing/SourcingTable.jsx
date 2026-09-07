@@ -112,6 +112,17 @@ function SourcingItemsRow({
           <tbody>
             {(request.items ?? []).map((si) => {
               const renewalLicense = si.isRenewal ? licenses.find((l) => l.id === si.renewalForLicenseId) : null;
+              const previousDescription = renewalLicense?.softwareDescription?.trim();
+              const renewalContext = si.isRenewal && (
+                <div className="sourcing-inline-context">
+                  <span className="badge badge-pending">
+                    {si.cotermPredecessorIds?.length > 0 ? "Coterm Renewal" : "Renewal"}
+                  </span>
+                  {previousDescription && previousDescription !== si.softwareDescription?.trim() && (
+                    <div>Previous license: {previousDescription}</div>
+                  )}
+                </div>
+              );
               const isChecked = selectedForMerge.has(si.id);
               const canInlineEdit = inlineEditEnabled && !readOnly && isOpenSourcingItem(si) && perms.canEdit;
               return (
@@ -146,7 +157,6 @@ function SourcingItemsRow({
                       onSave={onInlineFieldSave}
                     >
                       <div className="sourcing-inline-context">Sourcing Line ID #{si.id}</div>
-                      {renewalLicense && <div className="sourcing-inline-context">Renewing: {renewalLicense.publisherName}</div>}
                     </ProcurementInlineEditCell>
                   ) : (
                     <td style={{ fontWeight: 600 }}>
@@ -154,11 +164,6 @@ function SourcingItemsRow({
                       <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
                         Sourcing Line ID #{si.id}
                       </div>
-                      {renewalLicense && (
-                        <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
-                          Renewing: {renewalLicense.publisherName}
-                        </div>
-                      )}
                     </td>
                   )}
                   {canInlineEdit ? (
@@ -172,16 +177,12 @@ function SourcingItemsRow({
                       userSettings={userSettings}
                       onSave={onInlineFieldSave}
                     >
-                      {renewalLicense && <div className="sourcing-inline-context">{renewalLicense.softwareDescription}</div>}
+                      {renewalContext}
                     </ProcurementInlineEditCell>
                   ) : (
                     <td>
                       {si.softwareDescription}
-                      {renewalLicense && (
-                        <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>
-                          {renewalLicense.softwareDescription}
-                        </div>
-                      )}
+                      {renewalContext}
                     </td>
                   )}
                   {canInlineEdit ? (
@@ -202,11 +203,7 @@ function SourcingItemsRow({
                   )}
                   <td>
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                      {si.isRenewal ? (
-                        <span className="badge badge-pending">
-                          {si.cotermPredecessorIds?.length > 0 ? "Coterm Renewal" : "Renewal"}
-                        </span>
-                      ) : si.licenseType === "freeware" ? (
+                      {si.isRenewal ? null : si.licenseType === "freeware" ? (
                         <span className="badge badge-blue">Freeware / Open Source</span>
                       ) : !readOnly && hasLinkedPendingOrder(si) ? (
                         <span className="badge badge-pending">Pending Order</span>
@@ -294,6 +291,7 @@ export default function SourcingTable({
   expandedRequestId,
   collapsedRequestIds = null,
   onRowToggle,
+  onSetAllExpanded,
   onToggleSelect,
   onEditItem,
   onEditRequest,
@@ -317,6 +315,10 @@ export default function SourcingTable({
 }) {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const readOnly = mode === "history";
+  const expandableRequests = displayed.filter((request) => request.items?.length > 0);
+  const allExpanded = expandableRequests.length > 0 && expandableRequests.every((request) => (
+    collapsedRequestIds ? !collapsedRequestIds.has(request.id) : expandedRequestId === request.id
+  ));
   const emptyMessage = readOnly ? "No historical requests match your search." : "No requests match your search.";
   const renderStatusBadge = (request) => {
     if (request.status === "cancelled") {
@@ -421,17 +423,24 @@ export default function SourcingTable({
           </button>
         )}
         <div style={{ flex: 1 }} />
+        {onSetAllExpanded && displayed.some((request) => request.items?.length > 0) && (
+          <>
+            <button type="button" className="btn btn-g" onClick={() => onSetAllExpanded(!allExpanded)}>
+              {allExpanded ? "Collapse all" : "Expand all"}
+            </button>
+          </>
+        )}
         {!readOnly && perms.canEdit && (
           <button
             type="button"
             className={`btn btn-g procurement-inline-toggle ${inlineEditEnabled ? "procurement-inline-toggle-active" : ""}`}
             onClick={onToggleInlineEdit}
             title={inlineEditEnabled ? "Finish editing" : "Edit sourcing lines"}
-            aria-label={inlineEditEnabled ? "Done editing" : "Edit"}
+            aria-label={inlineEditEnabled ? "Done editing" : "Edit in table"}
             aria-pressed={inlineEditEnabled}
           >
             <Icon name={inlineEditEnabled ? "check" : "edit"} size={13} />
-            {inlineEditEnabled ? "Done" : "Edit"}
+            {inlineEditEnabled ? "Done editing" : "Edit in table"}
           </button>
         )}
         <button className="btn btn-g" onClick={onRefetch} title="Refresh sourcing items" style={{ fontSize: 12 }}>

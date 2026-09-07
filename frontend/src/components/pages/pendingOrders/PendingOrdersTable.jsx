@@ -86,6 +86,7 @@ function isPendingOrderEditable(order) {
 
 function PendingOrderItemsRow({
   po,
+  licenses,
   locale,
   userSettings,
   perms,
@@ -96,6 +97,7 @@ function PendingOrderItemsRow({
   onNavigateToLicense,
   inlineEditEnabled,
   onInlineItemFieldSave,
+  showCurrency,
 }) {
   const saveItemField = (itemId, fieldKey, value) => (
     onInlineItemFieldSave(po.id, itemId, fieldKey, value)
@@ -104,20 +106,39 @@ function PendingOrderItemsRow({
   return (
     <tr>
       <td colSpan={9} style={{ padding: 0, background: "var(--bg-2)" }}>
-        <table style={{ width: "100%", borderTop: "1px solid var(--border)" }}>
+        <table className="pending-order-lines-table">
+          <colgroup>
+            <col style={{ width: "21%" }} />
+            <col style={{ width: "27%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "14%" }} />
+            <col style={{ width: "13%" }} />
+            {showCurrency && <col style={{ width: "7%" }} />}
+            <col />
+          </colgroup>
           <thead>
             <tr style={{ background: "var(--bg-3)" }}>
               <th scope="col" style={{ paddingLeft: 40 }}>Publisher</th>
               <th scope="col">Description</th>
               <th scope="col">Qty</th>
-              <th scope="col">Licence Unit Price</th>
+              <th scope="col">Unit price{!showCurrency && po.items[0]?.currency ? ` (${po.items[0].currency})` : ""}</th>
               <th scope="col">Line Total</th>
-              <th scope="col">Currency</th>
+              {showCurrency && <th scope="col">Currency</th>}
               <th scope="col">{readOnly ? "Context" : "Actions"}</th>
             </tr>
           </thead>
           <tbody>
             {po.items.map((item) => {
+              const predecessor = item.isRenewal ? licenses.find((license) => license.id === item.renewalForLicenseId) : null;
+              const previousDescription = predecessor?.softwareDescription?.trim();
+              const renewalContext = item.isRenewal && (
+                <div className="sourcing-inline-context">
+                  <span className="badge badge-pending">{item.cotermPredecessorIds?.length > 0 ? "Coterm Renewal" : "Renewal"}</span>
+                  {previousDescription && previousDescription !== item.softwareDescription?.trim() && (
+                    <div>Previous license: {previousDescription}</div>
+                  )}
+                </div>
+              );
               const canInlineEdit = inlineEditEnabled && !readOnly && isPendingOrderEditable(po) && perms.canEdit;
               return (
                 <tr
@@ -139,7 +160,6 @@ function PendingOrderItemsRow({
                       onSave={saveItemField}
                     >
                       <div className="sourcing-inline-context">Pending Order Line ID #{item.id}</div>
-                      {item.isRenewal && <span className="badge badge-pending po-inline-badge">Renewal</span>}
                     </ProcurementInlineEditCell>
                   ) : (
                     <td style={{ paddingLeft: 40, fontWeight: 600 }}>
@@ -147,11 +167,6 @@ function PendingOrderItemsRow({
                       <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
                         Pending Order Line ID #{item.id}
                       </div>
-                      {item.isRenewal && (
-                        <span className="badge badge-pending po-inline-badge">
-                          Renewal
-                        </span>
-                      )}
                     </td>
                   )}
                   {canInlineEdit ? (
@@ -164,8 +179,10 @@ function PendingOrderItemsRow({
                       className="pending-order-inline-description"
                       userSettings={userSettings}
                       onSave={saveItemField}
-                    />
-                  ) : <td>{item.softwareDescription}</td>}
+                    >
+                      {renewalContext}
+                    </ProcurementInlineEditCell>
+                  ) : <td>{item.softwareDescription}{renewalContext}</td>}
                   {canInlineEdit ? (
                     <ProcurementInlineEditCell item={item} fieldKey="quantity" label="Quantity" currentValue={item.quantity} valueType="quantity" userSettings={userSettings} onSave={saveItemField} />
                   ) : <td>{formatQuantity(item.quantity, userSettings) || "-"}</td>}
@@ -173,14 +190,14 @@ function PendingOrderItemsRow({
                     <ProcurementInlineEditCell item={item} fieldKey="estimatedUnitPrice" label="Estimated unit price" currentValue={item.estimatedUnitPrice} valueType="money" userSettings={userSettings} onSave={saveItemField} />
                   ) : <td>{formatCost(item.estimatedUnitPrice, item.currency, locale)}</td>}
                   <td>{formatCost(procurementLineTotal(item), item.currency, locale)}</td>
-                  {canInlineEdit ? (
+                  {showCurrency && (canInlineEdit ? (
                     <ProcurementInlineEditCell item={item} fieldKey="currency" label="Currency" currentValue={item.currency} options={CURRENCIES} userSettings={userSettings} onSave={saveItemField} />
-                  ) : <td>{item.currency}</td>}
+                  ) : <td>{item.currency}</td>)}
                   <td>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                    {readOnly && (
-                      <span className={`badge ${item.isRenewal ? "badge-pending" : "badge-gray"}`}>
-                        {item.isRenewal ? "Renewal" : "New Purchase"}
+                    {readOnly && !item.isRenewal && (
+                      <span className="badge badge-gray">
+                        New Purchase
                       </span>
                     )}
                     {readOnly && item.convertedLicenseId && onNavigateToLicense && (
@@ -215,7 +232,7 @@ function PendingOrderItemsRow({
             })}
             {!readOnly && perms.canEdit && (
               <tr style={{ background: "var(--bg-2)" }}>
-                <td colSpan={7} style={{ paddingLeft: 40 }}>
+                <td colSpan={showCurrency ? 7 : 6} style={{ paddingLeft: 40 }}>
                   <button className="btn btn-g" style={{ padding: "5px 9px", fontSize: 11 }} onClick={() => onAddItem(po)}>
                     <Icon name="plus" size={12} />Add License Line
                   </button>
@@ -223,18 +240,6 @@ function PendingOrderItemsRow({
               </tr>
             )}
           </tbody>
-          {po.totalPoValue && (
-            <tfoot>
-              <tr style={{ background: "var(--bg-3)", borderTop: "1px solid var(--border)" }}>
-                <td colSpan={4} style={{ paddingLeft: 40, fontSize: 12, color: "var(--text-2)" }}>
-                  Total PO Value
-                </td>
-                <td colSpan={3} className="mono" style={{ fontWeight: 700 }}>
-                  {formatPoTotal(po, locale)}
-                </td>
-              </tr>
-            </tfoot>
-          )}
         </table>
       </td>
     </tr>
@@ -244,6 +249,9 @@ function PendingOrderItemsRow({
 export default function PendingOrdersTable({
   displayed,
   expandedPendingOrderId,
+  expandedPendingOrderIds,
+  onSetAllExpanded,
+  licenses = [],
   highlightedRowId,
   locale,
   mode = "active",
@@ -279,6 +287,9 @@ export default function PendingOrdersTable({
   footer = null,
 }) {
   const readOnly = mode === "history";
+  const expandableOrders = displayed.filter((order) => order.items?.length > 0);
+  const allExpanded = expandableOrders.length > 0 && expandableOrders.every((order) => expandedPendingOrderIds?.has(order.id));
+  const showCurrency = inlineEditEnabled || displayed.some((order) => new Set((order.items ?? []).map((item) => item.currency)).size > 1);
   const emptyMessage = readOnly ? "No historical orders match your search." : "No orders match your search.";
   const renderReferenceCell = (po) => {
     if (po.status === "converted" && po.convertedLicenseId && onNavigateToLicense) {
@@ -329,17 +340,24 @@ export default function PendingOrdersTable({
         {!readOnly && (
           <>
             <div style={{ flex: 1 }} />
+            {onSetAllExpanded && displayed.some((order) => order.items?.length > 0) && (
+              <>
+                <button type="button" className="btn btn-g" onClick={() => onSetAllExpanded(!allExpanded)}>
+                  {allExpanded ? "Collapse all" : "Expand all"}
+                </button>
+              </>
+            )}
             {perms.canEdit && (
               <button
                 type="button"
                 className={`btn btn-g procurement-inline-toggle ${inlineEditEnabled ? "procurement-inline-toggle-active" : ""}`}
                 onClick={onToggleInlineEdit}
                 title={inlineEditEnabled ? "Finish editing" : "Edit pending orders"}
-                aria-label={inlineEditEnabled ? "Done editing" : "Edit"}
+                aria-label={inlineEditEnabled ? "Done editing" : "Edit in table"}
                 aria-pressed={inlineEditEnabled}
               >
                 <Icon name={inlineEditEnabled ? "check" : "edit"} size={13} />
-                {inlineEditEnabled ? "Done" : "Edit"}
+                {inlineEditEnabled ? "Done editing" : "Edit in table"}
               </button>
             )}
             <button className="btn btn-g" onClick={onRefetch} title="Refresh pending orders" style={{ fontSize: 12 }}>
@@ -374,7 +392,7 @@ export default function PendingOrdersTable({
                 </td>
               </tr>
             ) : displayed.map((po) => {
-              const isExpanded = expandedPendingOrderId === po.id;
+              const isExpanded = expandedPendingOrderIds ? expandedPendingOrderIds.has(po.id) : expandedPendingOrderId === po.id;
               const canInlineEditOrder = inlineEditEnabled && !readOnly && isPendingOrderEditable(po) && perms.canEdit;
               const canDelete = po.status === "pending" || po.status === "invoice_received";
               const isInvoiceReceived = po.status === "invoice_received";
@@ -490,14 +508,14 @@ export default function PendingOrdersTable({
                 <React.Fragment key={po.id}>
                   <tr
                     data-po-row={po.id}
-                    className={canInlineEditOrder ? "pending-order-row-inline-edit" : undefined}
+                    className={`pending-order-summary-row${canInlineEditOrder ? " pending-order-row-inline-edit" : ""}`}
                     style={{
                       cursor: po.items?.length > 0 ? "pointer" : "default",
                       ...(highlightedRowId === po.id
                         ? { background: "var(--accent-m)", transition: "background 0.3s" }
                         : {}),
                     }}
-                    onClick={() => po.items?.length > 0 && onRowToggle(isExpanded ? null : po.id)}
+                    onClick={() => po.items?.length > 0 && onRowToggle(expandedPendingOrderIds ? po.id : isExpanded ? null : po.id)}
                   >
                     <td style={{ color: "var(--text-3)", fontSize: 11, textAlign: "center" }}>
                       {po.items?.length > 0 ? (isExpanded ? "\u25be" : "\u25b8") : ""}
@@ -527,7 +545,7 @@ export default function PendingOrdersTable({
                       </td>
                     ) : (
                       <td>
-                        <div className="mono" style={{ fontWeight: 600 }}>{pendingOrderLabel(po)}</div>
+                        <div className="pending-order-reference">{pendingOrderLabel(po)}</div>
                         {hasPoNumber && (
                           <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>Pending Order #{po.id}</div>
                         )}
@@ -585,7 +603,12 @@ export default function PendingOrdersTable({
                             <Icon name="plus" size={12} />Add License
                           </button>
                         )}
-                        {!readOnly && perms.canEdit && po.status !== "converted" && po.items?.length === 1 && (
+                        {!readOnly && perms.canEdit && isPendingOrderEditable(po) && !hasPoNumber && hasLineItems && (
+                          <button type="button" className="btn btn-p" onClick={() => onEdit(po)}>
+                            <Icon name="plus" size={12} />Add PO number
+                          </button>
+                        )}
+                        {!readOnly && perms.canEdit && po.status !== "converted" && hasPoNumber && po.items?.length === 1 && (
                           <button
                             className="btn btn-p"
                             style={{
@@ -601,7 +624,7 @@ export default function PendingOrdersTable({
                             <Icon name="check" size={12} />Convert
                           </button>
                         )}
-                        {!readOnly && perms.canEdit && po.status !== "converted" && po.items?.length > 1 && (
+                        {!readOnly && perms.canEdit && po.status !== "converted" && hasPoNumber && po.items?.length > 1 && (
                           <button
                             className="btn btn-p"
                             style={{
@@ -636,6 +659,8 @@ export default function PendingOrdersTable({
                       onAddItem={onOpenAddItems}
                       onDeleteItem={onDeleteItem}
                       onEditItem={onEditItem}
+                      licenses={licenses}
+                      showCurrency={showCurrency}
                       onNavigateToLicense={onNavigateToLicense}
                       inlineEditEnabled={inlineEditEnabled}
                       onInlineItemFieldSave={onInlineItemFieldSave}

@@ -396,6 +396,14 @@ export default function SourcingPage({
             highlightedRowId={highlightedRowId}
             collapsedRequestIds={collapsedRequestIds}
             onRowToggle={toggleSourcingRequest}
+            onSetAllExpanded={(expanded) => setCollapsedRequestIds((previous) => {
+              const next = new Set(previous);
+              displayed.forEach((request) => {
+                if (expanded) next.delete(request.id);
+                else next.add(request.id);
+              });
+              return next;
+            })}
             onToggleSelect={toggleSelect}
             onEditItem={(item, request) => setShowSourcingModal({ item, request })}
             onEditRequest={setShowSourcingRequestEditModal}

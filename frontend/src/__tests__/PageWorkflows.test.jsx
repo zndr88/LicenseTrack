@@ -1431,7 +1431,7 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={commaSettings} />);
 
     expect(await screen.findByText("Inline Suite")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^edit$/i, pressed: false }));
+    await user.click(screen.getByRole("button", { name: "Edit in table", pressed: false }));
 
     expect(screen.getByRole("combobox", { name: /edit publisher/i })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /edit supplier/i })).toBeInTheDocument();
@@ -1478,12 +1478,12 @@ describe("SourcingPage workflows", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  test("renders renewal sourcing rows when the shared licenses cache is already populated", async () => {
+  test.each(["Cache Suite", "Renewal App"])("renders renewal context without repeating the description (%s)", async (previousDescription) => {
     const queryClient = createTestQueryClient();
     const cachedLicense = license({
       id: 42,
       publisherName: "Cache Publisher",
-      softwareDescription: "Cache Suite",
+      softwareDescription: previousDescription,
     });
     queryClient.setQueryData(queryKeys.licenses, {
       licenses: [cachedLicense],
@@ -1517,7 +1517,19 @@ describe("SourcingPage workflows", () => {
     );
 
     expect(await screen.findByText("Renewal Supplier")).toBeInTheDocument();
-    expect(await screen.findByText("Renewing: Cache Publisher")).toBeInTheDocument();
+    if (previousDescription === "Renewal App") {
+      expect(screen.getAllByText("Renewal App")).toHaveLength(1);
+      expect(screen.queryByText(/^Previous license:/)).not.toBeInTheDocument();
+    } else {
+      expect(await screen.findByText("Previous license: Cache Suite")).toBeInTheDocument();
+    }
+    const descriptionCell = screen.getByText("Renewal App").closest("td");
+    expect(within(descriptionCell).getByText("Renewal")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(screen.queryByText("Renewal App")).not.toBeInTheDocument();
+    expect(screen.getByText("Renewal Supplier")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    expect(screen.getByText("Renewal App")).toBeInTheDocument();
   });
 
   test("reloads request-level supplier after a line edit and uses it for search", async () => {
@@ -2191,6 +2203,46 @@ describe("SourcingPage workflows", () => {
 });
 
 describe("PendingOrdersPage workflows", () => {
+  test("offers PO entry instead of disabled conversion and retains mixed currencies", async () => {
+    const user = userEvent.setup();
+    pendingOrdersApi.getPendingOrders.mockResolvedValue({ data: [{
+      id: 99, poNumber: "", status: "pending", documents: [],
+      items: ["EUR", "USD"].map((currency, index) => ({
+        id: index + 1, publisherName: "Acme", softwareDescription: currency,
+        currency, quantity: "1", estimatedTotalPrice: "10",
+      })),
+    }], error: null });
+    wrapWithQueryClient(<PendingOrdersPage user={admin} userSettings={userSettings} />);
+    await user.click(await screen.findByRole("button", { name: "Expand all" }));
+    expect(screen.getByRole("columnheader", { name: "Currency" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Convert$/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add PO number" }));
+    expect(screen.getByRole("dialog", { name: "Pending order form" })).toBeInTheDocument();
+  });
+
+  test("expands multiple orders and keeps renewal context beside descriptions", async () => {
+    const user = userEvent.setup();
+    licensesApi.getLicenses.mockResolvedValue({ data: [license({ id: 42, softwareDescription: "Year 1" })], error: null });
+    pendingOrdersApi.getPendingOrders.mockResolvedValue({
+      data: [1, 2].map((id) => ({
+        id, poNumber: `PO-${id}`, status: "pending", documents: [],
+        items: [{ id: id * 10, publisherName: "Acme", softwareDescription: `Year ${id}`, isRenewal: true, renewalForLicenseId: 42, quantity: "1", currency: "EUR" }],
+      })), error: null,
+    });
+    wrapWithQueryClient(<PendingOrdersPage user={admin} userSettings={userSettings} />);
+    await user.click(await screen.findByRole("button", { name: "Expand all" }));
+    expect(screen.getAllByText("Year 1")).toHaveLength(1);
+    expect(await screen.findByText("Previous license: Year 1")).toBeInTheDocument();
+    expect(within(screen.getByText("Year 2").closest("td")).getByText("Renewal")).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Currency" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Expand all" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(screen.queryByText("Year 1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Year 2")).not.toBeInTheDocument();
+    expect(screen.getByText("PO-1")).toBeInTheDocument();
+    expect(screen.getByText("PO-2")).toBeInTheDocument();
+  });
+
   test("inline edits blank PO and procurement reference numbers", async () => {
     const user = userEvent.setup();
     let order = {
@@ -2218,7 +2270,7 @@ describe("PendingOrdersPage workflows", () => {
     );
 
     expect(await screen.findByText("Pending Order #18")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^edit$/i, pressed: false }));
+    await user.click(screen.getByRole("button", { name: "Edit in table", pressed: false }));
 
     const poNumber = screen.getByRole("textbox", { name: /edit po number/i });
     const procurementReference = screen.getByRole("textbox", { name: /edit procurement reference/i });
@@ -2282,7 +2334,7 @@ describe("PendingOrdersPage workflows", () => {
     );
 
     await user.click(await screen.findByText("PO-INLINE"));
-    await user.click(screen.getByRole("button", { name: /^edit$/i, pressed: false }));
+    await user.click(screen.getByRole("button", { name: "Edit in table", pressed: false }));
 
     expect(screen.getByRole("combobox", { name: /edit supplier/i })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /edit publisher/i })).toBeInTheDocument();
