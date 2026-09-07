@@ -258,7 +258,7 @@ test("authenticated users land on the app shell", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: /license overview/i })).toBeVisible();
-  await expect(page.getByText("PORTFOLIO CONDITION")).toBeVisible();
+  await expect(page.getByText("PORTFOLIO OVERVIEW")).toBeVisible();
   await expect(page.getByRole("button", { name: "Reports" })).toBeVisible();
   await expect(page.getByRole("button", { name: "License Overview" })).toHaveAttribute("aria-current", "page");
 });
