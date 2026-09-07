@@ -20,7 +20,6 @@ from app.services.lifecycle_rules import (
     assert_can_cancel_renewal,
     assert_predecessor_has_no_successor,
     clear_pending_renewal,
-    mark_pending_renewal,
     mark_predecessor_renewed,
     entitlement_identity,
 )
@@ -75,6 +74,31 @@ class ExistingSuccessorLinkResult:
     predecessor: License
     successor: License
     former_successor_license_ref: str | None
+
+
+async def _reserve_renewal_transition(db: AsyncSession, license_obj: License) -> None:
+    """Atomically claim one eligible lifecycle transition for this transaction."""
+    current_lifecycle_status = license_obj.lifecycle_status
+    lifecycle_match = (
+        License.lifecycle_status.is_(None)
+        if current_lifecycle_status is None
+        else License.lifecycle_status == current_lifecycle_status
+    )
+    reservation = await db.execute(
+        update(License)
+        .where(
+            License.id == license_obj.id,
+            lifecycle_match,
+            License.renewed_to_id.is_(None),
+            License.is_retired.is_(False),
+            License.retirement_scheduled.is_(False),
+        )
+        .values(lifecycle_status="pending_renewal")
+        .execution_options(synchronize_session=False)
+    )
+    if reservation.rowcount != 1:
+        raise HTTPException(status_code=409, detail="Renewal already initiated for this license")
+    await db.refresh(license_obj)
 
 
 async def _activate_maintenance_successor_for_all_parents(
@@ -310,27 +334,7 @@ async def initiate_renewal(
         raise HTTPException(status_code=404, detail="License not found")
     assert_can_initiate_renewal(license_obj, notification_days=notification_days)
 
-    current_lifecycle_status = license_obj.lifecycle_status
-    lifecycle_match = (
-        License.lifecycle_status.is_(None)
-        if current_lifecycle_status is None
-        else License.lifecycle_status == current_lifecycle_status
-    )
-    reservation = await db.execute(
-        update(License)
-        .where(
-            License.id == license_id,
-            lifecycle_match,
-            License.renewed_to_id.is_(None),
-            License.is_retired.is_(False),
-            License.retirement_scheduled.is_(False),
-        )
-        .values(lifecycle_status="pending_renewal")
-        .execution_options(synchronize_session=False)
-    )
-    if reservation.rowcount != 1:
-        raise HTTPException(status_code=409, detail="Renewal already initiated for this license")
-    await db.refresh(license_obj)
+    await _reserve_renewal_transition(db, license_obj)
 
     sourcing_item = build_renewal_sourcing_item(license_obj, created_by=actor.id)
     sourcing_item.publisher_id = license_obj.publisher_id
@@ -396,7 +400,11 @@ async def initiate_renewal_bundle(
         raise HTTPException(status_code=400, detail="Renewal bundle licenses must share the same end date")
 
     for license_obj in licenses:
-        mark_pending_renewal(license_obj, notification_days=notification_days)
+        assert_can_initiate_renewal(license_obj, notification_days=notification_days)
+    # Reserve in stable order before creating procurement records. If any row
+    # loses a concurrent race, the caller rolls back every earlier reservation.
+    for license_obj in sorted(licenses, key=lambda item: item.id):
+        await _reserve_renewal_transition(db, license_obj)
 
     supplier_ids = [license_obj.supplier_id for license_obj in licenses]
     target_supplier_id = None

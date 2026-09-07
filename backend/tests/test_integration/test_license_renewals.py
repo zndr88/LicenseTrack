@@ -141,6 +141,104 @@ async def test_concurrent_renewal_initiation_reserves_lifecycle_once(
     assert sourcing_count == 1
 
 
+async def test_concurrent_bundle_renewals_reserve_every_member_once(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    first = await _create_license(test_app, auth_headers, poNumber="PO-BUNDLE-RACE", softwareDescription="First")
+    second = await _create_license(test_app, auth_headers, poNumber="PO-BUNDLE-RACE", softwareDescription="Second")
+    actor_id = await db_session.scalar(select(User.id).where(User.username == "testadmin"))
+    session_factory = async_sessionmaker(bind=db_session.bind, class_=AsyncSession, expire_on_commit=False)
+
+    async with session_factory() as first_db, session_factory() as second_db:
+        first_actor = await first_db.get(User, actor_id)
+        second_actor = await second_db.get(User, actor_id)
+        for license_id in (first["id"], second["id"]):
+            await first_db.get(License, license_id)
+            await second_db.get(License, license_id)
+
+        async def initiate(db, actor):
+            try:
+                result = await renewal_orchestrator.initiate_renewal_bundle(
+                    db=db,
+                    license_ids=[first["id"], second["id"]],
+                    actor=actor,
+                    ip_address=None,
+                    notification_days=30,
+                )
+                await db.commit()
+                return result.sourcing_request.id
+            except HTTPException as exc:
+                await db.rollback()
+                return exc.status_code
+
+        outcomes = await asyncio.gather(initiate(first_db, first_actor), initiate(second_db, second_actor))
+
+    assert outcomes.count(409) == 1
+    for license_id in (first["id"], second["id"]):
+        count = await db_session.scalar(
+            select(func.count(SourcingItem.id)).where(SourcingItem.renewal_for_license_id == license_id)
+        )
+        assert count == 1
+
+
+async def test_concurrent_single_and_bundle_cannot_duplicate_overlapping_license(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    first = await _create_license(test_app, auth_headers, poNumber="PO-MIXED-RACE", softwareDescription="First")
+    second = await _create_license(test_app, auth_headers, poNumber="PO-MIXED-RACE", softwareDescription="Second")
+    actor_id = await db_session.scalar(select(User.id).where(User.username == "testadmin"))
+    session_factory = async_sessionmaker(bind=db_session.bind, class_=AsyncSession, expire_on_commit=False)
+
+    async with session_factory() as single_db, session_factory() as bundle_db:
+        single_actor = await single_db.get(User, actor_id)
+        bundle_actor = await bundle_db.get(User, actor_id)
+        await single_db.get(License, first["id"])
+        await bundle_db.get(License, first["id"])
+        await bundle_db.get(License, second["id"])
+
+        async def initiate_single():
+            try:
+                await renewal_orchestrator.initiate_renewal(
+                    db=single_db,
+                    license_id=first["id"],
+                    actor=single_actor,
+                    ip_address=None,
+                    notification_days=30,
+                )
+                await single_db.commit()
+                return "single"
+            except HTTPException as exc:
+                await single_db.rollback()
+                return exc.status_code
+
+        async def initiate_bundle():
+            try:
+                await renewal_orchestrator.initiate_renewal_bundle(
+                    db=bundle_db,
+                    license_ids=[first["id"], second["id"]],
+                    actor=bundle_actor,
+                    ip_address=None,
+                    notification_days=30,
+                )
+                await bundle_db.commit()
+                return "bundle"
+            except HTTPException as exc:
+                await bundle_db.rollback()
+                return exc.status_code
+
+        outcomes = await asyncio.gather(initiate_single(), initiate_bundle())
+
+    assert outcomes.count(409) == 1
+    overlap_count = await db_session.scalar(
+        select(func.count(SourcingItem.id)).where(SourcingItem.renewal_for_license_id == first["id"])
+    )
+    assert overlap_count == 1
+
+
 async def test_initiate_renewal_rejects_license_before_expiration_window(test_app, auth_headers):
     predecessor = await _create_license(
         test_app,
