@@ -380,7 +380,7 @@ export default function PendingOrdersTable({
               const isInvoiceReceived = po.status === "invoice_received";
               const evidenceStatus = po.evidenceTransferStatus ?? po.evidence_transfer_status;
               const evidenceDetail = po.evidenceTransferDetail ?? po.evidence_transfer_detail;
-              const canRetryEvidence = po.status === "converted" && ["failed", "pending"].includes(evidenceStatus);
+              const canRetryEvidence = po.status === "converted" && ["failed", "pending", "escalated"].includes(evidenceStatus);
               const hasPoNumber = hasPurchaseOrderNumber(po);
               const hasLineItems = (po.items?.length ?? 0) > 0;
               const purchaseOrderDocuments = (po.documents ?? []).filter((document) => document.category === "purchase_order");

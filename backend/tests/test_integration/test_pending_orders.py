@@ -1875,6 +1875,44 @@ async def test_evidence_retry_is_idempotent_when_failed_state_is_replayed(
     assert len(quote_result.scalars().all()) == 1
 
 
+async def test_manual_evidence_retry_is_allowed_after_escalation(
+    test_app,
+    auth_headers,
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
+    sourcing_item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        softwareDescription="Escalated Retry App",
+    )
+    order = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+    conversion = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber=order["poNumber"]))},
+        headers=auth_headers,
+    )
+    assert conversion.status_code == 200, conversion.text
+
+    stored_order = await db_session.get(PendingOrder, order["id"])
+    stored_order.evidence_transfer_status = EvidenceTransferStatus.escalated
+    stored_order.evidence_transfer_attempts = _conversion_service.MAX_EVIDENCE_SWEEP_ATTEMPTS
+    await db_session.commit()
+
+    retry = await test_app.post(
+        f"/api/pending-orders/{order['id']}/retry-evidence-transfer",
+        headers=auth_headers,
+    )
+
+    assert retry.status_code == 204, retry.text
+    db_session.expire_all()
+    stored_order = await db_session.get(PendingOrder, order["id"])
+    assert stored_order.evidence_transfer_status == EvidenceTransferStatus.complete
+    assert stored_order.evidence_transfer_attempts == _conversion_service.MAX_EVIDENCE_SWEEP_ATTEMPTS
+
+
 async def test_missing_required_invoice_blocks_manual_and_scheduled_completion(
     test_app,
     auth_headers,

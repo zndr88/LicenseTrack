@@ -689,12 +689,13 @@ async def retry_evidence_transfer(
     ip_address: str | None,
 ) -> None:
     """Re-attempt the quote document copy for a converted order whose evidence
-    transfer previously failed or is stuck in 'pending'.
+    transfer previously failed, is stuck in 'pending', or was escalated after
+    exhausting automatic retries.
 
     Raises HTTPException:
       404 if the order does not exist.
       409 if the order has not been converted, or if its transfer status is
-          not 'pending' or 'failed', or if it has no sourcing items with
+          not 'pending', 'failed', or 'escalated', or if it has no sourcing items with
           associated quote documents to copy.
     """
     result = await db.execute(
@@ -708,6 +709,7 @@ async def retry_evidence_transfer(
     if order.evidence_transfer_status not in (
         EvidenceTransferStatus.pending,
         EvidenceTransferStatus.failed,
+        EvidenceTransferStatus.escalated,
     ):
         raise HTTPException(
             status_code=409,

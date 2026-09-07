@@ -2751,6 +2751,39 @@ describe("PendingOrdersPage workflows", () => {
     });
   });
 
+  test("surfaces manual retry after evidence transfer escalation", async () => {
+    const user = userEvent.setup();
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({
+      data: [{
+        id: 13,
+        poNumber: "PO-ESCALATED",
+        supplier: "Evidence Supplier",
+        status: "converted",
+        evidenceTransferStatus: "escalated",
+        evidenceTransferDetail: "automatic retries exhausted",
+        items: [],
+        createdAt: "2026-01-01T00:00:00Z",
+      }],
+      error: null,
+    });
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText("Evidence Escalated")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /more actions for pending order 13/i }));
+    await user.click(screen.getByRole("menuitem", { name: /Retry Evidence/i }));
+
+    await waitFor(() => {
+      expect(pendingOrdersApi.retryPendingOrderEvidenceTransfer).toHaveBeenCalledWith(13);
+    });
+  });
+
   test("history toggle renders a read-only searchable pending order history table", async () => {
     const user = userEvent.setup();
     pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: [], error: null });
