@@ -15,7 +15,7 @@ Once a license is inside the alert window, the renewal workflow activates. An **
 From either view you can start the renewal, provided all conditions are met.
 
 If the next entitlement period was already purchased and exists as an Active
-or Upcoming license under the same PO, choose **Link Existing Successor**
+or Upcoming license from the same publisher, choose **Link Existing Successor**
 instead. This secures the renewal and adopts the selected record as its normal
 successor without creating another sourcing request or pending order. The
 current record remains Active or Expiring through its own end date, while the

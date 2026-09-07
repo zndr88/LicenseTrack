@@ -101,7 +101,7 @@ remain a separate order count on the Pending Orders navigation badge.
 | `CompletenessFlagsSection.jsx` | Completeness checklist and retired/legacy/exempt toggles |
 | `NotesSection.jsx` | Notes display; also exports `CatchallCustomFieldsSection` for unassigned custom fields |
 
-`DetailPanel.jsx` calls `useDetailPanelState` for all state and handlers, then wires props through to section components and mounts modals (`FieldEditModal`, `MaintenanceCreateModal`, `LegacyMaintenanceLinkModal`, `ExistingSuccessorModal`, `ConfirmDialog`). `MaintenanceCreateModal` owns the License Details create-new/link-existing maintenance workflow, including the compact searchable existing-maintenance picker. `LegacyMaintenanceLinkModal` is the focused recovery path for an imported parentless maintenance record; a successful link clears the exception through the normal backend maintenance workflow. `ExistingSuccessorModal` is the uncommon alternate renewal-completion path for an already-purchased same-PO successor. No domain logic or rendering logic belongs in the shell.
+`DetailPanel.jsx` calls `useDetailPanelState` for all state and handlers, then wires props through to section components and mounts modals (`FieldEditModal`, `MaintenanceCreateModal`, `LegacyMaintenanceLinkModal`, `ExistingSuccessorModal`, `ConfirmDialog`). `MaintenanceCreateModal` owns the License Details create-new/link-existing maintenance workflow, including the compact searchable existing-maintenance picker. `LegacyMaintenanceLinkModal` is the focused recovery path for an imported parentless maintenance record; a successful link clears the exception through the normal backend maintenance workflow. `ExistingSuccessorModal` is the uncommon alternate renewal-completion path for an already-purchased same-publisher successor. No domain logic or rendering logic belongs in the shell.
 
 Document actions are part of the core-rendered integration surface. `DocumentsSection.jsx` should render actions from `useLicenseDocuments`; it should not hard-code plugin names or assume AI processing specifically. Action availability is determined by the backend from registered integration capabilities and active webhook subscribers. This is not runtime frontend plugin loading.
 
@@ -683,7 +683,10 @@ Renewal command side effects belong in `backend/app/services/renewal_orchestrato
 
 Existing-successor linking is also owned by `renewal_orchestrator.py`. It is
 available only for an Expiring or Expired predecessor and an Active or Upcoming
-same-PO successor that extends coverage and has no incoming renewal link. The
+same-publisher successor that extends coverage and has no incoming renewal link.
+Publisher is the only required matching identity field, normalized for case and
+whitespace. Description, PO number, SKU, metric, and license type may differ;
+both records must still be eligible renewable types. The
 operation uses the ordinary `renewed_to_id`, `renewed_from_id`, and
 `predecessor_id` chain, preserves the successor's former LT reference in
 `license_ref_aliases`, and stores link provenance on the predecessor so the

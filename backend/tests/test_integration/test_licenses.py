@@ -89,7 +89,7 @@ async def test_link_existing_successor_reuses_standard_renewal_chain_and_preserv
     predecessor = await _create_license(
         test_app,
         auth_headers,
-        softwareDescription="Annual Commitment",
+        softwareDescription="Annual Commitment Year 1",
         poNumber="PO-COMMIT-001",
         startDate=(today - timedelta(days=365)).isoformat(),
         endDate=(today + timedelta(days=5)).isoformat(),
@@ -97,8 +97,10 @@ async def test_link_existing_successor_reuses_standard_renewal_chain_and_preserv
     successor = await _create_license(
         test_app,
         auth_headers,
-        softwareDescription="Annual Commitment",
-        poNumber="PO-COMMIT-001",
+        softwareDescription="Annual Commitment Year 2",
+        poNumber="PO-COMMIT-002",
+        skuCode="YEAR-2",
+        licenseMetric="per_device",
         startDate=today.isoformat(),
         endDate=(today + timedelta(days=370)).isoformat(),
     )
@@ -179,7 +181,7 @@ async def test_unlink_existing_successor_restores_original_ref(
     assert payload["successor"]["licenseRefAliases"] == []
 
 
-async def test_link_existing_successor_requires_same_po(test_app, auth_headers):
+async def test_link_existing_successor_requires_same_publisher(test_app, auth_headers):
     today = date.today()
     predecessor = await _create_license(
         test_app,
@@ -192,6 +194,7 @@ async def test_link_existing_successor_requires_same_po(test_app, auth_headers):
         test_app,
         auth_headers,
         poNumber="PO-TWO",
+        publisherName="Different Publisher",
         startDate=today.isoformat(),
         endDate=(today + timedelta(days=370)).isoformat(),
     )
@@ -203,7 +206,7 @@ async def test_link_existing_successor_requires_same_po(test_app, auth_headers):
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "The successor must have the same PO number"
+    assert response.json()["detail"] == "The successor must have the same publisher"
 
 
 # ---------------------------------------------------------------------------

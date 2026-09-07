@@ -222,7 +222,10 @@ describe('DetailPanel existing renewal successor', () => {
       ...baseLicense,
       id: 2,
       licenseRef: 'LT-2026-00002',
-      softwareDescription: baseLicense.softwareDescription,
+      softwareDescription: 'Widget Pro Year 2',
+      poNumber: 'PO-YEAR-2',
+      skuCode: 'YEAR-2',
+      licenseMetric: 'per_device',
       lifecycleStatus: null,
       expirationStatus: 'active',
       startDate: '2026-01-01',
@@ -255,7 +258,7 @@ describe('DetailPanel existing renewal successor', () => {
       <DetailPanel
         {...baseProps}
         user={{ id: 2, role: 'admin' }}
-        license={{ ...baseLicense, expirationStatus: 'expiring' }}
+        license={{ ...baseLicense, poNumber: '', expirationStatus: 'expiring' }}
         allLicenses={[baseLicense, successor]}
         onUpdate={onUpdate}
       />

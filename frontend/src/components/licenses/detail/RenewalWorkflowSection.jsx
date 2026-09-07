@@ -28,7 +28,7 @@ export default function RenewalWorkflowSection({
   const [initiatingRenewal, setInitiatingRenewal] = useState(false);
   const [unlinkingSuccessor, setUnlinkingSuccessor] = useState(false);
   const canStartRenewal = !NON_RENEWABLE_LICENSE_TYPES.includes(license.licenseType);
-  const canLinkExistingSuccessor = Boolean(license.poNumber?.trim());
+  const canLinkExistingSuccessor = Boolean(license.publisherName?.trim());
   const successor = license.renewedToId
     ? allLicenses.find((candidate) => candidate.id === license.renewedToId)
     : null;

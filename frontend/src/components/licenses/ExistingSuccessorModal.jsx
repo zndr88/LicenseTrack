@@ -13,27 +13,17 @@ function normalized(value) {
   return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function entitlementIdentity(license) {
-  return [
-    license.publisherName,
-    license.softwareDescription,
-    license.skuCode,
-    license.licenseMetric,
-    license.licenseType,
-  ].map(normalized).join("|");
-}
-
 export function getExistingSuccessorCandidates(predecessor, allLicenses) {
-  const predecessorPo = normalized(predecessor.poNumber);
-  if (!predecessorPo) return [];
+  const publisher = normalized(predecessor.publisherName);
+  if (!publisher) return [];
 
   return allLicenses
     .filter((candidate) => candidate.id !== predecessor.id)
-    .filter((candidate) => normalized(candidate.poNumber) === predecessorPo)
-    .filter((candidate) => entitlementIdentity(candidate) === entitlementIdentity(predecessor))
+    .filter((candidate) => normalized(candidate.publisherName) === publisher)
     .filter((candidate) => !NON_RENEWABLE_TYPES.has(candidate.licenseType))
     .filter((candidate) => !candidate.retired && !candidate.isRetired && !candidate.retirementScheduled && !candidate.lifecycleStatus)
     .filter((candidate) => !candidate.renewedFromId && !candidate.predecessorId && !candidate.renewedToId)
+    .filter((candidate) => !candidate.cotermFromIds?.length)
     .filter((candidate) => candidate.endDate && candidate.endDate > predecessor.endDate)
     .filter((candidate) => !predecessor.startDate || (candidate.startDate && candidate.startDate > predecessor.startDate))
     .filter((candidate) => candidate.expirationStatus === "active" || candidate.expirationStatus === "upcoming")
@@ -117,7 +107,8 @@ export default function ExistingSuccessorModal({
     >
       <div className="modal-bd existing-successor-modal">
         <p>
-          Choose an active or upcoming license already purchased under PO <strong>{predecessor.poNumber}</strong>.
+          Choose an active or upcoming license already purchased from <strong>{predecessor.publisherName}</strong>.
+          Descriptions and PO numbers can differ.
           No new sourcing request or pending order will be created.
         </p>
         <input
@@ -149,7 +140,7 @@ export default function ExistingSuccessorModal({
           ))}
           {filtered.length === 0 && (
             <div className="existing-successor-empty">
-              No eligible active or upcoming licenses were found under this PO.
+              No eligible active or upcoming licenses were found for this publisher.
             </div>
           )}
         </div>

@@ -21,7 +21,7 @@ from app.services.lifecycle_rules import (
     assert_predecessor_has_no_successor,
     clear_pending_renewal,
     mark_predecessor_renewed,
-    entitlement_identity,
+    normalize_entitlement_identity,
 )
 from app.services.maintenance_service import (
     activate_maintenance_for_parent,
@@ -128,10 +128,6 @@ async def _activate_maintenance_successor_for_all_parents(
             await activate_maintenance_for_parent(db, successor, parent)
 
 
-def _normalized_po(value: str | None) -> str:
-    return (value or "").strip().casefold()
-
-
 def _assert_existing_successor_candidate(
     predecessor: License,
     successor: License,
@@ -167,18 +163,17 @@ def _assert_existing_successor_candidate(
     if successor_status not in {"active", "upcoming"}:
         raise HTTPException(status_code=400, detail="The selected successor must be active or upcoming")
 
-    predecessor_po = _normalized_po(predecessor.po_number)
-    successor_po = _normalized_po(successor.po_number)
-    if not predecessor_po or predecessor_po != successor_po:
-        raise HTTPException(status_code=400, detail="The successor must have the same PO number")
+    publisher = normalize_entitlement_identity(predecessor.publisher_name)
+    if not publisher or publisher != normalize_entitlement_identity(successor.publisher_name):
+        raise HTTPException(status_code=400, detail="The successor must have the same publisher")
+    if successor.license_type in {LicenseType.service, LicenseType.other}:
+        raise HTTPException(status_code=400, detail="The selected successor type is not eligible for renewal")
     if predecessor.end_date is None or successor.end_date is None or successor.end_date <= predecessor.end_date:
         raise HTTPException(status_code=400, detail="The successor must extend coverage beyond the predecessor end date")
     if predecessor.start_date is not None and (
         successor.start_date is None or successor.start_date <= predecessor.start_date
     ):
         raise HTTPException(status_code=400, detail="The successor must start after the predecessor start date")
-    if entitlement_identity(predecessor) != entitlement_identity(successor):
-        raise HTTPException(status_code=400, detail="The successor must match the predecessor entitlement identity")
 
 
 async def link_existing_successor(
