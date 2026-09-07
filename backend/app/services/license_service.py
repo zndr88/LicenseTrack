@@ -334,6 +334,7 @@ def compute_stats(
     total = len(licenses)
     total_incomplete = 0
     total_pending = 0
+    total_retirement_scheduled = 0
     status_counts: Counter[str] = Counter()
     annual_cost_by_currency: dict[str, Decimal] = {}
     excluded_from_totals = 0
@@ -353,6 +354,8 @@ def compute_stats(
         status_counts[status] += 1
         if lic.lifecycle_status == "pending_renewal":
             total_pending += 1
+        if getattr(lic, "retirement_scheduled", False):
+            total_retirement_scheduled += 1
 
         # Workflow state does not hide record completeness. Pending renewals
         # remain current or expired license records until a successor exists.
@@ -415,6 +418,7 @@ def compute_stats(
         "total_expired": status_counts["expired"],
         "total_upcoming": status_counts["upcoming"],
         "total_pending": total_pending,
+        "total_retirement_scheduled": total_retirement_scheduled,
         "total_incomplete": total_incomplete,
         "total_retired": status_counts["retired"],
         "total_renewed": status_counts["renewed"],

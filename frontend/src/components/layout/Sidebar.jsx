@@ -91,22 +91,19 @@ export default function Sidebar({ page, setPage, setSelectedId, currentUser, col
         {bottomItems.map(renderNavItem)}
       </div>
 
-      {/* Portfolio Condition widget */}
+      {/* Portfolio Overview widget */}
       {!collapsed && (
         <div className="sb-portfolio">
-          <div className="sb-portfolio-label">PORTFOLIO CONDITION</div>
+          <div className="sb-portfolio-label">PORTFOLIO OVERVIEW</div>
+          <div className="sb-portfolio-group-label">Coverage</div>
           <div className="sb-portfolio-rows">
             <div className="sb-portfolio-row">
-              <span>Active</span>
+              <span>Active · not expiring</span>
               <span className="sb-portfolio-count sb-portfolio-active-val">{stats.active}</span>
             </div>
             <div className="sb-portfolio-row">
               <span>Upcoming</span>
               <span className="sb-portfolio-count sb-portfolio-upcoming-val">{stats.upcoming}</span>
-            </div>
-            <div className="sb-portfolio-row">
-              <span>Pending</span>
-              <span className="sb-portfolio-count">{stats.pending}</span>
             </div>
             <div className="sb-portfolio-row sb-portfolio-warn">
               <span>Expiring</span>
@@ -120,9 +117,31 @@ export default function Sidebar({ page, setPage, setSelectedId, currentUser, col
                 {stats.expired}
               </span>
             </div>
+          </div>
+          <div className="sb-portfolio-group-label">Planned changes</div>
+          <div className="sb-portfolio-rows">
+            <div className="sb-portfolio-row">
+              <span>Renewal in progress</span>
+              <span className="sb-portfolio-count">{stats.renewalInProgress ?? 0}</span>
+            </div>
+            <div className="sb-portfolio-row">
+              <span>Retirement scheduled</span>
+              <span className="sb-portfolio-count">{stats.retirementScheduled ?? 0}</span>
+            </div>
+          </div>
+          <div className="sb-portfolio-group-label">Historical records</div>
+          <div className="sb-portfolio-rows">
             <div className="sb-portfolio-row">
               <span>Renewed</span>
               <span className="sb-portfolio-count">{stats.renewed}</span>
+            </div>
+            <div className="sb-portfolio-row">
+              <span>Retired</span>
+              <span className="sb-portfolio-count">{stats.retired ?? 0}</span>
+            </div>
+            <div className="sb-portfolio-row">
+              <span>Legacy</span>
+              <span className="sb-portfolio-count">{stats.legacy ?? 0}</span>
             </div>
           </div>
         </div>

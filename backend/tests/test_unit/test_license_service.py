@@ -442,6 +442,25 @@ def test_compute_stats_counts_pending_as_overlapping_workflow_state():
     assert stats["total_active"] == 1
 
 
+def test_compute_stats_counts_scheduled_retirement_without_removing_coverage():
+    today = date.today()
+    licenses = [
+        make_license(id=1, retirement_scheduled=True, end_date=today + timedelta(days=60)),
+        make_license(id=2, retirement_scheduled=True, end_date=today + timedelta(days=10)),
+        make_license(id=3, is_retired=True),
+        make_license(id=4, lifecycle_status="legacy"),
+    ]
+
+    stats = compute_stats(licenses, {}, {}, notification_days=30)
+
+    assert stats["total_retirement_scheduled"] == 2
+    assert stats["total_active"] == 2
+    assert stats["total_expiring"] == 1
+    assert stats["total_pending"] == 0
+    assert stats["total_retired"] == 1
+    assert stats["total_legacy"] == 1
+
+
 def test_compute_stats_excludes_perpetual_capex_from_annual_cost():
     today = date.today()
     recurring = make_license(

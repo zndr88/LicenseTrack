@@ -60,6 +60,25 @@ beforeEach(() => {
 })
 
 describe("useLicenseData", () => {
+  test.each([false, true])("keeps portfolio flags separate from coverage and filters (API stats: %s)", (useApiStats) => {
+    const licenses = [
+      makeLicense({ retirementScheduled: true, expirationStatus: "expiring" }),
+      makeLicense({ lifecycleStatus: "pending_renewal", expirationStatus: "expired" }),
+    ]
+    const { result } = renderHook(() => useLicenseData(licenses, {
+      ...defaultOptions,
+      search: "no matching license",
+      apiStats: useApiStats ? {
+        total: 2, total_active: 1, total_expiring: 1, total_expired: 1,
+        total_pending: 1, total_retirement_scheduled: 1,
+      } : null,
+    }))
+    expect(result.current.filtered).toHaveLength(0)
+    expect(result.current.stats).toMatchObject({
+      total: 2, active: 0, expiring: 1, expired: 1, pending: 1, retirementScheduled: 1,
+    })
+  })
+
   // 4k
   test("returns all licenses when no filters applied", () => {
     const licenses = [makeLicense(), makeLicense(), makeLicense()]

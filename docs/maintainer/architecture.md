@@ -72,6 +72,13 @@ does not own or duplicate the presentation catalog.
 
 ## DetailPanel Sub-Module Pattern
 
+The sidebar Portfolio Overview uses portfolio-wide counts independent of registry
+filters. Coverage rows separate Active (including perpetual, excluding Expiring),
+Upcoming, Expiring, and Expired. Renewal in progress and Retirement scheduled are
+overlapping license-record flags; they do not remove records from coverage counts.
+Renewed, Retired, and Legacy are historical record counts. Pending purchase orders
+remain a separate order count on the Pending Orders navigation badge.
+
 `DetailPanel.jsx` is a composition shell. Its responsibilities are split across sub-modules in `frontend/src/components/licenses/detail/`:
 
 | Module | Owns |

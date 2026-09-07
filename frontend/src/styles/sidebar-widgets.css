@@ -1,7 +1,7 @@
 /* Sidebar version */
 .sb-version { padding: 8px 16px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-3); font-family: var(--font-mono); }
 
-/* Sidebar portfolio condition widget */
+/* Sidebar portfolio overview widget */
 .sb-portfolio {
   padding: 10px 0 6px;
   border-top: 1px solid var(--border);
@@ -14,7 +14,6 @@
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--text-2);
-  opacity: 0.28;
   padding: 0 16px 6px;
 }
 
@@ -24,6 +23,13 @@
   align-items: center;
   padding: 2px 16px;
   font-size: 12px;
+  color: var(--text-2);
+}
+
+.sb-portfolio-group-label {
+  padding: 8px 16px 3px;
+  font-size: 10px;
+  font-weight: 600;
   color: var(--text-2);
 }
 

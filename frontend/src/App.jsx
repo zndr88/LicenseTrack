@@ -36,6 +36,10 @@ function buildSidebarStats(stats, orders) {
     expiring: stats.total_expiring ?? 0,
     expired: stats.total_expired ?? 0,
     renewed: stats.total_renewed ?? 0,
+    retired: stats.total_retired ?? 0,
+    legacy: stats.total_legacy ?? 0,
+    renewalInProgress: stats.total_pending ?? 0,
+    retirementScheduled: stats.total_retirement_scheduled ?? 0,
   };
 }
 

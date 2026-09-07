@@ -51,7 +51,7 @@ export default function LicensesPage({
   onCreateContract,
   // Called after handleCreateRenewal so SourcingPage can refresh if mounted
   onSourcingCreated,
-  // Reports stats to App for the sidebar Portfolio Condition widget
+  // Reports portfolio-wide stats to App for the sidebar Portfolio Overview widget
   onStatsChange,
   onPortfolioStateChange,
 }) {
@@ -197,6 +197,10 @@ export default function LicensesPage({
         expiring: stats.expiring ?? 0,
         expired: stats.expired ?? 0,
         renewed: stats.renewed ?? 0,
+        retired: stats.retired ?? 0,
+        legacy: stats.legacy ?? 0,
+        renewalInProgress: stats.pending ?? 0,
+        retirementScheduled: stats.retirementScheduled ?? 0,
       });
     }
   }, [stats, onStatsChange, activePendingCount]);
