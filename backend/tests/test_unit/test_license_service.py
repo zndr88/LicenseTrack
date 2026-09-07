@@ -172,11 +172,29 @@ def test_expired_predecessor_stays_expired_during_successor_gap():
     )
 
 
-def test_status_pending_renewal():
+def test_pending_renewal_preserves_date_based_expiring_status():
+    today = date.today()
     assert (
-        compute_expiration_status(make_license(lifecycle_status="pending_renewal"), date.today())
-        == "pending_renewal"
+        compute_expiration_status(
+            make_license(
+                lifecycle_status="pending_renewal",
+                end_date=today + timedelta(days=10),
+            ),
+            today,
+        )
+        == "expiring"
     )
+
+
+def test_pending_renewal_advances_to_expired_status():
+    today = date.today()
+    assert compute_expiration_status(
+        make_license(
+            lifecycle_status="pending_renewal",
+            end_date=today - timedelta(days=1),
+        ),
+        today,
+    ) == "expired"
 
 
 def test_status_upcoming():
@@ -396,6 +414,32 @@ def test_compute_stats():
     assert stats["total_expiring"] == 1
     assert stats["total_expired"] == 1
     assert stats["total_upcoming"] == 1
+
+
+def test_compute_stats_counts_pending_as_overlapping_workflow_state():
+    today = date.today()
+    pending_expiring = make_license(
+        id=1,
+        lifecycle_status="pending_renewal",
+        end_date=today + timedelta(days=10),
+    )
+    pending_expired = make_license(
+        id=2,
+        lifecycle_status="pending_renewal",
+        end_date=today - timedelta(days=1),
+    )
+
+    stats = compute_stats(
+        [pending_expiring, pending_expired],
+        {},
+        {},
+        notification_days=30,
+    )
+
+    assert stats["total_pending"] == 2
+    assert stats["total_expiring"] == 1
+    assert stats["total_expired"] == 1
+    assert stats["total_active"] == 1
 
 
 def test_compute_stats_excludes_perpetual_capex_from_annual_cost():

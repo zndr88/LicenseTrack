@@ -119,6 +119,29 @@ def test_shared_classification_preserves_expiry_and_notice_severity_bands():
     assert by_type["notice_due"]["severity"] == "warning"
 
 
+@pytest.mark.parametrize(
+    ("days_from_today", "expected_type"),
+    [(10, "expiring"), (-2, "expired")],
+)
+def test_pending_renewal_keeps_date_based_expiry_alert(days_from_today, expected_type):
+    today = date(2026, 8, 26)
+    license_obj = License(
+        publisher_name="Vendor",
+        software_description="Renewal in progress",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        end_date=today + timedelta(days=days_from_today),
+        lifecycle_status="pending_renewal",
+        is_retired=False,
+    )
+
+    alerts = classify_license_alerts(license_obj, [], {}, 30, 30, today=today)
+
+    expiry_alert = next(alert for alert in alerts if alert["type"] == expected_type)
+    assert "renewal is in progress" in expiry_alert["detail"]
+
+
 def test_shared_classification_alerts_at_eighty_percent_completeness():
     today = date(2026, 8, 26)
     license_obj = License(

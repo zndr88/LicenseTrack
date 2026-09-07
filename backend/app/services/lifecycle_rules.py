@@ -7,11 +7,14 @@ multiple predecessors recorded in ``coterm_from_ids``.
 
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType
+from app.services.license_service import compute_expiration_status
 
 REPAIR_ONLY_UPDATE_FIELDS = {
     "renewed_from_id",
@@ -91,7 +94,12 @@ def validate_general_license_update_fields(update_data: dict, license_obj: Licen
             )
 
 
-def assert_can_initiate_renewal(license_obj: License) -> None:
+def assert_can_initiate_renewal(
+    license_obj: License,
+    *,
+    notification_days: int,
+    today: date | None = None,
+) -> None:
     if license_obj.is_retired or getattr(license_obj, "retirement_scheduled", False):
         raise HTTPException(status_code=409, detail="Retired licenses are not eligible for renewal")
     if license_obj.lifecycle_status == "pending_renewal":
@@ -105,6 +113,13 @@ def assert_can_initiate_renewal(license_obj: License) -> None:
     assert_predecessor_has_no_successor(license_obj)
     if license_obj.end_date is None:
         raise HTTPException(status_code=400, detail="Cannot initiate renewal on a perpetual license (no end date)")
+    expiration_status = compute_expiration_status(
+        license_obj,
+        today or date.today(),
+        notification_days,
+    )
+    if expiration_status not in {"expiring", "expired"}:
+        raise HTTPException(status_code=400, detail="Only expiring or expired licenses can start renewal")
 
 
 def assert_can_cancel_renewal(license_obj: License) -> None:
@@ -112,8 +127,17 @@ def assert_can_cancel_renewal(license_obj: License) -> None:
         raise HTTPException(status_code=400, detail="License is not in pending_renewal status")
 
 
-def mark_pending_renewal(license_obj: License) -> None:
-    assert_can_initiate_renewal(license_obj)
+def mark_pending_renewal(
+    license_obj: License,
+    *,
+    notification_days: int,
+    today: date | None = None,
+) -> None:
+    assert_can_initiate_renewal(
+        license_obj,
+        notification_days=notification_days,
+        today=today,
+    )
     license_obj.lifecycle_status = "pending_renewal"
 
 

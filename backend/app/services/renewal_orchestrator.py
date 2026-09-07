@@ -296,6 +296,7 @@ async def initiate_renewal(
     license_id: int,
     actor: User,
     ip_address: str | None,
+    notification_days: int,
 ) -> InitiateRenewalResult:
     """
     Begin the renewal procurement workflow for a license.
@@ -306,7 +307,7 @@ async def initiate_renewal(
     license_obj = result.scalar_one_or_none()
     if license_obj is None:
         raise HTTPException(status_code=404, detail="License not found")
-    mark_pending_renewal(license_obj)
+    mark_pending_renewal(license_obj, notification_days=notification_days)
 
     sourcing_item = build_renewal_sourcing_item(license_obj, created_by=actor.id)
     sourcing_item.publisher_id = license_obj.publisher_id
@@ -344,6 +345,7 @@ async def initiate_renewal_bundle(
     license_ids: list[int],
     actor: User,
     ip_address: str | None,
+    notification_days: int,
 ) -> InitiateRenewalBundleResult:
     """
     Begin one procurement renewal request containing multiple license lines.
@@ -371,7 +373,7 @@ async def initiate_renewal_bundle(
         raise HTTPException(status_code=400, detail="Renewal bundle licenses must share the same end date")
 
     for license_obj in licenses:
-        mark_pending_renewal(license_obj)
+        mark_pending_renewal(license_obj, notification_days=notification_days)
 
     supplier_ids = [license_obj.supplier_id for license_obj in licenses]
     target_supplier_id = None

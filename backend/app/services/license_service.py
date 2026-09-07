@@ -220,20 +220,21 @@ def compute_expiration_status(
     Priority order:
     1. retired   - is_retired flag
     2. legacy    - lifecycle_status == "legacy"
-    3. pending_renewal - lifecycle_status == "pending_renewal"
-    4. upcoming  - start_date is in the future
-    5. perpetual - a non-expiring license type with no end_date
-    6. renewed   - own term ended and linked successor coverage has started
-    7. expired   - end_date in the past
-    8. expiring  - end_date within notification_days
-    9. active    - everything else
+    3. upcoming  - start_date is in the future
+    4. perpetual - a non-expiring license type with no end_date
+    5. renewed   - own term ended and linked successor coverage has started
+    6. expired   - end_date in the past
+    7. expiring  - end_date within notification_days
+    8. active    - everything else
+
+    ``pending_renewal`` is intentionally not an expiration state. It is an
+    overlapping workflow state exposed through ``lifecycle_status`` while the
+    record continues to move from Expiring to Expired according to its dates.
     """
     if license.is_retired:
         return "retired"
     if license.lifecycle_status == "legacy":
         return "legacy"
-    if license.lifecycle_status == "pending_renewal":
-        return "pending_renewal"
     if license.start_date is not None and license.start_date > today:
         return "upcoming"
     if license.end_date is None:
@@ -332,6 +333,7 @@ def compute_stats(
 
     total = len(licenses)
     total_incomplete = 0
+    total_pending = 0
     status_counts: Counter[str] = Counter()
     annual_cost_by_currency: dict[str, Decimal] = {}
     excluded_from_totals = 0
@@ -349,12 +351,15 @@ def compute_stats(
         completeness = compute_completeness(lic, docs, mandatory_fields)
 
         status_counts[status] += 1
+        if lic.lifecycle_status == "pending_renewal":
+            total_pending += 1
 
-        # Incomplete: completeness < 100, not retired/renewed/pending/legacy, not exempt
+        # Workflow state does not hide record completeness. Pending renewals
+        # remain current or expired license records until a successor exists.
         if (
             completeness is not None
             and completeness < 100
-            and status not in ("retired", "renewed", "pending_renewal", "legacy")
+            and status not in ("retired", "renewed", "legacy")
         ):
             total_incomplete += 1
 
@@ -409,7 +414,7 @@ def compute_stats(
         "total_expiring": status_counts["expiring"],
         "total_expired": status_counts["expired"],
         "total_upcoming": status_counts["upcoming"],
-        "total_pending": status_counts["pending_renewal"],
+        "total_pending": total_pending,
         "total_incomplete": total_incomplete,
         "total_retired": status_counts["retired"],
         "total_renewed": status_counts["renewed"],

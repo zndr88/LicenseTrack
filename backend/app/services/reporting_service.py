@@ -230,7 +230,7 @@ def _recurring_term_value(license_obj: License) -> tuple[Decimal | None, str]:
 def _current_baseline_eligible(license_obj: License, today: date) -> bool:
     if not _is_recurring(license_obj):
         return False
-    if license_obj.is_retired or license_obj.lifecycle_status in {"legacy", "pending_renewal"}:
+    if license_obj.is_retired or license_obj.lifecycle_status == "legacy":
         return False
     status = compute_expiration_status(license_obj, today)
     if status not in {"active", "expiring", "perpetual"}:
@@ -671,7 +671,7 @@ def _build_renewal_data(
 ) -> list[dict]:
     quarters = _renewal_quarters(fiscal_year_start_month, today)
     for license_obj in visible:
-        if license_obj.is_retired or license_obj.lifecycle_status in {"legacy", "renewed", "pending_renewal"}:
+        if license_obj.is_retired or license_obj.lifecycle_status in {"legacy", "renewed"}:
             continue
         if license_obj.license_type == LicenseType.maintenance:
             event_date = license_obj.end_date
@@ -946,7 +946,7 @@ def build_portfolio_stats(
         if not license_obj.is_retired:
             by_type[license_obj.license_type.value] = by_type.get(license_obj.license_type.value, 0) + 1
         completeness = compute_completeness(license_obj, documents_by_license_id.get(license_obj.id, []), mandatory_fields)
-        if completeness is not None and completeness < 100 and status not in {"retired", "renewed", "pending_renewal", "legacy"}:
+        if completeness is not None and completeness < 100 and status not in {"retired", "renewed", "legacy"}:
             incomplete += 1
         if _current_baseline_eligible(license_obj, today):
             value, _source = _annual_recurring_value(license_obj)

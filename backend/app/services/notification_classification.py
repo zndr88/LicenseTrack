@@ -93,6 +93,7 @@ def classify_license_alerts(
 
     expiration_status = compute_expiration_status(license_obj, today, expiry_window_days)
     is_upcoming = expiration_status == "upcoming"
+    renewal_in_progress = lifecycle_status == "pending_renewal"
     alerts: list[dict[str, Any]] = []
 
     if expiry_notifications_enabled and not is_upcoming:
@@ -102,7 +103,8 @@ def classify_license_alerts(
                 _alert(
                     license_obj,
                     "expired",
-                    f"Expired {days_overdue} {_day_word(days_overdue)} ago on {license_obj.end_date.isoformat()}",
+                    f"Expired {days_overdue} {_day_word(days_overdue)} ago on {license_obj.end_date.isoformat()}"
+                    + ("; renewal is in progress" if renewal_in_progress else ""),
                     "critical",
                     license_obj.end_date,
                     -days_overdue,
@@ -114,7 +116,8 @@ def classify_license_alerts(
                 _alert(
                     license_obj,
                     "expiring",
-                    f"Expires in {days_left} {_day_word(days_left)} on {license_obj.end_date.isoformat()}",
+                    f"Expires in {days_left} {_day_word(days_left)} on {license_obj.end_date.isoformat()}"
+                    + ("; renewal is in progress" if renewal_in_progress else ""),
                     _expiry_severity(days_left),
                     license_obj.end_date,
                     days_left,

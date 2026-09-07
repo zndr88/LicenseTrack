@@ -78,9 +78,27 @@ async def test_initiate_recurring_renewal_suggests_next_annual_term(test_app, au
     )
 
     assert response.status_code == 200, response.text
+    assert response.json()["license"]["lifecycleStatus"] == "pending_renewal"
+    assert response.json()["license"]["expirationStatus"] == "expired"
     sourcing_item = response.json()["sourcingItem"]
     assert sourcing_item["startDate"] == "2026-01-01"
     assert sourcing_item["endDate"] == "2026-12-31"
+
+
+async def test_initiate_renewal_rejects_license_before_expiration_window(test_app, auth_headers):
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        endDate=(date.today() + timedelta(days=31)).isoformat(),
+    )
+
+    response = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/initiate-renewal",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 400
+    assert "expiring or expired" in response.json()["detail"]
 
 
 async def test_initiate_renewal_snapshots_only_custom_fields_configured_to_copy(

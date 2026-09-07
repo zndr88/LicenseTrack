@@ -139,6 +139,21 @@ def test_linked_predecessor_remains_in_current_reporting_until_its_term_ends():
     assert report.budget_forecast["baselineByCurrency"] == {"EUR": "100"}
 
 
+def test_pending_renewal_remains_in_expiring_reporting_until_term_ends():
+    pending = make_license(
+        lifecycle_status="pending_renewal",
+        end_date=date.today() + timedelta(days=10),
+        quantity="2",
+        unit_price="50",
+    )
+
+    report = build_report_model([pending], ReportOptions())
+
+    assert report.counts.expiring == 1
+    assert report.financial_summaries["lifecycleBudgetByStatus"]["expiring"] == {"EUR": "100"}
+    assert report.budget_forecast["baselineByCurrency"] == {"EUR": "100"}
+
+
 def test_reused_po_text_is_reconciled_by_durable_identity_and_keeps_signed_difference():
     first = make_license(id=1, pending_order_id=10, quantity="1", unit_price="100", po_total_override="50")
     second = make_license(id=2, pending_order_id=20, quantity="1", unit_price="200")

@@ -334,7 +334,7 @@ def test_mark_pending_renewal_rejects_license_with_existing_successor():
     license_obj = make_license(end_date=date(2026, 12, 31), renewed_to_id=99)
 
     with pytest.raises(HTTPException) as exc_info:
-        mark_pending_renewal(license_obj)
+        mark_pending_renewal(license_obj, notification_days=30)
 
     assert exc_info.value.status_code == 409
     assert license_obj.lifecycle_status is None
@@ -344,7 +344,7 @@ def test_mark_pending_renewal_rejects_renewed_license_without_successor_link():
     license_obj = make_license(end_date=date(2026, 12, 31), lifecycle_status="renewed")
 
     with pytest.raises(HTTPException) as exc_info:
-        mark_pending_renewal(license_obj)
+        mark_pending_renewal(license_obj, notification_days=30)
 
     assert exc_info.value.status_code == 409
     assert license_obj.lifecycle_status == "renewed"

@@ -74,11 +74,13 @@ async def initiate_renewal(
     the backend will UPDATE this license with the new dates/contract details instead
     of creating a new record.
     """
+    notification_days = await get_notification_days(db)
     result = await renewal_orchestrator.initiate_renewal(
         db=db,
         license_id=license_id,
         actor=current_user,
         ip_address=request.client.host if request.client else None,
+        notification_days=notification_days,
     )
     await db.commit()
     sourcing_result = await db.execute(
@@ -159,11 +161,13 @@ async def initiate_renewal_bundle(
     Used for same-PO, same-end-date renewal bundles where products must remain
     separate line items instead of being coterm-merged into one license.
     """
+    notification_days = await get_notification_days(db)
     result = await renewal_orchestrator.initiate_renewal_bundle(
         db=db,
         license_ids=payload.license_ids,
         actor=current_user,
         ip_address=request.client.host if request.client else None,
+        notification_days=notification_days,
     )
     await db.commit()
 

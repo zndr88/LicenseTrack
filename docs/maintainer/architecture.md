@@ -689,6 +689,15 @@ coverage has begun. Renewal actions, alerts, and workbench rows are suppressed
 as soon as the successor is secured. Current-cost reporting continues to include
 the predecessor while its coverage remains current.
 
+Renewal workflow state and coverage state are intentionally overlapping. A
+license with `lifecycle_status=pending_renewal` continues to derive Expiring or
+Expired from its end date; Pending Renewal describes the open sourcing or
+pending-order workflow and must not replace that date-based state. Registry and
+detail views keep the purple pending treatment while also showing the orange
+Expiring or red Expired indicator. Pending filters and counts select the
+workflow state, while Expiring and Expired filters and counts include pending
+licenses whose dates place them in those buckets.
+
 The renewal graph permits an intermediate license to have both incoming and
 outgoing renewal links, but each predecessor may have at most one immediate
 successor. Coterm successors may have multiple immediate predecessors:

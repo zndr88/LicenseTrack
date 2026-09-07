@@ -52,7 +52,7 @@ def test_initiate_renewal_rejects_non_renewable_types(license_type):
     license_obj.license_type = license_type
 
     with pytest.raises(HTTPException) as exc_info:
-        assert_can_initiate_renewal(license_obj)
+        assert_can_initiate_renewal(license_obj, notification_days=30)
 
     assert exc_info.value.status_code == 400
     assert "service or other" in exc_info.value.detail
@@ -63,10 +63,41 @@ def test_initiate_renewal_requires_budget_owner():
     license_obj.budget_owner_email = " "
 
     with pytest.raises(HTTPException) as exc_info:
-        assert_can_initiate_renewal(license_obj)
+        assert_can_initiate_renewal(license_obj, notification_days=30)
 
     assert exc_info.value.status_code == 400
     assert "budget owner" in exc_info.value.detail.lower()
+
+
+def test_initiate_renewal_rejects_license_outside_expiration_window():
+    today = date(2026, 9, 7)
+    license_obj = _license("Early renewal")
+    license_obj.budget_owner_email = "owner@example.com"
+    license_obj.end_date = today.replace(year=2027)
+
+    with pytest.raises(HTTPException) as exc_info:
+        assert_can_initiate_renewal(
+            license_obj,
+            notification_days=30,
+            today=today,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "expiring or expired" in exc_info.value.detail
+
+
+@pytest.mark.parametrize("days_from_today", [30, -1])
+def test_initiate_renewal_accepts_expiring_and_expired_licenses(days_from_today):
+    today = date(2026, 9, 7)
+    license_obj = _license("Eligible renewal")
+    license_obj.budget_owner_email = "owner@example.com"
+    license_obj.end_date = date.fromordinal(today.toordinal() + days_from_today)
+
+    assert_can_initiate_renewal(
+        license_obj,
+        notification_days=30,
+        today=today,
+    )
 
 
 def test_successor_term_must_advance_start_and_end_dates():

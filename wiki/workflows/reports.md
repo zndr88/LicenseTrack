@@ -96,9 +96,11 @@ maintenance records and displays those records beneath the parent. Missing
 included cost or a missing separate record is flagged in the table, and mixed
 currencies remain separate in the summary totals.
 
-Upcoming, retired, renewed, legacy, expired, and pending-renewal records are
-excluded from the recurring forecast baseline. Upcoming records remain separate
-from Active until their start date arrives.
+Upcoming, retired, renewed, legacy, and expired records are excluded from the
+recurring forecast baseline. A pending renewal remains part of the baseline
+while its current term is active or expiring, then leaves it when that term
+expires. Upcoming records remain separate from Active until their start date
+arrives.
 
 For a selected period, a recurring record must have bounded coverage dates before
 its value can be allocated. Missing or unbounded dates are reported as
