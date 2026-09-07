@@ -13,6 +13,54 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.18] - 2026-09-06
+
+### Added
+
+- Added reusable contact suggestions for publisher contacts, budget owners,
+  secondary contacts, and other people fields across license, sourcing,
+  pending-order, and conversion forms, backed by an authenticated reference-data
+  endpoint and matching demo-mode behavior.
+- Added inline editing for sourcing line items and pending-order overview, line,
+  purchase-order, invoice, supplier, and date details, plus sourcing-quote preview
+  from the pending-order workspace.
+- Added an Upcoming count to license navigation and the ability to schedule an
+  active license for automatic retirement when its current term ends.
+- Added per-custom-field renewal behavior and sourcing-form visibility controls.
+- Added categorized document staging during license creation and pending-order
+  conversion, including an explicit choice to share procurement evidence across
+  the created licenses or attach it to only one license.
+
+### Changed
+
+- Unified license and procurement forms around shared defaults, standard field
+  sections, custom-field sections, secondary-contact normalization, sourcing
+  payload builders, and custom-field definition queries.
+- Consolidated staged and stored document preview metadata, attachment state,
+  category handling, and modal layout while preserving the existing storage and
+  evidence-transfer boundaries.
+- Suppressed renewal attention and notification alerts as soon as a successor is
+  secured, while retaining the predecessor's date-based coverage state.
+
+### Fixed
+
+- Updated `fflate` to 0.8.3 to prevent malformed ZIP64 archives from causing an
+  infinite parsing loop, and updated the ESLint `@humanfs/node` dependency to
+  0.16.8 so recursive development-tool copies do not follow symlinked files
+  outside their source tree.
+- Normalized blank procurement milestone dates to null during license writes so
+  clearing a date no longer causes validation failures.
+- Kept sourcing supplier suggestions visible above editable rows and clarified
+  when sourcing inline-edit mode is active.
+
+This release includes three Alembic migrations. They replace the custom-field
+renewal carry-forward flag with `clear`, `copy`, and `prompt` behavior; add the
+scheduled-retirement flag and preserve future-dated retired records as scheduled;
+and add sourcing-form visibility for custom fields, enabled by default. Downgrade
+maps `copy` back to the legacy carry-forward flag, restores scheduled records to
+retired, and removes the new sourcing visibility field. No configuration change
+or breaking public API change is required.
+
 ## [1.1.17] - 2026-09-02
 
 ### Added
@@ -1381,7 +1429,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.17...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.18...HEAD
+[1.1.18]: https://github.com/zndr88/LicenseTrack/compare/v1.1.17...v1.1.18
 [1.1.17]: https://github.com/zndr88/LicenseTrack/compare/v1.1.16...v1.1.17
 [1.1.16]: https://github.com/zndr88/LicenseTrack/compare/v1.1.15...v1.1.16
 [1.1.15]: https://github.com/zndr88/LicenseTrack/compare/v1.1.14...v1.1.15
