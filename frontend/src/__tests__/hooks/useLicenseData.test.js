@@ -142,6 +142,34 @@ describe("useLicenseData", () => {
     expect(result.current.filtered.map((license) => license.expirationStatus)).toEqual(["active", "perpetual"])
   })
 
+  test.each(["expiring", "expired"])("%s filter includes pending renewals", (expirationStatus) => {
+    const pending = makeLicense({ expirationStatus, lifecycleStatus: "pending_renewal" })
+    const licenses = [pending, makeLicense({ expirationStatus: "active" })]
+    const { result } = renderHook(() =>
+      useLicenseData(licenses, { ...defaultOptions, statusFilters: [expirationStatus] })
+    )
+
+    expect(result.current.filtered.map((license) => license.id)).toEqual([pending.id])
+  })
+
+  test("pending filter includes only licenses in the renewal workflow", () => {
+    const pendingExpiring = makeLicense({ expirationStatus: "expiring", lifecycleStatus: "pending_renewal" })
+    const pendingExpired = makeLicense({ expirationStatus: "expired", lifecycleStatus: "pending_renewal" })
+    const licenses = [
+      pendingExpiring,
+      pendingExpired,
+      makeLicense({ expirationStatus: "expired" }),
+    ]
+    const { result } = renderHook(() =>
+      useLicenseData(licenses, { ...defaultOptions, statusFilters: ["pending_renewal"] })
+    )
+
+    expect(result.current.filtered.map((license) => license.id)).toEqual([
+      pendingExpiring.id,
+      pendingExpired.id,
+    ])
+  })
+
   test("incomplete filter excludes completeness-exempt licenses", () => {
     const licenses = [
       makeLicense({ completenessPct: 50 }),

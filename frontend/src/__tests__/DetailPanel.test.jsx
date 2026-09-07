@@ -167,6 +167,26 @@ describe('DetailPanel identity references', () => {
     expect(screen.getByText('LT-2026-00001')).toBeInTheDocument()
     expect(screen.queryByText(/LT-2026-00001 \|/)).not.toBeInTheDocument()
   })
+
+  it.each([
+    ['expiring', 'Expires in 10d'],
+    ['expired', 'Expired 2d ago'],
+  ])('shows the %s coverage flag alongside pending renewal', (expirationStatus, expectedLabel) => {
+    render(
+      <DetailPanel
+        {...baseProps}
+        license={{
+          ...baseLicense,
+          lifecycleStatus: 'pending_renewal',
+          expirationStatus,
+          daysUntilExpiry: expirationStatus === 'expired' ? -2 : 10,
+        }}
+      />
+    )
+
+    expect(screen.getByText(expectedLabel)).toBeInTheDocument()
+    expect(screen.getByText('Pending Renewal')).toBeInTheDocument()
+  })
 })
 
 describe('DetailPanel scheduled retirement', () => {

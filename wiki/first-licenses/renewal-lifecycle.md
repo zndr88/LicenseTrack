@@ -68,6 +68,12 @@ into active licenses.
 
 After conversion, the sourcing request leaves the active Sourcing Overview table and remains available through the **History** button. Sourcing history opens as a second read-only table below active sourcing work. It keeps the old request id, line id, quote evidence, supplier, pricing, and notes, and it can link forward to the related pending order.
 
+Pending Renewal describes the procurement workflow; it does not replace the
+current term's date status. In License Overview, a pending row keeps its purple
+shade and Pending Renewal badge while an orange or red edge and a second badge
+show whether the term is Expiring or Expired. The row appears under Pending and
+also under its applicable Expiring or Expired filter.
+
 ## Pending orders
 
 Once converted, the item clears out of sourcing and enters the **Pending Orders** phase.

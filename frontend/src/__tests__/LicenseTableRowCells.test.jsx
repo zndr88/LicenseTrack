@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import LicenseTableRowCells from "../components/pages/licenses/LicenseTableRowCells.jsx";
+import { rowStyle } from "../components/pages/licenses/licenseTableShared.js";
 
 function renderCells(license, visibleColumns = [{ key: "docs" }], userSettings = { numberFormatLocale: "en-US" }) {
   render(
@@ -64,6 +65,35 @@ describe("LicenseTableRowCells record identity", () => {
     }, [{ key: "recordId" }]);
 
     expect(screen.getByText("42")).toBeInTheDocument();
+  });
+});
+
+describe("LicenseTableRowCells overlapping renewal status", () => {
+  test.each([
+    ["expiring", "Expires in 10d"],
+    ["expired", "Expired 2d ago"],
+  ])("renders %s and pending renewal badges together", (status, label) => {
+    renderCells({
+      id: 1,
+      lifecycleStatus: "pending_renewal",
+      expiration: { status, label },
+    }, [{ key: "expiration" }]);
+
+    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.getByText("Pending Renewal")).toBeInTheDocument();
+  });
+
+  test.each([
+    ["expiring", "var(--orange)"],
+    ["expired", "var(--red)"],
+  ])("keeps the pending shade with the %s urgency border", (status, borderColor) => {
+    expect(rowStyle({
+      lifecycleStatus: "pending_renewal",
+      expiration: { status },
+    })).toEqual({
+      background: "var(--purple-dim)",
+      borderLeft: `3px solid ${borderColor}`,
+    });
   });
 });
 

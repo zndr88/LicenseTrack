@@ -57,7 +57,8 @@ export default function RenewalWorkflowSection({
     <>
       {/* Renewal Workflow box */}
       {(exp.status === "expiring" || exp.status === "expired") &&
-        !license.renewedToId && !license.retired && !license.retirementScheduled && canStartRenewal && (
+        license.lifecycleStatus !== "pending_renewal" && !license.renewedToId &&
+        !license.retired && !license.retirementScheduled && canStartRenewal && (
         <div className="dp-purple-box" style={{ padding: "12px 14px" }}>
           <div className="dp-renewal-title">
             <Icon name="clock" size={14} color="var(--purple-text)" /> Renewal Workflow
@@ -163,7 +164,7 @@ export default function RenewalWorkflowSection({
       })()}
 
       {/* Pending Renewal (pipeline flow) */}
-      {exp.status === "pending_renewal" && (() => {
+      {license.lifecycleStatus === "pending_renewal" && (() => {
         const linkedSI = (sourcingItems ?? []).find(
           (si) =>
             si.renewalForLicenseId === license.id ||

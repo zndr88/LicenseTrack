@@ -94,7 +94,7 @@ export function useLicenseData(licenses, {
         (values.has("upcoming") && l.expiration.status === "upcoming") ||
         (values.has("expiring") && l.expiration.status === "expiring") ||
         (values.has("expired") && l.expiration.status === "expired") ||
-        (values.has("pending_renewal") && l.expiration.status === "pending_renewal") ||
+        (values.has("pending_renewal") && l.lifecycleStatus === "pending_renewal") ||
         (values.has("renewed") && l.expiration.status === "renewed") ||
         (values.has("retired") && l.expiration.status === "retired") ||
         (values.has("legacy") && l.expiration.status === "legacy")
@@ -310,8 +310,8 @@ export function useLicenseData(licenses, {
     expiring: enriched.filter((l) => l.expiration.status === "expiring").length,
     expired: enriched.filter((l) => l.expiration.status === "expired").length,
     upcoming: enriched.filter((l) => l.expiration.status === "upcoming").length,
-    pending: enriched.filter((l) => l.expiration.status === "pending_renewal").length,
-    incomplete: enriched.filter((l) => !l.completeness.isExempt && !l.completeness.isComplete && !l.completeness.isPending && l.expiration.status !== "retired" && l.expiration.status !== "renewed" && l.expiration.status !== "pending_renewal" && l.expiration.status !== "legacy").length,
+    pending: enriched.filter((l) => l.lifecycleStatus === "pending_renewal").length,
+    incomplete: enriched.filter((l) => !l.completeness.isExempt && !l.completeness.isComplete && !l.completeness.isPending && l.expiration.status !== "retired" && l.expiration.status !== "renewed" && l.expiration.status !== "legacy").length,
     retired: enriched.filter((l) => l.expiration.status === "retired").length,
     renewed: enriched.filter((l) => l.expiration.status === "renewed").length,
     legacy: enriched.filter((l) => l.expiration.status === "legacy").length,

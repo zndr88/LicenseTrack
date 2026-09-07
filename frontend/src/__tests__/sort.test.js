@@ -71,9 +71,9 @@ describe("License Overview sort accessors", () => {
   });
 
   test("orders every supported expiration state deterministically", () => {
-    const statuses = ["active", "perpetual", "upcoming", "expiring", "expired", "pending_renewal", "renewed", "retired", "legacy"];
+    const statuses = ["active", "perpetual", "upcoming", "expiring", "expired", "renewed", "retired", "legacy"];
     const rows = statuses.map((status, id) => ({ id, expiration: { status, days: id }, endDate: `2026-0${(id % 9) + 1}-01` }));
-    expect(sort(rows, "expiration").map((row) => row.expiration.status)).toEqual(["expired", "expiring", "upcoming", "active", "perpetual", "pending_renewal", "renewed", "retired", "legacy"]);
+    expect(sort(rows, "expiration").map((row) => row.expiration.status)).toEqual(["expired", "expiring", "upcoming", "active", "perpetual", "renewed", "retired", "legacy"]);
   });
 
   test("preserves time-of-day and timezone chronology for timestamp columns", () => {

@@ -17,7 +17,7 @@ const baseLicense = {
 
 function renderSection({
   license = baseLicense,
-  exp = { status: 'pending_renewal' },
+  exp = { status: 'expiring' },
   allLicenses = [license],
   sourcingItems = [],
   pendingOrders = [],

@@ -36,4 +36,11 @@ describe("getLicenseAttentionItems", () => {
 
     expect(getLicenseAttentionItems([scheduled], new Set())).toEqual([]);
   });
+
+  test.each(["expiring", "expired"])("includes a pending renewal that is %s", (status) => {
+    const pending = license(1, status, status === "expired" ? -1 : 10);
+    pending.lifecycleStatus = "pending_renewal";
+
+    expect(getLicenseAttentionItems([pending], new Set())).toEqual([pending]);
+  });
 });

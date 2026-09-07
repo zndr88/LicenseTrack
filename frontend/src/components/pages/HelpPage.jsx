@@ -53,7 +53,7 @@ const HELP_ARTICLES = [
         heading: "Flow",
         body: [
           "The renewal workbench surfaces licenses approaching expiry and flags records that need attention, such as missing documents or high value.",
-          "Starting a renewal marks the current license as pending renewal and creates sourcing-stage work. The successor license is not created until the related pending order is converted.",
+          "Starting a renewal marks the current license as pending renewal and creates sourcing-stage work. Pending describes the procurement workflow: the license remains Expiring and can become Expired according to its end date, so it appears in both applicable filters. The successor license is not created until the related pending order is converted.",
           "When conversion completes, LicenseTrack creates and links the successor while preserving the renewal chain. The predecessor keeps its date-based Active or Expiring state until its own term ends.",
           "If the next term was already purchased as another active or upcoming license under the same PO, use Link Existing Successor from the expiring license instead. LicenseTrack adopts that record as the normal renewal successor without creating duplicate sourcing or pending-order work.",
           "Renewal sourcing and conversion preserve the predecessor's maintenance/support classification. Older recurring records without a stored value receive the type-appropriate default instead of losing coverage during renewal.",
@@ -294,7 +294,7 @@ const HELP_ARTICLES = [
           "Lifecycle budget groups per-license calculated value into active, expiring, and expired records using the same status as License Overview. Upcoming records are counted separately in the summary and stay out of active budget until their start date arrives. These detailed license reports retain the legacy stored PO value as a fallback when line pricing is missing; manual PO overrides are never used as that fallback.",
           "The Publisher & Vendor Overview combines a publisher chart with a sortable publisher/supplier table using the same calculated-value rule.",
           "Recurring annual cost covers active subscription, SaaS, maintenance, and current paid included support on supported parents. Full-term views annualize recurring records with terms longer than one year. Selected report ranges allocate recurring cost by overlapping days, so an 18-month record contributes the first 12 months to a one-year range and the remaining 6 months to the following range.",
-          "The budget forecast excludes upcoming, expired, retired, renewed, legacy, and pending-renewal records.",
+          "The budget forecast excludes upcoming, expired, retired, renewed, and legacy records. A pending renewal remains in the current recurring baseline until its existing term expires.",
           "The department filter is searchable and scrollable for large department lists.",
           "Report sections start collapsed and remember their expanded state for the browser session. Detailed recurring-cost and publisher/supplier tables have their own compact searches and result counts.",
           "Perpetual Licenses & Maintenance compares perpetual acquisition value with included or separately tracked support and flags missing coverage values or records without combining currencies.",
