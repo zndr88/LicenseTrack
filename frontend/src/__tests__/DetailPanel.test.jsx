@@ -204,9 +204,11 @@ describe('DetailPanel scheduled retirement', () => {
       />
     )
 
+    expect(screen.getByText('Retirement Scheduled')).toHaveClass('badge-orange')
+
     await user.click(screen.getByRole('button', { name: /completeness & flags/i }))
 
-    expect(screen.getByText('Retirement Scheduled')).toBeInTheDocument()
+    expect(screen.getAllByText('Retirement Scheduled')).toHaveLength(2)
     expect(screen.getByText(/scheduled to retire after 2027-12-31/i)).toBeInTheDocument()
   })
 })

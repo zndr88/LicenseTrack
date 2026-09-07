@@ -112,6 +112,8 @@ export default function IdentitySection({
               {exp.status === "active" && <Badge type="green">{exp.label}</Badge>}
               {exp.status === "perpetual" && <Badge type="blue">Perpetual</Badge>}
               {license.lifecycleStatus === "pending_renewal" && <span className="badge badge-pending"><span className="badge-dot" />Pending Renewal</span>}
+              {license.retirementScheduled && <Badge type="orange">Retirement Scheduled</Badge>}
+              {license.renewalNotificationsEnabled === false && <Badge type="orange">Renewal Notifications Off</Badge>}
               {comp.isExempt
                 ? <Badge type="gray">Exempt</Badge>
                 : comp.isComplete
