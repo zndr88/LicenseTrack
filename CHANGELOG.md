@@ -13,6 +13,48 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.19] - 2026-09-07
+
+### Added
+
+- Added a deeper License Overview sidebar that separates current coverage,
+  planned changes, and historical records, including renewal-in-progress and
+  scheduled-retirement counts.
+- Added coverage urgency for pending renewals: records retain their Expiring or
+  Expired coverage status while also showing the Pending Renewal workflow state,
+  filters, counts, and urgency styling.
+- Added retirement-scheduled and renewal-notifications-off badges to license
+  details.
+- Added expand-all and collapse-all controls for sourcing and pending-order
+  tables, with clearer renewal context and previous-license descriptions in
+  expanded line items.
+
+### Changed
+
+- Changed existing-successor matching to use the normalized publisher as the
+  required identity while allowing other entitlement details to differ, with
+  explicit successor term and license-type eligibility checks.
+- Kept pending renewals in current coverage and recurring reporting until their
+  current term ends, while preserving the separate renewal workflow state.
+- Streamlined sourcing and pending-order workspaces with clearer inline-edit
+  controls, conditional currency display, multi-row expansion, and an explicit
+  path to add a missing purchase-order number before conversion.
+
+### Fixed
+
+- Made single and bundled renewal initiation reserve lifecycle transitions
+  atomically, preventing duplicate concurrent renewal workflows.
+- Coordinated scheduler and background database jobs with restore maintenance so
+  database replacement waits for active work to drain.
+- Allowed manual retry of escalated evidence transfers and repaired missing or
+  stale copied quote evidence during retry.
+- Restricted renewal initiation to records that are actually Expiring or
+  Expired, and kept pending-renewal alerts aligned with the underlying coverage
+  urgency.
+
+No database migration, configuration change, or breaking public API change is
+included in this release.
+
 ## [1.1.18] - 2026-09-06
 
 ### Added
@@ -1429,7 +1471,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.18...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.19...HEAD
+[1.1.19]: https://github.com/zndr88/LicenseTrack/compare/v1.1.18...v1.1.19
 [1.1.18]: https://github.com/zndr88/LicenseTrack/compare/v1.1.17...v1.1.18
 [1.1.17]: https://github.com/zndr88/LicenseTrack/compare/v1.1.16...v1.1.17
 [1.1.16]: https://github.com/zndr88/LicenseTrack/compare/v1.1.15...v1.1.16

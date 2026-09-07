@@ -1,6 +1,6 @@
 # LicenseTrack
 
-Version 1.1.18.
+Version 1.1.19.
 
 LicenseTrack is a self-hosted software license procurement and lifecycle
 management system. It helps organisations track software requests through
