@@ -99,8 +99,8 @@ async def copy_quote_documents_to_procurement_documents(
             ProcurementDocument.category == ProcurementDocumentCategory.quote,
         )
     )
-    existing_source_ids = {
-        doc.source_sourcing_quote_document_id
+    existing_by_source_id = {
+        doc.source_sourcing_quote_document_id: doc
         for doc in existing_result.scalars().all()
         if doc.source_sourcing_quote_document_id is not None
     }
@@ -108,7 +108,11 @@ async def copy_quote_documents_to_procurement_documents(
     stored_paths: list[StoredProcurementPath] = []
     try:
         for quote_doc in quote_result.scalars().all():
-            if quote_doc.id in existing_source_ids:
+            existing_doc = existing_by_source_id.get(quote_doc.id)
+            if existing_doc is not None and storage.get_file_path(
+                existing_doc.filename,
+                storage_base,
+            ).exists():
                 continue
             source_path = storage.get_file_path(quote_doc.filename, storage_base)
             if not source_path.exists():
@@ -122,14 +126,19 @@ async def copy_quote_documents_to_procurement_documents(
                 pending_order_id,
                 storage_base,
             )
-            db.add(ProcurementDocument(
-                po_number=po_number, pending_order_id=pending_order_id, filename=stored_path,
-                original_filename=quote_doc.original_filename, file_size=file_size,
-                mime_type=quote_doc.mime_type, category=ProcurementDocumentCategory.quote,
-                source_sourcing_quote_document_id=quote_doc.id,
-                uploaded_by=user_id,
-            ))
-            existing_source_ids.add(quote_doc.id)
+            if existing_doc is None:
+                db.add(ProcurementDocument(
+                    po_number=po_number, pending_order_id=pending_order_id, filename=stored_path,
+                    original_filename=quote_doc.original_filename, file_size=file_size,
+                    mime_type=quote_doc.mime_type, category=ProcurementDocumentCategory.quote,
+                    source_sourcing_quote_document_id=quote_doc.id,
+                    uploaded_by=user_id,
+                ))
+            else:
+                existing_doc.filename = stored_path
+                existing_doc.original_filename = quote_doc.original_filename
+                existing_doc.file_size = file_size
+                existing_doc.mime_type = quote_doc.mime_type
             stored_paths.append((stored_path, storage_base))
         await db.commit()
         return stored_paths

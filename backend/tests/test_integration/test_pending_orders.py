@@ -1875,6 +1875,69 @@ async def test_evidence_retry_is_idempotent_when_failed_state_is_replayed(
     assert len(quote_result.scalars().all()) == 1
 
 
+async def test_evidence_retry_restores_missing_copied_quote_file(
+    test_app,
+    auth_headers,
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
+    sourcing_item = await _create_sourcing_item(
+        test_app,
+        auth_headers,
+        softwareDescription="Missing Copied Quote App",
+    )
+    request_id = sourcing_item["sourcingRequestId"]
+    upload = await test_app.post(
+        f"/api/sourcing/requests/{request_id}/quote-documents",
+        files={"file": ("recover-quote.pdf", b"recoverable quote", "application/pdf")},
+        headers=auth_headers,
+    )
+    assert upload.status_code == 201, upload.text
+    order = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+    conversion = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber=order["poNumber"]))},
+        headers=auth_headers,
+    )
+    assert conversion.status_code == 200, conversion.text
+
+    quote_result = await db_session.execute(
+        select(ProcurementDocument).where(
+            ProcurementDocument.pending_order_id == order["id"],
+            ProcurementDocument.category == ProcurementDocumentCategory.quote,
+        )
+    )
+    copied_quote = quote_result.scalar_one()
+    original_document_id = copied_quote.id
+    missing_path = copied_quote.filename
+    _storage_module.delete_file(missing_path)
+    stored_order = await db_session.get(PendingOrder, order["id"])
+    stored_order.evidence_transfer_status = EvidenceTransferStatus.failed
+    await db_session.commit()
+
+    retry = await test_app.post(
+        f"/api/pending-orders/{order['id']}/retry-evidence-transfer",
+        headers=auth_headers,
+    )
+
+    assert retry.status_code == 204, retry.text
+    db_session.expire_all()
+    quote_result = await db_session.execute(
+        select(ProcurementDocument).where(
+            ProcurementDocument.pending_order_id == order["id"],
+            ProcurementDocument.category == ProcurementDocumentCategory.quote,
+        )
+    )
+    restored_quote = quote_result.scalar_one()
+    assert restored_quote.id == original_document_id
+    assert restored_quote.filename != missing_path
+    assert _storage_module.get_file_path(restored_quote.filename).read_bytes() == b"recoverable quote"
+    stored_order = await db_session.get(PendingOrder, order["id"])
+    assert stored_order.evidence_transfer_status == EvidenceTransferStatus.complete
+
+
 async def test_manual_evidence_retry_is_allowed_after_escalation(
     test_app,
     auth_headers,
