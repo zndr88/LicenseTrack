@@ -21,7 +21,7 @@ def _license_payload(**overrides) -> dict:
         "unitPrice": "100",
         "currency": "EUR",
         "budgetOwnerEmail": "owner@example.com",
-        "endDate": (date.today() + timedelta(days=45)).isoformat(),
+        "endDate": (date.today() + timedelta(days=30)).isoformat(),
     }
     base.update(overrides)
     return base
@@ -547,14 +547,21 @@ async def test_workbench_excludes_retired_renewed_and_legacy(test_app, auth_head
     assert legacy["id"] not in ids
 
 
-async def test_workbench_includes_pending_renewal_outside_window(test_app, auth_headers):
+async def test_workbench_includes_pending_renewal_outside_window(
+    db_session,
+    test_app,
+    auth_headers,
+):
     license_data = await _create_license(
         test_app,
         auth_headers,
         softwareDescription="Far Future Renewal Tool",
-        endDate=(date.today() + timedelta(days=400)).isoformat(),
+        endDate=(date.today() + timedelta(days=30)).isoformat(),
     )
     await _initiate_renewal(test_app, auth_headers, license_data["id"])
+    license_obj = await db_session.get(License, license_data["id"])
+    license_obj.end_date = date.today() + timedelta(days=400)
+    await db_session.commit()
 
     resp = await test_app.get("/api/renewals/workbench?window_days=1", headers=auth_headers)
 

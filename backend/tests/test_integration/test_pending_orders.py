@@ -694,13 +694,14 @@ async def test_converted_sourcing_item_update_delete_and_reconvert_are_rejected(
 
 
 async def test_renewal_bundle_creates_one_request_with_distinct_lines(test_app, auth_headers, db_session):
+    expiring_end = (date.today() + timedelta(days=30)).isoformat()
     first = await _create_license(
         test_app,
         auth_headers,
         publisherName="SideFX",
         softwareDescription="Houdini Indie Annual License",
         poNumber="PO-BUNDLE-1",
-        endDate="2026-12-31",
+        endDate=expiring_end,
         skuCode="SIDEFX-INDIE",
     )
     second = await _create_license(
@@ -709,7 +710,7 @@ async def test_renewal_bundle_creates_one_request_with_distinct_lines(test_app, 
         publisherName="SideFX",
         softwareDescription="Houdini Pro Annual License",
         poNumber="PO-BUNDLE-1",
-        endDate="2026-12-31",
+        endDate=expiring_end,
         skuCode="SIDEFX-PRO",
     )
 
@@ -2407,7 +2408,7 @@ async def test_renewal_target_supplier_can_change_without_rewriting_historical_s
         softwareDescription="Supplier-flexible renewal",
         supplier="Historical Reseller A",
         contactEmail="historical@example.test",
-        endDate="2026-12-31",
+        endDate=(date.today() + timedelta(days=30)).isoformat(),
     )
     renewal_item = await _initiate_renewal(test_app, auth_headers, predecessor["id"])
 
@@ -2518,12 +2519,13 @@ async def test_renewal_bundle_with_historical_supplier_variation_starts_unassign
     test_app,
     auth_headers,
 ):
+    expiring_end = (date.today() + timedelta(days=30)).isoformat()
     first = await _create_license(
         test_app,
         auth_headers,
         softwareDescription="Bundle App A",
         poNumber="PO-HISTORICAL-MIX",
-        endDate="2026-12-31",
+        endDate=expiring_end,
         supplier="Historical Reseller",
         contactEmail="first@example.test",
     )
@@ -2532,7 +2534,7 @@ async def test_renewal_bundle_with_historical_supplier_variation_starts_unassign
         auth_headers,
         softwareDescription="Bundle App B",
         poNumber="PO-HISTORICAL-MIX",
-        endDate="2026-12-31",
+        endDate=expiring_end,
         supplier="Historical Direct",
         contactEmail="second@example.test",
     )
@@ -3461,6 +3463,10 @@ async def test_convert_subscription_renewal_unaffected(test_app, auth_headers):
 
 
 async def test_coterm_successor_can_be_renewed_as_next_generation(test_app, auth_headers):
+    successor_end = date.today() + timedelta(days=30)
+    successor_start = successor_end - timedelta(days=364)
+    next_start = successor_end + timedelta(days=1)
+    next_end = successor_end + timedelta(days=365)
     first = await _create_license(
         test_app,
         auth_headers,
@@ -3494,8 +3500,8 @@ async def test_coterm_successor_can_be_renewed_as_next_generation(test_app, auth
                     unitPrice="910.25",
                     totalPoPrice="82832.75",
                     currency="GBP",
-                    startDate="2026-01-01",
-                    endDate="2026-12-31",
+                    startDate=successor_start.isoformat(),
+                    endDate=successor_end.isoformat(),
                     supplier="Renewal Supplier",
                     contactEmail="confirmed-coterm@example.test",
                     notes="Confirmed coterm notes",
@@ -3511,8 +3517,8 @@ async def test_coterm_successor_can_be_renewed_as_next_generation(test_app, auth
         test_app,
         auth_headers,
         coterm_successor["id"],
-        startDate="2027-01-01",
-        endDate="2027-12-31",
+        startDate=next_start.isoformat(),
+        endDate=next_end.isoformat(),
     )
 
     first_after = await _get_license(test_app, auth_headers, first["id"])
@@ -3533,8 +3539,8 @@ async def test_coterm_successor_can_be_renewed_as_next_generation(test_app, auth
             "unitPrice": "910.25",
             "totalPoPrice": "82832.75",
             "currency": "GBP",
-            "startDate": "2026-01-01",
-            "endDate": "2026-12-31",
+            "startDate": successor_start.isoformat(),
+            "endDate": successor_end.isoformat(),
             "supplier": "Renewal Supplier",
             "contactEmail": "confirmed-coterm@example.test",
             "notes": "Confirmed coterm notes",
@@ -3786,11 +3792,20 @@ async def test_coterm_legacy_unlinked_primary_stays_parentless(
         parentLicenseId=parent["id"],
         publisherName="Legacy Publisher",
         softwareDescription="Legacy Renewal Maintenance",
-        startDate="2027-01-01",
-        endDate="2027-12-31",
+        startDate=(date.today() - timedelta(days=334)).isoformat(),
+        endDate=(date.today() + timedelta(days=30)).isoformat(),
     )
     primary_sourcing = await _initiate_renewal(test_app, auth_headers, primary.id)
     secondary_sourcing = await _initiate_renewal(test_app, auth_headers, secondary["id"])
+    # Preserve the future-term topology this coterm test exercises after the
+    # renewal has legitimately entered the workflow from an expiring term.
+    secondary_license = await db_session.get(License, secondary["id"])
+    secondary_license.start_date = date(2027, 1, 1)
+    secondary_license.end_date = date(2027, 12, 31)
+    secondary_item = await db_session.get(SourcingItem, secondary_sourcing["id"])
+    secondary_item.start_date = date(2028, 1, 1)
+    secondary_item.end_date = date(2028, 12, 31)
+    await db_session.commit()
     merge_response = await test_app.post(
         "/api/sourcing/merge",
         json={"sourcingItemIds": [primary_sourcing["id"], secondary_sourcing["id"]]},

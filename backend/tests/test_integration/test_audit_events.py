@@ -42,7 +42,7 @@ async def seeded_license(db_session):
         license_type=LicenseType.subscription,
         license_metric=LicenseMetric.per_user,
         start_date=date.today(),
-        end_date=date.today() + timedelta(days=90),
+        end_date=date.today() + timedelta(days=30),
         currency="EUR",
         budget_owner_email="owner@example.com",
     )
