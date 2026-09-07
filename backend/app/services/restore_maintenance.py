@@ -9,6 +9,7 @@ class RestoreMaintenance:
     def __init__(self) -> None:
         self._condition = asyncio.Condition()
         self._active_requests = 0
+        self._active_background_jobs = 0
         self._maintenance = False
         self._restore_in_progress = False
         self._restore_owner: object | None = None
@@ -29,6 +30,18 @@ class RestoreMaintenance:
             self._active_requests = max(0, self._active_requests - 1)
             self._condition.notify_all()
 
+    async def enter_background_job(self) -> bool:
+        async with self._condition:
+            if self._maintenance:
+                return False
+            self._active_background_jobs += 1
+            return True
+
+    async def leave_background_job(self) -> None:
+        async with self._condition:
+            self._active_background_jobs = max(0, self._active_background_jobs - 1)
+            self._condition.notify_all()
+
     async def begin_restore(self) -> object:
         async with self._condition:
             if self._restore_in_progress:
@@ -39,7 +52,7 @@ class RestoreMaintenance:
             self._maintenance = True
             self._condition.notify_all()
             try:
-                while self._active_requests:
+                while self._active_requests or self._active_background_jobs:
                     await self._condition.wait()
             except BaseException:
                 self._maintenance = False

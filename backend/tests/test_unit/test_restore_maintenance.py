@@ -48,3 +48,22 @@ async def test_cancelled_restore_wait_releases_maintenance():
 
     assert maintenance.maintenance is False
     await maintenance.leave_request()
+
+
+async def test_restore_waits_for_background_jobs_and_blocks_new_ones():
+    maintenance = RestoreMaintenance()
+    assert await maintenance.enter_background_job() is True
+
+    restore_task = asyncio.create_task(maintenance.begin_restore())
+    await asyncio.sleep(0)
+
+    assert maintenance.maintenance is True
+    assert await maintenance.enter_background_job() is False
+    assert not restore_task.done()
+
+    await maintenance.leave_background_job()
+    owner = await restore_task
+    await maintenance.end_restore(owner)
+
+    assert await maintenance.enter_background_job() is True
+    await maintenance.leave_background_job()

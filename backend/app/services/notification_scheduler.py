@@ -8,9 +8,20 @@ from app.models.settings import GlobalSettings
 from app.services.notification_sender import run_daily_notifications
 from app.services.license_retirement_service import retire_due_licenses
 from app.services.pending_order_conversion_service import sweep_stale_evidence_transfers
+from app.services.restore_maintenance import restore_maintenance
 from app.services.webhook_service import dispatch_pending_webhooks
 
 log = logging.getLogger(__name__)
+
+
+async def _run_database_job(job, *, skipped=None):
+    """Run one scheduler workload unless database replacement is in progress."""
+    if not await restore_maintenance.enter_background_job():
+        return skipped
+    try:
+        return await job()
+    finally:
+        await restore_maintenance.leave_background_job()
 
 
 def _seconds_until_hour(now: datetime, hour: int) -> float:
@@ -128,28 +139,37 @@ async def start_scheduler():
 
     # Run initial audit log prune shortly after startup
     await asyncio.sleep(5)
-    await _run_initial_audit_prune()
+    await _run_database_job(_run_initial_audit_prune)
 
     last_prune_day: int | None = None  # track calendar day of last prune
 
     while True:
         try:
-            delivered_count = await dispatch_pending_webhooks()
+            delivered_count = await _run_database_job(
+                dispatch_pending_webhooks,
+                skipped=0,
+            )
             if delivered_count:
                 log.info(f"Webhook dispatch attempted for {delivered_count} pending delivery record(s)")
         except Exception as exc:
             log.error(f"Webhook dispatch failed: {exc}", exc_info=True)
 
         try:
-            swept_count = await sweep_stale_evidence_transfers()
+            swept_count = await _run_database_job(
+                sweep_stale_evidence_transfers,
+                skipped=0,
+            )
             if swept_count:
                 log.info(f"Evidence transfer sweep attempted for {swept_count} order(s)")
         except Exception as exc:
             log.error(f"Evidence transfer sweep failed: {exc}", exc_info=True)
 
         try:
-            async with AsyncSessionLocal() as db:
-                retired_count = await retire_due_licenses(db)
+            async def run_retirements():
+                async with AsyncSessionLocal() as db:
+                    return await retire_due_licenses(db)
+
+            retired_count = await _run_database_job(run_retirements, skipped=0)
             if retired_count:
                 log.info(f"Completed {retired_count} scheduled license retirement(s)")
         except Exception as exc:
@@ -157,9 +177,11 @@ async def start_scheduler():
 
         now = datetime.now(timezone.utc)
 
-        send_hour, backup_hour, backup_enabled, retention_days = (
-            await _load_scheduler_settings()
-        )
+        scheduler_settings = await _run_database_job(_load_scheduler_settings)
+        if scheduler_settings is None:
+            await asyncio.sleep(1)
+            continue
+        send_hour, backup_hour, backup_enabled, retention_days = scheduler_settings
 
         # Sleep until whichever of the two jobs fires next
         notif_wait = _seconds_until_hour(now, send_hour)
@@ -180,31 +202,34 @@ async def start_scheduler():
             notif_target = notif_target + timedelta(days=1)
         if now_after >= notif_target:
             try:
-                async with AsyncSessionLocal() as db:
-                    gs_notif = (
-                        await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
-                    ).scalar_one_or_none()
-                    today = now_after.date()
-                    if gs_notif and gs_notif.last_notification_sent_date == today:
-                        log.info("Notification run skipped - already sent successfully today")
-                    elif gs_notif and gs_notif.last_notification_attempt_date == today:
-                        # We already tried automatically today and it did not fully
-                        # succeed. Do not auto-retry every loop iteration; leave the
-                        # day open so an admin can retry via the manual trigger.
-                        log.info(
-                            "Notification run skipped - already attempted today without "
-                            "success; use the manual trigger to retry"
-                        )
-                    else:
-                        summary = await run_daily_notifications(db)
-                        if summary.get("status") == "conflict":
-                            log.info("Scheduled notification run skipped because another run is active")
-                        elif summary.get("status") in {"success", "no_work", "skipped"}:
-                            log.info(f"Notification run complete: {summary}")
-                        else:
-                            log.warning(
-                                f"Notification run had delivery failures, day left open for manual retry: {summary}"
+                async def run_notifications():
+                    async with AsyncSessionLocal() as db:
+                        gs_notif = (
+                            await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
+                        ).scalar_one_or_none()
+                        today = now_after.date()
+                        if gs_notif and gs_notif.last_notification_sent_date == today:
+                            log.info("Notification run skipped - already sent successfully today")
+                        elif gs_notif and gs_notif.last_notification_attempt_date == today:
+                            # We already tried automatically today and it did not fully
+                            # succeed. Do not auto-retry every loop iteration; leave the
+                            # day open so an admin can retry via the manual trigger.
+                            log.info(
+                                "Notification run skipped - already attempted today without "
+                                "success; use the manual trigger to retry"
                             )
+                        else:
+                            summary = await run_daily_notifications(db)
+                            if summary.get("status") == "conflict":
+                                log.info("Scheduled notification run skipped because another run is active")
+                            elif summary.get("status") in {"success", "no_work", "skipped"}:
+                                log.info(f"Notification run complete: {summary}")
+                            else:
+                                log.warning(
+                                    f"Notification run had delivery failures, day left open for manual retry: {summary}"
+                                )
+
+                await _run_database_job(run_notifications)
             except Exception as exc:
                 log.error(f"Notification run failed: {exc}", exc_info=True)
 
@@ -214,12 +239,19 @@ async def start_scheduler():
             if now >= backup_target:
                 backup_target = backup_target + timedelta(days=1)
             if now_after >= backup_target:
-                gs_fresh = await _load_backup_settings()
-                if gs_fresh:
-                    await _run_backup(gs_fresh)
+                async def run_backup():
+                    gs_fresh = await _load_backup_settings()
+                    if gs_fresh:
+                        await _run_backup(gs_fresh)
+
+                await _run_database_job(run_backup)
 
         # Run audit log prune once per calendar day (at notification time or backup time)
         today_day = now_after.date().day
         if last_prune_day != today_day:
-            await _prune_audit_log(retention_days)
-            last_prune_day = today_day
+            pruned = await _run_database_job(
+                lambda: _prune_audit_log(retention_days),
+                skipped=False,
+            )
+            if pruned is not False:
+                last_prune_day = today_day

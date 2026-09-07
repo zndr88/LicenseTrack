@@ -72,6 +72,28 @@ async def test_write_backup_status_updates_global_settings(db_session, monkeypat
     assert settings.last_backup_at is not None
 
 
+async def test_database_job_is_skipped_during_restore(monkeypatch):
+    called = False
+
+    async def job():
+        nonlocal called
+        called = True
+
+    async def reject_job():
+        return False
+
+    monkeypatch.setattr(
+        notification_scheduler.restore_maintenance,
+        "enter_background_job",
+        reject_job,
+    )
+
+    result = await notification_scheduler._run_database_job(job, skipped="blocked")
+
+    assert result == "blocked"
+    assert called is False
+
+
 async def test_run_backup_skips_when_disabled(monkeypatch):
     called = False
 
