@@ -1,10 +1,15 @@
 from datetime import date, timedelta
 
+import asyncio
+from fastapi import HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.audit_log import AuditLog
 from app.models.license import License, LifecycleStatus
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
+from app.models.user import User
+from app.services import renewal_orchestrator
 
 
 def _license_payload(**overrides) -> dict:
@@ -83,6 +88,57 @@ async def test_initiate_recurring_renewal_suggests_next_annual_term(test_app, au
     sourcing_item = response.json()["sourcingItem"]
     assert sourcing_item["startDate"] == "2026-01-01"
     assert sourcing_item["endDate"] == "2026-12-31"
+
+
+async def test_concurrent_renewal_initiation_reserves_lifecycle_once(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    predecessor = await _create_license(test_app, auth_headers)
+    actor_id = await db_session.scalar(select(User.id).where(User.username == "testadmin"))
+    session_factory = async_sessionmaker(
+        bind=db_session.bind,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+
+    async with session_factory() as first_db, session_factory() as second_db:
+        first_actor = await first_db.get(User, actor_id)
+        second_actor = await second_db.get(User, actor_id)
+        # Load the same eligible state into both independent identity maps before
+        # either transaction attempts the lifecycle reservation.
+        await first_db.get(License, predecessor["id"])
+        await second_db.get(License, predecessor["id"])
+
+        async def initiate(db, actor):
+            try:
+                result = await renewal_orchestrator.initiate_renewal(
+                    db=db,
+                    license_id=predecessor["id"],
+                    actor=actor,
+                    ip_address=None,
+                    notification_days=30,
+                )
+                await db.commit()
+                return result.sourcing_item.id
+            except HTTPException as exc:
+                await db.rollback()
+                return exc.status_code
+
+        outcomes = await asyncio.gather(
+            initiate(first_db, first_actor),
+            initiate(second_db, second_actor),
+        )
+
+    assert outcomes.count(409) == 1
+    assert len([outcome for outcome in outcomes if outcome != 409]) == 1
+    sourcing_count = await db_session.scalar(
+        select(func.count(SourcingItem.id)).where(
+            SourcingItem.renewal_for_license_id == predecessor["id"]
+        )
+    )
+    assert sourcing_count == 1
 
 
 async def test_initiate_renewal_rejects_license_before_expiration_window(test_app, auth_headers):

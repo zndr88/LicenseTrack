@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import Integer, cast, exists, func, or_, select
+from sqlalchemy import Integer, cast, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,6 +15,7 @@ from app.models.user import User
 from app.services.audit_service import format_audit_detail, log_event
 from app.services.license_service import compute_expiration_status, generate_license_ref, validate_term_date_order
 from app.services.lifecycle_rules import (
+    assert_can_initiate_renewal,
     assert_successor_term,
     assert_can_cancel_renewal,
     assert_predecessor_has_no_successor,
@@ -307,7 +308,29 @@ async def initiate_renewal(
     license_obj = result.scalar_one_or_none()
     if license_obj is None:
         raise HTTPException(status_code=404, detail="License not found")
-    mark_pending_renewal(license_obj, notification_days=notification_days)
+    assert_can_initiate_renewal(license_obj, notification_days=notification_days)
+
+    current_lifecycle_status = license_obj.lifecycle_status
+    lifecycle_match = (
+        License.lifecycle_status.is_(None)
+        if current_lifecycle_status is None
+        else License.lifecycle_status == current_lifecycle_status
+    )
+    reservation = await db.execute(
+        update(License)
+        .where(
+            License.id == license_id,
+            lifecycle_match,
+            License.renewed_to_id.is_(None),
+            License.is_retired.is_(False),
+            License.retirement_scheduled.is_(False),
+        )
+        .values(lifecycle_status="pending_renewal")
+        .execution_options(synchronize_session=False)
+    )
+    if reservation.rowcount != 1:
+        raise HTTPException(status_code=409, detail="Renewal already initiated for this license")
+    await db.refresh(license_obj)
 
     sourcing_item = build_renewal_sourcing_item(license_obj, created_by=actor.id)
     sourcing_item.publisher_id = license_obj.publisher_id
