@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { getVisibleColumns, isColumnFilterable } from "../components/pages/licenses/licenseTableShared.js";
+import { getVisibleColumns, hasUpcomingReplacement, isColumnFilterable, rowStyle } from "../components/pages/licenses/licenseTableShared.js";
 import { hasSortAccessor } from "../utils/sort.js";
 import {
   COLUMN_DEFS,
@@ -14,6 +14,35 @@ const columns = [
   { key: "endDate" },
   { key: "expiration", always: true },
 ];
+
+describe("upcoming replacement row indicator", () => {
+  const predecessor = { id: 1, renewedToId: 2, expiration: { status: "expiring" } };
+
+  test("marks an expiring predecessor only when its linked successor is upcoming", () => {
+    expect(hasUpcomingReplacement(predecessor, { id: 2, expiration: { status: "upcoming" } })).toBe(true);
+  });
+
+  test.each(["active", "expired", "renewed", "retired"])("does not mark a %s successor", (status) => {
+    expect(hasUpcomingReplacement(predecessor, { id: 2, expiration: { status } })).toBe(false);
+  });
+
+  test("does not infer a successor from pending workflow or an unresolved link", () => {
+    expect(hasUpcomingReplacement(predecessor)).toBe(false);
+    expect(hasUpcomingReplacement(predecessor, { id: 3, expiration: { status: "upcoming" } })).toBe(false);
+    expect(hasUpcomingReplacement({ ...predecessor, renewedToId: null, lifecycleStatus: "pending_renewal" })).toBe(false);
+  });
+
+  test("keeps expired gaps visibly overdue even when a successor is upcoming", () => {
+    const expired = { ...predecessor, expiration: { status: "expired" } };
+    expect(hasUpcomingReplacement(expired, { id: 2, expiration: { status: "upcoming" } })).toBe(false);
+    expect(rowStyle(expired)).toEqual({ background: "var(--red-dim)", borderLeft: "3px solid var(--red)" });
+  });
+
+  test("preserves expiring urgency shade while indicating the upcoming replacement", () => {
+    expect(rowStyle(predecessor, true)).toEqual({ background: "var(--orange-dim)", borderLeft: "3px solid var(--steel)" });
+    expect(rowStyle(predecessor)).toEqual({ background: "var(--orange-dim)", borderLeft: "3px solid var(--orange)" });
+  });
+});
 
 describe("getVisibleColumns", () => {
   test("hides both date columns when the grouped dates preference is disabled", () => {

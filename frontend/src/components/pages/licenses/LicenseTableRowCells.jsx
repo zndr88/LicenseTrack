@@ -119,7 +119,7 @@ function InlineEditableCell({ license, col, config, currentValue, onInlineFieldS
   );
 }
 
-function ExpirationCell({ license }) {
+function ExpirationCell({ license, upcomingReplacement }) {
   return (
     <div className="lp-expiration-badges">
       {license.expiration.status === "retired" && <Badge type="gray">Retired</Badge>}
@@ -130,6 +130,7 @@ function ExpirationCell({ license }) {
       {license.expiration.status === "expiring" && <Badge type="orange">{license.expiration.label}</Badge>}
       {license.expiration.status === "active" && <Badge type="green">{license.expiration.label}</Badge>}
       {license.expiration.status === "perpetual" && <Badge type="blue">Perpetual</Badge>}
+      {upcomingReplacement && <Badge type="blue">Upcoming replacement linked</Badge>}
       {license.lifecycleStatus === "pending_renewal" && <span className="badge badge-pending"><span className="badge-dot" />Pending Renewal</span>}
     </div>
   );
@@ -192,6 +193,7 @@ function InvoiceNumberCell({ license }) {
 
 export default function LicenseTableRowCells({
   license,
+  upcomingReplacement = false,
   visibleColumns,
   selectedIds,
   setSelectedIds,
@@ -326,7 +328,7 @@ export default function LicenseTableRowCells({
         );
       }
       case "expiration":
-        return <td key="expiration"><ExpirationCell license={license} /></td>;
+        return <td key="expiration"><ExpirationCell license={license} upcomingReplacement={upcomingReplacement} /></td>;
       case "complete":
         return <td key="complete"><StatusCell license={license} /></td>;
       case "createdBy":

@@ -1,10 +1,10 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Icon from "../../ui/Icon.jsx";
 import LicenseTableFooter from "./LicenseTableFooter.jsx";
 import LicenseTableHeader from "./LicenseTableHeader.jsx";
 import LicenseTableRowCells from "./LicenseTableRowCells.jsx";
-import { getVisibleColumns, rowStyle, VIRTUAL_THRESHOLD } from "./licenseTableShared.js";
+import { getVisibleColumns, hasUpcomingReplacement, rowStyle, VIRTUAL_THRESHOLD } from "./licenseTableShared.js";
 
 export default function LicenseTable({
   filtered,
@@ -53,6 +53,7 @@ export default function LicenseTable({
   const allDisplayedSelected = displayRows.length > 0 && displayRows.every((license) => selectedIds.has(license.id));
   const someDisplayedSelected = displayRows.some((license) => selectedIds.has(license.id));
   const visibleColumns = getVisibleColumns(activeColumns, visList);
+  const licensesById = useMemo(() => new Map(licenses.map((license) => [license.id, license])), [licenses]);
 
   const rowVirtualizer = useVirtualizer({
     count: filtered.length,
@@ -89,45 +90,50 @@ export default function LicenseTable({
     }
   }, [someDisplayedSelected, allDisplayedSelected]);
 
-  const renderRow = (license) => (
-    <tr
-      key={license.id}
-      tabIndex={0}
-      onClick={() => {
-        if (!inlineEditEnabled) setSelectedId(license.id);
-      }}
-      onKeyDown={(e) => {
-        if (!inlineEditEnabled && (e.key === "Enter" || e.key === " ")) {
-          e.preventDefault();
-          setSelectedId(license.id);
-        }
-      }}
-      aria-selected={selectedId === license.id}
-      className={inlineEditEnabled ? "lp-row-inline-edit" : undefined}
-      style={{
-        ...rowStyle(license),
-        ...(selectedId === license.id ? {
-          outline: "2px solid var(--accent)",
-          outlineOffset: -2,
-          position: "relative",
-          zIndex: 1,
-        } : {}),
-      }}
-    >
-      <LicenseTableRowCells
-        license={license}
-        visibleColumns={visibleColumns}
-        selectedIds={selectedIds}
-        setSelectedIds={setSelectedIds}
-        licenses={licenses}
-        customFieldValuesMap={customFieldValuesMap}
-        displayCurrency={displayCurrency}
-        userSettings={userSettings}
-        inlineEditEnabled={inlineEditEnabled}
-        onInlineFieldSave={onInlineFieldSave}
-      />
-    </tr>
-  );
+  const renderRow = (license) => {
+    const upcomingReplacement = hasUpcomingReplacement(license, licensesById.get(license.renewedToId));
+    return (
+      <tr
+        key={license.id}
+        tabIndex={0}
+        onClick={() => {
+          if (!inlineEditEnabled) setSelectedId(license.id);
+        }}
+        onKeyDown={(e) => {
+          if (!inlineEditEnabled && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            setSelectedId(license.id);
+          }
+        }}
+        aria-selected={selectedId === license.id}
+        title={upcomingReplacement ? "Upcoming replacement linked" : undefined}
+        className={inlineEditEnabled ? "lp-row-inline-edit" : undefined}
+        style={{
+          ...rowStyle(license, upcomingReplacement),
+          ...(selectedId === license.id ? {
+            outline: "2px solid var(--accent)",
+            outlineOffset: -2,
+            position: "relative",
+            zIndex: 1,
+          } : {}),
+        }}
+      >
+        <LicenseTableRowCells
+          license={license}
+          upcomingReplacement={upcomingReplacement}
+          visibleColumns={visibleColumns}
+          selectedIds={selectedIds}
+          setSelectedIds={setSelectedIds}
+          licenses={licenses}
+          customFieldValuesMap={customFieldValuesMap}
+          displayCurrency={displayCurrency}
+          userSettings={userSettings}
+          inlineEditEnabled={inlineEditEnabled}
+          onInlineFieldSave={onInlineFieldSave}
+        />
+      </tr>
+    );
+  };
 
   return (
     <>

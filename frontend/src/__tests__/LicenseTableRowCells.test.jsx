@@ -3,13 +3,14 @@ import { describe, expect, test, vi } from "vitest";
 import LicenseTableRowCells from "../components/pages/licenses/LicenseTableRowCells.jsx";
 import { rowStyle } from "../components/pages/licenses/licenseTableShared.js";
 
-function renderCells(license, visibleColumns = [{ key: "docs" }], userSettings = { numberFormatLocale: "en-US" }) {
+function renderCells(license, visibleColumns = [{ key: "docs" }], userSettings = { numberFormatLocale: "en-US" }, upcomingReplacement = false) {
   render(
     <table>
       <tbody>
         <tr>
           <LicenseTableRowCells
             license={license}
+            upcomingReplacement={upcomingReplacement}
             visibleColumns={visibleColumns}
             selectedIds={new Set()}
             setSelectedIds={vi.fn()}
@@ -69,6 +70,16 @@ describe("LicenseTableRowCells record identity", () => {
 });
 
 describe("LicenseTableRowCells overlapping renewal status", () => {
+  test("shows expiring urgency alongside the upcoming replacement label", () => {
+    renderCells({
+      id: 1,
+      expiration: { status: "expiring", label: "Expires in 10d" },
+    }, [{ key: "expiration" }], {}, true);
+
+    expect(screen.getByText("Expires in 10d")).toBeInTheDocument();
+    expect(screen.getByText("Upcoming replacement linked")).toBeInTheDocument();
+  });
+
   test.each([
     ["expiring", "Expires in 10d"],
     ["expired", "Expired 2d ago"],
