@@ -15,6 +15,7 @@ vi.mock("../api/licenses.js", () => ({
   initiateRenewalBundle: vi.fn(),
   unlinkExistingSuccessor: vi.fn(),
   updateLicense: vi.fn(),
+  patchLicenseField: vi.fn(),
 }));
 
 const baseLicense = {
@@ -82,6 +83,35 @@ beforeEach(() => {
 });
 
 describe("useLicenseActions", () => {
+  test.each(["update", "patch", "refresh"])("warns after a PO change with documents through %s", async (mode) => {
+    licensesApi.patchLicenseField.mockResolvedValue({ data: { ...baseLicense, poNumber: "NEW" }, error: null });
+    const { result } = renderActions({ licenses: [{ ...baseLicense, poNumber: "OLD", documentCount: 2 }] });
+    await act(async () => {
+      if (mode === "patch") await result.current.handleLicenseFieldPatch(1, "poNumber", "NEW");
+      else await result.current.handleLicenseUpdate(1, { poNumber: "NEW", ...(mode === "refresh" ? { documentCount: 2 } : {}) });
+    });
+    expect(result.current.poDocumentWarning).toEqual({ oldPoNumber: "OLD", newPoNumber: "NEW" });
+    act(() => result.current.dismissPoDocumentWarning());
+    expect(result.current.poDocumentWarning).toBeNull();
+  });
+
+  test.each([
+    ["unchanged PO", { poNumber: "OLD", documentCount: 2 }, { poNumber: "OLD" }],
+    ["no documents", { poNumber: "OLD", documentCount: 0 }, { poNumber: "NEW" }],
+    ["other field", { poNumber: "OLD", documentCount: 2 }, { softwareDescription: "Changed" }],
+  ])("does not warn for %s", async (_label, license, updates) => {
+    const { result } = renderActions({ licenses: [{ ...baseLicense, ...license }] });
+    await act(async () => { await result.current.handleLicenseUpdate(1, updates); });
+    expect(result.current.poDocumentWarning).toBeNull();
+  });
+
+  test("failed PO changes do not show the document warning", async () => {
+    licensesApi.updateLicense.mockResolvedValueOnce({ error: "Save failed" });
+    const { result } = renderActions({ licenses: [{ ...baseLicense, poNumber: "OLD", documentCount: 2 }] });
+    await act(async () => { await result.current.handleLicenseUpdate(1, { poNumber: "NEW" }); });
+    expect(result.current.poDocumentWarning).toBeNull();
+  });
+
   test("preserves update payload shape while mapping retired to isRetired", async () => {
     const fresh = { ...baseLicense, isRetired: true, softwareDescription: "Updated Suite" };
     licensesApi.getLicense.mockResolvedValueOnce({ data: fresh, error: null });

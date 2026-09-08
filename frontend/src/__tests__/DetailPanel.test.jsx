@@ -1100,6 +1100,11 @@ describe('DetailPanel documents', () => {
     expect(await screen.findByRole('button', { name: 'Upload invoice (shared purchase)' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Upload quote (shared purchase)' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Upload purchase order (shared purchase)' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Quote document scope: Shared' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: 'EULA document scope: Single' })).toHaveAttribute('aria-checked', 'false')
+    await user.click(screen.getByRole('switch', { name: 'Quote document scope: Shared' }))
+    expect(screen.getByRole('button', { name: 'Upload quote' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Quote document scope: Single' })).toHaveAttribute('aria-checked', 'false')
   })
 
   it('hides license document download actions for read-only viewers', async () => {

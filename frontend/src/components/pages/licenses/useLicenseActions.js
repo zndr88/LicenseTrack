@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   bulkDeleteLicenses,
@@ -13,7 +13,7 @@ import {
 import { queryKeys } from "../../../queryKeys.js";
 import { invalidateNotifications, invalidateRenewalWorkflow } from "../../../queryInvalidation.js";
 import { normalizeLicense } from "../../../utils/helpers.js";
-import { updateLicensesInQueryData } from "../../../utils/licenseQueryData.js";
+import { getLicensesFromQueryData, updateLicensesInQueryData } from "../../../utils/licenseQueryData.js";
 import { useRenewalWorkflowActions } from "../../../hooks/useRenewalWorkflowActions.js";
 
 export function useLicenseActions({
@@ -28,6 +28,15 @@ export function useLicenseActions({
   onSourcingCreated,
 }) {
   const queryClient = useQueryClient();
+  const [poDocumentWarning, setPoDocumentWarning] = useState(null);
+  const warnAboutPoDocuments = useCallback((previous, id, updates) => {
+    if (!("poNumber" in updates)) return;
+    const license = getLicensesFromQueryData(previous).find((item) => item.id === id);
+    if (!license || (license.poNumber ?? "") === (updates.poNumber ?? "")) return;
+    const hasDocuments = license.documentCount > 0
+      || Object.values(license.documents ?? {}).some((documents) => documents?.length > 0);
+    if (hasDocuments) setPoDocumentWarning({ oldPoNumber: license.poNumber, newPoNumber: updates.poNumber });
+  }, []);
 
   const updateLicensesInCache = useCallback((updater) => {
     queryClient.setQueryData(queryKeys.licenses, (old) => {
@@ -51,6 +60,7 @@ export function useLicenseActions({
     const previous = queryClient.getQueryData(queryKeys.licenses);
     updateLicensesInCache((ls) => ls.map((l) => l.id === id ? { ...l, ...upd } : l));
     if (upd.documents || "documentCount" in upd || "renewedFromId" in upd) {
+      warnAboutPoDocuments(previous, id, upd);
       if (upd.documents || "documentCount" in upd) {
         queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
       }
@@ -69,11 +79,12 @@ export function useLicenseActions({
     }
     const { data: fresh } = await getLicense(id);
     if (fresh) updateLicensesInCache((ls) => ls.map((l) => l.id === id ? normalizeLicense(fresh) : l));
+    warnAboutPoDocuments(previous, id, upd);
     queryClient.invalidateQueries({ queryKey: queryKeys.licenseStats });
     onPortfolioStateChange?.();
     invalidateNotifications(queryClient);
     return true;
-  }, [queryClient, updateLicensesInCache, onPortfolioStateChange, showError]);
+  }, [queryClient, updateLicensesInCache, onPortfolioStateChange, showError, warnAboutPoDocuments]);
 
   const handleLicenseFieldPatch = useCallback(async (id, field, value) => {
     const previous = queryClient.getQueryData(queryKeys.licenses);
@@ -93,11 +104,12 @@ export function useLicenseActions({
       if (fresh) updateLicensesInCache((ls) => ls.map((l) => l.id === id ? normalizeLicense(fresh) : l));
     }
 
+    warnAboutPoDocuments(previous, id, { [field]: value });
     queryClient.invalidateQueries({ queryKey: queryKeys.licenseStats });
     onPortfolioStateChange?.();
     invalidateNotifications(queryClient);
     return { ok: true, error: null };
-  }, [queryClient, updateLicensesInCache, onPortfolioStateChange, showError]);
+  }, [queryClient, updateLicensesInCache, onPortfolioStateChange, showError, warnAboutPoDocuments]);
 
   const handlePoTotalOverride = useCallback(async (id, value) => {
     const apiCall = value === null ? clearPoTotalOverrideApi(id) : setPoTotalOverrideApi(id, value);
@@ -172,6 +184,8 @@ export function useLicenseActions({
   ]);
 
   return {
+    poDocumentWarning,
+    dismissPoDocumentWarning: () => setPoDocumentWarning(null),
     handleLicenseUpdate,
     handleLicenseFieldPatch,
     handlePoTotalOverride,

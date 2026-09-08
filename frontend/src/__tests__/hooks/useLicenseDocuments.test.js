@@ -21,6 +21,7 @@ vi.mock("../../api/licenses.js", () => ({
 
 import {
   deleteDocument,
+  uploadDocument,
   getDocuments,
   listDocumentProcessingResults,
 } from "../../api/documents.js";
@@ -54,6 +55,28 @@ function renderForLicense(id) {
 }
 
 describe("useLicenseDocuments", () => {
+  test("uploads with the selected scope and warns when removing same-PO evidence", async () => {
+    getDocuments.mockResolvedValue({ data: [], error: null });
+    listDocumentProcessingResults.mockResolvedValue({ data: [], error: null });
+    getLicense.mockResolvedValue({ data: {}, error: null });
+    uploadDocument.mockResolvedValue({ error: null });
+    const props = renderForLicense(1);
+    const { result } = renderHook(() => useLicenseDocuments(props));
+    await waitFor(() => expect(result.current.docsLoading).toBe(false));
+    const input = document.createElement("input");
+    const createElement = vi.spyOn(document, "createElement").mockReturnValueOnce(input);
+    act(() => result.current.handleFileUpload("quote", "license"));
+    createElement.mockRestore();
+    const file = new File(["pdf"], "quote.pdf", { type: "application/pdf" });
+    await act(async () => { await input.onchange({ target: { files: [file] } }); });
+    expect(uploadDocument).toHaveBeenCalledWith(1, file, "quote", "license");
+
+    act(() => result.current.handleFileRemove({ id: 4, original_filename: "quote.pdf", shared_po_number: "PO-123", scope: "po" }));
+    expect(props.setConfirmAction).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringContaining('every license sharing PO number "PO-123"'),
+    }));
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });

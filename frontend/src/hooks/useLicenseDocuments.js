@@ -15,6 +15,7 @@ import {
 import { getLicense } from "../api/licenses.js";
 import { documentAvailabilityHelp, documentAvailabilitySummary, isFileAvailable } from "../utils/documentAvailability.js";
 import { isPreviewablePdf } from "../utils/documentPreview.js";
+import { defaultDocumentScope } from "../utils/documentCategories.js";
 
 export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setToast, onProcessingAccepted, onPreviewDocument }) {
   const [documents, setDocuments] = useState(null);
@@ -81,7 +82,7 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     setProcessingRequestPending(false);
     loadDocuments();
     loadProcessingResults();
-  }, [license.id]); // eslint-disable-line react-hooks/exhaustive-deps -- license-scoped fetch guarded by request refs
+  }, [license.id, license.poNumber]); // eslint-disable-line react-hooks/exhaustive-deps -- license-scoped fetch guarded by request refs; PO changes can change shared visibility
 
   useEffect(() => {
     listDocumentActions().then(({ data }) => {
@@ -140,7 +141,7 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     await onProcessingAccepted?.();
   };
 
-  const handleFileUpload = (category) => {
+  const handleFileUpload = (category, scope = defaultDocumentScope(category)) => {
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
@@ -150,7 +151,7 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
       setUploadingCategory(category);
       let anyError = null;
       for (const file of files) {
-        const { error } = await uploadDocument(license.id, file, category);
+        const { error } = await uploadDocument(license.id, file, category, scope);
         if (error) { anyError = error; break; }
       }
       setUploadingCategory(null);
@@ -164,7 +165,9 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
   };
 
   const handleFileRemove = (doc) => {
-    const sharedScopeWarning = doc?.pending_order_id
+    const sharedScopeWarning = doc?.shared_po_number
+      ? ` It will be removed from every license sharing PO number "${doc.shared_po_number}".`
+      : doc?.pending_order_id
       ? " It will be removed from every license in this purchase."
       : doc?.procurement_bundle_id
         ? " It will be removed from every license in this manual batch."

@@ -26,6 +26,7 @@ import LicenseTable from "./licenses/LicenseTable.jsx";
 import LicenseToolbar from "./licenses/LicenseToolbar.jsx";
 import DocumentPreviewPane from "./licenses/DocumentPreviewPane.jsx";
 import { useDocumentPreview } from "./licenses/useDocumentPreview.js";
+import PoDocumentWarning from "./licenses/PoDocumentWarning.jsx";
 
 export { exportFilteredCsv };
 
@@ -207,6 +208,8 @@ export default function LicensesPage({
 
   const {
     handleLicenseUpdate,
+    poDocumentWarning,
+    dismissPoDocumentWarning,
     handleLicenseFieldPatch,
     handlePoTotalOverride,
     handleLicenseDelete,
@@ -461,6 +464,7 @@ export default function LicensesPage({
         licenses={licenses}
         handleBulkDelete={handleBulkDelete}
       />
+      <PoDocumentWarning warning={poDocumentWarning} onClose={dismissPoDocumentWarning} />
     </>
   );
 }

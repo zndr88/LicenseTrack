@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { formatDateTime, formatFileSize } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
+import Toggle from "../../ui/Toggle.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
 import PluginSlot from "../../plugins/PluginSlot.jsx";
@@ -14,7 +15,7 @@ import SuggestionReviewCard from "./SuggestionReviewCard.jsx";
 import {
   DOCUMENT_CATEGORIES,
   documentFileIconColor,
-  isProcurementDocumentCategory,
+  defaultDocumentScope,
 } from "../../../utils/documentCategories.js";
 
 function documentTypeFor(doc) {
@@ -61,6 +62,12 @@ export default function DocumentsSection({
   closeFieldEdit,
   customFieldsLoading,
 }) {
+  const [scopeSelection, setScopeSelection] = useState({ licenseId: license.id, categories: {} });
+  const categoryScopes = scopeSelection.licenseId === license.id ? scopeSelection.categories : {};
+  const setCategoryScope = (category, scope) => setScopeSelection({
+    licenseId: license.id,
+    categories: { ...categoryScopes, [category]: scope },
+  });
   const customFieldDefs = useMemo(
     () => Object.values(cfBySection || {}).flat(),
     [cfBySection],
@@ -88,13 +95,11 @@ export default function DocumentsSection({
       {isOpen && (
         <div className="dp-section-body" id="dp-section-documents">
           <div className="dp-docs">
+            {perms.canEdit && <p className="doc-empty">Shared/Single applies to new uploads. Shared uses the same PO number or shared purchase. Without either, the upload stays on this license. Existing attachments keep their scope.</p>}
             {DOCUMENT_CATEGORIES.map((cat) => {
               const files = (documents || []).filter((d) => d.category === cat.key);
               const isUploading = uploadingCategory === cat.key;
-              const isSharedProcurementCategory = Boolean(
-                (license.pendingOrderId || license.procurementBundleId)
-                && isProcurementDocumentCategory(cat.key)
-              );
+              const categoryScope = categoryScopes[cat.key] ?? defaultDocumentScope(cat.key);
               return (
                 <div key={cat.key} className="doc-cat">
                   <div className="doc-cat-hd">
@@ -106,6 +111,17 @@ export default function DocumentsSection({
                         color: files.length > 0 ? "var(--green-text)" : "var(--orange-text)"
                       }}>{files.length}</span>
                     </h5>
+                    {perms.canEdit && (
+                      <div className="document-staging-scope-toggle">
+                        <span className={categoryScope === "license" ? "active" : ""}>Single</span>
+                        <Toggle
+                          value={categoryScope === "shared"}
+                          onChange={(shared) => setCategoryScope(cat.key, shared ? "shared" : "license")}
+                          ariaLabel={`${cat.shortLabel} document scope: ${categoryScope === "shared" ? "Shared" : "Single"}`}
+                        />
+                        <span className={categoryScope === "shared" ? "active" : ""}>Shared</span>
+                      </div>
+                    )}
                   </div>
 
                   {files.map((doc) => (
@@ -124,6 +140,7 @@ export default function DocumentsSection({
                         </div>
                         <div className="doc-file-meta">
                           {formatFileSize(doc.file_size, userSettings)} · {formatDateTime(doc.uploaded_at, userSettings)}
+                          {` · ${doc.shared_po_number ? `Shared - PO ${doc.shared_po_number}` : doc.pending_order_id ? "Shared purchase" : doc.procurement_bundle_id ? "Shared manual batch" : "Single license"}`}
                           {latestProcessingByDocument.has(`${documentTypeFor(doc)}:${doc.id}`) && (
                             <span className={`doc-processing-inline-status status-${latestProcessingByDocument.get(`${documentTypeFor(doc)}:${doc.id}`).status}`}>
                               {formatProcessingStatus(latestProcessingByDocument.get(`${documentTypeFor(doc)}:${doc.id}`).status)}
@@ -193,11 +210,11 @@ export default function DocumentsSection({
                   {docsLoading && files.length === 0 && <div className="doc-empty">Loading...</div>}
 
                   {perms.canEdit && (
-                    <button className="doc-upload-btn" disabled={!!uploadingCategory} onClick={() => handleFileUpload(cat.key)}>
+                    <button className="doc-upload-btn" disabled={!!uploadingCategory} onClick={() => handleFileUpload(cat.key, categoryScope)}>
                       <Icon name={isUploading ? "clock" : "upload"} size={13} />
                       {isUploading
                         ? "Uploading..."
-                        : `Upload ${cat.label.toLowerCase()}${isSharedProcurementCategory ? " (shared purchase)" : ""}`}
+                        : `Upload ${cat.label.toLowerCase()}${categoryScope === "shared" ? " (shared purchase)" : ""}`}
                     </button>
                   )}
                 </div>
