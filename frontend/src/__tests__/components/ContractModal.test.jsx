@@ -16,6 +16,7 @@ vi.mock("../../api/contracts.js", () => ({
   getContractDocuments: vi.fn(),
   uploadContractDocument: vi.fn(),
   downloadContractDocument: vi.fn(),
+  previewContractDocument: vi.fn(),
   deleteContractDocument: vi.fn(),
 }));
 
@@ -74,6 +75,7 @@ async function renderLoadedModal(props = {}, mockOverrides = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  URL.revokeObjectURL = vi.fn();
 });
 
 afterEach(() => {
@@ -81,6 +83,53 @@ afterEach(() => {
 });
 
 describe("ContractModal", () => {
+  test.each([
+    ["General", "general.pdf", 21],
+    ["Invoices", "invoice.pdf", 22],
+  ])("previews PDF documents in the %s folder and releases the preview on close", async (folder, filename, docId) => {
+    const user = userEvent.setup();
+    contractsApi.previewContractDocument.mockResolvedValue({ data: { url: "blob:contract-preview" }, error: null });
+    contractsApi.downloadContractDocument.mockResolvedValue({ error: null });
+    await renderLoadedModal();
+    await user.click(screen.getByRole("button", { name: `Toggle ${folder} folder` }));
+    await user.click(screen.getByRole("button", { name: `Preview ${filename}` }));
+
+    expect(await screen.findByTitle(`Preview of ${filename}`)).toHaveAttribute("src", "blob:contract-preview#zoom=page-width");
+    expect(contractsApi.previewContractDocument).toHaveBeenCalledWith(10, docId);
+    await user.click(screen.getByRole("button", { name: `Download ${filename}` }));
+    expect(contractsApi.downloadContractDocument).toHaveBeenCalledWith(10, docId, filename);
+    await user.click(screen.getByRole("button", { name: "Close document preview" }));
+    expect(screen.queryByTitle(`Preview of ${filename}`)).not.toBeInTheDocument();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:contract-preview");
+  });
+
+  test("reports preview failures and discards late preview responses after closing", async () => {
+    const user = userEvent.setup();
+    const showError = vi.fn();
+    contractsApi.previewContractDocument.mockResolvedValueOnce({ error: "File missing" });
+    await renderLoadedModal({ showError });
+    await user.click(screen.getByRole("button", { name: "Toggle General folder" }));
+    await user.click(screen.getByRole("button", { name: "Preview general.pdf" }));
+    expect(showError).toHaveBeenCalledWith("Preview failed: File missing");
+    expect(screen.queryByLabelText("Contract document preview")).not.toBeInTheDocument();
+
+    let resolvePreview;
+    contractsApi.previewContractDocument.mockReturnValueOnce(new Promise((resolve) => { resolvePreview = resolve; }));
+    await user.click(screen.getByRole("button", { name: "Preview general.pdf" }));
+    expect(screen.getByText("Loading preview...")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close document preview" }));
+    resolvePreview({ data: { url: "blob:late-preview" }, error: null });
+    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:late-preview"));
+    expect(screen.queryByLabelText("Contract document preview")).not.toBeInTheDocument();
+  });
+
+  test("does not offer PDF preview for other file types", async () => {
+    const user = userEvent.setup();
+    await renderLoadedModal({}, { documents: [{ id: 21, originalFilename: "terms.docx", folderId: null }] });
+    await user.click(screen.getByRole("button", { name: "Toggle General folder" }));
+    expect(screen.queryByRole("button", { name: /preview/i })).not.toBeInTheDocument();
+  });
+
   test("renders loading state, then view header with contract publisher and number", async () => {
     await renderLoadedModal();
 
@@ -242,6 +291,8 @@ describe("ContractModal", () => {
     expect(documentButton).toBeDisabled();
     await user.click(documentButton);
     expect(contractsApi.downloadContractDocument).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /preview/i })).not.toBeInTheDocument();
+    expect(contractsApi.previewContractDocument).not.toHaveBeenCalled();
   });
 
   test("missing contract document rows remain visible with downloads disabled", async () => {
@@ -259,6 +310,8 @@ describe("ContractModal", () => {
     expect(screen.getByText("File missing")).toBeInTheDocument();
     await user.click(documentButton);
     expect(contractsApi.downloadContractDocument).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /preview/i })).not.toBeInTheDocument();
+    expect(contractsApi.previewContractDocument).not.toHaveBeenCalled();
   });
 
   test("clears the load warning after a successful folder refresh", async () => {

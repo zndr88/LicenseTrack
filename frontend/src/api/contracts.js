@@ -1,5 +1,6 @@
 import { del, get, post, put } from "./client.js";
 import { downloadApiFile } from "./download.js";
+import { createPdfPreviewUrl } from "./documentPreview.js";
 
 export const getContracts = () => get("/api/contracts");
 export const getContract = (id) => get(`/api/contracts/${id}`);
@@ -30,6 +31,9 @@ export async function uploadContractDocument(contractId, file, folderId = null) 
 export async function downloadContractDocument(contractId, docId, filename) {
   return downloadApiFile(`/api/contracts/${contractId}/documents/${docId}/download`, { filename });
 }
+
+export const previewContractDocument = (contractId, docId) =>
+    createPdfPreviewUrl(`/api/contracts/${contractId}/documents/${docId}/download`);
 
 export const deleteContractDocument = (contractId, docId) =>
     del(`/api/contracts/${contractId}/documents/${docId}`);

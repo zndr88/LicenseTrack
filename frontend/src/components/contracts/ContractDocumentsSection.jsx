@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
+import DocumentPreviewPanel from "../ui/DocumentPreviewPanel.jsx";
+import { isPreviewablePdf } from "../../utils/documentPreview.js";
+import { useContractDocumentPreview } from "./useContractDocumentPreview.js";
 import {
   documentAvailabilityHelp,
   documentAvailabilityLabel,
@@ -29,6 +32,9 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
   const [documents, setDocuments] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loadError, setLoadError] = useState(false);
+  const { preview, openPreview, closePreview } = useContractDocumentPreview({
+    contractId, canDownloadDocuments, showError,
+  });
 
   // Folder management
   const [newFolderName, setNewFolderName] = useState("");
@@ -129,13 +135,14 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
     const { error } = await deleteContractDocument(contractId, doc.id);
     if (error) { setDeleteDocConfirm(null); showError?.(error); return; }
     setDeleteDocConfirm(null);
+    if (preview?.document.id === doc.id) closePreview();
     setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
     await reloadContract();
     onChanged?.();
   };
 
   const handleDownload = async (doc) => {
-    if (!isFileAvailable(doc)) return;
+    if (!canDownloadDocuments || !isFileAvailable(doc)) return;
     setDownloadingId(doc.id);
     try {
       const { error } = await downloadContractDocument(contractId, doc.id, doc.originalFilename);
@@ -228,6 +235,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
                       downloadingId={downloadingId}
                       onUpload={(file) => handleUpload(file, null)}
                       onDownload={handleDownload}
+                      onPreview={openPreview}
                       onDeleteRequest={(doc) => setDeleteDocConfirm(doc)}
                     />
                   )}
@@ -313,6 +321,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
                       downloadingId={downloadingId}
                       onUpload={(file) => handleUpload(file, folder.id)}
                       onDownload={handleDownload}
+                      onPreview={openPreview}
                       onDeleteRequest={(doc) => setDeleteDocConfirm(doc)}
                     />
                   )}
@@ -322,6 +331,19 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
           </>
         )}
       </div>
+
+      {preview && (
+        <DocumentPreviewPanel
+          className="contract-document-preview"
+          ariaLabel="Contract document preview"
+          filename={preview.document.originalFilename}
+          kind="pdf"
+          loading={preview.loading}
+          url={preview.url}
+          onClose={closePreview}
+          onDownload={() => handleDownload(preview.document)}
+        />
+      )}
 
       {deleteFolderConfirm && (
         <ConfirmDialog
@@ -348,7 +370,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
   );
 }
 
-function DocSection({ docs, canEdit, canDownload = true, uploading, downloadingId, onUpload, onDownload, onDeleteRequest }) {
+function DocSection({ docs, canEdit, canDownload = true, uploading, downloadingId, onUpload, onDownload, onPreview, onDeleteRequest }) {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) onUpload(file);
@@ -383,6 +405,17 @@ function DocSection({ docs, canEdit, canDownload = true, uploading, downloadingI
                 <span className="badge badge-orange" title={documentAvailabilityHelp(doc)}>
                   {documentAvailabilityLabel(doc)}
                 </span>
+              )}
+              {canDownload && isPreviewablePdf(doc) && (
+                <button
+                  type="button"
+                  className="doc-action-btn"
+                  title="Preview PDF"
+                  aria-label={`Preview ${doc.originalFilename}`}
+                  onClick={() => onPreview(doc)}
+                >
+                  <Icon name="eye" size={14} />
+                </button>
               )}
               {canEdit && (
                 <button
