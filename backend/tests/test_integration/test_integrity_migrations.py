@@ -84,6 +84,68 @@ def _foreign_key_by_column(inspector, table: str) -> dict[str, dict]:
     }
 
 
+def test_scheduled_retirement_preserves_parentless_maintenance_and_round_trips(tmp_path, monkeypatch):
+    database_path = tmp_path / "scheduled-retirement.sqlite"
+    config = _alembic_config(database_path, monkeypatch)
+    # Start at the 1.1.17 revision to exercise the reported upgrade path.
+    command.upgrade(config, "b7e4c2a19d6f")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    original = {}
+    expected = {}
+    with engine.begin() as connection:
+        parent_id = _insert_license(connection, license_type=LicenseType.perpetual)
+        dates = connection.execute(text(
+            "SELECT DATE('now', 'localtime', '-1 day'), DATE('now', 'localtime'), "
+            "DATE('now', 'localtime', '+30 days')"
+        )).one()
+        for end_date in [None, *dates]:
+            for license_type, parent, legacy in [
+                (LicenseType.subscription, None, False),
+                (LicenseType.maintenance, parent_id, False),
+                (LicenseType.maintenance, None, True),
+                (LicenseType.maintenance, None, False),
+            ]:
+                for retired in [False, True]:
+                    parentless = license_type == LicenseType.maintenance and parent is None and not legacy
+                    if parentless and not retired:
+                        continue  # This state is already forbidden by the pre-upgrade CHECK.
+                    license_id = _insert_license(
+                        connection,
+                        license_type=license_type,
+                        parent_license_id=parent,
+                        is_legacy_unlinked_maintenance=legacy,
+                        is_retired=retired,
+                        end_date=end_date,
+                    )
+                    original[license_id] = (retired, parent, legacy, end_date)
+                    scheduled = retired and end_date in dates[1:] and not parentless
+                    expected[license_id] = (retired and not scheduled, scheduled, parent, legacy, end_date)
+
+    def assert_rows(scheduled):
+        with engine.connect() as connection:
+            columns = "is_retired, " + ("retirement_scheduled, " if scheduled else "")
+            rows = connection.execute(text(
+                f"SELECT id, {columns}parent_license_id, is_legacy_unlinked_maintenance, end_date "
+                "FROM licenses WHERE id != :parent_id"
+            ), {"parent_id": parent_id}).all()
+            assert {row[0]: tuple(row[1:]) for row in rows} == (expected if scheduled else original)
+            assert connection.execute(text("PRAGMA integrity_check")).scalar_one() == "ok"
+            assert connection.execute(text("PRAGMA foreign_key_check")).all() == []
+
+    try:
+        command.upgrade(config, "e2f3a4b5c6d7")
+        assert_rows(scheduled=True)
+        with engine.begin() as connection:
+            with pytest.raises(IntegrityError, match="ck_license_maintenance_has_parent"):
+                _insert_license(connection, license_type=LicenseType.maintenance)
+        command.downgrade(config, "b7e4c2a19d6f")
+        assert_rows(scheduled=False)
+        command.upgrade(config, "head")
+        assert_rows(scheduled=True)
+    finally:
+        engine.dispose()
+
+
 def test_integrity_migrations_create_canonical_foreign_keys(tmp_path, monkeypatch):
     database_path = tmp_path / "fresh-integrity.sqlite"
     command.upgrade(_alembic_config(database_path, monkeypatch), "head")

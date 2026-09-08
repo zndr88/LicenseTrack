@@ -21,9 +21,13 @@ def upgrade() -> None:
             sa.Column("retirement_scheduled", sa.Boolean(), nullable=False, server_default=sa.text("0"))
         )
 
+    # Parentless maintenance without the explicit legacy exception is valid
+    # only while retired. Preserve that state instead of reactivating it.
     op.execute(
         "UPDATE licenses SET retirement_scheduled = 1, is_retired = 0 "
-        "WHERE is_retired = 1 AND end_date IS NOT NULL AND end_date >= DATE('now', 'localtime')"
+        "WHERE is_retired = 1 AND end_date IS NOT NULL AND end_date >= DATE('now', 'localtime') "
+        "AND (license_type != 'maintenance' OR parent_license_id IS NOT NULL "
+        "OR is_legacy_unlinked_maintenance = 1)"
     )
 
 
