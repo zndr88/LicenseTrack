@@ -11,7 +11,7 @@ import Icon from "../ui/Icon.jsx";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
 import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
 import ConvertItemForm, { isItemReady } from "./ConvertItemForm.jsx";
-import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
+import { downloadConversionDocument, getConversionDocuments, previewConversionDocument } from "./conversionDocuments.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
@@ -227,13 +227,14 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
           <DocumentStagingWorkspace
             attachments={attachments}
             categoryScopes={categoryScopes}
-            documents={order?.documents ?? []}
+            documents={getConversionDocuments(order)}
             inputIdPrefix="convert-all-attachment"
             onAddFiles={addAttachmentFiles}
             onRemoveAttachment={removeAttachment}
             onTargetChange={changeAttachmentTarget}
             onCategoryScopeChange={changeAttachmentCategoryScope}
-            previewDocument={previewPendingOrderDocument}
+            previewDocument={previewConversionDocument}
+            downloadDocument={downloadConversionDocument}
             targetOptions={attachmentTargetOptions}
             userSettings={userSettings}
           />

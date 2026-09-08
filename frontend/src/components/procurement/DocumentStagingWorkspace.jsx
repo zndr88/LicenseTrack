@@ -11,6 +11,7 @@ import {
   documentFileIconColor,
 } from "../../utils/documentCategories.js";
 import { getPreviewFilename, isPreviewablePdf } from "../../utils/documentPreview.js";
+import { isFileAvailable } from "../../utils/documentAvailability.js";
 
 const categoryFor = (document) => document.category ?? document.documentCategory ?? document.document_category ?? "purchase_order";
 
@@ -24,6 +25,7 @@ export default function DocumentStagingWorkspace({
   onTargetChange,
   onCategoryScopeChange,
   previewDocument,
+  downloadDocument,
   onPreviewVisibilityChange,
   targetOptions = [],
   userSettings,
@@ -32,6 +34,7 @@ export default function DocumentStagingWorkspace({
   const [localPreviewId, setLocalPreviewId] = useState(null);
   const [storedPreview, setStoredPreview] = useState(null);
   const [expanded, setExpanded] = useState(false);
+  const [downloadError, setDownloadError] = useState(null);
   const previewUrlRef = useRef(null);
   const requestRef = useRef(0);
   const previousAttachmentCountRef = useRef(attachments.length);
@@ -63,7 +66,7 @@ export default function DocumentStagingWorkspace({
     clearStoredPreview();
     const requestId = ++requestRef.current;
     setStoredPreview({ document, loading: true, url: null });
-    const { data, error } = await previewDocument(document.id);
+    const { data, error } = await previewDocument(document.id, document);
     if (requestId !== requestRef.current) {
       if (data?.url) URL.revokeObjectURL(data.url);
       return;
@@ -79,6 +82,12 @@ export default function DocumentStagingWorkspace({
   const openLocalPreview = (id) => {
     clearStoredPreview();
     setLocalPreviewId(id);
+  };
+
+  const downloadStoredDocument = async (document) => {
+    setDownloadError(null);
+    const { error } = await downloadDocument(document);
+    if (error) setDownloadError(error);
   };
 
   const localPreview = attachments.find((attachment) => attachment.id === localPreviewId);
@@ -98,6 +107,7 @@ export default function DocumentStagingWorkspace({
         <p className="document-staging-intro">
           Add everything available now. Set each category to Shared or Single before creating the licenses.
         </p>
+        {downloadError && <p className="field-error" role="alert">{downloadError}</p>}
 
         <div className="dp-docs">
         {DOCUMENT_CATEGORIES.map((category) => {
@@ -138,19 +148,22 @@ export default function DocumentStagingWorkspace({
               </div>
 
               {existing.map((document) => (
-                <div key={`existing-${document.id}`} className="doc-file">
+                <div key={`existing-${document.documentKey ?? document.id}`} className="doc-file">
                   <div className="doc-file-icon" style={{ background: "var(--bg-3)" }}>
                     <Icon name="file" size={15} color={documentFileIconColor(getPreviewFilename(document))} />
                   </div>
                   <div className="doc-file-info">
                     <div className="doc-file-name">{getPreviewFilename(document)}</div>
-                    <div className="doc-file-meta">Already attached · Shared across this PO</div>
+                    <div className="doc-file-meta">{document.sourceLabel ?? "Already attached · Shared across this PO"}</div>
                   </div>
-                  {isPreviewablePdf(document) && (
+                  {(isPreviewablePdf(document) || (downloadDocument && isFileAvailable(document))) && (
                     <div className="doc-file-actions">
-                      <button type="button" className="doc-action-btn preview" aria-label={`Preview ${getPreviewFilename(document)}`} onClick={() => openStoredPreview(document)}>
+                      {isPreviewablePdf(document) && <button type="button" className="doc-action-btn preview" aria-label={`Preview ${getPreviewFilename(document)}`} onClick={() => openStoredPreview(document)}>
                         <Icon name="eye" size={14} />
-                      </button>
+                      </button>}
+                      {downloadDocument && isFileAvailable(document) && <button type="button" className="doc-action-btn" aria-label={`Download ${getPreviewFilename(document)}`} onClick={() => downloadStoredDocument(document)}>
+                        <Icon name="download" size={14} />
+                      </button>}
                     </div>
                   )}
                 </div>

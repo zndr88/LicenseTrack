@@ -10,7 +10,7 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
-import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
+import { downloadConversionDocument, getConversionDocuments, previewConversionDocument } from "./conversionDocuments.js";
 import ParentLicensePicker from "./ParentLicensePicker.jsx";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
@@ -516,13 +516,14 @@ const ConvertPendingOrderModal = ({
           <DocumentStagingWorkspace
             attachments={attachments}
             categoryScopes={categoryScopes}
-            documents={order?.documents ?? []}
+            documents={getConversionDocuments(order)}
             inputIdPrefix="cpo-attachment"
             onAddFiles={addAttachmentFiles}
             onRemoveAttachment={removeAttachment}
             onTargetChange={changeAttachmentTarget}
             onCategoryScopeChange={changeAttachmentCategoryScope}
-            previewDocument={previewPendingOrderDocument}
+            previewDocument={previewConversionDocument}
+            downloadDocument={downloadConversionDocument}
             onPreviewVisibilityChange={setDocumentPreviewVisible}
             targetOptions={(order?.items ?? []).map((item) => ({
               value: String(item.id),
