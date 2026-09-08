@@ -10,6 +10,7 @@ from decimal import Decimal
 from datetime import date
 from unittest.mock import MagicMock
 
+import pytest
 
 from app.services.renewal_workbench_model import (
     HIGH_VALUE_THRESHOLD,
@@ -245,6 +246,23 @@ class TestComputeRiskFlags:
 # ---------------------------------------------------------------------------
 
 class TestMatchesWorkbenchView:
+    @pytest.mark.parametrize("status", ["expired_unresolved", "pending_renewal", "in_sourcing", "pending_order"])
+    def test_overdue_includes_expired_rows_independent_of_workflow(self, status):
+        row = _make_row(renewal_status=status, days_until_expiry=-1)
+        assert matches_workbench_view(row, "overdue") is True
+
+    @pytest.mark.parametrize("days", [None, 0, 1])
+    def test_overdue_excludes_unknown_today_and_future_dates(self, days):
+        row = _make_row(renewal_status="pending_renewal", days_until_expiry=days)
+        assert matches_workbench_view(row, "overdue") is False
+
+    @pytest.mark.parametrize("window", [30, 60, 90])
+    @pytest.mark.parametrize("status", ["due_soon", "pending_renewal", "in_sourcing", "pending_order"])
+    def test_due_windows_include_today_and_limit_but_exclude_overdue(self, window, status):
+        for days, expected in [(None, False), (-1, False), (0, True), (window, True), (window + 1, False)]:
+            row = _make_row(renewal_status=status, days_until_expiry=days)
+            assert matches_workbench_view(row, f"due_{window}") is expected
+
     def test_all_always_true(self):
         row = _make_row(renewal_status="in_sourcing")
         assert matches_workbench_view(row, "all") is True

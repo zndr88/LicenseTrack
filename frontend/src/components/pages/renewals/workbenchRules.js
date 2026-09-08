@@ -4,9 +4,9 @@ export const VIEW_OPTIONS = [
   { key: "all",          label: "All",          color: null                  },
   { key: "needs_action", label: "Needs Action", color: "var(--orange)"       },
   { key: "overdue",      label: "Overdue",      color: "var(--red)"          },
-  { key: "due_30",       label: "30",           color: "var(--orange)"       },
-  { key: "due_60",       label: "60",           color: "var(--orange)"       },
-  { key: "due_90",       label: "90",           color: "var(--orange)"       },
+  { key: "due_30",       label: "30 Days",      color: "var(--orange)"       },
+  { key: "due_60",       label: "60 Days",      color: "var(--orange)"       },
+  { key: "due_90",       label: "90 Days",      color: "var(--orange)"       },
   { key: "in_progress",  label: "In Progress",  color: "var(--purple-text)"  },
   { key: "missing_docs", label: "Missing Docs", color: "var(--orange)"       },
   { key: "high_value",   label: "High Value",   color: "var(--green)"        },
@@ -107,6 +107,12 @@ function dueWithin(row, max) {
     row.daysUntilExpiry <= max;
 }
 
+function isOverdue(row) {
+  return row.daysUntilExpiry !== null &&
+    row.daysUntilExpiry !== undefined &&
+    row.daysUntilExpiry < 0;
+}
+
 function hasRisk(row, code) {
   return (row.riskFlags ?? []).some((flag) => flag.code === code);
 }
@@ -119,7 +125,7 @@ export function getViewCounts(rows, highValueThreshold = HIGH_VALUE_THRESHOLD) {
   return {
     all: rows.length,
     needs_action: rows.filter((row) => ["expired_unresolved", "due_soon"].includes(row.renewalStatus)).length,
-    overdue: rows.filter((row) => row.renewalStatus === "expired_unresolved").length,
+    overdue: rows.filter(isOverdue).length,
     due_30: rows.filter((row) => dueWithin(row, 30)).length,
     due_60: rows.filter((row) => dueWithin(row, 60)).length,
     due_90: rows.filter((row) => dueWithin(row, 90)).length,
@@ -131,8 +137,8 @@ export function getViewCounts(rows, highValueThreshold = HIGH_VALUE_THRESHOLD) {
 
 export function prioritySortRows(rows) {
   return [...rows].sort((a, b) => {
-    const aExpired = a.daysUntilExpiry !== null && a.daysUntilExpiry !== undefined && a.daysUntilExpiry < 0;
-    const bExpired = b.daysUntilExpiry !== null && b.daysUntilExpiry !== undefined && b.daysUntilExpiry < 0;
+    const aExpired = isOverdue(a);
+    const bExpired = isOverdue(b);
     if (aExpired !== bExpired) return aExpired ? -1 : 1;
 
     const aInProgress = IN_PROGRESS_STATUSES.has(a.renewalStatus);
@@ -188,8 +194,11 @@ export function getPrimaryAction(row, { canOpenPipeline, canStartRenewal }) {
 }
 
 export function rowTone(row) {
-  if (row.renewalStatus === "expired_unresolved") {
-    return { background: "var(--red-dim)", borderLeft: "3px solid var(--red)" };
+  if (isOverdue(row)) {
+    return {
+      background: IN_PROGRESS_STATUSES.has(row.renewalStatus) ? "var(--purple-dim)" : "var(--red-dim)",
+      borderLeft: "3px solid var(--red)",
+    };
   }
   if (row.renewalStatus === "due_soon" && row.daysUntilExpiry <= 30) {
     return { background: "var(--orange-dim)", borderLeft: "3px solid var(--orange)" };

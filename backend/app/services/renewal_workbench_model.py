@@ -125,7 +125,7 @@ def matches_workbench_view(
     if view == "needs_action":
         return row.renewal_status in ("expired_unresolved", "due_soon")
     if view == "overdue":
-        return row.renewal_status == "expired_unresolved"
+        return row.days_until_expiry is not None and row.days_until_expiry < 0
     if view == "due_30":
         return row.days_until_expiry is not None and 0 <= row.days_until_expiry <= 30
     if view == "due_60":

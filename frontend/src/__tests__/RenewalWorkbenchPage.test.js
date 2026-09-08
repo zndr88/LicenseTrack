@@ -9,6 +9,7 @@ import {
   getViewCounts,
   includesSearch,
   prioritySortRows,
+  rowTone,
 } from "../components/pages/renewals/workbenchRules.js";
 
 const row = (overrides) => ({
@@ -27,6 +28,21 @@ const row = (overrides) => ({
 });
 
 describe("RenewalWorkbenchPage helpers", () => {
+  test.each(["pending_renewal", "in_sourcing", "pending_order"])("keeps expired %s rows overdue and in progress", (renewalStatus) => {
+    const expired = row({ renewalStatus, daysUntilExpiry: -1 });
+    expect(getViewCounts([expired])).toMatchObject({ overdue: 1, in_progress: 1, needs_action: 0, due_30: 0 });
+    expect(rowTone(expired)).toEqual({ background: "var(--purple-dim)", borderLeft: "3px solid var(--red)" });
+    expect(prioritySortRows([row({ licenseId: 2, daysUntilExpiry: 0 }), expired])[0]).toBe(expired);
+  });
+
+  test.each([30, 60, 90])("counts the %i-day window inclusively without overdue or unknown dates", (window) => {
+    const rows = [undefined, null, -1, 0, window, window + 1].map((daysUntilExpiry) => (
+      row({ renewalStatus: "pending_order", daysUntilExpiry })
+    ));
+    expect(getViewCounts(rows)[`due_${window}`]).toBe(2);
+    expect(getViewCounts(rows).overdue).toBe(1);
+  });
+
   test("derives prebuilt view counts from all rows", () => {
     const rows = [
       row({ licenseId: 1, renewalStatus: "expired_unresolved", daysUntilExpiry: -2, documentCount: 0 }),

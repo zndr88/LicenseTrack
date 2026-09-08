@@ -122,6 +122,33 @@ async def test_workbench_returns_due_soon_row(test_app, auth_headers):
     assert rows[0]["startDate"] == start_date.isoformat()
 
 
+async def test_overdue_view_keeps_expired_renewal_through_sourcing_and_pending_order(test_app, auth_headers):
+    license_data = await _create_license(
+        test_app,
+        auth_headers,
+        endDate=(date.today() - timedelta(days=3)).isoformat(),
+    )
+    sourcing_item = await _initiate_renewal(test_app, auth_headers, license_data["id"])
+
+    for expected_status in ("in_sourcing", "pending_order"):
+        for view in ("overdue", "in_progress"):
+            resp = await test_app.get(f"/api/renewals/workbench?view={view}", headers=auth_headers)
+            assert resp.status_code == 200, resp.text
+            row = _row_for(resp.json(), license_data["id"])
+            assert row["renewalStatus"] == expected_status
+            assert row["daysUntilExpiry"] == -3
+            assert "expired" in {flag["code"] for flag in row["riskFlags"]}
+            assert "renewal_not_started" not in {flag["code"] for flag in row["riskFlags"]}
+
+        if expected_status == "in_sourcing":
+            po_resp = await test_app.post(
+                f"/api/sourcing/{sourcing_item['id']}/convert",
+                json={"poNumber": "PO-OVERDUE-1", "supplier": "Renewal Supplier"},
+                headers=auth_headers,
+            )
+            assert po_resp.status_code == 200, po_resp.text
+
+
 async def test_workbench_excludes_service_and_other_license_types(test_app, auth_headers):
     service = await _create_license(
         test_app,
