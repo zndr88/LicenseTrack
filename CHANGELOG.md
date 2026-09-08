@@ -13,6 +13,28 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.20] - 2026-09-08
+
+This is a minor fix release for a database migration failure encountered when
+upgrading from 1.1.17 to 1.1.19.
+
+### Fixed
+
+- Fixed the scheduled-retirement migration attempting to reactivate retired
+  maintenance records without a parent license or the explicit legacy-unlinked
+  exception when their end date was today or later. Those records were valid
+  while retired, but reactivating them violated the
+  `ck_license_maintenance_has_parent` database constraint and stopped the upgrade.
+  The migration now leaves these records retired while continuing to schedule
+  retirement for eligible records, preserving parent links and legacy flags.
+- Added regression coverage for the 1.1.17 upgrade path, date boundaries,
+  database integrity, and migration downgrade/re-upgrade behavior.
+
+This release corrects an existing migration; it adds no new migration revision,
+configuration requirement, or breaking public API change. Operators affected by
+the failure should use 1.1.20 through the normal upgrade procedure. Installations
+already running 1.1.19 can upgrade normally to 1.1.20.
+
 ## [1.1.19] - 2026-09-07
 
 ### Added
@@ -1471,7 +1493,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.19...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.20...HEAD
+[1.1.20]: https://github.com/zndr88/LicenseTrack/compare/v1.1.19...v1.1.20
 [1.1.19]: https://github.com/zndr88/LicenseTrack/compare/v1.1.18...v1.1.19
 [1.1.18]: https://github.com/zndr88/LicenseTrack/compare/v1.1.17...v1.1.18
 [1.1.17]: https://github.com/zndr88/LicenseTrack/compare/v1.1.16...v1.1.17
