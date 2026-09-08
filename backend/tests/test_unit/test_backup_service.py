@@ -41,6 +41,9 @@ def _make_db(path) -> None:
     conn.execute(
         """CREATE TABLE licenses (
             id INTEGER PRIMARY KEY,
+            license_type VARCHAR(20) NOT NULL DEFAULT 'subscription',
+            parent_license_id INTEGER REFERENCES licenses(id),
+            is_legacy_unlinked_maintenance BOOLEAN NOT NULL DEFAULT 0,
             is_retired BOOLEAN NOT NULL DEFAULT 0,
             end_date DATE
         )"""
