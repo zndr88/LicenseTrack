@@ -83,6 +83,16 @@ afterEach(() => {
 });
 
 describe("ContractModal", () => {
+  test("uses the wide split layout with an empty preview pane before selection", async () => {
+    await renderLoadedModal();
+
+    const dialog = screen.getByRole("dialog", { name: /acme corp/i });
+    expect(dialog).toHaveClass("contract-modal");
+    expect(dialog.querySelector(".contract-modal-layout")).not.toBeNull();
+    expect(dialog.querySelector(".contract-modal-details")).not.toBeNull();
+    expect(screen.getByLabelText("Contract document preview")).toHaveTextContent(/select a pdf/i);
+  });
+
   test.each([
     ["General", "general.pdf", 21],
     ["Invoices", "invoice.pdf", 22],
@@ -95,6 +105,7 @@ describe("ContractModal", () => {
     await user.click(screen.getByRole("button", { name: `Preview ${filename}` }));
 
     expect(await screen.findByTitle(`Preview of ${filename}`)).toHaveAttribute("src", "blob:contract-preview#zoom=page-width");
+    expect(screen.getByLabelText("Contract document preview").parentElement).toHaveClass("contract-modal-preview-pane");
     expect(contractsApi.previewContractDocument).toHaveBeenCalledWith(10, docId);
     await user.click(screen.getByRole("button", { name: `Download ${filename}` }));
     expect(contractsApi.downloadContractDocument).toHaveBeenCalledWith(10, docId, filename);
@@ -111,7 +122,7 @@ describe("ContractModal", () => {
     await user.click(screen.getByRole("button", { name: "Toggle General folder" }));
     await user.click(screen.getByRole("button", { name: "Preview general.pdf" }));
     expect(showError).toHaveBeenCalledWith("Preview failed: File missing");
-    expect(screen.queryByLabelText("Contract document preview")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Contract document preview")).toHaveTextContent(/select a pdf/i);
 
     let resolvePreview;
     contractsApi.previewContractDocument.mockReturnValueOnce(new Promise((resolve) => { resolvePreview = resolve; }));
@@ -120,7 +131,7 @@ describe("ContractModal", () => {
     await user.click(screen.getByRole("button", { name: "Close document preview" }));
     resolvePreview({ data: { url: "blob:late-preview" }, error: null });
     await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:late-preview"));
-    expect(screen.queryByLabelText("Contract document preview")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Contract document preview")).toHaveTextContent(/select a pdf/i);
   });
 
   test("does not offer PDF preview for other file types", async () => {

@@ -313,8 +313,24 @@ td {
 .lp-document-preview-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .lp-document-preview-loading { flex: 1; min-height: 520px; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-3); font-size: 12px; }
 .lp-document-preview-frame { flex: 1; width: 100%; min-height: 520px; border: 0; background: var(--bg-1); }
-.contract-document-preview { min-height: 0; margin-top: 16px; }
-.contract-document-preview .document-preview-body { height: 60vh; min-height: 360px; }
+.contract-modal { width: min(1320px, 96vw); max-width: 96vw; height: min(900px, 92vh); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
+.contract-modal-layout { min-height: 0; display: grid; grid-template-columns: minmax(360px, .85fr) minmax(500px, 1.4fr); flex: 1; overflow: hidden; }
+.contract-modal-details { min-width: 0; overflow-y: auto; border-right: 1px solid var(--border); }
+.contract-modal-preview-pane { min-width: 0; min-height: 0; padding: 18px; background: var(--bg-2); }
+.contract-document-preview { height: 100%; min-height: 0; }
+.contract-document-preview .document-preview-body,
+.contract-document-preview .lp-document-preview-frame,
+.contract-document-preview .lp-document-preview-loading { min-height: 0; }
+.contract-document-preview-empty { height: 100%; min-height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px dashed var(--border-strong); border-radius: var(--r); color: var(--text-3); font-size: 12px; text-align: center; padding: 24px; }
+
+@media (max-width: 900px) {
+  .contract-modal { width: min(680px, 94vw); height: auto; max-height: 92vh; overflow-y: auto; }
+  .contract-modal-layout { display: flex; flex-direction: column; overflow: visible; }
+  .contract-modal-details { overflow: visible; border-right: 0; }
+  .contract-modal-preview-pane { padding: 0 24px 24px; background: var(--bg-1); }
+  .contract-document-preview { height: 440px; }
+  .contract-document-preview-empty { min-height: 220px; }
+}
 .document-preview-body { min-height: 0; display: flex; align-items: stretch; justify-content: stretch; padding: 0; overflow: auto; }
 .document-preview-body iframe { width: 100%; min-height: 100%; border: 0; background: var(--bg-1); }
 .document-preview-body img { display: block; width: 100%; height: max-content; object-fit: contain; align-self: flex-start; }

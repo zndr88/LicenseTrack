@@ -3,13 +3,16 @@ import Icon from "../ui/Icon.jsx";
 import Badge from "../ui/Badge.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
+import DocumentPreviewPanel from "../ui/DocumentPreviewPanel.jsx";
 import ContractDocumentsSection from "./ContractDocumentsSection.jsx";
+import { useContractDocumentPreview } from "./useContractDocumentPreview.js";
 import { isEditorOrAdmin } from "../../utils/helpers.js";
 import { useDirtyForm } from "../../hooks/useDirtyForm.js";
 import {
   getContract,
   getContractLicenses,
   updateContract,
+  downloadContractDocument,
 } from "../../api/contracts.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
@@ -43,6 +46,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [previewDownloading, setPreviewDownloading] = useState(false);
 
   // Collapsible sections
   const [licensesOpen, setLicensesOpen] = useState(true);
@@ -54,6 +58,24 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
 
   const canEdit = isEditorOrAdmin(user);
   const canDownloadDocuments = user?.role !== "viewer" || user?.allowDownloads !== false;
+  const { preview, openPreview, closePreview } = useContractDocumentPreview({
+    contractId, canDownloadDocuments, showError,
+  });
+
+  const handlePreviewDownload = async () => {
+    if (!preview?.document || previewDownloading) return;
+    setPreviewDownloading(true);
+    try {
+      const { error } = await downloadContractDocument(
+        contractId,
+        preview.document.id,
+        preview.document.originalFilename,
+      );
+      if (error) showError?.(error);
+    } finally {
+      setPreviewDownloading(false);
+    }
+  };
 
   // requestClose: guard for backdrop, X button - closes the whole modal on discard
   const requestClose = useCallback(() => {
@@ -140,7 +162,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
         onEscape={editing ? requestCancelEdit : requestClose}
         closeOnOverlayClick={false}
         overlayStyle={{ zIndex: 200 }}
-        modalStyle={{ width: 680, maxWidth: "92vw", maxHeight: "88vh", display: "flex", flexDirection: "column" }}
+        modalClassName="modal contract-modal"
         header={(
           <div className="modal-hd" style={{ flexShrink: 0 }}>
           {loading ? (
@@ -211,7 +233,8 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
       >
 
         {/* Body */}
-        <div className="modal-bd" style={{ overflowY: "auto", flex: 1 }}>
+        <div className="contract-modal-layout">
+          <div className="modal-bd contract-modal-details">
           {loading ? (
             <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-3)" }}>
               Loading...
@@ -343,9 +366,32 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
                 canDownloadDocuments={canDownloadDocuments}
                 showError={showError}
                 onChanged={onChanged}
+                onPreview={openPreview}
+                onClosePreview={closePreview}
+                previewDocumentId={preview?.document.id}
               />
             </>
           )}
+          </div>
+          <div className="contract-modal-preview-pane">
+            {preview ? (
+              <DocumentPreviewPanel
+                className="contract-document-preview"
+                ariaLabel="Contract document preview"
+                filename={preview.document.originalFilename}
+                kind="pdf"
+                loading={preview.loading}
+                url={preview.url}
+                onClose={closePreview}
+                onDownload={handlePreviewDownload}
+              />
+            ) : (
+              <aside className="contract-document-preview-empty" aria-label="Contract document preview">
+                <Icon name="file" size={24} color="var(--text-3)" />
+                <span>Select a PDF from the document list to preview it.</span>
+              </aside>
+            )}
+          </div>
         </div>
       </ModalShell>
 

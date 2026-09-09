@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
-import DocumentPreviewPanel from "../ui/DocumentPreviewPanel.jsx";
 import { isPreviewablePdf } from "../../utils/documentPreview.js";
-import { useContractDocumentPreview } from "./useContractDocumentPreview.js";
 import {
   documentAvailabilityHelp,
   documentAvailabilityLabel,
@@ -28,13 +26,19 @@ import {
  *   canEdit              {boolean}
  *   canDownloadDocuments {boolean}
  */
-export default function ContractDocumentsSection({ contractId, canEdit, canDownloadDocuments, showError, onChanged }) {
+export default function ContractDocumentsSection({
+  contractId,
+  canEdit,
+  canDownloadDocuments,
+  showError,
+  onChanged,
+  onPreview,
+  onClosePreview,
+  previewDocumentId,
+}) {
   const [documents, setDocuments] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loadError, setLoadError] = useState(false);
-  const { preview, openPreview, closePreview } = useContractDocumentPreview({
-    contractId, canDownloadDocuments, showError,
-  });
 
   // Folder management
   const [newFolderName, setNewFolderName] = useState("");
@@ -135,7 +139,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
     const { error } = await deleteContractDocument(contractId, doc.id);
     if (error) { setDeleteDocConfirm(null); showError?.(error); return; }
     setDeleteDocConfirm(null);
-    if (preview?.document.id === doc.id) closePreview();
+    if (previewDocumentId === doc.id) onClosePreview?.();
     setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
     await reloadContract();
     onChanged?.();
@@ -235,7 +239,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
                       downloadingId={downloadingId}
                       onUpload={(file) => handleUpload(file, null)}
                       onDownload={handleDownload}
-                      onPreview={openPreview}
+                      onPreview={onPreview}
                       onDeleteRequest={(doc) => setDeleteDocConfirm(doc)}
                     />
                   )}
@@ -321,7 +325,7 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
                       downloadingId={downloadingId}
                       onUpload={(file) => handleUpload(file, folder.id)}
                       onDownload={handleDownload}
-                      onPreview={openPreview}
+                      onPreview={onPreview}
                       onDeleteRequest={(doc) => setDeleteDocConfirm(doc)}
                     />
                   )}
@@ -331,19 +335,6 @@ export default function ContractDocumentsSection({ contractId, canEdit, canDownl
           </>
         )}
       </div>
-
-      {preview && (
-        <DocumentPreviewPanel
-          className="contract-document-preview"
-          ariaLabel="Contract document preview"
-          filename={preview.document.originalFilename}
-          kind="pdf"
-          loading={preview.loading}
-          url={preview.url}
-          onClose={closePreview}
-          onDownload={() => handleDownload(preview.document)}
-        />
-      )}
 
       {deleteFolderConfirm && (
         <ConfirmDialog
