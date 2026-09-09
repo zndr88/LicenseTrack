@@ -17,9 +17,12 @@ export const convertFreewareSourcingItem = (id) => post(`/api/sourcing/${id}/con
 export const convertFreewareSourcingRequest = (id) => post(`/api/sourcing/requests/${id}/convert-freeware`);
 export const mergeSourcingItems = (sourcingItemIds) => post("/api/sourcing/merge", { sourcingItemIds });
 
-export function uploadSourcingQuoteDocument(requestId, file) {
+export function uploadSourcingQuoteDocument(requestId, file, options = {}) {
   const formData = new FormData();
   formData.append("file", file);
+  if (options.category) formData.append("category", options.category);
+  if (options.scope) formData.append("scope", options.scope);
+  if (options.targetSourcingItemId != null) formData.append("target_sourcing_item_id", String(options.targetSourcingItemId));
   return post(`/api/sourcing/requests/${requestId}/quote-documents`, formData);
 }
 

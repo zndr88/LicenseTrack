@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { uploadSourcingQuoteDocument } from "../../api/sourcing.js";
+import { draftDocumentTargetMap, uploadDraftDocuments } from "../../utils/draftDocuments.js";
 import { ROLE_PERMISSIONS } from "../../constants/permissions.js";
 import { useCotermDetection } from "../../hooks/useCotermDetection.js";
 import Icon from "../ui/Icon.jsx";
@@ -161,7 +163,6 @@ export default function SourcingPage({
   const {
     handleCreateSourcingItem,
     handleCreateSourcingRequest,
-    handleUploadSourcingQuote,
     handleUpdateSourcingItem,
     handleUpdateSourcingRequest,
     handleUpdateSourcingRequestField,
@@ -533,12 +534,14 @@ export default function SourcingPage({
                 notes: form.notes || null,
                 items: form.items,
                 quoteFile: form.quoteFile || null,
+                attachments: form.attachments,
+                attachmentTargetKeys: form.attachmentTargetKeys,
               });
               if (success) setShowSourcingModal(null);
               return success;
             }
             // Single item
-            const { maintenanceCompanion, quoteFile, ...itemForm } = form;
+            const { maintenanceCompanion, attachments, attachmentTargetKeys, ...itemForm } = form;
             const payload = {
               publisherName: itemForm.publisherName,
               softwareDescription: itemForm.softwareDescription,
@@ -582,21 +585,38 @@ export default function SourcingPage({
               ? await handleUpdateSourcingItem(showSourcingModal.item.id, payload)
               : await handleCreateSourcingItem(payload, parentRequestId);
             if (!saved) return false;
-            if (quoteFile && parentRequestId) {
-              const uploaded = await handleUploadSourcingQuote(parentRequestId, quoteFile);
-              if (!uploaded) return false;
-            }
             if (!parentItemId) {
               parentItemId = findCreatedSourcingItem(saved, payload)?.id ?? null;
             }
+            const targetItems = [{ id: parentItemId }];
+            let companionRequestId = null;
             if (maintenanceCompanion) {
-              await saveMaintenanceCompanion({
+              const companion = await saveMaintenanceCompanion({
                 companion: maintenanceCompanion,
                 parentItemId,
                 parentRequestId,
                 parentRequestSupplier: payload.supplier,
               });
+              const companionItem = findCreatedSourcingItem(companion, maintenanceCompanion);
+              targetItems.push(companionItem);
+              companionRequestId = companionItem?.sourcingRequestId ?? companionItem?.sourcing_request_id
+                ?? (Array.isArray(companion?.items) ? companion.id : null);
             }
+            const targetIdsByKey = draftDocumentTargetMap(attachmentTargetKeys, targetItems);
+            const errors = [];
+            for (const attachment of attachments ?? []) {
+              const isCompanionDocument = attachment.scope === "license"
+                && String(attachment.targetKey) === String(attachmentTargetKeys?.[1]);
+              const result = await uploadDraftDocuments({
+                parentId: (isCompanionDocument ? companionRequestId : null) ?? parentRequestId ?? saved.id,
+                attachments: [attachment],
+                targetIdsByKey,
+                upload: uploadSourcingQuoteDocument,
+              });
+              errors.push(...result.errors);
+            }
+            if (attachments?.length) await refetch();
+            if (errors.length) showToast(`License line saved, but some documents could not be uploaded: ${errors.join("; ")}`, "warning");
             setShowSourcingModal(null);
             return true;
           }}

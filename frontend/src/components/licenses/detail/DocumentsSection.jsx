@@ -125,7 +125,7 @@ export default function DocumentsSection({
                   </div>
 
                   {files.map((doc) => (
-                    <div key={doc.id} className={`doc-file ${isFileAvailable(doc) ? "" : "is-missing"}`}>
+                    <div key={`${doc.scope}:${doc.id}`} className={`doc-file ${isFileAvailable(doc) ? "" : "is-missing"}`}>
                       <div className="doc-file-icon" style={{ background: "var(--bg-3)" }}>
                         <Icon name="file" size={15} color={documentFileIconColor(doc.original_filename)} />
                       </div>
@@ -140,7 +140,7 @@ export default function DocumentsSection({
                         </div>
                         <div className="doc-file-meta">
                           {formatFileSize(doc.file_size, userSettings)} · {formatDateTime(doc.uploaded_at, userSettings)}
-                          {` · ${doc.shared_po_number ? `Shared - PO ${doc.shared_po_number}` : doc.pending_order_id ? "Shared purchase" : doc.procurement_bundle_id ? "Shared manual batch" : "Single license"}`}
+                          {` · ${doc.target_sourcing_item_id != null ? "Single purchase line" : doc.shared_po_number ? `Shared - PO ${doc.shared_po_number}` : doc.pending_order_id ? "Shared purchase" : doc.procurement_bundle_id ? "Shared manual batch" : "Single license"}`}
                           {latestProcessingByDocument.has(`${documentTypeFor(doc)}:${doc.id}`) && (
                             <span className={`doc-processing-inline-status status-${latestProcessingByDocument.get(`${documentTypeFor(doc)}:${doc.id}`).status}`}>
                               {formatProcessingStatus(latestProcessingByDocument.get(`${documentTypeFor(doc)}:${doc.id}`).status)}

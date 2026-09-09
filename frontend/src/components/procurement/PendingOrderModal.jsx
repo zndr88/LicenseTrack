@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { poFormSchema } from "../../utils/procurementSchemas.js";
@@ -14,8 +14,9 @@ import LicenseDraftSupplementFields from "../licenses/LicenseDraftSupplementFiel
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
-import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
-import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
+import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
+import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
+import { previewPendingOrderDocument, downloadPendingOrderDocument } from "../../api/pendingOrders.js";
 import MaintenanceCoverageFields, { supportsMaintenanceCoverage } from "./MaintenanceCoverageFields.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import { LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
@@ -60,23 +61,27 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
   });
 
   const [items, setItems] = useState([emptyItem()]);
-  const [attachedFile, setAttachedFile] = useState(null);
+
+  const { attachments, categoryScopes, addFiles, removeAttachment, changeTarget, changeCategoryScope, clearAttachments } = useStagedDocumentAttachments(isNewOrder ? items[0]?.id : order?.items?.[0]?.id);
+  const attachedFile = attachments[0]?.file ?? null;
   const [attachedFileBase64, setAttachedFileBase64] = useState(null);
   const [slotHasActions, setSlotHasActions] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [attachmentError, setAttachmentError] = useState(null);
 
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
-    isDirty: isDirty || !!attachedFile,
+    isDirty: isDirty || attachments.length > 0,
     onClose: onCancel,
   });
 
-  const handleFileChange = (file) => {
-    setAttachedFile(file);
-    if (!file) { setAttachedFileBase64(null); return; }
+  useEffect(() => {
+    if (!attachedFile) { setAttachedFileBase64(null); return; }
+    let current = true;
     const reader = new FileReader();
-    reader.onload = () => setAttachedFileBase64(reader.result.split(",")[1] ?? null);
-    reader.readAsDataURL(file);
-  };
+    reader.onload = () => { if (current) setAttachedFileBase64(reader.result.split(",")[1] ?? null); };
+    reader.readAsDataURL(attachedFile);
+    return () => { current = false; };
+  }, [attachedFile]);
 
   const updateItem = (id, field, value) =>
     setItems((prev) => prev.map((item) => {
@@ -98,6 +103,12 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
   const removeItem = (id) => setItems((prev) => prev.length > 1 ? prev.filter((i) => i.id !== id) : prev);
 
   const onSubmit = async (data) => {
+    const validTargets = (isNewOrder ? items.filter((line) => line.publisherName.trim() && line.softwareDescription.trim()) : order.items ?? []).map((line) => String(line.id));
+    if (attachments.some((attachment) => attachment.scope === "license" && !validTargets.includes(String(attachment.targetKey)))) {
+      setAttachmentError("Choose an available license line for each Single document, or remove the document before saving.");
+      return;
+    }
+    setAttachmentError(null);
     setSaving(true);
     try {
       if (isNewOrder) {
@@ -110,14 +121,14 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
           secondaryContacts: parseSecondaryContacts(item.secondaryContacts),
           customFieldValues: buildCustomFieldValuePayload(customFieldDefs, item.customFieldValues, userSettings),
         }));
-        const saved = await onSave({ ...data, items: normalizedItems, quoteFile: attachedFile || null });
+        const saved = await onSave({ ...data, items: normalizedItems, attachments, attachmentTargetKeys: (isNewOrder ? items : order.items ?? []).map((line) => String(line.id)) });
         if (saved) {
           reset();
           setItems([emptyItem()]);
-          handleFileChange(null);
+          clearAttachments();
         }
       } else {
-        const saved = await onSave({ ...data, quoteFile: attachedFile || null });
+        const saved = await onSave({ ...data, attachments, attachmentTargetKeys: (isNewOrder ? items : order.items ?? []).map((line) => String(line.id)) });
         if (saved) reset();
       }
     } finally {
@@ -299,13 +310,21 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
           )}
           </div>
         </div>
-          <ProcurementDocumentWorkspace
-            documents={order?.documents ?? []}
-            file={attachedFile}
-            inputId="pending-order-file"
-            label="Purchase Order Document"
-            onFileChange={handleFileChange}
+          {attachmentError && <p className="field-error" role="alert">{attachmentError}</p>}
+          <DocumentStagingWorkspace
+            attachments={attachments}
+            categoryScopes={categoryScopes}
+            documents={(order?.documents ?? []).map((document) => ({ ...document, sourceLabel: (document.targetSourcingItemId ?? document.target_sourcing_item_id) != null || document.scope === "license" ? "Attached to one license line" : "Shared purchase document" }))}
+            inputIdPrefix="pending-order-attachment"
+            onAddFiles={addFiles}
+            onRemoveAttachment={removeAttachment}
+            onTargetChange={changeTarget}
+            onCategoryScopeChange={changeCategoryScope}
             previewDocument={previewPendingOrderDocument}
+            downloadDocument={(document) => downloadPendingOrderDocument(document.id, document.originalFilename ?? document.original_filename)}
+            targetOptions={(isNewOrder ? items : order.items ?? []).map((line, index) => ({ value: String(line.id), label: line.softwareDescription || `Line ${index + 1}` }))}
+            userSettings={userSettings}
+            defaultOpen
           />
         </div>
       </ModalShell>

@@ -28,6 +28,7 @@ import { getLicensesFromQueryData } from "../../utils/licenseQueryData.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { uploadDocument } from "../../api/documents.js";
 import { defaultDocumentScope } from "../../utils/documentCategories.js";
+import { draftDocumentTargetMap, uploadDraftDocuments } from "../../utils/draftDocuments.js";
 
 const EMPTY_PENDING_ORDERS = [];
 
@@ -125,7 +126,7 @@ export function usePendingOrdersData({
   }, [historyError, showError]);
 
   const handleCreatePendingOrder = useCallback(async (payload) => {
-    const { items, quoteFile, ...headerPayload } = payload;
+    const { items, quoteFile, attachments = [], attachmentTargetKeys = [], ...headerPayload } = payload;
     const normalized = (items ?? [])
       .filter((item) => item.publisherName?.trim() && item.softwareDescription?.trim())
       .map((item) => ({
@@ -164,6 +165,14 @@ export function usePendingOrdersData({
       }));
     const { data, error } = await apiCreatePendingOrder({ ...headerPayload, items: normalized });
     if (error) { showError(error); return false; }
+    const savedTargetKeys = attachmentTargetKeys.filter((_, index) => items[index]?.publisherName?.trim() && items[index]?.softwareDescription?.trim());
+    const { errors: attachmentErrors } = await uploadDraftDocuments({
+      parentId: data.id,
+      attachments,
+      targetIdsByKey: draftDocumentTargetMap(savedTargetKeys, data.items),
+      upload: uploadPendingOrderDocument,
+    });
+    if (attachmentErrors.length) showError(`Pending order created but some documents could not be uploaded: ${attachmentErrors.join("; ")}`);
     if (quoteFile) {
       const { error: docError } = await uploadPendingOrderDocument(data.id, quoteFile);
       if (docError) {
@@ -177,7 +186,7 @@ export function usePendingOrdersData({
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
     onPortfolioStateChange?.();
-    return { ok: true, partial: false, data };
+    return { ok: true, partial: attachmentErrors.length > 0, data };
   }, [showError, queryClient, onPortfolioStateChange, userSettings]);
 
   const handleUpdatePendingOrder = useCallback(async (id, payload) => {
@@ -274,11 +283,11 @@ export function usePendingOrdersData({
       supplier: item.supplier || null,
       contactEmail: item.contactEmail || null,
     }));
-    const { error } = await addItemsToPendingOrderBulk(orderId, payload);
+    const { data, error } = await addItemsToPendingOrderBulk(orderId, payload);
     if (error) { showError(error); return false; }
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
     showSuccess(`${items.length} item${items.length > 1 ? "s" : ""} added to pending order`);
-    return true;
+    return { ok: true, data };
   }, [showError, showSuccess, queryClient, userSettings]);
 
   const handleUpdatePOItem = useCallback(async (orderId, itemId, payload) => {

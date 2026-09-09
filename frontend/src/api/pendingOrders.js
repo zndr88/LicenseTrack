@@ -27,9 +27,12 @@ export const updatePendingOrderItem = (poId, itemId, data) =>
 export const deletePendingOrderItem = (poId, itemId) =>
   del(`/api/pending-orders/${poId}/items/${itemId}`);
 
-export function uploadPendingOrderDocument(orderId, file) {
+export function uploadPendingOrderDocument(orderId, file, options = {}) {
   const formData = new FormData();
   formData.append("file", file);
+  if (options.category) formData.append("category", options.category);
+  if (options.scope) formData.append("scope", options.scope);
+  if (options.targetSourcingItemId != null) formData.append("target_sourcing_item_id", String(options.targetSourcingItemId));
   return post(`/api/pending-orders/${orderId}/documents`, formData);
 }
 

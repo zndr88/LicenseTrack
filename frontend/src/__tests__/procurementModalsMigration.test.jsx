@@ -77,7 +77,8 @@ describe("PendingOrderModal", () => {
       notes: "Note here",
     }));
     expect(Array.isArray(payload.items)).toBe(true);
-    expect(payload).toHaveProperty("quoteFile", null);
+    expect(payload.attachments).toEqual([]);
+    expect(payload.attachmentTargetKeys).toHaveLength(payload.items.length);
   });
 
   test("previews an attached purchase order with the native PDF viewer", async () => {

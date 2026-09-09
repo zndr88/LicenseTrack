@@ -26,7 +26,8 @@ import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import LicenseIdentityFormSection from "../licenses/LicenseIdentityFormSection.jsx";
 import LicenseDatesContractFormSection from "../licenses/LicenseDatesContractFormSection.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
-import ProcurementDocumentWorkspace from "./ProcurementDocumentWorkspace.jsx";
+import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
+import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
 import {
   getSourcingItemInitialTotal,
   maintenanceCompanionToPayload,
@@ -35,8 +36,8 @@ import {
   sourcingItemToFormDefaults,
   sourcingPrimaryFormToPayload,
 } from "../../utils/sourcingItemFormModel.js";
-import { previewPendingOrderDocument } from "../../api/pendingOrders.js";
-import { previewSourcingQuoteDocument } from "../../api/sourcing.js";
+import { previewPendingOrderDocument, downloadPendingOrderDocument } from "../../api/pendingOrders.js";
+import { previewSourcingQuoteDocument, downloadSourcingQuoteDocument } from "../../api/sourcing.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { filterCustomFieldDefinitionsForSourcing } from "../../utils/customFieldSourcing.js";
 
@@ -154,19 +155,23 @@ const SourcingItemModal = ({
     defaultValues: sourcingItemToFormDefaults(item, sourcingRequest),
   });
 
-  const [attachedFile, setAttachedFile] = useState(null);
+
+  const { attachments, categoryScopes, addFiles, removeAttachment, changeTarget, changeCategoryScope, clearAttachments } = useStagedDocumentAttachments("primary");
+  const attachedFile = attachments[0]?.file ?? null;
   const [attachedFileBase64, setAttachedFileBase64] = useState(null);
   const [slotHasActions, setSlotHasActions] = useState(false);
   const [additionalLines, setAdditionalLines] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [attachmentError, setAttachmentError] = useState(null);
   const [documentPreviewVisible, setDocumentPreviewVisible] = useState(false);
-  const handleFileChange = (file) => {
-    setAttachedFile(file);
-    if (!file) { setAttachedFileBase64(null); return; }
+  useEffect(() => {
+    if (!attachedFile) { setAttachedFileBase64(null); return; }
+    let current = true;
     const reader = new FileReader();
-    reader.onload = () => setAttachedFileBase64(reader.result.split(",")[1] ?? null);
-    reader.readAsDataURL(file);
-  };
+    reader.onload = () => { if (current) setAttachedFileBase64(reader.result.split(",")[1] ?? null); };
+    reader.readAsDataURL(attachedFile);
+    return () => { current = false; };
+  }, [attachedFile]);
 
   const addAdditionalLine = () => setAdditionalLines((prev) => [...prev, emptyAdditionalLine()]);
   const removeAdditionalLine = (id) => setAdditionalLines((prev) => prev.filter((l) => l.id !== id));
@@ -185,7 +190,7 @@ const SourcingItemModal = ({
   );
 
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
-    isDirty: isDirty || !!attachedFile,
+    isDirty: isDirty || attachments.length > 0,
     onClose: onCancel,
   });
 
@@ -321,6 +326,12 @@ const SourcingItemModal = ({
   };
 
   const onSubmit = async (data) => {
+    const validTargets = ["primary", ...additionalLines.map((line) => String(line.id))];
+    if (attachments.some((attachment) => attachment.scope === "license" && !validTargets.includes(String(attachment.targetKey)))) {
+      setAttachmentError("Choose an available license line for each Single document, or remove the document before saving.");
+      return;
+    }
+    setAttachmentError(null);
     setSaving(true);
     try {
       // Parent-create flows use a line collection plus an optional document so
@@ -338,18 +349,18 @@ const SourcingItemModal = ({
           supplier: data.supplier || null,
           contactEmail: data.contactEmail || null,
           notes: data.notes || null,
-          quoteFile: attachedFile || null,
+          attachments, attachmentTargetKeys: ["primary", ...additionalLines.map((line) => String(line.id))],
         });
         if (saved) {
           reset();
           setAdditionalLines([]);
-          handleFileChange(null);
+          clearAttachments();
         }
       } else {
         const maintenanceCompanion = additionalLines.find((line) => line.isMaintenanceCompanion);
         const saved = await onSave({
           ...sourcingEditFormToPayload(data, customFieldDefs, userSettings),
-          quoteFile: attachedFile || null,
+          attachments, attachmentTargetKeys: ["primary", ...additionalLines.map((line) => String(line.id))],
           ...(maintenanceCompanion ? {
             maintenanceCompanion: maintenanceCompanionToPayload(
               maintenanceCompanion, item?.id, userSettings,
@@ -688,13 +699,21 @@ const SourcingItemModal = ({
             </div>
           )}
         </div>
-          <ProcurementDocumentWorkspace
-            documents={documents}
-            file={attachedFile}
-            inputId="sourcing-quote-file"
-            label={pendingOrderId ? "Purchase Order Document" : "Quote Document"}
-            onFileChange={handleFileChange}
+          {attachmentError && <p className="field-error" role="alert">{attachmentError}</p>}
+          <DocumentStagingWorkspace
+            attachments={attachments}
+            categoryScopes={categoryScopes}
+            documents={documents.map((document) => ({ ...document, category: document.category ?? (pendingOrderId ? "purchase_order" : "quote"), sourceLabel: (document.targetSourcingItemId ?? document.target_sourcing_item_id) != null || document.scope === "license" ? "Attached to one license line" : "Shared purchase document" }))}
+            inputIdPrefix="sourcing-attachment"
+            onAddFiles={addFiles}
+            onRemoveAttachment={removeAttachment}
+            onTargetChange={changeTarget}
+            onCategoryScopeChange={changeCategoryScope}
             previewDocument={pendingOrderId ? previewPendingOrderDocument : previewSourcingQuoteDocument}
+            downloadDocument={(document) => (pendingOrderId ? downloadPendingOrderDocument : downloadSourcingQuoteDocument)(document.id, document.originalFilename ?? document.original_filename)}
+            targetOptions={[{ value: "primary", label: softwareVal || "Line 1" }, ...additionalLines.map((line, index) => ({ value: String(line.id), label: line.softwareDescription || `Line ${index + 2}` }))]}
+            userSettings={userSettings}
+            defaultOpen
             onPreviewVisibilityChange={setDocumentPreviewVisible}
           />
         </div>

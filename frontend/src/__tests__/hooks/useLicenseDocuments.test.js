@@ -75,6 +75,10 @@ describe("useLicenseDocuments", () => {
     expect(props.setConfirmAction).toHaveBeenCalledWith(expect.objectContaining({
       message: expect.stringContaining('every license sharing PO number "PO-123"'),
     }));
+    act(() => result.current.handleFileRemove({ id: 5, original_filename: "line.pdf", target_sourcing_item_id: 3, pending_order_id: 8, scope: "po" }));
+    expect(props.setConfirmAction).toHaveBeenLastCalledWith(expect.objectContaining({
+      message: expect.stringContaining("every license created from this purchase line"),
+    }));
   });
 
   beforeEach(() => {

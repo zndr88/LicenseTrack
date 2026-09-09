@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { uploadPendingOrderDocument } from "../../api/pendingOrders.js";
+import { draftDocumentTargetMap, uploadDraftDocuments } from "../../utils/draftDocuments.js";
 import { ROLE_PERMISSIONS } from "../../constants/permissions.js";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
@@ -88,6 +90,17 @@ export default function PendingOrdersPage({
   const perms = ROLE_PERMISSIONS[user.role];
   const locale = userSettings.numberFormatLocale ?? "en-US";
   const { quotePreview, openQuotePreview, closeQuotePreview } = usePendingOrderQuotePreview({ showError });
+
+  const uploadSavedDocuments = async (orderId, attachments, targetIdsByKey) => {
+    const { errors } = await uploadDraftDocuments({
+      parentId: orderId,
+      attachments,
+      targetIdsByKey,
+      upload: uploadPendingOrderDocument,
+    });
+    if (attachments?.length) await refetch();
+    if (errors.length) showError(`Changes saved, but some documents could not be uploaded: ${errors.join("; ")}`);
+  };
 
   const handleOpenPurchaseOrderUpload = (po) => {
     purchaseOrderTargetRef.current = po;
@@ -393,6 +406,8 @@ export default function PendingOrdersPage({
               notes: form.notes || null,
               items: form.items,
               quoteFile: form.quoteFile,
+              attachments: form.attachments,
+              attachmentTargetKeys: form.attachmentTargetKeys,
             };
             let success = showPendingOrderModal.order
               ? await handleUpdatePendingOrder(showPendingOrderModal.order.id, {
@@ -402,8 +417,9 @@ export default function PendingOrdersPage({
                 notes: payload.notes,
               })
               : await handleCreatePendingOrder(payload);
-            if (success && showPendingOrderModal.order && payload.quoteFile) {
-              success = await handleUploadPurchaseOrderDocument(showPendingOrderModal.order.id, payload.quoteFile);
+            if (success && showPendingOrderModal.order) {
+              await uploadSavedDocuments(showPendingOrderModal.order.id, payload.attachments,
+                draftDocumentTargetMap(payload.attachmentTargetKeys, showPendingOrderModal.order.items));
             }
             if (success === true || success?.ok) {
               setShowPendingOrderModal(null);
@@ -442,7 +458,7 @@ export default function PendingOrdersPage({
           title="Edit PO Line Item"
           onCancel={() => setShowEditPOItemModal(null)}
           onSave={async (form) => {
-            const { maintenanceCompanion, quoteFile, ...itemForm } = form;
+            const { maintenanceCompanion, attachments, attachmentTargetKeys, ...itemForm } = form;
             const payload = {
               publisherName: itemForm.publisherName,
               softwareDescription: itemForm.softwareDescription,
@@ -482,11 +498,14 @@ export default function PendingOrdersPage({
               showEditPOItemModal.item.id,
               payload,
             );
-            if (success && quoteFile) {
-              success = await handleUploadPurchaseOrderDocument(showEditPOItemModal.order.id, quoteFile);
-            }
-            if (success && maintenanceCompanion) {
-              success = await handleAddPOItems(showEditPOItemModal.order.id, [maintenanceCompanion]);
+            if (success) {
+              const targetItems = [showEditPOItemModal.item];
+              if (maintenanceCompanion) {
+                const companionResult = await handleAddPOItems(showEditPOItemModal.order.id, [maintenanceCompanion]);
+                targetItems.push((companionResult?.data?.createdItemIds ?? []).map((id) => ({ id }))[0]);
+              }
+              await uploadSavedDocuments(showEditPOItemModal.order.id, attachments,
+                draftDocumentTargetMap(attachmentTargetKeys, targetItems));
             }
             if (success) setShowEditPOItemModal(null);
             return success;
@@ -560,7 +579,7 @@ export default function PendingOrdersPage({
           userSettings={userSettings}
           title="Add License Line"
           onCancel={() => setShowAddPOItemsModal(null)}
-          onSave={async ({ items, supplier, contactEmail, notes, quoteFile }) => {
+          onSave={async ({ items, supplier, contactEmail, notes, attachments, attachmentTargetKeys }) => {
             const inheritedContext = {
               supplier: supplier || null,
               contactEmail: contactEmail || null,
@@ -575,8 +594,10 @@ export default function PendingOrdersPage({
                 notes: line.notes || inheritedContext.notes,
               })),
             );
-            if (success && quoteFile) {
-              success = await handleUploadPurchaseOrderDocument(showAddPOItemsModal.order.id, quoteFile);
+            if (success) {
+              const createdItems = (success.data?.createdItemIds ?? []).map((id) => ({ id }));
+              await uploadSavedDocuments(showAddPOItemsModal.order.id, attachments,
+                draftDocumentTargetMap(attachmentTargetKeys, createdItems));
             }
             if (success) setShowAddPOItemsModal(null);
             return success;

@@ -16,6 +16,7 @@ import {
 } from "../../../api/sourcing.js";
 import { invalidateProcurementRenewalState } from "../../../queryInvalidation.js";
 import { pendingOrderLabel } from "../../../utils/procurementLabels.js";
+import { draftDocumentTargetMap, uploadDraftDocuments } from "../../../utils/draftDocuments.js";
 
 function invalidateSourcingCaches(queryClient) {
   return Promise.all([
@@ -156,7 +157,7 @@ export function useSourcingActions({
   }, [showToast]);
 
   const handleCreateSourcingRequest = useCallback(async (payload) => {
-    const { quoteFile, ...apiPayload } = payload;
+    const { quoteFile, attachments = [], attachmentTargetKeys = [], ...apiPayload } = payload;
     const { data: created, error } = await createSourcingRequest(apiPayload);
     if (error) { showToast(error, "error"); return false; }
     if (created?.id) {
@@ -165,6 +166,13 @@ export function useSourcingActions({
         const { error: qErr } = await uploadSourcingQuoteDocument(created.id, quoteFile);
         if (qErr) showToast(`Request created but quote upload failed: ${qErr}`, "warning");
       }
+      const { errors } = await uploadDraftDocuments({
+        parentId: created.id,
+        attachments,
+        targetIdsByKey: draftDocumentTargetMap(attachmentTargetKeys, created.items),
+        upload: uploadSourcingQuoteDocument,
+      });
+      if (errors.length) showToast(`Request created but some documents could not be uploaded: ${errors.join("; ")}`, "warning");
     }
     await invalidateSourcingCaches(queryClient);
     showToast(`Sourcing request created with ${apiPayload.items.length} line${apiPayload.items.length === 1 ? "" : "s"}.`, "success");

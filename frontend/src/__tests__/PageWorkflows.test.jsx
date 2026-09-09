@@ -226,6 +226,10 @@ vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
           startDate: item?.startDate,
           endDate: item?.endDate,
           supplier: formData.get("supplier"),
+          ...(formData.get("companionDocument") === "on" ? {
+            attachments: [{ file: new File(["pdf"], "support.pdf"), category: "eula", scope: "license", targetKey: "support" }],
+            attachmentTargetKeys: ["primary", "support"],
+          } : {}),
           ...(formData.get("maintenanceCompanion") === "on" ? {
             maintenanceCompanion: {
               publisherName: "Created Publisher",
@@ -244,6 +248,10 @@ vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
           contactEmail: null,
           notes: null,
           quoteFile: null,
+          ...(formData.get("companionDocument") === "on" ? {
+            attachments: [{ file: new File(["pdf"], "line.pdf"), category: "eula", scope: "license", targetKey: "primary" }],
+            attachmentTargetKeys: ["primary"],
+          } : {}),
         } : line);
       }}
     >
@@ -262,6 +270,10 @@ vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
       <label>
         Support supplier
         <input name="supportSupplier" />
+      </label>
+      <label>
+        Companion document
+        <input type="checkbox" name="companionDocument" />
       </label>
       <button type="submit">Save sourcing item</button>
       <button type="button" onClick={onCancel}>Cancel</button>
@@ -1644,6 +1656,59 @@ describe("SourcingPage workflows", () => {
     });
   });
 
+  test("uploads a companion Single document to its separate supplier request", async () => {
+    const user = userEvent.setup();
+    const request = {
+      id: 8,
+      supplier: "Primary Supplier",
+      contactEmail: null,
+      status: "sourcing",
+      createdAt: "2026-01-08T00:00:00Z",
+      quoteDocuments: [],
+      items: [{
+        id: 80,
+        publisherName: "Existing Publisher",
+        softwareDescription: "Existing App",
+        quantity: "1",
+        currency: "EUR",
+        supplier: "Primary Supplier",
+        status: "sourcing",
+        isRenewal: false,
+      }],
+    };
+    const createdPrimary = {
+      id: 81,
+      publisherName: "Created Publisher",
+      softwareDescription: "Created Sourcing App",
+      quantity: "3",
+      currency: "EUR",
+      supplier: "Primary Supplier",
+      status: "sourcing",
+      isRenewal: false,
+    };
+    sourcingApi.getSourcingRequests.mockResolvedValue({ data: [request], error: null });
+    sourcingApi.addSourcingRequestItem.mockResolvedValueOnce({ data: { ...request, items: [...request.items, createdPrimary] }, error: null });
+    sourcingApi.createSourcingRequest.mockResolvedValueOnce({ data: {
+      id: 9, items: [{ id: 91, sourcingRequestId: 9, publisherName: "Created Publisher", softwareDescription: "Created Sourcing App maintenance/support", status: "sourcing" }],
+    }, error: null });
+    sourcingApi.uploadSourcingQuoteDocument.mockResolvedValueOnce({ data: { id: 1 }, error: null });
+
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+
+    expect(await screen.findByText("Primary Supplier")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /add license line/i }));
+    await user.click(screen.getByLabelText(/add maintenance companion/i));
+    await user.type(screen.getByLabelText(/support supplier/i), "Other Supplier");
+    await user.click(screen.getByLabelText(/companion document/i));
+    await user.click(screen.getByRole("button", { name: /save sourcing item/i }));
+
+    await waitFor(() => {
+      expect(sourcingApi.uploadSourcingQuoteDocument).toHaveBeenCalledWith(9, expect.objectContaining({ name: "support.pdf" }), {
+        category: "eula", scope: "license", targetSourcingItemId: 91,
+      });
+    });
+  });
+
   test("converts an all-freeware request directly to the Registry", async () => {
     const user = userEvent.setup();
     const onNavigateToLicense = vi.fn();
@@ -2427,6 +2492,64 @@ describe("PendingOrdersPage workflows", () => {
           supplier: "Shared Supplier",
         }),
       ]);
+    });
+  });
+
+  test("targets new pending-order documents using exact created IDs despite concurrent additions", async () => {
+    const user = userEvent.setup();
+    const order = {
+      id: 4,
+      poNumber: "PO-SHARED",
+      supplier: "Shared Supplier",
+      status: "pending",
+      items: [{
+        id: 41,
+        publisherName: "Existing Publisher",
+        softwareDescription: "Existing App",
+        quantity: "1",
+        currency: "EUR",
+      }],
+      documents: [],
+      createdAt: "2026-02-01T00:00:00Z",
+    };
+    pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: [order], error: null });
+    pendingOrdersApi.addItemsToPendingOrderBulk.mockResolvedValueOnce({ data: {
+      ...order,
+      items: [...order.items, { id: 42 }, { id: 43 }],
+      createdItemIds: [43],
+    }, error: null });
+    pendingOrdersApi.uploadPendingOrderDocument.mockResolvedValueOnce({ data: { id: 1 }, error: null });
+
+    wrapWithQueryClient(
+      <PendingOrdersPage
+        user={admin}
+        userSettings={userSettings}
+        showError={vi.fn()}
+        showSuccess={vi.fn()}
+      />
+    );
+
+    await user.click(await screen.findByText("PO-SHARED"));
+    await user.click(screen.getByRole("button", { name: /add license line/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /sourcing item form/i });
+    expect(within(dialog).getByText("Add License Line")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Request supplier")).toHaveValue("Shared Supplier");
+
+    await user.click(within(dialog).getByLabelText(/companion document/i));
+    await user.click(within(dialog).getByRole("button", { name: /save sourcing item/i }));
+
+    await waitFor(() => {
+      expect(pendingOrdersApi.addItemsToPendingOrderBulk).toHaveBeenCalledWith(4, [
+        expect.objectContaining({
+          publisherName: "Created Publisher",
+          softwareDescription: "Created Sourcing App",
+          supplier: "Shared Supplier",
+        }),
+      ]);
+      expect(pendingOrdersApi.uploadPendingOrderDocument).toHaveBeenCalledWith(4, expect.objectContaining({ name: "line.pdf" }), {
+        category: "eula", scope: "license", targetSourcingItemId: 43,
+      });
     });
   });
 

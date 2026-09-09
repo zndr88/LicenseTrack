@@ -80,10 +80,10 @@ describe("required field validation", () => {
       expect(screen.getByRole("dialog")).toHaveClass("procurement-document-modal");
       expect(screen.getByRole("dialog")).not.toHaveClass("has-document-preview");
       const quote = new File(["%PDF-1.7"], "vendor-quote.pdf", { type: "application/pdf" });
-      fireEvent.change(document.getElementById("sourcing-quote-file"), { target: { files: [quote] } });
+      fireEvent.change(screen.getByLabelText("Upload Quote Document"), { target: { files: [quote] } });
 
       await waitFor(() => {
-        expect(screen.getByRole("complementary", { name: /attached quote preview/i })).toBeInTheDocument();
+        expect(screen.getByRole("complementary", { name: /attached vendor-quote.pdf preview/i })).toBeInTheDocument();
         expect(screen.getByTitle("vendor-quote.pdf")).toBeInTheDocument();
         expect(screen.getByTitle("Preview of vendor-quote.pdf")).toHaveAttribute("src", "blob:quote-preview#zoom=page-width");
         expect(screen.getByTitle("Preview of vendor-quote.pdf")).not.toHaveAttribute("sandbox");
@@ -93,6 +93,12 @@ describe("required field validation", () => {
       URL.createObjectURL = originalCreateObjectURL;
       URL.revokeObjectURL = originalRevokeObjectURL;
     }
+  });
+
+  test.each(["targetSourcingItemId", "target_sourcing_item_id"])("labels a stored Single document using %s", (targetField) => {
+    renderModal({ documents: [{ id: 7, original_filename: "single.txt", category: "eula", [targetField]: 12 }] });
+    expect(screen.getByText("Attached to one license line")).toBeInTheDocument();
+    expect(screen.queryByText("Shared purchase document")).not.toBeInTheDocument();
   });
 
   test("keeps an unavailable stored PDF visible but disables its preview", () => {
@@ -105,9 +111,8 @@ describe("required field validation", () => {
       }],
     });
 
-    const documentButton = screen.getByRole("button", { name: /missing-quote\.pdf/i });
-    expect(documentButton).toBeDisabled();
-    expect(documentButton).toHaveAttribute("title", "Preview is available for PDF documents");
+    expect(screen.getByText("missing-quote.pdf")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /preview missing-quote/i })).not.toBeInTheDocument();
   });
 
   test("does not preview a file whose declared MIME type conflicts with its PDF extension", async () => {
@@ -117,7 +122,7 @@ describe("required field validation", () => {
     try {
       renderModal();
       const quote = new File(["<script>alert(1)</script>"], "vendor-quote.pdf", { type: "text/html" });
-      fireEvent.change(document.getElementById("sourcing-quote-file"), { target: { files: [quote] } });
+      fireEvent.change(screen.getByLabelText("Upload Quote Document"), { target: { files: [quote] } });
 
       expect(await screen.findByText(/preview is not available/i)).toBeInTheDocument();
       expect(URL.createObjectURL).not.toHaveBeenCalled();
@@ -458,7 +463,7 @@ describe("onSave payload shape", () => {
     // request-level fields at the top, line fields under items[], plus optional quoteFile.
     const payload = onSave.mock.calls[0][0];
     expect(Object.keys(payload).sort()).toEqual(
-      ["items", "supplier", "contactEmail", "notes", "quoteFile"].sort()
+      ["items", "supplier", "contactEmail", "notes", "attachments", "attachmentTargetKeys"].sort()
     );
     expect(payload.items).toHaveLength(1);
     expect(Object.keys(payload.items[0]).sort()).toEqual(
@@ -532,7 +537,7 @@ describe("onSave payload shape", () => {
       supplier: null,
       contactEmail: null,
       notes: null,
-      quoteFile: null,
+      attachments: [],
     }));
     expect(payload.items[0]).toEqual(expect.objectContaining({
       publisherName: "TestPub",
