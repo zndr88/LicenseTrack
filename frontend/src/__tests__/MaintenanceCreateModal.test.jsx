@@ -5,6 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, test, vi } from "vitest";
 import MaintenanceCreateModal from "../components/licenses/MaintenanceCreateModal.jsx";
 import { createLicense, linkMaintenanceToParent } from "../api/licenses.js";
+import { uploadDocument } from "../api/documents.js";
+
+vi.mock("../api/documents.js", () => ({ uploadDocument: vi.fn() }));
+vi.mock("../components/ui/LocalDocumentPreviewPanel.jsx", () => ({ default: () => null }));
 
 function render(ui, options) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -39,6 +43,52 @@ const userSettings = {
 };
 
 describe("MaintenanceCreateModal", () => {
+  test("closing after an upload failure refreshes the created record", async () => {
+    const user = userEvent.setup();
+    const onSuccess = vi.fn();
+    const onClose = vi.fn();
+    createLicense.mockResolvedValueOnce({ data: { id: 99 }, error: null });
+    uploadDocument.mockRejectedValueOnce(new Error("Upload unavailable"));
+    render(<MaintenanceCreateModal parentLicense={parentLicense} userSettings={userSettings} onSuccess={onSuccess} onClose={onClose} />);
+    fireEvent.change(screen.getByLabelText(/end date/i), { target: { value: "2026-12-31" } });
+    await user.upload(screen.getByLabelText("Upload Quote Document"), new File(["quote"], "quote.txt", { type: "text/plain" }));
+    await user.click(screen.getByRole("button", { name: /create maintenance \/ support record/i }));
+    expect(await screen.findByText(/Maintenance record created. Retry/)).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: /^close$/i })[0]);
+    await user.click(screen.getByRole("button", { name: /^discard$/i }));
+    expect(onSuccess).toHaveBeenCalledWith(42);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test("retries only failed documents without recreating maintenance", async () => {
+    const user = userEvent.setup();
+    const onSuccess = vi.fn();
+    createLicense.mockClear();
+    uploadDocument.mockReset();
+    createLicense.mockResolvedValueOnce({ data: { id: 99 }, error: null });
+    uploadDocument.mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: "Upload unavailable" })
+      .mockResolvedValueOnce({ error: null });
+    render(<MaintenanceCreateModal parentLicense={parentLicense} userSettings={userSettings} onSuccess={onSuccess} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/end date/i), { target: { value: "2026-12-31" } });
+    const quote = new File(["quote"], "quote.txt", { type: "text/plain" });
+    const eula = new File(["eula"], "eula.txt", { type: "text/plain" });
+    await user.upload(screen.getByLabelText("Upload Quote Document"), quote);
+    await user.upload(screen.getByLabelText("Upload EULA Document"), eula);
+    await user.click(screen.getByRole("button", { name: /create maintenance \/ support record/i }));
+    expect(await screen.findByText(/Maintenance record created. Retry/)).toBeInTheDocument();
+    expect(uploadDocument).toHaveBeenNthCalledWith(1, 99, quote, "quote", "shared");
+    expect(uploadDocument).toHaveBeenNthCalledWith(2, 99, eula, "eula", "license");
+    expect(screen.getByLabelText(/po number/i)).toBeDisabled();
+    expect(screen.getByRole("tab", { name: /link existing/i })).toBeDisabled();
+    expect(onSuccess).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: /retry document uploads/i }));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(42));
+    expect(createLicense).toHaveBeenCalledTimes(1);
+    expect(uploadDocument).toHaveBeenCalledTimes(3);
+    expect(uploadDocument).toHaveBeenLastCalledWith(99, eula, "eula", "license");
+  });
+
   test("renders parent-derived fields and defaults", () => {
     render(
       <MaintenanceCreateModal
@@ -155,6 +205,7 @@ describe("MaintenanceCreateModal", () => {
     );
 
     await user.click(screen.getByRole("tab", { name: /link existing/i }));
+    expect(screen.queryByLabelText("Upload Quote Document")).not.toBeInTheDocument();
     expect(screen.getByText("Legacy unlinked")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /LT-2026-0077/i }));
     await user.click(screen.getByRole("button", { name: /link existing record/i }));

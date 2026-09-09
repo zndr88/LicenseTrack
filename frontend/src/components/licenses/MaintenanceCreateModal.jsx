@@ -7,6 +7,9 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { formatDate, parseLocalizedNumber } from "../../utils/formatting.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import { uploadDocument } from "../../api/documents.js";
+import DocumentStagingWorkspace from "../procurement/DocumentStagingWorkspace.jsx";
+import { useStagedDocumentAttachments } from "../procurement/useStagedDocumentAttachments.js";
 
 function isLinkedToParent(license, parentId) {
   // parentLicenseId is retained on detached maintenance records as historical
@@ -75,6 +78,8 @@ export default function MaintenanceCreateModal({
   const [selectedMaintenanceId, setSelectedMaintenanceId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [createdLicenseId, setCreatedLicenseId] = useState(null);
+  const { attachments, categoryScopes, addFiles, removeAttachment, changeCategoryScope } = useStagedDocumentAttachments();
 
   const existingMaintenanceOptions = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -99,7 +104,7 @@ export default function MaintenanceCreateModal({
     ? endDate.trim() !== "" && !saving
     : selectedMaintenanceId !== "" && !saving;
 
-  const isDirty = mode !== "create" ||
+  const isDirty = attachments.length > 0 || mode !== "create" ||
     endDate !== "" ||
     startDate !== "" ||
     costRaw !== "" ||
@@ -108,7 +113,15 @@ export default function MaintenanceCreateModal({
     supplier !== (parentLicense.supplier || "") ||
     query !== "" ||
     selectedMaintenanceId !== "";
-  const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose });
+  const handleClose = () => {
+    if (saving) return;
+    if (createdLicenseId != null) onSuccess(parentLicense.id);
+    else onClose();
+  };
+  const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
+    isDirty: !saving && (createdLicenseId == null ? isDirty : attachments.length > 0),
+    onClose: handleClose,
+  });
 
   const handleCreate = async () => {
     const costSave = costRaw ? (parseLocalizedNumber(costRaw, userSettings) ?? "") : "";
@@ -141,15 +154,43 @@ export default function MaintenanceCreateModal({
     setSaving(true);
     setError(null);
 
-    const { error: apiError } = mode === "create"
-      ? await handleCreate()
-      : await linkMaintenanceToParent(parentLicense.id, Number(selectedMaintenanceId));
-    setSaving(false);
-    if (apiError) {
-      setError(apiError);
-      return;
+    try {
+      let licenseId = createdLicenseId;
+      if (licenseId == null) {
+        const { data, error: apiError } = mode === "create"
+          ? await handleCreate()
+          : await linkMaintenanceToParent(parentLicense.id, Number(selectedMaintenanceId));
+        if (apiError) {
+          setError(apiError);
+          return;
+        }
+        if (mode === "create") {
+          licenseId = data.id;
+          setCreatedLicenseId(licenseId);
+        }
+      }
+      if (mode === "create") {
+        const failures = [];
+        for (const attachment of attachments) {
+          try {
+            const { error: uploadError } = await uploadDocument(licenseId, attachment.file, attachment.category, attachment.scope);
+            if (uploadError) failures.push(`${attachment.file.name}: ${uploadError}`);
+            else removeAttachment(attachment.id);
+          } catch (uploadError) {
+            failures.push(`${attachment.file.name}: ${uploadError.message || "Upload failed"}`);
+          }
+        }
+        if (failures.length) {
+          setError(`Maintenance record created. Retry the remaining uploads or close and review its documents. ${failures.join("; ")}`);
+          return;
+        }
+      }
+      onSuccess(parentLicense.id);
+    } catch (saveError) {
+      setError(saveError.message || "Could not save maintenance");
+    } finally {
+      setSaving(false);
     }
-    onSuccess(parentLicense.id);
   };
 
   return (
@@ -161,10 +202,12 @@ export default function MaintenanceCreateModal({
         modalStyle={{ width: 560, maxWidth: "min(560px, 92vw)" }}
         footer={(
           <>
-            <button type="button" className="btn btn-g btn-sm" onClick={requestClose}>Cancel</button>
+            <button type="button" className="btn btn-g btn-sm" disabled={saving} onClick={requestClose}>{createdLicenseId != null ? "Close" : "Cancel"}</button>
             <button type="button" className="btn btn-p btn-sm" disabled={!canSave} onClick={handleSave}>
               {saving
                 ? "Saving..."
+                : createdLicenseId != null
+                  ? "Retry document uploads"
                 : mode === "create"
                   ? "Create Maintenance / Support Record"
                   : "Link Existing Record"}
@@ -185,6 +228,7 @@ export default function MaintenanceCreateModal({
               aria-selected={mode === "create"}
               className={mode === "create" ? "active" : ""}
               onClick={() => setMode("create")}
+              disabled={saving || createdLicenseId != null}
             >
               <Icon name="plus" size={12} /> Create new
             </button>
@@ -194,6 +238,7 @@ export default function MaintenanceCreateModal({
               aria-selected={mode === "link"}
               className={mode === "link" ? "active" : ""}
               onClick={() => setMode("link")}
+              disabled={saving || createdLicenseId != null}
             >
               <Icon name="link" size={12} /> Link existing
             </button>
@@ -201,76 +246,91 @@ export default function MaintenanceCreateModal({
 
           {mode === "create" ? (
             <>
-              <div className="fr">
-                <div className="fg">
-                  <label htmlFor="maint-start-date">Start Date</label>
-                  <input
-                    id="maint-start-date"
-                    className="fi"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    autoFocus
-                  />
+              <fieldset disabled={saving || createdLicenseId != null} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+                <div className="fr">
+                  <div className="fg">
+                    <label htmlFor="maint-start-date">Start Date</label>
+                    <input
+                      id="maint-start-date"
+                      className="fi"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="fg">
+                    <label htmlFor="maint-end-date">End Date *</label>
+                    <input
+                      id="maint-end-date"
+                      className="fi"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className="fg">
-                  <label htmlFor="maint-end-date">End Date *</label>
-                  <input
-                    id="maint-end-date"
-                    className="fi"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
 
-              <div className="fg">
-                <label htmlFor="maint-cost">Support Cost (coverage period)</label>
-                <input
-                  id="maint-cost"
-                  className="fi"
-                  value={costDisplay}
-                  onFocus={() => setCostDisplay(costRaw)}
-                  onChange={(e) => {
-                    setCostDisplay(e.target.value);
-                    setCostRaw(e.target.value);
-                  }}
-                  onBlur={() => setCostDisplay(formatPriceInput(costRaw, locale))}
-                  placeholder="e.g. 2500.00"
+                <div className="fg">
+                  <label htmlFor="maint-cost">Support Cost (coverage period)</label>
+                  <input
+                    id="maint-cost"
+                    className="fi"
+                    value={costDisplay}
+                    onFocus={() => setCostDisplay(costRaw)}
+                    onChange={(e) => {
+                      setCostDisplay(e.target.value);
+                      setCostRaw(e.target.value);
+                    }}
+                    onBlur={() => setCostDisplay(formatPriceInput(costRaw, locale))}
+                    placeholder="e.g. 2500.00"
+                  />
+                </div>
+
+
+                <div className="fr">
+                  <div className="fg">
+                    <label htmlFor="maint-po">PO Number</label>
+                    <input
+                      id="maint-po"
+                      className="fi"
+                      value={poNumber}
+                      onChange={(e) => setPoNumber(e.target.value)}
+                    />
+                  </div>
+                  <div className="fg">
+                    <label htmlFor="maint-contract">Contract Number</label>
+                    <input
+                      id="maint-contract"
+                      className="fi"
+                      value={contractNumber}
+                      onChange={(e) => setContractNumber(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="fg">
+                  <label htmlFor="maint-supplier">Supplier</label>
+                  <ReferenceCombobox
+                    id="maint-supplier"
+                    mode="supplier"
+                    value={supplier}
+                    onChange={setSupplier}
+                  />
+                </div>
+              </fieldset>
+              <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+                <DocumentStagingWorkspace
+                  attachments={attachments}
+                  categoryScopes={categoryScopes}
+                  inputIdPrefix="maintenance-documents"
+                  onAddFiles={addFiles}
+                  onRemoveAttachment={removeAttachment}
+                  onCategoryScopeChange={changeCategoryScope}
+                  userSettings={userSettings}
+                  defaultOpen
                 />
-              </div>
-
-              <div className="fr">
-                <div className="fg">
-                  <label htmlFor="maint-po">PO Number</label>
-                  <input
-                    id="maint-po"
-                    className="fi"
-                    value={poNumber}
-                    onChange={(e) => setPoNumber(e.target.value)}
-                  />
-                </div>
-                <div className="fg">
-                  <label htmlFor="maint-contract">Contract Number</label>
-                  <input
-                    id="maint-contract"
-                    className="fi"
-                    value={contractNumber}
-                    onChange={(e) => setContractNumber(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="fg">
-                <label htmlFor="maint-supplier">Supplier</label>
-                <ReferenceCombobox
-                  id="maint-supplier"
-                  mode="supplier"
-                  value={supplier}
-                  onChange={setSupplier}
-                />
-              </div>
+              </fieldset>
             </>
           ) : (
             <div className="maint-existing-picker">
@@ -317,7 +377,7 @@ export default function MaintenanceCreateModal({
       {showDiscardDialog && (
         <DiscardChangesDialog
           onKeep={() => setShowDiscardDialog(false)}
-          onDiscard={onClose}
+          onDiscard={handleClose}
         />
       )}
     </>
