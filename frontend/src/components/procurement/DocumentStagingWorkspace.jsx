@@ -232,29 +232,29 @@ export default function DocumentStagingWorkspace({
         })}
         </div>
 
-        {localPreview && (
-          <LocalDocumentPreviewPanel
-            ariaLabel={`Attached ${localPreview.file.name} preview`}
-            file={localPreview.file}
-            label="Staged Document Preview"
-            onClose={() => setLocalPreviewId(null)}
-          />
-        )}
-        {storedPreview && (
-          <DocumentPreviewPanel
-            ariaLabel={`${getPreviewFilename(storedPreview.document)} preview`}
-            className="document-assisted-preview"
-            expanded={expanded}
-            filename={getPreviewFilename(storedPreview.document)}
-            kind={storedPreview.error ? null : "pdf"}
-            label="Attached Document Preview"
-            loading={storedPreview.loading}
-            onClose={clearStoredPreview}
-            onToggleExpanded={() => setExpanded((value) => !value)}
-            url={storedPreview.url}
-          />
-        )}
       </LicenseFormSection>
+      {localPreview && (
+        <LocalDocumentPreviewPanel
+          ariaLabel={`Attached ${localPreview.file.name} preview`}
+          file={localPreview.file}
+          label="Staged Document Preview"
+          onClose={() => setLocalPreviewId(null)}
+        />
+      )}
+      {storedPreview && (
+        <DocumentPreviewPanel
+          ariaLabel={`${getPreviewFilename(storedPreview.document)} preview`}
+          className="document-assisted-preview"
+          expanded={expanded}
+          filename={getPreviewFilename(storedPreview.document)}
+          kind={storedPreview.error ? null : "pdf"}
+          label="Attached Document Preview"
+          loading={storedPreview.loading}
+          onClose={clearStoredPreview}
+          onToggleExpanded={() => setExpanded((value) => !value)}
+          url={storedPreview.url}
+        />
+      )}
     </aside>
   );
 }
