@@ -68,11 +68,13 @@ async def add_pending_order_items_bulk(
     current_user: User = Depends(require_editor_or_admin),
 ) -> PendingOrderResponse:
     """Add multiple line items to an existing pending order in one transaction."""
+    created_item_ids: list[int] = []
     order = await add_pending_order_items_bulk_record(
         db,
         order_id,
         payload,
         created_by=current_user.id,
+        created_item_ids=created_item_ids,
     )
 
     ip = request.client.host if request.client else None
@@ -89,7 +91,7 @@ async def add_pending_order_items_bulk(
     await db.commit()
     order = await get_pending_order_or_404(db, order_id, include_items=True)
     storage_base = await get_document_storage_base(db)
-    return to_pending_order_response(order, storage_base)
+    return to_pending_order_response(order, storage_base).model_copy(update={"created_item_ids": created_item_ids})
 
 
 @router.put("/{order_id}/items/{item_id}", response_model=PendingOrderResponse)

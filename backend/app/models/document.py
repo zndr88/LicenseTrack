@@ -53,6 +53,8 @@ class ProcurementDocument(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     po_number: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    shared_po_number: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    target_sourcing_item_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     pending_order_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("pending_orders.id"), nullable=True, index=True
     )

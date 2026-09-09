@@ -23,6 +23,7 @@ from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.pending_order import PendingOrderCreate, PendingOrderResponse, PendingOrderUpdate, SourcingItemSummary
 from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate, SourcingQuoteDocumentResponse
 from app.services.document_availability_service import with_file_availability
+from app.services.draft_document_service import require_no_single_documents
 from app.services.custom_fields_service import replace_values_for_sourcing_item
 from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.reference_data_service import resolve_organization, resolve_procurement_reference_fields
@@ -346,6 +347,7 @@ async def add_pending_order_items_bulk_record(
     payload: list[SourcingItemCreate],
     *,
     created_by: int,
+    created_item_ids: list[int] | None = None,
 ) -> PendingOrder:
     if not payload:
         raise HTTPException(status_code=422, detail="At least one item is required")
@@ -359,6 +361,8 @@ async def add_pending_order_items_bulk_record(
         db.add(item)
         await db.flush()
         await replace_values_for_sourcing_item(db, item.id, item_payload.custom_field_values)
+        if created_item_ids is not None:
+            created_item_ids.append(item.id)
 
     return order
 
@@ -408,6 +412,7 @@ async def delete_pending_order_item_record(
 
     item = _find_order_item(order, item_id)
     label = f"{item.publisher_name} - {item.software_description}"
+    await require_no_single_documents(db, [item.id])
     from app.services.sourcing_service import sourcing_item_predecessor_ids
 
     renewal_license_ids = sourcing_item_predecessor_ids(item)

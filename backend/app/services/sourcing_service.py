@@ -20,6 +20,7 @@ from app.schemas.sourcing import (
     SourcingRequestUpdate,
 )
 from app.services.document_availability_service import with_file_availability
+from app.services.draft_document_service import require_no_single_documents
 from app.services.custom_fields_service import merge_sourcing_values, replace_values_for_sourcing_item
 from app.services.lifecycle_rules import clear_pending_renewal_if_current
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
@@ -572,6 +573,7 @@ async def merge_coterm_sourcing_items_record(
         item.sourcing_request_id for item in items if item.sourcing_request_id is not None
     }
     source_item_ids = tuple(item.id for item in items)
+    await require_no_single_documents(db, list(source_item_ids))
 
     merged = await build_merged_sourcing_item(db, items, predecessors, created_by=created_by)
     db.add(merged)
@@ -867,6 +869,7 @@ async def delete_sourcing_item_record(
     assert_sourcing_item_editable(item)
 
     renewal_license_ids = sourcing_item_predecessor_ids(item)
+    await require_no_single_documents(db, [item.id])
     parent_order_id = item.pending_order_id
     request = item.sourcing_request
     label = item.software_description
@@ -1396,6 +1399,7 @@ async def convert_freeware_sourcing_request_record(
     request_id: int,
     *,
     created_by: int,
+    document_paths: list[tuple[str, str | None]],
 ) -> FreewareRequestConversionResult:
     from app.services.sourcing_license_conversion_service import convert_freeware_sourcing_items
 
@@ -1414,6 +1418,7 @@ async def convert_freeware_sourcing_request_record(
         db=db,
         items=open_items,
         created_by=created_by,
+        document_paths=document_paths,
     )
     return FreewareRequestConversionResult(
         request=request,
@@ -1428,6 +1433,7 @@ async def convert_freeware_sourcing_item_record(
     item_id: int,
     *,
     created_by: int,
+    document_paths: list[tuple[str, str | None]],
 ) -> FreewareItemConversionResult:
     from app.services.sourcing_license_conversion_service import convert_freeware_sourcing_items
 
@@ -1445,6 +1451,7 @@ async def convert_freeware_sourcing_item_record(
         db=db,
         items=[item],
         created_by=created_by,
+        document_paths=document_paths,
     )
     return FreewareItemConversionResult(item=item, license=licenses[0])
 
@@ -1459,6 +1466,7 @@ async def convert_sourcing_request_workflow(
     supplier: str | None,
     notes: str | None,
     created_by: int,
+    document_paths: list[tuple[str, str | None]],
 ) -> SourcingRequestConversionResult:
     from app.services.sourcing_license_conversion_service import convert_freeware_sourcing_items
 
@@ -1486,6 +1494,7 @@ async def convert_sourcing_request_workflow(
             db=db,
             items=freeware_items,
             created_by=created_by,
+            document_paths=document_paths,
         )
         if freeware_items
         else []

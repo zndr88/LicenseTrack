@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.settings import GlobalSettings
-from app.models.sourcing import SourcingQuoteDocument
+from app.models.sourcing import SourcingItem, SourcingQuoteDocument
 from app.services import storage
 
 StoredProcurementPath = tuple[str, str | None]
@@ -66,6 +66,7 @@ async def write_invoice_procurement_document(
     db.add(
         ProcurementDocument(
             po_number=po_number,
+            shared_po_number=po_number.strip() or None,
             pending_order_id=pending_order_id,
             filename=stored_path,
             original_filename=filename,
@@ -96,7 +97,6 @@ async def copy_quote_documents_to_procurement_documents(
     existing_result = await db.execute(
         select(ProcurementDocument).where(
             ProcurementDocument.pending_order_id == pending_order_id,
-            ProcurementDocument.category == ProcurementDocumentCategory.quote,
         )
     )
     existing_by_source_id = {
@@ -106,13 +106,26 @@ async def copy_quote_documents_to_procurement_documents(
     }
 
     stored_paths: list[StoredProcurementPath] = []
+    order_item_ids = set(
+        (await db.execute(select(SourcingItem.id).where(SourcingItem.pending_order_id == pending_order_id)))
+        .scalars()
+        .all()
+    )
     try:
         for quote_doc in quote_result.scalars().all():
+            if (
+                quote_doc.target_sourcing_item_id is not None
+                and quote_doc.target_sourcing_item_id not in order_item_ids
+            ):
+                continue
             existing_doc = existing_by_source_id.get(quote_doc.id)
-            if existing_doc is not None and storage.get_file_path(
-                existing_doc.filename,
-                storage_base,
-            ).exists():
+            if (
+                existing_doc is not None
+                and storage.get_file_path(
+                    existing_doc.filename,
+                    storage_base,
+                ).exists()
+            ):
                 continue
             source_path = storage.get_file_path(quote_doc.filename, storage_base)
             if not source_path.exists():
@@ -127,13 +140,21 @@ async def copy_quote_documents_to_procurement_documents(
                 storage_base,
             )
             if existing_doc is None:
-                db.add(ProcurementDocument(
-                    po_number=po_number, pending_order_id=pending_order_id, filename=stored_path,
-                    original_filename=quote_doc.original_filename, file_size=file_size,
-                    mime_type=quote_doc.mime_type, category=ProcurementDocumentCategory.quote,
-                    source_sourcing_quote_document_id=quote_doc.id,
-                    uploaded_by=user_id,
-                ))
+                db.add(
+                    ProcurementDocument(
+                        po_number=po_number,
+                        pending_order_id=pending_order_id,
+                        filename=stored_path,
+                        original_filename=quote_doc.original_filename,
+                        file_size=file_size,
+                        mime_type=quote_doc.mime_type,
+                        category=ProcurementDocumentCategory(quote_doc.category or "quote"),
+                        target_sourcing_item_id=quote_doc.target_sourcing_item_id,
+                        shared_po_number=(po_number.strip() or None) if quote_doc.shared_upload else None,
+                        source_sourcing_quote_document_id=quote_doc.id,
+                        uploaded_by=user_id,
+                    )
+                )
             else:
                 existing_doc.filename = stored_path
                 existing_doc.original_filename = quote_doc.original_filename
@@ -152,12 +173,13 @@ async def require_invoice_evidence(db: AsyncSession, pending_order_id: int) -> N
     gs_result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
     gs_row = gs_result.scalar_one_or_none()
     storage_base = (gs_row.storage_path if gs_row else "") or None
-    result = await db.execute(select(ProcurementDocument).where(
-        ProcurementDocument.pending_order_id == pending_order_id,
-        ProcurementDocument.category == ProcurementDocumentCategory.invoice,
-    ))
+    result = await db.execute(
+        select(ProcurementDocument).where(
+            ProcurementDocument.pending_order_id == pending_order_id,
+            ProcurementDocument.category == ProcurementDocumentCategory.invoice,
+            ProcurementDocument.target_sourcing_item_id.is_(None),
+        )
+    )
     documents = result.scalars().all()
-    if not documents or not any(
-        storage.get_file_path(doc.filename, storage_base).exists() for doc in documents
-    ):
+    if not documents or not any(storage.get_file_path(doc.filename, storage_base).exists() for doc in documents):
         raise RuntimeError("Required invoice evidence is missing from the procurement document store")

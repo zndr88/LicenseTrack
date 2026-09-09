@@ -51,6 +51,7 @@ class PendingOrder(Base):
         "SourcingItem",
         back_populates="pending_order",
         foreign_keys="[SourcingItem.pending_order_id]",
+        order_by="SourcingItem.id",
     )
     documents: Mapped[list["ProcurementDocument"]] = relationship(  # noqa: F821
         "ProcurementDocument",

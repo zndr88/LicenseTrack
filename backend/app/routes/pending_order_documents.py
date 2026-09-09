@@ -2,7 +2,7 @@ import mimetypes
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,7 @@ from app.dependencies import require_editor_or_admin
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
 from app.models.pending_order import PendingOrderStatus
 from app.models.user import User
+from app.models.sourcing import SourcingItem
 from app.schemas.document import ProcurementDocumentResponse
 from app.services import storage
 from app.services.audit_contracts import format_document_amendment_detail
@@ -31,9 +32,18 @@ async def upload_pending_order_document(
     request: Request,
     db: DbSession,
     file: UploadFile,
+    category: ProcurementDocumentCategory = Form(ProcurementDocumentCategory.purchase_order),
+    scope: str = Form("shared"),
+    target_sourcing_item_id: int | None = Form(None),
     current_user: User = Depends(require_editor_or_admin),
 ) -> ProcurementDocumentResponse:
     order = await get_pending_order_or_404(db, order_id, include_items=False)
+    if scope not in ("shared", "license"):
+        raise HTTPException(status_code=422, detail="Document scope must be Shared or Single.")
+    if scope == "license":
+        target = await db.get(SourcingItem, target_sourcing_item_id) if target_sourcing_item_id else None
+        if target is None or target.pending_order_id != order_id:
+            raise HTTPException(status_code=422, detail="Select a line in this pending order for the Single document.")
     content = await file.read()
     storage.validate_upload(file, content)
     await file.seek(0)
@@ -49,12 +59,14 @@ async def upload_pending_order_document(
     mime_type = file.content_type or mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
     document = ProcurementDocument(
         po_number=order.po_number,
+        shared_po_number=(order.po_number.strip() or None) if scope == "shared" else None,
+        target_sourcing_item_id=target_sourcing_item_id if scope == "license" else None,
         pending_order_id=order_id,
         filename=stored_path,
         original_filename=original_filename,
         file_size=file_size,
         mime_type=mime_type,
-        category=ProcurementDocumentCategory.purchase_order,
+        category=category,
         uploaded_by=current_user.id,
     )
     try:

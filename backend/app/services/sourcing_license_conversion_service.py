@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.license import License, LicenseMetric, LicenseType
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.services.conversion.license_converter import create_purchase_license
+from app.services.draft_document_service import copy_sourcing_documents_to_license
 from app.services.custom_fields_service import transfer_sourcing_values_to_license
 from app.services.sourcing_service import is_direct_freeware_item, refresh_sourcing_request_status
 
@@ -15,6 +16,7 @@ async def convert_freeware_sourcing_items(
     db: AsyncSession,
     items: list[SourcingItem],
     created_by: int,
+    document_paths: list[tuple[str, str | None]],
 ) -> list[License]:
     """Create live freeware licenses without manufacturing purchase evidence."""
     if not items:
@@ -95,6 +97,7 @@ async def convert_freeware_sourcing_items(
             item_id=item.id,
         )
         await transfer_sourcing_values_to_license(db, item.id, license_obj.id)
+        await copy_sourcing_documents_to_license(db, item, license_obj, created_by, document_paths)
         item.status = SourcingStatus.converted
         created.append(license_obj)
 

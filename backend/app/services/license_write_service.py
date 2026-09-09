@@ -791,13 +791,15 @@ async def _cleanup_license_delete_references(db: AsyncSession, license_ids: list
         if orphaned_bundle_ids:
             procurement_document_result = await db.execute(
                 select(ProcurementDocument.filename).where(
-                    ProcurementDocument.procurement_bundle_id.in_(orphaned_bundle_ids)
+                    ProcurementDocument.procurement_bundle_id.in_(orphaned_bundle_ids),
+                    ProcurementDocument.shared_po_number.is_(None),
                 )
             )
             document_paths.extend(procurement_document_result.scalars().all())
             await db.execute(
                 delete(ProcurementDocument).where(
-                    ProcurementDocument.procurement_bundle_id.in_(orphaned_bundle_ids)
+                    ProcurementDocument.procurement_bundle_id.in_(orphaned_bundle_ids),
+                    ProcurementDocument.shared_po_number.is_(None),
                 )
             )
 

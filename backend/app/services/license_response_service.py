@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -49,6 +49,8 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
         lic.procurement_bundle_id for lic in licenses if lic.procurement_bundle_id is not None
     }
     license_ids = {lic.id for lic in licenses if lic.id is not None}
+    po_numbers = {lic.po_number.strip() for lic in licenses if getattr(lic, "po_number", None) and lic.po_number.strip()}
+    source_item_ids = {lic.source_sourcing_item_id for lic in licenses if getattr(lic, "source_sourcing_item_id", None) is not None}
     if not pending_order_ids and not procurement_bundle_ids and not license_ids:
         return {}
 
@@ -60,17 +62,43 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
     if procurement_bundle_ids:
         conditions.append(ProcurementDocument.procurement_bundle_id.in_(procurement_bundle_ids))
 
-    result = await db.execute(select(ProcurementDocument).where(or_(*conditions)))
+    scope_condition = and_(
+        ProcurementDocument.shared_po_number.is_(None),
+        ProcurementDocument.target_sourcing_item_id.is_(None),
+        or_(*conditions),
+    )
+    if po_numbers:
+        scope_condition = or_(scope_condition, and_(
+            ProcurementDocument.target_sourcing_item_id.is_(None),
+            ProcurementDocument.shared_po_number.in_(po_numbers),
+        ))
+    if source_item_ids:
+        scope_condition = or_(scope_condition, ProcurementDocument.target_sourcing_item_id.in_(source_item_ids))
+    result = await db.execute(select(ProcurementDocument).where(scope_condition))
     documents_by_license_id: dict[int, list[ProcurementDocument]] = {lic.id: [] for lic in licenses}
     pending_to_license_ids: dict[int, list[int]] = {}
     bundle_to_license_ids: dict[str, list[int]] = {}
+    po_to_license_ids: dict[str, list[int]] = {}
+    source_to_license_ids: dict[int, list[int]] = {}
     for lic in licenses:
+        if getattr(lic, "source_sourcing_item_id", None) is not None:
+            source_to_license_ids.setdefault(lic.source_sourcing_item_id, []).append(lic.id)
+        if getattr(lic, "po_number", None) and lic.po_number.strip():
+            po_to_license_ids.setdefault(lic.po_number.strip(), []).append(lic.id)
         if lic.pending_order_id is not None:
             pending_to_license_ids.setdefault(lic.pending_order_id, []).append(lic.id)
         if lic.procurement_bundle_id is not None:
             bundle_to_license_ids.setdefault(lic.procurement_bundle_id, []).append(lic.id)
 
     for document in result.scalars().all():
+        if document.target_sourcing_item_id is not None:
+            for license_id in source_to_license_ids.get(document.target_sourcing_item_id, []):
+                documents_by_license_id[license_id].append(document)
+            continue
+        if document.shared_po_number is not None:
+            for license_id in po_to_license_ids.get(document.shared_po_number, []):
+                documents_by_license_id[license_id].append(document)
+            continue
         target_license_ids: set[int] = set()
         if document.license_id is not None and document.license_id in documents_by_license_id:
             target_license_ids.add(document.license_id)

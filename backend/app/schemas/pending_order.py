@@ -129,6 +129,7 @@ class PendingOrderResponse(BaseModel):
     converted_license_retired: bool = False
     converted_license_ids: list[int] = []
     direct_registry_count: int = 0
+    created_item_ids: list[int] = []
 
 class PendingOrderConvertRequest(BaseModel):
     """License fields submitted when converting a pending order to a live license."""

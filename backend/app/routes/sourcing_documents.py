@@ -2,14 +2,15 @@ import mimetypes
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import require_editor_or_admin
-from app.models.sourcing import SourcingQuoteDocument
+from app.models.sourcing import SourcingItem, SourcingQuoteDocument
+from app.models.document import ProcurementDocumentCategory
 from app.models.user import User
 from app.schemas.sourcing import (
     SourcingQuoteDocumentResponse,
@@ -33,9 +34,18 @@ async def upload_sourcing_quote_document(
     request: Request,
     db: DbSession,
     file: UploadFile,
+    category: ProcurementDocumentCategory = Form(ProcurementDocumentCategory.quote),
+    scope: str = Form("shared"),
+    target_sourcing_item_id: int | None = Form(None),
     current_user: User = Depends(require_editor_or_admin),
 ) -> SourcingQuoteDocumentResponse:
     sourcing_request = await get_sourcing_request_or_404(db, request_id)
+    if scope not in ("shared", "license"):
+        raise HTTPException(status_code=422, detail="Document scope must be Shared or Single.")
+    if scope == "license":
+        target = await db.get(SourcingItem, target_sourcing_item_id) if target_sourcing_item_id else None
+        if target is None or target.sourcing_request_id != request_id:
+            raise HTTPException(status_code=422, detail="Select a line in this sourcing request for the Single document.")
     content = await file.read()
     storage.validate_upload(file, content)
     await file.seek(0)
@@ -46,6 +56,9 @@ async def upload_sourcing_quote_document(
     mime_type = file.content_type or mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
     document = SourcingQuoteDocument(
         sourcing_request_id=request_id,
+        category=category.value,
+        target_sourcing_item_id=target_sourcing_item_id if scope == "license" else None,
+        shared_upload=scope == "shared",
         filename=stored_path,
         original_filename=original_filename,
         file_size=file_size,

@@ -27,6 +27,9 @@ class ProcurementDocumentResponse(BaseModel):
 
     id: int
     po_number: str
+    shared_po_number: Optional[str] = None
+    target_sourcing_item_id: Optional[int] = None
+    source_sourcing_quote_document_id: Optional[int] = None
     pending_order_id: Optional[int] = None
     license_id: Optional[int] = None
     procurement_bundle_id: Optional[str] = None

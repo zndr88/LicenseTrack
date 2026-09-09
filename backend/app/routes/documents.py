@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -29,6 +29,7 @@ from app.services.access_service import can_download_documents, can_view_license
 from app.services.audit_contracts import format_document_amendment_detail
 from app.services.audit_service import log_event
 from app.services.document_availability_service import get_document_storage_base, with_file_availability
+from app.services.license_response_service import get_procurement_documents_by_scope
 from app.services.procurement_document_scope_service import (
     filter_viewable_procurement_documents,
     get_procurement_document_licenses,
@@ -125,6 +126,7 @@ async def upload_document(
         )
         procurement_document = ProcurementDocument(
             po_number=lic.po_number,
+            shared_po_number=lic.po_number.strip() or None,
             pending_order_id=lic.pending_order_id if is_pending_order_document else None,
             license_id=None if (is_pending_order_document or is_bundle_document) else license_id,
             procurement_bundle_id=lic.procurement_bundle_id if is_bundle_document else None,
@@ -151,7 +153,7 @@ async def upload_document(
                     operation="upload",
                     post_conversion=lic.pending_order_id is not None,
                     document_category=procurement_document.category.value,
-                    document_scope=("pending_order" if is_pending_order_document else "procurement_bundle" if is_bundle_document else "license"),
+                    document_scope=("po_number" if procurement_document.shared_po_number else "pending_order" if is_pending_order_document else "procurement_bundle" if is_bundle_document else "license"),
                     document_id=procurement_document.id,
                     filename=procurement_document.original_filename,
                     related_license_id=license_id,
@@ -250,17 +252,9 @@ async def list_documents(
     responses: list[DocumentResponse | ProcurementDocumentResponse] = [
         with_file_availability(DocumentResponse.model_validate(doc), doc, storage_base) for doc in documents
     ]
-    procurement_conditions = [ProcurementDocument.license_id == license_id]
-    if license_obj.pending_order_id is not None:
-        procurement_conditions.append(ProcurementDocument.pending_order_id == license_obj.pending_order_id)
-    elif license_obj.procurement_bundle_id is not None:
-        procurement_conditions.append(
-            ProcurementDocument.procurement_bundle_id == license_obj.procurement_bundle_id
-        )
-    procurement_query = select(ProcurementDocument).where(or_(*procurement_conditions))
-    procurement_result = await db.execute(procurement_query)
+    procurement_by_license = await get_procurement_documents_by_scope(db, [license_obj])
     viewable_procurement_documents = await filter_viewable_procurement_documents(
-        db, list(procurement_result.scalars().all()), _current_user
+        db, procurement_by_license.get(license_id, []), _current_user
     )
     responses.extend(
         with_file_availability(ProcurementDocumentResponse.model_validate(doc), doc, storage_base)
@@ -453,7 +447,9 @@ async def delete_procurement_document(
             ),
             document_category=category,
             document_scope=(
-                "pending_order"
+                "po_number"
+                if document.shared_po_number is not None
+                else "pending_order"
                 if pending_order_id is not None
                 else "procurement_bundle"
                 if procurement_bundle_id is not None

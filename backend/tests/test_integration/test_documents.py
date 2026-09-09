@@ -96,6 +96,85 @@ async def _login(test_app, username: str, password: str) -> dict:
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
+async def test_new_po_sharing_preserves_legacy_scope_and_files_on_po_change(
+    test_app, auth_headers, db_session, patch_storage,
+):
+    payload = {
+        "publisherName": "Acme", "softwareDescription": "PO sharing",
+        "licenseType": "subscription", "poNumber": "PO-FORWARD",
+        "licenseMetric": "per_user", "currency": "EUR",
+    }
+    first = (await test_app.post("/api/licenses", json=payload, headers=auth_headers)).json()
+    second = (await test_app.post("/api/licenses", json=payload, headers=auth_headers)).json()
+    legacy = ProcurementDocument(
+        license_id=first["id"], po_number="PO-FORWARD", filename="legacy.pdf",
+        original_filename="legacy.pdf", file_size=4, mime_type="application/pdf",
+        category=ProcurementDocumentCategory.quote,
+    )
+    db_session.add(legacy)
+    await db_session.commit()
+    upload = await test_app.post(
+        f"/api/licenses/{first['id']}/documents", headers=auth_headers,
+        files={"file": ("new.pdf", b"%PDF-1.4 new", "application/pdf")},
+        data={"category": "quote", "scope": "shared"},
+    )
+    assert upload.status_code == 201, upload.text
+    doc = upload.json()
+    assert doc["shared_po_number"] == "PO-FORWARD"
+    before = (await test_app.get(f"/api/licenses/{second['id']}/documents", headers=auth_headers)).json()
+    assert [item["id"] for item in before] == [doc["id"]]
+    changed = await test_app.patch(
+        f"/api/licenses/{first['id']}/field", headers=auth_headers,
+        json={"field": "poNumber", "value": "PO-CHANGED"},
+    )
+    assert changed.status_code == 200, changed.text
+    after = (await test_app.get(f"/api/licenses/{first['id']}/documents", headers=auth_headers)).json()
+    assert [item["id"] for item in after] == [legacy.id]
+    stored = await db_session.get(ProcurementDocument, doc["id"])
+    assert stored.shared_po_number == "PO-FORWARD"
+    assert stored.filename == doc["filename"]
+    assert (patch_storage / stored.filename).exists()
+    assert legacy.shared_po_number is None
+    remaining = (await test_app.get(f"/api/licenses/{second['id']}/documents", headers=auth_headers)).json()
+    assert [item["id"] for item in remaining] == [doc["id"]]
+
+
+async def test_new_shared_upload_with_blank_po_never_groups_unrelated_licenses(test_app, auth_headers):
+    payload = {"publisherName": "Acme", "softwareDescription": "Blank PO", "licenseType": "subscription", "licenseMetric": "per_user", "currency": "EUR"}
+    first = (await test_app.post("/api/licenses", json=payload, headers=auth_headers)).json()
+    second = (await test_app.post("/api/licenses", json=payload, headers=auth_headers)).json()
+    upload = await test_app.post(
+        f"/api/licenses/{first['id']}/documents", headers=auth_headers,
+        files={"file": ("blank.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"category": "entitlement", "scope": "shared"},
+    )
+    assert upload.status_code == 201, upload.text
+    assert upload.json()["shared_po_number"] is None
+    assert upload.json()["license_id"] == first["id"]
+    assert (await test_app.get(f"/api/licenses/{second['id']}/documents", headers=auth_headers)).json() == []
+
+
+async def test_new_po_shared_document_requires_all_matching_departments(
+    test_app, auth_headers, db_session,
+):
+    payload = {"publisherName": "Acme", "softwareDescription": "Cross department", "licenseType": "subscription", "poNumber": "PO-ACCESS", "licenseMetric": "per_user", "currency": "EUR"}
+    first = (await test_app.post("/api/licenses", json={**payload, "costCentre": "IT"}, headers=auth_headers)).json()
+    await test_app.post("/api/licenses", json={**payload, "costCentre": "Finance"}, headers=auth_headers)
+    upload = await test_app.post(
+        f"/api/licenses/{first['id']}/documents", headers=auth_headers,
+        files={"file": ("shared.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"category": "invoice", "scope": "shared"},
+    )
+    assert upload.status_code == 201, upload.text
+    _, credentials = await _create_viewer(db_session, "po_scoped", ["IT"])
+    viewer_headers = await _login(test_app, **credentials)
+    listed = await test_app.get(f"/api/licenses/{first['id']}/documents", headers=viewer_headers)
+    assert listed.status_code == 200, listed.text
+    assert listed.json() == []
+    download = await test_app.get(f"/api/procurement-documents/{upload.json()['id']}/download", headers=viewer_headers)
+    assert download.status_code == 404
+
+
 # ---------------------------------------------------------------------------
 # 4a — Upload a valid PDF file
 # ---------------------------------------------------------------------------
@@ -363,7 +442,7 @@ async def test_pending_order_upload_is_shared_and_preserves_legacy_license_evide
     }
 
 
-async def test_license_overview_counts_license_scoped_procurement_documents(test_app, auth_headers):
+async def test_license_overview_counts_new_shared_po_documents(test_app, auth_headers):
     license_payload = {
         "publisherName": "Acme Corp",
         "softwareDescription": "Shared PO Suite",
@@ -411,11 +490,11 @@ async def test_license_overview_counts_license_scoped_procurement_documents(test
 
     assert counts == {
         first_id: 2,
-        second_id: 0,
+        second_id: 1,
     }
 
 
-async def test_manual_batch_procurement_document_is_shared_without_po_number_fallback(
+async def test_new_manual_batch_document_shares_with_same_po_and_survives_original_batch_deletion(
     test_app,
     auth_headers,
     db_session,
@@ -489,7 +568,7 @@ async def test_manual_batch_procurement_document_is_shared_without_po_number_fal
     )
     assert {doc["id"] for doc in first_docs.json()} == {document["id"], eula_document["id"]}
     assert [doc["id"] for doc in second_docs.json()] == [document["id"]]
-    assert unrelated_docs.json() == []
+    assert [doc["id"] for doc in unrelated_docs.json()] == [document["id"]]
 
     list_resp = await test_app.get("/api/licenses?include_retired=true", headers=auth_headers)
     rows = {row["id"]: row for row in list_resp.json()}
@@ -497,8 +576,8 @@ async def test_manual_batch_procurement_document_is_shared_without_po_number_fal
     assert rows[created[0]["id"]]["completenessPct"] == 100
     assert rows[created[1]["id"]]["documentCount"] == 1
     assert rows[created[1]["id"]]["completenessPct"] == 100
-    assert rows[unrelated[0]["id"]]["documentCount"] == 0
-    assert rows[unrelated[0]["id"]]["completenessPct"] == 0
+    assert rows[unrelated[0]["id"]]["documentCount"] == 1
+    assert rows[unrelated[0]["id"]]["completenessPct"] == 100
 
     first_delete = await test_app.delete(f"/api/licenses/{created[0]['id']}", headers=auth_headers)
     assert first_delete.status_code == 204
@@ -510,7 +589,7 @@ async def test_manual_batch_procurement_document_is_shared_without_po_number_fal
 
     second_delete = await test_app.delete(f"/api/licenses/{created[1]['id']}", headers=auth_headers)
     assert second_delete.status_code == 204
-    assert await db_session.get(ProcurementDocument, document["id"]) is None
+    assert await db_session.get(ProcurementDocument, document["id"]) is not None
     invalidate_global_settings_cache()
 
 
@@ -672,7 +751,7 @@ async def test_post_conversion_procurement_upload_audit_is_document_amendment(
     assert "operation=upload" in detail
     assert "postConversion=true" in detail
     assert "documentCategory=invoice" in detail
-    assert "documentScope=pending_order" in detail
+    assert "documentScope=po_number" in detail
     assert f"relatedLicenseId={license_obj.id}" in detail
     assert f"pendingOrderId={order.id}" in detail
     assert "poNumber=PO-AMEND-UPLOAD" in detail

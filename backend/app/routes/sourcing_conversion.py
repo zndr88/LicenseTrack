@@ -9,6 +9,7 @@ from app.models.sourcing import SourcingStatus
 from app.models.user import User
 from app.schemas.license import LicenseResponse
 from app.schemas.pending_order import ConvertSourcingItemRequest, PendingOrderResponse
+from app.services.draft_document_service import draft_document_transaction
 from app.services.audit_service import diff_fields, log_event
 from app.services.document_availability_service import get_document_storage_base
 from app.services.pending_order_service import to_pending_order_response
@@ -37,36 +38,38 @@ async def convert_freeware_sourcing_request(
     db: DbSession,
     current_user: User = Depends(require_editor_or_admin),
 ) -> list[LicenseResponse]:
-    outcome = await convert_freeware_sourcing_request_record(
-        db,
-        request_id,
-        created_by=current_user.id,
-    )
-    sourcing_request = outcome.request
-    ip = request.client.host if request.client else None
-    identity_diff = diff_fields(outcome.identity_before, outcome.identity_after)
-    if identity_diff:
+    async with draft_document_transaction(db) as document_paths:
+        outcome = await convert_freeware_sourcing_request_record(
+            db,
+            request_id,
+            created_by=current_user.id,
+            document_paths=document_paths,
+        )
+        sourcing_request = outcome.request
+        ip = request.client.host if request.client else None
+        identity_diff = diff_fields(outcome.identity_before, outcome.identity_after)
+        if identity_diff:
+            await log_event(
+                db,
+                "sourcing_request.updated",
+                actor=current_user,
+                ip_address=ip,
+                target_type="sourcing_request",
+                target_id=str(request_id),
+                target_label=sourcing_request.supplier or f"Sourcing request {request_id}",
+                detail=identity_diff,
+            )
         await log_event(
             db,
-            "sourcing_request.updated",
+            "sourcing_request.converted_directly",
             actor=current_user,
             ip_address=ip,
             target_type="sourcing_request",
             target_id=str(request_id),
             target_label=sourcing_request.supplier or f"Sourcing request {request_id}",
-            detail=identity_diff,
+            detail=f"{len(outcome.licenses)} Freeware / Open Source license(s) created",
         )
-    await log_event(
-        db,
-        "sourcing_request.converted_directly",
-        actor=current_user,
-        ip_address=ip,
-        target_type="sourcing_request",
-        target_id=str(request_id),
-        target_label=sourcing_request.supplier or f"Sourcing request {request_id}",
-        detail=f"{len(outcome.licenses)} Freeware / Open Source license(s) created",
-    )
-    await db.commit()
+        await db.commit()
     return await build_conversion_response(
         db,
         [(license_obj.id, "direct_freeware") for license_obj in outcome.licenses],
@@ -85,24 +88,26 @@ async def convert_freeware_sourcing_item(
     db: DbSession,
     current_user: User = Depends(require_editor_or_admin),
 ) -> LicenseResponse:
-    outcome = await convert_freeware_sourcing_item_record(
-        db,
-        item_id,
-        created_by=current_user.id,
-    )
-    item = outcome.item
-    ip = request.client.host if request.client else None
-    await log_event(
-        db,
-        "sourcing.converted_directly",
-        actor=current_user,
-        ip_address=ip,
-        target_type="sourcing",
-        target_id=str(item_id),
-        target_label=item.software_description,
-        detail=f"License {outcome.license.license_ref} created without a pending order",
-    )
-    await db.commit()
+    async with draft_document_transaction(db) as document_paths:
+        outcome = await convert_freeware_sourcing_item_record(
+            db,
+            item_id,
+            created_by=current_user.id,
+            document_paths=document_paths,
+        )
+        item = outcome.item
+        ip = request.client.host if request.client else None
+        await log_event(
+            db,
+            "sourcing.converted_directly",
+            actor=current_user,
+            ip_address=ip,
+            target_type="sourcing",
+            target_id=str(item_id),
+            target_label=item.software_description,
+            detail=f"License {outcome.license.license_ref} created without a pending order",
+        )
+        await db.commit()
     responses = await build_conversion_response(
         db,
         [(outcome.license.id, "direct_freeware")],
@@ -119,39 +124,41 @@ async def convert_sourcing_request(
     db: DbSession,
     current_user: User = Depends(require_editor_or_admin),
 ) -> PendingOrderResponse:
-    try:
-        outcome = await convert_sourcing_request_workflow(
-            db,
-            request_id,
-            pending_order_id=payload.pending_order_id,
-            po_number=payload.po_number,
-            procurement_reference=payload.procurement_reference,
-            supplier=payload.supplier,
-            notes=payload.notes,
-            created_by=current_user.id,
-        )
-    except ValueError as exc:
-        status_code = 404 if "not found" in str(exc) else 422
-        if "already been converted" in str(exc):
-            status_code = 409
-        raise HTTPException(status_code=status_code, detail=str(exc))
-    sourcing_request = outcome.request
+    async with draft_document_transaction(db) as document_paths:
+        try:
+            outcome = await convert_sourcing_request_workflow(
+                db,
+                request_id,
+                pending_order_id=payload.pending_order_id,
+                po_number=payload.po_number,
+                procurement_reference=payload.procurement_reference,
+                supplier=payload.supplier,
+                notes=payload.notes,
+                created_by=current_user.id,
+                document_paths=document_paths,
+            )
+        except ValueError as exc:
+            status_code = 404 if "not found" in str(exc) else 422
+            if "already been converted" in str(exc):
+                status_code = 409
+            raise HTTPException(status_code=status_code, detail=str(exc))
+        sourcing_request = outcome.request
 
-    ip = request.client.host if request.client else None
-    await log_event(
-        db,
-        (
-            "sourcing_request.converted"
-            if sourcing_request.status == SourcingStatus.converted
-            else "sourcing_request.purchase_lines_converted"
-        ),
-        actor=current_user,
-        ip_address=ip,
-        target_type="sourcing_request",
-        target_id=str(request_id),
-        target_label=sourcing_request.supplier or f"Sourcing request {request_id}",
-    )
-    await db.commit()
+        ip = request.client.host if request.client else None
+        await log_event(
+            db,
+            (
+                "sourcing_request.converted"
+                if sourcing_request.status == SourcingStatus.converted
+                else "sourcing_request.purchase_lines_converted"
+            ),
+            actor=current_user,
+            ip_address=ip,
+            target_type="sourcing_request",
+            target_id=str(request_id),
+            target_label=sourcing_request.supplier or f"Sourcing request {request_id}",
+        )
+        await db.commit()
 
     order = await load_sourcing_conversion_order(db, outcome.order_id)
     storage_base = await get_document_storage_base(db)

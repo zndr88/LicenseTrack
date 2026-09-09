@@ -1,7 +1,7 @@
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, JSON, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -37,6 +37,7 @@ class SourcingRequest(Base):
         "SourcingItem",
         back_populates="sourcing_request",
         foreign_keys="[SourcingItem.sourcing_request_id]",
+        order_by="SourcingItem.id",
         cascade="all, delete-orphan",
     )
     quote_documents: Mapped[list["SourcingQuoteDocument"]] = relationship(
@@ -54,6 +55,9 @@ class SourcingQuoteDocument(Base):
         Integer, ForeignKey("sourcing_requests.id"), nullable=False, index=True
     )
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    category: Mapped[str] = mapped_column(String(30), nullable=False, default="quote", server_default="quote")
+    target_sourcing_item_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    shared_upload: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     original_filename: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     mime_type: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -136,7 +140,10 @@ class SourcingItem(Base):
             return []
         if "quote_documents" not in self.sourcing_request.__dict__:
             return []
-        return list(self.sourcing_request.quote_documents)
+        return [
+            document for document in self.sourcing_request.quote_documents
+            if document.target_sourcing_item_id in (None, self.id)
+        ]
 
     pending_order: Mapped["PendingOrder | None"] = relationship(  # noqa: F821
         "PendingOrder", back_populates="items", foreign_keys=[pending_order_id]

@@ -280,6 +280,9 @@ class SourcingQuoteDocumentResponse(BaseModel):
     id: int
     sourcing_request_id: int
     filename: str
+    category: str = "quote"
+    target_sourcing_item_id: Optional[int] = None
+    shared_upload: bool = False
     original_filename: str
     file_size: int
     mime_type: str
