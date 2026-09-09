@@ -4,7 +4,7 @@ import Icon from "../../ui/Icon.jsx";
 import LicenseTableFooter from "./LicenseTableFooter.jsx";
 import LicenseTableHeader from "./LicenseTableHeader.jsx";
 import LicenseTableRowCells from "./LicenseTableRowCells.jsx";
-import { getVisibleColumns, hasUpcomingReplacement, rowStyle, VIRTUAL_THRESHOLD } from "./licenseTableShared.js";
+import { getUpcomingReplacementState, getVisibleColumns, rowStyle, VIRTUAL_THRESHOLD } from "./licenseTableShared.js";
 
 export default function LicenseTable({
   filtered,
@@ -91,7 +91,7 @@ export default function LicenseTable({
   }, [someDisplayedSelected, allDisplayedSelected]);
 
   const renderRow = (license) => {
-    const upcomingReplacement = hasUpcomingReplacement(license, licensesById.get(license.renewedToId));
+    const upcomingReplacement = getUpcomingReplacementState(license, licensesById.get(license.renewedToId));
     return (
       <tr
         key={license.id}
@@ -106,7 +106,9 @@ export default function LicenseTable({
           }
         }}
         aria-selected={selectedId === license.id}
-        title={upcomingReplacement ? "Upcoming replacement linked" : undefined}
+        title={upcomingReplacement?.hasCoverageGap
+          ? `${upcomingReplacement.gapDays}-day coverage gap before renewal`
+          : upcomingReplacement?.label}
         className={inlineEditEnabled ? "lp-row-inline-edit" : undefined}
         style={{
           ...rowStyle(license, upcomingReplacement),

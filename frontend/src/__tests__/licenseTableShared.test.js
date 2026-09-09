@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { getVisibleColumns, hasUpcomingReplacement, isColumnFilterable, rowStyle } from "../components/pages/licenses/licenseTableShared.js";
+import {
+  getUpcomingReplacementState,
+  getVisibleColumns,
+  hasUpcomingReplacement,
+  isColumnFilterable,
+  rowStyle,
+} from "../components/pages/licenses/licenseTableShared.js";
 import { hasSortAccessor } from "../utils/sort.js";
 import {
   COLUMN_DEFS,
@@ -41,6 +47,36 @@ describe("upcoming replacement row indicator", () => {
   test("preserves expiring urgency shade while indicating the upcoming replacement", () => {
     expect(rowStyle(predecessor, true)).toEqual({ background: "var(--orange-dim)", borderLeft: "3px solid var(--steel)" });
     expect(rowStyle(predecessor)).toEqual({ background: "var(--orange-dim)", borderLeft: "3px solid var(--orange)" });
+  });
+
+  test.each([
+    ["2026-09-09", "Renews today", 0],
+    ["2026-09-10", "Renews in 1 days", 1],
+    ["2026-09-20", "Renews in 11 days", 11],
+  ])("counts down to successor coverage starting %s", (startDate, label, daysUntilStart) => {
+    const state = getUpcomingReplacementState(
+      { ...predecessor, endDate: "2026-09-08" },
+      { id: 2, startDate, expiration: { status: "upcoming" } },
+      "2026-09-09",
+    );
+
+    expect(state).toMatchObject({ label, daysUntilStart });
+  });
+
+  test("uses the existing inclusive end-date convention for coverage gaps", () => {
+    const contiguous = getUpcomingReplacementState(
+      { ...predecessor, endDate: "2026-09-09" },
+      { id: 2, startDate: "2026-09-10", expiration: { status: "upcoming" } },
+      "2026-09-01",
+    );
+    const gap = getUpcomingReplacementState(
+      { ...predecessor, endDate: "2026-09-09" },
+      { id: 2, startDate: "2026-09-12", expiration: { status: "upcoming" } },
+      "2026-09-01",
+    );
+
+    expect(contiguous).toMatchObject({ hasCoverageGap: false, gapDays: 0 });
+    expect(gap).toMatchObject({ hasCoverageGap: true, gapDays: 2 });
   });
 });
 

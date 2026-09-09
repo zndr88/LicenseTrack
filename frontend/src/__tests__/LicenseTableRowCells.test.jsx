@@ -70,14 +70,30 @@ describe("LicenseTableRowCells record identity", () => {
 });
 
 describe("LicenseTableRowCells overlapping renewal status", () => {
-  test("shows expiring urgency alongside the upcoming replacement label", () => {
+  test("replaces expiring urgency with the linked successor countdown", () => {
     renderCells({
       id: 1,
       expiration: { status: "expiring", label: "Expires in 10d" },
-    }, [{ key: "expiration" }], {}, true);
+    }, [{ key: "expiration" }], {}, {
+      label: "Renews in 14 days",
+      hasCoverageGap: false,
+    });
 
-    expect(screen.getByText("Expires in 10d")).toBeInTheDocument();
-    expect(screen.getByText("Upcoming replacement linked")).toBeInTheDocument();
+    expect(screen.getByText("Renews in 14 days")).toBeInTheDocument();
+    expect(screen.queryByText("Expires in 10d")).not.toBeInTheDocument();
+    expect(screen.queryByText("Upcoming replacement linked")).not.toBeInTheDocument();
+  });
+
+  test("keeps a visible warning when linked successor coverage has a gap", () => {
+    renderCells({
+      id: 1,
+      expiration: { status: "expiring", label: "Expires in 10d" },
+    }, [{ key: "expiration" }], {}, {
+      label: "Renews in 14 days",
+      hasCoverageGap: true,
+    });
+
+    expect(screen.getByText("Coverage gap")).toBeInTheDocument();
   });
 
   test.each([

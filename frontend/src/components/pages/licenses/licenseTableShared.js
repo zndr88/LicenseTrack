@@ -1,3 +1,5 @@
+import { daysBetween, todayStr } from "../../../utils/helpers.js";
+
 export const VIRTUAL_THRESHOLD = 500;
 
 export const NON_FILTERABLE_COLUMNS = ["select", "docs", "expiration", "status", "complete", "totalPoPrice", "calcTotal"];
@@ -11,6 +13,22 @@ export function hasUpcomingReplacement(license, successor) {
     && license.renewedToId != null
     && successor?.id === license.renewedToId
     && successor.expiration?.status === "upcoming";
+}
+
+export function getUpcomingReplacementState(license, successor, today = todayStr()) {
+  if (!hasUpcomingReplacement(license, successor) || !successor.startDate) return null;
+
+  const daysUntilStart = Math.max(0, daysBetween(today, successor.startDate));
+  const gapDays = license.endDate
+    ? Math.max(0, daysBetween(license.endDate, successor.startDate) - 1)
+    : 0;
+
+  return {
+    daysUntilStart,
+    hasCoverageGap: gapDays > 0,
+    gapDays,
+    label: daysUntilStart === 0 ? "Renews today" : `Renews in ${daysUntilStart} days`,
+  };
 }
 
 export function rowStyle(license, upcomingReplacement = false) {
