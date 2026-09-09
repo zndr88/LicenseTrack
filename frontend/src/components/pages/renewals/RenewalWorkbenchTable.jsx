@@ -21,10 +21,10 @@ function formatDays(days) {
   return `${days}d`;
 }
 
-function renderCell(column, row, { startingId, locale, userSettings, canStartRenewal, canOpenPipeline, onNavigateToLicense, onNavigateToSourcing, onNavigateToPendingOrder, onStartRenewal }) {
+function renderCell(column, row, { startingId, locale, userSettings, canStartRenewal, canOpenPipeline, renewalActionDays, onNavigateToLicense, onNavigateToSourcing, onNavigateToPendingOrder, onStartRenewal }) {
   const risks = getRiskFlagDisplay(row.riskFlags ?? []);
   const hiddenRiskTitle = risks.hidden.map((flag) => flag.label).join(", ");
-  const primaryAction = getPrimaryAction(row, { canOpenPipeline, canStartRenewal });
+  const primaryAction = getPrimaryAction(row, { canOpenPipeline, canStartRenewal, renewalActionDays });
 
   if (column.isCustom) {
     const field = getCustomFieldValue(row, column);
@@ -163,12 +163,13 @@ export default function RenewalWorkbenchTable({
   userSettings,
   canStartRenewal,
   canOpenPipeline,
+  renewalActionDays,
   onNavigateToLicense,
   onNavigateToSourcing,
   onNavigateToPendingOrder,
   onStartRenewal,
 }) {
-  const cellContext = { startingId, locale, userSettings, canStartRenewal, canOpenPipeline, onNavigateToLicense, onNavigateToSourcing, onNavigateToPendingOrder, onStartRenewal };
+  const cellContext = { startingId, locale, userSettings, canStartRenewal, canOpenPipeline, renewalActionDays, onNavigateToLicense, onNavigateToSourcing, onNavigateToPendingOrder, onStartRenewal };
 
   return (
     <div className="lp-tbl-wrap">

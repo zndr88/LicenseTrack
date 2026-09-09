@@ -104,6 +104,7 @@ class GlobalSettingsUpdate(BaseModel):
     audit_log_retention_days: Optional[int] = Field(default=None, ge=1)
     high_value_threshold: Optional[Decimal] = Field(default=None, ge=0)
     fiscal_year_start_month: Optional[int] = Field(default=None, ge=1, le=12)
+    renewal_action_days: Optional[int] = Field(default=None, ge=0, le=365)
     email_enabled: Optional[bool] = None
     oidc_enabled: Optional[bool] = None
     oidc_discovery_url: Optional[str] = Field(default=None, max_length=2000)
@@ -148,6 +149,7 @@ class GlobalSettingsResponse(BaseModel):
     audit_log_retention_days: int = 90
     high_value_threshold: Decimal = Decimal("50000")
     fiscal_year_start_month: int = 1
+    renewal_action_days: Optional[int] = None
     email_enabled: bool = False
     oidc_enabled: bool = False
     oidc_discovery_url: Optional[str] = None
@@ -181,5 +183,6 @@ class GlobalSettingsPublicResponse(BaseModel):
     mandatory_fields: dict
     notification_days: int
     notice_notification_days: int = 30
+    renewal_action_days: Optional[int] = None
     oidc_enabled: bool = False
     oidc_available: bool = False

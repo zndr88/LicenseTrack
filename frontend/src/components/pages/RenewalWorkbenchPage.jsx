@@ -22,7 +22,7 @@ import {
 } from "./renewals/workbenchColumns.js";
 import RenewalWorkbenchTable from "./renewals/RenewalWorkbenchTable.jsx";
 import RenewalWorkbenchToolbar from "./renewals/RenewalWorkbenchToolbar.jsx";
-import { getRenewalBundleMembers } from "../../utils/renewalBundle.js";
+import { getRenewalActionDays, getRenewalBundleMembers } from "../../utils/renewalBundle.js";
 
 const EMPTY_ROWS = [];
 
@@ -98,6 +98,7 @@ export default function RenewalWorkbenchPage({
   );
 
   const highValueThreshold = globalSettings?.highValueThreshold ?? HIGH_VALUE_THRESHOLD;
+  const renewalActionDays = getRenewalActionDays(globalSettings);
   const viewCounts = useMemo(() => getViewCounts(summaryRows, highValueThreshold), [summaryRows, highValueThreshold]);
   const columns = useMemo(() => buildWorkbenchColumns(summaryRows, customFieldDefs), [summaryRows, customFieldDefs]);
   const visibleColumns = useMemo(
@@ -142,6 +143,7 @@ export default function RenewalWorkbenchPage({
     const siblings = getRenewalBundleMembers(
       bundleLicense,
       bundleCandidates,
+      renewalActionDays,
     );
     const licenseIds = [row.licenseId, ...siblings.map((sibling) => sibling.id)];
     const result = licenseIds.length > 1
@@ -257,6 +259,7 @@ export default function RenewalWorkbenchPage({
                 userSettings={userSettings}
                 canStartRenewal={canStartRenewal}
                 canOpenPipeline={canOpenPipeline}
+                renewalActionDays={renewalActionDays}
                 onNavigateToLicense={onNavigateToLicense}
                 onNavigateToSourcing={onNavigateToSourcing}
                 onNavigateToPendingOrder={onNavigateToPendingOrder}

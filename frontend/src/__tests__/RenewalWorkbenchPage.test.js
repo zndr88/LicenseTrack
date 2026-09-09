@@ -11,6 +11,7 @@ import {
   prioritySortRows,
   rowTone,
 } from "../components/pages/renewals/workbenchRules.js";
+import { getRenewalBundleMembers } from "../utils/renewalBundle.js";
 
 const row = (overrides) => ({
   licenseId: 1,
@@ -195,6 +196,33 @@ describe("RenewalWorkbenchPage helpers", () => {
     expect(getPrimaryAction(row(), { canOpenPipeline: true, canStartRenewal: true })).toBe("start");
     expect(getPrimaryAction(row({ budgetOwnerEmail: " " }), { canOpenPipeline: true, canStartRenewal: true })).toBeNull();
     expect(getPrimaryAction(row(), { canOpenPipeline: false, canStartRenewal: false })).toBeNull();
+  });
+
+  test("offers initiation at the configured boundary independently of workbench views", () => {
+    expect(getPrimaryAction(row({ daysUntilExpiry: 60 }), {
+      canOpenPipeline: true,
+      canStartRenewal: true,
+      renewalActionDays: 60,
+    })).toBe("start");
+    expect(getPrimaryAction(row({ daysUntilExpiry: 61 }), {
+      canOpenPipeline: true,
+      canStartRenewal: true,
+      renewalActionDays: 60,
+    })).toBeNull();
+    expect(getPrimaryAction(row({ daysUntilExpiry: null }), {
+      canOpenPipeline: true,
+      canStartRenewal: true,
+      renewalActionDays: 60,
+    })).toBeNull();
+  });
+
+  test("builds complete same-PO same-end-date bundles from unfiltered workbench rows", () => {
+    const selected = row({ licenseId: 1, poNumber: "PO-1", endDate: "2026-11-08", daysUntilExpiry: 60 });
+    const eligibleSibling = row({ licenseId: 2, poNumber: "PO-1", endDate: "2026-11-08", daysUntilExpiry: 60 });
+    const otherEndDate = row({ licenseId: 3, poNumber: "PO-1", endDate: "2026-11-09", daysUntilExpiry: 61 });
+    const candidates = [selected, eligibleSibling, otherEndDate].map((item) => ({ ...item, id: item.licenseId }));
+
+    expect(getRenewalBundleMembers(candidates[0], candidates, 60, "2026-09-09").map((item) => item.id)).toEqual([2]);
   });
 
   test("handles larger row sets deterministically", () => {

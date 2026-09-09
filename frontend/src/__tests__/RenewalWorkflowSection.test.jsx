@@ -22,6 +22,7 @@ function renderSection({
   sourcingItems = [],
   pendingOrders = [],
   canEdit = true,
+  globalSettings = { notificationDays: 30, renewalActionDays: null },
 } = {}) {
   const handlers = {
     onCreateRenewal: vi.fn(),
@@ -30,6 +31,7 @@ function renderSection({
     onNavigate: vi.fn(),
     onNavigateToSourcing: vi.fn(),
     onNavigateToPendingOrder: vi.fn(),
+    onLinkExistingSuccessor: vi.fn(),
     setToast: vi.fn(),
   }
 
@@ -41,7 +43,7 @@ function renderSection({
       allLicenses={allLicenses}
       sourcingItems={sourcingItems}
       pendingOrders={pendingOrders}
-      globalSettings={{ notificationDays: 30 }}
+      globalSettings={globalSettings}
       userSettings={{ dateFormat: 'DD/MM/YYYY' }}
       {...handlers}
     />
@@ -51,6 +53,43 @@ function renderSection({
 }
 
 describe('RenewalWorkflowSection pending ancestry', () => {
+  it('offers actions inside the independent configured window while expiration remains active', () => {
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 45);
+    const license = {
+      ...baseLicense,
+      lifecycleStatus: null,
+      budgetOwnerEmail: 'owner@example.com',
+      endDate: endDate.toISOString().slice(0, 10),
+      expirationStatus: 'active',
+    };
+
+    renderSection({
+      license,
+      exp: { status: 'active', days: 45 },
+      globalSettings: { notificationDays: 30, renewalActionDays: 60 },
+    });
+
+    expect(screen.getByRole('button', { name: /initiate renewal/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /link existing successor/i })).toBeInTheDocument();
+  });
+
+  it('keeps existing-successor linking available without a budget owner', () => {
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 5);
+    const license = {
+      ...baseLicense,
+      lifecycleStatus: null,
+      budgetOwnerEmail: '',
+      endDate: endDate.toISOString().slice(0, 10),
+    };
+
+    renderSection({ license, exp: { status: 'expiring', days: 5 } });
+
+    expect(screen.queryByRole('button', { name: /initiate renewal/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /link existing successor/i })).toBeInTheDocument();
+  });
+
   it('shows a linked successor without offering another renewal while coverage is expiring', () => {
     const successor = {
       ...baseLicense,

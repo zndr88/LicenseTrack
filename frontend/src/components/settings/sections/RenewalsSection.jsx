@@ -12,10 +12,16 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
       onError("High-value threshold must be a non-negative number.");
       return;
     }
+    const actionDays = Number(globalSettings.renewalActionDays ?? globalSettings.notificationDays ?? 30);
+    if (!Number.isInteger(actionDays) || actionDays < 0 || actionDays > 365) {
+      onError("Renewal action days must be a whole number from 0 to 365.");
+      return;
+    }
     setSaving(true);
     const { data, error } = await updateGlobalSettings({
       high_value_threshold: threshold,
       fiscal_year_start_month: globalSettings.fiscalYearStartMonth ?? 1,
+      renewal_action_days: actionDays,
     });
     setSaving(false);
     if (error) { onError(error); return; }
@@ -31,6 +37,27 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
           <div className="set-section-stack">
+            <div className="fr">
+              <div className="fg">
+                <label htmlFor="settings-renewal-action-days">Allow renewal actions X days before expiry</label>
+                <p className="set-field-hint">
+                  Controls when procurement initiation and existing-successor linking become available. Expiration badges and notifications are unchanged.
+                </p>
+                <input
+                  id="settings-renewal-action-days"
+                  className="fi"
+                  type="number"
+                  min="0"
+                  max="365"
+                  step="1"
+                  value={globalSettings.renewalActionDays ?? globalSettings.notificationDays ?? 30}
+                  onChange={(e) => {
+                    setGlobalSettings(s => ({ ...s, renewalActionDays: e.target.value }));
+                    markDirty("renewals");
+                  }}
+                />
+              </div>
+            </div>
             <div className="fr">
               <div className="fg">
                 <label htmlFor="settings-high-value-threshold">High-Value Threshold</label>

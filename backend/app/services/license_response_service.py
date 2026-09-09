@@ -42,6 +42,15 @@ async def get_notification_days(db: AsyncSession) -> int:
     return int(global_settings.notification_days) if global_settings else DEFAULT_NOTIFICATION_DAYS
 
 
+async def get_renewal_action_days(db: AsyncSession) -> int:
+    """Return the renewal-action window, inheriting notification timing until configured."""
+    global_settings = await _get_cached_global_settings(db)
+    if global_settings is None:
+        return DEFAULT_NOTIFICATION_DAYS
+    configured_days = global_settings.renewal_action_days
+    return int(configured_days if configured_days is not None else global_settings.notification_days)
+
+
 async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -> dict[int, list[ProcurementDocument]]:
     """Return procurement documents keyed by license id using explicit record scope."""
     pending_order_ids = {lic.pending_order_id for lic in licenses if lic.pending_order_id is not None}

@@ -7,14 +7,13 @@ multiple predecessors recorded in ``coterm_from_ids``.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType
-from app.services.license_service import compute_expiration_status
 
 REPAIR_ONLY_UPDATE_FIELDS = {
     "renewed_from_id",
@@ -97,8 +96,9 @@ def validate_general_license_update_fields(update_data: dict, license_obj: Licen
 def assert_can_initiate_renewal(
     license_obj: License,
     *,
-    notification_days: int,
+    action_days: int,
     today: date | None = None,
+    require_budget_owner: bool = True,
 ) -> None:
     if license_obj.is_retired or getattr(license_obj, "retirement_scheduled", False):
         raise HTTPException(status_code=409, detail="Retired licenses are not eligible for renewal")
@@ -108,18 +108,19 @@ def assert_can_initiate_renewal(
         raise HTTPException(status_code=409, detail="License has already been renewed")
     if license_obj.license_type in NON_RENEWABLE_LICENSE_TYPES:
         raise HTTPException(status_code=400, detail="Cannot initiate renewal on service or other license types")
-    if not (license_obj.budget_owner_email or "").strip():
+    if require_budget_owner and not (license_obj.budget_owner_email or "").strip():
         raise HTTPException(status_code=400, detail="A budget owner is required before initiating renewal")
     assert_predecessor_has_no_successor(license_obj)
     if license_obj.end_date is None:
         raise HTTPException(status_code=400, detail="Cannot initiate renewal on a perpetual license (no end date)")
-    expiration_status = compute_expiration_status(
-        license_obj,
-        today or date.today(),
-        notification_days,
-    )
-    if expiration_status not in {"expiring", "expired"}:
-        raise HTTPException(status_code=400, detail="Only expiring or expired licenses can start renewal")
+    boundary_date = today or date.today()
+    if license_obj.start_date is not None and license_obj.start_date > boundary_date:
+        raise HTTPException(status_code=400, detail="Upcoming licenses cannot start renewal")
+    if license_obj.end_date > boundary_date + timedelta(days=action_days):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Renewal actions are available {action_days} days before expiry",
+        )
 
 
 def assert_can_cancel_renewal(license_obj: License) -> None:
@@ -130,12 +131,12 @@ def assert_can_cancel_renewal(license_obj: License) -> None:
 def mark_pending_renewal(
     license_obj: License,
     *,
-    notification_days: int,
+    action_days: int,
     today: date | None = None,
 ) -> None:
     assert_can_initiate_renewal(
         license_obj,
-        notification_days=notification_days,
+        action_days=action_days,
         today=today,
     )
     license_obj.lifecycle_status = "pending_renewal"

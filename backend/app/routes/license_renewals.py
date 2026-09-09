@@ -22,6 +22,7 @@ from app.services import renewal_orchestrator
 from app.services.document_availability_service import get_document_storage_base
 from app.services.license_response_service import (
     get_notification_days,
+    get_renewal_action_days,
     load_enriched_license_response,
     load_enriched_license_responses,
 )
@@ -74,13 +75,13 @@ async def initiate_renewal(
     the backend will UPDATE this license with the new dates/contract details instead
     of creating a new record.
     """
-    notification_days = await get_notification_days(db)
+    action_days = await get_renewal_action_days(db)
     result = await renewal_orchestrator.initiate_renewal(
         db=db,
         license_id=license_id,
         actor=current_user,
         ip_address=request.client.host if request.client else None,
-        notification_days=notification_days,
+        action_days=action_days,
     )
     await db.commit()
     sourcing_result = await db.execute(
@@ -105,6 +106,7 @@ async def link_existing_successor(
     current_user: User = Depends(require_editor_or_admin),
 ) -> LinkExistingSuccessorResponse:
     """Complete a renewal by adopting an existing purchased License row."""
+    action_days = await get_renewal_action_days(db)
     notification_days = await get_notification_days(db)
     result = await renewal_orchestrator.link_existing_successor(
         db=db,
@@ -112,6 +114,7 @@ async def link_existing_successor(
         successor_id=payload.successor_license_id,
         actor=current_user,
         ip_address=request.client.host if request.client else None,
+        action_days=action_days,
         notification_days=notification_days,
     )
     await db.commit()
@@ -161,13 +164,13 @@ async def initiate_renewal_bundle(
     Used for same-PO, same-end-date renewal bundles where products must remain
     separate line items instead of being coterm-merged into one license.
     """
-    notification_days = await get_notification_days(db)
+    action_days = await get_renewal_action_days(db)
     result = await renewal_orchestrator.initiate_renewal_bundle(
         db=db,
         license_ids=payload.license_ids,
         actor=current_user,
         ip_address=request.client.host if request.client else None,
-        notification_days=notification_days,
+        action_days=action_days,
     )
     await db.commit()
 

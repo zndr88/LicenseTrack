@@ -4,6 +4,7 @@ import { NON_RENEWABLE_LICENSE_TYPES } from "../../../constants/licenseData.js";
 import { formatDate } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
 import { useRenewalPanelModel } from "./useRenewalPanelModel.js";
+import { isRenewalActionEligible } from "../../../utils/renewalBundle.js";
 
 export default function RenewalWorkflowSection({
   license,
@@ -12,6 +13,7 @@ export default function RenewalWorkflowSection({
   allLicenses,
   sourcingItems,
   pendingOrders,
+  globalSettings,
   userSettings,
   onCreateRenewal,
   onCreateRenewalBundle,
@@ -24,11 +26,12 @@ export default function RenewalWorkflowSection({
   setConfirmAction,
   setToast,
 }) {
-  const { poSiblings, bundleCount } = useRenewalPanelModel({ license, allLicenses });
+  const { poSiblings, bundleCount, actionDays } = useRenewalPanelModel({ license, allLicenses, globalSettings });
   const [initiatingRenewal, setInitiatingRenewal] = useState(false);
   const [unlinkingSuccessor, setUnlinkingSuccessor] = useState(false);
   const canStartRenewal = !NON_RENEWABLE_LICENSE_TYPES.includes(license.licenseType);
   const canLinkExistingSuccessor = Boolean(license.publisherName?.trim());
+  const isWithinActionWindow = isRenewalActionEligible(license, actionDays);
   const successor = license.renewedToId
     ? allLicenses.find((candidate) => candidate.id === license.renewedToId)
     : null;
@@ -56,7 +59,7 @@ export default function RenewalWorkflowSection({
   return (
     <>
       {/* Renewal Workflow box */}
-      {(exp.status === "expiring" || exp.status === "expired") &&
+      {isWithinActionWindow &&
         license.lifecycleStatus !== "pending_renewal" && !license.renewedToId &&
         !license.retired && !license.retirementScheduled && canStartRenewal && (
         <div className="dp-purple-box" style={{ padding: "12px 14px" }}>

@@ -149,6 +149,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               allLicenses={allLicenses}
               sourcingItems={sourcingItems}
               pendingOrders={pendingOrders}
+              globalSettings={globalSettings}
               userSettings={userSettings}
               onCreateRenewal={onCreateRenewal}
               onCreateRenewalBundle={onCreateRenewalBundle}

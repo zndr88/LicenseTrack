@@ -52,7 +52,7 @@ def test_initiate_renewal_rejects_non_renewable_types(license_type):
     license_obj.license_type = license_type
 
     with pytest.raises(HTTPException) as exc_info:
-        assert_can_initiate_renewal(license_obj, notification_days=30)
+        assert_can_initiate_renewal(license_obj, action_days=30)
 
     assert exc_info.value.status_code == 400
     assert "service or other" in exc_info.value.detail
@@ -63,7 +63,7 @@ def test_initiate_renewal_requires_budget_owner():
     license_obj.budget_owner_email = " "
 
     with pytest.raises(HTTPException) as exc_info:
-        assert_can_initiate_renewal(license_obj, notification_days=30)
+        assert_can_initiate_renewal(license_obj, action_days=30)
 
     assert exc_info.value.status_code == 400
     assert "budget owner" in exc_info.value.detail.lower()
@@ -78,12 +78,12 @@ def test_initiate_renewal_rejects_license_outside_expiration_window():
     with pytest.raises(HTTPException) as exc_info:
         assert_can_initiate_renewal(
             license_obj,
-            notification_days=30,
+            action_days=30,
             today=today,
         )
 
     assert exc_info.value.status_code == 400
-    assert "expiring or expired" in exc_info.value.detail
+    assert "30 days before expiry" in exc_info.value.detail
 
 
 @pytest.mark.parametrize("days_from_today", [30, -1])
@@ -95,8 +95,34 @@ def test_initiate_renewal_accepts_expiring_and_expired_licenses(days_from_today)
 
     assert_can_initiate_renewal(
         license_obj,
-        notification_days=30,
+        action_days=30,
         today=today,
+    )
+
+
+def test_initiate_renewal_uses_independent_action_window_inclusively():
+    today = date(2026, 9, 7)
+    license_obj = _license("Configured early renewal")
+    license_obj.budget_owner_email = "owner@example.com"
+    license_obj.end_date = date.fromordinal(today.toordinal() + 60)
+
+    assert_can_initiate_renewal(license_obj, action_days=60, today=today)
+
+    with pytest.raises(HTTPException, match="59 days before expiry"):
+        assert_can_initiate_renewal(license_obj, action_days=59, today=today)
+
+
+def test_existing_successor_eligibility_can_skip_budget_owner_requirement():
+    today = date(2026, 9, 7)
+    license_obj = _license("Already purchased successor")
+    license_obj.budget_owner_email = ""
+    license_obj.end_date = today
+
+    assert_can_initiate_renewal(
+        license_obj,
+        action_days=0,
+        today=today,
+        require_budget_owner=False,
     )
 
 

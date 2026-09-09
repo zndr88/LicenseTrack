@@ -118,7 +118,7 @@ async def test_concurrent_renewal_initiation_reserves_lifecycle_once(
                     license_id=predecessor["id"],
                     actor=actor,
                     ip_address=None,
-                    notification_days=30,
+                    action_days=30,
                 )
                 await db.commit()
                 return result.sourcing_item.id
@@ -165,7 +165,7 @@ async def test_concurrent_bundle_renewals_reserve_every_member_once(
                     license_ids=[first["id"], second["id"]],
                     actor=actor,
                     ip_address=None,
-                    notification_days=30,
+                    action_days=30,
                 )
                 await db.commit()
                 return result.sourcing_request.id
@@ -207,7 +207,7 @@ async def test_concurrent_single_and_bundle_cannot_duplicate_overlapping_license
                     license_id=first["id"],
                     actor=single_actor,
                     ip_address=None,
-                    notification_days=30,
+                    action_days=30,
                 )
                 await single_db.commit()
                 return "single"
@@ -222,7 +222,7 @@ async def test_concurrent_single_and_bundle_cannot_duplicate_overlapping_license
                     license_ids=[first["id"], second["id"]],
                     actor=bundle_actor,
                     ip_address=None,
-                    notification_days=30,
+                    action_days=30,
                 )
                 await bundle_db.commit()
                 return "bundle"
@@ -252,7 +252,20 @@ async def test_initiate_renewal_rejects_license_before_expiration_window(test_ap
     )
 
     assert response.status_code == 400
-    assert "expiring or expired" in response.json()["detail"]
+    assert "30 days before expiry" in response.json()["detail"]
+
+    settings_response = await test_app.put(
+        "/api/settings/global",
+        headers=auth_headers,
+        json={"renewal_action_days": 31},
+    )
+    assert settings_response.status_code == 200, settings_response.text
+
+    configured_response = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/initiate-renewal",
+        headers=auth_headers,
+    )
+    assert configured_response.status_code == 200, configured_response.text
 
 
 async def test_initiate_renewal_snapshots_only_custom_fields_configured_to_copy(

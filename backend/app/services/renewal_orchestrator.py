@@ -132,11 +132,14 @@ def _assert_existing_successor_candidate(
     predecessor: License,
     successor: License,
     *,
+    action_days: int,
     notification_days: int,
 ) -> None:
-    predecessor_status = compute_expiration_status(predecessor, date.today(), notification_days)
-    if predecessor_status not in {"expiring", "expired"}:
-        raise HTTPException(status_code=400, detail="Only expiring or expired licenses can link an existing successor")
+    assert_can_initiate_renewal(
+        predecessor,
+        action_days=action_days,
+        require_budget_owner=False,
+    )
     if (
         predecessor.is_retired
         or getattr(predecessor, "retirement_scheduled", False)
@@ -183,6 +186,7 @@ async def link_existing_successor(
     successor_id: int,
     actor: User,
     ip_address: str | None,
+    action_days: int,
     notification_days: int,
 ) -> ExistingSuccessorLinkResult:
     """Adopt an existing purchased License row as a standard renewal successor."""
@@ -203,6 +207,7 @@ async def link_existing_successor(
     _assert_existing_successor_candidate(
         predecessor,
         successor,
+        action_days=action_days,
         notification_days=notification_days,
     )
 
@@ -316,7 +321,7 @@ async def initiate_renewal(
     license_id: int,
     actor: User,
     ip_address: str | None,
-    notification_days: int,
+    action_days: int,
 ) -> InitiateRenewalResult:
     """
     Begin the renewal procurement workflow for a license.
@@ -327,7 +332,7 @@ async def initiate_renewal(
     license_obj = result.scalar_one_or_none()
     if license_obj is None:
         raise HTTPException(status_code=404, detail="License not found")
-    assert_can_initiate_renewal(license_obj, notification_days=notification_days)
+    assert_can_initiate_renewal(license_obj, action_days=action_days)
 
     await _reserve_renewal_transition(db, license_obj)
 
@@ -367,7 +372,7 @@ async def initiate_renewal_bundle(
     license_ids: list[int],
     actor: User,
     ip_address: str | None,
-    notification_days: int,
+    action_days: int,
 ) -> InitiateRenewalBundleResult:
     """
     Begin one procurement renewal request containing multiple license lines.
@@ -395,7 +400,7 @@ async def initiate_renewal_bundle(
         raise HTTPException(status_code=400, detail="Renewal bundle licenses must share the same end date")
 
     for license_obj in licenses:
-        assert_can_initiate_renewal(license_obj, notification_days=notification_days)
+        assert_can_initiate_renewal(license_obj, action_days=action_days)
     # Reserve in stable order before creating procurement records. If any row
     # loses a concurrent race, the caller rolls back every earlier reservation.
     for license_obj in sorted(licenses, key=lambda item: item.id):

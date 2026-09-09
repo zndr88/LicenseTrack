@@ -209,6 +209,51 @@ async def test_link_existing_successor_requires_same_publisher(test_app, auth_he
     assert response.json()["detail"] == "The successor must have the same publisher"
 
 
+async def test_link_existing_successor_uses_action_window_without_budget_owner(test_app, auth_headers):
+    today = date.today()
+    baseline_settings = await test_app.put(
+        "/api/settings/global",
+        headers=auth_headers,
+        json={"notification_days": 30, "renewal_action_days": None},
+    )
+    assert baseline_settings.status_code == 200, baseline_settings.text
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        budgetOwnerEmail="",
+        startDate=(today - timedelta(days=320)).isoformat(),
+        endDate=(today + timedelta(days=45)).isoformat(),
+    )
+    successor = await _create_license(
+        test_app,
+        auth_headers,
+        startDate=(today + timedelta(days=46)).isoformat(),
+        endDate=(today + timedelta(days=410)).isoformat(),
+    )
+
+    before_configured = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/link-existing-successor",
+        json={"successorLicenseId": successor["id"]},
+        headers=auth_headers,
+    )
+    assert before_configured.status_code == 400
+    assert "30 days before expiry" in before_configured.json()["detail"]
+
+    settings_response = await test_app.put(
+        "/api/settings/global",
+        headers=auth_headers,
+        json={"renewal_action_days": 45},
+    )
+    assert settings_response.status_code == 200, settings_response.text
+
+    linked = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/link-existing-successor",
+        json={"successorLicenseId": successor["id"]},
+        headers=auth_headers,
+    )
+    assert linked.status_code == 200, linked.text
+
+
 # ---------------------------------------------------------------------------
 # 2a — GET /api/licenses with empty DB returns []
 # ---------------------------------------------------------------------------

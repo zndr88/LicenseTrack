@@ -116,6 +116,7 @@ class GlobalSettings(Base):
         Numeric(18, 2), nullable=False, default=Decimal("50000"), server_default="50000"
     )
     fiscal_year_start_month: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    renewal_action_days: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
 
     # Audit log retention
     audit_log_retention_days: Mapped[int] = mapped_column(Integer, nullable=False, default=90, server_default="90")

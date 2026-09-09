@@ -26,6 +26,7 @@ import SmtpSection from "../components/settings/sections/SmtpSection.jsx";
 import OidcSection from "../components/settings/sections/OidcSection.jsx";
 import BackupSection from "../components/settings/sections/BackupSection.jsx";
 import CompletenessSection from "../components/settings/sections/CompletenessSection.jsx";
+import RenewalsSection from "../components/settings/sections/RenewalsSection.jsx";
 
 // ─── shared helpers ──────────────────────────────────────────────────────────
 
@@ -102,6 +103,16 @@ function baseCompletenessSettings(overrides = {}) {
   };
 }
 
+function baseRenewalSettings(overrides = {}) {
+  return {
+    notificationDays: 30,
+    renewalActionDays: null,
+    highValueThreshold: 50000,
+    fiscalYearStartMonth: 1,
+    ...overrides,
+  };
+}
+
 function sectionProps(globalSettings, overrides = {}) {
   return {
     isOpen: true,
@@ -119,6 +130,34 @@ function sectionProps(globalSettings, overrides = {}) {
 }
 
 // ─── NotificationsSection ────────────────────────────────────────────────────
+
+describe("RenewalsSection validation", () => {
+  beforeEach(() => {
+    updateGlobalSettings.mockReset();
+  });
+
+  test("inherits notification timing until the action window is explicitly saved", async () => {
+    updateGlobalSettings.mockResolvedValue({ data: {}, error: null });
+    render(<RenewalsSection {...sectionProps(baseRenewalSettings({ notificationDays: 45 }))} />);
+
+    expect(screen.getByLabelText(/Allow renewal actions/i)).toHaveValue(45);
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(updateGlobalSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ renewal_action_days: 45 }),
+    ));
+  });
+
+  test("rejects an action window outside the supported range", () => {
+    const onError = vi.fn();
+    render(<RenewalsSection {...sectionProps(baseRenewalSettings({ renewalActionDays: 366 }), { onError })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    expect(onError).toHaveBeenCalledWith("Renewal action days must be a whole number from 0 to 365.");
+    expect(updateGlobalSettings).not.toHaveBeenCalled();
+  });
+});
 
 describe("CompletenessSection save side effects", () => {
   beforeEach(() => {

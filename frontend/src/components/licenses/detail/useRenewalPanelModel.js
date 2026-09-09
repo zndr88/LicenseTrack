@@ -1,9 +1,10 @@
-import { getRenewalBundleMembers } from "../../../utils/renewalBundle.js";
+import { getRenewalActionDays, getRenewalBundleMembers } from "../../../utils/renewalBundle.js";
 
-export function useRenewalPanelModel({ license, allLicenses }) {
-  const poSiblings = getRenewalBundleMembers(license, allLicenses);
+export function useRenewalPanelModel({ license, allLicenses, globalSettings }) {
+  const actionDays = getRenewalActionDays(globalSettings);
+  const poSiblings = getRenewalBundleMembers(license, allLicenses, actionDays);
 
   const bundleCount = poSiblings.length + 1;
 
-  return { poSiblings, bundleCount };
+  return { poSiblings, bundleCount, actionDays };
 }

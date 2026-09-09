@@ -76,6 +76,7 @@ async def test_public_global_settings_returns_authenticated_public_subset(
         "mandatory_fields": {"invoice": True, "eula": False},
         "notification_days": 45,
         "notice_notification_days": 30,
+        "renewal_action_days": None,
         "oidc_enabled": True,
         "oidc_available": True,
     }
@@ -208,10 +209,16 @@ async def test_put_global_settings_persists_frontend_section_payloads(test_app, 
         headers=auth_headers,
         json={"session_timeout": 120},
     )
+    renewals = await test_app.put(
+        "/api/settings/global",
+        headers=auth_headers,
+        json={"renewal_action_days": 60},
+    )
     fetched = await test_app.get("/api/settings/global", headers=auth_headers)
 
     assert notifications.status_code == 200, notifications.text
     assert security.status_code == 200, security.text
+    assert renewals.status_code == 200, renewals.text
     assert fetched.status_code == 200, fetched.text
     body = fetched.json()
     assert body["notification_days"] == 45
@@ -219,6 +226,17 @@ async def test_put_global_settings_persists_frontend_section_payloads(test_app, 
     assert body["notification_send_hour"] == 8
     assert body["allowed_email_domains"] == ""
     assert body["session_timeout"] == 120
+    assert body["renewal_action_days"] == 60
+
+
+async def test_global_settings_rejects_invalid_renewal_action_window(test_app, auth_headers):
+    response = await test_app.put(
+        "/api/settings/global",
+        headers=auth_headers,
+        json={"renewal_action_days": 366},
+    )
+
+    assert response.status_code == 422
 
 
 async def test_global_settings_admin_routes_reject_non_admins(db_session, test_app):

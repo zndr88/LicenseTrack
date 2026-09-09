@@ -185,11 +185,18 @@ export function getRiskFlagDisplay(flags = [], limit = 3) {
   };
 }
 
-export function getPrimaryAction(row, { canOpenPipeline, canStartRenewal }) {
+export function getPrimaryAction(row, { canOpenPipeline, canStartRenewal, renewalActionDays = 30 }) {
   const inProgress = IN_PROGRESS_STATUSES.has(row.renewalStatus);
   if (canOpenPipeline && row.pendingOrderId) return "po";
   if (canOpenPipeline && row.sourcingItemId) return "sourcing";
-  if (canStartRenewal && !inProgress && row.budgetOwnerEmail?.trim()) return "start";
+  if (
+    canStartRenewal
+    && !inProgress
+    && row.budgetOwnerEmail?.trim()
+    && row.daysUntilExpiry !== null
+    && row.daysUntilExpiry !== undefined
+    && row.daysUntilExpiry <= renewalActionDays
+  ) return "start";
   return null;
 }
 

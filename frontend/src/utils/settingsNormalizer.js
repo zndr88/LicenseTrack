@@ -41,6 +41,7 @@ export function normalizeGlobalSettings(data, current) {
     auditLogRetentionDays: data.audit_log_retention_days ?? current.auditLogRetentionDays,
     highValueThreshold: data.high_value_threshold !== undefined ? Number(data.high_value_threshold) : current.highValueThreshold,
     fiscalYearStartMonth: data.fiscal_year_start_month ?? current.fiscalYearStartMonth,
+    renewalActionDays: data.renewal_action_days !== undefined ? data.renewal_action_days : current.renewalActionDays,
     emailEnabled: data.email_enabled ?? current.emailEnabled,
     oidcEnabled: data.oidc_enabled ?? current.oidcEnabled,
     oidcAvailable: data.oidc_available ?? current.oidcAvailable,
@@ -74,6 +75,7 @@ export function normalizePublicGlobalSettings(data, current) {
     mandatoryFields: data.mandatory_fields ?? current.mandatoryFields,
     notificationDays: data.notification_days ?? current.notificationDays,
     noticeNotificationDays: data.notice_notification_days ?? current.noticeNotificationDays,
+    renewalActionDays: data.renewal_action_days !== undefined ? data.renewal_action_days : current.renewalActionDays,
     oidcEnabled: data.oidc_enabled ?? current.oidcEnabled,
     oidcAvailable: data.oidc_available ?? current.oidcAvailable,
   };

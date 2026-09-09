@@ -26,6 +26,7 @@ describe('normalizeGlobalSettings', () => {
       {
         high_value_threshold: '75000',
         fiscal_year_start_month: 4,
+        renewal_action_days: 60,
         last_backup_status: 'failed',
         last_backup_at: '2026-07-12T08:00:00Z',
         last_notification_sent_date: '2026-07-11',
@@ -37,6 +38,7 @@ describe('normalizeGlobalSettings', () => {
       {
         highValueThreshold: 50000,
         fiscalYearStartMonth: 1,
+        renewalActionDays: null,
         lastBackupStatus: null,
         lastBackupAt: null,
         lastNotificationSentDate: null,
@@ -49,6 +51,7 @@ describe('normalizeGlobalSettings', () => {
 
     expect(normalized.highValueThreshold).toBe(75000)
     expect(normalized.fiscalYearStartMonth).toBe(4)
+    expect(normalized.renewalActionDays).toBe(60)
     expect(normalized.lastBackupStatus).toBe('failed')
     expect(normalized.lastBackupAt).toBe('2026-07-12T08:00:00Z')
     expect(normalized.lastNotificationSentDate).toBe('2026-07-11')
@@ -56,6 +59,16 @@ describe('normalizeGlobalSettings', () => {
     expect(normalized.lastNotificationStatus).toBe('partial')
     expect(normalized.lastNotificationAt).toBe('2026-07-12T07:00:00Z')
     expect(normalized.lastNotificationSummary).toEqual({ error_count: 1 })
+  })
+
+  test('preserves an unconfigured renewal action window for notification fallback', () => {
+    const normalized = normalizeGlobalSettings(
+      { notification_days: 45, renewal_action_days: null },
+      { notificationDays: 30, renewalActionDays: 60 }
+    )
+
+    expect(normalized.notificationDays).toBe(45)
+    expect(normalized.renewalActionDays).toBeNull()
   })
 
   test('maps explicit SMTP encryption and legacy TLS fallback', () => {

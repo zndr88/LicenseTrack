@@ -43,6 +43,7 @@ const DEFAULT_GLOBAL_SETTINGS = {
   storagePath: "",
   notificationDays: 30,
   noticeNotificationDays: 30,
+  renewalActionDays: null,
   managerEmail: "",
   smtpHost: "",
   smtpPort: 587,
