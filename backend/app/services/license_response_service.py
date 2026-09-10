@@ -76,9 +76,15 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
         ProcurementDocument.target_sourcing_item_id.is_(None),
         or_(*conditions),
     )
+    if pending_order_ids:
+        scope_condition = or_(scope_condition, and_(
+            ProcurementDocument.target_sourcing_item_id.is_(None),
+            ProcurementDocument.pending_order_id.in_(pending_order_ids),
+        ))
     if po_numbers:
         scope_condition = or_(scope_condition, and_(
             ProcurementDocument.target_sourcing_item_id.is_(None),
+            ProcurementDocument.pending_order_id.is_(None),
             ProcurementDocument.shared_po_number.in_(po_numbers),
         ))
     if source_item_ids:
@@ -104,6 +110,10 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
             for license_id in source_to_license_ids.get(document.target_sourcing_item_id, []):
                 documents_by_license_id[license_id].append(document)
             continue
+        if document.pending_order_id is not None:
+            for license_id in pending_to_license_ids.get(document.pending_order_id, []):
+                documents_by_license_id[license_id].append(document)
+            continue
         if document.shared_po_number is not None:
             for license_id in po_to_license_ids.get(document.shared_po_number, []):
                 documents_by_license_id[license_id].append(document)
@@ -111,8 +121,6 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
         target_license_ids: set[int] = set()
         if document.license_id is not None and document.license_id in documents_by_license_id:
             target_license_ids.add(document.license_id)
-        if document.pending_order_id is not None:
-            target_license_ids.update(pending_to_license_ids.get(document.pending_order_id, []))
         if document.procurement_bundle_id is not None:
             target_license_ids.update(bundle_to_license_ids.get(document.procurement_bundle_id, []))
         for license_id in target_license_ids:

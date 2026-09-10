@@ -17,10 +17,20 @@ async def filter_viewable_procurement_documents(db: AsyncSession, documents: lis
     if departments is None:
         return documents
     legacy_documents = [doc for doc in documents if doc.shared_po_number is None and doc.target_sourcing_item_id is None]
-    po_numbers = {doc.shared_po_number for doc in documents if doc.shared_po_number is not None and doc.target_sourcing_item_id is None}
+    po_numbers = {
+        doc.shared_po_number
+        for doc in documents
+        if doc.pending_order_id is None
+        and doc.shared_po_number is not None
+        and doc.target_sourcing_item_id is None
+    }
     source_item_ids = {doc.target_sourcing_item_id for doc in documents if doc.target_sourcing_item_id is not None}
     license_ids = {doc.license_id for doc in legacy_documents if doc.license_id is not None}
-    order_ids = {doc.pending_order_id for doc in legacy_documents if doc.pending_order_id is not None}
+    order_ids = {
+        doc.pending_order_id
+        for doc in documents
+        if doc.pending_order_id is not None and doc.target_sourcing_item_id is None
+    }
     bundle_ids = {doc.procurement_bundle_id for doc in legacy_documents if doc.procurement_bundle_id is not None}
     predicates = []
     if source_item_ids:
@@ -52,12 +62,12 @@ async def filter_viewable_procurement_documents(db: AsyncSession, documents: lis
     def in_scope(doc: ProcurementDocument) -> bool:
         if doc.target_sourcing_item_id is not None:
             related = grouped[("source_item", doc.target_sourcing_item_id)]
+        elif doc.pending_order_id is not None:
+            related = grouped[("order", doc.pending_order_id)]
         elif doc.shared_po_number is not None:
             related = grouped[("po", doc.shared_po_number)]
         elif doc.license_id is not None:
             related = grouped[("license", doc.license_id)]
-        elif doc.pending_order_id is not None:
-            related = grouped[("order", doc.pending_order_id)]
         elif doc.procurement_bundle_id is not None:
             related = grouped[("bundle", doc.procurement_bundle_id)]
         else:
@@ -77,12 +87,12 @@ async def get_procurement_document_licenses(
     """Return licenses covered by the document's one explicit ownership scope."""
     if document.target_sourcing_item_id is not None:
         query = select(License).where(License.source_sourcing_item_id == document.target_sourcing_item_id)
+    elif document.pending_order_id is not None:
+        query = select(License).where(License.pending_order_id == document.pending_order_id)
     elif document.shared_po_number is not None:
         query = select(License).where(func.trim(License.po_number) == document.shared_po_number)
     elif document.license_id is not None:
         query = select(License).where(License.id == document.license_id)
-    elif document.pending_order_id is not None:
-        query = select(License).where(License.pending_order_id == document.pending_order_id)
     elif document.procurement_bundle_id is not None:
         query = select(License).where(License.procurement_bundle_id == document.procurement_bundle_id)
     else:

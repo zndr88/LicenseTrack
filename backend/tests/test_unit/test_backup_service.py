@@ -66,6 +66,8 @@ def _make_db(path) -> None:
     # the compact restore fixture structurally valid for that stamped revision.
     conn.execute("CREATE TABLE custom_field_definitions (id INTEGER PRIMARY KEY)")
     conn.execute("CREATE TABLE sourcing_items (id INTEGER PRIMARY KEY)")
+    conn.execute("CREATE TABLE sourcing_quote_documents (id INTEGER PRIMARY KEY)")
+    conn.execute("CREATE TABLE procurement_documents (id INTEGER PRIMARY KEY)")
     conn.execute("CREATE TABLE alembic_version (version_num TEXT NOT NULL)")
     conn.execute(
         "INSERT INTO alembic_version (version_num) VALUES (?)",
