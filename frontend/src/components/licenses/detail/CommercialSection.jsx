@@ -3,6 +3,7 @@ import { useState } from "react";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../../constants/licenseData.js";
 import { formatCost, getEffectiveQuantity, getPoTotal } from "../../../utils/helpers.js";
 import { formatQuantity } from "../../../utils/quantity.js";
+import { getCalcTotalValue } from "../../../utils/sort.js";
 import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
@@ -33,6 +34,7 @@ export default function CommercialSection({
   const fmtCost = (amount) =>
     formatCost(amount, license.currency || userSettings.displayCurrency || "EUR", userSettings.numberFormatLocale ?? "en-US");
   const effectiveQuantity = getEffectiveQuantity(license);
+  const calculatedTotal = getCalcTotalValue(license);
 
   return (
     <>
@@ -162,10 +164,10 @@ export default function CommercialSection({
               </div>
             </div>
           )}
-          {Number(license.quantity) > 0 && Number(license.unitPrice) > 0 && (
+          {calculatedTotal !== null && (
             <div className="dp-field">
               <span className="dp-field-label">Calculated total</span>
-              <div className="val dp-mono-val">{fmtCost(Number(license.quantity) * Number(license.unitPrice))}</div>
+              <div className="val dp-mono-val">{fmtCost(calculatedTotal)}</div>
             </div>
           )}
           {vis.totalPoPrice && (

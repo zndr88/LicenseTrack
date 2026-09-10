@@ -396,6 +396,24 @@ describe('DetailPanel commercial details', () => {
     expect(labels.indexOf('Purchase Quantity')).toBeLessThan(labels.indexOf('Quantity per Unit'))
     expect(labels.indexOf('Quantity per Unit')).toBeLessThan(labels.indexOf('Effective Quantity'))
   })
+
+  it.each([
+    ['5', '0', '€0.00'],
+    ['5', '-10', '-€50.00'],
+  ])('shows calculated totals for quantity %s and unit price %s', async (quantity, unitPrice, expected) => {
+    const user = userEvent.setup()
+    render(
+      <DetailPanel
+        {...baseProps}
+        license={{ ...baseLicense, quantity, unitPrice }}
+      />
+    )
+
+    await user.click(screen.getByText('Details'))
+
+    const label = await screen.findByText('Calculated total')
+    expect(label.parentElement).toHaveTextContent(expected)
+  })
 })
 
 describe('DetailPanel maintenance support details', () => {

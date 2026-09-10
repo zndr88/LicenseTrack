@@ -1,5 +1,6 @@
 import { getPoTotal } from "../../../utils/helpers.js";
 import { formatDate, formatDateTime } from "../../../utils/formatting.js";
+import { getCalcTotalValue } from "../../../utils/sort.js";
 
 // Maps export column keys to stable CSV headers. Importable native fields use
 // snake_case; read-only metadata may also opt in when the importer ignores it.
@@ -123,10 +124,8 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
           return fmtDecimal(total != null ? String(total) : "");
         }
         case "calcTotal": {
-          const qty = Number(l.quantity);
-          const unit = Number(l.unitPrice);
-          if (!qty || !unit) return "";
-          return fmtDecimal(String(qty * unit));
+          const total = getCalcTotalValue(l);
+          return total === null ? "" : fmtDecimal(String(total));
         }
         case "startDate": return fmtDate(l.startDate);
         case "endDate": return fmtDate(l.endDate);

@@ -150,6 +150,30 @@ describe('exportFilteredCsv', () => {
     expect(lines[1]).toBe('500')
   })
 
+  it.each([
+    ['0', '100', '0'],
+    ['5', '0', '0'],
+  ])('preserves calculated totals for quantity %s and unit price %s', (quantity, unitPrice, expected) => {
+    const row = makeRow({ quantity, unitPrice })
+    const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
+
+    exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
+
+    expect(csvLines()[1]).toBe(expected)
+  })
+
+  it('preserves zero calculated totals in localized exports', () => {
+    const row = makeRow({ quantity: '5', unitPrice: '0' })
+    const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
+
+    exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map(), {
+      localized: true,
+      userSettings: { numberFormatLocale: 'nl-BE' },
+    })
+
+    expect(csvLines()[1]).toBe('"0,00"')
+  })
+
   it('wraps values containing commas in double quotes', () => {
     const row = makeRow({ softwareDescription: 'Widget, Pro Edition' })
     const cols = [{ key: 'description', label: 'Description' }]
