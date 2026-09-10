@@ -393,7 +393,7 @@ export default function LicensesPage({
               filtered={sorted}
               sorted={sorted}
               paginatedItems={paginatedItems}
-              licenses={licenses}
+              licenses={enriched}
               departments={departments}
               datesFromOptions={datesFromOptions}
               datesToOptions={datesToOptions}

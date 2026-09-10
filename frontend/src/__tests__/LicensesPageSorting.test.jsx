@@ -40,7 +40,10 @@ vi.mock("../hooks/useLicenseData.js", () => ({
       { id: 1, publisherName: "Zulu", softwareDescription: "Zulu Suite", expiration: { status: "active" }, completeness: { isComplete: true } },
     ],
     stats: { active: 2, upcoming: 1, expiring: 0, expired: 0, renewed: 0, legacy: 0 },
-    enriched: [],
+    enriched: [
+      { id: 1, publisherName: "Zulu", softwareDescription: "Zulu Suite", expiration: { status: "expiring" }, completeness: { isComplete: true }, renewedToId: 2 },
+      { id: 2, publisherName: "Acme", softwareDescription: "Acme Suite", expiration: { status: "upcoming" }, completeness: { isComplete: true } },
+    ],
     paginatedItems: [],
     totalPages: 1,
     departments: [],
@@ -48,9 +51,14 @@ vi.mock("../hooks/useLicenseData.js", () => ({
 }));
 
 vi.mock("../components/pages/licenses/LicenseTable.jsx", () => ({
-  default: ({ filtered }) => (
-    <div data-testid="license-table-order">
-      {filtered.map((license) => license.publisherName).join("|")}
+  default: ({ filtered, licenses }) => (
+    <div>
+      <div data-testid="license-table-order">
+        {filtered.map((license) => license.publisherName).join("|")}
+      </div>
+      <div data-testid="license-table-successor-status">
+        {licenses.find((license) => license.id === 2)?.expiration?.status ?? "missing"}
+      </div>
     </div>
   ),
 }));
@@ -137,6 +145,7 @@ describe("LicensesPage sorting handoff", () => {
     );
 
     expect(screen.getByTestId("license-table-order")).toHaveTextContent("Acme|Zulu");
+    expect(screen.getByTestId("license-table-successor-status")).toHaveTextContent("upcoming");
     expect(onStatsChange).toHaveBeenCalledWith(expect.objectContaining({ upcoming: 1 }));
   });
 
