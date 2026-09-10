@@ -209,6 +209,10 @@ Match test effort to risk.
   do not keep a removed private wrapper alive only to satisfy a test import.
 - Frontend workflow changes should cover the user path with component or integration tests when practical.
 - Demo-mode behavior should stay tested, especially the guarantee that demo-only behavior is isolated from normal production builds.
+- When compatibility leaves more than one persisted ownership or scope marker on a
+  record, define precedence in one canonical resolver and exercise that precedence
+  at the public boundary. Visibility, download, deletion, and completeness checks
+  must not each infer ownership independently.
 
 ## AI-Assisted Work Rules
 

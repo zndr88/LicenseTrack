@@ -174,11 +174,14 @@ Evidence is scoped to the workflow record that owns it:
 | Purchase order | Pending order | Shared by default; one resulting license when selected |
 | Invoice uploaded during conversion | Pending order | Shared by default; one resulting license when selected |
 | Quote, PO, invoice, EULA, or entitlement uploaded during conversion | Pending order or manual creation batch | Per-category choice between all resulting licenses and one selected license |
-| Document added later from License Details | License | Remains attached to that license |
+| Document added later from License Details | License | Single stays on that license; Shared uses its pending-order scope or normalized PO number |
 
-Two unrelated pending orders or direct-creation batches do not share documents
-merely because their PO numbers match. The pending-order relationship or manual
-batch identifier is the sharing key.
+Pending-order identity takes precedence over PO metadata: two unrelated pending
+orders never share evidence merely because their PO numbers match. For direct or
+manual license records, a newly uploaded document explicitly marked **Shared** is
+visible to licenses with the same trimmed PO number. **Single** uploads remain on
+their selected license. Existing documents are not moved, reassigned, or backfilled
+when this scope metadata is introduced.
 
 Active and historical sourcing and pending-order rows expose evidence actions
 from the row action menu. Filenames are shown directly in the Download and

@@ -52,10 +52,10 @@ const HELP_ARTICLES = [
       {
         heading: "Flow",
         body: [
-          "The renewal workbench surfaces licenses approaching expiry and flags records that need attention, such as missing documents or high value.",
+          "The renewal workbench surfaces licenses approaching expiry and flags records that need attention, such as missing documents or high value. Admins can configure when renewal actions become available independently from the expiry alert window; until configured, the action window inherits the alert value.",
           "Starting a renewal marks the current license as pending renewal and creates sourcing-stage work. Pending describes the procurement workflow: the license remains Expiring and can become Expired according to its end date, so it appears in both applicable filters. The successor license is not created until the related pending order is converted.",
           "When conversion completes, LicenseTrack creates and links the successor while preserving the renewal chain. The predecessor keeps its date-based Active or Expiring state until its own term ends.",
-          "If the next term was already purchased as another active or upcoming license from the same publisher, use Link Existing Successor from the expiring license instead. LicenseTrack adopts that record as the normal renewal successor without creating duplicate sourcing or pending-order work.",
+          "If the next term was already purchased as another active or upcoming license from the same publisher, use Link Existing Successor once the predecessor is inside its renewal-action window. LicenseTrack adopts that record as the normal renewal successor without creating duplicate sourcing or pending-order work.",
           "Renewal sourcing and conversion preserve the predecessor's maintenance/support classification. Older recurring records without a stored value receive the type-appropriate default instead of losing coverage during renewal.",
           "Admins can configure each custom field to start blank or copy its current value into renewal sourcing. A copied value is a snapshot taken when renewal starts and remains editable throughout sourcing, pending order, and final conversion.",
           "A maintenance record imported as legacy unlinked can renew without a parent. If it is still unlinked at conversion, the successor keeps the legacy-unlinked marker; linking the predecessor before conversion or the successor afterward creates the normal parent link and mirror.",
@@ -67,6 +67,7 @@ const HELP_ARTICLES = [
           "Renewal successors inherit the predecessor license reference.",
           "When an existing license is linked as the successor, its former LT reference remains reserved, searchable, and visible in the procurement trail.",
           "A secured successor removes further renewal actions and workbench alerts. The predecessor becomes Renewed only after its own term has ended and successor coverage has started; a date gap remains Expired until then.",
+          "An expiring predecessor with an actual linked Upcoming successor shows Renews in X days, or Renews today, based on the successor start date. A coverage gap stays visible, and pending renewal procurement alone does not show this countdown.",
           "Cancel renewal work before it reaches a pending order when the purchasing motion changes.",
           "Coterm renewals merge multiple renewal lines so several predecessor licenses can align to one successor period.",
           "Estimated annual value in the Renewal Workbench annualizes a multi-year term rather than showing the complete term cost as one year.",
@@ -224,13 +225,13 @@ const HELP_ARTICLES = [
         heading: "Document scopes",
         body: [
           "License-owned documents attach to one license. During manual or pending-order conversion, Quote, Purchase Order, Invoice, EULA, and Entitlement uploads can each be assigned to one resulting license.",
-          "Shared documents attach to the pending order or manual creation batch and appear on every license created from that purchase.",
+          "Shared pending-order documents attach to that pending order and appear on its resulting licenses. New direct/manual uploads explicitly marked Shared can also appear across licenses with the same trimmed PO number.",
         ],
       },
       {
         heading: "Things to know",
         bullets: [
-          "PO number is metadata, not the document-sharing key.",
+          "Pending-order identity takes precedence over PO metadata, so unrelated pending orders never share evidence because their PO numbers match. Same-PO sharing applies only to newly explicit Shared uploads for direct/manual licenses; existing documents are not moved or backfilled.",
           "Conversion defaults Quote, Purchase Order, and Invoice to shared scope, and EULA and Entitlement to one license. A Single / Shared switch controls the staged files in each category.",
           "A shared conversion document is visible on every license from the same pending order or manual creation batch; a specific-license document is visible only on its selected license.",
           "If the optional document upload fails after a manual batch is saved, retry the attachment from the first license's Documents section; do not submit the licenses again.",
@@ -238,6 +239,7 @@ const HELP_ARTICLES = [
           "Documents are stored on the server filesystem under the configured storage path.",
           "PDF license and procurement documents can be previewed from License Details while the details panel stays usable. Download remains available.",
           "Before upload, supported PDF, PNG/JPEG, and plain-text files can be previewed beside sourcing, pending-order, conversion, and Add License forms. Other permitted file types can still be uploaded without an in-form preview.",
+          "Collapsing the Documents controls leaves the selected staged-file or stored-document preview open, including its expanded state.",
           "If a database-only restore is used before document storage is restored, document records remain visible and affected rows are marked File missing or Storage unavailable until the managed files are available again.",
           "Editors and admins can request document processing from the document row when an active document processor webhook is configured and a document.processing integration capability is available. This sends an audited event for configured integrations; LicenseTrack does not process the document by itself, and this is not an Official Extension action.",
           "When an external processor submits suggested values, pending suggestions appear in the Documents section. Editors and admins can compare current and suggested values, accept selected fields, or reject the result without changing the license.",
@@ -258,6 +260,7 @@ const HELP_ARTICLES = [
           "Contracts keep agreement-level information separate from individual license evidence. Each contract records its publisher and contract number and can be linked to one or more license records.",
           "Contract numbers are matched case-insensitively, so CN-123 and cn-123 are treated as the same contract identity.",
           "Contract documents can be organized into folders so amendments, schedules, signatures, and supporting material remain grouped with the agreement rather than one license row.",
+          "Select a contract PDF to preview it beside the contract information and document list. The panes scroll independently on wide screens and stack on narrow screens.",
         ],
       },
       {
@@ -328,7 +331,7 @@ const HELP_ARTICLES = [
           "The first admin is the protected break-glass admin.",
           "SMTP passwords and OIDC client secrets are stored encrypted and returned as masked placeholders.",
           "Changing mandatory fields immediately changes completeness calculations when records are reloaded.",
-          "The expiry alert window is shared by Registry badges, statistics, exports, reports, contracts, renewal and maintenance responses, and notifications.",
+          "The expiry alert window controls expiry presentation and notifications across the app. The separate Renewals setting controls when initiation and Link Existing Successor become available; until explicitly configured, it inherits the expiry alert value.",
           "The notice deadline alert window is separate and controls manager reminders for manually entered license notice dates.",
           "Completeness requirements are opt-in. Admins can phase in ownership, commercial-reference, and evidence requirements as legacy records are improved.",
           "Completeness & Flags includes a per-license Renewal notifications toggle. It is enabled by default and can be turned off for active licenses that should not send expiry emails, without removing the budget owner email or marking the record retired or legacy.",

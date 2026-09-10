@@ -82,10 +82,15 @@ Licenses can also store secondary contacts. When a budget-owner renewal email is
 sent, those contacts are included as CC recipients after the same recipient
 safety checks.
 
-The expiry alert window is the shared definition of "expiring soon" throughout
-the app. Registry badges and statistics, license detail calculations, exports,
-reports, contracts, renewal and maintenance responses, and notifications all use
-the configured value.
+The expiry alert window is the shared definition of "expiring soon" for Registry
+badges and statistics, license detail calculations, exports, reports, contracts,
+renewal and maintenance responses, and notifications.
+
+Admin Settings > Renewals has a separate **Allow renewal actions X days before
+expiry** value. It controls when renewal initiation and Link Existing Successor are
+available without changing expiry status, colors, filters, notification timing, or
+the Renewal Workbench viewing window. Until an administrator explicitly saves this
+setting, it inherits the expiry alert window to preserve existing behavior.
 
 The notice deadline alert window is separate. Notice deadline reminders are
 sent to the configured manager digest address and do not email the budget owner.

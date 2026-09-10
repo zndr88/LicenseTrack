@@ -13,6 +13,52 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.21] - 2026-09-10
+
+### Added
+
+- Added authenticated PDF previews to contract details, with a wide split layout,
+  independent document and preview areas, and responsive stacking on narrow screens.
+- Added an independent global renewal-action window. Administrators can decide how
+  many days before expiry initiation and existing-successor linking become available;
+  installations that do not configure it retain the existing expiry-alert-window
+  behavior.
+- Added explicit Shared or Single scope controls for Quote, Purchase Order, Invoice,
+  EULA, and Entitlement attachments throughout manual creation, maintenance creation,
+  sourcing, pending orders, and conversion.
+
+### Changed
+
+- Expiring licenses with an actual linked Upcoming successor now show a steel
+  **Renews in X days** badge, or **Renews today**, based on successor coverage while
+  retaining the predecessor's expiration state and any coverage-gap warning.
+- Renewal bundles remain limited to eligible licenses with the same PO number and end
+  date, but the workbench now resolves membership from the complete candidate set
+  instead of only the currently visible rows.
+- Collapsing the shared Documents controls no longer closes or hides the selected
+  staged-file or stored-document preview.
+- Newly uploaded shared evidence for direct/manual licenses can be reused by licenses
+  with the same normalized PO number. Pending-order identity remains authoritative,
+  so unrelated pending orders never share evidence merely because their PO numbers
+  match. Existing document ownership is not migrated or backfilled.
+
+### Fixed
+
+- Fixed overdue renewal views omitting expired licenses whose renewal procurement is
+  already in progress.
+- Fixed linked-renewal badges being omitted when normalized API records expose the
+  successor through renewal-chain fields other than the legacy lookup shape.
+- Fixed license details and Registry CSV exports dropping valid zero or negative
+  calculated totals.
+- Fixed sourcing quote evidence being unavailable from pending-order conversion.
+- Fixed pending-order invoice uploads losing their pending-order scope when shared PO
+  metadata was also present, which could expose evidence to a different pending order
+  using the same PO number.
+
+This release includes additive migrations for procurement-document scope metadata and
+the renewal-action setting. It does not move, reassign, or backfill existing documents,
+and it introduces no breaking public API change.
+
 ## [1.1.20] - 2026-09-08
 
 This is a minor fix release for a database migration failure encountered when
@@ -1493,7 +1539,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.20...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.21...HEAD
+[1.1.21]: https://github.com/zndr88/LicenseTrack/compare/v1.1.20...v1.1.21
 [1.1.20]: https://github.com/zndr88/LicenseTrack/compare/v1.1.19...v1.1.20
 [1.1.19]: https://github.com/zndr88/LicenseTrack/compare/v1.1.18...v1.1.19
 [1.1.18]: https://github.com/zndr88/LicenseTrack/compare/v1.1.17...v1.1.18

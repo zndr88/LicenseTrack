@@ -105,7 +105,7 @@ remain a separate order count on the Pending Orders navigation badge.
 
 Document actions are part of the core-rendered integration surface. `DocumentsSection.jsx` should render actions from `useLicenseDocuments`; it should not hard-code plugin names or assume AI processing specifically. Action availability is determined by the backend from registered integration capabilities and active webhook subscribers. This is not runtime frontend plugin loading.
 
-PDF document preview is coordinated at `LicensesPage.jsx` level through
+License-document PDF preview is coordinated at `LicensesPage.jsx` level through
 `useDocumentPreview.js` and `DocumentPreviewPane.jsx` so the preview can replace
 the registry area while the selected license detail panel remains mounted and
 usable. `useLicenseDocuments.js` gates preview eligibility with
@@ -113,8 +113,11 @@ usable. `useLicenseDocuments.js` gates preview eligibility with
 helpers rather than direct browser navigation. The shared rendering surface is
 `components/ui/DocumentPreviewPanel.jsx`; staged uploads use
 `useLocalDocumentPreview.js` and `LocalDocumentPreviewPanel.jsx` for native
-PDF, image, and plain-text previews with object-URL cleanup. Modal owners retain
-their form and upload state and only compose that shared presentation.
+PDF, image, and plain-text previews with object-URL cleanup. The shared procurement
+workspace renders its preview outside the collapsible document-list controls so
+collapsing those controls preserves the selected file and expanded-preview state.
+Modal owners retain their form and upload state and only compose that shared
+presentation.
 
 ## RenewalWorkbenchPage Sub-Module Pattern
 
@@ -127,7 +130,7 @@ their form and upload state and only compose that shared presentation.
 | `RenewalWorkbenchTable.jsx` | Table and cell rendering; receives `visibleColumns`, `visibleRows`, `userSettings`, permissions, and handlers as props; threads `userSettings` through `renderCell` for locale-aware date and custom field display |
 | `RenewalWorkbenchToolbar.jsx` | Search input, view chip strip, column picker; owns `columnsOpen` state and outside-click dismiss |
 
-`RenewalWorkbenchPage.jsx` runs queries, manages page-level state (`view`, `search`, `startingId`), persists column visibility via `updateSettings`, and composes the four sub-modules. No domain logic or rendering logic belongs in the shell.
+`RenewalWorkbenchPage.jsx` runs queries, manages page-level state (`view`, `search`, `startingId`), persists column visibility via `updateSettings`, and composes the four sub-modules. It derives renewal bundle membership from the complete workbench response, not the filtered or currently visible rows; bundles still require the same normalized PO number, the same end date, and ordinary renewal eligibility. No domain logic or rendering logic belongs in the shell.
 
 ## Procurement Page Sub-Module Pattern
 
@@ -260,9 +263,17 @@ If Help content grows large enough to require external data loading, preserve th
 
 ## ContractModal Sub-Module Pattern
 
-`ContractModal.jsx` owns contract identity/edit state and wires the detail modal. Folder and document management belongs in `frontend/src/components/contracts/ContractDocumentsSection.jsx`, which owns document fetch, upload/download/delete, folder CRUD, folder expansion, and related loading/error states.
+`ContractModal.jsx` owns contract identity/edit state and wires the wide, responsive
+detail modal. Contract information and document management occupy the independently
+scrolling left pane; the authenticated PDF preview occupies the right pane and stacks
+below on narrow screens. Folder and document management belongs in
+`frontend/src/components/contracts/ContractDocumentsSection.jsx`, which owns document
+fetch, upload/download/delete, folder CRUD, folder expansion, and related loading/error
+states. `useContractDocumentPreview.js` owns preview fetching, selection changes, and
+object-URL cleanup, while the modal composes the shared `DocumentPreviewPanel`.
 
-Keep contract document state out of `ContractModal.jsx` unless it directly changes the contract record itself.
+Keep contract document collection and folder state out of `ContractModal.jsx`; only
+cross-pane preview coordination belongs at the modal level.
 
 ## UsersPage Sub-Module Pattern
 
@@ -447,9 +458,10 @@ Each staged file has a category and an explicit shared or license scope;
 license-scoped files also identify their target row. An upload failure leaves
 the batch intact and the UI directs the operator to retry from the created
 license rather than resubmit. Batches containing more than one row
-receive a `procurement_bundle_id`; Quote, Purchase Order, and Invoice uploads
-use that scope so every batch member sees the same evidence without matching on
-PO text by default. EULA and Entitlement are also procurement document
+receive a `procurement_bundle_id`. New explicitly shared direct/manual uploads also
+record the normalized PO number when available, allowing later direct-license uploads
+to remain visible across licenses for that same PO without moving or backfilling older
+documents. EULA and Entitlement are also procurement document
 categories, but default to license ownership. The upload route accepts
 `scope=auto|shared|license`; only procurement categories may use shared
 ownership, and an explicit license scope overrides the historical category
@@ -652,13 +664,16 @@ mutation, renewal, or maintenance workflows inside those route modules.
 
 File I/O in `procurement_document_transfer_service` follows a post-conversion, phase-commit pattern coordinated by `pending_order_conversion_service`: invoice validation happens before conversion writes; licenses and the pending evidence state commit first; each invoice or quote transfer phase then writes files, commits its document rows, and compensates only that phase's files if its own commit fails. A later status-update failure must not delete already committed evidence because retries are idempotent. The pending order persists whether invoice evidence was required, and completion/retry checks that at least one matching invoice row still has a stored file before marking transfer complete. Evidence transfer records `pending`, `complete`, or `failed`; a failure is retryable/recoverable state and must not roll back the created licenses.
 
-Procurement documents must be resolved by explicit scope. Use
-`pending_order_id` for documents shared by licenses created from one pending
-order, `procurement_bundle_id` for Quote, Purchase Order, and Invoice evidence
-shared by one direct multi-license creation batch, and `license_id` for
-procurement-category documents uploaded directly to a single license. Do not
-use PO number as the document sharing key; PO number is metadata and may be
-reused intentionally or accidentally.
+Procurement documents must be resolved by explicit scope with one canonical
+precedence. `target_sourcing_item_id` isolates evidence to one sourcing or
+pending-order line. `pending_order_id` is authoritative whenever present, even if
+the row also carries `shared_po_number`; unrelated pending orders therefore never
+share evidence merely because their PO text matches. For direct/manual workflows,
+new explicitly shared uploads may use normalized `shared_po_number` so licenses with
+the same trimmed PO see the evidence; `procurement_bundle_id` continues to identify
+one creation batch and preserve older bundle-owned rows. `license_id` owns a Single
+upload. The additive shared-PO field does not migrate, move, or backfill existing
+documents.
 
 New managed files use one stable-ID filesystem hierarchy under `attachments/`:
 license evidence under `licenses/{license_id}`, procurement evidence under
@@ -681,8 +696,12 @@ when at least one value changes; definition auditing remains separate.
 
 Renewal command side effects belong in `backend/app/services/renewal_orchestrator.py`, with chain invariants delegated to `backend/app/services/lifecycle_rules.py`. Do not spread renewal lifecycle mutations across pages or routes. Successor creation must validate every predecessor before creating a new license row so stale single or coterm pending-order work cannot fork a renewal chain. Sourcing items are the editable license-field carrier through procurement: applicable standard fields and staged custom-field values must survive sourcing, pending-order editing, and conversion unless the user changes them. Renewal sourcing and coterm merge rows carry the predecessor's explicit maintenance coverage, or the type-appropriate default for older records, and conversion validates that coverage before creating the successor. Renewal conversion rereads the primary predecessor at the conversion boundary: an active parentless maintenance row is allowed to carry `is_legacy_unlinked_maintenance=true` only when that flag already exists on the persisted predecessor. Linked maintenance successors clear the flag, inherit the current primary parent, and create the normal association row and parent mirror; no parent link, mirror, or coverage snapshot is fabricated for an unlinked successor. Coterm successors use the same primary-predecessor rule.
 
-Existing-successor linking is also owned by `renewal_orchestrator.py`. It is
-available only for an Expiring or Expired predecessor and an Active or Upcoming
+Existing-successor linking is also owned by `renewal_orchestrator.py`. Initiation and
+linking share the configured `renewal_action_days` boundary; when that setting is
+unset they inherit `notification_days`, preserving the historical behavior without
+coupling future renewal timing to expiration presentation. This boundary does not
+change expiration statuses, alerts, filters, notification timing, or the workbench
+viewing window. Linking requires an eligible predecessor and an Active or Upcoming
 same-publisher successor that extends coverage and has no incoming renewal link.
 Publisher is the only required matching identity field, normalized for case and
 whitespace. Description, PO number, SKU, metric, and license type may differ;
@@ -698,6 +717,15 @@ starts, and is presented as Renewed only after its term has ended and successor
 coverage has begun. Renewal actions, alerts, and workbench rows are suppressed
 as soon as the successor is secured. Current-cost reporting continues to include
 the predecessor while its coverage remains current.
+
+The UI and backend must use the same renewal-action boundary. Procurement initiation
+still requires a budget owner; linking an already-purchased successor does not.
+Pending work, retired records, perpetual records, ineligible license types, and
+existing chain links remain protected. A linked Upcoming successor changes the
+expiring predecessor's registry badge to `Renews in X days` (or `Renews today`) based
+on the successor start date, while the underlying expiration status and any visible
+coverage-gap warning remain unchanged. Pending procurement alone never produces that
+countdown.
 
 Renewal workflow state and coverage state are intentionally overlapping. A
 license with `lifecycle_status=pending_renewal` continues to derive Expiring or

@@ -2,11 +2,15 @@
 
 So far you've imported licenses and learned the record. Now let's walk through what LicenseTrack is really built for: the **renewal lifecycle** — taking an expiring license from an alert all the way to a fresh active record, with sourcing and procurement handled along the way.
 
-For this example I changed the expiration date of our Ableton license so that it falls **28 days from now** — inside the "expiring within 30 days" alert window.
+For this example I changed the expiration date of our Ableton license so that it falls **28 days from now** — inside both the "expiring within 30 days" alert window and the renewal-action window.
 
 ## The renewal workflow appears
 
-Once a license is inside the alert window, the renewal workflow activates. An **Initiate Renewal** button appears in the License Details panel, and the license shows up in the **Renewal Workbench**.
+Once a license is inside the renewal-action window, the renewal workflow activates.
+An **Initiate Renewal** button appears in the License Details panel, and the license
+shows up in the **Renewal Workbench**. Administrators can configure this action
+window independently from the expiry alert window; until they do, it inherits the
+expiry alert value so existing installations behave as before.
 
 ![License Details panel showing the "Expires in 28D" flag and the Initiate Renewal button](../assets/renewal-01-expiring-flag.png)
 
@@ -24,6 +28,9 @@ inherits the renewal-chain LT reference; its former reference remains reserved
 and searchable in history. Date gaps and overlaps are shown for confirmation
 before linking. If there is a gap, the predecessor remains Expired until the
 successor starts; it is shown as Renewed only after successor coverage begins.
+While the linked successor is Upcoming, the expiring predecessor shows **Renews in
+X days** (or **Renews today**) from the successor's start date. A coverage gap remains
+visible, and pending procurement by itself does not show this countdown.
 
 The workbench's estimated annual value annualizes multi-year term cost, so a
 two- or three-year purchase is not presented as though the complete term value

@@ -34,9 +34,12 @@ contract later.
 | Pending order | PO and invoice evidence | Pending order and licenses created from it |
 | Manual creation batch | Quote, PO, and invoice evidence selected while creating several licenses | Licenses created in that batch |
 
-Procurement documents shared after conversion are keyed by pending-order
-relationship. Direct multi-license procurement evidence is keyed by its manual
-creation batch. PO number is metadata and is not a sharing key.
+Procurement documents shared after pending-order conversion are keyed by their
+pending-order relationship, which takes precedence over PO metadata. Unrelated
+pending orders therefore do not share evidence even when their PO numbers match.
+For direct/manual licenses, new uploads explicitly marked **Shared** can use the same
+trimmed PO number to remain visible across those licenses; **Single** uploads remain
+license-owned. Existing documents are not moved, reassigned, or backfilled.
 
 New managed files are stored under one `attachments/` hierarchy using stable
 license, pending-order, creation-batch, sourcing-request, and contract IDs.
@@ -48,6 +51,11 @@ PDF license and procurement documents shown in License Details can be previewed
 without downloading first. The preview uses the same permission checks as
 download, and download remains available from the document row and preview
 pane.
+
+Contract PDFs use the same authenticated preview rules. The contract modal places
+contract information and document management on the left and a large preview on the
+right, with independent scrolling; narrow screens stack the preview below the
+contract content. Download permissions and error handling remain unchanged.
 
 Deleting a license removes its license-owned document rows and managed files
 after the database deletion commits. Shared procurement evidence remains until
