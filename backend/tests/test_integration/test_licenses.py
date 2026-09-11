@@ -513,6 +513,28 @@ async def test_po_total_override_is_scoped_by_currency(test_app, auth_headers):
     assert by_id[inherited_usd["id"]]["poTotalOverride"] == "900.00"
 
 
+async def test_po_total_override_keeps_standalone_and_procurement_groups_separate(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    standalone = await _create_license(test_app, auth_headers, poNumber="PO-REUSED")
+    bundled = await _create_license(test_app, auth_headers, poNumber="PO-REUSED")
+    bundled_obj = await db_session.get(License, bundled["id"])
+    bundled_obj.procurement_bundle_id = "bundle-1"
+    await db_session.commit()
+
+    response = await test_app.post(
+        f"/api/licenses/{standalone['id']}/po-total-override",
+        json={"poTotalOverride": "80.00"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    await db_session.refresh(bundled_obj)
+    assert bundled_obj.po_total_override is None
+
+
 async def test_po_total_override_follows_po_membership_rules(test_app, auth_headers):
     first = await _create_license(test_app, auth_headers, poNumber="PO-A", softwareDescription="A1")
     second = await _create_license(test_app, auth_headers, poNumber="PO-A", softwareDescription="A2")

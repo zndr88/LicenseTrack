@@ -40,6 +40,10 @@ export default function MaintenanceSection({
   const coverage = license.maintenanceCoverage || "unknown";
   const coverageLabel = MAINTENANCE_COVERAGE_OPTIONS.find((option) => option.value === coverage)?.label || coverage;
   const canLinkSupportRecord = coverage === "separately_tracked" && supportsSeparateMaintenanceLine(license.licenseType);
+  const activeMaintenance = maintenanceHistory.find((item) => item.id === license.activeMaintenanceId);
+  const maintenanceCurrency = license.hasMaintenance
+    ? activeMaintenance?.currency
+    : license.currency || userSettings?.displayCurrency || "EUR";
 
   const handleDisableMaintenance = async () => {
     const { data, error } = await disableMaintenance(license.id);
@@ -121,10 +125,10 @@ export default function MaintenanceSection({
               <div className="dp-field">
                 <span className="dp-field-label">Total Support Cost (coverage period)</span>
                 <div className="val dp-mono-val">
-                  {license.maintenanceCost
+                  {license.maintenanceCost && maintenanceCurrency
                     ? formatCost(
                         license.maintenanceCost,
-                        license.currency || userSettings?.displayCurrency || "EUR",
+                        maintenanceCurrency,
                         userSettings?.numberFormatLocale ?? "en-US"
                       )
                     : "—"}

@@ -1,12 +1,15 @@
 # backend/app/services/import_/import_update.py
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType
 from app.services.contract_identity_service import resolve_contract_id_for_number
 from app.services.csv_importer import ParsedRow
 from app.services.custom_fields_service import upsert_imported_values_for_license
+from app.services.license_service import validate_term_date_order
+from app.services.maintenance_service import sync_parent_mirror_fields
 from app.services.po_total_override_service import resolve_reassigned_po_total_override
 
 # ParsedRow attr -> License attr for plain string fields patched only when non-empty.
@@ -25,7 +28,6 @@ _STRING_PATCH_FIELDS: list[tuple[str, str]] = [
     ("sku_code", "sku_code"),
     ("unit_price", "unit_price"),
     ("total_po_price", "total_po_price"),
-    ("currency", "currency"),
 ]
 
 
@@ -53,7 +55,7 @@ async def apply_import_update(
 
     reassigned_po_override = license_obj.po_total_override
     target_po_number = row.po_number or license_obj.po_number
-    target_currency = row.currency or license_obj.currency
+    target_currency = license_obj.currency if row.currency_defaulted else (row.currency or license_obj.currency)
     if target_po_number != license_obj.po_number or target_currency != license_obj.currency:
         reassigned_po_override = await resolve_reassigned_po_total_override(
             db,
@@ -68,6 +70,8 @@ async def apply_import_update(
             setattr(license_obj, col_attr, value)
             if col_attr == "invoice_number":
                 license_obj.invoice_numbers = [value]
+    if row.currency and not row.currency_defaulted:
+        license_obj.currency = row.currency
     if row.publisher_name:
         license_obj.publisher_id = row.resolved_publisher_id
     if row.supplier:
@@ -94,11 +98,23 @@ async def apply_import_update(
         license_obj.contract_id = await resolve_contract_id_for_number(db, row.contract_number)
 
     # Dates (typed). Perpetual records never carry an end_date.
+    if row.db_start_date is not None or row.db_end_date is not None:
+        target_start_date = row.db_start_date if row.db_start_date is not None else license_obj.start_date
+        target_end_date = (
+            row.db_end_date
+            if row.db_end_date is not None and license_obj.license_type != LicenseType.perpetual
+            else license_obj.end_date
+        )
+        validate_term_date_order(target_start_date, target_end_date)
+
     if row.db_start_date is not None:
         license_obj.start_date = row.db_start_date
     if row.db_end_date is not None and license_obj.license_type != LicenseType.perpetual:
         license_obj.end_date = row.db_end_date
     if row.db_notice_date is not None:
+        if row.db_notice_date != license_obj.notice_date:
+            license_obj.notice_handled_at = None
+            license_obj.notice_handled_by_user_id = None
         license_obj.notice_date = row.db_notice_date
     if row.db_request_date is not None:
         license_obj.request_date = row.db_request_date
@@ -109,3 +125,10 @@ async def apply_import_update(
 
     if custom_data:
         await upsert_imported_values_for_license(db, license_obj.id, custom_data, number_format_locale, date_format)
+
+    if license_obj.license_type == LicenseType.maintenance:
+        parents = await db.execute(
+            select(License).where(License.active_maintenance_id == license_obj.id)
+        )
+        for parent in parents.scalars().all():
+            await sync_parent_mirror_fields(db, parent)

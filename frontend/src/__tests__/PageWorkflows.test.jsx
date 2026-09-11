@@ -652,6 +652,23 @@ describe("LicensesPage workflows", () => {
     expect(licensesApi.updateLicense).not.toHaveBeenCalled();
     expect(await screen.findByDisplayValue("Inline Publisher")).toBeInTheDocument();
   });
+
+  test("cancels Registry inline edits with Escape", async () => {
+    const user = userEvent.setup();
+    licensesApi.getLicenses.mockResolvedValueOnce({ data: [license()], error: null });
+
+    renderLicensesPage();
+
+    expect(await screen.findByText("Acme Suite")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /inline edit/i }));
+    const descriptionInput = screen.getByRole("textbox", { name: /edit description/i });
+    await user.clear(descriptionInput);
+    await user.type(descriptionInput, "Edited");
+    await user.keyboard("{Escape}");
+
+    expect(descriptionInput).toHaveValue("Acme Suite");
+    expect(licensesApi.patchLicenseField).not.toHaveBeenCalled();
+  });
 });
 
 describe("CSVImportPage workflows", () => {

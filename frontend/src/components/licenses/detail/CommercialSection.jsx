@@ -177,7 +177,7 @@ export default function CommercialSection({
               </span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val dp-mono-val">
-                  {license.poNumber ? fmtCost(getPoTotal(license.poNumber, license.currency, allLicenses)) : "—"}
+                  {license.poNumber ? fmtCost(getPoTotal(license.poNumber, license.currency, allLicenses, license)) : "—"}
                 </div>
                 {perms.canEdit && license.poNumber && onPoTotalOverride && (
                   <button

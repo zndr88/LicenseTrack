@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { formatPriceInput, getCompleteness, getExpirationPresentation, normalizeLicense } from "../utils/helpers.js";
 import { ROLE_PERMISSIONS } from "../constants/permissions.js";
 import {
@@ -66,7 +66,7 @@ export function useDetailPanelState({
     history:      false,
   });
 
-  const fetchMaintenanceHistory = async (id) => {
+  const fetchMaintenanceHistory = useCallback(async (id) => {
     if (!["perpetual", "oem", "freeware"].includes(license.licenseType)) return;
     const targetId = id ?? license.id;
     const requestId = ++maintenanceRequestRef.current;
@@ -79,23 +79,22 @@ export function useDetailPanelState({
     setHistoryLoading(false);
     if (data) setMaintenanceHistory(data);
     if (coverageData) setCoverageHistory(coverageData);
-  };
+  }, [license.id, license.licenseType]);
 
   const toggleSection = (key) =>
-    setOpenSections((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      if (key === "maintenance" && next.maintenance && maintenanceHistory.length === 0) {
-        fetchMaintenanceHistory(license.id);
-      }
-      return next;
-    });
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
   useEffect(() => {
+    maintenanceRequestRef.current += 1;
     setMaintenanceHistory([]);
     setCoverageHistory([]);
     setHistoryLoading(false);
     setShowMaintenanceModal(false);
   }, [license.id]);
+
+  useEffect(() => {
+    if (openSections.maintenance) fetchMaintenanceHistory();
+  }, [openSections.maintenance, fetchMaintenanceHistory]);
 
   // Custom fields
   const {

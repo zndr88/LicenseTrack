@@ -1,9 +1,9 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import DetailPanel from '../components/licenses/DetailPanel.jsx'
-import { getLicense, linkMaintenanceToParent, updateLicense } from '../api/licenses.js'
+import { getLicense, getMaintenanceForParent, linkMaintenanceToParent, updateLicense } from '../api/licenses.js'
 
 vi.mock('../api/documents.js', () => ({
   getDocuments: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -63,6 +63,7 @@ vi.mock('../api/licenses.js', () => ({
   linkExistingSuccessor: vi.fn(),
   unlinkExistingSuccessor: vi.fn(),
   getMaintenanceForParent: vi.fn(),
+  getCoverageHistory: vi.fn().mockResolvedValue({ data: [], error: null }),
   disableMaintenance: vi.fn(),
   linkMaintenanceToParent: vi.fn(),
 }))
@@ -417,6 +418,41 @@ describe('DetailPanel commercial details', () => {
 })
 
 describe('DetailPanel maintenance support details', () => {
+  it('reloads the support currency when switching parents with maintenance open', async () => {
+    const user = userEvent.setup()
+    let resolveHistory
+    getMaintenanceForParent
+      .mockResolvedValueOnce({ data: [{ id: 11, currency: 'USD' }], error: null })
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveHistory = resolve }))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const panel = (id, cost) => (
+      <QueryClientProvider client={queryClient}>
+        <DetailPanel {...baseProps} license={{
+          ...baseLicense,
+          id,
+          licenseType: 'perpetual',
+          hasMaintenance: true,
+          activeMaintenanceId: id + 10,
+          maintenanceCoverage: 'separately_tracked',
+          maintenanceCost: cost,
+        }} />
+      </QueryClientProvider>
+    )
+    const { rerender } = rtlRender(panel(1, '100'))
+    await user.click(screen.getByText('Maintenance / Support'))
+    expect(await screen.findByText('$100.00')).toBeInTheDocument()
+
+    rerender(panel(2, '200'))
+    await waitFor(() => expect(getMaintenanceForParent).toHaveBeenLastCalledWith(2))
+    expect(screen.queryByText('€200.00')).not.toBeInTheDocument()
+    expect(screen.queryByText('$100.00')).not.toBeInTheDocument()
+
+    await act(async () => {
+      resolveHistory({ data: [{ id: 12, currency: 'GBP' }], error: null })
+    })
+    expect(await screen.findByText('£200.00')).toBeInTheDocument()
+  })
+
   it('shows included support for subscription licenses', async () => {
     const user = userEvent.setup()
     render(

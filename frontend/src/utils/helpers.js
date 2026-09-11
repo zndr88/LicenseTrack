@@ -57,10 +57,18 @@ export function formatPriceInput(value, locale = "en-US") {
   }
 }
 
-export const getPoTotal = (poNumber, currency, allLicenses) => {
+export const hasSameProcurementIdentity = (license, selected) => {
+  if (!license || !selected || license.currency !== selected.currency) return false;
+  if (selected.pendingOrderId != null) return license.pendingOrderId === selected.pendingOrderId;
+  if (selected.procurementBundleId) return license.procurementBundleId === selected.procurementBundleId;
+  return license.pendingOrderId == null && !license.procurementBundleId && license.poNumber === selected.poNumber;
+};
+
+export const getPoTotal = (poNumber, currency, allLicenses, selectedLicense = null) => {
   if (!poNumber || !currency) return 0;
+  const selected = selectedLicense ?? { poNumber, currency };
   const matching = allLicenses.filter(
-    (license) => license.poNumber === poNumber && license.currency === currency && !license.retired,
+    (license) => hasSameProcurementIdentity(license, selected) && !license.retired,
   );
   const override = matching.find((l) => l.poTotalOverride !== null && l.poTotalOverride !== undefined && l.poTotalOverride !== "");
   if (override) return Number(override.poTotalOverride) || 0;

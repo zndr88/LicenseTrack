@@ -150,16 +150,18 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
       const files = Array.from(e.target.files);
       setUploadingCategory(category);
       let anyError = null;
+      let uploadedCount = 0;
       for (const file of files) {
         const { error } = await uploadDocument(license.id, file, category, scope);
         if (error) { anyError = error; break; }
+        uploadedCount += 1;
       }
       setUploadingCategory(null);
+      if (uploadedCount > 0) await refreshDocumentsAndLicense();
       if (anyError) {
         setToast(`Upload failed: ${anyError}`);
         return;
       }
-      await refreshDocumentsAndLicense();
     };
     input.click();
   };

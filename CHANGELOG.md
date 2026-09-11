@@ -54,6 +54,14 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Fixed pending-order invoice uploads losing their pending-order scope when shared PO
   metadata was also present, which could expose evidence to a different pending order
   using the same PO number.
+- Fixed CSV updates defaulting omitted currencies, accepting invalid term dates,
+  retaining handled state for changed notice dates, and leaving maintenance mirrors stale.
+- Fixed PO totals and overrides crossing separate procurement groups that reuse a PO number,
+  including frontend cache, sorting, detail, overview, and Registry CSV behavior.
+- Fixed linked maintenance costs being displayed in the parent license's currency.
+- Fixed purchase-line conversion dropping previously entered commercial and ownership data.
+- Fixed Escape saving inline edits instead of cancelling them in Registry and procurement tables.
+- Fixed successful documents remaining hidden after a later file in the same upload failed.
 
 This release includes additive migrations for procurement-document scope metadata and
 the renewal-action setting. It does not move, reassign, or backfill existing documents,

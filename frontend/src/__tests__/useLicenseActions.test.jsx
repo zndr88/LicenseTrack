@@ -16,6 +16,8 @@ vi.mock("../api/licenses.js", () => ({
   unlinkExistingSuccessor: vi.fn(),
   updateLicense: vi.fn(),
   patchLicenseField: vi.fn(),
+  setPoTotalOverride: vi.fn(),
+  clearPoTotalOverride: vi.fn(),
 }));
 
 const baseLicense = {
@@ -80,6 +82,8 @@ beforeEach(() => {
   licensesApi.getLicense.mockResolvedValue({ data: baseLicense, error: null });
   licensesApi.bulkDeleteLicenses.mockResolvedValue({ data: {}, error: null });
   licensesApi.unlinkExistingSuccessor.mockResolvedValue({ data: null, error: null });
+  licensesApi.setPoTotalOverride.mockResolvedValue({ data: null, error: null });
+  licensesApi.clearPoTotalOverride.mockResolvedValue({ data: null, error: null });
 });
 
 describe("useLicenseActions", () => {
@@ -165,6 +169,26 @@ describe("useLicenseActions", () => {
 
     const cached = queryClient.getQueryData(queryKeys.licenses);
     expect(cached).toEqual([{ ...baseLicense, documentCount: 3 }]);
+  });
+
+  test("scopes PO override cache updates to the returned procurement identity and currency", async () => {
+    licensesApi.setPoTotalOverride.mockResolvedValueOnce({
+      data: { id: 1, poNumber: "PO-1", currency: "EUR", pendingOrderId: 10 },
+      error: null,
+    });
+    const licenses = [
+      { ...baseLicense, poNumber: "PO-1", currency: "EUR", pendingOrderId: 10 },
+      { ...baseLicense, id: 2, poNumber: "PO-1", currency: "EUR", pendingOrderId: 20 },
+      { ...baseLicense, id: 3, poNumber: "PO-1", currency: "USD", pendingOrderId: 10 },
+    ];
+    const { result, queryClient } = renderActions({ licenses });
+
+    await act(async () => {
+      expect(await result.current.handlePoTotalOverride(1, "80")).toBe(true);
+    });
+
+    const cached = queryClient.getQueryData(queryKeys.licenses).licenses;
+    expect(cached.map((license) => license.poTotalOverride)).toEqual(["80", undefined, undefined]);
   });
 
   test("bulk delete sends selected ids and clears selection/detail state", async () => {

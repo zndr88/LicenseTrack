@@ -144,4 +144,24 @@ describe("MaintenanceSection", () => {
     expect(screen.queryByRole("button", { name: /edit maintenance \/ support record/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /disable linked contract/i })).not.toBeInTheDocument();
   });
+
+  it("formats separately tracked support in the maintenance record currency", () => {
+    render(
+      <MaintenanceSection
+        {...baseProps}
+        license={{
+          ...baseProps.license,
+          currency: "EUR",
+          hasMaintenance: true,
+          activeMaintenanceId: 9,
+          maintenanceCoverage: "separately_tracked",
+          maintenanceCost: "100",
+        }}
+        maintenanceHistory={[{ id: 9, currency: "USD" }]}
+        userSettings={{ numberFormatLocale: "en-US" }}
+      />
+    );
+
+    expect(screen.getByText("$100.00")).toBeInTheDocument();
+  });
 });

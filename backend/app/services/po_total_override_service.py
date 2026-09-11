@@ -55,7 +55,12 @@ def _identity_filter(
     if identity_value.startswith("procurement-bundle:"):
         return (License.procurement_bundle_id == procurement_bundle_id, currency_filter)
     if identity_value.startswith("po:"):
-        return (func.lower(func.trim(License.po_number)) == identity_value[3:], currency_filter)
+        return (
+            func.lower(func.trim(License.po_number)) == identity_value[3:],
+            License.pending_order_id.is_(None),
+            License.procurement_bundle_id.is_(None),
+            currency_filter,
+        )
     return (License.id == license_id, currency_filter)
 
 

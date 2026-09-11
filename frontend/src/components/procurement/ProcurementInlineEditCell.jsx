@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { formatQuantity } from "../../utils/quantity.js";
@@ -43,12 +43,17 @@ export function ProcurementInlineEditField({
   const [value, setValue] = useState(formattedCurrentValue);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const cancelBlurRef = useRef(false);
 
   useEffect(() => {
     if (!saving) setValue(formattedCurrentValue);
   }, [formattedCurrentValue, saving]);
 
   const commit = async () => {
+    if (cancelBlurRef.current) {
+      cancelBlurRef.current = false;
+      return;
+    }
     if (saving) return;
     const trimmed = String(value ?? "").trim();
     if (required && !trimmed) {
@@ -89,6 +94,7 @@ export function ProcurementInlineEditField({
       event.currentTarget.blur();
     } else if (event.key === "Escape") {
       event.preventDefault();
+      cancelBlurRef.current = true;
       setValue(formattedCurrentValue);
       setError(null);
       event.currentTarget.blur();

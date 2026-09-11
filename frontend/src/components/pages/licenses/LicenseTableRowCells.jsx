@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LICENSE_TYPES, LICENSE_METRICS, MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
 import { formatCost, getPoTotal } from "../../../utils/helpers.js";
 import Badge from "../../ui/Badge.jsx";
@@ -38,12 +38,17 @@ function InlineEditableCell({ license, col, config, currentValue, onInlineFieldS
   const [value, setValue] = useState(currentValue ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const cancelBlurRef = useRef(false);
 
   useEffect(() => {
     if (!saving) setValue(currentValue ?? "");
   }, [currentValue, saving]);
 
   const commit = async () => {
+    if (cancelBlurRef.current) {
+      cancelBlurRef.current = false;
+      return;
+    }
     if (saving) return;
     const nextValue = normalizeInlineValue(config.fieldKey, value, userSettings);
     const previousValue = currentValue ?? "";
@@ -70,6 +75,7 @@ function InlineEditableCell({ license, col, config, currentValue, onInlineFieldS
     }
     if (event.key === "Escape") {
       event.preventDefault();
+      cancelBlurRef.current = true;
       setValue(currentValue ?? "");
       setError(null);
       event.currentTarget.blur();
@@ -288,7 +294,7 @@ export default function LicenseTableRowCells({
       case "currency":
         return <td key="currency" className="mono">{license.currency || "-"}</td>;
       case "totalPoPrice":
-        return <td key="totalPoPrice" className="mono lp-mono-bold">{formatCost(getPoTotal(license.poNumber, license.currency, licenses), license.currency || displayCurrency, locale)}</td>;
+        return <td key="totalPoPrice" className="mono lp-mono-bold">{formatCost(getPoTotal(license.poNumber, license.currency, licenses, license), license.currency || displayCurrency, locale)}</td>;
       case "calcTotal": {
         const total = getCalcTotalValue(license);
         if (total === null) return <td key="calcTotal" className="mono lp-mono-bold">-</td>;

@@ -12,7 +12,7 @@ import {
 } from "../../../api/licenses.js";
 import { queryKeys } from "../../../queryKeys.js";
 import { invalidateNotifications, invalidateRenewalWorkflow } from "../../../queryInvalidation.js";
-import { normalizeLicense } from "../../../utils/helpers.js";
+import { hasSameProcurementIdentity, normalizeLicense } from "../../../utils/helpers.js";
 import { getLicensesFromQueryData, updateLicensesInQueryData } from "../../../utils/licenseQueryData.js";
 import { useRenewalWorkflowActions } from "../../../hooks/useRenewalWorkflowActions.js";
 
@@ -119,8 +119,9 @@ export function useLicenseActions({
       return false;
     }
     if (data?.poNumber) {
+      const updatedLicense = normalizeLicense(data);
       updateLicensesInCache((ls) => ls.map((license) => (
-        license.poNumber === data.poNumber
+        hasSameProcurementIdentity(license, updatedLicense)
           ? { ...license, poTotalOverride: value }
           : license
       )));

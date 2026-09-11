@@ -29,6 +29,16 @@ describe("getPoTotal", () => {
     expect(getPoTotal("PO-1", "EUR", licenses)).toBe(100);
     expect(getPoTotal("PO-1", "USD", licenses)).toBe(200);
   });
+
+  it("keeps reused PO numbers separated by procurement identity", () => {
+    const licenses = [
+      { id: 1, poNumber: "PO-1", currency: "EUR", quantity: "1", unitPrice: "100", retired: false },
+      { id: 2, poNumber: "PO-1", currency: "EUR", procurementBundleId: "bundle-1", quantity: "1", unitPrice: "200", retired: false },
+    ];
+
+    expect(getPoTotal("PO-1", "EUR", licenses, licenses[0])).toBe(100);
+    expect(getPoTotal("PO-1", "EUR", licenses, licenses[1])).toBe(200);
+  });
 });
 
 describe("getCompleteness", () => {

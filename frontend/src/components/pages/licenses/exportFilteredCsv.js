@@ -120,7 +120,7 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "unitPrice": return fmtDecimal(l.unitPrice);
         case "currency": return l.currency ?? "";
         case "totalPoPrice": {
-          const total = getPoTotal(l.poNumber, l.currency, allLicenses ?? rows);
+          const total = getPoTotal(l.poNumber, l.currency, allLicenses ?? rows, l);
           return fmtDecimal(total != null ? String(total) : "");
         }
         case "calcTotal": {

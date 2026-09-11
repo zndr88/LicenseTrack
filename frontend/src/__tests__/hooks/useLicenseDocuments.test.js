@@ -81,6 +81,35 @@ describe("useLicenseDocuments", () => {
     }));
   });
 
+  test("refreshes successful uploads when a later file fails", async () => {
+    const storedDocument = { id: 7, category: "quote", original_filename: "stored.pdf" };
+    getDocuments
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: [storedDocument], error: null });
+    listDocumentProcessingResults.mockResolvedValue({ data: [], error: null });
+    getLicense.mockResolvedValue({ data: { completenessPct: 50 }, error: null });
+    uploadDocument
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: "Storage unavailable" });
+    const props = renderForLicense(1);
+    const { result } = renderHook(() => useLicenseDocuments(props));
+    await waitFor(() => expect(result.current.docsLoading).toBe(false));
+    const input = document.createElement("input");
+    const createElement = vi.spyOn(document, "createElement").mockReturnValueOnce(input);
+    act(() => result.current.handleFileUpload("quote", "license"));
+    createElement.mockRestore();
+
+    await act(async () => {
+      await input.onchange({
+        target: { files: [new File(["one"], "stored.pdf"), new File(["two"], "failed.pdf")] },
+      });
+    });
+
+    expect(result.current.documents).toEqual([storedDocument]);
+    expect(props.onUpdate).toHaveBeenCalledWith(1, expect.objectContaining({ documentCount: 1 }));
+    expect(props.setToast).toHaveBeenCalledWith("Upload failed: Storage unavailable");
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });

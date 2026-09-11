@@ -68,7 +68,7 @@ async def test_annotate_flags_ambiguous_row_as_error(test_app, auth_headers, db_
     assert row.import_action == "create"
 
 
-from datetime import timezone
+from datetime import date, datetime, timezone
 
 from app.services.import_.import_update import apply_import_update
 from app.services.import_.import_workflow import run_import_rows
@@ -112,6 +112,73 @@ async def test_apply_update_sets_request_date(test_app, auth_headers, db_session
     )
     await apply_import_update(obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
     assert (obj.request_date.year, obj.request_date.month, obj.request_date.day) == (2026, 1, 15)
+
+
+async def test_apply_update_preserves_defaulted_currency(test_app, auth_headers, db_session):
+    created = await _create_license(test_app, auth_headers, currency="USD")
+    obj = await db_session.get(License, created["id"])
+    row = _full_row(created["licenseRef"], currency="EUR", currency_defaulted=True)
+
+    await apply_import_update(obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
+
+    assert obj.currency == "USD"
+
+
+async def test_apply_update_rejects_resulting_invalid_date_range(test_app, auth_headers, db_session):
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        startDate="2026-01-01",
+        endDate="2026-12-31",
+    )
+    obj = await db_session.get(License, created["id"])
+    row = _full_row(created["licenseRef"], db_start_date=date(2027, 1, 1))
+
+    import pytest
+    with pytest.raises(ValueError, match="End date cannot be before start date"):
+        await apply_import_update(obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
+
+
+async def test_apply_update_resets_notice_and_syncs_active_maintenance_parent(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    parent = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        maintenanceCoverage="separately_tracked",
+    )
+    child = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        quantity="1",
+        unitPrice="100",
+        startDate="2026-01-01",
+        endDate="2026-12-31",
+        noticeDate="2026-10-01",
+    )
+    child_obj = await db_session.get(License, child["id"])
+    child_obj.notice_handled_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    child_obj.notice_handled_by_user_id = 1
+    row = _full_row(
+        child["licenseRef"],
+        license_type="maintenance",
+        unit_price="250",
+        db_end_date=date(2027, 12, 31),
+        db_notice_date=date(2027, 10, 1),
+    )
+
+    await apply_import_update(child_obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
+
+    parent_obj = await db_session.get(License, parent["id"])
+    assert child_obj.notice_handled_at is None
+    assert child_obj.notice_handled_by_user_id is None
+    assert parent_obj.maintenance_cost == "250"
+    assert parent_obj.maintenance_end_date == date(2027, 12, 31)
 
 
 async def test_row_database_failure_does_not_poison_remaining_import_rows(
@@ -190,7 +257,12 @@ async def test_execute_update_reconciles_existing_by_ltref(test_app, auth_header
 
 
 async def test_native_confirm_update_reconciles_existing_by_ltref(test_app, auth_headers, db_session):
-    created = await _create_license(test_app, auth_headers, budgetOwnerEmail="old@example.com")
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        budgetOwnerEmail="old@example.com",
+        currency="USD",
+    )
     ref = created["licenseRef"]
     headers = ["LT Ref", "Publisher", "Description", "Budget Owner"]
     csv_bytes = _make_csv(headers, [{
@@ -224,6 +296,7 @@ async def test_native_confirm_update_reconciles_existing_by_ltref(test_app, auth
     matches = (await db_session.execute(select(License).where(License.license_ref == ref))).scalars().all()
     assert len(matches) == 1
     assert matches[0].budget_owner_email == "new@example.com"
+    assert matches[0].currency == "USD"
 
 
 async def test_native_confirm_updates_existing_custom_field_and_blank_preserves_value(

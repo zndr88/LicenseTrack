@@ -56,6 +56,31 @@ describe("buildConvertItemDefaults", () => {
     expect(d.supplier).toBe("Default Supplier");
   });
 
+  it("preserves purchase-line commercial and ownership fields", () => {
+    const order = {
+      ...baseOrder,
+      items: [makeSI({
+        licenseMetric: "per_core",
+        quantityPerUnit: "8",
+        skuCode: "CORE-8",
+        contractNumber: "CTR-8",
+        invoiceNumber: "INV-8",
+        costCentre: "Engineering",
+        budgetOwnerEmail: "owner@example.com",
+      })],
+    };
+
+    expect(buildConvertItemDefaults(order, [])[0]).toMatchObject({
+      licenseMetric: "per_core",
+      quantityPerUnit: "8",
+      skuCode: "CORE-8",
+      contractNumber: "CTR-8",
+      invoiceNumber: "INV-8",
+      costCentre: "Engineering",
+      budgetOwnerEmail: "owner@example.com",
+    });
+  });
+
   it("inherits renewal license fields when isRenewal=true and license is found", () => {
     const si = makeSI({ isRenewal: true, renewalForLicenseId: 42 });
     const order = { ...baseOrder, items: [si] };
