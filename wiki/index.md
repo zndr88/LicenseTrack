@@ -1,30 +1,41 @@
-# LicenseTrack Documentation
+# Find your next step
 
-**LicenseTrack** is a self-hosted tool for managing the procurement and lifecycle of your software licenses — from sourcing request to renewal, with the invoices, entitlements, and contracts attached to every record.
-
-This guide takes you from a bare server to tracking your first licenses.
+LicenseTrack keeps software quotes, purchase orders, entitlements, and renewal
+history connected. Choose the guide that matches what you want to do today.
 
 <div class="grid cards" markdown>
 
-- :material-rocket-launch: **[Getting Started](getting-started/prerequisites.md)**
+- :material-compass-outline: **[Evaluate LicenseTrack](evaluate/overview.md)**
 
-    Prerequisites, installation, and first login.
+    Check the product's scope and explore three sample workflows in the browser demo.
 
-- :material-file-import: **[Your First Licenses](first-licenses/importing.md)**
+- :material-server: **[Install LicenseTrack](getting-started/prerequisites.md)**
 
-    Import a spreadsheet and learn the license record.
+    Choose Docker Compose or native Linux, check requirements, and sign in for the first time.
 
-- :material-cart-arrow-right: **[Procurement Workflow](workflows/procurement.md)**
+- :material-file-import: **[Use LicenseTrack](first-licenses/importing.md)**
 
-    Move purchases from sourcing and quotes through pending orders into license records.
+    Import your first records, follow a purchase, and prepare for renewal.
 
-- :material-shield-account: **[Administration](administration/index.md)**
+- :material-wrench-outline: **[Operate LicenseTrack](operations/index.md)**
 
-    Configure users, access, notifications, audit history, and operational settings.
+    Plan backups, upgrades, monitoring, and recovery for your deployment.
 
 </div>
 
----
+## Common tasks
 
-!!! info "New here?"
-    Start with [Prerequisites](getting-started/prerequisites.md) and work through in order. Each page links to the next.
+| I need to... | Guide |
+|---|---|
+| Bring in an existing spreadsheet | [First import](first-licenses/importing.md) or [mapping and import rules](first-licenses/import-reference.md) |
+| Track a new software purchase | [Procurement from sourcing to license](workflows/procurement.md) |
+| Renew an expiring license | [Renewal walkthrough](first-licenses/renewal-lifecycle.md) |
+| Attach an already-purchased renewal | [Link an existing successor](first-licenses/renewal-reference.md#link-an-existing-successor) |
+| Find an invoice or agreement | [Contracts and documents](workflows/contracts-documents.md) |
+| Understand spend and forecasts | [Reports and calculations](workflows/reports.md) |
+| Give a colleague access | [Users, roles, and access](administration/users-access.md) |
+| Diagnose a deployment problem | [Operations runbook](operations/runbook.md) |
+
+Use **Search** to find a field name, action, or error. The Help Center inside
+your installed application provides guidance bundled with that application's
+version, including when this website is unavailable.

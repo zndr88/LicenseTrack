@@ -16,6 +16,10 @@ Running LicenseTrack in production - hardening, backups, upgrades, and day-to-da
 
     Docker Compose upgrade procedure, full-volume backup, project-name/volume-name behavior, and recovery if a new empty volume is created.
 
+- :material-update: **[Native Linux upgrades](native-upgrade.md)**
+
+    Upgrade a systemd installation with its recovery archive and post-upgrade checks.
+
 - :material-delete-alert: **[Native Linux removal](native-uninstall.md)**
 
     Guarded removal procedure, data-retention choices, service-account cleanup, and external host cleanup for native installations.

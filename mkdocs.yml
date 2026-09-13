@@ -9,6 +9,7 @@ docs_dir: wiki
 
 theme:
   name: material
+  custom_dir: docs/overrides
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -36,16 +37,21 @@ theme:
 
 nav:
   - Home: index.md
+  - Evaluate:
+      - Product Scope: evaluate/overview.md
+      - Demo Walkthrough: evaluate/demo-walkthrough.md
   - Getting Started:
-      - Prerequisites: getting-started/prerequisites.md
-      - Installation: getting-started/installation.md
+      - Choose Your Installation: getting-started/prerequisites.md
+      - Docker / Podman Installation: getting-started/installation.md
       - Native Linux Installation: getting-started/native-installation.md
       - First Launch & Login: getting-started/first-login.md
   - Core Workflows:
       - Importing Licenses: first-licenses/importing.md
+      - Import Mapping and Reference: first-licenses/import-reference.md
       - Understanding the License Record: first-licenses/license-record.md
       - Managing Licenses and Maintenance: first-licenses/managing-licenses.md
       - Renewal & Lifecycle: first-licenses/renewal-lifecycle.md
+      - Renewal Rules and Alternatives: first-licenses/renewal-reference.md
       - Procurement from Sourcing to License: workflows/procurement.md
       - Contracts and Documents: workflows/contracts-documents.md
       - Reports and Calculations: workflows/reports.md
@@ -85,3 +91,9 @@ markdown_extensions:
 
 plugins:
   - search
+
+extra:
+  docs_version: "1.1.21"
+
+extra_css:
+  - stylesheets/docs.css

@@ -75,6 +75,7 @@ def check_release_references() -> list[str]:
 
     required_fragments = {
         "README.md": [f"Version {version}."],
+        "mkdocs.yml": [f'docs_version: "{version}"'],
         "docker-compose.yml": [f"image: license-lifecycle-system:{version}"],
         "wiki/getting-started/installation.md": [
             f"refs/tags/v{version}.zip",

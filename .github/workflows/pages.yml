@@ -7,6 +7,7 @@ on:
       - "landing/**"
       - "wiki/**"
       - "docs/images/**"
+      - "docs/overrides/**"
       - "mkdocs.yml"
       - "frontend/**"
       - ".github/workflows/pages.yml"

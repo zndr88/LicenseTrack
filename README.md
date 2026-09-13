@@ -55,7 +55,7 @@ around that workflow.
   role-aware selection, safe merges, and synchronized display names.
 - Carries renewals through sourcing and purchasing while preserving the license
   chain, supporting coterm opportunities, and adopting an already-purchased
-  same-PO license as the successor when appropriate.
+  same-publisher license as the successor when appropriate.
 - Provides CSV import and export, including mapped imports from external tools,
   reference-data review, legacy-unlinked maintenance recovery, shared PO-value
   overrides, perpetual-maintenance and purchase-order trackers, operational
@@ -117,6 +117,8 @@ and removal.
 ## Documentation
 
 - [Operator documentation](https://zndr88.github.io/LicenseTrack/docs/)
+- [Demo walkthrough](wiki/evaluate/demo-walkthrough.md) and
+  [deployment options](wiki/getting-started/prerequisites.md)
 - [Installation](wiki/getting-started/installation.md) and
   [deployment](wiki/operations/deployment.md)
 - [Docker upgrade](wiki/operations/upgrade.md),

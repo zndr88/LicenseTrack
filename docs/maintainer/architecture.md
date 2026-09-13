@@ -88,7 +88,7 @@ remain a separate order count on the Pending Orders navigation badge.
 | `CustomFieldRows.jsx` | Shared custom field row renderer used by all sections |
 | `IdentitySection.jsx` | Publisher, description, badge row, parent/maintenance navigation, maintenance expiry and legacy-unlinked alerts |
 | `RenewalWorkflowSection.jsx` | All renewal lifecycle state boxes (expiring, pending, renewed, draft, consolidated), plus existing-successor link/unlink actions |
-| `ExistingSuccessorModal.jsx` | Same-PO Active/Upcoming successor selection, date-gap/overlap disclosure, and existing-purchase renewal confirmation |
+| `ExistingSuccessorModal.jsx` | Same-publisher Active/Upcoming successor selection, date-gap/overlap disclosure, and existing-purchase renewal confirmation |
 | `ContractDatesSection.jsx` | Start/end/notice dates, notice handled action/status, editable request/purchase procurement milestones, contract #, PO #, invoice #, contract record link |
 | `MaintenanceSection.jsx` | Maintenance coverage dates, linked maintenance children, add/disable maintenance actions |
 | `HistorySection.jsx` | Read-only License Record ID, creator account label, license-row creation and last-update timestamps, plus procurement-trail links to source sourcing and pending-order records |

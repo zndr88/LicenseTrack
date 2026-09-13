@@ -1,0 +1,34 @@
+.docs-context,
+.docs-context nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+}
+
+.docs-context {
+  justify-content: space-between;
+}
+
+.md-banner .docs-context a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.md-banner .docs-context a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.docs-context a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+@media (max-width: 44.9375em) {
+  .docs-context nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
