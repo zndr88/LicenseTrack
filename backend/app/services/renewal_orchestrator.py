@@ -101,6 +101,62 @@ async def _reserve_renewal_transition(db: AsyncSession, license_obj: License) ->
     await db.refresh(license_obj)
 
 
+async def _reserve_existing_successor_link(
+    db: AsyncSession,
+    predecessor: License,
+    successor: License,
+) -> None:
+    """Atomically reserve both ends of an existing-successor renewal link."""
+    successor_reservation = await db.execute(
+        update(License)
+        .where(
+            License.id == successor.id,
+            License.lifecycle_status.is_(None),
+            License.renewed_from_id.is_(None),
+            License.predecessor_id.is_(None),
+            or_(License.coterm_from_ids.is_(None), License.coterm_from_ids == []),
+            License.renewed_to_id.is_(None),
+            License.is_retired.is_(False),
+            License.retirement_scheduled.is_(False),
+        )
+        .values(
+            renewed_from_id=predecessor.id,
+            predecessor_id=predecessor.id,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    if successor_reservation.rowcount != 1:
+        raise HTTPException(status_code=409, detail="The selected license already has a predecessor")
+
+    predecessor_reservation = await db.execute(
+        update(License)
+        .where(
+            License.id == predecessor.id,
+            License.lifecycle_status.is_(None),
+            License.renewed_to_id.is_(None),
+            License.is_retired.is_(False),
+            License.retirement_scheduled.is_(False),
+        )
+        .values(lifecycle_status="pending_renewal")
+        .execution_options(synchronize_session=False)
+    )
+    if predecessor_reservation.rowcount != 1:
+        await db.execute(
+            update(License)
+            .where(
+                License.id == successor.id,
+                License.renewed_from_id == predecessor.id,
+                License.predecessor_id == predecessor.id,
+            )
+            .values(renewed_from_id=None, predecessor_id=None)
+            .execution_options(synchronize_session=False)
+        )
+        raise HTTPException(status_code=409, detail="License has already been renewed")
+
+    await db.refresh(predecessor)
+    await db.refresh(successor)
+
+
 async def _activate_maintenance_successor_for_all_parents(
     db: AsyncSession,
     predecessor: License,
@@ -210,6 +266,7 @@ async def link_existing_successor(
         action_days=action_days,
         notification_days=notification_days,
     )
+    await _reserve_existing_successor_link(db, predecessor, successor)
 
     former_ref = successor.license_ref
     chain_ref = predecessor.license_ref or await generate_license_ref(db)

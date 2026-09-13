@@ -116,6 +116,46 @@ async def test_coterm_legacy_maintenance_rejects_invalid_coverage_atomically(db_
     ).scalars().all() == []
 
 
+async def test_existing_successor_reservation_rejects_second_predecessor(db_session):
+    predecessor_a = License(
+        **_license_data(
+            start_date=date(2025, 1, 1),
+            end_date=date(2026, 9, 20),
+        )
+    )
+    predecessor_b = License(
+        **_license_data(
+            start_date=date(2025, 1, 1),
+            end_date=date(2026, 9, 20),
+        )
+    )
+    successor = License(
+        **_license_data(
+            start_date=date(2026, 9, 21),
+            end_date=date(2027, 9, 20),
+        )
+    )
+    db_session.add_all([predecessor_a, predecessor_b, successor])
+    await db_session.flush()
+
+    await renewal_orchestrator._reserve_existing_successor_link(
+        db_session,
+        predecessor_a,
+        successor,
+    )
+
+    with pytest.raises(HTTPException, match="already has a predecessor"):
+        await renewal_orchestrator._reserve_existing_successor_link(
+            db_session,
+            predecessor_b,
+            successor,
+        )
+
+    assert successor.renewed_from_id == predecessor_a.id
+    assert successor.predecessor_id == predecessor_a.id
+    assert predecessor_b.lifecycle_status is None
+
+
 async def test_shared_maintenance_successor_activates_compatibility_parent_first(
     db_session,
     monkeypatch,
