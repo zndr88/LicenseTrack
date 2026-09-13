@@ -544,7 +544,11 @@ async def merge_coterm_sourcing_items_record(
             detail=f"Sourcing item(s) are not renewal items: {not_renewals}",
         )
 
-    predecessor_license_ids = [item.renewal_for_license_id for item in items]
+    predecessor_license_ids = [
+        predecessor_id
+        for item in items
+        for predecessor_id in sourcing_item_predecessor_ids(item)
+    ]
     predecessor_result = await db.execute(
         select(License).where(License.id.in_(predecessor_license_ids))
     )

@@ -35,6 +35,7 @@ from app.services.sourcing_service import (
     delete_sourcing_request_record,
     handle_delete_side_effects,
     load_sourcing_conversion_order,
+    merge_coterm_sourcing_items_record,
     reserve_sourcing_item_conversion,
     reserve_sourcing_request_conversion,
     sourcing_item_predecessor_ids,
@@ -482,6 +483,32 @@ def make_item_for(pred: License, **overrides) -> SourcingItem:
     )
     defaults.update(overrides)
     return SourcingItem(**defaults)
+
+
+@pytest.mark.asyncio
+async def test_remerging_coterm_items_retains_secondary_predecessors(db_session):
+    pred_a = make_license(start_date=date(2020, 1, 1))
+    pred_b = make_license(start_date=date(2021, 1, 1))
+    pred_c = make_license(start_date=date(2022, 1, 1))
+    db_session.add_all([pred_a, pred_b, pred_c])
+    await db_session.flush()
+
+    merged_ab = make_item_for(
+        pred_a,
+        coterm_predecessor_ids=[pred_a.id, pred_b.id],
+    )
+    item_c = make_item_for(pred_c)
+    db_session.add_all([merged_ab, item_c])
+    await db_session.flush()
+
+    result = await merge_coterm_sourcing_items_record(
+        db_session,
+        [merged_ab.id, item_c.id],
+        created_by=1,
+    )
+
+    assert result.item.renewal_for_license_id == pred_a.id
+    assert result.item.coterm_predecessor_ids == [pred_a.id, pred_b.id, pred_c.id]
 
 
 @pytest.mark.asyncio
