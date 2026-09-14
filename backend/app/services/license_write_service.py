@@ -1062,7 +1062,7 @@ async def _reconcile_maintenance_relationships_after_update(
         previous_parent = await db.get(License, previous_parent_id)
         if previous_parent is not None:
             await detach_maintenance_from_parent(db, license_obj, previous_parent, update_primary=False)
-    if requested_parent_id is not None:
+    if requested_parent_id is not None and previous_parent_id != requested_parent_id:
         parent = await validate_parent_license(db, requested_parent_id)
         await activate_maintenance_for_parent(db, license_obj, parent)
         # An additional association may already exist, so activation preserves
