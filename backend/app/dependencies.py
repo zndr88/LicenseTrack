@@ -29,6 +29,7 @@ from app.services.api_token_service import (
     mark_token_used,
 )
 from app.services.settings_service import get_global_settings
+from app.services.human_session_service import get_active_session, legacy_session_id
 
 # auto_error=False so the dependency can also read the session cookie.
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -179,7 +180,7 @@ async def get_current_user(
 
     set_api_token_audit_context(None)
     try:
-        payload = auth.decode_access_token(token)
+        payload = auth.decode_access_token(token) if credentials is not None else auth.decode_session_cookie(token)
         user_id = int(payload["sub"])
         token_version = int(payload.get("security_version", 0))
         issued_at = int(payload.get("iat", 0))
@@ -195,14 +196,21 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if token_version != int(user.security_version or 0):
-        _raise_invalid_token()
-
     global_settings = await get_global_settings(db)
     timeout_minutes = int(global_settings.session_timeout) if global_settings else 0
-    # The browser idle timer is only a convenience. Without a server-side
-    # session store, enforce the setting as a bounded absolute JWT lifetime.
-    if timeout_minutes > 0:
+    try:
+        human_session = await get_active_session(db, payload, timeout_minutes, token)
+    except (auth.JWTError, KeyError, TypeError, ValueError):
+        _raise_invalid_token()
+    if credentials is None and human_session and token.count(".") == 1:
+        token_version = human_session.security_version
+    if token_version != int(user.security_version or 0):
+        _raise_invalid_token()
+    request.state.human_session_id = payload.get("session_id") or legacy_session_id(token)
+    request.state.legacy_session_expiry = int(payload["exp"]) if human_session is None else None
+    # Bearers and legacy cookies retain their absolute JWT lifetime. Stable
+    # cookies use the authenticated session row for sliding expiry.
+    if timeout_minutes > 0 and not (credentials is None and human_session):
         token_age = datetime.now(timezone.utc).timestamp() - issued_at
         if not issued_at or token_age < -60 or token_age > timeout_minutes * 60:
             _raise_invalid_token()

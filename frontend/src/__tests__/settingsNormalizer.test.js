@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { normalizeGlobalSettings } from '../utils/settingsNormalizer.js'
+import { normalizeGlobalSettings, normalizePublicGlobalSettings } from '../utils/settingsNormalizer.js'
 
 describe('normalizeGlobalSettings', () => {
   test('preserves explicit empty allowed domain settings from the API', () => {
@@ -82,4 +82,9 @@ describe('normalizeGlobalSettings', () => {
       { smtpEncryption: 'starttls', smtpUseTls: false }
     ).smtpEncryption).toBe('tls')
   })
+})
+
+
+test('public settings preserve the authoritative timeout', () => {
+  expect(normalizePublicGlobalSettings({ session_timeout: 120 }, { sessionTimeout: 30 }).sessionTimeout).toBe(120)
 })

@@ -71,7 +71,6 @@ class JWTError(Exception):
     """Raised when a token cannot be decoded or has expired."""
 
 
-SESSION_COOKIE_MAX_AGE = settings.TOKEN_EXPIRY * 60
 OIDC_FLOW_COOKIE = "license_lifecycle_oidc_flow"
 
 
@@ -81,6 +80,7 @@ def create_access_token(
     *,
     security_version: int = 0,
     lifetime_minutes: int | None = None,
+    session_id: str | None = None,
 ) -> str:
     """Return a signed human-session JWT with an authoritative bounded lifetime."""
     issued_at = datetime.now(timezone.utc)
@@ -93,6 +93,8 @@ def create_access_token(
         "security_version": int(security_version),
         "exp": int(expire.timestamp()),
     }
+    if session_id:
+        payload["session_id"] = session_id
     header_b64 = _b64url_encode(json.dumps(header, separators=(",", ":")).encode())
     payload_b64 = _b64url_encode(json.dumps(payload, separators=(",", ":")).encode())
     signing_input = f"{header_b64}.{payload_b64}"
@@ -100,7 +102,7 @@ def create_access_token(
     return f"{signing_input}.{_b64url_encode(sig)}"
 
 
-def decode_access_token(token: str) -> dict[str, Any]:
+def decode_access_token(token: str, *, verify_expiry: bool = True) -> dict[str, Any]:
     """Decode and verify *token*; raise JWTError on failure or expiry."""
     try:
         parts = token.split(".")
@@ -117,7 +119,7 @@ def decode_access_token(token: str) -> dict[str, Any]:
 
         payload: dict[str, Any] = json.loads(_b64url_decode(payload_b64))
 
-        if "exp" in payload:
+        if verify_expiry and "exp" in payload:
             if datetime.now(timezone.utc).timestamp() > payload["exp"]:
                 raise JWTError("Token has expired")
 
@@ -149,14 +151,29 @@ def _verify_signed_payload(token: str, secret: str) -> dict[str, Any]:
         raise JWTError(f"Signed payload decode error: {exc}") from exc
 
 
+def decode_session_cookie(token: str) -> dict[str, Any]:
+    if token.count(".") == 2:
+        return decode_access_token(token)  # Pre-migration JWT cookie.
+    payload = _verify_signed_payload(token, settings.JWT_SECRET)
+    if not payload.get("session_id"):
+        raise JWTError("Invalid session cookie")
+    return payload
+
+
 def set_session_cookie(response: Response, token: str) -> None:
+    payload = decode_access_token(token)
+    max_age = max(0, int(payload["exp"] - datetime.now(timezone.utc).timestamp()))
+    if payload.get("session_id"):
+        # Stable browser-session cookie. The database owns sliding expiry.
+        token = _sign_payload({key: payload[key] for key in ("sub", "session_id")}, settings.JWT_SECRET)
+        max_age = None
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
         secure=settings.SESSION_COOKIE_SECURE,
         samesite="lax",
-        max_age=SESSION_COOKIE_MAX_AGE,
+        max_age=max_age,
         path="/",
     )
 

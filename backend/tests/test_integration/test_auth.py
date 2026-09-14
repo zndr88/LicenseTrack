@@ -4,6 +4,7 @@ Integration tests for authentication routes.
 
 import importlib.util
 import logging
+import asyncio
 import time
 
 import bcrypt
@@ -145,7 +146,7 @@ async def test_session_probe_returns_anonymous_without_cookie(test_app):
     resp = await test_app.get("/api/auth/session")
 
     assert resp.status_code == 200
-    assert resp.json() == {"authenticated": False, "user": None}
+    assert resp.json() == {"authenticated": False, "user": None, "expires_at": None}
 
 
 async def test_session_probe_returns_user_with_cookie(db_session, test_app):
@@ -178,13 +179,14 @@ async def test_session_refresh_rotates_active_human_session(db_session, test_app
     original_create_access_token = auth_module.auth.create_access_token
     issued_with: list[int | None] = []
 
-    def capture_lifetime(user_id, role, *, security_version=0, lifetime_minutes=None):
+    def capture_lifetime(user_id, role, *, security_version=0, lifetime_minutes=None, session_id=None):
         issued_with.append(lifetime_minutes)
         return original_create_access_token(
             user_id,
             role,
             security_version=security_version,
             lifetime_minutes=lifetime_minutes,
+            session_id=session_id,
         )
 
     monkeypatch.setattr(auth_module.auth, "create_access_token", capture_lifetime)
@@ -194,7 +196,7 @@ async def test_session_refresh_rotates_active_human_session(db_session, test_app
     assert refresh_resp.json()["access_token"]
     assert refresh_resp.json()["token_type"] == "bearer"
     assert issued_with == [30]
-    assert "set-cookie" in refresh_resp.headers
+    assert "set-cookie" not in refresh_resp.headers
 
 
 async def test_session_refresh_requires_authentication(test_app):
@@ -205,7 +207,7 @@ async def test_session_refresh_requires_authentication(test_app):
     assert refresh_resp.status_code == 401
 
 
-async def test_logout_clears_session_cookie(db_session, test_app):
+async def test_logout_revokes_session_without_mutating_cookie(db_session, test_app):
     password = "correctpassword123"
     db_session.add(_make_user("logoutuser", password, UserRole.admin))
     await db_session.commit()
@@ -216,7 +218,8 @@ async def test_logout_clears_session_cookie(db_session, test_app):
     logout_resp = await test_app.post("/api/auth/logout")
     assert logout_resp.status_code == 204
     assert logout_resp.content == b""
-    assert "Max-Age=0" in logout_resp.headers.get("set-cookie", "")
+    assert "set-cookie" not in logout_resp.headers
+    assert (await test_app.get("/api/auth/session")).json()["authenticated"] is False
 
 
 async def test_change_password_rotates_session_and_invalidates_old_token(db_session, test_app):
@@ -699,3 +702,120 @@ async def test_oidc_callback_invalid_state(db_session, test_app, caplog):
     assert _app_auth.settings.SESSION_COOKIE_NAME + "=" not in all_cookies
     assert "stage=invalid_state" in caplog.text
     assert "test-code" not in caplog.text
+
+
+async def test_logout_revokes_original_and_refreshed_bearers(db_session, test_app):
+    db_session.add(_make_user("revokeduser", "correctpassword123", UserRole.admin))
+    await db_session.commit()
+    login = await test_app.post("/api/auth/login", json={"username": "revokeduser", "password": "correctpassword123"})
+    refreshed = await test_app.post("/api/auth/refresh")
+    assert refreshed.status_code == 200
+    assert (await test_app.post("/api/auth/logout")).status_code == 204
+    for token in (login.json()["access_token"], refreshed.json()["access_token"]):
+        assert (await test_app.get("/api/users/me", headers={"Authorization": f"Bearer {token}"})).status_code == 401
+        assert (
+            await test_app.post("/api/auth/refresh", headers={"Authorization": f"Bearer {token}"})
+        ).status_code == 401
+
+
+async def test_cookie_lifetime_matches_configured_session(db_session, test_app):
+    db_session.add_all(
+        [_make_user("longsession", "correctpassword123", UserRole.viewer), GlobalSettings(id=1, session_timeout=2880)]
+    )
+    await db_session.commit()
+    invalidate_global_settings_cache()
+    login = await test_app.post("/api/auth/login", json={"username": "longsession", "password": "correctpassword123"})
+    assert login.status_code == 200
+    assert "Max-Age=" not in login.headers["set-cookie"]
+    assert "HttpOnly" in login.headers["set-cookie"]
+    session = await test_app.get("/api/auth/session")
+    assert session.json()["expires_at"] == _app_auth.decode_access_token(login.json()["access_token"])["exp"]
+    public = await test_app.get("/api/settings/global/public")
+    assert public.json()["session_timeout"] == 2880
+
+
+@pytest.mark.parametrize("operation", ["refresh", "logout"])
+async def test_late_auth_response_preserves_new_login_cookie(db_session, test_app, monkeypatch, operation):
+    db_session.add(_make_user("ordereduser", "correctpassword123", UserRole.admin))
+    await db_session.commit()
+    credentials = {"username": "ordereduser", "password": "correctpassword123"}
+    old_login = await test_app.post("/api/auth/login", json=credentials)
+    old_token = old_login.json()["access_token"]
+    started = asyncio.Event()
+    release = asyncio.Event()
+    name = "refresh_session_token" if operation == "refresh" else "revoke_session"
+    original = getattr(auth_module, name)
+
+    async def delayed(*args, **kwargs):
+        if operation == "refresh":
+            result = await original(*args, **kwargs)
+            started.set()
+            await release.wait()
+            return result
+        started.set()
+        await release.wait()
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(auth_module, name, delayed)
+    pending = asyncio.create_task(test_app.post(f"/api/auth/{operation}"))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=5)
+        if operation == "refresh":
+            assert (await test_app.post("/api/auth/logout")).status_code == 204
+        new_login = await test_app.post("/api/auth/login", json=credentials)
+        assert new_login.status_code == 200
+        new_cookie = test_app.cookies.get(_app_auth.settings.SESSION_COOKIE_NAME)
+        release.set()
+        late = await asyncio.wait_for(pending, timeout=5)
+        assert late.status_code == (200 if operation == "refresh" else 204)
+        assert "set-cookie" not in late.headers
+        assert test_app.cookies.get(_app_auth.settings.SESSION_COOKIE_NAME) == new_cookie
+        assert (await test_app.get("/api/users/me")).status_code == 200
+        new_token = new_login.json()["access_token"]
+        assert (await test_app.get("/api/users/me", headers={"Authorization": f"Bearer {new_token}"})).status_code == 200
+        if operation in {"logout", "refresh"}:
+            assert (await test_app.get("/api/users/me", headers={"Authorization": f"Bearer {old_token}"})).status_code == 401
+    finally:
+        release.set()
+        await pending
+
+
+async def test_logout_preserves_another_device_session(db_session, test_app):
+    db_session.add(_make_user("devicesuser", "correctpassword123", UserRole.admin))
+    await db_session.commit()
+    credentials = {"username": "devicesuser", "password": "correctpassword123"}
+    laptop = (await test_app.post("/api/auth/login", json=credentials)).json()["access_token"]
+    desktop = (await test_app.post("/api/auth/login", json=credentials)).json()["access_token"]
+    assert (await test_app.post("/api/auth/logout", headers={"Authorization": f"Bearer {laptop}"})).status_code == 204
+    assert (await test_app.get("/api/users/me")).status_code == 200
+    assert (await test_app.post("/api/auth/refresh", headers={"Authorization": f"Bearer {desktop}"})).status_code == 200
+    assert (await test_app.post("/api/auth/refresh", headers={"Authorization": f"Bearer {laptop}"})).status_code == 401
+
+
+async def test_stable_cookie_uses_server_expiry(db_session, test_app):
+    from app.models.human_session import HumanSession
+    db_session.add(_make_user("expiryuser", "correctpassword123", UserRole.admin))
+    await db_session.commit()
+    login = await test_app.post("/api/auth/login", json={"username": "expiryuser", "password": "correctpassword123"})
+    sid = _app_auth.decode_access_token(login.json()["access_token"])["session_id"]
+    session = await db_session.get(HumanSession, sid)
+    session.expires_at = int(time.time()) - 1
+    await db_session.commit()
+    assert (await test_app.get("/api/auth/session")).json()["authenticated"] is False
+    assert (await test_app.get("/api/users/me")).status_code == 401
+
+
+async def test_legacy_cookie_requires_fresh_login_and_legacy_bearer_can_be_revoked(db_session, test_app):
+    user = _make_user("legacyuser", "correctpassword123", UserRole.admin)
+    db_session.add(user)
+    await db_session.commit()
+    token = _app_auth.create_access_token(user.id, user.role, security_version=user.security_version)
+    test_app.cookies.set(_app_auth.settings.SESSION_COOKIE_NAME, token)
+    assert (await test_app.get("/api/auth/session")).json()["authenticated"] is False
+    headers = {"Authorization": f"Bearer {token}"}
+    refreshed = await test_app.post("/api/auth/refresh", headers=headers)
+    assert refreshed.status_code == 200
+    assert (await test_app.post("/api/auth/logout", headers=headers)).status_code == 204
+    assert (await test_app.get("/api/users/me", headers=headers)).status_code == 401
+    descendant = refreshed.json()["access_token"]
+    assert (await test_app.post("/api/auth/refresh", headers={"Authorization": f"Bearer {descendant}"})).status_code == 401

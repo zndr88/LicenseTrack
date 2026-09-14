@@ -72,6 +72,7 @@ export function normalizeGlobalSettings(data, current) {
 export function normalizePublicGlobalSettings(data, current) {
   return {
     ...current,
+    sessionTimeout: data.session_timeout ?? current.sessionTimeout,
     mandatoryFields: data.mandatory_fields ?? current.mandatoryFields,
     notificationDays: data.notification_days ?? current.notificationDays,
     noticeNotificationDays: data.notice_notification_days ?? current.noticeNotificationDays,

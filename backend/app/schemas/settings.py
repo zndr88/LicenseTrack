@@ -51,6 +51,7 @@ class UserSettingsUpdate(BaseModel):
             raise ValueError(f"time_zone {v!r} is not a recognised IANA timezone.")
         return v
 
+
 class UserSettingsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -178,6 +179,7 @@ class GlobalSettingsResponse(BaseModel):
 
 
 class GlobalSettingsPublicResponse(BaseModel):
+    session_timeout: int
     model_config = ConfigDict(from_attributes=True)
 
     mandatory_fields: dict

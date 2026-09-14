@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 from time import time
@@ -17,6 +18,14 @@ from app.services.audit_service import log_event
 from app.services.oidc_service import get_oidc_availability
 from app.services.settings_service import get_global_settings
 from app.services.user_service import bump_security_version
+from app.services.human_session_service import (
+    get_active_session,
+    issue_session_token,
+    refresh_session_token,
+    revoke_session,
+    legacy_session_id,
+    advance_session_security_version,
+)
 
 # Failed-login counters are tracked independently by username and by source IP.
 # Keying only on username (as the original implementation did) let a password
@@ -91,6 +100,8 @@ def _clear_attempts(username: str) -> None:
 # measuring how long a login attempt takes.
 _DUMMY_PASSWORD_HASH = auth.hash_password("timing-equaliser-not-a-real-password")
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -131,6 +142,7 @@ class LoginResponse(BaseModel):
 
 class SessionResponse(BaseModel):
     authenticated: bool
+    expires_at: int | None = None
     user: UserOut | None = None
 
 
@@ -158,48 +170,60 @@ async def session(
 ) -> SessionResponse:
     """Return the current session state without treating anonymous users as an error."""
     token = request.cookies.get(settings.SESSION_COOKIE_NAME)
-    if not token:
+    if not token or token.count(".") == 2:
+        # A fresh login establishes the stable cookie after upgrading JWT-only sessions.
         return SessionResponse(authenticated=False)
 
     try:
-        payload = auth.decode_access_token(token)
+        payload = auth.decode_session_cookie(token)
         user_id = int(payload["sub"])
         token_version = int(payload.get("security_version", 0))
     except Exception:
         return SessionResponse(authenticated=False)
 
     user = await db.scalar(select(User).where(User.id == user_id))
-    if (
-        user is None
-        or not user.is_active
-        or token_version != int(user.security_version or 0)
-    ):
+    if user is None or not user.is_active:
         return SessionResponse(authenticated=False)
     gs = await get_global_settings(db)
-    issued_at = int(payload.get("iat", 0) or 0)
+    try:
+        human_session = await get_active_session(db, payload, gs.session_timeout if gs else 0, token)
+    except (auth.JWTError, KeyError, TypeError, ValueError):
+        return SessionResponse(authenticated=False)
+    if human_session and token.count(".") == 1:
+        token_version = human_session.security_version
+    if token_version != int(user.security_version or 0):
+        return SessionResponse(authenticated=False)
+    issued_at = human_session.issued_at if human_session else int(payload.get("iat", 0) or 0)
     if gs and gs.session_timeout > 0:
         token_age = datetime.now(timezone.utc).timestamp() - issued_at
         if not issued_at or token_age < -60 or token_age > gs.session_timeout * 60:
             return SessionResponse(authenticated=False)
 
-    return SessionResponse(authenticated=True, user=_user_out(user))
+    expires_at = human_session.expires_at if human_session else int(payload["exp"])
+    if gs and gs.session_timeout > 0:
+        expires_at = min(expires_at, issued_at + gs.session_timeout * 60)
+    return SessionResponse(authenticated=True, user=_user_out(user), expires_at=expires_at)
 
 
 @router.post("/refresh", response_model=SessionRefreshResponse)
 async def refresh_session(
-    response: Response,
+    request: Request,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ) -> SessionRefreshResponse:
     """Rotate an active human-session token to provide a sliding idle timeout."""
     gs = await get_global_settings(db)
-    token = auth.create_access_token(
-        current_user.id,
-        current_user.role,
-        security_version=current_user.security_version,
-        lifetime_minutes=gs.session_timeout if gs and gs.session_timeout > 0 else None,
-    )
-    auth.set_session_cookie(response, token)
+    try:
+        token = await refresh_session_token(
+            db,
+            current_user,
+            gs.session_timeout if gs and gs.session_timeout > 0 else None,
+            request.state.human_session_id,
+            request.state.legacy_session_expiry,
+        )
+    except auth.JWTError as exc:
+        raise HTTPException(status_code=401, detail="Session ended") from exc
+    # The stable session cookie must never be replaced by a delayed refresh.
     return SessionRefreshResponse(access_token=token, token_type="bearer")
 
 
@@ -258,12 +282,7 @@ async def login(
 
     _clear_attempts(body.username)
     gs = await get_global_settings(db)
-    token = auth.create_access_token(
-        user.id,
-        user.role,
-        security_version=user.security_version,
-        lifetime_minutes=gs.session_timeout if gs and gs.session_timeout > 0 else None,
-    )
+    token = await issue_session_token(db, user, gs.session_timeout if gs and gs.session_timeout > 0 else None)
     auth.set_session_cookie(response, token)
 
     await log_event(
@@ -291,26 +310,48 @@ async def logout(
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     ip = request.client.host if request.client else None
-    token = request.cookies.get(settings.SESSION_COOKIE_NAME)
+    authorization = request.headers.get("authorization", "")
+    token = (
+        authorization[7:]
+        if authorization.lower().startswith("bearer ")
+        else request.cookies.get(settings.SESSION_COOKIE_NAME)
+    )
+    user = None
+    token_version = 0
     if token:
         try:
-            payload = auth.decode_access_token(token)
+            payload = (
+                auth.decode_access_token(token, verify_expiry=False)
+                if token.count(".") == 2
+                else auth.decode_session_cookie(token)
+            )
             user_id = int(payload["sub"])
+            token_version = int(payload.get("security_version", 0))
+        except (auth.JWTError, KeyError, TypeError, ValueError):
+            pass
+        else:
             user = await db.scalar(select(User).where(User.id == user_id))
-            if user and user.is_active:
-                await log_event(
-                    db,
-                    "auth.logout",
-                    actor=user,
-                    ip_address=ip,
-                    target_type="user",
-                    target_id=str(user.id),
-                    target_label=user.email,
-                )
-                await db.commit()
+    if user and user.is_active:
+        # Revocation must succeed before reporting a successful logout.
+        if token.count(".") == 1 or token_version == int(user.security_version or 0):
+            await revoke_session(
+                db, user.id, payload.get("session_id") or legacy_session_id(token), int(payload.get("exp", 0))
+            )
+        try:
+            await log_event(
+                db,
+                "auth.logout",
+                actor=user,
+                ip_address=ip,
+                target_type="user",
+                target_id=str(user.id),
+                target_label=user.email,
+            )
+            await db.commit()
         except Exception:
-            pass  # Never let audit failures block logout
-    auth.clear_session_cookie(response)
+            logger.exception("Failed to audit logout for user %s", user.id)
+            await db.rollback()
+    # A late logout response must not clear a later login cookie.
     return Response(
         status_code=204,
         headers=dict(response.headers),
@@ -348,7 +389,11 @@ async def change_password(
     current_user.hashed_password = auth.hash_password(body.new_password)
     if current_user.must_change_password:
         current_user.must_change_password = False
+    old_version = int(current_user.security_version or 0)
     bump_security_version(current_user)
+    await advance_session_security_version(
+        db, request.state.human_session_id, old_version, current_user.security_version
+    )
 
     ip = request.client.host if request.client else None
     await log_event(
@@ -361,11 +406,14 @@ async def change_password(
         target_label=current_user.email,
     )
     await db.commit()
-    session_token = auth.create_access_token(
-        current_user.id,
-        current_user.role,
-        security_version=current_user.security_version,
-        lifetime_minutes=gs.session_timeout if gs and gs.session_timeout > 0 else None,
-    )
-    auth.set_session_cookie(response, session_token)
+    try:
+        session_token = await refresh_session_token(
+            db,
+            current_user,
+            gs.session_timeout if gs and gs.session_timeout > 0 else None,
+            request.state.human_session_id,
+            request.state.legacy_session_expiry,
+        )
+    except auth.JWTError as exc:
+        raise HTTPException(status_code=401, detail="Session ended") from exc
     return {"access_token": session_token, "token_type": "bearer"}

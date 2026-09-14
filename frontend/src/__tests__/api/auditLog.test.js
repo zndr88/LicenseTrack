@@ -1,4 +1,4 @@
-import { clearToken, setToken } from "../../api/client.js";
+import { unlockSession, clearToken, setToken } from "../../api/client.js";
 import { exportAuditLog } from "../../api/auditLog.js";
 
 const mockCsvResponse = () => ({
@@ -16,6 +16,7 @@ const mockJsonResponse = (body, status = 200) => ({
 });
 
 beforeEach(() => {
+  unlockSession();
   clearToken();
   global.fetch = vi.fn();
   URL.createObjectURL = vi.fn(() => "blob:audit-log");
@@ -37,7 +38,7 @@ describe("audit log API", () => {
     const [url, options] = global.fetch.mock.calls[0];
     expect(url).toBe("/api/audit-log/export?action=license&search=Atlas");
     expect(options.credentials).toBe("include");
-    expect(options.headers.Authorization).toBe("Bearer audit-token");
+    expect(options.headers).not.toHaveProperty("Authorization");
     expect(window.HTMLAnchorElement.prototype.click.mock.instances[0].download).toBe("audit_log.csv");
     expect(result).toEqual({ data: null, error: null });
   });

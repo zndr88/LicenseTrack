@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSession, logoutSession, refreshSession } from "../api/auth.js";
 import { clearDismissedAttentionIds } from "../utils/licenseAttentionSession.js";
+import { getSessionExpiry, lockSession, setSessionRefreshCheck } from "../api/client.js";
 import { useSessionTimeout } from "./useSessionTimeout.js";
 
 export function toCurrentUser(apiUser) {
@@ -22,25 +23,30 @@ export function useAuth({ sessionTimeout, showToast }) {
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
   const [authBootstrapping, setAuthBootstrapping] = useState(true);
+  const bootstrapTimeoutRef = useRef(sessionTimeout);
   const lastRefreshAttemptRef = useRef(Date.now());
+  const nextRefreshRef = useRef(0);
   const refreshInFlightRef = useRef(false);
 
   const handleSessionTimeout = useCallback(async () => {
-    await logoutSession();
+    void logoutSession();
+    lockSession();
+    setCurrentUser(null);
     await queryClient.cancelQueries();
     queryClient.clear();
     clearDismissedAttentionIds();
-    setCurrentUser(null);
     showToast("Session expired due to inactivity.", "info");
   }, [queryClient, showToast]);
 
   const handleSessionActivity = useCallback(async () => {
     const refreshIntervalMs = sessionTimeout * 60 * 1000 / 2;
     const now = Date.now();
+    const expiry = getSessionExpiry();
     if (
       refreshIntervalMs <= 0
       || refreshInFlightRef.current
-      || now - lastRefreshAttemptRef.current < refreshIntervalMs
+      || now < nextRefreshRef.current
+      || (expiry ? now < expiry - Math.min(60_000, refreshIntervalMs) : now - lastRefreshAttemptRef.current < refreshIntervalMs)
     ) return;
 
     lastRefreshAttemptRef.current = now;
@@ -50,9 +56,18 @@ export function useAuth({ sessionTimeout, showToast }) {
 
     if (error) {
       const retryDelayMs = Math.min(60_000, refreshIntervalMs);
-      lastRefreshAttemptRef.current = Date.now() - refreshIntervalMs + retryDelayMs;
+      nextRefreshRef.current = Date.now() + Math.min(retryDelayMs, 5000);
     }
   }, [sessionTimeout]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setSessionRefreshCheck(() => {
+      const activity = Number(window.localStorage.getItem("licensetrack.session.activity"));
+      if (activity && Date.now() - activity < sessionTimeout * 60_000) return handleSessionActivity();
+    });
+    return () => setSessionRefreshCheck(null);
+  }, [currentUser, sessionTimeout, handleSessionActivity]);
 
   useSessionTimeout(
     currentUser ? sessionTimeout : 0,
@@ -61,24 +76,43 @@ export function useAuth({ sessionTimeout, showToast }) {
   );
 
   useEffect(() => {
-    if (currentUser) return;
+    let cancelled = false;
     getSession().then(({ data }) => {
+      if (cancelled) return;
       if (data?.authenticated && data.user) {
-        lastRefreshAttemptRef.current = Date.now();
+        if (data.expires_at) window.localStorage.setItem("licensetrack.session.expiry", String(data.expires_at * 1000));
+        lastRefreshAttemptRef.current = data.expires_at
+          ? data.expires_at * 1000 - bootstrapTimeoutRef.current * 60_000
+          : Date.now();
         setCurrentUser(toCurrentUser(data.user));
       } else {
         clearDismissedAttentionIds();
       }
       setAuthBootstrapping(false);
     });
-  }, [currentUser]);
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (event.key === "licensetrack.session.logout") {
+        lockSession();
+        setCurrentUser(null);
+        void queryClient.cancelQueries().then(() => queryClient.clear());
+        clearDismissedAttentionIds();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [queryClient]);
 
   const handleLogout = useCallback(async () => {
-    await logoutSession();
+    void logoutSession();
+    lockSession();
+    setCurrentUser(null);
     await queryClient.cancelQueries();
     queryClient.clear();
     clearDismissedAttentionIds();
-    setCurrentUser(null);
   }, [queryClient]);
 
   return {

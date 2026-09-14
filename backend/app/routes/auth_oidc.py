@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import auth
 from app.database import get_db
 from app.models.user import AuthProvider, User
+from app.services.human_session_service import issue_session_token
 from app.services.audit_service import log_event
 from app.services.crypto_service import decrypt_secret
 from app.services.oidc_service import (
@@ -327,17 +328,12 @@ async def oidc_callback(
         )
         await db.commit()
 
+        session_token = await issue_session_token(db, user,
+            global_settings.session_timeout if global_settings.session_timeout > 0 else None)
+        await db.commit()
         response = RedirectResponse(url=_frontend_redirect_url(), status_code=302)
         auth.clear_oidc_flow_cookie(response)
-        auth.set_session_cookie(
-            response,
-            auth.create_access_token(
-                user.id,
-                user.role,
-                security_version=user.security_version,
-                lifetime_minutes=global_settings.session_timeout if global_settings.session_timeout > 0 else None,
-            ),
-        )
+        auth.set_session_cookie(response, session_token)
         return response
     except Exception as exc:
         _log_oidc_callback_failure(

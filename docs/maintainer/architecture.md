@@ -841,3 +841,31 @@ The frontend suite uses Vitest/jsdom for API clients, workflows, UI components, 
 The backend suite currently covers the route map, health endpoint, startup/lifespan behavior, scheduler helpers, conversion helpers, response builders, CSV analysis/export safety, procurement document download/delete/amendment-audit paths, sourcing request conversion and converted-state locks, pending-order export edge cases, user role invariants, API-token auth, webhooks, extension capabilities, document actions, and document processing result intake/review/custom-field acceptance. Keep new service-level behavior covered close to its owning service and add integration coverage when route dependencies, status codes, scoped document visibility, token scopes, or extension availability are part of the contract.
 
 Run `npm run build` before release packaging.
+
+## Human Session Authentication
+
+`services/human_session_service.py` owns individually revocable login identities
+in `models/human_session.py`. Each local or OIDC login creates a new identity.
+The signed HttpOnly browser-session cookie stays unchanged while refresh updates
+the identity's server-side expiry. Refresh and logout responses never replace or
+clear this cookie, so delayed responses cannot overwrite a subsequent login.
+Logout revokes the current identity, including its refreshed bearer tokens; it
+does not change the user's account-wide security version. Password and user
+security changes retain account-wide invalidation. A password change advances
+the initiating identity's version atomically with the user update.
+
+The cookie has no persistent browser expiry; the session row enforces the
+configured sliding lifetime and reduced timeout settings. Closing the browser
+may discard it. Existing JWT cookies require a fresh login when bootstrapping the app after
+upgrade. Legacy bearer refresh adopts a deterministic identity so logout also
+revokes its descendants. Revocation tombstones survive through token expiry, and login prunes
+expired session rows. The additive Alembic revision is `e3c4d5e6f7a8`; downgrading
+removes session identities and requires users to sign in again.
+
+The frontend uses cookies for same-origin requests and in-memory bearer tokens
+for split API deployments. Bearer refresh scheduling reads that tab's actual
+token expiry rather than shared cookie-expiry metadata. BroadcastChannel shares refreshed credentials only
+between tabs already holding the same identity, without persisting tokens.
+Activity and logout locking are shared within the frontend origin. Browser-session
+cookies still use SameSite=Lax; cross-site split deployments rely on bearer login
+and must sign in again after a reload if the browser cannot send the API cookie.

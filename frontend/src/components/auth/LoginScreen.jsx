@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { apiUrl } from "../../api/client.js";
+import { apiUrl, unlockSession } from "../../api/client.js";
 import { getAuthMode, login as apiLogin } from "../../api/auth.js";
 import { toCurrentUser } from "../../hooks/useAuth.js";
 import Icon from "../ui/Icon.jsx";
@@ -90,7 +90,7 @@ const LoginScreen = ({ onLogin }) => {
                 className="btn btn-p btn-full"
                 type="button"
                 style={{ marginTop: 4 }}
-                onClick={() => { window.location.href = apiUrl("/api/auth/oidc/login"); }}
+                onClick={() => { unlockSession(); window.location.href = apiUrl("/api/auth/oidc/login"); }}
               >
                 <Icon name="lock" size={14} /> Sign in with SSO
               </button>

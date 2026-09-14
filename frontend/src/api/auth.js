@@ -11,7 +11,7 @@
  *   POST /api/auth/change-password - change own password (authenticated)
  */
 
-import { apiUrl, clearToken, get, post, setToken } from "./client.js";
+import { apiUrl, coordinateRefresh, getSessionGeneration, startSessionTransition, getToken, isSessionLocked, lockSession, unlockSession, get, post, setToken } from "./client.js";
 
 /**
  * Detect the public authentication mode.
@@ -40,7 +40,16 @@ export async function getAuthMode() {
  * @returns {Promise<{ data: { access_token: string, token_type: string, user: object } | null, error: string | null }>}
  */
 export async function login(username, password) {
+  const generation = startSessionTransition();
   const { data, error } = await post("/api/auth/login", { username, password });
+  if (generation !== getSessionGeneration()) {
+    if (data?.access_token) await post("/api/auth/logout", undefined, {
+      redirectOn401: false, headers: { Authorization: `Bearer ${data.access_token}` },
+      signal: window.AbortSignal.timeout(10_000),
+    });
+    return { data: null, error: "Session ended. Please sign in again." };
+  }
+  if (data) unlockSession();
   if (data?.access_token) {
     setToken(data.access_token);
   }
@@ -48,8 +57,13 @@ export async function login(username, password) {
 }
 
 export async function logoutSession() {
-  const { error } = await post("/api/auth/logout");
-  clearToken();
+  const token = getToken();
+  lockSession();
+  window.localStorage.setItem("licensetrack.session.logout", String(Date.now()));
+  const { error } = await post("/api/auth/logout", undefined, {
+    redirectOn401: false, signal: window.AbortSignal.timeout(10_000),
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   return { error };
 }
 
@@ -60,14 +74,29 @@ export async function logoutSession() {
  * @returns {Promise<{ data: { authenticated: boolean, user: object | null } | null, error: string | null }>}
  */
 export async function getSession() {
-  return get("/api/auth/session", { redirectOn401: false });
+  if (isSessionLocked()) return { data: { authenticated: false }, error: null };
+  const generation = getSessionGeneration();
+  const result = await get("/api/auth/session", { redirectOn401: false });
+  if (generation !== getSessionGeneration() || isSessionLocked()) return { data: { authenticated: false }, error: null };
+  if (result.data?.expires_at) {
+    window.localStorage.setItem("licensetrack.session.expiry", String(result.data.expires_at * 1000));
+  }
+  return result;
 }
 
 /** Rotate the current token so active users retain a sliding session. */
-export async function refreshSession() {
-  const result = await post("/api/auth/refresh", undefined, { redirectOn401: false });
-  if (result.data?.access_token) setToken(result.data.access_token);
-  return result;
+export function refreshSession() {
+  return coordinateRefresh(async () => {
+    const generation = getSessionGeneration();
+    if (isSessionLocked()) return { data: null, error: "Session ended." };
+    const result = await post("/api/auth/refresh", undefined, {
+      redirectOn401: false, signal: window.AbortSignal.timeout(10_000),
+    });
+    if (generation === getSessionGeneration() && result.data?.access_token) {
+      setToken(result.data.access_token);
+    }
+    return result;
+  });
 }
 
 /**
@@ -78,10 +107,11 @@ export async function refreshSession() {
  * @returns {Promise<{ data: { access_token: string, token_type: string } | null, error: string | null }>}
  */
 export async function changePassword(currentPassword, newPassword) {
+  const generation = getSessionGeneration();
   const result = await post("/api/auth/change-password", {
     current_password: currentPassword,
     new_password: newPassword,
   });
-  if (result.data?.access_token) setToken(result.data.access_token);
+  if (generation === getSessionGeneration() && result.data?.access_token) setToken(result.data.access_token);
   return result;
 }

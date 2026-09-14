@@ -3,9 +3,9 @@
  *
  * - Prepends VITE_API_URL when set; callers pass full same-origin /api paths
  *   by default, such as /api/licenses.
- * - Attaches Authorization: Bearer <token> header when a token is stored
+ * - Uses the shared HttpOnly session cookie for browser authentication
  * - Parses JSON responses automatically
- * - On 401, clears the stored token and redirects to the login page
+ * - On 401, locks the session and redirects to the login page
  * - Returns { data, error } for consistent error handling throughout the app
  */
 
@@ -15,18 +15,83 @@ export function apiUrl(path) {
   return `${API_BASE_URL}${path}`;
 }
 
-// In-memory token store - intentionally not localStorage for security.
-// Token is lost on page refresh; users must log in again.
-let _token = null;
+// Only non-secret session metadata is shared between browser tabs.
 
-/** Store a JWT access token in memory. */
-export function setToken(token) {
-  _token = token;
+let token = null;
+const bearerDeployment = API_BASE_URL && new URL(API_BASE_URL, window.location.href).origin !== window.location.origin;
+const tokenChannel = typeof window.BroadcastChannel === "function"
+  ? new window.BroadcastChannel("licensetrack.session.credentials") : null;
+function tokenSessionId(value) {
+  try { return JSON.parse(window.atob(value.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).session_id; }
+  catch { return null; }
+}
+if (tokenChannel) tokenChannel.onmessage = ({ data }) => {
+  if (!locallyLocked && token && tokenSessionId(token) === tokenSessionId(data?.token)) {
+    setToken(data.token, false);
+  }
+};
+/** Match expiry to the credentials this tab will send on its next request. */
+export function getSessionExpiry() {
+  if (bearerDeployment && token) {
+    try {
+      const payload = JSON.parse(window.atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      const expiry = Number(payload.exp) * 1000;
+      return Number.isFinite(expiry) && expiry > 0 ? expiry : 0;
+    } catch { return 0; }
+  }
+  return Number(window.localStorage.getItem("licensetrack.session.expiry")) || 0;
+}
+export function getToken() { return token; }
+let refreshPromise = null;
+let refreshCheck = null;
+export function setSessionRefreshCheck(check) { refreshCheck = check; }
+let sessionGeneration = 0;
+let locallyLocked = window.localStorage.getItem("licensetrack.session.locked") === "true";
+export function startSessionTransition() {
+  sessionGeneration += 1;
+  clearToken();
+  return sessionGeneration;
+}
+export function getSessionGeneration() { return sessionGeneration; }
+export function isSessionLocked() { return locallyLocked; }
+export function unlockSession() {
+  locallyLocked = false;
+  window.localStorage.removeItem("licensetrack.session.locked");
+}
+export function lockSession() {
+  locallyLocked = true;
+  window.localStorage.setItem("licensetrack.session.locked", "true");
+  sessionGeneration += 1;
+  clearToken();
+}
+export function coordinateRefresh(work) {
+  if (!refreshPromise) refreshPromise = work().finally(() => { refreshPromise = null; });
+  return refreshPromise;
 }
 
-/** Clear the stored JWT token. */
+/** Keep a bearer in memory for split deployments; persist only expiry metadata. */
+export function setToken(value, broadcast = true) {
+  const sameSession = token && tokenSessionId(token) === tokenSessionId(value);
+  if (sameSession) {
+    try {
+      const expiry = candidate => JSON.parse(window.atob(candidate.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).exp;
+      if (expiry(value) < expiry(token)) return;
+    } catch { /* Demo tokens have no expiry claims. */ }
+  }
+  token = value;
+  if (broadcast) tokenChannel?.postMessage({ token: value });
+  // Same-origin requests use the stable cookie. Bearers never enter localStorage.
+  unlockSession();
+  try {
+    const payload = JSON.parse(window.atob(value.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    window.localStorage.setItem("licensetrack.session.expiry", String(payload.exp * 1000));
+  } catch { /* Demo tokens do not contain JWT claims. */ }
+}
+
+/** Clear local expiry metadata. */
 export function clearToken() {
-  _token = null;
+  token = null;
+  window.localStorage.removeItem("licensetrack.session.expiry");
 }
 
 /**
@@ -38,6 +103,7 @@ export function clearToken() {
  */
 export async function request(path, options = {}) {
   const url = apiUrl(path);
+  const sessionControl = path.startsWith("/api/auth/") && path !== "/api/auth/change-password";
 
   // Demo build only: route to the in-browser fake backend instead of the network.
   // Build-time constant - dead-code-eliminated (module and all) in normal builds.
@@ -61,10 +127,16 @@ export async function request(path, options = {}) {
     headers["Content-Type"] = "application/json";
   }
 
-  if (_token) {
-    headers["Authorization"] = `Bearer ${_token}`;
+  if (!sessionControl) {
+    if (!locallyLocked) await refreshCheck?.();
+    if (refreshPromise) await refreshPromise;
+    if (locallyLocked) return { data: null, error: "Session expired. Please log in again." };
   }
 
+  if (bearerDeployment && token && !headers.Authorization && path !== "/api/auth/login") {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const generation = sessionGeneration;
   let response;
   try {
     response = await fetch(url, { ...options, headers, credentials: "include" });
@@ -74,7 +146,12 @@ export async function request(path, options = {}) {
 
   // 401 -> token expired or missing; clear state and bounce to login
   if (response.status === 401) {
-    clearToken();
+    if (generation !== sessionGeneration) return { data: null, error: "Session ended." };
+    if (!sessionControl && refreshPromise && !options.authRetried) {
+      await refreshPromise;
+      return request(path, { ...options, authRetried: true });
+    }
+    if (redirectOn401) lockSession();
     if (redirectOn401) {
       window.location.href = "/";
     }

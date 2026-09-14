@@ -1,7 +1,6 @@
-import { apiUrl, request, setToken, clearToken } from "../../api/client.js"
+import { apiUrl, request, setToken, clearToken, unlockSession } from "../../api/client.js"
 
-// NOTE: client.js uses an in-memory token (_token variable), NOT localStorage.
-// Tests use setToken()/clearToken() rather than localStorage.setItem().
+// Browser credentials remain in the shared HttpOnly cookie.
 
 const mockJsonResponse = (body, status = 200) => ({
   ok: status >= 200 && status < 300,
@@ -11,6 +10,7 @@ const mockJsonResponse = (body, status = 200) => ({
 })
 
 beforeEach(() => {
+  unlockSession();
   clearToken()
   global.fetch = vi.fn()
 })
@@ -34,12 +34,12 @@ describe("API client", () => {
   })
 
   // 6a
-  test("attaches Authorization header when token is set", async () => {
+  test("uses cookies even after observing an issued token", async () => {
     global.fetch.mockResolvedValue(mockJsonResponse({}))
     setToken("my-token")
     await request("/api/test")
     const [, options] = global.fetch.mock.calls[0]
-    expect(options.headers["Authorization"]).toBe("Bearer my-token")
+    expect(options.headers).not.toHaveProperty("Authorization")
   })
 
   // 6b

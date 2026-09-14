@@ -37,3 +37,5 @@ from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingReq
 from app.models.user import AuthProvider, User, UserRole  # noqa: F401
 from app.models.user_department_access import UserDepartmentAccess  # noqa: F401
 from app.models.webhook import WebhookDelivery, WebhookEndpoint  # noqa: F401
+
+from app.models.human_session import HumanSession  # noqa: F401

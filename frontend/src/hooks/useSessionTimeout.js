@@ -1,28 +1,39 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect } from "react";
+
+const ACTIVITY_KEY = "licensetrack.session.activity";
 
 export function useSessionTimeout(timeoutMinutes, onTimeout, onActivity) {
-  const timerRef = useRef(null);
-
-  const scheduleTimeout = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (timeoutMinutes > 0) {
-      timerRef.current = setTimeout(onTimeout, timeoutMinutes * 60 * 1000);
-    }
-  }, [timeoutMinutes, onTimeout]);
-
-  const handleActivity = useCallback(() => {
-    onActivity?.();
-    scheduleTimeout();
-  }, [onActivity, scheduleTimeout]);
-
   useEffect(() => {
-    if (!timeoutMinutes || timeoutMinutes <= 0) return;
-    const events = ["mousedown", "keydown", "scroll", "touchstart"];
-    events.forEach(e => window.addEventListener(e, handleActivity));
-    scheduleTimeout();
-    return () => {
-      events.forEach(e => window.removeEventListener(e, handleActivity));
-      if (timerRef.current) clearTimeout(timerRef.current);
+    if (timeoutMinutes <= 0) return;
+    const timeoutMs = timeoutMinutes * 60_000;
+    let lastActivity = Date.now();
+    let ended = false;
+    let observedActivity = false;
+    const readActivity = () => Math.max(lastActivity, Number(window.localStorage.getItem(ACTIVITY_KEY)) || 0);
+    const check = () => {
+      if (ended) return;
+      if (Date.now() - readActivity() >= timeoutMs) {
+        ended = true;
+        onTimeout();
+      } else if (observedActivity || readActivity() > lastActivity) {
+        onActivity?.();
+      }
     };
-  }, [timeoutMinutes, handleActivity, scheduleTimeout]);
+    const handleActivity = () => {
+      if (Date.now() - readActivity() >= timeoutMs) { check(); return; }
+      observedActivity = true;
+      lastActivity = Date.now();
+      window.localStorage.setItem(ACTIVITY_KEY, String(lastActivity));
+      check();
+    };
+    window.localStorage.setItem(ACTIVITY_KEY, String(lastActivity));
+    const events = ["mousedown", "keydown", "scroll", "touchstart"];
+    events.forEach(event => window.addEventListener(event, handleActivity, { capture: true, passive: true }));
+    const timer = setInterval(check, Math.min(1000, timeoutMs));
+    check();
+    return () => {
+      clearInterval(timer);
+      events.forEach(event => window.removeEventListener(event, handleActivity, true));
+    };
+  }, [timeoutMinutes, onTimeout, onActivity]);
 }
