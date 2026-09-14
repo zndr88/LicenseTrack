@@ -144,6 +144,10 @@ async def start_scheduler():
     last_prune_day: int | None = None  # track calendar day of last prune
 
     while True:
+        # Keep this cycle's due targets anchored before opportunistic work.
+        # A slow webhook or evidence-transfer run must not skip a job whose
+        # configured hour it crosses.
+        now = datetime.now(timezone.utc)
         try:
             delivered_count = await _run_database_job(
                 dispatch_pending_webhooks,
@@ -174,8 +178,6 @@ async def start_scheduler():
                 log.info(f"Completed {retired_count} scheduled license retirement(s)")
         except Exception as exc:
             log.error(f"Scheduled license retirement failed: {exc}", exc_info=True)
-
-        now = datetime.now(timezone.utc)
 
         scheduler_settings = await _run_database_job(_load_scheduler_settings)
         if scheduler_settings is None:
