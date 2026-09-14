@@ -64,6 +64,7 @@ async def test_public_global_settings_returns_authenticated_public_subset(
         db_session,
         mandatory_fields={"invoice": True, "eula": False},
         notification_days=45,
+        session_timeout=120,
         oidc_enabled=True,
     )
     get_availability = AsyncMock(return_value=True)
@@ -75,6 +76,7 @@ async def test_public_global_settings_returns_authenticated_public_subset(
     assert response.json() == {
         "mandatory_fields": {"invoice": True, "eula": False},
         "notification_days": 45,
+        "session_timeout": 120,
         "notice_notification_days": 30,
         "renewal_action_days": None,
         "oidc_enabled": True,

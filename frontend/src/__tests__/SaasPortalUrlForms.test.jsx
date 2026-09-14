@@ -50,7 +50,8 @@ test('manual license creation can submit a SaaS portal URL', async () => {
   )
 
   await user.selectOptions(screen.getByLabelText(/License Type/i), 'saas')
-  await user.type(screen.getByLabelText(/Portal URL/i), 'https://portal.example.com')
+  await user.click(screen.getByLabelText(/Portal URL/i))
+  await user.paste('https://portal.example.com')
   await user.click(screen.getByRole('button', { name: /Save License/i }))
 
   // onConfirm is called as (allForms, attachedFile, category); allForms is an
@@ -84,7 +85,8 @@ test('single pending order conversion can submit a SaaS portal URL', async () =>
   )
 
   await user.selectOptions(screen.getByLabelText(/License Type/i), 'saas')
-  await user.type(screen.getByLabelText(/Portal URL/i), 'https://pending.example.com')
+  await user.click(screen.getByLabelText(/Portal URL/i))
+  await user.paste('https://pending.example.com')
   await user.click(screen.getByRole('button', { name: /Confirm & Create License/i }))
 
   await waitFor(() => {
@@ -124,7 +126,8 @@ test('batch pending order conversion can submit SaaS portal URLs per item', asyn
   fireEvent.change(screen.getByLabelText(/Start Date/i), { target: { value: '2026-01-01' } })
   fireEvent.change(screen.getByLabelText(/^End Date/i), { target: { value: '2026-12-31' } })
   await user.selectOptions(screen.getByLabelText(/License Type/i), 'saas')
-  await user.type(screen.getByLabelText(/Portal URL/i), 'https://batch.example.com')
+  await user.click(screen.getByLabelText(/Portal URL/i))
+  await user.paste('https://batch.example.com')
   await user.click(screen.getByRole('button', { name: /Confirm & Create Licenses/i }))
 
   await waitFor(() => {
