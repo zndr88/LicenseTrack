@@ -245,6 +245,7 @@ class PendingOrderConvertRequest(BaseModel):
 
     @model_validator(mode="after")
     def _normalise_included_support(self) -> "PendingOrderConvertRequest":
+        submitted_fields = set(self.model_fields_set)
         data = self.model_dump(by_alias=False)
         if (
             self.maintenance_coverage == MaintenanceCoverage.included
@@ -264,6 +265,8 @@ class PendingOrderConvertRequest(BaseModel):
             "maintenance_cost",
         ):
             setattr(self, field, data.get(field))
+            if field not in submitted_fields:
+                self.model_fields_set.discard(field)
         return self
 
     @field_validator("budget_owner_email", mode="before")
