@@ -246,6 +246,14 @@ def build_pending_order_item_license_data(
     )
     apply_fallback("maintenance_cost", item.maintenance_cost, getattr(old_license, "maintenance_cost", None))
 
+    if getattr(data.get("maintenance_coverage"), "value", data.get("maintenance_coverage")) == MaintenanceCoverage.included.value:
+        if "maintenance_start_date" not in submitted_fields and "start_date" in submitted_fields:
+            data["maintenance_start_date"] = data.get("start_date")
+        if "maintenance_end_date" not in submitted_fields and "end_date" in submitted_fields:
+            data["maintenance_end_date"] = data.get("end_date")
+        if "maintenance_cost" not in submitted_fields and "total_po_price" in submitted_fields:
+            data["maintenance_cost"] = data.get("total_po_price")
+
     if old_license is not None and old_license.license_type == LicenseType.maintenance:
         apply_fallback("parent_license_id", old_license.parent_license_id)
 

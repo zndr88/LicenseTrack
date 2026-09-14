@@ -84,10 +84,11 @@ async def build_license(
                         f"(license id={predecessor.id} \u2192 successor id={predecessor.renewed_to_id}); "
                         f"correct the reference or remove the parent_license_ref column"
                     )
-                try:
-                    assert_successor_term([predecessor], row.db_start_date, row.db_end_date)
-                except HTTPException as exc:
-                    raise ValueError(exc.detail) from exc
+                if row.db_start_date is not None or row.db_end_date is not None:
+                    try:
+                        assert_successor_term([predecessor], row.db_start_date, row.db_end_date)
+                    except HTTPException as exc:
+                        raise ValueError(exc.detail) from exc
                 predecessor_id = predecessor.id
 
     resolved_maintenance_coverage = (

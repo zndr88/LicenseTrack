@@ -12,6 +12,7 @@ from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder
 from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingRequest, SourcingStatus
+from app.models.user import User
 from app.schemas.sourcing import (
     SourcingItemCreate,
     SourcingItemUpdate,
@@ -581,9 +582,10 @@ async def merge_coterm_sourcing_items_record(
     source_item_ids = tuple(item.id for item in items)
     await require_no_single_documents(db, list(source_item_ids))
 
-    merged = await build_merged_sourcing_item(db, items, predecessors, created_by=created_by)
+    merge_actor_id = await resolve_existing_user_id(db, created_by)
+    merged = await build_merged_sourcing_item(db, items, predecessors, created_by=merge_actor_id)
     db.add(merged)
-    await ensure_sourcing_request_for_item(db, merged, created_by=created_by)
+    await ensure_sourcing_request_for_item(db, merged, created_by=merge_actor_id)
     await db.flush()
     await move_quote_documents_to_merged_request(
         db,
@@ -607,6 +609,12 @@ async def merge_coterm_sourcing_items_record(
     return CotermMergeResult(item=refreshed.scalar_one(), source_item_ids=source_item_ids)
 
 
+async def resolve_existing_user_id(db: AsyncSession, user_id: int | None) -> int | None:
+    if user_id is None:
+        return None
+    return await db.scalar(select(User.id).where(User.id == user_id))
+
+
 async def move_quote_documents_to_merged_request(
     db: AsyncSession,
     *,
@@ -628,6 +636,8 @@ async def move_quote_documents_to_merged_request(
     documents = (await db.scalars(select(SourcingQuoteDocument).where(
         SourcingQuoteDocument.sourcing_request_id.in_(source_request_ids),
     ))).all()
+    if not documents:
+        return
     storage_base = await storage.resolve_storage_path(db)
     for document in documents:
         if document.target_sourcing_item_id not in (None, *source_item_ids):
@@ -814,17 +824,18 @@ async def ensure_sourcing_request_for_item(
             item.supplier_id = request.supplier_id
             return request
 
-    await resolve_sourcing_item_references(db, item)
-    item.contact_email = clean_procurement_identity(item.contact_email)
-    request = SourcingRequest(
-        supplier=item.supplier,
-        supplier_id=item.supplier_id,
-        contact_email=item.contact_email,
-        notes=item.notes,
-        status=item.status,
-        created_by=created_by if created_by is not None else item.created_by,
-    )
-    db.add(request)
+    with db.no_autoflush:
+        await resolve_sourcing_item_references(db, item)
+        item.contact_email = clean_procurement_identity(item.contact_email)
+        request = SourcingRequest(
+            supplier=item.supplier,
+            supplier_id=item.supplier_id,
+            contact_email=item.contact_email,
+            notes=item.notes,
+            status=item.status,
+            created_by=created_by if created_by is not None else item.created_by,
+        )
+        db.add(request)
     await db.flush()
     item.sourcing_request_id = request.id
     return request

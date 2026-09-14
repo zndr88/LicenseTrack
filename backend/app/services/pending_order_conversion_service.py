@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from typing import Awaitable, Callable, Optional
 
 from fastapi import HTTPException, UploadFile
-from sqlalchemy import select, update
+from sqlalchemy import exists, select, update
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.database import AsyncSessionLocal
 from app.models.license import License, LicenseType
 from app.models.pending_order import EvidenceTransferStatus, PendingOrder, PendingOrderStatus
-from app.models.sourcing import SourcingItem, SourcingStatus
+from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingStatus
 from app.models.user import User
 from app.schemas.license import LicenseResponse
 from app.schemas.pending_order import BatchConvertItem, PendingOrderConvertRequest
@@ -133,6 +133,14 @@ async def _lock_pending_order(db: AsyncSession, order: PendingOrder) -> None:
             status_code=409,
             detail="Pending order has already been converted",
         )
+
+
+async def _sourcing_request_has_quote_documents(db: AsyncSession, request_id: int) -> bool:
+    return bool(
+        await db.scalar(
+            select(exists().where(SourcingQuoteDocument.sourcing_request_id == request_id))
+        )
+    )
 
 
 async def _create_prepared_conversion_license(
@@ -481,8 +489,9 @@ async def convert_pending_order_to_licenses(
                 predecessor_ids.extend(item_predecessor_ids)
                 new_license_entries.append((new_lic.id, conversion_type))
                 if item.sourcing_request_id is not None:
-                    quote_request_ids.append(item.sourcing_request_id)
-                    evidence_transfer_required = True
+                    if await _sourcing_request_has_quote_documents(db, item.sourcing_request_id):
+                        quote_request_ids.append(item.sourcing_request_id)
+                        evidence_transfer_required = True
             else:
                 item_data = build_pending_order_item_license_data(
                     form_data,
@@ -506,8 +515,9 @@ async def convert_pending_order_to_licenses(
                 predecessor_ids.extend(item_predecessor_ids)
                 new_license_entries.append((new_lic.id, conversion_type))
                 if item.sourcing_request_id is not None:
-                    quote_request_ids.append(item.sourcing_request_id)
-                    evidence_transfer_required = True
+                    if await _sourcing_request_has_quote_documents(db, item.sourcing_request_id):
+                        quote_request_ids.append(item.sourcing_request_id)
+                        evidence_transfer_required = True
 
     for item in order.items:
         mark_item_converted(item)
@@ -624,8 +634,9 @@ async def batch_convert_pending_order_to_licenses(
             predecessor_ids.extend(item_predecessor_ids)
             new_license_entries.append((new_lic.id, conversion_type))
             if sourcing_item.sourcing_request_id is not None:
-                quote_request_ids.append(sourcing_item.sourcing_request_id)
-                evidence_transfer_required = True
+                if await _sourcing_request_has_quote_documents(db, sourcing_item.sourcing_request_id):
+                    quote_request_ids.append(sourcing_item.sourcing_request_id)
+                    evidence_transfer_required = True
         else:
             if item_data.get("license_type") == LicenseType.maintenance:
                 pending_maintenance_items.append((batch_item, item_data))
@@ -644,8 +655,9 @@ async def batch_convert_pending_order_to_licenses(
             predecessor_ids.extend(item_predecessor_ids)
             new_license_entries.append((new_lic.id, conversion_type))
             if sourcing_item.sourcing_request_id is not None:
-                quote_request_ids.append(sourcing_item.sourcing_request_id)
-                evidence_transfer_required = True
+                if await _sourcing_request_has_quote_documents(db, sourcing_item.sourcing_request_id):
+                    quote_request_ids.append(sourcing_item.sourcing_request_id)
+                    evidence_transfer_required = True
 
         mark_item_converted(sourcing_item)
 
@@ -662,8 +674,9 @@ async def batch_convert_pending_order_to_licenses(
         predecessor_ids.extend(item_predecessor_ids)
         new_license_entries.append((new_lic.id, conversion_type))
         if sourcing_item.sourcing_request_id is not None:
-            quote_request_ids.append(sourcing_item.sourcing_request_id)
-            evidence_transfer_required = True
+            if await _sourcing_request_has_quote_documents(db, sourcing_item.sourcing_request_id):
+                quote_request_ids.append(sourcing_item.sourcing_request_id)
+                evidence_transfer_required = True
         mark_item_converted(sourcing_item)
 
     return await _complete_conversion(
