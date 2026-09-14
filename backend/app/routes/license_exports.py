@@ -25,6 +25,7 @@ from app.services.license_service import (
 from app.services.csv_safety import safe_csv_row
 from app.services.license_response_service import get_mandatory_fields, get_notification_days
 from app.services.audit_service import log_event
+from app.services.po_total_override_service import procurement_identity_key
 
 router = APIRouter(prefix="/api/licenses", tags=["license-exports"])
 
@@ -89,13 +90,25 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
     # sharing that PO number. Mirrors the frontend's getPoTotal.
     po_totals: dict[tuple[str, str], Decimal] = {}
     po_overrides = {
-        (lic.po_number, lic.currency): Decimal(lic.po_total_override)
+        procurement_identity_key(
+            license_id=lic.id,
+            pending_order_id=lic.pending_order_id,
+            procurement_bundle_id=lic.procurement_bundle_id,
+            po_number=lic.po_number,
+            currency=lic.currency,
+        ): Decimal(lic.po_total_override)
         for lic in licenses
-        if lic.po_number and lic.po_total_override
+        if lic.po_total_override
     }
     for lic in licenses:
-        if lic.po_number:
-            key = (lic.po_number, lic.currency)
+        key = procurement_identity_key(
+            license_id=lic.id,
+            pending_order_id=lic.pending_order_id,
+            procurement_bundle_id=lic.procurement_bundle_id,
+            po_number=lic.po_number,
+            currency=lic.currency,
+        )
+        if key is not None:
             if key in po_overrides:
                 po_totals[key] = po_overrides[key]
                 continue
@@ -106,6 +119,10 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
 
     today = date.today()
     for lic in licenses:
+        procurement_key = procurement_identity_key(
+            license_id=lic.id, pending_order_id=lic.pending_order_id,
+            procurement_bundle_id=lic.procurement_bundle_id, po_number=lic.po_number, currency=lic.currency,
+        )
         docs = available_documents(lic.documents, storage_base)
         effective_quantity = calc_effective_quantity(lic.quantity, lic.quantity_per_unit)
         writer.writerow(
@@ -123,8 +140,8 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
                     lic.quantity_per_unit,
                     lic.sku_code,
                     lic.unit_price,
-                    format(po_totals[(lic.po_number, lic.currency)], "f")
-                    if lic.po_number and (lic.po_number, lic.currency) in po_totals
+                    format(po_totals[procurement_key], "f")
+                    if procurement_key in po_totals
                     else "",
                     lic.currency,
                     lic.start_date.isoformat() if lic.start_date else "",
