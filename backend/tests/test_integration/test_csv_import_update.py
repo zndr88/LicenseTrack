@@ -92,6 +92,32 @@ async def test_apply_update_patches_non_empty_fields_only(test_app, auth_headers
     assert obj.quantity == "10"           # blank -> preserved
 
 
+async def test_apply_update_preserves_existing_invoice_list_when_primary_is_unchanged(
+    test_app, auth_headers, db_session,
+):
+    created = await _create_license(test_app, auth_headers, invoiceNumber="INV-1")
+    obj = await db_session.get(License, created["id"])
+    obj.invoice_numbers = ["INV-1", "INV-2"]
+    row = _full_row(created["licenseRef"], invoice_number="INV-1")
+
+    await apply_import_update(obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
+
+    assert obj.invoice_numbers == ["INV-1", "INV-2"]
+
+
+async def test_apply_update_syncs_included_support_defaults(test_app, auth_headers, db_session):
+    created = await _create_license(
+        test_app, auth_headers, maintenanceCoverage="included",
+        startDate="2026-01-01", endDate="2026-12-31", totalPoPrice="1200.00",
+    )
+    obj = await db_session.get(License, created["id"])
+    row = _full_row(created["licenseRef"], db_end_date=date(2027, 12, 31))
+
+    await apply_import_update(obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
+
+    assert obj.maintenance_end_date == date(2027, 12, 31)
+
+
 async def test_apply_update_rejects_license_type_change(test_app, auth_headers, db_session):
     created = await _create_license(test_app, auth_headers, licenseType="subscription")
     obj = await db_session.get(License, created["id"])

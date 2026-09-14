@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { useAuth } from "../../hooks/useAuth.js";
@@ -21,6 +22,14 @@ afterEach(() => {
 });
 
 describe("useAuth", () => {
+  function renderAuthHook(options) {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    return { ...renderHook(() => useAuth(options), { wrapper }), queryClient };
+  }
+
   test("inactivity timeout clears the server session before dropping local auth state", async () => {
     vi.useFakeTimers();
     const showToast = vi.fn();
@@ -42,7 +51,8 @@ describe("useAuth", () => {
     authApi.getSession.mockResolvedValue({ data: { authenticated: false, user: null }, error: null });
     authApi.logoutSession.mockResolvedValue({ error: null });
 
-    const { result } = renderHook(() => useAuth({ sessionTimeout: 1, showToast }));
+    const { result, queryClient } = renderAuthHook({ sessionTimeout: 1, showToast });
+    queryClient.setQueryData(["licenses"], ["cached license"]);
 
     await act(async () => {
       await Promise.resolve();
@@ -56,6 +66,7 @@ describe("useAuth", () => {
 
     expect(authApi.logoutSession).toHaveBeenCalledTimes(1);
     expect(result.current.currentUser).toBeNull();
+    expect(queryClient.getQueryData(["licenses"])).toBeUndefined();
     expect(showToast).toHaveBeenCalledWith("Session expired due to inactivity.", "info");
   });
 
@@ -76,7 +87,7 @@ describe("useAuth", () => {
     });
     authApi.refreshSession.mockResolvedValue({ data: { access_token: "rotated" }, error: null });
 
-    const { result } = renderHook(() => useAuth({ sessionTimeout: 1, showToast: vi.fn() }));
+    const { result } = renderAuthHook({ sessionTimeout: 1, showToast: vi.fn() });
     await act(async () => {
       await Promise.resolve();
     });
@@ -116,7 +127,8 @@ describe("useAuth", () => {
     });
     authApi.getSession.mockResolvedValue({ data: { authenticated: false, user: null }, error: null });
     authApi.logoutSession.mockResolvedValue({ error: "Server cleanup failed" });
-    const { result } = renderHook(() => useAuth({ sessionTimeout: 0, showToast: vi.fn() }));
+    const { result, queryClient } = renderAuthHook({ sessionTimeout: 0, showToast: vi.fn() });
+    queryClient.setQueryData(["licenses"], ["cached license"]);
     await act(async () => {
       await Promise.resolve();
     });
@@ -127,6 +139,7 @@ describe("useAuth", () => {
 
     expect(authApi.logoutSession).toHaveBeenCalledTimes(1);
     expect(result.current.currentUser).toBeNull();
+    expect(queryClient.getQueryData(["licenses"])).toBeUndefined();
     expect(window.sessionStorage.getItem("licensetrack.licenses.dismissedAttentionIds")).toBeNull();
   });
 });

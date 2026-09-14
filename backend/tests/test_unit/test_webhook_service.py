@@ -380,15 +380,19 @@ async def test_dispatch_pending_webhooks_processes_pending(monkeypatch):
     fake_delivery.next_attempt_at = None
 
     fake_result = MagicMock()
-    fake_result.scalars.return_value.all.return_value = [fake_delivery]
+    fake_result.scalars.return_value.all.return_value = [fake_delivery.id]
 
-    fake_db = MagicMock()
-    fake_db.execute = MagicMock(return_value=_async_return(fake_result))
-    fake_db.commit = MagicMock(return_value=_async_return(None))
-    fake_db.__aenter__ = MagicMock(return_value=_async_return(fake_db))
-    fake_db.__aexit__ = MagicMock(return_value=_async_return(False))
+    queue_db = MagicMock()
+    queue_db.execute = MagicMock(return_value=_async_return(fake_result))
+    queue_db.__aenter__ = MagicMock(return_value=_async_return(queue_db))
+    queue_db.__aexit__ = MagicMock(return_value=_async_return(False))
+    delivery_db = MagicMock()
+    delivery_db.get = MagicMock(return_value=_async_return(fake_delivery))
+    delivery_db.commit = MagicMock(return_value=_async_return(None))
+    delivery_db.__aenter__ = MagicMock(return_value=_async_return(delivery_db))
+    delivery_db.__aexit__ = MagicMock(return_value=_async_return(False))
 
-    fake_session_local = MagicMock(return_value=fake_db)
+    fake_session_local = MagicMock(side_effect=[queue_db, delivery_db])
 
     monkeypatch.setattr(webhook_service, "AsyncSessionLocal", fake_session_local)
 
@@ -396,6 +400,8 @@ async def test_dispatch_pending_webhooks_processes_pending(monkeypatch):
 
     assert count == 1
     assert calls == [1]
+    queue_db.commit.assert_not_called()
+    delivery_db.commit.assert_called_once()
 
 
 async def test_dispatch_pending_webhooks_returns_zero_when_empty(monkeypatch):

@@ -9,6 +9,7 @@ from app.services.lifecycle_rules import (
     assert_successor_term,
     clear_pending_renewal,
     entitlement_identity,
+    validate_general_license_update_fields,
     validate_lifecycle_repair_update,
 )
 
@@ -44,6 +45,14 @@ def test_clear_pending_renewal_preserves_existing_coterm_ancestry():
     assert successor.renewed_from_id == 1
     assert successor.predecessor_id == 1
     assert successor.coterm_from_ids == [1, 2]
+
+
+def test_general_update_cannot_clear_pending_renewal_state():
+    license_obj = _license("Pending renewal")
+    license_obj.lifecycle_status = "pending_renewal"
+
+    with pytest.raises(HTTPException, match="renewal workflow"):
+        validate_general_license_update_fields({"lifecycle_status": None}, license_obj)
 
 
 @pytest.mark.parametrize("license_type", [LicenseType.service, LicenseType.other])

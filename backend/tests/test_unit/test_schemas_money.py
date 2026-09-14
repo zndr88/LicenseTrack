@@ -173,3 +173,14 @@ class TestPendingOrderConvertSchemaMoneyValidation:
             unit_price="100.00",
             total_po_price="300.00",
         )
+
+    def test_included_support_defaults_do_not_become_submitted_fields(self):
+        request = PendingOrderConvertRequest(
+            **_PO_CONVERT_REQUIRED,
+            maintenance_coverage="included",
+            start_date="2026-01-01",
+            end_date="2026-12-31",
+        )
+
+        assert request.maintenance_start_date.isoformat() == "2026-01-01"
+        assert "maintenance_start_date" not in request.model_fields_set
