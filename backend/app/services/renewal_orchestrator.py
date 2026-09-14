@@ -282,6 +282,7 @@ async def link_existing_successor(
     successor.predecessor_id = predecessor.id
     successor.license_ref = chain_ref
     successor.license_ref_aliases = aliases
+    await _activate_maintenance_successor_for_all_parents(db, predecessor, successor)
 
     detail = format_audit_detail(
         "existing_successor_link",
