@@ -68,9 +68,11 @@ async def apply_import_update(
     for row_attr, col_attr in _STRING_PATCH_FIELDS:
         value = getattr(row, row_attr)
         if value:
+            previous_value = getattr(license_obj, col_attr)
             setattr(license_obj, col_attr, value)
             if col_attr == "invoice_number":
-                license_obj.invoice_numbers = [value]
+                if value != previous_value:
+                    license_obj.invoice_numbers = [value]
     if row.currency and not row.currency_defaulted:
         license_obj.currency = row.currency
     if row.publisher_name:

@@ -133,7 +133,7 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
                     lic.contract_number,
                     lic.po_number,
                     lic.procurement_reference,
-                    lic.invoice_number,
+                    "; ".join(lic.invoice_numbers or ([lic.invoice_number] if lic.invoice_number else [])),
                     lic.contact_email,
                     lic.supplier,
                     lic.cost_centre,
