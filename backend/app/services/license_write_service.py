@@ -596,6 +596,14 @@ async def apply_license_field_patch(
             license_obj.notice_handled_at = None
             license_obj.notice_handled_by_user_id = None
         setattr(license_obj, snake_field, parsed_value)
+        if field == "endDate":
+            retirement_update = {"end_date": parsed_value}
+            normalize_retirement_update(license_obj, retirement_update)
+            license_obj.is_retired = retirement_update.get("is_retired", license_obj.is_retired)
+            license_obj.retirement_scheduled = retirement_update.get(
+                "retirement_scheduled",
+                license_obj.retirement_scheduled,
+            )
     elif field in DATETIME_PATCH_FIELDS:
         setattr(license_obj, snake_field, _parse_procurement_milestone_datetime(value) if value else None)
     elif field == "licenseType":
