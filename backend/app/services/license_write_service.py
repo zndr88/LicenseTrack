@@ -26,6 +26,7 @@ from app.services.contract_identity_service import resolve_contract_id_for_numbe
 from app.services.custom_fields_service import replace_values_for_license
 from app.services.lifecycle_rules import (
     REPAIR_ONLY_UPDATE_FIELDS,
+    assert_successor_term,
     validate_general_license_update_fields,
     validate_lifecycle_repair_update,
 )
@@ -213,6 +214,23 @@ def sync_support_defaults_on_license(license_obj: License) -> None:
     apply_included_support_defaults(data)
     for field in SUPPORT_DEFAULT_FIELDS:
         setattr(license_obj, field, data.get(field))
+
+
+async def _validate_established_renewal_terms(db: AsyncSession, license_obj: License) -> None:
+    predecessor_ids = list(dict.fromkeys([
+        predecessor_id for predecessor_id in (
+            license_obj.renewed_from_id,
+            license_obj.predecessor_id,
+            *(license_obj.coterm_from_ids or []),
+        ) if predecessor_id is not None
+    ]))
+    if predecessor_ids:
+        result = await db.execute(select(License).where(License.id.in_(predecessor_ids)))
+        assert_successor_term(list(result.scalars().all()), license_obj.start_date, license_obj.end_date)
+    if license_obj.renewed_to_id is not None:
+        successor = await db.get(License, license_obj.renewed_to_id)
+        if successor is not None:
+            assert_successor_term([license_obj], successor.start_date, successor.end_date)
 
 
 def _clear_notice_handled_if_date_changed(license_obj: License, update_data: dict) -> None:
@@ -439,6 +457,7 @@ async def apply_license_update(
     for field, value in update_data.items():
         setattr(license_obj, field, value)
     sync_support_defaults_on_license(license_obj)
+    await _validate_established_renewal_terms(db, license_obj)
 
     if "contract_number" in update_data:
         license_obj.contract_id = await resolve_contract_id_for_number(db, update_data.get("contract_number"))
@@ -633,6 +652,7 @@ async def apply_license_field_patch(
         setattr(license_obj, snake_field, value)
 
     sync_support_defaults_on_license(license_obj)
+    await _validate_established_renewal_terms(db, license_obj)
     await _sync_active_maintenance_parent_if_needed(db, license_obj)
     return license_obj
 
