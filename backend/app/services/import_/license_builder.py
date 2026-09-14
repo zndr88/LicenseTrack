@@ -3,12 +3,14 @@ from __future__ import annotations
 
 from typing import Optional
 
+from fastapi import HTTPException
 from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.services.csv_importer import ParsedRow
 from app.services.license_service import validate_term_date_order
+from app.services.lifecycle_rules import assert_successor_term
 from app.services.maintenance_service import validate_parent_license
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.po_total_override_service import inherit_po_total_override
@@ -81,6 +83,10 @@ async def build_license(
                         f"(license id={predecessor.id} \u2192 successor id={predecessor.renewed_to_id}); "
                         f"correct the reference or remove the parent_license_ref column"
                     )
+                try:
+                    assert_successor_term([predecessor], row.start_date, row.end_date)
+                except HTTPException as exc:
+                    raise ValueError(exc.detail) from exc
                 predecessor_id = predecessor.id
 
     resolved_maintenance_coverage = (
