@@ -267,6 +267,12 @@ async def create_license_record(
     if payload.license_type == LicenseType.maintenance:
         create_data = payload.model_dump(by_alias=False)
         custom_field_values = create_data.pop("custom_field_values", [])
+        blocked = sorted(field for field in REPAIR_ONLY_UPDATE_FIELDS if create_data.get(field) is not None)
+        if blocked:
+            raise HTTPException(status_code=400, detail=f"Chain fields cannot be set on license create: {', '.join(blocked)}")
+        lifecycle_val = create_data.get("lifecycle_status")
+        if lifecycle_val is not None and getattr(lifecycle_val, "value", lifecycle_val) not in (None, "legacy"):
+            raise HTTPException(status_code=400, detail="lifecycle_status cannot be set on create except to 'legacy'.")
         apply_included_support_defaults(create_data)
         _sync_invoice_numbers(create_data)
         await resolve_license_reference_fields(db, create_data)
