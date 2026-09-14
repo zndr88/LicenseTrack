@@ -194,7 +194,7 @@ def validate_term_dates(start_date: date | None, end_date: date | None) -> None:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-def _sync_support_defaults_on_license(license_obj: License) -> None:
+def sync_support_defaults_on_license(license_obj: License) -> None:
     data = {
         "license_type": license_obj.license_type,
         "maintenance_coverage": license_obj.maintenance_coverage,
@@ -432,7 +432,7 @@ async def apply_license_update(
     _clear_notice_handled_if_date_changed(license_obj, update_data)
     for field, value in update_data.items():
         setattr(license_obj, field, value)
-    _sync_support_defaults_on_license(license_obj)
+    sync_support_defaults_on_license(license_obj)
 
     if "contract_number" in update_data:
         license_obj.contract_id = await resolve_contract_id_for_number(db, update_data.get("contract_number"))
@@ -626,7 +626,7 @@ async def apply_license_field_patch(
     else:
         setattr(license_obj, snake_field, value)
 
-    _sync_support_defaults_on_license(license_obj)
+    sync_support_defaults_on_license(license_obj)
     await _sync_active_maintenance_parent_if_needed(db, license_obj)
     return license_obj
 
@@ -944,7 +944,7 @@ def apply_license_type_patch(license_obj: License, value: str | None) -> None:
     license_obj.unit_price = type_data["unit_price"]
     license_obj.total_po_price = type_data["total_po_price"]
     license_obj.end_date = type_data["end_date"]
-    _sync_support_defaults_on_license(license_obj)
+    sync_support_defaults_on_license(license_obj)
 
 
 async def _validate_maintenance_parent_transition(

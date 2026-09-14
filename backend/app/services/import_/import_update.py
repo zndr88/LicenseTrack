@@ -9,6 +9,7 @@ from app.services.contract_identity_service import resolve_contract_id_for_numbe
 from app.services.csv_importer import ParsedRow
 from app.services.custom_fields_service import upsert_imported_values_for_license
 from app.services.license_service import validate_term_date_order
+from app.services.license_write_service import sync_support_defaults_on_license
 from app.services.maintenance_service import sync_parent_mirror_fields
 from app.services.po_total_override_service import resolve_reassigned_po_total_override
 
@@ -122,6 +123,8 @@ async def apply_import_update(
         license_obj.purchase_date = row.db_purchase_date
     if row.secondary_contacts:
         license_obj.secondary_contacts = row.secondary_contacts
+
+    sync_support_defaults_on_license(license_obj)
 
     if custom_data:
         await upsert_imported_values_for_license(db, license_obj.id, custom_data, number_format_locale, date_format)
