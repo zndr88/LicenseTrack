@@ -20,6 +20,7 @@ class AuthProvider(str, enum.Enum):
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(150), unique=True, nullable=False, index=True)
