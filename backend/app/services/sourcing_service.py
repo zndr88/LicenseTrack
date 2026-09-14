@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.models.license import License, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder
 from app.models.reference_data import Organization
-from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
+from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingRequest, SourcingStatus
 from app.schemas.sourcing import (
     SourcingItemCreate,
     SourcingItemUpdate,
@@ -583,6 +583,13 @@ async def merge_coterm_sourcing_items_record(
     db.add(merged)
     await ensure_sourcing_request_for_item(db, merged, created_by=created_by)
     await db.flush()
+    await move_quote_documents_to_merged_request(
+        db,
+        source_request_ids=original_request_ids,
+        source_item_ids=source_item_ids,
+        merged_request_id=merged.sourcing_request_id,
+        merged_item_id=merged.id,
+    )
     await merge_sourcing_values(db, list(source_item_ids), merged.id)
     for item in items:
         await db.delete(item)
@@ -595,6 +602,32 @@ async def merge_coterm_sourcing_items_record(
         .execution_options(populate_existing=True)
     )
     return CotermMergeResult(item=refreshed.scalar_one(), source_item_ids=source_item_ids)
+
+
+async def move_quote_documents_to_merged_request(
+    db: AsyncSession,
+    *,
+    source_request_ids: set[int],
+    source_item_ids: tuple[int, ...],
+    merged_request_id: int | None,
+    merged_item_id: int,
+) -> None:
+    """Preserve request-owned quote evidence while replacing its source lines."""
+    if not source_request_ids or merged_request_id is None:
+        return
+    await db.execute(
+        update(SourcingQuoteDocument)
+        .where(SourcingQuoteDocument.sourcing_request_id.in_(source_request_ids))
+        .values(sourcing_request_id=merged_request_id)
+    )
+    await db.execute(
+        update(SourcingQuoteDocument)
+        .where(
+            SourcingQuoteDocument.sourcing_request_id == merged_request_id,
+            SourcingQuoteDocument.target_sourcing_item_id.in_(source_item_ids),
+        )
+        .values(target_sourcing_item_id=merged_item_id)
+    )
 
 
 async def build_merged_sourcing_item(
