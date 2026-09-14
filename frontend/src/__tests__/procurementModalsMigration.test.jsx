@@ -826,9 +826,11 @@ describe("ConvertAllModal", () => {
     };
     const licenses = [{
       ...RENEWAL_LICENSES[0],
+      secondaryContacts: ["legal@example.com", "finance@example.com"],
       notes: "Previous note",
     }];
     const [singleDefaults] = buildConvertItemDefaults(cotermOrder, licenses);
+    expect(singleDefaults.secondaryContacts).toBe("legal@example.com, finance@example.com");
 
     render(
       <ConvertPendingOrderModal

@@ -24,4 +24,18 @@ describe("secondary contact form normalization", () => {
       .toBe("one@example.com, two@example.com");
     expect(formatSecondaryContacts(null)).toBe("");
   });
+  it("preserves formatted strings and remains idempotent", () => {
+    const contacts = "one@example.com, two@example.com";
+    expect(formatSecondaryContacts(contacts)).toBe(contacts);
+    expect(formatSecondaryContacts("  one@example.com  ")).toBe("one@example.com");
+    expect(formatSecondaryContacts(formatSecondaryContacts(["one@example.com", "two@example.com"])))
+      .toBe(contacts);
+  });
+
+  it("ignores empty array entries and unsupported shapes", () => {
+    expect(formatSecondaryContacts([null, "one@example.com", "", undefined])).toBe("one@example.com");
+    for (const value of [undefined, null, "", {}, { email: "one@example.com" }, 123, true]) {
+      expect(formatSecondaryContacts(value)).toBe("");
+    }
+  });
 });

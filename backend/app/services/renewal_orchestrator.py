@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import Integer, cast, exists, func, or_, select, update
+from sqlalchemy import delete, Integer, cast, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.license import License, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
+from app.models.license import License, LicenseCoverageHistory, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
 from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
@@ -114,7 +114,7 @@ async def _reserve_existing_successor_link(
             License.lifecycle_status.is_(None),
             License.renewed_from_id.is_(None),
             License.predecessor_id.is_(None),
-            or_(License.coterm_from_ids.is_(None), License.coterm_from_ids == []),
+            or_(License.coterm_from_ids.is_(None), func.json_type(License.coterm_from_ids) == "null", License.coterm_from_ids == []),
             License.renewed_to_id.is_(None),
             License.is_retired.is_(False),
             License.retirement_scheduled.is_(False),
@@ -155,6 +155,85 @@ async def _reserve_existing_successor_link(
 
     await db.refresh(predecessor)
     await db.refresh(successor)
+
+
+_MAINTENANCE_MIRROR_FIELDS = (
+    "active_maintenance_id", "has_maintenance", "maintenance_coverage",
+    "maintenance_start_date", "maintenance_end_date", "maintenance_pricing_basis",
+    "maintenance_quantity", "maintenance_unit_price", "maintenance_cost",
+)
+
+
+async def _snapshot_existing_maintenance_link(db: AsyncSession, predecessor: License, successor: License) -> None:
+    if predecessor.license_type != LicenseType.maintenance:
+        return
+    parent_ids = set((await db.scalars(select(LicenseMaintenanceLink.parent_license_id).where(
+        LicenseMaintenanceLink.maintenance_license_id == predecessor.id,
+    ))).all())
+    if predecessor.parent_license_id is not None:
+        parent_ids.add(predecessor.parent_license_id)
+    existing_ids = set((await db.scalars(select(LicenseMaintenanceLink.parent_license_id).where(
+        LicenseMaintenanceLink.maintenance_license_id == successor.id,
+    ))).all())
+    parents = (await db.scalars(select(License).where(License.id.in_(parent_ids)))).all()
+    snapshots = []
+    for parent in parents:
+        values = {}
+        for field in _MAINTENANCE_MIRROR_FIELDS:
+            value = getattr(parent, field)
+            values[field] = value.isoformat() if isinstance(value, date) else getattr(value, "value", value)
+        snapshots.append({"id": parent.id, "added": parent.id not in existing_ids, "values": values})
+    predecessor.existing_successor_maintenance_state = {
+        "history_before": list((await db.scalars(select(LicenseCoverageHistory.id).where(
+            LicenseCoverageHistory.parent_license_id.in_(parent_ids),
+        ))).all()),
+        "parents": snapshots, "primary": successor.parent_license_id,
+        "legacy": successor.is_legacy_unlinked_maintenance,
+    }
+
+
+async def _finish_existing_maintenance_snapshot(db: AsyncSession, predecessor: License) -> None:
+    snapshot = predecessor.existing_successor_maintenance_state
+    if not snapshot:
+        return
+    await db.flush()
+    parent_ids = [entry["id"] for entry in snapshot["parents"]]
+    history_ids = set((await db.scalars(select(LicenseCoverageHistory.id).where(
+        LicenseCoverageHistory.parent_license_id.in_(parent_ids),
+    ))).all())
+    snapshot = dict(snapshot)
+    snapshot["added_history_ids"] = sorted(history_ids - set(snapshot.pop("history_before")))
+    predecessor.existing_successor_maintenance_state = snapshot
+
+
+async def _restore_existing_maintenance_link(db: AsyncSession, predecessor: License, successor: License) -> None:
+    snapshot = predecessor.existing_successor_maintenance_state
+    if not snapshot:
+        return
+    for entry in snapshot["parents"]:
+        parent = await db.get(License, entry["id"])
+        if parent is None or parent.active_maintenance_id != successor.id:
+            raise HTTPException(status_code=409, detail="Maintenance coverage changed after linking; review parent relationships before unlinking")
+        previous_active_id = entry["values"]["active_maintenance_id"]
+        if previous_active_id is not None:
+            previous_active = await db.get(License, previous_active_id)
+            if previous_active is None or previous_active.is_retired:
+                raise HTTPException(status_code=409, detail="Previous maintenance is no longer available for restoring coverage")
+        if entry["added"]:
+            await db.execute(delete(LicenseMaintenanceLink).where(
+                LicenseMaintenanceLink.maintenance_license_id == successor.id,
+                LicenseMaintenanceLink.parent_license_id == parent.id,
+            ))
+        for field, value in entry["values"].items():
+            if field in {"maintenance_start_date", "maintenance_end_date"} and value is not None:
+                value = date.fromisoformat(value)
+            setattr(parent, field, value)
+    await db.execute(delete(LicenseCoverageHistory).where(
+        LicenseCoverageHistory.id.in_(snapshot.get("added_history_ids", [])),
+    ))
+    successor.parent_license_id = snapshot["primary"]
+    successor.is_legacy_unlinked_maintenance = snapshot["legacy"]
+    predecessor.existing_successor_maintenance_state = None
 
 
 async def _activate_maintenance_successor_for_all_parents(
@@ -222,6 +301,8 @@ def _assert_existing_successor_candidate(
     if successor_status not in {"active", "upcoming"}:
         raise HTTPException(status_code=400, detail="The selected successor must be active or upcoming")
 
+    if predecessor.license_type == LicenseType.maintenance and successor.license_type != LicenseType.maintenance:
+        raise HTTPException(status_code=400, detail="A maintenance successor must also be a maintenance license")
     publisher = normalize_entitlement_identity(predecessor.publisher_name)
     if not publisher or publisher != normalize_entitlement_identity(successor.publisher_name):
         raise HTTPException(status_code=400, detail="The successor must have the same publisher")
@@ -282,7 +363,9 @@ async def link_existing_successor(
     successor.predecessor_id = predecessor.id
     successor.license_ref = chain_ref
     successor.license_ref_aliases = aliases
+    await _snapshot_existing_maintenance_link(db, predecessor, successor)
     await _activate_maintenance_successor_for_all_parents(db, predecessor, successor)
+    await _finish_existing_maintenance_snapshot(db, predecessor)
 
     detail = format_audit_detail(
         "existing_successor_link",
@@ -336,6 +419,7 @@ async def unlink_existing_successor(
     if successor.renewed_to_id is not None:
         raise HTTPException(status_code=409, detail="Unlink the successor's later renewal before removing this link")
 
+    await _restore_existing_maintenance_link(db, predecessor, successor)
     former_ref = predecessor.existing_successor_original_ref
     aliases = list(successor.license_ref_aliases or [])
     if former_ref:

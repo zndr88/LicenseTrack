@@ -362,4 +362,16 @@ describe("buildConvertItemDefaults", () => {
       maintenanceCost: "200.00",
     }));
   });
+  it("accepts already formatted renewal contacts", () => {
+    const order = { ...baseOrder, items: [makeSI({ isRenewal: true, renewalForLicenseId: 42 })] };
+    const [defaults] = buildConvertItemDefaults(order, [
+      makeLicense({ secondaryContacts: "legal@example.com, finance@example.com" }),
+    ]);
+    expect(defaults.secondaryContacts).toBe("legal@example.com, finance@example.com");
+  });
+
+  it("accepts already formatted purchase-line contacts", () => {
+    const order = { ...baseOrder, items: [makeSI({ secondaryContacts: "  legal@example.com  " })] };
+    expect(buildConvertItemDefaults(order, [])[0].secondaryContacts).toBe("legal@example.com");
+  });
 });

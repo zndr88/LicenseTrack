@@ -19,6 +19,7 @@ from app.schemas.sourcing import (
     SourcingRequestResponse,
     SourcingRequestUpdate,
 )
+from app.services import storage
 from app.services.document_availability_service import with_file_availability
 from app.services.draft_document_service import require_no_single_documents
 from app.services.custom_fields_service import merge_sourcing_values, replace_values_for_sourcing_item
@@ -514,6 +515,7 @@ async def merge_coterm_sourcing_items_record(
     sourcing_item_ids: list[int],
     *,
     created_by: int,
+    document_paths: list[tuple[str, str | None]] | None = None,
 ) -> CotermMergeResult:
     """Validate and replace renewal lines with one coterm sourcing item."""
     if len(sourcing_item_ids) < 2:
@@ -589,6 +591,7 @@ async def merge_coterm_sourcing_items_record(
         source_item_ids=source_item_ids,
         merged_request_id=merged.sourcing_request_id,
         merged_item_id=merged.id,
+        document_paths=document_paths if document_paths is not None else [],
     )
     await merge_sourcing_values(db, list(source_item_ids), merged.id)
     for item in items:
@@ -611,23 +614,47 @@ async def move_quote_documents_to_merged_request(
     source_item_ids: tuple[int, ...],
     merged_request_id: int | None,
     merged_item_id: int,
+    document_paths: list[tuple[str, str | None]],
 ) -> None:
-    """Preserve request-owned quote evidence while replacing its source lines."""
+    """Move whole-request evidence; copy shared evidence when siblings remain."""
     if not source_request_ids or merged_request_id is None:
         return
-    await db.execute(
-        update(SourcingQuoteDocument)
-        .where(SourcingQuoteDocument.sourcing_request_id.in_(source_request_ids))
-        .values(sourcing_request_id=merged_request_id)
-    )
-    await db.execute(
-        update(SourcingQuoteDocument)
-        .where(
-            SourcingQuoteDocument.sourcing_request_id == merged_request_id,
-            SourcingQuoteDocument.target_sourcing_item_id.in_(source_item_ids),
+    remaining_requests = set((await db.scalars(
+        select(SourcingItem.sourcing_request_id).where(
+            SourcingItem.sourcing_request_id.in_(source_request_ids),
+            SourcingItem.id.not_in(source_item_ids),
         )
-        .values(target_sourcing_item_id=merged_item_id)
-    )
+    )).all())
+    documents = (await db.scalars(select(SourcingQuoteDocument).where(
+        SourcingQuoteDocument.sourcing_request_id.in_(source_request_ids),
+    ))).all()
+    storage_base = await storage.resolve_storage_path(db)
+    for document in documents:
+        if document.target_sourcing_item_id not in (None, *source_item_ids):
+            continue
+        if document.sourcing_request_id in remaining_requests and document.target_sourcing_item_id is None:
+            source = storage.require_available_file(document.filename, storage_base)
+            filename, size = storage.save_sourcing_request_bytes(
+                source.read_bytes(), document.original_filename, merged_request_id, storage_base,
+            )
+            document_paths.append((filename, storage_base))
+            db.add(SourcingQuoteDocument(
+                sourcing_request_id=merged_request_id,
+                filename=filename, original_filename=document.original_filename,
+                file_size=size, mime_type=document.mime_type, category=document.category,
+                shared_upload=document.shared_upload, uploaded_at=document.uploaded_at,
+                uploaded_by=document.uploaded_by,
+            ))
+        else:
+            document.sourcing_request_id = merged_request_id
+            if document.target_sourcing_item_id is not None:
+                document.target_sourcing_item_id = merged_item_id
+    await db.flush()
+    # Loaded relationship collections must not cascade-delete moved evidence.
+    for request_id in source_request_ids:
+        request = await db.get(SourcingRequest, request_id)
+        if request is not None:
+            db.expire(request, ["quote_documents"])
 
 
 async def build_merged_sourcing_item(

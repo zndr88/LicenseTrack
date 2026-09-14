@@ -11,6 +11,7 @@ from app.models.license import License, LicenseMetric, LicenseType, MaintenanceC
 from app.services.csv_importer import ParsedRow
 from app.services.license_service import validate_term_date_order
 from app.services.lifecycle_rules import assert_successor_term
+from app.services.import_.invoice_values import parse_invoice_cell
 from app.services.maintenance_service import validate_parent_license
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.po_total_override_service import inherit_po_total_override
@@ -84,7 +85,7 @@ async def build_license(
                         f"correct the reference or remove the parent_license_ref column"
                     )
                 try:
-                    assert_successor_term([predecessor], row.start_date, row.end_date)
+                    assert_successor_term([predecessor], row.db_start_date, row.db_end_date)
                 except HTTPException as exc:
                     raise ValueError(exc.detail) from exc
                 predecessor_id = predecessor.id
@@ -96,6 +97,7 @@ async def build_license(
     )
     assert_coverage_allowed_for_type(license_type, resolved_maintenance_coverage)
 
+    invoice_numbers = parse_invoice_cell(row.invoice_number)
     data = {
         "publisher_name": row.publisher_name or "Unknown",
         "software_description": row.software_description or "Unknown",
@@ -125,8 +127,8 @@ async def build_license(
         "contract_number": row.contract_number,
         "po_number": row.po_number,
         "procurement_reference": row.procurement_reference,
-        "invoice_number": row.invoice_number,
-        "invoice_numbers": [row.invoice_number] if row.invoice_number else [],
+        "invoice_number": invoice_numbers[0] if invoice_numbers else "",
+        "invoice_numbers": invoice_numbers,
         "contact_email": row.contact_email,
         "supplier": row.supplier,
         "cost_centre": row.cost_centre,

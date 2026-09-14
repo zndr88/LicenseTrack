@@ -9,6 +9,8 @@ from app.services.contract_identity_service import resolve_contract_id_for_numbe
 from app.services.csv_importer import ParsedRow
 from app.services.custom_fields_service import upsert_imported_values_for_license
 from app.services.license_service import validate_term_date_order
+from app.services.lifecycle_rules import validate_established_renewal_terms
+from app.services.import_.invoice_values import parse_invoice_cell
 from app.services.license_write_service import sync_support_defaults_on_license
 from app.services.maintenance_service import sync_parent_mirror_fields
 from app.services.po_total_override_service import resolve_reassigned_po_total_override
@@ -54,6 +56,7 @@ async def apply_import_update(
             f"(record is {license_obj.license_type.value!r}, file says {row.license_type!r})"
         )
 
+    previous_dates = (license_obj.start_date, license_obj.end_date)
     reassigned_po_override = license_obj.po_total_override
     target_po_number = row.po_number or license_obj.po_number
     target_currency = license_obj.currency if row.currency_defaulted else (row.currency or license_obj.currency)
@@ -71,8 +74,10 @@ async def apply_import_update(
             previous_value = getattr(license_obj, col_attr)
             setattr(license_obj, col_attr, value)
             if col_attr == "invoice_number":
-                if value != previous_value:
-                    license_obj.invoice_numbers = [value]
+                invoices = parse_invoice_cell(value)
+                license_obj.invoice_number = invoices[0]
+                if len(invoices) > 1 or value != previous_value:
+                    license_obj.invoice_numbers = invoices
     if row.currency and not row.currency_defaulted:
         license_obj.currency = row.currency
     if row.publisher_name:
@@ -126,6 +131,8 @@ async def apply_import_update(
     if row.secondary_contacts:
         license_obj.secondary_contacts = row.secondary_contacts
 
+    if previous_dates != (license_obj.start_date, license_obj.end_date):
+        await validate_established_renewal_terms(db, license_obj)
     sync_support_defaults_on_license(license_obj)
 
     if custom_data:

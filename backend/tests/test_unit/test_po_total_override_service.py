@@ -38,3 +38,10 @@ async def test_currency_change_clears_standalone_po_override(db_session):
     )
 
     assert override is None
+
+
+async def test_po_override_lookup_uses_unicode_identity(db_session):
+    source = _license(po_number="Stra\u00dfe\t\u00a042", po_total_override="250.00")
+    db_session.add(source)
+    await db_session.flush()
+    assert await get_po_total_override(db_session, "STRASSE 42", "EUR") == "250.00"

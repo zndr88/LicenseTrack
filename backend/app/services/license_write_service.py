@@ -26,7 +26,7 @@ from app.services.contract_identity_service import resolve_contract_id_for_numbe
 from app.services.custom_fields_service import replace_values_for_license
 from app.services.lifecycle_rules import (
     REPAIR_ONLY_UPDATE_FIELDS,
-    assert_successor_term,
+    validate_established_renewal_terms,
     validate_general_license_update_fields,
     validate_lifecycle_repair_update,
 )
@@ -214,23 +214,6 @@ def sync_support_defaults_on_license(license_obj: License) -> None:
     apply_included_support_defaults(data)
     for field in SUPPORT_DEFAULT_FIELDS:
         setattr(license_obj, field, data.get(field))
-
-
-async def _validate_established_renewal_terms(db: AsyncSession, license_obj: License) -> None:
-    predecessor_ids = list(dict.fromkeys([
-        predecessor_id for predecessor_id in (
-            license_obj.renewed_from_id,
-            license_obj.predecessor_id,
-            *(license_obj.coterm_from_ids or []),
-        ) if predecessor_id is not None
-    ]))
-    if predecessor_ids:
-        result = await db.execute(select(License).where(License.id.in_(predecessor_ids)))
-        assert_successor_term(list(result.scalars().all()), license_obj.start_date, license_obj.end_date)
-    if license_obj.renewed_to_id is not None:
-        successor = await db.get(License, license_obj.renewed_to_id)
-        if successor is not None:
-            assert_successor_term([license_obj], successor.start_date, successor.end_date)
 
 
 def _clear_notice_handled_if_date_changed(license_obj: License, update_data: dict) -> None:
@@ -439,7 +422,10 @@ async def apply_license_update(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    await _validate_maintenance_parent_transition(db, license_obj, new_type, new_parent_id)
+    await _validate_maintenance_parent_transition(
+        db, license_obj, new_type, new_parent_id,
+        target_retired=update_data.get("is_retired", license_obj.is_retired),
+    )
     linking_legacy_parent = (
         new_type == LicenseType.maintenance
         and parent_update_requested
@@ -457,7 +443,8 @@ async def apply_license_update(
     for field, value in update_data.items():
         setattr(license_obj, field, value)
     sync_support_defaults_on_license(license_obj)
-    await _validate_established_renewal_terms(db, license_obj)
+    if any(before[field] != getattr(license_obj, field) for field in ("start_date", "end_date")):
+        await validate_established_renewal_terms(db, license_obj)
 
     if "contract_number" in update_data:
         license_obj.contract_id = await resolve_contract_id_for_number(db, update_data.get("contract_number"))
@@ -583,6 +570,8 @@ async def apply_license_field_patch(
     if license_obj is None:
         raise HTTPException(status_code=404, detail="License not found")
 
+    previous_dates = (license_obj.start_date, license_obj.end_date)
+    was_retired = license_obj.is_retired
     snake_field = ALLOWED_PATCH_FIELDS[field]
     if field in BLANKABLE_STRING_PATCH_FIELDS and value is None:
         value = ""
@@ -596,14 +585,6 @@ async def apply_license_field_patch(
             license_obj.notice_handled_at = None
             license_obj.notice_handled_by_user_id = None
         setattr(license_obj, snake_field, parsed_value)
-        if field == "endDate":
-            retirement_update = {"end_date": parsed_value}
-            normalize_retirement_update(license_obj, retirement_update)
-            license_obj.is_retired = retirement_update.get("is_retired", license_obj.is_retired)
-            license_obj.retirement_scheduled = retirement_update.get(
-                "retirement_scheduled",
-                license_obj.retirement_scheduled,
-            )
     elif field in DATETIME_PATCH_FIELDS:
         setattr(license_obj, snake_field, _parse_procurement_milestone_datetime(value) if value else None)
     elif field == "licenseType":
@@ -659,8 +640,18 @@ async def apply_license_field_patch(
     else:
         setattr(license_obj, snake_field, value)
 
+    if previous_dates[1] != license_obj.end_date:
+        retirement_update = {"end_date": license_obj.end_date}
+        normalize_retirement_update(license_obj, retirement_update)
+        license_obj.is_retired = retirement_update.get("is_retired", license_obj.is_retired)
+        license_obj.retirement_scheduled = retirement_update.get(
+            "retirement_scheduled", license_obj.retirement_scheduled,
+        )
     sync_support_defaults_on_license(license_obj)
-    await _validate_established_renewal_terms(db, license_obj)
+    if previous_dates != (license_obj.start_date, license_obj.end_date):
+        await validate_established_renewal_terms(db, license_obj)
+    if license_obj.is_retired and not was_retired and license_obj.license_type == LicenseType.maintenance:
+        await retire_maintenance_license(db, license_obj)
     await _sync_active_maintenance_parent_if_needed(db, license_obj)
     return license_obj
 
@@ -986,6 +977,8 @@ async def _validate_maintenance_parent_transition(
     license_obj: License,
     new_type: LicenseType,
     new_parent_id: int | None,
+    *,
+    target_retired: bool,
 ) -> None:
     try:
         grandfathered_legacy_unlinked = (
@@ -997,7 +990,7 @@ async def _validate_maintenance_parent_transition(
         )
         retired_unlinked_maintenance = (
             new_type == LicenseType.maintenance
-            and license_obj.is_retired
+            and target_retired
             and license_obj.parent_license_id is None
             and new_parent_id is None
         )

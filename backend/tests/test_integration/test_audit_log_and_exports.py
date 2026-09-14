@@ -355,7 +355,7 @@ async def test_licenses_export_headers_and_representative_csv_content(
     assert row["Publisher"] == "Contoso"
     assert row["Software Description"] == "Contoso Analytics"
     assert row["Total PO Value"] == "300.00"
-    assert row["Invoice Number"] == "INV-1; INV-2"
+    assert row["Invoice Number"] == '["INV-1", "INV-2"]'
     assert row["Notes"] == "primary export row"
 
 

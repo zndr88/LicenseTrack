@@ -2759,3 +2759,15 @@ async def test_create_license_rejects_both_renewal_links_simultaneously(test_app
         headers=auth_headers,
     )
     assert resp.status_code == 400, resp.text
+
+
+async def test_retired_maintenance_notes_edit_does_not_allow_parentless_reactivation(test_app, auth_headers):
+    parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    maintenance = await _create_license(test_app, auth_headers, licenseType="maintenance",
+                                        parentLicenseId=parent["id"], endDate="2020-12-31", startDate="2020-01-01")
+    retired = await test_app.put(f"/api/licenses/{maintenance['id']}", json={"isRetired": True}, headers=auth_headers)
+    assert retired.status_code == 200, retired.text
+    edited = await test_app.put(f"/api/licenses/{maintenance['id']}", json={"notes": "Archived evidence"}, headers=auth_headers)
+    assert edited.status_code == 200, edited.text
+    reactivated = await test_app.put(f"/api/licenses/{maintenance['id']}", json={"isRetired": False}, headers=auth_headers)
+    assert reactivated.status_code == 400, reactivated.text

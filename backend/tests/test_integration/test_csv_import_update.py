@@ -476,3 +476,38 @@ async def test_preview_suppresses_ref_duplicate_warning_when_updating(test_app, 
     body = resp.json()
     assert body["rows"][0]["duplicateWarnings"] == []
     assert body["warningSummary"]["duplicateWarningCount"] == 0
+
+
+async def test_exported_invoice_cell_preserves_identifiers_on_update(test_app, auth_headers, db_session):
+    import json
+    created = await _create_license(test_app, auth_headers, invoiceNumber="INV;1")
+    obj = await db_session.get(License, created["id"])
+    invoices = ["INV;1", 'INV,"2']
+    row = _full_row(created["licenseRef"], invoice_number=json.dumps(invoices))
+    await apply_import_update(obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
+    assert obj.invoice_number == invoices[0]
+    assert obj.invoice_numbers == invoices
+
+
+async def test_import_update_rejects_shortening_linked_successor(test_app, auth_headers, db_session):
+    import pytest
+    from fastapi import HTTPException
+    predecessor = await _create_license(test_app, auth_headers, startDate="2025-01-01", endDate="2025-12-31")
+    successor = await _create_license(test_app, auth_headers, startDate="2025-06-01", endDate="2026-12-31")
+    obj = await db_session.get(License, successor["id"])
+    obj.renewed_from_id = predecessor["id"]
+    await db_session.flush()
+    row = _full_row(successor["licenseRef"], db_end_date=date(2025, 9, 1))
+    with pytest.raises(HTTPException, match="extend coverage"):
+        await apply_import_update(obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
+
+
+async def test_import_builder_accepts_valid_parsed_successor_dates(test_app, auth_headers, db_session):
+    from app.services.import_.license_builder import build_license
+    predecessor = await _create_license(test_app, auth_headers, startDate="2025-01-01", endDate="2025-12-31")
+    row = _full_row(None, parent_license_ref=predecessor["licenseRef"],
+                    start_date="2026-01-01", end_date="2026-12-31",
+                    db_start_date=date(2026, 1, 1), db_end_date=date(2026, 12, 31))
+    license_obj = await build_license(row, None, db_session)
+    assert license_obj.predecessor_id == predecessor["id"]
+    assert license_obj.end_date == date(2026, 12, 31)

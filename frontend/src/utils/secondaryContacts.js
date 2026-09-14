@@ -6,5 +6,11 @@ export function parseSecondaryContacts(value) {
 }
 
 export function formatSecondaryContacts(contacts) {
-  return (contacts || []).join(", ");
+  if (Array.isArray(contacts)) {
+    return contacts.filter(Boolean).join(", ");
+  }
+  if (typeof contacts === "string") {
+    return contacts.trim();
+  }
+  return "";
 }

@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 from datetime import date
 from decimal import Decimal
 from typing import Annotated
@@ -158,7 +159,7 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
                     lic.contract_number,
                     lic.po_number,
                     lic.procurement_reference,
-                    "; ".join(lic.invoice_numbers or ([lic.invoice_number] if lic.invoice_number else [])),
+                    json.dumps(lic.invoice_numbers, ensure_ascii=False) if len(lic.invoice_numbers or []) > 1 else lic.invoice_number,
                     lic.contact_email,
                     lic.supplier,
                     lic.cost_centre,

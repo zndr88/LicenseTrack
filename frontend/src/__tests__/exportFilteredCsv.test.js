@@ -57,12 +57,12 @@ function csvLines() {
 }
 
 describe('exportFilteredCsv', () => {
-  test('exports every invoice number when a license has multiple invoices', () => {
+  it('exports every invoice number when a license has multiple invoices', () => {
     const row = { ...makeRow(), invoiceNumber: 'INV-1', invoiceNumbers: ['INV-1', 'INV-2'] };
 
     exportFilteredCsv([row], [{ key: 'invoiceNumber', label: 'Invoice Number' }], 'en-US', 'EUR', [row], new Map());
 
-    expect(csvLines()[1]).toBe('"INV-1; INV-2"');
+    expect(csvLines()[1]).toBe('"[""INV-1"",""INV-2""]"');
   });
   it('emits an Excel-friendly UTF-8 BOM and CRLF row endings', () => {
     const cols = [{ key: 'publisher', label: 'Publisher' }]

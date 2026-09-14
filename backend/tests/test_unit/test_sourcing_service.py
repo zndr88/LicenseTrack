@@ -971,3 +971,37 @@ async def test_creates_new_pending_order_without_po_number(db_session):
     assert order.supplier == "Acme Vendor"
     assert item.status == SourcingStatus.converted
     assert item.pending_order_id == order.id
+
+
+async def test_partial_merge_copies_shared_quote_and_leaves_sibling_evidence(db_session, monkeypatch, tmp_path):
+    from app.models.sourcing import SourcingQuoteDocument, SourcingRequest
+    from app.services import sourcing_service
+    requests = [SourcingRequest() for _ in range(2)]
+    db_session.add_all(requests)
+    await db_session.flush()
+    selected = make_sourcing_item(sourcing_request_id=requests[0].id)
+    sibling = make_sourcing_item(sourcing_request_id=requests[0].id)
+    db_session.add_all([selected, sibling])
+    await db_session.flush()
+    shared = SourcingQuoteDocument(sourcing_request_id=requests[0].id, filename="original", original_filename="quote.pdf", file_size=3, mime_type="application/pdf")
+    single = SourcingQuoteDocument(sourcing_request_id=requests[0].id, target_sourcing_item_id=sibling.id, filename="sibling", original_filename="sibling.pdf", file_size=3, mime_type="application/pdf")
+    db_session.add_all([shared, single])
+    await db_session.flush()
+    source = tmp_path / "original"
+    source.write_bytes(b"pdf")
+    async def storage_path(_db):
+        return str(tmp_path)
+    monkeypatch.setattr(sourcing_service.storage, "resolve_storage_path", storage_path)
+    paths = []
+    await sourcing_service.move_quote_documents_to_merged_request(
+        db_session, source_request_ids={requests[0].id}, source_item_ids=(selected.id,),
+        merged_request_id=requests[1].id, merged_item_id=selected.id, document_paths=paths,
+    )
+    assert shared.sourcing_request_id == requests[0].id
+    assert single.sourcing_request_id == requests[0].id
+    copied = (await db_session.scalars(select(SourcingQuoteDocument).where(
+        SourcingQuoteDocument.sourcing_request_id == requests[1].id,
+    ))).one()
+    assert copied.filename != shared.filename
+    assert (tmp_path / copied.filename).read_bytes() == source.read_bytes()
+    assert paths == [(copied.filename, str(tmp_path))]

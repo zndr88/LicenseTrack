@@ -1,3 +1,4 @@
+from app.services.draft_document_service import draft_document_transaction
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -93,28 +94,30 @@ async def merge_coterm_sourcing_items(
     currency. Mixed unit prices are represented by a blank merged unit price.
     The original items are deleted; predecessor licenses are untouched.
     """
-    try:
-        outcome = await merge_coterm_sourcing_items_record(
-            db,
-            payload.sourcing_item_ids,
-            created_by=current_user.id,
-        )
-    except MoneyParseError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    merged = outcome.item
+    async with draft_document_transaction(db) as document_paths:
+        try:
+            outcome = await merge_coterm_sourcing_items_record(
+                db,
+                payload.sourcing_item_ids,
+                created_by=current_user.id,
+                document_paths=document_paths,
+            )
+        except MoneyParseError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        merged = outcome.item
 
-    ip = request.client.host if request.client else None
-    await log_event(
-        db,
-        "sourcing.merged",
-        actor=current_user,
-        ip_address=ip,
-        target_type="sourcing",
-        target_id=str(merged.id),
-        target_label=merged.software_description,
-        detail=f"merged {len(outcome.source_item_ids)} items: {list(outcome.source_item_ids)}",
-    )
-    await db.commit()
+        ip = request.client.host if request.client else None
+        await log_event(
+            db,
+            "sourcing.merged",
+            actor=current_user,
+            ip_address=ip,
+            target_type="sourcing",
+            target_id=str(merged.id),
+            target_label=merged.software_description,
+            detail=f"merged {len(outcome.source_item_ids)} items: {list(outcome.source_item_ids)}",
+        )
+        await db.commit()
     merged = await _load_response_item(db, merged.id)
 
     return SourcingItemResponse.model_validate(merged)

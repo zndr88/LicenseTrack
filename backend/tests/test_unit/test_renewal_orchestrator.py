@@ -133,6 +133,7 @@ async def test_existing_successor_reservation_rejects_second_predecessor(db_sess
         **_license_data(
             start_date=date(2026, 9, 21),
             end_date=date(2027, 9, 20),
+            coterm_from_ids=None,
         )
     )
     db_session.add_all([predecessor_a, predecessor_b, successor])
@@ -208,3 +209,28 @@ async def test_shared_maintenance_successor_activates_compatibility_parent_first
     )
 
     assert activated_parent_ids == [compatibility_parent.id, secondary_parent.id]
+
+
+async def test_existing_maintenance_link_undo_preserves_original_successor_parent(db_session):
+    from app.services.maintenance_service import activate_maintenance_for_parent
+    parents = [License(**_license_data(license_type=LicenseType.perpetual, end_date=None)) for _ in range(2)]
+    db_session.add_all(parents)
+    await db_session.flush()
+    predecessor = License(**_license_data(license_type=LicenseType.maintenance, parent_license_id=parents[0].id))
+    successor = License(**_license_data(license_type=LicenseType.maintenance, parent_license_id=parents[0].id))
+    db_session.add_all([predecessor, successor])
+    await db_session.flush()
+    for parent in parents:
+        await activate_maintenance_for_parent(db_session, predecessor, parent)
+    await activate_maintenance_for_parent(db_session, successor, parents[0])
+    await renewal_orchestrator._snapshot_existing_maintenance_link(db_session, predecessor, successor)
+    await renewal_orchestrator._activate_maintenance_successor_for_all_parents(db_session, predecessor, successor)
+    await renewal_orchestrator._finish_existing_maintenance_snapshot(db_session, predecessor)
+    await db_session.commit()
+    await renewal_orchestrator._restore_existing_maintenance_link(db_session, predecessor, successor)
+    await db_session.flush()
+    assert parents[0].active_maintenance_id == successor.id
+    assert parents[1].active_maintenance_id == predecessor.id
+    assert set((await db_session.scalars(select(LicenseMaintenanceLink.parent_license_id).where(
+        LicenseMaintenanceLink.maintenance_license_id == successor.id,
+    ))).all()) == {parents[0].id}

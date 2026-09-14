@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License
+from app.services.procurement_identity import normalize_po_number
 
 
 def procurement_identity_key(
@@ -23,7 +24,7 @@ def procurement_identity_key(
         return (f"pending-order:{pending_order_id}", normalized_currency)
     if procurement_bundle_id:
         return (f"procurement-bundle:{procurement_bundle_id}", normalized_currency)
-    normalized_po = " ".join((po_number or "").split()).casefold()
+    normalized_po = normalize_po_number(po_number)
     if normalized_po:
         return (f"po:{normalized_po}", normalized_currency)
     if license_id is not None:
@@ -55,9 +56,7 @@ def _identity_filter(
     if identity_value.startswith("procurement-bundle:"):
         return (License.procurement_bundle_id == procurement_bundle_id, currency_filter)
     if identity_value.startswith("po:"):
-        normalized_po_number = func.lower(func.trim(License.po_number))
-        for _ in range(8):
-            normalized_po_number = func.replace(normalized_po_number, "  ", " ")
+        normalized_po_number = func.licensetrack_normalize_po(License.po_number)
         return (
             normalized_po_number == identity_value[3:],
             License.pending_order_id.is_(None),

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
+from app.services.procurement_identity import normalize_po_number
 
 
 def enable_sqlite_foreign_keys(sync_engine) -> None:
@@ -12,6 +13,7 @@ def enable_sqlite_foreign_keys(sync_engine) -> None:
 
     @event.listens_for(sync_engine, "connect")
     def _set_pragma(dbapi_connection, connection_record):
+        dbapi_connection.create_function("licensetrack_normalize_po", 1, normalize_po_number, deterministic=True)
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()

@@ -189,6 +189,7 @@ class License(Base):
         DateTime(timezone=True), nullable=True
     )
     existing_successor_linked_by_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    existing_successor_maintenance_state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     existing_successor_original_ref: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # Former chain identities remain searchable and are never returned to the
     # reference sequence when an existing row joins a renewal chain.

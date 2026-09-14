@@ -279,3 +279,20 @@ async def _assert_no_successor_cycle(db: AsyncSession, *, start_id: int | None, 
         seen.add(current_id)
         current = await db.get(License, current_id)
         current_id = current.renewed_to_id if current is not None else None
+
+
+async def validate_established_renewal_terms(db: AsyncSession, license_obj: License) -> None:
+    predecessor_ids = list(dict.fromkeys([
+        predecessor_id for predecessor_id in (
+            license_obj.renewed_from_id,
+            license_obj.predecessor_id,
+            *(license_obj.coterm_from_ids or []),
+        ) if predecessor_id is not None
+    ]))
+    if predecessor_ids:
+        result = await db.execute(select(License).where(License.id.in_(predecessor_ids)))
+        assert_successor_term(list(result.scalars().all()), license_obj.start_date, license_obj.end_date)
+    if license_obj.renewed_to_id is not None:
+        successor = await db.get(License, license_obj.renewed_to_id)
+        if successor is not None:
+            assert_successor_term([license_obj], successor.start_date, successor.end_date)

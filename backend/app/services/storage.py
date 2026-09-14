@@ -263,6 +263,11 @@ async def save_sourcing_request_file(
     )
 
 
+def save_sourcing_request_bytes(content: bytes, filename: str, sourcing_request_id: int, storage_base: str | None = None) -> tuple[str, int]:
+    """Copy evidence to independently owned sourcing-request storage."""
+    return _save_bytes(content, filename, _sourcing_request_dir(sourcing_request_id, storage_base), storage_base)
+
+
 async def save_procurement_document_file(
     file: UploadFile,
     scope: ProcurementDocumentScope,

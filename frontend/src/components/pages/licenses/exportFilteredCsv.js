@@ -106,7 +106,7 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "contractNumber": return l.contractNumber ?? "";
         case "poNumber": return l.poNumber ?? "";
         case "procurementReference": return l.procurementReference ?? "";
-        case "invoiceNumber": return (l.invoiceNumbers?.length ? l.invoiceNumbers : [l.invoiceNumber]).filter(Boolean).join("; ");
+        case "invoiceNumber": return l.invoiceNumbers?.length > 1 ? JSON.stringify(l.invoiceNumbers) : (l.invoiceNumber ?? "");
         case "costCentre": return l.costCentre ?? "";
         case "supplier": return l.supplier ?? "";
         case "contactEmail": return l.contactEmail ?? "";
