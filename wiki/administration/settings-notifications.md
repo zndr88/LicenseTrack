@@ -24,6 +24,14 @@ Number formats are identified by their rendered pattern (`1,234.50`,
 personal number format as its default while allowing a per-file override for
 source data that uses another separator convention.
 
+## Session expiry
+
+Each login has an independently revocable session with server-enforced sliding
+expiry. Logout and inactivity expiry revoke the current session while preserving
+other device sessions. Browser tabs share activity, including panel scrolling,
+and protected requests coordinate with refresh. Users receive the configured
+timeout even when they cannot access administrator settings.
+
 ## Completeness and custom fields
 
 Admins choose which supported fields and evidence categories contribute to

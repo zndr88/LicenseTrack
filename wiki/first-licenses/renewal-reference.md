@@ -26,6 +26,14 @@ renewal link. Linking uses the same renewal-action window as initiation, but doe
 not require a budget owner. Open procurement work and existing renewal links must
 be resolved first.
 
+For maintenance renewals, the successor must also be a maintenance license.
+Linking activates successor coverage for every parent covered by the predecessor.
+Unlinking restores the previous parent coverage, relationships, and history. If
+coverage has changed since linking or the previous maintenance is no longer
+available, LicenseTrack stops the unlink so those relationships can be reviewed.
+Ordinary edits and CSV updates must preserve valid terms across established
+renewal links.
+
 An existing-purchase renewal has no new sourcing or pending-order stages to
 show. Its procurement trail records the predecessor and successor record IDs,
 PO number, former successor reference, actor, and link time, while preserving
@@ -70,6 +78,9 @@ predecessor is reread during conversion, so linking it while renewal sourcing
 is in progress makes the successor an ordinary linked maintenance record.
 
 ## Coterm renewals
+
+Repeated merges retain all earlier predecessor relationships. Quote evidence
+follows the merged lines; shared quotes also remain with unmerged sibling lines.
 
 Coterm work combines eligible renewal lines into a shared successor term. Review
 the selected predecessors, quantity, dates, and commercial terms together before

@@ -66,6 +66,7 @@ const HELP_ARTICLES = [
         bullets: [
           "Renewal successors inherit the predecessor license reference.",
           "When an existing license is linked as the successor, its former LT reference remains reserved, searchable, and visible in the procurement trail.",
+          "Linking an existing maintenance successor updates every parent covered by the predecessor. Unlinking restores the previous coverage and relationships; if coverage has changed since linking, review those relationships before unlinking.",
           "A secured successor removes further renewal actions and workbench alerts. The predecessor becomes Renewed only after its own term has ended and successor coverage has started; a date gap remains Expired until then.",
           "An expiring predecessor with an actual linked Upcoming successor shows Renews in X days, or Renews today, based on the successor start date. A coverage gap stays visible, and pending renewal procurement alone does not show this countdown.",
           "Cancel renewal work before it reaches a pending order when the purchasing motion changes.",
@@ -329,6 +330,7 @@ const HELP_ARTICLES = [
         bullets: [
           "At least one active local admin must always exist.",
           "The first admin is the protected break-glass admin.",
+          "Each login has its own session. Logout and inactivity expiry revoke that session without signing out other devices. Browser tabs share activity, including panel scrolling. Upgrading to 1.1.22 requires existing browser sessions to sign in again.",
           "SMTP passwords and OIDC client secrets are stored encrypted and returned as masked placeholders.",
           "Changing mandatory fields immediately changes completeness calculations when records are reloaded.",
           "The expiry alert window controls expiry presentation and notifications across the app. The separate Renewals setting controls when initiation and Link Existing Successor become available; until explicitly configured, it inherits the expiry alert value.",

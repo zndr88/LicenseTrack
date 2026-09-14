@@ -130,7 +130,7 @@ presentation.
 | `RenewalWorkbenchTable.jsx` | Table and cell rendering; receives `visibleColumns`, `visibleRows`, `userSettings`, permissions, and handlers as props; threads `userSettings` through `renderCell` for locale-aware date and custom field display |
 | `RenewalWorkbenchToolbar.jsx` | Search input, view chip strip, column picker; owns `columnsOpen` state and outside-click dismiss |
 
-`RenewalWorkbenchPage.jsx` runs queries, manages page-level state (`view`, `search`, `startingId`), persists column visibility via `updateSettings`, and composes the four sub-modules. It derives renewal bundle membership from the complete workbench response, not the filtered or currently visible rows; bundles still require the same normalized PO number, the same end date, and ordinary renewal eligibility. No domain logic or rendering logic belongs in the shell.
+`RenewalWorkbenchPage.jsx` runs queries, manages page-level state (`view`, `search`, `startingId`), persists column visibility via `updateSettings`, and composes the four sub-modules. It derives renewal bundle membership from the complete workbench response, not the filtered or currently visible rows; bundles still require matching PO text, the same end date, and ordinary renewal eligibility. The frontend compares PO strings exactly; backend batch initiation trims surrounding whitespace. Neither uses the case-folded financial PO identity. No domain logic or rendering logic belongs in the shell.
 
 ## Procurement Page Sub-Module Pattern
 
@@ -228,12 +228,13 @@ session storage; table-specific search stays inside the owning report section.
 
 Cost Overview keeps two separate spend meanings. Spend by License sums strict
 line values (`quantity * unit_price`) for the attributable headline comparison.
-Spend by PO Value groups nonblank PO numbers, uses
+Spend by PO Value groups records by procurement identity and currency, uses
 `po_total_override` once when present, otherwise sums line values, and treats
 PO-less records individually. The Difference is PO-value spend minus
 license-line spend. Never replicate a PO override into publisher/vendor,
 lifecycle, or forecast calculations because no line allocation exists. Preserve
-currency grouping in all three totals.
+currency grouping in all three totals. Pending-order and manual-bundle identities
+take precedence over PO text, including when multiple groups reuse a PO number.
 
 `backend/app/services/reporting_service.py` owns the detailed reconciliation
 models. PO overrides are resolved by pending-order ID, procurement-bundle ID,
@@ -392,6 +393,12 @@ are excluded from expiry and notice alerts. Email delivery claims the singleton
 database-backed run slot before sending and persists a compact admin-only
 outcome summary.
 
+The scheduler anchors each cycle's due times before webhook dispatch, evidence
+recovery, and retirement work so crossing a configured hour does not skip that
+cycle's notification or backup job. Webhook dispatch first collects due delivery
+IDs, then loads and commits each delivery in a separate session; one delivery's
+write transaction is not held open during later deliveries.
+
 Admin settings are grouped into four product areas:
 
 - General: storage, notifications, SMTP, and OIDC.
@@ -412,6 +419,10 @@ mutation boundary; `frontend/src/api/referenceData.js`,
 access, selection, and admin catalog surfaces respectively.
 
 The restore flow in `backend/app/routes/backup.py` must quiesce all database connections before swapping the file: `await db.close()` closes the request-scoped session, then `await engine.dispose()` drains the connection pool, then `backup_service.restore_backup()` deletes stale `-wal`/`-shm` files and replaces the `.db` file. When `RESTART_AFTER_RESTORE=true`, the route schedules `os.kill(SIGTERM)` after the response so a process manager can restart the API. The native systemd unit deliberately uses `Restart=always`: SIGTERM is a clean process exit, so `Restart=on-failure` leaves the service stopped after a successful restore. Native upgrades must republish and reload the current service template so lifecycle-policy fixes reach existing installs. Do not reorder or remove these steps - out-of-order execution leaves file handles open (Windows) or stale WAL pages that corrupt the restored database on restart.
+
+`restore_maintenance.py` blocks new ordinary requests and scheduler database jobs
+and waits for active requests and background jobs to drain before replacement.
+Keep scheduler work inside its `_run_database_job` coordination boundary.
 
 Restore accepts either an uploaded archive or an exact allow-listed filename
 returned by the configured server backup directory. `backup_service` classifies
@@ -466,6 +477,21 @@ categories, but default to license ownership. The upload route accepts
 `scope=auto|shared|license`; only procurement categories may use shared
 ownership, and an explicit license scope overrides the historical category
 default.
+
+Financial PO identity uses `procurement_identity_key` in
+`po_total_override_service.py`: pending-order ID, then procurement-bundle ID,
+then normalized PO text, with currency in every group; unkeyed records remain
+individual. `procurement_identity.py` collapses whitespace and case-folds PO
+numbers, and `database.py` registers the same normalization for SQLite lookups.
+Currency reassignment resolves the target group's override instead of carrying
+the old currency's amount. Registry CSV exports use this financial identity and
+include available shared documents when calculating completeness.
+
+Invoice CSV cells preserve multiple identifiers as a JSON string array; a single
+identifier remains plain text, including any commas inside it.
+`import_/invoice_values.py` parses this representation without splitting a
+single identifier on commas. Imported bundled support mirrors are synchronized
+through `support_coverage_defaults.py` after field updates.
 
 Single and bulk license deletion collect only license-owned `Document` paths
 inside the transaction, commit database and audit changes first, then remove
@@ -651,6 +677,14 @@ columns with their historical defaults so the 1.1.15 ORM can start after a
 code-and-schema rollback; the native upgrade workflow's recovery archive is
 the authoritative way to preserve the exact pre-upgrade database.
 
+The scheduled-retirement revision `e2f3a4b5c6d7`, corrected in 1.1.20, schedules
+eligible retired records ending today or later, but leaves retired parentless
+maintenance without the legacy-unlinked exception retired to preserve its check
+constraint. Downgrade materializes scheduled retirement before removing the flag.
+The 1.1.22 revision `c1a2b3d4e5f6` rebuilds `users` with SQLite AUTOINCREMENT so
+deleted account IDs are not reused by later accounts authenticated through JWT
+subjects.
+
 `backend/app/routes/licenses.py` is now a thin route module. It should own auth, request parsing, query composition for reads, and audit-log wiring. It should not reintroduce field-level patch validation, maintenance-parent invariants, or response enrichment logic that now live in the license services.
 
 Settings routes are split by responsibility while preserving existing API paths. `backend/app/routes/user_settings.py` owns `GET/PUT /api/settings`; `backend/app/routes/global_settings.py` owns global settings read/update endpoints; `backend/app/routes/integrations.py` owns admin integration actions such as test email and manual notification trigger; `backend/app/routes/backup.py` owns database backup/restore; and `backend/app/routes/operations.py` owns destructive operational maintenance such as the fixed-scope portfolio reset. `backend/app/routes/settings.py` remains only as a compatibility aggregator for older imports. Backup operations read their decision settings directly from the request session because those values must be authoritative; they must not use the TTL-cached settings service. A successful database restore invalidates the shared settings cache immediately after the replacement database is installed.
@@ -670,7 +704,9 @@ pending-order line. `pending_order_id` is authoritative whenever present, even i
 the row also carries `shared_po_number`; unrelated pending orders therefore never
 share evidence merely because their PO text matches. For direct/manual workflows,
 new explicitly shared uploads may use normalized `shared_po_number` so licenses with
-the same trimmed PO see the evidence; `procurement_bundle_id` continues to identify
+the same trimmed PO see the evidence; here normalization is trimming only, with
+case-sensitive matching and no internal-whitespace collapsing. It is distinct
+from financial PO grouping. `procurement_bundle_id` continues to identify
 one creation batch and preserve older bundle-owned rows. `license_id` owns a Single
 upload. The additive shared-PO field does not migrate, move, or backfill existing
 documents.
@@ -705,7 +741,8 @@ viewing window. Linking requires an eligible predecessor and an Active or Upcomi
 same-publisher successor that extends coverage and has no incoming renewal link.
 Publisher is the only required matching identity field, normalized for case and
 whitespace. Description, PO number, SKU, metric, and license type may differ;
-both records must still be eligible renewable types. The
+both records must still be eligible renewable types, and a maintenance predecessor
+requires a maintenance successor. The
 operation uses the ordinary `renewed_to_id`, `renewed_from_id`, and
 `predecessor_id` chain, preserves the successor's former LT reference in
 `license_ref_aliases`, and stores link provenance on the predecessor so the
@@ -717,6 +754,24 @@ starts, and is presented as Renewed only after its term has ended and successor
 coverage has begun. Renewal actions, alerts, and workbench rows are suppressed
 as soon as the successor is secured. Current-cost reporting continues to include
 the predecessor while its coverage remains current.
+
+Existing-successor linking conditionally reserves both records before changing
+the chain. For maintenance, it activates the successor for every predecessor
+parent and persists `existing_successor_maintenance_state` with the previous
+parent mirrors, added associations, and added coverage-history IDs. Unlinking
+restores that snapshot only while each saved parent still exists and points to
+the successor as active maintenance, and any previous active maintenance still
+exists and is not retired. These checks concern active-record assignments;
+they do not compare every mirrored field for later edits. A failed check returns
+a conflict. Links created before snapshot support have no snapshot to restore.
+The additive snapshot migration is
+`d2b3c4d5e6f7`.
+
+Ordinary writes and CSV updates that change term dates validate established renewal terms through
+`lifecycle_rules.py`; pending-renewal state remains workflow-owned. Repeated
+coterm sourcing merges preserve the complete predecessor set and move line-owned
+quotes with their lines. Request-shared quotes are copied to independent storage
+when unmerged siblings remain, with file compensation on a failed merge.
 
 The UI and backend must use the same renewal-action boundary. Procurement initiation
 still requires a budget owner; linking an already-purchased successor does not.
@@ -869,3 +924,10 @@ between tabs already holding the same identity, without persisting tokens.
 Activity and logout locking are shared within the frontend origin. Browser-session
 cookies still use SameSite=Lax; cross-site split deployments rely on bearer login
 and must sign in again after a reload if the browser cannot send the API cookie.
+
+`useAuth.js` cancels queries and clears the TanStack Query cache and dismissed
+attention state on manual, inactivity, or cross-tab logout. The API client shares
+one in-flight refresh per tab, waits for it before protected requests, and uses a
+session-generation counter to ignore stale authentication responses. Activity,
+lock, and expiry metadata are shared through localStorage; bearer credentials
+are shared through BroadcastChannel and retained only in memory.

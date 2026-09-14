@@ -24,6 +24,22 @@ retrying the upgrade.
 
 ## Before upgrading
 
+### Upgrading to 1.1.22
+
+This patch includes migrations for non-reusable user IDs, maintenance coverage
+restoration when unlinking an existing successor, and independently revocable
+login sessions. They run through the normal startup migration process.
+
+Existing browser sessions require a fresh sign-in after upgrading. Each login
+has its own sliding expiry; logging out or reaching the inactivity timeout
+revokes that session without signing out other devices. Browser tabs share
+activity, and panel scrolling counts as activity. Split API deployments retain
+in-memory bearer tokens and may require another sign-in after a page reload if
+the browser cannot send the API session cookie.
+
+Downgrading the session migration removes login-session identities and also
+requires a fresh sign-in. Keep the full pre-upgrade volume backup for rollback.
+
 From the current install directory, identify the volume mounted at `/data`:
 
 ```bash
@@ -79,7 +95,7 @@ curl http://localhost:8080/api/health
 The health response should include the expected version:
 
 ```json
-{"status":"ok","version":"1.1.21"}
+{"status":"ok","version":"1.1.22"}
 ```
 
 Log in and smoke-test license listing, document downloads, settings, backup listing, and any configured SMTP/OIDC integrations.
@@ -152,7 +168,7 @@ podman rm licensetrack
 Build the new image from the release source:
 
 ```bash
-podman build -t license-lifecycle-system:1.1.21 .
+podman build -t license-lifecycle-system:1.1.22 .
 ```
 
 Start the new container with the same volume mounted at `/data`:
@@ -161,7 +177,7 @@ Start the new container with the same volume mounted at `/data`:
 podman run -d --name licensetrack -p 8080:8000 \
   --env-file .env \
   -v license_lifecycle_data:/data \
-  license-lifecycle-system:1.1.21
+  license-lifecycle-system:1.1.22
 ```
 
 Check health:

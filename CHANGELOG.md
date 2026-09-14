@@ -13,7 +13,7 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
-## [1.1.22] - Unreleased
+## [1.1.22] - 2026-09-14
 
 This is a patch update focused on lifecycle correctness, procurement evidence,
 CSV round trips, background jobs, and reliable session expiry and logout.
