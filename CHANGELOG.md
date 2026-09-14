@@ -13,6 +13,62 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.22] - Unreleased
+
+This is a patch update focused on lifecycle correctness, procurement evidence,
+CSV round trips, background jobs, and reliable session expiry and logout.
+
+### Fixed
+
+- Fixed concurrent existing-successor linking allowing conflicting renewal links,
+  and protected pending-renewal lifecycle state from ordinary edits.
+- Validated established renewal terms when editing either side of a renewal chain
+  and when importing successors, including coterm predecessor relationships.
+- Fixed existing maintenance-successor linking to activate coverage for every
+  parent and require a maintenance successor. Unlinking now restores the previous
+  parent coverage, relationships, and history, with conflict checks when coverage
+  has changed since linking.
+- Protected maintenance creation from lifecycle-field overrides, allowed valid
+  edits to retired unlinked maintenance, and prevented unchanged parent selections
+  from reactivating maintenance. Date edits now normalize scheduled-retirement state.
+- Fixed repeated coterm merges losing earlier predecessor relationships and quote
+  evidence. Shared quotes remain available to unmerged sibling lines, while
+  line-specific evidence follows its merged line and failed copies are cleaned up.
+- Preserved support fallback fields during pending-order conversion and avoided
+  scheduling quote-evidence transfers for sourcing requests without quote documents.
+- Fixed purchase-order total matching and Registry CSV grouping to use normalized
+  procurement identity, keeping separate pending orders isolated even when they
+  reuse a PO number. Currency changes now clear incompatible standalone PO overrides.
+- Fixed CSV completeness checks omitting shared documents, preserved multiple
+  invoice identifiers without splitting identifiers containing commas, and kept
+  bundled support fields synchronized during CSV updates.
+- Fixed secondary-contact formatting to accept both stored lists and text values.
+- Prevented deleted user IDs from being reused by newly created accounts.
+- Fixed daily notification and backup jobs being skipped when background work
+  crossed their scheduled time, and released webhook database transactions between
+  deliveries to avoid holding them open during network requests.
+- Fixed session expiry, refresh coordination, and delayed logout or refresh responses
+  interfering with a later login. Each login now has an independently revocable
+  session with server-enforced sliding expiry; logout and inactivity expiry revoke
+  the current session while preserving other device sessions.
+- Coordinated protected requests with session refresh, shared activity across browser
+  tabs, counted panel scrolling as activity, and exposed the configured timeout to
+  non-admin users. Split deployments refresh from each tab's actual bearer-token expiry.
+- Cleared cached application data on logout and expanded regression coverage for
+  lifecycle, procurement, CSV, background-job, and authentication fixes.
+
+### Documentation
+
+- Refreshed the public website and demo presentation, added an illustrated demo
+  walkthrough, and reorganized operator guidance for evaluation, prerequisites,
+  first login, CSV imports, and renewal workflows with focused reference pages.
+
+This release includes database migrations to prevent user ID reuse, retain
+maintenance state for undoing existing-successor links, and track independently
+revocable login sessions. Existing browser sessions require a fresh sign-in after
+upgrade. Downgrading the session migration also requires users to sign in again.
+No breaking public API change is included in this release.
+
 ## [1.1.21] - 2026-09-10
 
 ### Added
@@ -1547,7 +1603,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.21...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.22...HEAD
+[1.1.22]: https://github.com/zndr88/LicenseTrack/compare/v1.1.21...v1.1.22
 [1.1.21]: https://github.com/zndr88/LicenseTrack/compare/v1.1.20...v1.1.21
 [1.1.20]: https://github.com/zndr88/LicenseTrack/compare/v1.1.19...v1.1.20
 [1.1.19]: https://github.com/zndr88/LicenseTrack/compare/v1.1.18...v1.1.19
