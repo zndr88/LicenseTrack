@@ -55,8 +55,11 @@ def _identity_filter(
     if identity_value.startswith("procurement-bundle:"):
         return (License.procurement_bundle_id == procurement_bundle_id, currency_filter)
     if identity_value.startswith("po:"):
+        normalized_po_number = func.lower(func.trim(License.po_number))
+        for _ in range(8):
+            normalized_po_number = func.replace(normalized_po_number, "  ", " ")
         return (
-            func.lower(func.trim(License.po_number)) == identity_value[3:],
+            normalized_po_number == identity_value[3:],
             License.pending_order_id.is_(None),
             License.procurement_bundle_id.is_(None),
             currency_filter,
