@@ -23,7 +23,11 @@ from app.services.license_service import (
     compute_expiration_status,
 )
 from app.services.csv_safety import safe_csv_row
-from app.services.license_response_service import get_mandatory_fields, get_notification_days
+from app.services.license_response_service import (
+    get_mandatory_fields,
+    get_notification_days,
+    get_procurement_documents_by_scope,
+)
 from app.services.audit_service import log_event
 from app.services.po_total_override_service import procurement_identity_key
 
@@ -47,6 +51,7 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
     query = apply_department_filter(query, departments)
     result = await db.execute(query)
     licenses = list(result.scalars().all())
+    procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, licenses)
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -123,7 +128,10 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
             license_id=lic.id, pending_order_id=lic.pending_order_id,
             procurement_bundle_id=lic.procurement_bundle_id, po_number=lic.po_number, currency=lic.currency,
         )
-        docs = available_documents(lic.documents, storage_base)
+        docs = available_documents(
+            [*lic.documents, *procurement_documents_by_license_id.get(lic.id, [])],
+            storage_base,
+        )
         effective_quantity = calc_effective_quantity(lic.quantity, lic.quantity_per_unit)
         writer.writerow(
             safe_csv_row(
