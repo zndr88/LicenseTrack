@@ -86,6 +86,11 @@ def validate_general_license_update_fields(update_data: dict, license_obj: Licen
     if "lifecycle_status" in update_data:
         status_value = _value(update_data.get("lifecycle_status"))
         current_value = _value(license_obj.lifecycle_status)
+        if current_value == "pending_renewal" and status_value != current_value:
+            raise HTTPException(
+                status_code=400,
+                detail="Pending renewal lifecycle state can only be changed by the renewal workflow.",
+            )
         if status_value != current_value and status_value not in (None, "legacy"):
             raise HTTPException(
                 status_code=400,
