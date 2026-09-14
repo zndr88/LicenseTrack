@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { getSession, logoutSession, refreshSession } from "../api/auth.js";
 import { clearDismissedAttentionIds } from "../utils/licenseAttentionSession.js";
 import { useSessionTimeout } from "./useSessionTimeout.js";
@@ -18,6 +19,7 @@ export function toCurrentUser(apiUser) {
 }
 
 export function useAuth({ sessionTimeout, showToast }) {
+  const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
   const [authBootstrapping, setAuthBootstrapping] = useState(true);
   const lastRefreshAttemptRef = useRef(Date.now());
@@ -25,10 +27,12 @@ export function useAuth({ sessionTimeout, showToast }) {
 
   const handleSessionTimeout = useCallback(async () => {
     await logoutSession();
+    await queryClient.cancelQueries();
+    queryClient.clear();
     clearDismissedAttentionIds();
     setCurrentUser(null);
     showToast("Session expired due to inactivity.", "info");
-  }, [showToast]);
+  }, [queryClient, showToast]);
 
   const handleSessionActivity = useCallback(async () => {
     const refreshIntervalMs = sessionTimeout * 60 * 1000 / 2;
@@ -71,9 +75,11 @@ export function useAuth({ sessionTimeout, showToast }) {
 
   const handleLogout = useCallback(async () => {
     await logoutSession();
+    await queryClient.cancelQueries();
+    queryClient.clear();
     clearDismissedAttentionIds();
     setCurrentUser(null);
-  }, []);
+  }, [queryClient]);
 
   return {
     currentUser,
