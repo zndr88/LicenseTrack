@@ -173,6 +173,9 @@ async def resolve_reassigned_po_total_override(
             exclude_license_id=license_obj.id,
         )
 
+    if target_currency != old_currency:
+        return None
+
     if not old_po_number:
         return None
 
