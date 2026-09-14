@@ -987,7 +987,13 @@ async def _validate_maintenance_parent_transition(
             and license_obj.parent_license_id is None
             and new_parent_id is None
         )
-        if not grandfathered_legacy_unlinked:
+        retired_unlinked_maintenance = (
+            new_type == LicenseType.maintenance
+            and license_obj.is_retired
+            and license_obj.parent_license_id is None
+            and new_parent_id is None
+        )
+        if not grandfathered_legacy_unlinked and not retired_unlinked_maintenance:
             assert_maintenance_requires_parent(new_type, new_parent_id)
         assert_non_maintenance_has_no_parent(new_type, new_parent_id)
     except ValueError as exc:
