@@ -140,17 +140,21 @@ async def dispatch_pending_webhooks(limit: int = 20) -> int:
     now = datetime.now(timezone.utc)
     async with AsyncSessionLocal() as db:
         result = await db.execute(
-            select(WebhookDelivery)
+            select(WebhookDelivery.id)
             .where(WebhookDelivery.status == "pending")
             .where((WebhookDelivery.next_attempt_at.is_(None)) | (WebhookDelivery.next_attempt_at <= now))
             .order_by(WebhookDelivery.created_at.asc(), WebhookDelivery.id.asc())
             .limit(limit)
         )
-        deliveries = list(result.scalars().all())
-        for delivery in deliveries:
+        delivery_ids = list(result.scalars().all())
+    for delivery_id in delivery_ids:
+        async with AsyncSessionLocal() as db:
+            delivery = await db.get(WebhookDelivery, delivery_id)
+            if delivery is None or delivery.status != "pending":
+                continue
             await deliver_webhook_delivery(db, delivery)
-        await db.commit()
-        return len(deliveries)
+            await db.commit()
+    return len(delivery_ids)
 
 
 def encrypt_signing_secret(secret: str) -> str:
