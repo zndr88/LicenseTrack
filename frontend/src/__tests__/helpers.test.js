@@ -39,6 +39,26 @@ describe("getPoTotal", () => {
     expect(getPoTotal("PO-1", "EUR", licenses, licenses[0])).toBe(100);
     expect(getPoTotal("PO-1", "EUR", licenses, licenses[1])).toBe(200);
   });
+
+  it("normalizes standalone PO and currency identity consistently", () => {
+    const licenses = [
+      { id: 1, poNumber: "PO-123", currency: "EUR", quantity: "1", unitPrice: "100", retired: false },
+      { id: 2, poNumber: " po-123 ", currency: " eur ", quantity: "2", unitPrice: "100", retired: false },
+    ];
+
+    expect(getPoTotal("PO-123", "EUR", licenses, licenses[0])).toBe(300);
+    expect(getPoTotal(" po-123 ", " eur ", licenses, licenses[1])).toBe(300);
+  });
+
+  it("does not merge matching PO text across pending orders", () => {
+    const licenses = [
+      { id: 1, poNumber: "PO-123", currency: "EUR", pendingOrderId: 10, quantity: "1", unitPrice: "100", retired: false },
+      { id: 2, poNumber: "PO-123", currency: "EUR", pendingOrderId: 20, quantity: "2", unitPrice: "100", retired: false },
+    ];
+
+    expect(getPoTotal("PO-123", "EUR", licenses, licenses[0])).toBe(100);
+    expect(getPoTotal("PO-123", "EUR", licenses, licenses[1])).toBe(200);
+  });
 });
 
 describe("getCompleteness", () => {

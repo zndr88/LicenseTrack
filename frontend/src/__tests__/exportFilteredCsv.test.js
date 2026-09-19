@@ -116,6 +116,15 @@ describe('exportFilteredCsv', () => {
     expect(lines[1]).toBe('500')
   })
 
+  it('uses normalized procurement identity for Current View totals', () => {
+    const first = makeRow({ id: 1, poNumber: 'PO-123', currency: 'EUR', quantity: '1', unitPrice: '100' })
+    const second = makeRow({ id: 2, poNumber: ' po-123 ', currency: ' eur ', quantity: '2', unitPrice: '100' })
+
+    exportFilteredCsv([first], [{ key: 'totalPoPrice', label: 'Total PO Value' }], 'en-US', 'EUR', [first, second], new Map())
+
+    expect(csvLines()[1]).toBe('300')
+  })
+
   it('exports native effective quantity fields with importable headers', () => {
     const row = makeRow({ quantity: '7', effectiveQuantity: '35', quantityPerUnit: '5' })
     const cols = [

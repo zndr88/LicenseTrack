@@ -1,4 +1,7 @@
 import { NON_ENTITLEMENT_LICENSE_TYPES, NON_EXPIRING_LICENSE_TYPES } from "../constants/licenseData.js";
+import { getProcurementTotal } from "./procurementIdentity.js";
+
+export { hasSameProcurementIdentity } from "./procurementIdentity.js";
 
 // Permission Helpers
 export const isAdmin = (user) => user?.role === "admin";
@@ -57,23 +60,9 @@ export function formatPriceInput(value, locale = "en-US") {
   }
 }
 
-export const hasSameProcurementIdentity = (license, selected) => {
-  if (!license || !selected || license.currency !== selected.currency) return false;
-  if (selected.pendingOrderId != null) return license.pendingOrderId === selected.pendingOrderId;
-  if (selected.procurementBundleId) return license.procurementBundleId === selected.procurementBundleId;
-  return license.pendingOrderId == null && !license.procurementBundleId && license.poNumber === selected.poNumber;
-};
-
 export const getPoTotal = (poNumber, currency, allLicenses, selectedLicense = null) => {
-  if (!poNumber || !currency) return 0;
   const selected = selectedLicense ?? { poNumber, currency };
-  const matching = allLicenses.filter(
-    (license) => hasSameProcurementIdentity(license, selected) && !license.retired,
-  );
-  const override = matching.find((l) => l.poTotalOverride !== null && l.poTotalOverride !== undefined && l.poTotalOverride !== "");
-  if (override) return Number(override.poTotalOverride) || 0;
-  return matching
-    .reduce((sum, l) => sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0), 0);
+  return getProcurementTotal(selected, allLicenses);
 };
 
 export const getEffectiveQuantity = (license) => {
