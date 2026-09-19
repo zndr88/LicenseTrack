@@ -11,7 +11,7 @@
  *   POST /api/auth/change-password - change own password (authenticated)
  */
 
-import { apiUrl, coordinateRefresh, getSessionGeneration, startSessionTransition, getToken, isSessionLocked, lockSession, unlockSession, get, post, setToken } from "./client.js";
+import { apiUrl, coordinateRefresh, getSessionGeneration, startSessionTransition, getToken, isSessionLocked, lockSession, unlockSession, get, post, setSessionCoordinationId, sessionCoordinationKey, setToken } from "./client.js";
 
 /**
  * Detect the public authentication mode.
@@ -59,7 +59,7 @@ export async function login(username, password) {
 export async function logoutSession() {
   const token = getToken();
   lockSession();
-  window.localStorage.setItem("licensetrack.session.logout", String(Date.now()));
+  window.localStorage.setItem(sessionCoordinationKey("logout"), String(Date.now()));
   const { error } = await post("/api/auth/logout", undefined, {
     redirectOn401: false, signal: window.AbortSignal.timeout(10_000),
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -79,7 +79,8 @@ export async function getSession() {
   const result = await get("/api/auth/session", { redirectOn401: false });
   if (generation !== getSessionGeneration() || isSessionLocked()) return { data: { authenticated: false }, error: null };
   if (result.data?.expires_at) {
-    window.localStorage.setItem("licensetrack.session.expiry", String(result.data.expires_at * 1000));
+    setSessionCoordinationId(result.data.coordination_id);
+    window.localStorage.setItem(sessionCoordinationKey("expiry"), String(result.data.expires_at * 1000));
   }
   return result;
 }

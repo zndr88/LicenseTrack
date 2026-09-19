@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSession, logoutSession, refreshSession } from "../api/auth.js";
 import { clearDismissedAttentionIds } from "../utils/licenseAttentionSession.js";
-import { getSessionExpiry, lockSession, setSessionRefreshCheck } from "../api/client.js";
+import { getSessionExpiry, lockSession, sessionCoordinationKey, setSessionCoordinationId, setSessionRefreshCheck } from "../api/client.js";
 import { useSessionTimeout } from "./useSessionTimeout.js";
 
 export function toCurrentUser(apiUser) {
@@ -22,6 +22,7 @@ export function toCurrentUser(apiUser) {
 export function useAuth({ sessionTimeout, showToast }) {
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
+  const [coordinationId, setCoordinationId] = useState(null);
   const [authBootstrapping, setAuthBootstrapping] = useState(true);
   const bootstrapTimeoutRef = useRef(sessionTimeout);
   const lastRefreshAttemptRef = useRef(Date.now());
@@ -63,7 +64,7 @@ export function useAuth({ sessionTimeout, showToast }) {
   useEffect(() => {
     if (!currentUser) return;
     setSessionRefreshCheck(() => {
-      const activity = Number(window.localStorage.getItem("licensetrack.session.activity"));
+      const activity = Number(window.localStorage.getItem(sessionCoordinationKey("activity")));
       if (activity && Date.now() - activity < sessionTimeout * 60_000) return handleSessionActivity();
     });
     return () => setSessionRefreshCheck(null);
@@ -72,7 +73,7 @@ export function useAuth({ sessionTimeout, showToast }) {
   useSessionTimeout(
     currentUser ? sessionTimeout : 0,
     handleSessionTimeout,
-    handleSessionActivity,
+    handleSessionActivity, coordinationId,
   );
 
   useEffect(() => {
@@ -80,7 +81,9 @@ export function useAuth({ sessionTimeout, showToast }) {
     getSession().then(({ data }) => {
       if (cancelled) return;
       if (data?.authenticated && data.user) {
-        if (data.expires_at) window.localStorage.setItem("licensetrack.session.expiry", String(data.expires_at * 1000));
+        setSessionCoordinationId(data.coordination_id);
+        setCoordinationId(data.coordination_id ?? null);
+        if (data.expires_at) window.localStorage.setItem(sessionCoordinationKey("expiry"), String(data.expires_at * 1000));
         lastRefreshAttemptRef.current = data.expires_at
           ? data.expires_at * 1000 - bootstrapTimeoutRef.current * 60_000
           : Date.now();
@@ -95,7 +98,7 @@ export function useAuth({ sessionTimeout, showToast }) {
 
   useEffect(() => {
     const handleStorage = (event) => {
-      if (event.key === "licensetrack.session.logout") {
+      if (event.key === sessionCoordinationKey("logout")) {
         lockSession();
         setCurrentUser(null);
         void queryClient.cancelQueries().then(() => queryClient.clear());

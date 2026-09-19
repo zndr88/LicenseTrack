@@ -142,6 +142,7 @@ class LoginResponse(BaseModel):
 class SessionResponse(BaseModel):
     authenticated: bool
     expires_at: int | None = None
+    coordination_id: str | None = None
     user: UserOut | None = None
 
 
@@ -201,7 +202,12 @@ async def session(
     expires_at = human_session.expires_at
     if gs and gs.session_timeout > 0:
         expires_at = min(expires_at, issued_at + gs.session_timeout * 60)
-    return SessionResponse(authenticated=True, user=_user_out(user), expires_at=expires_at)
+    return SessionResponse(
+        authenticated=True,
+        user=_user_out(user),
+        expires_at=expires_at,
+        coordination_id=human_session.id,
+    )
 
 
 @router.post("/refresh", response_model=SessionRefreshResponse)

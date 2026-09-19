@@ -18,6 +18,11 @@ export function apiUrl(path) {
 // Only non-secret session metadata is shared between browser tabs.
 
 let token = null;
+let coordinationId = null;
+export function setSessionCoordinationId(value) { coordinationId = value || null; }
+export function sessionCoordinationKey(name) {
+  return coordinationId ? `licensetrack.session.${coordinationId}.${name}` : `licensetrack.session.${name}`;
+}
 const bearerDeployment = API_BASE_URL && new URL(API_BASE_URL, window.location.href).origin !== window.location.origin;
 const tokenChannel = typeof window.BroadcastChannel === "function"
   ? new window.BroadcastChannel("licensetrack.session.credentials") : null;
@@ -39,14 +44,14 @@ export function getSessionExpiry() {
       return Number.isFinite(expiry) && expiry > 0 ? expiry : 0;
     } catch { return 0; }
   }
-  return Number(window.localStorage.getItem("licensetrack.session.expiry")) || 0;
+  return Number(window.localStorage.getItem(sessionCoordinationKey("expiry"))) || 0;
 }
 export function getToken() { return token; }
 let refreshPromise = null;
 let refreshCheck = null;
 export function setSessionRefreshCheck(check) { refreshCheck = check; }
 let sessionGeneration = 0;
-let locallyLocked = window.localStorage.getItem("licensetrack.session.locked") === "true";
+let locallyLocked = false;
 export function startSessionTransition() {
   sessionGeneration += 1;
   clearToken();
@@ -56,11 +61,11 @@ export function getSessionGeneration() { return sessionGeneration; }
 export function isSessionLocked() { return locallyLocked; }
 export function unlockSession() {
   locallyLocked = false;
-  window.localStorage.removeItem("licensetrack.session.locked");
+  window.localStorage.removeItem(sessionCoordinationKey("locked"));
 }
 export function lockSession() {
   locallyLocked = true;
-  window.localStorage.setItem("licensetrack.session.locked", "true");
+  window.localStorage.setItem(sessionCoordinationKey("locked"), "true");
   sessionGeneration += 1;
   clearToken();
 }
@@ -79,19 +84,20 @@ export function setToken(value, broadcast = true) {
     } catch { /* Demo tokens have no expiry claims. */ }
   }
   token = value;
+  setSessionCoordinationId(tokenSessionId(value));
   if (broadcast) tokenChannel?.postMessage({ token: value });
   // Same-origin requests use the stable cookie. Bearers never enter localStorage.
   unlockSession();
   try {
     const payload = JSON.parse(window.atob(value.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-    window.localStorage.setItem("licensetrack.session.expiry", String(payload.exp * 1000));
+    window.localStorage.setItem(sessionCoordinationKey("expiry"), String(payload.exp * 1000));
   } catch { /* Demo tokens do not contain JWT claims. */ }
 }
 
 /** Clear local expiry metadata. */
 export function clearToken() {
   token = null;
-  window.localStorage.removeItem("licensetrack.session.expiry");
+  window.localStorage.removeItem(sessionCoordinationKey("expiry"));
 }
 
 /**
