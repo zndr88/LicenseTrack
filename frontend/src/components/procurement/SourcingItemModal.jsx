@@ -371,7 +371,7 @@ const SourcingItemModal = ({
             primaryItem,
             ...additionalLines.map((line) => sourcingAdditionalLineToPayload(
               { ...line, parentItemIndex: line.parentLineId
-                ? additionalLines.findIndex((candidate) => candidate.id === line.parentLineId) + 1
+                ? (additionalLines.findIndex((candidate) => candidate.id === line.parentLineId) + 1) || null
                 : line.parentItemIndex }, customFieldDefs, userSettings,
             )),
           ],

@@ -49,7 +49,6 @@ export default function WorkflowDocumentsModal({
       titleId="dialog-title-workflow-documents"
       onClose={requestClose}
       modalClassName="modal document-assisted-modal procurement-document-modal"
-      modalStyle={{ width: "min(760px, 94vw)", maxWidth: "min(760px, 94vw)", maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
       footer={<>
         <button type="button" className="btn btn-g" onClick={requestClose} disabled={saving}>Close</button>
         {!readOnly && <button type="button" className="btn btn-p" onClick={saveDocuments} disabled={saving || !attachments.length}>

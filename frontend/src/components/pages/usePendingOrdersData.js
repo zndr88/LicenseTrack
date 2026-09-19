@@ -8,7 +8,6 @@ import {
   createPendingOrder as apiCreatePendingOrder,
   deletePendingOrderDocument,
   deletePendingOrderItem as apiDeletePendingOrderItem,
-  downloadPendingOrderDocument,
   exportPendingOrdersCsv,
   getPendingOrderHistory,
   getPendingOrders,
@@ -19,7 +18,6 @@ import {
 } from "../../api/pendingOrders.js";
 import {
   deleteSourcingQuoteDocument,
-  downloadSourcingQuoteDocument,
 } from "../../api/sourcing.js";
 import { queryKeys } from "../../queryKeys.js";
 import { invalidateProcurementRenewalState } from "../../queryInvalidation.js";
@@ -319,24 +317,6 @@ export function usePendingOrdersData({
     return true;
   }, [showError, showSuccess, queryClient, onPortfolioStateChange, onRenewalsReload]);
 
-  const handleUploadPurchaseOrderDocument = useCallback(async (orderId, file) => {
-    const { error } = await uploadPendingOrderDocument(orderId, file);
-    if (error) { showError(error); return false; }
-    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
-    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
-    showSuccess("Purchase order uploaded.");
-    return true;
-  }, [showError, showSuccess, queryClient]);
-
-  const handleDownloadPurchaseOrderDocument = useCallback(async (document) => {
-    const { error } = await downloadPendingOrderDocument(
-      document.id,
-      document.originalFilename ?? document.original_filename,
-    );
-    if (error) { showError(error); return false; }
-    return true;
-  }, [showError]);
-
   const handleDeletePurchaseOrderDocument = useCallback(async (document) => {
     const { error } = await deletePendingOrderDocument(document.id);
     if (error) { showError(error); return false; }
@@ -345,15 +325,6 @@ export function usePendingOrdersData({
     showSuccess("Purchase order deleted.");
     return true;
   }, [showError, showSuccess, queryClient]);
-
-  const handleDownloadSourcingQuote = useCallback(async (document) => {
-    const { error } = await downloadSourcingQuoteDocument(
-      document.id,
-      document.originalFilename ?? document.original_filename,
-    );
-    if (error) { showError(error); return false; }
-    return true;
-  }, [showError]);
 
   const handleDeleteSourcingQuote = useCallback(async (document) => {
     const { error } = await deleteSourcingQuoteDocument(document.id);
@@ -423,10 +394,7 @@ export function usePendingOrdersData({
     handleAddPOItems,
     handleUpdatePOItem,
     handleDeletePOItem,
-    handleUploadPurchaseOrderDocument,
-    handleDownloadPurchaseOrderDocument,
     handleDeletePurchaseOrderDocument,
-    handleDownloadSourcingQuote,
     handleDeleteSourcingQuote,
     handleRetryEvidenceTransfer,
     handleBatchConvert,
