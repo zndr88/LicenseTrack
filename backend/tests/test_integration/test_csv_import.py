@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 
 from app.models.custom_fields import CustomFieldValue
-from app.models.license import License, LicenseMaintenanceLink, LicenseType
+from app.models.license import License, LicenseMaintenanceLink, LicenseMetric, LicenseType
 from app.models.settings import UserSettings
 from app.models.user import User
 
@@ -2748,18 +2748,22 @@ async def test_csv_import_sets_predecessor_id_when_unambiguous(test_app, auth_he
         publisher_name="Vendor", software_description="Suite",
         license_type=LicenseType.subscription, license_metric=LicenseMetric.per_user,
         license_ref="LT-UNIQ-001",
+        start_date=date.today(),
+        end_date=date.today() + timedelta(days=30),
     )
     db_session.add(predecessor)
     await db_session.commit()
 
     csv_bytes = _make_csv(
-        ["publisher_name", "software_description", "license_type", "parent_license_ref"],
+        ["publisher_name", "software_description", "license_type", "parent_license_ref", "start_date", "end_date"],
         [
             {
                 "publisher_name": "Vendor",
                 "software_description": "Suite v2",
                 "license_type": "subscription",
                 "parent_license_ref": "LT-UNIQ-001",
+                "start_date": (date.today() + timedelta(days=31)).isoformat(),
+                "end_date": (date.today() + timedelta(days=395)).isoformat(),
             }
         ],
     )
@@ -2785,6 +2789,49 @@ async def test_csv_import_sets_predecessor_id_when_unambiguous(test_app, auth_he
     await db_session.refresh(predecessor)
     assert predecessor.lifecycle_status == "renewed"
     assert predecessor.renewed_to_id == imported.id
+
+
+async def test_csv_import_rejects_renewal_without_dates_and_preserves_predecessor(
+    test_app, auth_headers, db_session
+):
+    predecessor = License(
+        publisher_name="Vendor",
+        software_description="Termed Suite",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        license_ref="LT-TERM-REQUIRED-001",
+        start_date=date.today(),
+        end_date=date.today() + timedelta(days=30),
+    )
+    db_session.add(predecessor)
+    await db_session.commit()
+
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type", "parent_license_ref"],
+        [{
+            "publisher_name": "Vendor",
+            "software_description": "Termed Suite Renewal",
+            "license_type": "subscription",
+            "parent_license_ref": "LT-TERM-REQUIRED-001",
+        }],
+    )
+
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("renewal-without-dates.csv", csv_bytes, "text/csv")},
+        data={"acknowledge_warnings": "true"},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["importedCount"] == 0
+    assert body["skippedCount"] == 1
+    assert body["errors"][0]["rowNumber"] == 1
+    assert "end date" in body["errors"][0]["reason"].lower()
+    await db_session.refresh(predecessor)
+    assert predecessor.lifecycle_status is None
+    assert predecessor.renewed_to_id is None
 
 
 # ---------------------------------------------------------------------------
@@ -2963,18 +3010,22 @@ async def test_csv_import_wires_renewal_chain_bidirectionally(
         license_type=LicenseType.subscription,
         license_metric=LicenseMetric.per_user,
         license_ref="LT-CHAIN-WIRE-001",
+        start_date=date.today(),
+        end_date=date.today() + timedelta(days=30),
     )
     db_session.add(predecessor)
     await db_session.commit()
 
     csv_bytes = _make_csv(
-        ["publisher_name", "software_description", "license_type", "parent_license_ref"],
+        ["publisher_name", "software_description", "license_type", "parent_license_ref", "start_date", "end_date"],
         [
             {
                 "publisher_name": "Vendor",
                 "software_description": "Chain Suite v2",
                 "license_type": "subscription",
                 "parent_license_ref": "LT-CHAIN-WIRE-001",
+                "start_date": (date.today() + timedelta(days=31)).isoformat(),
+                "end_date": (date.today() + timedelta(days=395)).isoformat(),
             }
         ],
     )
