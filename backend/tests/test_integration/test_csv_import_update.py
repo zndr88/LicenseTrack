@@ -479,11 +479,12 @@ async def test_preview_suppresses_ref_duplicate_warning_when_updating(test_app, 
 
 
 async def test_exported_invoice_cell_preserves_identifiers_on_update(test_app, auth_headers, db_session):
-    import json
+    from app.services.import_.invoice_values import serialize_invoice_cell
+
     created = await _create_license(test_app, auth_headers, invoiceNumber="INV;1")
     obj = await db_session.get(License, created["id"])
     invoices = ["INV;1", 'INV,"2']
-    row = _full_row(created["licenseRef"], invoice_number=json.dumps(invoices))
+    row = _full_row(created["licenseRef"], invoice_number=serialize_invoice_cell(invoices, invoices[0]))
     await apply_import_update(obj, row, {}, db_session, "en-US", "DD/MM/YYYY")
     assert obj.invoice_number == invoices[0]
     assert obj.invoice_numbers == invoices

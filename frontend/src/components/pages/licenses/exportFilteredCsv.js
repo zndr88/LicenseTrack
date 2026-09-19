@@ -2,6 +2,14 @@ import { getPoTotal } from "../../../utils/helpers.js";
 import { formatDate, formatDateTime } from "../../../utils/formatting.js";
 import { getCalcTotalValue } from "../../../utils/sort.js";
 
+const INVOICE_LIST_PREFIX = "LT-INVOICES:";
+
+function serializeInvoiceCell(invoiceNumbers, invoiceNumber) {
+  return invoiceNumbers?.length > 1
+    ? `${INVOICE_LIST_PREFIX}${JSON.stringify(invoiceNumbers)}`
+    : (invoiceNumber ?? "");
+}
+
 // Maps export column keys to stable CSV headers. Importable native fields use
 // snake_case; read-only metadata may also opt in when the importer ignores it.
 const STABLE_EXPORT_FIELD_NAMES = {
@@ -106,7 +114,7 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "contractNumber": return l.contractNumber ?? "";
         case "poNumber": return l.poNumber ?? "";
         case "procurementReference": return l.procurementReference ?? "";
-        case "invoiceNumber": return l.invoiceNumbers?.length > 1 ? JSON.stringify(l.invoiceNumbers) : (l.invoiceNumber ?? "");
+        case "invoiceNumber": return serializeInvoiceCell(l.invoiceNumbers, l.invoiceNumber);
         case "costCentre": return l.costCentre ?? "";
         case "supplier": return l.supplier ?? "";
         case "contactEmail": return l.contactEmail ?? "";

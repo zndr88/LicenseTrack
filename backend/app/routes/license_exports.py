@@ -1,6 +1,5 @@
 import csv
 import io
-import json
 from datetime import date
 from decimal import Decimal
 from typing import Annotated
@@ -24,6 +23,7 @@ from app.services.license_service import (
     compute_expiration_status,
 )
 from app.services.csv_safety import safe_csv_row
+from app.services.import_.invoice_values import serialize_invoice_cell
 from app.services.license_response_service import (
     get_mandatory_fields,
     get_notification_days,
@@ -159,7 +159,7 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
                     lic.contract_number,
                     lic.po_number,
                     lic.procurement_reference,
-                    json.dumps(lic.invoice_numbers, ensure_ascii=False) if len(lic.invoice_numbers or []) > 1 else lic.invoice_number,
+                    serialize_invoice_cell(lic.invoice_numbers, lic.invoice_number),
                     lic.contact_email,
                     lic.supplier,
                     lic.cost_centre,
