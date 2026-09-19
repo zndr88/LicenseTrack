@@ -7,7 +7,6 @@ os.environ.setdefault("JWT_SECRET", "test-secret-not-for-production")
 import pytest
 import bcrypt
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.database import Base, get_db, enable_sqlite_foreign_keys
@@ -62,15 +61,10 @@ async def db_session():
     async with session_factory() as session:
         yield session
 
-    async with engine.begin() as conn:
-        # Disable FK enforcement for teardown so that SQLAlchemy's drop_all
-        # table-ordering logic (which uses CASCADE SET NULL on self-referential
-        # FK columns) does not trip the ck_license_maintenance_has_parent CHECK
-        # constraint.  The engine is disposed immediately after, so there is no
-        # risk of leaving enforcement off for a live session.
-        await conn.execute(text("PRAGMA foreign_keys=OFF"))
-        await conn.run_sync(Base.metadata.drop_all)
-
+    # The database lives only in this per-test engine's connection pool, so
+    # disposing the engine discards every table with it. An explicit drop_all is
+    # redundant here (and previously needed a FK-off dance to avoid tripping the
+    # self-referential maintenance CHECK constraint during table ordering).
     await engine.dispose()
 
 
