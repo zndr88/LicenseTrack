@@ -8,8 +8,9 @@ import secrets
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
@@ -19,6 +20,7 @@ from app.services.ssrf_guard import check_ssrf
 
 MAX_WEBHOOK_ATTEMPTS = 5
 WEBHOOK_TIMEOUT_SECONDS = 10
+WEBHOOK_CLAIM_TIMEOUT = timedelta(minutes=5)
 
 
 class _SsrfRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -138,23 +140,98 @@ async def deliver_webhook_delivery(db: AsyncSession, delivery: WebhookDelivery) 
 
 async def dispatch_pending_webhooks(limit: int = 20) -> int:
     now = datetime.now(timezone.utc)
+    stale_before = now - WEBHOOK_CLAIM_TIMEOUT
+    eligible = or_(
+        and_(
+            WebhookDelivery.status == "pending",
+            or_(WebhookDelivery.next_attempt_at.is_(None), WebhookDelivery.next_attempt_at <= now),
+        ),
+        and_(
+            WebhookDelivery.status == "processing",
+            or_(WebhookDelivery.claimed_at.is_(None), WebhookDelivery.claimed_at <= stale_before),
+        ),
+    )
     async with AsyncSessionLocal() as db:
         result = await db.execute(
             select(WebhookDelivery.id)
-            .where(WebhookDelivery.status == "pending")
-            .where((WebhookDelivery.next_attempt_at.is_(None)) | (WebhookDelivery.next_attempt_at <= now))
+            .where(eligible)
             .order_by(WebhookDelivery.created_at.asc(), WebhookDelivery.id.asc())
             .limit(limit)
         )
         delivery_ids = list(result.scalars().all())
+    delivered_count = 0
     for delivery_id in delivery_ids:
+        claim_token = secrets.token_urlsafe(32)
+        async with AsyncSessionLocal() as db:
+            claim = await db.execute(
+                update(WebhookDelivery)
+                .where(WebhookDelivery.id == delivery_id)
+                .where(eligible)
+                .values(status="processing", claim_token=claim_token, claimed_at=now)
+            )
+            await db.commit()
+            if not claim.rowcount:
+                continue
+
+        # The claim is committed above. Network I/O deliberately happens with
+        # no database session or transaction held open.
         async with AsyncSessionLocal() as db:
             delivery = await db.get(WebhookDelivery, delivery_id)
-            if delivery is None or delivery.status != "pending":
+            endpoint = await db.get(WebhookEndpoint, delivery.endpoint_id) if delivery else None
+            if delivery is None or delivery.claim_token != claim_token:
                 continue
-            await deliver_webhook_delivery(db, delivery)
+            delivery_snapshot = SimpleNamespace(
+                id=delivery.id,
+                event_type=delivery.event_type,
+                payload=delivery.payload,
+            )
+            endpoint_snapshot = (
+                SimpleNamespace(url=endpoint.url, secret=endpoint.secret)
+                if endpoint is not None
+                else None
+            )
+            endpoint_is_active = endpoint.is_active if endpoint is not None else False
+            await db.rollback()
+            try:
+                if not endpoint_is_active:
+                    raise RuntimeError("Webhook endpoint is inactive or missing")
+                status_code, response_body = await asyncio.to_thread(
+                    _post_webhook, endpoint_snapshot, delivery_snapshot
+                )
+                failure = None if 200 <= status_code < 300 else f"HTTP {status_code}"
+            except Exception as exc:
+                status_code, response_body, failure = None, None, str(exc)[:2000]
+
+            current = await db.get(WebhookDelivery, delivery_id)
+            current_endpoint = await db.get(WebhookEndpoint, current.endpoint_id) if current else None
+            if current is None or current.claim_token != claim_token:
+                await db.rollback()
+                continue
+            current.attempts += 1
+            current.claim_token = None
+            current.claimed_at = None
+            if failure is None:
+                current.response_status = status_code
+                current.response_body = response_body[:2000]
+                current.error = None
+                current.status = "succeeded"
+                current.delivered_at = datetime.now(timezone.utc)
+                current.next_attempt_at = None
+                if current_endpoint:
+                    current_endpoint.last_success_at = current.delivered_at
+            else:
+                current.error = failure
+                if current_endpoint:
+                    current_endpoint.last_failure_at = datetime.now(timezone.utc)
+                if current.attempts >= MAX_WEBHOOK_ATTEMPTS or failure == "Webhook endpoint is inactive or missing":
+                    current.status = "failed"
+                    current.next_attempt_at = None
+                else:
+                    current.status = "pending"
+                    current.next_attempt_at = datetime.now(timezone.utc) + timedelta(minutes=current.attempts * 5)
             await db.commit()
-    return len(delivery_ids)
+            delivered_count += 1
+    return delivered_count
 
 
 def encrypt_signing_secret(secret: str) -> str:

@@ -362,46 +362,32 @@ async def test_enqueue_webhook_deliveries_wildcard_matches(db_session):
 # ---------------------------------------------------------------------------
 
 
-async def test_dispatch_pending_webhooks_processes_pending(monkeypatch):
-    """dispatch_pending_webhooks must call deliver_webhook_delivery for each pending row."""
-    calls = []
+async def test_dispatch_pending_webhooks_processes_pending(db_session, monkeypatch):
+    """The dispatcher claims and sends each eligible pending delivery once."""
+    endpoint = await _make_endpoint(db_session)
+    await db_session.flush()
+    delivery = _make_delivery(endpoint)
+    db_session.add(delivery)
+    await db_session.commit()
 
-    async def fake_deliver(db, delivery):
-        calls.append(delivery.id)
-        delivery.status = "succeeded"
+    monkeypatch.setattr(webhook_service, "_post_webhook", lambda _endpoint, _delivery: (204, "ok"))
 
-    monkeypatch.setattr(webhook_service, "deliver_webhook_delivery", fake_deliver)
+    class _SessionFactory:
+        def __call__(self):
+            return self
 
-    # We need rows in the real AsyncSessionLocal database; patch AsyncSessionLocal
-    # to return a session that yields our controlled deliveries.
-    fake_delivery = MagicMock()
-    fake_delivery.id = 1
-    fake_delivery.status = "pending"
-    fake_delivery.next_attempt_at = None
+        async def __aenter__(self):
+            return db_session
 
-    fake_result = MagicMock()
-    fake_result.scalars.return_value.all.return_value = [fake_delivery.id]
+        async def __aexit__(self, *_args):
+            await db_session.rollback()
 
-    queue_db = MagicMock()
-    queue_db.execute = MagicMock(return_value=_async_return(fake_result))
-    queue_db.__aenter__ = MagicMock(return_value=_async_return(queue_db))
-    queue_db.__aexit__ = MagicMock(return_value=_async_return(False))
-    delivery_db = MagicMock()
-    delivery_db.get = MagicMock(return_value=_async_return(fake_delivery))
-    delivery_db.commit = MagicMock(return_value=_async_return(None))
-    delivery_db.__aenter__ = MagicMock(return_value=_async_return(delivery_db))
-    delivery_db.__aexit__ = MagicMock(return_value=_async_return(False))
+    monkeypatch.setattr(webhook_service, "AsyncSessionLocal", _SessionFactory())
 
-    fake_session_local = MagicMock(side_effect=[queue_db, delivery_db])
-
-    monkeypatch.setattr(webhook_service, "AsyncSessionLocal", fake_session_local)
-
-    count = await dispatch_pending_webhooks(limit=10)
-
-    assert count == 1
-    assert calls == [1]
-    queue_db.commit.assert_not_called()
-    delivery_db.commit.assert_called_once()
+    assert await dispatch_pending_webhooks(limit=10) == 1
+    await db_session.refresh(delivery)
+    assert delivery.status == "succeeded"
+    assert delivery.claim_token is None
 
 
 async def test_dispatch_pending_webhooks_returns_zero_when_empty(monkeypatch):
