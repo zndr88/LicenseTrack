@@ -128,6 +128,49 @@ BLANKABLE_STRING_UPDATE_FIELDS = {
     ALLOWED_PATCH_FIELDS[field]
     for field in BLANKABLE_STRING_PATCH_FIELDS
 }
+
+_SERVER_OWNED_CREATE_FIELDS = frozenset({
+    "active_maintenance_id",
+    "has_maintenance",
+    "maintenance_start_date",
+    "maintenance_end_date",
+    "maintenance_pricing_basis",
+    "maintenance_quantity",
+    "maintenance_unit_price",
+    "maintenance_cost",
+    "license_ref",
+    "last_synced_at",
+    "sync_status",
+    "pending_order_id",
+    "is_retired",
+    "retirement_scheduled",
+    "is_completeness_exempt",
+    "lifecycle_status",
+    *REPAIR_ONLY_UPDATE_FIELDS,
+})
+
+
+def _reject_server_owned_create_overrides(payload: LicenseCreate) -> None:
+    """Reject meaningful attempts to set state that creation workflows own."""
+    values = payload.model_dump(by_alias=False)
+    blocked = []
+    for field in _SERVER_OWNED_CREATE_FIELDS:
+        value = values.get(field)
+        if field in {"has_maintenance", "is_retired", "retirement_scheduled", "is_completeness_exempt"}:
+            if value:
+                blocked.append(field)
+        elif value is not None:
+            blocked.append(field)
+    if blocked:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Server-owned fields cannot be set on license create: {', '.join(sorted(blocked))}",
+        )
+
+
+def _strip_server_owned_create_fields(create_data: dict) -> None:
+    for field in _SERVER_OWNED_CREATE_FIELDS:
+        create_data.pop(field, None)
 MAINTENANCE_COVERAGE_VALUES = {coverage.value for coverage in MaintenanceCoverage}
 SUPPORT_DEFAULT_FIELDS = (
     "maintenance_start_date",
@@ -244,6 +287,7 @@ async def create_license_record(
     procurement_bundle_id: str | None = None,
 ) -> License:
     """Create a license ORM record, including maintenance-parent invariants."""
+    _reject_server_owned_create_overrides(payload)
     parent_licenses: list[License] = []
     maintenance_parent_ids = _normalise_maintenance_parent_ids(
         payload.parent_license_id,
@@ -268,13 +312,9 @@ async def create_license_record(
     if payload.license_type == LicenseType.maintenance:
         create_data = payload.model_dump(by_alias=False)
         custom_field_values = create_data.pop("custom_field_values", [])
-        blocked = sorted(field for field in REPAIR_ONLY_UPDATE_FIELDS if create_data.get(field) is not None)
-        if blocked:
-            raise HTTPException(status_code=400, detail=f"Chain fields cannot be set on license create: {', '.join(blocked)}")
-        lifecycle_val = create_data.get("lifecycle_status")
-        if lifecycle_val is not None and getattr(lifecycle_val, "value", lifecycle_val) not in (None, "legacy"):
-            raise HTTPException(status_code=400, detail="lifecycle_status cannot be set on create except to 'legacy'.")
+        _strip_server_owned_create_fields(create_data)
         apply_included_support_defaults(create_data)
+        normalize_retirement_update(None, create_data)
         _sync_invoice_numbers(create_data)
         await resolve_license_reference_fields(db, create_data)
         create_data["procurement_bundle_id"] = procurement_bundle_id
@@ -294,6 +334,7 @@ async def create_license_record(
     create_data = payload.model_dump(by_alias=False)
     custom_field_values = create_data.pop("custom_field_values", [])
     create_data.pop("maintenance_parent_ids", None)
+    _strip_server_owned_create_fields(create_data)
     _sync_invoice_numbers(create_data)
     await resolve_license_reference_fields(db, create_data)
     create_data["procurement_bundle_id"] = procurement_bundle_id
@@ -307,21 +348,6 @@ async def create_license_record(
     normalise_license_type_fields(create_data)
     apply_included_support_defaults(create_data)
     normalize_retirement_update(None, create_data)
-
-    # F1: chain and lifecycle fields cannot be set at create time.
-    _CREATE_CHAIN_FIELDS = REPAIR_ONLY_UPDATE_FIELDS
-    blocked = sorted(f for f in _CREATE_CHAIN_FIELDS if create_data.get(f) is not None)
-    if blocked:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Chain fields cannot be set on license create: {', '.join(blocked)}",
-        )
-    lifecycle_val = create_data.get("lifecycle_status")
-    if lifecycle_val is not None and getattr(lifecycle_val, "value", lifecycle_val) not in (None, "legacy"):
-        raise HTTPException(
-            status_code=400,
-            detail="lifecycle_status cannot be set on create except to 'legacy'.",
-        )
 
     validate_term_dates(create_data.get("start_date"), create_data.get("end_date"))
     create_data["contract_id"] = await resolve_contract_id_for_number(db, create_data.get("contract_number"))

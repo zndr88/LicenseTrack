@@ -2825,15 +2825,60 @@ async def test_create_license_rejects_pending_renewal_lifecycle_status(test_app,
     assert resp.status_code == 400, resp.text
 
 
-async def test_create_license_allows_legacy_lifecycle_status(test_app, auth_headers):
-    """POST /api/licenses with lifecycle_status=legacy is permitted."""
+async def test_create_license_rejects_legacy_lifecycle_status(test_app, auth_headers):
+    """POST /api/licenses cannot create legacy records outside import/recovery."""
     resp = await test_app.post(
         "/api/licenses",
         json=_minimal_payload(lifecycleStatus="legacy"),
         headers=auth_headers,
     )
-    assert resp.status_code == 201, resp.text
-    assert resp.json()["lifecycleStatus"] == "legacy"
+    assert resp.status_code == 400, resp.text
+    assert "lifecycle_status" in resp.json()["detail"]
+
+
+async def test_create_maintenance_rejects_server_owned_state(test_app, auth_headers):
+    parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+
+    response = await test_app.post(
+        "/api/licenses",
+        json=_minimal_payload(
+            licenseType="maintenance",
+            parentLicenseId=parent["id"],
+            activeMaintenanceId=999,
+            hasMaintenance=True,
+            isRetired=True,
+            retirementScheduled=True,
+        ),
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 400, response.text
+    detail = response.json()["detail"]
+    assert "active_maintenance_id" in detail
+    assert "is_retired" in detail
+
+
+async def test_create_maintenance_batch_rejects_server_owned_state(test_app, auth_headers, db_session):
+    response = await test_app.post(
+        "/api/licenses/batch",
+        json={
+            "items": [
+                {"license": _minimal_payload(licenseType="perpetual")},
+                {
+                    "license": _minimal_payload(
+                        licenseType="maintenance",
+                        retirementScheduled=True,
+                    ),
+                    "parentLineIndex": 0,
+                },
+            ],
+        },
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 400, response.text
+    assert "retirement_scheduled" in response.json()["detail"]
+    assert list((await db_session.execute(select(License))).scalars()) == []
 
 
 async def test_create_license_rejects_both_renewal_links_simultaneously(test_app, auth_headers):
