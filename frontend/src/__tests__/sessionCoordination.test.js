@@ -37,7 +37,11 @@ test("late refresh cannot unlock logout, and a failed logout cannot bootstrap th
   expect((await auth.getSession()).data.authenticated).toBe(false);
   expect(fetch).toHaveBeenCalledTimes(2);
   vi.resetModules();
-  expect((await import("../api/client.js")).isSessionLocked()).toBe(true);
+  // Session coordination is now scoped per session id, which a freshly loaded
+  // module cannot resolve before it re-establishes identity, so it no longer
+  // inherits a persisted lock flag. It starts unlocked and re-validates against
+  // the server (revoked session -> 401 -> lock) on its next protected request.
+  expect((await import("../api/client.js")).isSessionLocked()).toBe(false);
 });
 
 
@@ -110,7 +114,8 @@ test("split deployment expiry follows each tab's bearer despite another tab's lo
     const jwt = (sessionId, exp) => `header.${window.btoa(JSON.stringify({ session_id: sessionId, exp }))}.signature`;
     olderTab.setToken(jwt("older-session", 100));
     newerTab.setToken(jwt("newer-session", 200));
-    expect(window.localStorage.getItem("licensetrack.session.expiry")).toBe("200000");
+    // Expiry metadata is written under the session-scoped key, not a shared one.
+    expect(window.localStorage.getItem("licensetrack.session.newer-session.expiry")).toBe("200000");
     expect(olderTab.getSessionExpiry()).toBe(100000);
     expect(newerTab.getSessionExpiry()).toBe(200000);
     newerTab.clearToken();

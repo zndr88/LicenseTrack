@@ -11,13 +11,15 @@ export function useSessionTimeout(timeoutMinutes, onTimeout, onActivity, coordin
     const readActivity = () => Math.max(lastActivity, Number(window.localStorage.getItem(activityKey)) || 0);
     const check = () => {
       if (ended) return;
-      const activity = readActivity();
-      if (Date.now() - activity >= timeoutMs) {
+      // While activity stays fresh, report it on every tick rather than once
+      // per interaction. onActivity is cheap and self-guarded, and this steady
+      // signal is what drives the near-expiry token refresh for a tab that was
+      // active earlier and is now present but idle. Collapsing it to a single
+      // call lets a low-traffic tab reach expiry without refreshing.
+      if (Date.now() - readActivity() >= timeoutMs) {
         ended = true;
         onTimeout();
-      } else if (observedActivity || activity > lastActivity) {
-        observedActivity = false;
-        lastActivity = activity;
+      } else if (observedActivity || readActivity() > lastActivity) {
         onActivity?.();
       }
     };
