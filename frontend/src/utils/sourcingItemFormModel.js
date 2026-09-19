@@ -103,12 +103,28 @@ export function sourcingPrimaryFormToPayload(data, customFieldDefs, userSettings
 }
 
 export function sourcingAdditionalLineToPayload(line, customFieldDefs, userSettings) {
+  const hasIncludedMaintenance = line.maintenanceCoverage === "included";
   return {
     publisherName: line.publisherName,
     softwareDescription: line.softwareDescription,
     licenseType: line.licenseType || null,
     licenseMetric: line.licenseMetric || null,
     portalUrl: line.licenseType === "saas" ? line.portalUrl || null : null,
+    maintenanceCoverage: supportsMaintenanceCoverage(line.licenseType)
+      ? (line.maintenanceCoverage || "unknown")
+      : null,
+    maintenanceStartDate: hasIncludedMaintenance ? line.maintenanceStartDate || null : null,
+    maintenanceEndDate: hasIncludedMaintenance ? line.maintenanceEndDate || null : null,
+    maintenancePricingBasis: hasIncludedMaintenance ? line.maintenancePricingBasis || "flat" : null,
+    maintenanceQuantity: hasIncludedMaintenance
+      ? normalizeOptionalNumber(line.maintenanceQuantity, userSettings)
+      : null,
+    maintenanceUnitPrice: hasIncludedMaintenance
+      ? normalizeOptionalNumber(line.maintenanceUnitPrice, userSettings)
+      : null,
+    maintenanceCost: hasIncludedMaintenance
+      ? normalizeOptionalNumber(line.maintenanceCost, userSettings)
+      : null,
     quantity: normalizeOptionalNumber(line.quantity, userSettings),
     quantityPerUnit: normalizeOptionalNumber(line.quantityPerUnit, userSettings) || "1",
     skuCode: line.skuCode || null,

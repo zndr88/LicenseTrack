@@ -78,3 +78,20 @@ describe("DocumentStagingWorkspace preview persistence", () => {
     expect(URL.revokeObjectURL).not.toHaveBeenCalled();
   });
 });
+
+test("deletes a stored document from the Documents section after confirmation", async () => {
+  const onDeleteDocument = vi.fn().mockResolvedValue(true);
+  render(
+    <DocumentStagingWorkspace
+      {...baseProps}
+      documents={[{ id: 23, category: "invoice", originalFilename: "invoice.pdf" }]}
+      onDeleteDocument={onDeleteDocument}
+    />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Delete invoice.pdf" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+  await waitFor(() => expect(onDeleteDocument).toHaveBeenCalledWith(expect.objectContaining({ id: 23 })));
+  await waitFor(() => expect(screen.queryByText("invoice.pdf")).not.toBeInTheDocument());
+});

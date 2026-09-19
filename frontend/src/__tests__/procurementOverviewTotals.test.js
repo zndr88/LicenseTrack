@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { sortSourcingRequests } from "../components/pages/sourcing/sourcingPageState.js";
+import { sortSourcingRequests, sourcingRequestPublishers } from "../components/pages/sourcing/sourcingPageState.js";
 import {
   filterAndSortPendingOrders,
   formatPoTotal,
@@ -35,5 +35,13 @@ describe("procurement overview totals", () => {
 
     expect(sortSourcingRequests([higher, lower], "total", "asc").map(({ id }) => id))
       .toEqual([1, 2]);
+  });
+
+  test("sourcing publisher column deduplicates publishers and sorts requests", () => {
+    const alpha = { id: 1, items: [{ publisherName: "Acme" }, { publisherName: "Acme" }, { publisherName: "Beta" }] };
+    const zeta = { id: 2, items: [{ publisherName: "Zeta" }] };
+
+    expect(sourcingRequestPublishers(alpha)).toBe("Acme, Beta");
+    expect(sortSourcingRequests([zeta, alpha], "publisher", "asc").map(({ id }) => id)).toEqual([1, 2]);
   });
 });

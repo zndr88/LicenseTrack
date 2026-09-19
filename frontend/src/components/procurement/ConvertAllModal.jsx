@@ -127,6 +127,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
     <>
       <ModalShell
         title={`Convert ${pendingOrderLabel(order)} - ${unconvertedItems.length} ${unconvertedItems.length === 1 ? "item" : "items"}`}
+        sectionControls
         titleId="dialog-title-convert-all"
         onClose={requestClose}
         onEscape={requestClose}

@@ -5,13 +5,11 @@ import RowActionsMenu from "../../ui/RowActionsMenu.jsx";
 import ProcurementInlineEditCell, { ProcurementInlineEditField } from "../../procurement/ProcurementInlineEditCell.jsx";
 import { CURRENCIES } from "../../../constants/licenseData.js";
 import { formatCost } from "../../../utils/helpers.js";
-import { formatPoTotal } from "./usePendingOrdersPageState.js";
+import { formatPoTotal, pendingOrderPublishers } from "./usePendingOrdersPageState.js";
 import { formatDateTime } from "../../../utils/formatting.js";
 import { procurementLineTotal } from "../../../utils/procurementTotals.js";
 import { formatQuantity } from "../../../utils/quantity.js";
 import { hasPurchaseOrderNumber, pendingOrderLabel } from "../../../utils/procurementLabels.js";
-import { documentAvailabilityHelp, documentAvailabilityLabel, documentAvailabilitySummary, isFileAvailable } from "../../../utils/documentAvailability.js";
-import { isPreviewablePdf } from "../../../utils/documentPreview.js";
 
 function SortIndicator({ active, dir }) {
   if (!active) return null;
@@ -41,43 +39,6 @@ function SortableHeader({ column, label, sortCol, sortDir, onSort }) {
       <SortIndicator active={sortCol === column} dir={sortDir} />
     </th>
   );
-}
-
-function OrderDocumentsCell({ order }) {
-  const purchaseOrderDocuments = (order.documents ?? []).filter((document) => document.category === "purchase_order");
-  const quoteDocuments = quoteDocumentsForOrder(order);
-
-  if (!purchaseOrderDocuments.length && !quoteDocuments.length) {
-    return <span style={{ fontSize: 11, color: "var(--text-3)" }}>None</span>;
-  }
-
-  const summary = documentAvailabilitySummary([...purchaseOrderDocuments, ...quoteDocuments]);
-  const labels = [];
-  if (purchaseOrderDocuments.length) labels.push(purchaseOrderDocuments.length === 1 ? "1 PO" : `${purchaseOrderDocuments.length} POs`);
-  if (quoteDocuments.length) labels.push(quoteDocuments.length === 1 ? "1 quote" : `${quoteDocuments.length} quotes`);
-  return <span className="badge badge-gray" title={summary.available === summary.total ? "All files available" : `${summary.missing + summary.unavailable} file(s) need attention`}>
-    {labels.join(" · ")}
-    {summary.available !== summary.total ? ` · ${summary.missing + summary.unavailable} unavailable` : ""}
-  </span>;
-}
-
-function documentFilename(document, fallback) {
-  return document.originalFilename ?? document.original_filename ?? fallback;
-}
-
-function downloadDocumentLabel(document, fallback) {
-  const filename = documentFilename(document, fallback);
-  return isFileAvailable(document) ? `Download ${filename}` : `${documentAvailabilityLabel(document)}: ${filename}`;
-}
-
-function quoteDocumentsForOrder(order) {
-  const seen = new Set();
-  return (order.items ?? []).flatMap((item) => item.quoteDocuments ?? []).filter((document, index) => {
-    const key = document.id ?? `${documentFilename(document, "quote")}-${index}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
 }
 
 function isPendingOrderEditable(order) {
@@ -260,12 +221,7 @@ export default function PendingOrdersTable({
   onEdit,
   onEditItem,
   onDeleteItem,
-  onUploadPurchaseOrder,
-  onDownloadPurchaseOrder,
-  onDeletePurchaseOrder,
-  onPreviewQuote,
-  onDownloadQuote,
-  onDeleteQuote,
+  onOpenDocuments,
   onRetryEvidenceTransfer,
   onOpenAddItems,
   onOpenConvert,
@@ -376,11 +332,11 @@ export default function PendingOrdersTable({
               <th scope="col" style={{ width: 28 }} />
               <SortableHeader column="poNumber" label="Order" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <SortableHeader column="supplier" label="Supplier" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+              <SortableHeader column="publisher" label="Publisher" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <SortableHeader column="itemCount" label="Items" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
-              <SortableHeader column="totalValue" label="Total PO Value" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
-              <SortableHeader column="created" label="Created" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
-              <th scope="col">Documents</th>
+              <SortableHeader column="totalValue" label="Value" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <SortableHeader column="status" label="Status" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+              <SortableHeader column="created" label="Created" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <th scope="col">{readOnly ? "Reference" : "Actions"}</th>
             </tr>
           </thead>
@@ -401,54 +357,7 @@ export default function PendingOrdersTable({
               const canRetryEvidence = po.status === "converted" && ["failed", "pending", "escalated"].includes(evidenceStatus);
               const hasPoNumber = hasPurchaseOrderNumber(po);
               const hasLineItems = (po.items?.length ?? 0) > 0;
-              const purchaseOrderDocuments = (po.documents ?? []).filter((document) => document.category === "purchase_order");
-              const quoteDocuments = quoteDocumentsForOrder(po);
-              const documentMenuItems = [
-                ...purchaseOrderDocuments.map((document, index) => ({
-                  key: `po-${document.id ?? index}`,
-                  label: downloadDocumentLabel(document, "PO"),
-                  icon: "download",
-                  disabled: !isFileAvailable(document),
-                  title: documentAvailabilityHelp(document),
-                  onClick: () => onDownloadPurchaseOrder(document),
-                })),
-                ...quoteDocuments.map((document, index) => ({
-                  key: `preview-quote-${document.id ?? index}`,
-                  label: `Preview ${documentFilename(document, "quote")}`,
-                  icon: "eye",
-                  disabled: !isPreviewablePdf(document),
-                  title: !isFileAvailable(document)
-                    ? documentAvailabilityHelp(document)
-                    : "Preview is available for PDF quote documents",
-                  onClick: () => onPreviewQuote(document),
-                })),
-                ...quoteDocuments.map((document, index) => ({
-                  key: `quote-${document.id ?? index}`,
-                  label: downloadDocumentLabel(document, "quote"),
-                  icon: "download",
-                  disabled: !isFileAvailable(document),
-                  title: documentAvailabilityHelp(document),
-                  onClick: () => onDownloadQuote(document),
-                })),
-                ...purchaseOrderDocuments.map((document, index) => ({
-                  key: `delete-po-${document.id ?? index}`,
-                  label: `Delete ${documentFilename(document, "PO")}`,
-                  icon: "trash",
-                  danger: true,
-                  separatorBefore: index === 0,
-                  hidden: !perms.canEdit,
-                  onClick: () => onDeletePurchaseOrder(document),
-                })),
-                ...quoteDocuments.map((document, index) => ({
-                  key: `delete-quote-${document.id ?? index}`,
-                  label: `Delete ${documentFilename(document, "quote")}`,
-                  icon: "trash",
-                  danger: true,
-                  separatorBefore: purchaseOrderDocuments.length === 0 && index === 0,
-                  hidden: !perms.canEdit,
-                  onClick: () => onDeleteQuote(document),
-                })),
-              ];
+              const createdDateTime = formatDateTime(po.createdAt, settings);
               const menuItems = [
                 {
                   key: "edit",
@@ -458,13 +367,11 @@ export default function PendingOrdersTable({
                   onClick: () => onEdit(po),
                 },
                 {
-                  key: "upload-po",
-                  label: "Upload PO",
-                  icon: "upload",
-                  hidden: !perms.canEdit,
-                  onClick: () => onUploadPurchaseOrder(po),
+                  key: "documents",
+                  label: "Documents",
+                  icon: "file",
+                  onClick: () => onOpenDocuments(po),
                 },
-                ...documentMenuItems,
                 {
                   key: "add-line",
                   label: "Add License Line",
@@ -566,14 +473,9 @@ export default function PendingOrdersTable({
                         onSave={onInlineOrderFieldSave}
                       />
                     ) : <td>{po.supplier || "-"}</td>}
+                    <td style={{ color: "var(--text-2)", fontSize: 12 }}>{pendingOrderPublishers(po) || "-"}</td>
                     <td style={{ color: "var(--text-2)" }}>{po.items?.length ?? 0}</td>
                     <td className="mono" style={{ fontWeight: 600 }}>{formatPoTotal(po, locale)}</td>
-                    <td style={{ color: "var(--text-2)", fontSize: 12 }}>
-                      {formatDateTime(po.createdAt, settings)}
-                    </td>
-                    <td>
-                      <OrderDocumentsCell order={po} />
-                    </td>
                     <td>
                       <span className={`badge ${statusClass}`}>
                         <span className="badge-dot" />
@@ -585,13 +487,18 @@ export default function PendingOrdersTable({
                         </div>
                       )}
                     </td>
+                    <td style={{ color: "var(--text-2)", fontSize: 12 }}>
+                      {po.createdAt ? <time dateTime={po.createdAt} title={createdDateTime} aria-label={createdDateTime}>
+                        {createdDateTime.split(" ")[0]}
+                      </time> : "-"}
+                    </td>
                     <td onClick={(event) => event.stopPropagation()}>
                       <div className="row-actions-inline">
                         {readOnly && renderReferenceCell(po)}
                         {readOnly && (
                           <RowActionsMenu
                             label={`More document actions for pending order ${po.id}`}
-                            items={documentMenuItems}
+                            items={[{ key: "documents", label: "Documents", icon: "file", onClick: () => onOpenDocuments(po) }]}
                           />
                         )}
                         {!readOnly && perms.canEdit && po.status !== "converted" && !hasLineItems && (

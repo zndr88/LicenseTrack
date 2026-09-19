@@ -299,8 +299,12 @@ td {
 @keyframes fadeIn { from { opacity: 0 } }
 @keyframes slideUp { from { transform: translateY(10px); opacity: 0 } }
 .modal { background: var(--bg-1); border: 1px solid var(--border-strong); border-radius: var(--r); width: 640px; max-width: 92vw; max-height: 85vh; overflow-y: auto; box-shadow: var(--shadow-md); animation: slideUp .15s; }
-.modal-hd { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--bg-1); z-index: 1; }
+.modal-hd { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; position: sticky; top: 0; background: var(--bg-1); z-index: 1; }
 .modal-hd h3 { font-family: var(--font-brand); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-1); }
+.modal-hd-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; margin-left: auto; }
+.modal-section-controls { display: flex; align-items: center; gap: 4px; }
+.modal-section-controls button { border: 0; background: none; color: var(--text-2); padding: 5px 7px; border-radius: var(--r); font-size: 11px; cursor: pointer; }
+.modal-section-controls button:hover { background: var(--bg-3); color: var(--text-1); }
 .modal-close { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: var(--r); border: none; background: none; color: var(--text-3); cursor: pointer; transition: all .15s; }
 .modal-close:hover { background: var(--bg-3); color: var(--text-1); }
 .modal-bd { padding: 24px; font-family: var(--font-sans); font-size: 13px; color: var(--text-1); }

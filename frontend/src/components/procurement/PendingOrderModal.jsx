@@ -16,7 +16,7 @@ import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
-import { previewPendingOrderDocument, downloadPendingOrderDocument } from "../../api/pendingOrders.js";
+import { getConversionDocuments, previewConversionDocument, downloadConversionDocument } from "./conversionDocuments.js";
 import MaintenanceCoverageFields, { supportsMaintenanceCoverage } from "./MaintenanceCoverageFields.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import { LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
@@ -38,7 +38,7 @@ const emptyItem = () => ({
   contactEmail: "",
 });
 
-const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
+const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocument }) => {
   const isNewOrder = !order;
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
@@ -140,6 +140,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
     <>
       <ModalShell
         title={order ? "Edit Pending Order" : "Add Pending Order"}
+        sectionControls
         titleId="dialog-title-pending-order"
         onClose={requestClose}
         modalClassName="modal document-assisted-modal"
@@ -314,14 +315,15 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel }) => {
           <DocumentStagingWorkspace
             attachments={attachments}
             categoryScopes={categoryScopes}
-            documents={(order?.documents ?? []).map((document) => ({ ...document, sourceLabel: (document.targetSourcingItemId ?? document.target_sourcing_item_id) != null || document.scope === "license" ? "Attached to one license line" : "Shared purchase document" }))}
+            documents={getConversionDocuments(order)}
             inputIdPrefix="pending-order-attachment"
             onAddFiles={addFiles}
             onRemoveAttachment={removeAttachment}
             onTargetChange={changeTarget}
             onCategoryScopeChange={changeCategoryScope}
-            previewDocument={previewPendingOrderDocument}
-            downloadDocument={(document) => downloadPendingOrderDocument(document.id, document.originalFilename ?? document.original_filename)}
+            previewDocument={previewConversionDocument}
+            downloadDocument={downloadConversionDocument}
+            onDeleteDocument={order ? onDeleteDocument : null}
             targetOptions={(isNewOrder ? items : order.items ?? []).map((line, index) => ({ value: String(line.id), label: line.softwareDescription || `Line ${index + 1}` }))}
             userSettings={userSettings}
             defaultOpen

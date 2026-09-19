@@ -259,6 +259,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         licenseMetric: line.licenseMetric,
         startDate: line.startDate || form.startDate,
         endDate: line.isPerpetual ? "Perpetual" : line.endDate,
+        noticeDate: line.noticeDate || form.noticeDate,
         isPerpetual: line.isPerpetual,
         quantity: line.quantity,
         quantityPerUnit: normalizeLocalizedValue(line.quantityPerUnit, userSettings) || "1",
@@ -322,6 +323,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     <>
     <ModalShell
       title="Add Manual License"
+      sectionControls
       titleId="dialog-title-invoice-confirm"
       onClose={() => {
         if (!submitLockRef.current) requestClose();
@@ -502,10 +504,36 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   <Icon name="x" size={12} /> Remove
                 </button>
               </div>
+              <div className="license-form-stack license-line-item-sections">
+              <LicenseFormSection title="Identity">
               <div className="fg">
                 <label htmlFor={`inv-line-${line.id}-software`}>Software Description <span style={{ color: "var(--red)" }}>*</span></label>
                 <input id={`inv-line-${line.id}-software`} className="fi" value={line.softwareDescription} onChange={(e) => updateLine(line.id, "softwareDescription", e.target.value)} placeholder="Product or service name" />
               </div>
+                <div className="fg">
+                    <label htmlFor={`inv-line-${line.id}-license-type`}>License Type</label>
+                    <select id={`inv-line-${line.id}-license-type`} className="fi fi-select" value={line.licenseType} onChange={(e) => {
+                      const next = e.target.value;
+                      updateLine(line.id, "licenseType", next);
+                      if (next !== "saas") updateLine(line.id, "portalUrl", "");
+                      if (isFreewareLicenseType(next)) {
+                        updateLine(line.id, "unitPrice", "");
+                        updateLine(line.id, "totalPoPrice", "");
+                      }
+                      if (!supportsSeparateMaintenanceLine(next)) {
+                        removeMaintenanceCompanion(line.id);
+                      }
+                    }}>
+                      <option value="">Select...</option>
+                      {LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                </div>
+              <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="identity" />
+              </LicenseFormSection>
+              {hasDocumentCustomFields && <LicenseFormSection title="Document Data">
+              <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="documents" />
+              </LicenseFormSection>}
+              <LicenseFormSection title="Key Dates & Contract">
               <div className="fr">
                 <div className="fg">
                   <label htmlFor={`inv-line-${line.id}-start-date`}>Start Date</label>
@@ -535,33 +563,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 <div className="fg"><label htmlFor={`inv-line-${line.id}-purchase-date`}>Purchase Date</label><input id={`inv-line-${line.id}-purchase-date`} type="date" className="fi" value={line.purchaseDate || ""} onChange={(e) => updateLine(line.id, "purchaseDate", e.target.value)} /></div>
                 <div className="fg"><label htmlFor={`inv-line-${line.id}-external-ref`}>External Reference</label><input id={`inv-line-${line.id}-external-ref`} className="fi" value={line.externalRef || ""} onChange={(e) => updateLine(line.id, "externalRef", e.target.value)} /></div>
               </div>
-              <div className="fr">
-                <div className="fg">
-                    <label htmlFor={`inv-line-${line.id}-license-type`}>License Type</label>
-                    <select id={`inv-line-${line.id}-license-type`} className="fi fi-select" value={line.licenseType} onChange={(e) => {
-                      const next = e.target.value;
-                      updateLine(line.id, "licenseType", next);
-                      if (next !== "saas") updateLine(line.id, "portalUrl", "");
-                      if (isFreewareLicenseType(next)) {
-                        updateLine(line.id, "unitPrice", "");
-                        updateLine(line.id, "totalPoPrice", "");
-                      }
-                      if (!supportsSeparateMaintenanceLine(next)) {
-                        removeMaintenanceCompanion(line.id);
-                      }
-                    }}>
-                      <option value="">Select...</option>
-                      {LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
-                </div>
-                <div className="fg">
-                    <label htmlFor={`inv-line-${line.id}-license-metric`}>License Metric</label>
-                    <select id={`inv-line-${line.id}-license-metric`} className="fi fi-select" value={line.licenseMetric} onChange={(e) => updateLine(line.id, "licenseMetric", e.target.value)}>
-                      <option value="">Select...</option>
-                      {LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                    </select>
-                </div>
-              </div>
+              <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="dates" />
+              </LicenseFormSection>
+              {supportsMaintenanceCoverage(line.licenseType) && <LicenseFormSection title="Maintenance / Support">
               <MaintenanceCoverageFields
                 idPrefix={`inv-line-${line.id}`}
                 licenseType={line.licenseType}
@@ -581,7 +585,18 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 onChange={(field, value) => updateLineMaintenance(line.id, field, value)}
                 onAddSeparate={() => addMaintenanceLine(line.id, line)}
                 separateLineAdded={hasMaintenanceCompanion(line.id)}
+                embedded
               />
+              <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="maintenance" />
+              </LicenseFormSection>}
+              <LicenseFormSection title="Details">
+                <div className="fg">
+                    <label htmlFor={`inv-line-${line.id}-license-metric`}>License Metric</label>
+                    <select id={`inv-line-${line.id}-license-metric`} className="fi fi-select" value={line.licenseMetric} onChange={(e) => updateLine(line.id, "licenseMetric", e.target.value)}>
+                      <option value="">Select...</option>
+                      {LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                    </select>
+                </div>
               {line.licenseType === "saas" && (
                 <div className="fg">
                   <label htmlFor={`inv-line-${line.id}-portal-url`}>Portal URL</label>
@@ -642,18 +657,23 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   </div>
                 </div>
               )}
+              <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="commercial" />
+              </LicenseFormSection>
+              <LicenseFormSection title="Relationships">
+              <div className="fg"><label htmlFor={`inv-line-${line.id}-secondary-contacts`}>Secondary Contacts</label><ContactCombobox id={`inv-line-${line.id}-secondary-contacts`} multiple value={line.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(value) => updateLine(line.id, "secondaryContacts", value)} /></div>
+              <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="people" />
+              </LicenseFormSection>
+              <LicenseFormSection title="Notes">
               <div className="fg">
                 <label htmlFor={`inv-line-${line.id}-notes`}>Notes</label>
                 <textarea id={`inv-line-${line.id}-notes`} className="fi" rows={2} value={line.notes} onChange={(e) => updateLine(line.id, "notes", e.target.value)} style={{ resize: "vertical" }} />
               </div>
-              <div className="fg"><label htmlFor={`inv-line-${line.id}-secondary-contacts`}>Secondary Contacts</label><ContactCombobox id={`inv-line-${line.id}-secondary-contacts`} multiple value={line.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(value) => updateLine(line.id, "secondaryContacts", value)} /></div>
-              <CustomFieldFormFields
-                definitions={customFieldDefs}
-                values={line.customFieldValues || {}}
-                onChange={(values) => updateLine(line.id, "customFieldValues", values)}
-                idPrefix={`inv-line-${line.id}`}
-                loading={customFieldsLoading}
-              />
+              <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="notes" />
+              </LicenseFormSection>
+              {hasCatchallCustomFields && <LicenseFormSection title="Custom Fields">
+              <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="__catchall__" />
+              </LicenseFormSection>}
+              </div>
             </div>
           ))}
 

@@ -1,5 +1,6 @@
-import { useId, useState } from "react";
+import { useContext, useEffect, useId, useState } from "react";
 import Icon from "../ui/Icon.jsx";
+import { ModalSectionExpansionContext } from "../ui/ModalSectionExpansionContext.js";
 
 export default function LicenseFormSection({
   title,
@@ -11,7 +12,12 @@ export default function LicenseFormSection({
   const titleId = useId();
   const bodyId = useId();
   const [open, setOpen] = useState(defaultOpen);
+  const sectionCommand = useContext(ModalSectionExpansionContext);
   const classes = ["license-form-section", className].filter(Boolean).join(" ");
+
+  useEffect(() => {
+    if (sectionCommand?.sequence) setOpen(sectionCommand.open);
+  }, [sectionCommand]);
 
   return (
     <section className={classes} aria-labelledby={titleId}>

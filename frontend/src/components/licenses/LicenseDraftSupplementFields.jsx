@@ -5,7 +5,7 @@ import ContactCombobox from "../ui/ContactCombobox.jsx";
 
 export default function LicenseDraftSupplementFields({
   item, onChange, idPrefix, customFieldDefs = [], customFieldsLoading = false, sectioned = false,
-  commercialSummary = null, maintenanceSection = null, showCoreDetails = true,
+  commercialSummary = null, maintenanceSection = null, showCoreDetails = true, showLicenseType = true,
 }) {
   const field = (name) => ({ value: item[name] ?? "", onChange: (event) => onChange(name, event.target.value) });
   const customFields = (section) => (
@@ -15,7 +15,7 @@ export default function LicenseDraftSupplementFields({
   );
   const details = <>
     <div className="fr">
-      <div className="fg"><label htmlFor={`${idPrefix}-type`}>License Type</label><select id={`${idPrefix}-type`} className="fi fi-select" {...field("licenseType")}><option value="">Not specified</option>{LICENSE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+      {showLicenseType && <div className="fg"><label htmlFor={`${idPrefix}-type`}>License Type</label><select id={`${idPrefix}-type`} className="fi fi-select" {...field("licenseType")}><option value="">Not specified</option>{LICENSE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>}
       <div className="fg"><label htmlFor={`${idPrefix}-metric`}>License Metric</label><select id={`${idPrefix}-metric`} className="fi fi-select" {...field("licenseMetric")}>{LICENSE_METRICS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
     </div>
     {item.licenseType === "saas" && <div className="fg"><label htmlFor={`${idPrefix}-portal`}>Portal URL</label><input id={`${idPrefix}-portal`} className="fi" {...field("portalUrl")} /></div>}

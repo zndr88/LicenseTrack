@@ -3,6 +3,7 @@ import Icon from "../ui/Icon.jsx";
 import DocumentPreviewPanel from "../ui/DocumentPreviewPanel.jsx";
 import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
+import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import Toggle from "../ui/Toggle.jsx";
 import { formatFileSize } from "../../utils/formatting.js";
 import {
@@ -26,6 +27,8 @@ export default function DocumentStagingWorkspace({
   onCategoryScopeChange,
   previewDocument,
   downloadDocument,
+  onDeleteDocument,
+  readOnly = false,
   onPreviewVisibilityChange,
   targetOptions = [],
   userSettings,
@@ -35,6 +38,8 @@ export default function DocumentStagingWorkspace({
   const [storedPreview, setStoredPreview] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [downloadError, setDownloadError] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [removedDocumentKeys, setRemovedDocumentKeys] = useState(() => new Set());
   const previewUrlRef = useRef(null);
   const requestRef = useRef(0);
   const previousAttachmentCountRef = useRef(attachments.length);
@@ -90,6 +95,19 @@ export default function DocumentStagingWorkspace({
     if (error) setDownloadError(error);
   };
 
+  const documentKey = (document) => document.documentKey ?? document.id;
+  const deleteStoredDocument = async () => {
+    if (!deleteTarget) return;
+    const result = await onDeleteDocument(deleteTarget);
+    if (result === false || result?.error) {
+      setDownloadError(result?.error ?? "Could not delete document.");
+      return;
+    }
+    setRemovedDocumentKeys((current) => new Set(current).add(documentKey(deleteTarget)));
+    if (storedPreview?.document === deleteTarget) clearStoredPreview();
+    setDeleteTarget(null);
+  };
+
   const localPreview = attachments.find((attachment) => attachment.id === localPreviewId);
 
   useEffect(() => {
@@ -105,14 +123,14 @@ export default function DocumentStagingWorkspace({
         className="document-staging-section"
       >
         <p className="document-staging-intro">
-          Add everything available now. Set each category to Shared or Single before creating the licenses.
+          {readOnly ? "Documents attached to this workflow." : "Add available documents. Set each category to Shared or Single before uploading."}
         </p>
         {downloadError && <p className="field-error" role="alert">{downloadError}</p>}
 
         <div className="dp-docs">
         {DOCUMENT_CATEGORIES.map((category) => {
           const staged = attachments.filter((attachment) => attachment.category === category.key);
-          const existing = documents.filter((document) => categoryFor(document) === category.key);
+          const existing = documents.filter((document) => categoryFor(document) === category.key && !removedDocumentKeys.has(documentKey(document)));
           const categoryScope = categoryScopes?.[category.key] ?? defaultDocumentScope(category.key);
           const count = staged.length + existing.length;
           const inputId = `${inputIdPrefix}-${category.key}`;
@@ -133,7 +151,7 @@ export default function DocumentStagingWorkspace({
                     {count}
                   </span>
                 </h5>
-                <div className="document-staging-scope-toggle">
+                {!readOnly && <div className="document-staging-scope-toggle">
                   <span className={categoryScope === "license" ? "active" : ""}>Single</span>
                   <Toggle
                     value={categoryScope === "shared"}
@@ -144,7 +162,7 @@ export default function DocumentStagingWorkspace({
                     ariaLabel={`${category.shortLabel} document scope: ${categoryScope === "shared" ? "Shared" : "Single"}`}
                   />
                   <span className={categoryScope === "shared" ? "active" : ""}>Shared</span>
-                </div>
+                </div>}
               </div>
 
               {existing.map((document) => (
@@ -156,13 +174,16 @@ export default function DocumentStagingWorkspace({
                     <div className="doc-file-name">{getPreviewFilename(document)}</div>
                     <div className="doc-file-meta">{document.sourceLabel ?? "Already attached · Shared across this PO"}</div>
                   </div>
-                  {(isPreviewablePdf(document) || (downloadDocument && isFileAvailable(document))) && (
+                  {(isPreviewablePdf(document) || (downloadDocument && isFileAvailable(document)) || onDeleteDocument) && (
                     <div className="doc-file-actions">
                       {isPreviewablePdf(document) && <button type="button" className="doc-action-btn preview" aria-label={`Preview ${getPreviewFilename(document)}`} onClick={() => openStoredPreview(document)}>
                         <Icon name="eye" size={14} />
                       </button>}
                       {downloadDocument && isFileAvailable(document) && <button type="button" className="doc-action-btn" aria-label={`Download ${getPreviewFilename(document)}`} onClick={() => downloadStoredDocument(document)}>
                         <Icon name="download" size={14} />
+                      </button>}
+                      {onDeleteDocument && <button type="button" className="doc-action-btn remove" aria-label={`Delete ${getPreviewFilename(document)}`} onClick={() => setDeleteTarget(document)}>
+                        <Icon name="trash" size={14} />
                       </button>}
                     </div>
                   )}
@@ -211,7 +232,7 @@ export default function DocumentStagingWorkspace({
               ))}
 
               {count === 0 && <div className="doc-empty">No files selected yet</div>}
-              <label className="doc-upload-btn" htmlFor={inputId}>
+              {!readOnly && <><label className="doc-upload-btn" htmlFor={inputId}>
                 <Icon name="upload" size={13} />
                 Add {category.label.toLowerCase()}
               </label>
@@ -226,7 +247,7 @@ export default function DocumentStagingWorkspace({
                   onAddFiles(category.key, Array.from(event.target.files ?? []));
                   event.target.value = "";
                 }}
-              />
+              /></>}
             </section>
           );
         })}
@@ -255,6 +276,14 @@ export default function DocumentStagingWorkspace({
           url={storedPreview.url}
         />
       )}
+      {deleteTarget && <ConfirmDialog
+        title="Delete Document"
+        message={`Delete "${getPreviewFilename(deleteTarget)}"?`}
+        confirmLabel="Delete"
+        danger
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={deleteStoredDocument}
+      />}
     </aside>
   );
 }

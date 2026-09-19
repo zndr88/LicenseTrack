@@ -1,11 +1,18 @@
 import { compareProcurementTotals } from "../../../utils/procurementTotals.js";
 
+export function sourcingRequestPublishers(request) {
+  return [...new Set((request.items ?? [])
+    .map((item) => item.publisherName?.trim())
+    .filter(Boolean))].join(", ");
+}
+
 export function sortSourcingRequests(requests, sortCol, sortDir) {
   if (!sortCol) return requests;
 
   const requestValue = (request, col) => {
     switch (col) {
       case "supplier": return request.supplier ?? "";
+      case "publisher": return sourcingRequestPublishers(request);
       case "itemCount": return request.items?.length ?? 0;
       case "created": return request.createdAt ?? "";
       default: return "";

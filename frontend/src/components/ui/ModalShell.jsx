@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap.js";
 import Icon from "./Icon.jsx";
+import { ModalSectionExpansionContext } from "./ModalSectionExpansionContext.js";
 
 export default function ModalShell({
   title,
@@ -19,8 +20,10 @@ export default function ModalShell({
   overlayStyle,
   modalClassName = "modal",
   modalStyle,
+  sectionControls = false,
 }) {
   const { modalRef, onKeyDown } = useFocusTrap(true);
+  const [sectionCommand, setSectionCommand] = useState({ sequence: 0, open: true });
   const labelledBy = title || header ? titleId : undefined;
 
   const handleOverlayClick = (event) => {
@@ -41,6 +44,8 @@ export default function ModalShell({
     onKeyDown(event);
   };
 
+  const setAllSections = (open) => setSectionCommand((current) => ({ sequence: current.sequence + 1, open }));
+
   return (
     <div className={overlayClassName} onClick={handleOverlayClick} style={overlayStyle}>
       <div
@@ -57,7 +62,12 @@ export default function ModalShell({
         {header ?? (title && (
           <div className="modal-hd">
             <h3 id={titleId}>{title}</h3>
-            {showCloseButton && (
+            <div className="modal-hd-actions">
+              {sectionControls && <div className="modal-section-controls" role="group" aria-label="Section controls">
+                <button type="button" onClick={() => setAllSections(true)}>Expand all</button>
+                <button type="button" onClick={() => setAllSections(false)}>Collapse all</button>
+              </div>}
+              {showCloseButton && (
               <button
                 className="modal-close"
                 aria-label={closeButtonAriaLabel}
@@ -66,10 +76,13 @@ export default function ModalShell({
               >
                 <Icon name="x" size={18} />
               </button>
-            )}
+              )}
+            </div>
           </div>
         ))}
-        {children}
+        <ModalSectionExpansionContext.Provider value={sectionControls ? sectionCommand : null}>
+          {children}
+        </ModalSectionExpansionContext.Provider>
         {footer && <div className="modal-ft">{footer}</div>}
       </div>
     </div>

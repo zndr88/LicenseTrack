@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
@@ -13,6 +13,9 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import SourcingRequestLineEditor from "./SourcingRequestLineEditor.jsx";
+import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
+import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
+import { previewSourcingQuoteDocument, downloadSourcingQuoteDocument } from "../../api/sourcing.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "../../utils/secondaryContacts.js";
 
 function itemDefaults(item) {
@@ -50,7 +53,7 @@ function normalizeOptionalNumber(value, userSettings) {
   return (parseLocalizedNumber(value, userSettings) ?? value) || null;
 }
 
-export default function SourcingRequestEditModal({ request, userSettings, onSave, onCancel }) {
+export default function SourcingRequestEditModal({ request, userSettings, onSave, onCancel, onDeleteDocument }) {
   const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
   const schema = useMemo(() => createSourcingRequestEditSchema(userSettings), [userSettings]);
   const {
@@ -59,7 +62,7 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
     handleSubmit,
     watch,
     setValue,
-    formState: { errors, isDirty, isSubmitting, isValid },
+    formState: { errors, isDirty, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
     mode: "onChange",
@@ -71,8 +74,10 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
     },
   });
   const { fields } = useFieldArray({ control, name: "items", keyName: "formKey" });
+  const { attachments, categoryScopes, addFiles, removeAttachment, changeTarget, changeCategoryScope, clearAttachments } = useStagedDocumentAttachments(request.items?.[0]?.id);
+  const [documentPreviewVisible, setDocumentPreviewVisible] = useState(false);
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
-    isDirty,
+    isDirty: isDirty || attachments.length > 0,
     onClose: onCancel,
   });
 
@@ -116,27 +121,30 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
       contactEmail: values.contactEmail.trim(),
       notes: values.notes,
       items,
+      attachments,
+      attachmentTargetKeys: (request.items ?? []).map((item) => String(item.id)),
     });
-    if (saved) onCancel();
+    if (saved) { clearAttachments(); onCancel(); }
   };
 
   return (
     <>
       <ModalShell
         title="Edit Sourcing Request"
+        sectionControls
         titleId="dialog-title-sourcing-request-edit"
         onClose={requestClose}
-        modalClassName="modal document-assisted-modal sourcing-request-edit-modal"
+        modalClassName={`modal document-assisted-modal sourcing-request-edit-modal${documentPreviewVisible ? " has-document-preview" : ""}`}
         footer={(
           <>
             <button className="btn btn-g" onClick={requestClose} disabled={isSubmitting}>Cancel</button>
-            <button className="btn btn-p" onClick={handleSubmit(submit)} disabled={isSubmitting || !isDirty || !isValid}>
+            <button className="btn btn-p" onClick={handleSubmit(submit)} disabled={isSubmitting || (!isDirty && !attachments.length)}>
               {isSubmitting ? "Saving..." : "Save Sourcing Request"}
             </button>
           </>
         )}
       >
-        <div className="modal-bd document-assisted-modal-form">
+        <div className="license-intake-modal-layout"><div className="modal-bd document-assisted-modal-form">
           <div className="license-form-stack">
             <LicenseFormSection title="Request Details">
               <div className="fr">
@@ -179,6 +187,24 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
               />
             ))}
           </div>
+        </div>
+        <DocumentStagingWorkspace
+          attachments={attachments}
+          categoryScopes={categoryScopes}
+          documents={(request.quoteDocuments ?? []).map((document) => ({ ...document, category: document.category ?? "quote" }))}
+          inputIdPrefix="sourcing-request-edit-attachment"
+          onAddFiles={addFiles}
+          onRemoveAttachment={removeAttachment}
+          onTargetChange={changeTarget}
+          onCategoryScopeChange={changeCategoryScope}
+          previewDocument={previewSourcingQuoteDocument}
+          downloadDocument={(document) => downloadSourcingQuoteDocument(document.id, document.originalFilename ?? document.original_filename)}
+          onDeleteDocument={onDeleteDocument}
+          onPreviewVisibilityChange={setDocumentPreviewVisible}
+          targetOptions={(request.items ?? []).map((item, index) => ({ value: String(item.id), label: item.softwareDescription || `Line ${index + 1}` }))}
+          userSettings={userSettings}
+          defaultOpen
+        />
         </div>
       </ModalShell>
       {showDiscardDialog && (

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { uploadSourcingQuoteDocument } from "../../api/sourcing.js";
+import { uploadSourcingQuoteDocument, previewSourcingQuoteDocument, downloadSourcingQuoteDocument } from "../../api/sourcing.js";
 import { draftDocumentTargetMap, uploadDraftDocuments } from "../../utils/draftDocuments.js";
 import { ROLE_PERMISSIONS } from "../../constants/permissions.js";
 import { useCotermDetection } from "../../hooks/useCotermDetection.js";
@@ -8,6 +8,7 @@ import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import SourcingItemModal from "../procurement/SourcingItemModal.jsx";
 import SourcingRequestEditModal from "../procurement/SourcingRequestEditModal.jsx";
+import WorkflowDocumentsModal from "../procurement/WorkflowDocumentsModal.jsx";
 import ConvertSourcingModal from "../procurement/ConvertSourcingModal.jsx";
 import CotermSuggestionBanner from "./sourcing/CotermSuggestionBanner.jsx";
 import MergeSourcingModal from "./sourcing/MergeSourcingModal.jsx";
@@ -79,9 +80,9 @@ export default function SourcingPage({
 
   const [showSourcingModal, setShowSourcingModal] = useState(null);
   const [showSourcingRequestEditModal, setShowSourcingRequestEditModal] = useState(null);
+  const [showDocumentsModal, setShowDocumentsModal] = useState(null);
   const [deleteSourcingRequestTarget, setDeleteSourcingRequestTarget] = useState(null);
   const [deleteSourcingId, setDeleteSourcingId] = useState(null);
-  const [deleteQuoteTarget, setDeleteQuoteTarget] = useState(null);
   const [showConvertModal, setShowConvertModal] = useState(null);
   const [directConversionTarget, setDirectConversionTarget] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -153,10 +154,6 @@ export default function SourcingPage({
   } = useSourcingMerge({ sourcingItems, licenses, queryClient, showToast, userSettings });
 
   const {
-    quoteInputRef,
-    handleUploadQuote,
-    handleQuoteSelected,
-    handleDownloadQuote,
     handleDeleteQuote,
   } = useSourcingQuotes({ queryClient, showToast });
 
@@ -345,7 +342,6 @@ export default function SourcingPage({
             <p>Track software under negotiation or evaluation before purchase</p>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input ref={quoteInputRef} type="file" style={{ display: "none" }} onChange={handleQuoteSelected} />
             <button className="btn btn-g" onClick={() => setShowHistory((value) => !value)}>
               <Icon name="archive" size={13} />{showHistory ? "Hide History" : "History"}
             </button>
@@ -422,9 +418,7 @@ export default function SourcingPage({
               }
             }}
             onConvertFreeware={(item) => setDirectConversionTarget({ item })}
-            onUploadQuote={handleUploadQuote}
-            onDownloadQuote={handleDownloadQuote}
-            onDeleteQuote={setDeleteQuoteTarget}
+            onOpenDocuments={setShowDocumentsModal}
             onDeleteRequest={setDeleteSourcingRequestTarget}
             onNavigateToPendingOrder={onNavigateToPendingOrder}
             onNavigateToLicense={onNavigateToLicense}
@@ -477,9 +471,7 @@ export default function SourcingPage({
               onDeleteItem={() => {}}
               onAddItem={() => {}}
               onConvert={() => {}}
-              onUploadQuote={() => {}}
-              onDownloadQuote={handleDownloadQuote}
-              onDeleteQuote={setDeleteQuoteTarget}
+              onOpenDocuments={setShowDocumentsModal}
               onDeleteRequest={() => {}}
               onNavigateToPendingOrder={onNavigateToPendingOrder}
               onNavigateToLicense={onNavigateToLicense}
@@ -523,6 +515,7 @@ export default function SourcingPage({
           requestId={showSourcingModal.request?.id ?? null}
           sourcingRequest={showSourcingModal.request}
           documents={showSourcingModal.request?.quoteDocuments ?? []}
+          onDeleteDocument={showSourcingModal.request ? handleDeleteQuote : null}
           userSettings={userSettings}
           onCancel={() => setShowSourcingModal(null)}
           onSave={async (form) => {
@@ -628,9 +621,37 @@ export default function SourcingPage({
           request={showSourcingRequestEditModal}
           userSettings={userSettings}
           onCancel={() => setShowSourcingRequestEditModal(null)}
-          onSave={(payload) => handleUpdateSourcingRequest(showSourcingRequestEditModal.id, payload)}
+          onDeleteDocument={handleDeleteQuote}
+          onSave={async ({ attachments, attachmentTargetKeys, ...payload }) => {
+            const saved = await handleUpdateSourcingRequest(showSourcingRequestEditModal.id, payload);
+            if (!saved) return false;
+            const { errors } = await uploadDraftDocuments({
+              parentId: showSourcingRequestEditModal.id,
+              attachments,
+              targetIdsByKey: draftDocumentTargetMap(attachmentTargetKeys, showSourcingRequestEditModal.items),
+              upload: uploadSourcingQuoteDocument,
+            });
+            if (attachments.length) await refetch();
+            if (errors.length) showToast(`Request saved, but some documents could not be uploaded: ${errors.join("; ")}`, "warning");
+            return true;
+          }}
         />
       )}
+
+      {showDocumentsModal && <WorkflowDocumentsModal
+        key={`sourcing-documents-${showDocumentsModal.id}`}
+        title={`Sourcing Request #${showDocumentsModal.id} Documents`}
+        parentId={showDocumentsModal.id}
+        items={showDocumentsModal.items ?? []}
+        documents={(showDocumentsModal.quoteDocuments ?? []).map((document) => ({ ...document, category: document.category ?? "quote" }))}
+        upload={perms.canEdit ? uploadSourcingQuoteDocument : null}
+        previewDocument={previewSourcingQuoteDocument}
+        downloadDocument={(document) => downloadSourcingQuoteDocument(document.id, document.originalFilename ?? document.original_filename)}
+        onDeleteDocument={perms.canEdit ? handleDeleteQuote : null}
+        onChanged={async () => { await refetch(); await refetchHistory(); }}
+        onClose={() => setShowDocumentsModal(null)}
+        userSettings={userSettings}
+      />}
 
       {showConvertModal !== null && (
         <ConvertSourcingModal
@@ -679,19 +700,6 @@ export default function SourcingPage({
         />
       )}
 
-      {deleteQuoteTarget !== null && (
-        <ConfirmDialog
-          title="Delete Quote"
-          message={`Delete "${deleteQuoteTarget.originalFilename ?? deleteQuoteTarget.original_filename ?? "this quote"}"?`}
-          confirmLabel="Delete"
-          danger
-          onCancel={() => setDeleteQuoteTarget(null)}
-          onConfirm={async () => {
-            const success = await handleDeleteQuote(deleteQuoteTarget);
-            if (success) setDeleteQuoteTarget(null);
-          }}
-        />
-      )}
 
       {deleteSourcingRequestTarget !== null && (
         <ConfirmDialog

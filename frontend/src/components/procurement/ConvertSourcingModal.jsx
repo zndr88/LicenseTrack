@@ -8,6 +8,7 @@ import { poFormSchema } from "../../utils/procurementSchemas.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
+import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import { pendingOrderOptionLabel } from "../../utils/procurementLabels.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import { queryKeys } from "../../queryKeys.js";
@@ -100,6 +101,7 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
     <>
       <ModalShell
         title="Convert to Pending Order"
+        sectionControls
         titleId="dialog-title-convert-sourcing"
         onClose={requestClose}
         modalStyle={{ maxWidth: "min(520px, 92vw)" }}
@@ -125,6 +127,7 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
             </button>
           </div>
 
+          <LicenseFormSection title={mode === "new" ? "New Pending Order" : "Existing Pending Order"}>
           {mode === "new" ? (
             <>
               <div className="fg">
@@ -166,6 +169,7 @@ const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
               )}
             </div>
           )}
+          </LicenseFormSection>
         </div>
       </ModalShell>
       {showDiscardDialog && (

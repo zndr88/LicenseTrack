@@ -14,6 +14,12 @@ export function formatPoTotal(po, locale) {
   return parts.map(([currency, amount]) => formatCost(amount, currency, locale)).join(" + ");
 }
 
+export function pendingOrderPublishers(order) {
+  return [...new Set((order.items ?? [])
+    .map((item) => item.publisherName?.trim())
+    .filter(Boolean))].join(", ");
+}
+
 export function filterAndSortPendingOrders(pendingOrders, search, sortCol, sortDir) {
   let orders = pendingOrders;
 
@@ -45,6 +51,10 @@ export function filterAndSortPendingOrders(pendingOrders, search, sortCol, sortD
       case "supplier":
         aVal = a.supplier ?? "";
         bVal = b.supplier ?? "";
+        break;
+      case "publisher":
+        aVal = pendingOrderPublishers(a);
+        bVal = pendingOrderPublishers(b);
         break;
       case "itemCount":
         aVal = a.items?.length ?? 0;

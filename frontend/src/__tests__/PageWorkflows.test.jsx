@@ -1432,6 +1432,7 @@ describe("SourcingPage workflows", () => {
       publisherName: "Inline Publisher",
       softwareDescription: "Inline Suite",
       quantity: "4",
+      quantityPerUnit: "1",
       estimatedUnitPrice: "25.00",
       currency: "EUR",
       status: "sourcing",
@@ -1467,7 +1468,7 @@ describe("SourcingPage workflows", () => {
     expect(screen.getByRole("textbox", { name: /edit description/i })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /edit quantity/i })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /edit estimated unit price/i })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /edit currency/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /edit unit quantity/i })).toBeInTheDocument();
 
     const supplierInput = screen.getByRole("combobox", { name: /edit supplier/i });
     await user.clear(supplierInput);
@@ -2014,7 +2015,7 @@ describe("SourcingPage workflows", () => {
     });
   });
 
-  test("deletes a sourcing quote from the row action menu", async () => {
+  test("deletes a sourcing quote from the Documents workspace", async () => {
     const user = userEvent.setup();
     sourcingApi.getSourcingRequests.mockResolvedValueOnce({
       data: [{
@@ -2032,9 +2033,10 @@ describe("SourcingPage workflows", () => {
 
     expect(await screen.findByText("Quote Supplier")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /more actions for sourcing request 7/i }));
-    await user.click(screen.getByRole("menuitem", { name: /delete quote/i }));
+    await user.click(screen.getByRole("menuitem", { name: "Documents" }));
+    await user.click(screen.getByRole("button", { name: "Delete quote.pdf" }));
 
-    const dialog = screen.getByRole("dialog", { name: /delete quote/i });
+    const dialog = screen.getByRole("dialog", { name: /delete document/i });
     expect(dialog).toHaveTextContent("quote.pdf");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
@@ -2043,7 +2045,7 @@ describe("SourcingPage workflows", () => {
     });
   });
 
-  test("keeps missing sourcing quotes visible but disables download", async () => {
+  test("keeps missing sourcing quotes visible in Documents without a download action", async () => {
     const user = userEvent.setup();
     sourcingApi.getSourcingRequests.mockResolvedValueOnce({
       data: [{
@@ -2063,13 +2065,13 @@ describe("SourcingPage workflows", () => {
 
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
-    expect(await screen.findByText(/1 quote · 1 unavailable/i)).toBeInTheDocument();
+    expect(await screen.findByText("Missing Quote Supplier")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /more actions for sourcing request 7/i }));
-    const downloadItem = screen.getByRole("menuitem", { name: /file missing: missing-quote\.pdf/i });
-    expect(downloadItem).toBeDisabled();
-    await user.click(downloadItem);
+    await user.click(screen.getByRole("menuitem", { name: "Documents" }));
+    expect(screen.getByText("missing-quote.pdf")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download missing-quote.pdf" })).not.toBeInTheDocument();
     expect(sourcingApi.downloadSourcingQuoteDocument).not.toHaveBeenCalled();
-    expect(screen.getByRole("menuitem", { name: /delete missing-quote\.pdf/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Delete missing-quote.pdf" })).toBeEnabled();
   });
 
   test("history toggle renders a read-only searchable sourcing history table", async () => {
@@ -2138,7 +2140,7 @@ describe("SourcingPage workflows", () => {
     expect(screen.queryByRole("button", { name: /Add License Line/i })).not.toBeInTheDocument();
   });
 
-  test("exposes quote document actions in cancelled sourcing history", async () => {
+  test("exposes quote documents in cancelled sourcing history", async () => {
     const user = userEvent.setup();
     sourcingApi.getSourcingRequests.mockResolvedValueOnce({ data: [], error: null });
     sourcingApi.getSourcingRequestHistory.mockResolvedValueOnce({
@@ -2162,12 +2164,12 @@ describe("SourcingPage workflows", () => {
     expect(await screen.findByText("Cancelled Quote Supplier")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /more document actions for sourcing request 8/i }));
-    await user.click(screen.getByRole("menuitem", { name: /download cancelled-quote\.pdf/i }));
+    await user.click(screen.getByRole("menuitem", { name: "Documents" }));
+    await user.click(screen.getByRole("button", { name: "Download cancelled-quote.pdf" }));
     expect(sourcingApi.downloadSourcingQuoteDocument).toHaveBeenCalledWith(81, "cancelled-quote.pdf");
 
-    await user.click(screen.getByRole("button", { name: /more document actions for sourcing request 8/i }));
-    await user.click(screen.getByRole("menuitem", { name: /delete cancelled-quote\.pdf/i }));
-    const dialog = screen.getByRole("dialog", { name: /delete quote/i });
+    await user.click(screen.getByRole("button", { name: "Delete cancelled-quote.pdf" }));
+    const dialog = screen.getByRole("dialog", { name: /delete document/i });
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
     await waitFor(() => {
@@ -2698,7 +2700,7 @@ describe("PendingOrdersPage workflows", () => {
     expect(onRenewalsReload).toHaveBeenCalled();
   });
 
-  test("deletes a purchase order document from the row action menu", async () => {
+  test("deletes a purchase order document from the Documents workspace", async () => {
     const user = userEvent.setup();
     pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({
       data: [{
@@ -2724,9 +2726,10 @@ describe("PendingOrdersPage workflows", () => {
 
     expect(await screen.findByText("PO-DOC")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
-    await user.click(screen.getByRole("menuitem", { name: /delete po/i }));
+    await user.click(screen.getByRole("menuitem", { name: "Documents" }));
+    await user.click(screen.getByRole("button", { name: "Delete po.pdf" }));
 
-    const dialog = screen.getByRole("dialog", { name: /delete po/i });
+    const dialog = screen.getByRole("dialog", { name: /delete document/i });
     expect(dialog).toHaveTextContent("po.pdf");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
@@ -2735,7 +2738,7 @@ describe("PendingOrdersPage workflows", () => {
     });
   });
 
-  test("keeps unavailable pending-order evidence visible but disables downloads", async () => {
+  test("keeps unavailable pending-order evidence visible without download actions", async () => {
     const user = userEvent.setup();
     pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({
       data: [{
@@ -2775,21 +2778,20 @@ describe("PendingOrdersPage workflows", () => {
       />
     );
 
-    expect(await screen.findByText(/1 PO · 1 quote · 2 unavailable/i)).toBeInTheDocument();
+    expect(await screen.findByText("PO-MISSING-DOC")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
-    const poDownload = screen.getByRole("menuitem", { name: /file missing: missing-po\.pdf/i });
-    const quoteDownload = screen.getByRole("menuitem", { name: /storage unavailable: unavailable-quote\.pdf/i });
-    expect(poDownload).toBeDisabled();
-    expect(quoteDownload).toBeDisabled();
-    await user.click(poDownload);
-    await user.click(quoteDownload);
+    await user.click(screen.getByRole("menuitem", { name: "Documents" }));
+    expect(screen.getByText("missing-po.pdf")).toBeInTheDocument();
+    expect(screen.getByText("unavailable-quote.pdf")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download missing-po.pdf" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download unavailable-quote.pdf" })).not.toBeInTheDocument();
     expect(pendingOrdersApi.downloadPendingOrderDocument).not.toHaveBeenCalled();
     expect(sourcingApi.downloadSourcingQuoteDocument).not.toHaveBeenCalled();
-    expect(screen.getByRole("menuitem", { name: /delete missing-po\.pdf/i })).toBeEnabled();
-    expect(screen.getByRole("menuitem", { name: /delete unavailable-quote\.pdf/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Delete missing-po.pdf" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Delete unavailable-quote.pdf" })).toBeEnabled();
   });
 
-  test("exposes sourcing quote documents in the pending order row action menu", async () => {
+  test("exposes sourcing quote documents in the pending order Documents workspace", async () => {
     const user = userEvent.setup();
     pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({
       data: [{
@@ -2822,11 +2824,11 @@ describe("PendingOrdersPage workflows", () => {
     );
 
     expect(await screen.findByText("PO-QUOTE")).toBeInTheDocument();
-    expect(screen.getByText("1 quote")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
-    await user.click(screen.getByRole("menuitem", { name: /preview pending-quote\.pdf/i }));
+    await user.click(screen.getByRole("menuitem", { name: "Documents" }));
+    await user.click(screen.getByRole("button", { name: "Preview pending-quote.pdf" }));
 
-    expect(await screen.findByRole("region", { name: /quote preview/i })).toBeInTheDocument();
+    expect(await screen.findByLabelText("pending-quote.pdf preview")).toBeInTheDocument();
     expect(sourcingApi.previewSourcingQuoteDocument).toHaveBeenCalledWith(66);
     expect(screen.getByTitle("Preview of pending-quote.pdf")).toHaveAttribute(
       "src",
@@ -2834,14 +2836,12 @@ describe("PendingOrdersPage workflows", () => {
     );
     await user.click(screen.getByRole("button", { name: /close document preview/i }));
 
-    await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
-    await user.click(screen.getByRole("menuitem", { name: /download pending-quote\.pdf/i }));
+    await user.click(screen.getByRole("button", { name: "Download pending-quote.pdf" }));
     expect(sourcingApi.downloadSourcingQuoteDocument).toHaveBeenCalledWith(66, "pending-quote.pdf");
 
-    await user.click(screen.getByRole("button", { name: /more actions for pending order 9/i }));
-    await user.click(screen.getByRole("menuitem", { name: /delete pending-quote\.pdf/i }));
+    await user.click(screen.getByRole("button", { name: "Delete pending-quote.pdf" }));
 
-    const dialog = screen.getByRole("dialog", { name: /delete quote/i });
+    const dialog = screen.getByRole("dialog", { name: /delete document/i });
     expect(dialog).toHaveTextContent("pending-quote.pdf");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
@@ -3055,7 +3055,7 @@ describe("PendingOrdersPage workflows", () => {
     expect(screen.queryByRole("button", { name: /add license line/i })).not.toBeInTheDocument();
   });
 
-  test("exposes PO and quote document actions in pending order history", async () => {
+  test("exposes PO and quote documents in pending order history", async () => {
     const user = userEvent.setup();
     pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: [], error: null });
     pendingOrdersApi.getPendingOrderHistory.mockResolvedValueOnce({
@@ -3092,12 +3092,12 @@ describe("PendingOrdersPage workflows", () => {
     expect(await screen.findByText("PO-HIST-DOC")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /more document actions for pending order 22/i }));
-    await user.click(screen.getByRole("menuitem", { name: /download history-po\.pdf/i }));
+    await user.click(screen.getByRole("menuitem", { name: "Documents" }));
+    await user.click(screen.getByRole("button", { name: "Download history-po.pdf" }));
     expect(pendingOrdersApi.downloadPendingOrderDocument).toHaveBeenCalledWith(89, "history-po.pdf");
 
-    await user.click(screen.getByRole("button", { name: /more document actions for pending order 22/i }));
-    await user.click(screen.getByRole("menuitem", { name: /delete history-quote\.pdf/i }));
-    const dialog = screen.getByRole("dialog", { name: /delete quote/i });
+    await user.click(screen.getByRole("button", { name: "Delete history-quote.pdf" }));
+    const dialog = screen.getByRole("dialog", { name: /delete document/i });
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
     await waitFor(() => {

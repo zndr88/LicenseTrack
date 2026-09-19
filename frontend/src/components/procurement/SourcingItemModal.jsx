@@ -23,6 +23,7 @@ import MaintenanceCoverageFields, {
 } from "./MaintenanceCoverageFields.jsx";
 import CustomFieldFormSection, { CustomFieldPlacement } from "../licenses/CustomFieldFormSection.jsx";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
+import LicenseDraftSupplementFields from "../licenses/LicenseDraftSupplementFields.jsx";
 import LicenseIdentityFormSection from "../licenses/LicenseIdentityFormSection.jsx";
 import LicenseDatesContractFormSection from "../licenses/LicenseDatesContractFormSection.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
@@ -36,8 +37,8 @@ import {
   sourcingItemToFormDefaults,
   sourcingPrimaryFormToPayload,
 } from "../../utils/sourcingItemFormModel.js";
-import { previewPendingOrderDocument, downloadPendingOrderDocument } from "../../api/pendingOrders.js";
 import { previewSourcingQuoteDocument, downloadSourcingQuoteDocument } from "../../api/sourcing.js";
+import { previewConversionDocument, downloadConversionDocument } from "./conversionDocuments.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { filterCustomFieldDefinitionsForSourcing } from "../../utils/customFieldSourcing.js";
 
@@ -86,6 +87,13 @@ const emptyAdditionalLine = (overrides = {}) => ({
   licenseType: "",
   licenseMetric: "per_user",
   portalUrl: "",
+  maintenanceCoverage: "unknown",
+  maintenanceStartDate: "",
+  maintenanceEndDate: "",
+  maintenancePricingBasis: "flat",
+  maintenanceQuantity: "",
+  maintenanceUnitPrice: "",
+  maintenanceCost: "",
   quantity: "",
   quantityPerUnit: "1",
   skuCode: "",
@@ -107,6 +115,7 @@ const emptyAdditionalLine = (overrides = {}) => ({
   contactEmail: "",
   notes: "",
   parentItemIndex: null,
+  parentLineId: null,
   isMaintenanceCompanion: false,
   ...overrides,
 });
@@ -121,6 +130,7 @@ const SourcingItemModal = ({
   title,
   onSave,
   onCancel,
+  onDeleteDocument,
 }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const { definitions: allCustomFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
@@ -174,9 +184,26 @@ const SourcingItemModal = ({
   }, [attachedFile]);
 
   const addAdditionalLine = () => setAdditionalLines((prev) => [...prev, emptyAdditionalLine()]);
-  const removeAdditionalLine = (id) => setAdditionalLines((prev) => prev.filter((l) => l.id !== id));
+  const removeAdditionalLine = (id) => setAdditionalLines((prev) => prev.filter((line) => line.id !== id && line.parentLineId !== id));
   const updateAdditionalLine = (id, field, value) =>
     setAdditionalLines((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
+  const hasAdditionalMaintenanceLine = (id) => additionalLines.some((line) => line.isMaintenanceCompanion && line.parentLineId === id);
+  const addAdditionalMaintenanceLine = (parent) => {
+    if (hasAdditionalMaintenanceLine(parent.id)) return;
+    setAdditionalLines((prev) => [...prev, emptyAdditionalLine({
+      publisherName: parent.publisherName,
+      softwareDescription: `${parent.softwareDescription || "Software"} maintenance/support`,
+      licenseType: "maintenance",
+      quantity: parent.quantity || "1",
+      currency: parent.currency,
+      startDate: parent.maintenanceStartDate || parent.startDate,
+      endDate: parent.maintenanceEndDate || parent.endDate,
+      supplier: parent.supplier,
+      contactEmail: parent.contactEmail,
+      parentLineId: parent.id,
+      isMaintenanceCompanion: true,
+    })]);
+  };
 
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
   const [displayQuantity, setDisplayQuantity] = useState(
@@ -190,7 +217,7 @@ const SourcingItemModal = ({
   );
 
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
-    isDirty: isDirty || attachments.length > 0,
+    isDirty: isDirty || additionalLines.length > 0 || attachments.length > 0,
     onClose: onCancel,
   });
 
@@ -343,7 +370,9 @@ const SourcingItemModal = ({
           items: [
             primaryItem,
             ...additionalLines.map((line) => sourcingAdditionalLineToPayload(
-              line, customFieldDefs, userSettings,
+              { ...line, parentItemIndex: line.parentLineId
+                ? additionalLines.findIndex((candidate) => candidate.id === line.parentLineId) + 1
+                : line.parentItemIndex }, customFieldDefs, userSettings,
             )),
           ],
           supplier: data.supplier || null,
@@ -385,6 +414,7 @@ const SourcingItemModal = ({
     <>
       <ModalShell
         title={title ?? (item ? "Edit Sourcing Item" : "Add Sourcing Item")}
+        sectionControls
         titleId="dialog-title-sourcing-item"
         onClose={requestClose}
         modalClassName={`modal document-assisted-modal procurement-document-modal${documentPreviewVisible ? " has-document-preview" : ""}`}
@@ -505,168 +535,51 @@ const SourcingItemModal = ({
                   <Icon name="x" size={12} /> Remove
                 </button>
               </div>
-              <div className="fr">
-                <div className="fg" style={{ flex: 1 }}>
-                  <label htmlFor={`sourcing-line-${line.id}-publisher`}>Publisher <span style={{ color: "var(--red)" }}>*</span></label>
-                  <ReferenceCombobox
-                    id={`sourcing-line-${line.id}-publisher`}
-                    mode="publisher"
-                    value={line.publisherName}
-                    onChange={(value) => updateAdditionalLine(line.id, "publisherName", value)}
-                    placeholder="Software publisher"
-                  />
-                </div>
-              </div>
-              <div className="fg">
-                <label htmlFor={`sourcing-line-${line.id}-software`}>Software Description <span style={{ color: "var(--red)" }}>*</span></label>
-                <input
-                  id={`sourcing-line-${line.id}-software`}
-                  className="fi"
-                  value={line.softwareDescription}
-                  onChange={(e) => updateAdditionalLine(line.id, "softwareDescription", e.target.value)}
-                  placeholder="Product or service name"
-                />
-              </div>
-              <div className="fg">
-                <label htmlFor={`sourcing-line-${line.id}-license-type`}>License Type <span style={{ fontWeight: 400, color: "var(--text-3)" }}>(optional)</span></label>
-                <select
-                  id={`sourcing-line-${line.id}-license-type`}
-                  className="fi fi-select"
-                  value={line.licenseType}
-                  onChange={(e) => {
-                    const nextType = e.target.value;
+              <div className="license-form-stack license-line-item-sections">
+                <LicenseFormSection title="Identity">
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-publisher`}>Publisher <span className="field-required">*</span></label><ReferenceCombobox id={`sourcing-line-${line.id}-publisher`} mode="publisher" value={line.publisherName} onChange={(value) => updateAdditionalLine(line.id, "publisherName", value)} placeholder="Software publisher" /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-software`}>Software Description <span className="field-required">*</span></label><input id={`sourcing-line-${line.id}-software`} className="fi" value={line.softwareDescription} onChange={(event) => updateAdditionalLine(line.id, "softwareDescription", event.target.value)} placeholder="Product or service name" /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-license-type`}>License Type (optional)</label><select id={`sourcing-line-${line.id}-license-type`} className="fi fi-select" value={line.licenseType} onChange={(event) => {
+                    const nextType = event.target.value;
                     updateAdditionalLine(line.id, "licenseType", nextType);
+                    if (!supportsSeparateMaintenanceLine(nextType)) {
+                      setAdditionalLines((prev) => prev.filter((candidate) => candidate.parentLineId !== line.id));
+                    }
                     if (isFreewareLicenseType(nextType)) {
                       updateAdditionalLine(line.id, "estimatedUnitPrice", "");
                       updateAdditionalLine(line.id, "estimatedTotalPrice", "");
                     }
-                  }}
-                >
-                  <option value="">Not specified</option>
-                  {LICENSE_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="fr">
-                <div className="fg" style={{ flex: 1 }}>
-                  <label htmlFor={`sourcing-line-${line.id}-quantity`}>Purchase Quantity</label>
-                  <input
-                    id={`sourcing-line-${line.id}-quantity`}
-                    className="fi"
-                    value={line.quantity}
-                    onChange={(e) => updateAdditionalLine(line.id, "quantity", e.target.value)}
-                    placeholder="e.g. 10"
-                  />
-                </div>
-                <div className="fg" style={{ flex: 1 }}>
-                  <label htmlFor={`sourcing-line-${line.id}-currency`}>Currency</label>
-                  <select
-                    id={`sourcing-line-${line.id}-currency`}
-                    className="fi"
-                    value={line.currency}
-                    onChange={(e) => updateAdditionalLine(line.id, "currency", e.target.value)}
-                  >
-                    {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
-              {!isFreewareLicenseType(line.licenseType) && (
-              <div className="fr">
-                <div className="fg" style={{ flex: 1 }}>
-                  <label htmlFor={`sourcing-line-${line.id}-unit-price`}>Est. Unit Price</label>
-                  <input
-                    id={`sourcing-line-${line.id}-unit-price`}
-                    className="fi"
-                    value={line.estimatedUnitPrice}
-                    onChange={(e) => updateAdditionalLine(line.id, "estimatedUnitPrice", e.target.value)}
-                    placeholder="Unit price"
-                  />
-                </div>
-                <div className="fg" style={{ flex: 1 }}>
-                  <label htmlFor={`sourcing-line-${line.id}-total-price`}>Est. Total Price</label>
-                  <input
-                    id={`sourcing-line-${line.id}-total-price`}
-                    className="fi"
-                    value={line.estimatedTotalPrice}
-                    onChange={(e) => updateAdditionalLine(line.id, "estimatedTotalPrice", e.target.value)}
-                    placeholder="Total price"
-                  />
-                </div>
-              </div>
-              )}
-              <div className="fr">
-                <div className="fg" style={{ flex: 1 }}>
-                  <label htmlFor={`sourcing-line-${line.id}-start-date`}>Start Date</label>
-                  <input
-                    id={`sourcing-line-${line.id}-start-date`}
-                    className="fi"
-                    type="date"
-                    value={line.startDate}
-                    onChange={(e) => updateAdditionalLine(line.id, "startDate", e.target.value)}
-                  />
-                </div>
-                <div className="fg" style={{ flex: 1 }}>
-                  <label htmlFor={`sourcing-line-${line.id}-end-date`}>End Date</label>
-                  <input
-                    id={`sourcing-line-${line.id}-end-date`}
-                    className="fi"
-                    type="date"
-                    value={line.endDate}
-                    onChange={(e) => updateAdditionalLine(line.id, "endDate", e.target.value)}
-                  />
-                </div>
-              </div>
-              {line.isMaintenanceCompanion && (
-                <>
-                  <div className="fg">
-                    <label htmlFor={`sourcing-line-${line.id}-supplier`}>Supplier</label>
-                    <ReferenceCombobox
-                      id={`sourcing-line-${line.id}-supplier`}
-                      mode="supplier"
-                      value={line.supplier}
-                      onChange={(value) => updateAdditionalLine(line.id, "supplier", value)}
-                      placeholder="Same supplier or a support provider"
-                    />
-                  </div>
-                  <div className="fg">
-                    <label htmlFor={`sourcing-line-${line.id}-contact`}>Supplier Contact</label>
-                    <input
-                      id={`sourcing-line-${line.id}-contact`}
-                      className="fi"
-                      value={line.contactEmail}
-                      onChange={(e) => updateAdditionalLine(line.id, "contactEmail", e.target.value)}
-                      placeholder="support@example.com"
-                    />
-                  </div>
-                </>
-              )}
-              <div className="fs">
-                <h4>License record details</h4>
-                <div className="fr">
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-metric`}>License Metric</label><select id={`sourcing-line-${line.id}-metric`} className="fi fi-select" value={line.licenseMetric} onChange={(event) => updateAdditionalLine(line.id, "licenseMetric", event.target.value)}>{LICENSE_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-quantity-per-unit`}>Quantity per Unit</label><input id={`sourcing-line-${line.id}-quantity-per-unit`} className="fi" inputMode="decimal" value={line.quantityPerUnit} onChange={(event) => updateAdditionalLine(line.id, "quantityPerUnit", event.target.value)} /></div>
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-sku`}>SKU Code</label><input id={`sourcing-line-${line.id}-sku`} className="fi" value={line.skuCode} onChange={(event) => updateAdditionalLine(line.id, "skuCode", event.target.value)} /></div>
-                </div>
-                {line.licenseType === "saas" && <div className="fg"><label htmlFor={`sourcing-line-${line.id}-portal`}>Portal URL</label><input id={`sourcing-line-${line.id}-portal`} className="fi" value={line.portalUrl} onChange={(event) => updateAdditionalLine(line.id, "portalUrl", event.target.value)} /></div>}
-                <div className="fr">
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-notice`}>Notice Date</label><input id={`sourcing-line-${line.id}-notice`} type="date" className="fi" value={line.noticeDate} onChange={(event) => updateAdditionalLine(line.id, "noticeDate", event.target.value)} /></div>
-                </div>
-                <div className="fr">
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-contract`}>Contract Number</label><input id={`sourcing-line-${line.id}-contract`} className="fi" value={line.contractNumber} onChange={(event) => updateAdditionalLine(line.id, "contractNumber", event.target.value)} /></div>
-                </div>
-                <div className="fr">
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-cost-centre`}>Cost Centre / Department</label><input id={`sourcing-line-${line.id}-cost-centre`} className="fi" value={line.costCentre} onChange={(event) => updateAdditionalLine(line.id, "costCentre", event.target.value)} /></div>
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-budget-owner`}>Budget Owner Email</label><ContactCombobox id={`sourcing-line-${line.id}-budget-owner`} value={line.budgetOwnerEmail} onChange={(value) => updateAdditionalLine(line.id, "budgetOwnerEmail", value)} /></div>
-                </div>
-                <div className="fg"><label htmlFor={`sourcing-line-${line.id}-secondary`}>Secondary Contacts</label><ContactCombobox id={`sourcing-line-${line.id}-secondary`} multiple value={line.secondaryContacts} onChange={(value) => updateAdditionalLine(line.id, "secondaryContacts", value)} /></div>
-                <CustomFieldPlacement
-                  definitions={customFieldDefs}
-                  values={line.customFieldValues || {}}
-                  onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)}
+                  }}><option value="">Not specified</option>{LICENSE_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></div>
+                  <CustomFieldPlacement definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)} idPrefix={`sourcing-line-${line.id}`} loading={customFieldsLoading} section="identity" />
+                </LicenseFormSection>
+                <CustomFieldFormSection title="Documents" section="documents" definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)} idPrefix={`sourcing-line-${line.id}`} loading={customFieldsLoading} />
+                <LicenseDraftSupplementFields
+                  item={line}
+                  onChange={(field, value) => updateAdditionalLine(line.id, field, value)}
                   idPrefix={`sourcing-line-${line.id}`}
-                  loading={customFieldsLoading}
+                  customFieldDefs={customFieldDefs}
+                  customFieldsLoading={customFieldsLoading}
+                  sectioned
+                  showLicenseType={false}
+                  commercialSummary={<>
+                    <div className="fr">
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-quantity`}>Purchase Quantity</label><input id={`sourcing-line-${line.id}-quantity`} className="fi" inputMode="decimal" value={line.quantity} onChange={(event) => updateAdditionalLine(line.id, "quantity", event.target.value)} placeholder="e.g. 10" /></div>
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-currency`}>Currency</label><select id={`sourcing-line-${line.id}-currency`} className="fi fi-select" value={line.currency} onChange={(event) => updateAdditionalLine(line.id, "currency", event.target.value)}>{CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></div>
+                    </div>
+                    {!isFreewareLicenseType(line.licenseType) && <div className="fr">
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-unit-price`}>Est. Unit Price</label><input id={`sourcing-line-${line.id}-unit-price`} className="fi" inputMode="decimal" value={line.estimatedUnitPrice} onChange={(event) => updateAdditionalLine(line.id, "estimatedUnitPrice", event.target.value)} placeholder="Unit price" /></div>
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-total-price`}>Est. Total Price</label><input id={`sourcing-line-${line.id}-total-price`} className="fi" inputMode="decimal" value={line.estimatedTotalPrice} onChange={(event) => updateAdditionalLine(line.id, "estimatedTotalPrice", event.target.value)} placeholder="Total price" /></div>
+                    </div>}
+                  </>}
+                  maintenanceSection={supportsMaintenanceCoverage(line.licenseType) ? <LicenseFormSection title="Maintenance / Support">
+                    <MaintenanceCoverageFields idPrefix={`sourcing-line-${line.id}`} licenseType={line.licenseType} coverage={line.maintenanceCoverage} startDate={line.maintenanceStartDate} endDate={line.maintenanceEndDate} pricingBasis={line.maintenancePricingBasis} supportQuantity={line.maintenanceQuantity} supportUnitPrice={line.maintenanceUnitPrice} cost={line.maintenanceCost} licenseQuantity={line.quantity} licenseStartDate={line.startDate} licenseEndDate={line.endDate} licenseTotalCost={line.estimatedTotalPrice} currency={line.currency} locale={locale} onChange={(field, value) => updateAdditionalLine(line.id, field, value)} onAddSeparate={() => addAdditionalMaintenanceLine(line)} separateLineAdded={hasAdditionalMaintenanceLine(line.id)} embedded />
+                    <CustomFieldPlacement definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)} idPrefix={`sourcing-line-${line.id}`} loading={customFieldsLoading} section="maintenance" />
+                  </LicenseFormSection> : null}
                 />
+                {line.isMaintenanceCompanion && <LicenseFormSection title="Supplier">
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-supplier`}>Supplier</label><ReferenceCombobox id={`sourcing-line-${line.id}-supplier`} mode="supplier" value={line.supplier} onChange={(value) => updateAdditionalLine(line.id, "supplier", value)} placeholder="Same supplier or a support provider" /></div>
+                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-contact`}>Supplier Contact</label><input id={`sourcing-line-${line.id}-contact`} className="fi" value={line.contactEmail} onChange={(event) => updateAdditionalLine(line.id, "contactEmail", event.target.value)} placeholder="support@example.com" /></div>
+                </LicenseFormSection>}
               </div>
             </div>
           ))}
@@ -703,14 +616,15 @@ const SourcingItemModal = ({
           <DocumentStagingWorkspace
             attachments={attachments}
             categoryScopes={categoryScopes}
-            documents={documents.map((document) => ({ ...document, category: document.category ?? (pendingOrderId ? "purchase_order" : "quote"), sourceLabel: (document.targetSourcingItemId ?? document.target_sourcing_item_id) != null || document.scope === "license" ? "Attached to one license line" : "Shared purchase document" }))}
+            documents={documents.map((document) => ({ ...document, category: document.category ?? (pendingOrderId ? "purchase_order" : "quote"), sourceLabel: document.sourceLabel ?? ((document.targetSourcingItemId ?? document.target_sourcing_item_id) != null || document.scope === "license" ? "Attached to one license line" : "Shared purchase document") }))}
             inputIdPrefix="sourcing-attachment"
             onAddFiles={addFiles}
             onRemoveAttachment={removeAttachment}
             onTargetChange={changeTarget}
             onCategoryScopeChange={changeCategoryScope}
-            previewDocument={pendingOrderId ? previewPendingOrderDocument : previewSourcingQuoteDocument}
-            downloadDocument={(document) => (pendingOrderId ? downloadPendingOrderDocument : downloadSourcingQuoteDocument)(document.id, document.originalFilename ?? document.original_filename)}
+            previewDocument={pendingOrderId ? previewConversionDocument : previewSourcingQuoteDocument}
+            downloadDocument={pendingOrderId ? downloadConversionDocument : (document) => downloadSourcingQuoteDocument(document.id, document.originalFilename ?? document.original_filename)}
+            onDeleteDocument={onDeleteDocument}
             targetOptions={[{ value: "primary", label: softwareVal || "Line 1" }, ...additionalLines.map((line, index) => ({ value: String(line.id), label: line.softwareDescription || `Line ${index + 2}` }))]}
             userSettings={userSettings}
             defaultOpen

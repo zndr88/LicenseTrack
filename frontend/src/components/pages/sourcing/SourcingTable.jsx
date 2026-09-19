@@ -3,12 +3,11 @@ import Icon from "../../ui/Icon.jsx";
 import SearchBox from "../../ui/SearchBox.jsx";
 import RowActionsMenu from "../../ui/RowActionsMenu.jsx";
 import ProcurementInlineEditCell from "../../procurement/ProcurementInlineEditCell.jsx";
-import { CURRENCIES } from "../../../constants/licenseData.js";
-import { formatCost, formatPriceInput } from "../../../utils/helpers.js";
+import { formatCost } from "../../../utils/helpers.js";
 import { formatDateTime } from "../../../utils/formatting.js";
+import { sourcingRequestPublishers } from "./sourcingPageState.js";
 import { procurementLineTotal, procurementTotalsByCurrency } from "../../../utils/procurementTotals.js";
 import { formatQuantity } from "../../../utils/quantity.js";
-import { documentAvailabilityHelp, documentAvailabilityLabel, documentAvailabilitySummary, isFileAvailable } from "../../../utils/documentAvailability.js";
 
 function SortIndicator({ col, sortCol, sortDir }) {
   return sortCol === col ? (
@@ -24,25 +23,9 @@ function requestTotal(request, locale) {
   return entries.map(([currency, amount]) => formatCost(amount, currency, locale)).join(" + ");
 }
 
-function QuoteDocumentsCell({ documents }) {
-  if (!documents.length) {
-    return <span style={{ fontSize: 11, color: "var(--text-3)" }}>No quote</span>;
-  }
-
-  const summary = documentAvailabilitySummary(documents);
-  return <span className="badge badge-gray" title={summary.available === summary.total ? "All quote files available" : `${summary.missing + summary.unavailable} quote file(s) need attention`}>
-    {documents.length === 1 ? "1 quote" : `${documents.length} quotes`}
-    {summary.available !== summary.total ? ` · ${summary.missing + summary.unavailable} unavailable` : ""}
-  </span>;
-}
-
-function documentFilename(document, fallback) {
-  return document.originalFilename ?? document.original_filename ?? fallback;
-}
-
-function downloadDocumentLabel(document, fallback) {
-  const filename = documentFilename(document, fallback);
-  return isFileAvailable(document) ? `Download ${filename}` : `${documentAvailabilityLabel(document)}: ${filename}`;
+function linePrice(value, currency, locale) {
+  if (value == null || value === "") return "-";
+  return formatCost(value, currency || "EUR", locale);
 }
 
 function hasLinkedPendingOrder(item) {
@@ -93,6 +76,7 @@ function SourcingItemsRow({
   inlineEditEnabled,
   onInlineFieldSave,
 }) {
+  const currencies = [...new Set((request.items ?? []).map((item) => item.currency || "EUR"))].sort().join(", ");
   return (
     <tr>
       <td colSpan={8} style={{ padding: 0, background: "var(--bg-2)" }}>
@@ -103,9 +87,9 @@ function SourcingItemsRow({
               <th scope="col">Publisher</th>
               <th scope="col">Description</th>
               <th scope="col">Qty</th>
-              <th scope="col">Est. Licence Unit Price</th>
-              <th scope="col">Est. Line Total</th>
-              <th scope="col">Currency</th>
+              <th scope="col">Unit Qty</th>
+              <th scope="col">Est. Unit Price{currencies ? ` (${currencies})` : ""}</th>
+              <th scope="col">Est. Line Total{currencies ? ` (${currencies})` : ""}</th>
               <th scope="col">{readOnly ? "Context" : "Actions"}</th>
             </tr>
           </thead>
@@ -191,16 +175,16 @@ function SourcingItemsRow({
                     <td>{formatQuantity(si.quantity, { numberFormatLocale: locale }) || "-"}</td>
                   )}
                   {canInlineEdit ? (
+                    <ProcurementInlineEditCell item={si} fieldKey="quantityPerUnit" label="Unit quantity" currentValue={si.quantityPerUnit} valueType="quantity" userSettings={userSettings} onSave={onInlineFieldSave} />
+                  ) : (
+                    <td>{formatQuantity(si.quantityPerUnit, userSettings) || "-"}</td>
+                  )}
+                  {canInlineEdit ? (
                     <ProcurementInlineEditCell item={si} fieldKey="estimatedUnitPrice" label="Estimated unit price" currentValue={si.estimatedUnitPrice} valueType="money" userSettings={userSettings} onSave={onInlineFieldSave} />
                   ) : (
-                    <td>{si.estimatedUnitPrice ? formatPriceInput(si.estimatedUnitPrice, locale) : "-"}</td>
+                    <td>{linePrice(si.estimatedUnitPrice, si.currency, locale)}</td>
                   )}
-                  <td>{procurementLineTotal(si) != null ? formatPriceInput(procurementLineTotal(si), locale) : "-"}</td>
-                  {canInlineEdit ? (
-                    <ProcurementInlineEditCell item={si} fieldKey="currency" label="Currency" currentValue={si.currency} options={CURRENCIES} userSettings={userSettings} onSave={onInlineFieldSave} />
-                  ) : (
-                    <td>{si.currency}</td>
-                  )}
+                  <td>{linePrice(procurementLineTotal(si), si.currency, locale)}</td>
                   <td>
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       {si.isRenewal ? null : si.licenseType === "freeware" ? (
@@ -298,9 +282,7 @@ export default function SourcingTable({
   onDeleteItem,
   onAddItem,
   onConvert,
-  onUploadQuote,
-  onDownloadQuote,
-  onDeleteQuote,
+  onOpenDocuments,
   onDeleteRequest,
   onNavigateToPendingOrder,
   onNavigateToLicense,
@@ -458,11 +440,11 @@ export default function SourcingTable({
             <tr>
               <th scope="col" style={{ width: 28 }} />
               <th scope="col" style={{ cursor: "pointer", userSelect: "none" }} onClick={() => onSort("supplier")}>Supplier<SortIndicator col="supplier" sortCol={sortCol} sortDir={sortDir} /></th>
+              <th scope="col" style={{ cursor: "pointer", userSelect: "none" }} onClick={() => onSort("publisher")}>Publisher<SortIndicator col="publisher" sortCol={sortCol} sortDir={sortDir} /></th>
               <th scope="col" style={{ cursor: "pointer", userSelect: "none" }} onClick={() => onSort("itemCount")}>Items<SortIndicator col="itemCount" sortCol={sortCol} sortDir={sortDir} /></th>
               <th scope="col" style={{ cursor: "pointer", userSelect: "none" }} onClick={() => onSort("total")}>Est. Total<SortIndicator col="total" sortCol={sortCol} sortDir={sortDir} /></th>
-              <th scope="col" style={{ cursor: "pointer", userSelect: "none" }} onClick={() => onSort("created")}>Created<SortIndicator col="created" sortCol={sortCol} sortDir={sortDir} /></th>
-              <th scope="col">Quote</th>
               <th scope="col">Status</th>
+              <th scope="col" style={{ cursor: "pointer", userSelect: "none" }} onClick={() => onSort("created")}>Created<SortIndicator col="created" sortCol={sortCol} sortDir={sortDir} /></th>
               <th scope="col">{readOnly ? "Reference" : "Actions"}</th>
             </tr>
           </thead>
@@ -471,6 +453,7 @@ export default function SourcingTable({
               <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text-3)", padding: "24px 0", fontSize: 13 }}>{emptyMessage}</td></tr>
             ) : displayed.map((request) => {
               const hasItems = (request.items?.length ?? 0) > 0;
+              const createdDateTime = formatDateTime(request.createdAt, userSettings);
               const canInlineEditRequest = inlineEditEnabled && !readOnly && isOpenSourcingRequest(request) && perms.canEdit;
               const shouldExpand = collapsedRequestIds
                 ? !collapsedRequestIds.has(request.id)
@@ -484,26 +467,6 @@ export default function SourcingTable({
                   onRowToggle(isExpanded ? null : request.id);
                 }
               };
-              const quoteDocuments = request.quoteDocuments ?? [];
-              const quoteMenuItems = [
-                ...quoteDocuments.map((document, index) => ({
-                  key: `quote-${document.id ?? index}`,
-                  label: downloadDocumentLabel(document, "quote"),
-                  icon: "download",
-                  disabled: !isFileAvailable(document),
-                  title: documentAvailabilityHelp(document),
-                  onClick: () => onDownloadQuote(document),
-                })),
-                ...quoteDocuments.map((document, index) => ({
-                  key: `delete-quote-${document.id ?? index}`,
-                  label: `Delete ${documentFilename(document, "quote")}`,
-                  icon: "trash",
-                  danger: true,
-                  separatorBefore: index === 0,
-                  hidden: !perms.canEdit,
-                  onClick: () => onDeleteQuote(document),
-                })),
-              ];
               const menuItems = [
                 {
                   key: "edit-request",
@@ -513,13 +476,11 @@ export default function SourcingTable({
                   onClick: () => onEditRequest(request),
                 },
                 {
-                  key: "upload-quote",
-                  label: "Upload Quote",
-                  icon: "upload",
-                  hidden: !perms.canEdit,
-                  onClick: () => onUploadQuote(request),
+                  key: "documents",
+                  label: "Documents",
+                  icon: "file",
+                  onClick: () => onOpenDocuments(request),
                 },
-                ...quoteMenuItems,
                 {
                   key: "add-line",
                   label: "Add License Line",
@@ -573,22 +534,22 @@ export default function SourcingTable({
                         </div>
                       </td>
                     )}
+                    <td style={{ color: "var(--text-2)", fontSize: 12 }}>{sourcingRequestPublishers(request) || "-"}</td>
                     <td style={{ color: "var(--text-2)" }}>{request.items?.length ?? 0}</td>
                     <td className="mono" style={{ fontWeight: 600 }}>{requestTotal(request, locale)}</td>
-                    <td style={{ color: "var(--text-2)", fontSize: 12 }}>
-                      {formatDateTime(request.createdAt, userSettings)}
-                    </td>
-                    <td>
-                      <QuoteDocumentsCell documents={quoteDocuments} />
-                    </td>
                     <td>{renderStatusBadge(request)}</td>
+                    <td style={{ color: "var(--text-2)", fontSize: 12 }}>
+                      {request.createdAt ? <time dateTime={request.createdAt} title={createdDateTime} aria-label={createdDateTime}>
+                        {createdDateTime.split(" ")[0]}
+                      </time> : "-"}
+                    </td>
                     <td onClick={(event) => event.stopPropagation()}>
                       {readOnly ? (
                         <div className="row-actions-inline">
                           {renderReferenceCell(request)}
                           <RowActionsMenu
                             label={`More document actions for sourcing request ${request.id}`}
-                            items={quoteMenuItems}
+                            items={[{ key: "documents", label: "Documents", icon: "file", onClick: () => onOpenDocuments(request) }]}
                           />
                         </div>
                       ) : (

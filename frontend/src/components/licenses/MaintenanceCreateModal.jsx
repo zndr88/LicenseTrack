@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { createLicense, linkMaintenanceToParent } from "../../api/licenses.js";
 import ModalShell from "../ui/ModalShell.jsx";
+import LicenseFormSection from "./LicenseFormSection.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import Icon from "../ui/Icon.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
@@ -197,6 +198,7 @@ export default function MaintenanceCreateModal({
     <>
       <ModalShell
         title="Add Maintenance / Support Contract"
+        sectionControls
         titleId="dialog-title-maintenance-create"
         onClose={requestClose}
         modalStyle={{ width: 560, maxWidth: "min(560px, 92vw)" }}
@@ -246,6 +248,7 @@ export default function MaintenanceCreateModal({
 
           {mode === "create" ? (
             <>
+              <LicenseFormSection title="Maintenance Details">
               <fieldset disabled={saving || createdLicenseId != null} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
                 <div className="fr">
                   <div className="fg">
@@ -319,6 +322,7 @@ export default function MaintenanceCreateModal({
                   />
                 </div>
               </fieldset>
+              </LicenseFormSection>
               <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
                 <DocumentStagingWorkspace
                   attachments={attachments}

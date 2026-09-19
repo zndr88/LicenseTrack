@@ -269,6 +269,7 @@ const ConvertPendingOrderModal = ({
     <>
       <ModalShell
         title={`${isRenewal ? "Renew License" : "Convert to License"} - ${pendingOrderLabel(order)}`}
+        sectionControls
         titleId="dialog-title-convert-po"
         onClose={requestClose}
         onEscape={requestClose}

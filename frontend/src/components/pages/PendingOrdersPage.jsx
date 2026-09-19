@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { uploadPendingOrderDocument } from "../../api/pendingOrders.js";
 import { draftDocumentTargetMap, uploadDraftDocuments } from "../../utils/draftDocuments.js";
 import { ROLE_PERMISSIONS } from "../../constants/permissions.js";
@@ -9,6 +9,8 @@ import ConvertPendingOrderModal from "../procurement/ConvertPendingOrderModal.js
 import ConvertAllModal from "../procurement/ConvertAllModal.jsx";
 import SourcingItemModal from "../procurement/SourcingItemModal.jsx";
 import PendingOrdersTable from "./pendingOrders/PendingOrdersTable.jsx";
+import WorkflowDocumentsModal from "../procurement/WorkflowDocumentsModal.jsx";
+import { getConversionDocuments, previewConversionDocument, downloadConversionDocument } from "../procurement/conversionDocuments.js";
 import { filterAndSortPendingOrders, usePendingOrdersPageState } from "./pendingOrders/usePendingOrdersPageState.js";
 import { usePendingOrdersData } from "./usePendingOrdersData.js";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
@@ -17,9 +19,6 @@ import ProcurementTablePagination, {
   getPaginationDetails,
   paginateRows,
 } from "../procurement/ProcurementTablePagination.jsx";
-import DocumentPreviewPanel from "../ui/DocumentPreviewPanel.jsx";
-import { getPreviewFilename } from "../../utils/documentPreview.js";
-import { usePendingOrderQuotePreview } from "./pendingOrders/usePendingOrderQuotePreview.js";
 
 export default function PendingOrdersPage({
   user, userSettings,
@@ -39,8 +38,7 @@ export default function PendingOrdersPage({
   const [showEditPOItemModal, setShowEditPOItemModal] = useState(null);
   const [inlineEditEnabled, setInlineEditEnabled] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [deletePurchaseOrderDocumentTarget, setDeletePurchaseOrderDocumentTarget] = useState(null);
-  const [deleteQuoteTarget, setDeleteQuoteTarget] = useState(null);
+  const [showDocumentsModal, setShowDocumentsModal] = useState(null);
   const [historySearch, setHistorySearch] = useState("");
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(20);
@@ -49,8 +47,6 @@ export default function PendingOrdersPage({
   const [expandedHistoryPendingOrderId, setExpandedHistoryPendingOrderId] = useState(null);
   const [highlightedHistoryRowId, setHighlightedHistoryRowId] = useState(null);
   const [deletePOItemTarget, setDeletePOItemTarget] = useState(null);
-  const purchaseOrderInputRef = React.useRef(null);
-  const purchaseOrderTargetRef = React.useRef(null);
 
   const {
     pendingOrders,
@@ -67,10 +63,7 @@ export default function PendingOrdersPage({
     handleAddPOItems,
     handleUpdatePOItem,
     handleDeletePOItem,
-    handleUploadPurchaseOrderDocument,
-    handleDownloadPurchaseOrderDocument,
     handleDeletePurchaseOrderDocument,
-    handleDownloadSourcingQuote,
     handleDeleteSourcingQuote,
     handleRetryEvidenceTransfer,
     handleBatchConvert,
@@ -89,7 +82,10 @@ export default function PendingOrdersPage({
 
   const perms = ROLE_PERMISSIONS[user.role];
   const locale = userSettings.numberFormatLocale ?? "en-US";
-  const { quotePreview, openQuotePreview, closeQuotePreview } = usePendingOrderQuotePreview({ showError });
+
+  const deleteWorkflowDocument = (document) => document.documentSource === "sourcing_quote"
+    ? handleDeleteSourcingQuote(document)
+    : handleDeletePurchaseOrderDocument(document);
 
   const uploadSavedDocuments = async (orderId, attachments, targetIdsByKey) => {
     const { errors } = await uploadDraftDocuments({
@@ -100,19 +96,6 @@ export default function PendingOrdersPage({
     });
     if (attachments?.length) await refetch();
     if (errors.length) showError(`Changes saved, but some documents could not be uploaded: ${errors.join("; ")}`);
-  };
-
-  const handleOpenPurchaseOrderUpload = (po) => {
-    purchaseOrderTargetRef.current = po;
-    purchaseOrderInputRef.current?.click();
-  };
-
-  const handlePurchaseOrderSelected = async (event) => {
-    const file = event.target.files?.[0];
-    const target = purchaseOrderTargetRef.current;
-    event.target.value = "";
-    if (!file || !target?.id) return;
-    await handleUploadPurchaseOrderDocument(target.id, file);
   };
 
   const {
@@ -241,7 +224,6 @@ export default function PendingOrdersPage({
             <p>Procurement orders waiting for PO, invoice, or license activation</p>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input ref={purchaseOrderInputRef} type="file" style={{ display: "none" }} onChange={handlePurchaseOrderSelected} />
             <button className="btn btn-g" onClick={() => setShowHistory((value) => !value)}>
               <Icon name="archive" size={13} />{showHistory ? "Hide History" : "History"}
             </button>
@@ -254,26 +236,13 @@ export default function PendingOrdersPage({
         </div>
       </div>
       <div className="page-content">
-        {quotePreview && (
-          <DocumentPreviewPanel
-            as="section"
-            ariaLabel="Quote preview"
-            filename={getPreviewFilename(quotePreview.document)}
-            kind="pdf"
-            label="Quote Preview"
-            loading={quotePreview.loading}
-            onClose={closeQuotePreview}
-            onDownload={() => handleDownloadSourcingQuote(quotePreview.document)}
-            url={quotePreview.url}
-          />
-        )}
-        {!quotePreview && pendingOrdersLoading && (
+        {pendingOrdersLoading && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 0", color: "var(--text-2)", fontSize: 13 }}>
             <div className="spinner" style={{ margin: 0, width: 18, height: 18 }} />
             Loading pending orders...
           </div>
         )}
-        {!quotePreview && (!pendingOrdersLoading && pendingOrders.length === 0 ? (
+        {!pendingOrdersLoading && pendingOrders.length === 0 ? (
           <div className="empty">
             <Icon name="clock" size={32} color="var(--text-3)" />
             <h3>No pending orders yet</h3>
@@ -292,12 +261,7 @@ export default function PendingOrdersPage({
             onEdit={(po) => setShowPendingOrderModal({ order: po })}
             onEditItem={(po, item) => setShowEditPOItemModal({ order: po, item })}
             onDeleteItem={(po, item) => setDeletePOItemTarget({ order: po, item })}
-            onUploadPurchaseOrder={handleOpenPurchaseOrderUpload}
-            onDownloadPurchaseOrder={handleDownloadPurchaseOrderDocument}
-            onDeletePurchaseOrder={setDeletePurchaseOrderDocumentTarget}
-            onPreviewQuote={openQuotePreview}
-            onDownloadQuote={handleDownloadSourcingQuote}
-            onDeleteQuote={setDeleteQuoteTarget}
+            onOpenDocuments={setShowDocumentsModal}
             onRetryEvidenceTransfer={handleRetryEvidenceTransfer}
             onOpenAddItems={(po) => setShowAddPOItemsModal({ order: po })}
             onOpenConvert={(po) => setShowConvertToLicenseModal({
@@ -324,8 +288,8 @@ export default function PendingOrdersPage({
             sortDir={sortDir}
             onSort={handleSort}
           />
-        ))}
-        {!quotePreview && showHistory && (
+        )}
+        {showHistory && (
           <div style={{ marginTop: 24 }}>
             <h3 style={{ margin: "0 0 4px", fontSize: 14 }}>Pending Order History</h3>
             <p style={{ margin: "0 0 8px", color: "var(--text-2)", fontSize: 12 }}>
@@ -346,11 +310,7 @@ export default function PendingOrdersPage({
                 locale={locale}
                 mode="history"
                 settings={userSettings}
-                onDownloadPurchaseOrder={handleDownloadPurchaseOrderDocument}
-                onDeletePurchaseOrder={setDeletePurchaseOrderDocumentTarget}
-                onPreviewQuote={openQuotePreview}
-                onDownloadQuote={handleDownloadSourcingQuote}
-                onDeleteQuote={setDeleteQuoteTarget}
+                onOpenDocuments={setShowDocumentsModal}
                 onNavigateToLicense={onNavigateToLicense}
                 onRefetch={refetchHistory}
                 onRowToggle={setExpandedHistoryPendingOrderId}
@@ -397,6 +357,7 @@ export default function PendingOrdersPage({
           key={showPendingOrderModal.order?.id ?? "new"}
           order={showPendingOrderModal.order}
           userSettings={userSettings}
+          onDeleteDocument={deleteWorkflowDocument}
           onCancel={() => setShowPendingOrderModal(null)}
           onSave={async (form) => {
             const payload = {
@@ -432,6 +393,23 @@ export default function PendingOrdersPage({
         />
       )}
 
+      {showDocumentsModal && (
+        <WorkflowDocumentsModal
+          key={showDocumentsModal.id}
+          title={`Documents · ${pendingOrderLabel(showDocumentsModal)}`}
+          parentId={showDocumentsModal.id}
+          items={showDocumentsModal.items ?? []}
+          documents={getConversionDocuments(showDocumentsModal)}
+          upload={perms.canEdit ? uploadPendingOrderDocument : null}
+          previewDocument={previewConversionDocument}
+          downloadDocument={downloadConversionDocument}
+          onDeleteDocument={perms.canEdit ? deleteWorkflowDocument : null}
+          onChanged={async () => { await refetch(); if (showHistory) await refetchHistory(); }}
+          onClose={() => setShowDocumentsModal(null)}
+          userSettings={userSettings}
+        />
+      )}
+
       {showConvertToLicenseModal !== null && (
         <ConvertPendingOrderModal
           key={showConvertToLicenseModal.order?.id ?? "new"}
@@ -452,10 +430,11 @@ export default function PendingOrdersPage({
         <SourcingItemModal
           key={showEditPOItemModal.item?.id ?? "new"}
           item={showEditPOItemModal.item}
-          documents={showEditPOItemModal.order?.documents ?? []}
+          documents={getConversionDocuments(showEditPOItemModal.order)}
           pendingOrderId={showEditPOItemModal.order?.id ?? null}
           userSettings={userSettings}
           title="Edit PO Line Item"
+          onDeleteDocument={deleteWorkflowDocument}
           onCancel={() => setShowEditPOItemModal(null)}
           onSave={async (form) => {
             const { maintenanceCompanion, attachments, attachmentTargetKeys, ...itemForm } = form;
@@ -527,34 +506,6 @@ export default function PendingOrdersPage({
         />
       )}
 
-      {deletePurchaseOrderDocumentTarget !== null && (
-        <ConfirmDialog
-          title="Delete PO"
-          message={`Delete "${deletePurchaseOrderDocumentTarget.originalFilename ?? deletePurchaseOrderDocumentTarget.original_filename ?? "this purchase order"}"?`}
-          confirmLabel="Delete"
-          danger
-          onCancel={() => setDeletePurchaseOrderDocumentTarget(null)}
-          onConfirm={async () => {
-            const success = await handleDeletePurchaseOrderDocument(deletePurchaseOrderDocumentTarget);
-            if (success) setDeletePurchaseOrderDocumentTarget(null);
-          }}
-        />
-      )}
-
-      {deleteQuoteTarget !== null && (
-        <ConfirmDialog
-          title="Delete Quote"
-          message={`Delete "${deleteQuoteTarget.originalFilename ?? deleteQuoteTarget.original_filename ?? "this quote"}"?`}
-          confirmLabel="Delete"
-          danger
-          onCancel={() => setDeleteQuoteTarget(null)}
-          onConfirm={async () => {
-            const success = await handleDeleteSourcingQuote(deleteQuoteTarget);
-            if (success) setDeleteQuoteTarget(null);
-          }}
-        />
-      )}
-
       {deletePOItemTarget !== null && (
         <ConfirmDialog
           title="Delete PO Line Item"
@@ -574,10 +525,11 @@ export default function PendingOrdersPage({
           key={showAddPOItemsModal.order?.id ?? "new"}
           item={null}
           sourcingRequest={showAddPOItemsModal.order}
-          documents={showAddPOItemsModal.order?.documents ?? []}
+          documents={getConversionDocuments(showAddPOItemsModal.order)}
           pendingOrderId={showAddPOItemsModal.order?.id ?? null}
           userSettings={userSettings}
           title="Add License Line"
+          onDeleteDocument={deleteWorkflowDocument}
           onCancel={() => setShowAddPOItemsModal(null)}
           onSave={async ({ items, supplier, contactEmail, notes, attachments, attachmentTargetKeys }) => {
             const inheritedContext = {

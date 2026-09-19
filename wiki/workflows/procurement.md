@@ -14,8 +14,8 @@ procurement workspaces.
 
 ## 1. Sourcing
 
-A sourcing request is the quote-stage parent. It stores supplier and contact
-context, notes, quote evidence, and one or more planned license lines. Each line
+A sourcing request stores supplier and contact
+context, notes, documents, and one or more planned license lines. Each line
 holds the applicable license-record fields, including publisher, description,
 type and metric, quantity and quantity per unit, pricing, currency, dates,
 references, ownership contacts, notes, and custom fields for one intended
@@ -29,7 +29,7 @@ conversion and on the resulting license. If an existing sourcing line already
 has a value when the field is hidden, editing the line preserves that value.
 
 Use multiple lines when one supplier quote covers several products. Expand the
-request row to edit individual lines. Request-level actions manage the quote,
+request row to edit individual lines. Request-level actions manage documents,
 conversion, or cancellation of the whole request.
 
 Active sourcing rows start expanded so same-supplier requests can be scanned
@@ -42,7 +42,7 @@ estimated prices, currency, dates, and line notes are validated together;
 converted and cancelled lines stay read-only. The save is atomic, so a rejected
 line does not leave the rest of the request partially updated.
 
-When creating a sourcing request with a quote attachment, the form can preview
+When creating or editing a sourcing request with an attachment, the form can preview
 PDF, image, and text files before save. Expand the preview for detailed review
 or return to the split view while entering line data. Unsupported file types
 remain attachable but show that an inline preview is unavailable.
@@ -188,9 +188,9 @@ visible to licenses with the same trimmed PO number. **Single** uploads remain o
 their selected license. Existing documents are not moved, reassigned, or backfilled
 when this scope metadata is introduced.
 
-Active and historical sourcing and pending-order rows expose evidence actions
-from the row action menu. Filenames are shown directly in the Download and
-Delete actions so multiple quotes or PO files remain distinguishable.
+Active and historical sourcing and pending-order rows expose a Documents action.
+The document workspace groups all categories and provides upload, preview,
+download, and delete actions where permitted.
 
 ## History and recovery
 

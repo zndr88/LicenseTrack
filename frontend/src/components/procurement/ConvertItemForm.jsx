@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Controller } from "react-hook-form";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
 import Checkbox from "../ui/Checkbox.jsx";
@@ -12,6 +12,7 @@ import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import ContactCombobox from "../ui/ContactCombobox.jsx";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
+import { ModalSectionExpansionContext } from "../ui/ModalSectionExpansionContext.js";
 
 /**
  * Determines whether a watched form item has all required fields filled.
@@ -50,6 +51,10 @@ export default function ConvertItemForm({
   customFieldsLoading = false,
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const sectionCommand = useContext(ModalSectionExpansionContext);
+  useEffect(() => {
+    if (sectionCommand?.sequence) setIsExpanded(sectionCommand.open);
+  }, [sectionCommand]);
   const [unitPriceDisplay, setUnitPriceDisplay] = useState(
     () => formatPriceInput(sourcingItem.estimatedUnitPrice || "", locale)
   );

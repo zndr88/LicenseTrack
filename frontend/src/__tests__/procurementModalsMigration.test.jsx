@@ -751,6 +751,20 @@ describe("ConvertAllModal", () => {
     return { onConfirm, onCancel };
   }
 
+  test("header controls collapse and expand every conversion item", async () => {
+    const user = userEvent.setup();
+    renderModal({ order: MULTI_ORDER, licenses: RENEWAL_LICENSES });
+
+    expect(document.getElementById("ca-publisher-name-0")).toBeInTheDocument();
+    expect(document.getElementById("ca-publisher-name-1")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(document.getElementById("ca-publisher-name-0")).not.toBeInTheDocument();
+    expect(document.getElementById("ca-publisher-name-1")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Expand all" }));
+    expect(document.getElementById("ca-publisher-name-0")).toBeInTheDocument();
+    expect(document.getElementById("ca-publisher-name-1")).toBeInTheDocument();
+  });
+
   test("Confirm is disabled when item is missing startDate", () => {
     renderModal();
     expect(screen.getByRole("button", { name: /confirm & create licenses/i })).toBeDisabled();

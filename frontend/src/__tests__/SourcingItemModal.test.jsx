@@ -573,11 +573,43 @@ describe("onSave payload shape", () => {
       estimatedTotalPrice: "1234500.00",
     }));
   });
+
+  test("links support added to a second request line", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderModal();
+
+    fireEvent.change(screen.getByPlaceholderText(/software publisher/i), { target: { value: "Primary Pub" } });
+    fireEvent.change(screen.getByPlaceholderText(/product or service name/i), { target: { value: "Primary Suite" } });
+    await user.click(screen.getByRole("button", { name: /add additional license line/i }));
+    fireEvent.change(screen.getAllByPlaceholderText(/software publisher/i)[1], { target: { value: "Extra Pub" } });
+    fireEvent.change(screen.getAllByPlaceholderText(/product or service name/i)[1], { target: { value: "Extra Suite" } });
+    await user.selectOptions(screen.getAllByLabelText(/license type/i)[1], "perpetual");
+    await user.selectOptions(screen.getByLabelText(/^coverage$/i), "separately_tracked");
+    await user.click(screen.getByRole("button", { name: /^add maintenance line$/i }));
+    await user.click(screen.getByRole("button", { name: /save 3 lines/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].items[2]).toEqual(expect.objectContaining({
+      licenseType: "maintenance",
+      parentItemIndex: 1,
+    }));
+  });
 });
 
 // ─── Dirty close guard ────────────────────────────────────────────────────────
 
 describe("dirty close guard", () => {
+  test("an added request line prompts before discarding", async () => {
+    const user = userEvent.setup();
+    const { onCancel } = renderModal();
+
+    await user.click(screen.getByRole("button", { name: /add additional license line/i }));
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: /discard/i })).toBeInTheDocument();
+  });
+
   test("Cancel calls onCancel immediately when form is untouched", () => {
     const { onCancel } = renderModal();
 
