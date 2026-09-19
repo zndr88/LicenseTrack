@@ -53,6 +53,7 @@ export async function login(username, password) {
   if (data?.access_token) {
     setToken(data.access_token);
   }
+  if (data) window.localStorage.setItem("licensetrack.session.authenticated", String(Date.now()));
   return { data, error };
 }
 
@@ -73,11 +74,11 @@ export async function logoutSession() {
  *
  * @returns {Promise<{ data: { authenticated: boolean, user: object | null } | null, error: string | null }>}
  */
-export async function getSession() {
-  if (isSessionLocked()) return { data: { authenticated: false }, error: null };
+export async function getSession({ allowLocked = false } = {}) {
+  if (!allowLocked && isSessionLocked()) return { data: { authenticated: false }, error: null };
   const generation = getSessionGeneration();
   const result = await get("/api/auth/session", { redirectOn401: false });
-  if (generation !== getSessionGeneration() || isSessionLocked()) return { data: { authenticated: false }, error: null };
+  if (generation !== getSessionGeneration() || (!allowLocked && isSessionLocked())) return { data: { authenticated: false }, error: null };
   if (result.data?.expires_at) {
     setSessionCoordinationId(result.data.coordination_id);
     window.localStorage.setItem(sessionCoordinationKey("expiry"), String(result.data.expires_at * 1000));

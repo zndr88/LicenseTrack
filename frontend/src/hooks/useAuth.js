@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSession, logoutSession, refreshSession } from "../api/auth.js";
 import { clearDismissedAttentionIds } from "../utils/licenseAttentionSession.js";
-import { getSessionExpiry, lockSession, sessionCoordinationKey, setSessionCoordinationId, setSessionRefreshCheck } from "../api/client.js";
+import { getSessionExpiry, lockSession, sessionCoordinationKey, setSessionCoordinationId, setSessionRefreshCheck, unlockSession } from "../api/client.js";
 import { useSessionTimeout } from "./useSessionTimeout.js";
 
 export function toCurrentUser(apiUser) {
@@ -103,6 +103,15 @@ export function useAuth({ sessionTimeout, showToast }) {
         setCurrentUser(null);
         void queryClient.cancelQueries().then(() => queryClient.clear());
         clearDismissedAttentionIds();
+      }
+      if (event.key === "licensetrack.session.authenticated") {
+        getSession({ allowLocked: true }).then(({ data }) => {
+          if (!data?.authenticated || !data.user) return;
+          setSessionCoordinationId(data.coordination_id);
+          setCoordinationId(data.coordination_id ?? null);
+          unlockSession();
+          setCurrentUser(toCurrentUser(data.user));
+        });
       }
     };
     window.addEventListener("storage", handleStorage);
