@@ -70,7 +70,7 @@ const HELP_ARTICLES = [
           "A secured successor removes further renewal actions and workbench alerts. The predecessor becomes Renewed only after its own term has ended and successor coverage has started; a date gap remains Expired until then.",
           "An expiring predecessor with an actual linked Upcoming successor shows Renews in X days, or Renews today, based on the successor start date. A coverage gap stays visible, and pending renewal procurement alone does not show this countdown.",
           "Cancel renewal work before it reaches a pending order when the purchasing motion changes.",
-          "Coterm renewals merge multiple renewal lines so several predecessor licenses can align to one successor period.",
+          "Coterm renewals merge multiple renewal lines so several predecessor licenses can align to one successor period. Remove or change Single line-specific quote or procurement documents to Shared before merging; coterm merge does not retarget them.",
           "Estimated annual value in the Renewal Workbench annualizes a multi-year term rather than showing the complete term cost as one year.",
         ],
       },

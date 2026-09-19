@@ -63,6 +63,11 @@ the merged unit price blank when there is no single representative price. For
 other standard and custom fields, one common nonblank value is retained;
 conflicting values are left blank for review on the merged line.
 
+Coterm merge only moves Shared quote evidence. If a selected line has a
+line-specific (**Single**) quote or procurement document, remove it or change
+it to Shared before merging. This prevents evidence whose meaning is tied to
+one source line from being silently reassigned to the merged line.
+
 For freeware or open-source requests, set the line's optional **License Type**
 to **Freeware / Open Source**. Converting that line creates an active Registry
 license directly. It preserves the sourcing relationship and Request Date but

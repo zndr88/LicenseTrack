@@ -79,8 +79,10 @@ is in progress makes the successor an ordinary linked maintenance record.
 
 ## Coterm renewals
 
-Repeated merges retain all earlier predecessor relationships. Quote evidence
-follows the merged lines; shared quotes also remain with unmerged sibling lines.
+Repeated merges retain all earlier predecessor relationships. Shared quote
+evidence remains with unmerged sibling lines when needed. Remove or change any
+line-specific (**Single**) quote or procurement document to Shared before
+merging; coterm merge does not retarget line-specific evidence.
 
 Coterm work combines eligible renewal lines into a shared successor term. Review
 the selected predecessors, quantity, dates, and commercial terms together before

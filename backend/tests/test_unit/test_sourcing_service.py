@@ -19,7 +19,7 @@ from sqlalchemy import func, inspect, select
 from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.reference_data import Organization
-from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
+from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingRequest, SourcingStatus
 from app.schemas.sourcing import SourcingItemCreate
 from app.services.money import MoneyParseError
 from app.services.pending_order_service import (
@@ -40,6 +40,7 @@ from app.services.sourcing_service import (
     reserve_sourcing_request_conversion,
     sourcing_item_predecessor_ids,
 )
+from app.services.draft_document_service import require_no_single_documents
 
 
 @pytest.mark.asyncio
@@ -75,6 +76,27 @@ async def test_create_sourcing_item_applies_included_support_defaults(db_session
     assert item.maintenance_start_date == date(2026, 1, 1)
     assert item.maintenance_end_date == date(2026, 12, 31)
     assert item.maintenance_cost == "2400.00"
+
+
+@pytest.mark.asyncio
+async def test_coterm_merge_blocks_line_specific_evidence(db_session):
+    request = SourcingRequest(supplier="Acme")
+    db_session.add(request)
+    await db_session.flush()
+    db_session.add(
+        SourcingQuoteDocument(
+            sourcing_request_id=request.id,
+            target_sourcing_item_id=42,
+            filename="single-quote.pdf",
+            original_filename="single-quote.pdf",
+            file_size=1,
+            mime_type="application/pdf",
+        )
+    )
+    await db_session.flush()
+
+    with pytest.raises(HTTPException, match="Single documents attached"):
+        await require_no_single_documents(db_session, [42])
 
 
 # ---------------------------------------------------------------------------

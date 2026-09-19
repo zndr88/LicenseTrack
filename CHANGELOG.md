@@ -32,8 +32,8 @@ CSV round trips, background jobs, and reliable session expiry and logout.
   edits to retired unlinked maintenance, and prevented unchanged parent selections
   from reactivating maintenance. Date edits now normalize scheduled-retirement state.
 - Fixed repeated coterm merges losing earlier predecessor relationships and quote
-  evidence. Shared quotes remain available to unmerged sibling lines, while
-  line-specific evidence follows its merged line and failed copies are cleaned up.
+  evidence. Shared quotes remain available to unmerged sibling lines; Single
+  line-specific evidence must be removed or changed to Shared before merging.
 - Preserved support fallback fields during pending-order conversion and avoided
   scheduling quote-evidence transfers for sourcing requests without quote documents.
 - Fixed purchase-order total matching and Registry CSV grouping to use normalized
