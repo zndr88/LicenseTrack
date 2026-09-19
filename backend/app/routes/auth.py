@@ -143,6 +143,7 @@ class SessionResponse(BaseModel):
     authenticated: bool
     expires_at: int | None = None
     coordination_id: str | None = None
+    session_timeout: int | None = None
     user: UserOut | None = None
 
 
@@ -207,6 +208,7 @@ async def session(
         user=_user_out(user),
         expires_at=expires_at,
         coordination_id=human_session.id,
+        session_timeout=gs.session_timeout if gs else None,
     )
 
 

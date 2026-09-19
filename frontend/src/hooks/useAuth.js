@@ -23,6 +23,8 @@ export function useAuth({ sessionTimeout, showToast }) {
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
   const [coordinationId, setCoordinationId] = useState(null);
+  const [authoritativeTimeout, setAuthoritativeTimeout] = useState(null);
+  const effectiveSessionTimeout = authoritativeTimeout ?? sessionTimeout;
   const [authBootstrapping, setAuthBootstrapping] = useState(true);
   const bootstrapTimeoutRef = useRef(sessionTimeout);
   const lastRefreshAttemptRef = useRef(Date.now());
@@ -40,7 +42,7 @@ export function useAuth({ sessionTimeout, showToast }) {
   }, [queryClient, showToast]);
 
   const handleSessionActivity = useCallback(async () => {
-    const refreshIntervalMs = sessionTimeout * 60 * 1000 / 2;
+    const refreshIntervalMs = effectiveSessionTimeout * 60 * 1000 / 2;
     const now = Date.now();
     const expiry = getSessionExpiry();
     if (
@@ -59,19 +61,19 @@ export function useAuth({ sessionTimeout, showToast }) {
       const retryDelayMs = Math.min(60_000, refreshIntervalMs);
       nextRefreshRef.current = Date.now() + Math.min(retryDelayMs, 5000);
     }
-  }, [sessionTimeout]);
+  }, [effectiveSessionTimeout]);
 
   useEffect(() => {
     if (!currentUser) return;
     setSessionRefreshCheck(() => {
       const activity = Number(window.localStorage.getItem(sessionCoordinationKey("activity")));
-      if (activity && Date.now() - activity < sessionTimeout * 60_000) return handleSessionActivity();
+      if (activity && Date.now() - activity < effectiveSessionTimeout * 60_000) return handleSessionActivity();
     });
     return () => setSessionRefreshCheck(null);
-  }, [currentUser, sessionTimeout, handleSessionActivity]);
+  }, [currentUser, effectiveSessionTimeout, handleSessionActivity]);
 
   useSessionTimeout(
-    currentUser ? sessionTimeout : 0,
+    currentUser ? effectiveSessionTimeout : 0,
     handleSessionTimeout,
     handleSessionActivity, coordinationId,
   );
@@ -83,6 +85,7 @@ export function useAuth({ sessionTimeout, showToast }) {
       if (data?.authenticated && data.user) {
         setSessionCoordinationId(data.coordination_id);
         setCoordinationId(data.coordination_id ?? null);
+        setAuthoritativeTimeout(data.session_timeout ?? null);
         if (data.expires_at) window.localStorage.setItem(sessionCoordinationKey("expiry"), String(data.expires_at * 1000));
         lastRefreshAttemptRef.current = data.expires_at
           ? data.expires_at * 1000 - bootstrapTimeoutRef.current * 60_000
@@ -131,6 +134,7 @@ export function useAuth({ sessionTimeout, showToast }) {
     currentUser,
     setCurrentUser,
     authBootstrapping,
+    authoritativeTimeout,
     handleLogout,
   };
 }
