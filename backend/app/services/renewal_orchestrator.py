@@ -418,6 +418,18 @@ async def unlink_existing_successor(
         raise HTTPException(status_code=409, detail="The linked successor no longer exists")
     if successor.renewed_to_id is not None:
         raise HTTPException(status_code=409, detail="Unlink the successor's later renewal before removing this link")
+    if (
+        predecessor.license_type == LicenseType.maintenance
+        and not predecessor.existing_successor_maintenance_state
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This historical maintenance link cannot be unlinked automatically because its "
+                "previous coverage state was not recorded. Review and repair the parent "
+                "relationships before unlinking."
+            ),
+        )
 
     await _restore_existing_maintenance_link(db, predecessor, successor)
     former_ref = predecessor.existing_successor_original_ref

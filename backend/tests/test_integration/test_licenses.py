@@ -181,6 +181,91 @@ async def test_unlink_existing_successor_restores_original_ref(
     assert payload["successor"]["licenseRefAliases"] == []
 
 
+async def test_unlink_existing_maintenance_successor_restores_a_recorded_snapshot(
+    test_app, auth_headers, db_session
+):
+    today = date.today()
+    parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        startDate=(today - timedelta(days=365)).isoformat(),
+        endDate=(today + timedelta(days=5)).isoformat(),
+    )
+    successor = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        startDate=today.isoformat(),
+        endDate=(today + timedelta(days=370)).isoformat(),
+    )
+
+    linked = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/link-existing-successor",
+        json={"successorLicenseId": successor["id"]},
+        headers=auth_headers,
+    )
+    assert linked.status_code == 200, linked.text
+    predecessor_row = await db_session.get(License, predecessor["id"])
+    assert predecessor_row.existing_successor_maintenance_state is not None
+
+    unlinked = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/unlink-existing-successor",
+        headers=auth_headers,
+    )
+    assert unlinked.status_code == 200, unlinked.text
+    await db_session.refresh(predecessor_row)
+    assert predecessor_row.existing_successor_maintenance_state is None
+    assert unlinked.json()["predecessor"]["renewedToId"] is None
+    assert unlinked.json()["successor"]["renewedFromId"] is None
+
+
+async def test_unlink_historical_maintenance_successor_without_snapshot_is_blocked(
+    test_app, auth_headers, db_session
+):
+    today = date.today()
+    parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        startDate=(today - timedelta(days=365)).isoformat(),
+        endDate=(today + timedelta(days=5)).isoformat(),
+    )
+    successor = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        startDate=today.isoformat(),
+        endDate=(today + timedelta(days=370)).isoformat(),
+    )
+    linked = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/link-existing-successor",
+        json={"successorLicenseId": successor["id"]},
+        headers=auth_headers,
+    )
+    assert linked.status_code == 200, linked.text
+
+    predecessor_row = await db_session.get(License, predecessor["id"])
+    predecessor_row.existing_successor_maintenance_state = None
+    await db_session.commit()
+
+    response = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/unlink-existing-successor",
+        headers=auth_headers,
+    )
+    assert response.status_code == 409
+    assert "previous coverage state was not recorded" in response.json()["detail"]
+    await db_session.refresh(predecessor_row)
+    assert predecessor_row.renewed_to_id == successor["id"]
+    assert predecessor_row.lifecycle_status == LifecycleStatus.renewed
+
+
 async def test_link_existing_successor_requires_same_publisher(test_app, auth_headers):
     today = date.today()
     predecessor = await _create_license(
