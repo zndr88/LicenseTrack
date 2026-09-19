@@ -11,10 +11,13 @@ export function useSessionTimeout(timeoutMinutes, onTimeout, onActivity, coordin
     const readActivity = () => Math.max(lastActivity, Number(window.localStorage.getItem(activityKey)) || 0);
     const check = () => {
       if (ended) return;
-      if (Date.now() - readActivity() >= timeoutMs) {
+      const activity = readActivity();
+      if (Date.now() - activity >= timeoutMs) {
         ended = true;
         onTimeout();
-      } else if (observedActivity || readActivity() > lastActivity) {
+      } else if (observedActivity || activity > lastActivity) {
+        observedActivity = false;
+        lastActivity = activity;
         onActivity?.();
       }
     };
