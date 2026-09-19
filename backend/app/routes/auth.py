@@ -23,7 +23,6 @@ from app.services.human_session_service import (
     issue_session_token,
     refresh_session_token,
     revoke_session,
-    legacy_session_id,
     advance_session_security_version,
 )
 
@@ -186,20 +185,20 @@ async def session(
         return SessionResponse(authenticated=False)
     gs = await get_global_settings(db)
     try:
-        human_session = await get_active_session(db, payload, gs.session_timeout if gs else 0, token)
+        human_session = await get_active_session(db, payload, gs.session_timeout if gs else 0)
     except (auth.JWTError, KeyError, TypeError, ValueError):
         return SessionResponse(authenticated=False)
-    if human_session and token.count(".") == 1:
+    if token.count(".") == 1:
         token_version = human_session.security_version
     if token_version != int(user.security_version or 0):
         return SessionResponse(authenticated=False)
-    issued_at = human_session.issued_at if human_session else int(payload.get("iat", 0) or 0)
+    issued_at = human_session.issued_at
     if gs and gs.session_timeout > 0:
         token_age = datetime.now(timezone.utc).timestamp() - issued_at
         if not issued_at or token_age < -60 or token_age > gs.session_timeout * 60:
             return SessionResponse(authenticated=False)
 
-    expires_at = human_session.expires_at if human_session else int(payload["exp"])
+    expires_at = human_session.expires_at
     if gs and gs.session_timeout > 0:
         expires_at = min(expires_at, issued_at + gs.session_timeout * 60)
     return SessionResponse(authenticated=True, user=_user_out(user), expires_at=expires_at)
@@ -219,7 +218,6 @@ async def refresh_session(
             current_user,
             gs.session_timeout if gs and gs.session_timeout > 0 else None,
             request.state.human_session_id,
-            request.state.legacy_session_expiry,
         )
     except auth.JWTError as exc:
         raise HTTPException(status_code=401, detail="Session ended") from exc
@@ -331,11 +329,12 @@ async def logout(
             pass
         else:
             user = await db.scalar(select(User).where(User.id == user_id))
-    if user and user.is_active:
+    session_id = payload.get("session_id") if token else None
+    if user and user.is_active and session_id:
         # Revocation must succeed before reporting a successful logout.
         if token.count(".") == 1 or token_version == int(user.security_version or 0):
             await revoke_session(
-                db, user.id, payload.get("session_id") or legacy_session_id(token), int(payload.get("exp", 0))
+                db, user.id, session_id, int(payload.get("exp", 0))
             )
         try:
             await log_event(
@@ -412,7 +411,6 @@ async def change_password(
             current_user,
             gs.session_timeout if gs and gs.session_timeout > 0 else None,
             request.state.human_session_id,
-            request.state.legacy_session_expiry,
         )
     except auth.JWTError as exc:
         raise HTTPException(status_code=401, detail="Session ended") from exc

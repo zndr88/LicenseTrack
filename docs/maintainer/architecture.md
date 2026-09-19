@@ -911,9 +911,8 @@ the initiating identity's version atomically with the user update.
 
 The cookie has no persistent browser expiry; the session row enforces the
 configured sliding lifetime and reduced timeout settings. Closing the browser
-may discard it. Existing JWT cookies require a fresh login when bootstrapping the app after
-upgrade. Legacy bearer refresh adopts a deterministic identity so logout also
-revokes its descendants. Revocation tombstones survive through token expiry, and login prunes
+may discard it. Human tokens without a recorded session identity require a fresh login after
+upgrade and cannot authenticate or refresh. Revocation tombstones survive through token expiry, and login prunes
 expired session rows. The additive Alembic revision is `e3c4d5e6f7a8`; downgrading
 removes session identities and requires users to sign in again.
 

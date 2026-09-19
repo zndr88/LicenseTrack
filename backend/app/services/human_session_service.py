@@ -1,4 +1,3 @@
-import hashlib
 import secrets
 from datetime import datetime, timezone
 
@@ -52,20 +51,8 @@ async def issue_session_token(
 
 
 async def refresh_session_token(
-    db: AsyncSession, user: User, lifetime_minutes: int | None, session_id: str, legacy_expiry: int | None = None
+    db: AsyncSession, user: User, lifetime_minutes: int | None, session_id: str
 ) -> str:
-    if legacy_expiry is not None:
-        await db.execute(
-            insert(HumanSession)
-            .values(
-                id=session_id,
-                user_id=user.id,
-                security_version=user.security_version,
-                issued_at=now_seconds(),
-                expires_at=legacy_expiry,
-            )
-            .on_conflict_do_nothing()
-        )
     token = auth.create_access_token(
         user.id,
         user.role,
@@ -90,11 +77,9 @@ async def refresh_session_token(
     return token
 
 
-async def get_active_session(db: AsyncSession, payload: dict, timeout_minutes: int, token: str) -> HumanSession | None:
-    session_id = payload.get("session_id") or legacy_session_id(token)
+async def get_active_session(db: AsyncSession, payload: dict, timeout_minutes: int) -> HumanSession:
+    session_id = payload["session_id"]
     session = await db.get(HumanSession, session_id)
-    if session is None and not payload.get("session_id"):
-        return None
     if session is None or session.user_id != int(payload["sub"]):
         raise auth.JWTError("Session ended")
     expiry = session.expires_at
@@ -105,12 +90,8 @@ async def get_active_session(db: AsyncSession, payload: dict, timeout_minutes: i
     return session
 
 
-def legacy_session_id(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
-
-
 async def revoke_session(db: AsyncSession, user_id: int, session_id: str, token_expiry: int) -> None:
-    # Keep a tombstone through the last token expiry, including legacy JWTs.
+    # Keep a tombstone through the last token expiry.
     statement = insert(HumanSession).values(
         id=session_id, user_id=user_id, security_version=0, issued_at=token_expiry, expires_at=0
     )

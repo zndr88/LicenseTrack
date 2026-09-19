@@ -13,11 +13,13 @@ import pytest
 import respx
 from joserfc import jwk
 from joserfc import jwt as joserfc_jwt
+from sqlalchemy import select
 
 import app.routes.auth as auth_module
 import app.routes.auth_oidc as auth_oidc_module
 from app import auth as _app_auth
 from app.models.settings import GlobalSettings
+from app.models.human_session import HumanSession
 from app.models.user import AuthProvider, User, UserRole
 from app.services import oidc_service
 from app.services.settings_service import invalidate_global_settings_cache
@@ -513,6 +515,7 @@ async def test_oidc_callback_oidc_user_match(db_session, test_app):
     await db_session.refresh(user)
     assert user.oidc_issuer == _ISSUER
     assert user.oidc_subject == "oidc|oidcssouser@test.local"
+    assert await db_session.scalar(select(HumanSession).where(HumanSession.user_id == user.id))
 
 
 @pytest.mark.parametrize(
@@ -805,7 +808,7 @@ async def test_stable_cookie_uses_server_expiry(db_session, test_app):
     assert (await test_app.get("/api/users/me")).status_code == 401
 
 
-async def test_legacy_cookie_requires_fresh_login_and_legacy_bearer_can_be_revoked(db_session, test_app):
+async def test_legacy_human_tokens_require_a_fresh_login(db_session, test_app):
     user = _make_user("legacyuser", "correctpassword123", UserRole.admin)
     db_session.add(user)
     await db_session.commit()
@@ -813,9 +816,28 @@ async def test_legacy_cookie_requires_fresh_login_and_legacy_bearer_can_be_revok
     test_app.cookies.set(_app_auth.settings.SESSION_COOKIE_NAME, token)
     assert (await test_app.get("/api/auth/session")).json()["authenticated"] is False
     headers = {"Authorization": f"Bearer {token}"}
-    refreshed = await test_app.post("/api/auth/refresh", headers=headers)
-    assert refreshed.status_code == 200
-    assert (await test_app.post("/api/auth/logout", headers=headers)).status_code == 204
     assert (await test_app.get("/api/users/me", headers=headers)).status_code == 401
-    descendant = refreshed.json()["access_token"]
-    assert (await test_app.post("/api/auth/refresh", headers={"Authorization": f"Bearer {descendant}"})).status_code == 401
+    assert (await test_app.post("/api/auth/refresh", headers=headers)).status_code == 401
+
+
+async def test_legacy_human_token_cannot_authenticate_a_reused_user_id(db_session, test_app):
+    original = _make_user("deleteduser", "correctpassword123", UserRole.admin)
+    db_session.add(original)
+    await db_session.commit()
+    legacy_token = _app_auth.create_access_token(
+        original.id,
+        original.role,
+        security_version=original.security_version,
+    )
+    original_id = original.id
+    await db_session.delete(original)
+    await db_session.commit()
+
+    replacement = _make_user("replacementuser", "correctpassword123", UserRole.viewer)
+    replacement.id = original_id
+    db_session.add(replacement)
+    await db_session.commit()
+
+    headers = {"Authorization": f"Bearer {legacy_token}"}
+    assert (await test_app.get("/api/users/me", headers=headers)).status_code == 401
+    assert (await test_app.post("/api/auth/refresh", headers=headers)).status_code == 401
