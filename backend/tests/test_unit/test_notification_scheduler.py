@@ -746,13 +746,8 @@ async def test_start_scheduler_backup_load_exception_is_caught(monkeypatch):
     assert any("Backup job failed to load settings" in message for message in errors)
 
 
-async def test_start_scheduler_backup_target_advances_to_tomorrow(db_session, monkeypatch, tmp_path):
-    """When now >= backup_target, backup_target advances to tomorrow (line 151).
-
-    Set now=02:01 and now_after=02:30; backup_hour=2 so backup_target=02:00.
-    now >= backup_target → target advances to 03:00 next day → now_after < that → no backup fired.
-    The branch on line 151 must execute.
-    """
+async def test_start_scheduler_catches_up_backup_after_startup(db_session, monkeypatch, tmp_path):
+    """A startup after the backup hour runs the missed backup once that day."""
     import datetime as dt_module
 
     _patch_scheduler_session(monkeypatch, db_session)
@@ -779,7 +774,7 @@ async def test_start_scheduler_backup_target_advances_to_tomorrow(db_session, mo
     monkeypatch.setattr(notification_scheduler, "dispatch_pending_webhooks", lambda: _async_return(0))
     monkeypatch.setattr(notification_scheduler, "run_daily_notifications", lambda db: _async_return({}))
 
-    # now=02:01 (past backup_hour=2) → target set to tomorrow; now_after=02:30 < tomorrow → no backup
+    # now=02:01 is after backup_hour=2, so the first loop catches up.
     _now_val   = dt_module.datetime(2026, 5, 21, 2, 1,  tzinfo=dt_module.timezone.utc)
     _after_val = dt_module.datetime(2026, 5, 21, 2, 30, tzinfo=dt_module.timezone.utc)
     _now_seq = [_now_val, _now_val, _after_val]  # prune, now, now_after
@@ -808,8 +803,7 @@ async def test_start_scheduler_backup_target_advances_to_tomorrow(db_session, mo
     except StopAsyncIteration:
         pass
 
-    # backup should NOT be called because target rolled to tomorrow
-    assert len(backup_called) == 0
+    assert len(backup_called) == 1
 
 
 # ---------------------------------------------------------------------------

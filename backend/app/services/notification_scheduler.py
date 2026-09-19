@@ -199,9 +199,9 @@ async def start_scheduler():
         now_after = datetime.now(timezone.utc)
 
         # Run notifications if we're at or past the notification hour.
+        # A startup after the configured hour catches up once today. The
+        # persisted notification markers below prevent repeated attempts.
         notif_target = now.replace(hour=send_hour, minute=0, second=0, microsecond=0)
-        if now >= notif_target:
-            notif_target = notif_target + timedelta(days=1)
         if now_after >= notif_target:
             try:
                 async def run_notifications():
@@ -238,12 +238,13 @@ async def start_scheduler():
         # Run backup if enabled and we're at or past the backup hour
         if backup_enabled:
             backup_target = now.replace(hour=backup_hour, minute=0, second=0, microsecond=0)
-            if now >= backup_target:
-                backup_target = backup_target + timedelta(days=1)
             if now_after >= backup_target:
                 async def run_backup():
                     gs_fresh = await _load_backup_settings()
-                    if gs_fresh:
+                    if gs_fresh and (
+                        gs_fresh.last_backup_at is None
+                        or gs_fresh.last_backup_at.date() != now_after.date()
+                    ):
                         await _run_backup(gs_fresh)
 
                 await _run_database_job(run_backup)
