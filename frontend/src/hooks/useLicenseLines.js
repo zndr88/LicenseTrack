@@ -19,8 +19,9 @@ export function useLicenseLines({
   userSettings,
   priceFields = {},
   relationshipFields = ["costCentre", "budgetOwnerEmail", "secondaryContacts"],
+  initialLines = [],
 }) {
-  const [lines, setLines] = useState([]);
+  const [lines, setLines] = useState(initialLines);
   const { quantity: qtyField = "quantity", unitPrice: unitField, total: totalField } = priceFields;
 
   const deriveTotal = useCallback((line) => {

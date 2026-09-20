@@ -3,6 +3,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { poFormSchema } from "../../utils/procurementSchemas.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
+import { useLicenseLines } from "../../hooks/useLicenseLines.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import Icon from "../ui/Icon.jsx";
@@ -60,7 +61,24 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
     },
   });
 
-  const [items, setItems] = useState([emptyItem()]);
+  const {
+    lines: items,
+    setLines: setItems,
+    addLine: addItem,
+    removeLine,
+    updateLine: updateItem,
+  } = useLicenseLines({
+    emptyLine: emptyItem,
+    userSettings,
+    initialLines: [emptyItem()],
+    priceFields: { quantity: "quantity", unitPrice: "estimatedUnitPrice", total: "estimatedTotalPrice" },
+  });
+  const removeItem = (id) => {
+    const target = items.find((line) => line.id === id);
+    const nonCompanions = items.filter((line) => !line.isMaintenanceCompanion);
+    if (!target?.isMaintenanceCompanion && nonCompanions.length <= 1) return;
+    removeLine(id);
+  };
 
   const { attachments, categoryScopes, addFiles, removeAttachment, changeTarget, changeCategoryScope, clearAttachments } = useStagedDocumentAttachments(isNewOrder ? items[0]?.id : order?.items?.[0]?.id);
   const attachedFile = attachments[0]?.file ?? null;
@@ -82,25 +100,6 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
     reader.readAsDataURL(attachedFile);
     return () => { current = false; };
   }, [attachedFile]);
-
-  const updateItem = (id, field, value) =>
-    setItems((prev) => prev.map((item) => {
-      if (item.id !== id) return item;
-      const updated = { ...item, [field]: value };
-      if (field === "estimatedUnitPrice" || field === "quantity") {
-        const qtyRaw = field === "quantity" ? value : item.quantity;
-        const unitRaw = field === "estimatedUnitPrice" ? value : item.estimatedUnitPrice;
-        const qty = parseFloat(parseLocalizedNumber(qtyRaw, userSettings) ?? qtyRaw);
-        const unit = parseFloat(parseLocalizedNumber(unitRaw, userSettings) ?? unitRaw);
-        if (!isNaN(qty) && qty > 0 && !isNaN(unit) && unit > 0) {
-          updated.estimatedTotalPrice = formatPriceInput(String(qty * unit), locale);
-        }
-      }
-      return updated;
-    }));
-
-  const addItem = () => setItems((prev) => [...prev, emptyItem()]);
-  const removeItem = (id) => setItems((prev) => prev.length > 1 ? prev.filter((i) => i.id !== id) : prev);
 
   const onSubmit = async (data) => {
     const validTargets = (isNewOrder ? items.filter((line) => line.publisherName.trim() && line.softwareDescription.trim()) : order.items ?? []).map((line) => String(line.id));
