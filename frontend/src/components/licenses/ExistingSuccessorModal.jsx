@@ -5,6 +5,8 @@ import { queryKeys } from "../../queryKeys.js";
 import { invalidateRenewalWorkflow } from "../../queryInvalidation.js";
 import { formatDate } from "../../utils/formatting.js";
 import { getExpirationPresentation, normalizeLicense } from "../../utils/helpers.js";
+import { termDateRelationship } from "../../utils/termRelationship.js";
+import LinkPicker from "../ui/LinkPicker.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 
 const NON_RENEWABLE_TYPES = new Set(["service", "other"]);
@@ -34,17 +36,6 @@ export function getExistingSuccessorCandidates(predecessor, allLicenses) {
     .sort((a, b) => String(a.candidate.startDate || "").localeCompare(String(b.candidate.startDate || "")));
 }
 
-function dateRelationship(predecessor, successor) {
-  if (!predecessor.endDate || !successor.startDate) return null;
-  const predecessorEnd = new Date(`${predecessor.endDate}T00:00:00`);
-  const successorStart = new Date(`${successor.startDate}T00:00:00`);
-  const dayMs = 24 * 60 * 60 * 1000;
-  const delta = Math.round((successorStart - predecessorEnd) / dayMs) - 1;
-  if (delta > 0) return { tone: "warning", text: `${delta}-day gap between terms` };
-  if (delta < 0) return { tone: "warning", text: `${Math.abs(delta)}-day overlap between terms` };
-  return { tone: "ok", text: "Terms are contiguous" };
-}
-
 export default function ExistingSuccessorModal({
   predecessor,
   allLicenses,
@@ -55,20 +46,21 @@ export default function ExistingSuccessorModal({
 }) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState("");
-  const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const candidates = useMemo(() => getExistingSuccessorCandidates(
     predecessor,
     allLicenses,
   ), [predecessor, allLicenses]);
-  const filtered = candidates.filter(({ candidate }) => (
-    `${candidate.licenseRef || ""} ${(candidate.licenseRefAliases || []).join(" ")} ${candidate.publisherName || ""} ${candidate.softwareDescription || ""}`
-      .toLowerCase()
-      .includes(query.trim().toLowerCase())
-  ));
+  const options = useMemo(() => candidates.map(({ candidate, expiration }) => ({
+    id: candidate.id,
+    title: candidate.licenseRef || `License #${candidate.id}`,
+    subtitle: `${candidate.publisherName} · ${candidate.softwareDescription}`,
+    meta: `${expiration.label} · ${formatDate(candidate.startDate, userSettings)} – ${formatDate(candidate.endDate, userSettings)}`,
+    searchText: `${candidate.licenseRef || ""} ${(candidate.licenseRefAliases || []).join(" ")} ${candidate.publisherName || ""} ${candidate.softwareDescription || ""}`,
+  })), [candidates, userSettings]);
   const selected = candidates.find(({ candidate }) => String(candidate.id) === selectedId)?.candidate;
-  const relationship = selected ? dateRelationship(predecessor, selected) : null;
+  const relationship = selected ? termDateRelationship(predecessor, selected) : null;
 
   const save = async () => {
     if (!selected) return;
@@ -111,39 +103,15 @@ export default function ExistingSuccessorModal({
           Descriptions and PO numbers can differ.
           No new sourcing request or pending order will be created.
         </p>
-        <input
-          className="fi"
-          type="search"
-          placeholder="Search by LT ref, publisher, or description"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          autoFocus
+        <LinkPicker
+          candidates={options}
+          selectedIds={selectedId ? [selectedId] : []}
+          onChange={(ids) => setSelectedId(ids.length ? String(ids[ids.length - 1]) : "")}
+          searchPlaceholder="Search by LT ref, publisher, or description"
+          listLabel="Eligible existing successors"
+          emptyMessage="No eligible active or upcoming licenses were found for this publisher."
+          disabled={saving}
         />
-        <div role="listbox" aria-label="Eligible existing successors" className="existing-successor-list">
-          {filtered.map(({ candidate, expiration }) => (
-            <button
-              key={candidate.id}
-              type="button"
-              role="option"
-              aria-selected={String(candidate.id) === selectedId}
-              className={`existing-successor-option${String(candidate.id) === selectedId ? " is-selected" : ""}`}
-              onClick={() => setSelectedId(String(candidate.id))}
-            >
-              <span className="existing-successor-option-main">
-                <strong>{candidate.licenseRef || `License #${candidate.id}`}</strong>
-                <span>{candidate.publisherName} · {candidate.softwareDescription}</span>
-              </span>
-              <span className="existing-successor-option-meta">
-                {expiration.label} · {formatDate(candidate.startDate, userSettings)} – {formatDate(candidate.endDate, userSettings)}
-              </span>
-            </button>
-          ))}
-          {filtered.length === 0 && (
-            <div className="existing-successor-empty">
-              No eligible active or upcoming licenses were found for this publisher.
-            </div>
-          )}
-        </div>
 
         {selected && (
           <div className="existing-successor-confirmation">

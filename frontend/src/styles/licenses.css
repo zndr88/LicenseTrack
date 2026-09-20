@@ -347,6 +347,113 @@
 .existing-successor-error {
   margin: 0;
 }
+
+/* Shared link picker (existing-successor + sourcing term predecessors). */
+.link-picker {
+  display: grid;
+  gap: 10px;
+}
+
+.link-picker-list {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-2);
+}
+
+.link-picker-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-picker-option:hover:not(:disabled) {
+  background: var(--bg-3);
+}
+
+.link-picker-option.is-selected {
+  border-color: var(--purple-border);
+  background: var(--purple-dim);
+}
+
+.link-picker-option.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.link-picker-mark {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.link-picker-mark.is-multi {
+  border-radius: 4px;
+}
+
+.link-picker-option.is-selected .link-picker-mark {
+  border-color: var(--purple-border);
+  background: var(--purple);
+  box-shadow: inset 0 0 0 2px var(--bg-2);
+}
+
+.link-picker-option-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.link-picker-option-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  align-items: baseline;
+  font-size: 12px;
+}
+
+.link-picker-option-meta,
+.link-picker-option-note,
+.link-picker-empty {
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.link-picker-empty {
+  padding: 12px 8px;
+}
+
+.link-picker-relationship {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.link-picker-relationship.is-ok {
+  color: var(--green-text);
+}
+
+.link-picker-relationship.is-warning {
+  color: var(--orange-text);
+}
+
+.term-successor-create {
+  margin-top: 12px;
+}
+
 .term-chain {
   margin: 10px 0;
   padding: 12px;

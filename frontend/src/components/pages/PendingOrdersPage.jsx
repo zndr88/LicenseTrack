@@ -417,6 +417,7 @@ export default function PendingOrdersPage({
         <TermPredecessorsModal
           target={predecessorsTarget.target}
           items={predecessorsTarget.items}
+          userSettings={userSettings}
           onSave={handleReplacePredecessors}
           onCancel={() => setPredecessorsTarget(null)}
         />

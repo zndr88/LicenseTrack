@@ -640,7 +640,7 @@ const SourcingItemModal = ({
               <p>These links use the saved line. Save edits first, or discard them when prompted.</p>
               <div className="sourcing-term-actions-buttons">
                 {onAddNextTerm && (
-                  <button type="button" className="btn btn-g" disabled={saving} onClick={() => requestTermAction("add")}>Add next term</button>
+                  <button type="button" className="btn btn-g" disabled={saving} onClick={() => requestTermAction("add")}>Set next term</button>
                 )}
                 {onEditPredecessors && (
                   <button type="button" className="btn btn-g" disabled={saving} onClick={() => requestTermAction("link")}>Set predecessors</button>

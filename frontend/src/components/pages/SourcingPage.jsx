@@ -8,6 +8,7 @@ import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import SourcingItemModal from "../procurement/SourcingItemModal.jsx";
 import TermPredecessorsModal from "../procurement/TermPredecessorsModal.jsx";
+import TermSuccessorModal from "../procurement/TermSuccessorModal.jsx";
 import { nextTermDraft } from "../../utils/nextTermDraft.js";
 import SourcingRequestEditModal from "../procurement/SourcingRequestEditModal.jsx";
 import WorkflowDocumentsModal from "../procurement/WorkflowDocumentsModal.jsx";
@@ -82,6 +83,7 @@ export default function SourcingPage({
 
   const [showSourcingModal, setShowSourcingModal] = useState(null);
   const [predecessorsTarget, setPredecessorsTarget] = useState(null);
+  const [successorTarget, setSuccessorTarget] = useState(null);
   const [showSourcingRequestEditModal, setShowSourcingRequestEditModal] = useState(null);
   const [showDocumentsModal, setShowDocumentsModal] = useState(null);
   const [deleteSourcingRequestTarget, setDeleteSourcingRequestTarget] = useState(null);
@@ -517,7 +519,7 @@ export default function SourcingPage({
           key={showSourcingModal.item?.id ?? "new"}
           item={showSourcingModal.item}
           prefill={showSourcingModal.prefill}
-          title={showSourcingModal.prefill ? "Add next term" : undefined}
+          title={showSourcingModal.prefill ? "New term line" : undefined}
           requestId={showSourcingModal.request?.id ?? null}
           sourcingRequest={showSourcingModal.request}
           termItems={showSourcingModal.request?.items ?? []}
@@ -525,12 +527,10 @@ export default function SourcingPage({
             && isOpenSourcingItem(showSourcingModal.item)
             && !showSourcingModal.item.successorSourcingItemId
             && ["subscription", "saas", "oem"].includes(showSourcingModal.item.licenseType)
-            ? () => setShowSourcingModal({
-              item: null,
-              request: showSourcingModal.request,
-              prefill: nextTermDraft(showSourcingModal.item),
-              successorOfItemIds: [showSourcingModal.item.id],
-            }) : null}
+            ? () => {
+              setSuccessorTarget({ item: showSourcingModal.item, request: showSourcingModal.request, items: showSourcingModal.request?.items ?? [] });
+              setShowSourcingModal(null);
+            } : null}
           onEditPredecessors={showSourcingModal.item?.id
             && isOpenSourcingItem(showSourcingModal.item)
             && showSourcingModal.item.renewalForLicenseId == null
@@ -647,8 +647,29 @@ export default function SourcingPage({
         <TermPredecessorsModal
           target={predecessorsTarget.item}
           items={predecessorsTarget.items}
+          userSettings={userSettings}
           onSave={handleReplacePredecessors}
           onCancel={() => setPredecessorsTarget(null)}
+        />
+      )}
+
+      {successorTarget && (
+        <TermSuccessorModal
+          target={successorTarget.item}
+          items={successorTarget.items}
+          userSettings={userSettings}
+          onSave={handleReplacePredecessors}
+          onCreateNew={() => {
+            const target = successorTarget;
+            setSuccessorTarget(null);
+            setShowSourcingModal({
+              item: null,
+              request: target.request,
+              prefill: nextTermDraft(target.item),
+              successorOfItemIds: [target.item.id],
+            });
+          }}
+          onCancel={() => setSuccessorTarget(null)}
         />
       )}
 

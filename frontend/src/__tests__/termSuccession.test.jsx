@@ -23,8 +23,8 @@ describe("term succession", () => {
       { id: 3, sourcingRequestId: 8, softwareDescription: "Combined" },
     ];
     render(<TermPredecessorsModal target={items[2]} items={items} onSave={onSave} onCancel={onCancel} />);
-    fireEvent.click(screen.getByLabelText(/A · Line #1/));
-    fireEvent.click(screen.getByLabelText(/B · Line #2/));
+    fireEvent.click(screen.getByRole("option", { name: "A" }));
+    fireEvent.click(screen.getByRole("option", { name: "B" }));
     fireEvent.click(screen.getByRole("button", { name: "Save term links" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(3, [1, 2]));
     expect(onCancel).toHaveBeenCalledOnce();

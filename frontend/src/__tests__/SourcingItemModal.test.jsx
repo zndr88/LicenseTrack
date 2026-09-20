@@ -54,7 +54,7 @@ describe("term succession actions", () => {
     renderModal({ item, requestId: 2, termItems: [item], onAddNextTerm, onEditPredecessors });
 
     expect(screen.getByRole("region", { name: "Term succession" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add next term" }));
+    fireEvent.click(screen.getByRole("button", { name: "Set next term" }));
     expect(onAddNextTerm).toHaveBeenCalledOnce();
     expect(onEditPredecessors).not.toHaveBeenCalled();
   });
