@@ -80,6 +80,7 @@ const STATIC_SORT_ACCESSORS = {
   supplier: (license) => license.supplier || "Direct",
   contactEmail: (license) => license.contactEmail ?? null,
   budgetOwnerEmail: (license) => license.budgetOwnerEmail ?? null,
+  secondaryContacts: (license) => (license.secondaryContacts?.length ? license.secondaryContacts.join("; ") : null),
   licenseType: (license) => labelFor(LICENSE_TYPES, license.licenseType),
   licenseMetric: (license) => labelFor(LICENSE_METRICS, license.licenseMetric),
   quantity: (license) => finiteNumber(license.quantity),
