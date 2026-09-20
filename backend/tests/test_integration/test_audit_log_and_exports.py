@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone
 import pytest
 
 from app import auth
+from app.services.human_session_service import issue_session_token
 from app.models.audit_log import AuditLog
 from app.models.license import License, LicenseMetric, LicenseType
 from app.models.pending_order import PendingOrder, PendingOrderStatus
@@ -26,7 +27,8 @@ async def _create_role_headers(db_session, role: UserRole) -> dict[str, str]:
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
-    token = auth.create_access_token(user.id, user.role.value)
+    token = await issue_session_token(db_session, user, None)
+    await db_session.commit()
     return {"Authorization": f"Bearer {token}"}
 
 

@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app import auth
 import app.routes.global_settings as global_settings_routes
+from app.services.human_session_service import issue_session_token
 from app.models.settings import GlobalSettings
 from app.models.user import User, UserRole
 from app.schemas.settings import _SMTP_PASSWORD_MASK
@@ -36,7 +37,9 @@ async def _create_headers(db_session, username: str, role: UserRole) -> dict[str
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
-    return {"Authorization": f"Bearer {auth.create_access_token(user.id, user.role.value)}"}
+    token = await issue_session_token(db_session, user, None)
+    await db_session.commit()
+    return {"Authorization": f"Bearer {token}"}
 
 
 async def _upsert_global_settings(db_session, **values) -> GlobalSettings:

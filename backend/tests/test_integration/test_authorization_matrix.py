@@ -19,6 +19,7 @@ import pytest
 
 from app import auth
 from app.models.user import User, UserRole
+from app.services.human_session_service import issue_session_token
 from app.services.settings_service import invalidate_global_settings_cache
 
 
@@ -41,7 +42,8 @@ async def _create_role_headers(db_session, role: UserRole) -> dict[str, str]:
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
-    token = auth.create_access_token(user.id, user.role.value)
+    token = await issue_session_token(db_session, user, None)
+    await db_session.commit()
     return {"Authorization": f"Bearer {token}"}
 
 

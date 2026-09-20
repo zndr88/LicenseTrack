@@ -4398,10 +4398,10 @@ async def test_concurrent_single_and_batch_conversion_only_one_succeeds(
     from httpx import ASGITransport, AsyncClient
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-    from app.auth import create_access_token
     from app.database import Base, enable_sqlite_foreign_keys, get_db
     from app.main import app
-    from app.models.user import User, UserRole
+    from app.models.user import User
+    from app.services.human_session_service import issue_session_token
 
     database_path = tmp_path / "cross-endpoint-conversion.sqlite"
     engine = create_async_engine(f"sqlite+aiosqlite:///{database_path.as_posix()}")
@@ -4421,9 +4421,9 @@ async def test_concurrent_single_and_batch_conversion_only_one_succeeds(
         session.add(user)
         await session.commit()
         await session.refresh(user)
-        headers = {
-            "Authorization": f"Bearer {create_access_token(user.id, UserRole.admin.value)}"
-        }
+        token = await issue_session_token(session, user, None)
+        await session.commit()
+        headers = {"Authorization": f"Bearer {token}"}
 
     async def override_get_db():
         async with session_factory() as session:
