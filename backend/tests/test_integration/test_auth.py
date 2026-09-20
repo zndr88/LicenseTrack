@@ -148,7 +148,13 @@ async def test_session_probe_returns_anonymous_without_cookie(test_app):
     resp = await test_app.get("/api/auth/session")
 
     assert resp.status_code == 200
-    assert resp.json() == {"authenticated": False, "user": None, "expires_at": None}
+    assert resp.json() == {
+        "authenticated": False,
+        "user": None,
+        "expires_at": None,
+        "coordination_id": None,
+        "session_timeout": None,
+    }
 
 
 async def test_session_probe_returns_user_with_cookie(db_session, test_app):

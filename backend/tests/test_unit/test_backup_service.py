@@ -68,6 +68,12 @@ def _make_db(path) -> None:
     conn.execute("CREATE TABLE sourcing_items (id INTEGER PRIMARY KEY)")
     conn.execute("CREATE TABLE sourcing_quote_documents (id INTEGER PRIMARY KEY)")
     conn.execute("CREATE TABLE procurement_documents (id INTEGER PRIMARY KEY)")
+    # webhook_deliveries exists at the stamped revision; a later forward migration
+    # (f4a5b6c7d8e9) adds columns and a (status, claimed_at) index to it.
+    conn.execute(
+        "CREATE TABLE webhook_deliveries ("
+        "id INTEGER PRIMARY KEY, status VARCHAR(20) NOT NULL DEFAULT 'pending')"
+    )
     conn.execute("CREATE TABLE alembic_version (version_num TEXT NOT NULL)")
     conn.execute(
         "INSERT INTO alembic_version (version_num) VALUES (?)",
