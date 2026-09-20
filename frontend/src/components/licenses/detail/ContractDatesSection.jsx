@@ -84,6 +84,19 @@ export default function ContractDatesSection({
                 )}
               </div>
             </div>
+            <div className="dp-field">
+              <span className="dp-field-label">PO #</span>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div className="val mono">{license.poNumber || "\u2014"}</div>
+                {perms.canEdit && (
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit PO number"
+                    onClick={() => openFieldEdit({ fieldKey: "poNumber", fieldLabel: "PO #", currentValue: license.poNumber || "", inputType: "text" })}
+                  >
+                    <Icon name="edit" size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
           <div className="fr dp-data-row">
             <div className="dp-field">
@@ -149,14 +162,35 @@ export default function ContractDatesSection({
               )}
             </div>
             <div className="dp-field">
-              <span className="dp-field-label">PO #</span>
+              <span className="dp-field-label">Invoice #</span>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val mono">{license.poNumber || "\u2014"}</div>
+                {perms.canEdit ? (
+                  <button
+                    type="button"
+                    className="dp-clickable-value val mono invoice-primary-value"
+                    onClick={openInvoiceNumbersEdit}
+                  >
+                    {primaryInvoiceNumber || "\u2014"}
+                    {invoiceCount > 1 && <span className="invoice-count-badge">+{invoiceCount - 1}</span>}
+                  </button>
+                ) : (
+                  <div className="val mono invoice-primary-value">
+                    {primaryInvoiceNumber || "\u2014"}
+                    {invoiceCount > 1 && <span className="invoice-count-badge">+{invoiceCount - 1}</span>}
+                  </div>
+                )}
                 {perms.canEdit && (
-                  <button type="button" className="dp-field-edit-icon" aria-label="Edit PO number"
-                    onClick={() => openFieldEdit({ fieldKey: "poNumber", fieldLabel: "PO #", currentValue: license.poNumber || "", inputType: "text" })}
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit invoice numbers"
+                    onClick={openInvoiceNumbersEdit}
                   >
                     <Icon name="edit" size={11} />
+                  </button>
+                )}
+                {perms.canEdit && (
+                  <button type="button" className="dp-field-edit-icon invoice-add-icon" aria-label="Add invoice number"
+                    onClick={openInvoiceNumbersEdit}
+                  >
+                    <Icon name="plus" size={11} />
                   </button>
                 )}
               </div>
@@ -192,40 +226,6 @@ export default function ContractDatesSection({
                 )}
               </div>
             )}
-          </div>
-          <div className="dp-field">
-            <span className="dp-field-label">Invoice #</span>
-            <div style={{ display: "flex", alignItems: "center" }}>
-              {perms.canEdit ? (
-                <button
-                  type="button"
-                  className="dp-clickable-value val mono invoice-primary-value"
-                  onClick={openInvoiceNumbersEdit}
-                >
-                  {primaryInvoiceNumber || "\u2014"}
-                  {invoiceCount > 1 && <span className="invoice-count-badge">+{invoiceCount - 1}</span>}
-                </button>
-              ) : (
-                <div className="val mono invoice-primary-value">
-                  {primaryInvoiceNumber || "\u2014"}
-                  {invoiceCount > 1 && <span className="invoice-count-badge">+{invoiceCount - 1}</span>}
-                </div>
-              )}
-              {perms.canEdit && (
-                <button type="button" className="dp-field-edit-icon" aria-label="Edit invoice numbers"
-                  onClick={openInvoiceNumbersEdit}
-                >
-                  <Icon name="edit" size={11} />
-                </button>
-              )}
-              {perms.canEdit && (
-                <button type="button" className="dp-field-edit-icon invoice-add-icon" aria-label="Add invoice number"
-                  onClick={openInvoiceNumbersEdit}
-                >
-                  <Icon name="plus" size={11} />
-                </button>
-              )}
-            </div>
           </div>
           <CustomFieldRows
             fieldDefs={cfBySection["dates"] ?? []}

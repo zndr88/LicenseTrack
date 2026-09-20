@@ -41,23 +41,46 @@ export default function CommercialSection({
       <DetailSectionHeader sectionKey="commercial" title="Details" isOpen={isOpen} onToggle={onToggle} />
       {isOpen && (
         <div className="dp-section-body" id="dp-section-commercial">
-          {vis.licenseType && (
-            <div className="dp-field">
-              <span className="dp-field-label">License Type</span>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val">
-                  {license.licenseType
-                    ? LICENSE_TYPES.find((t) => t.value === license.licenseType)?.label || license.licenseType
-                    : "—"}
+          {(vis.licenseType || vis.licenseMetric) && (
+            <div className="fr dp-data-row">
+              {vis.licenseType && (
+                <div className="dp-field">
+                  <span className="dp-field-label">License Type</span>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <div className="val">
+                      {license.licenseType
+                        ? LICENSE_TYPES.find((t) => t.value === license.licenseType)?.label || license.licenseType
+                        : "—"}
+                    </div>
+                    {perms.canEdit && (
+                      <button type="button" className="dp-field-edit-icon" aria-label="Edit license type"
+                        onClick={() => openFieldEdit({ fieldKey: "licenseType", fieldLabel: "License Type", currentValue: license.licenseType || "", inputType: "select", selectOptions: LICENSE_TYPES })}
+                      >
+                        <Icon name="edit" size={11} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {perms.canEdit && (
-                  <button type="button" className="dp-field-edit-icon" aria-label="Edit license type"
-                    onClick={() => openFieldEdit({ fieldKey: "licenseType", fieldLabel: "License Type", currentValue: license.licenseType || "", inputType: "select", selectOptions: LICENSE_TYPES })}
-                  >
-                    <Icon name="edit" size={11} />
-                  </button>
-                )}
-              </div>
+              )}
+              {vis.licenseMetric && (
+                <div className="dp-field">
+                  <span className="dp-field-label">License Metric</span>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <div className="val">
+                      {license.licenseMetric
+                        ? LICENSE_METRICS.find((m) => m.value === license.licenseMetric)?.label || license.licenseMetric
+                        : "—"}
+                    </div>
+                    {perms.canEdit && (
+                      <button type="button" className="dp-field-edit-icon" aria-label="Edit license metric"
+                        onClick={() => openFieldEdit({ fieldKey: "licenseMetric", fieldLabel: "License Metric", currentValue: license.licenseMetric || "", inputType: "select", selectOptions: LICENSE_METRICS })}
+                      >
+                        <Icon name="edit" size={11} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {license.licenseType === "saas" && (
@@ -79,53 +102,38 @@ export default function CommercialSection({
               </div>
             </div>
           )}
-          {vis.licenseMetric && (
-            <div className="dp-field">
-              <span className="dp-field-label">License Metric</span>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val">
-                  {license.licenseMetric
-                    ? LICENSE_METRICS.find((m) => m.value === license.licenseMetric)?.label || license.licenseMetric
-                    : "—"}
+          {(vis.quantity || vis.quantityPerUnit) && (
+            <div className="fr dp-data-row">
+              {vis.quantity && (
+                <div className="dp-field">
+                  <span className="dp-field-label">Purchase Quantity</span>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <div className="val mono">{formatQuantityDisplay(license.quantity, userSettings)}</div>
+                    {perms.canEdit && (
+                      <button type="button" className="dp-field-edit-icon" aria-label="Edit purchase quantity"
+                        onClick={() => openFieldEdit({ fieldKey: "quantity", fieldLabel: "Purchase Quantity", currentValue: license.quantity || "", inputType: "text" })}
+                      >
+                        <Icon name="edit" size={11} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {perms.canEdit && (
-                  <button type="button" className="dp-field-edit-icon" aria-label="Edit license metric"
-                    onClick={() => openFieldEdit({ fieldKey: "licenseMetric", fieldLabel: "License Metric", currentValue: license.licenseMetric || "", inputType: "select", selectOptions: LICENSE_METRICS })}
-                  >
-                    <Icon name="edit" size={11} />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-          {vis.quantity && (
-            <div className="dp-field">
-              <span className="dp-field-label">Purchase Quantity</span>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val mono">{formatQuantityDisplay(license.quantity, userSettings)}</div>
-                {perms.canEdit && (
-                  <button type="button" className="dp-field-edit-icon" aria-label="Edit purchase quantity"
-                    onClick={() => openFieldEdit({ fieldKey: "quantity", fieldLabel: "Purchase Quantity", currentValue: license.quantity || "", inputType: "text" })}
-                  >
-                    <Icon name="edit" size={11} />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-          {vis.quantityPerUnit && (
-            <div className="dp-field">
-              <span className="dp-field-label">Quantity per Unit</span>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val mono">{formatQuantityDisplay(license.quantityPerUnit || "1", userSettings)}</div>
-                {perms.canEdit && (
-                  <button type="button" className="dp-field-edit-icon" aria-label="Edit quantity per unit"
-                    onClick={() => openFieldEdit({ fieldKey: "quantityPerUnit", fieldLabel: "Quantity per Unit", currentValue: license.quantityPerUnit || "1", inputType: "text" })}
-                  >
-                    <Icon name="edit" size={11} />
-                  </button>
-                )}
-              </div>
+              )}
+              {vis.quantityPerUnit && (
+                <div className="dp-field">
+                  <span className="dp-field-label">Quantity per Unit</span>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <div className="val mono">{formatQuantityDisplay(license.quantityPerUnit || "1", userSettings)}</div>
+                    {perms.canEdit && (
+                      <button type="button" className="dp-field-edit-icon" aria-label="Edit quantity per unit"
+                        onClick={() => openFieldEdit({ fieldKey: "quantityPerUnit", fieldLabel: "Quantity per Unit", currentValue: license.quantityPerUnit || "1", inputType: "text" })}
+                      >
+                        <Icon name="edit" size={11} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {vis.effectiveQuantity && (
@@ -149,25 +157,29 @@ export default function CommercialSection({
               </div>
             </div>
           )}
-          {vis.unitPrice && (
-            <div className="dp-field">
-              <span className="dp-field-label">Unit Price</span>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="val dp-mono-val">{license.unitPrice ? fmtCost(license.unitPrice) : "—"}</div>
-                {perms.canEdit && (
-                  <button type="button" className="dp-field-edit-icon" aria-label="Edit unit price"
-                    onClick={() => openFieldEdit({ fieldKey: "unitPrice", fieldLabel: "Unit Price", currentValue: license.unitPrice || "", inputType: "text" })}
-                  >
-                    <Icon name="edit" size={11} />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-          {calculatedTotal !== null && (
-            <div className="dp-field">
-              <span className="dp-field-label">Calculated total</span>
-              <div className="val dp-mono-val">{fmtCost(calculatedTotal)}</div>
+          {(vis.unitPrice || calculatedTotal !== null) && (
+            <div className="fr dp-data-row">
+              {vis.unitPrice && (
+                <div className="dp-field">
+                  <span className="dp-field-label">Unit Price</span>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <div className="val dp-mono-val">{license.unitPrice ? fmtCost(license.unitPrice) : "—"}</div>
+                    {perms.canEdit && (
+                      <button type="button" className="dp-field-edit-icon" aria-label="Edit unit price"
+                        onClick={() => openFieldEdit({ fieldKey: "unitPrice", fieldLabel: "Unit Price", currentValue: license.unitPrice || "", inputType: "text" })}
+                      >
+                        <Icon name="edit" size={11} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {calculatedTotal !== null && (
+                <div className="dp-field">
+                  <span className="dp-field-label">Calculated total</span>
+                  <div className="val dp-mono-val">{fmtCost(calculatedTotal)}</div>
+                </div>
+              )}
             </div>
           )}
           {vis.totalPoPrice && (
