@@ -268,3 +268,90 @@ describe('RenewalWorkflowSection pending ancestry', () => {
     expect(handlers.onNavigate).toHaveBeenNthCalledWith(2, predecessor.id)
   })
 })
+
+describe('RenewalWorkflowSection PO bundle selection', () => {
+  const soonIso = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 20);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const makeBundle = () => {
+    const endDate = soonIso();
+    const current = {
+      ...baseLicense,
+      id: 20,
+      lifecycleStatus: null,
+      budgetOwnerEmail: 'owner@example.com',
+      poNumber: 'PO-9',
+      endDate,
+      expirationStatus: 'expiring',
+      daysUntilExpiry: 20,
+      licenseType: 'subscription',
+    };
+    const sibling = {
+      ...current,
+      id: 21,
+      publisherName: 'Sibling Publisher',
+      softwareDescription: 'Sibling License',
+    };
+    return { current, sibling };
+  };
+
+  it('lists PO siblings and defaults every line to selected', () => {
+    const { current, sibling } = makeBundle();
+    renderSection({
+      license: current,
+      exp: { status: 'expiring', days: 20 },
+      allLicenses: [current, sibling],
+    });
+
+    expect(screen.getByText(/this license/i)).toBeInTheDocument();
+    expect(screen.getByText(/Sibling Publisher — Sibling License/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /initiate renewal \(2 licenses\)/i })).toBeInTheDocument();
+  });
+
+  it('initiates a bundle for the licenses that stay selected', () => {
+    const { current, sibling } = makeBundle();
+    const handlers = renderSection({
+      license: current,
+      exp: { status: 'expiring', days: 20 },
+      allLicenses: [current, sibling],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /initiate renewal \(2 licenses\)/i }));
+    expect(handlers.onCreateRenewalBundle).toHaveBeenCalledWith([20, 21]);
+    expect(handlers.onCreateRenewal).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a single renewal when the siblings are excluded', () => {
+    const { current, sibling } = makeBundle();
+    const handlers = renderSection({
+      license: current,
+      exp: { status: 'expiring', days: 20 },
+      allLicenses: [current, sibling],
+    });
+
+    // Uncheck the sibling (the current license checkbox is disabled/locked).
+    const siblingCheckbox = screen.getByText(/Sibling Publisher/).closest('label').querySelector('input');
+    fireEvent.click(siblingCheckbox);
+
+    const button = screen.getByRole('button', { name: /^initiate renewal$/i });
+    fireEvent.click(button);
+    expect(handlers.onCreateRenewal).toHaveBeenCalledWith(20);
+    expect(handlers.onCreateRenewalBundle).not.toHaveBeenCalled();
+  });
+
+  it('keeps the renewing license locked into the selection', () => {
+    const { current, sibling } = makeBundle();
+    renderSection({
+      license: current,
+      exp: { status: 'expiring', days: 20 },
+      allLicenses: [current, sibling],
+    });
+
+    const currentCheckbox = screen.getByText(/this license/i).closest('label').querySelector('input');
+    expect(currentCheckbox).toBeDisabled();
+    expect(currentCheckbox).toBeChecked();
+  });
+})

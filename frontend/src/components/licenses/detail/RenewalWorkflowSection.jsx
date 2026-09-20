@@ -1,5 +1,5 @@
 // frontend/src/components/licenses/detail/RenewalWorkflowSection.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NON_RENEWABLE_LICENSE_TYPES } from "../../../constants/licenseData.js";
 import { formatDate } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
@@ -29,6 +29,23 @@ export default function RenewalWorkflowSection({
   const { poSiblings, bundleCount, actionDays } = useRenewalPanelModel({ license, allLicenses, globalSettings });
   const [initiatingRenewal, setInitiatingRenewal] = useState(false);
   const [unlinkingSuccessor, setUnlinkingSuccessor] = useState(false);
+
+  // Renewal bundle selection: the license being renewed is always included;
+  // its PO siblings default to checked but can be excluded before initiating.
+  const bundleMembers = [license, ...poSiblings];
+  const memberIdsKey = bundleMembers.map((member) => member.id).join(",");
+  const [selectedRenewalIds, setSelectedRenewalIds] = useState(() => new Set(bundleMembers.map((member) => member.id)));
+  useEffect(() => {
+    setSelectedRenewalIds(new Set(memberIdsKey ? memberIdsKey.split(",").map(Number) : []));
+  }, [memberIdsKey]);
+  const selectedRenewalCount = selectedRenewalIds.size;
+  const toggleRenewalMember = (id) => setSelectedRenewalIds((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+
   const canStartRenewal = !NON_RENEWABLE_LICENSE_TYPES.includes(license.licenseType);
   const canLinkExistingSuccessor = Boolean(license.publisherName?.trim());
   const isWithinActionWindow = isRenewalActionEligible(license, actionDays);
@@ -69,28 +86,53 @@ export default function RenewalWorkflowSection({
           <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 10, lineHeight: 1.5 }}>
             {license.budgetOwnerEmail
               ? bundleCount > 1
-                ? `${bundleCount} licenses share PO ${license.poNumber} and the same end date. One sourcing request with ${bundleCount} license lines will be created.`
+                ? `${bundleCount} licenses share PO ${license.poNumber} and the same end date. Choose which to include below — one sourcing request is created with a line per selected license.`
                 : `Initiating renewal will create a sourcing record routed through procurement. Once a successor is created, this license remains current until its own end date.`
               : "Set a budget owner email above to start procurement, or link the next term if it was already purchased under this PO."}
           </div>
+          {license.budgetOwnerEmail && bundleCount > 1 && (
+            <div className="dp-renewal-bundle-list">
+              {bundleMembers.map((member) => {
+                const isCurrent = member.id === license.id;
+                return (
+                  <label key={member.id} className="dp-renewal-bundle-item">
+                    <input
+                      type="checkbox"
+                      checked={selectedRenewalIds.has(member.id)}
+                      disabled={isCurrent || !perms.canEdit}
+                      onChange={() => toggleRenewalMember(member.id)}
+                    />
+                    <span>
+                      {member.publisherName} — {member.softwareDescription}
+                      <span style={{ color: "var(--text-3)", marginLeft: 6 }}>
+                        qty {member.quantity || "—"}{isCurrent ? " · this license" : ""}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
           {perms.canEdit && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {license.budgetOwnerEmail && (
                 <button
                   className="btn btn-p"
                   style={{ fontSize: 11, padding: "6px 12px" }}
-                  disabled={initiatingRenewal}
+                  disabled={initiatingRenewal || selectedRenewalCount === 0}
                   onClick={async () => {
                     setInitiatingRenewal(true);
                     try {
-                      const allToRenew = [license, ...poSiblings];
-                      const result = bundleCount > 1 && onCreateRenewalBundle
-                        ? await onCreateRenewalBundle(allToRenew.map((lic) => lic.id))
+                      const ids = bundleMembers
+                        .map((member) => member.id)
+                        .filter((id) => selectedRenewalIds.has(id));
+                      const result = ids.length > 1 && onCreateRenewalBundle
+                        ? await onCreateRenewalBundle(ids)
                         : await onCreateRenewal(license.id);
                       if (!result?.ok) return;
                       setToast(
-                        bundleCount > 1
-                          ? `Renewal initiated - one sourcing request with ${bundleCount} lines created`
+                        ids.length > 1
+                          ? `Renewal initiated - one sourcing request with ${ids.length} lines created`
                           : "Renewal initiated - sourcing record created"
                       );
                       setTimeout(() => setToast(null), 6000);
@@ -100,7 +142,7 @@ export default function RenewalWorkflowSection({
                   }}
                 >
                   <Icon name="clock" size={13} />{" "}
-                  {initiatingRenewal ? "Initiating..." : bundleCount > 1 ? `Initiate Renewal (${bundleCount} licenses)` : "Initiate Renewal"}
+                  {initiatingRenewal ? "Initiating..." : selectedRenewalCount > 1 ? `Initiate Renewal (${selectedRenewalCount} licenses)` : "Initiate Renewal"}
                 </button>
               )}
               {canLinkExistingSuccessor && (
