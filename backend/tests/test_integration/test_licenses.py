@@ -478,6 +478,29 @@ async def test_create_license_valid(test_app, auth_headers):
     assert data["renewalNotificationsEnabled"] is True
 
 
+async def test_create_license_accepts_included_maintenance_details(test_app, auth_headers):
+    """Included maintenance detail fields are accepted on create (not rejected as
+    server-owned) and derived from the license term (regression for 6e80854)."""
+    resp = await test_app.post(
+        "/api/licenses",
+        json=_minimal_payload(
+            maintenanceCoverage="included",
+            startDate="2025-01-01",
+            endDate="2025-12-31",
+            maintenanceStartDate="2025-01-01",
+            maintenanceEndDate="2025-12-31",
+        ),
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 201, resp.text
+    data = resp.json()
+    assert data["maintenanceCoverage"] == "included"
+    # Bundled maintenance mirrors the license term.
+    assert data["maintenanceStartDate"] == "2025-01-01"
+    assert data["maintenanceEndDate"] == "2025-12-31"
+
+
 async def test_po_total_override_is_shared_and_clearable(test_app, auth_headers):
     first = await _create_license(
         test_app,

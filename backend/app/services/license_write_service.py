@@ -150,11 +150,32 @@ _SERVER_OWNED_CREATE_FIELDS = frozenset({
 })
 
 
+# Bundled ("included") maintenance derives its detail fields from the license
+# term (see apply_bundled_included_support_defaults), so a caller may send them
+# without it being a meaningful override — they are normalised, not rejected.
+# Everywhere else they are server-managed mirrors synced from a linked record.
+_INCLUDED_MAINTENANCE_DETAIL_FIELDS = frozenset({
+    "maintenance_start_date",
+    "maintenance_end_date",
+    "maintenance_pricing_basis",
+    "maintenance_quantity",
+    "maintenance_unit_price",
+    "maintenance_cost",
+})
+
+
+def _rejectable_create_fields(coverage) -> frozenset[str]:
+    """Server-owned fields whose presence is an error, given the coverage mode."""
+    if coverage in (MaintenanceCoverage.included, MaintenanceCoverage.included.value):
+        return _SERVER_OWNED_CREATE_FIELDS - _INCLUDED_MAINTENANCE_DETAIL_FIELDS
+    return _SERVER_OWNED_CREATE_FIELDS
+
+
 def _reject_server_owned_create_overrides(payload: LicenseCreate) -> None:
     """Reject meaningful attempts to set state that creation workflows own."""
     values = payload.model_dump(by_alias=False)
     blocked = []
-    for field in _SERVER_OWNED_CREATE_FIELDS:
+    for field in _rejectable_create_fields(values.get("maintenance_coverage")):
         value = values.get(field)
         if field in {"has_maintenance", "is_retired", "retirement_scheduled", "is_completeness_exempt"}:
             if value:
@@ -169,6 +190,9 @@ def _reject_server_owned_create_overrides(payload: LicenseCreate) -> None:
 
 
 def _strip_server_owned_create_fields(create_data: dict) -> None:
+    # Strip every server-owned field, including included-maintenance detail
+    # fields: apply_bundled_included_support_defaults re-derives those from the
+    # license term afterwards, so caller-sent values are normalised away.
     for field in _SERVER_OWNED_CREATE_FIELDS:
         create_data.pop(field, None)
 MAINTENANCE_COVERAGE_VALUES = {coverage.value for coverage in MaintenanceCoverage}
