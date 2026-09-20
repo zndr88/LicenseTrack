@@ -42,7 +42,7 @@ export default function LicenseDraftSupplementFields({
   </>;
   const relationships = <>
     <div className="fr">
-      <div className="fg"><label htmlFor={`${idPrefix}-cost-centre`}>Cost Centre / Department</label><ReferenceCombobox id={`${idPrefix}-cost-centre`} mode="costCentre" value={item.costCentre || ""} onChange={(value) => onChange("costCentre", value)} /></div>
+      <div className="fg"><label htmlFor={`${idPrefix}-cost-centre`}>Cost Centre</label><ReferenceCombobox id={`${idPrefix}-cost-centre`} mode="costCentre" value={item.costCentre || ""} onChange={(value) => onChange("costCentre", value)} /></div>
       <div className="fg"><label htmlFor={`${idPrefix}-budget-owner`}>Budget Owner Email</label><ContactCombobox id={`${idPrefix}-budget-owner`} value={item.budgetOwnerEmail || ""} onChange={(value) => onChange("budgetOwnerEmail", value)} /></div>
     </div>
     <div className="fg"><label htmlFor={`${idPrefix}-secondary`}>Secondary Contacts</label><ContactCombobox id={`${idPrefix}-secondary`} multiple value={item.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(value) => onChange("secondaryContacts", value)} /></div>

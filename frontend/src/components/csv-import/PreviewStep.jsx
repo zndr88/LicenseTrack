@@ -27,7 +27,7 @@ const IMPORTER_COLUMNS = [
   ["contractNumber", "Contract #"],
   ["poNumber", "PO #"],
   ["supplier", "Supplier"],
-  ["costCentre", "Department"],
+  ["costCentre", "Cost Centre"],
 ];
 
 const DEFAULT_VISIBLE_IMPORTER_COLUMNS = new Set(IMPORTER_COLUMNS.map(([key]) => key));
@@ -693,7 +693,7 @@ export default function PreviewStep({
               {showColumn("contractNumber") && <th scope="col">Contract #</th>}
               {showColumn("poNumber") && <th scope="col">PO #</th>}
               {showColumn("supplier") && <th scope="col">Supplier</th>}
-              {showColumn("costCentre") && <th scope="col">Department</th>}
+              {showColumn("costCentre") && <th scope="col">Cost Centre</th>}
               <th scope="col">Status</th>
               <th scope="col" className="csv-issues-col">Issues</th>
               <th scope="col">Import</th>

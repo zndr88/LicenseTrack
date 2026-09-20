@@ -146,7 +146,7 @@ export default function SourcingRequestLineEditor({
         <LicenseFormSection title="Relationships">
           <div className="fr">
             <div className="fg">
-              <label htmlFor={`${idPrefix}-cost`}>Cost Centre / Department</label>
+              <label htmlFor={`${idPrefix}-cost`}>Cost Centre</label>
               <Controller
                 name={fieldName("costCentre")}
                 control={control}

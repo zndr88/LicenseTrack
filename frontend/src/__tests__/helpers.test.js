@@ -110,7 +110,7 @@ describe("getCompleteness", () => {
 
     expect(result.percentage).toBe(50);
     expect(result.checks.map((check) => check.field)).toEqual([
-      "Department / Cost Centre",
+      "Cost Centre",
       "Budget owner email",
     ]);
   });

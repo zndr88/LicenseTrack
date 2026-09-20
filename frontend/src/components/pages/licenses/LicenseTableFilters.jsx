@@ -64,7 +64,7 @@ export default function LicenseTableFilters({
         options={departments.map((department) => ({ value: department, label: department }))}
         value={columnFilters.costCentre ?? []}
         onChange={(value) => setColumnFilters((filters) => ({ ...filters, costCentre: value }))}
-        placeholder="Department"
+        placeholder="Cost Centre"
       />
     );
   }

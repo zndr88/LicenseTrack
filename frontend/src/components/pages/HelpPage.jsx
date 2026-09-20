@@ -99,7 +99,7 @@ const HELP_ARTICLES = [
           "Publisher and Description: identify the software product and the organization that publishes it.",
           "Contract #, PO #, Procurement Reference, and Invoice #: commercial and workflow references used to reconcile the license with contracts, purchase orders, internal requests, and invoices. A license can hold multiple invoice numbers; the first invoice is treated as the primary value shown in the table and CSV exports.",
           "Supplier: the reseller or vendor that supplied the license. Leave empty for a direct publisher purchase.",
-          "Department and Budget Owner: identify the internal owner. The budget-owner email receives renewal notifications when configured and when the license's renewal notifications flag is enabled.",
+          "Cost Centre and Budget Owner: identify the internal owner. The budget-owner email receives renewal notifications when configured and when the license's renewal notifications flag is enabled.",
           "Secondary Contacts: additional internal contacts copied on budget-owner renewal emails. They are useful for application owners, technical owners, or shared mailbox stakeholders who should stay informed without replacing the budget owner.",
           "Publisher Contact: the external contact email used for publisher communication.",
           "Type: the license model, such as subscription, perpetual, maintenance, SaaS, OEM, freeware, service, or other. Service is useful for installation or implementation costs; Other keeps uncommon purchase types visible without treating them as renewable entitlement lines.",
@@ -149,7 +149,7 @@ const HELP_ARTICLES = [
         bullets: [
           "Perpetual licenses are not incomplete for missing an end date.",
           "Fixed-term and recurring records cannot be saved with an end date before their start date. A recurring record without an end date remains active but incomplete instead of being treated as perpetual.",
-          "For a direct freeware or open-source record, use the ordinary Add License form and choose Freeware / Open Source as the License Type. EULA, proof-of-entitlement, and publisher-contact completeness checks do not apply. Contract, PO, invoice, and quote checks also do not apply unless paid included support is present. Department and budget owner requirements still apply.",
+          "For a direct freeware or open-source record, use the ordinary Add License form and choose Freeware / Open Source as the License Type. EULA, proof-of-entitlement, and publisher-contact completeness checks do not apply. Contract, PO, invoice, and quote checks also do not apply unless paid included support is present. Cost centre and budget owner requirements still apply.",
           "Annual cost totals are active recurring-cost rollups: active, perpetual-status, and expiring subscription, SaaS, maintenance, and current paid included-support costs are included; multi-year records are annualized, and selected report ranges allocate recurring cost by overlapping days. Zero-cost freeware and upcoming, expired, retired, renewed, and legacy records are excluded.",
           "Request Date preserves sourcing-item creation history, including direct freeware conversion. Purchase Date is added only when a pending order exists. Both can also be edited to enrich imported or legacy records.",
           "If Notice Date falls after End Date, LicenseTrack warns but still allows the value to be saved.",
@@ -320,7 +320,7 @@ const HELP_ARTICLES = [
         heading: "Admin areas",
         body: [
           "Admins manage users, roles, viewer department scope, download permission, global settings, SMTP, OIDC, mandatory fields, database backup settings, restore, portfolio reset, and audit history.",
-          "Admin Settings is grouped into General, Data Management, Integrations, and Operations. Data Management contains canonical Companies and Departments / Cost Centres, plus license and import configuration.",
+          "Admin Settings is grouped into General, Data Management, Integrations, and Operations. Data Management contains canonical Companies and Cost Centres, plus license and import configuration.",
           "Reference data uses canonical IDs and keeps display-name mirrors synchronized for compatibility. Names and aliases are normalized for matching; viewer department access uses canonical cost-centre assignments while preserving the existing name-based API shape.",
           "My Settings remains user-specific and covers personal preferences such as display currency, number/date/time formats, time zone, session timeout, appearance, and saved license views.",
         ],

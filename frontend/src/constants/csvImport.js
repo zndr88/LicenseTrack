@@ -14,7 +14,7 @@ export const NATIVE_FIELDS = [
   { value: "invoice_number",       label: "Invoice Number" },
   { value: "contact_email",        label: "Contact Email" },
   { value: "supplier",             label: "Supplier" },
-  { value: "cost_centre",          label: "Department / Cost Centre" },
+  { value: "cost_centre",          label: "Cost Centre" },
   { value: "license_type",         label: "License Type" },
   { value: "license_metric",       label: "License Metric" },
   { value: "quantity",             label: "Purchase Quantity" },

@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
+const SEARCH_THRESHOLD = 8;
+
 export default function MultiSelectFilter({ id, options, value, onChange, placeholder }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [dropdownStyle, setDropdownStyle] = useState({});
   const ref = useRef(null);
   const btnRef = useRef(null);
@@ -15,6 +18,15 @@ export default function MultiSelectFilter({ id, options, value, onChange, placeh
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  const showSearch = options.length > SEARCH_THRESHOLD;
+  const visibleOptions = showSearch && query.trim()
+    ? options.filter((opt) => opt.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
 
   useEffect(() => {
     if (!open || !btnRef.current) return;
@@ -44,7 +56,35 @@ export default function MultiSelectFilter({ id, options, value, onChange, placeh
       overflowY: "auto",
       boxShadow: "var(--shadow-sm)",
     }}>
-      {options.map((opt) => (
+      {showSearch && (
+        <div style={{ padding: "4px 8px 6px", position: "sticky", top: 0, background: "var(--bg-2)" }}>
+          <input
+            type="text"
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search..."
+            aria-label={`Search ${placeholder ?? "options"}`}
+            style={{
+              width: "100%",
+              padding: "3px 7px",
+              fontSize: 11,
+              fontFamily: "var(--font-ui)",
+              background: "var(--bg-1)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--r)",
+              color: "var(--text)",
+              outline: "none",
+            }}
+          />
+        </div>
+      )}
+      {visibleOptions.length === 0 && (
+        <div style={{ padding: "6px 10px", fontSize: 11, fontFamily: "var(--font-ui)", color: "var(--text-3)" }}>
+          No matches
+        </div>
+      )}
+      {visibleOptions.map((opt) => (
         <label key={opt.value} style={{
           display: "flex",
           alignItems: "center",

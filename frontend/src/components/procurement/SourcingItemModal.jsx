@@ -500,7 +500,7 @@ const SourcingItemModal = ({
                 <div className="fg"><label htmlFor="si-contact-email">Contact Email</label><input id="si-contact-email" className="fi" type="email" placeholder="contact@example.com" {...register("contactEmail")} />{errors.contactEmail && <span className="field-error">{errors.contactEmail.message}</span>}</div>
               </div>
               <div className="fr">
-                <div className="fg"><label htmlFor="si-cost-centre">Cost Centre / Department</label><Controller name="costCentre" control={control} render={({ field }) => <ReferenceCombobox id="si-cost-centre" mode="costCentre" {...field} />} /></div>
+                <div className="fg"><label htmlFor="si-cost-centre">Cost Centre</label><Controller name="costCentre" control={control} render={({ field }) => <ReferenceCombobox id="si-cost-centre" mode="costCentre" {...field} />} /></div>
                 <div className="fg"><label htmlFor="si-budget-owner">Budget Owner Email</label><Controller name="budgetOwnerEmail" control={control} render={({ field }) => <ContactCombobox id="si-budget-owner" {...field} />} /></div>
               </div>
               <div className="fg"><label htmlFor="si-secondary-contacts">Secondary Contacts</label><Controller name="secondaryContacts" control={control} render={({ field }) => <ContactCombobox id="si-secondary-contacts" multiple placeholder="Separate email addresses with commas" {...field} />} /></div>

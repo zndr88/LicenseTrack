@@ -113,7 +113,7 @@ function ReferenceList({ kind, items, search, onSearch, onError, onToast }) {
                 ) : (
                   <div className="set-reference-title"><strong>{item.name}</strong>{!item.isActive && <span className="set-reference-status">Inactive</span>}</div>
                 )}
-                <div className="set-reference-meta">{kind === "organization" ? roleLabel(item) : "Department / cost centre"} · {usageLabel(item, kind)}</div>
+                <div className="set-reference-meta">{kind === "organization" ? roleLabel(item) : "Cost centre"} · {usageLabel(item, kind)}</div>
                 {kind === "organization" && <div className="set-reference-role-checks set-reference-existing-roles">
                   <label><input type="checkbox" checked={!!item.isPublisher} onChange={(event) => run(() => updateReference(kind, item.id, { isPublisher: event.target.checked }), "Publisher role updated.")} /> Publisher</label>
                   <label><input type="checkbox" checked={!!item.isSupplier} onChange={(event) => run(() => updateReference(kind, item.id, { isSupplier: event.target.checked }), "Supplier role updated.")} /> Supplier</label>
@@ -299,7 +299,7 @@ export default function ReferenceDataSection({ kind, isOpen, isDirty, onToggle, 
   const refresh = () => invalidateReferenceData(queryClient);
   return (
     <div className="setsec">
-      <SectionHeader sectionKey={kind === "organization" ? "organizations" : "costCentres"} icon={kind === "organization" ? "building" : "table"} title={kind === "organization" ? "Companies" : "Departments / Cost Centres"} description={kind === "organization" ? "Manage canonical companies, roles, aliases, and duplicate relationships." : "Manage canonical cost centres and preserve viewer access when names change or records merge."} isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
+      <SectionHeader sectionKey={kind === "organization" ? "organizations" : "costCentres"} icon={kind === "organization" ? "building" : "table"} title={kind === "organization" ? "Companies" : "Cost Centres"} description={kind === "organization" ? "Manage canonical companies, roles, aliases, and duplicate relationships." : "Manage canonical cost centres and preserve viewer access when names change or records merge."} isOpen={isOpen} isDirty={isDirty} onToggle={onToggle} />
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
           <CreateReference kind={kind} onCreated={refresh} onError={onError} onToast={onToast} />
