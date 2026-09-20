@@ -29,6 +29,7 @@ import LicenseDatesContractFormSection from "../licenses/LicenseDatesContractFor
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
+import { buildMaintenanceCompanion } from "../../utils/maintenanceCompanion.js";
 import {
   getSourcingItemInitialTotal,
   maintenanceCompanionToPayload,
@@ -204,22 +205,7 @@ const SourcingItemModal = ({
   const hasAdditionalMaintenanceLine = (id) => additionalLines.some((line) => line.isMaintenanceCompanion && line.parentLineId === id);
   const addAdditionalMaintenanceLine = (parent) => {
     if (hasAdditionalMaintenanceLine(parent.id)) return;
-    setAdditionalLines((prev) => [...prev, emptyAdditionalLine({
-      publisherName: parent.publisherName,
-      softwareDescription: `${parent.softwareDescription || "Software"} maintenance/support`,
-      licenseType: "maintenance",
-      quantity: parent.quantity || "1",
-      currency: parent.currency,
-      startDate: parent.maintenanceStartDate || parent.startDate,
-      endDate: parent.maintenanceEndDate || parent.endDate,
-      supplier: parent.supplier,
-      contactEmail: parent.contactEmail,
-      costCentre: parent.costCentre,
-      budgetOwnerEmail: parent.budgetOwnerEmail,
-      secondaryContacts: parent.secondaryContacts,
-      parentLineId: parent.id,
-      isMaintenanceCompanion: true,
-    })]);
+    setAdditionalLines((prev) => [...prev, emptyAdditionalLine(buildMaintenanceCompanion(parent))]);
   };
 
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
@@ -294,24 +280,25 @@ const SourcingItemModal = ({
   const maintenanceLineAdded = additionalLines.some((line) => line.isMaintenanceCompanion);
   const addMaintenanceLine = () => {
     if (maintenanceLineAdded) return;
+    const primary = {
+      publisherName: publisherVal,
+      softwareDescription: softwareVal,
+      quantity,
+      quantityPerUnit: watch("quantityPerUnit"),
+      currency: watch("currency"),
+      startDate: watch("startDate"),
+      endDate: watch("endDate"),
+      maintenanceStartDate,
+      maintenanceEndDate,
+      supplier: watch("supplier"),
+      contactEmail: watch("contactEmail"),
+      costCentre: watch("costCentre"),
+      budgetOwnerEmail: watch("budgetOwnerEmail"),
+      secondaryContacts: watch("secondaryContacts"),
+    };
     setAdditionalLines((prev) => [
       ...prev,
-      emptyAdditionalLine({
-        publisherName: publisherVal || "",
-        softwareDescription: `${softwareVal || "Software"} maintenance/support`,
-        licenseType: "maintenance",
-        quantity: quantity || "1",
-        currency: watch("currency") || "EUR",
-        startDate: maintenanceStartDate || watch("startDate") || "",
-        endDate: maintenanceEndDate || watch("endDate") || "",
-        supplier: watch("supplier") || "",
-        contactEmail: watch("contactEmail") || "",
-        costCentre: watch("costCentre") || "",
-        budgetOwnerEmail: watch("budgetOwnerEmail") || "",
-        secondaryContacts: watch("secondaryContacts") || "",
-        parentItemIndex: 0,
-        isMaintenanceCompanion: true,
-      }),
+      emptyAdditionalLine({ ...buildMaintenanceCompanion(primary), parentLineId: null, parentItemIndex: 0 }),
     ]);
   };
   const canSave =

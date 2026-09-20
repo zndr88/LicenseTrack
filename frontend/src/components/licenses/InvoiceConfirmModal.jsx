@@ -9,6 +9,7 @@ import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { isNonExpiringLicenseType } from "../../utils/licenseTypeRules.js";
+import { buildMaintenanceCompanion } from "../../utils/maintenanceCompanion.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
@@ -166,19 +167,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
       }
       return [
         ...prev,
-        {
-          ...emptyAdditionalLine(parentForm),
-          softwareDescription: `${parentForm.softwareDescription || "Software"} maintenance/support`,
-          licenseType: "maintenance",
-          startDate: parentForm.maintenanceStartDate || parentForm.startDate || "",
-          endDate: parentForm.maintenanceEndDate || parentForm.endDate || "",
-          quantity: parentForm.quantity || "1",
-          quantityPerUnit: parentForm.quantityPerUnit || "1",
-          currency: parentForm.currency || "EUR",
-          secondaryContacts: parentForm.secondaryContacts || "",
-          parentLineId,
-          isMaintenanceCompanion: true,
-        },
+        { ...emptyAdditionalLine(parentForm), ...buildMaintenanceCompanion(parentForm, { parentLineId }) },
       ];
     });
   };
