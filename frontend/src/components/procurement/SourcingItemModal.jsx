@@ -186,7 +186,21 @@ const SourcingItemModal = ({
   const addAdditionalLine = () => setAdditionalLines((prev) => [...prev, emptyAdditionalLine()]);
   const removeAdditionalLine = (id) => setAdditionalLines((prev) => prev.filter((line) => line.id !== id && line.parentLineId !== id));
   const updateAdditionalLine = (id, field, value) =>
-    setAdditionalLines((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
+    setAdditionalLines((prev) => prev.map((l) => {
+      if (l.id !== id) return l;
+      const next = { ...l, [field]: value };
+      // Mirror the primary line: derive the estimated total from quantity x unit price.
+      if (field === "quantity" || field === "estimatedUnitPrice") {
+        const qty = Number(parseLocalizedNumber((next.quantity ?? "").trim(), userSettings));
+        const unit = Number(parseLocalizedNumber((next.estimatedUnitPrice ?? "").trim(), userSettings));
+        if (!(next.quantity ?? "").trim() && !(next.estimatedUnitPrice ?? "").trim()) {
+          next.estimatedTotalPrice = "";
+        } else if (!Number.isNaN(qty) && !Number.isNaN(unit)) {
+          next.estimatedTotalPrice = (qty * unit).toFixed(2);
+        }
+      }
+      return next;
+    }));
   const hasAdditionalMaintenanceLine = (id) => additionalLines.some((line) => line.isMaintenanceCompanion && line.parentLineId === id);
   const addAdditionalMaintenanceLine = (parent) => {
     if (hasAdditionalMaintenanceLine(parent.id)) return;
@@ -200,6 +214,9 @@ const SourcingItemModal = ({
       endDate: parent.maintenanceEndDate || parent.endDate,
       supplier: parent.supplier,
       contactEmail: parent.contactEmail,
+      costCentre: parent.costCentre,
+      budgetOwnerEmail: parent.budgetOwnerEmail,
+      secondaryContacts: parent.secondaryContacts,
       parentLineId: parent.id,
       isMaintenanceCompanion: true,
     })]);
@@ -289,6 +306,9 @@ const SourcingItemModal = ({
         endDate: maintenanceEndDate || watch("endDate") || "",
         supplier: watch("supplier") || "",
         contactEmail: watch("contactEmail") || "",
+        costCentre: watch("costCentre") || "",
+        budgetOwnerEmail: watch("budgetOwnerEmail") || "",
+        secondaryContacts: watch("secondaryContacts") || "",
         parentItemIndex: 0,
         isMaintenanceCompanion: true,
       }),

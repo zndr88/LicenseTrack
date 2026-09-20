@@ -175,6 +175,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           quantity: parentForm.quantity || "1",
           quantityPerUnit: parentForm.quantityPerUnit || "1",
           currency: parentForm.currency || "EUR",
+          secondaryContacts: parentForm.secondaryContacts || "",
           parentLineId,
           isMaintenanceCompanion: true,
         },

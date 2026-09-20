@@ -375,6 +375,25 @@ describe("onSave payload shape", () => {
     }));
   });
 
+  test("additional lines derive Est. Total Price from quantity x unit price", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByRole("button", { name: /add additional license line/i }));
+
+    const qtyInputs = screen.getAllByLabelText(/purchase quantity/i);
+    const unitInputs = screen.getAllByLabelText(/est\. unit price/i);
+    const totalInputs = screen.getAllByLabelText(/est\. total price/i);
+    const qty = qtyInputs[qtyInputs.length - 1];
+    const unit = unitInputs[unitInputs.length - 1];
+    const total = totalInputs[totalInputs.length - 1];
+
+    await user.type(qty, "10");
+    await user.type(unit, "5");
+
+    await waitFor(() => expect(total).toHaveValue("50.00"));
+  });
+
   test("renewal subscription with missing coverage defensively defaults to included", () => {
     renderModal({
       item: {
