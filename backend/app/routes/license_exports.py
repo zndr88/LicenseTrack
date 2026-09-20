@@ -83,6 +83,7 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
         "Supplier",
         "Cost Centre",
         "Budget Owner Email",
+        "Secondary Contacts",
         "Lifecycle Status",
         "Completeness %",
         "Expiration Status",
@@ -164,6 +165,7 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
                     lic.supplier,
                     lic.cost_centre,
                     lic.budget_owner_email,
+                    "; ".join(lic.secondary_contacts or []),
                     lic.lifecycle_status or "",
                     compute_completeness(lic, docs, mandatory_fields),
                     compute_expiration_status(

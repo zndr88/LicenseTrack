@@ -64,6 +64,19 @@ describe('exportFilteredCsv', () => {
 
     expect(csvLines()[1]).toBe('"LT-INVOICES:[""INV-1"",""INV-2""]"');
   });
+  it('exports secondary contacts as a semicolon-joined cell under a stable header', () => {
+    const row = { ...makeRow(), secondaryContacts: ['legal@acme.com', 'finance@acme.com'] };
+
+    exportFilteredCsv([row], [{ key: 'secondaryContacts', label: 'Secondary Contacts' }], 'en-US', 'EUR', [row], new Map());
+
+    expect(csvLines()[0]).toBe('secondary_contacts');
+    expect(csvLines()[1]).toBe('legal@acme.com; finance@acme.com');
+  });
+  it('exports an empty secondary-contacts cell when there are none', () => {
+    exportFilteredCsv([makeRow()], [{ key: 'secondaryContacts', label: 'Secondary Contacts' }], 'en-US', 'EUR', [makeRow()], new Map());
+
+    expect(csvLines()[1]).toBe('');
+  });
   it('emits an Excel-friendly UTF-8 BOM and CRLF row endings', () => {
     const cols = [{ key: 'publisher', label: 'Publisher' }]
 

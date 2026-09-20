@@ -26,6 +26,7 @@ const STABLE_EXPORT_FIELD_NAMES = {
   supplier:         "supplier",
   costCentre:       "cost_centre",
   budgetOwnerEmail: "budget_owner_email",
+  secondaryContacts: "secondary_contacts",
   licenseType:      "license_type",
   licenseMetric:    "license_metric",
   quantity:         "quantity",
@@ -119,6 +120,7 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "supplier": return l.supplier ?? "";
         case "contactEmail": return l.contactEmail ?? "";
         case "budgetOwnerEmail": return l.budgetOwnerEmail ?? "";
+        case "secondaryContacts": return l.secondaryContacts?.length ? l.secondaryContacts.join("; ") : "";
         case "licenseType": return l.licenseType ?? "";
         case "licenseMetric": return l.licenseMetric ?? "";
         case "quantity": return fmtQty(l.quantity);

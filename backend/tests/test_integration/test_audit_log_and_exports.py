@@ -332,6 +332,7 @@ async def test_licenses_export_headers_and_representative_csv_content(
         supplier="Contoso Direct",
         cost_centre="IT",
         budget_owner_email="owner@test.local",
+        secondary_contacts=["legal@test.local", "finance@test.local"],
         notes="primary export row",
     )
     retired = License(
@@ -358,6 +359,7 @@ async def test_licenses_export_headers_and_representative_csv_content(
     assert row["Software Description"] == "Contoso Analytics"
     assert row["Total PO Value"] == "300.00"
     assert row["Invoice Number"] == 'LT-INVOICES:["INV-1", "INV-2"]'
+    assert row["Secondary Contacts"] == "legal@test.local; finance@test.local"
     assert row["Notes"] == "primary export row"
 
 

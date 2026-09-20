@@ -18,6 +18,7 @@ export const COLUMN_DEFS = [
   { key: "supplier", label: "Supplier", settingsLabel: "Supplier (third-party reseller)", width: 120, group: "standard", defaultVisible: true, detailKey: "supplier" },
   { key: "contactEmail", label: "Publisher Contact", width: 190, group: "standard", defaultVisible: false },
   { key: "budgetOwnerEmail", label: "Budget Owner", width: 190, group: "standard", defaultVisible: false },
+  { key: "secondaryContacts", label: "Secondary Contacts", width: 190, group: "standard", defaultVisible: false },
   { key: "licenseType", label: "Type", settingsLabel: "License Type", width: 110, group: "standard", defaultVisible: true, detailKey: "licenseType" },
   { key: "licenseMetric", label: "Metric", settingsLabel: "License Metric", width: 110, group: "standard", defaultVisible: true, detailKey: "licenseMetric" },
   { key: "quantity", label: "Qty", settingsLabel: "Purchase Quantity", width: 70, group: "standard", defaultVisible: true, detailKey: "quantity" },

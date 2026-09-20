@@ -274,6 +274,8 @@ export default function LicenseTableRowCells({
         return <td key="contactEmail" className="lp-td">{license.contactEmail || "-"}</td>;
       case "budgetOwnerEmail":
         return <td key="budgetOwnerEmail" className="lp-td">{license.budgetOwnerEmail || "-"}</td>;
+      case "secondaryContacts":
+        return <td key="secondaryContacts" className="lp-td">{license.secondaryContacts?.length ? license.secondaryContacts.join("; ") : "-"}</td>;
       case "licenseType":
         return <td key="licenseType" className="lp-td">{license.licenseType ? (LICENSE_TYPES.find((type) => type.value === license.licenseType)?.label || license.licenseType) : "-"}</td>;
       case "licenseMetric":
