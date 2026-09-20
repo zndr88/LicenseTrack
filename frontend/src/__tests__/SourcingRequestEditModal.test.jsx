@@ -65,6 +65,7 @@ describe("SourcingRequestEditModal", () => {
     expect(screen.getByRole("button", { name: "Request Details" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Identity" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Key Dates & Contract" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Maintenance / Support" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Details" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Relationships" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Notes" })).toBeInTheDocument();
@@ -88,6 +89,19 @@ describe("SourcingRequestEditModal", () => {
       externalRef: "LEGACY-EXT",
     }));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  test("edits a line's maintenance coverage and includes it in the save payload", async () => {
+    const { onSave } = renderModal();
+    fireEvent.change(screen.getByLabelText(/^Coverage$/), { target: { value: "included" } });
+    const saveButton = screen.getByRole("button", { name: "Save Sourcing Request" });
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].items[0]).toEqual(expect.objectContaining({
+      maintenanceCoverage: "included",
+    }));
   });
 
   test("omits custom fields configured as hidden from renewal lines", () => {

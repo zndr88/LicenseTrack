@@ -28,6 +28,13 @@ function itemDefaults(item) {
     licenseType: item.licenseType ?? "",
     licenseMetric: item.licenseMetric ?? "per_user",
     portalUrl: item.portalUrl ?? "",
+    maintenanceCoverage: item.maintenanceCoverage ?? "",
+    maintenanceStartDate: item.maintenanceStartDate ?? "",
+    maintenanceEndDate: item.maintenanceEndDate ?? "",
+    maintenancePricingBasis: item.maintenancePricingBasis ?? "flat",
+    maintenanceQuantity: item.maintenanceQuantity ?? "",
+    maintenanceUnitPrice: item.maintenanceUnitPrice ?? "",
+    maintenanceCost: item.maintenanceCost ?? "",
     quantity: item.quantity ?? "",
     quantityPerUnit: item.quantityPerUnit ?? "1",
     skuCode: item.skuCode ?? "",
@@ -91,6 +98,13 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
         licenseType: item.licenseType || null,
         licenseMetric: item.licenseMetric || null,
         portalUrl: item.licenseType === "saas" ? item.portalUrl || null : null,
+        maintenanceCoverage: item.maintenanceCoverage || null,
+        maintenanceStartDate: item.maintenanceStartDate || null,
+        maintenanceEndDate: item.maintenanceEndDate || null,
+        maintenancePricingBasis: item.maintenancePricingBasis || null,
+        maintenanceQuantity: normalizeOptionalNumber(item.maintenanceQuantity, userSettings),
+        maintenanceUnitPrice: normalizeOptionalNumber(item.maintenanceUnitPrice, userSettings),
+        maintenanceCost: normalizeOptionalNumber(item.maintenanceCost, userSettings),
         quantity: normalizeOptionalNumber(item.quantity, userSettings),
         quantityPerUnit: normalizeOptionalNumber(item.quantityPerUnit, userSettings) || "1",
         skuCode: item.skuCode || null,
@@ -184,6 +198,7 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
                 errors={errors.items?.[index] || {}}
                 customFieldDefs={customFieldDefs}
                 customFieldsLoading={customFieldsLoading}
+                userSettings={userSettings}
               />
             ))}
           </div>

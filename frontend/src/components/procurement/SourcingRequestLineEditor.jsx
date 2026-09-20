@@ -8,6 +8,7 @@ import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import ContactCombobox from "../ui/ContactCombobox.jsx";
 import LicenseIdentityFormSection from "../licenses/LicenseIdentityFormSection.jsx";
 import LicenseDatesContractFormSection from "../licenses/LicenseDatesContractFormSection.jsx";
+import MaintenanceCoverageFields, { supportsMaintenanceCoverage } from "./MaintenanceCoverageFields.jsx";
 
 export default function SourcingRequestLineEditor({
   item,
@@ -19,9 +20,11 @@ export default function SourcingRequestLineEditor({
   errors,
   customFieldDefs,
   customFieldsLoading,
+  userSettings,
 }) {
   const readOnly = item.status === "converted" || item.status === "cancelled";
   const values = watch(`items.${index}`) || {};
+  const locale = userSettings?.numberFormatLocale ?? "en-US";
   const idPrefix = `sourcing-request-item-${item.id}`;
   const fieldName = (name) => `items.${index}.${name}`;
   const visibleCustomFieldDefs = filterCustomFieldDefinitionsForSourcing(
@@ -62,6 +65,31 @@ export default function SourcingRequestLineEditor({
         <LicenseDatesContractFormSection idPrefix={idPrefix} register={register} fieldName={fieldName}>
           {customFields("dates")}
         </LicenseDatesContractFormSection>
+
+        {supportsMaintenanceCoverage(values.licenseType) && (
+          <LicenseFormSection title="Maintenance / Support">
+            <MaintenanceCoverageFields
+              idPrefix={idPrefix}
+              licenseType={values.licenseType}
+              coverage={values.maintenanceCoverage}
+              startDate={values.maintenanceStartDate}
+              endDate={values.maintenanceEndDate}
+              pricingBasis={values.maintenancePricingBasis}
+              supportQuantity={values.maintenanceQuantity}
+              supportUnitPrice={values.maintenanceUnitPrice}
+              cost={values.maintenanceCost}
+              licenseQuantity={values.quantity}
+              licenseStartDate={values.startDate}
+              licenseEndDate={values.endDate}
+              licenseTotalCost={values.estimatedTotalPrice}
+              currency={values.currency}
+              locale={locale}
+              onChange={(field, value) => setValue(fieldName(field), value, { shouldDirty: true })}
+              embedded
+            />
+            {customFields("maintenance")}
+          </LicenseFormSection>
+        )}
 
         <LicenseFormSection title="Details">
           <div className="fr">
