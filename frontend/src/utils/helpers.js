@@ -130,8 +130,12 @@ export const getCompleteness = (license, mandatoryFields) => {
 export const getExpirationPresentation = (license) => {
   const status = license.expirationStatus || "unknown";
   const days = license.daysUntilExpiry ?? null;
+  // A scheduled retirement is materialized at end_date, so it shares the
+  // expiry countdown, but the term will be dropped rather than renewed.
+  const retiring = Boolean(license.retirementScheduled) && (status === "active" || status === "expiring");
   let label = status;
-  if (status === "expired") label = `Expired ${Math.abs(days ?? 0)}d ago`;
+  if (retiring) label = days !== null && days <= 0 ? "Retires today" : `Retires in ${days}d`;
+  else if (status === "expired") label = `Expired ${Math.abs(days ?? 0)}d ago`;
   else if (status === "expiring") label = `Expires in ${days}d`;
   else if (status === "active") label = days !== null ? `${days}d remaining` : "Active";
   else if (status === "upcoming") {
@@ -143,7 +147,7 @@ export const getExpirationPresentation = (license) => {
   else if (status === "retired") label = "Retired";
   else if (status === "legacy") label = "Legacy";
   else if (status === "unknown") label = "Unknown";
-  return { status, days, label };
+  return { status, days, label, retiring };
 };
 
 // Map an API license response to the shape the frontend expects.

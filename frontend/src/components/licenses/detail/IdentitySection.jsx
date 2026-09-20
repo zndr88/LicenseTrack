@@ -108,11 +108,11 @@ export default function IdentitySection({
               {exp.status === "renewed" && <span className="badge badge-renewed"><span className="badge-dot" />Renewed</span>}
               {exp.status === "upcoming" && <Badge type="blue">{exp.label}</Badge>}
               {exp.status === "expired" && <Badge type="red">{exp.label}</Badge>}
-              {exp.status === "expiring" && <Badge type="orange">{exp.label}</Badge>}
-              {exp.status === "active" && <Badge type="green">{exp.label}</Badge>}
+              {exp.status === "expiring" && !exp.retiring && <Badge type="orange">{exp.label}</Badge>}
+              {exp.status === "active" && !exp.retiring && <Badge type="green">{exp.label}</Badge>}
               {exp.status === "perpetual" && <Badge type="blue">Perpetual</Badge>}
               {license.lifecycleStatus === "pending_renewal" && <span className="badge badge-pending"><span className="badge-dot" />Pending Renewal</span>}
-              {license.retirementScheduled && <Badge type="orange">Retirement Scheduled</Badge>}
+              {license.retirementScheduled && <Badge type="gray">{exp.retiring ? exp.label : "Retirement Scheduled"}</Badge>}
               {license.renewalNotificationsEnabled === false && <Badge type="orange">Renewal Notifications Off</Badge>}
               {comp.isExempt
                 ? <Badge type="gray">Exempt</Badge>

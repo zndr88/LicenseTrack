@@ -49,6 +49,11 @@ describe("upcoming replacement row indicator", () => {
     expect(rowStyle(predecessor)).toEqual({ background: "var(--orange-dim)", borderLeft: "3px solid var(--orange)" });
   });
 
+  test("shades a scheduled retirement distinctly from ordinary expiry", () => {
+    const retiring = { id: 5, retirementScheduled: true, expiration: { status: "expiring" } };
+    expect(rowStyle(retiring)).toEqual({ background: "var(--bg-2)", borderLeft: "3px solid var(--text-3)" });
+  });
+
   test.each([
     ["2026-09-09", "Renews today", 0],
     ["2026-09-10", "Renews in 1 days", 1],

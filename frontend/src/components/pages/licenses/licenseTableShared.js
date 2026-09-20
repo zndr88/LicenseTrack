@@ -36,6 +36,9 @@ export function rowStyle(license, upcomingReplacement = false) {
   if (license.expiration.status === "legacy") return { opacity: 0.55 };
   if (license.expiration.status === "renewed") return { opacity: 0.45, background: "var(--steel-dim)" };
   if (upcomingReplacement) return { background: "var(--orange-dim)", borderLeft: "3px solid var(--steel)" };
+  if (license.retirementScheduled && (license.expiration.status === "active" || license.expiration.status === "expiring")) {
+    return { background: "var(--bg-2)", borderLeft: "3px solid var(--text-3)" };
+  }
   if (license.lifecycleStatus === "pending_renewal") {
     const borderColor = license.expiration.status === "expired"
       ? "var(--red)"

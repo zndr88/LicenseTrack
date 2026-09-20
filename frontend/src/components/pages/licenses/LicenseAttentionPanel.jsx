@@ -16,7 +16,9 @@ export default function LicenseAttentionPanel({ attentionItems, setSelectedId, o
             {" · "}
             {l.expiration.days < 0
               ? `expired ${Math.abs(l.expiration.days)}d ago`
-              : `expires in ${l.expiration.days}d`}
+              : l.expiration.retiring
+                ? `retires in ${l.expiration.days}d`
+                : `expires in ${l.expiration.days}d`}
           </button>
         ))}
       </div>

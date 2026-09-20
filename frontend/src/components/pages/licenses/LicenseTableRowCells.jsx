@@ -133,8 +133,9 @@ function ExpirationCell({ license, upcomingReplacement }) {
       {license.expiration.status === "renewed" && <span className="badge badge-renewed"><span className="badge-dot" />Renewed</span>}
       {license.expiration.status === "upcoming" && <Badge type="blue">{license.expiration.label}</Badge>}
       {license.expiration.status === "expired" && <Badge type="red">{license.expiration.label}</Badge>}
-      {license.expiration.status === "expiring" && !upcomingReplacement && <Badge type="orange">{license.expiration.label}</Badge>}
-      {license.expiration.status === "active" && <Badge type="green">{license.expiration.label}</Badge>}
+      {license.expiration.retiring && <Badge type="gray">{license.expiration.label}</Badge>}
+      {license.expiration.status === "expiring" && !upcomingReplacement && !license.expiration.retiring && <Badge type="orange">{license.expiration.label}</Badge>}
+      {license.expiration.status === "active" && !license.expiration.retiring && <Badge type="green">{license.expiration.label}</Badge>}
       {license.expiration.status === "perpetual" && <Badge type="blue">Perpetual</Badge>}
       {upcomingReplacement && <Badge type="blue">{upcomingReplacement.label}</Badge>}
       {upcomingReplacement?.hasCoverageGap && <Badge type="orange">Coverage gap</Badge>}

@@ -200,7 +200,7 @@ describe("getExpirationPresentation", () => {
       expirationStatus: "expired",
       daysUntilExpiry: -3,
       renewedToId: 2,
-    })).toEqual({ status: "expired", days: -3, label: "Expired 3d ago" });
+    })).toEqual({ status: "expired", days: -3, label: "Expired 3d ago", retiring: false });
   });
 
   test("makes a missing backend status explicit", () => {
@@ -208,7 +208,32 @@ describe("getExpirationPresentation", () => {
       status: "unknown",
       days: null,
       label: "Unknown",
+      retiring: false,
     });
+  });
+
+  test("labels a scheduled retirement with its countdown instead of expiry", () => {
+    expect(getExpirationPresentation({
+      expirationStatus: "expiring",
+      daysUntilExpiry: 12,
+      retirementScheduled: true,
+    })).toEqual({ status: "expiring", days: 12, label: "Retires in 12d", retiring: true });
+
+    expect(getExpirationPresentation({
+      expirationStatus: "active",
+      daysUntilExpiry: 0,
+      retirementScheduled: true,
+    })).toEqual({ status: "active", days: 0, label: "Retires today", retiring: true });
+  });
+
+  test("does not treat a scheduled retirement as retiring once already expired", () => {
+    const result = getExpirationPresentation({
+      expirationStatus: "expired",
+      daysUntilExpiry: -2,
+      retirementScheduled: true,
+    });
+    expect(result.retiring).toBe(false);
+    expect(result.label).toBe("Expired 2d ago");
   });
 });
 
