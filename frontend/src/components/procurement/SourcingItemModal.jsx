@@ -581,15 +581,22 @@ const SourcingItemModal = ({
                   customFieldsLoading={customFieldsLoading}
                   sectioned
                   showLicenseType={false}
+                  showCoreDetails={false}
                   commercialSummary={<>
                     <div className="fr">
                       <div className="fg"><label htmlFor={`sourcing-line-${line.id}-quantity`}>Purchase Quantity</label><input id={`sourcing-line-${line.id}-quantity`} className="fi" inputMode="decimal" value={line.quantity} onChange={(event) => updateAdditionalLine(line.id, "quantity", event.target.value)} placeholder="e.g. 10" /></div>
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-quantity-per-unit`}>Quantity per Unit</label><input id={`sourcing-line-${line.id}-quantity-per-unit`} className="fi" inputMode="decimal" value={line.quantityPerUnit} onChange={(event) => updateAdditionalLine(line.id, "quantityPerUnit", event.target.value)} /></div>
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-sku`}>SKU Code</label><input id={`sourcing-line-${line.id}-sku`} className="fi" value={line.skuCode} onChange={(event) => updateAdditionalLine(line.id, "skuCode", event.target.value)} /></div>
+                    </div>
+                    <div className="fr">
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-metric`}>License Metric</label><select id={`sourcing-line-${line.id}-metric`} className="fi fi-select" value={line.licenseMetric} onChange={(event) => updateAdditionalLine(line.id, "licenseMetric", event.target.value)}>{LICENSE_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
                       <div className="fg"><label htmlFor={`sourcing-line-${line.id}-currency`}>Currency</label><select id={`sourcing-line-${line.id}-currency`} className="fi fi-select" value={line.currency} onChange={(event) => updateAdditionalLine(line.id, "currency", event.target.value)}>{CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></div>
                     </div>
                     {!isFreewareLicenseType(line.licenseType) && <div className="fr">
                       <div className="fg"><label htmlFor={`sourcing-line-${line.id}-unit-price`}>Est. Unit Price</label><input id={`sourcing-line-${line.id}-unit-price`} className="fi" inputMode="decimal" value={line.estimatedUnitPrice} onChange={(event) => updateAdditionalLine(line.id, "estimatedUnitPrice", event.target.value)} placeholder="Unit price" /></div>
                       <div className="fg"><label htmlFor={`sourcing-line-${line.id}-total-price`}>Est. Total Price</label><input id={`sourcing-line-${line.id}-total-price`} className="fi" inputMode="decimal" value={line.estimatedTotalPrice} onChange={(event) => updateAdditionalLine(line.id, "estimatedTotalPrice", event.target.value)} placeholder="Total price" /></div>
                     </div>}
+                    {line.licenseType === "saas" && <div className="fg"><label htmlFor={`sourcing-line-${line.id}-portal`}>Portal URL</label><input id={`sourcing-line-${line.id}-portal`} className="fi" value={line.portalUrl} onChange={(event) => updateAdditionalLine(line.id, "portalUrl", event.target.value)} /></div>}
                   </>}
                   maintenanceSection={supportsMaintenanceCoverage(line.licenseType) ? <LicenseFormSection title="Maintenance / Support">
                     <MaintenanceCoverageFields idPrefix={`sourcing-line-${line.id}`} licenseType={line.licenseType} coverage={line.maintenanceCoverage} startDate={line.maintenanceStartDate} endDate={line.maintenanceEndDate} pricingBasis={line.maintenancePricingBasis} supportQuantity={line.maintenanceQuantity} supportUnitPrice={line.maintenanceUnitPrice} cost={line.maintenanceCost} licenseQuantity={line.quantity} licenseStartDate={line.startDate} licenseEndDate={line.endDate} licenseTotalCost={line.estimatedTotalPrice} currency={line.currency} locale={locale} onChange={(field, value) => updateAdditionalLine(line.id, field, value)} onAddSeparate={() => addAdditionalMaintenanceLine(line)} separateLineAdded={hasAdditionalMaintenanceLine(line.id)} embedded />
