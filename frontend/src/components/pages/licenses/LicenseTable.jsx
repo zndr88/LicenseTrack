@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Icon from "../../ui/Icon.jsx";
 import LicenseTableFooter from "./LicenseTableFooter.jsx";
@@ -46,7 +46,6 @@ export default function LicenseTable({
   const tblWrapRef = useRef(null);
   const selectAllRef = useRef(null);
   const dragHappenedRef = useRef(false);
-  const [tblHeight, setTblHeight] = useState(500);
 
   const useVirtual = filtered.length > VIRTUAL_THRESHOLD;
   const displayRows = useVirtual ? sorted : paginatedItems;
@@ -62,13 +61,16 @@ export default function LicenseTable({
     overscan: 10,
   });
 
+  // The table body scrolls inside the pinned panel (see .lp-sticky-panel), so
+  // the sticky column-title row stays visible. Measure that row's height so the
+  // optional filter row pins directly beneath it, surviving font/zoom changes.
   useEffect(() => {
-    if (!useVirtual) return;
     const measure = () => {
       if (!tblWrapRef.current) return;
-      const rect = tblWrapRef.current.getBoundingClientRect();
-      const available = window.innerHeight - rect.top - 60;
-      setTblHeight(Math.max(300, available));
+      const titleRow = tblWrapRef.current.querySelector("thead tr:first-child");
+      if (titleRow) {
+        tblWrapRef.current.style.setProperty("--lp-head-row-h", `${titleRow.offsetHeight}px`);
+      }
     };
     const frame = window.requestAnimationFrame(measure);
     window.addEventListener("resize", measure);
@@ -142,7 +144,6 @@ export default function LicenseTable({
       <div
         className="lp-tbl-wrap"
         ref={tblWrapRef}
-        style={useVirtual ? { height: tblHeight, overflowY: "auto" } : undefined}
       >
         <table className="license-table" style={{ tableLayout: "fixed" }}>
           <LicenseTableHeader

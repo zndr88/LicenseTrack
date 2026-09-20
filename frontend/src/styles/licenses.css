@@ -180,6 +180,24 @@
 .lp-chip-sep { display: inline-block; width: 1px; height: 14px; background: var(--border-strong); margin-left: 2px; margin-right: 2px; vertical-align: middle; }
 .lp-chip-remove { padding: 5px 8px; border-radius: 12px; border: none; background: none; color: var(--text-3); font-size: 10px; cursor: pointer; margin-left: 2px; }
 .lp-tbl-wrap { overflow-x: auto; min-width: 0; }
+
+/* Pin the toolbar, status filter, and column header on scroll: the panel
+   sticks to the viewport (just under the sticky page header) and is bounded to
+   the viewport height, so only the table body scrolls inside it. */
+.lp-sticky-panel {
+  position: sticky;
+  top: 100px;
+  max-height: calc(100vh - 108px);
+  display: flex;
+  flex-direction: column;
+}
+.lp-sticky-panel .lp-tbl-wrap { flex: 0 1 auto; min-height: 0; overflow: auto; }
+
+/* Keep the column-title row (and the optional filter row below it) visible
+   while the body scrolls. border-collapse drops sticky cell borders, so a
+   box-shadow carries the separator. */
+.lp-sticky-panel .license-table thead tr:first-child th { position: sticky; top: 0; z-index: 3; box-shadow: inset 0 -1px 0 var(--border); }
+.lp-sticky-panel .license-table thead tr:nth-child(2) th { position: sticky; top: var(--lp-head-row-h, 34px); z-index: 2; }
 .csv-preview-table { min-width: 1880px; }
 .csv-preview-table th,
 .csv-preview-table td { white-space: nowrap; }

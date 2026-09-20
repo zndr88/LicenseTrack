@@ -349,7 +349,7 @@ export default function LicensesPage({
               onDownload={downloadPreviewDocument}
             />
           ) : (
-            <div className="tbl-wrap">
+            <div className="tbl-wrap lp-sticky-panel">
               <LicenseToolbar
                 search={search}
                 setSearch={setSearch}
