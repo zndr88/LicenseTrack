@@ -111,6 +111,21 @@ describe("useLicenseCreation", () => {
     ]);
   });
 
+  test("non-expiring license types null the end date; expiring types keep it", async () => {
+    const { result } = renderCreation();
+
+    await act(async () => {
+      await result.current([
+        makeForm({ licenseType: "perpetual", endDate: "2030-01-01" }),
+        makeForm({ licenseType: "subscription", endDate: "2027-06-30" }),
+      ]);
+    });
+
+    const [batch] = createLicenseBatch.mock.calls[0];
+    expect(batch[0].license.endDate).toBeNull();
+    expect(batch[1].license.endDate).toBe("2027-06-30");
+  });
+
   test("stops without navigation or invalidation when batch creation fails", async () => {
     createLicenseBatch.mockResolvedValueOnce({ data: null, error: "Batch failed" });
     const { result, queryClient, setConfirmData, setPage, showError } = renderCreation();

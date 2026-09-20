@@ -5,13 +5,14 @@ import { uploadDocument } from "../api/documents.js";
 import { queryKeys } from "../queryKeys.js";
 import { invalidateNotifications, invalidatePortfolioState } from "../queryInvalidation.js";
 import { defaultDocumentScope } from "../utils/documentCategories.js";
+import { isNonExpiringLicenseType } from "../utils/licenseTypeRules.js";
 
 function buildLicensePayload(form) {
   return {
     publisherName: form.publisherName,
     softwareDescription: form.softwareDescription,
     startDate: form.startDate || null,
-    endDate: form.isPerpetual ? null : (form.endDate || null),
+    endDate: isNonExpiringLicenseType(form.licenseType) ? null : (form.endDate || null),
     noticeDate: form.noticeDate || null,
     purchaseDate: form.purchaseDate || null,
     contractNumber: form.contractNumber || "",
