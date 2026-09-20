@@ -30,6 +30,7 @@ import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions
 import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
 import { buildMaintenanceCompanion } from "../../utils/maintenanceCompanion.js";
+import { useLicenseLines } from "../../hooks/useLicenseLines.js";
 import {
   getSourcingItemInitialTotal,
   maintenanceCompanionToPayload,
@@ -171,7 +172,19 @@ const SourcingItemModal = ({
   const attachedFile = attachments[0]?.file ?? null;
   const [attachedFileBase64, setAttachedFileBase64] = useState(null);
   const [slotHasActions, setSlotHasActions] = useState(false);
-  const [additionalLines, setAdditionalLines] = useState([]);
+  const {
+    lines: additionalLines,
+    setLines: setAdditionalLines,
+    addLine: addAdditionalLine,
+    removeLine: removeAdditionalLine,
+    updateLine: updateAdditionalLine,
+    addMaintenanceCompanion: addAdditionalMaintenanceLine,
+    hasMaintenanceCompanion: hasAdditionalMaintenanceLine,
+  } = useLicenseLines({
+    emptyLine: emptyAdditionalLine,
+    userSettings,
+    priceFields: { quantity: "quantity", unitPrice: "estimatedUnitPrice", total: "estimatedTotalPrice" },
+  });
   const [saving, setSaving] = useState(false);
   const [attachmentError, setAttachmentError] = useState(null);
   const [documentPreviewVisible, setDocumentPreviewVisible] = useState(false);
@@ -184,29 +197,6 @@ const SourcingItemModal = ({
     return () => { current = false; };
   }, [attachedFile]);
 
-  const addAdditionalLine = () => setAdditionalLines((prev) => [...prev, emptyAdditionalLine()]);
-  const removeAdditionalLine = (id) => setAdditionalLines((prev) => prev.filter((line) => line.id !== id && line.parentLineId !== id));
-  const updateAdditionalLine = (id, field, value) =>
-    setAdditionalLines((prev) => prev.map((l) => {
-      if (l.id !== id) return l;
-      const next = { ...l, [field]: value };
-      // Mirror the primary line: derive the estimated total from quantity x unit price.
-      if (field === "quantity" || field === "estimatedUnitPrice") {
-        const qty = Number(parseLocalizedNumber((next.quantity ?? "").trim(), userSettings));
-        const unit = Number(parseLocalizedNumber((next.estimatedUnitPrice ?? "").trim(), userSettings));
-        if (!(next.quantity ?? "").trim() && !(next.estimatedUnitPrice ?? "").trim()) {
-          next.estimatedTotalPrice = "";
-        } else if (!Number.isNaN(qty) && !Number.isNaN(unit)) {
-          next.estimatedTotalPrice = (qty * unit).toFixed(2);
-        }
-      }
-      return next;
-    }));
-  const hasAdditionalMaintenanceLine = (id) => additionalLines.some((line) => line.isMaintenanceCompanion && line.parentLineId === id);
-  const addAdditionalMaintenanceLine = (parent) => {
-    if (hasAdditionalMaintenanceLine(parent.id)) return;
-    setAdditionalLines((prev) => [...prev, emptyAdditionalLine(buildMaintenanceCompanion(parent))]);
-  };
 
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
   const [displayQuantity, setDisplayQuantity] = useState(
@@ -269,7 +259,7 @@ const SourcingItemModal = ({
   useEffect(() => {
     if (supportsSeparateMaintenanceLine(licenseType)) return;
     setAdditionalLines((prev) => prev.filter((line) => !line.isMaintenanceCompanion));
-  }, [licenseType]);
+  }, [licenseType, setAdditionalLines]);
 
   const publisherVal = watch("publisherName");
   const softwareVal = watch("softwareDescription");
