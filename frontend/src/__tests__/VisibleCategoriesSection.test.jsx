@@ -19,7 +19,7 @@ const userSettings = {
   columnOrder: [],
 };
 
-function setup() {
+function setup(settings = userSettings) {
   const setUserSettings = vi.fn();
   render(
     <VisibleCategoriesSection
@@ -28,7 +28,7 @@ function setup() {
       onToggle={vi.fn()}
       markDirty={vi.fn()}
       clearDirty={vi.fn()}
-      userSettings={userSettings}
+      userSettings={settings}
       setUserSettings={setUserSettings}
       onError={vi.fn()}
       onToast={vi.fn()}
@@ -65,6 +65,31 @@ describe("VisibleCategoriesSection toggle-all controls", () => {
       maintenanceEndDate: true,
       maintenanceCost: true,
     }));
+  });
+
+  test("shows no default-view note and edits the plain default when no view is starred", () => {
+    setup();
+    expect(screen.queryByText(/default view/i)).toBeNull();
+  });
+
+  test("with a starred default view, list toggles edit that view and show the note", () => {
+    const withDefault = {
+      visibleInList: { docs: true },
+      visibleInDetail: {},
+      savedViews: [{ name: "Renewals", isDefault: true, visibleInList: { docs: true } }],
+      columnOrder: [],
+    };
+    const setUserSettings = setup(withDefault);
+
+    expect(screen.getByText(/default view/i)).toBeTruthy();
+    expect(screen.getByText("Renewals")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("switch", { name: "Show Docs in list view" }));
+
+    const next = setUserSettings.mock.calls[0][0](withDefault);
+    expect(next.savedViews[0].visibleInList.docs).toBe(false);
+    // The plain default is left untouched.
+    expect(next.visibleInList).toEqual({ docs: true });
   });
 
   test("enables every custom list field together", async () => {

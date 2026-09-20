@@ -23,9 +23,31 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
     });
   }, [isOpen]);
 
-  const toggleList = (key, value) => {
-    setUserSettings((settings) => ({ ...settings, visibleInList: { ...settings.visibleInList, [key]: value } }));
+  // When the user keeps a starred default view, that view's stored columns are
+  // what actually loads in License Overview, so the List toggles edit that view
+  // instead of the plain default. Without a default view they edit the plain
+  // default (visible_in_list) as before. Details toggles always edit
+  // visible_in_detail (saved views don't carry detail visibility).
+  const defaultView = userSettings.savedViews?.find((view) => view.isDefault) ?? null;
+  const listVis = (defaultView?.visibleInList ?? userSettings.visibleInList) ?? {};
+
+  const applyListVisibility = (mutate) => {
+    setUserSettings((settings) => {
+      if (defaultView) {
+        return {
+          ...settings,
+          savedViews: settings.savedViews.map((view) => (
+            view.isDefault ? { ...view, visibleInList: mutate(view.visibleInList ?? {}) } : view
+          )),
+        };
+      }
+      return { ...settings, visibleInList: mutate(settings.visibleInList ?? {}) };
+    });
     markDirty("visibleCategories");
+  };
+
+  const toggleList = (key, value) => {
+    applyListVisibility((visibleInList) => ({ ...visibleInList, [key]: value }));
   };
 
   const toggleDetail = (key, value) => {
@@ -34,14 +56,10 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
   };
 
   const toggleListGroup = (columns, value) => {
-    setUserSettings((settings) => ({
-      ...settings,
-      visibleInList: columns.reduce((visibleInList, column) => ({
-        ...visibleInList,
-        [column.settingsKey ?? column.key]: value,
-      }), settings.visibleInList),
-    }));
-    markDirty("visibleCategories");
+    applyListVisibility((visibleInList) => columns.reduce((next, column) => ({
+      ...next,
+      [column.settingsKey ?? column.key]: value,
+    }), visibleInList));
   };
 
   const toggleDetailGroup = (columns, value) => {
@@ -80,6 +98,11 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
       <div className={`setsec-body${isOpen ? " open" : ""}`}>
         <div className="setsec-inner">
           <div className="set-section-stack">
+            {defaultView && (
+              <p className="set-vis-intro">
+                You have a default view (<strong>{defaultView.name}</strong>) set, so it loads when you open License Overview. These <strong>List View</strong> changes update that saved view. Details changes stay on your account.
+              </p>
+            )}
             <div className="set-vis-grid set-vis-header-grid">
               <div className="set-vis-hd set-vis-hd-category">Category</div>
               <div className="set-vis-hd set-vis-hd-list">List View</div>
@@ -90,7 +113,7 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
                 {(() => {
                   const groupColumns = SETTINGS_COLUMN_DEFS.filter((column) => column.group === group.key);
                   const detailColumns = groupColumns.filter((column) => column.detailKey);
-                  const allListVisible = groupColumns.every((column) => userSettings.visibleInList[column.settingsKey ?? column.key] ?? column.defaultVisible ?? false);
+                  const allListVisible = groupColumns.every((column) => listVis[column.settingsKey ?? column.key] ?? column.defaultVisible ?? false);
                   const allDetailsVisible = detailColumns.length > 0 && detailColumns.every((column) => userSettings.visibleInDetail[column.detailKey] ?? true);
                   return (
                     <>
@@ -105,7 +128,7 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
                     <div key={listKey} className="set-vis-row">
                       <span className="set-vis-label">{column.settingsLabel ?? column.label}</span>
                       <div className="col-center">
-                        <Toggle ariaLabel={`Show ${column.settingsLabel ?? column.label} in list view`} value={userSettings.visibleInList[listKey] ?? column.defaultVisible ?? false} onChange={(value) => toggleList(listKey, value)} />
+                        <Toggle ariaLabel={`Show ${column.settingsLabel ?? column.label} in list view`} value={listVis[listKey] ?? column.defaultVisible ?? false} onChange={(value) => toggleList(listKey, value)} />
                       </div>
                       <div className="col-center">
                         {column.detailKey
@@ -122,7 +145,7 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
             ))}
             <div className="set-vis-row set-vis-group-row">
               <strong className="set-vis-label set-vis-group-label">Custom Fields <span className="set-vis-group-note">(toggle all)</span></strong>
-              <div className="col-center">{customFieldDefs.length > 0 ? <Toggle ariaLabel="Toggle all Custom Fields list fields" value={customFieldDefs.every((fieldDef) => userSettings.visibleInList[`cf_${fieldDef.fieldKey}`] ?? false)} onChange={(value) => toggleListGroup(customFieldDefs.map((fieldDef) => ({ key: `cf_${fieldDef.fieldKey}` })), value)} /> : unavailable}</div>
+              <div className="col-center">{customFieldDefs.length > 0 ? <Toggle ariaLabel="Toggle all Custom Fields list fields" value={customFieldDefs.every((fieldDef) => listVis[`cf_${fieldDef.fieldKey}`] ?? false)} onChange={(value) => toggleListGroup(customFieldDefs.map((fieldDef) => ({ key: `cf_${fieldDef.fieldKey}` })), value)} /> : unavailable}</div>
               <div className="col-center">{customFieldDefs.length > 0 ? <Toggle ariaLabel="Toggle all Custom Fields detail fields" value={customFieldDefs.every((fieldDef) => userSettings.visibleInDetail[`cf_${fieldDef.fieldKey}`] ?? true)} onChange={(value) => toggleDetailGroup(customFieldDefs.map((fieldDef) => ({ detailKey: `cf_${fieldDef.fieldKey}` })), value)} /> : unavailable}</div>
             </div>
             {customFieldDefsLoading && <div className="set-vis-loading">Loading custom fields...</div>}
@@ -138,7 +161,7 @@ export default function VisibleCategoriesSection({ isOpen, isDirty, onToggle, ma
               return (
                 <div key={fieldDef.id} className="set-vis-row">
                   <span className="set-vis-label">{fieldDef.name}</span>
-                  <div className="col-center"><Toggle ariaLabel={`Show ${fieldDef.name} in list view`} value={userSettings.visibleInList[cfKey] ?? false} onChange={(value) => toggleList(cfKey, value)} /></div>
+                  <div className="col-center"><Toggle ariaLabel={`Show ${fieldDef.name} in list view`} value={listVis[cfKey] ?? false} onChange={(value) => toggleList(cfKey, value)} /></div>
                   <div className="col-center"><Toggle ariaLabel={`Show ${fieldDef.name} in details`} value={userSettings.visibleInDetail[cfKey] ?? true} onChange={(value) => toggleDetail(cfKey, value)} /></div>
                 </div>
               );
