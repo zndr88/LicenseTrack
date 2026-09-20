@@ -48,7 +48,7 @@ const emptyAdditionalLine = (primaryForm) => ({
   externalRef: "",
   costCentre: primaryForm.costCentre || "",
   budgetOwnerEmail: primaryForm.budgetOwnerEmail || "",
-  secondaryContacts: "",
+  secondaryContacts: primaryForm.secondaryContacts || "",
   customFieldValues: {},
   portalUrl: "",
   maintenanceCoverage: "unknown",
@@ -139,11 +139,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     lines: additionalLines,
     setLines: setAdditionalLines,
     updateLine,
-    applyRelationshipsToAllLines,
   } = useLicenseLines({
     emptyLine: (overrides) => emptyAdditionalLine({ ...form, ...overrides }),
     userSettings,
-    relationshipFields: ["costCentre", "budgetOwnerEmail"],
   });
 
   useEffect(() => {
@@ -263,7 +261,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         externalRef: line.externalRef,
         costCentre: line.costCentre || form.costCentre,
         budgetOwnerEmail: line.budgetOwnerEmail || form.budgetOwnerEmail,
-        secondaryContacts: parseSecondaryContacts(line.secondaryContacts),
+        secondaryContacts: parseSecondaryContacts(line.secondaryContacts || form.secondaryContacts),
         customFieldValues: buildCustomFieldValuePayload(customFieldDefs, line.customFieldValues, userSettings),
         skuCode: line.skuCode,
         unitPrice: isFreewareLicenseType(line.licenseType)
@@ -480,7 +478,6 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             <div className="fr"><div className="fg"><label htmlFor="inv-supplier">Supplier</label><ReferenceCombobox id="inv-supplier" mode="supplier" value={form.supplier} placeholder="Reseller or direct supplier" onChange={(value) => u("supplier", value)} /></div><div className="fg"><label htmlFor="inv-cost-centre">Cost Centre</label><ReferenceCombobox id="inv-cost-centre" mode="costCentre" value={form.costCentre} placeholder="Cost centre" onChange={(value) => u("costCentre", value)} /></div></div>
             <div className="fr"><div className="fg"><label htmlFor="inv-contact-email">Contact Email</label><input id="inv-contact-email" className="fi" value={form.contactEmail} onChange={(e) => u("contactEmail", e.target.value)} /></div><div className="fg"><label htmlFor="inv-budget-owner">Budget Owner Email</label><ContactCombobox id="inv-budget-owner" value={form.budgetOwnerEmail} placeholder="owner@example.com" onChange={(value) => u("budgetOwnerEmail", value)} /></div></div>
             <div className="fg"><label htmlFor="inv-secondary-contacts">Secondary Contacts</label><ContactCombobox id="inv-secondary-contacts" multiple value={form.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(value) => u("secondaryContacts", value)} /></div>
-            {additionalLines.length > 0 && <button type="button" className="btn btn-g" style={{ fontSize: 12 }} onClick={() => { setFormTouched(true); applyRelationshipsToAllLines({ costCentre: form.costCentre, budgetOwnerEmail: form.budgetOwnerEmail }); }}>Apply cost centre &amp; budget owner to all lines</button>}
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="people" />
           </LicenseFormSection>
 
