@@ -44,6 +44,8 @@ const emptyAdditionalLine = (primaryForm) => ({
   currency: primaryForm.currency || "EUR",
   notes: "",
   externalRef: "",
+  costCentre: primaryForm.costCentre || "",
+  budgetOwnerEmail: primaryForm.budgetOwnerEmail || "",
   secondaryContacts: "",
   customFieldValues: {},
   portalUrl: "",
@@ -228,12 +230,10 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     const sharedFields = {
       publisherName: form.publisherName,
       supplier: form.supplier,
-      costCentre: form.costCentre,
       contactEmail: form.contactEmail,
       contractNumber: form.contractNumber,
       poNumber: form.poNumber,
       invoiceNumber: form.invoiceNumber,
-      budgetOwnerEmail: form.budgetOwnerEmail,
       procurementReference: form.procurementReference,
     };
     const lineIndexById = new Map(additionalLines.map((line, index) => [line.id, index + 1]));
@@ -263,6 +263,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         quantityPerUnit: normalizeLocalizedValue(line.quantityPerUnit, userSettings) || "1",
         purchaseDate: line.purchaseDate || form.purchaseDate,
         externalRef: line.externalRef,
+        costCentre: line.costCentre || form.costCentre,
+        budgetOwnerEmail: line.budgetOwnerEmail || form.budgetOwnerEmail,
         secondaryContacts: parseSecondaryContacts(line.secondaryContacts),
         customFieldValues: buildCustomFieldValuePayload(customFieldDefs, line.customFieldValues, userSettings),
         skuCode: line.skuCode,
@@ -480,6 +482,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             <div className="fr"><div className="fg"><label htmlFor="inv-supplier">Supplier</label><ReferenceCombobox id="inv-supplier" mode="supplier" value={form.supplier} placeholder="Reseller or direct supplier" onChange={(value) => u("supplier", value)} /></div><div className="fg"><label htmlFor="inv-cost-centre">Cost Centre / Department</label><ReferenceCombobox id="inv-cost-centre" mode="costCentre" value={form.costCentre} placeholder="Department or cost centre" onChange={(value) => u("costCentre", value)} /></div></div>
             <div className="fr"><div className="fg"><label htmlFor="inv-contact-email">Contact Email</label><input id="inv-contact-email" className="fi" value={form.contactEmail} onChange={(e) => u("contactEmail", e.target.value)} /></div><div className="fg"><label htmlFor="inv-budget-owner">Budget Owner Email</label><ContactCombobox id="inv-budget-owner" value={form.budgetOwnerEmail} placeholder="owner@example.com" onChange={(value) => u("budgetOwnerEmail", value)} /></div></div>
             <div className="fg"><label htmlFor="inv-secondary-contacts">Secondary Contacts</label><ContactCombobox id="inv-secondary-contacts" multiple value={form.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(value) => u("secondaryContacts", value)} /></div>
+            {additionalLines.length > 0 && <button type="button" className="btn btn-g" style={{ fontSize: 12 }} onClick={() => { setFormTouched(true); setAdditionalLines((prev) => prev.map((l) => ({ ...l, costCentre: form.costCentre, budgetOwnerEmail: form.budgetOwnerEmail }))); }}>Apply cost centre &amp; budget owner to all lines</button>}
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="people" />
           </LicenseFormSection>
 
@@ -651,6 +654,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="commercial" />
               </LicenseFormSection>
               <LicenseFormSection title="Relationships">
+              <div className="fr"><div className="fg"><label htmlFor={`inv-line-${line.id}-cost-centre`}>Cost Centre / Department</label><ReferenceCombobox id={`inv-line-${line.id}-cost-centre`} mode="costCentre" value={line.costCentre || ""} placeholder="Department or cost centre" onChange={(value) => updateLine(line.id, "costCentre", value)} /></div><div className="fg"><label htmlFor={`inv-line-${line.id}-budget-owner`}>Budget Owner Email</label><ContactCombobox id={`inv-line-${line.id}-budget-owner`} value={line.budgetOwnerEmail || ""} placeholder="owner@example.com" onChange={(value) => updateLine(line.id, "budgetOwnerEmail", value)} /></div></div>
               <div className="fg"><label htmlFor={`inv-line-${line.id}-secondary-contacts`}>Secondary Contacts</label><ContactCombobox id={`inv-line-${line.id}-secondary-contacts`} multiple value={line.secondaryContacts || ""} placeholder="Separate email addresses with commas" onChange={(value) => updateLine(line.id, "secondaryContacts", value)} /></div>
               <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="people" />
               </LicenseFormSection>
