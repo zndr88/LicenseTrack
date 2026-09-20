@@ -362,6 +362,13 @@ describe("buildConvertItemDefaults", () => {
       maintenanceCost: "200.00",
     }));
   });
+  it("never inherits the invoice number from the renewing predecessor", () => {
+    const si = makeSI({ isRenewal: true, renewalForLicenseId: 42, invoiceNumber: "" });
+    const order = { ...baseOrder, items: [si] };
+    const [d] = buildConvertItemDefaults(order, [makeLicense({ invoiceNumber: "OLD-INV-99" })]);
+    expect(d.invoiceNumber).toBe("");
+  });
+
   it("accepts already formatted renewal contacts", () => {
     const order = { ...baseOrder, items: [makeSI({ isRenewal: true, renewalForLicenseId: 42 })] };
     const [defaults] = buildConvertItemDefaults(order, [

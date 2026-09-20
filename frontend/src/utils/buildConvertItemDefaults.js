@@ -51,7 +51,9 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       contractNumber:      si.contractNumber || renewal?.contractNumber || "",
       poNumber:            order.poNumber || "",
       procurementReference: order.procurementReference || "",
-      invoiceNumber:       si.invoiceNumber || renewal?.invoiceNumber || "",
+      // Invoice number is a new-term procurement identifier: it must never be
+      // inherited from the renewing predecessor. Starts blank for a new order.
+      invoiceNumber:       si.invoiceNumber || "",
       externalRef:         si.externalRef || "",
       contactEmail:        si.contactEmail || renewal?.contactEmail || "",
       supplier:            order.supplier || si.supplier || renewal?.supplier || "",
