@@ -24,6 +24,18 @@ retrying the upgrade.
 
 ## Before upgrading
 
+### Upgrading to 1.1.23
+
+This release adds two migrations: one stores planned successor links between
+sourcing lines, and the other records claims on webhook deliveries so concurrent
+workers do not send the same delivery. Both run through the normal startup
+migration process. Keep a full pre-upgrade volume backup for rollback; a
+downgrade removes planned successor links that have not yet been converted.
+
+Human bearer tokens created before the per-login session model that lack a
+recorded session are now rejected. If a browser or API client still holds one,
+sign in again. API tokens are unaffected.
+
 ### Upgrading to 1.1.22
 
 This patch includes migrations for non-reusable user IDs, maintenance coverage
@@ -95,7 +107,7 @@ curl http://localhost:8080/api/health
 The health response should include the expected version:
 
 ```json
-{"status":"ok","version":"1.1.22"}
+{"status":"ok","version":"1.1.23"}
 ```
 
 Log in and smoke-test license listing, document downloads, settings, backup listing, and any configured SMTP/OIDC integrations.
@@ -168,7 +180,7 @@ podman rm licensetrack
 Build the new image from the release source:
 
 ```bash
-podman build -t license-lifecycle-system:1.1.22 .
+podman build -t license-lifecycle-system:1.1.23 .
 ```
 
 Start the new container with the same volume mounted at `/data`:
@@ -177,7 +189,7 @@ Start the new container with the same volume mounted at `/data`:
 podman run -d --name licensetrack -p 8080:8000 \
   --env-file .env \
   -v license_lifecycle_data:/data \
-  license-lifecycle-system:1.1.22
+  license-lifecycle-system:1.1.23
 ```
 
 Check health:

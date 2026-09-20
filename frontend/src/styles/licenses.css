@@ -37,6 +37,11 @@
 .dp-note { font-size: 10px; color: var(--text-3); margin-top: 2px; }
 .dp-not-set { font-size: 12px; color: var(--text-3); font-style: italic; }
 .dp-budget-row { display: flex; align-items: center; gap: 6px; }
+/* Keep the mail icon and email on one line in the two-column Relationships
+   layout; truncate a long email rather than wrapping it under the icon. */
+#dp-section-people .email-link { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; overflow: hidden; white-space: nowrap; }
+#dp-section-people .email-link svg { flex: 0 0 auto; }
+#dp-section-people .dp-email-text { overflow: hidden; text-overflow: ellipsis; }
 .secondary-contact-count {
   appearance: none;
   border: 1px solid var(--border);

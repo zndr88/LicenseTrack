@@ -332,7 +332,7 @@ const HELP_ARTICLES = [
         bullets: [
           "At least one active local admin must always exist.",
           "The first admin is the protected break-glass admin.",
-          "Each login has its own session. Logout and inactivity expiry revoke that session without signing out other devices. Browser tabs share activity, including panel scrolling. Upgrading to 1.1.22 requires existing browser sessions to sign in again.",
+          "Each login has its own session. Logout and inactivity expiry revoke that session without signing out other devices. Browser tabs share activity, including panel scrolling. Upgrading from a version before 1.1.22 requires existing browser sessions to sign in again.",
           "SMTP passwords and OIDC client secrets are stored encrypted and returned as masked placeholders.",
           "Changing mandatory fields immediately changes completeness calculations when records are reloaded.",
           "The expiry alert window controls expiry presentation and notifications across the app. The separate Renewals setting controls when initiation and Link Existing Successor become available; until explicitly configured, it inherits the expiry alert value.",

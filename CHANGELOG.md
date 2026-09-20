@@ -13,6 +13,52 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.23] - 2026-09-21
+
+### Added
+
+- Added planned term succession for separate future license periods on one purchase
+  order. Sourcing and pending-order lines can be linked before conversion;
+  conversion validates their final dates and creates the renewal chain together.
+  License Details now shows the chain, including upcoming terms. Invoices for
+  linked multi-term orders default to one license during conversion.
+- Added a selectable, collapsible license list when initiating a renewal for
+  several licenses sharing a PO and end date. Siblings can be excluded, or all
+  selected and cleared at once.
+- Added Secondary Contacts to License Overview columns and CSV exports, a
+  scheduled-retirement countdown, searchable long filter lists, and pinned
+  registry controls and column headers while scrolling.
+
+### Changed
+
+- Made license-line forms consistent across manual creation, sourcing, pending
+  orders, and conversion. Maintenance companions and additional lines retain
+  their fields; cost centre and budget owner can be set per line, with an
+  apply-to-all option. Non-expiring types now determine perpetual status.
+- Aligned procurement document and overview layouts, moved term-succession
+  actions into line editors, and reordered License Details fields for review.
+- Made Column Categories update a starred default saved view when one is set,
+  so List View changes appear when License Overview opens. Standardized the
+  license finance label to **Cost Centre**.
+
+### Fixed
+
+- Corrected included-maintenance details on license creation and maintenance
+  and additional-line fields in procurement forms. Renewal POs no longer copy
+  the predecessor's invoice number into the new purchase.
+- Kept multi-invoice CSV cells unambiguous on export and import, and aligned
+  procurement grouping across frontend totals and exports.
+- Rejected old human bearer tokens without a recorded login session, restored
+  near-expiry refresh after inactivity throttling, and scoped cross-tab session
+  coordination to the current login.
+- Made webhook workers claim deliveries atomically and catch up scheduled jobs
+  missed while the scheduler was busy.
+
+This release includes additive migrations for planned sourcing-line successor
+links and webhook delivery claims. They run during normal startup. Users still
+holding a sessionless human bearer token must sign in again. There is no
+breaking stable public API change.
+
 ## [1.1.22] - 2026-09-14
 
 This is a patch update focused on lifecycle correctness, procurement evidence,
@@ -1603,7 +1649,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.22...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.23...HEAD
+[1.1.23]: https://github.com/zndr88/LicenseTrack/compare/v1.1.22...v1.1.23
 [1.1.22]: https://github.com/zndr88/LicenseTrack/compare/v1.1.21...v1.1.22
 [1.1.21]: https://github.com/zndr88/LicenseTrack/compare/v1.1.20...v1.1.21
 [1.1.20]: https://github.com/zndr88/LicenseTrack/compare/v1.1.19...v1.1.20
