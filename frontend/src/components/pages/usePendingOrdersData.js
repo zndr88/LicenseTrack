@@ -18,6 +18,7 @@ import {
 } from "../../api/pendingOrders.js";
 import {
   deleteSourcingQuoteDocument,
+  replaceSourcingPredecessors,
 } from "../../api/sourcing.js";
 import { queryKeys } from "../../queryKeys.js";
 import { invalidateProcurementRenewalState } from "../../queryInvalidation.js";
@@ -379,6 +380,18 @@ export function usePendingOrdersData({
     if (error) showError(error);
   }, [showError]);
 
+  const handleReplacePredecessors = useCallback(async (successorItemId, predecessorItemIds) => {
+    const { error } = await replaceSourcingPredecessors(successorItemId, predecessorItemIds);
+    if (error) { showError(error); return false; }
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.sourcing }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.sourcingHistory }),
+    ]);
+    showSuccess("Term links updated.");
+    return true;
+  }, [queryClient, showError, showSuccess]);
+
   return {
     pendingOrders,
     pendingOrderHistory,
@@ -399,5 +412,6 @@ export function usePendingOrdersData({
     handleRetryEvidenceTransfer,
     handleBatchConvert,
     handleExportPendingOrdersCsv,
+    handleReplacePredecessors,
   };
 }

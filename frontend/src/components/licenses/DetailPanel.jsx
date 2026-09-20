@@ -251,6 +251,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
             {/* Documents */}
             <DocumentsSection
               license={license}
+              allLicenses={allLicenses}
               perms={perms}
               userSettings={userSettings}
               isOpen={openSections.documents}

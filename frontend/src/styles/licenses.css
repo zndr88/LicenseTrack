@@ -347,3 +347,52 @@
 .existing-successor-error {
   margin: 0;
 }
+.term-chain {
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-2);
+}
+
+.term-chain h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.term-chain-list {
+  display: grid;
+  gap: 6px;
+}
+
+.term-chain-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-1);
+  color: var(--text-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.term-chain-item.current {
+  border-color: var(--accent);
+  cursor: default;
+}
+
+.term-chain-main,
+.term-chain-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.term-chain-main span,
+.term-chain-meta {
+  color: var(--text-2);
+  font-size: 11px;
+}

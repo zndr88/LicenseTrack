@@ -8,6 +8,7 @@ import { formatDateTime } from "../../../utils/formatting.js";
 import { sourcingRequestPublishers } from "./sourcingPageState.js";
 import { procurementLineTotal, procurementTotalsByCurrency } from "../../../utils/procurementTotals.js";
 import { formatQuantity } from "../../../utils/quantity.js";
+import TermLinkContext from "../../procurement/TermLinkContext.jsx";
 
 function SortIndicator({ col, sortCol, sortDir }) {
   return sortCol === col ? (
@@ -73,6 +74,8 @@ function SourcingItemsRow({
   onEditItem,
   onDeleteItem,
   onAddItem,
+  onAddNextTerm,
+  onEditPredecessors,
   inlineEditEnabled,
   onInlineFieldSave,
 }) {
@@ -117,7 +120,7 @@ function SourcingItemsRow({
                   style={highlightedRowId === si.id ? { backgroundColor: "var(--accent-m)", transition: "background 0.3s" } : { backgroundColor: "var(--bg-2)" }}
                 >
                   <td style={{ paddingLeft: 40, textAlign: "center", verticalAlign: "middle" }}>
-                    {!readOnly && isOpenSourcingItem(si) && si.isRenewal ? (
+                    {!readOnly && isOpenSourcingItem(si) && si.renewalForLicenseId != null ? (
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -162,11 +165,13 @@ function SourcingItemsRow({
                       onSave={onInlineFieldSave}
                     >
                       {renewalContext}
+                      <TermLinkContext item={si} items={request.items ?? []} />
                     </ProcurementInlineEditCell>
                   ) : (
                     <td>
                       {si.softwareDescription}
                       {renewalContext}
+                      <TermLinkContext item={si} items={request.items ?? []} />
                     </td>
                   )}
                   {canInlineEdit ? (
@@ -225,6 +230,16 @@ function SourcingItemsRow({
                           <Icon name="check" size={12} />Convert to Registry
                         </button>
                       )}
+                      {!readOnly && isOpenSourcingItem(si) && perms.canEdit && !si.successorSourcingItemId && ["subscription", "saas", "oem"].includes(si.licenseType) && (
+                        <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onAddNextTerm(si, request)}>
+                          Add next term
+                        </button>
+                      )}
+                      {!readOnly && isOpenSourcingItem(si) && perms.canEdit && si.renewalForLicenseId == null && !(si.cotermPredecessorIds?.length) && ["subscription", "saas", "oem"].includes(si.licenseType) && (
+                        <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onEditPredecessors(si, request)}>
+                          Set predecessors
+                        </button>
+                      )}
                       {!readOnly && isOpenSourcingItem(si) && perms.canEdit && (
                         <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onEditItem(si, request)}>
                           <Icon name="edit" size={12} />Edit
@@ -281,6 +296,8 @@ export default function SourcingTable({
   onEditRequest,
   onDeleteItem,
   onAddItem,
+  onAddNextTerm,
+  onEditPredecessors,
   onConvert,
   onOpenDocuments,
   onDeleteRequest,
@@ -587,6 +604,8 @@ export default function SourcingTable({
                       onEditItem={onEditItem}
                       onDeleteItem={onDeleteItem}
                       onAddItem={onAddItem}
+                      onAddNextTerm={onAddNextTerm}
+                      onEditPredecessors={onEditPredecessors}
                       inlineEditEnabled={inlineEditEnabled}
                       onInlineFieldSave={onInlineFieldSave}
                     />

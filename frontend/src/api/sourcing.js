@@ -10,6 +10,8 @@ export const updateSourcingRequest = (id, data) => put(`/api/sourcing/requests/$
 export const cancelSourcingRequest = (id) => post(`/api/sourcing/requests/${id}/cancel`);
 export const deleteSourcingRequest = (id) => del(`/api/sourcing/requests/${id}`);
 export const addSourcingRequestItem = (id, data) => post(`/api/sourcing/requests/${id}/items`, data);
+export const replaceSourcingPredecessors = (successorItemId, predecessorItemIds) =>
+  put("/api/sourcing/requests/successor-links", { successorItemId, predecessorItemIds });
 export const updateSourcingItem = (id, data) => put(`/api/sourcing/${id}`, data);
 export const deleteSourcingItem = (id) => del(`/api/sourcing/${id}`);
 export const convertSourcingRequest = (id, data) => post(`/api/sourcing/requests/${id}/convert`, data);

@@ -40,6 +40,7 @@ class SourcingItemSummary(BaseModel):
     maintenance_unit_price: Optional[str] = None
     maintenance_cost: Optional[str] = None
     parent_sourcing_item_id: Optional[int] = None
+    successor_sourcing_item_id: Optional[int] = None
     quantity: Optional[str] = None
     quantity_per_unit: Optional[str] = None
     sku_code: Optional[str] = None
@@ -130,6 +131,14 @@ class PendingOrderResponse(BaseModel):
     converted_license_ids: list[int] = []
     direct_registry_count: int = 0
     created_item_ids: list[int] = []
+
+    @model_validator(mode="after")
+    def _mark_planned_renewal_lines(self) -> "PendingOrderResponse":
+        successor_ids = {item.successor_sourcing_item_id for item in self.items if item.successor_sourcing_item_id is not None}
+        for item in self.items:
+            if item.id in successor_ids:
+                item.is_renewal = True
+        return self
 
 class PendingOrderConvertRequest(BaseModel):
     """License fields submitted when converting a pending order to a live license."""

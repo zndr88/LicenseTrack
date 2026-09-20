@@ -65,6 +65,8 @@ const HELP_ARTICLES = [
         heading: "Things to know",
         bullets: [
           "Renewal successors inherit the predecessor license reference.",
+          "For separate terms purchased on one PO, add a next term to a renewal sourcing line or select existing request lines as its predecessors. Multiple earlier lines can feed one combined future term. The links stay with the lines through Pending Orders and become license renewal links when the whole PO is converted.",
+          "A linked future term is Upcoming until its start date. Its predecessor no longer needs a separate renewal action. At conversion, invoices for these multi-term purchases default to Single so each year's invoice can be attached to its own term; the scope remains editable. Planned maintenance term chains are not available yet.",
           "When an existing license is linked as the successor, its former LT reference remains reserved, searchable, and visible in the procurement trail.",
           "Linking an existing maintenance successor updates every parent covered by the predecessor. Unlinking restores the previous coverage and relationships; if coverage has changed since linking, review those relationships before unlinking.",
           "A secured successor removes further renewal actions and workbench alerts. The predecessor becomes Renewed only after its own term has ended and successor coverage has started; a date gap remains Expired until then.",

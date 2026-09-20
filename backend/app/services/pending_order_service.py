@@ -411,6 +411,9 @@ async def delete_pending_order_item_record(
     ensure_pending_order_editable(order, action="delete items from")
 
     item = _find_order_item(order, item_id)
+    from app.services.planned_successor_service import require_no_planned_links
+
+    await require_no_planned_links(db, item)
     label = f"{item.publisher_name} - {item.software_description}"
     await require_no_single_documents(db, [item.id])
     from app.services.sourcing_service import sourcing_item_predecessor_ids
@@ -459,6 +462,8 @@ def _build_pending_order_item(
     item_data.pop("renewal_for_license_id", None)
     item_data.pop("sourcing_request_id", None)
     item_data.pop("parent_item_index", None)
+    if item_data.pop("successor_of_item_ids", []):
+        raise HTTPException(status_code=422, detail="Successor lines must be added to a sourcing request")
     apply_included_support_defaults(item_data)
 
     return SourcingItem(

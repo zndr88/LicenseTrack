@@ -18,6 +18,7 @@ import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions
 import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
+import TermLinkContext from "./TermLinkContext.jsx";
 import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
 
 const formSchema = z.object({ items: z.array(licenseFormSchema) });
@@ -35,9 +36,25 @@ const SHARED_FIELD_KEYS = [
   "budgetOwnerEmail",
 ];
 
+function termChangeNotes(previous, next) {
+  const notes = [];
+  if (previous.softwareDescription?.trim() !== next.softwareDescription?.trim()) notes.push("name changes");
+  if (String(previous.quantity ?? "") !== String(next.quantity ?? "")) notes.push("quantity changes");
+  if (previous.publisherName?.trim().toLowerCase() !== next.publisherName?.trim().toLowerCase()) notes.push("publisher differs");
+  const previousEnd = Date.parse(previous.endDate);
+  const nextStart = Date.parse(next.startDate);
+  if (Number.isFinite(previousEnd) && Number.isFinite(nextStart)) {
+    const days = Math.round((nextStart - previousEnd) / 86400000);
+    if (days > 1) notes.push(`${days - 1}-day coverage gap`);
+    if (days < 1) notes.push(`${1 - days}-day coverage overlap`);
+  }
+  return notes;
+}
+
 export default function ConvertAllModal({ order, licenses, userSettings, onConfirm, onCancel }) {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const unconvertedItems = order.items ?? [];
+  const hasPlannedTerms = unconvertedItems.some((item) => item.successorSourcingItemId != null);
   const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
 
   const {
@@ -66,13 +83,14 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
     changeTarget: changeAttachmentTarget,
     changeCategoryScope: changeAttachmentCategoryScope,
     clearAttachments,
-  } = useStagedDocumentAttachments(unconvertedItems[0]?.id);
+  } = useStagedDocumentAttachments(unconvertedItems[0]?.id, hasPlannedTerms ? { invoice: "license" } : {});
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
     isDirty: isDirty || attachments.length > 0,
     onClose: onCancel,
   });
 
   const watchedItems = watch("items") ?? [];
+  const reviewedByItemId = new Map(unconvertedItems.map((item, idx) => [item.id, watchedItems[idx] ?? item]));
   const readyCount = watchedItems.filter(isItemReady).length;
   const allReady = readyCount === fields.length && fields.length > 0;
 
@@ -120,7 +138,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
   };
   const attachmentTargetOptions = unconvertedItems.map((item) => ({
       value: String(item.id),
-      label: `${item.publisherName} — ${item.softwareDescription}`,
+      label: `${item.publisherName} — ${item.softwareDescription}${item.startDate ? ` (${item.startDate})` : ""}`,
     }));
 
   return (
@@ -205,6 +223,22 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
                 Copy shared fields
               </button>
             </div>
+          )}
+          {hasPlannedTerms && (
+            <section className="term-conversion-review" aria-label="Term chain review">
+              <h3>Term chain review</h3>
+              <p>These links will be created with the licenses. Confirm each term's dates, quantity, and price below. An invoice for one year is set to Single by default.</p>
+              {unconvertedItems.filter((item) => item.successorSourcingItemId != null || unconvertedItems.some((candidate) => candidate.successorSourcingItemId === item.id)).map((item) => (
+                <div key={item.id}>
+                  <strong>Line #{item.id} · {item.softwareDescription}</strong>
+                  <TermLinkContext item={item} items={unconvertedItems} />
+                  {unconvertedItems.filter((candidate) => candidate.successorSourcingItemId === item.id).map((predecessor) => {
+                    const notes = termChangeNotes(reviewedByItemId.get(predecessor.id), reviewedByItemId.get(item.id));
+                    return notes.length ? <small key={predecessor.id}>From line #{predecessor.id}: {notes.join(", ")}</small> : null;
+                  })}
+                </div>
+              ))}
+            </section>
           )}
           {fields.map((field, idx) => (
             <ConvertItemForm

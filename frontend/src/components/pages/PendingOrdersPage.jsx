@@ -8,6 +8,7 @@ import PendingOrderModal from "../procurement/PendingOrderModal.jsx";
 import ConvertPendingOrderModal from "../procurement/ConvertPendingOrderModal.jsx";
 import ConvertAllModal from "../procurement/ConvertAllModal.jsx";
 import SourcingItemModal from "../procurement/SourcingItemModal.jsx";
+import TermPredecessorsModal from "../procurement/TermPredecessorsModal.jsx";
 import PendingOrdersTable from "./pendingOrders/PendingOrdersTable.jsx";
 import WorkflowDocumentsModal from "../procurement/WorkflowDocumentsModal.jsx";
 import { getConversionDocuments, previewConversionDocument, downloadConversionDocument } from "../procurement/conversionDocuments.js";
@@ -36,6 +37,7 @@ export default function PendingOrdersPage({
   const [showConvertAllModal, setShowConvertAllModal] = useState(null);
   const [showAddPOItemsModal, setShowAddPOItemsModal] = useState(null);
   const [showEditPOItemModal, setShowEditPOItemModal] = useState(null);
+  const [predecessorsTarget, setPredecessorsTarget] = useState(null);
   const [inlineEditEnabled, setInlineEditEnabled] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showDocumentsModal, setShowDocumentsModal] = useState(null);
@@ -68,6 +70,7 @@ export default function PendingOrdersPage({
     handleRetryEvidenceTransfer,
     handleBatchConvert,
     handleExportPendingOrdersCsv,
+    handleReplacePredecessors,
   } = usePendingOrdersData({
     showError,
     showSuccess,
@@ -260,6 +263,7 @@ export default function PendingOrdersPage({
             onDelete={setCancelPendingOrderId}
             onEdit={(po) => setShowPendingOrderModal({ order: po })}
             onEditItem={(po, item) => setShowEditPOItemModal({ order: po, item })}
+            onEditPredecessors={(po, item) => setPredecessorsTarget({ target: item, items: po.items ?? [] })}
             onDeleteItem={(po, item) => setDeletePOItemTarget({ order: po, item })}
             onOpenDocuments={setShowDocumentsModal}
             onRetryEvidenceTransfer={handleRetryEvidenceTransfer}
@@ -407,6 +411,15 @@ export default function PendingOrdersPage({
           onChanged={async () => { await refetch(); if (showHistory) await refetchHistory(); }}
           onClose={() => setShowDocumentsModal(null)}
           userSettings={userSettings}
+        />
+      )}
+
+      {predecessorsTarget && (
+        <TermPredecessorsModal
+          target={predecessorsTarget.target}
+          items={predecessorsTarget.items}
+          onSave={handleReplacePredecessors}
+          onCancel={() => setPredecessorsTarget(null)}
         />
       )}
 

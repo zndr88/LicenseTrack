@@ -111,6 +111,15 @@ license manager confirms the delivered entitlement and support start/end dates
 during final conversion because publisher dates can change between quote,
 order, and delivery.
 
+If one PO contains separate future entitlement periods, create one sourcing
+line per term. **Add next term** copies an editable draft; **Set predecessors**
+links existing lines in the request, including several lines consolidated into
+one later term. The linked lines must move into the same pending order. Their
+planned links remain editable there and are checked against the final dates at
+license conversion. Do not use this for yearly installments of one continuous
+entitlement: one license record can cover its full multi-year term. Planned
+maintenance term links are not supported yet.
+
 ## 2. Pending orders
 
 Convert sourcing when the purchase is ready for procurement tracking. The

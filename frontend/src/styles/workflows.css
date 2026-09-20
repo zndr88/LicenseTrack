@@ -323,3 +323,57 @@
 .lp-export-title { display: block; font-size: 12px; font-weight: 500; }
 .lp-export-subtitle { display: block; margin-top: 2px; font-size: 11px; color: var(--text-2); }
 
+.term-link-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.term-predecessor-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.term-predecessor-choice input {
+  margin-top: 3px;
+}
+
+.term-predecessor-choice small {
+  color: var(--text-2);
+}
+
+.term-conversion-review {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-2);
+  font-size: 12px;
+}
+
+.term-conversion-review h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.term-conversion-review p {
+  margin: 0 0 10px;
+  color: var(--text-2);
+}
+
+.term-conversion-review > div + div {
+  margin-top: 8px;
+}
+
+.term-conversion-review small {
+  display: block;
+  margin-top: 3px;
+  color: var(--orange);
+}

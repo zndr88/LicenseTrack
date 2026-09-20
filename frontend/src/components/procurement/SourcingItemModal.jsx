@@ -124,6 +124,7 @@ const emptyAdditionalLine = (overrides = {}) => ({
 
 const SourcingItemModal = ({
   item,
+  prefill = null,
   requestId,
   sourcingRequest,
   documents = [],
@@ -136,7 +137,8 @@ const SourcingItemModal = ({
 }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const { definitions: allCustomFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
-  const isRenewal = Boolean(item?.isRenewal || item?.renewalForLicenseId != null);
+  const draftItem = item ?? prefill;
+  const isRenewal = Boolean(draftItem?.isRenewal || draftItem?.renewalForLicenseId != null);
   const pendingOrderId = parentPendingOrderId ?? item?.pendingOrderId ?? item?.pending_order_id ?? null;
   const renewalCustomFieldDefs = filterCustomFieldDefinitionsForRenewal(allCustomFieldDefs, isRenewal);
   const customFieldDefs = pendingOrderId
@@ -164,7 +166,7 @@ const SourcingItemModal = ({
     reset,
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: sourcingItemToFormDefaults(item, sourcingRequest),
+    defaultValues: sourcingItemToFormDefaults(draftItem, sourcingRequest),
   });
 
 
@@ -200,13 +202,13 @@ const SourcingItemModal = ({
 
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
   const [displayQuantity, setDisplayQuantity] = useState(
-    formatQuantity(item?.quantity, userSettings) || item?.quantity || ""
+    formatQuantity(draftItem?.quantity, userSettings) || draftItem?.quantity || ""
   );
   const [displayUnitPrice, setDisplayUnitPrice] = useState(
-    formatPriceInput(item?.estimatedUnitPrice ?? "", locale)
+    formatPriceInput(draftItem?.estimatedUnitPrice ?? "", locale)
   );
   const [displayTotalPrice, setDisplayTotalPrice] = useState(
-    formatPriceInput(getSourcingItemInitialTotal(item), locale)
+    formatPriceInput(getSourcingItemInitialTotal(draftItem), locale)
   );
 
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({

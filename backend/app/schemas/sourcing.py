@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from app.models.license import LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
@@ -30,6 +30,7 @@ class SourcingItemCreate(BaseModel):
     maintenance_cost: Optional[str] = None
     parent_sourcing_item_id: Optional[int] = None
     parent_item_index: Optional[int] = None
+    successor_of_item_ids: list[int] = Field(default_factory=list)
     quantity: Optional[str] = None
     quantity_per_unit: Optional[str] = None
     sku_code: Optional[str] = None
@@ -153,6 +154,7 @@ class SourcingItemResponse(BaseModel):
     maintenance_unit_price: Optional[str] = None
     maintenance_cost: Optional[str] = None
     parent_sourcing_item_id: Optional[int] = None
+    successor_sourcing_item_id: Optional[int] = None
     quantity: Optional[str] = None
     quantity_per_unit: Optional[str] = None
     sku_code: Optional[str] = None
@@ -201,6 +203,13 @@ class CotermMergeRequest(BaseModel):
     )
 
     sourcing_item_ids: list[int]
+
+
+class SourcingSuccessorLinkRequest(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    predecessor_item_ids: list[int]
+    successor_item_id: int
 
 
 class SourcingRequestCreate(BaseModel):
@@ -309,3 +318,11 @@ class SourcingRequestResponse(BaseModel):
     items: list[SourcingItemResponse] = []
     quote_documents: list[SourcingQuoteDocumentResponse] = []
     total_estimated_value: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _mark_planned_renewal_lines(self) -> "SourcingRequestResponse":
+        successor_ids = {item.successor_sourcing_item_id for item in self.items if item.successor_sourcing_item_id is not None}
+        for item in self.items:
+            if item.id in successor_ids:
+                item.is_renewal = True
+        return self

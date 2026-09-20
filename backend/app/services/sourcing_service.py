@@ -27,6 +27,7 @@ from app.services.custom_fields_service import merge_sourcing_values, replace_va
 from app.services.lifecycle_rules import clear_pending_renewal_if_current
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.money import MoneyParseError, parse_money
+from app.services.planned_successor_service import require_no_planned_links
 from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.reference_data_service import (
     resolve_organization,
@@ -580,6 +581,8 @@ async def merge_coterm_sourcing_items_record(
         item.sourcing_request_id for item in items if item.sourcing_request_id is not None
     }
     source_item_ids = tuple(item.id for item in items)
+    for item in items:
+        await require_no_planned_links(db, item)
     await require_no_single_documents(db, list(source_item_ids))
 
     merge_actor_id = await resolve_existing_user_id(db, created_by)
@@ -850,6 +853,8 @@ async def create_sourcing_item_record(
     item_data = payload.model_dump(by_alias=False)
     custom_field_values = item_data.pop("custom_field_values", [])
     item_data.pop("parent_item_index", None)
+    if item_data.pop("successor_of_item_ids", []):
+        raise HTTPException(status_code=422, detail="Add successors within an existing sourcing request")
     if item_data.get("license_type") == LicenseType.freeware:
         item_data["estimated_unit_price"] = None
         item_data["estimated_total_price"] = None
@@ -942,6 +947,7 @@ async def delete_sourcing_item_record(
     if item is None:
         raise HTTPException(status_code=404, detail="Sourcing item not found")
     assert_sourcing_item_editable(item)
+    await require_no_planned_links(db, item)
 
     renewal_license_ids = sourcing_item_predecessor_ids(item)
     await require_no_single_documents(db, [item.id])
@@ -1065,6 +1071,11 @@ async def create_sourcing_request_record(
 ) -> SourcingRequest:
     if not payload.items:
         raise HTTPException(status_code=422, detail="At least one sourcing item is required")
+    if any(item.successor_of_item_ids for item in payload.items):
+        raise HTTPException(
+            status_code=422,
+            detail="Create the sourcing request first, then add or link successor terms",
+        )
 
     request_supplier, request_supplier_id = await _resolve_supplier_candidate(db, payload.supplier)
     request_contact = clean_procurement_identity(payload.contact_email)
@@ -1208,6 +1219,14 @@ async def add_sourcing_request_item_record(
     await replace_values_for_sourcing_item(
         db, item.id, payload.custom_field_values, respect_sourcing_visibility=True
     )
+    if payload.successor_of_item_ids:
+        predecessors_result = await db.execute(
+            select(SourcingItem).where(SourcingItem.id.in_(payload.successor_of_item_ids))
+        )
+        if any(predecessor.successor_sourcing_item_id is not None for predecessor in predecessors_result.scalars()):
+            raise HTTPException(status_code=409, detail="A predecessor already has a planned next term")
+        from app.services.planned_successor_service import set_planned_successors
+        await set_planned_successors(db, payload.successor_of_item_ids, item.id)
     return request
 
 
@@ -1277,6 +1296,7 @@ def _build_request_item(
     item_data.pop("sourcing_request_id", None)
     item_data.pop("status", None)
     item_data.pop("parent_item_index", None)
+    item_data.pop("successor_of_item_ids", None)
     if item_data.get("license_type") == LicenseType.freeware:
         item_data["estimated_unit_price"] = None
         item_data["estimated_total_price"] = None
@@ -1374,6 +1394,7 @@ async def convert_sourcing_item_to_order(
     """
     if is_direct_freeware_item(item):
         raise ValueError("Freeware / Open Source items convert directly to the License Registry")
+    await require_no_planned_links(db, item)
 
     request = item.sourcing_request
     if request is None and item.sourcing_request_id is not None:

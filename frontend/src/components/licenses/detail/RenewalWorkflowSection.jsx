@@ -5,6 +5,7 @@ import { formatDate } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
 import { useRenewalPanelModel } from "./useRenewalPanelModel.js";
 import { isRenewalActionEligible } from "../../../utils/renewalBundle.js";
+import TermChain from "./TermChain.jsx";
 
 // PO bundles at or below this size stay expanded; larger ones start collapsed.
 const BUNDLE_COLLAPSE_THRESHOLD = 8;
@@ -301,7 +302,7 @@ export default function RenewalWorkflowSection({
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-2)" }}>Consolidated Renewal</div>
               <div className="dp-toggle-desc">
-                This license was created by merging {license.cotermFromIds.length} cotermed renewal sourcing items.
+                This term follows {license.cotermFromIds.length} earlier license records.
               </div>
             </div>
             {license.cotermFromIds.map((predId) => {
@@ -331,6 +332,7 @@ export default function RenewalWorkflowSection({
           </div>
         );
       })()}
+      <TermChain license={license} allLicenses={allLicenses} userSettings={userSettings} onNavigate={onNavigate} />
     </>
   );
 }

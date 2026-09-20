@@ -89,6 +89,28 @@ the selected predecessors, quantity, dates, and commercial terms together before
 merging. Follow the [procurement guide](../workflows/procurement.md) for the
 sourcing merge workflow and its eligibility rules.
 
+## Several terms on one purchase order
+
+When one PO buys separate future entitlement periods, keep each period as its
+own sourcing line. Use **Add next term** to create an editable successor line,
+or **Set predecessors** to connect lines already in the same request. Several
+earlier lines can point to one combined future term; enter that term's quantity
+explicitly. Descriptions and quantities may change between terms.
+
+The planned links remain editable after the lines move to one pending order.
+Final conversion checks the confirmed dates and creates the license records and
+their renewal links together. The License Details term chain includes Upcoming
+successors, and linked predecessors need no separate renewal action. All terms
+in a chain retain its LT reference; dates and immutable record IDs distinguish
+individual terms. On a consolidation, the combined term uses one primary chain
+reference and lists every predecessor.
+
+An invoice uploaded during conversion for this kind of PO defaults to **Single**.
+Choose the year it belongs to. Shared remains available for evidence that
+applies to the whole order. Later invoice uploads on a linked term also default
+to Single. Planned links between maintenance lines are not yet supported;
+ordinary maintenance renewals continue through the existing workflow.
+
 ## Purchase history and LT references
 
 After conversion, the sourcing request leaves the active Sourcing Overview table and remains available through the **History** button. Sourcing history opens as a second read-only table below active sourcing work. It keeps the old request id, line id, quote evidence, supplier, pricing, and notes, and it can link forward to the related pending order.

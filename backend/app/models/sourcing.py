@@ -99,6 +99,9 @@ class SourcingItem(Base):
         nullable=True,
         index=True,
     )
+    successor_sourcing_item_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("sourcing_items.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     quantity: Mapped[str | None] = mapped_column(String(100), nullable=True)
     quantity_per_unit: Mapped[str | None] = mapped_column(String(100), nullable=True)
     sku_code: Mapped[str | None] = mapped_column(String(100), nullable=True)

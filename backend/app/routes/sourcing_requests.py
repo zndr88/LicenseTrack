@@ -9,6 +9,7 @@ from app.dependencies import require_editor_or_admin
 from app.models.user import User
 from app.schemas.sourcing import (
     SourcingItemCreate,
+    SourcingSuccessorLinkRequest,
     SourcingRequestCreate,
     SourcingRequestResponse,
     SourcingRequestUpdate,
@@ -29,10 +30,33 @@ from app.services.sourcing_service import (
     list_sourcing_request_records,
     to_sourcing_request_response,
 )
+from app.services.planned_successor_service import replace_planned_predecessors
 
 router = APIRouter(prefix="/api/sourcing", tags=["sourcing"])
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+
+@router.put("/requests/successor-links", status_code=204, response_class=Response)
+async def update_sourcing_successor_links(
+    payload: SourcingSuccessorLinkRequest,
+    request: Request,
+    db: DbSession,
+    editor: User = Depends(require_editor_or_admin),
+) -> Response:
+    await replace_planned_predecessors(db, payload.predecessor_item_ids, payload.successor_item_id)
+    await log_event(
+        db,
+        "sourcing.successor_links_updated",
+        actor=editor,
+        ip_address=request.client.host if request.client else None,
+        target_type="sourcing_item",
+        target_id=str(payload.successor_item_id),
+        target_label="Planned successor",
+        detail=f"predecessors={payload.predecessor_item_ids}; successor={payload.successor_item_id}",
+    )
+    await db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/requests", response_model=list[SourcingRequestResponse])

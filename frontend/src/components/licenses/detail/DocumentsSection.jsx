@@ -31,6 +31,7 @@ function formatProcessingStatus(status) {
 
 export default function DocumentsSection({
   license,
+  allLicenses = [],
   perms,
   userSettings,
   isOpen,
@@ -64,6 +65,16 @@ export default function DocumentsSection({
 }) {
   const [scopeSelection, setScopeSelection] = useState({ licenseId: license.id, categories: {} });
   const categoryScopes = scopeSelection.licenseId === license.id ? scopeSelection.categories : {};
+  const isMultiTermPurchase = license.pendingOrderId != null && allLicenses.some((other) => (
+    other.id !== license.id
+    && other.pendingOrderId === license.pendingOrderId
+    && (
+      license.renewedToId === other.id
+      || other.renewedToId === license.id
+      || (license.cotermFromIds ?? []).includes(other.id)
+      || (other.cotermFromIds ?? []).includes(license.id)
+    )
+  ));
   const setCategoryScope = (category, scope) => setScopeSelection({
     licenseId: license.id,
     categories: { ...categoryScopes, [category]: scope },
@@ -99,7 +110,8 @@ export default function DocumentsSection({
             {DOCUMENT_CATEGORIES.map((cat) => {
               const files = (documents || []).filter((d) => d.category === cat.key);
               const isUploading = uploadingCategory === cat.key;
-              const categoryScope = categoryScopes[cat.key] ?? defaultDocumentScope(cat.key);
+              const categoryScope = categoryScopes[cat.key]
+                ?? (cat.key === "invoice" && isMultiTermPurchase ? "license" : defaultDocumentScope(cat.key));
               return (
                 <div key={cat.key} className="doc-cat">
                   <div className="doc-cat-hd">

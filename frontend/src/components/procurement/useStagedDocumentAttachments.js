@@ -1,15 +1,15 @@
 import { useCallback, useRef, useState } from "react";
 import { DOCUMENT_CATEGORIES, defaultDocumentScope } from "../../utils/documentCategories.js";
 
-function initialCategoryScopes() {
+function initialCategoryScopes(scopeOverrides = {}) {
   return Object.fromEntries(
-    DOCUMENT_CATEGORIES.map((category) => [category.key, category.defaultScope]),
+    DOCUMENT_CATEGORIES.map((category) => [category.key, scopeOverrides[category.key] ?? category.defaultScope]),
   );
 }
 
-export function useStagedDocumentAttachments(defaultTargetKey = null) {
+export function useStagedDocumentAttachments(defaultTargetKey = null, scopeOverrides = {}) {
   const [attachments, setAttachments] = useState([]);
-  const [categoryScopes, setCategoryScopes] = useState(initialCategoryScopes);
+  const [categoryScopes, setCategoryScopes] = useState(() => initialCategoryScopes(scopeOverrides));
   const nextId = useRef(1);
 
   const addFiles = useCallback((category, files) => {

@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { queryKeys } from "../../../queryKeys.js";
 import {
   addSourcingRequestItem,
+  replaceSourcingPredecessors,
   cancelSourcingRequest as apiCancelSourcingRequest,
   convertFreewareSourcingItem as apiConvertFreewareSourcingItem,
   convertFreewareSourcingRequest as apiConvertFreewareSourcingRequest,
@@ -55,6 +56,14 @@ export function useSourcingActions({
     const { error } = await apiUpdateSourcingItem(id, payload);
     if (error) { showToast(error, "error"); return false; }
     await invalidateSourcingCaches(queryClient);
+    return true;
+  }, [showToast, queryClient]);
+
+  const handleReplacePredecessors = useCallback(async (successorItemId, predecessorItemIds) => {
+    const { error } = await replaceSourcingPredecessors(successorItemId, predecessorItemIds);
+    if (error) { showToast(error, "error"); return false; }
+    await invalidateSourcingCaches(queryClient);
+    showToast("Term links updated.");
     return true;
   }, [showToast, queryClient]);
 
@@ -192,6 +201,7 @@ export function useSourcingActions({
     handleCreateSourcingRequest,
     handleUploadSourcingQuote,
     handleUpdateSourcingItem,
+    handleReplacePredecessors,
     handleUpdateSourcingRequest,
     handleUpdateSourcingRequestField,
     handleDeleteSourcingItem,

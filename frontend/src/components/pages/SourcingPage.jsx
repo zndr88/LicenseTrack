@@ -7,6 +7,8 @@ import { useCotermDetection } from "../../hooks/useCotermDetection.js";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import SourcingItemModal from "../procurement/SourcingItemModal.jsx";
+import TermPredecessorsModal from "../procurement/TermPredecessorsModal.jsx";
+import { nextTermDraft } from "../../utils/nextTermDraft.js";
 import SourcingRequestEditModal from "../procurement/SourcingRequestEditModal.jsx";
 import WorkflowDocumentsModal from "../procurement/WorkflowDocumentsModal.jsx";
 import ConvertSourcingModal from "../procurement/ConvertSourcingModal.jsx";
@@ -79,6 +81,7 @@ export default function SourcingPage({
   const perms = ROLE_PERMISSIONS[user.role];
 
   const [showSourcingModal, setShowSourcingModal] = useState(null);
+  const [predecessorsTarget, setPredecessorsTarget] = useState(null);
   const [showSourcingRequestEditModal, setShowSourcingRequestEditModal] = useState(null);
   const [showDocumentsModal, setShowDocumentsModal] = useState(null);
   const [deleteSourcingRequestTarget, setDeleteSourcingRequestTarget] = useState(null);
@@ -161,6 +164,7 @@ export default function SourcingPage({
     handleCreateSourcingItem,
     handleCreateSourcingRequest,
     handleUpdateSourcingItem,
+    handleReplacePredecessors,
     handleUpdateSourcingRequest,
     handleUpdateSourcingRequestField,
     handleDeleteSourcingItem,
@@ -409,6 +413,10 @@ export default function SourcingPage({
               openSourcingRequest(request.id);
               setShowSourcingModal({ item: null, request });
             }}
+            onAddNextTerm={(item, request) => setShowSourcingModal({
+              item: null, request, prefill: nextTermDraft(item), successorOfItemIds: [item.id],
+            })}
+            onEditPredecessors={(item, request) => setPredecessorsTarget({ item, items: request.items ?? [] })}
             onConvert={(request) => {
               const openItems = (request.items ?? []).filter(isOpenSourcingItem);
               if (openItems.length > 0 && openItems.every(isDirectFreewareItem)) {
@@ -470,6 +478,8 @@ export default function SourcingPage({
               onEditItem={() => {}}
               onDeleteItem={() => {}}
               onAddItem={() => {}}
+              onAddNextTerm={() => {}}
+              onEditPredecessors={() => {}}
               onConvert={() => {}}
               onOpenDocuments={setShowDocumentsModal}
               onDeleteRequest={() => {}}
@@ -512,6 +522,8 @@ export default function SourcingPage({
         <SourcingItemModal
           key={showSourcingModal.item?.id ?? "new"}
           item={showSourcingModal.item}
+          prefill={showSourcingModal.prefill}
+          title={showSourcingModal.prefill ? "Add next term" : undefined}
           requestId={showSourcingModal.request?.id ?? null}
           sourcingRequest={showSourcingModal.request}
           documents={showSourcingModal.request?.quoteDocuments ?? []}
@@ -568,6 +580,7 @@ export default function SourcingPage({
               supplier: itemForm.supplier || null,
               contactEmail: itemForm.contactEmail || null,
               notes: itemForm.notes || null,
+              ...(showSourcingModal.successorOfItemIds ? { successorOfItemIds: showSourcingModal.successorOfItemIds } : {}),
             };
             const parentRequestId = showSourcingModal.request?.id
               ?? showSourcingModal.item?.sourcingRequestId
@@ -613,6 +626,15 @@ export default function SourcingPage({
             setShowSourcingModal(null);
             return true;
           }}
+        />
+      )}
+
+      {predecessorsTarget && (
+        <TermPredecessorsModal
+          target={predecessorsTarget.item}
+          items={predecessorsTarget.items}
+          onSave={handleReplacePredecessors}
+          onCancel={() => setPredecessorsTarget(null)}
         />
       )}
 

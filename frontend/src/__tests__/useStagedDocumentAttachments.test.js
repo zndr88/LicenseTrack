@@ -4,6 +4,14 @@ import { describe, expect, test } from "vitest";
 import { useStagedDocumentAttachments } from "../components/procurement/useStagedDocumentAttachments.js";
 
 describe("useStagedDocumentAttachments", () => {
+  test("can default a multi-term invoice to one license line", () => {
+    const { result } = renderHook(() => useStagedDocumentAttachments("line-2", { invoice: "license" }));
+    act(() => result.current.addFiles("invoice", [new File(["invoice"], "year-2.pdf")]));
+    expect(result.current.attachments[0]).toEqual(expect.objectContaining({
+      category: "invoice", scope: "license", targetKey: "line-2",
+    }));
+  });
+
   test("uses category defaults and supports changing each document scope", () => {
     const { result } = renderHook(() => useStagedDocumentAttachments("line-1"));
     const invoice = new File(["invoice"], "invoice.pdf", { type: "application/pdf" });

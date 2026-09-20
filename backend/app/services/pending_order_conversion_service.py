@@ -19,6 +19,7 @@ from app.schemas.pending_order import BatchConvertItem, PendingOrderConvertReque
 from app.services import renewal_orchestrator
 from app.services.audit_service import log_event
 from app.services.conversion.license_converter import create_purchase_license
+from app.services.conversion.planned_successors import apply_planned_successor_links
 from app.services.conversion.pending_order_status import mark_item_converted, refresh_order_status
 from app.services.conversion_response_service import build_conversion_response
 from app.services.custom_fields_service import replace_values_for_license, transfer_sourcing_values_to_license
@@ -522,6 +523,13 @@ async def convert_pending_order_to_licenses(
     for item in order.items:
         mark_item_converted(item)
 
+    planned_successor_ids, planned_predecessor_ids = await apply_planned_successor_links(db, order.items)
+    new_license_entries = [
+        (license_id, "renewed" if license_id in planned_successor_ids else conversion_type)
+        for license_id, conversion_type in new_license_entries
+    ]
+    predecessor_ids.extend(planned_predecessor_ids)
+
     return await _complete_conversion(
         db=db,
         order=order,
@@ -678,6 +686,13 @@ async def batch_convert_pending_order_to_licenses(
                 quote_request_ids.append(sourcing_item.sourcing_request_id)
                 evidence_transfer_required = True
         mark_item_converted(sourcing_item)
+
+    planned_successor_ids, planned_predecessor_ids = await apply_planned_successor_links(db, order.items)
+    new_license_entries = [
+        (license_id, "renewed" if license_id in planned_successor_ids else conversion_type)
+        for license_id, conversion_type in new_license_entries
+    ]
+    predecessor_ids.extend(planned_predecessor_ids)
 
     return await _complete_conversion(
         db=db,
