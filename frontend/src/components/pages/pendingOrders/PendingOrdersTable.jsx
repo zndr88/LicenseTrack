@@ -56,7 +56,6 @@ function PendingOrderItemsRow({
   onAddItem,
   onDeleteItem,
   onEditItem,
-  onEditPredecessors,
   onNavigateToLicense,
   inlineEditEnabled,
   onInlineItemFieldSave,
@@ -179,11 +178,6 @@ function PendingOrderItemsRow({
                     {readOnly && !item.convertedLicenseId && (item.convertedLicenseIds?.length ?? 0) > 1 && (
                       <span style={{ color: "var(--text-3)", fontSize: 11 }}>Multiple license matches</span>
                     )}
-                    {!readOnly && perms.canEdit && item.sourcingRequestId && item.renewalForLicenseId == null && !(item.cotermPredecessorIds?.length) && ["subscription", "saas", "oem"].includes(item.licenseType) && (
-                      <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onEditPredecessors(po, item)}>
-                        Set predecessors
-                      </button>
-                    )}
                     {!readOnly && perms.canEdit && (
                       <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onEditItem(po, item)}>
                         <Icon name="edit" size={12} />Edit
@@ -228,7 +222,6 @@ export default function PendingOrdersTable({
   onDelete,
   onEdit,
   onEditItem,
-  onEditPredecessors,
   onDeleteItem,
   onOpenDocuments,
   onRetryEvidenceTransfer,
@@ -575,7 +568,6 @@ export default function PendingOrdersTable({
                       onAddItem={onOpenAddItems}
                       onDeleteItem={onDeleteItem}
                       onEditItem={onEditItem}
-                      onEditPredecessors={onEditPredecessors}
                       licenses={licenses}
                       showCurrency={showCurrency}
                       onNavigateToLicense={onNavigateToLicense}

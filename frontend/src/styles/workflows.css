@@ -332,6 +332,28 @@
   font-size: 11px;
 }
 
+.sourcing-term-actions {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.sourcing-term-actions h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.sourcing-term-actions p {
+  margin: 8px 0;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.sourcing-term-actions-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .term-predecessor-choice {
   display: flex;
   align-items: flex-start;

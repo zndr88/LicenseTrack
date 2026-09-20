@@ -263,7 +263,6 @@ export default function PendingOrdersPage({
             onDelete={setCancelPendingOrderId}
             onEdit={(po) => setShowPendingOrderModal({ order: po })}
             onEditItem={(po, item) => setShowEditPOItemModal({ order: po, item })}
-            onEditPredecessors={(po, item) => setPredecessorsTarget({ target: item, items: po.items ?? [] })}
             onDeleteItem={(po, item) => setDeletePOItemTarget({ order: po, item })}
             onOpenDocuments={setShowDocumentsModal}
             onRetryEvidenceTransfer={handleRetryEvidenceTransfer}
@@ -443,6 +442,15 @@ export default function PendingOrdersPage({
         <SourcingItemModal
           key={showEditPOItemModal.item?.id ?? "new"}
           item={showEditPOItemModal.item}
+          termItems={showEditPOItemModal.order?.items ?? []}
+          onEditPredecessors={showEditPOItemModal.item?.sourcingRequestId
+            && showEditPOItemModal.item.renewalForLicenseId == null
+            && !(showEditPOItemModal.item.cotermPredecessorIds?.length)
+            && ["subscription", "saas", "oem"].includes(showEditPOItemModal.item.licenseType)
+            ? () => {
+              setPredecessorsTarget({ target: showEditPOItemModal.item, items: showEditPOItemModal.order?.items ?? [] });
+              setShowEditPOItemModal(null);
+            } : null}
           documents={getConversionDocuments(showEditPOItemModal.order)}
           pendingOrderId={showEditPOItemModal.order?.id ?? null}
           userSettings={userSettings}

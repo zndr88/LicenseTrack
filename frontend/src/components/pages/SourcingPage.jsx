@@ -413,10 +413,6 @@ export default function SourcingPage({
               openSourcingRequest(request.id);
               setShowSourcingModal({ item: null, request });
             }}
-            onAddNextTerm={(item, request) => setShowSourcingModal({
-              item: null, request, prefill: nextTermDraft(item), successorOfItemIds: [item.id],
-            })}
-            onEditPredecessors={(item, request) => setPredecessorsTarget({ item, items: request.items ?? [] })}
             onConvert={(request) => {
               const openItems = (request.items ?? []).filter(isOpenSourcingItem);
               if (openItems.length > 0 && openItems.every(isDirectFreewareItem)) {
@@ -478,8 +474,6 @@ export default function SourcingPage({
               onEditItem={() => {}}
               onDeleteItem={() => {}}
               onAddItem={() => {}}
-              onAddNextTerm={() => {}}
-              onEditPredecessors={() => {}}
               onConvert={() => {}}
               onOpenDocuments={setShowDocumentsModal}
               onDeleteRequest={() => {}}
@@ -526,6 +520,26 @@ export default function SourcingPage({
           title={showSourcingModal.prefill ? "Add next term" : undefined}
           requestId={showSourcingModal.request?.id ?? null}
           sourcingRequest={showSourcingModal.request}
+          termItems={showSourcingModal.request?.items ?? []}
+          onAddNextTerm={showSourcingModal.item?.id
+            && isOpenSourcingItem(showSourcingModal.item)
+            && !showSourcingModal.item.successorSourcingItemId
+            && ["subscription", "saas", "oem"].includes(showSourcingModal.item.licenseType)
+            ? () => setShowSourcingModal({
+              item: null,
+              request: showSourcingModal.request,
+              prefill: nextTermDraft(showSourcingModal.item),
+              successorOfItemIds: [showSourcingModal.item.id],
+            }) : null}
+          onEditPredecessors={showSourcingModal.item?.id
+            && isOpenSourcingItem(showSourcingModal.item)
+            && showSourcingModal.item.renewalForLicenseId == null
+            && !(showSourcingModal.item.cotermPredecessorIds?.length)
+            && ["subscription", "saas", "oem"].includes(showSourcingModal.item.licenseType)
+            ? () => {
+              setPredecessorsTarget({ item: showSourcingModal.item, items: showSourcingModal.request?.items ?? [] });
+              setShowSourcingModal(null);
+            } : null}
           documents={showSourcingModal.request?.quoteDocuments ?? []}
           onDeleteDocument={showSourcingModal.request ? handleDeleteQuote : null}
           userSettings={userSettings}

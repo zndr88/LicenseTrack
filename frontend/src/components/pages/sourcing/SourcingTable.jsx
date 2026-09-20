@@ -74,8 +74,6 @@ function SourcingItemsRow({
   onEditItem,
   onDeleteItem,
   onAddItem,
-  onAddNextTerm,
-  onEditPredecessors,
   inlineEditEnabled,
   onInlineFieldSave,
 }) {
@@ -230,16 +228,6 @@ function SourcingItemsRow({
                           <Icon name="check" size={12} />Convert to Registry
                         </button>
                       )}
-                      {!readOnly && isOpenSourcingItem(si) && perms.canEdit && !si.successorSourcingItemId && ["subscription", "saas", "oem"].includes(si.licenseType) && (
-                        <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onAddNextTerm(si, request)}>
-                          Add next term
-                        </button>
-                      )}
-                      {!readOnly && isOpenSourcingItem(si) && perms.canEdit && si.renewalForLicenseId == null && !(si.cotermPredecessorIds?.length) && ["subscription", "saas", "oem"].includes(si.licenseType) && (
-                        <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onEditPredecessors(si, request)}>
-                          Set predecessors
-                        </button>
-                      )}
                       {!readOnly && isOpenSourcingItem(si) && perms.canEdit && (
                         <button className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => onEditItem(si, request)}>
                           <Icon name="edit" size={12} />Edit
@@ -296,8 +284,6 @@ export default function SourcingTable({
   onEditRequest,
   onDeleteItem,
   onAddItem,
-  onAddNextTerm,
-  onEditPredecessors,
   onConvert,
   onOpenDocuments,
   onDeleteRequest,
@@ -604,8 +590,6 @@ export default function SourcingTable({
                       onEditItem={onEditItem}
                       onDeleteItem={onDeleteItem}
                       onAddItem={onAddItem}
-                      onAddNextTerm={onAddNextTerm}
-                      onEditPredecessors={onEditPredecessors}
                       inlineEditEnabled={inlineEditEnabled}
                       onInlineFieldSave={onInlineFieldSave}
                     />

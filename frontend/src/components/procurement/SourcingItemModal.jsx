@@ -43,6 +43,7 @@ import { previewSourcingQuoteDocument, downloadSourcingQuoteDocument } from "../
 import { previewConversionDocument, downloadConversionDocument } from "./conversionDocuments.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { filterCustomFieldDefinitionsForSourcing } from "../../utils/customFieldSourcing.js";
+import TermLinkContext from "./TermLinkContext.jsx";
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
@@ -134,6 +135,9 @@ const SourcingItemModal = ({
   onSave,
   onCancel,
   onDeleteDocument,
+  termItems = [],
+  onAddNextTerm,
+  onEditPredecessors,
 }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const { definitions: allCustomFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
@@ -190,6 +194,7 @@ const SourcingItemModal = ({
   const [saving, setSaving] = useState(false);
   const [attachmentError, setAttachmentError] = useState(null);
   const [documentPreviewVisible, setDocumentPreviewVisible] = useState(false);
+  const [pendingTermAction, setPendingTermAction] = useState(null);
   useEffect(() => {
     if (!attachedFile) { setAttachedFileBase64(null); return; }
     let current = true;
@@ -211,10 +216,21 @@ const SourcingItemModal = ({
     formatPriceInput(getSourcingItemInitialTotal(draftItem), locale)
   );
 
+  const hasUnsavedChanges = isDirty || additionalLines.length > 0 || attachments.length > 0;
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
-    isDirty: isDirty || additionalLines.length > 0 || attachments.length > 0,
+    isDirty: hasUnsavedChanges,
     onClose: onCancel,
   });
+
+  const requestTermAction = (action) => {
+    if (hasUnsavedChanges) {
+      setPendingTermAction(action);
+      setShowDiscardDialog(true);
+      return;
+    }
+    if (action === "add") onAddNextTerm?.();
+    else onEditPredecessors?.();
+  };
 
   const quantity = watch("quantity");
   const estimatedUnitPrice = watch("estimatedUnitPrice");
@@ -617,6 +633,21 @@ const SourcingItemModal = ({
               />
             </div>
           )}
+          {item?.id && (onAddNextTerm || onEditPredecessors) && (
+            <section className="sourcing-term-actions" aria-label="Term succession">
+              <h3>Term succession</h3>
+              <TermLinkContext item={item} items={termItems} />
+              <p>These links use the saved line. Save edits first, or discard them when prompted.</p>
+              <div className="sourcing-term-actions-buttons">
+                {onAddNextTerm && (
+                  <button type="button" className="btn btn-g" disabled={saving} onClick={() => requestTermAction("add")}>Add next term</button>
+                )}
+                {onEditPredecessors && (
+                  <button type="button" className="btn btn-g" disabled={saving} onClick={() => requestTermAction("link")}>Set predecessors</button>
+                )}
+              </div>
+            </section>
+          )}
         </div>
           {attachmentError && <p className="field-error" role="alert">{attachmentError}</p>}
           <DocumentStagingWorkspace
@@ -640,8 +671,16 @@ const SourcingItemModal = ({
       </ModalShell>
       {showDiscardDialog && (
         <DiscardChangesDialog
-          onDiscard={() => { reset(); onCancel(); }}
-          onKeep={() => setShowDiscardDialog(false)}
+          onDiscard={() => {
+            const action = pendingTermAction;
+            reset();
+            setPendingTermAction(null);
+            setShowDiscardDialog(false);
+            if (action === "add") onAddNextTerm?.();
+            else if (action === "link") onEditPredecessors?.();
+            else onCancel();
+          }}
+          onKeep={() => { setPendingTermAction(null); setShowDiscardDialog(false); }}
         />
       )}
     </>

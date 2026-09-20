@@ -92,8 +92,9 @@ sourcing merge workflow and its eligibility rules.
 ## Several terms on one purchase order
 
 When one PO buys separate future entitlement periods, keep each period as its
-own sourcing line. Use **Add next term** to create an editable successor line,
-or **Set predecessors** to connect lines already in the same request. Several
+own sourcing line. Open a line for editing and use **Term succession** near the
+bottom: **Add next term** creates an editable successor line, while
+**Set predecessors** connects lines already in the same request. Several
 earlier lines can point to one combined future term; enter that term's quantity
 explicitly. Descriptions and quantities may change between terms.
 

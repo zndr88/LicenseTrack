@@ -45,6 +45,32 @@ beforeEach(() => {
   customFieldState.definitions = [];
 });
 
+describe("term succession actions", () => {
+  const item = { id: 7, publisherName: "Acme", softwareDescription: "Suite", licenseType: "subscription" };
+
+  test("shows term actions inside an existing line editor", () => {
+    const onAddNextTerm = vi.fn();
+    const onEditPredecessors = vi.fn();
+    renderModal({ item, requestId: 2, termItems: [item], onAddNextTerm, onEditPredecessors });
+
+    expect(screen.getByRole("region", { name: "Term succession" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add next term" }));
+    expect(onAddNextTerm).toHaveBeenCalledOnce();
+    expect(onEditPredecessors).not.toHaveBeenCalled();
+  });
+
+  test("asks before discarding edits to change term links", async () => {
+    const onEditPredecessors = vi.fn();
+    renderModal({ item, requestId: 2, termItems: [item], onEditPredecessors });
+
+    fireEvent.change(screen.getByPlaceholderText("Procurement notes"), { target: { value: "Unsaved change" } });
+    fireEvent.click(screen.getByRole("button", { name: "Set predecessors" }));
+    expect(onEditPredecessors).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(onEditPredecessors).toHaveBeenCalledOnce());
+  });
+});
+
 // ─── Required fields ──────────────────────────────────────────────────────────
 
 describe("required field validation", () => {

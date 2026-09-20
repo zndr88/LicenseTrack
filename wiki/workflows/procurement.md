@@ -112,7 +112,8 @@ during final conversion because publisher dates can change between quote,
 order, and delivery.
 
 If one PO contains separate future entitlement periods, create one sourcing
-line per term. **Add next term** copies an editable draft; **Set predecessors**
+line per term. Open a line for editing and find **Term succession** near the
+bottom. **Add next term** copies an editable draft; **Set predecessors**
 links existing lines in the request, including several lines consolidated into
 one later term. The linked lines must move into the same pending order. Their
 planned links remain editable there and are checked against the final dates at
