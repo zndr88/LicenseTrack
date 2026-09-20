@@ -354,4 +354,55 @@ describe('RenewalWorkflowSection PO bundle selection', () => {
     expect(currentCheckbox).toBeDisabled();
     expect(currentCheckbox).toBeChecked();
   });
+
+  it('clears down to the current license and re-selects with the bulk control', () => {
+    const { current, sibling } = makeBundle();
+    renderSection({
+      license: current,
+      exp: { status: 'expiring', days: 20 },
+      allLicenses: [current, sibling],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^clear$/i }));
+    expect(screen.getByRole('button', { name: /1 of 2 licenses selected/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^initiate renewal$/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^select all$/i }));
+    expect(screen.getByRole('button', { name: /2 of 2 licenses selected/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /initiate renewal \(2 licenses\)/i })).toBeInTheDocument();
+  });
+
+  it('starts a large PO bundle collapsed and expands on demand', () => {
+    const endDate = soonIso();
+    const current = {
+      ...baseLicense,
+      id: 20,
+      lifecycleStatus: null,
+      budgetOwnerEmail: 'owner@example.com',
+      poNumber: 'PO-BIG',
+      endDate,
+      expirationStatus: 'expiring',
+      daysUntilExpiry: 20,
+      licenseType: 'subscription',
+    };
+    const siblings = Array.from({ length: 11 }, (_, i) => ({
+      ...current,
+      id: 100 + i,
+      publisherName: `Line ${i}`,
+      softwareDescription: `Product ${i}`,
+    }));
+
+    renderSection({
+      license: current,
+      exp: { status: 'expiring', days: 20 },
+      allLicenses: [current, ...siblings],
+    });
+
+    // Collapsed: the summary and bulk action show, but individual rows do not.
+    expect(screen.getByRole('button', { name: /12 of 12 licenses selected/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Line 0 — Product 0/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /12 of 12 licenses selected/i }));
+    expect(screen.getByText(/Line 0 — Product 0/)).toBeInTheDocument();
+  });
 })

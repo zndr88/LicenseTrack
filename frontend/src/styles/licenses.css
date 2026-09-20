@@ -121,7 +121,11 @@
 .dp-purple-title { font-family: var(--font-sans); font-size: 11px; font-weight: 600; color: var(--purple-text); }
 .lp-expiration-badges { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .dp-renewal-title { font-family: var(--font-sans); font-size: 12px; font-weight: 600; color: var(--purple-text); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
-.dp-renewal-bundle-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; max-height: 180px; overflow-y: auto; }
+.dp-renewal-bundle { margin-bottom: 10px; }
+.dp-renewal-bundle-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.dp-renewal-bundle-toggle { display: flex; align-items: center; gap: 4px; background: none; border: none; padding: 0; cursor: pointer; font-family: var(--font-sans); font-size: 11px; font-weight: 600; color: var(--text-2); }
+.dp-renewal-bundle-all { background: none; border: none; padding: 0; cursor: pointer; font-family: var(--font-sans); font-size: 11px; color: var(--purple-text); text-decoration: underline; }
+.dp-renewal-bundle-list { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; }
 .dp-renewal-bundle-item { display: flex; align-items: flex-start; gap: 6px; font-size: 11px; color: var(--text-2); line-height: 1.4; cursor: pointer; }
 .dp-renewal-bundle-item input { margin-top: 2px; flex-shrink: 0; }
 .dp-renewal-bundle-item input:disabled { cursor: default; }

@@ -6,6 +6,9 @@ import Icon from "../../ui/Icon.jsx";
 import { useRenewalPanelModel } from "./useRenewalPanelModel.js";
 import { isRenewalActionEligible } from "../../../utils/renewalBundle.js";
 
+// PO bundles at or below this size stay expanded; larger ones start collapsed.
+const BUNDLE_COLLAPSE_THRESHOLD = 8;
+
 export default function RenewalWorkflowSection({
   license,
   perms,
@@ -33,18 +36,29 @@ export default function RenewalWorkflowSection({
   // Renewal bundle selection: the license being renewed is always included;
   // its PO siblings default to checked but can be excluded before initiating.
   const bundleMembers = [license, ...poSiblings];
-  const memberIdsKey = bundleMembers.map((member) => member.id).join(",");
-  const [selectedRenewalIds, setSelectedRenewalIds] = useState(() => new Set(bundleMembers.map((member) => member.id)));
+  const memberIds = bundleMembers.map((member) => member.id);
+  const memberIdsKey = memberIds.join(",");
+  const [selectedRenewalIds, setSelectedRenewalIds] = useState(() => new Set(memberIds));
+  // Collapse the list by default once a PO carries enough lines to be unwieldy.
+  const [bundleExpanded, setBundleExpanded] = useState(bundleMembers.length <= BUNDLE_COLLAPSE_THRESHOLD);
   useEffect(() => {
-    setSelectedRenewalIds(new Set(memberIdsKey ? memberIdsKey.split(",").map(Number) : []));
+    const ids = memberIdsKey ? memberIdsKey.split(",").map(Number) : [];
+    setSelectedRenewalIds(new Set(ids));
+    setBundleExpanded(ids.length <= BUNDLE_COLLAPSE_THRESHOLD);
   }, [memberIdsKey]);
   const selectedRenewalCount = selectedRenewalIds.size;
+  const allRenewalSelected = selectedRenewalCount === bundleMembers.length;
   const toggleRenewalMember = (id) => setSelectedRenewalIds((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id);
     else next.add(id);
     return next;
   });
+  // Select-all fills every line; clear keeps only the renewing license, which
+  // is always part of its own renewal.
+  const toggleSelectAllRenewal = () => setSelectedRenewalIds(
+    allRenewalSelected ? new Set([license.id]) : new Set(memberIds),
+  );
 
   const canStartRenewal = !NON_RENEWABLE_LICENSE_TYPES.includes(license.licenseType);
   const canLinkExistingSuccessor = Boolean(license.publisherName?.trim());
@@ -91,26 +105,46 @@ export default function RenewalWorkflowSection({
               : "Set a budget owner email above to start procurement, or link the next term if it was already purchased under this PO."}
           </div>
           {license.budgetOwnerEmail && bundleCount > 1 && (
-            <div className="dp-renewal-bundle-list">
-              {bundleMembers.map((member) => {
-                const isCurrent = member.id === license.id;
-                return (
-                  <label key={member.id} className="dp-renewal-bundle-item">
-                    <input
-                      type="checkbox"
-                      checked={selectedRenewalIds.has(member.id)}
-                      disabled={isCurrent || !perms.canEdit}
-                      onChange={() => toggleRenewalMember(member.id)}
-                    />
-                    <span>
-                      {member.publisherName} — {member.softwareDescription}
-                      <span style={{ color: "var(--text-3)", marginLeft: 6 }}>
-                        qty {member.quantity || "—"}{isCurrent ? " · this license" : ""}
-                      </span>
-                    </span>
-                  </label>
-                );
-              })}
+            <div className="dp-renewal-bundle">
+              <div className="dp-renewal-bundle-head">
+                <button
+                  type="button"
+                  className="dp-renewal-bundle-toggle"
+                  onClick={() => setBundleExpanded((open) => !open)}
+                  aria-expanded={bundleExpanded}
+                >
+                  <Icon name={bundleExpanded ? "chevron-down" : "chevron-right"} size={12} />
+                  {selectedRenewalCount} of {bundleMembers.length} licenses selected
+                </button>
+                {perms.canEdit && (
+                  <button type="button" className="dp-renewal-bundle-all" onClick={toggleSelectAllRenewal}>
+                    {allRenewalSelected ? "Clear" : "Select all"}
+                  </button>
+                )}
+              </div>
+              {bundleExpanded && (
+                <div className="dp-renewal-bundle-list">
+                  {bundleMembers.map((member) => {
+                    const isCurrent = member.id === license.id;
+                    return (
+                      <label key={member.id} className="dp-renewal-bundle-item">
+                        <input
+                          type="checkbox"
+                          checked={selectedRenewalIds.has(member.id)}
+                          disabled={isCurrent || !perms.canEdit}
+                          onChange={() => toggleRenewalMember(member.id)}
+                        />
+                        <span>
+                          {member.publisherName} — {member.softwareDescription}
+                          <span style={{ color: "var(--text-3)", marginLeft: 6 }}>
+                            qty {member.quantity || "—"}{isCurrent ? " · this license" : ""}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
           {perms.canEdit && (
