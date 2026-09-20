@@ -193,24 +193,26 @@ describe('DetailPanel identity references', () => {
 describe('DetailPanel scheduled retirement', () => {
   it('explains that a future-dated retirement remains scheduled', async () => {
     const user = userEvent.setup()
+    const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     render(
       <DetailPanel
         {...baseProps}
         user={{ id: 1, role: 'admin' }}
         license={{
           ...baseLicense,
-          endDate: '2027-12-31',
+          endDate,
+          daysUntilExpiry: 30,
           retirementScheduled: true,
         }}
       />
     )
 
-    expect(screen.getByText('Retirement Scheduled')).toHaveClass('badge-orange')
+    expect(screen.getByText('Retires in 30d')).toHaveClass('badge-gray')
 
     await user.click(screen.getByRole('button', { name: /completeness & flags/i }))
 
-    expect(screen.getAllByText('Retirement Scheduled')).toHaveLength(2)
-    expect(screen.getByText(/scheduled to retire after 2027-12-31/i)).toBeInTheDocument()
+    expect(screen.getByText('Retirement Scheduled')).toBeInTheDocument()
+    expect(screen.getByText(`Scheduled to retire after ${endDate}; expiration alerts are suppressed`)).toBeInTheDocument()
   })
 })
 
@@ -684,7 +686,8 @@ describe('DetailPanel renewal bundles', () => {
       />
     )
 
-    expect(screen.getByText(/One sourcing request with 2 license lines/i)).toBeInTheDocument()
+    expect(screen.getByText(/2 licenses share PO PO-BUNDLE-1 and the same end date.*one sourcing request is created with a line per selected license/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /2 of 2 licenses selected/i })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /initiate renewal \(2 licenses\)/i }))
 
     await waitFor(() => {
