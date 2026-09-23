@@ -27,7 +27,6 @@ export const licenseFormSchema = z.object({
   endDate:             z.string(),
   noticeDate:          z.string(),
   purchaseDate:        z.string(),
-  isPerpetual:         z.boolean(),
   contractNumber:      z.string(),
   poNumber:            z.string(),
   procurementReference: z.string(),

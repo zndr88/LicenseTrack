@@ -3,7 +3,6 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { licenseFormSchema } from "../../utils/procurementSchemas.js";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
-import Checkbox from "../ui/Checkbox.jsx";
 import Icon from "../ui/Icon.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
@@ -25,6 +24,7 @@ import ContactCombobox from "../ui/ContactCombobox.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
+import { isNonExpiringLicenseType } from "../../utils/licenseTypeRules.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
@@ -119,7 +119,6 @@ const ConvertPendingOrderModal = ({
       endDate:             prefill.endDate             || "",
       noticeDate:          prefill.noticeDate          || "",
       purchaseDate:        prefill.purchaseDate        || "",
-      isPerpetual:         prefill.licenseType === "perpetual",
       contractNumber:      prefill.contractNumber      || "",
       poNumber:            prefill.poNumber            || "",
       procurementReference: prefill.procurementReference || "",
@@ -160,7 +159,6 @@ const ConvertPendingOrderModal = ({
   const totalPoPrice = watch("totalPoPrice");
   const startDate = watch("startDate");
   const endDate = watch("endDate");
-  const isPerpetual  = watch("isPerpetual");
   const licenseType  = watch("licenseType");
   const parentLicenseId = watch("parentLicenseId");
   const maintenanceCoverage = watch("maintenanceCoverage");
@@ -210,7 +208,7 @@ const ConvertPendingOrderModal = ({
     (softwareVal  ?? "").trim() !== "" &&
     (licenseType !== "maintenance" || parentLicenseId) &&
     String(watch("startDate") ?? "").trim() !== "" &&
-    (isPerpetual || String(watch("endDate") ?? "").trim() !== "") &&
+    (isNonExpiringLicenseType(licenseType) || String(watch("endDate") ?? "").trim() !== "") &&
     String(quantity  ?? "").trim() !== "" &&
     (isFreewareLicenseType(licenseType) || String(unitPrice ?? "").trim() !== "");
 
@@ -333,7 +331,7 @@ const ConvertPendingOrderModal = ({
           <div className="fr">
             <div className="fg">
               <label htmlFor="cpo-license-type">License Type</label>
-              <select id="cpo-license-type" className="fi fi-select" {...register("licenseType", { onChange: (e) => { const nextType = e.target.value; if (nextType !== "saas") setValue("portalUrl", "", { shouldDirty: true }); if (nextType !== "maintenance") setValue("parentLicenseId", "", { shouldDirty: true }); if (nextType === "perpetual") { setValue("isPerpetual", true, { shouldDirty: true }); setValue("endDate", "", { shouldDirty: true }); } else if (isPerpetual) setValue("isPerpetual", false, { shouldDirty: true }); } })}>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
+              <select id="cpo-license-type" className="fi fi-select" {...register("licenseType", { onChange: (e) => { const nextType = e.target.value; if (nextType !== "saas") setValue("portalUrl", "", { shouldDirty: true }); if (nextType !== "maintenance") setValue("parentLicenseId", "", { shouldDirty: true }); if (isNonExpiringLicenseType(nextType)) setValue("endDate", "", { shouldDirty: true }); } })}>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
             </div>
             <div className="fg"><label htmlFor="cpo-license-metric">License Metric</label><select id="cpo-license-metric" className="fi fi-select" {...register("licenseMetric")}>{LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
           </div>
@@ -352,33 +350,10 @@ const ConvertPendingOrderModal = ({
             </div>
             <div className="fg">
               <label htmlFor="cpo-end-date">End Date</label>
-              {isPerpetual
-                ? <input className="fi" value="Perpetual" disabled />
+              {isNonExpiringLicenseType(licenseType)
+                ? <input id="cpo-end-date" className="fi" value="Non-expiring" disabled />
                 : <input id="cpo-end-date" type="date" className="fi" {...register("endDate")} />
               }
-              <div style={{ marginTop: 5 }}>
-                <Controller
-                  name="isPerpetual"
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      checked={field.value}
-                      onChange={(v) => {
-                        field.onChange(v);
-                        if (v) {
-                          setValue("endDate", "", { shouldDirty: true });
-                          setValue("licenseType", "perpetual", { shouldDirty: true });
-                          setValue("portalUrl", "", { shouldDirty: true });
-                          setValue("parentLicenseId", "", { shouldDirty: true });
-                        } else if (licenseType === "perpetual") {
-                          setValue("licenseType", "subscription", { shouldDirty: true });
-                        }
-                      }}
-                      label="Perpetual license"
-                    />
-                  )}
-                />
-              </div>
             </div>
           </div>
           <div className="fr">
@@ -419,7 +394,7 @@ const ConvertPendingOrderModal = ({
             cost={maintenanceCost}
             licenseQuantity={quantity}
             licenseStartDate={startDate}
-            licenseEndDate={isPerpetual ? "" : endDate}
+            licenseEndDate={isNonExpiringLicenseType(licenseType) ? "" : endDate}
             licenseTotalCost={totalPoPrice}
             currency={currency}
             locale={locale}

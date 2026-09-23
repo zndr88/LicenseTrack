@@ -7,7 +7,7 @@ describe("isItemReady", () => {
     publisherName: "Adobe",
     softwareDescription: "CC",
     startDate: "2025-01-01",
-    isPerpetual: false,
+    licenseType: "subscription",
     endDate: "2025-12-31",
     quantity: "10",
     unitPrice: "50",
@@ -33,12 +33,12 @@ describe("isItemReady", () => {
     expect(isItemReady({ ...base, startDate: "" })).toBe(false);
   });
 
-  it("returns false when not perpetual and endDate is empty", () => {
-    expect(isItemReady({ ...base, isPerpetual: false, endDate: "" })).toBe(false);
+  it("returns false when an expiring type has no endDate", () => {
+    expect(isItemReady({ ...base, licenseType: "subscription", endDate: "" })).toBe(false);
   });
 
-  it("returns true when isPerpetual=true even without endDate", () => {
-    expect(isItemReady({ ...base, isPerpetual: true, endDate: "" })).toBe(true);
+  it.each(["perpetual", "oem", "freeware"])("returns true for non-expiring type %s without endDate", (licenseType) => {
+    expect(isItemReady({ ...base, licenseType, endDate: "" })).toBe(true);
   });
 
   it("returns false when quantity is empty string", () => {

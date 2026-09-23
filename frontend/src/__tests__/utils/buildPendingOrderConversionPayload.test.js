@@ -36,4 +36,11 @@ describe("buildPendingOrderConversionPayload", () => {
     expect(payload.unitPrice).toBe("1234.50");
     expect(payload.totalPoPrice).toBe("1234500.00");
   });
+
+  it("clears the end date for non-expiring license types", () => {
+    const withEnd = { ...BASE, endDate: "2026-12-31" };
+
+    expect(buildPendingOrderConversionPayload({ ...withEnd, licenseType: "oem" }, {}).endDate).toBeNull();
+    expect(buildPendingOrderConversionPayload({ ...withEnd, licenseType: "subscription" }, {}).endDate).toBe("2026-12-31");
+  });
 });

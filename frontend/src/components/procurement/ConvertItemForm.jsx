@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Controller } from "react-hook-form";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
-import Checkbox from "../ui/Checkbox.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import ParentLicensePicker from "./ParentLicensePicker.jsx";
@@ -11,6 +10,7 @@ import MaintenanceCoverageFields, {
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import ContactCombobox from "../ui/ContactCombobox.jsx";
+import { isNonExpiringLicenseType } from "../../utils/licenseTypeRules.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { ModalSectionExpansionContext } from "../ui/ModalSectionExpansionContext.js";
 
@@ -24,7 +24,7 @@ export function isItemReady(item) {
     item.publisherName?.trim() &&
     item.softwareDescription?.trim() &&
     item.startDate &&
-    (item.isPerpetual || item.endDate) &&
+    (isNonExpiringLicenseType(item.licenseType) || item.endDate) &&
     (item.licenseType !== "maintenance" || item.parentLicenseId || item.parentSourcingItemId) &&
     item.quantity?.toString().trim() !== "" &&
     (isFreewareLicenseType(item.licenseType) || item.unitPrice?.toString().trim() !== "")
@@ -132,34 +132,10 @@ export default function ConvertItemForm({
             </div>
             <div className="fg">
               <label htmlFor={`ca-end-date-${idx}`}>End Date</label>
-              {wi.isPerpetual
-                ? <input className="fi" value="Perpetual" disabled />
+              {isNonExpiringLicenseType(wi.licenseType)
+                ? <input id={`ca-end-date-${idx}`} className="fi" value="Non-expiring" disabled />
                 : <input id={`ca-end-date-${idx}`} type="date" className="fi" {...register(`items.${idx}.endDate`)} />
               }
-              <div style={{ marginTop: 5 }}>
-                <Controller
-                  control={control}
-                  name={`items.${idx}.isPerpetual`}
-                  render={({ field: f }) => (
-                    <Checkbox
-                      checked={f.value}
-                      onChange={(v) => {
-                        f.onChange(v);
-                        if (v) {
-                          setValue(`items.${idx}.endDate`, "", { shouldDirty: true });
-                          setValue(`items.${idx}.licenseType`, "perpetual", { shouldDirty: true });
-                          setValue(`items.${idx}.portalUrl`, "", { shouldDirty: true });
-                          setValue(`items.${idx}.parentLicenseId`, "", { shouldDirty: true });
-                          setValue(`items.${idx}.parentSourcingItemId`, "", { shouldDirty: true });
-                        } else if (wi.licenseType === "perpetual") {
-                          setValue(`items.${idx}.licenseType`, "subscription", { shouldDirty: true });
-                        }
-                      }}
-                      label="Perpetual license"
-                    />
-                  )}
-                />
-              </div>
             </div>
           </div>
           <div className="fg">
@@ -230,11 +206,8 @@ export default function ConvertItemForm({
                       setValue(`items.${idx}.parentLicenseId`, "", { shouldDirty: true });
                       setValue(`items.${idx}.parentSourcingItemId`, "", { shouldDirty: true });
                     }
-                    if (nextType === "perpetual") {
-                      setValue(`items.${idx}.isPerpetual`, true, { shouldDirty: true });
+                    if (isNonExpiringLicenseType(nextType)) {
                       setValue(`items.${idx}.endDate`, "", { shouldDirty: true });
-                    } else if (wi.isPerpetual) {
-                      setValue(`items.${idx}.isPerpetual`, false, { shouldDirty: true });
                     }
                     if (isFreewareLicenseType(nextType)) {
                       setValue(`items.${idx}.unitPrice`, "", { shouldDirty: true });
@@ -293,7 +266,7 @@ export default function ConvertItemForm({
             cost={wi.maintenanceCost}
             licenseQuantity={wi.quantity}
             licenseStartDate={wi.startDate}
-            licenseEndDate={wi.isPerpetual ? "" : wi.endDate}
+            licenseEndDate={isNonExpiringLicenseType(wi.licenseType) ? "" : wi.endDate}
             licenseTotalCost={wi.totalPoPrice}
             currency={wi.currency}
             locale={locale}

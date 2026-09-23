@@ -47,7 +47,6 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       endDate:             si.endDate || "",
       noticeDate:          si.noticeDate || "",
       purchaseDate:        si.purchaseDate || renewal?.purchaseDate || "",
-      isPerpetual:         licenseType === "perpetual",
       contractNumber:      si.contractNumber || renewal?.contractNumber || "",
       poNumber:            order.poNumber || "",
       procurementReference: order.procurementReference || "",

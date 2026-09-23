@@ -353,6 +353,18 @@ describe("ConvertPendingOrderModal", () => {
     expect(screen.getByRole("button", { name: /confirm & create license/i })).not.toBeDisabled();
   });
 
+  test("choosing OEM suppresses the end date without a perpetual checkbox", () => {
+    renderModal();
+    expect(screen.queryByLabelText("Perpetual license")).not.toBeInTheDocument();
+    expect(document.getElementById("cpo-end-date")).toHaveAttribute("type", "date");
+
+    fireEvent.change(screen.getByLabelText("License Type"), { target: { value: "oem" } });
+
+    expect(document.getElementById("cpo-end-date")).toBeDisabled();
+    expect(document.getElementById("cpo-end-date")).toHaveValue("Non-expiring");
+    expect(screen.getByRole("button", { name: /confirm & create license/i })).not.toBeDisabled();
+  });
+
   test("previews an invoice during single conversion", async () => {
     const originalCreateObjectURL = URL.createObjectURL;
     const originalRevokeObjectURL = URL.revokeObjectURL;
@@ -543,7 +555,7 @@ describe("ConvertPendingOrderModal", () => {
     }));
   });
 
-  test("perpetual checkbox keeps end date valid and sets license type", async () => {
+  test("non-expiring license type submits without an end date", async () => {
     const user = userEvent.setup();
     const { onConfirm } = renderModal({
       prefill: {
@@ -554,13 +566,13 @@ describe("ConvertPendingOrderModal", () => {
       },
     });
 
-    await user.click(screen.getByRole("checkbox", { name: /perpetual license/i }));
+    fireEvent.change(screen.getByLabelText("License Type"), { target: { value: "oem" } });
     await user.click(screen.getByRole("button", { name: /confirm & create license/i }));
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     expect(onConfirm.mock.calls[0][0]).toEqual(expect.objectContaining({
       endDate: null,
-      licenseType: "perpetual",
+      licenseType: "oem",
     }));
   });
 
@@ -750,6 +762,17 @@ describe("ConvertAllModal", () => {
     );
     return { onConfirm, onCancel };
   }
+
+  test("choosing OEM on a conversion item suppresses the end date without a perpetual checkbox", () => {
+    renderModal();
+    expect(screen.queryByLabelText("Perpetual license")).not.toBeInTheDocument();
+    expect(document.getElementById("ca-end-date-0")).toHaveAttribute("type", "date");
+
+    fireEvent.change(document.getElementById("ca-license-type-0"), { target: { value: "oem" } });
+
+    expect(document.getElementById("ca-end-date-0")).toBeDisabled();
+    expect(document.getElementById("ca-end-date-0")).toHaveValue("Non-expiring");
+  });
 
   test("header controls collapse and expand every conversion item", async () => {
     const user = userEvent.setup();
