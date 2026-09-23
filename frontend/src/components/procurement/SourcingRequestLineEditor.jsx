@@ -9,6 +9,7 @@ import ContactCombobox from "../ui/ContactCombobox.jsx";
 import LicenseIdentityFormSection from "../licenses/LicenseIdentityFormSection.jsx";
 import LicenseDatesContractFormSection from "../licenses/LicenseDatesContractFormSection.jsx";
 import MaintenanceCoverageFields, { supportsMaintenanceCoverage } from "./MaintenanceCoverageFields.jsx";
+import LineTotalMismatchHint from "./LineTotalMismatchHint.jsx";
 
 export default function SourcingRequestLineEditor({
   item,
@@ -129,9 +130,11 @@ export default function SourcingRequestLineEditor({
               {errors.estimatedUnitPrice && <span className="field-error">{errors.estimatedUnitPrice.message}</span>}
             </div>
             <div className="fg">
-              <label htmlFor={`${idPrefix}-total`}>Estimated Total Price</label>
+              <label htmlFor={`${idPrefix}-total`}>Est. Line Total</label>
               <input id={`${idPrefix}-total`} className="fi" inputMode="decimal" {...register(fieldName("estimatedTotalPrice"))} />
-              {errors.estimatedTotalPrice && <span className="field-error">{errors.estimatedTotalPrice.message}</span>}
+              {errors.estimatedTotalPrice
+                ? <span className="field-error">{errors.estimatedTotalPrice.message}</span>
+                : <LineTotalMismatchHint quantity={values.quantity} unitPrice={values.estimatedUnitPrice} total={values.estimatedTotalPrice} currency={values.currency} settings={userSettings} />}
             </div>
           </div>
           {values.licenseType === "saas" && (

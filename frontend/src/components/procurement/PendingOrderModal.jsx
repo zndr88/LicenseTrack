@@ -23,6 +23,7 @@ import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import { LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
 import { parseSecondaryContacts } from "../../utils/secondaryContacts.js";
 import { createLicenseDraftSupplementDefaults } from "../../utils/licenseFormDefaults.js";
+import LineTotalMismatchHint from "./LineTotalMismatchHint.jsx";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -288,7 +289,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
                         </div>
                         <div className="fr">
                           <div className="fg"><label htmlFor={`pending-item-${item.id}-unit-price`}>Unit Price</label><input id={`pending-item-${item.id}-unit-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("500", locale)}`} value={item.estimatedUnitPrice} onChange={(e) => updateItem(item.id, "estimatedUnitPrice", e.target.value)} /></div>
-                          <div className="fg"><label htmlFor={`pending-item-${item.id}-total-price`}>Total Price</label><input id={`pending-item-${item.id}-total-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("5000", locale)}`} value={item.estimatedTotalPrice} onChange={(e) => updateItem(item.id, "estimatedTotalPrice", e.target.value)} /></div>
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-total-price`}>Est. Line Total</label><input id={`pending-item-${item.id}-total-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("5000", locale)}`} value={item.estimatedTotalPrice} onChange={(e) => updateItem(item.id, "estimatedTotalPrice", e.target.value)} /><LineTotalMismatchHint quantity={item.quantity} unitPrice={item.estimatedUnitPrice} total={item.estimatedTotalPrice} currency={item.currency} settings={userSettings} /></div>
                         </div>
                         {item.licenseType === "saas" && <div className="fg"><label htmlFor={`pending-item-${item.id}-portal`}>Portal URL</label><input id={`pending-item-${item.id}-portal`} className="fi" value={item.portalUrl} onChange={(event) => updateItem(item.id, "portalUrl", event.target.value)} /></div>}
                       </>

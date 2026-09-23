@@ -401,7 +401,7 @@ describe("onSave payload shape", () => {
     }));
   });
 
-  test("additional lines derive Est. Total Price from quantity x unit price", async () => {
+  test("additional lines derive Est. Line Total from quantity x unit price", async () => {
     const user = userEvent.setup();
     renderModal();
 
@@ -409,7 +409,7 @@ describe("onSave payload shape", () => {
 
     const qtyInputs = screen.getAllByLabelText(/purchase quantity/i);
     const unitInputs = screen.getAllByLabelText(/est\. unit price/i);
-    const totalInputs = screen.getAllByLabelText(/est\. total price/i);
+    const totalInputs = screen.getAllByLabelText(/est\. line total/i);
     const qty = qtyInputs[qtyInputs.length - 1];
     const unit = unitInputs[unitInputs.length - 1];
     const total = totalInputs[totalInputs.length - 1];
@@ -418,6 +418,18 @@ describe("onSave payload shape", () => {
     await user.type(unit, "5");
 
     await waitFor(() => expect(total).toHaveValue("50.00"));
+  });
+
+  test("Est. Line Total shows a non-blocking hint when it differs from quantity x unit price", async () => {
+    renderModal({ item: { ...VALID_ITEM, quantity: "10", estimatedUnitPrice: "5", estimatedTotalPrice: "50", currency: "EUR" } });
+
+    const total = screen.getByLabelText(/^est\. line total/i);
+    expect(screen.queryByText(/differs from quantity/i)).not.toBeInTheDocument();
+
+    fireEvent.change(total, { target: { value: "45" } });
+
+    expect(await screen.findByText(/differs from quantity × unit price \(€50\.00\)/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled();
   });
 
   test("renewal subscription with missing coverage defensively defaults to included", () => {

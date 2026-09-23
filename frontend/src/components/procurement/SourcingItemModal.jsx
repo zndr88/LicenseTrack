@@ -44,6 +44,7 @@ import { previewConversionDocument, downloadConversionDocument } from "./convers
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { filterCustomFieldDefinitionsForSourcing } from "../../utils/customFieldSourcing.js";
 import TermLinkContext from "./TermLinkContext.jsx";
+import LineTotalMismatchHint from "./LineTotalMismatchHint.jsx";
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
@@ -502,7 +503,7 @@ const SourcingItemModal = ({
               {!isFreewareLicenseType(licenseType) && (
                 <div className="fr">
                   <div className="fg"><label htmlFor="si-unit-price">Est. Unit Price <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(excl. tax)</span></label><Controller name="estimatedUnitPrice" control={control} render={({ field }) => <input id="si-unit-price" className="fi" value={displayUnitPrice} onFocus={() => setDisplayUnitPrice(field.value)} onChange={(e) => { const raw = parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value; setDisplayUnitPrice(e.target.value); field.onChange(raw); }} onBlur={() => { setDisplayUnitPrice(formatPriceInput(field.value, locale)); field.onBlur(); }} placeholder={`e.g. ${formatPriceInput("15.00", locale)}`} />} /></div>
-                  <div className="fg"><label htmlFor="si-total-price">Est. Total Price {showAutoLabel && <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(auto)</span>}</label><Controller name="estimatedTotalPrice" control={control} render={({ field }) => <input id="si-total-price" className="fi" value={displayTotalPrice} onFocus={() => setDisplayTotalPrice(field.value)} onChange={(e) => { const raw = parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value; setTotalManuallyEdited(true); setDisplayTotalPrice(e.target.value); field.onChange(raw); }} onBlur={() => { setDisplayTotalPrice(formatPriceInput(field.value, locale)); field.onBlur(); }} placeholder={`e.g. ${formatPriceInput("4500.00", locale)}`} />} /></div>
+                  <div className="fg"><label htmlFor="si-total-price">Est. Line Total {showAutoLabel && <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(auto)</span>}</label><Controller name="estimatedTotalPrice" control={control} render={({ field }) => <input id="si-total-price" className="fi" value={displayTotalPrice} onFocus={() => setDisplayTotalPrice(field.value)} onChange={(e) => { const raw = parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value; setTotalManuallyEdited(true); setDisplayTotalPrice(e.target.value); field.onChange(raw); }} onBlur={() => { setDisplayTotalPrice(formatPriceInput(field.value, locale)); field.onBlur(); }} placeholder={`e.g. ${formatPriceInput("4500.00", locale)}`} />} /><LineTotalMismatchHint quantity={quantity} unitPrice={estimatedUnitPrice} total={estimatedTotalPrice} currency={watch("currency")} settings={userSettings} /></div>
                 </div>
               )}
               {licenseType === "saas" && <div className="fg"><label htmlFor="si-portal-url">Portal URL</label><input id="si-portal-url" className="fi" {...register("portalUrl")} /></div>}
@@ -590,7 +591,7 @@ const SourcingItemModal = ({
                     </div>
                     {!isFreewareLicenseType(line.licenseType) && <div className="fr">
                       <div className="fg"><label htmlFor={`sourcing-line-${line.id}-unit-price`}>Est. Unit Price</label><input id={`sourcing-line-${line.id}-unit-price`} className="fi" inputMode="decimal" value={line.estimatedUnitPrice} onChange={(event) => updateAdditionalLine(line.id, "estimatedUnitPrice", event.target.value)} placeholder="Unit price" /></div>
-                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-total-price`}>Est. Total Price</label><input id={`sourcing-line-${line.id}-total-price`} className="fi" inputMode="decimal" value={line.estimatedTotalPrice} onChange={(event) => updateAdditionalLine(line.id, "estimatedTotalPrice", event.target.value)} placeholder="Total price" /></div>
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-total-price`}>Est. Line Total</label><input id={`sourcing-line-${line.id}-total-price`} className="fi" inputMode="decimal" value={line.estimatedTotalPrice} onChange={(event) => updateAdditionalLine(line.id, "estimatedTotalPrice", event.target.value)} placeholder="Total price" /><LineTotalMismatchHint quantity={line.quantity} unitPrice={line.estimatedUnitPrice} total={line.estimatedTotalPrice} currency={line.currency} settings={userSettings} /></div>
                     </div>}
                     {line.licenseType === "saas" && <div className="fg"><label htmlFor={`sourcing-line-${line.id}-portal`}>Portal URL</label><input id={`sourcing-line-${line.id}-portal`} className="fi" value={line.portalUrl} onChange={(event) => updateAdditionalLine(line.id, "portalUrl", event.target.value)} /></div>}
                   </>}
