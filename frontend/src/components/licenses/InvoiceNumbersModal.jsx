@@ -2,20 +2,8 @@ import { useMemo, useState } from "react";
 import { updateLicense } from "../../api/licenses.js";
 import ModalShell from "../ui/ModalShell.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
-import Icon from "../ui/Icon.jsx";
+import InvoiceNumberRows, { normaliseInvoiceNumbers, toEditableRows } from "./InvoiceNumberRows.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
-
-function normaliseInvoiceNumbers(values) {
-  return values.map((value) => value.trim()).filter(Boolean);
-}
-
-function toEditableRows(invoiceNumbers, fallbackPrimary) {
-  const rows = normaliseInvoiceNumbers(
-    Array.isArray(invoiceNumbers) ? invoiceNumbers : []
-  );
-  if (rows.length === 0 && fallbackPrimary) rows.push(fallbackPrimary);
-  return rows.length > 0 ? rows : [""];
-}
 
 export default function InvoiceNumbersModal({
   licenseId,
@@ -36,29 +24,6 @@ export default function InvoiceNumbersModal({
   const currentSignature = JSON.stringify(normaliseInvoiceNumbers(rows));
   const isDirty = initialSignature !== currentSignature;
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose });
-
-  const setRow = (index, value) => {
-    setRows((current) => current.map((row, idx) => (idx === index ? value : row)));
-  };
-
-  const addRow = () => setRows((current) => [...current, ""]);
-
-  const removeRow = (index) => {
-    setRows((current) => {
-      const next = current.filter((_, idx) => idx !== index);
-      return next.length > 0 ? next : [""];
-    });
-  };
-
-  const moveRow = (index, direction) => {
-    setRows((current) => {
-      const target = index + direction;
-      if (target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  };
 
   const handleSave = async () => {
     const nextInvoiceNumbers = normaliseInvoiceNumbers(rows);
@@ -99,58 +64,7 @@ export default function InvoiceNumbersModal({
         )}
       >
         <div className="modal-bd invoice-numbers-modal">
-          <div className="invoice-number-rows">
-            {rows.map((row, index) => (
-              <div className="invoice-number-row" key={index}>
-                <div className="fg invoice-number-input">
-                  <label htmlFor={`invoice-number-${index}`}>{index === 0 ? "Primary invoice" : "Additional invoice"}</label>
-                  <input
-                    id={`invoice-number-${index}`}
-                    className="fi mono"
-                    value={row}
-                    onChange={(event) => setRow(index, event.target.value)}
-                    onKeyDown={handleKeyDown}
-                    autoFocus={index === rows.length - 1 && row === ""}
-                  />
-                </div>
-                <div className="invoice-number-actions">
-                  <button
-                    type="button"
-                    className="doc-action-btn"
-                    aria-label="Move invoice up"
-                    title="Move up"
-                    disabled={index === 0}
-                    onClick={() => moveRow(index, -1)}
-                  >
-                    <Icon name="chevron-up" size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="doc-action-btn"
-                    aria-label="Move invoice down"
-                    title="Move down"
-                    disabled={index === rows.length - 1}
-                    onClick={() => moveRow(index, 1)}
-                  >
-                    <Icon name="chevron-down" size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="doc-action-btn remove"
-                    aria-label="Remove invoice number"
-                    title="Remove"
-                    onClick={() => removeRow(index)}
-                  >
-                    <Icon name="trash" size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <button type="button" className="btn btn-g btn-sm" onClick={addRow}>
-            <Icon name="plus" size={12} /> Add invoice number
-          </button>
+          <InvoiceNumberRows rows={rows} onChange={setRows} onKeyDown={handleKeyDown} autoFocusEmpty />
 
           {error && (
             <div className="invoice-number-error">

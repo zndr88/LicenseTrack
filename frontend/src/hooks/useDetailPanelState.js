@@ -19,6 +19,7 @@ import { parseLocalizedNumber } from "../utils/formatting.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../utils/customFieldFormValues.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "../utils/secondaryContacts.js";
 import { typeOptInPayload } from "../utils/licenseTypeRules.js";
+import { normaliseInvoiceNumbers, toEditableRows } from "../components/licenses/InvoiceNumberRows.jsx";
 
 /**
  * Encapsulates all state, effects, handlers, and derived values for DetailPanel.
@@ -267,6 +268,7 @@ export function useDetailPanelState({
     const ok = await onUpdate(license.id, {
       ...editFields,
       ...typeOptInPayload(editFields),
+      invoiceNumbers: normaliseInvoiceNumbers(editFields.invoiceNumbers ?? []),
       purchaseDate: editFields.purchaseDate || null,
       secondaryContacts: parseSecondaryContacts(editFields.secondaryContacts),
       customFieldValues: buildCustomFieldValuePayload(customFieldDefs, editFields.customFieldValues, userSettings),
@@ -291,7 +293,8 @@ export function useDetailPanelState({
       contractNumber: license.contractNumber || "",
       poNumber: license.poNumber || "",
       procurementReference: license.procurementReference || "",
-      invoiceNumber: license.invoiceNumber || "",
+      // Full ordered list, so saving the form never drops additional invoices.
+      invoiceNumbers: toEditableRows(license.invoiceNumbers, license.invoiceNumber),
       externalRef: license.externalRef || "",
       contactEmail: license.contactEmail || "",
       budgetOwnerEmail: license.budgetOwnerEmail || "",

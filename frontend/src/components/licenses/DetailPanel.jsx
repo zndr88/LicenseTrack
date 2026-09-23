@@ -111,6 +111,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
         {editingLicense ? (
           <LicenseEditForm
             editFields={editFields}
+            currentLicenseType={license.licenseType}
             setEditFields={setEditFields}
             editError={editError}
             savingLicense={savingLicense}

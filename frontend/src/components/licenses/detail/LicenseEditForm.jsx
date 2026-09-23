@@ -12,6 +12,7 @@ import ContactCombobox from "../../ui/ContactCombobox.jsx";
 import CustomFieldFormFields from "../CustomFieldFormFields.jsx";
 import LicenseTypeOptInFields from "../LicenseTypeOptInFields.jsx";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../../utils/licenseTypeRules.js";
+import InvoiceNumberRows from "../InvoiceNumberRows.jsx";
 
 /**
  * Full-panel edit form shown when editingLicense is true.
@@ -19,6 +20,7 @@ import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../..
  */
 export default function LicenseEditForm({
   editFields,
+  currentLicenseType,
   setEditFields,
   editError,
   savingLicense,
@@ -30,6 +32,11 @@ export default function LicenseEditForm({
   onSave,
   onCancel,
 }) {
+  // A maintenance record needs a parent license, which this form cannot pick,
+  // so other types cannot be switched to Maintenance here.
+  const licenseTypeOptions = currentLicenseType === "maintenance"
+    ? LICENSE_TYPES
+    : LICENSE_TYPES.filter((option) => option.value !== "maintenance");
   const descriptionMissing = typeDescriptionMissing(editFields.licenseType, editFields.typeDescription);
   const noticeAfterEnd = Boolean(editFields.noticeDate && editFields.endDate && editFields.noticeDate > editFields.endDate);
   const maintenanceCoverageOptions = maintenanceCoverageOptionsForLicenseType(editFields.licenseType);
@@ -99,9 +106,13 @@ export default function LicenseEditForm({
         <label htmlFor="license-edit-procurement-reference">Procurement reference</label>
         <input id="license-edit-procurement-reference" className="fi" value={editFields.procurementReference || ""} onChange={(e) => setEditFields((p) => ({ ...p, procurementReference: e.target.value }))} />
       </div>
-      <div className="fg">
-        <label htmlFor="license-edit-invoice">Invoice #</label>
-        <input id="license-edit-invoice" className="fi" value={editFields.invoiceNumber} onChange={(e) => setEditFields((p) => ({ ...p, invoiceNumber: e.target.value }))} />
+      <div className="fg license-edit-invoices">
+        <span className="fg-label">Invoice Numbers</span>
+        <InvoiceNumberRows
+          idPrefix="license-edit-invoice"
+          rows={editFields.invoiceNumbers ?? [""]}
+          onChange={(rows) => setEditFields((p) => ({ ...p, invoiceNumbers: rows }))}
+        />
       </div>
       {customFields("dates")}
       <div className="fg">
@@ -147,8 +158,11 @@ export default function LicenseEditForm({
             });
           }}>
             <option value="">—</option>
-            {LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            {licenseTypeOptions.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
+          {currentLicenseType !== "maintenance" && (
+            <span className="field-hint">Maintenance records are added from the parent license (Maintenance / Support).</span>
+          )}
         </div>
         <div className="fg">
           <label htmlFor="license-edit-metric">License Metric</label>

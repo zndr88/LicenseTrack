@@ -1804,3 +1804,40 @@ describe('DetailPanel included support editing', () => {
     expect(screen.queryByRole('button', { name: /edit support/i })).not.toBeInTheDocument()
   })
 })
+
+describe('DetailPanel full edit form', () => {
+  it('keeps every invoice number when saving', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn().mockResolvedValue(true)
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        license={{ ...baseLicense, invoiceNumber: 'INV-1', invoiceNumbers: ['INV-1', 'INV-2', 'INV-3'] }}
+        onUpdate={onUpdate}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    expect(screen.getByLabelText('Primary invoice')).toHaveValue('INV-1')
+    expect(screen.getAllByLabelText('Additional invoice').map((input) => input.value)).toEqual(['INV-2', 'INV-3'])
+    fireEvent.change(screen.getByLabelText('Notes / Comments'), { target: { value: 'Only the notes changed' } })
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith(1, expect.objectContaining({
+      invoiceNumbers: ['INV-1', 'INV-2', 'INV-3'],
+    })))
+    expect(onUpdate.mock.calls[0][1]).not.toHaveProperty('invoiceNumber')
+  })
+
+  it('only offers Maintenance as a type when the license already is maintenance', async () => {
+    const user = userEvent.setup()
+    render(<DetailPanel {...baseProps} user={{ id: 2, role: 'admin' }} />)
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    const typeSelect = screen.getByLabelText('License Type')
+    expect(within(typeSelect).queryByRole('option', { name: 'Maintenance' })).not.toBeInTheDocument()
+    expect(within(typeSelect).getByRole('option', { name: 'Perpetual' })).toBeInTheDocument()
+  })
+})
