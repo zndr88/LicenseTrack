@@ -113,6 +113,51 @@ async def _require_budget_owner_for_split_coterm(
         )
 
 
+def _maintenance_chain_order(
+    pending: list[tuple[BatchConvertItem, dict]],
+    order_items: list[SourcingItem],
+) -> list[tuple[BatchConvertItem, dict]]:
+    """Order maintenance lines so every planned predecessor converts before its successor."""
+    predecessor_of = {
+        item.successor_sourcing_item_id: item.id
+        for item in order_items
+        if item.successor_sourcing_item_id is not None
+    }
+
+    def depth(item_id: int) -> int:
+        seen: set[int] = set()
+        steps = 0
+        while item_id in predecessor_of and item_id not in seen:
+            seen.add(item_id)
+            item_id = predecessor_of[item_id]
+            steps += 1
+        return steps
+
+    return sorted(pending, key=lambda entry: depth(entry[0].sourcing_item_id))
+
+
+def _inherit_chain_parent(
+    item_data: dict,
+    sourcing_item: SourcingItem,
+    order_items: list[SourcingItem],
+    resolved: dict[int, tuple[int | None, int | None]],
+) -> None:
+    """A planned maintenance term without its own parent supports the same license as its predecessor."""
+    if item_data.get("parent_license_id") is not None or item_data.get("parent_sourcing_item_id") is not None:
+        return
+    predecessor = next(
+        (item for item in order_items if item.successor_sourcing_item_id == sourcing_item.id),
+        None,
+    )
+    if predecessor is None or predecessor.id not in resolved:
+        return
+    parent_license_id, parent_sourcing_item_id = resolved[predecessor.id]
+    if parent_license_id is not None:
+        item_data["parent_license_id"] = parent_license_id
+    elif parent_sourcing_item_id is not None:
+        item_data["parent_sourcing_item_id"] = parent_sourcing_item_id
+
+
 def _require_order_po_number(order: PendingOrder) -> str:
     po_number = (order.po_number or "").strip()
     if not po_number:
@@ -604,6 +649,7 @@ async def batch_convert_pending_order_to_licenses(
     quote_request_ids: list[int] = []
     created_parent_by_sourcing_item_id: dict[int, License] = {}
     pending_maintenance_items: list[tuple[BatchConvertItem, dict]] = []
+    resolved_maintenance_parents: dict[int, tuple[int | None, int | None]] = {}
     evidence_transfer_required = file_data is not None
 
     for batch_item in payload:
@@ -700,8 +746,13 @@ async def batch_convert_pending_order_to_licenses(
 
         mark_item_converted(sourcing_item)
 
-    for batch_item, item_data in pending_maintenance_items:
+    for batch_item, item_data in _maintenance_chain_order(pending_maintenance_items, order.items):
         sourcing_item = order_item_map[batch_item.sourcing_item_id]
+        _inherit_chain_parent(item_data, sourcing_item, order.items, resolved_maintenance_parents)
+        resolved_maintenance_parents[sourcing_item.id] = (
+            item_data.get("parent_license_id"),
+            item_data.get("parent_sourcing_item_id"),
+        )
         new_lic, conversion_type, item_predecessor_ids = await _create_prepared_conversion_license(
             db=db,
             item_data=item_data,

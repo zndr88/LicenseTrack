@@ -18,8 +18,9 @@ from app.services.lifecycle_rules import (
 
 
 # Types that never take part in a planned renewal chain; Service/Other follow
-# their renewable opt-in through is_renewable_license.
-_NEVER_PLANNED_SUCCESSOR_TYPES = frozenset({LicenseType.freeware, LicenseType.perpetual, LicenseType.maintenance})
+# their renewable opt-in through is_renewable_license. Maintenance chains are
+# allowed (maintenance -> maintenance only).
+_NEVER_PLANNED_SUCCESSOR_TYPES = frozenset({LicenseType.freeware, LicenseType.perpetual})
 
 
 async def apply_planned_successor_links(
@@ -72,6 +73,11 @@ async def apply_planned_successor_links(
                     raise HTTPException(status_code=422, detail=f"Line {target_id} must match predecessor publisher")
                 if not is_renewable_license(predecessor) or predecessor.license_type in _NEVER_PLANNED_SUCCESSOR_TYPES:
                     raise HTTPException(status_code=422, detail=f"Line {target_id} follows a nonrenewable license")
+                if (predecessor.license_type == LicenseType.maintenance) != (successor.license_type == LicenseType.maintenance):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"Line {target_id}: maintenance terms can only follow maintenance terms",
+                    )
             assert_successor_term(predecessors, successor.start_date, successor.end_date)
             primary = predecessors[0]
             successor.renewed_from_id = primary.id

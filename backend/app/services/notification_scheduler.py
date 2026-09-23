@@ -7,6 +7,7 @@ from app.models.audit_log import AuditLog
 from app.models.settings import GlobalSettings
 from app.services.notification_sender import run_daily_notifications
 from app.services.license_retirement_service import retire_due_licenses
+from app.services.maintenance_service import hand_over_due_maintenance
 from app.services.pending_order_conversion_service import sweep_stale_evidence_transfers
 from app.services.restore_maintenance import restore_maintenance
 from app.services.webhook_service import dispatch_pending_webhooks
@@ -178,6 +179,17 @@ async def start_scheduler():
                 log.info(f"Completed {retired_count} scheduled license retirement(s)")
         except Exception as exc:
             log.error(f"Scheduled license retirement failed: {exc}", exc_info=True)
+
+        try:
+            async def run_maintenance_hand_over():
+                async with AsyncSessionLocal() as db:
+                    return await hand_over_due_maintenance(db)
+
+            handed_over = await _run_database_job(run_maintenance_hand_over, skipped=0)
+            if handed_over:
+                log.info(f"Handed over {handed_over} parent(s) to their next support record")
+        except Exception as exc:
+            log.error(f"Maintenance hand-over failed: {exc}", exc_info=True)
 
         scheduler_settings = await _run_database_job(_load_scheduler_settings)
         if scheduler_settings is None:

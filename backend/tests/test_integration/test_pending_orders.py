@@ -4110,6 +4110,15 @@ async def test_legacy_maintenance_linked_before_conversion_inherits_current_pare
     successor = _new_successor(response.json(), maintenance.id)
     assert successor["parentLicenseId"] == parent["id"]
     assert successor["isLegacyUnlinkedMaintenance"] is False
+    # The successor starts after the current term: it is linked now and becomes
+    # the parent's active support on its own start date.
+    parent_after = await _get_license(test_app, auth_headers, parent["id"])
+    assert parent_after["activeMaintenanceId"] == maintenance.id
+    assert successor["id"] in parent_after["linkedMaintenanceIds"]
+
+    from app.services.maintenance_service import hand_over_due_maintenance
+
+    assert await hand_over_due_maintenance(db_session, today=successor_start) == 1
     parent_after = await _get_license(test_app, auth_headers, parent["id"])
     assert parent_after["activeMaintenanceId"] == successor["id"]
 

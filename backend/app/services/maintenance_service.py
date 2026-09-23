@@ -16,9 +16,10 @@ sync_parent_mirror_fields rather than setattr on the parent.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Optional
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseCoverageHistory, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
@@ -298,6 +299,106 @@ async def activate_maintenance_for_parent(
     await sync_parent_mirror_fields(db, parent)
 
 
+def _starts_after(license_obj: License, today: date) -> bool:
+    return license_obj.start_date is not None and license_obj.start_date > today
+
+
+async def _should_become_active_now(
+    db: AsyncSession,
+    maintenance_license: License,
+    parent: License,
+    today: date,
+) -> bool:
+    """A support record becomes the parent's active support on its own start date.
+
+    A future-dated record only takes over now when nothing else covers the
+    parent: no active record, an active record that has already ended, or an
+    active record that starts even later.
+    """
+    if parent.active_maintenance_id in (None, maintenance_license.id):
+        return True
+    if not _starts_after(maintenance_license, today):
+        return True
+    with db.no_autoflush:
+        active = await db.get(License, parent.active_maintenance_id)
+    if active is None or active.is_retired:
+        return True
+    if active.end_date is not None and active.end_date < today:
+        return True
+    return _starts_after(active, today) and active.start_date > maintenance_license.start_date
+
+
+async def link_or_activate_maintenance(
+    db: AsyncSession,
+    maintenance_license: License,
+    parent: License,
+    *,
+    today: date | None = None,
+) -> bool:
+    """Link a support record to a parent, activating it only if it should cover the parent today.
+
+    Returns True when the record became the parent's active support. A linked,
+    not-yet-active record is handed over by ``hand_over_due_maintenance``.
+    """
+    if await _should_become_active_now(db, maintenance_license, parent, today or date.today()):
+        await activate_maintenance_for_parent(db, maintenance_license, parent)
+        return True
+    await link_maintenance_to_parent(db, maintenance_license, parent)
+    if maintenance_license.parent_license_id is None:
+        maintenance_license.parent_license_id = parent.id
+    maintenance_license.is_legacy_unlinked_maintenance = False
+    return False
+
+
+async def hand_over_due_maintenance(db: AsyncSession, *, today: date | None = None) -> int:
+    """Daily job: make each parent's current support record active once its term starts.
+
+    For every parent whose active record has ended (or that has none), the
+    linked record covering today (latest start wins) is activated; the previous
+    period is snapshotted by ``activate_maintenance_for_parent``. Idempotent.
+    """
+    today = today or date.today()
+    current_links = await db.execute(
+        select(LicenseMaintenanceLink.parent_license_id, License)
+        .join(License, License.id == LicenseMaintenanceLink.maintenance_license_id)
+        .where(
+            License.license_type == LicenseType.maintenance,
+            License.is_retired.is_(False),
+            or_(License.start_date.is_(None), License.start_date <= today),
+            or_(License.end_date.is_(None), License.end_date >= today),
+        )
+    )
+    best_by_parent: dict[int, License] = {}
+    for parent_id, candidate in current_links.all():
+        best = best_by_parent.get(parent_id)
+        if best is None or (candidate.start_date or date.min, candidate.id) > (best.start_date or date.min, best.id):
+            best_by_parent[parent_id] = candidate
+    if not best_by_parent:
+        return 0
+
+    parents = (await db.execute(select(License).where(License.id.in_(best_by_parent)))).scalars().all()
+    handed_over = 0
+    for parent in parents:
+        candidate = best_by_parent[parent.id]
+        if parent.is_retired or parent.active_maintenance_id == candidate.id:
+            continue
+        if parent.active_maintenance_id is not None:
+            active = await db.get(License, parent.active_maintenance_id)
+            still_covering = (
+                active is not None
+                and not active.is_retired
+                and (active.start_date is None or active.start_date <= today)
+                and (active.end_date is None or active.end_date >= today)
+            )
+            if still_covering:
+                continue
+        await activate_maintenance_for_parent(db, candidate, parent)
+        handed_over += 1
+    if handed_over:
+        await db.commit()
+    return handed_over
+
+
 async def detach_maintenance_from_parent(
     db: AsyncSession,
     maintenance_license: License,
@@ -413,7 +514,7 @@ async def create_maintenance_for_parent(
     db.add(maintenance_license)
     await db.flush()
     maintenance_license.license_ref = await generate_license_ref(db)
-    await activate_maintenance_for_parent(db, maintenance_license, parent)
+    await link_or_activate_maintenance(db, maintenance_license, parent)
 
     return maintenance_license
 

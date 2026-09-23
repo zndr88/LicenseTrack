@@ -141,6 +141,7 @@ async def test_notifications_respect_notification_day_setting(
     )
     db_session.add_all([inside_window, outside_window])
     await db_session.commit()
+    invalidate_global_settings_cache()
 
     response = await test_app.get("/api/notifications", headers=auth_headers)
 

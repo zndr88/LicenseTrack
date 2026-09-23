@@ -88,15 +88,14 @@ async def set_planned_successors(
             raise HTTPException(status_code=422, detail="Successor publisher is required")
         if not is_renewable_license(successor) or successor.license_type in _NEVER_RENEWED_TYPES:
             raise HTTPException(status_code=422, detail="This successor type cannot be renewed")
-        if successor.license_type == LicenseType.maintenance:
-            raise HTTPException(status_code=422, detail="Planned maintenance successors are not available yet")
         for predecessor in predecessors:
             if normalize_entitlement_identity(predecessor.publisher_name) != successor_publisher:
                 raise HTTPException(status_code=422, detail="Linked terms must have the same publisher")
             if not is_renewable_license(predecessor) or predecessor.license_type in _NEVER_RENEWED_TYPES:
                 raise HTTPException(status_code=422, detail="This predecessor type cannot be renewed")
-            if predecessor.license_type == LicenseType.maintenance:
-                raise HTTPException(status_code=422, detail="Planned maintenance successors are not available yet")
+            # Support chains stay support: maintenance follows maintenance only.
+            if (predecessor.license_type == LicenseType.maintenance) != (successor.license_type == LicenseType.maintenance):
+                raise HTTPException(status_code=422, detail="Maintenance terms can only follow maintenance terms")
 
     changes = {item_id: successor_item_id for item_id in predecessor_item_ids}
     _assert_acyclic(all_items, changes)

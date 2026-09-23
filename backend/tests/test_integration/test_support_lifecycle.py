@@ -185,3 +185,120 @@ async def test_support_renewal_rejects_licenses_without_included_support(test_ap
     resp = await test_app.post(f"/api/licenses/{subscription['id']}/support-renewal", headers=auth_headers)
 
     assert resp.status_code == 400
+
+
+async def test_five_term_maintenance_chain_hands_over_year_by_year(test_app, auth_headers, db_session):
+    from app.services.maintenance_service import hand_over_due_maintenance
+
+    today = date.today()
+    parent = await _create(test_app, auth_headers, softwareDescription="Chain Server", maintenanceCoverage="separately_tracked")
+    terms = []
+    for year in range(5):
+        start = today.replace(day=1) + timedelta(days=366 * year)
+        terms.append((start, start + timedelta(days=364)))
+
+    def line(index: int, predecessor_id: int | None = None) -> dict:
+        start, end = terms[index]
+        return {
+            "publisherName": "Acme",
+            "softwareDescription": f"Chain Server Maintenance Y{index + 1}",
+            "licenseType": "maintenance",
+            "licenseMetric": "per_user",
+            "quantity": "1",
+            "estimatedUnitPrice": "100",
+            "currency": "EUR",
+            "startDate": start.isoformat(),
+            "endDate": end.isoformat(),
+            **({"maintenanceParentLicenseId": parent["id"]} if predecessor_id is None else {}),
+            **({"successorOfItemIds": [predecessor_id]} if predecessor_id else {}),
+        }
+
+    request = await test_app.post(
+        "/api/sourcing/requests", json={"supplier": "Acme Direct", "items": [line(0)]}, headers=auth_headers,
+    )
+    assert request.status_code == 201, request.text
+    items = [request.json()["items"][0]]
+    for index in range(1, 5):
+        added = await test_app.post(
+            f"/api/sourcing/requests/{request.json()['id']}/items", json=line(index, items[-1]["id"]), headers=auth_headers,
+        )
+        assert added.status_code == 201, added.text
+        items.append(added.json()["items"][-1])
+
+    order = await test_app.post(
+        f"/api/sourcing/requests/{request.json()['id']}/convert",
+        json={"poNumber": "PO-CHAIN", "supplier": "Acme Direct"},
+        headers=auth_headers,
+    )
+    assert order.status_code == 200, order.text
+    # Only the chain head names its parent; later terms inherit it at conversion.
+    converted = await test_app.post(
+        f"/api/pending-orders/{order.json()['id']}/convert-all",
+        json=[
+            {
+                "sourcingItemId": item["id"],
+                "publisherName": "Acme",
+                "softwareDescription": item["softwareDescription"],
+                "licenseType": "maintenance",
+                "licenseMetric": "per_user",
+                "quantity": "1",
+                "unitPrice": "100",
+                "currency": "EUR",
+                "startDate": item["startDate"],
+                "endDate": item["endDate"],
+                "purchaseDate": today.isoformat(),
+                **({"parentLicenseId": parent["id"]} if index == 0 else {}),
+            }
+            for index, item in enumerate(items)
+        ],
+        headers=auth_headers,
+    )
+    assert converted.status_code == 200, converted.text
+    records = sorted(
+        (row for row in converted.json() if row["licenseType"] == "maintenance"),
+        key=lambda row: row["startDate"],
+    )
+    assert len(records) == 5
+    assert all(row["parentLicenseId"] == parent["id"] for row in records)
+
+    refreshed = (await test_app.get(f"/api/licenses/{parent['id']}", headers=auth_headers)).json()
+    assert refreshed["activeMaintenanceId"] == records[0]["id"]
+    assert set(refreshed["linkedMaintenanceIds"]) == {row["id"] for row in records}
+
+    for year in range(1, 5):
+        assert await hand_over_due_maintenance(db_session, today=terms[year][0]) == 1
+        assert await hand_over_due_maintenance(db_session, today=terms[year][0]) == 0
+        db_session.expire_all()
+        refreshed = (await test_app.get(f"/api/licenses/{parent['id']}", headers=auth_headers)).json()
+        assert refreshed["activeMaintenanceId"] == records[year]["id"]
+
+    history = (await test_app.get(f"/api/licenses/{parent['id']}/coverage-history", headers=auth_headers)).json()
+    snapshotted = sorted(row["maintenanceLicenseId"] for row in history if row["sourceType"] == "maintenance_record")
+    assert snapshotted == sorted(row["id"] for row in records[:4])
+    assert [row["maintenanceLicenseId"] for row in history if row["sourceType"] == "current_maintenance_record"] == [records[4]["id"]]
+
+
+async def test_maintenance_cannot_follow_a_subscription_term(test_app, auth_headers):
+    request = await test_app.post(
+        "/api/sourcing/requests",
+        json={"supplier": "Acme Direct", "items": [{
+            "publisherName": "Acme", "softwareDescription": "Suite", "licenseType": "subscription",
+            "licenseMetric": "per_user", "quantity": "1", "currency": "EUR",
+            "startDate": "2027-01-01", "endDate": "2027-12-31",
+        }]},
+        headers=auth_headers,
+    )
+    head = request.json()["items"][0]
+
+    added = await test_app.post(
+        f"/api/sourcing/requests/{request.json()['id']}/items",
+        json={
+            "publisherName": "Acme", "softwareDescription": "Suite Maintenance", "licenseType": "maintenance",
+            "licenseMetric": "per_user", "quantity": "1", "currency": "EUR",
+            "startDate": "2028-01-01", "endDate": "2028-12-31", "successorOfItemIds": [head["id"]],
+        },
+        headers=auth_headers,
+    )
+
+    assert added.status_code == 422
+    assert "maintenance" in added.json()["detail"].lower()

@@ -198,7 +198,7 @@ async def test_shared_maintenance_successor_activates_compatibility_parent_first
 
     monkeypatch.setattr(
         renewal_orchestrator,
-        "activate_maintenance_for_parent",
+        "link_or_activate_maintenance",
         record_activation,
     )
 

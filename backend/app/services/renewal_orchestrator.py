@@ -29,7 +29,7 @@ from app.services.lifecycle_rules import (
     normalize_entitlement_identity,
 )
 from app.services.maintenance_service import (
-    activate_maintenance_for_parent,
+    link_or_activate_maintenance,
     validate_parent_license,
 )
 from app.services.maintenance_rules import (
@@ -265,7 +265,8 @@ async def _activate_maintenance_successor_for_all_parents(
     for parent_id in parent_ids:
         parent = parents_by_id.get(parent_id)
         if parent is not None:
-            await activate_maintenance_for_parent(db, successor, parent)
+            # A future-dated successor is linked now and handed over on its start date.
+            await link_or_activate_maintenance(db, successor, parent)
 
 
 def _assert_existing_successor_candidate(
