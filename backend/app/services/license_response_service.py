@@ -24,6 +24,8 @@ from app.services.license_service import (
     compute_completeness,
     compute_days_until_expiry,
     compute_expiration_status,
+    compute_support_days_remaining,
+    compute_support_status,
 )
 from app.services.settings_service import get_global_settings as _get_cached_global_settings
 
@@ -190,6 +192,8 @@ def enrich_license_response(
         notification_days,
         successor_start_date=successor.start_date if successor is not None else None,
     )
+    response.support_days_remaining = compute_support_days_remaining(license_obj, today)
+    response.support_status = compute_support_status(license_obj, today, notification_days)
     response.document_count = document_counts["total"]
     response.available_document_count = document_counts["available"]
     response.missing_document_count = document_counts["missing"]

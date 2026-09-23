@@ -12,6 +12,8 @@ const CHIPS = [
   { key: "_sep" },
   { key: "complete",        label: "Complete",   color: "var(--green)"       },
   { key: "incomplete",      label: "Incomplete", color: "var(--orange)"      },
+  { key: "_sep_support" },
+  { key: "support_due",     label: "Support due", color: "var(--orange)"     },
 ];
 
 export default function LicenseStatusFilter({ statusFilters, setStatusFilters, setCurrentPage }) {
@@ -31,7 +33,7 @@ export default function LicenseStatusFilter({ statusFilters, setStatusFilters, s
     <div className="lp-status-bar">
       <div className="lp-row2-left">
         {CHIPS.map((s) => {
-          if (s.key === "_sep") return <span key="_sep" className="lp-chip-sep" />;
+          if (s.key.startsWith("_sep")) return <span key={s.key} className="lp-chip-sep" />;
           const active = statusFilters.includes(s.key);
           return (
             <button

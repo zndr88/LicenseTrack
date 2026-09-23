@@ -79,3 +79,14 @@ describe("licenseTypeRules", () => {
     expect(getBudgetForecast([{ ...service, isRenewable: true }]).recurringRecords).toHaveLength(1);
   });
 });
+
+describe("support status", () => {
+  test("badges expiring and expired included support only", async () => {
+    const { supportStatusBadge, isSupportDue } = await import("../../utils/licenseTypeRules.js");
+    expect(supportStatusBadge({ supportStatus: "expiring", supportDaysRemaining: 12 })).toEqual({ type: "orange", label: "Support ends in 12d" });
+    expect(supportStatusBadge({ supportStatus: "expired", supportDaysRemaining: -3 })).toEqual({ type: "red", label: "Support expired" });
+    expect(supportStatusBadge({ supportStatus: "active" })).toBeNull();
+    expect(isSupportDue({ supportStatus: "expired" })).toBe(true);
+    expect(isSupportDue({ supportStatus: null })).toBe(false);
+  });
+});

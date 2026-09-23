@@ -48,3 +48,20 @@ export function typeOptInPayload(data) {
     typeDescription: data?.licenseType === "other" && description ? description : null,
   };
 }
+
+/** Registry/detail badge for included support on perpetual/OEM/freeware records. */
+export function supportStatusBadge(license) {
+  const days = license?.supportDaysRemaining;
+  if (license?.supportStatus === "expired") {
+    return { type: "red", label: "Support expired" };
+  }
+  if (license?.supportStatus === "expiring") {
+    return { type: "orange", label: days === 0 ? "Support ends today" : `Support ends in ${days}d` };
+  }
+  return null;
+}
+
+/** True when included support needs attention (expiring or expired). */
+export function isSupportDue(license) {
+  return ["expiring", "expired"].includes(license?.supportStatus);
+}

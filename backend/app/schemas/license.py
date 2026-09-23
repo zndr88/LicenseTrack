@@ -357,6 +357,9 @@ class LicenseResponse(LicenseBase):
     completeness_pct: Optional[int] = None
     days_until_expiry: Optional[int] = None
     expiration_status: Optional[str] = None
+    # Included support on perpetual/OEM/freeware: active | expiring | expired.
+    support_status: Optional[str] = None
+    support_days_remaining: Optional[int] = None
     document_count: int = 0
     available_document_count: int = 0
     missing_document_count: int = 0

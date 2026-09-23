@@ -7,7 +7,7 @@ import { formatCustomFieldValue } from "../../../utils/customFieldPresentation.j
 import { formatQuantity } from "../../../utils/quantity.js";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
 import { getCalcTotalValue } from "../../../utils/sort.js";
-import { renewableLabel } from "../../../utils/licenseTypeRules.js";
+import { renewableLabel, supportStatusBadge } from "../../../utils/licenseTypeRules.js";
 
 const INLINE_EDIT_CONFIG = {
   publisher: { fieldKey: "publisherName", inputType: "text", className: "pub-cell", referenceMode: "publisher" },
@@ -127,6 +127,7 @@ function InlineEditableCell({ license, col, config, currentValue, onInlineFieldS
 }
 
 function ExpirationCell({ license, upcomingReplacement }) {
+  const supportBadge = supportStatusBadge(license);
   return (
     <div className="lp-expiration-badges">
       {license.expiration.status === "retired" && <Badge type="gray">Retired</Badge>}
@@ -141,6 +142,7 @@ function ExpirationCell({ license, upcomingReplacement }) {
       {upcomingReplacement && <Badge type="blue">{upcomingReplacement.label}</Badge>}
       {upcomingReplacement?.hasCoverageGap && <Badge type="orange">Coverage gap</Badge>}
       {license.lifecycleStatus === "pending_renewal" && <span className="badge badge-pending"><span className="badge-dot" />Pending Renewal</span>}
+      {supportBadge && <Badge type={supportBadge.type}>{supportBadge.label}</Badge>}
     </div>
   );
 }

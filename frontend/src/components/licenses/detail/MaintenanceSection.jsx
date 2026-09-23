@@ -11,6 +11,8 @@ import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
 import CoverageHistoryModal from "./CoverageHistoryModal.jsx";
+import Badge from "../../ui/Badge.jsx";
+import { supportStatusBadge } from "../../../utils/licenseTypeRules.js";
 
 export default function MaintenanceSection({
   license,
@@ -38,6 +40,7 @@ export default function MaintenanceSection({
   const [showCoverageHistory, setShowCoverageHistory] = useState(false);
   const prior = maintenanceHistory.filter((m) => m.id !== license.activeMaintenanceId);
   const coverage = license.maintenanceCoverage || "unknown";
+  const supportBadge = supportStatusBadge(license);
   const coverageLabel = MAINTENANCE_COVERAGE_OPTIONS.find((option) => option.value === coverage)?.label || coverage;
   const canLinkSupportRecord = coverage === "separately_tracked" && supportsSeparateMaintenanceLine(license.licenseType);
   const activeMaintenance = maintenanceHistory.find((item) => item.id === license.activeMaintenanceId);
@@ -68,7 +71,10 @@ export default function MaintenanceSection({
           <div className="dp-field" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div>
               <span className="dp-field-label">Coverage</span>
-              <div className="val">{coverageLabel}</div>
+              <div className="val">
+                {coverageLabel}
+                {supportBadge && <span style={{ marginLeft: 8 }}><Badge type={supportBadge.type}>{supportBadge.label}</Badge></span>}
+              </div>
             </div>
             {perms.canEdit && (
               <button

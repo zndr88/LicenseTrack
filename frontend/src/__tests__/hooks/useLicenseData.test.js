@@ -559,3 +559,14 @@ describe("useLicenseData — columnFilters", () => {
     expect(result.current.filtered.length).toBe(2)
   })
 })
+
+describe("support due filter", () => {
+  it("keeps only licenses whose included support is expiring or expired", () => {
+    const due = makeLicense({ supportStatus: "expiring", supportDaysRemaining: 5 })
+    const expired = makeLicense({ supportStatus: "expired", supportDaysRemaining: -5 })
+    const fine = makeLicense({ supportStatus: "active" })
+    const { result } = renderHook(() => useLicenseData([due, expired, fine], { ...defaultOptions, statusFilters: ["support_due"] }))
+
+    expect(result.current.filtered.map((license) => license.id)).toEqual([due.id, expired.id])
+  })
+})

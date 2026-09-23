@@ -156,6 +156,39 @@ def type_description_missing(license_type, type_description: str | None) -> bool
 TYPE_DESCRIPTION_REQUIRED_DETAIL = "Add a type description for an Other license"
 
 
+# Types whose support can be included with the purchase and expire on its own.
+INCLUDED_SUPPORT_PARENT_TYPES = frozenset({LicenseType.perpetual, LicenseType.oem, LicenseType.freeware})
+
+
+def compute_support_days_remaining(license_obj, today: date) -> int | None:
+    """Days until included support ends, for records that carry an included support period."""
+    if getattr(license_obj, "license_type", None) not in INCLUDED_SUPPORT_PARENT_TYPES:
+        return None
+    if getattr(license_obj, "maintenance_coverage", None) not in (
+        MaintenanceCoverage.included,
+        MaintenanceCoverage.included.value,
+    ):
+        return None
+    end_date = getattr(license_obj, "maintenance_end_date", None)
+    if not isinstance(end_date, date):
+        return None
+    if getattr(license_obj, "is_retired", False) or getattr(license_obj, "lifecycle_status", None) == "legacy":
+        return None
+    return (end_date - today).days
+
+
+def compute_support_status(license_obj, today: date, notification_days: int) -> str | None:
+    """Included-support status for perpetual/OEM/freeware: active, expiring, expired or None."""
+    days = compute_support_days_remaining(license_obj, today)
+    if days is None:
+        return None
+    if days < 0:
+        return "expired"
+    if days <= notification_days:
+        return "expiring"
+    return "active"
+
+
 def is_recurring_license(license_obj) -> bool:
     """Whether the license line itself is a recurring (annual-cost) charge."""
     license_type = getattr(license_obj, "license_type", None)

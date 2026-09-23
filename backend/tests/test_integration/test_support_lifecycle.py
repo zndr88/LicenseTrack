@@ -103,3 +103,16 @@ async def test_legacy_switched_parent_snapshots_its_leftover_period_on_first_mai
     )
 
     assert await _included_history(test_app, auth_headers, parent["id"]) == [("2024-01-01", "2024-12-31")]
+
+
+async def test_license_response_carries_support_status(test_app, auth_headers):
+    soon = (date.today() + timedelta(days=10)).isoformat()
+    parent = await _create(
+        test_app, auth_headers, maintenanceCoverage="included",
+        maintenanceStartDate="2024-01-01", maintenanceEndDate=soon, maintenanceCost="100",
+    )
+    subscription = await _create(test_app, auth_headers, licenseType="subscription", endDate=soon)
+
+    assert parent["supportStatus"] == "expiring"
+    assert parent["supportDaysRemaining"] == 10
+    assert subscription["supportStatus"] is None

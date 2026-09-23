@@ -780,3 +780,36 @@ def test_compute_stats_mixed_canonical_and_non_canonical():
     )
     assert stats["excluded_from_totals"] == 1
     assert stats["annual_cost_by_currency"] == {"EUR": 300.0}
+
+
+@pytest.mark.parametrize(
+    ("days", "expected"),
+    [(-1, "expired"), (0, "expiring"), (30, "expiring"), (31, "active")],
+)
+def test_support_status_for_included_perpetual_support(days, expected):
+    from app.services.license_service import compute_support_status
+
+    today = date(2026, 9, 23)
+    lic = make_license(
+        license_type="perpetual", maintenance_coverage="included", maintenance_end_date=today + timedelta(days=days),
+    )
+
+    assert compute_support_status(lic, today, 30) == expected
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"license_type": "subscription", "maintenance_coverage": "included"},
+        {"license_type": "saas", "maintenance_coverage": "included"},
+        {"license_type": "perpetual", "maintenance_coverage": "separately_tracked"},
+        {"license_type": "oem", "maintenance_coverage": "included", "is_retired": True},
+    ],
+)
+def test_no_support_status_outside_included_perpetual_support(overrides):
+    from app.services.license_service import compute_support_status
+
+    today = date(2026, 9, 23)
+    lic = make_license(maintenance_end_date=today + timedelta(days=5), **overrides)
+
+    assert compute_support_status(lic, today, 30) is None

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { getCompleteness, getExpirationPresentation } from "../utils/helpers.js";
 import { parseLocalizedNumber } from "../utils/formatting.js";
 import { finiteNumber, getSortValue } from "../utils/sort.js";
+import { isSupportDue } from "../utils/licenseTypeRules.js";
 
 function statNumber(value, fallback = 0) {
   const n = Number(value ?? fallback);
@@ -56,6 +57,7 @@ export function useLicenseData(licenses, {
       values,
       hasLifecycleFilters: lifecycleKeys.some((key) => values.has(key)),
       hasCompletenessFilters: completenessKeys.some((key) => values.has(key)),
+      supportDueOnly: values.has("support_due"),
     };
   }, [statusFilters]);
 
@@ -101,6 +103,8 @@ export function useLicenseData(licenses, {
       );
       if (!matchesLifecycle) return false;
     }
+
+    if (activeStatusFilters.supportDueOnly && !isSupportDue(l)) return false;
 
     if (activeStatusFilters.hasCompletenessFilters) {
       const { values } = activeStatusFilters;
