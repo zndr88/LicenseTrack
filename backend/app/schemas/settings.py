@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 import re
+from urllib.parse import urlsplit
 from typing import Literal, Optional
 
 import zoneinfo
@@ -99,6 +100,7 @@ class GlobalSettingsUpdate(BaseModel):
     smtp_encryption: Optional[Literal["none", "starttls", "tls"]] = None
     notification_send_hour: Optional[int] = Field(default=None, ge=0, le=23)
     allowed_email_domains: Optional[str] = Field(default=None, max_length=1000)
+    public_base_url: Optional[str] = Field(default=None, max_length=500)
     backup_location: Optional[str] = Field(default=None, max_length=500)
     backup_enabled: Optional[bool] = None
     backup_hour: Optional[int] = Field(default=None, ge=0, le=23)
@@ -124,6 +126,21 @@ class GlobalSettingsUpdate(BaseModel):
         if not isinstance(v, str):
             return v
         return reject_email_crlf(v)
+
+    @field_validator("public_base_url", mode="before")
+    @classmethod
+    def _validate_public_base_url(cls, value: object) -> object:
+        if value is None:
+            return None
+        text = str(value).strip().rstrip("/")
+        if not text:
+            return ""
+        parsed = urlsplit(text)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.query or parsed.fragment:
+            raise ValueError("Public URL must be an http(s) address such as https://licenses.example.com.")
+        if any(character in text for character in ("\r", "\n", " ", "<", ">", '"')):
+            raise ValueError("Public URL contains invalid characters.")
+        return text
 
     @field_validator("high_value_thresholds", mode="before")
     @classmethod
@@ -169,6 +186,7 @@ class GlobalSettingsResponse(BaseModel):
     smtp_encryption: Literal["none", "starttls", "tls"] = "starttls"
     notification_send_hour: int
     allowed_email_domains: str
+    public_base_url: str = ""
     backup_location: str = "./backups"
     backup_enabled: bool = False
     backup_hour: int = 2

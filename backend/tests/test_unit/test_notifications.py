@@ -862,3 +862,14 @@ async def test_notification_run_finalization_records_success_and_releases_claim(
     assert settings.last_notification_status == "success"
     assert settings.last_notification_sent_date == datetime.now(timezone.utc).date()
     assert settings.last_notification_summary["budget_owner_emails_sent"] == 1
+
+
+def test_emails_link_licenses_only_when_a_public_url_is_configured():
+    from app.services.notification_sender import license_detail_url
+
+    linked = {**_make_license_entry(), "detail_url": license_detail_url("https://lt.example.com/", 42)}
+    plain = {**_make_license_entry(), "detail_url": license_detail_url("", 42)}
+
+    assert 'href="https://lt.example.com/licenses/42"' in email_templates.budget_owner_alert([linked])
+    assert "href=" not in email_templates.budget_owner_alert([plain])
+    assert 'href="https://lt.example.com/licenses/42"' in email_templates.manager_digest([{**linked, "type": "expiring"}])

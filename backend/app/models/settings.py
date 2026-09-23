@@ -109,6 +109,10 @@ class GlobalSettings(Base):
     # Email domain whitelist (comma-separated, e.g. "company.com,subsidiary.com")
     allowed_email_domains: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
+    # Public address of the app (e.g. https://licenses.example.com). When set,
+    # notification emails link each license to {base}/licenses/{id}.
+    public_base_url: Mapped[str] = mapped_column(String(500), nullable=False, default="", server_default="")
+
     # Database backup settings
     backup_location: Mapped[str] = mapped_column(String(500), nullable=False, default=lambda: settings.BACKUP_LOCATION)
     backup_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

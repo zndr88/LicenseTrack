@@ -341,7 +341,12 @@ async def _classify_notifications(
             expiry_notifications_enabled=getattr(license_obj, "renewal_notifications_enabled", True),
         )
         for alert in alerts:
-            entry = _build_license_entry(license_obj, alert, parent_map=parent_map)
+            entry = _build_license_entry(
+                license_obj,
+                alert,
+                parent_map=parent_map,
+                public_base_url=getattr(gs, "public_base_url", None),
+            )
             all_notifications.append(entry)
             if alert["type"] in {"expired", "expiring"} and license_obj.budget_owner_email:
                 expiring_by_owner.setdefault(license_obj.budget_owner_email, []).append(entry)
@@ -381,12 +386,22 @@ async def run_daily_notifications(db: AsyncSession) -> dict[str, Any]:
     return summary
 
 
+def license_detail_url(public_base_url: str | None, license_id: int | None) -> str | None:
+    """Deep link to a license, or None when no public base URL is configured."""
+    base = (public_base_url or "").strip().rstrip("/")
+    if not base or license_id is None:
+        return None
+    return f"{base}/licenses/{license_id}"
+
+
 def _build_license_entry(
     license_obj: License,
     alert: dict[str, Any],
     parent_map: dict[int, License] | None = None,
+    public_base_url: str | None = None,
 ) -> dict[str, Any]:
     entry = {
+        "detail_url": license_detail_url(public_base_url, license_obj.id),
         **alert,
         "type": alert["type"],
         "license_type": license_obj.license_type.value if license_obj.license_type else "",

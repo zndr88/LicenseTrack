@@ -759,3 +759,18 @@ async def test_global_settings_accept_per_currency_thresholds(test_app, auth_hea
     assert resp.status_code == 200, resp.text
     assert resp.json()["high_value_thresholds"] == {"EUR": "50000", "SEK": "500000"}
     assert invalid.status_code == 422
+
+
+async def test_global_settings_validate_public_base_url(test_app, auth_headers):
+    saved = await test_app.put(
+        "/api/settings/global", json={"public_base_url": "https://lt.example.com/"}, headers=auth_headers,
+    )
+    rejected = await test_app.put(
+        "/api/settings/global", json={"public_base_url": "javascript:alert(1)"}, headers=auth_headers,
+    )
+    cleared = await test_app.put("/api/settings/global", json={"public_base_url": ""}, headers=auth_headers)
+
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["public_base_url"] == "https://lt.example.com"
+    assert rejected.status_code == 422
+    assert cleared.json()["public_base_url"] == ""

@@ -46,6 +46,13 @@ def _html_text(value: object) -> str:
     return escape(str(value), quote=True)
 
 
+def _linked(html_text: str, url: object) -> str:
+    """Wrap already-escaped text in a link when a detail URL is available."""
+    if not url:
+        return html_text
+    return f'<a href="{escape(str(url), quote=True)}" style="color: #1d4ed8;">{html_text}</a>'
+
+
 def _html_plain_text(value: object) -> str:
     """Escape plain text while preserving intentional line breaks."""
     return _html_text(value).replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>")
@@ -148,7 +155,7 @@ def budget_owner_alert(
             po_sections += (
                 f"<tr>"
                 f"<td {td}>{_html_text(lic.get('publisher_name', ''))}</td>"
-                f"<td {td}>{description_display}</td>"
+                f"<td {td}>{_linked(description_display, lic.get('detail_url'))}</td>"
                 f"<td {td}>{_html_text(lic.get('quantity', ''))}</td>"
                 f"<td {td}>{_html_text(lic.get('start_date', ''))}</td>"
                 f"<td {td}>{_html_text(lic.get('end_date', ''))}</td>"
@@ -239,7 +246,7 @@ def manager_digest(
                 detail = f"{n.get('completeness_pct', 0)}% complete"
         is_maintenance = n.get("license_type") == "maintenance"
         title_html = (
-            f'<div style="font-weight: 600; font-size: 13px; color: #1e293b;">{_html_text(n.get("software_description", ""))}</div>'
+            f'<div style="font-weight: 600; font-size: 13px; color: #1e293b;">{_linked(_html_text(n.get("software_description", "")), n.get("detail_url"))}</div>'
         )
         if is_maintenance and n.get("parent_software_description"):
             title_html += (
