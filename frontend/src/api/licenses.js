@@ -152,6 +152,15 @@ export async function initiateRenewal(id) {
   return post(`/api/licenses/${id}/initiate-renewal`, {});
 }
 
+/**
+ * Start procurement for the next support period of a perpetual/OEM/freeware
+ * license with included support. Creates a sourcing request with one
+ * maintenance line that carries the license as its parent.
+ */
+export async function startSupportRenewal(id) {
+  return post(`/api/licenses/${id}/support-renewal`, {});
+}
+
 /** Complete a renewal by adopting an existing purchased license as successor. */
 export async function linkExistingSuccessor(id, successorLicenseId) {
   return post(`/api/licenses/${id}/link-existing-successor`, { successorLicenseId });

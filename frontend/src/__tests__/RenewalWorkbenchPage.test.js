@@ -57,6 +57,15 @@ describe("RenewalWorkbenchPage helpers", () => {
     expect(getViewCounts(rows, {}).high_value).toBe(1);
   });
 
+  test("support rows offer the procurement route and never the license renewal action", () => {
+    const support = row({ rowKind: "support_renewal", licenseId: 9 });
+    const options = { canOpenPipeline: true, canStartRenewal: true, renewalActionDays: 30 };
+
+    expect(getPrimaryAction(support, options)).toBe("start_support");
+    expect(getPrimaryAction({ ...support, sourcingItemId: 4, renewalStatus: "in_sourcing" }, options)).toBe("sourcing");
+    expect(getPrimaryAction(support, { ...options, canStartRenewal: false })).toBeNull();
+  });
+
   test("uses the notice deadline when it comes before the end date", () => {
     const noticeDriven = row({ licenseId: 5, daysUntilExpiry: 100, daysUntilNotice: 10, noticeDate: "2026-10-03" });
     const endDriven = row({ licenseId: 6, daysUntilExpiry: 40 });

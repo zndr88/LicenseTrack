@@ -64,7 +64,7 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       portalUrl:           renewal?.portalUrl || "",
       isRenewable:         si.isRenewable ?? renewal?.isRenewable ?? false,
       typeDescription:     si.typeDescription || renewal?.typeDescription || "",
-      parentLicenseId:     si.parentSourcingItemId ? "" : renewal?.parentLicenseId || "",
+      parentLicenseId:     si.parentSourcingItemId ? "" : si.maintenanceParentLicenseId || renewal?.parentLicenseId || "",
       parentSourcingItemId: si.parentSourcingItemId || "",
       maintenanceCoverage,
       maintenanceStartDate: si.maintenanceStartDate || renewal?.maintenanceStartDate || "",

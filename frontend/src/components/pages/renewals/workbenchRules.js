@@ -214,10 +214,20 @@ export function getRiskFlagDisplay(flags = [], limit = 3) {
   };
 }
 
+export function isSupportRow(row) {
+  return row?.rowKind === "support_renewal";
+}
+
+export function workbenchRowKey(row) {
+  return `${row.rowKind || "license"}-${row.licenseId}`;
+}
+
 export function getPrimaryAction(row, { canOpenPipeline, canStartRenewal, renewalActionDays = 30 }) {
   const inProgress = IN_PROGRESS_STATUSES.has(row.renewalStatus);
   if (canOpenPipeline && row.pendingOrderId) return "po";
   if (canOpenPipeline && row.sourcingItemId) return "sourcing";
+  // Included support ending: procurement is the primary route.
+  if (isSupportRow(row)) return canStartRenewal && !inProgress ? "start_support" : null;
   if (
     canStartRenewal
     && !inProgress

@@ -9,6 +9,7 @@ import {
   effectiveDeadlineDays,
   noticeIsEarlierDeadline,
   rowTone,
+  workbenchRowKey,
 } from "./workbenchRules.js";
 import {
   formatDate,
@@ -23,7 +24,7 @@ function formatDays(days) {
   return `${days}d`;
 }
 
-function renderCell(column, row, { startingId, locale, userSettings, canStartRenewal, canOpenPipeline, renewalActionDays, onNavigateToLicense, onNavigateToSourcing, onNavigateToPendingOrder, onStartRenewal }) {
+function renderCell(column, row, { startingId, locale, userSettings, canStartRenewal, canOpenPipeline, renewalActionDays, onNavigateToLicense, onNavigateToSourcing, onNavigateToPendingOrder, onStartRenewal, onStartSupportRenewal, onRecordSupport }) {
   const risks = getRiskFlagDisplay(row.riskFlags ?? []);
   const hiddenRiskTitle = risks.hidden.map((flag) => flag.label).join(", ");
   const primaryAction = getPrimaryAction(row, { canOpenPipeline, canStartRenewal, renewalActionDays });
@@ -114,6 +115,35 @@ function renderCell(column, row, { startingId, locale, userSettings, canStartRen
                 {startingId === row.licenseId ? "Initiating" : "Initiate Renewal"}
               </button>
             )}
+            {primaryAction === "start_support" && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-p rw-action-btn"
+                  aria-label={`Start support renewal for ${row.softwareDescription}`}
+                  title="Create a sourcing request for the next support period"
+                  disabled={startingId === row.licenseId}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onStartSupportRenewal?.(row);
+                  }}
+                >
+                  {startingId === row.licenseId ? "Starting" : "Start support renewal"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-g rw-action-btn"
+                  aria-label={`Record existing support for ${row.softwareDescription}`}
+                  title="Support was already bought: record it directly"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRecordSupport?.(row);
+                  }}
+                >
+                  Record support
+                </button>
+              </>
+            )}
             {primaryAction === "sourcing" && (
               <button
                 type="button"
@@ -175,8 +205,10 @@ export default function RenewalWorkbenchTable({
   onNavigateToSourcing,
   onNavigateToPendingOrder,
   onStartRenewal,
+  onStartSupportRenewal,
+  onRecordSupport,
 }) {
-  const cellContext = { startingId, locale, userSettings, canStartRenewal, canOpenPipeline, renewalActionDays, onNavigateToLicense, onNavigateToSourcing, onNavigateToPendingOrder, onStartRenewal };
+  const cellContext = { startingId, locale, userSettings, canStartRenewal, canOpenPipeline, renewalActionDays, onNavigateToLicense, onNavigateToSourcing, onNavigateToPendingOrder, onStartRenewal, onStartSupportRenewal, onRecordSupport };
 
   return (
     <div className="lp-tbl-wrap">
@@ -191,7 +223,7 @@ export default function RenewalWorkbenchTable({
         <tbody>
           {visibleRows.map((row) => (
             <tr
-              key={row.licenseId}
+              key={workbenchRowKey(row)}
               tabIndex={0}
               style={rowTone(row)}
               onClick={() => onNavigateToLicense?.(row.licenseId)}

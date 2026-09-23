@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { cancelRenewal, initiateRenewal, initiateRenewalBundle } from "../api/licenses.js";
+import { cancelRenewal, initiateRenewal, initiateRenewalBundle, startSupportRenewal as requestSupportRenewal } from "../api/licenses.js";
 import { queryKeys } from "../queryKeys.js";
 import { invalidateRenewalWorkflow } from "../queryInvalidation.js";
 import { updateLicensesInQueryData } from "../utils/licenseQueryData.js";
@@ -106,6 +106,21 @@ export function useRenewalWorkflowActions({
     updateLicenseCache,
   ]);
 
+  const startSupportRenewal = useCallback(async (licenseId) => {
+    const { data, error } = await requestSupportRenewal(licenseId);
+    if (error) {
+      showError?.(error);
+      return { ok: false, error };
+    }
+    if (data?.sourcingItem) {
+      queryClient.setQueryData(queryKeys.sourcingItems, (prev) => [data.sourcingItem, ...(prev ?? [])]);
+    }
+    queryClient.invalidateQueries({ queryKey: queryKeys.sourcing });
+    onSourcingCreated?.(data?.sourcingItem);
+    refreshWorkflow();
+    return { ok: true, data };
+  }, [onSourcingCreated, queryClient, refreshWorkflow, showError]);
+
   const cancelRenewalWorkflow = useCallback(async (licenseId) => {
     const { data, error } = await cancelRenewal(licenseId);
     if (error) {
@@ -131,6 +146,7 @@ export function useRenewalWorkflowActions({
   return {
     startRenewal,
     startRenewalBundle,
+    startSupportRenewal,
     cancelRenewal: cancelRenewalWorkflow,
   };
 }

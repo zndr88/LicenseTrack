@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRenewalWorkbench } from "../../api/renewals.js";
 import { updateSettings } from "../../api/settings.js";
-import { isEditorOrAdmin } from "../../utils/helpers.js";
+import { isEditorOrAdmin, normalizeLicense } from "../../utils/helpers.js";
+import { getLicense } from "../../api/licenses.js";
+import MaintenanceCreateModal from "../licenses/MaintenanceCreateModal.jsx";
 import { queryKeys } from "../../queryKeys.js";
 import { useRenewalWorkflowActions } from "../../hooks/useRenewalWorkflowActions.js";
 import { fetchCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
@@ -13,6 +15,7 @@ import {
   VIEW_OPTIONS,
   includesSearch,
   getViewCounts,
+  isSupportRow,
   prioritySortRows,
 } from "./renewals/workbenchRules.js";
 import {
@@ -43,7 +46,8 @@ export default function RenewalWorkbenchPage({
   onNavigateToPendingOrder,
 }) {
   const queryClient = useQueryClient();
-  const { startRenewal, startRenewalBundle } = useRenewalWorkflowActions({ showError });
+  const { startRenewal, startRenewalBundle, startSupportRenewal } = useRenewalWorkflowActions({ showError });
+  const [supportRecordLicense, setSupportRecordLicense] = useState(null);
   const [view, setView] = useState("all");
   const [search, setSearch] = useState("");
   const [startingId, setStartingId] = useState(null);
@@ -87,7 +91,7 @@ export default function RenewalWorkbenchPage({
   );
 
   const bundleCandidates = useMemo(
-    () => summaryRows.map((row) => ({
+    () => summaryRows.filter((row) => !isSupportRow(row)).map((row) => ({
       ...row,
       id: row.licenseId,
       poNumber: row.poNumber,
@@ -152,8 +156,39 @@ export default function RenewalWorkbenchPage({
     if (result.ok) showSuccess?.(licenseIds.length > 1 ? "Renewal bundle started." : "Renewal started.");
   };
 
+  const handleStartSupportRenewal = async (row) => {
+    setStartingId(row.licenseId);
+    const result = await startSupportRenewal(row.licenseId);
+    setStartingId(null);
+    if (result.ok) showSuccess?.("Support renewal started. A sourcing request was created.");
+  };
+
+  const handleRecordSupport = async (row) => {
+    const { data, error: licenseError } = await getLicense(row.licenseId);
+    if (licenseError || !data) {
+      showError?.(licenseError || "Could not load the license.");
+      return;
+    }
+    setSupportRecordLicense(normalizeLicense(data));
+  };
+
   return (
     <>
+      {supportRecordLicense && (
+        <MaintenanceCreateModal
+          parentLicense={supportRecordLicense}
+          userSettings={userSettings}
+          onSuccess={async () => {
+            setSupportRecordLicense(null);
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: queryKeys.renewals }),
+              queryClient.invalidateQueries({ queryKey: queryKeys.licenses }),
+            ]);
+            showSuccess?.("Support record saved.");
+          }}
+          onClose={() => setSupportRecordLicense(null)}
+        />
+      )}
       <div className="page-header">
         <h2>Renewal Workbench</h2>
         <p>{subtitle}</p>
@@ -263,6 +298,8 @@ export default function RenewalWorkbenchPage({
                 onNavigateToSourcing={onNavigateToSourcing}
                 onNavigateToPendingOrder={onNavigateToPendingOrder}
                 onStartRenewal={handleStartRenewal}
+                onStartSupportRenewal={handleStartSupportRenewal}
+                onRecordSupport={handleRecordSupport}
               />
             )}
           </div>
