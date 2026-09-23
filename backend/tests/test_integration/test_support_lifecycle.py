@@ -116,3 +116,72 @@ async def test_license_response_carries_support_status(test_app, auth_headers):
     assert parent["supportStatus"] == "expiring"
     assert parent["supportDaysRemaining"] == 10
     assert subscription["supportStatus"] is None
+
+
+async def test_support_renewal_runs_through_procurement_to_an_active_support_record(test_app, auth_headers):
+    import json
+
+    support_end = date.today() + timedelta(days=20)
+    parent = await _create(
+        test_app, auth_headers, maintenanceCoverage="included", supplier="Reseller",
+        maintenanceStartDate=(support_end - timedelta(days=364)).isoformat(),
+        maintenanceEndDate=support_end.isoformat(), maintenanceCost="2000",
+    )
+
+    rows = (await test_app.get("/api/renewals/workbench", headers=auth_headers)).json()
+    row = next(row for row in rows if row["licenseId"] == parent["id"])
+    assert row["rowKind"] == "support_renewal"
+    assert row["renewalStatus"] == "due_soon"
+    assert row["daysUntilExpiry"] == 20
+
+    started = await test_app.post(f"/api/licenses/{parent['id']}/support-renewal", headers=auth_headers)
+    assert started.status_code == 201, started.text
+    line = started.json()["sourcingItem"]
+    assert line["licenseType"] == "maintenance"
+    assert line["maintenanceParentLicenseId"] == parent["id"]
+    assert line["startDate"] == (support_end + timedelta(days=1)).isoformat()
+    again = await test_app.post(f"/api/licenses/{parent['id']}/support-renewal", headers=auth_headers)
+    assert again.status_code == 409
+
+    rows = (await test_app.get("/api/renewals/workbench", headers=auth_headers)).json()
+    assert next(row for row in rows if row["licenseId"] == parent["id"])["renewalStatus"] == "in_sourcing"
+
+    po = await test_app.post(
+        f"/api/sourcing/{line['id']}/convert", json={"poNumber": "PO-SUPPORT", "supplier": "Reseller"}, headers=auth_headers,
+    )
+    assert po.status_code == 200, po.text
+    converted = await test_app.post(
+        f"/api/pending-orders/{po.json()['id']}/convert",
+        data={"data": json.dumps({
+            "publisherName": "Acme",
+            "softwareDescription": "Acme Server Maintenance",
+            "licenseType": "maintenance",
+            "licenseMetric": "per_user",
+            "quantity": "1",
+            "unitPrice": "2100",
+            "currency": "EUR",
+            "startDate": line["startDate"],
+            "endDate": line["endDate"],
+            "purchaseDate": date.today().isoformat(),
+        })},
+        headers=auth_headers,
+    )
+    assert converted.status_code == 200, converted.text
+    maintenance = next(row for row in converted.json() if row["licenseType"] == "maintenance")
+
+    refreshed = (await test_app.get(f"/api/licenses/{parent['id']}", headers=auth_headers)).json()
+    assert refreshed["activeMaintenanceId"] == maintenance["id"]
+    assert refreshed["maintenanceCoverage"] == "separately_tracked"
+    assert await _included_history(test_app, auth_headers, parent["id"]) == [
+        ((support_end - timedelta(days=364)).isoformat(), support_end.isoformat()),
+    ]
+    rows = (await test_app.get("/api/renewals/workbench", headers=auth_headers)).json()
+    assert parent["id"] not in {row["licenseId"] for row in rows if row["rowKind"] == "support_renewal"}
+
+
+async def test_support_renewal_rejects_licenses_without_included_support(test_app, auth_headers):
+    subscription = await _create(test_app, auth_headers, licenseType="subscription", endDate="2027-01-01")
+
+    resp = await test_app.post(f"/api/licenses/{subscription['id']}/support-renewal", headers=auth_headers)
+
+    assert resp.status_code == 400

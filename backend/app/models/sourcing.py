@@ -84,6 +84,11 @@ class SourcingItem(Base):
     portal_url: Mapped[str | None] = mapped_column(String, nullable=True)
     is_renewable: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     type_description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # For a maintenance line: the license it supports, known from the start
+    # (e.g. a "Start support renewal" request). Pre-fills the parent at conversion.
+    maintenance_parent_license_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("licenses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     maintenance_coverage: Mapped[MaintenanceCoverage | None] = mapped_column(
         Enum(MaintenanceCoverage), nullable=True
     )

@@ -43,6 +43,9 @@ class RenewalWorkbenchRow(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     license_id: int
+    # "support_renewal" rows track the included support of a perpetual/OEM/
+    # freeware license; their end date and days describe the support period.
+    row_kind: Literal["license", "support_renewal"] = "license"
     license_ref: str | None = None
     publisher_name: str
     software_description: str

@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.custom_fields import CustomFieldValue
 from app.models.document import ProcurementDocument
-from app.models.license import License
+from app.models.license import License, MaintenanceCoverage
 from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User
@@ -21,7 +21,9 @@ from app.schemas.renewal import (
 from app.services.access_service import apply_department_filter, get_viewer_departments
 from app.services.document_availability_service import available_documents
 from app.services.license_service import (
+    INCLUDED_SUPPORT_PARENT_TYPES,
     RENEWAL_OPT_IN_LICENSE_TYPES,
+    annualize_term_cost,
     compute_completeness,
     compute_days_until_expiry,
 )
@@ -34,7 +36,9 @@ from app.services.renewal_workbench_model import (
     estimate_annual_value,
     matches_workbench_view,
 )
+from app.services.money import MoneyParseError, parse_money
 from app.services.sourcing_service import sourcing_item_predecessor_ids
+from app.services.support_renewal_service import open_support_renewal_filter
 
 
 
@@ -50,9 +54,8 @@ async def get_renewal_workbench_rows(
 
     mandatory_fields, high_value_thresholds, storage_base = await _get_global_settings(db)
     licenses = await _load_candidate_licenses(db, current_user, cutoff)
-    if not licenses:
-        return []
 
+    support_parents = await _load_support_candidates(db, current_user, cutoff)
     license_ids = [lic.id for lic in licenses]
     sourcing_by_license_id = await _load_renewal_sourcing_items(db, license_ids)
     custom_fields_by_license_id = await _load_custom_fields(db, license_ids)
@@ -72,6 +75,22 @@ async def get_renewal_workbench_rows(
         )
         for lic in licenses
     ]
+    if support_parents:
+        support_items = await _load_support_renewal_items(db, [parent.id for parent in support_parents])
+        support_documents = await get_procurement_documents_by_scope(db, support_parents)
+        rows.extend(
+            _build_support_row(
+                parent,
+                sourcing_item=support_items.get(parent.id),
+                procurement_documents=support_documents.get(parent.id, []),
+                mandatory_fields=mandatory_fields,
+                window_days=window_days,
+                today=today,
+                high_value_thresholds=high_value_thresholds,
+                storage_base=storage_base,
+            )
+            for parent in support_parents
+        )
     # Act on whichever deadline comes first: the notice date or the end date.
     rows.sort(key=lambda row: (
         (deadline := effective_deadline_days(row.days_until_expiry, row.days_until_notice)) is None,
@@ -142,6 +161,116 @@ async def _load_candidate_licenses(
     query = apply_department_filter(query, departments)
     result = await db.execute(query)
     return list(result.scalars().all())
+
+
+async def _load_support_candidates(
+    db: AsyncSession,
+    current_user: User,
+    cutoff: date,
+) -> list[License]:
+    """Perpetual/OEM/freeware licenses whose included support ends inside the window."""
+    departments = await get_viewer_departments(current_user.id, db) if current_user.role == "viewer" else None
+    query = (
+        select(License)
+        .where(License.license_type.in_(INCLUDED_SUPPORT_PARENT_TYPES))
+        .where(License.maintenance_coverage == MaintenanceCoverage.included)
+        .where(License.maintenance_end_date.isnot(None))
+        .where(License.maintenance_end_date <= cutoff)
+        .where(License.is_retired.is_(False))
+        .where(or_(License.lifecycle_status.is_(None), License.lifecycle_status != "legacy"))
+        .options(selectinload(License.documents))
+        .order_by(License.maintenance_end_date, License.publisher_name, License.id)
+    )
+    query = apply_department_filter(query, departments)
+    return list((await db.execute(query)).scalars().all())
+
+
+async def _load_support_renewal_items(db: AsyncSession, parent_ids: list[int]) -> dict[int, SourcingItem]:
+    """Open support-renewal lines keyed by the license they support."""
+    result = await db.execute(
+        select(SourcingItem)
+        .where(*open_support_renewal_filter(SourcingItem.maintenance_parent_license_id))
+        .where(SourcingItem.maintenance_parent_license_id.in_(parent_ids))
+        .options(selectinload(SourcingItem.pending_order))
+        .order_by(SourcingItem.id.desc())
+    )
+    selected: dict[int, SourcingItem] = {}
+    for item in result.scalars().all():
+        current = selected.get(item.maintenance_parent_license_id)
+        if current is None or (current.pending_order_id is None and item.pending_order_id is not None):
+            selected[item.maintenance_parent_license_id] = item
+    return selected
+
+
+def _build_support_row(
+    parent: License,
+    *,
+    sourcing_item: SourcingItem | None,
+    procurement_documents: list[ProcurementDocument],
+    mandatory_fields: dict[str, bool],
+    window_days: int,
+    today: date,
+    high_value_thresholds: dict[str, Decimal] | None,
+    storage_base: str | None,
+) -> RenewalWorkbenchRow:
+    docs = available_documents([*list(parent.documents), *procurement_documents], storage_base)
+    days_until_expiry = (parent.maintenance_end_date - today).days
+    if sourcing_item is not None and sourcing_item.pending_order_id is not None:
+        renewal_status = "pending_order"
+    elif sourcing_item is not None:
+        renewal_status = "in_sourcing"
+    else:
+        renewal_status = "expired_unresolved" if days_until_expiry < 0 else "due_soon"
+    try:
+        support_cost = parse_money(parent.maintenance_cost) or Decimal("0")
+        annual_value = annualize_term_cost(support_cost, parent.maintenance_start_date, parent.maintenance_end_date)
+    except MoneyParseError:
+        annual_value = None
+    currency_threshold = (high_value_thresholds or {}).get((parent.currency or "").strip().upper())
+    completeness_pct = compute_completeness(parent, docs, mandatory_fields)
+    risk_flags = compute_risk_flags(
+        license_obj=parent,
+        renewal_status=renewal_status,
+        days_until_expiry=days_until_expiry,
+        completeness_pct=completeness_pct,
+        document_count=len(docs),
+        estimated_annual_value=annual_value,
+        window_days=window_days,
+        high_value_threshold=currency_threshold,
+        high_value_enabled=currency_threshold is not None,
+    )
+    pending_order = sourcing_item.pending_order if sourcing_item else None
+    return RenewalWorkbenchRow(
+        license_id=parent.id,
+        row_kind="support_renewal",
+        license_ref=parent.license_ref,
+        publisher_name=parent.publisher_name,
+        software_description=f"{parent.software_description} (included support)",
+        license_type=parent.license_type,
+        license_metric=parent.license_metric,
+        start_date=parent.maintenance_start_date,
+        end_date=parent.maintenance_end_date,
+        days_until_expiry=days_until_expiry,
+        renewal_status=renewal_status,
+        lifecycle_status=parent.lifecycle_status,
+        contract_number=parent.contract_number,
+        po_number=parent.po_number,
+        supplier=parent.supplier,
+        cost_centre=parent.cost_centre,
+        budget_owner_email=parent.budget_owner_email,
+        contact_email=parent.contact_email,
+        currency=parent.currency,
+        quantity=parent.quantity,
+        unit_price=parent.unit_price,
+        estimated_annual_value=annual_value or Decimal("0"),
+        completeness_pct=completeness_pct,
+        document_count=len(docs),
+        risk_flags=risk_flags,
+        sourcing_item_id=sourcing_item.id if sourcing_item else None,
+        pending_order_id=sourcing_item.pending_order_id if sourcing_item else None,
+        pending_order_number=pending_order.po_number if pending_order else None,
+        custom_fields=[],
+    )
 
 
 async def _load_renewal_sourcing_items(

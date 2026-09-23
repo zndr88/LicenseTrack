@@ -266,10 +266,12 @@ def normalise_sourcing_item_type_fields(item: SourcingItem) -> None:
         "license_type": item.license_type,
         "is_renewable": item.is_renewable,
         "type_description": item.type_description,
+        "maintenance_parent_license_id": item.maintenance_parent_license_id,
     }
     normalise_type_opt_in_fields(data)
     item.is_renewable = data["is_renewable"]
     item.type_description = data["type_description"]
+    item.maintenance_parent_license_id = data["maintenance_parent_license_id"]
 
 
 async def apply_sourcing_item_update(

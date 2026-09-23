@@ -23,6 +23,7 @@ class SourcingItemCreate(BaseModel):
     portal_url: Optional[str] = None
     is_renewable: Optional[bool] = None
     type_description: Optional[str] = Field(default=None, max_length=255)
+    maintenance_parent_license_id: Optional[int] = None
     maintenance_coverage: Optional[MaintenanceCoverage] = None
     maintenance_start_date: Optional[date] = None
     maintenance_end_date: Optional[date] = None
@@ -88,6 +89,7 @@ class SourcingItemUpdate(BaseModel):
     portal_url: Optional[str] = None
     is_renewable: Optional[bool] = None
     type_description: Optional[str] = Field(default=None, max_length=255)
+    maintenance_parent_license_id: Optional[int] = None
     maintenance_coverage: Optional[MaintenanceCoverage] = None
     maintenance_start_date: Optional[date] = None
     maintenance_end_date: Optional[date] = None
@@ -152,6 +154,7 @@ class SourcingItemResponse(BaseModel):
     portal_url: Optional[str] = None
     is_renewable: Optional[bool] = None
     type_description: Optional[str] = Field(default=None, max_length=255)
+    maintenance_parent_license_id: Optional[int] = None
     maintenance_coverage: Optional[MaintenanceCoverage] = None
     maintenance_start_date: Optional[date] = None
     maintenance_end_date: Optional[date] = None
@@ -246,6 +249,7 @@ class SourcingRequestItemUpdate(BaseModel):
     portal_url: Optional[str] = None
     is_renewable: Optional[bool] = None
     type_description: Optional[str] = Field(default=None, max_length=255)
+    maintenance_parent_license_id: Optional[int] = None
     quantity: Optional[str] = None
     quantity_per_unit: Optional[str] = None
     sku_code: Optional[str] = None

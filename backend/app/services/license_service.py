@@ -146,6 +146,9 @@ def normalise_type_opt_in_fields(data: dict) -> None:
     if "type_description" in data:
         description = str(data["type_description"] or "").strip()
         data["type_description"] = description if license_type == LicenseType.other and description else None
+    # Sourcing lines only: a supported-license link belongs to maintenance lines.
+    if "maintenance_parent_license_id" in data and license_type != LicenseType.maintenance:
+        data["maintenance_parent_license_id"] = None
 
 
 def type_description_missing(license_type, type_description: str | None) -> bool:

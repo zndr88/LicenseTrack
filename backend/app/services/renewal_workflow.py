@@ -267,6 +267,8 @@ def build_pending_order_item_license_data(
 
     if old_license is not None and old_license.license_type == LicenseType.maintenance:
         apply_fallback("parent_license_id", old_license.parent_license_id)
+    if getattr(data.get("license_type"), "value", data.get("license_type")) == LicenseType.maintenance.value:
+        apply_fallback("parent_license_id", getattr(item, "maintenance_parent_license_id", None))
 
     if "notes" not in submitted_fields:
         note_sections = (

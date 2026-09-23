@@ -18,7 +18,7 @@ from app.schemas.license import (
     LinkExistingSuccessorResponse,
 )
 from app.schemas.sourcing import SourcingItemResponse
-from app.services import renewal_orchestrator
+from app.services import renewal_orchestrator, support_renewal_service
 from app.services.document_availability_service import get_document_storage_base
 from app.services.license_response_service import (
     get_notification_days,
@@ -94,6 +94,32 @@ async def initiate_renewal(
     return InitiateRenewalResponse(
         license=await load_enriched_license_response(db, license_id),
         sourcing_item=SourcingItemResponse.model_validate(sourcing_item),
+    )
+
+
+@router.post("/{license_id}/support-renewal", response_model=InitiateRenewalResponse, status_code=201)
+async def start_support_renewal(
+    license_id: int,
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_editor_or_admin),
+) -> InitiateRenewalResponse:
+    """Start procurement for the next support period of a license with included support."""
+    result = await support_renewal_service.start_support_renewal(
+        db=db,
+        license_id=license_id,
+        actor=current_user,
+        ip_address=request.client.host if request.client else None,
+    )
+    await db.commit()
+    sourcing_result = await db.execute(
+        select(SourcingItem)
+        .where(SourcingItem.id == result.sourcing_item.id)
+        .options(selectinload(SourcingItem.custom_field_values))
+    )
+    return InitiateRenewalResponse(
+        license=await load_enriched_license_response(db, license_id),
+        sourcing_item=SourcingItemResponse.model_validate(sourcing_result.scalar_one()),
     )
 
 
