@@ -1,6 +1,7 @@
 import { daysFromNow, datetimeDaysAgo, daysUntil } from "./time.js";
 import { computeTotalPoValue } from "./store.js";
 import { withDefaultMaintenanceCoverage } from "./supportDefaults.js";
+import { isNonExpiringLicenseType } from "../utils/licenseTypeRules.js";
 
 /**
  * Seed data for the demo mode in-memory store.
@@ -16,11 +17,17 @@ import { withDefaultMaintenanceCoverage } from "./supportDefaults.js";
 const NOTIFICATION_DAYS = 30;
 
 // Mirrors backend/app/services/license_service.py::compute_expiration_status
-// (verified 2026-07-10, license_service.py:135-165). Priority order:
-// retired > legacy > pending_renewal > upcoming > perpetual > renewed/expired > expiring > active.
+// (re-verified 2026-09-21 against 1.1.23, license_service.py:212-258). Priority:
+// retired > legacy > upcoming > perpetual > renewed/expired > expiring > active.
+// pending_renewal is intentionally NOT an expiration state: it is an overlapping
+// workflow state carried on lifecycleStatus while the record keeps aging from
+// Expiring to Expired by its dates. perpetual applies only to non-expiring
+// license types (perpetual/oem/freeware/service/other); any other type with no
+// end date is active.
 export function computeExpirationStatus({
   isRetired,
   lifecycleStatus,
+  licenseType,
   renewedToId,
   successorStartDate,
   startDate,
@@ -28,9 +35,8 @@ export function computeExpirationStatus({
 }) {
   if (isRetired) return "retired";
   if (lifecycleStatus === "legacy") return "legacy";
-  if (lifecycleStatus === "pending_renewal") return "pending_renewal";
   if (startDate !== null && daysUntil(startDate) > 0) return "upcoming";
-  if (endDate === null) return "perpetual";
+  if (endDate === null) return isNonExpiringLicenseType(licenseType) ? "perpetual" : "active";
   const days = daysUntil(endDate);
   if (days < 0) {
     if (renewedToId && (!successorStartDate || daysUntil(successorStartDate) <= 0)) return "renewed";
@@ -73,6 +79,7 @@ export function buildLicense(overrides) {
     supplier: "",
     costCentre: "",
     budgetOwnerEmail: "",
+    secondaryContacts: [],
     portalUrl: null,
     notes: null,
     hasMaintenance: false,
@@ -92,6 +99,7 @@ export function buildLicense(overrides) {
     lastSyncedAt: null,
     syncStatus: null,
     isRetired: false,
+    retirementScheduled: false,
     isCompletenessExempt: false,
     lifecycleStatus: null,
     renewedFromId: null,
@@ -116,6 +124,7 @@ export function buildLicense(overrides) {
   merged.expirationStatus = computeExpirationStatus({
     isRetired: merged.isRetired,
     lifecycleStatus: merged.lifecycleStatus,
+    licenseType: merged.licenseType,
     renewedToId: merged.renewedToId,
     startDate: merged.startDate,
     endDate: merged.endDate,
@@ -149,6 +158,7 @@ export function buildSeedData() {
       costCentre: "Engineering",
       budgetOwnerEmail: "budget.owner@example.com",
       portalUrl: "https://my.atlassian.com",
+      secondaryContacts: ["it.asset.manager@example.com", "finance.ops@example.com"],
       notes: "Data Center tier — renewal quote requested from Northstar Procurement.",
       hasMaintenance: false,
       licenseRef: licenseRef(1),
@@ -322,6 +332,38 @@ export function buildSeedData() {
     })
   );
 
+  // 16. Scheduled for retirement at term end (retirementScheduled) — the term
+  // will be dropped rather than renewed, so it shows a "Retires in Nd" badge and
+  // feeds the Retirement scheduled stat while still ageing as an active record.
+  licenses.push(
+    buildLicense({
+      id: 16,
+      publisherName: "Miro",
+      softwareDescription: "Miro Enterprise, 120 users",
+      licenseType: "saas",
+      licenseMetric: "per_user",
+      quantity: "120",
+      unitPrice: "16.00",
+      totalPoPrice: "1920.00",
+      currency: "EUR",
+      startDate: daysFromNow(40 - 365),
+      endDate: daysFromNow(40),
+      contractNumber: "CTR-MIRO-2025-009",
+      poNumber: "PO-2025-0642",
+      supplier: "Northstar Procurement",
+      costCentre: "Design",
+      contactEmail: "renewals@miro.com",
+      budgetOwnerEmail: "budget.owner@example.com",
+      licenseRef: licenseRef(16),
+      secondaryContacts: ["design.lead@example.com"],
+      retirementScheduled: true,
+      createdAt: datetimeDaysAgo(365 - 40),
+      updatedAt: datetimeDaysAgo(8),
+      notes: "Consolidating onto FigJam — do not renew; let this term lapse.",
+      completenessPct: 90,
+    })
+  );
+
   // 11. Perpetual (no end date) with separately tracked maintenance.
   const corelMaintenanceStart = daysFromNow(-135);
   const corelMaintenanceEnd = daysFromNow(230);
@@ -475,7 +517,8 @@ export function buildSeedData() {
     })
   );
 
-  // Sourcing items (2 standalone)
+  // Sourcing items (2 standalone + a 2-line planned-succession request)
+  const plannedSuccessionRequestId = 210;
   const sourcingItems = [
     {
       id: 101,
@@ -521,6 +564,60 @@ export function buildSeedData() {
       isRenewal: false,
       createdAt: datetimeDaysAgo(6),
       updatedAt: datetimeDaysAgo(6),
+      createdBy: 1,
+    },
+    // Planned multi-term succession: two lines in one sourcing request where the
+    // second line (106) is the planned next term of the first (105). The current
+    // term points to its successor; the successor is marked as a renewal in the
+    // response (markPlannedRenewalLines / _mark_planned_renewal_lines).
+    {
+      id: 105,
+      sourcingRequestId: plannedSuccessionRequestId,
+      publisherName: "Grafana Labs",
+      softwareDescription: "Grafana Cloud Pro — current term",
+      licenseType: "subscription",
+      quantity: "50",
+      estimatedUnitPrice: "8.00",
+      estimatedTotalPrice: "400.00",
+      currency: "EUR",
+      startDate: daysFromNow(30),
+      endDate: daysFromNow(30 + 365),
+      supplier: "Direct Software Desk",
+      contactEmail: "sales@grafana.com",
+      notes: "First term in a planned two-year commitment.",
+      status: "sourcing",
+      pendingOrderId: null,
+      renewalForLicenseId: null,
+      successorSourcingItemId: 106,
+      cotermPredecessorIds: null,
+      isRenewal: false,
+      createdAt: datetimeDaysAgo(4),
+      updatedAt: datetimeDaysAgo(4),
+      createdBy: 1,
+    },
+    {
+      id: 106,
+      sourcingRequestId: plannedSuccessionRequestId,
+      publisherName: "Grafana Labs",
+      softwareDescription: "Grafana Cloud Pro — planned next term",
+      licenseType: "subscription",
+      quantity: "50",
+      estimatedUnitPrice: "8.50",
+      estimatedTotalPrice: "425.00",
+      currency: "EUR",
+      startDate: daysFromNow(30 + 365),
+      endDate: daysFromNow(30 + 730),
+      supplier: "Direct Software Desk",
+      contactEmail: "sales@grafana.com",
+      notes: "Pre-agreed second term; begins when the first term ends.",
+      status: "sourcing",
+      pendingOrderId: null,
+      renewalForLicenseId: null,
+      successorSourcingItemId: null,
+      cotermPredecessorIds: null,
+      isRenewal: false,
+      createdAt: datetimeDaysAgo(4),
+      updatedAt: datetimeDaysAgo(4),
       createdBy: 1,
     },
   ];
@@ -703,12 +800,25 @@ export function buildSeedData() {
     },
   ];
 
+  const sourcingRequests = [
+    {
+      id: plannedSuccessionRequestId,
+      supplier: "Direct Software Desk",
+      contactEmail: "sales@grafana.com",
+      notes: "Grafana Cloud Pro — current term with a pre-agreed next term.",
+      status: "sourcing",
+      createdAt: datetimeDaysAgo(4),
+      updatedAt: datetimeDaysAgo(4),
+      createdBy: 1,
+    },
+  ];
+
   return {
     licenses,
     contracts,
     contractDocuments,
     sourcingItems,
-    sourcingRequests: [],
+    sourcingRequests,
     pendingOrders,
   };
 }

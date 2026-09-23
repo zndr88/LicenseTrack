@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { demoRequest } from "../router.js";
-import { store, resetStore } from "../store.js";
+import { store, resetStore, buildSourcingRequestResponse } from "../store.js";
 
 async function login() {
   await demoRequest("/api/auth/login", { method: "POST", body: JSON.stringify({ username: "demo", password: "demo" }) });
@@ -58,6 +58,48 @@ describe("renewal golden path transitions", () => {
     expect(data.sourcingItem.renewalForLicenseId).toBe(target.id);
     expect(data.sourcingItem.isRenewal).toBe(true);
     expect(store.sourcingItems.some((s) => s.id === data.sourcingItem.id)).toBe(true);
+  });
+
+  it("blocks renewal on a license outside the action window", async () => {
+    // Id 2 is a healthy active license with an end date 90+ days out.
+    const target = store.licenses.find((l) => l.id === 2);
+    const { error } = await demoRequest(`/api/licenses/${target.id}/initiate-renewal`, {
+      method: "POST", body: JSON.stringify({}),
+    });
+    expect(error).toMatch(/Renewal actions are available/);
+  });
+
+  it("blocks renewal when the license has no budget owner", async () => {
+    const target = store.licenses.find((l) => l.daysUntilExpiry === 20);
+    target.budgetOwnerEmail = "";
+    const { error } = await demoRequest(`/api/licenses/${target.id}/initiate-renewal`, {
+      method: "POST", body: JSON.stringify({}),
+    });
+    expect(error).toMatch(/budget owner is required/);
+  });
+
+  it("requesting retirement with a future end date schedules it instead of retiring", async () => {
+    const target = store.licenses.find((l) => l.daysUntilExpiry === 20); // future end date
+    const { data, error } = await demoRequest(`/api/licenses/${target.id}`, {
+      method: "PUT", body: JSON.stringify({ isRetired: true }),
+    });
+    expect(error).toBeNull();
+    expect(data.isRetired).toBe(false);
+    expect(data.retirementScheduled).toBe(true);
+  });
+
+  it("moving a scheduled license's end date into the past retires it", async () => {
+    const target = store.licenses.find((l) => l.publisherName === "Miro");
+    expect(target.retirementScheduled).toBe(true);
+    const past = new Date();
+    past.setDate(past.getDate() - 5);
+    const { data, error } = await demoRequest(`/api/licenses/${target.id}/field`, {
+      method: "PATCH",
+      body: JSON.stringify({ field: "endDate", value: past.toISOString().slice(0, 10) }),
+    });
+    expect(error).toBeNull();
+    expect(data.isRetired).toBe(true);
+    expect(data.retirementScheduled).toBe(false);
   });
 
   it("cancel-renewal restores lifecycle and moves the un-converted sourcing item to history", async () => {
@@ -148,7 +190,9 @@ describe("renewal golden path transitions", () => {
       body: JSON.stringify({ endDate: null }),
     });
     expect(error).toBeNull();
-    expect(data.expirationStatus).toBe("perpetual");
+    // Subscription with no end date is "active", not "perpetual": perpetual is
+    // reserved for non-expiring license types (license_service.py:240-241).
+    expect(data.expirationStatus).toBe("active");
     expect(data.daysUntilExpiry).toBeNull();
   });
 
@@ -159,7 +203,8 @@ describe("renewal golden path transitions", () => {
       body: JSON.stringify({ field: "endDate", value: "" }),
     });
     expect(error).toBeNull();
-    expect(data.expirationStatus).toBe("perpetual");
+    // Subscription (id 2) with a cleared end date is "active", not "perpetual".
+    expect(data.expirationStatus).toBe("active");
   });
 
   it("bulk delete removes multiple licenses", async () => {
@@ -325,10 +370,15 @@ describe("renewal golden path transitions", () => {
   });
 
   it("renewal bundles with different historical suppliers start unassigned", async () => {
+    // Share an end date inside the renewal action window (1.1.23 blocks renewals
+    // whose term ends more than renewal_action_days/notification_days out).
+    const withinWindow = new Date();
+    withinWindow.setDate(withinWindow.getDate() + 15);
+    const withinWindowIso = withinWindow.toISOString().slice(0, 10);
     const candidates = store.licenses.filter((license) => !license.isRetired).slice(0, 2);
     for (const [index, license] of candidates.entries()) {
       license.poNumber = "PO-DEMO-BUNDLE";
-      license.endDate = "2027-12-31";
+      license.endDate = withinWindowIso;
       license.supplier = index === 0 ? "Historical Direct" : "Historical Reseller";
       license.contactEmail = index === 0 ? "direct@example.test" : "reseller@example.test";
       license.lifecycleStatus = null;
@@ -557,5 +607,57 @@ describe("renewal golden path transitions", () => {
     const { data, error } = await demoRequest("/api/pending-orders/201/convert-all", { method: "POST", body: JSON.stringify(payload) });
     expect(data).toBeNull();
     expect(error).toMatch(/already been converted/i);
+  });
+});
+
+describe("planned multi-term succession", () => {
+  beforeEach(async () => { resetStore(); await login(); });
+
+  it("marks the planned next term as a renewal line in the request response", () => {
+    const request = buildSourcingRequestResponse(store.sourcingRequests.find((r) => r.id === 210));
+    const current = request.items.find((i) => i.id === 105);
+    const next = request.items.find((i) => i.id === 106);
+    expect(current.successorSourcingItemId).toBe(106);
+    expect(next.isRenewal).toBe(true);
+    expect(current.isRenewal).toBe(false);
+  });
+
+  it("blocks deleting a line that still has planned successor links", async () => {
+    const { error } = await demoRequest("/api/sourcing/105", { method: "DELETE" });
+    expect(error).toMatch(/planned successor links/);
+    expect(store.sourcingItems.some((i) => i.id === 105)).toBe(true);
+  });
+
+  it("links a new line as the successor of an existing line on create", async () => {
+    const { data, error } = await demoRequest("/api/sourcing/requests/210/items", {
+      method: "POST",
+      body: JSON.stringify({
+        publisherName: "Grafana Labs",
+        softwareDescription: "Grafana Cloud Pro — third term",
+        licenseType: "subscription",
+        successorOfItemIds: [106],
+      }),
+    });
+    expect(error).toBeNull();
+    const third = data.items.find((i) => i.softwareDescription.includes("third term"));
+    expect(store.sourcingItems.find((i) => i.id === 106).successorSourcingItemId).toBe(third.id);
+    expect(third.isRenewal).toBe(true);
+  });
+
+  it("replaces planned predecessors through the successor-links endpoint", async () => {
+    const { error } = await demoRequest("/api/sourcing/requests/successor-links", {
+      method: "PUT",
+      body: JSON.stringify({ successorItemId: 106, predecessorItemIds: [] }),
+    });
+    expect(error).toBeNull();
+    expect(store.sourcingItems.find((i) => i.id === 105).successorSourcingItemId).toBeNull();
+  });
+
+  it("rejects a successor link between different publishers", async () => {
+    const { error } = await demoRequest("/api/sourcing/requests/successor-links", {
+      method: "PUT",
+      body: JSON.stringify({ successorItemId: 106, predecessorItemIds: [102] }),
+    });
+    expect(error).toMatch(/same publisher|one procurement event/);
   });
 });

@@ -7,6 +7,7 @@ import {
 } from "./supportDefaults.js";
 import { daysUntil } from "./time.js";
 import { sumCanonicalQuantities } from "../utils/quantity.js";
+import { NON_RENEWABLE_LICENSE_TYPES } from "../constants/licenseData.js";
 
 /** Module-level in-memory state. Refresh or logout wipes it - that IS the reset story. */
 export const store = {
@@ -72,6 +73,7 @@ const DEFAULT_GLOBAL_SETTINGS = {
   password_min_length: 12,
   storage_path: "",
   notification_days: 30,
+  renewal_action_days: null,
   manager_email: "",
   smtp_host: "",
   smtp_port: 587,
@@ -144,6 +146,7 @@ export function decorateLicense(license) {
   license.expirationStatus = computeExpirationStatus({
     isRetired: license.isRetired,
     lifecycleStatus: license.lifecycleStatus,
+    licenseType: license.licenseType,
     renewedToId: license.renewedToId,
     successorStartDate: successor?.startDate ?? null,
     startDate: license.startDate,
@@ -155,11 +158,16 @@ export function decorateLicense(license) {
 
 /**
  * Dashboard statistics derived from the live store.
- * Mirrors backend/app/services/license_service.py::compute_stats (verified
- * 2026-07-10, license_service.py:194-280) - counts by expirationStatus,
- * incompleteness, and annual cost (quantity x unitPrice) grouped by currency
- * for active/expiring/perpetual subscription|saas|maintenance licenses that
- * have not been renewed onward.
+ * Mirrors backend/app/services/license_service.py::compute_stats (re-verified
+ * 2026-09-21 against 1.1.23, license_service.py:326-430) - counts by
+ * expirationStatus, incompleteness, and annual cost (quantity x unitPrice)
+ * grouped by currency for active/expiring/perpetual subscription|saas|
+ * maintenance licenses that have not been renewed onward.
+ *
+ * pending_renewal is a workflow state on lifecycleStatus, not an expiration
+ * status, so total_pending is counted from lifecycleStatus independently of the
+ * expiration bucket, and pending records still count toward incompleteness.
+ * total_retirement_scheduled counts licenses flagged to auto-retire at term end.
  */
 export function computeStats() {
   const licenses = store.licenses;
@@ -168,6 +176,7 @@ export function computeStats() {
   let totalExpired = 0;
   let totalUpcoming = 0;
   let totalPending = 0;
+  let totalRetirementScheduled = 0;
   let totalIncomplete = 0;
   let totalRetired = 0;
   let totalRenewed = 0;
@@ -180,7 +189,6 @@ export function computeStats() {
     if (status === "retired") totalRetired++;
     else if (status === "legacy") totalLegacy++;
     else if (status === "renewed") totalRenewed++;
-    else if (status === "pending_renewal") totalPending++;
     else if (status === "upcoming") totalUpcoming++;
     else if (status === "expired") totalExpired++;
     else if (status === "expiring") {
@@ -188,11 +196,14 @@ export function computeStats() {
       totalActive++;
     } else if (status === "active" || status === "perpetual") totalActive++;
 
+    if (lic.lifecycleStatus === "pending_renewal") totalPending++;
+    if (lic.retirementScheduled) totalRetirementScheduled++;
+
     const completenessPct = computeLicenseCompletenessPct(lic);
     if (
       completenessPct != null &&
       completenessPct < 100 &&
-      !["retired", "renewed", "pending_renewal", "legacy"].includes(status)
+      !["retired", "renewed", "legacy"].includes(status)
     ) {
       totalIncomplete++;
     }
@@ -215,6 +226,7 @@ export function computeStats() {
     total_expired: totalExpired,
     total_upcoming: totalUpcoming,
     total_pending: totalPending,
+    total_retirement_scheduled: totalRetirementScheduled,
     total_incomplete: totalIncomplete,
     total_retired: totalRetired,
     total_renewed: totalRenewed,
@@ -658,6 +670,7 @@ export function toSourcingItemSummary(item) {
     notes: item.notes,
     status: item.status,
     renewalForLicenseId: item.renewalForLicenseId,
+    successorSourcingItemId: item.successorSourcingItemId ?? null,
     cotermPredecessorIds: item.cotermPredecessorIds,
     quoteDocuments: [],
     isRenewal: item.renewalForLicenseId != null,
@@ -666,9 +679,11 @@ export function toSourcingItemSummary(item) {
 
 /** Recomputes a pending order's items (from the live sourcingItems collection) and its totalPoValue. */
 export function rebuildPendingOrderItems(order) {
-  order.items = store.sourcingItems
-    .filter((i) => i.pendingOrderId === order.id)
-    .map(toSourcingItemSummary);
+  order.items = markPlannedRenewalLines(
+    store.sourcingItems
+      .filter((i) => i.pendingOrderId === order.id)
+      .map(toSourcingItemSummary)
+  );
   order.totalPoValue = computeTotalPoValue(order.items);
 }
 
@@ -890,9 +905,11 @@ export function assertSourcingItemEditable(item) {
 
 /** Mirrors backend/app/schemas/sourcing.py:159-195 SourcingRequestResponse shape. */
 export function buildSourcingRequestResponse(request) {
-  const items = store.sourcingItems
-    .filter((i) => i.sourcingRequestId === request.id)
-    .map(withSourcingItemLicenseRefs);
+  const items = markPlannedRenewalLines(
+    store.sourcingItems
+      .filter((i) => i.sourcingRequestId === request.id)
+      .map(withSourcingItemLicenseRefs)
+  );
   return {
     ...request,
     items,
@@ -921,6 +938,7 @@ export function buildSourcingItem(payload, overrides = {}) {
     maintenanceUnitPrice: payload.maintenanceUnitPrice ?? null,
     maintenanceCost: payload.maintenanceCost ?? null,
     parentSourcingItemId: payload.parentSourcingItemId ?? null,
+    successorSourcingItemId: payload.successorSourcingItemId ?? null,
     quantity: payload.quantity ?? null,
     quantityPerUnit: payload.quantityPerUnit ?? null,
     skuCode: payload.skuCode ?? null,
@@ -1247,21 +1265,11 @@ export function initiateRenewalBundleRecord(licenseIds) {
     throw new Error("At least two license IDs are required for a renewal bundle");
   }
 
+  const actionDays = getRenewalActionDays();
   const licenses = orderedIds.map((id) => {
     const license = store.licenses.find((item) => item.id === id);
     if (!license) throw new Error(`License(s) not found: ${id}`);
-    if (license.lifecycleStatus === "pending_renewal") {
-      throw new Error("Renewal already initiated for this license");
-    }
-    if (license.lifecycleStatus === "renewed") {
-      throw new Error("License has already been renewed");
-    }
-    if (license.renewedToId != null) {
-      throw new Error(`License ${license.id} has already been renewed`);
-    }
-    if (license.endDate == null) {
-      throw new Error("Cannot initiate renewal on a perpetual license (no end date)");
-    }
+    assertCanInitiateRenewal(license, { actionDays });
     return license;
   });
 
@@ -1488,14 +1496,24 @@ export function addPendingOrderItemsBulk(order, payloads) {
     throw new Error("At least one item is required");
   }
   ensurePendingOrderEditable(order, "add items to");
+  const createdItemIds = [];
   for (const payload of payloads) {
-    store.sourcingItems.push(buildSourcingItem(
+    // Planned successors are a sourcing-request concept (pending_order_service.
+    // _build_pending_order_item rejects successor_of_item_ids on PO lines).
+    if ((payload.successorOfItemIds ?? []).length) {
+      throw new Error("Successor lines must be added to a sourcing request");
+    }
+    const created = buildSourcingItem(
       { ...payload, renewalForLicenseId: null },
       { status: "converted", pendingOrderId: order.id, sourcingRequestId: null }
-    ));
+    );
+    store.sourcingItems.push(created);
+    createdItemIds.push(created.id);
   }
   rebuildPendingOrderItems(order);
-  return order;
+  // The response carries the new line ids (PendingOrderResponse.created_item_ids)
+  // without persisting them on the stored order (backend model_copy).
+  return { ...order, createdItemIds };
 }
 
 /** Mirrors backend/app/services/conversion/pending_order_status.py:9-15 refresh_order_status. */
@@ -1512,12 +1530,235 @@ function assertPredecessorHasNoSuccessor(predecessor) {
   }
 }
 
+/**
+ * Mirrors backend/app/services/license_retirement_service.py:15-40
+ * normalize_retirement_update (re-verified 2026-09-21 against 1.1.23). Translates
+ * a retirement request into immediate retirement or an end-of-term schedule, and
+ * materializes/keeps a schedule when a scheduled license's end date moves.
+ * Mutates updateData in place (camelCase demo keys).
+ */
+export function normalizeRetirementUpdate(license, updateData) {
+  const existingEnd = license ? license.endDate : null;
+  const endDate = "endDate" in updateData ? updateData.endDate : existingEnd;
+  const endDays = endDate == null || endDate === "" ? null : daysUntil(endDate);
+  const hasRetirementRequest = "isRetired" in updateData;
+  const wasScheduled = Boolean(license && license.retirementScheduled);
+
+  if (hasRetirementRequest) {
+    if (updateData.isRetired && endDays != null && endDays >= 0) {
+      updateData.isRetired = false;
+      updateData.retirementScheduled = true;
+    } else {
+      updateData.isRetired = Boolean(updateData.isRetired);
+      updateData.retirementScheduled = false;
+    }
+    return;
+  }
+  if (wasScheduled && "endDate" in updateData) {
+    const due = endDays == null || endDays < 0;
+    updateData.isRetired = due;
+    updateData.retirementScheduled = !due;
+  }
+}
+
+/** Mirrors backend/app/services/license_response_service.py:45-51 get_renewal_action_days. */
+export function getRenewalActionDays() {
+  const configured = store.globalSettings.renewal_action_days;
+  return Number(configured != null ? configured : store.globalSettings.notification_days);
+}
+
+/**
+ * Mirrors backend/app/services/lifecycle_rules.py:100-128 assert_can_initiate_renewal
+ * (re-verified 2026-09-21 against 1.1.23). The demo router carries no HTTP status
+ * codes, so only the messages are mirrored (backend distinguishes 400/409).
+ * Renewal is gated by an action window: renewal_action_days if configured, else
+ * notification_days (get_renewal_action_days).
+ */
+export function assertCanInitiateRenewal(license, { actionDays, requireBudgetOwner = true } = {}) {
+  const resolvedActionDays = actionDays != null ? actionDays : getRenewalActionDays();
+  if (license.isRetired || license.retirementScheduled) {
+    throw new Error("Retired licenses are not eligible for renewal");
+  }
+  if (license.lifecycleStatus === "pending_renewal") {
+    throw new Error("Renewal already initiated for this license");
+  }
+  if (license.lifecycleStatus === "renewed") {
+    throw new Error("License has already been renewed");
+  }
+  if (NON_RENEWABLE_LICENSE_TYPES.includes(license.licenseType)) {
+    throw new Error("Cannot initiate renewal on service or other license types");
+  }
+  if (requireBudgetOwner && !(license.budgetOwnerEmail || "").trim()) {
+    throw new Error("A budget owner is required before initiating renewal");
+  }
+  assertPredecessorHasNoSuccessor(license);
+  if (license.endDate == null || license.endDate === "") {
+    throw new Error("Cannot initiate renewal on a perpetual license (no end date)");
+  }
+  if (license.startDate != null && license.startDate !== "" && daysUntil(license.startDate) > 0) {
+    throw new Error("Upcoming licenses cannot start renewal");
+  }
+  if (daysUntil(license.endDate) > resolvedActionDays) {
+    throw new Error(`Renewal actions are available ${resolvedActionDays} days before expiry`);
+  }
+}
+
 /** Mirrors backend/app/services/lifecycle_rules.py:98-101 mark_predecessor_renewed. */
 function markPredecessorRenewed(predecessor, successorId) {
   assertPredecessorHasNoSuccessor(predecessor);
   predecessor.lifecycleStatus = "renewed";
   predecessor.renewedToId = successorId;
   decorateLicense(predecessor);
+}
+
+// ---------------------------------------------------------------------------
+// Planned multi-term succession between the lines of one procurement event.
+// Mirrors backend/app/services/planned_successor_service.py (re-verified
+// 2026-09-21 against 1.1.23). The demo router carries no HTTP status codes, so
+// only the messages are mirrored. The one-request/one-order grouping is
+// simplified to "one procurement event" because demo PO lines drop their
+// sourcing_request_id on conversion; every caller-triggerable content guard
+// (distinct/self/not-found/already-linked/publisher/type/cycle) is preserved.
+// ---------------------------------------------------------------------------
+
+const NON_SUCCEEDABLE_LICENSE_TYPES = new Set(["service", "other", "freeware", "perpetual"]);
+
+/**
+ * Mark lines that are the planned successor of another line as renewals - the
+ * response-time behavior of _mark_planned_renewal_lines on SourcingRequestResponse
+ * and PendingOrderResponse. Mutates and returns the given items/summaries.
+ */
+export function markPlannedRenewalLines(items) {
+  const successorIds = new Set(
+    items.map((item) => item.successorSourcingItemId).filter((id) => id != null)
+  );
+  for (const item of items) {
+    if (successorIds.has(item.id)) item.isRenewal = true;
+  }
+  return items;
+}
+
+/** Mirrors planned_successor_service.require_no_planned_links. */
+export function requireNoPlannedLinks(item) {
+  const incoming = store.sourcingItems.some((candidate) => candidate.successorSourcingItemId === item.id);
+  if (item.successorSourcingItemId != null || incoming) {
+    throw new Error("Remove this line's planned successor links first");
+  }
+}
+
+function assertPlannedLinksAcyclic(allItems, changes) {
+  const nextById = new Map(
+    allItems.map((item) => [item.id, changes.has(item.id) ? changes.get(item.id) : item.successorSourcingItemId])
+  );
+  for (const start of nextById.keys()) {
+    const seen = new Set();
+    let current = start;
+    while (current != null) {
+      if (seen.has(current)) throw new Error("Successor links cannot form a cycle");
+      seen.add(current);
+      current = nextById.get(current) ?? null;
+    }
+  }
+}
+
+const plannedEventKey = (item) =>
+  item.pendingOrderId != null ? `order:${item.pendingOrderId}` : `request:${item.sourcingRequestId}`;
+
+/** Mirrors planned_successor_service.set_planned_successors. */
+export function setPlannedSuccessors(predecessorItemIds, successorItemId) {
+  if (!predecessorItemIds || predecessorItemIds.length === 0
+    || predecessorItemIds.length !== new Set(predecessorItemIds).size) {
+    throw new Error("Choose one or more distinct predecessor lines");
+  }
+  const targetIds = new Set(predecessorItemIds);
+  if (successorItemId != null) targetIds.add(successorItemId);
+  const selected = new Map();
+  for (const id of targetIds) {
+    const item = store.sourcingItems.find((candidate) => candidate.id === id);
+    if (!item) throw new Error("A selected sourcing line was not found");
+    selected.set(id, item);
+  }
+  if (successorItemId != null && predecessorItemIds.includes(successorItemId)) {
+    throw new Error("A line cannot succeed itself");
+  }
+
+  const predecessors = predecessorItemIds.map((id) => selected.get(id));
+  const successor = successorItemId != null ? selected.get(successorItemId) : null;
+  if (successor != null && predecessors.some(
+    (p) => p.successorSourcingItemId != null && p.successorSourcingItemId !== successorItemId)) {
+    throw new Error("A predecessor already has a planned next term");
+  }
+  if (successor != null && (successor.renewalForLicenseId != null
+    || (successor.cotermPredecessorIds && successor.cotermPredecessorIds.length))) {
+    throw new Error("The successor line already follows existing licenses");
+  }
+
+  const events = new Set([...selected.values()].map(plannedEventKey));
+  if (events.size !== 1
+    || [...selected.values()].some((item) => item.sourcingRequestId == null && item.pendingOrderId == null)) {
+    throw new Error("Linked lines must belong to one procurement event");
+  }
+  const orderId = [...selected.values()][0].pendingOrderId;
+  let allItems;
+  if (orderId == null) {
+    if ([...selected.values()].some((item) => item.status !== "sourcing")) {
+      throw new Error("Linked sourcing lines must still be open");
+    }
+    const requestId = [...selected.values()][0].sourcingRequestId;
+    allItems = store.sourcingItems.filter((item) => item.sourcingRequestId === requestId);
+  } else {
+    const order = store.pendingOrders.find((candidate) => candidate.id === orderId);
+    if (!order || (order.status !== "pending" && order.status !== "invoice_received")) {
+      throw new Error("The pending order is no longer editable");
+    }
+    allItems = store.sourcingItems.filter((item) => item.pendingOrderId === orderId);
+  }
+
+  if (successor != null) {
+    const successorPublisher = normalized(successor.publisherName);
+    if (!successorPublisher) throw new Error("Successor publisher is required");
+    if (NON_SUCCEEDABLE_LICENSE_TYPES.has(successor.licenseType)) {
+      throw new Error("This successor type cannot be renewed");
+    }
+    if (successor.licenseType === "maintenance") {
+      throw new Error("Planned maintenance successors are not available yet");
+    }
+    for (const predecessor of predecessors) {
+      if (normalized(predecessor.publisherName) !== successorPublisher) {
+        throw new Error("Linked terms must have the same publisher");
+      }
+      if (NON_SUCCEEDABLE_LICENSE_TYPES.has(predecessor.licenseType)) {
+        throw new Error("This predecessor type cannot be renewed");
+      }
+      if (predecessor.licenseType === "maintenance") {
+        throw new Error("Planned maintenance successors are not available yet");
+      }
+    }
+  }
+
+  const changes = new Map(predecessorItemIds.map((id) => [id, successorItemId]));
+  assertPlannedLinksAcyclic(allItems, changes);
+  const now = new Date().toISOString();
+  for (const predecessor of predecessors) {
+    predecessor.successorSourcingItemId = successorItemId;
+    predecessor.updatedAt = now;
+  }
+}
+
+/** Mirrors planned_successor_service.replace_planned_predecessors. */
+export function replacePlannedPredecessors(predecessorItemIds, successorItemId) {
+  const successor = store.sourcingItems.find((item) => item.id === successorItemId);
+  if (!successor) throw new Error("Successor line was not found");
+  const desired = new Set(predecessorItemIds);
+  if (desired.size !== predecessorItemIds.length) {
+    throw new Error("Choose distinct predecessor lines");
+  }
+  const currentIds = store.sourcingItems
+    .filter((item) => item.successorSourcingItemId === successorItemId)
+    .map((item) => item.id);
+  const removed = currentIds.filter((id) => !desired.has(id)).sort((a, b) => a - b);
+  if (removed.length) setPlannedSuccessors(removed, null);
+  if (predecessorItemIds.length) setPlannedSuccessors(predecessorItemIds, successorItemId);
 }
 
 /**
@@ -1535,8 +1776,34 @@ function normalizeConvertPayload(payload) {
   return data;
 }
 
-/** Mirrors backend/app/services/renewal_workflow.py:101-142 build_pending_order_item_license_data. */
-function buildPendingOrderItemLicenseData(formData, item, oldLicense) {
+/**
+ * Included maintenance derives its detail fields from the license term when the
+ * caller did not submit them explicitly (renewal_workflow.py:246-253).
+ * submittedFields is the set of keys the caller actually sent.
+ */
+function applyIncludedSupportTermFallback(data, submittedFields = new Set()) {
+  if (data.maintenanceCoverage !== "included") return data;
+  if (!submittedFields.has("maintenanceStartDate") && submittedFields.has("startDate")) {
+    data.maintenanceStartDate = data.startDate;
+  }
+  if (!submittedFields.has("maintenanceEndDate") && submittedFields.has("endDate")) {
+    data.maintenanceEndDate = data.endDate;
+  }
+  if (!submittedFields.has("maintenanceCost") && submittedFields.has("totalPoPrice")) {
+    data.maintenanceCost = data.totalPoPrice;
+  }
+  return data;
+}
+
+/**
+ * Mirrors backend/app/services/renewal_workflow.py:150-256
+ * build_pending_order_item_license_data (re-verified 2026-09-21 against 1.1.23).
+ * submittedFields is the set of keys the caller actually sent (raw payload keys,
+ * before convert defaults were filled in), mirroring the schema's
+ * model_fields_set that the backend threads through to the included-support
+ * fallback below.
+ */
+function buildPendingOrderItemLicenseData(formData, item, oldLicense, submittedFields = new Set()) {
   const data = { ...formData };
 
   data.publisherName = item.publisherName;
@@ -1567,6 +1834,8 @@ function buildPendingOrderItemLicenseData(formData, item, oldLicense) {
   ]) {
     if (item[field] != null && item[field] !== "") data[field] = item[field];
   }
+
+  applyIncludedSupportTermFallback(data, submittedFields);
 
   if (oldLicense != null) {
     data.notes = null;
@@ -1723,6 +1992,8 @@ export function convertPendingOrderToLicenses(order, payload) {
   if (orderSupplier && submittedSupplier && !procurementIdentitiesMatch(orderSupplier, submittedSupplier)) {
     throw new Error("License supplier must match the pending order supplier");
   }
+  // Keys the caller actually sent, captured before convert defaults are filled in.
+  const submittedFields = new Set(Object.keys(payload ?? {}));
   const formData = {
     ...normalizeConvertPayload(payload),
     pendingOrderId: order.id,
@@ -1743,13 +2014,13 @@ export function convertPendingOrderToLicenses(order, payload) {
         if (!oldLic) {
           throw new Error(`License ${item.renewalForLicenseId} not found for renewal`);
         }
-        const itemData = buildPendingOrderItemLicenseData(formData, item, oldLic);
+        const itemData = buildPendingOrderItemLicenseData(formData, item, oldLic, submittedFields);
         itemData.sourceSourcingItemId = item.id;
         const { successor, predecessorIds: marked } = createRenewalSuccessorFromSourcingItem(item, itemData);
         newLicenseEntries.push([successor, "renewed"]);
         predecessorIds.push(...marked);
       } else {
-        const itemData = buildPendingOrderItemLicenseData(formData, item, null);
+        const itemData = buildPendingOrderItemLicenseData(formData, item, null, submittedFields);
         itemData.sourceSourcingItemId = item.id;
         newLicenseEntries.push([createPurchaseLicense(itemData), "new_purchase"]);
       }
@@ -1810,6 +2081,7 @@ export function batchConvertPendingOrderToLicenses(order, payload) {
     // Mirror model_dump(exclude={"sourcing_item_id"}): the id routes the item, it is not license data.
     const rest = { ...batchItem };
     delete rest.sourcingItemId;
+    const submittedFields = new Set(Object.keys(rest));
     const itemData = {
       ...normalizeConvertPayload(rest),
       pendingOrderId: order.id,
@@ -1818,6 +2090,7 @@ export function batchConvertPendingOrderToLicenses(order, payload) {
       purchaseDate: order.createdAt,
       ...(orderSupplier ? { supplier: orderSupplier } : {}),
     };
+    applyIncludedSupportTermFallback(itemData, submittedFields);
 
     if (sourcingItem.renewalForLicenseId != null) {
       delete itemData.parentSourcingItemId;

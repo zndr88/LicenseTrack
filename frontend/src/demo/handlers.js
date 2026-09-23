@@ -12,6 +12,8 @@ import {
   addPendingOrderItemsBulk, rebuildPendingOrderItems, withPendingOrderLicenseRefs,
   convertPendingOrderToLicenses, batchConvertPendingOrderToLicenses, buildLicenseProcurementTrail,
   buildRenewalWorkbenchRows, initiateRenewalBundleRecord,
+  assertCanInitiateRenewal, getRenewalActionDays, normalizeRetirementUpdate,
+  setPlannedSuccessors, replacePlannedPredecessors, requireNoPlannedLinks,
 } from "./store.js";
 import { buildLicense } from "./fixtures.js";
 import { datetimeDaysAgo } from "./time.js";
@@ -861,24 +863,14 @@ export const routes = [
     },
   },
   {
-    // Mirrors backend/app/services/renewal_orchestrator.py:45-79 + renewal_workflow.py:75-98.
+    // Mirrors backend/app/services/renewal_orchestrator.py:45-79 + renewal_workflow.py:75-98
+    // and lifecycle_rules.assert_can_initiate_renewal (re-verified 2026-09-21).
     method: "POST", pattern: /^\/api\/licenses\/(?<id>\d+)\/initiate-renewal$/,
     handler: async ({ params }) => {
       const id = Number(params.id);
       const license = findLicenseOr404(id);
 
-      if (license.lifecycleStatus === "pending_renewal") {
-        throw new Error("Renewal already initiated for this license");
-      }
-      if (license.lifecycleStatus === "renewed") {
-        throw new Error("License has already been renewed");
-      }
-      if (license.renewedToId != null) {
-        throw new Error(`License ${license.id} has already been renewed`);
-      }
-      if (license.endDate == null) {
-        throw new Error("Cannot initiate renewal on a perpetual license (no end date)");
-      }
+      assertCanInitiateRenewal(license, { actionDays: getRenewalActionDays() });
 
       license.lifecycleStatus = "pending_renewal";
       decorateLicense(license);
@@ -1088,6 +1080,14 @@ export const routes = [
       } else {
         license[field] = resolvedValue;
       }
+      // A changed end date can materialize or clear a scheduled retirement
+      // (license_write_service.py:690-701 + normalize_retirement_update).
+      if (field === "endDate") {
+        const retirementUpdate = { endDate: license.endDate };
+        normalizeRetirementUpdate(license, retirementUpdate);
+        if ("isRetired" in retirementUpdate) license.isRetired = retirementUpdate.isRetired;
+        if ("retirementScheduled" in retirementUpdate) license.retirementScheduled = retirementUpdate.retirementScheduled;
+      }
       decorateLicense(license);
 
       return { data: withComputedCompleteness(license), error: null };
@@ -1171,8 +1171,12 @@ export const routes = [
     handler: async ({ body }) => {
       const now = new Date().toISOString();
       const id = nextId();
+      const createData = canonicalizeDemoReferenceFields(body);
+      // Requesting retirement with a future end date schedules it instead of
+      // retiring immediately (normalize_retirement_update(None, create_data)).
+      normalizeRetirementUpdate(null, createData);
       const license = buildLicense({
-        ...canonicalizeDemoReferenceFields(body),
+        ...createData,
         id,
         // Real backend always generates an LT-Ref on create (routes/licenses.py:179)
         licenseRef: `LT-2026-${String(id).padStart(4, "0")}`,
@@ -1201,7 +1205,11 @@ export const routes = [
     method: "PUT", pattern: /^\/api\/licenses\/(?<id>\d+)$/,
     handler: async ({ params, body }) => {
       const license = findLicenseOr404(Number(params.id));
-      Object.assign(license, canonicalizeDemoReferenceFields(body));
+      const updateData = canonicalizeDemoReferenceFields(body);
+      // Translate a retirement request / end-date move into immediate or
+      // end-of-term retirement before applying (normalize_retirement_update).
+      normalizeRetirementUpdate(license, updateData);
+      Object.assign(license, updateData);
       decorateLicense(license);
       return { data: withComputedCompleteness(license), error: null };
     },
@@ -1341,12 +1349,34 @@ export const routes = [
       } else if (!request.contactEmail && proposedContact) {
         synchronizeOpenSourcingRequestIdentity(request, { contactEmail: proposedContact });
       }
-      store.sourcingItems.push(buildSourcingItem({
+      const created = buildSourcingItem({
         ...itemPayload,
         supplier: request.supplier,
         contactEmail: request.contactEmail,
-      }, { sourcingRequestId: request.id, status: "sourcing" }));
+      }, { sourcingRequestId: request.id, status: "sourcing" });
+      store.sourcingItems.push(created);
+      // A line added as the next term of existing lines links them to it
+      // (SourcingItemCreate.successor_of_item_ids → set_planned_successors).
+      const successorOf = body?.successorOfItemIds ?? [];
+      if (successorOf.length) {
+        setPlannedSuccessors(successorOf.map(Number), created.id);
+      }
       return { data: buildSourcingRequestResponse(request), error: null };
+    },
+  },
+  {
+    // Mirrors backend/app/routes/sourcing_requests.py successor-links +
+    // planned_successor_service.replace_planned_predecessors.
+    method: "PUT", pattern: /^\/api\/sourcing\/requests\/successor-links$/,
+    handler: async ({ body }) => {
+      const successorItemId = Number(body?.successorItemId);
+      const predecessorItemIds = (body?.predecessorItemIds ?? []).map(Number);
+      replacePlannedPredecessors(predecessorItemIds, successorItemId);
+      const successor = store.sourcingItems.find((item) => item.id === successorItemId);
+      const request = successor?.sourcingRequestId != null
+        ? findSourcingRequestOr404(successor.sourcingRequestId)
+        : null;
+      return { data: request ? buildSourcingRequestResponse(request) : { ok: true }, error: null };
     },
   },
   {
@@ -1528,6 +1558,7 @@ export const routes = [
       const id = Number(params.id);
       const item = findSourcingItemOr404(id);
       assertSourcingItemEditable(item);
+      requireNoPlannedLinks(item);
 
       const renewalLicenseId = item.renewalForLicenseId;
       const renewalLicenseIds = sourcingItemPredecessorIds(item);

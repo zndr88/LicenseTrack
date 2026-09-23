@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { computeTotalPoValue, store, resetStore, seedStore } from "../store.js";
+import { computeStats, computeTotalPoValue, store, resetStore, seedStore } from "../store.js";
+import { computeExpirationStatus } from "../fixtures.js";
 
 describe("demo store seed/reset", () => {
   beforeEach(() => resetStore());
@@ -47,6 +48,38 @@ describe("demo store seed/reset", () => {
     ]);
 
     expect(total).toBe("€1,000.00");
+  });
+
+  it("keeps pending_renewal as a workflow state, not an expiration status", () => {
+    seedStore();
+    const vmware = store.licenses.find(
+      (l) => l.publisherName === "VMware" && l.lifecycleStatus === "pending_renewal"
+    );
+    expect(vmware).toBeDefined();
+    // 1.1.23 separates renewal workflow from coverage: the record keeps ageing
+    // by its dates while the renewal runs, so it is never "pending_renewal" here.
+    expect(vmware.expirationStatus).not.toBe("pending_renewal");
+    expect(vmware.expirationStatus).toBe("active");
+  });
+
+  it("counts pending renewals and scheduled retirements in stats", () => {
+    seedStore();
+    const stats = computeStats();
+    expect(stats.total_pending).toBeGreaterThanOrEqual(1);
+    expect(stats.total_retirement_scheduled).toBeGreaterThanOrEqual(1);
+  });
+
+  it("treats only non-expiring types with no end date as perpetual", () => {
+    const base = {
+      isRetired: false,
+      lifecycleStatus: null,
+      renewedToId: null,
+      successorStartDate: null,
+      startDate: null,
+      endDate: null,
+    };
+    expect(computeExpirationStatus({ ...base, licenseType: "perpetual" })).toBe("perpetual");
+    expect(computeExpirationStatus({ ...base, licenseType: "subscription" })).toBe("active");
   });
 
   it("reset clears everything", () => {
