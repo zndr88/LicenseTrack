@@ -82,6 +82,8 @@ class SourcingItem(Base):
     license_type: Mapped[LicenseType | None] = mapped_column(Enum(LicenseType), nullable=True)
     license_metric: Mapped[LicenseMetric | None] = mapped_column(Enum(LicenseMetric), nullable=True)
     portal_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    is_renewable: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    type_description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     maintenance_coverage: Mapped[MaintenanceCoverage | None] = mapped_column(
         Enum(MaintenanceCoverage), nullable=True
     )

@@ -48,7 +48,13 @@ from app.services.maintenance_service import (
     validate_parent_license,
 )
 from app.services.money import is_canonical_money
-from app.services.license_service import is_non_expiring_license_type, validate_term_date_order
+from app.services.license_service import (
+    TYPE_DESCRIPTION_REQUIRED_DETAIL,
+    is_non_expiring_license_type,
+    normalise_type_opt_in_fields,
+    type_description_missing,
+    validate_term_date_order,
+)
 from app.services.license_retirement_service import normalize_retirement_update
 from app.services.po_total_override_service import (
     inherit_po_total_override,
@@ -248,11 +254,18 @@ def _parse_procurement_milestone_datetime(value: str) -> datetime:
 
 def normalise_license_type_fields(data: dict) -> None:
     """Apply persisted field invariants determined solely by license type."""
-    if data.get("license_type") == LicenseType.freeware:
+    license_type = data.get("license_type")
+    if license_type == LicenseType.freeware:
         data["unit_price"] = ""
         data["total_po_price"] = ""
-    if is_non_expiring_license_type(data.get("license_type")):
+    if is_non_expiring_license_type(license_type):
         data["end_date"] = None
+    normalise_type_opt_in_fields(data)
+
+
+def validate_type_description(license_type, type_description: str | None) -> None:
+    if type_description_missing(license_type, type_description):
+        raise HTTPException(status_code=422, detail=TYPE_DESCRIPTION_REQUIRED_DETAIL)
 
 
 def validate_term_dates(start_date: date | None, end_date: date | None) -> None:
@@ -370,6 +383,7 @@ async def create_license_record(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     normalise_license_type_fields(create_data)
+    validate_type_description(create_data.get("license_type"), create_data.get("type_description"))
     apply_included_support_defaults(create_data)
     normalize_retirement_update(None, create_data)
 
@@ -443,11 +457,23 @@ async def apply_license_update(
         "unit_price": update_data.get("unit_price", license_obj.unit_price),
         "total_po_price": update_data.get("total_po_price", license_obj.total_po_price),
         "end_date": update_data.get("end_date", license_obj.end_date),
+        "is_renewable": update_data.get("is_renewable", license_obj.is_renewable),
+        "type_description": update_data.get("type_description", license_obj.type_description),
     }
     normalise_license_type_fields(type_normalization_data)
-    for field in ("unit_price", "total_po_price", "end_date"):
+    for field in ("unit_price", "total_po_price", "end_date", "is_renewable", "type_description"):
         if type_normalization_data[field] != getattr(license_obj, field) or field in update_data:
             update_data[field] = type_normalization_data[field]
+    # Existing Other rows without a description stay valid until the type or
+    # description is edited.
+    if (
+        update_data.get("license_type", license_obj.license_type) != license_obj.license_type
+        or "type_description" in payload.model_fields_set
+    ):
+        validate_type_description(
+            type_normalization_data["license_type"],
+            type_normalization_data["type_description"],
+        )
     if "start_date" in update_data or "end_date" in update_data:
         validate_term_dates(
             update_data.get("start_date", license_obj.start_date),
@@ -1016,11 +1042,15 @@ def apply_license_type_patch(license_obj: License, value: str | None) -> None:
         "unit_price": license_obj.unit_price,
         "total_po_price": license_obj.total_po_price,
         "end_date": license_obj.end_date,
+        "is_renewable": license_obj.is_renewable,
+        "type_description": license_obj.type_description,
     }
     normalise_license_type_fields(type_data)
     license_obj.unit_price = type_data["unit_price"]
     license_obj.total_po_price = type_data["total_po_price"]
     license_obj.end_date = type_data["end_date"]
+    license_obj.is_renewable = type_data["is_renewable"]
+    license_obj.type_description = type_data["type_description"]
     sync_support_defaults_on_license(license_obj)
 
 

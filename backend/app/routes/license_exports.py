@@ -89,6 +89,8 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
         "Expiration Status",
         "Days Until Expiry",
         "Notes",
+        "Renewable",
+        "Type Description",
     ]
     writer.writerow(headers)
 
@@ -176,6 +178,8 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
                     ),
                     compute_days_until_expiry(lic, today) if lic.end_date else "",
                     lic.notes or "",
+                    {True: "Yes", False: "No"}.get(lic.is_renewable, ""),
+                    lic.type_description or "",
                 ]
             )
         )

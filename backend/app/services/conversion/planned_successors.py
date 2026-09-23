@@ -8,12 +8,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType
 from app.models.sourcing import SourcingItem
+from app.services.license_service import is_renewable_license
 from app.services.lifecycle_rules import (
     assert_predecessor_has_no_successor,
     assert_successor_term,
     mark_predecessor_renewed,
     normalize_entitlement_identity,
 )
+
+
+# Types that never take part in a planned renewal chain; Service/Other follow
+# their renewable opt-in through is_renewable_license.
+_NEVER_PLANNED_SUCCESSOR_TYPES = frozenset({LicenseType.freeware, LicenseType.perpetual, LicenseType.maintenance})
 
 
 async def apply_planned_successor_links(
@@ -55,7 +61,7 @@ async def apply_planned_successor_links(
             predecessors.sort(key=lambda lic: (lic.start_date is None, lic.start_date, lic.id))
             if successor.renewed_from_id is not None or successor.predecessor_id is not None:
                 raise HTTPException(status_code=409, detail=f"Line {target_id} already has a predecessor")
-            if successor.license_type in {LicenseType.service, LicenseType.other, LicenseType.freeware, LicenseType.perpetual, LicenseType.maintenance}:
+            if not is_renewable_license(successor) or successor.license_type in _NEVER_PLANNED_SUCCESSOR_TYPES:
                 raise HTTPException(status_code=422, detail=f"Line {target_id} cannot be a renewal successor")
             publisher = normalize_entitlement_identity(successor.publisher_name)
             if not publisher:
@@ -64,7 +70,7 @@ async def apply_planned_successor_links(
                 assert_predecessor_has_no_successor(predecessor)
                 if normalize_entitlement_identity(predecessor.publisher_name) != publisher:
                     raise HTTPException(status_code=422, detail=f"Line {target_id} must match predecessor publisher")
-                if predecessor.license_type in {LicenseType.service, LicenseType.other, LicenseType.freeware, LicenseType.perpetual, LicenseType.maintenance}:
+                if not is_renewable_license(predecessor) or predecessor.license_type in _NEVER_PLANNED_SUCCESSOR_TYPES:
                     raise HTTPException(status_code=422, detail=f"Line {target_id} follows a nonrenewable license")
             assert_successor_term(predecessors, successor.start_date, successor.end_date)
             primary = predecessors[0]

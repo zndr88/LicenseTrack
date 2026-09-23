@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.custom_fields import CustomFieldValue
 from app.models.document import ProcurementDocument
-from app.models.license import License, LicenseType
+from app.models.license import License
 from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.models.user import User
@@ -20,7 +20,11 @@ from app.schemas.renewal import (
 )
 from app.services.access_service import apply_department_filter, get_viewer_departments
 from app.services.document_availability_service import available_documents
-from app.services.license_service import compute_completeness, compute_days_until_expiry
+from app.services.license_service import (
+    RENEWAL_OPT_IN_LICENSE_TYPES,
+    compute_completeness,
+    compute_days_until_expiry,
+)
 from app.services.license_response_service import get_procurement_documents_by_scope
 from app.services.renewal_workflow import compute_workbench_renewal_status
 from app.services.renewal_workbench_model import (
@@ -30,7 +34,6 @@ from app.services.renewal_workbench_model import (
 )
 from app.services.sourcing_service import sourcing_item_predecessor_ids
 
-NON_RENEWABLE_LICENSE_TYPES = (LicenseType.service, LicenseType.other)
 
 
 async def get_renewal_workbench_rows(
@@ -90,7 +93,12 @@ async def _load_candidate_licenses(
         select(License)
         .where(License.is_retired.is_(False))
         .where(License.retirement_scheduled.is_(False))
-        .where(License.license_type.notin_(NON_RENEWABLE_LICENSE_TYPES))
+        .where(
+            or_(
+                License.license_type.notin_(RENEWAL_OPT_IN_LICENSE_TYPES),
+                License.is_renewable.is_(True),
+            )
+        )
         .where(or_(License.lifecycle_status.is_(None), License.lifecycle_status.notin_(["renewed", "legacy"])))
         .where(or_(License.end_date.isnot(None), License.lifecycle_status == "pending_renewal"))
         .where(or_(License.end_date <= cutoff, License.lifecycle_status == "pending_renewal"))

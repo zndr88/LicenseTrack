@@ -83,6 +83,10 @@ class License(Base):
     license_type: Mapped[LicenseType] = mapped_column(Enum(LicenseType), nullable=False)
     license_metric: Mapped[LicenseMetric] = mapped_column(Enum(LicenseMetric), nullable=False)
     portal_url: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    # Service/Other opt in to renewal; NULL means "derive from type" (not renewable).
+    is_renewable: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=None)
+    # Short description of what an "Other" purchase is.
+    type_description: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
 
     # Quantity & pricing - stored as strings per spec (can be blank/free-form)
     quantity: Mapped[str] = mapped_column(String(100), nullable=False, default="")

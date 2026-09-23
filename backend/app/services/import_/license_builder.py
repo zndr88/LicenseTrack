@@ -9,7 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.services.csv_importer import ParsedRow
-from app.services.license_service import is_non_expiring_license_type, validate_term_date_order
+from app.services.license_service import (
+    is_non_expiring_license_type,
+    normalise_type_opt_in_fields,
+    validate_term_date_order,
+)
 from app.services.lifecycle_rules import assert_successor_term
 from app.services.import_.invoice_values import parse_invoice_cell
 from app.services.maintenance_service import validate_parent_license
@@ -113,6 +117,8 @@ async def build_license(
         ),
         "maintenance_cost": row.maintenance_cost or None,
         "portal_url": row.portal_url,
+        "is_renewable": row.is_renewable,
+        "type_description": row.type_description,
         "quantity": row.quantity,
         "quantity_per_unit": row.quantity_per_unit or "1",
         "sku_code": row.sku_code,
@@ -149,6 +155,7 @@ async def build_license(
         "predecessor_id": predecessor_id,
     }
     apply_bundled_included_support_defaults(data)
+    normalise_type_opt_in_fields(data)
     validate_term_date_order(data.get("start_date"), data.get("end_date"))
     await inherit_po_total_override(db, data)
 

@@ -4,8 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.license import License, LicenseType
 from app.services.conversion.maintenance_linker import create_maintenance_purchase
 from app.services.license_service import (
+    TYPE_DESCRIPTION_REQUIRED_DETAIL,
     generate_license_ref,
     is_non_expiring_license_type,
+    normalise_type_opt_in_fields,
+    type_description_missing,
     validate_term_date_order,
 )
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
@@ -28,6 +31,9 @@ async def create_purchase_license(
 
     if is_non_expiring_license_type(license_type):
         item_data["end_date"] = None
+    normalise_type_opt_in_fields(item_data)
+    if type_description_missing(license_type, item_data.get("type_description")):
+        raise HTTPException(status_code=422, detail=f"Item {item_id}: {TYPE_DESCRIPTION_REQUIRED_DETAIL}")
     if license_type == LicenseType.freeware:
         item_data["unit_price"] = ""
         item_data["total_po_price"] = ""

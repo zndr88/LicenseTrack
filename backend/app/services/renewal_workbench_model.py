@@ -10,10 +10,10 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from app.models.license import License, LicenseType
+from app.models.license import License
 from app.schemas.renewal import RenewalRiskFlag, RenewalStatus, RenewalWorkbenchRow
 from app.services.money import MoneyParseError, parse_money
-from app.services.license_service import annualize_term_cost
+from app.services.license_service import annualize_term_cost, is_recurring_license
 
 
 # ---------------------------------------------------------------------------
@@ -34,13 +34,6 @@ ALLOWED_WORKBENCH_VIEWS = {
     "high_value",
 }
 
-RECURRING_LICENSE_TYPES = {
-    LicenseType.subscription,
-    LicenseType.saas,
-    LicenseType.maintenance,
-}
-
-
 # ---------------------------------------------------------------------------
 # Public computation functions
 # ---------------------------------------------------------------------------
@@ -48,7 +41,7 @@ RECURRING_LICENSE_TYPES = {
 
 def estimate_annual_value(license_obj: License) -> Decimal | None:
     """Return the recurring annual estimate, or None for invalid numeric data."""
-    if license_obj.license_type not in RECURRING_LICENSE_TYPES:
+    if not is_recurring_license(license_obj):
         return Decimal("0")
     try:
         quantity = parse_money(str(license_obj.quantity) if license_obj.quantity is not None else None)

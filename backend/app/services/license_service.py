@@ -95,10 +95,11 @@ NON_EXPIRING_LICENSE_TYPES = frozenset(
         LicenseType.perpetual,
         LicenseType.oem,
         LicenseType.freeware,
-        LicenseType.service,
-        LicenseType.other,
     }
 )
+
+# Service and Other are one-off purchases unless the user opts in to renewal.
+RENEWAL_OPT_IN_LICENSE_TYPES = frozenset({LicenseType.service, LicenseType.other})
 
 def is_non_expiring_license_type(license_type) -> bool:
     """Return True when the license type never carries an end date."""
@@ -122,6 +123,44 @@ _RECURRING_LICENSE_TYPES = frozenset(
 )
 
 _ENTITLEMENT_DOCUMENT_FIELDS = frozenset({"entitlement", "eula"})
+
+
+def is_renewable_license(license_obj) -> bool:
+    """Whether a license or sourcing line takes part in renewal.
+
+    Service/Other renew only when explicitly marked renewable (NULL counts as
+    not renewable); every other type is renewable by type. Callers still apply
+    their own date/lifecycle checks (a perpetual record has no end date, etc.).
+    """
+    if getattr(license_obj, "license_type", None) in RENEWAL_OPT_IN_LICENSE_TYPES:
+        return getattr(license_obj, "is_renewable", None) is True
+    return True
+
+
+def normalise_type_opt_in_fields(data: dict) -> None:
+    """Keep ``is_renewable`` only on Service/Other and ``type_description`` only on Other."""
+    license_type = data.get("license_type")
+    if "is_renewable" in data and license_type not in RENEWAL_OPT_IN_LICENSE_TYPES:
+        data["is_renewable"] = None
+    if "type_description" in data:
+        description = str(data["type_description"] or "").strip()
+        data["type_description"] = description if license_type == LicenseType.other and description else None
+
+
+def type_description_missing(license_type, type_description: str | None) -> bool:
+    """An "Other" purchase needs a short description of what it is."""
+    return license_type == LicenseType.other and not str(type_description or "").strip()
+
+
+TYPE_DESCRIPTION_REQUIRED_DETAIL = "Add a type description for an Other license"
+
+
+def is_recurring_license(license_obj) -> bool:
+    """Whether the license line itself is a recurring (annual-cost) charge."""
+    license_type = getattr(license_obj, "license_type", None)
+    if license_type in _RECURRING_LICENSE_TYPES:
+        return True
+    return license_type in RENEWAL_OPT_IN_LICENSE_TYPES and is_renewable_license(license_obj)
 
 _DIRECT_MANDATORY_FIELDS = {
     "startDate": "start_date",
@@ -166,8 +205,13 @@ def _check_mandatory_field(
     if key in _DOCUMENT_CATEGORIES:
         return _DOCUMENT_CATEGORIES[key] in doc_categories
     if key == "endDate":
-        # Non-expiring license types intentionally allow no end date.
-        return license.end_date is not None or license.license_type in NON_EXPIRING_LICENSE_TYPES
+        # Non-expiring types and one-off Service/Other intentionally allow no
+        # end date; a renewable Service/Other needs one to be renewed.
+        return (
+            license.end_date is not None
+            or license.license_type in NON_EXPIRING_LICENSE_TYPES
+            or not is_renewable_license(license)
+        )
     attribute = _DIRECT_MANDATORY_FIELDS.get(key)
     if attribute is not None:
         return bool(getattr(license, attribute))
@@ -389,7 +433,7 @@ def compute_stats(
         # (license_type="maintenance") which contributes on its own below.
         # Freeware contributes zero.
         if status in ("active", "perpetual", "expiring"):
-            if lic.license_type in _RECURRING_LICENSE_TYPES:
+            if is_recurring_license(lic):
                 annual_cost = calc_recurring_annual_cost(lic)
                 if annual_cost is not None:
                     cur = lic.currency or "USD"

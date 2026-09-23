@@ -25,12 +25,12 @@ from app.services.license_service import (
     calc_line_total,
     compute_completeness,
     compute_expiration_status,
+    is_recurring_license,
 )
 from app.services.money import MoneyParseError, parse_money
 from app.services.po_total_override_service import procurement_identity_key
 
 
-RECURRING_TYPES = frozenset({LicenseType.subscription, LicenseType.saas, LicenseType.maintenance})
 SUPPORT_PARENT_TYPES = frozenset({LicenseType.freeware, LicenseType.perpetual, LicenseType.oem})
 ZERO = Decimal("0")
 
@@ -152,12 +152,12 @@ def _has_included_support_record(license_obj: License) -> bool:
 
 
 def _is_recurring(license_obj: License) -> bool:
-    return license_obj.license_type in RECURRING_TYPES or _has_included_support_record(license_obj)
+    return is_recurring_license(license_obj) or _has_included_support_record(license_obj)
 
 
 def _is_recurring_line_value(license_obj: License) -> bool:
     """Whether the license line itself represents the recurring charge."""
-    return license_obj.license_type in RECURRING_TYPES or (
+    return is_recurring_license(license_obj) or (
         license_obj.license_type == LicenseType.freeware
         and _has_included_support_record(license_obj)
     )

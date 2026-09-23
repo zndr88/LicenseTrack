@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from app.models.license import LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
@@ -32,6 +32,8 @@ class SourcingItemSummary(BaseModel):
     license_type: Optional[LicenseType] = None
     license_metric: Optional[LicenseMetric] = None
     portal_url: Optional[str] = None
+    is_renewable: Optional[bool] = None
+    type_description: Optional[str] = Field(default=None, max_length=255)
     maintenance_coverage: Optional[MaintenanceCoverage] = None
     maintenance_start_date: Optional[date] = None
     maintenance_end_date: Optional[date] = None
@@ -159,6 +161,8 @@ class PendingOrderConvertRequest(BaseModel):
     license_type: LicenseType = LicenseType.subscription
     license_metric: LicenseMetric = LicenseMetric.per_user
     portal_url: Optional[str] = None
+    is_renewable: Optional[bool] = None
+    type_description: Optional[str] = Field(default=None, max_length=255)
     parent_license_id: Optional[int] = None
     maintenance_coverage: Optional[MaintenanceCoverage] = None
     maintenance_start_date: Optional[date] = None

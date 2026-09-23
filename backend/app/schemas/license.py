@@ -90,6 +90,8 @@ class LicenseBase(BaseModel):
     budget_owner_email: str = ""
     secondary_contacts: list[str] = Field(default_factory=list)
     portal_url: Optional[str] = None
+    is_renewable: Optional[bool] = None
+    type_description: Optional[str] = Field(default=None, max_length=255)
     notes: Optional[str] = None
     has_maintenance: bool = False
     maintenance_coverage: Optional[MaintenanceCoverage] = None
@@ -236,6 +238,8 @@ class LicenseUpdate(BaseModel):
     budget_owner_email: Optional[str] = None
     secondary_contacts: Optional[list[str]] = None
     portal_url: Optional[str] = None
+    is_renewable: Optional[bool] = None
+    type_description: Optional[str] = Field(default=None, max_length=255)
     parent_license_id: Optional[int] = None
     maintenance_coverage: Optional[MaintenanceCoverage] = None
     notes: Optional[str] = None

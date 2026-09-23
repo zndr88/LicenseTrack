@@ -1241,3 +1241,22 @@ def test_build_warning_summary_mixed_rows():
     assert summary.defaulted_enum_count == 0
     assert summary.rows_with_warnings_count == 0
     assert summary.has_warnings is False
+
+
+def test_renewable_and_type_description_columns_are_parsed():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "license_type", "Renewable", "Type Description"],
+        [
+            {"publisher_name": "Acme", "software_description": "Retainer", "license_type": "service", "Renewable": "Yes", "Type Description": ""},
+            {"publisher_name": "Acme", "software_description": "Voucher", "license_type": "other", "Renewable": "no", "Type Description": "Training voucher"},
+            {"publisher_name": "Acme", "software_description": "Misc", "license_type": "other", "Renewable": "maybe", "Type Description": ""},
+        ],
+    )
+    rows = parse_csv(csv_bytes).rows
+
+    assert (rows[0].is_renewable, rows[0].type_description) == (True, None)
+    assert (rows[1].is_renewable, rows[1].type_description) == (False, "Training voucher")
+    assert rows[2].is_renewable is None
+    assert any("is_renewable" in warning for warning in rows[2].warnings)
+    assert any("type_description" in warning for warning in rows[2].warnings)
+    assert rows[2].validation_errors == []

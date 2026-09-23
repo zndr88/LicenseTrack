@@ -7,7 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.license import LicenseType
 from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.sourcing import SourcingItem, SourcingStatus
+from app.services.license_service import is_renewable_license
 from app.services.lifecycle_rules import normalize_entitlement_identity
+
+# Types that never renew, regardless of the Service/Other renewable opt-in.
+_NEVER_RENEWED_TYPES = frozenset({LicenseType.freeware, LicenseType.perpetual})
 
 
 def _assert_acyclic(items: list[SourcingItem], changes: dict[int, int | None]) -> None:
@@ -82,14 +86,14 @@ async def set_planned_successors(
         successor_publisher = normalize_entitlement_identity(successor.publisher_name)
         if not successor_publisher:
             raise HTTPException(status_code=422, detail="Successor publisher is required")
-        if successor.license_type in {LicenseType.service, LicenseType.other, LicenseType.freeware, LicenseType.perpetual}:
+        if not is_renewable_license(successor) or successor.license_type in _NEVER_RENEWED_TYPES:
             raise HTTPException(status_code=422, detail="This successor type cannot be renewed")
         if successor.license_type == LicenseType.maintenance:
             raise HTTPException(status_code=422, detail="Planned maintenance successors are not available yet")
         for predecessor in predecessors:
             if normalize_entitlement_identity(predecessor.publisher_name) != successor_publisher:
                 raise HTTPException(status_code=422, detail="Linked terms must have the same publisher")
-            if predecessor.license_type in {LicenseType.service, LicenseType.other, LicenseType.freeware, LicenseType.perpetual}:
+            if not is_renewable_license(predecessor) or predecessor.license_type in _NEVER_RENEWED_TYPES:
                 raise HTTPException(status_code=422, detail="This predecessor type cannot be renewed")
             if predecessor.license_type == LicenseType.maintenance:
                 raise HTTPException(status_code=422, detail="Planned maintenance successors are not available yet")

@@ -27,6 +27,7 @@ from app.services.custom_fields_service import merge_sourcing_values, replace_va
 from app.services.lifecycle_rules import clear_pending_renewal_if_current
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.money import MoneyParseError, parse_money
+from app.services.license_service import normalise_type_opt_in_fields
 from app.services.planned_successor_service import require_no_planned_links
 from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.reference_data_service import (
@@ -255,6 +256,19 @@ def sync_sourcing_item_support_defaults(item: SourcingItem) -> None:
     apply_included_support_defaults(data)
     for field in _SUPPORT_DEFAULT_FIELDS:
         setattr(item, field, data.get(field))
+    normalise_sourcing_item_type_fields(item)
+
+
+def normalise_sourcing_item_type_fields(item: SourcingItem) -> None:
+    """Apply the Service/Other renewable and Other description invariants to a line."""
+    data = {
+        "license_type": item.license_type,
+        "is_renewable": item.is_renewable,
+        "type_description": item.type_description,
+    }
+    normalise_type_opt_in_fields(data)
+    item.is_renewable = data["is_renewable"]
+    item.type_description = data["type_description"]
 
 
 async def apply_sourcing_item_update(
@@ -782,6 +796,8 @@ async def build_merged_sourcing_item(
         license_type=merged_license_type,
         license_metric=primary_item.license_metric or primary_pred.license_metric,
         portal_url=common_nonblank("portal_url"),
+        is_renewable=primary_item.is_renewable,
+        type_description=common_nonblank("type_description"),
         maintenance_coverage=MaintenanceCoverage(maintenance_coverage),
         quantity=format(total_quantity, "f") if total_quantity else None,
         quantity_per_unit=common_nonblank("quantity_per_unit"),
@@ -859,6 +875,7 @@ async def create_sourcing_item_record(
         item_data["estimated_unit_price"] = None
         item_data["estimated_total_price"] = None
     apply_included_support_defaults(item_data)
+    normalise_type_opt_in_fields(item_data)
     item = SourcingItem(**item_data, created_by=created_by)
     await ensure_sourcing_request_for_item(db, item, created_by=created_by)
     db.add(item)
@@ -1301,6 +1318,7 @@ def _build_request_item(
         item_data["estimated_unit_price"] = None
         item_data["estimated_total_price"] = None
     apply_included_support_defaults(item_data)
+    normalise_type_opt_in_fields(item_data)
     item_data["supplier"] = supplier
     item_data["contact_email"] = contact_email
     return SourcingItem(

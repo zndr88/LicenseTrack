@@ -25,6 +25,7 @@ from app.schemas.sourcing import SourcingItemCreate, SourcingItemUpdate, Sourcin
 from app.services.document_availability_service import with_file_availability
 from app.services.draft_document_service import require_no_single_documents
 from app.services.custom_fields_service import replace_values_for_sourcing_item
+from app.services.license_service import normalise_type_opt_in_fields
 from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.reference_data_service import resolve_organization, resolve_procurement_reference_fields
 from app.services.sourcing_service import (
@@ -472,6 +473,7 @@ def _build_pending_order_item(
     if item_data.pop("successor_of_item_ids", []):
         raise HTTPException(status_code=422, detail="Successor lines must be added to a sourcing request")
     apply_included_support_defaults(item_data)
+    normalise_type_opt_in_fields(item_data)
 
     return SourcingItem(
         **item_data,

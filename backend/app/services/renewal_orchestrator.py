@@ -13,7 +13,12 @@ from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
 from app.services.audit_service import format_audit_detail, log_event
-from app.services.license_service import compute_expiration_status, generate_license_ref, validate_term_date_order
+from app.services.license_service import (
+    compute_expiration_status,
+    generate_license_ref,
+    is_renewable_license,
+    validate_term_date_order,
+)
 from app.services.lifecycle_rules import (
     assert_can_initiate_renewal,
     assert_successor_term,
@@ -281,7 +286,7 @@ def _assert_existing_successor_candidate(
         or predecessor.lifecycle_status in {"renewed", "legacy", "pending_renewal"}
     ):
         raise HTTPException(status_code=409, detail="This license is not eligible to link an existing successor")
-    if predecessor.end_date is None or predecessor.license_type in {LicenseType.service, LicenseType.other}:
+    if predecessor.end_date is None or not is_renewable_license(predecessor):
         raise HTTPException(status_code=400, detail="This license type is not eligible for renewal")
     assert_predecessor_has_no_successor(predecessor)
 
@@ -306,7 +311,7 @@ def _assert_existing_successor_candidate(
     publisher = normalize_entitlement_identity(predecessor.publisher_name)
     if not publisher or publisher != normalize_entitlement_identity(successor.publisher_name):
         raise HTTPException(status_code=400, detail="The successor must have the same publisher")
-    if successor.license_type in {LicenseType.service, LicenseType.other}:
+    if not is_renewable_license(successor):
         raise HTTPException(status_code=400, detail="The selected successor type is not eligible for renewal")
     if predecessor.end_date is None or successor.end_date is None or successor.end_date <= predecessor.end_date:
         raise HTTPException(status_code=400, detail="The successor must extend coverage beyond the predecessor end date")

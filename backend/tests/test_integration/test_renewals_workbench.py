@@ -162,6 +162,7 @@ async def test_workbench_excludes_service_and_other_license_types(test_app, auth
         auth_headers,
         softwareDescription="Miscellaneous Purchase",
         licenseType="other",
+        typeDescription="Training voucher",
         endDate=(date.today() + timedelta(days=20)).isoformat(),
     )
 
@@ -171,6 +172,22 @@ async def test_workbench_excludes_service_and_other_license_types(test_app, auth
     row_ids = {row["licenseId"] for row in resp.json()}
     assert service["id"] not in row_ids
     assert other["id"] not in row_ids
+
+
+async def test_workbench_includes_service_marked_renewable(test_app, auth_headers):
+    service = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Managed Service",
+        licenseType="service",
+        isRenewable=True,
+        endDate=(date.today() + timedelta(days=20)).isoformat(),
+    )
+
+    resp = await test_app.get("/api/renewals/workbench", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    assert service["id"] in {row["licenseId"] for row in resp.json()}
 
 
 async def test_workbench_completeness_includes_procurement_documents(

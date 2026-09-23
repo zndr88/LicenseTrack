@@ -8,7 +8,11 @@ from app.models.license import License, LicenseType
 from app.services.contract_identity_service import resolve_contract_id_for_number
 from app.services.csv_importer import ParsedRow
 from app.services.custom_fields_service import upsert_imported_values_for_license
-from app.services.license_service import is_non_expiring_license_type, validate_term_date_order
+from app.services.license_service import (
+    is_non_expiring_license_type,
+    normalise_type_opt_in_fields,
+    validate_term_date_order,
+)
 from app.services.lifecycle_rules import validate_established_renewal_terms
 from app.services.import_.invoice_values import parse_invoice_cell
 from app.services.license_write_service import sync_support_defaults_on_license
@@ -97,6 +101,18 @@ async def apply_import_update(
         license_obj.notes = row.notes
     if row.portal_url:
         license_obj.portal_url = row.portal_url
+    if row.is_renewable is not None:
+        license_obj.is_renewable = row.is_renewable
+    if row.type_description:
+        license_obj.type_description = row.type_description
+    type_fields = {
+        "license_type": license_obj.license_type,
+        "is_renewable": license_obj.is_renewable,
+        "type_description": license_obj.type_description,
+    }
+    normalise_type_opt_in_fields(type_fields)
+    license_obj.is_renewable = type_fields["is_renewable"]
+    license_obj.type_description = type_fields["type_description"]
     if row.external_ref:
         license_obj.external_ref = row.external_ref
 

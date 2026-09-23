@@ -117,6 +117,8 @@ def build_renewal_sourcing_item(
         license_type=license_type,
         license_metric=license_obj.license_metric,
         portal_url=license_obj.portal_url,
+        is_renewable=license_obj.is_renewable,
+        type_description=license_obj.type_description,
         maintenance_coverage=MaintenanceCoverage(maintenance_coverage),
         quantity=license_obj.quantity or None,
         quantity_per_unit=license_obj.quantity_per_unit or "1",
@@ -184,6 +186,8 @@ def build_pending_order_item_license_data(
     apply_fallback("license_type", item.license_type, getattr(old_license, "license_type", None))
     apply_fallback("license_metric", item.license_metric, getattr(old_license, "license_metric", None))
     apply_fallback("portal_url", item.portal_url, getattr(old_license, "portal_url", None))
+    apply_fallback("is_renewable", item.is_renewable, getattr(old_license, "is_renewable", None))
+    apply_fallback("type_description", item.type_description, getattr(old_license, "type_description", None))
     apply_fallback("quantity", item.quantity, getattr(old_license, "quantity", None))
     apply_fallback("quantity_per_unit", item.quantity_per_unit, getattr(old_license, "quantity_per_unit", None))
     apply_fallback("sku_code", item.sku_code, getattr(old_license, "sku_code", None))

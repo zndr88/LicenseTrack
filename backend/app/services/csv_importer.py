@@ -109,6 +109,9 @@ _HEADER_MAP: dict[str, str] = {
     "application_owner_email_address": "secondary_contacts",
     "notice_deadline": "notice_date",  # "Notice Deadline"
     "portal_url": "portal_url",  # "Portal URL"
+    "is_renewable": "is_renewable",
+    "renewable": "is_renewable",  # "Renewable"
+    "type_description": "type_description",  # "Type Description"
     "maintenance_coverage": "maintenance_coverage",
     "maintenance_support_coverage": "maintenance_coverage",  # "Maintenance / Support Coverage"
     "maintenance_start": "maintenance_start_date",
@@ -283,6 +286,8 @@ class ParsedRow:
     effective_quantity: str = ""
     procurement_reference: str = ""
     secondary_contacts: list[str] = field(default_factory=list)
+    is_renewable: Optional[bool] = None
+    type_description: Optional[str] = None
     validation_errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     duplicate_warnings: list[object] = field(default_factory=list)
@@ -347,6 +352,23 @@ class CSVHeaderAnalysis:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+_YES_VALUES = frozenset({"yes", "y", "true", "1"})
+_NO_VALUES = frozenset({"no", "n", "false", "0"})
+
+
+def _parse_optional_yes_no(raw: str, field_name: str, warnings: list[str]) -> Optional[bool]:
+    """Parse a Yes/No cell; blank means "not stated" and stays None."""
+    value = raw.strip().casefold()
+    if not value:
+        return None
+    if value in _YES_VALUES:
+        return True
+    if value in _NO_VALUES:
+        return False
+    warnings.append(f"Unrecognised {field_name} {raw!r}; expected Yes or No, ignoring")
+    return None
 
 
 def _normalise_header(raw: str) -> str:
@@ -788,6 +810,10 @@ def _parse_row(
 
     # -- Optional enrichment fields ----------------------------------------
     portal_url = _field_text(data, "portal_url") or None
+    is_renewable = _parse_optional_yes_no(_field_text(data, "is_renewable"), "is_renewable", warnings)
+    type_description = _field_text(data, "type_description")[:255] or None
+    if license_type == "other" and not type_description:
+        warnings.append("Other rows should have a type_description; add one when the record is next edited")
 
     maintenance_coverage_raw = _normalise_maintenance_coverage_value(_field_text(data, "maintenance_coverage"))
     if maintenance_coverage_raw and maintenance_coverage_raw not in _VALID_MAINTENANCE_COVERAGE:
@@ -872,6 +898,8 @@ def _parse_row(
         license_ref=_field_text(data, "license_ref") or None,
         parent_license_ref=parent_license_ref,
         portal_url=portal_url,
+        is_renewable=is_renewable,
+        type_description=type_description,
         maintenance_coverage=maintenance_coverage,
         maintenance_start_date=maintenance_start_date_str,
         maintenance_end_date=maintenance_end_date_str,

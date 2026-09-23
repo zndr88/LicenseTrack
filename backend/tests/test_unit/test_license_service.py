@@ -338,6 +338,14 @@ def test_completeness_end_date_allows_non_expiring_license_types_without_date():
         ) == 100
 
 
+def test_completeness_end_date_required_for_renewable_service():
+    assert compute_completeness(
+        make_license(license_type="service", end_date=None, is_renewable=True),
+        [],
+        {"endDate": True},
+    ) == 0
+
+
 def test_completeness_end_date_requires_date_for_recurring_license_types():
     for license_type in ("subscription", "saas", "maintenance"):
         assert compute_completeness(
