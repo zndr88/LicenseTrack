@@ -9,9 +9,10 @@ export const LICENSE_TYPES = [
   { value: "subscription", label: "Subscription" },
 ];
 
-export const NON_EXPIRING_LICENSE_TYPES = ["perpetual", "oem", "freeware", "service", "other"];
+export const NON_EXPIRING_LICENSE_TYPES = ["perpetual", "oem", "freeware"];
 export const NON_ENTITLEMENT_LICENSE_TYPES = ["freeware", "service", "other"];
-export const NON_RENEWABLE_LICENSE_TYPES = ["service", "other"];
+// Service and Other are one-off purchases unless the user marks them renewable.
+export const RENEWAL_OPT_IN_LICENSE_TYPES = ["service", "other"];
 
 export const MAINTENANCE_COVERAGE_OPTIONS = [
   { value: "unknown", label: "Unknown" },

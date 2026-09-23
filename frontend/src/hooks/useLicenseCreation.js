@@ -5,7 +5,7 @@ import { uploadDocument } from "../api/documents.js";
 import { queryKeys } from "../queryKeys.js";
 import { invalidateNotifications, invalidatePortfolioState } from "../queryInvalidation.js";
 import { defaultDocumentScope } from "../utils/documentCategories.js";
-import { isNonExpiringLicenseType } from "../utils/licenseTypeRules.js";
+import { isNonExpiringLicenseType, typeOptInPayload } from "../utils/licenseTypeRules.js";
 
 function buildLicensePayload(form) {
   return {
@@ -25,6 +25,7 @@ function buildLicensePayload(form) {
     licenseType: form.licenseType || "subscription",
     licenseMetric: form.licenseMetric || "per_user",
     portalUrl: form.licenseType === "saas" ? (form.portalUrl || null) : null,
+    ...typeOptInPayload({ ...form, licenseType: form.licenseType || "subscription" }),
     quantity: form.quantity || "",
     quantityPerUnit: form.quantityPerUnit || "1",
     skuCode: form.skuCode || "",

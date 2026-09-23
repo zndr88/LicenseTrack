@@ -10,6 +10,8 @@ import Icon from "../../ui/Icon.jsx";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
 import ContactCombobox from "../../ui/ContactCombobox.jsx";
 import CustomFieldFormFields from "../CustomFieldFormFields.jsx";
+import LicenseTypeOptInFields from "../LicenseTypeOptInFields.jsx";
+import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../../utils/licenseTypeRules.js";
 
 /**
  * Full-panel edit form shown when editingLicense is true.
@@ -28,6 +30,7 @@ export default function LicenseEditForm({
   onSave,
   onCancel,
 }) {
+  const descriptionMissing = typeDescriptionMissing(editFields.licenseType, editFields.typeDescription);
   const noticeAfterEnd = Boolean(editFields.noticeDate && editFields.endDate && editFields.noticeDate > editFields.endDate);
   const maintenanceCoverageOptions = maintenanceCoverageOptionsForLicenseType(editFields.licenseType);
   const maintenanceCoverageValue = maintenanceCoverageOptions.some(
@@ -155,6 +158,14 @@ export default function LicenseEditForm({
           </select>
         </div>
       </div>
+      <LicenseTypeOptInFields
+        idPrefix="license-edit"
+        licenseType={editFields.licenseType}
+        isRenewable={editFields.isRenewable}
+        typeDescription={editFields.typeDescription}
+        onChange={(field, value) => setEditFields((previous) => ({ ...previous, [field]: value }))}
+        error={descriptionMissing ? TYPE_DESCRIPTION_REQUIRED_MESSAGE : null}
+      />
       {editFields.licenseType === "saas" && (
         <div className="fg">
           <label htmlFor="license-edit-portal-url">Portal URL</label>
@@ -217,7 +228,7 @@ export default function LicenseEditForm({
       {customFields("__catchall__")}
       <div className="dp-btn-row">
         <button className="btn btn-g btn-sm" disabled={savingLicense} onClick={onCancel}>Cancel</button>
-        <button className="btn btn-p btn-sm" disabled={savingLicense} onClick={onSave}>
+        <button className="btn btn-p btn-sm" disabled={savingLicense || descriptionMissing} onClick={onSave}>
           <Icon name="check" size={12} /> {savingLicense ? "Saving..." : "Save Changes"}
         </button>
       </div>

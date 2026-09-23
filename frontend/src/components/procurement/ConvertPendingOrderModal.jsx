@@ -24,7 +24,8 @@ import ContactCombobox from "../ui/ContactCombobox.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
-import { isNonExpiringLicenseType } from "../../utils/licenseTypeRules.js";
+import { isNonExpiringLicenseType, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
+import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
@@ -130,6 +131,8 @@ const ConvertPendingOrderModal = ({
       licenseType:         prefill.licenseType         || "subscription",
       licenseMetric:       prefill.licenseMetric       || "per_user",
       portalUrl:           prefill.portalUrl           || "",
+      isRenewable:         prefill.isRenewable ?? false,
+      typeDescription:     prefill.typeDescription || "",
       parentLicenseId:     prefill.parentLicenseId || "",
       parentSourcingItemId: prefill.parentSourcingItemId || "",
       maintenanceCoverage: prefill.maintenanceCoverage || "unknown",
@@ -210,6 +213,7 @@ const ConvertPendingOrderModal = ({
     (licenseType !== "maintenance" || parentLicenseId) &&
     String(watch("startDate") ?? "").trim() !== "" &&
     (isNonExpiringLicenseType(licenseType) || String(watch("endDate") ?? "").trim() !== "") &&
+    !typeDescriptionMissing(licenseType, watch("typeDescription")) &&
     String(quantity  ?? "").trim() !== "" &&
     (!prefill.budgetOwnerRequired || String(watch("budgetOwnerEmail") ?? "").trim() !== "") &&
     (isFreewareLicenseType(licenseType) || String(unitPrice ?? "").trim() !== "");
@@ -337,6 +341,7 @@ const ConvertPendingOrderModal = ({
             </div>
             <div className="fg"><label htmlFor="cpo-license-metric">License Metric</label><select id="cpo-license-metric" className="fi fi-select" {...register("licenseMetric")}>{LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
           </div>
+          <LicenseTypeOptInFields idPrefix="cpo" licenseType={licenseType} isRenewable={watch("isRenewable")} typeDescription={watch("typeDescription")} onChange={(field, value) => setValue(field, value, { shouldDirty: true, shouldValidate: true })} error={errors.typeDescription?.message} />
           <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="identity" />
           </LicenseFormSection>
 

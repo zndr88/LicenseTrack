@@ -1,6 +1,6 @@
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { parseSecondaryContacts } from "../../utils/secondaryContacts.js";
-import { isNonExpiringLicenseType } from "../../utils/licenseTypeRules.js";
+import { isNonExpiringLicenseType, typeOptInPayload } from "../../utils/licenseTypeRules.js";
 
 function normalizeDate(dateValue) {
   if (!dateValue) return null;
@@ -38,6 +38,7 @@ export function buildPendingOrderConversionPayload(data, settings) {
     supplier:            data.supplier,
     costCentre:          data.costCentre,
     licenseType:         data.licenseType  || "subscription",
+    ...typeOptInPayload({ ...data, licenseType: data.licenseType || "subscription" }),
     licenseMetric:       data.licenseMetric || "per_user",
     portalUrl:           data.licenseType === "saas" ? (data.portalUrl || null) : null,
     ...(data.licenseType === "maintenance" ? { parentLicenseId: parseOptionalInt(data.parentLicenseId) } : {}),

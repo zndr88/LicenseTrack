@@ -8,7 +8,8 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
-import { isNonExpiringLicenseType } from "../../utils/licenseTypeRules.js";
+import { isNonExpiringLicenseType, TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
+import LicenseTypeOptInFields from "./LicenseTypeOptInFields.jsx";
 import { buildMaintenanceCompanion } from "../../utils/maintenanceCompanion.js";
 import { useLicenseLines } from "../../hooks/useLicenseLines.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
@@ -34,6 +35,8 @@ const emptyAdditionalLine = (primaryForm) => ({
   softwareDescription: "",
   licenseType: primaryForm.licenseType || "",
   licenseMetric: primaryForm.licenseMetric || "",
+  isRenewable: false,
+  typeDescription: "",
   startDate: primaryForm.startDate || "",
   endDate: primaryForm.endDate || "",
   noticeDate: primaryForm.noticeDate || "",
@@ -118,6 +121,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     supplier: data.supplier || "", costCentre: data.costCentre || "",
     licenseType: data.licenseType || "", licenseMetric: data.licenseMetric || "",
     portalUrl: data.portalUrl || "",
+    isRenewable: data.isRenewable ?? false,
+    typeDescription: data.typeDescription || "",
     quantity: data.quantity || "", quantityPerUnit: data.quantityPerUnit || "1", skuCode: data.skuCode || "", unitPrice: data.unitPrice || "",
     totalPoPrice: data.totalPoPrice || "", currency: data.currency || "EUR", notes: data.notes || "",
     budgetOwnerEmail: data.budgetOwnerEmail || "",
@@ -252,6 +257,8 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         softwareDescription: line.softwareDescription,
         licenseType: line.licenseType,
         licenseMetric: line.licenseMetric,
+        isRenewable: line.isRenewable,
+        typeDescription: line.typeDescription,
         startDate: line.startDate || form.startDate,
         endDate: isNonExpiringLicenseType(line.licenseType) ? "" : line.endDate,
         noticeDate: line.noticeDate || form.noticeDate,
@@ -330,7 +337,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
       footer={(
         <>
           <button className="btn btn-g" onClick={requestClose} disabled={isSubmitting}>Cancel</button>
-          <button className="btn btn-p" onClick={handleSave} disabled={isSubmitting}>
+          <button className="btn btn-p" onClick={handleSave} disabled={isSubmitting || [form, ...additionalLines].some((line) => typeDescriptionMissing(line.licenseType, line.typeDescription))}>
             <Icon name="check" size={14} />
             {isSubmitting
               ? "Saving..."
@@ -346,6 +353,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
             <div className="fg"><label htmlFor="inv-publisher-name">Publisher Name</label><ReferenceCombobox id="inv-publisher-name" mode="publisher" value={form.publisherName} onChange={(value) => u("publisherName", value)} /></div>
             <div className="fg"><label htmlFor="inv-software-desc">Software Description</label><input id="inv-software-desc" className="fi" value={form.softwareDescription} onChange={(e) => u("softwareDescription", e.target.value)} /></div>
             <div className="fg"><label htmlFor="inv-license-type">License Type</label><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isNonExpiringLicenseType(next) ? { endDate: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}) })); if (isFreewareLicenseType(next)) { setDisplayUnitPrice(""); setDisplayTotalPrice(""); } if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+            <LicenseTypeOptInFields idPrefix="inv" licenseType={form.licenseType} isRenewable={form.isRenewable} typeDescription={form.typeDescription} onChange={u} error={typeDescriptionMissing(form.licenseType, form.typeDescription) ? TYPE_DESCRIPTION_REQUIRED_MESSAGE : null} />
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="identity" />
           </LicenseFormSection>
           <div style={hasDocumentCustomFields || documentActionsAvailable ? undefined : { display: "none" }}>
@@ -524,6 +532,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                       {LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                 </div>
+                <LicenseTypeOptInFields idPrefix={`inv-line-${line.id}`} licenseType={line.licenseType} isRenewable={line.isRenewable} typeDescription={line.typeDescription} onChange={(field, value) => updateLine(line.id, field, value)} error={typeDescriptionMissing(line.licenseType, line.typeDescription) ? TYPE_DESCRIPTION_REQUIRED_MESSAGE : null} />
               <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="identity" />
               </LicenseFormSection>
               {hasDocumentCustomFields && <LicenseFormSection title="Document Data">

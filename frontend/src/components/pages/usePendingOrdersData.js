@@ -28,6 +28,7 @@ import { parseLocalizedNumber } from "../../utils/formatting.js";
 import { uploadDocument } from "../../api/documents.js";
 import { defaultDocumentScope } from "../../utils/documentCategories.js";
 import { draftDocumentTargetMap, uploadDraftDocuments } from "../../utils/draftDocuments.js";
+import { typeOptInPayload } from "../../utils/licenseTypeRules.js";
 
 const EMPTY_PENDING_ORDERS = [];
 
@@ -134,6 +135,7 @@ export function usePendingOrdersData({
         licenseType: item.licenseType || null,
         licenseMetric: item.licenseMetric || null,
         portalUrl: item.portalUrl || null,
+        ...typeOptInPayload(item),
         maintenanceCoverage: item.maintenanceCoverage || null,
         maintenanceStartDate: item.maintenanceStartDate || null,
         maintenanceEndDate: item.maintenanceEndDate || null,

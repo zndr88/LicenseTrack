@@ -1,5 +1,6 @@
 import { LICENSE_METRICS, LICENSE_TYPES, MAINTENANCE_COVERAGE_OPTIONS } from "../constants/licenseData.js";
 import { getPoTotal } from "./helpers.js";
+import { renewableLabel } from "./licenseTypeRules.js";
 
 const labelFor = (options, value) => options.find((option) => option.value === value)?.label ?? value ?? null;
 export const finiteNumber = (value) => {
@@ -98,6 +99,8 @@ const STATIC_SORT_ACCESSORS = {
   requestDate: (license) => dateOnlyValue(license.requestDate),
   purchaseDate: (license) => dateOnlyValue(license.purchaseDate),
   portalUrl: (license) => license.portalUrl ?? null,
+  typeDescription: (license) => license.typeDescription ?? null,
+  isRenewable: (license) => renewableLabel(license) || null,
   notes: (license) => license.notes ?? null,
   docs: (license) => finiteNumber(license.documentCount ?? 0),
   calcTotal: (license) => getCalcTotalValue(license),

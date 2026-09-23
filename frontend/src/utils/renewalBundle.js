@@ -1,6 +1,5 @@
 import { daysBetween, todayStr } from "./helpers.js";
-
-const NON_RENEWABLE_LICENSE_TYPES = new Set(["service", "other"]);
+import { isRenewableLicense } from "./licenseTypeRules.js";
 
 export function getRenewalActionDays(globalSettings) {
   const configured = globalSettings?.renewalActionDays;
@@ -11,7 +10,7 @@ export function getRenewalActionDays(globalSettings) {
 }
 
 export function isRenewalActionEligible(license, actionDays, today = todayStr()) {
-  if (!license?.endDate || NON_RENEWABLE_LICENSE_TYPES.has(license.licenseType)) return false;
+  if (!license?.endDate || !isRenewableLicense(license)) return false;
   if (license.renewedToId || license.retired || license.retirementScheduled) return false;
   if (["pending_renewal", "renewed", "legacy"].includes(license.lifecycleStatus)) return false;
   if (license.startDate && license.startDate > today) return false;

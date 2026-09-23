@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { CURRENCIES, LICENSE_TYPES } from "../constants/licenseData.js";
 import { parseLocalizedNumber } from "./formatting.js";
+import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "./licenseTypeRules.js";
 
 const optionalEmail = z.string().refine(
   (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
@@ -58,10 +59,15 @@ export const licenseFormSchema = z.object({
   currency:            z.string(),
   budgetOwnerEmail:    optionalEmail,
   budgetOwnerRequired: z.boolean().optional(),
+  isRenewable:         z.boolean().nullable().optional(),
+  typeDescription:     z.string().optional(),
   secondaryContacts:   z.string(),
   notes:               z.string(),
   customFieldValues:   z.record(z.string(), z.union([z.string(), z.boolean()])).optional(),
 }).superRefine((data, ctx) => {
+  if (typeDescriptionMissing(data.licenseType, data.typeDescription)) {
+    ctx.addIssue({ code: "custom", path: ["typeDescription"], message: TYPE_DESCRIPTION_REQUIRED_MESSAGE });
+  }
   if (data.budgetOwnerRequired && !data.budgetOwnerEmail.trim()) {
     ctx.addIssue({
       code: "custom",
@@ -85,6 +91,8 @@ const sourcingRequestLineSchema = (settings) => {
     licenseType: z.union([z.literal(""), z.enum(LICENSE_TYPES.map((option) => option.value))]),
     licenseMetric: z.string(),
     portalUrl: z.string(),
+    isRenewable: z.boolean().nullable().optional(),
+    typeDescription: z.string().optional(),
     maintenanceCoverage: z.string(),
     maintenanceStartDate: z.string(),
     maintenanceEndDate: z.string(),
@@ -117,6 +125,9 @@ const sourcingRequestLineSchema = (settings) => {
     }
     if (!item.softwareDescription.trim()) {
       context.addIssue({ code: "custom", path: ["softwareDescription"], message: "Software description is required." });
+    }
+    if (typeDescriptionMissing(item.licenseType, item.typeDescription)) {
+      context.addIssue({ code: "custom", path: ["typeDescription"], message: TYPE_DESCRIPTION_REQUIRED_MESSAGE });
     }
   });
 };

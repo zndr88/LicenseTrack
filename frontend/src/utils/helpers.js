@@ -1,4 +1,5 @@
 import { NON_ENTITLEMENT_LICENSE_TYPES, NON_EXPIRING_LICENSE_TYPES } from "../constants/licenseData.js";
+import { isRenewableLicense } from "./licenseTypeRules.js";
 import { getProcurementTotal } from "./procurementIdentity.js";
 
 export { hasSameProcurementIdentity } from "./procurementIdentity.js";
@@ -102,7 +103,7 @@ export const getCompleteness = (license, mandatoryFields) => {
     purchaseOrder: { label: "Purchase order document", check: () => license.documents?.purchase_order?.length > 0 },
     quote: { label: "Quote document", check: () => license.documents?.quote?.length > 0 },
     startDate: { label: "Start date", check: () => !!license.startDate },
-    endDate: { label: "End date / Non-expiring type", check: () => !!license.endDate || NON_EXPIRING_LICENSE_TYPES.includes(license.licenseType) },
+    endDate: { label: "End date / Non-expiring type", check: () => !!license.endDate || NON_EXPIRING_LICENSE_TYPES.includes(license.licenseType) || !isRenewableLicense(license) },
     noticeDate: { label: "Notice date", check: () => !!license.noticeDate },
     contractNumber: { label: "Contract number", check: () => !!license.contractNumber },
     poNumber: { label: "PO number", check: () => !!license.poNumber },

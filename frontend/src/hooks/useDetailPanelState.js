@@ -18,6 +18,7 @@ import { useCustomFields } from "./useCustomFields.js";
 import { parseLocalizedNumber } from "../utils/formatting.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../utils/customFieldFormValues.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "../utils/secondaryContacts.js";
+import { typeOptInPayload } from "../utils/licenseTypeRules.js";
 
 /**
  * Encapsulates all state, effects, handlers, and derived values for DetailPanel.
@@ -265,6 +266,7 @@ export function useDetailPanelState({
     setEditError(null);
     const ok = await onUpdate(license.id, {
       ...editFields,
+      ...typeOptInPayload(editFields),
       purchaseDate: editFields.purchaseDate || null,
       secondaryContacts: parseSecondaryContacts(editFields.secondaryContacts),
       customFieldValues: buildCustomFieldValuePayload(customFieldDefs, editFields.customFieldValues, userSettings),
@@ -299,6 +301,8 @@ export function useDetailPanelState({
       licenseType: license.licenseType || "",
       licenseMetric: license.licenseMetric || "",
       portalUrl: license.portalUrl || "",
+      isRenewable: license.isRenewable ?? false,
+      typeDescription: license.typeDescription || "",
       quantity: license.quantity || "",
       quantityPerUnit: license.quantityPerUnit || "1",
       skuCode: license.skuCode || "",

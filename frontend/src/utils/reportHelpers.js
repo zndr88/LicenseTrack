@@ -1,4 +1,5 @@
 import { LICENSE_TYPES, LICENSE_METRICS } from "../constants/licenseData.js";
+import { isRenewableLicense, isRenewalOptInLicenseType } from "./licenseTypeRules.js";
 
 // Filter
 
@@ -170,6 +171,7 @@ function getMaintenanceRecordValue(license) {
 
 function isRecurringLicense(license) {
   return RECURRING_TYPES.includes(license.licenseType) ||
+    (isRenewalOptInLicenseType(license.licenseType) && isRenewableLicense(license)) ||
     (
       INCLUDED_SUPPORT_PARENT_TYPES.includes(license.licenseType) &&
       license.maintenanceCoverage === "included" &&

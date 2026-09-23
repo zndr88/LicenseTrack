@@ -5,11 +5,10 @@ import { queryKeys } from "../../queryKeys.js";
 import { invalidateRenewalWorkflow } from "../../queryInvalidation.js";
 import { formatDate } from "../../utils/formatting.js";
 import { getExpirationPresentation, normalizeLicense } from "../../utils/helpers.js";
+import { isRenewableLicense } from "../../utils/licenseTypeRules.js";
 import { termDateRelationship } from "../../utils/termRelationship.js";
 import LinkPicker from "../ui/LinkPicker.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
-
-const NON_RENEWABLE_TYPES = new Set(["service", "other"]);
 
 function normalized(value) {
   return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -22,7 +21,7 @@ export function getExistingSuccessorCandidates(predecessor, allLicenses) {
   return allLicenses
     .filter((candidate) => candidate.id !== predecessor.id)
     .filter((candidate) => normalized(candidate.publisherName) === publisher)
-    .filter((candidate) => !NON_RENEWABLE_TYPES.has(candidate.licenseType))
+    .filter((candidate) => isRenewableLicense(candidate))
     .filter((candidate) => !candidate.retired && !candidate.isRetired && !candidate.retirementScheduled && !candidate.lifecycleStatus)
     .filter((candidate) => !candidate.renewedFromId && !candidate.predecessorId && !candidate.renewedToId)
     .filter((candidate) => !candidate.cotermFromIds?.length)

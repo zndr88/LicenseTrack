@@ -26,6 +26,8 @@ import { createLicenseDraftSupplementDefaults } from "../../utils/licenseFormDef
 import LineTotalMismatchHint from "./LineTotalMismatchHint.jsx";
 import SupplierContactPrompt from "./SupplierContactPrompt.jsx";
 import { useSupplierContactPrompt } from "../../hooks/useSupplierContactPrompt.js";
+import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
+import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -174,7 +176,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
         footer={(
           <>
             <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
-            <button className="btn btn-p" disabled={saving} onClick={handleSubmit(onSubmit)}>
+            <button className="btn btn-p" disabled={saving || (isNewOrder && items.some((line) => typeDescriptionMissing(line.licenseType, line.typeDescription)))} onClick={handleSubmit(onSubmit)}>
               {saving ? "Saving..." : isNewOrder && items.filter((i) => i.publisherName.trim()).length > 0
                 ? `Save Pending Order + ${items.filter((i) => i.publisherName.trim()).length} Item${items.filter((i) => i.publisherName.trim()).length > 1 ? "s" : ""}`
                 : "Save"}
@@ -303,6 +305,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
                       </select>
                     </div>
                   </div>
+                  <LicenseTypeOptInFields idPrefix={`pending-item-${item.id}`} licenseType={item.licenseType} isRenewable={item.isRenewable} typeDescription={item.typeDescription} onChange={(field, value) => updateItem(item.id, field, value)} error={typeDescriptionMissing(item.licenseType, item.typeDescription) ? TYPE_DESCRIPTION_REQUIRED_MESSAGE : null} />
                   <CustomFieldFormFields definitions={customFieldDefs} values={item.customFieldValues || {}} onChange={(values) => updateItem(item.id, "customFieldValues", values)} idPrefix={`pending-item-${item.id}`} loading={customFieldsLoading} section="identity" />
                   </LicenseFormSection>
                   {customFieldDefs.some((definition) => definition.section === "documents") && (

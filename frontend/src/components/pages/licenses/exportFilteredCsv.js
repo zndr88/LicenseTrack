@@ -1,6 +1,7 @@
 import { getPoTotal } from "../../../utils/helpers.js";
 import { formatDate, formatDateTime } from "../../../utils/formatting.js";
 import { getCalcTotalValue } from "../../../utils/sort.js";
+import { renewableLabel } from "../../../utils/licenseTypeRules.js";
 
 const INVOICE_LIST_PREFIX = "LT-INVOICES:";
 
@@ -43,6 +44,8 @@ const STABLE_EXPORT_FIELD_NAMES = {
   requestDate:         "request_date",
   purchaseDate:        "purchase_date",
   portalUrl:           "portal_url",
+  isRenewable:         "is_renewable",
+  typeDescription:     "type_description",
   maintenanceCoverage: "maintenance_coverage",
 };
 
@@ -143,6 +146,8 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "requestDate": return fmtDateTime(l.requestDate);
         case "purchaseDate": return fmtDateTime(l.purchaseDate);
         case "portalUrl": return l.portalUrl ?? "";
+        case "isRenewable": return renewableLabel(l);
+        case "typeDescription": return l.typeDescription ?? "";
         case "notes": return l.notes ?? "";
         case "docs": return String(l.documentCount ?? 0);
         case "expiration": return l.expiration?.label ?? l.expiration?.status ?? "";

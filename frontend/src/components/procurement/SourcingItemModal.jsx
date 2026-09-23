@@ -45,6 +45,8 @@ import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldR
 import { filterCustomFieldDefinitionsForSourcing } from "../../utils/customFieldSourcing.js";
 import TermLinkContext from "./TermLinkContext.jsx";
 import LineTotalMismatchHint from "./LineTotalMismatchHint.jsx";
+import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
+import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
@@ -52,6 +54,8 @@ const schema = z.object({
   licenseType:         z.string(),
   licenseMetric:       z.string(),
   portalUrl:           z.string(),
+  isRenewable:         z.boolean().nullable().optional(),
+  typeDescription:     z.string().optional(),
   maintenanceCoverage: z.string(),
   maintenanceStartDate: z.string(),
   maintenanceEndDate:  z.string(),
@@ -82,6 +86,10 @@ const schema = z.object({
     { message: "Must be a valid email address." }
   ),
   notes:               z.string(),
+}).superRefine((data, ctx) => {
+  if (typeDescriptionMissing(data.licenseType, data.typeDescription)) {
+    ctx.addIssue({ code: "custom", path: ["typeDescription"], message: TYPE_DESCRIPTION_REQUIRED_MESSAGE });
+  }
 });
 
 const emptyAdditionalLine = (overrides = {}) => ({
@@ -91,6 +99,8 @@ const emptyAdditionalLine = (overrides = {}) => ({
   licenseType: "",
   licenseMetric: "per_user",
   portalUrl: "",
+  isRenewable: false,
+  typeDescription: "",
   maintenanceCoverage: "unknown",
   maintenanceStartDate: "",
   maintenanceEndDate: "",
@@ -285,7 +295,9 @@ const SourcingItemModal = ({
   const softwareVal = watch("softwareDescription");
   const currentFields = watch();
   const additionalLinesValid = additionalLines.every(
-    (l) => (l.publisherName ?? "").trim() !== "" && (l.softwareDescription ?? "").trim() !== ""
+    (l) => (l.publisherName ?? "").trim() !== ""
+      && (l.softwareDescription ?? "").trim() !== ""
+      && !typeDescriptionMissing(l.licenseType, l.typeDescription)
   );
   const maintenanceLineAdded = additionalLines.some((line) => line.isMaintenanceCompanion);
   const addMaintenanceLine = () => {
@@ -567,6 +579,7 @@ const SourcingItemModal = ({
                       updateAdditionalLine(line.id, "estimatedTotalPrice", "");
                     }
                   }}><option value="">Not specified</option>{LICENSE_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></div>
+                  <LicenseTypeOptInFields idPrefix={`sourcing-line-${line.id}`} licenseType={line.licenseType} isRenewable={line.isRenewable} typeDescription={line.typeDescription} onChange={(field, value) => updateAdditionalLine(line.id, field, value)} error={typeDescriptionMissing(line.licenseType, line.typeDescription) ? TYPE_DESCRIPTION_REQUIRED_MESSAGE : null} />
                   <CustomFieldPlacement definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)} idPrefix={`sourcing-line-${line.id}`} loading={customFieldsLoading} section="identity" />
                 </LicenseFormSection>
                 <CustomFieldFormSection title="Documents" section="documents" definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)} idPrefix={`sourcing-line-${line.id}`} loading={customFieldsLoading} />

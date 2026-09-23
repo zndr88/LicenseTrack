@@ -7,6 +7,7 @@ import { formatCustomFieldValue } from "../../../utils/customFieldPresentation.j
 import { formatQuantity } from "../../../utils/quantity.js";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
 import { getCalcTotalValue } from "../../../utils/sort.js";
+import { renewableLabel } from "../../../utils/licenseTypeRules.js";
 
 const INLINE_EDIT_CONFIG = {
   publisher: { fieldKey: "publisherName", inputType: "text", className: "pub-cell", referenceMode: "publisher" },
@@ -315,6 +316,10 @@ export default function LicenseTableRowCells({
         return <td key="purchaseDate" className="mono">{license.purchaseDate ? formatDate(license.purchaseDate, userSettings) : "-"}</td>;
       case "portalUrl":
         return <td key="portalUrl" className="lp-td">{license.portalUrl || "-"}</td>;
+      case "typeDescription":
+        return <td key="typeDescription" className="lp-td">{license.typeDescription || "-"}</td>;
+      case "isRenewable":
+        return <td key="isRenewable" className="lp-td">{renewableLabel(license) || "-"}</td>;
       case "notes":
         return (
           <td key="notes" className="lp-td" title={license.notes || ""}>

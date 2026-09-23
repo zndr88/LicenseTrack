@@ -3,6 +3,7 @@ import { parseLocalizedNumber } from "./formatting.js";
 import { defaultMaintenanceCoverageForLicenseType, supportsMaintenanceCoverage } from "./maintenanceCoverage.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "./secondaryContacts.js";
 import { resolveLineBudgetOwner } from "./renewalLineDefaults.js";
+import { typeOptInPayload } from "./licenseTypeRules.js";
 
 function normalizeOptionalNumber(value, settings) {
   return (parseLocalizedNumber(value, settings) ?? value) || null;
@@ -27,6 +28,8 @@ export function sourcingItemToFormDefaults(item, sourcingRequest, licenses = [])
     licenseType: item?.licenseType ?? "",
     licenseMetric: item?.licenseMetric ?? "per_user",
     portalUrl: item?.portalUrl ?? "",
+    isRenewable: item?.isRenewable ?? false,
+    typeDescription: item?.typeDescription ?? "",
     maintenanceCoverage: item?.maintenanceCoverage
       ?? (isRenewal ? defaultMaintenanceCoverageForLicenseType(item?.licenseType) : "unknown"),
     maintenanceStartDate: item?.maintenanceStartDate ?? "",
@@ -68,6 +71,7 @@ export function sourcingPrimaryFormToPayload(data, customFieldDefs, userSettings
     licenseType: data.licenseType || null,
     licenseMetric: data.licenseMetric || null,
     portalUrl: data.licenseType === "saas" ? data.portalUrl || null : null,
+    ...typeOptInPayload(data),
     maintenanceCoverage: supportsMaintenanceCoverage(data.licenseType)
       ? (data.maintenanceCoverage || "unknown")
       : null,
@@ -111,6 +115,7 @@ export function sourcingAdditionalLineToPayload(line, customFieldDefs, userSetti
     licenseType: line.licenseType || null,
     licenseMetric: line.licenseMetric || null,
     portalUrl: line.licenseType === "saas" ? line.portalUrl || null : null,
+    ...typeOptInPayload(line),
     maintenanceCoverage: supportsMaintenanceCoverage(line.licenseType)
       ? (line.maintenanceCoverage || "unknown")
       : null,

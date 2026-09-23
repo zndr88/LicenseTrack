@@ -19,6 +19,7 @@ import { previewSourcingQuoteDocument, downloadSourcingQuoteDocument } from "../
 import { formatSecondaryContacts, parseSecondaryContacts } from "../../utils/secondaryContacts.js";
 import SupplierContactPrompt from "./SupplierContactPrompt.jsx";
 import { useSupplierContactPrompt } from "../../hooks/useSupplierContactPrompt.js";
+import { typeOptInPayload } from "../../utils/licenseTypeRules.js";
 
 function itemDefaults(item) {
   return {
@@ -30,6 +31,8 @@ function itemDefaults(item) {
     licenseType: item.licenseType ?? "",
     licenseMetric: item.licenseMetric ?? "per_user",
     portalUrl: item.portalUrl ?? "",
+    isRenewable: item.isRenewable ?? false,
+    typeDescription: item.typeDescription ?? "",
     maintenanceCoverage: item.maintenanceCoverage ?? "",
     maintenanceStartDate: item.maintenanceStartDate ?? "",
     maintenanceEndDate: item.maintenanceEndDate ?? "",
@@ -106,6 +109,7 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
         licenseType: item.licenseType || null,
         licenseMetric: item.licenseMetric || null,
         portalUrl: item.licenseType === "saas" ? item.portalUrl || null : null,
+        ...typeOptInPayload(item),
         maintenanceCoverage: item.maintenanceCoverage || null,
         maintenanceStartDate: item.maintenanceStartDate || null,
         maintenanceEndDate: item.maintenanceEndDate || null,

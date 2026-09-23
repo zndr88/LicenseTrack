@@ -530,6 +530,8 @@ describe("onSave payload shape", () => {
         "licenseType",
         "licenseMetric",
         "portalUrl",
+        "isRenewable",
+        "typeDescription",
         "maintenanceCoverage",
         "maintenanceStartDate",
         "maintenanceEndDate",

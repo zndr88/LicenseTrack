@@ -31,6 +31,8 @@ export const NATIVE_FIELDS = [
   { value: "license_ref",          label: "LT Ref (match existing records)" },
   { value: "parent_license_ref",   label: "Parent LT Ref" },
   { value: "portal_url",           label: "Portal / Vendor Portal URL" },
+  { value: "is_renewable",         label: "Renewable (Service / Other: Yes / No)" },
+  { value: "type_description",     label: "Type Description (Other)" },
   { value: "maintenance_coverage", label: "Maintenance Coverage" },
   { value: "__calc_total__",       label: "Calc. Total — derived from Qty × Unit Price, skip this column", disabled: true },
 ];

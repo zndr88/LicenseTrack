@@ -1,6 +1,6 @@
 // frontend/src/components/licenses/detail/RenewalWorkflowSection.jsx
 import { useState, useEffect } from "react";
-import { NON_RENEWABLE_LICENSE_TYPES } from "../../../constants/licenseData.js";
+import { isRenewableLicense } from "../../../utils/licenseTypeRules.js";
 import { formatDate } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
 import { useRenewalPanelModel } from "./useRenewalPanelModel.js";
@@ -61,7 +61,7 @@ export default function RenewalWorkflowSection({
     allRenewalSelected ? new Set([license.id]) : new Set(memberIds),
   );
 
-  const canStartRenewal = !NON_RENEWABLE_LICENSE_TYPES.includes(license.licenseType);
+  const canStartRenewal = isRenewableLicense(license);
   const canLinkExistingSuccessor = Boolean(license.publisherName?.trim());
   const isWithinActionWindow = isRenewalActionEligible(license, actionDays);
   const successor = license.renewedToId

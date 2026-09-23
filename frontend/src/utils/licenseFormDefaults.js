@@ -2,6 +2,8 @@ const LICENSE_DRAFT_SUPPLEMENT_DEFAULTS = Object.freeze({
   licenseType: "",
   licenseMetric: "per_user",
   portalUrl: "",
+  isRenewable: false,
+  typeDescription: "",
   quantityPerUnit: "1",
   skuCode: "",
   maintenanceCoverage: "unknown",

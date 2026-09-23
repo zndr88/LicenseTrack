@@ -396,6 +396,30 @@ describe("ConvertPendingOrderModal", () => {
     expect(screen.queryByText(/Total PO (Price|Value)/)).not.toBeInTheDocument();
   });
 
+  test("Service keeps its end date and offers an opt-in Renewable toggle", async () => {
+    const { onConfirm } = renderModal();
+    fireEvent.change(screen.getByLabelText("License Type"), { target: { value: "service" } });
+
+    expect(document.getElementById("cpo-end-date")).toHaveAttribute("type", "date");
+    const renewable = screen.getByRole("checkbox", { name: /renews like a subscription/i });
+    expect(renewable).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(renewable);
+    fireEvent.click(screen.getByRole("button", { name: /confirm & create license/i }));
+
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+    expect(onConfirm.mock.calls[0][0]).toEqual(expect.objectContaining({ licenseType: "service", isRenewable: true, typeDescription: null }));
+  });
+
+  test("Other requires a type description before conversion", () => {
+    renderModal();
+    fireEvent.change(screen.getByLabelText("License Type"), { target: { value: "other" } });
+
+    const confirm = screen.getByRole("button", { name: /confirm & create license/i });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/type description/i), { target: { value: "Training voucher" } });
+    expect(confirm).not.toBeDisabled();
+  });
+
   test("choosing OEM suppresses the end date without a perpetual checkbox", () => {
     renderModal();
     expect(screen.queryByLabelText("Perpetual license")).not.toBeInTheDocument();
@@ -517,6 +541,8 @@ describe("ConvertPendingOrderModal", () => {
         supplier: "Supplier A",
         costCentre: "IT",
         licenseType: "saas",
+        isRenewable: null,
+        typeDescription: null,
         licenseMetric: "per_user",
         portalUrl: "https://portal.example.com",
         skuCode: "SKU-1",
@@ -545,6 +571,8 @@ describe("ConvertPendingOrderModal", () => {
       supplier: "Supplier A",
       costCentre: "IT",
       licenseType: "saas",
+      isRenewable: null,
+      typeDescription: null,
       licenseMetric: "per_user",
       portalUrl: "https://portal.example.com",
       maintenanceCoverage: "unknown",
@@ -1202,6 +1230,8 @@ describe("ConvertAllModal", () => {
           supplier: "Order Supplier",
           costCentre: "",
           licenseType: "saas",
+          isRenewable: null,
+          typeDescription: null,
           licenseMetric: "per_user",
           portalUrl: "https://saas.example.com",
           maintenanceCoverage: "unknown",
@@ -1239,6 +1269,8 @@ describe("ConvertAllModal", () => {
           supplier: "Order Supplier",
           costCentre: "Renewals",
           licenseType: "saas",
+          isRenewable: null,
+          typeDescription: null,
           licenseMetric: "per_device",
           portalUrl: "https://renew.example.com",
           maintenanceCoverage: "included",

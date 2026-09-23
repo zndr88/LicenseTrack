@@ -10,7 +10,8 @@ import MaintenanceCoverageFields, {
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import ContactCombobox from "../ui/ContactCombobox.jsx";
-import { isNonExpiringLicenseType } from "../../utils/licenseTypeRules.js";
+import { isNonExpiringLicenseType, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
+import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
 import { BUDGET_OWNER_REQUIRED_MESSAGE } from "../../utils/procurementSchemas.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { ModalSectionExpansionContext } from "../ui/ModalSectionExpansionContext.js";
@@ -26,6 +27,7 @@ export function isItemReady(item) {
     item.softwareDescription?.trim() &&
     item.startDate &&
     (isNonExpiringLicenseType(item.licenseType) || item.endDate) &&
+    !typeDescriptionMissing(item.licenseType, item.typeDescription) &&
     (item.licenseType !== "maintenance" || item.parentLicenseId || item.parentSourcingItemId) &&
     item.quantity?.toString().trim() !== "" &&
     (!item.budgetOwnerRequired || item.budgetOwnerEmail?.trim()) &&
@@ -230,6 +232,14 @@ export default function ConvertItemForm({
               </select>
             </div>
           </div>
+          <LicenseTypeOptInFields
+            idPrefix={`ca-${idx}`}
+            licenseType={wi.licenseType}
+            isRenewable={wi.isRenewable}
+            typeDescription={wi.typeDescription}
+            onChange={(field, value) => setValue(`items.${idx}.${field}`, value, { shouldDirty: true, shouldValidate: true })}
+            error={itemErrors?.typeDescription?.message}
+          />
           {wi.licenseType === "saas" && (
             <div className="fg">
               <label htmlFor={`ca-portal-url-${idx}`}>Portal URL</label>

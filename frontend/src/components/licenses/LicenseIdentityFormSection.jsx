@@ -1,7 +1,8 @@
-import { Controller } from "react-hook-form";
+import { Controller, useWatch } from "react-hook-form";
 import { LICENSE_TYPES } from "../../constants/licenseData.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import LicenseFormSection from "./LicenseFormSection.jsx";
+import LicenseTypeOptInFields from "./LicenseTypeOptInFields.jsx";
 
 export default function LicenseIdentityFormSection({
   idPrefix,
@@ -14,6 +15,7 @@ export default function LicenseIdentityFormSection({
   children,
 }) {
   const fieldId = (name, fallback) => `${idPrefix}-${fieldIds[name] || fallback}`;
+  const licenseType = useWatch({ control, name: fieldName("licenseType") });
   return (
     <LicenseFormSection title="Identity">
       <div className="fg">
@@ -50,6 +52,26 @@ export default function LicenseIdentityFormSection({
           {LICENSE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
       </div>
+      <Controller
+        name={fieldName("isRenewable")}
+        control={control}
+        render={({ field: renewable }) => (
+          <Controller
+            name={fieldName("typeDescription")}
+            control={control}
+            render={({ field: description }) => (
+              <LicenseTypeOptInFields
+                idPrefix={idPrefix}
+                licenseType={licenseType}
+                isRenewable={renewable.value}
+                typeDescription={description.value}
+                onChange={(name, value) => (name === "isRenewable" ? renewable : description).onChange(value)}
+                error={errors.typeDescription?.message}
+              />
+            )}
+          />
+        )}
+      />
       {children}
     </LicenseFormSection>
   );

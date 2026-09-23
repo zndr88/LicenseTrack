@@ -20,6 +20,8 @@ export const COLUMN_DEFS = [
   { key: "budgetOwnerEmail", label: "Budget Owner", width: 190, group: "standard", defaultVisible: false },
   { key: "secondaryContacts", label: "Secondary Contacts", width: 190, group: "standard", defaultVisible: false },
   { key: "licenseType", label: "Type", settingsLabel: "License Type", width: 110, group: "standard", defaultVisible: true, detailKey: "licenseType" },
+  { key: "typeDescription", label: "Type Description", width: 170, group: "standard", defaultVisible: false },
+  { key: "isRenewable", label: "Renewable", settingsLabel: "Renewable (Service / Other)", width: 100, group: "standard", defaultVisible: false },
   { key: "licenseMetric", label: "Metric", settingsLabel: "License Metric", width: 110, group: "standard", defaultVisible: true, detailKey: "licenseMetric" },
   { key: "quantity", label: "Qty", settingsLabel: "Purchase Quantity", width: 70, group: "standard", defaultVisible: true, detailKey: "quantity" },
   { key: "effectiveQuantity", label: "Effective Qty", settingsLabel: "Effective Quantity", width: 110, group: "computed", defaultVisible: false, detailKey: "effectiveQuantity", computed: true },
