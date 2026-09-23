@@ -353,3 +353,34 @@ async def test_included_support_edit_is_limited_to_included_perpetual_style_lice
         headers=auth_headers,
     )
     assert reversed_dates.status_code == 422
+
+
+async def test_free_included_support_stores_a_zero_cost(test_app, auth_headers):
+    parent = await _included_parent(test_app, auth_headers)
+
+    resp = await test_app.put(
+        f"/api/licenses/{parent['id']}/included-support",
+        json={
+            "maintenanceStartDate": "2026-01-01",
+            "maintenanceEndDate": "2026-12-31",
+            "maintenancePricingBasis": "free",
+            "maintenanceCost": "999",
+        },
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["maintenancePricingBasis"] == "free"
+    assert float(data["maintenanceCost"]) == 0
+    assert data["maintenanceEndDate"] == "2026-12-31"
+
+
+async def test_free_included_support_on_create(test_app, auth_headers):
+    created = await _create(
+        test_app, auth_headers, maintenanceCoverage="included",
+        maintenanceStartDate="2026-01-01", maintenanceEndDate="2026-12-31", maintenancePricingBasis="free",
+    )
+
+    assert created["maintenancePricingBasis"] == "free"
+    assert float(created["maintenanceCost"]) == 0

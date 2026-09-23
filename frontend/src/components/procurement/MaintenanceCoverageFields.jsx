@@ -173,6 +173,11 @@ export default function MaintenanceCoverageFields({
                   const nextQuantity = supportQuantity || licenseQuantity || "";
                   onChange("maintenanceQuantity", nextQuantity);
                   updatePerUnitTotal(nextQuantity, supportUnitPrice);
+                } else if (nextBasis === "free") {
+                  // No charge: there is no cost to enter; the backend stores zero.
+                  onChange("maintenanceQuantity", "");
+                  onChange("maintenanceUnitPrice", "");
+                  onChange("maintenanceCost", "");
                 } else {
                   onChange("maintenanceQuantity", "");
                   onChange("maintenanceUnitPrice", "");
@@ -182,10 +187,11 @@ export default function MaintenanceCoverageFields({
             >
               <option value="flat">Flat coverage fee</option>
               <option value="per_unit">Per covered unit</option>
+              <option value="free">Free (no charge)</option>
             </select>
           </div>
 
-          {(pricingBasis || "flat") === "flat" ? (
+          {pricingBasis === "free" ? null : (pricingBasis || "flat") === "flat" ? (
             <div className="fg">
               <label htmlFor={`${idPrefix}-maintenance-cost`}>
                 Total support cost <span style={{ fontWeight: 400, color: "var(--text-3)" }}>({currency}, coverage period)</span>

@@ -1755,6 +1755,40 @@ describe('DetailPanel included support editing', () => {
     expect(onUpdate).toHaveBeenCalledWith(28, saved)
   })
 
+  it('free support hides the cost fields and the total support cost', async () => {
+    const user = userEvent.setup()
+    getMaintenanceForParent.mockResolvedValue({ data: [], error: null })
+    getCoverageHistory.mockResolvedValue({ data: [], error: null })
+    updateIncludedSupport.mockResolvedValue({ data: baseLicense, error: null })
+    const freeLicense = {
+      ...baseLicense,
+      id: 29,
+      licenseType: 'freeware',
+      endDate: null,
+      maintenanceCoverage: 'included',
+      maintenanceStartDate: '2026-01-01',
+      maintenanceEndDate: '2026-12-31',
+      maintenancePricingBasis: 'free',
+      maintenanceCost: '0',
+    }
+    render(<DetailPanel {...baseProps} user={{ id: 1, role: 'admin' }} license={freeLicense} />)
+
+    await user.click(screen.getByText('Maintenance / Support'))
+    expect(screen.queryByText('Total Support Cost (coverage period)')).not.toBeInTheDocument()
+    expect(screen.getByText('Support is free of charge.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /edit support/i }))
+    const dialog = screen.getByRole('dialog', { name: 'Edit included support' })
+    expect(within(dialog).getByLabelText('Pricing basis')).toHaveValue('free')
+    expect(within(dialog).queryByLabelText(/total support cost/i)).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Save support' }))
+
+    await waitFor(() => expect(updateIncludedSupport).toHaveBeenCalledWith(29, expect.objectContaining({
+      maintenancePricingBasis: 'free',
+      maintenanceCost: null,
+    })))
+  })
+
   it('does not offer support editing for subscription licenses', async () => {
     const user = userEvent.setup()
     render(

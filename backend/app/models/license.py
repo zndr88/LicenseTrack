@@ -28,6 +28,9 @@ class MaintenanceCoverage(str, enum.Enum):
 class MaintenancePricingBasis(str, enum.Enum):
     flat = "flat"
     per_unit = "per_unit"
+    # Included support at no charge: stored with a zero cost, so it is priced
+    # (never "unpriced") but adds nothing to support spend.
+    free = "free"
 
 
 class LicenseMetric(str, enum.Enum):

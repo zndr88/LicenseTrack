@@ -40,7 +40,7 @@ def calculate_per_unit_support_total(quantity: object, unit_price: object) -> st
 
 
 def apply_included_support_defaults(data: dict) -> None:
-    """Apply canonical per-unit or bundled included-support values in place."""
+    """Apply canonical per-unit, free or bundled included-support values in place."""
     coverage = data.get("maintenance_coverage")
     pricing_basis = data.get("maintenance_pricing_basis")
     if (
@@ -54,4 +54,10 @@ def apply_included_support_defaults(data: dict) -> None:
             data.get("maintenance_quantity"),
             data.get("maintenance_unit_price"),
         )
+    if (coverage == MaintenanceCoverage.included or coverage == MaintenanceCoverage.included.value) and (
+        pricing_basis == MaintenancePricingBasis.free or pricing_basis == MaintenancePricingBasis.free.value
+    ):
+        data["maintenance_quantity"] = None
+        data["maintenance_unit_price"] = None
+        data["maintenance_cost"] = "0"
     apply_bundled_included_support_defaults(data)

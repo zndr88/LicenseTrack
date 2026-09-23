@@ -63,7 +63,8 @@ export default function IncludedSupportModal({ license, userSettings, onSave, on
     const cost = toCanonical(values.maintenanceCost);
     const quantity = toCanonical(values.maintenanceQuantity);
     const unitPrice = toCanonical(values.maintenanceUnitPrice);
-    if (!cost.ok || (perUnit && (!quantity.ok || !unitPrice.ok))) {
+    const free = values.maintenancePricingBasis === "free";
+    if ((!free && !cost.ok) || (perUnit && (!quantity.ok || !unitPrice.ok))) {
       setError("Enter valid amounts, or leave the cost empty.");
       return;
     }
@@ -75,7 +76,8 @@ export default function IncludedSupportModal({ license, userSettings, onSave, on
       maintenancePricingBasis: values.maintenancePricingBasis || "flat",
       maintenanceQuantity: perUnit ? quantity.value : null,
       maintenanceUnitPrice: perUnit ? unitPrice.value : null,
-      maintenanceCost: cost.value,
+      // Free support has no cost to send; the backend stores zero.
+      maintenanceCost: free ? null : cost.value,
     });
     setSaving(false);
     if (!ok) setError("The support period could not be saved.");

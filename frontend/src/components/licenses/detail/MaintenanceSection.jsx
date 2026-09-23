@@ -162,6 +162,9 @@ export default function MaintenanceSection({
                   <div className="val mono">{license.maintenanceEndDate ? formatDate(license.maintenanceEndDate, userSettings) : "—"}</div>
                 </div>
               </div>
+              {license.maintenancePricingBasis === "free" ? (
+                <div className="dp-note">Support is free of charge.</div>
+              ) : (
               <div className="dp-field">
                 <span className="dp-field-label">Total Support Cost (coverage period)</span>
                 <div className="val dp-mono-val">
@@ -187,6 +190,7 @@ export default function MaintenanceSection({
                     </div>
                   )}
               </div>
+              )}
               {license.hasMaintenance && (
                 <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 4, fontFamily: "var(--font-mono)", letterSpacing: "0.04em", lineHeight: 1.5 }}>
                   Values mirror the currently active maintenance / support contract record.
