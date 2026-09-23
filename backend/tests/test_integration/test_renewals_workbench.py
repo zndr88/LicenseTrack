@@ -623,7 +623,7 @@ async def test_workbench_high_value_flag_respects_configured_threshold(
     if gs is None:
         gs = GlobalSettings(id=1)
         db_session.add(gs)
-    gs.high_value_threshold = 5000
+    gs.high_value_thresholds = {"EUR": "5000"}
     await db_session.commit()
 
     # quantity=10, unitPrice=600 → estimatedAnnualValue=6000, which is ≥5000
@@ -718,3 +718,44 @@ async def test_workbench_ignores_handled_notice_deadlines(test_app, auth_headers
     resp = await test_app.get("/api/renewals/workbench", headers=auth_headers)
 
     assert created["id"] not in {row["licenseId"] for row in resp.json()}
+
+
+async def test_workbench_high_value_threshold_is_per_currency(db_session, test_app, auth_headers):
+    result = await db_session.execute(__import__("sqlalchemy").select(GlobalSettings).where(GlobalSettings.id == 1))
+    gs = result.scalar_one_or_none()
+    if gs is None:
+        gs = GlobalSettings(id=1)
+        db_session.add(gs)
+    gs.high_value_thresholds = {"EUR": "50000"}
+    await db_session.commit()
+    sek = await _create_license(
+        test_app, auth_headers, softwareDescription="SEK Suite", currency="SEK",
+        quantity="1", unitPrice="60000", endDate=(date.today() + timedelta(days=45)).isoformat(),
+    )
+    eur = await _create_license(
+        test_app, auth_headers, softwareDescription="EUR Suite", currency="EUR",
+        quantity="1", unitPrice="60000", endDate=(date.today() + timedelta(days=45)).isoformat(),
+    )
+
+    resp = await test_app.get("/api/renewals/workbench", headers=auth_headers)
+
+    flags = {row["licenseId"]: {flag["code"] for flag in row["riskFlags"]} for row in resp.json()}
+    assert "high_value" not in flags[sek["id"]]
+    assert "high_value" in flags[eur["id"]]
+
+
+async def test_global_settings_accept_per_currency_thresholds(test_app, auth_headers):
+    resp = await test_app.put(
+        "/api/settings/global",
+        json={"high_value_thresholds": {"eur": "50000", "SEK": "500000", "USD": ""}},
+        headers=auth_headers,
+    )
+    invalid = await test_app.put(
+        "/api/settings/global",
+        json={"high_value_thresholds": {"EUR": "-1"}},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["high_value_thresholds"] == {"EUR": "50000", "SEK": "500000"}
+    assert invalid.status_code == 422

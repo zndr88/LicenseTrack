@@ -112,9 +112,13 @@ class GlobalSettings(Base):
     backup_keep: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
 
     # Renewal workbench
+    # Legacy single threshold, kept for read compatibility only; the workbench
+    # uses high_value_thresholds (per currency, no FX conversion).
     high_value_threshold: Mapped[Decimal] = mapped_column(
         Numeric(18, 2), nullable=False, default=Decimal("50000"), server_default="50000"
     )
+    # {"EUR": "50000", ...}; a currency without a threshold is never flagged.
+    high_value_thresholds: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict, server_default="{}")
     fiscal_year_start_month: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     renewal_action_days: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
 

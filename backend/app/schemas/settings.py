@@ -1,5 +1,6 @@
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+import re
 from typing import Literal, Optional
 
 import zoneinfo
@@ -104,6 +105,8 @@ class GlobalSettingsUpdate(BaseModel):
     backup_keep: Optional[int] = Field(default=None, ge=1, le=100)
     audit_log_retention_days: Optional[int] = Field(default=None, ge=1)
     high_value_threshold: Optional[Decimal] = Field(default=None, ge=0)
+    # Per-currency high-value thresholds; a blank value removes that currency.
+    high_value_thresholds: Optional[dict[str, str]] = None
     fiscal_year_start_month: Optional[int] = Field(default=None, ge=1, le=12)
     renewal_action_days: Optional[int] = Field(default=None, ge=0, le=365)
     email_enabled: Optional[bool] = None
@@ -121,6 +124,29 @@ class GlobalSettingsUpdate(BaseModel):
         if not isinstance(v, str):
             return v
         return reject_email_crlf(v)
+
+    @field_validator("high_value_thresholds", mode="before")
+    @classmethod
+    def _normalize_high_value_thresholds(cls, value: object) -> object:
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise ValueError("high_value_thresholds must map currency codes to amounts.")
+        normalized: dict[str, str] = {}
+        for raw_currency, raw_amount in value.items():
+            currency = str(raw_currency).strip().upper()
+            if not re.fullmatch(r"[A-Z]{3}", currency):
+                raise ValueError(f"Unsupported currency code: {raw_currency!r}.")
+            if raw_amount is None or str(raw_amount).strip() == "":
+                continue
+            try:
+                amount = Decimal(str(raw_amount).strip())
+            except InvalidOperation as exc:
+                raise ValueError(f"Threshold for {currency} must be a number.") from exc
+            if not amount.is_finite() or amount < 0:
+                raise ValueError(f"Threshold for {currency} must be zero or more.")
+            normalized[currency] = format(amount, "f")
+        return normalized
 
 
 class GlobalSettingsResponse(BaseModel):
@@ -149,6 +175,7 @@ class GlobalSettingsResponse(BaseModel):
     backup_keep: int = 10
     audit_log_retention_days: int = 90
     high_value_threshold: Decimal = Decimal("50000")
+    high_value_thresholds: dict[str, str] = Field(default_factory=dict)
     fiscal_year_start_month: int = 1
     renewal_action_days: Optional[int] = None
     email_enabled: bool = False

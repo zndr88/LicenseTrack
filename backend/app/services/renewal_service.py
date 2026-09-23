@@ -48,7 +48,7 @@ async def get_renewal_workbench_rows(
     today = today or date.today()
     cutoff = today + timedelta(days=window_days)
 
-    mandatory_fields, high_value_threshold, storage_base = await _get_global_settings(db)
+    mandatory_fields, high_value_thresholds, storage_base = await _get_global_settings(db)
     licenses = await _load_candidate_licenses(db, current_user, cutoff)
     if not licenses:
         return []
@@ -67,7 +67,7 @@ async def get_renewal_workbench_rows(
             mandatory_fields=mandatory_fields,
             window_days=window_days,
             today=today,
-            high_value_threshold=high_value_threshold,
+            high_value_thresholds=high_value_thresholds,
             storage_base=storage_base,
         )
         for lic in licenses
@@ -82,13 +82,17 @@ async def get_renewal_workbench_rows(
     return [row for row in rows if matches_workbench_view(row, view)]
 
 
-async def _get_global_settings(db: AsyncSession) -> tuple[dict[str, bool], Decimal, str | None]:
+async def _get_global_settings(db: AsyncSession) -> tuple[dict[str, bool], dict[str, Decimal], str | None]:
     result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
     settings = result.scalar_one_or_none()
     mandatory_fields = (settings.mandatory_fields if settings else {}) or {}
-    raw_threshold = settings.high_value_threshold if settings else None
-    high_value_threshold = Decimal(str(raw_threshold)) if raw_threshold is not None else Decimal("50000")
-    return mandatory_fields, high_value_threshold, (settings.storage_path if settings else "") or None
+    raw_thresholds = (settings.high_value_thresholds if settings else None) or {}
+    high_value_thresholds = {
+        str(currency).strip().upper(): Decimal(str(amount))
+        for currency, amount in raw_thresholds.items()
+        if amount is not None and str(amount).strip() != ""
+    }
+    return mandatory_fields, high_value_thresholds, (settings.storage_path if settings else "") or None
 
 
 def _unhandled_notice_by(cutoff: date):
@@ -213,12 +217,13 @@ def _build_row(
     mandatory_fields: dict[str, bool],
     window_days: int,
     today: date,
-    high_value_threshold=None,
+    high_value_thresholds: dict[str, Decimal] | None = None,
     storage_base: str | None = None,
 ) -> RenewalWorkbenchRow:
     docs = available_documents([*list(license_obj.documents), *procurement_documents], storage_base)
     days_until_expiry = compute_days_until_expiry(license_obj, today)
     days_until_notice = compute_days_until_notice(license_obj, today)
+    currency_threshold = (high_value_thresholds or {}).get((license_obj.currency or "").strip().upper())
     completeness_pct = compute_completeness(license_obj, docs, mandatory_fields)
     estimated_annual_value = estimate_annual_value(license_obj)
     renewal_status = compute_workbench_renewal_status(license_obj, sourcing_item, days_until_expiry)
@@ -230,8 +235,9 @@ def _build_row(
         document_count=len(docs),
         estimated_annual_value=estimated_annual_value,
         window_days=window_days,
-        high_value_threshold=high_value_threshold,
+        high_value_threshold=currency_threshold,
         days_until_notice=days_until_notice,
+        high_value_enabled=currency_threshold is not None,
     )
 
     pending_order = sourcing_item.pending_order if sourcing_item else None

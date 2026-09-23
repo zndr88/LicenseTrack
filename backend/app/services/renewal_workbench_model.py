@@ -83,8 +83,13 @@ def compute_risk_flags(
     window_days: int,
     high_value_threshold: Decimal | None = None,
     days_until_notice: int | None = None,
+    high_value_enabled: bool = True,
 ) -> list[RenewalRiskFlag]:
-    """Compute the list of risk flags for a single renewal workbench row."""
+    """Compute the list of risk flags for a single renewal workbench row.
+
+    ``high_value_enabled`` is False when the row's currency has no configured
+    threshold; such rows are never flagged high value (no FX conversion).
+    """
     threshold = high_value_threshold if high_value_threshold is not None else HIGH_VALUE_THRESHOLD
     flags: list[RenewalRiskFlag] = []
 
@@ -116,7 +121,7 @@ def compute_risk_flags(
         flags.append(_flag("incomplete", "Incomplete mandatory fields", "medium"))
     if estimated_annual_value is None:
         flags.append(_flag("invalid_numeric", "Invalid quantity or unit price", "medium"))
-    elif estimated_annual_value >= threshold:
+    elif high_value_enabled and estimated_annual_value >= threshold:
         flags.append(_flag("high_value", "High value", "high"))
     if renewal_status in ("expired_unresolved", "due_soon"):
         flags.append(
