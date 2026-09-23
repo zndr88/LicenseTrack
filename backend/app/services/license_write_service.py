@@ -18,9 +18,9 @@ from sqlalchemy import delete, or_, select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document, ProcurementDocument
-from app.models.license import License, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage
+from app.models.license import License, LicenseMaintenanceLink, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.models.sourcing import SourcingItem, SourcingStatus
-from app.schemas.license import LicenseBatchCreateItem, LicenseCreate, LicenseUpdate
+from app.schemas.license import IncludedSupportUpdate, LicenseBatchCreateItem, LicenseCreate, LicenseUpdate
 from app.services import storage
 from app.services.contract_identity_service import resolve_contract_id_for_number
 from app.services.custom_fields_service import replace_values_for_license
@@ -50,6 +50,7 @@ from app.services.maintenance_service import (
 )
 from app.services.money import is_canonical_money
 from app.services.license_service import (
+    INCLUDED_SUPPORT_PARENT_TYPES,
     TYPE_DESCRIPTION_REQUIRED_DETAIL,
     is_non_expiring_license_type,
     normalise_type_opt_in_fields,
@@ -1208,3 +1209,32 @@ async def _sync_active_maintenance_parent_if_needed(db: AsyncSession, license_ob
     for parent_license in parents:
         if parent_license.active_maintenance_id == license_obj.id:
             await sync_parent_mirror_fields(db, parent_license)
+
+
+async def apply_included_support_update(
+    db: AsyncSession,
+    license_obj: License,
+    payload: IncludedSupportUpdate,
+) -> None:
+    """Edit the included support period of a perpetual/OEM/freeware license.
+
+    Subscription/SaaS support is derived from the term, and a license with a
+    linked maintenance record mirrors that record, so neither is editable here.
+    This is a correction of the stored period; it adds no coverage history.
+    """
+    if license_obj.license_type not in INCLUDED_SUPPORT_PARENT_TYPES:
+        raise HTTPException(status_code=400, detail="Included support can only be edited on perpetual, OEM or freeware licenses")
+    if license_obj.maintenance_coverage != MaintenanceCoverage.included:
+        raise HTTPException(status_code=400, detail="Set coverage to Included before editing the support period")
+    if license_obj.active_maintenance_id is not None:
+        raise HTTPException(status_code=409, detail="Support is tracked on a linked maintenance record; edit that record instead")
+
+    per_unit = payload.maintenance_pricing_basis == MaintenancePricingBasis.per_unit
+    license_obj.maintenance_start_date = payload.maintenance_start_date
+    license_obj.maintenance_end_date = payload.maintenance_end_date
+    license_obj.maintenance_pricing_basis = payload.maintenance_pricing_basis
+    license_obj.maintenance_quantity = payload.maintenance_quantity if per_unit else None
+    license_obj.maintenance_unit_price = payload.maintenance_unit_price if per_unit else None
+    license_obj.maintenance_cost = payload.maintenance_cost
+    # Derives the per-unit total the same way creation does.
+    sync_support_defaults_on_license(license_obj)

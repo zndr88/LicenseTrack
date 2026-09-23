@@ -10,11 +10,17 @@ from app.dependencies import CurrentUser, require_editor_or_admin
 from app.models.license import License, LicenseCoverageHistory
 from app.services.maintenance_rules import MAINTENANCE_PARENT_TYPES
 from app.models.user import User
-from app.schemas.license import LicenseCoverageHistoryResponse, LicenseResponse, MaintenanceLinkExistingRequest
-from app.services.audit_service import log_event
+from app.schemas.license import (
+    IncludedSupportUpdate,
+    LicenseCoverageHistoryResponse,
+    LicenseResponse,
+    MaintenanceLinkExistingRequest,
+)
+from app.services.audit_service import diff_fields, log_event
 from app.services.access_service import can_view_license
 from app.services.license_response_service import load_enriched_license_response
 from app.services.license_service import calc_line_total
+from app.services.license_write_service import apply_included_support_update
 from app.services.maintenance_service import activate_maintenance_for_parent, disable_maintenance_for_parent
 
 router = APIRouter(prefix="/api/licenses", tags=["license-maintenance"])
@@ -89,6 +95,37 @@ def _license_with_maintenance_options():
         selectinload(License.maintenance_parent_links),
         selectinload(License.maintenance_child_links),
     )
+
+
+@router.put("/{license_id}/included-support", response_model=LicenseResponse)
+async def update_included_support(
+    license_id: int,
+    payload: IncludedSupportUpdate,
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_editor_or_admin),
+) -> LicenseResponse:
+    """Edit the included support period (dates, pricing, optional cost) of a license."""
+    license_obj = await db.get(License, license_id)
+    if license_obj is None or not await can_view_license(current_user, license_obj, db):
+        raise HTTPException(status_code=404, detail="License not found")
+    before = {column.name: getattr(license_obj, column.name) for column in license_obj.__table__.columns}
+    await apply_included_support_update(db, license_obj, payload)
+    after = {column.name: getattr(license_obj, column.name) for column in license_obj.__table__.columns}
+    diff = diff_fields(before, after)
+    if diff:
+        await log_event(
+            db,
+            "license.updated",
+            actor=current_user,
+            ip_address=request.client.host if request.client else None,
+            target_type="license",
+            target_id=str(license_id),
+            target_label=license_obj.software_description,
+            detail=diff,
+        )
+    await db.commit()
+    return await load_enriched_license_response(db, license_id, populate_existing=True)
 
 
 @router.post("/{license_id}/disable-maintenance", response_model=LicenseResponse)

@@ -524,6 +524,46 @@ class PoTotalOverrideRequest(BaseModel):
         return value
 
 
+class IncludedSupportUpdate(BaseModel):
+    """Included support period on a perpetual/OEM/freeware license (cost optional)."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    maintenance_start_date: Optional[date] = None
+    maintenance_end_date: Optional[date] = None
+    maintenance_pricing_basis: MaintenancePricingBasis = MaintenancePricingBasis.flat
+    maintenance_quantity: Optional[str] = None
+    maintenance_unit_price: Optional[str] = None
+    maintenance_cost: Optional[str] = None
+
+    @field_validator("maintenance_start_date", "maintenance_end_date", mode="before")
+    @classmethod
+    def _blank_dates(cls, value: object) -> object:
+        return None if value == "" else value
+
+    @field_validator("maintenance_quantity", "maintenance_unit_price", "maintenance_cost", mode="before")
+    @classmethod
+    def _canonical_money(cls, value: object) -> object:
+        if value is None or value == "":
+            return None
+        if not isinstance(value, str) or not is_canonical_money(value):
+            raise ValueError("Amounts must be plain decimal strings (e.g. '1234.50').")
+        return value
+
+    @model_validator(mode="after")
+    def _ordered_dates(self):
+        if (
+            self.maintenance_start_date is not None
+            and self.maintenance_end_date is not None
+            and self.maintenance_end_date < self.maintenance_start_date
+        ):
+            raise ValueError("Support end date cannot be before its start date.")
+        return self
+
+
 class MaintenanceLinkExistingRequest(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,

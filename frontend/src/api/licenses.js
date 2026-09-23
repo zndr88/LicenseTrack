@@ -194,6 +194,11 @@ export async function patchLicenseField(id, field, value) {
 }
 
 /** Set the shared total PO value override for every license with this PO. */
+/** Edit the included support period (dates, pricing, optional cost) of a perpetual/OEM/freeware license. */
+export async function updateIncludedSupport(id, support) {
+  return put(`/api/licenses/${id}/included-support`, support);
+}
+
 export async function setPoTotalOverride(id, value) {
   return post(`/api/licenses/${id}/po-total-override`, { poTotalOverride: value });
 }

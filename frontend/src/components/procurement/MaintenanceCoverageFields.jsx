@@ -48,6 +48,7 @@ export default function MaintenanceCoverageFields({
   onAddSeparate,
   separateLineAdded = false,
   embedded = false,
+  hideCoverage = false,
 }) {
   const canAddSeparateLine = supportsSeparateMaintenanceLine(licenseType);
   const coverageOptions = maintenanceCoverageOptionsForLicenseType(licenseType);
@@ -110,7 +111,7 @@ export default function MaintenanceCoverageFields({
   return (
     <div className={embedded ? "maintenance-coverage-fields" : "fs"}>
       {!embedded && <h4>Maintenance / Support</h4>}
-      <div className="fg">
+      {!hideCoverage && <div className="fg">
         <label htmlFor={`${idPrefix}-maintenance-coverage`}>Coverage</label>
         <select
           id={`${idPrefix}-maintenance-coverage`}
@@ -133,7 +134,7 @@ export default function MaintenanceCoverageFields({
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
-      </div>
+      </div>}
 
       {coverage === "included" && !bundledIncludedSupport && (
         <>

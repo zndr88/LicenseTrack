@@ -3,7 +3,7 @@ import { render as rtlRender, screen, fireEvent, waitFor, within, act } from '@t
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import DetailPanel from '../components/licenses/DetailPanel.jsx'
-import { getCoverageHistory, getLicense, getMaintenanceForParent, linkMaintenanceToParent, updateLicense } from '../api/licenses.js'
+import { getCoverageHistory, getLicense, getMaintenanceForParent, linkMaintenanceToParent, updateIncludedSupport, updateLicense } from '../api/licenses.js'
 
 vi.mock('../api/documents.js', () => ({
   getDocuments: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -50,6 +50,7 @@ vi.mock('../api/licenses.js', () => ({
     error: null,
   }),
   getLicense: vi.fn(),
+  updateIncludedSupport: vi.fn(),
   upsertCustomFieldValues: vi.fn(),
   getLicenses: vi.fn(),
   updateLicense: vi.fn(),
@@ -1704,5 +1705,68 @@ describe('DetailPanel renewal box dismiss and term chain', () => {
 
     render(<DetailPanel {...baseProps} license={successor} allLicenses={chain} />)
     expect(screen.getByText('Renewed From')).toBeInTheDocument()
+  })
+})
+
+describe('DetailPanel included support editing', () => {
+  it('suggests a one-year period and saves support without a cost', async () => {
+    const user = userEvent.setup()
+    getMaintenanceForParent.mockResolvedValue({ data: [], error: null })
+    getCoverageHistory.mockResolvedValue({ data: [], error: null })
+    const saved = { ...baseLicense, id: 28, licenseType: 'freeware', maintenanceCoverage: 'included', maintenanceEndDate: '2027-07-24' }
+    updateIncludedSupport.mockResolvedValue({ data: saved, error: null })
+    const onUpdate = vi.fn()
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 1, role: 'admin' }}
+        onUpdate={onUpdate}
+        license={{
+          ...baseLicense,
+          id: 28,
+          licenseType: 'freeware',
+          startDate: '2026-07-25',
+          endDate: null,
+          maintenanceCoverage: 'included',
+          maintenanceStartDate: null,
+          maintenanceEndDate: null,
+          maintenanceCost: null,
+        }}
+      />
+    )
+
+    await user.click(screen.getByText('Maintenance / Support'))
+    await user.click(screen.getByRole('button', { name: /edit support/i }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Edit included support' })
+    expect(within(dialog).getByLabelText('Coverage Start')).toHaveValue('2026-07-25')
+    expect(within(dialog).getByLabelText('Coverage End')).toHaveValue('2027-07-24')
+    expect(within(dialog).queryByLabelText('Coverage')).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Save support' }))
+
+    await waitFor(() => expect(updateIncludedSupport).toHaveBeenCalledWith(28, {
+      maintenanceStartDate: '2026-07-25',
+      maintenanceEndDate: '2027-07-24',
+      maintenancePricingBasis: 'flat',
+      maintenanceQuantity: null,
+      maintenanceUnitPrice: null,
+      maintenanceCost: null,
+    }))
+    expect(onUpdate).toHaveBeenCalledWith(28, saved)
+  })
+
+  it('does not offer support editing for subscription licenses', async () => {
+    const user = userEvent.setup()
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 1, role: 'admin' }}
+        license={{ ...baseLicense, licenseType: 'subscription', maintenanceCoverage: 'included' }}
+      />
+    )
+
+    await user.click(screen.getByText('Maintenance / Support'))
+
+    expect(screen.queryByRole('button', { name: /edit support/i })).not.toBeInTheDocument()
   })
 })

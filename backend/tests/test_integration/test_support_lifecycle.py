@@ -302,3 +302,54 @@ async def test_maintenance_cannot_follow_a_subscription_term(test_app, auth_head
 
     assert added.status_code == 422
     assert "maintenance" in added.json()["detail"].lower()
+
+
+async def test_included_support_can_be_edited_after_switching_coverage(test_app, auth_headers):
+    freeware = await _create(test_app, auth_headers, licenseType="freeware", unitPrice="", softwareDescription="Community Tool")
+    switched = await test_app.patch(
+        f"/api/licenses/{freeware['id']}/field",
+        json={"field": "maintenanceCoverage", "value": "included"},
+        headers=auth_headers,
+    )
+    assert switched.status_code == 200, switched.text
+
+    soon = (date.today() + timedelta(days=15)).isoformat()
+    no_cost = await test_app.put(
+        f"/api/licenses/{freeware['id']}/included-support",
+        json={"maintenanceStartDate": "2026-01-01", "maintenanceEndDate": soon},
+        headers=auth_headers,
+    )
+    assert no_cost.status_code == 200, no_cost.text
+    assert no_cost.json()["maintenanceEndDate"] == soon
+    assert no_cost.json()["maintenanceCost"] is None
+    assert no_cost.json()["supportStatus"] == "expiring"
+
+    per_unit = await test_app.put(
+        f"/api/licenses/{freeware['id']}/included-support",
+        json={
+            "maintenanceStartDate": "2026-01-01",
+            "maintenanceEndDate": soon,
+            "maintenancePricingBasis": "per_unit",
+            "maintenanceQuantity": "4",
+            "maintenanceUnitPrice": "25",
+        },
+        headers=auth_headers,
+    )
+    assert per_unit.status_code == 200, per_unit.text
+    assert float(per_unit.json()["maintenanceCost"]) == 100
+
+
+async def test_included_support_edit_is_limited_to_included_perpetual_style_licenses(test_app, auth_headers):
+    subscription = await _create(test_app, auth_headers, licenseType="subscription", endDate="2027-01-01")
+    separately = await _create(test_app, auth_headers, maintenanceCoverage="separately_tracked")
+    included = await _included_parent(test_app, auth_headers)
+
+    body = {"maintenanceStartDate": "2026-01-01", "maintenanceEndDate": "2026-12-31"}
+    assert (await test_app.put(f"/api/licenses/{subscription['id']}/included-support", json=body, headers=auth_headers)).status_code == 400
+    assert (await test_app.put(f"/api/licenses/{separately['id']}/included-support", json=body, headers=auth_headers)).status_code == 400
+    reversed_dates = await test_app.put(
+        f"/api/licenses/{included['id']}/included-support",
+        json={"maintenanceStartDate": "2026-12-31", "maintenanceEndDate": "2026-01-01"},
+        headers=auth_headers,
+    )
+    assert reversed_dates.status_code == 422

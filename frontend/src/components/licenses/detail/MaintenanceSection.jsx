@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { disableMaintenance, getCoverageHistory, getMaintenanceForParent } from "../../../api/licenses.js";
+import { disableMaintenance, getCoverageHistory, getMaintenanceForParent, updateIncludedSupport } from "../../../api/licenses.js";
 import { formatCost } from "../../../utils/helpers.js";
 import { formatDate } from "../../../utils/formatting.js";
 import { MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
@@ -12,6 +12,7 @@ import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
 import CoverageHistoryModal from "./CoverageHistoryModal.jsx";
+import IncludedSupportModal from "../IncludedSupportModal.jsx";
 import Badge from "../../ui/Badge.jsx";
 import { supportStatusBadge } from "../../../utils/licenseTypeRules.js";
 
@@ -45,6 +46,26 @@ export default function MaintenanceSection({
   // Subscription/SaaS support is part of the term and price, so its dates and
   // cost would only repeat the Term and Commercial sections.
   const bundledIncluded = isBundledIncludedSupport(license.licenseType, coverage);
+  // Included support on perpetual/OEM/freeware has its own period, editable
+  // here while no separate maintenance record is linked.
+  const canEditIncludedSupport = perms.canEdit
+    && coverage === "included"
+    && !bundledIncluded
+    && !license.activeMaintenanceId
+    && supportsSeparateMaintenanceLine(license.licenseType);
+  const [showIncludedSupportModal, setShowIncludedSupportModal] = useState(false);
+
+  const handleSaveIncludedSupport = async (support) => {
+    const { data, error } = await updateIncludedSupport(license.id, support);
+    if (error) {
+      setToast(`Could not save support: ${error}`);
+      setTimeout(() => setToast(null), 6000);
+      return false;
+    }
+    onUpdate(license.id, data);
+    setShowIncludedSupportModal(false);
+    return true;
+  };
   const coverageLabel = MAINTENANCE_COVERAGE_OPTIONS.find((option) => option.value === coverage)?.label || coverage;
   const canLinkSupportRecord = coverage === "separately_tracked" && supportsSeparateMaintenanceLine(license.licenseType);
   const activeMaintenance = maintenanceHistory.find((item) => item.id === license.activeMaintenanceId);
@@ -81,6 +102,12 @@ export default function MaintenanceSection({
               </div>
             </div>
             {perms.canEdit && (
+              <div className="dp-btn-row">
+              {canEditIncludedSupport && (
+                <button type="button" className="btn btn-g btn-sm" onClick={() => setShowIncludedSupportModal(true)}>
+                  <Icon name="edit" size={12} /> Edit support
+                </button>
+              )}
               <button
                 type="button"
                 className="btn btn-g btn-sm"
@@ -94,6 +121,7 @@ export default function MaintenanceSection({
               >
                 <Icon name="edit" size={12} /> Edit coverage
               </button>
+              </div>
             )}
           </div>
 
@@ -260,6 +288,14 @@ export default function MaintenanceSection({
         />
       )}
       <div className="dp-section-divider" />
+      {showIncludedSupportModal && (
+        <IncludedSupportModal
+          license={license}
+          userSettings={userSettings}
+          onSave={handleSaveIncludedSupport}
+          onClose={() => setShowIncludedSupportModal(false)}
+        />
+      )}
     </>
   );
 }
