@@ -28,7 +28,7 @@ from app.services.license_service import (
     is_recurring_license,
 )
 from app.services.money import MoneyParseError, parse_money
-from app.services.po_total_override_service import procurement_identity_key
+from app.services.po_total_override_service import count_po_overrides_not_in_annual, procurement_identity_key
 
 
 SUPPORT_PARENT_TYPES = frozenset({LicenseType.freeware, LicenseType.perpetual, LicenseType.oem})
@@ -563,6 +563,7 @@ def _build_recurring_forecast_data(
     recurring_amount: dict[str, Decimal] = {}
     forecast_baseline: dict[str, Decimal] = {}
     records: list[dict] = []
+    baseline_licenses: list[License] = []
     contributor_count = 0
     for license_obj in visible:
         currency = _currency(license_obj)
@@ -592,6 +593,7 @@ def _build_recurring_forecast_data(
             annual_value, annual_source = _annual_recurring_value(license_obj)
             if annual_value is not None and annual_source != "not_recurring":
                 _add(forecast_baseline, currency, annual_value)
+                baseline_licenses.append(license_obj)
                 term = _term(license_obj)
                 records.append(
                     {
@@ -635,6 +637,7 @@ def _build_recurring_forecast_data(
     return {
         "recurring_amount": recurring_amount,
         "contributor_count": contributor_count,
+        "po_overrides_not_in_annual": count_po_overrides_not_in_annual(baseline_licenses, visible),
         "response": {
             "forecast_rows": forecast_rows,
             "recurring_records": records,
@@ -875,6 +878,7 @@ def build_report_model(licenses: list[License], options: ReportOptions) -> Detai
         "excluded": excluded_count,
         "undated": lifecycle_spend["undated_count"],
         "unallocated": lifecycle_spend["undated_count"],
+        "po_overrides_not_in_annual": recurring_forecast["po_overrides_not_in_annual"],
     }
     response = {
         "generated_at": datetime.now().astimezone(),
@@ -930,6 +934,7 @@ def build_portfolio_stats(
     by_type: dict[str, int] = {license_type.value: 0 for license_type in LicenseType}
     excluded = 0
     incomplete = 0
+    annual_cost_licenses: list[License] = []
     licenses_by_id = {license_obj.id: license_obj for license_obj in licenses}
     for license_obj in licenses:
         successor = licenses_by_id.get(license_obj.renewed_to_id) or license_obj.__dict__.get("renewed_to")
@@ -954,6 +959,7 @@ def build_portfolio_stats(
                 excluded += 1
             else:
                 _add(annual, _currency(license_obj), value)
+                annual_cost_licenses.append(license_obj)
     annual_strings = _serialize_map(annual)
     return PortfolioStatsResponse(
         total_active=counts["active"] + counts["expiring"],
@@ -964,5 +970,6 @@ def build_portfolio_stats(
         annual_cost_by_currency={currency: float(value) for currency, value in annual.items()},
         annual_cost_by_currency_decimal=annual_strings,
         excluded_from_totals=excluded,
+        po_overrides_not_in_annual=count_po_overrides_not_in_annual(annual_cost_licenses, licenses),
         by_license_type=dict(by_type),
     )

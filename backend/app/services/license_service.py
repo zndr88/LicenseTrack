@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.license import LicenseType, MaintenanceCoverage
 from app.models.license_ref_seq import LicenseRefSequence
 from app.services.money import MoneyParseError, parse_money
+from app.services.po_total_override_service import count_po_overrides_not_in_annual
 
 if TYPE_CHECKING:
     from app.models.document import Document
@@ -397,6 +398,7 @@ def compute_stats(
     total_retirement_scheduled = 0
     status_counts: Counter[str] = Counter()
     annual_cost_by_currency: dict[str, Decimal] = {}
+    annual_cost_licenses: list["License"] = []
     excluded_from_totals = 0
     licenses_by_id = {lic.id: lic for lic in licenses}
 
@@ -436,6 +438,7 @@ def compute_stats(
             if is_recurring_license(lic):
                 annual_cost = calc_recurring_annual_cost(lic)
                 if annual_cost is not None:
+                    annual_cost_licenses.append(lic)
                     cur = lic.currency or "USD"
                     annual_cost_by_currency[cur] = annual_cost_by_currency.get(cur, Decimal("0")) + annual_cost
                 else:
@@ -485,4 +488,5 @@ def compute_stats(
         "total_legacy": status_counts["legacy"],
         "annual_cost_by_currency": {k: float(v) for k, v in annual_cost_by_currency.items()},
         "excluded_from_totals": excluded_from_totals,
+        "po_overrides_not_in_annual": count_po_overrides_not_in_annual(annual_cost_licenses, licenses),
     }

@@ -282,6 +282,7 @@ def test_detailed_report_phase_contracts_remain_stable(monkeypatch):
         "excluded": 0,
         "undated": 0,
         "unallocated": 0,
+        "po_overrides_not_in_annual": 1,
     }
     assert report.financial_summaries == {
         "licenseSpendByCurrency": {"EUR": "1500", "USD": "150"},

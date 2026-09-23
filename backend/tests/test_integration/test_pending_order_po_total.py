@@ -137,3 +137,41 @@ async def test_pending_order_export_includes_manual_total(test_app, auth_headers
     header, row = response.text.splitlines()[:2]
     assert header.endswith("PO Total (manual)")
     assert row.endswith("750.00")
+
+
+async def test_stats_count_manual_po_totals_not_in_annual_cost(test_app, auth_headers):
+    order = await _order_with_lines(
+        test_app, auth_headers, [_line(), _line(softwareDescription="Add-on")],
+    )
+    await test_app.put(f"/api/pending-orders/{order['id']}", json={"poTotalOverride": "21000.00"}, headers=auth_headers)
+    today = __import__("datetime").date.today()
+    await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert-all",
+        json=[
+            {
+                "sourcingItemId": item["id"],
+                "publisherName": "Acme",
+                "softwareDescription": item["softwareDescription"],
+                "licenseType": "subscription",
+                "licenseMetric": "per_user",
+                "quantity": "1",
+                "unitPrice": "0",
+                "currency": "EUR",
+                "startDate": today.replace(month=1, day=1).isoformat(),
+                "endDate": today.replace(month=12, day=31).isoformat(),
+                "purchaseDate": today.isoformat(),
+            }
+            for item in order["items"]
+        ],
+        headers=auth_headers,
+    )
+
+    license_stats = await test_app.get("/api/licenses/stats", headers=auth_headers)
+    portfolio = await test_app.get("/api/reports/portfolio-stats", headers=auth_headers)
+    report = await test_app.get("/api/reports/detailed", headers=auth_headers)
+
+    assert license_stats.json()["po_overrides_not_in_annual"] == 1
+    assert portfolio.status_code == 200, portfolio.text
+    assert portfolio.json()["po_overrides_not_in_annual"] == 1
+    assert report.status_code == 200, report.text
+    assert report.json()["counts"]["poOverridesNotInAnnual"] == 1

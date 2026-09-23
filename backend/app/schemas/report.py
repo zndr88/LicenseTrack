@@ -33,6 +33,7 @@ class ReportCounts(BaseModel):
     excluded: int = 0
     undated: int = 0
     unallocated: int = 0
+    po_overrides_not_in_annual: int = 0
 
 
 class DetailedReportResponse(BaseModel):
@@ -73,4 +74,7 @@ class PortfolioStatsResponse(BaseModel):
     annual_cost_by_currency: dict[str, float]
     annual_cost_by_currency_decimal: dict[str, str] = Field(default_factory=dict)
     excluded_from_totals: int
+    # Manual PO totals (overrides) that differ from the line sum; annual cost is
+    # line based, so these are informational.
+    po_overrides_not_in_annual: int = 0
     by_license_type: dict[str, int]

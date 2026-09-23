@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+from typing import Iterable
+
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.license import License
 from app.models.pending_order import PendingOrder
 from app.models.sourcing import SourcingItem, SourcingStatus
+from app.services.money import MoneyParseError, parse_money
 from app.services.procurement_identity import normalize_po_number
 
 
@@ -260,3 +264,50 @@ async def assert_line_currency_fits_pending_order(
     currencies = await pending_order_line_currencies(db, order_id)
     if currencies and _normalize_currency(currency) not in currencies:
         raise HTTPException(status_code=422, detail=PENDING_ORDER_CURRENCY_DETAIL)
+
+
+def _license_identity(license_obj) -> tuple[str, str] | None:
+    return procurement_identity_key(
+        license_id=license_obj.id,
+        pending_order_id=getattr(license_obj, "pending_order_id", None),
+        procurement_bundle_id=getattr(license_obj, "procurement_bundle_id", None),
+        po_number=license_obj.po_number,
+        currency=license_obj.currency,
+    )
+
+
+def _line_total(license_obj) -> Decimal:
+    try:
+        quantity = parse_money(str(license_obj.quantity) if license_obj.quantity else None) or Decimal("0")
+        unit_price = parse_money(str(license_obj.unit_price) if license_obj.unit_price else None) or Decimal("0")
+    except MoneyParseError:
+        return Decimal("0")
+    return quantity * unit_price
+
+
+def count_po_overrides_not_in_annual(included: Iterable, all_licenses: Iterable) -> int:
+    """Count override groups among annual-cost records whose manual total differs from the line sum.
+
+    Annual-cost views are line based, so a manual PO total is informational
+    there; this count backs the "N POs have a manual total not reflected here"
+    note. The override itself is never spread across lines.
+    """
+    line_sums: dict[tuple[str, str], Decimal] = {}
+    for license_obj in all_licenses:
+        key = _license_identity(license_obj)
+        if key is not None:
+            line_sums[key] = line_sums.get(key, Decimal("0")) + _line_total(license_obj)
+
+    differing: set[tuple[str, str]] = set()
+    for license_obj in included:
+        override = getattr(license_obj, "po_total_override", None)
+        key = _license_identity(license_obj)
+        if not override or key is None:
+            continue
+        try:
+            override_value = Decimal(str(override))
+        except InvalidOperation:
+            continue
+        if override_value != line_sums.get(key, Decimal("0")):
+            differing.add(key)
+    return len(differing)
