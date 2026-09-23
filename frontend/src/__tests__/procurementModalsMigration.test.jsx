@@ -977,6 +977,25 @@ describe("ConvertAllModal", () => {
     expect(budgetOwners[1]).toHaveValue("shared.budget@example.com");
   });
 
+  test("copies secondary contacts and only non-empty shared values, then reports the count", async () => {
+    const user = userEvent.setup();
+    renderModal({ order: MULTI_ORDER, licenses: RENEWAL_LICENSES });
+
+    const contractNumbers = screen.getAllByLabelText(/^contract number$/i);
+    const secondaryContacts = screen.getAllByLabelText(/^secondary contacts$/i);
+    const costCentres = screen.getAllByLabelText(/^cost centre$/i);
+    fireEvent.change(contractNumbers[0], { target: { value: "" } });
+    fireEvent.change(costCentres[0], { target: { value: "" } });
+    fireEvent.change(secondaryContacts[0], { target: { value: "owner@example.com" } });
+
+    await user.click(screen.getByRole("button", { name: /copy shared fields from first item/i }));
+
+    expect(secondaryContacts[1]).toHaveValue("owner@example.com");
+    expect(contractNumbers[1]).toHaveValue("CN-OLD");
+    expect(costCentres[1]).toHaveValue("Renewals");
+    expect(screen.getByRole("status")).toHaveTextContent(/^Copied \d+ fields? to 1 line$/);
+  });
+
   test("Confirm is enabled when all required fields are filled", () => {
     renderModal();
     fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: "2026-01-01" } });

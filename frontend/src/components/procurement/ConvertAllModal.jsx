@@ -19,22 +19,10 @@ import { buildCustomFieldValuePayload } from "../../utils/customFieldFormValues.
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
 import TermLinkContext from "./TermLinkContext.jsx";
+import { pickFilledSharedFields, sharedFieldsCopyMessage } from "../../utils/convertSharedFields.js";
 import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
 
 const formSchema = z.object({ items: z.array(licenseFormSchema) });
-
-const SHARED_FIELD_KEYS = [
-  "poNumber",
-  "procurementReference",
-  "contractNumber",
-  "invoiceNumber",
-  "purchaseDate",
-  "contactEmail",
-  "supplier",
-  "costCentre",
-  "currency",
-  "budgetOwnerEmail",
-];
 
 function termChangeNotes(previous, next) {
   const notes = [];
@@ -75,6 +63,7 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
   const { fields } = useFieldArray({ control, name: "items" });
 
   const [saving, setSaving] = useState(false);
+  const [copyMessage, setCopyMessage] = useState("");
   const {
     attachments,
     categoryScopes,
@@ -98,14 +87,16 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
     const source = watchedItems[0];
     if (!source || fields.length < 2) return;
 
+    const filled = Object.entries(pickFilledSharedFields(source));
     for (let idx = 1; idx < fields.length; idx += 1) {
-      for (const key of SHARED_FIELD_KEYS) {
-        setValue(`items.${idx}.${key}`, source[key] ?? "", {
+      for (const [key, value] of filled) {
+        setValue(`items.${idx}.${key}`, value, {
           shouldDirty: true,
           shouldValidate: true,
         });
       }
     }
+    setCopyMessage(sharedFieldsCopyMessage(filled.length, fields.length - 1));
   };
 
   const onSubmit = async (data) => {
@@ -215,13 +206,18 @@ export default function ConvertAllModal({ order, licenses, userSettings, onConfi
                 type="button"
                 className="btn btn-g"
                 style={{ padding: "5px 10px", fontSize: 11, flexShrink: 0 }}
-                title="Copies shared fields from item 1 and may overwrite values already entered on other items. Always review every license before confirming."
+                title="Copies non-empty shared fields from item 1 and may overwrite values already entered on other items. Always review every license before confirming."
                 aria-label="Copy shared fields from first item"
                 onClick={copySharedFieldsFromFirstItem}
               >
                 <Icon name="refresh" size={12} />
                 Copy shared fields
               </button>
+              {copyMessage && (
+                <span role="status" style={{ flexBasis: "100%", fontSize: 12, color: "var(--text-2)" }}>
+                  {copyMessage}
+                </span>
+              )}
             </div>
           )}
           {hasPlannedTerms && (
