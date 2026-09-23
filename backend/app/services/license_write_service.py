@@ -48,7 +48,7 @@ from app.services.maintenance_service import (
     validate_parent_license,
 )
 from app.services.money import is_canonical_money
-from app.services.license_service import validate_term_date_order
+from app.services.license_service import is_non_expiring_license_type, validate_term_date_order
 from app.services.license_retirement_service import normalize_retirement_update
 from app.services.po_total_override_service import (
     inherit_po_total_override,
@@ -251,7 +251,7 @@ def normalise_license_type_fields(data: dict) -> None:
     if data.get("license_type") == LicenseType.freeware:
         data["unit_price"] = ""
         data["total_po_price"] = ""
-    if data.get("license_type") == LicenseType.perpetual:
+    if is_non_expiring_license_type(data.get("license_type")):
         data["end_date"] = None
 
 
@@ -634,6 +634,8 @@ async def apply_license_field_patch(
         if field == "noticeDate" and parsed_value != license_obj.notice_date:
             license_obj.notice_handled_at = None
             license_obj.notice_handled_by_user_id = None
+        if field == "endDate" and is_non_expiring_license_type(license_obj.license_type):
+            parsed_value = None
         setattr(license_obj, snake_field, parsed_value)
     elif field in DATETIME_PATCH_FIELDS:
         setattr(license_obj, snake_field, _parse_procurement_milestone_datetime(value) if value else None)

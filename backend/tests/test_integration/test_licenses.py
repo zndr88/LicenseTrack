@@ -833,6 +833,30 @@ async def test_create_perpetual_license_clears_end_date(test_app, auth_headers):
     assert resp.json()["endDate"] is None
 
 
+async def test_create_oem_license_clears_end_date(test_app, auth_headers):
+    resp = await test_app.post(
+        "/api/licenses",
+        json=_minimal_payload(licenseType="oem", endDate="2027-12-31"),
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["endDate"] is None
+
+
+async def test_patch_end_date_on_oem_license_stores_none(test_app, auth_headers):
+    created = await _create_license(test_app, auth_headers, licenseType="oem", endDate=None)
+
+    resp = await test_app.patch(
+        f"/api/licenses/{created['id']}/field",
+        json={"field": "endDate", "value": "2027-12-31"},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["endDate"] is None
+
+
 async def test_create_rejects_end_date_before_start_date(test_app, auth_headers):
     resp = await test_app.post(
         "/api/licenses",

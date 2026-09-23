@@ -76,6 +76,20 @@ async def test_create_purchase_license_creates_perpetual_without_end_date(db_ses
     assert new_license.license_ref.startswith(f"LT-{date.today().year}-")
 
 
+async def test_create_purchase_license_creates_oem_without_end_date(db_session):
+    data = _license_data(license_type=LicenseType.oem, end_date=date(2026, 12, 31))
+
+    new_license = await license_converter.create_purchase_license(
+        db=db_session,
+        item_data=data,
+        created_by=None,
+        created_parent_by_sourcing_item_id={},
+        item_id=11,
+    )
+
+    assert new_license.end_date is None
+
+
 async def test_create_purchase_license_rejects_parent_for_non_maintenance(db_session):
     data = _license_data(parent_license_id=123)
 

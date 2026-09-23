@@ -8,7 +8,7 @@ from app.models.license import License, LicenseType
 from app.services.contract_identity_service import resolve_contract_id_for_number
 from app.services.csv_importer import ParsedRow
 from app.services.custom_fields_service import upsert_imported_values_for_license
-from app.services.license_service import validate_term_date_order
+from app.services.license_service import is_non_expiring_license_type, validate_term_date_order
 from app.services.lifecycle_rules import validate_established_renewal_terms
 from app.services.import_.invoice_values import parse_invoice_cell
 from app.services.license_write_service import sync_support_defaults_on_license
@@ -105,19 +105,19 @@ async def apply_import_update(
         license_obj.contract_number = row.contract_number
         license_obj.contract_id = await resolve_contract_id_for_number(db, row.contract_number)
 
-    # Dates (typed). Perpetual records never carry an end_date.
+    # Dates (typed). Non-expiring types (perpetual/OEM/freeware) never carry an end_date.
     if row.db_start_date is not None or row.db_end_date is not None:
         target_start_date = row.db_start_date if row.db_start_date is not None else license_obj.start_date
         target_end_date = (
             row.db_end_date
-            if row.db_end_date is not None and license_obj.license_type != LicenseType.perpetual
+            if row.db_end_date is not None and not is_non_expiring_license_type(license_obj.license_type)
             else license_obj.end_date
         )
         validate_term_date_order(target_start_date, target_end_date)
 
     if row.db_start_date is not None:
         license_obj.start_date = row.db_start_date
-    if row.db_end_date is not None and license_obj.license_type != LicenseType.perpetual:
+    if row.db_end_date is not None and not is_non_expiring_license_type(license_obj.license_type):
         license_obj.end_date = row.db_end_date
     if row.db_notice_date is not None:
         if row.db_notice_date != license_obj.notice_date:

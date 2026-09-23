@@ -1791,6 +1791,33 @@ async def test_confirm_normalizes_end_date_for_perpetual_license(
     assert license_obj.end_date is None
 
 
+async def test_confirm_normalizes_end_date_for_oem_license(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type", "end_date"],
+        [{
+            "publisher_name": "Acme",
+            "software_description": "OEM Suite",
+            "license_type": "oem",
+            "end_date": _FUTURE_END,
+        }],
+    )
+
+    resp = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("oem.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    license_obj = await db_session.scalar(select(License).where(License.software_description == "OEM Suite"))
+    assert license_obj is not None
+    assert license_obj.end_date is None
+
+
 async def test_confirm_maps_perpetual_included_support_dates_and_defaults_cost(
     test_app,
     auth_headers,

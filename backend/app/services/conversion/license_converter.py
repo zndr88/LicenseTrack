@@ -3,7 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType
 from app.services.conversion.maintenance_linker import create_maintenance_purchase
-from app.services.license_service import generate_license_ref, validate_term_date_order
+from app.services.license_service import (
+    generate_license_ref,
+    is_non_expiring_license_type,
+    validate_term_date_order,
+)
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.po_total_override_service import inherit_po_total_override
 from app.services.reference_data_service import resolve_license_reference_fields
@@ -22,7 +26,7 @@ async def create_purchase_license(
     license_type = item_data.get("license_type")
     await resolve_license_reference_fields(db, item_data)
 
-    if license_type == LicenseType.perpetual:
+    if is_non_expiring_license_type(license_type):
         item_data["end_date"] = None
     if license_type == LicenseType.freeware:
         item_data["unit_price"] = ""

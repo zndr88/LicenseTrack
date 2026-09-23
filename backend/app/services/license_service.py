@@ -88,7 +88,9 @@ _FREEWARE_PURCHASE_FIELDS = frozenset(
     }
 )
 
-_NON_EXPIRING_LICENSE_TYPES = frozenset(
+# License types that never carry a fixed end date. Every write path stores
+# ``end_date = None`` for these (see ``is_non_expiring_license_type``).
+NON_EXPIRING_LICENSE_TYPES = frozenset(
     {
         LicenseType.perpetual,
         LicenseType.oem,
@@ -97,6 +99,11 @@ _NON_EXPIRING_LICENSE_TYPES = frozenset(
         LicenseType.other,
     }
 )
+
+def is_non_expiring_license_type(license_type) -> bool:
+    """Return True when the license type never carries an end date."""
+    return license_type in NON_EXPIRING_LICENSE_TYPES
+
 
 _NON_ENTITLEMENT_LICENSE_TYPES = frozenset(
     {
@@ -160,7 +167,7 @@ def _check_mandatory_field(
         return _DOCUMENT_CATEGORIES[key] in doc_categories
     if key == "endDate":
         # Non-expiring license types intentionally allow no end date.
-        return license.end_date is not None or license.license_type in _NON_EXPIRING_LICENSE_TYPES
+        return license.end_date is not None or license.license_type in NON_EXPIRING_LICENSE_TYPES
     attribute = _DIRECT_MANDATORY_FIELDS.get(key)
     if attribute is not None:
         return bool(getattr(license, attribute))
@@ -238,7 +245,7 @@ def compute_expiration_status(
     if license.start_date is not None and license.start_date > today:
         return "upcoming"
     if license.end_date is None:
-        return "perpetual" if license.license_type in _NON_EXPIRING_LICENSE_TYPES else "active"
+        return "perpetual" if license.license_type in NON_EXPIRING_LICENSE_TYPES else "active"
     if license.end_date < today:
         if license.renewed_to_id is not None:
             if successor_start_date is _SUCCESSOR_START_UNKNOWN:

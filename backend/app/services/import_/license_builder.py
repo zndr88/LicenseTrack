@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.services.csv_importer import ParsedRow
-from app.services.license_service import validate_term_date_order
+from app.services.license_service import is_non_expiring_license_type, validate_term_date_order
 from app.services.lifecycle_rules import assert_successor_term
 from app.services.import_.invoice_values import parse_invoice_cell
 from app.services.maintenance_service import validate_parent_license
@@ -120,7 +120,7 @@ async def build_license(
         "total_po_price": row.total_po_price,
         "currency": row.currency,
         "start_date": row.db_start_date,
-        "end_date": None if license_type == LicenseType.perpetual else row.db_end_date,
+        "end_date": None if is_non_expiring_license_type(license_type) else row.db_end_date,
         "notice_date": row.db_notice_date,
         "request_date": row.db_request_date,
         "purchase_date": row.db_purchase_date,
