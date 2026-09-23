@@ -32,6 +32,7 @@ ALLOWED_WORKBENCH_VIEWS = {
     "in_progress",
     "missing_docs",
     "high_value",
+    "notice_due",
 }
 
 # ---------------------------------------------------------------------------
@@ -58,6 +59,20 @@ def estimate_annual_value(license_obj: License) -> Decimal | None:
     )
 
 
+def compute_days_until_notice(license_obj: License, today: date) -> int | None:
+    """Days until an unhandled notice deadline, or None when there is none to act on."""
+    notice_date = getattr(license_obj, "notice_date", None)
+    if not isinstance(notice_date, date) or getattr(license_obj, "notice_handled_at", None) is not None:
+        return None
+    return (notice_date - today).days
+
+
+def effective_deadline_days(days_until_expiry: int | None, days_until_notice: int | None) -> int | None:
+    """The earlier of the notice deadline and the end date, used for sorting."""
+    candidates = [days for days in (days_until_expiry, days_until_notice) if days is not None]
+    return min(candidates) if candidates else None
+
+
 def compute_risk_flags(
     license_obj: License,
     renewal_status: RenewalStatus,
@@ -67,6 +82,7 @@ def compute_risk_flags(
     estimated_annual_value: Decimal | None,
     window_days: int,
     high_value_threshold: Decimal | None = None,
+    days_until_notice: int | None = None,
 ) -> list[RenewalRiskFlag]:
     """Compute the list of risk flags for a single renewal workbench row."""
     threshold = high_value_threshold if high_value_threshold is not None else HIGH_VALUE_THRESHOLD
@@ -80,6 +96,13 @@ def compute_risk_flags(
         flags.append(_flag("due_60", "Due within 60 days", "medium"))
     elif days_until_expiry is not None and days_until_expiry <= 90:
         flags.append(_flag("due_90", "Due within 90 days", "low"))
+
+    if days_until_notice is not None and days_until_notice < 0:
+        flags.append(_flag("notice_passed", "Notice deadline passed", "high"))
+    elif days_until_notice is not None and days_until_notice <= 90:
+        severity = "high" if days_until_notice <= 30 else "medium" if days_until_notice <= 60 else "low"
+        day_word = "day" if days_until_notice == 1 else "days"
+        flags.append(_flag("notice_due", f"Notice deadline in {days_until_notice} {day_word}", severity))
 
     if not _has_value(license_obj.supplier):
         flags.append(_flag("no_supplier", "No supplier", "medium"))
@@ -131,6 +154,8 @@ def matches_workbench_view(
         return row.document_count == 0
     if view == "high_value":
         return any(flag.code == "high_value" for flag in row.risk_flags)
+    if view == "notice_due":
+        return row.days_until_notice is not None
     return True
 
 

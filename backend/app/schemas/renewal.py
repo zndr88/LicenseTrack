@@ -51,6 +51,9 @@ class RenewalWorkbenchRow(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     days_until_expiry: int | None = None
+    # Unhandled contractual notice deadline; None when absent or already handled.
+    notice_date: date | None = None
+    days_until_notice: int | None = None
     renewal_status: RenewalStatus
     lifecycle_status: LifecycleStatus | None = None
     contract_number: str

@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -28,7 +28,9 @@ from app.services.license_service import (
 from app.services.license_response_service import get_procurement_documents_by_scope
 from app.services.renewal_workflow import compute_workbench_renewal_status
 from app.services.renewal_workbench_model import (
+    compute_days_until_notice,
     compute_risk_flags,
+    effective_deadline_days,
     estimate_annual_value,
     matches_workbench_view,
 )
@@ -70,6 +72,13 @@ async def get_renewal_workbench_rows(
         )
         for lic in licenses
     ]
+    # Act on whichever deadline comes first: the notice date or the end date.
+    rows.sort(key=lambda row: (
+        (deadline := effective_deadline_days(row.days_until_expiry, row.days_until_notice)) is None,
+        deadline if deadline is not None else 0,
+        row.publisher_name,
+        row.license_id,
+    ))
     return [row for row in rows if matches_workbench_view(row, view)]
 
 
@@ -80,6 +89,15 @@ async def _get_global_settings(db: AsyncSession) -> tuple[dict[str, bool], Decim
     raw_threshold = settings.high_value_threshold if settings else None
     high_value_threshold = Decimal(str(raw_threshold)) if raw_threshold is not None else Decimal("50000")
     return mandatory_fields, high_value_threshold, (settings.storage_path if settings else "") or None
+
+
+def _unhandled_notice_by(cutoff: date):
+    """A notice deadline inside the window that has not been marked handled."""
+    return and_(
+        License.notice_date.isnot(None),
+        License.notice_date <= cutoff,
+        License.notice_handled_at.is_(None),
+    )
 
 
 async def _load_candidate_licenses(
@@ -100,8 +118,20 @@ async def _load_candidate_licenses(
             )
         )
         .where(or_(License.lifecycle_status.is_(None), License.lifecycle_status.notin_(["renewed", "legacy"])))
-        .where(or_(License.end_date.isnot(None), License.lifecycle_status == "pending_renewal"))
-        .where(or_(License.end_date <= cutoff, License.lifecycle_status == "pending_renewal"))
+        .where(
+            or_(
+                License.end_date.isnot(None),
+                License.lifecycle_status == "pending_renewal",
+                _unhandled_notice_by(cutoff),
+            )
+        )
+        .where(
+            or_(
+                License.end_date <= cutoff,
+                License.lifecycle_status == "pending_renewal",
+                _unhandled_notice_by(cutoff),
+            )
+        )
         .options(selectinload(License.documents))
         .order_by(License.end_date.is_(None), License.end_date, License.publisher_name, License.id)
     )
@@ -188,6 +218,7 @@ def _build_row(
 ) -> RenewalWorkbenchRow:
     docs = available_documents([*list(license_obj.documents), *procurement_documents], storage_base)
     days_until_expiry = compute_days_until_expiry(license_obj, today)
+    days_until_notice = compute_days_until_notice(license_obj, today)
     completeness_pct = compute_completeness(license_obj, docs, mandatory_fields)
     estimated_annual_value = estimate_annual_value(license_obj)
     renewal_status = compute_workbench_renewal_status(license_obj, sourcing_item, days_until_expiry)
@@ -200,6 +231,7 @@ def _build_row(
         estimated_annual_value=estimated_annual_value,
         window_days=window_days,
         high_value_threshold=high_value_threshold,
+        days_until_notice=days_until_notice,
     )
 
     pending_order = sourcing_item.pending_order if sourcing_item else None
@@ -213,6 +245,8 @@ def _build_row(
         start_date=license_obj.start_date,
         end_date=license_obj.end_date,
         days_until_expiry=days_until_expiry,
+        notice_date=license_obj.notice_date if days_until_notice is not None else None,
+        days_until_notice=days_until_notice,
         renewal_status=renewal_status,
         lifecycle_status=license_obj.lifecycle_status,
         contract_number=license_obj.contract_number,

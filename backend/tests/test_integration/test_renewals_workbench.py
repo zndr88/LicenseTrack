@@ -671,3 +671,50 @@ async def test_workbench_flags_invalid_legacy_numeric_data_without_changing_resp
     assert row["estimatedAnnualValue"] == 0.0
     assert isinstance(row["estimatedAnnualValue"], float)
     assert "invalid_numeric" in {flag["code"] for flag in row["riskFlags"]}
+
+
+async def test_workbench_includes_contract_whose_notice_deadline_is_near(test_app, auth_headers):
+    later = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Due later",
+        endDate=(date.today() + timedelta(days=40)).isoformat(),
+    )
+    notice_driven = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Auto-renewing contract",
+        endDate=(date.today() + timedelta(days=100)).isoformat(),
+        noticeDate=(date.today() + timedelta(days=10)).isoformat(),
+    )
+
+    resp = await test_app.get("/api/renewals/workbench", headers=auth_headers)
+    notice_view = await test_app.get("/api/renewals/workbench?view=notice_due", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    rows = resp.json()
+    ids = [row["licenseId"] for row in rows]
+    assert ids.index(notice_driven["id"]) < ids.index(later["id"])
+    row = next(row for row in rows if row["licenseId"] == notice_driven["id"])
+    assert row["daysUntilNotice"] == 10
+    assert row["daysUntilExpiry"] == 100
+    notice_flag = next(flag for flag in row["riskFlags"] if flag["code"] == "notice_due")
+    assert notice_flag["label"] == "Notice deadline in 10 days"
+    assert notice_flag["severity"] == "high"
+    assert [row["licenseId"] for row in notice_view.json()] == [notice_driven["id"]]
+
+
+async def test_workbench_ignores_handled_notice_deadlines(test_app, auth_headers):
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Handled notice",
+        endDate=(date.today() + timedelta(days=100)).isoformat(),
+        noticeDate=(date.today() + timedelta(days=10)).isoformat(),
+    )
+    handled = await test_app.post(f"/api/licenses/{created['id']}/notice/handled", headers=auth_headers)
+    assert handled.status_code == 200, handled.text
+
+    resp = await test_app.get("/api/renewals/workbench", headers=auth_headers)
+
+    assert created["id"] not in {row["licenseId"] for row in resp.json()}
