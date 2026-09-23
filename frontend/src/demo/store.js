@@ -7,7 +7,7 @@ import {
 } from "./supportDefaults.js";
 import { daysUntil } from "./time.js";
 import { sumCanonicalQuantities } from "../utils/quantity.js";
-import { NON_RENEWABLE_LICENSE_TYPES } from "../constants/licenseData.js";
+import { isRenewableLicense } from "../utils/licenseTypeRules.js";
 
 /** Module-level in-memory state. Refresh or logout wipes it - that IS the reset story. */
 export const store = {
@@ -1585,8 +1585,8 @@ export function assertCanInitiateRenewal(license, { actionDays, requireBudgetOwn
   if (license.lifecycleStatus === "renewed") {
     throw new Error("License has already been renewed");
   }
-  if (NON_RENEWABLE_LICENSE_TYPES.includes(license.licenseType)) {
-    throw new Error("Cannot initiate renewal on service or other license types");
+  if (!isRenewableLicense(license)) {
+    throw new Error("Cannot initiate renewal on a one-off service or other license; mark it renewable first");
   }
   if (requireBudgetOwner && !(license.budgetOwnerEmail || "").trim()) {
     throw new Error("A budget owner is required before initiating renewal");
