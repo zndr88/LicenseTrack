@@ -16,6 +16,7 @@ import { filterAndSortPendingOrders, usePendingOrdersPageState } from "./pending
 import { usePendingOrdersData } from "./usePendingOrdersData.js";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
 import { pendingOrderLabel } from "../../utils/procurementLabels.js";
+import { supportsPlannedTerms } from "../../utils/licenseTypeRules.js";
 import ProcurementTablePagination, {
   getPaginationDetails,
   paginateRows,
@@ -450,7 +451,7 @@ export default function PendingOrdersPage({
           onEditPredecessors={showEditPOItemModal.item?.sourcingRequestId
             && showEditPOItemModal.item.renewalForLicenseId == null
             && !(showEditPOItemModal.item.cotermPredecessorIds?.length)
-            && ["subscription", "saas", "oem"].includes(showEditPOItemModal.item.licenseType)
+            && supportsPlannedTerms(showEditPOItemModal.item)
             ? () => {
               setPredecessorsTarget({ target: showEditPOItemModal.item, items: showEditPOItemModal.order?.items ?? [] });
               setShowEditPOItemModal(null);

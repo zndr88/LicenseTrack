@@ -22,6 +22,7 @@ import { useSourcingMerge } from "./sourcing/useSourcingMerge.js";
 import { useSourcingPageData } from "./sourcing/useSourcingPageData.js";
 import { useSourcingQuotes } from "./sourcing/useSourcingQuotes.js";
 import { sortSourcingRequests } from "./sourcing/sourcingPageState.js";
+import { supportsPlannedTerms } from "../../utils/licenseTypeRules.js";
 import ProcurementTablePagination, {
   getPaginationDetails,
   paginateRows,
@@ -527,7 +528,7 @@ export default function SourcingPage({
           onAddNextTerm={showSourcingModal.item?.id
             && isOpenSourcingItem(showSourcingModal.item)
             && !showSourcingModal.item.successorSourcingItemId
-            && ["subscription", "saas", "oem"].includes(showSourcingModal.item.licenseType)
+            && supportsPlannedTerms(showSourcingModal.item)
             ? () => {
               setSuccessorTarget({ item: showSourcingModal.item, request: showSourcingModal.request, items: showSourcingModal.request?.items ?? [] });
               setShowSourcingModal(null);
@@ -536,7 +537,7 @@ export default function SourcingPage({
             && isOpenSourcingItem(showSourcingModal.item)
             && showSourcingModal.item.renewalForLicenseId == null
             && !(showSourcingModal.item.cotermPredecessorIds?.length)
-            && ["subscription", "saas", "oem"].includes(showSourcingModal.item.licenseType)
+            && supportsPlannedTerms(showSourcingModal.item)
             ? () => {
               setPredecessorsTarget({ item: showSourcingModal.item, items: showSourcingModal.request?.items ?? [] });
               setShowSourcingModal(null);

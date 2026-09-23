@@ -65,3 +65,17 @@ export function supportStatusBadge(license) {
 export function isSupportDue(license) {
   return ["expiring", "expired"].includes(license?.supportStatus);
 }
+
+const NEVER_PLANNED_TERM_TYPES = ["freeware", "perpetual"];
+
+/** Mirrors the backend planned-successor rule: which lines can take part in a term chain. */
+export function supportsPlannedTerms(item) {
+  const licenseType = item?.licenseType;
+  if (!licenseType || NEVER_PLANNED_TERM_TYPES.includes(licenseType)) return false;
+  return isRenewableLicense(item);
+}
+
+/** Maintenance terms only follow maintenance terms, and other types never follow maintenance. */
+export function canFollowInTermChain(predecessor, successor) {
+  return (predecessor?.licenseType === "maintenance") === (successor?.licenseType === "maintenance");
+}

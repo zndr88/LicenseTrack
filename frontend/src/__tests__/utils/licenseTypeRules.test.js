@@ -90,3 +90,21 @@ describe("support status", () => {
     expect(isSupportDue({ supportStatus: null })).toBe(false);
   });
 });
+
+describe("planned term chains", () => {
+  test("maintenance and renewable lines can plan next terms; maintenance only follows maintenance", async () => {
+    const { supportsPlannedTerms, canFollowInTermChain } = await import("../../utils/licenseTypeRules.js");
+    const { nextTermDraft } = await import("../../utils/nextTermDraft.js");
+
+    expect(supportsPlannedTerms({ licenseType: "maintenance" })).toBe(true);
+    expect(supportsPlannedTerms({ licenseType: "subscription" })).toBe(true);
+    expect(supportsPlannedTerms({ licenseType: "perpetual" })).toBe(false);
+    expect(supportsPlannedTerms({ licenseType: "service" })).toBe(false);
+    expect(supportsPlannedTerms({ licenseType: "service", isRenewable: true })).toBe(true);
+    expect(canFollowInTermChain({ licenseType: "maintenance" }, { licenseType: "maintenance" })).toBe(true);
+    expect(canFollowInTermChain({ licenseType: "subscription" }, { licenseType: "maintenance" })).toBe(false);
+
+    const draft = nextTermDraft({ id: 4, licenseType: "maintenance", startDate: "2026-01-01", endDate: "2026-12-31", maintenanceParentLicenseId: 9 });
+    expect(draft).toMatchObject({ licenseType: "maintenance", startDate: "2027-01-01", endDate: "2027-12-31", maintenanceParentLicenseId: 9 });
+  });
+});

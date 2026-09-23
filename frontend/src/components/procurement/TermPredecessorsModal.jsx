@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatDate } from "../../utils/formatting.js";
+import { canFollowInTermChain } from "../../utils/licenseTypeRules.js";
 import { termDateRelationship } from "../../utils/termRelationship.js";
 import LinkPicker from "../ui/LinkPicker.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
@@ -14,6 +15,7 @@ export default function TermPredecessorsModal({ target, items, userSettings, onS
     .filter((item) => item.id !== target.id && item.sourcingRequestId === target.sourcingRequestId)
     .map((item) => {
       const linkedElsewhere = item.successorSourcingItemId != null && item.successorSourcingItemId !== target.id;
+      const typeMismatch = !canFollowInTermChain(item, target);
       return {
         id: item.id,
         title: item.softwareDescription || `Line #${item.id}`,
@@ -21,8 +23,10 @@ export default function TermPredecessorsModal({ target, items, userSettings, onS
         meta: item.startDate && item.endDate
           ? `${formatDate(item.startDate, userSettings)} – ${formatDate(item.endDate, userSettings)}`
           : null,
-        disabled: linkedElsewhere,
-        disabledReason: linkedElsewhere ? "Already linked to another next term" : null,
+        disabled: linkedElsewhere || typeMismatch,
+        disabledReason: typeMismatch
+          ? "Maintenance terms can only follow maintenance terms"
+          : linkedElsewhere ? "Already linked to another next term" : null,
       };
     });
 
