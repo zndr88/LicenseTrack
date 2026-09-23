@@ -3,6 +3,7 @@ import { apiUrl, unlockSession } from "../../api/client.js";
 import { getAuthMode, login as apiLogin } from "../../api/auth.js";
 import { toCurrentUser } from "../../hooks/useAuth.js";
 import Icon from "../ui/Icon.jsx";
+import { rememberPathForLogin } from "../../hooks/useUrlSync.js";
 
 const ERROR_MESSAGES = {
   local_account: "This account uses local login. Sign in with your username and password.",
@@ -90,7 +91,7 @@ const LoginScreen = ({ onLogin }) => {
                 className="btn btn-p btn-full"
                 type="button"
                 style={{ marginTop: 4 }}
-                onClick={() => { unlockSession(); window.location.href = apiUrl("/api/auth/oidc/login"); }}
+                onClick={() => { unlockSession(); rememberPathForLogin(); window.location.href = apiUrl("/api/auth/oidc/login"); }}
               >
                 <Icon name="lock" size={14} /> Sign in with SSO
               </button>

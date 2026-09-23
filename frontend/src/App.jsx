@@ -63,6 +63,7 @@ import TopBar from "./components/layout/TopBar.jsx";
 import Icon from "./components/ui/Icon.jsx";
 import { ROLE_PERMISSIONS } from "./constants/permissions.js";
 import { useAppNavigation } from "./hooks/useAppNavigation.js";
+import { useUrlSync } from "./hooks/useUrlSync.js";
 import { useAppSettings } from "./hooks/useAppSettings.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { useLicenseCreation } from "./hooks/useLicenseCreation.js";
@@ -136,6 +137,16 @@ export default function App() {
     highlightPendingOrderId,
     setHighlightPendingOrderId,
   } = navigation;
+
+  // Deep links: the demo build is served from static hosting without an SPA
+  // fallback, so it keeps in-memory navigation only.
+  useUrlSync({
+    enabled: Boolean(currentUser) && !DEMO_MODE,
+    page,
+    navigateToPage: handleSetPage,
+    selectedId,
+    selectLicense: handleSetSelectedId,
+  });
 
   const handleSidebarStatsChange = useCallback((s) => {
     queryClient.setQueryData(queryKeys.portfolioStats, s);
