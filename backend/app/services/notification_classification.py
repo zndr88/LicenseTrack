@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from app.services.license_service import compute_completeness, compute_expiration_status
+from app.services.license_service import compute_completeness, compute_expiration_status, is_renewable_license
 
 
 INCOMPLETE_COMPLETENESS_THRESHOLD = 100
@@ -96,7 +96,9 @@ def classify_license_alerts(
     renewal_in_progress = lifecycle_status == "pending_renewal"
     alerts: list[dict[str, Any]] = []
 
-    if expiry_notifications_enabled and not is_upcoming:
+    # One-off Service/Other purchases simply end (and auto-retire); they never
+    # raise expiring/expired alerts. Renewable ones behave like subscriptions.
+    if expiry_notifications_enabled and not is_upcoming and is_renewable_license(license_obj):
         if expiration_status == "expired" and license_obj.end_date is not None:
             days_overdue = (today - license_obj.end_date).days
             alerts.append(

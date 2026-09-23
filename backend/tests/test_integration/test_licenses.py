@@ -1081,6 +1081,40 @@ async def test_due_scheduled_retirement_is_materialized(test_app, auth_headers, 
     assert "scheduled retirement reached term end" in audit_entry.detail
 
 
+async def test_retire_due_licenses_retires_ended_one_off_services_only(test_app, auth_headers, db_session):
+    ended = date.today() - timedelta(days=1)
+    one_off = await _create_license(
+        test_app, auth_headers, licenseType="service", startDate=(ended - timedelta(days=30)).isoformat(),
+        endDate=ended.isoformat(),
+    )
+    renewable = await _create_license(
+        test_app, auth_headers, licenseType="service", isRenewable=True,
+        startDate=(ended - timedelta(days=30)).isoformat(), endDate=ended.isoformat(),
+    )
+    ongoing = await _create_license(
+        test_app, auth_headers, licenseType="other", typeDescription="Voucher",
+        endDate=(date.today() + timedelta(days=5)).isoformat(),
+    )
+
+    assert await retire_due_licenses(db_session) == 1
+
+    rows = {
+        row.id: row
+        for row in (await db_session.execute(
+            select(License).where(License.id.in_([one_off["id"], renewable["id"], ongoing["id"]]))
+        )).scalars()
+    }
+    for row in rows.values():
+        await db_session.refresh(row)
+    assert rows[one_off["id"]].is_retired is True
+    assert rows[renewable["id"]].is_retired is False
+    assert rows[ongoing["id"]].is_retired is False
+    audit_entry = (await db_session.execute(
+        select(AuditLog).where(AuditLog.target_id == str(one_off["id"]), AuditLog.actor_email == "system")
+    )).scalar_one()
+    assert "one-off service ended" in audit_entry.detail
+
+
 async def test_update_license(test_app, auth_headers):
     created = await _create_license(test_app, auth_headers)
     license_id = created["id"]

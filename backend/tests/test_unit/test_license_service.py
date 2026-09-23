@@ -543,6 +543,26 @@ def test_compute_stats_annualizes_multi_year_recurring_cost():
     assert round(stats["annual_cost_by_currency"]["EUR"], 2) == 3598028.48
 
 
+def test_compute_stats_includes_renewable_service_in_annual_cost():
+    lic = make_license(
+        id=1,
+        end_date=date.today() + timedelta(days=60),
+        license_type="service",
+        is_renewable=True,
+        quantity="1",
+        unit_price="1200",
+    )
+
+    stats = compute_stats(
+        licenses=[lic],
+        documents_by_license_id={},
+        mandatory_fields={},
+        notification_days=30,
+    )
+
+    assert stats["annual_cost_by_currency"]["EUR"] == 1200
+
+
 def test_compute_stats_excludes_service_and_other_from_annual_cost():
     today = date.today()
     recurring = make_license(

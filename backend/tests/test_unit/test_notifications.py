@@ -142,6 +142,25 @@ def test_pending_renewal_keeps_date_based_expiry_alert(days_from_today, expected
     assert "renewal is in progress" in expiry_alert["detail"]
 
 
+@pytest.mark.parametrize(("is_renewable", "expect_alert"), [(None, False), (False, False), (True, True)])
+def test_service_expiry_alerts_only_when_renewable(is_renewable, expect_alert):
+    today = date(2026, 8, 26)
+    license_obj = License(
+        publisher_name="Vendor",
+        software_description="Implementation",
+        license_type=LicenseType.service,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        end_date=today + timedelta(days=10),
+        is_renewable=is_renewable,
+        is_retired=False,
+    )
+
+    alert_types = {alert["type"] for alert in classify_license_alerts(license_obj, [], {}, 30, 30, today=today)}
+
+    assert ("expiring" in alert_types) is expect_alert
+
+
 def test_shared_classification_alerts_at_eighty_percent_completeness():
     today = date(2026, 8, 26)
     license_obj = License(

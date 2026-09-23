@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType
 from app.services.audit_service import log_event
+from app.services.license_service import RENEWAL_OPT_IN_LICENSE_TYPES
 from app.services.maintenance_service import retire_maintenance_license
 
 
@@ -42,7 +43,7 @@ def normalize_retirement_update(
 
 
 async def retire_due_licenses(db: AsyncSession, *, today: date | None = None) -> int:
-    """Materialize scheduled retirements whose licensed term has ended."""
+    """Materialize scheduled retirements and retire ended one-off Service/Other records."""
     today = today or date.today()
     result = await db.execute(
         select(License).where(
@@ -72,6 +73,34 @@ async def retire_due_licenses(db: AsyncSession, *, today: date | None = None) ->
             ),
         )
 
-    if due_licenses:
+    one_off_licenses = await _ended_one_off_licenses(db, today)
+    for license_obj in one_off_licenses:
+        license_obj.is_retired = True
+        await log_event(
+            db,
+            "license.updated",
+            target_type="license",
+            target_id=str(license_obj.id),
+            target_label=license_obj.software_description,
+            detail="is_retired: False → True\nreason: one-off service ended",
+        )
+
+    if due_licenses or one_off_licenses:
         await db.commit()
-    return len(due_licenses)
+    return len(due_licenses) + len(one_off_licenses)
+
+
+async def _ended_one_off_licenses(db: AsyncSession, today: date) -> list[License]:
+    """Service/Other records not marked renewable whose end date has passed."""
+    result = await db.execute(
+        select(License).where(
+            License.license_type.in_(RENEWAL_OPT_IN_LICENSE_TYPES),
+            or_(License.is_renewable.is_(None), License.is_renewable.is_(False)),
+            License.is_retired.is_(False),
+            License.retirement_scheduled.is_(False),
+            License.end_date.isnot(None),
+            License.end_date < today,
+            or_(License.lifecycle_status.is_(None), License.lifecycle_status != "legacy"),
+        )
+    )
+    return list(result.scalars().all())
