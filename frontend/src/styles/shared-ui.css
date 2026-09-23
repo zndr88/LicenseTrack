@@ -413,6 +413,7 @@ td {
 .fg { margin-bottom: 14px; }
 .fg label, .fg-label { display: block; font-family: var(--font-mono); font-size: 9px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.12em; }
 .fg label .req { color: var(--red-text); font-weight: 400; }
+.field-hint { display: block; margin-top: 3px; font-size: 11px; color: var(--text-2); }
 .fi { width: 100%; padding: 8px 11px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px; color: var(--text-1); font-family: var(--font-sans); font-size: 12px; outline: none; transition: border-color .15s; }
 .fi::placeholder { color: var(--text-3); }
 .fi:focus { border-color: var(--text-2); }

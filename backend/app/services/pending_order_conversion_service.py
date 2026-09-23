@@ -91,6 +91,28 @@ def _enforce_order_supplier(
     data["supplier"] = canonical_supplier
 
 
+async def _require_budget_owner_for_split_coterm(
+    db: AsyncSession,
+    sourcing_item: SourcingItem,
+    item_data: dict,
+    *,
+    detail_prefix: str = "",
+) -> None:
+    """Force an explicit budget owner when merged coterm predecessors disagree."""
+    predecessor_ids = list(sourcing_item.coterm_predecessor_ids or [])
+    if len(predecessor_ids) < 2 or str(item_data.get("budget_owner_email") or "").strip():
+        return
+    owners = (
+        await db.execute(select(License.budget_owner_email).where(License.id.in_(predecessor_ids)))
+    ).scalars().all()
+    distinct_owners = {owner.strip().casefold() for owner in owners if owner and owner.strip()}
+    if len(distinct_owners) > 1:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{detail_prefix}Choose a budget owner: the merged licenses had different budget owners",
+        )
+
+
 def _require_order_po_number(order: PendingOrder) -> str:
     po_number = (order.po_number or "").strip()
     if not po_number:
@@ -477,6 +499,7 @@ async def convert_pending_order_to_licenses(
                     order_notes=order.notes,
                 )
                 item_data["source_sourcing_item_id"] = item.id
+                await _require_budget_owner_for_split_coterm(db, item, item_data)
 
                 new_lic, conversion_type, item_predecessor_ids = await _create_prepared_conversion_license(
                     db=db,
@@ -613,6 +636,12 @@ async def batch_convert_pending_order_to_licenses(
             order_notes=order.notes,
         )
         item_data["source_sourcing_item_id"] = sourcing_item.id
+        await _require_budget_owner_for_split_coterm(
+            db,
+            sourcing_item,
+            item_data,
+            detail_prefix=f"Item {batch_item.sourcing_item_id}: ",
+        )
         item_data["pending_order_id"] = order_id
         item_data["po_total_override"] = await get_po_total_override(
             db,

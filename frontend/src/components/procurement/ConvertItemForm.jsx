@@ -11,6 +11,7 @@ import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import ContactCombobox from "../ui/ContactCombobox.jsx";
 import { isNonExpiringLicenseType } from "../../utils/licenseTypeRules.js";
+import { BUDGET_OWNER_REQUIRED_MESSAGE } from "../../utils/procurementSchemas.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { ModalSectionExpansionContext } from "../ui/ModalSectionExpansionContext.js";
 
@@ -27,6 +28,7 @@ export function isItemReady(item) {
     (isNonExpiringLicenseType(item.licenseType) || item.endDate) &&
     (item.licenseType !== "maintenance" || item.parentLicenseId || item.parentSourcingItemId) &&
     item.quantity?.toString().trim() !== "" &&
+    (!item.budgetOwnerRequired || item.budgetOwnerEmail?.trim()) &&
     (isFreewareLicenseType(item.licenseType) || item.unitPrice?.toString().trim() !== "")
   );
 }
@@ -338,9 +340,11 @@ export default function ConvertItemForm({
               </select>
             </div>
             <div className="fg">
-              <label htmlFor={`ca-budget-owner-${idx}`}>Budget Owner Email</label>
+              <label htmlFor={`ca-budget-owner-${idx}`}>Budget Owner Email{wi.budgetOwnerRequired && <span className="req"> *</span>}</label>
               <Controller control={control} name={`items.${idx}.budgetOwnerEmail`} render={({ field }) => <ContactCombobox id={`ca-budget-owner-${idx}`} placeholder="owner@example.com" {...field} />} />
-              {itemErrors?.budgetOwnerEmail && <span className="field-error">{itemErrors.budgetOwnerEmail.message}</span>}
+              {itemErrors?.budgetOwnerEmail
+                ? <span className="field-error">{itemErrors.budgetOwnerEmail.message}</span>
+                : wi.budgetOwnerRequired && !wi.budgetOwnerEmail?.trim() && <span className="field-hint">{BUDGET_OWNER_REQUIRED_MESSAGE}</span>}
             </div>
           </div>
           <div className="fg">

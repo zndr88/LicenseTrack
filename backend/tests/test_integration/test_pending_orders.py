@@ -3663,6 +3663,57 @@ async def test_convert_stale_coterm_order_rejects_conflicting_secondary_predeces
     assert secondary.renewed_to_id == existing_successor["id"]
 
 
+async def _coterm_po_with_owners(test_app, auth_headers, first_owner: str, second_owner: str) -> tuple[dict, dict]:
+    first = await _create_license(test_app, auth_headers, endDate="2025-12-31", budgetOwnerEmail=first_owner)
+    second = await _create_license(test_app, auth_headers, endDate="2025-12-31", budgetOwnerEmail=second_owner)
+    sourcing_first = await _initiate_renewal(test_app, auth_headers, first["id"])
+    sourcing_second = await _initiate_renewal(test_app, auth_headers, second["id"])
+    merge_resp = await test_app.post(
+        "/api/sourcing/merge",
+        json={"sourcingItemIds": [sourcing_first["id"], sourcing_second["id"]]},
+        headers=auth_headers,
+    )
+    assert merge_resp.status_code == 201, merge_resp.text
+    merged = merge_resp.json()
+    po = await _convert_sourcing_to_po(test_app, auth_headers, merged["id"])
+    return merged, po
+
+
+async def test_coterm_merge_keeps_identical_budget_owner(test_app, auth_headers):
+    merged, _po = await _coterm_po_with_owners(test_app, auth_headers, "owner@example.com", "owner@example.com")
+
+    assert merged["budgetOwnerEmail"] == "owner@example.com"
+
+
+async def test_coterm_conversion_requires_budget_owner_when_predecessors_differ(test_app, auth_headers):
+    merged, po = await _coterm_po_with_owners(test_app, auth_headers, "a@example.com", "b@example.com")
+    assert not merged["budgetOwnerEmail"]
+
+    blank_resp = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert-all",
+        json=[_batch_convert_item(merged["id"], budgetOwnerEmail="")],
+        headers=auth_headers,
+    )
+    omitted_resp = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert",
+        data={"data": json.dumps(_single_convert_form())},
+        headers=auth_headers,
+    )
+
+    assert blank_resp.status_code == 422, blank_resp.text
+    assert "budget owner" in blank_resp.json()["detail"].lower()
+    assert omitted_resp.status_code == 422, omitted_resp.text
+
+    chosen_resp = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert-all",
+        json=[_batch_convert_item(merged["id"], budgetOwnerEmail="b@example.com")],
+        headers=auth_headers,
+    )
+    assert chosen_resp.status_code == 200, chosen_resp.text
+    successor = next(row for row in chosen_resp.json() if row["conversionType"] == "renewed")
+    assert successor["budgetOwnerEmail"] == "b@example.com"
+
+
 async def test_coterm_renewal_of_maintenance_updates_parent_active_maintenance(
     db_session,
     test_app,

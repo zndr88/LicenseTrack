@@ -523,6 +523,7 @@ export default function SourcingPage({
           requestId={showSourcingModal.request?.id ?? null}
           sourcingRequest={showSourcingModal.request}
           termItems={showSourcingModal.request?.items ?? []}
+          licenses={licenses}
           onAddNextTerm={showSourcingModal.item?.id
             && isOpenSourcingItem(showSourcingModal.item)
             && !showSourcingModal.item.successorSourcingItemId

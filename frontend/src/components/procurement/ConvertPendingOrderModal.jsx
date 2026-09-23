@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { licenseFormSchema } from "../../utils/procurementSchemas.js";
+import { BUDGET_OWNER_REQUIRED_MESSAGE, licenseFormSchema } from "../../utils/procurementSchemas.js";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
 import Icon from "../ui/Icon.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
@@ -146,6 +146,7 @@ const ConvertPendingOrderModal = ({
       totalPoPrice:        prefill.totalPoPrice        || "",
       currency:            prefill.currency            || "EUR",
       budgetOwnerEmail:    prefill.budgetOwnerEmail    || "",
+      budgetOwnerRequired: Boolean(prefill.budgetOwnerRequired),
       secondaryContacts:   formatSecondaryContacts(prefill.secondaryContacts),
       notes:               prefill.notes               || "",
       customFieldValues:   customFieldValueMap(prefill.customFieldValues),
@@ -210,6 +211,7 @@ const ConvertPendingOrderModal = ({
     String(watch("startDate") ?? "").trim() !== "" &&
     (isNonExpiringLicenseType(licenseType) || String(watch("endDate") ?? "").trim() !== "") &&
     String(quantity  ?? "").trim() !== "" &&
+    (!prefill.budgetOwnerRequired || String(watch("budgetOwnerEmail") ?? "").trim() !== "") &&
     (isFreewareLicenseType(licenseType) || String(unitPrice ?? "").trim() !== "");
 
   const applyPluginResult = useCallback((result) => {
@@ -476,7 +478,7 @@ const ConvertPendingOrderModal = ({
           <LicenseFormSection title="Relationships">
             {licenseType === "maintenance" && <ParentLicensePicker id="cpo-parent-license" licenses={licenses} parentLicenseId={parentLicenseId} onSelectExisting={(value) => setValue("parentLicenseId", value, { shouldDirty: true })} onSelectPoItem={() => {}} error={errors.parentLicenseId?.message} />}
             <div className="fr"><div className="fg"><label htmlFor="cpo-supplier">Supplier</label><Controller name="supplier" control={control} render={({ field }) => <ReferenceCombobox id="cpo-supplier" mode="supplier" placeholder="Reseller or direct supplier" {...field} />} /></div><div className="fg"><label htmlFor="cpo-cost-centre">Cost Centre</label><Controller name="costCentre" control={control} render={({ field }) => <ReferenceCombobox id="cpo-cost-centre" mode="costCentre" placeholder="Cost centre" {...field} />} /></div></div>
-            <div className="fr"><div className="fg"><label htmlFor="cpo-contact-email">Contact Email</label><input id="cpo-contact-email" className="fi" {...register("contactEmail")} />{errors.contactEmail && <span className="field-error">{errors.contactEmail.message}</span>}</div><div className="fg"><label htmlFor="cpo-budget-owner">Budget Owner Email</label><Controller name="budgetOwnerEmail" control={control} render={({ field }) => <ContactCombobox id="cpo-budget-owner" placeholder="owner@example.com" {...field} />} />{errors.budgetOwnerEmail && <span className="field-error">{errors.budgetOwnerEmail.message}</span>}</div></div>
+            <div className="fr"><div className="fg"><label htmlFor="cpo-contact-email">Contact Email</label><input id="cpo-contact-email" className="fi" {...register("contactEmail")} />{errors.contactEmail && <span className="field-error">{errors.contactEmail.message}</span>}</div><div className="fg"><label htmlFor="cpo-budget-owner">Budget Owner Email{prefill.budgetOwnerRequired && <span className="req"> *</span>}</label><Controller name="budgetOwnerEmail" control={control} render={({ field }) => <ContactCombobox id="cpo-budget-owner" placeholder="owner@example.com" {...field} />} />{errors.budgetOwnerEmail ? <span className="field-error">{errors.budgetOwnerEmail.message}</span> : prefill.budgetOwnerRequired && !String(watch("budgetOwnerEmail") ?? "").trim() && <span className="field-hint">{BUDGET_OWNER_REQUIRED_MESSAGE}</span>}</div></div>
             <div className="fg"><label htmlFor="cpo-secondary-contacts">Secondary Contacts</label><Controller name="secondaryContacts" control={control} render={({ field }) => <ContactCombobox id="cpo-secondary-contacts" multiple placeholder="Separate email addresses with commas" {...field} />} /></div>
             <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="people" />
           </LicenseFormSection>

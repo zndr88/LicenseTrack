@@ -215,7 +215,14 @@ def build_pending_order_item_license_data(
     apply_fallback("invoice_number", item.invoice_number)
     apply_fallback("external_ref", item.external_ref)
     apply_fallback("cost_centre", item.cost_centre, getattr(old_license, "cost_centre", None))
-    apply_fallback("budget_owner_email", item.budget_owner_email, getattr(old_license, "budget_owner_email", None))
+    # The line's stored owner is the truth. Only a single-predecessor line falls
+    # back to that predecessor; merged coterm lines never inherit the primary's owner.
+    single_predecessor = len(item.coterm_predecessor_ids or []) < 2
+    apply_fallback(
+        "budget_owner_email",
+        item.budget_owner_email,
+        getattr(old_license, "budget_owner_email", None) if single_predecessor else None,
+    )
     apply_fallback("secondary_contacts", item.secondary_contacts, getattr(old_license, "secondary_contacts", None))
     apply_fallback("parent_sourcing_item_id", item.parent_sourcing_item_id)
     apply_fallback("maintenance_coverage", item.maintenance_coverage, getattr(old_license, "maintenance_coverage", None))

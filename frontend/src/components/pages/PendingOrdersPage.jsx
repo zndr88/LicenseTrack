@@ -444,6 +444,7 @@ export default function PendingOrdersPage({
           key={showEditPOItemModal.item?.id ?? "new"}
           item={showEditPOItemModal.item}
           termItems={showEditPOItemModal.order?.items ?? []}
+          licenses={licenses}
           onEditPredecessors={showEditPOItemModal.item?.sourcingRequestId
             && showEditPOItemModal.item.renewalForLicenseId == null
             && !(showEditPOItemModal.item.cotermPredecessorIds?.length)

@@ -136,6 +136,7 @@ const SourcingItemModal = ({
   onCancel,
   onDeleteDocument,
   termItems = [],
+  licenses = [],
   onAddNextTerm,
   onEditPredecessors,
 }) => {
@@ -170,7 +171,7 @@ const SourcingItemModal = ({
     reset,
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: sourcingItemToFormDefaults(draftItem, sourcingRequest),
+    defaultValues: sourcingItemToFormDefaults(draftItem, sourcingRequest, licenses),
   });
 
 

@@ -2,6 +2,7 @@ import { buildCustomFieldValuePayload, customFieldValueMap } from "./customField
 import { parseLocalizedNumber } from "./formatting.js";
 import { defaultMaintenanceCoverageForLicenseType, supportsMaintenanceCoverage } from "./maintenanceCoverage.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "./secondaryContacts.js";
+import { resolveLineBudgetOwner } from "./renewalLineDefaults.js";
 
 function normalizeOptionalNumber(value, settings) {
   return (parseLocalizedNumber(value, settings) ?? value) || null;
@@ -17,7 +18,7 @@ export function getSourcingItemInitialTotal(item) {
   return item.estimatedTotalPrice ?? "";
 }
 
-export function sourcingItemToFormDefaults(item, sourcingRequest) {
+export function sourcingItemToFormDefaults(item, sourcingRequest, licenses = []) {
   const isRenewal = Boolean(item?.isRenewal || item?.renewalForLicenseId != null);
 
   return {
@@ -48,7 +49,7 @@ export function sourcingItemToFormDefaults(item, sourcingRequest) {
     invoiceNumber: item?.invoiceNumber ?? "",
     externalRef: item?.externalRef ?? "",
     costCentre: item?.costCentre ?? "",
-    budgetOwnerEmail: item?.budgetOwnerEmail ?? "",
+    budgetOwnerEmail: resolveLineBudgetOwner(item, licenses).value,
     secondaryContacts: formatSecondaryContacts(item?.secondaryContacts),
     customFieldValues: customFieldValueMap(item?.customFieldValues),
     supplier: item?.supplier || sourcingRequest?.supplier || "",

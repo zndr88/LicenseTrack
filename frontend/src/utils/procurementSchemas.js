@@ -11,6 +11,8 @@ const optionalEmail = z.string().refine(
   { message: "Must be a valid email address." }
 );
 
+export const BUDGET_OWNER_REQUIRED_MESSAGE = "Choose a budget owner. The merged licenses had different budget owners.";
+
 /** PendingOrderModal + ConvertSourcingModal (new-PO mode). */
 export const poFormSchema = z.object({
   poNumber: z.string(),
@@ -19,7 +21,7 @@ export const poFormSchema = z.object({
   notes:    z.string(),
 });
 
-/** ConvertPendingOrderModal - one-license form. */
+/** ConvertPendingOrderModal / ConvertAllModal - one-license form. */
 export const licenseFormSchema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
   softwareDescription: z.string().min(1, "Software description is required."),
@@ -54,9 +56,18 @@ export const licenseFormSchema = z.object({
   totalPoPrice:        z.string(),
   currency:            z.string(),
   budgetOwnerEmail:    optionalEmail,
+  budgetOwnerRequired: z.boolean().optional(),
   secondaryContacts:   z.string(),
   notes:               z.string(),
   customFieldValues:   z.record(z.string(), z.union([z.string(), z.boolean()])).optional(),
+}).superRefine((data, ctx) => {
+  if (data.budgetOwnerRequired && !data.budgetOwnerEmail.trim()) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["budgetOwnerEmail"],
+      message: BUDGET_OWNER_REQUIRED_MESSAGE,
+    });
+  }
 });
 
 const sourcingRequestLineSchema = (settings) => {
