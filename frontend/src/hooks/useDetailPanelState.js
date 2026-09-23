@@ -55,7 +55,6 @@ export function useDetailPanelState({
 
   const [openSections, setOpenSections] = useState({
     identity:     true,
-    termChain:    false,
     dates:        false,
     maintenance:  false,
     commercial:   false,

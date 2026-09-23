@@ -4,8 +4,40 @@ import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
 import { CURRENCIES } from "../../../constants/licenseData.js";
 
-export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, onError, onToast, navGuard }) {
+export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, userSettings, onError, onToast, navGuard }) {
   const [saving, setSaving] = useState(false);
+  const [showOtherCurrencies, setShowOtherCurrencies] = useState(false);
+  // Keep the admin's display currency and every currency with a saved or
+  // entered threshold visible; the rest sit behind "Show other currencies".
+  const [pinnedCurrencies] = useState(() => new Set([
+    userSettings?.displayCurrency || "EUR",
+    ...Object.entries(globalSettings.highValueThresholds ?? {})
+      .filter(([, value]) => String(value ?? "").trim() !== "")
+      .map(([currency]) => currency),
+  ]));
+  const isPrimaryCurrency = (currency) => pinnedCurrencies.has(currency)
+    || String(globalSettings.highValueThresholds?.[currency] ?? "").trim() !== "";
+  const primaryCurrencies = CURRENCIES.filter(isPrimaryCurrency);
+  const otherCurrencies = CURRENCIES.filter((currency) => !isPrimaryCurrency(currency));
+  const renderThresholdInput = (currency) => (
+    <div className="fg" key={currency}>
+      <label htmlFor={`settings-high-value-threshold-${currency}`}>{currency}</label>
+      <input
+        id={`settings-high-value-threshold-${currency}`}
+        className="fi"
+        type="number"
+        min="0"
+        step="1000"
+        placeholder="Not flagged"
+        value={globalSettings.highValueThresholds?.[currency] ?? ""}
+        onChange={(e) => {
+          const value = e.target.value;
+          setGlobalSettings(s => ({ ...s, highValueThresholds: { ...(s.highValueThresholds ?? {}), [currency]: value } }));
+          markDirty("renewals");
+        }}
+      />
+    </div>
+  );
 
   const handleSave = async () => {
     const thresholds = globalSettings.highValueThresholds ?? {};
@@ -75,26 +107,19 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
                 Licenses with an estimated annual value at or above the threshold for their own currency are flagged as high-value in the Renewal Workbench. No currency conversion is applied; leave a currency blank to never flag it.
               </p>
               <div className="set-currency-thresholds">
-                {CURRENCIES.map((currency) => (
-                  <div className="fg" key={currency}>
-                    <label htmlFor={`settings-high-value-threshold-${currency}`}>{currency}</label>
-                    <input
-                      id={`settings-high-value-threshold-${currency}`}
-                      className="fi"
-                      type="number"
-                      min="0"
-                      step="1000"
-                      placeholder="Not flagged"
-                      value={globalSettings.highValueThresholds?.[currency] ?? ""}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setGlobalSettings(s => ({ ...s, highValueThresholds: { ...(s.highValueThresholds ?? {}), [currency]: value } }));
-                        markDirty("renewals");
-                      }}
-                    />
-                  </div>
-                ))}
+                {primaryCurrencies.map(renderThresholdInput)}
+                {showOtherCurrencies && otherCurrencies.map(renderThresholdInput)}
               </div>
+              {otherCurrencies.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-g btn-sm set-currency-toggle"
+                  aria-expanded={showOtherCurrencies}
+                  onClick={() => setShowOtherCurrencies((open) => !open)}
+                >
+                  {showOtherCurrencies ? "Hide other currencies" : `Show other currencies (${otherCurrencies.length})`}
+                </button>
+              )}
             </div>
             <div className="fr set-form-row-spaced">
               <div className="fg">

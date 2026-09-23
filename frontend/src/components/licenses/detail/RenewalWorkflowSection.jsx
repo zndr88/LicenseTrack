@@ -106,7 +106,7 @@ export default function RenewalWorkflowSection({
       )}
       {/* Renewal Workflow box */}
       {showWorkflowBox && (
-        <div className="dp-purple-box" style={{ padding: "12px 14px" }}>
+        <div className="dp-purple-box" style={{ paddingTop: 12, paddingBottom: 12 }}>
           <div className="dp-renewal-title">
             <Icon name="clock" size={14} color="var(--purple-text)" /> Renewal Workflow
           </div>

@@ -8,7 +8,6 @@ import PluginSuggestionsSection from "./detail/PluginSuggestionsSection.jsx";
 import CompletenessFlagsSection from "./detail/CompletenessFlagsSection.jsx";
 import IdentitySection from "./detail/IdentitySection.jsx";
 import RenewalWorkflowSection from "./detail/RenewalWorkflowSection.jsx";
-import TermChain from "./detail/TermChain.jsx";
 import ContractDatesSection from "./detail/ContractDatesSection.jsx";
 import CommercialSection from "./detail/CommercialSection.jsx";
 import PeopleSection from "./detail/PeopleSection.jsx";
@@ -167,15 +166,6 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               setToast={setToast}
               onDismiss={() => setRenewalHiddenForId(license.id)}
             />}
-
-            <TermChain
-              license={license}
-              allLicenses={allLicenses}
-              userSettings={userSettings}
-              onNavigate={onNavigate}
-              isOpen={openSections.termChain}
-              onToggle={toggleSection}
-            />
 
             <ContractDatesSection
               license={license}
@@ -367,6 +357,8 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               onToggle={toggleSection}
               onNavigateToSourcing={onNavigateToSourcing}
               onNavigateToPendingOrder={onNavigateToPendingOrder}
+              allLicenses={allLicenses}
+              onNavigate={onNavigate}
             />
           </>
         )}

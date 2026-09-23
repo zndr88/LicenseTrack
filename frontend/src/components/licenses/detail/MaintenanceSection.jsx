@@ -4,6 +4,7 @@ import { formatCost } from "../../../utils/helpers.js";
 import { formatDate } from "../../../utils/formatting.js";
 import { MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
 import {
+  isBundledIncludedSupport,
   maintenanceCoverageOptionsForLicenseType,
   supportsSeparateMaintenanceLine,
 } from "../../../utils/maintenanceCoverage.js";
@@ -41,6 +42,9 @@ export default function MaintenanceSection({
   const prior = maintenanceHistory.filter((m) => m.id !== license.activeMaintenanceId);
   const coverage = license.maintenanceCoverage || "unknown";
   const supportBadge = supportStatusBadge(license);
+  // Subscription/SaaS support is part of the term and price, so its dates and
+  // cost would only repeat the Term and Commercial sections.
+  const bundledIncluded = isBundledIncludedSupport(license.licenseType, coverage);
   const coverageLabel = MAINTENANCE_COVERAGE_OPTIONS.find((option) => option.value === coverage)?.label || coverage;
   const canLinkSupportRecord = coverage === "separately_tracked" && supportsSeparateMaintenanceLine(license.licenseType);
   const activeMaintenance = maintenanceHistory.find((item) => item.id === license.activeMaintenanceId);
@@ -108,7 +112,9 @@ export default function MaintenanceSection({
 
           {!license.hasMaintenance && !canLinkSupportRecord && (
             <div className="dp-field" style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.5 }}>
-              {coverage === "included"
+              {bundledIncluded
+                ? `Support is part of the ${license.licenseType === "saas" ? "SaaS" : "subscription"} term and price. No separate contract record is needed.`
+                : coverage === "included"
                 ? "Maintenance or support is included with this license. No separate contract record is needed."
                 : coverage === "not_applicable"
                   ? "Maintenance or support tracking does not apply to this license."
@@ -116,7 +122,7 @@ export default function MaintenanceSection({
             </div>
           )}
 
-          {(license.hasMaintenance || coverage === "included" || coverageHistory.length > 0) && (
+          {(license.hasMaintenance || (coverage === "included" && !bundledIncluded) || coverageHistory.length > 0) && (
             <>
               <div className="fr dp-data-row">
                 <div className="dp-field">

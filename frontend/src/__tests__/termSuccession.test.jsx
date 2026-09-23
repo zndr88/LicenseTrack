@@ -36,7 +36,8 @@ describe("term succession", () => {
       { id: 2, softwareDescription: "B", startDate: "2027-01-01", endDate: "2027-12-31", renewedFromId: 1, renewedToId: 3, expirationStatus: "upcoming", quantity: "12" },
       { id: 3, softwareDescription: "C", startDate: "2028-01-01", endDate: "2028-12-31", renewedFromId: 2, expirationStatus: "upcoming", quantity: "12" },
     ];
-    render(<TermChain license={allLicenses[0]} allLicenses={allLicenses} userSettings={{}} onNavigate={vi.fn()} isOpen onToggle={vi.fn()} />);
+    render(<TermChain license={allLicenses[0]} allLicenses={allLicenses} userSettings={{}} onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /term chain \(3 terms\)/i }));
     expect(screen.getByRole("button", { name: /term chain \(3 terms\)/i })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("region", { name: "License term chain" })).toHaveTextContent("A");
     expect(screen.getByRole("region", { name: "License term chain" })).toHaveTextContent("B");
@@ -48,12 +49,12 @@ describe("term succession", () => {
       { id: 1, softwareDescription: "A", renewedToId: 2 },
       { id: 2, softwareDescription: "B", renewedFromId: 1 },
     ];
-    const { unmount } = render(<TermChain license={chain[0]} allLicenses={chain} userSettings={{}} onNavigate={vi.fn()} isOpen={false} onToggle={vi.fn()} />);
+    const { unmount } = render(<TermChain license={chain[0]} allLicenses={chain} userSettings={{}} onNavigate={vi.fn()} />);
     expect(screen.getByRole("button", { name: /term chain \(2 terms\)/i })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("region", { name: "License term chain" })).not.toBeInTheDocument();
     unmount();
 
-    const { container } = render(<TermChain license={{ id: 9 }} allLicenses={[{ id: 9 }]} userSettings={{}} onNavigate={vi.fn()} isOpen onToggle={vi.fn()} />);
+    const { container } = render(<TermChain license={{ id: 9 }} allLicenses={[{ id: 9 }]} userSettings={{}} onNavigate={vi.fn()} />);
     expect(container).toBeEmptyDOMElement();
   });
 });

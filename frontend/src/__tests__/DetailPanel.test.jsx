@@ -3,7 +3,7 @@ import { render as rtlRender, screen, fireEvent, waitFor, within, act } from '@t
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import DetailPanel from '../components/licenses/DetailPanel.jsx'
-import { getLicense, getMaintenanceForParent, linkMaintenanceToParent, updateLicense } from '../api/licenses.js'
+import { getCoverageHistory, getLicense, getMaintenanceForParent, linkMaintenanceToParent, updateLicense } from '../api/licenses.js'
 
 vi.mock('../api/documents.js', () => ({
   getDocuments: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -455,7 +455,7 @@ describe('DetailPanel maintenance support details', () => {
     expect(await screen.findByText('£200.00')).toBeInTheDocument()
   })
 
-  it('shows included support for subscription licenses', async () => {
+  it('shows included subscription support without repeating the term dates and cost', async () => {
     const user = userEvent.setup()
     render(
       <DetailPanel
@@ -474,9 +474,35 @@ describe('DetailPanel maintenance support details', () => {
     await user.click(screen.getByText('Maintenance / Support'))
 
     expect(screen.getByText('Included')).toBeInTheDocument()
-    expect(screen.getByText('01/01/2026')).toBeInTheDocument()
-    expect(screen.getByText('31/12/2026')).toBeInTheDocument()
+    expect(screen.getByText(/Support is part of the subscription term and price/)).toBeInTheDocument()
+    expect(screen.queryByText('Maintenance Start')).not.toBeInTheDocument()
+    expect(screen.queryByText('Total Support Cost (coverage period)')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /add maintenance \/ support contract/i })).not.toBeInTheDocument()
+  })
+
+  it('keeps included support dates and cost for perpetual licenses', async () => {
+    const user = userEvent.setup()
+    getMaintenanceForParent.mockResolvedValue({ data: [], error: null })
+    getCoverageHistory.mockResolvedValue({ data: [], error: null })
+    render(
+      <DetailPanel
+        {...baseProps}
+        license={{
+          ...baseLicense,
+          licenseType: 'perpetual',
+          endDate: null,
+          maintenanceCoverage: 'included',
+          maintenanceStartDate: '2026-01-01',
+          maintenanceEndDate: '2026-12-31',
+          maintenanceCost: '500',
+        }}
+      />
+    )
+
+    await user.click(screen.getByText('Maintenance / Support'))
+
+    expect(screen.getByText('Maintenance Start')).toBeInTheDocument()
+    expect(screen.getByText('31/12/2026')).toBeInTheDocument()
   })
 })
 
@@ -1659,12 +1685,13 @@ describe('DetailPanel renewal box dismiss and term chain', () => {
     const { rerender } = render(<DetailPanel {...baseProps} license={successor} allLicenses={chain} />)
 
     expect(screen.getByText('Renewed From')).toBeInTheDocument()
-    const termChainHeader = screen.getByRole('button', { name: /term chain \(2 terms\)/i })
-    expect(termChainHeader).toHaveAttribute('aria-expanded', 'false')
 
     fireEvent.click(screen.getByRole('button', { name: 'Hide renewal workflow' }))
     expect(screen.queryByText('Renewed From')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /term chain \(2 terms\)/i })).toBeInTheDocument()
+    // The term chain lives in History, independent of the renewal area.
+    fireEvent.click(screen.getByRole('button', { name: 'History' }))
+    const termChainToggle = screen.getByRole('button', { name: /term chain \(2 terms\)/i })
+    expect(termChainToggle).toHaveAttribute('aria-expanded', 'false')
 
     rerender(<QueryClientProvider client={new QueryClient()}><DetailPanel {...baseProps} license={predecessor} allLicenses={chain} /></QueryClientProvider>)
     expect(screen.getByRole('button', { name: 'Hide renewal workflow' })).toBeInTheDocument()

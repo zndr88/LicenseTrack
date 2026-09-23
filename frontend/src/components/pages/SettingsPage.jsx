@@ -115,7 +115,7 @@ export default function SettingsPage({
               <>
                 <StorageSection {...sharedDirty("storage")} {...sharedAdmin} />
                 <NotificationsSection {...sharedDirty("notifications")} {...sharedAdmin} />
-                <RenewalsSection {...sharedDirty("renewals")} {...sharedAdmin} />
+                <RenewalsSection {...sharedDirty("renewals")} {...sharedAdmin} userSettings={userSettings} />
                 <SmtpSection {...sharedDirty("smtp")} {...sharedAdmin} userSettings={userSettings} />
                 <OidcSection {...sharedDirty("oidc")} {...sharedAdmin} />
               </>

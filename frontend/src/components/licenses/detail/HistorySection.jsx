@@ -5,6 +5,7 @@ import { formatDateTime, formatMoney } from "../../../utils/formatting.js";
 import { pendingOrderLabel } from "../../../utils/procurementLabels.js";
 import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
+import TermChain from "./TermChain.jsx";
 
 function statusLabel(value) {
   return String(value || "").replace(/_/g, " ").toUpperCase();
@@ -140,6 +141,8 @@ export default function HistorySection({
   onToggle,
   onNavigateToSourcing,
   onNavigateToPendingOrder,
+  allLicenses = [],
+  onNavigate,
 }) {
   const createdBy = license.createdByName
     || license.createdByEmail
@@ -160,6 +163,7 @@ export default function HistorySection({
       <DetailSectionHeader sectionKey="history" title="History" isOpen={isOpen} onToggle={onToggle} />
       {isOpen && (
         <div className="dp-section-body" id="dp-section-history">
+          <TermChain license={license} allLicenses={allLicenses} userSettings={userSettings} onNavigate={onNavigate} />
           <div className="fr dp-data-row">
             <div className="dp-field">
               <span className="dp-field-label">License Record ID</span>

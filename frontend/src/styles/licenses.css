@@ -460,16 +460,37 @@
 }
 
 .term-chain {
-  margin: 0;
+  margin: 0 0 12px;
+}
+
+.dp-subsection {
+  margin-bottom: 12px;
+}
+
+.dp-subsection-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  margin-bottom: 8px;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .dp-renewal-area {
   position: relative;
 }
 
+/* The first renewal box starts 14px down (its top margin); sit the dismiss
+   control in that box's top-right corner and keep its buttons clear of it. */
 .dp-renewal-dismiss {
   position: absolute;
-  top: 6px;
+  top: 20px;
   right: 6px;
   z-index: 1;
   display: inline-flex;
@@ -479,6 +500,11 @@
   background: transparent;
   color: var(--text-3);
   cursor: pointer;
+}
+
+.dp-renewal-dismiss + .dp-purple-box,
+.dp-renewal-dismiss + .dp-neutral-box {
+  padding-right: 34px;
 }
 
 .dp-renewal-dismiss:hover {

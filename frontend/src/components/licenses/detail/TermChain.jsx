@@ -1,5 +1,6 @@
 import { formatDate } from "../../../utils/formatting.js";
-import DetailSectionHeader from "./DetailSectionHeader.jsx";
+import { useState } from "react";
+import Icon from "../../ui/Icon.jsx";
 
 function connectedTerms(currentId, allLicenses) {
   const byId = new Map(allLicenses.map((license) => [license.id, license]));
@@ -25,15 +26,28 @@ function connectedTerms(currentId, allLicenses) {
   );
 }
 
-/** Own collapsible License Details section, shown only when the chain has two or more terms. */
-export default function TermChain({ license, allLicenses, userSettings, onNavigate, isOpen, onToggle }) {
+/**
+ * Collapsed sub-section of History, shown only when the chain has two or more
+ * terms. It includes already-bought future terms, not just past ones.
+ */
+export default function TermChain({ license, allLicenses, userSettings, onNavigate }) {
+  const [isOpen, setIsOpen] = useState(false);
   const terms = connectedTerms(license.id, allLicenses);
   if (terms.length < 2) return null;
   return (
-    <>
-      <DetailSectionHeader sectionKey="termChain" title={`Term chain (${terms.length} terms)`} isOpen={isOpen} onToggle={onToggle} />
+    <div className="dp-subsection">
+      <button
+        type="button"
+        className="dp-subsection-toggle"
+        aria-expanded={isOpen}
+        aria-controls="dp-term-chain"
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        <Icon name={isOpen ? "chevron-down" : "chevron-right"} size={12} />
+        Term chain ({terms.length} terms)
+      </button>
       {isOpen && (
-        <section className="dp-section-body term-chain" id="dp-section-termChain" aria-label="License term chain">
+        <section className="term-chain" id="dp-term-chain" aria-label="License term chain">
           <div className="term-chain-list">
             {terms.map((term) => (
               <button
@@ -56,6 +70,6 @@ export default function TermChain({ license, allLicenses, userSettings, onNaviga
           </div>
         </section>
       )}
-    </>
+    </div>
   );
 }
