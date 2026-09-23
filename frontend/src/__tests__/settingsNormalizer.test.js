@@ -25,6 +25,7 @@ describe('normalizeGlobalSettings', () => {
     const normalized = normalizeGlobalSettings(
       {
         high_value_threshold: '75000',
+        high_value_thresholds: { EUR: '75000', SEK: '800000' },
         fiscal_year_start_month: 4,
         renewal_action_days: 60,
         last_backup_status: 'failed',
@@ -50,6 +51,7 @@ describe('normalizeGlobalSettings', () => {
     )
 
     expect(normalized.highValueThreshold).toBe(75000)
+    expect(normalized.highValueThresholds).toEqual({ EUR: '75000', SEK: '800000' })
     expect(normalized.fiscalYearStartMonth).toBe(4)
     expect(normalized.renewalActionDays).toBe(60)
     expect(normalized.lastBackupStatus).toBe('failed')

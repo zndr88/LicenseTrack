@@ -36,7 +36,6 @@ export const RISK_CLASS = {
 };
 
 export const IN_PROGRESS_STATUSES = new Set(["pending_renewal", "in_sourcing", "pending_order"]);
-export const HIGH_VALUE_THRESHOLD = 50000;
 
 export const EMPTY_COPY = {
   all: "No renewal candidates.",
@@ -139,7 +138,18 @@ function highestSeverityScore(row) {
   return Math.min(...(row.riskFlags ?? []).map((flag) => SEVERITY_RANK[flag.severity] ?? 3), 3);
 }
 
-export function getViewCounts(rows, highValueThreshold = HIGH_VALUE_THRESHOLD) {
+/**
+ * Per-currency high-value check; a currency without a configured threshold is
+ * never high value (no FX conversion). The backend flag stays authoritative.
+ */
+export function isHighValueRow(row, highValueThresholds = {}) {
+  if (hasRisk(row, "high_value")) return true;
+  const threshold = highValueThresholds?.[String(row.currency || "").toUpperCase()];
+  if (threshold === undefined || threshold === null || threshold === "") return false;
+  return Number(row.estimatedAnnualValue ?? 0) >= Number(threshold);
+}
+
+export function getViewCounts(rows, highValueThresholds = {}) {
   return {
     all: rows.length,
     needs_action: rows.filter((row) => ["expired_unresolved", "due_soon"].includes(row.renewalStatus)).length,
@@ -150,7 +160,7 @@ export function getViewCounts(rows, highValueThreshold = HIGH_VALUE_THRESHOLD) {
     notice_due: rows.filter((row) => hasValue(row.daysUntilNotice)).length,
     in_progress: rows.filter((row) => IN_PROGRESS_STATUSES.has(row.renewalStatus)).length,
     missing_docs: rows.filter((row) => row.documentCount === 0).length,
-    high_value: rows.filter((row) => Number(row.estimatedAnnualValue ?? 0) >= highValueThreshold || hasRisk(row, "high_value")).length,
+    high_value: rows.filter((row) => isHighValueRow(row, highValueThresholds)).length,
   };
 }
 

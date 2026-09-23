@@ -40,6 +40,9 @@ export function normalizeGlobalSettings(data, current) {
     backupKeep: data.backup_keep ?? current.backupKeep,
     auditLogRetentionDays: data.audit_log_retention_days ?? current.auditLogRetentionDays,
     highValueThreshold: data.high_value_threshold !== undefined ? Number(data.high_value_threshold) : current.highValueThreshold,
+    highValueThresholds: data.high_value_thresholds !== undefined
+      ? { ...(data.high_value_thresholds || {}) }
+      : (current.highValueThresholds ?? {}),
     fiscalYearStartMonth: data.fiscal_year_start_month ?? current.fiscalYearStartMonth,
     renewalActionDays: data.renewal_action_days !== undefined ? data.renewal_action_days : current.renewalActionDays,
     emailEnabled: data.email_enabled ?? current.emailEnabled,

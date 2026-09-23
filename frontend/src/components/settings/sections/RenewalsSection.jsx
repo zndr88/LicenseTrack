@@ -2,15 +2,26 @@ import { useState } from "react";
 import { updateGlobalSettings } from "../../../api/settings.js";
 import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
+import { CURRENCIES } from "../../../constants/licenseData.js";
 
 export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, onError, onToast, navGuard }) {
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    const threshold = Number(globalSettings.highValueThreshold);
-    if (!Number.isFinite(threshold) || threshold < 0) {
-      onError("High-value threshold must be a non-negative number.");
-      return;
+    const thresholds = globalSettings.highValueThresholds ?? {};
+    const payloadThresholds = {};
+    for (const currency of CURRENCIES) {
+      const raw = String(thresholds[currency] ?? "").trim();
+      if (!raw) {
+        payloadThresholds[currency] = "";
+        continue;
+      }
+      const amount = Number(raw);
+      if (!Number.isFinite(amount) || amount < 0) {
+        onError(`High-value threshold for ${currency} must be a non-negative number.`);
+        return;
+      }
+      payloadThresholds[currency] = raw;
     }
     const actionDays = Number(globalSettings.renewalActionDays ?? globalSettings.notificationDays ?? 30);
     if (!Number.isInteger(actionDays) || actionDays < 0 || actionDays > 365) {
@@ -19,7 +30,7 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
     }
     setSaving(true);
     const { data, error } = await updateGlobalSettings({
-      high_value_threshold: threshold,
+      high_value_thresholds: payloadThresholds,
       fiscal_year_start_month: globalSettings.fiscalYearStartMonth ?? 1,
       renewal_action_days: actionDays,
     });
@@ -58,24 +69,31 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
                 />
               </div>
             </div>
-            <div className="fr">
-              <div className="fg">
-                <label htmlFor="settings-high-value-threshold">High-Value Threshold</label>
-                <p className="set-field-hint">
-                  Licenses with an estimated annual value at or above this amount are flagged as high-value in the Renewal Workbench.
-                </p>
-                <input
-                  id="settings-high-value-threshold"
-                  className="fi"
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={globalSettings.highValueThreshold ?? 50000}
-                  onChange={(e) => {
-                    setGlobalSettings(s => ({ ...s, highValueThreshold: parseFloat(e.target.value) || 0 }));
-                    markDirty("renewals");
-                  }}
-                />
+            <div className="fg">
+              <span className="fg-label">High-Value Thresholds</span>
+              <p className="set-field-hint">
+                Licenses with an estimated annual value at or above the threshold for their own currency are flagged as high-value in the Renewal Workbench. No currency conversion is applied; leave a currency blank to never flag it.
+              </p>
+              <div className="set-currency-thresholds">
+                {CURRENCIES.map((currency) => (
+                  <div className="fg" key={currency}>
+                    <label htmlFor={`settings-high-value-threshold-${currency}`}>{currency}</label>
+                    <input
+                      id={`settings-high-value-threshold-${currency}`}
+                      className="fi"
+                      type="number"
+                      min="0"
+                      step="1000"
+                      placeholder="Not flagged"
+                      value={globalSettings.highValueThresholds?.[currency] ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setGlobalSettings(s => ({ ...s, highValueThresholds: { ...(s.highValueThresholds ?? {}), [currency]: value } }));
+                        markDirty("renewals");
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
             <div className="fr set-form-row-spaced">

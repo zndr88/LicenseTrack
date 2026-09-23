@@ -8,7 +8,6 @@ import { useRenewalWorkflowActions } from "../../hooks/useRenewalWorkflowActions
 import { fetchCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import Icon from "../ui/Icon.jsx";
 import {
-  HIGH_VALUE_THRESHOLD,
   WINDOW_DAYS,
   EMPTY_COPY,
   VIEW_OPTIONS,
@@ -97,9 +96,9 @@ export default function RenewalWorkbenchPage({
     [summaryRows],
   );
 
-  const highValueThreshold = globalSettings?.highValueThreshold ?? HIGH_VALUE_THRESHOLD;
+  const highValueThresholds = globalSettings?.highValueThresholds;
   const renewalActionDays = getRenewalActionDays(globalSettings);
-  const viewCounts = useMemo(() => getViewCounts(summaryRows, highValueThreshold), [summaryRows, highValueThreshold]);
+  const viewCounts = useMemo(() => getViewCounts(summaryRows, highValueThresholds ?? {}), [summaryRows, highValueThresholds]);
   const columns = useMemo(() => buildWorkbenchColumns(summaryRows, customFieldDefs), [summaryRows, customFieldDefs]);
   const visibleColumns = useMemo(
     () => getVisibleWorkbenchColumns(columns, savedColumnVisibility),

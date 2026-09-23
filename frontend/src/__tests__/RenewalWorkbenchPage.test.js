@@ -46,6 +46,17 @@ describe("RenewalWorkbenchPage helpers", () => {
     expect(getViewCounts(rows).overdue).toBe(1);
   });
 
+  test("high-value counts use the threshold of the row's own currency", () => {
+    const rows = [
+      row({ licenseId: 1, currency: "EUR", estimatedAnnualValue: 60000 }),
+      row({ licenseId: 2, currency: "SEK", estimatedAnnualValue: 60000 }),
+      row({ licenseId: 3, currency: "USD", estimatedAnnualValue: 1, riskFlags: [{ code: "high_value", severity: "high", label: "High value" }] }),
+    ];
+
+    expect(getViewCounts(rows, { EUR: "50000" }).high_value).toBe(2);
+    expect(getViewCounts(rows, {}).high_value).toBe(1);
+  });
+
   test("uses the notice deadline when it comes before the end date", () => {
     const noticeDriven = row({ licenseId: 5, daysUntilExpiry: 100, daysUntilNotice: 10, noticeDate: "2026-10-03" });
     const endDriven = row({ licenseId: 6, daysUntilExpiry: 40 });
@@ -66,7 +77,7 @@ describe("RenewalWorkbenchPage helpers", () => {
       row({ licenseId: 4, renewalStatus: "pending_order", pendingOrderId: 10, daysUntilExpiry: 150 }),
     ];
 
-    expect(getViewCounts(rows)).toMatchObject({
+    expect(getViewCounts(rows, { EUR: "50000" })).toMatchObject({
       all: 4,
       needs_action: 3,
       overdue: 1,

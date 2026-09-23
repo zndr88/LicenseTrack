@@ -148,6 +148,29 @@ describe("RenewalsSection validation", () => {
     ));
   });
 
+  test("saves one high-value threshold per currency, blank meaning not flagged", async () => {
+    updateGlobalSettings.mockResolvedValue({ data: {}, error: null });
+    render(<RenewalsSection {...sectionProps(baseRenewalSettings({ highValueThresholds: { EUR: "50000", SEK: "" } }))} />);
+
+    expect(screen.getByLabelText("EUR")).toHaveValue(50000);
+    expect(screen.getByLabelText("SEK")).toHaveValue(null);
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(updateGlobalSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ high_value_thresholds: expect.objectContaining({ EUR: "50000", SEK: "" }) }),
+    ));
+  });
+
+  test("rejects a negative currency threshold", () => {
+    const onError = vi.fn();
+    render(<RenewalsSection {...sectionProps(baseRenewalSettings({ highValueThresholds: { USD: "-5" } }), { onError })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    expect(onError).toHaveBeenCalledWith("High-value threshold for USD must be a non-negative number.");
+    expect(updateGlobalSettings).not.toHaveBeenCalled();
+  });
+
   test("rejects an action window outside the supported range", () => {
     const onError = vi.fn();
     render(<RenewalsSection {...sectionProps(baseRenewalSettings({ renewalActionDays: 366 }), { onError })} />);
