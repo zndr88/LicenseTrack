@@ -437,7 +437,7 @@ const ConvertPendingOrderModal = ({
                   />
               </div>
               <div className="fg">
-                  <label htmlFor="cpo-total-price">Total PO Price</label>
+                  <label htmlFor="cpo-total-price">Line Total</label>
                   <Controller
                     name="totalPoPrice"
                     control={control}

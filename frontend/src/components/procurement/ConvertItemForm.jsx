@@ -309,7 +309,7 @@ export default function ConvertItemForm({
               />
             </div>
             <div className="fg">
-              <label htmlFor={`ca-total-price-${idx}`}>Total PO Price</label>
+              <label htmlFor={`ca-total-price-${idx}`}>Line Total</label>
               <Controller
                 control={control}
                 name={`items.${idx}.totalPoPrice`}

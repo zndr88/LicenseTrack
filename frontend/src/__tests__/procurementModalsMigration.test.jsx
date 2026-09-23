@@ -353,6 +353,12 @@ describe("ConvertPendingOrderModal", () => {
     expect(screen.getByRole("button", { name: /confirm & create license/i })).not.toBeDisabled();
   });
 
+  test("labels the per-line total as Line Total, never as a PO total", () => {
+    renderModal();
+    expect(screen.getByLabelText("Line Total")).toBeInTheDocument();
+    expect(screen.queryByText(/Total PO (Price|Value)/)).not.toBeInTheDocument();
+  });
+
   test("choosing OEM suppresses the end date without a perpetual checkbox", () => {
     renderModal();
     expect(screen.queryByLabelText("Perpetual license")).not.toBeInTheDocument();
@@ -890,7 +896,7 @@ describe("ConvertAllModal", () => {
       licenseMetric: screen.getByLabelText(/license metric/i).value,
       quantity: screen.getByLabelText(/purchase quantity/i).value,
       unitPrice: screen.getByLabelText(/^unit price/i).value,
-      totalPoPrice: screen.getByLabelText(/total po price/i).value,
+      totalPoPrice: screen.getByLabelText(/^line total$/i).value,
       currency: screen.getByLabelText(/^currency$/i).value,
       notes: screen.getByLabelText(/notes \/ comments/i).value,
     };
@@ -908,7 +914,7 @@ describe("ConvertAllModal", () => {
       licenseMetric: screen.getByLabelText(/license metric/i).value,
       quantity: screen.getByLabelText(/purchase quantity/i).value,
       unitPrice: screen.getByLabelText(/^unit price/i).value,
-      totalPoPrice: screen.getByLabelText(/total po price/i).value,
+      totalPoPrice: screen.getByLabelText(/^line total$/i).value,
       currency: screen.getByLabelText(/^currency$/i).value,
       notes: screen.getByLabelText(/notes \/ comments/i).value,
     };

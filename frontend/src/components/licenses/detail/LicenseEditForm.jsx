@@ -121,7 +121,7 @@ export default function LicenseEditForm({
         </div>
       </div>
       {customFields("people")}
-      <div className="fg"><label htmlFor="license-edit-total-price">Total PO Price</label><input id="license-edit-total-price" className="fi" inputMode="decimal" value={editFields.totalPoPrice || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, totalPoPrice: parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value }))} /></div>
+      <div className="fg"><label htmlFor="license-edit-total-price">Line Total</label><input id="license-edit-total-price" className="fi" inputMode="decimal" value={editFields.totalPoPrice || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, totalPoPrice: parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value }))} /></div>
       <div className="fg"><label htmlFor="license-edit-notes">Notes / Comments</label><textarea id="license-edit-notes" className="fi" rows={3} value={editFields.notes || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, notes: e.target.value }))} /></div>
       {customFields("notes")}
       <div className="fr">

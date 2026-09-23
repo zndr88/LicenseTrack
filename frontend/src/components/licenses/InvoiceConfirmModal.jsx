@@ -468,7 +468,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               <div className="fg"><label htmlFor="inv-license-metric">License Metric</label><select id="inv-license-metric" className="fi fi-select" value={form.licenseMetric} onChange={(e) => u("licenseMetric", e.target.value)}><option value="">Select...</option>{LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
               <div className="fg"><label htmlFor="inv-currency">Currency</label><select id="inv-currency" className="fi fi-select" value={form.currency} onChange={(e) => u("currency", e.target.value)}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
             </div>
-            {!isFreewareLicenseType(form.licenseType) && <div className="fr"><div className="fg"><label htmlFor="inv-unit-price">Unit Price</label><input id="inv-unit-price" className="fi" value={displayUnitPrice} onChange={(e) => { setDisplayUnitPrice(e.target.value); u("unitPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayUnitPrice(formatPriceInput(form.unitPrice, locale))} /></div><div className="fg"><label htmlFor="inv-total-price">Total PO Price</label><input id="inv-total-price" className="fi" value={displayTotalPrice} onChange={(e) => { setDisplayTotalPrice(e.target.value); u("totalPoPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayTotalPrice(formatPriceInput(form.totalPoPrice, locale))} /></div></div>}
+            {!isFreewareLicenseType(form.licenseType) && <div className="fr"><div className="fg"><label htmlFor="inv-unit-price">Unit Price</label><input id="inv-unit-price" className="fi" value={displayUnitPrice} onChange={(e) => { setDisplayUnitPrice(e.target.value); u("unitPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayUnitPrice(formatPriceInput(form.unitPrice, locale))} /></div><div className="fg"><label htmlFor="inv-total-price">Line Total</label><input id="inv-total-price" className="fi" value={displayTotalPrice} onChange={(e) => { setDisplayTotalPrice(e.target.value); u("totalPoPrice", parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayTotalPrice(formatPriceInput(form.totalPoPrice, locale))} /></div></div>}
             {form.licenseType === "saas" && <div className="fg"><label htmlFor="inv-portal-url">Portal URL</label><input id="inv-portal-url" className="fi" value={form.portalUrl} onChange={(e) => u("portalUrl", e.target.value)} placeholder="https://..." /></div>}
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="commercial" />
           </LicenseFormSection>
@@ -624,7 +624,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                       />
                   </div>
                   <div className="fg">
-                      <label htmlFor={`inv-line-${line.id}-total-price`}>Total PO Price</label>
+                      <label htmlFor={`inv-line-${line.id}-total-price`}>Line Total</label>
                       <input
                         id={`inv-line-${line.id}-total-price`}
                         className="fi"

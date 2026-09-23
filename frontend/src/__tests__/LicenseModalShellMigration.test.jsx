@@ -292,7 +292,7 @@ describe("license modal shell migration", () => {
 
     await user.click(screen.getByRole("button", { name: /add additional license line/i }));
     const additionalUnitPrice = screen.getAllByLabelText(/^unit price$/i)[1];
-    const additionalTotalPrice = screen.getAllByLabelText(/^total po price$/i)[1];
+    const additionalTotalPrice = screen.getAllByLabelText(/^line total$/i)[1];
     fireEvent.change(screen.getAllByLabelText(/^notice date$/i)[1], { target: { value: "2027-05-01" } });
     expect(additionalUnitPrice).toHaveAttribute("placeholder", "0,00");
     expect(additionalTotalPrice).toHaveAttribute("placeholder", "0,00");
