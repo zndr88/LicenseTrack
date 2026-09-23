@@ -43,6 +43,7 @@ from app.services.maintenance_service import (
     activate_maintenance_for_parent,
     create_maintenance_for_parent,
     detach_maintenance_from_parent,
+    record_included_support_exit,
     retire_maintenance_license,
     sync_parent_mirror_fields,
     validate_parent_license,
@@ -65,6 +66,7 @@ from app.services.reference_data_service import (
     resolve_license_reference_updates,
 )
 from app.services.procurement_totals import apply_included_support_defaults
+from app.services.support_coverage_defaults import is_bundled_included_support
 from app.services.sourcing_service import sourcing_item_predecessor_ids
 
 logger = logging.getLogger(__name__)
@@ -201,6 +203,26 @@ def _strip_server_owned_create_fields(create_data: dict) -> None:
     # license term afterwards, so caller-sent values are normalised away.
     for field in _SERVER_OWNED_CREATE_FIELDS:
         create_data.pop(field, None)
+
+
+def _caller_included_support_details(create_data: dict) -> dict:
+    """Included support dates/cost the caller entered for a perpetual/OEM/freeware record.
+
+    Subscription/SaaS support is bundled and re-derived from the license term,
+    but for other types the included support period is real user input.
+    """
+    coverage = create_data.get("maintenance_coverage")
+    if coverage not in (MaintenanceCoverage.included, MaintenanceCoverage.included.value):
+        return {}
+    if is_bundled_included_support(create_data.get("license_type"), coverage):
+        return {}
+    return {
+        field: create_data[field]
+        for field in _INCLUDED_MAINTENANCE_DETAIL_FIELDS
+        if create_data.get(field) is not None
+    }
+
+
 MAINTENANCE_COVERAGE_VALUES = {coverage.value for coverage in MaintenanceCoverage}
 SUPPORT_DEFAULT_FIELDS = (
     "maintenance_start_date",
@@ -371,7 +393,9 @@ async def create_license_record(
     create_data = payload.model_dump(by_alias=False)
     custom_field_values = create_data.pop("custom_field_values", [])
     create_data.pop("maintenance_parent_ids", None)
+    kept_included_support = _caller_included_support_details(create_data)
     _strip_server_owned_create_fields(create_data)
+    create_data.update(kept_included_support)
     _sync_invoice_numbers(create_data)
     await resolve_license_reference_fields(db, create_data)
     create_data["procurement_bundle_id"] = procurement_bundle_id
@@ -519,6 +543,7 @@ async def apply_license_update(
     for field, value in update_data.items():
         setattr(license_obj, field, value)
     sync_support_defaults_on_license(license_obj)
+    await record_included_support_exit(db, license_obj, before.get("maintenance_coverage"))
     if any(before[field] != getattr(license_obj, field) for field in ("start_date", "end_date")):
         await validate_established_renewal_terms(db, license_obj)
 
@@ -674,7 +699,9 @@ async def apply_license_field_patch(
             assert_coverage_allowed_for_type(license_obj.license_type, new_coverage)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
+        previous_coverage = license_obj.maintenance_coverage
         license_obj.maintenance_coverage = new_coverage
+        await record_included_support_exit(db, license_obj, previous_coverage)
     elif field == "contractNumber":
         license_obj.contract_number = value or ""
         license_obj.contract_id = await resolve_contract_id_for_number(db, value)

@@ -90,7 +90,7 @@ export default function MaintenanceSection({
           {!license.hasMaintenance && canLinkSupportRecord && (
             <div className="dp-field" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.5 }}>
-                No active maintenance / support contract record is linked.
+                Separately tracked — no active maintenance / support record is linked.
               </div>
               {perms.canEdit && (
                 <button type="button" className="btn btn-g btn-sm" style={{ flexShrink: 0 }} onClick={() => setShowMaintenanceModal(true)}>

@@ -171,6 +171,53 @@ async def _snapshot_coverage_period(
     )
 
 
+def has_included_support_data(parent: License) -> bool:
+    """Whether the parent still holds an included-support period on its mirror fields."""
+    return any(
+        getattr(parent, field, None) not in (None, "")
+        for field in ("maintenance_start_date", "maintenance_end_date", "maintenance_cost")
+    )
+
+
+async def snapshot_included_support(db: AsyncSession, parent: License) -> None:
+    """Keep the parent's included-support period in coverage history (idempotent)."""
+    if not has_included_support_data(parent):
+        return
+    await _snapshot_coverage_period(
+        db,
+        parent,
+        maintenance_license=None,
+        coverage_type=MaintenanceCoverage.included.value,
+        source_type="original_included_support",
+        start_date=parent.maintenance_start_date,
+        end_date=parent.maintenance_end_date,
+        pricing_basis=parent.maintenance_pricing_basis,
+        quantity=parent.maintenance_quantity,
+        unit_price=parent.maintenance_unit_price,
+        cost=parent.maintenance_cost,
+        currency=parent.currency,
+    )
+
+
+async def record_included_support_exit(
+    db: AsyncSession,
+    parent: License,
+    previous_coverage: MaintenanceCoverage | str | None,
+) -> None:
+    """When coverage leaves Included with no active record, keep the period and clear stale mirrors.
+
+    Without this, a later maintenance record would overwrite the mirror fields
+    and the original included period would be lost from history.
+    """
+    was_included = previous_coverage in (MaintenanceCoverage.included, MaintenanceCoverage.included.value)
+    if not was_included or parent.maintenance_coverage == MaintenanceCoverage.included:
+        return
+    if parent.active_maintenance_id is not None:
+        return
+    await snapshot_included_support(db, parent)
+    await sync_parent_mirror_fields(db, parent)
+
+
 async def link_maintenance_to_parent(
     db: AsyncSession,
     maintenance_license: License,
@@ -213,21 +260,12 @@ async def activate_maintenance_for_parent(
     parent: License,
 ) -> None:
     """Link a maintenance license to a parent and make it that parent's active mirror source."""
-    if parent.active_maintenance_id is None and parent.maintenance_coverage == MaintenanceCoverage.included:
-        await _snapshot_coverage_period(
-            db,
-            parent,
-            maintenance_license=None,
-            coverage_type=MaintenanceCoverage.included.value,
-            source_type="original_included_support",
-            start_date=parent.maintenance_start_date,
-            end_date=parent.maintenance_end_date,
-            pricing_basis=parent.maintenance_pricing_basis,
-            quantity=parent.maintenance_quantity,
-            unit_price=parent.maintenance_unit_price,
-            cost=parent.maintenance_cost,
-            currency=parent.currency,
-        )
+    if parent.active_maintenance_id is None and (
+        parent.maintenance_coverage == MaintenanceCoverage.included or has_included_support_data(parent)
+    ):
+        # Also covers records switched away from Included before this was
+        # recorded on the switch itself: their mirrors still hold the period.
+        await snapshot_included_support(db, parent)
     elif parent.active_maintenance_id is not None and parent.active_maintenance_id != maintenance_license.id:
         result = await db.execute(select(License).where(License.id == parent.active_maintenance_id))
         active_child = result.scalar_one_or_none()
