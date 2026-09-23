@@ -17,6 +17,19 @@ function isValidSender(v) {
 
 /** NotificationsSection - manager email (optional) + send hour (0-23). */
 export const notificationsSaveSchema = z.object({
+  publicBaseUrl: z.string().optional().refine(
+    (v) => {
+      const t = (v ?? "").trim();
+      if (!t) return true;
+      try {
+        const url = new URL(t);
+        return ["http:", "https:"].includes(url.protocol) && !url.search && !url.hash;
+      } catch {
+        return false;
+      }
+    },
+    { message: "Public app URL must be an http(s) address such as https://licenses.example.com." },
+  ),
   managerEmail: z.string().refine(
     v => { const t = (v ?? "").trim(); return !t || EMAIL_REGEX.test(t); },
     { message: "Must be a valid email address." }

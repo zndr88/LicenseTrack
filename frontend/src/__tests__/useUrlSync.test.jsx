@@ -28,7 +28,7 @@ function renderHarness(props, licenses = []) {
 
 function goBackTo(path) {
   window.history.replaceState(null, "", path);
-  window.dispatchEvent(new PopStateEvent("popstate"));
+  window.dispatchEvent(new window.PopStateEvent("popstate"));
 }
 
 beforeEach(() => {

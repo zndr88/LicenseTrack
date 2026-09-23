@@ -23,6 +23,7 @@ export function normalizeGlobalSettings(data, current) {
     notificationDays: data.notification_days ?? current.notificationDays,
     noticeNotificationDays: data.notice_notification_days ?? current.noticeNotificationDays,
     managerEmail: data.manager_email ?? current.managerEmail,
+    publicBaseUrl: data.public_base_url ?? current.publicBaseUrl ?? "",
     smtpHost: data.smtp_host ?? current.smtpHost,
     smtpPort: data.smtp_port ?? current.smtpPort,
     smtpUsername: data.smtp_username ?? current.smtpUsername,

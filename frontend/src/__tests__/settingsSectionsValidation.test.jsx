@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, test, vi, beforeEach } from "vitest";
 
 vi.mock("../api/settings.js", () => ({
@@ -227,6 +227,23 @@ describe("NotificationsSection validation", () => {
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     expect(updateGlobalSettings).toHaveBeenCalled();
+  });
+
+  test("saves a trimmed public app URL and rejects a non-http one", async () => {
+    updateGlobalSettings.mockResolvedValue({ data: {}, error: null });
+    render(<NotificationsSection {...sectionProps(baseNotificationsSettings({ publicBaseUrl: " https://lt.example.com " }))} />);
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await waitFor(() => expect(updateGlobalSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ public_base_url: "https://lt.example.com" }),
+    ));
+
+    cleanup();
+    updateGlobalSettings.mockReset();
+    const onError = vi.fn();
+    render(<NotificationsSection {...sectionProps(baseNotificationsSettings({ publicBaseUrl: "ftp://lt" }), { onError })} />);
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    expect(onError).toHaveBeenCalledWith(expect.stringMatching(/Public app URL/));
+    expect(updateGlobalSettings).not.toHaveBeenCalled();
   });
 
   test("rejects invalid send hour before calling the API", () => {

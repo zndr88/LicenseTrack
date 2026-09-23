@@ -11,6 +11,7 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
 
   const handleSave = async () => {
     const validation = notificationsSaveSchema.safeParse({
+      publicBaseUrl: globalSettings.publicBaseUrl ?? "",
       managerEmail: globalSettings.managerEmail,
       notificationSendHour: globalSettings.notificationSendHour,
       notificationDays: globalSettings.notificationDays ?? 30,
@@ -24,6 +25,7 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
       manager_email: globalSettings.managerEmail,
       notification_send_hour: globalSettings.notificationSendHour,
       allowed_email_domains: globalSettings.allowedEmailDomains.join(","),
+      public_base_url: (globalSettings.publicBaseUrl ?? "").trim(),
     });
     setSaving(false);
     if (error) { onError(error); return; }
@@ -59,6 +61,13 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
                 <label htmlFor="settings-notice-alert-window">Notice Deadline Lead Time (days)</label>
                 <input id="settings-notice-alert-window" className="fi" type="number" value={globalSettings.noticeNotificationDays ?? 30} onChange={(e) => { setGlobalSettings(s => ({ ...s, noticeNotificationDays: parseInt(e.target.value) || 30 })); markDirty("notifications"); }} />
               </div>
+            </div>
+            <div className="fg">
+              <label htmlFor="settings-public-base-url">Public app URL</label>
+              <p className="set-field-hint">
+                The address people use to open LicenseTrack, e.g. https://licenses.example.com. When set, notification emails link each license to its page. Leave empty to send emails without links.
+              </p>
+              <input id="settings-public-base-url" className="fi" type="url" placeholder="https://licenses.yourcompany.com" value={globalSettings.publicBaseUrl ?? ""} onChange={(e) => { setGlobalSettings(s => ({ ...s, publicBaseUrl: e.target.value })); markDirty("notifications"); }} />
             </div>
             <div className="fr">
               <div className="fg">
