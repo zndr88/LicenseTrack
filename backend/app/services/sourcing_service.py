@@ -28,6 +28,7 @@ from app.services.lifecycle_rules import clear_pending_renewal_if_current
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.money import MoneyParseError, parse_money
 from app.services.license_service import normalise_type_opt_in_fields
+from app.services.po_total_override_service import assert_line_currency_fits_pending_order
 from app.services.planned_successor_service import require_no_planned_links
 from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.reference_data_service import (
@@ -1431,6 +1432,7 @@ async def convert_sourcing_item_to_order(
         created_by=created_by,
     )
 
+    await assert_line_currency_fits_pending_order(db, order.id, item.currency)
     item.pending_order_id = order.id
     item.status = SourcingStatus.converted
     item.supplier = order.supplier
@@ -1475,6 +1477,7 @@ async def convert_sourcing_request_to_order(
     )
 
     for item in purchase_items:
+        await assert_line_currency_fits_pending_order(db, order.id, item.currency)
         item.pending_order_id = order.id
         item.status = SourcingStatus.converted
         item.supplier = order.supplier

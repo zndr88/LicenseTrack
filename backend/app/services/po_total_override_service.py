@@ -5,6 +5,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License
+from app.models.pending_order import PendingOrder
+from app.models.sourcing import SourcingItem, SourcingStatus
 from app.services.procurement_identity import normalize_po_number
 
 
@@ -216,3 +218,45 @@ async def apply_po_total_override(
     for matching_license in matching_licenses:
         matching_license.po_total_override = value
     return license_obj, len(matching_licenses)
+
+
+PENDING_ORDER_CURRENCY_DETAIL = (
+    "A manual PO total needs every line of the pending order in one currency; "
+    "clear the PO total before adding a line in another currency"
+)
+
+
+def _normalize_currency(value: str | None) -> str:
+    return (value or "").strip().upper()
+
+
+async def pending_order_line_currencies(db: AsyncSession, order_id: int) -> set[str]:
+    """Distinct currencies of a pending order's non-cancelled lines."""
+    statement = select(SourcingItem.currency).where(
+        SourcingItem.pending_order_id == order_id,
+        SourcingItem.status != SourcingStatus.cancelled,
+    )
+    with db.no_autoflush:
+        currencies = (await db.execute(statement)).scalars().all()
+    return {_normalize_currency(currency) for currency in currencies if _normalize_currency(currency)}
+
+
+async def assert_pending_order_override_currencies(db: AsyncSession, order_id: int) -> None:
+    """A manual PO total is only allowed while every line shares one currency."""
+    if len(await pending_order_line_currencies(db, order_id)) > 1:
+        raise HTTPException(status_code=422, detail=PENDING_ORDER_CURRENCY_DETAIL)
+
+
+async def assert_line_currency_fits_pending_order(
+    db: AsyncSession,
+    order_id: int,
+    currency: str | None,
+) -> None:
+    """Reject a line currency that differs from an order carrying a manual PO total."""
+    with db.no_autoflush:
+        override = await db.scalar(select(PendingOrder.po_total_override).where(PendingOrder.id == order_id))
+    if not override:
+        return
+    currencies = await pending_order_line_currencies(db, order_id)
+    if currencies and _normalize_currency(currency) not in currencies:
+        raise HTTPException(status_code=422, detail=PENDING_ORDER_CURRENCY_DETAIL)

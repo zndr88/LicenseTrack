@@ -32,6 +32,9 @@ class PendingOrder(Base):
         Integer, ForeignKey("organizations.id"), nullable=True, index=True
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Manual total for the whole order (canonical decimal string). Only allowed
+    # while every line shares one currency; copied to each converted license.
+    po_total_override: Mapped[str | None] = mapped_column(String(50), nullable=True)
     status: Mapped[PendingOrderStatus] = mapped_column(
         Enum(PendingOrderStatus), nullable=False, default=PendingOrderStatus.pending
     )

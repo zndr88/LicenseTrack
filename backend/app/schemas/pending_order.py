@@ -104,8 +104,19 @@ class PendingOrderUpdate(BaseModel):
     # Supplier contact for every open line. Omitted leaves line contacts
     # unchanged; an empty value clears them (a valid answer after a supplier change).
     contact_email: Optional[str] = None
+    # Manual PO total; an empty value clears it.
+    po_total_override: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[PendingOrderStatus] = None
+
+    @field_validator("po_total_override", mode="before")
+    @classmethod
+    def _validate_po_total_override(cls, value: object) -> object:
+        if value is None or value == "":
+            return None
+        if not isinstance(value, str) or not is_canonical_money(value):
+            raise ValueError("PO total must be a plain decimal string (e.g. '1234.50').")
+        return value
 
 
 class PendingOrderResponse(BaseModel):
@@ -130,6 +141,7 @@ class PendingOrderResponse(BaseModel):
     items: list[SourcingItemSummary] = []
     documents: list[ProcurementDocumentResponse] = []
     total_po_value: Optional[str] = None
+    po_total_override: Optional[str] = None
     converted_license_id: Optional[int] = None
     converted_license_ref: Optional[str] = None
     converted_license_retired: bool = False

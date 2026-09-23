@@ -533,6 +533,7 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
         "Purchase Quantity",
         "License Unit Price",
         "Line Total",
+        "PO Total (manual)",
     ]
     rows = _csv_dicts(response)
     assert len(rows) == 2
@@ -551,6 +552,7 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
         assert row["Created Date"] == "2026-03-01"
         assert row["PO Total Value"] == "223.45"
         assert row["Currency"] == "EUR"
+        assert row["PO Total (manual)"] == ""
 
 
 async def test_pending_orders_export_includes_empty_orders_and_currency_totals(

@@ -426,7 +426,9 @@ async def convert_pending_order_to_licenses(
     # Acquire the conditional write lock before creating any licenses.
     await _lock_pending_order(db, order)
     form_data = convert_payload.model_dump(by_alias=False)
-    form_data["po_total_override"] = inherited_po_total_override
+    # The order's manual total is the truth for every license it creates; line
+    # prices are never changed or spread.
+    form_data["po_total_override"] = order.po_total_override or inherited_po_total_override
     form_data["pending_order_id"] = order_id
     if form_data.get("purchase_date") is not None:
         form_data["purchase_date"] = datetime.combine(form_data["purchase_date"], time.min)
@@ -643,7 +645,7 @@ async def batch_convert_pending_order_to_licenses(
             detail_prefix=f"Item {batch_item.sourcing_item_id}: ",
         )
         item_data["pending_order_id"] = order_id
-        item_data["po_total_override"] = await get_po_total_override(
+        item_data["po_total_override"] = order.po_total_override or await get_po_total_override(
             db,
             order_po_number,
             item_data.get("currency"),

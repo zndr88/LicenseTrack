@@ -26,6 +26,10 @@ from app.services.document_availability_service import with_file_availability
 from app.services.draft_document_service import require_no_single_documents
 from app.services.custom_fields_service import replace_values_for_sourcing_item
 from app.services.license_service import normalise_type_opt_in_fields
+from app.services.po_total_override_service import (
+    assert_line_currency_fits_pending_order,
+    assert_pending_order_override_currencies,
+)
 from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.reference_data_service import resolve_organization, resolve_procurement_reference_fields
 from app.services.sourcing_service import (
@@ -83,6 +87,7 @@ def to_pending_order_response(order: PendingOrder, storage_base: str | None = No
             "procurement_reference": order.procurement_reference,
             "supplier": order.supplier,
             "notes": order.notes,
+            "po_total_override": order.po_total_override,
             "status": order.status,
             "created_at": order.created_at,
             "updated_at": order.updated_at,
@@ -268,6 +273,8 @@ async def apply_pending_order_update(
         for item in order.items:
             if item.status != SourcingStatus.cancelled:
                 item.contact_email = contact_email
+    if update_data.get("po_total_override"):
+        await assert_pending_order_override_currencies(db, order.id)
 
     after = {column.name: getattr(order, column.name) for column in order.__table__.columns}
     return order, before, after
@@ -364,6 +371,7 @@ async def add_pending_order_items_bulk_record(
     ensure_pending_order_editable(order, action="add items to")
 
     for item_payload in payload:
+        await assert_line_currency_fits_pending_order(db, order_id, item_payload.currency)
         item = _build_pending_order_item(item_payload, order_id=order_id, created_by=created_by)
         await resolve_sourcing_item_references(db, item)
         db.add(item)
@@ -386,6 +394,8 @@ async def update_pending_order_item_record(
 
     item = _find_order_item(order, item_id)
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+    if "currency" in update_data:
+        await assert_line_currency_fits_pending_order(db, order_id, update_data["currency"])
     custom_field_values = update_data.pop("custom_field_values", None)
     update_data.pop("status", None)
     if "publisher_name" in update_data or "supplier" in update_data:

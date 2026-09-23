@@ -45,6 +45,7 @@ async def build_pending_orders_export_csv(db: AsyncSession) -> str:
             "Purchase Quantity",
             "License Unit Price",
             "Line Total",
+            "PO Total (manual)",
         ]
     )
 
@@ -77,6 +78,7 @@ def _build_export_rows(
                 "",
                 "",
                 "",
+                order.po_total_override or "",
             ]
         ]
 
@@ -104,6 +106,7 @@ def _build_export_rows(
                     if (line_total := procurement_line_total(item)) is not None
                     else ""
                 ),
+                order.po_total_override or "",
             ]
         )
 
