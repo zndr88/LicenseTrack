@@ -489,6 +489,11 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+
+async function expandAllSourcingRequests() {
+  await userEvent.click(await screen.findByRole("button", { name: "Expand all" }));
+}
+
 describe("LicensesPage workflows", () => {
   test("shows loading, empty, error, and search-filtered license rows", async () => {
     const pending = deferred();
@@ -1359,6 +1364,7 @@ describe("SourcingPage workflows", () => {
     sourcingApi.createSourcingRequest.mockResolvedValueOnce({ data: { id: 2, items: [] }, error: null });
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
     expect(await screen.findByText("Acme Supplier")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     expect(screen.getByText("Acme Trial")).toBeInTheDocument();
     await user.type(screen.getByLabelText(/Search sourcing requests/i), "nothing");
     expect(screen.getByText(/No requests match your search\./i)).toBeInTheDocument();
@@ -1368,7 +1374,7 @@ describe("SourcingPage workflows", () => {
     expect(await screen.findByText("Created Sourcing App")).toBeInTheDocument();
   });
 
-  test("keeps active sourcing requests open by default and collapses them independently", async () => {
+  test("starts sourcing requests collapsed and expands them independently", async () => {
     const user = userEvent.setup();
     sourcingApi.getSourcingRequests.mockResolvedValueOnce({
       data: [
@@ -1412,16 +1418,17 @@ describe("SourcingPage workflows", () => {
 
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
-    expect(await screen.findByText("First Suite")).toBeInTheDocument();
-    expect(screen.getByText("Second Suite")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Expand all" })).toBeInTheDocument();
+    expect(screen.queryByText("First Suite")).not.toBeInTheDocument();
+    expect(screen.queryByText("Second Suite")).not.toBeInTheDocument();
 
     const firstRequestRow = document.querySelector('[data-sourcing-request-row="101"]');
     await user.click(firstRequestRow);
-    expect(screen.queryByText("First Suite")).not.toBeInTheDocument();
-    expect(screen.getByText("Second Suite")).toBeInTheDocument();
+    expect(screen.getByText("First Suite")).toBeInTheDocument();
+    expect(screen.queryByText("Second Suite")).not.toBeInTheDocument();
 
     await user.click(firstRequestRow);
-    expect(screen.getByText("First Suite")).toBeInTheDocument();
+    expect(screen.queryByText("First Suite")).not.toBeInTheDocument();
   });
 
   test("inline edits common sourcing-line fields without opening the full modal", async () => {
@@ -1460,6 +1467,7 @@ describe("SourcingPage workflows", () => {
 
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={commaSettings} />);
 
+    await expandAllSourcingRequests();
     expect(await screen.findByText("Inline Suite")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Edit in table", pressed: false }));
 
@@ -1547,6 +1555,7 @@ describe("SourcingPage workflows", () => {
     );
 
     expect(await screen.findByText("Renewal Supplier")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     if (previousDescription === "Renewal App") {
       expect(screen.getAllByText("Renewal App")).toHaveLength(1);
       expect(screen.queryByText(/^Previous license:/)).not.toBeInTheDocument();
@@ -1598,6 +1607,7 @@ describe("SourcingPage workflows", () => {
 
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
     expect(await screen.findByText("Unassigned supplier")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     const sourcingLine = document.querySelector('[data-sourcing-row="70"]');
     await user.click(within(sourcingLine).getByRole("button", { name: /^edit$/i }));
     await user.type(screen.getByLabelText(/request supplier/i), "Adobe Direct");
@@ -1647,6 +1657,7 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Primary Supplier")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     await user.click(screen.getByRole("button", { name: /add license line/i }));
     await user.click(screen.getByLabelText(/add maintenance companion/i));
     await user.click(screen.getByRole("button", { name: /save sourcing item/i }));
@@ -1714,6 +1725,7 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Primary Supplier")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     await user.click(screen.getByRole("button", { name: /add license line/i }));
     await user.click(screen.getByLabelText(/add maintenance companion/i));
     await user.type(screen.getByLabelText(/support supplier/i), "Other Supplier");
@@ -1786,6 +1798,7 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     expect(screen.getAllByText("Acme Suite").length).toBeGreaterThan(0);
     const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
     await user.click(checkboxes[0]);
@@ -1814,6 +1827,7 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     expect(screen.getAllByText("Acme Suite").length).toBeGreaterThan(0);
     const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
     await user.click(checkboxes[0]);
@@ -1843,6 +1857,7 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     expect(screen.getByText("1.25")).toBeInTheDocument();
     expect(screen.getByText("2.5")).toBeInTheDocument();
 
@@ -1881,6 +1896,7 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={commaSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     expect(screen.getByText("1,25")).toBeInTheDocument();
     expect(screen.getByText("2,5")).toBeInTheDocument();
 
@@ -1912,6 +1928,7 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
     await user.click(checkboxes[0]);
     await user.click(checkboxes[1]);
@@ -1952,6 +1969,7 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Fractional Supplier")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     const row = document.querySelector('[data-sourcing-row="80"]');
     expect(within(row).getByText("3.75")).toBeInTheDocument();
     expect(within(row).queryByText("4")).not.toBeInTheDocument();
@@ -1966,6 +1984,7 @@ describe("SourcingPage workflows", () => {
     wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
 
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
+    await expandAllSourcingRequests();
     expect(screen.getAllByText("Acme Suite").length).toBeGreaterThan(0);
     const checkboxes = screen.getAllByRole("checkbox").filter((checkbox) => !checkbox.disabled);
     await user.click(checkboxes[0]);

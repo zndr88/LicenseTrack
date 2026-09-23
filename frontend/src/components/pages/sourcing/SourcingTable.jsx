@@ -276,7 +276,7 @@ export default function SourcingTable({
   sortDir,
   highlightedRowId,
   expandedRequestId,
-  collapsedRequestIds = null,
+  expandedRequestIds = null,
   onRowToggle,
   onSetAllExpanded,
   onToggleSelect,
@@ -302,7 +302,7 @@ export default function SourcingTable({
   const readOnly = mode === "history";
   const expandableRequests = displayed.filter((request) => request.items?.length > 0);
   const allExpanded = expandableRequests.length > 0 && expandableRequests.every((request) => (
-    collapsedRequestIds ? !collapsedRequestIds.has(request.id) : expandedRequestId === request.id
+    expandedRequestIds ? expandedRequestIds.has(request.id) : expandedRequestId === request.id
   ));
   const emptyMessage = readOnly ? "No historical requests match your search." : "No requests match your search.";
   const renderStatusBadge = (request) => {
@@ -458,13 +458,13 @@ export default function SourcingTable({
               const hasItems = (request.items?.length ?? 0) > 0;
               const createdDateTime = formatDateTime(request.createdAt, userSettings);
               const canInlineEditRequest = inlineEditEnabled && !readOnly && isOpenSourcingRequest(request) && perms.canEdit;
-              const shouldExpand = collapsedRequestIds
-                ? !collapsedRequestIds.has(request.id)
+              const shouldExpand = expandedRequestIds
+                ? expandedRequestIds.has(request.id)
                 : expandedRequestId === request.id;
               const isExpanded = hasItems && shouldExpand;
               const handleRowToggle = () => {
                 if (!hasItems) return;
-                if (collapsedRequestIds) {
+                if (expandedRequestIds) {
                   onRowToggle(request.id);
                 } else {
                   onRowToggle(isExpanded ? null : request.id);

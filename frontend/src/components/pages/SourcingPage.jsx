@@ -101,7 +101,8 @@ export default function SourcingPage({
   const [historySortCol, setHistorySortCol] = useState("created");
   const [historySortDir, setHistorySortDir] = useState("desc");
   const [highlightedRowId, setHighlightedRowId] = useState(null);
-  const [collapsedRequestIds, setCollapsedRequestIds] = useState(() => new Set());
+  // Requests start collapsed; this tracks the ones the user opened.
+  const [expandedRequestIds, setExpandedRequestIds] = useState(() => new Set());
   const [expandedHistoryRequestId, setExpandedHistoryRequestId] = useState(null);
   const [localToast, setLocalToast] = useState(null);
   const [inlineEditEnabled, setInlineEditEnabled] = useState(false);
@@ -114,17 +115,17 @@ export default function SourcingPage({
 
   const openSourcingRequest = useCallback((requestId) => {
     if (requestId == null) return;
-    setCollapsedRequestIds((prev) => {
-      if (!prev.has(requestId)) return prev;
+    setExpandedRequestIds((prev) => {
+      if (prev.has(requestId)) return prev;
       const next = new Set(prev);
-      next.delete(requestId);
+      next.add(requestId);
       return next;
     });
   }, []);
 
   const toggleSourcingRequest = useCallback((requestId) => {
     if (requestId == null) return;
-    setCollapsedRequestIds((prev) => {
+    setExpandedRequestIds((prev) => {
       const next = new Set(prev);
       if (next.has(requestId)) next.delete(requestId);
       else next.add(requestId);
@@ -331,9 +332,9 @@ export default function SourcingPage({
       .filter((request) => (request.items ?? []).some((item) => groupSet.has(item.id)))
       .map((request) => request.id);
     if (requestIdsToOpen.length > 0) {
-      setCollapsedRequestIds((prev) => {
+      setExpandedRequestIds((prev) => {
         const next = new Set(prev);
-        requestIdsToOpen.forEach((requestId) => next.delete(requestId));
+        requestIdsToOpen.forEach((requestId) => next.add(requestId));
         return next;
       });
     }
@@ -398,13 +399,13 @@ export default function SourcingPage({
             sortCol={sortCol}
             sortDir={sortDir}
             highlightedRowId={highlightedRowId}
-            collapsedRequestIds={collapsedRequestIds}
+            expandedRequestIds={expandedRequestIds}
             onRowToggle={toggleSourcingRequest}
-            onSetAllExpanded={(expanded) => setCollapsedRequestIds((previous) => {
+            onSetAllExpanded={(expanded) => setExpandedRequestIds((previous) => {
               const next = new Set(previous);
               displayed.forEach((request) => {
-                if (expanded) next.delete(request.id);
-                else next.add(request.id);
+                if (expanded) next.add(request.id);
+                else next.delete(request.id);
               });
               return next;
             })}
