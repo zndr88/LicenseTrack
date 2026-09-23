@@ -18,6 +18,12 @@ function labelledLines(entries, indent = "") {
     .map(([label, value]) => `${indent}${label}: ${value}`);
 }
 
+/** Contact means whoever you bought from: the supplier, or the publisher for direct purchases. */
+function greeting(license) {
+  const recipient = String(license.supplier ?? "").trim() || license.publisherName;
+  return `Dear ${recipient} team,`;
+}
+
 function mailtoHref(address, subject, body) {
   return `mailto:${address || ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
@@ -37,7 +43,7 @@ export function buildSingleLicenseEmailHref(license) {
     ["Software", license.softwareDescription],
     ["Period", formatPeriod(license)],
   ]).join("\n");
-  const body = `Dear ${license.publisherName} team,\n\nI am writing regarding:\n\n${details}\n\nBest regards`;
+  const body = `${greeting(license)}\n\nI am writing regarding:\n\n${details}\n\nBest regards`;
   return mailtoHref(license.contactEmail, singleLicenseSubject(license), body);
 }
 
@@ -54,6 +60,6 @@ export function buildMultiLicenseEmailHref(license, licenses) {
       ["SKU", item.skuCode],
     ], "   "),
   ].join("\n")).join("\n\n");
-  const body = `Dear ${license.publisherName} team,\n\nI am writing regarding purchase order ${license.poNumber} and the following license lines:\n\n${lines}\n\nBest regards`;
+  const body = `${greeting(license)}\n\nI am writing regarding purchase order ${license.poNumber} and the following license lines:\n\n${lines}\n\nBest regards`;
   return mailtoHref(license.contactEmail, subject, body);
 }

@@ -11,7 +11,7 @@ import RenewalWorkflowSection from "./detail/RenewalWorkflowSection.jsx";
 import ContractDatesSection from "./detail/ContractDatesSection.jsx";
 import CommercialSection from "./detail/CommercialSection.jsx";
 import PeopleSection from "./detail/PeopleSection.jsx";
-import EmailPublisherAction from "./detail/EmailPublisherAction.jsx";
+import EmailSupplierAction from "./detail/EmailSupplierAction.jsx";
 import { NotesSection, CatchallCustomFieldsSection } from "./detail/NotesSection.jsx";
 import HistorySection from "./detail/HistorySection.jsx";
 import FieldEditModal from "./FieldEditModal.jsx";
@@ -359,7 +359,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
 
         {/* Bottom actions */}
         <div className="dp-bottom-actions" style={{ marginTop: 16 }}>
-          <EmailPublisherAction license={license} allLicenses={allLicenses} />
+          <EmailSupplierAction license={license} allLicenses={allLicenses} />
           {perms.canDelete && <button className="btn btn-d" onClick={() => {
             const activeMaintenanceChildren = (allLicenses || []).filter(
               (l) => (

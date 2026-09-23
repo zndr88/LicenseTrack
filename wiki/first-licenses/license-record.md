@@ -106,8 +106,9 @@ license.
 ![Relationships section](../assets/record-05-relationships.png)
 
 Here you'll find the **supplier** (where you purchased the license), the internal
-**cost centre or department** the license is for, your **contact** at the
-publisher, the internal **budget or department owner**, and optional **secondary
+**cost centre or department** the license is for, the **supplier contact**
+(whoever you bought from: the reseller, or the publisher for a direct purchase),
+the internal **budget or department owner**, and optional **secondary
 contacts**. Publisher, supplier, and cost-centre fields use canonical reference
 records; aliases are accepted, while the saved display text is canonical.
 
@@ -145,7 +146,7 @@ keeps a separate bounded allowance for multipart request metadata.
 Each purchase has a **completeness score**. The completeness requirements are defined by the admin under settings. In this example, the invoice, proof of entitlement, start and end date, contract number, and PO number are all required for a license to count as **complete**. Admins can also include notice date when contractual notice tracking is part of their housekeeping goals.
 
 For a freeware/open-source record, EULA, proof-of-entitlement, and
-publisher-contact requirements do not apply. Contract, PO, invoice, and quote
+supplier-contact requirements do not apply. Contract, PO, invoice, and quote
 requirements also do not apply unless the record includes paid support.
 Department and budget-owner requirements remain useful and continue to apply
 when enabled.
@@ -176,9 +177,9 @@ a renewal chain that share the same LT Ref.
 
 ## Email & delete
 
-![Email Publisher and Delete buttons](../assets/record-09-email-delete-buttons.png)
+![Email Supplier and Delete buttons](../assets/record-09-email-delete-buttons.png)
 
-At the bottom of the panel are the **Email Publisher** and **Delete** buttons.
+At the bottom of the panel are the **Email Supplier** and **Delete** buttons.
 
 !!! danger "Delete is permanent"
     Delete removes the license and its license-owned files after the database
@@ -187,11 +188,11 @@ At the bottom of the panel are the **Email Publisher** and **Delete** buttons.
     recovering deleted data unless you have backed up both the database and
     document storage.
 
-The **Email Publisher** button opens your default email program and pre-fills the message with the important license data:
+The **Email Supplier** button opens your default email program, addressed to the supplier contact and greeting the supplier (or the publisher for a direct purchase). It pre-fills the message with the important license data and leaves out any reference that is still blank:
 
-![Pre-filled email to the publisher](../assets/record-10-email-prefill.png)
+![Pre-filled email to the supplier](../assets/record-10-email-prefill.png)
 
-You can achieve the same result by clicking the publisher's email address under the **Relationships** section.
+You can achieve the same result by clicking the supplier contact's email address under the **Relationships** section.
 
 <div class="page-nav" markdown>
 [:material-arrow-right: Renewal &amp; the license lifecycle in action](renewal-lifecycle.md)

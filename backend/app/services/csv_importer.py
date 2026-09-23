@@ -103,7 +103,8 @@ _HEADER_MAP: dict[str, str] = {
     "contractenddate": "end_date",  # "ContractEndDate" (fallback for end)
     # LicenseTrack export display-label aliases (pre-round-trip-fix exports)
     "lt_ref": "license_ref",  # "LT Ref"
-    "publisher_contact": "contact_email",  # "Publisher Contact"
+    "publisher_contact": "contact_email",  # "Publisher Contact" (pre-1.1.24 label)
+    "supplier_contact": "contact_email",  # "Supplier Contact"
     "budget_owner": "budget_owner_email",  # "Budget Owner"
     "application_owner_email_address": "secondary_contacts",
     "notice_deadline": "notice_date",  # "Notice Deadline"

@@ -799,7 +799,7 @@ describe('DetailPanel history', () => {
   })
 })
 
-describe('DetailPanel email publisher scope', () => {
+describe('DetailPanel email supplier scope', () => {
   it('prompts for same-PO same-publisher license lines using case-insensitive matching', async () => {
     const user = userEvent.setup()
     const siblingLicense = {
@@ -826,7 +826,7 @@ describe('DetailPanel email publisher scope', () => {
       />
     )
 
-    await user.click(screen.getByRole('link', { name: /email publisher/i }))
+    await user.click(screen.getByRole('link', { name: /email supplier/i }))
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText(/This PO has 2 license lines for Acme Corp/i)).toBeInTheDocument()
@@ -855,7 +855,7 @@ describe('DetailPanel email publisher scope', () => {
       />
     )
 
-    const emailLink = screen.getByRole('link', { name: /email publisher/i })
+    const emailLink = screen.getByRole('link', { name: /email supplier/i })
     expect(decodeURIComponent(emailLink.getAttribute('href'))).toContain('Re: Contract C-001 - Widget Pro')
   })
 })

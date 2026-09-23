@@ -1,4 +1,6 @@
 import Icon from "../../ui/Icon.jsx";
+import { SUPPLIER_CONTACT_HELP } from "../../../constants/licenseData.js";
+import { buildSingleLicenseEmailHref } from "../../../utils/licenseEmailLinks.js";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
 
@@ -48,9 +50,7 @@ export default function PeopleSection({
     id,
     license: licensesById.get(id) || null,
   }));
-  const emailSubject = `Re: Contract ${license.contractNumber} - ${license.softwareDescription}`;
-  const emailBody = `Dear ${license.publisherName} team,\n\nI am writing regarding:\n\nContract: ${license.contractNumber}\nPO: ${license.poNumber}\nInvoice: ${license.invoiceNumber}\nSoftware: ${license.softwareDescription}\nPeriod: ${license.startDate} → ${license.endDate}\n\nBest regards`;
-  const mailto = `mailto:${license.contactEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+  const mailto = buildSingleLicenseEmailHref(license);
 
   return (
     <>
@@ -106,15 +106,15 @@ export default function PeopleSection({
           )}
           {license.lifecycleStatus !== "pending_renewal" ? (
             <div className="dp-field">
-              <span className="dp-field-label">Publisher Contact</span>
+              <span className="dp-field-label" title={SUPPLIER_CONTACT_HELP}>Supplier Contact</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <a href={mailto} className="email-link dp-fieldval-sm" title={license.contactEmail || undefined}>
                   <Icon name="mail" size={12} color="var(--accent)" />
                   <span className="dp-email-text">{license.contactEmail || "—"}</span>
                 </a>
                 {perms.canEdit && (
-                  <button type="button" className="dp-field-edit-icon" aria-label="Edit publisher contact"
-                    onClick={() => openFieldEdit({ fieldKey: "contactEmail", fieldLabel: "Publisher Contact", currentValue: license.contactEmail || "", inputType: "email" })}
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit supplier contact"
+                    onClick={() => openFieldEdit({ fieldKey: "contactEmail", fieldLabel: "Supplier Contact", currentValue: license.contactEmail || "", inputType: "email" })}
                   >
                     <Icon name="edit" size={11} />
                   </button>
@@ -124,12 +124,12 @@ export default function PeopleSection({
             </div>
           ) : (
             <div className="dp-field">
-              <span className="dp-field-label">Publisher Contact</span>
+              <span className="dp-field-label" title={SUPPLIER_CONTACT_HELP}>Supplier Contact</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val dp-fieldval-sm">{license.contactEmail || "—"}</div>
                 {perms.canEdit && (
-                  <button type="button" className="dp-field-edit-icon" aria-label="Edit publisher contact"
-                    onClick={() => openFieldEdit({ fieldKey: "contactEmail", fieldLabel: "Publisher Contact", currentValue: license.contactEmail || "", inputType: "email" })}
+                  <button type="button" className="dp-field-edit-icon" aria-label="Edit supplier contact"
+                    onClick={() => openFieldEdit({ fieldKey: "contactEmail", fieldLabel: "Supplier Contact", currentValue: license.contactEmail || "", inputType: "email" })}
                   >
                     <Icon name="edit" size={11} />
                   </button>

@@ -1,6 +1,6 @@
 import { formatPriceInput } from "../../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../../utils/formatting.js";
-import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../../constants/licenseData.js";
+import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES, SUPPLIER_CONTACT_HELP } from "../../../constants/licenseData.js";
 import {
   defaultMaintenanceCoverageForLicenseType,
   maintenanceCoverageOptionsForLicenseType,
@@ -102,8 +102,9 @@ export default function LicenseEditForm({
       </div>
       {customFields("dates")}
       <div className="fg">
-        <label htmlFor="license-edit-contact">Publisher Contact Email</label>
+        <label htmlFor="license-edit-contact">Supplier Contact</label>
         <input id="license-edit-contact" className="fi" type="email" value={editFields.contactEmail} onChange={(e) => setEditFields((p) => ({ ...p, contactEmail: e.target.value }))} />
+        <span className="field-hint">{SUPPLIER_CONTACT_HELP}</span>
       </div>
       <div className="fg">
         <label htmlFor="license-edit-budget-owner">Budget Owner Email</label>

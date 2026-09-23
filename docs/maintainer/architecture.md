@@ -93,8 +93,8 @@ remain a separate order count on the Pending Orders navigation badge.
 | `MaintenanceSection.jsx` | Maintenance coverage dates, linked maintenance children, add/disable maintenance actions |
 | `HistorySection.jsx` | Read-only License Record ID, creator account label, license-row creation and last-update timestamps, plus procurement-trail links to source sourcing and pending-order records |
 | `CommercialSection.jsx` | License type, metric, purchase/effective quantity, SKU, pricing, currency |
-| `PeopleSection.jsx` | Supplier, cost centre, publisher contact link, budget owner, secondary contacts |
-| `EmailPublisherAction.jsx` | Bottom Email Publisher action, same-PO/same-publisher scope prompt, mailto construction |
+| `PeopleSection.jsx` | Supplier, cost centre, supplier contact link, budget owner, secondary contacts |
+| `EmailSupplierAction.jsx` | Bottom Email Supplier action and same-PO/same-publisher scope prompt; mailto bodies come from `utils/licenseEmailLinks.js` |
 | `DocumentsSection.jsx` | License/procurement document display, upload/download/delete/preview controls, and integration-backed document action buttons |
 | `SuggestionReviewCard.jsx` | Shared selected-field review UI for document-processing and Official Extension suggestions |
 | `PluginSuggestionsSection.jsx` | Official Extension suggestion list and target-specific review metadata, composed through `SuggestionReviewCard` |

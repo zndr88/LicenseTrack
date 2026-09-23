@@ -43,3 +43,6 @@ export const createManualEntryData = () => ({
   portalUrl: "", quantity: "", skuCode: "", unitPrice: "", totalPoPrice: "", currency: "EUR", notes: "", budgetOwnerEmail: "", fileName: "manual-entry",
   strategyUsed: "manual", attemptedStrategies: [], fallbackUsed: false, engineDetails: [],
 });
+
+/** Meaning of License.contactEmail, shown wherever the field is labelled "Supplier Contact". */
+export const SUPPLIER_CONTACT_HELP = "Whoever you bought from - the reseller, or the publisher for direct purchases.";

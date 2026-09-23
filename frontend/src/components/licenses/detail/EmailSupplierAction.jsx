@@ -18,11 +18,11 @@ function getSamePublisherPoLicenses(license, allLicenses) {
   return matches.length > 0 ? matches : [license];
 }
 
-function EmailPublisherScopeDialog({ license, matchingLicenses, singleHref, allHref, onClose }) {
+function EmailSupplierScopeDialog({ license, matchingLicenses, singleHref, allHref, onClose }) {
   return (
     <ModalShell
-      title="Email Publisher"
-      titleId="dialog-title-email-publisher"
+      title="Email Supplier"
+      titleId="dialog-title-email-supplier"
       onClose={onClose}
       overlayStyle={{ zIndex: 300 }}
       modalStyle={{ width: 460, maxWidth: "92vw" }}
@@ -43,7 +43,7 @@ function EmailPublisherScopeDialog({ license, matchingLicenses, singleHref, allH
   );
 }
 
-export default function EmailPublisherAction({ license, allLicenses }) {
+export default function EmailSupplierAction({ license, allLicenses }) {
   const [emailScopePrompt, setEmailScopePrompt] = useState(false);
   const publisherPoLicenses = getSamePublisherPoLicenses(license, allLicenses);
   const singlePublisherEmailHref = buildSingleLicenseEmailHref(license);
@@ -61,10 +61,10 @@ export default function EmailPublisherAction({ license, allLicenses }) {
           setEmailScopePrompt(true);
         }}
       >
-        <Icon name="mail" size={14} />Email Publisher
+        <Icon name="mail" size={14} />Email Supplier
       </a>
       {emailScopePrompt && (
-        <EmailPublisherScopeDialog
+        <EmailSupplierScopeDialog
           license={license}
           matchingLicenses={publisherPoLicenses}
           singleHref={singlePublisherEmailHref}

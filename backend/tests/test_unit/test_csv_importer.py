@@ -762,6 +762,14 @@ def test_currency_explicit_usd():
 # 1h — Header aliases
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("header", ["Publisher Contact", "Supplier Contact", "Contact Email"])
+def test_contact_header_aliases_map_to_contact_email(header):
+    result = parse_csv(f"Publisher,Description,{header}\nAcme,Widget,sales@reseller.test\n".encode())
+
+    assert "contact_email" in result.headers_found
+    assert result.rows[0].contact_email == "sales@reseller.test"
+
+
 def test_header_aliases():
     raw_csv = (
         "License Ref,External Ref,Publisher,Description,Contract #,PO #,"

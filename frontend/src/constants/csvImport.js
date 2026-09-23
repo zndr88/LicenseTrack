@@ -12,7 +12,7 @@ export const NATIVE_FIELDS = [
   { value: "po_number",            label: "PO Number" },
   { value: "procurement_reference", label: "Procurement Reference" },
   { value: "invoice_number",       label: "Invoice Number" },
-  { value: "contact_email",        label: "Contact Email" },
+  { value: "contact_email",        label: "Supplier Contact" },
   { value: "supplier",             label: "Supplier" },
   { value: "cost_centre",          label: "Cost Centre" },
   { value: "license_type",         label: "License Type" },

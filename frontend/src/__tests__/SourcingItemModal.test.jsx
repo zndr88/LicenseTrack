@@ -280,7 +280,7 @@ describe("request supplier context", () => {
     });
 
     expect(screen.getByLabelText(/request supplier/i)).toHaveValue("Request Reseller");
-    expect(screen.getByLabelText(/contact email/i)).toHaveValue("request@example.test");
+    expect(screen.getByLabelText(/supplier contact/i)).toHaveValue("request@example.test");
     expect(screen.getByText(/applies to every line/i)).toBeInTheDocument();
   });
 
@@ -295,7 +295,7 @@ describe("request supplier context", () => {
     const supplier = screen.getByLabelText(/request supplier/i);
     await user.clear(supplier);
     await user.type(supplier, "Adobe Direct");
-    expect(screen.getByLabelText(/contact email/i)).toHaveValue("");
+    expect(screen.getByLabelText(/supplier contact/i)).toHaveValue("");
 
     await user.click(screen.getByRole("button", { name: /^save$/i }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));

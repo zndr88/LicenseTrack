@@ -56,6 +56,17 @@ describe("buildSingleLicenseEmailHref", () => {
   });
 });
 
+describe("supplier greeting", () => {
+  it("greets the supplier when one is recorded", () => {
+    expect(decode(buildSingleLicenseEmailHref({ ...FULL, supplier: "SoftwareOne" })).body).toMatch(/^Dear SoftwareOne team,/);
+    expect(decode(buildMultiLicenseEmailHref({ ...FULL, supplier: "SoftwareOne" }, [FULL])).body).toMatch(/^Dear SoftwareOne team,/);
+  });
+
+  it("greets the publisher for a direct purchase", () => {
+    expect(decode(buildSingleLicenseEmailHref({ ...FULL, supplier: "" })).body).toMatch(/^Dear Acme team,/);
+  });
+});
+
 describe("buildMultiLicenseEmailHref", () => {
   it("omits blank per-line values", () => {
     const { subject, body } = decode(buildMultiLicenseEmailHref(FULL, [

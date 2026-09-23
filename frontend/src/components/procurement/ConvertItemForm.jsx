@@ -169,7 +169,7 @@ export default function ConvertItemForm({
               <input id={`ca-invoice-number-${idx}`} className="fi" {...register(`items.${idx}.invoiceNumber`)} />
             </div>
             <div className="fg">
-              <label htmlFor={`ca-contact-email-${idx}`}>Contact Email</label>
+              <label htmlFor={`ca-contact-email-${idx}`}>Supplier Contact</label>
               <input id={`ca-contact-email-${idx}`} className="fi" {...register(`items.${idx}.contactEmail`)} />
               {itemErrors?.contactEmail && <span className="field-error">{itemErrors.contactEmail.message}</span>}
             </div>

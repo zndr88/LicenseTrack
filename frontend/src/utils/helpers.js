@@ -107,7 +107,7 @@ export const getCompleteness = (license, mandatoryFields) => {
     contractNumber: { label: "Contract number", check: () => !!license.contractNumber },
     poNumber: { label: "PO number", check: () => !!license.poNumber },
     invoiceNumber: { label: "Invoice number", check: () => !!license.invoiceNumber },
-    contactEmail: { label: "Publisher contact", check: () => !!license.contactEmail },
+    contactEmail: { label: "Supplier contact", check: () => !!license.contactEmail },
     costCentre: { label: "Cost Centre", check: () => !!license.costCentre },
     budgetOwnerEmail: { label: "Budget owner email", check: () => !!license.budgetOwnerEmail },
   };

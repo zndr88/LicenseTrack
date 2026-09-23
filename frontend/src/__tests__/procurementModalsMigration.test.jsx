@@ -444,7 +444,7 @@ describe("ConvertPendingOrderModal", () => {
   test("invalid contact email blocks submit and shows error", async () => {
     const { onConfirm } = renderModal();
 
-    const emailInput = screen.getByLabelText(/^contact email$/i);
+    const emailInput = screen.getByLabelText(/^supplier contact$/i);
     fireEvent.change(emailInput, { target: { value: "bad-email" } });
 
     fireEvent.click(screen.getByRole("button", { name: /confirm & create license/i }));
@@ -890,7 +890,7 @@ describe("ConvertAllModal", () => {
       softwareDescription: screen.getByLabelText(/software description/i).value,
       startDate: screen.getByLabelText(/start date/i).value,
       endDate: screen.getByLabelText(/^end date/i).value,
-      contactEmail: screen.getByLabelText(/^contact email$/i).value,
+      contactEmail: screen.getByLabelText(/^supplier contact$/i).value,
       supplier: screen.getByLabelText(/^supplier$/i).value,
       licenseType: screen.getByLabelText(/license type/i).value,
       licenseMetric: screen.getByLabelText(/license metric/i).value,
@@ -908,7 +908,7 @@ describe("ConvertAllModal", () => {
       softwareDescription: screen.getByLabelText(/software description/i).value,
       startDate: screen.getByLabelText(/start date/i).value,
       endDate: screen.getByLabelText(/^end date/i).value,
-      contactEmail: screen.getByLabelText(/^contact email$/i).value,
+      contactEmail: screen.getByLabelText(/^supplier contact$/i).value,
       supplier: screen.getByLabelText(/^supplier$/i).value,
       licenseType: screen.getByLabelText(/license type/i).value,
       licenseMetric: screen.getByLabelText(/license metric/i).value,
@@ -948,7 +948,7 @@ describe("ConvertAllModal", () => {
 
     const contractNumbers = screen.getAllByLabelText(/^contract number$/i);
     const invoiceNumbers = screen.getAllByLabelText(/^invoice number$/i);
-    const contactEmails = screen.getAllByLabelText(/^contact email$/i);
+    const contactEmails = screen.getAllByLabelText(/^supplier contact$/i);
     const suppliers = screen.getAllByLabelText(/^supplier$/i);
     const costCentres = screen.getAllByLabelText(/^cost centre$/i);
     const currencies = screen.getAllByLabelText(/^currency$/i);
@@ -1010,7 +1010,7 @@ describe("ConvertAllModal", () => {
     fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: "2026-01-01" } });
     fireEvent.change(screen.getByLabelText(/^end date/i), { target: { value: "2026-12-31" } });
 
-    const emailInput = screen.getByLabelText(/contact email/i);
+    const emailInput = screen.getByLabelText(/supplier contact/i);
     fireEvent.change(emailInput, { target: { value: "not-an-email" } });
 
     await user.click(screen.getByRole("button", { name: /confirm & create licenses/i }));

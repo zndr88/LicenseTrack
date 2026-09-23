@@ -103,7 +103,7 @@ const HELP_ARTICLES = [
           "Supplier: the reseller or vendor that supplied the license. Leave empty for a direct publisher purchase.",
           "Cost Centre and Budget Owner: identify the internal owner. The budget-owner email receives renewal notifications when configured and when the license's renewal notifications flag is enabled.",
           "Secondary Contacts: additional internal contacts copied on budget-owner renewal emails. They are useful for application owners, technical owners, or shared mailbox stakeholders who should stay informed without replacing the budget owner.",
-          "Publisher Contact: the external contact email used for publisher communication.",
+          "Supplier Contact: whoever you bought from - the reseller, or the publisher for direct purchases. Email Supplier and the contact link pre-fill a message to this address.",
           "Type: the license model, such as subscription, perpetual, maintenance, SaaS, OEM, freeware, service, or other. Service is useful for installation or implementation costs; Other keeps uncommon purchase types visible without treating them as renewable entitlement lines.",
           "Metric, Purchase Quantity, Quantity per Unit, and Effective Quantity: the metric describes how entitlement usage is counted. Purchase Quantity is the count bought on the order, Quantity per Unit describes the entitlement size of each bought unit, and Effective Quantity is calculated from those two values.",
           "SKU: the publisher or supplier product code used to identify the purchased item.",

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CURRENCIES, LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
+import { CURRENCIES, LICENSE_METRICS, LICENSE_TYPES, SUPPLIER_CONTACT_HELP } from "../../constants/licenseData.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseLocalizedNumber } from "../../utils/formatting.js";
 import {
@@ -517,7 +517,7 @@ const SourcingItemModal = ({
                   <Controller name="supplier" control={control} render={({ field }) => <ReferenceCombobox id="si-supplier" mode="supplier" placeholder="Reseller or direct supplier" {...field} onChange={(value) => { const previousSupplier = watch("supplier"); field.onChange(value); if (String(previousSupplier || "").trim().toLocaleLowerCase() !== value.trim().toLocaleLowerCase()) setValue("contactEmail", "", { shouldDirty: true }); }} />} />
                   <span className="field-hint">Applies to every line in this {pendingOrderId ? "pending order" : "sourcing request"}.</span>
                 </div>
-                <div className="fg"><label htmlFor="si-contact-email">Contact Email</label><input id="si-contact-email" className="fi" type="email" placeholder="contact@example.com" {...register("contactEmail")} />{errors.contactEmail && <span className="field-error">{errors.contactEmail.message}</span>}</div>
+                <div className="fg"><label htmlFor="si-contact-email">Supplier Contact</label><input id="si-contact-email" className="fi" type="email" placeholder="contact@example.com" {...register("contactEmail")} />{errors.contactEmail ? <span className="field-error">{errors.contactEmail.message}</span> : <span className="field-hint">{SUPPLIER_CONTACT_HELP}</span>}</div>
               </div>
               <div className="fr">
                 <div className="fg"><label htmlFor="si-cost-centre">Cost Centre</label><Controller name="costCentre" control={control} render={({ field }) => <ReferenceCombobox id="si-cost-centre" mode="costCentre" {...field} />} /></div>
