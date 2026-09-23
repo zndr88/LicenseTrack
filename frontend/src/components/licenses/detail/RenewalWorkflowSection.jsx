@@ -5,7 +5,6 @@ import { formatDate } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
 import { useRenewalPanelModel } from "./useRenewalPanelModel.js";
 import { isRenewalActionEligible } from "../../../utils/renewalBundle.js";
-import TermChain from "./TermChain.jsx";
 
 // PO bundles at or below this size stay expanded; larger ones start collapsed.
 const BUNDLE_COLLAPSE_THRESHOLD = 8;
@@ -29,6 +28,7 @@ export default function RenewalWorkflowSection({
   onUnlinkExistingSuccessor,
   setConfirmAction,
   setToast,
+  onDismiss,
 }) {
   const { poSiblings, bundleCount, actionDays } = useRenewalPanelModel({ license, allLicenses, globalSettings });
   const [initiatingRenewal, setInitiatingRenewal] = useState(false);
@@ -64,6 +64,13 @@ export default function RenewalWorkflowSection({
   const canStartRenewal = isRenewableLicense(license);
   const canLinkExistingSuccessor = Boolean(license.publisherName?.trim());
   const isWithinActionWindow = isRenewalActionEligible(license, actionDays);
+  const showWorkflowBox = isWithinActionWindow &&
+    license.lifecycleStatus !== "pending_renewal" && !license.renewedToId &&
+    !license.retired && !license.retirementScheduled && canStartRenewal;
+  const hasRenewalContent = showWorkflowBox ||
+    Boolean(license.renewedToId && ["active", "expiring", "expired", "renewed"].includes(exp.status)) ||
+    license.lifecycleStatus === "pending_renewal" ||
+    Boolean(license.renewedFromId);
   const successor = license.renewedToId
     ? allLicenses.find((candidate) => candidate.id === license.renewedToId)
     : null;
@@ -88,12 +95,17 @@ export default function RenewalWorkflowSection({
     });
   };
 
+  if (!hasRenewalContent) return null;
+
   return (
-    <>
+    <div className="dp-renewal-area">
+      {onDismiss && (
+        <button type="button" className="dp-renewal-dismiss" aria-label="Hide renewal workflow" title="Hide until this license is reopened" onClick={onDismiss}>
+          <Icon name="x" size={12} />
+        </button>
+      )}
       {/* Renewal Workflow box */}
-      {isWithinActionWindow &&
-        license.lifecycleStatus !== "pending_renewal" && !license.renewedToId &&
-        !license.retired && !license.retirementScheduled && canStartRenewal && (
+      {showWorkflowBox && (
         <div className="dp-purple-box" style={{ padding: "12px 14px" }}>
           <div className="dp-renewal-title">
             <Icon name="clock" size={14} color="var(--purple-text)" /> Renewal Workflow
@@ -332,7 +344,6 @@ export default function RenewalWorkflowSection({
           </div>
         );
       })()}
-      <TermChain license={license} allLicenses={allLicenses} userSettings={userSettings} onNavigate={onNavigate} />
-    </>
+    </div>
   );
 }

@@ -460,16 +460,30 @@
 }
 
 .term-chain {
-  margin: 10px 0;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  background: var(--bg-2);
+  margin: 0;
 }
 
-.term-chain h4 {
-  margin: 0 0 8px;
-  font-size: 12px;
+.dp-renewal-area {
+  position: relative;
+}
+
+.dp-renewal-dismiss {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  display: inline-flex;
+  padding: 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.dp-renewal-dismiss:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
 }
 
 .term-chain-list {

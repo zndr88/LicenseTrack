@@ -1649,3 +1649,33 @@ describe('DetailPanel field editing', () => {
     }))
   })
 })
+
+describe('DetailPanel renewal box dismiss and term chain', () => {
+  const predecessor = { ...baseLicense, id: 1, renewedToId: 2, lifecycleStatus: null, expiration: { status: 'active', label: '10d' } }
+  const successor = { ...baseLicense, id: 2, renewedFromId: 1, startDate: '2025-01-02', endDate: '2026-01-01', lifecycleStatus: null }
+  const chain = [predecessor, successor]
+
+  it('hides the renewal area until another license opens, and keeps the term chain', async () => {
+    const { rerender } = render(<DetailPanel {...baseProps} license={successor} allLicenses={chain} />)
+
+    expect(screen.getByText('Renewed From')).toBeInTheDocument()
+    const termChainHeader = screen.getByRole('button', { name: /term chain \(2 terms\)/i })
+    expect(termChainHeader).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide renewal workflow' }))
+    expect(screen.queryByText('Renewed From')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /term chain \(2 terms\)/i })).toBeInTheDocument()
+
+    rerender(<QueryClientProvider client={new QueryClient()}><DetailPanel {...baseProps} license={predecessor} allLicenses={chain} /></QueryClientProvider>)
+    expect(screen.getByRole('button', { name: 'Hide renewal workflow' })).toBeInTheDocument()
+  })
+
+  it('shows the renewal area again when the panel is reopened', () => {
+    const { unmount } = render(<DetailPanel {...baseProps} license={successor} allLicenses={chain} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Hide renewal workflow' }))
+    unmount()
+
+    render(<DetailPanel {...baseProps} license={successor} allLicenses={chain} />)
+    expect(screen.getByText('Renewed From')).toBeInTheDocument()
+  })
+})

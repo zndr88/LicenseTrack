@@ -1,4 +1,5 @@
 import { formatDate } from "../../../utils/formatting.js";
+import DetailSectionHeader from "./DetailSectionHeader.jsx";
 
 function connectedTerms(currentId, allLicenses) {
   const byId = new Map(allLicenses.map((license) => [license.id, license]));
@@ -24,32 +25,37 @@ function connectedTerms(currentId, allLicenses) {
   );
 }
 
-export default function TermChain({ license, allLicenses, userSettings, onNavigate }) {
+/** Own collapsible License Details section, shown only when the chain has two or more terms. */
+export default function TermChain({ license, allLicenses, userSettings, onNavigate, isOpen, onToggle }) {
   const terms = connectedTerms(license.id, allLicenses);
   if (terms.length < 2) return null;
   return (
-    <section className="term-chain" aria-label="License term chain">
-      <h4>Term chain</h4>
-      <div className="term-chain-list">
-        {terms.map((term) => (
-          <button
-            key={term.id}
-            type="button"
-            className={`term-chain-item${term.id === license.id ? " current" : ""}`}
-            onClick={() => term.id !== license.id && onNavigate(term.id)}
-            aria-current={term.id === license.id ? "true" : undefined}
-          >
-            <span className="term-chain-main">
-              <strong>{term.softwareDescription}</strong>
-              <span>{term.startDate ? formatDate(term.startDate, userSettings) : "No start date"} – {term.endDate ? formatDate(term.endDate, userSettings) : "No end date"}</span>
-            </span>
-            <span className="term-chain-meta">
-              <span>{term.expirationStatus || "Term"}</span>
-              <span>Qty {term.quantity || "—"}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-    </section>
+    <>
+      <DetailSectionHeader sectionKey="termChain" title={`Term chain (${terms.length} terms)`} isOpen={isOpen} onToggle={onToggle} />
+      {isOpen && (
+        <section className="dp-section-body term-chain" id="dp-section-termChain" aria-label="License term chain">
+          <div className="term-chain-list">
+            {terms.map((term) => (
+              <button
+                key={term.id}
+                type="button"
+                className={`term-chain-item${term.id === license.id ? " current" : ""}`}
+                onClick={() => term.id !== license.id && onNavigate(term.id)}
+                aria-current={term.id === license.id ? "true" : undefined}
+              >
+                <span className="term-chain-main">
+                  <strong>{term.softwareDescription}</strong>
+                  <span>{term.startDate ? formatDate(term.startDate, userSettings) : "No start date"} – {term.endDate ? formatDate(term.endDate, userSettings) : "No end date"}</span>
+                </span>
+                <span className="term-chain-meta">
+                  <span>{term.expirationStatus || "Term"}</span>
+                  <span>Qty {term.quantity || "—"}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
   );
 }

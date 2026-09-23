@@ -8,6 +8,7 @@ import PluginSuggestionsSection from "./detail/PluginSuggestionsSection.jsx";
 import CompletenessFlagsSection from "./detail/CompletenessFlagsSection.jsx";
 import IdentitySection from "./detail/IdentitySection.jsx";
 import RenewalWorkflowSection from "./detail/RenewalWorkflowSection.jsx";
+import TermChain from "./detail/TermChain.jsx";
 import ContractDatesSection from "./detail/ContractDatesSection.jsx";
 import CommercialSection from "./detail/CommercialSection.jsx";
 import PeopleSection from "./detail/PeopleSection.jsx";
@@ -83,6 +84,9 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
   } = useDetailPanelState({ license, onUpdate, onClose, userSettings, globalSettings, user, onPreviewDocument });
   const [showLegacyLinkModal, setShowLegacyLinkModal] = useState(false);
   const [showExistingSuccessorModal, setShowExistingSuccessorModal] = useState(false);
+  // Transient: hidden only for the license it was dismissed on, and never persisted,
+  // so it returns when the panel reopens or another license is opened.
+  const [renewalHiddenForId, setRenewalHiddenForId] = useState(null);
   const canDownloadDocuments = user?.role !== "viewer" || user?.allowDownloads !== false;
 
   const notesPreview = license.notes
@@ -141,8 +145,8 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               onLinkLegacyMaintenance={() => setShowLegacyLinkModal(true)}
             />
 
-            {/* Renewal / coterm blocks - always visible, between Identity and Dates */}
-            <RenewalWorkflowSection
+            {/* Renewal / coterm blocks - between Identity and Dates; dismissable per view */}
+            {renewalHiddenForId !== license.id && <RenewalWorkflowSection
               license={license}
               perms={perms}
               exp={exp}
@@ -161,6 +165,16 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               onUnlinkExistingSuccessor={onUnlinkExistingSuccessor}
               setConfirmAction={setConfirmAction}
               setToast={setToast}
+              onDismiss={() => setRenewalHiddenForId(license.id)}
+            />}
+
+            <TermChain
+              license={license}
+              allLicenses={allLicenses}
+              userSettings={userSettings}
+              onNavigate={onNavigate}
+              isOpen={openSections.termChain}
+              onToggle={toggleSection}
             />
 
             <ContractDatesSection
