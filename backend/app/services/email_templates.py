@@ -207,6 +207,7 @@ def manager_digest(
     expiring = [n for n in notifications if n.get("type") == "expiring"]
     notice_due = [n for n in notifications if n.get("type") == "notice_due"]
     incomplete = [n for n in notifications if n.get("type") == "incomplete"]
+    support_ending = [n for n in notifications if n.get("type") in {"support_expiring", "support_expired"}]
 
     total = len(notifications)
 
@@ -223,6 +224,7 @@ def manager_digest(
         + _chip(len(expiring), "Expiring Soon", "#f59e0b")
         + _chip(len(notice_due), "Notice Deadlines", "#7c3aed")
         + _chip(len(incomplete), "Incomplete", "#3b82f6")
+        + (_chip(len(support_ending), "Support Ending", "#0f766e") if support_ending else "")
     )
 
     # -- Notification row helper --------------------------------------------
@@ -300,6 +302,7 @@ def manager_digest(
 {_section("Expired Licenses", expired, "#ef4444")}
 {_section("Expiring Soon", expiring, "#f59e0b")}
 {_section("Notice Deadlines", notice_due, "#7c3aed")}
+{_section("Included Support Ending", support_ending, "#0f766e")}
 {_section("Incomplete Records", incomplete, "#3b82f6")}
 """
 

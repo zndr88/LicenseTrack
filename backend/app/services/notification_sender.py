@@ -23,7 +23,9 @@ from app.services.settings_service import invalidate_global_settings_cache
 
 log = logging.getLogger(__name__)
 
-_MANAGER_DIGEST_TYPES = frozenset({"expired", "expiring", "notice_due", "incomplete"})
+_MANAGER_DIGEST_TYPES = frozenset(
+    {"expired", "expiring", "notice_due", "incomplete", "support_expiring", "support_expired"}
+)
 _RUN_LOCK_STALE_AFTER = timedelta(minutes=15)
 
 

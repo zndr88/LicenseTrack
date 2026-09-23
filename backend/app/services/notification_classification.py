@@ -5,7 +5,12 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from app.services.license_service import compute_completeness, compute_expiration_status, is_renewable_license
+from app.services.license_service import (
+    compute_completeness,
+    compute_expiration_status,
+    compute_support_days_remaining,
+    is_renewable_license,
+)
 
 
 INCOMPLETE_COMPLETENESS_THRESHOLD = 100
@@ -123,6 +128,35 @@ def classify_license_alerts(
                     _expiry_severity(days_left),
                     license_obj.end_date,
                     days_left,
+                )
+            )
+
+    # Included support on perpetual/OEM/freeware ends on its own date, using the
+    # same window as license expiry. Switching to a separately tracked record
+    # removes the included status, so an active successor never alerts here.
+    support_days = compute_support_days_remaining(license_obj, today)
+    if expiry_notifications_enabled and not is_upcoming and support_days is not None:
+        support_end = license_obj.maintenance_end_date
+        if support_days < 0:
+            alerts.append(
+                _alert(
+                    license_obj,
+                    "support_expired",
+                    f"Support expired {abs(support_days)} {_day_word(abs(support_days))} ago on {support_end.isoformat()}",
+                    "critical",
+                    support_end,
+                    support_days,
+                )
+            )
+        elif support_days <= expiry_window_days:
+            alerts.append(
+                _alert(
+                    license_obj,
+                    "support_expiring",
+                    f"Support ends in {support_days} {_day_word(support_days)} on {support_end.isoformat()}",
+                    _expiry_severity(support_days),
+                    support_end,
+                    support_days,
                 )
             )
 

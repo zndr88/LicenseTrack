@@ -873,3 +873,42 @@ def test_emails_link_licenses_only_when_a_public_url_is_configured():
     assert 'href="https://lt.example.com/licenses/42"' in email_templates.budget_owner_alert([linked])
     assert "href=" not in email_templates.budget_owner_alert([plain])
     assert 'href="https://lt.example.com/licenses/42"' in email_templates.manager_digest([{**linked, "type": "expiring"}])
+
+
+@pytest.mark.parametrize(
+    ("support_days", "coverage", "expected"),
+    [
+        (10, "included", "support_expiring"),
+        (-3, "included", "support_expired"),
+        (200, "included", None),
+        (10, "separately_tracked", None),
+    ],
+)
+def test_included_support_alerts(support_days, coverage, expected):
+    from app.models.license import MaintenanceCoverage
+
+    today = date(2026, 8, 26)
+    license_obj = License(
+        publisher_name="Vendor",
+        software_description="Server",
+        license_type=LicenseType.perpetual,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        maintenance_coverage=MaintenanceCoverage(coverage),
+        maintenance_end_date=today + timedelta(days=support_days),
+        is_retired=False,
+    )
+
+    types = {alert["type"] for alert in classify_license_alerts(license_obj, [], {}, 30, 30, today=today)}
+
+    support_types = types & {"support_expiring", "support_expired"}
+    assert support_types == ({expected} if expected else set())
+
+
+def test_manager_digest_lists_included_support_ending():
+    html = email_templates.manager_digest([
+        {**_make_license_entry(), "type": "support_expiring", "detail": "Support ends in 10 days on 2026-09-05"},
+    ])
+
+    assert "Included Support Ending" in html
+    assert "Support ends in 10 days" in html

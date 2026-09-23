@@ -19,7 +19,7 @@ import { get } from "./client.js";
  *     software_name: string,
  *     publisher:     string,
  *     budget_owner_email: string,
- *     type:          "expired" | "expiring" | "notice_due" | "incomplete",
+ *     type:          "expired" | "expiring" | "notice_due" | "incomplete" | "support_expiring" | "support_expired",
  *     detail:        string,
  *     severity:      "critical" | "warning" | "info",
  *     relevant_date: string | null,   // ISO date string

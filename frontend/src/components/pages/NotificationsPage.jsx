@@ -83,6 +83,8 @@ export default function NotificationsPage({
                 expiring: { bg: "var(--orange-m)", fg: "var(--orange)", label: "var(--orange-text)", title: "Expiring Soon" },
                 notice_due: { bg: "var(--purple-dim)", fg: "var(--purple)", label: "var(--purple-text)", title: "Notice Deadline" },
                 incomplete: { bg: "var(--orange-m)", fg: "var(--orange)", label: "var(--orange-text)", title: "Incomplete" },
+                support_expiring: { bg: "var(--orange-m)", fg: "var(--orange)", label: "var(--orange-text)", title: "Support Ending" },
+                support_expired: { bg: "var(--red-m)", fg: "var(--red)", label: "var(--red-text)", title: "Support Expired" },
               };
               const c = colors[notification.type] || colors.incomplete;
               const icon = notification.type === "incomplete" ? "alert" : "clock";
