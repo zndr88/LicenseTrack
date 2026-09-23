@@ -6,6 +6,8 @@ import {
   RISK_CLASS,
   getRiskFlagDisplay,
   getPrimaryAction,
+  effectiveDeadlineDays,
+  noticeIsEarlierDeadline,
   rowTone,
 } from "./workbenchRules.js";
 import {
@@ -38,9 +40,14 @@ function renderCell(column, row, { startingId, locale, userSettings, canStartRen
 
   switch (column.id) {
     case "dueDate":
-      return <td key={column.id} className="mono">{formatDate(row.endDate, userSettings)}</td>;
+      return noticeIsEarlierDeadline(row) ? (
+        <td key={column.id} className="mono" title={`Notice deadline. Term ends ${formatDate(row.endDate, userSettings)}.`}>
+          {formatDate(row.noticeDate, userSettings)}
+          <span className="rw-notice-marker" aria-label="Notice deadline">N</span>
+        </td>
+      ) : <td key={column.id} className="mono">{formatDate(row.endDate, userSettings)}</td>;
     case "days":
-      return <td key={column.id} className="mono lp-mono-bold">{formatDays(row.daysUntilExpiry)}</td>;
+      return <td key={column.id} className="mono lp-mono-bold">{formatDays(effectiveDeadlineDays(row))}</td>;
     case "license":
       return (
         <td key={column.id}>

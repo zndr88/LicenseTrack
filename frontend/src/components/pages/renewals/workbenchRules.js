@@ -7,6 +7,7 @@ export const VIEW_OPTIONS = [
   { key: "due_30",       label: "30 Days",      color: "var(--orange)"       },
   { key: "due_60",       label: "60 Days",      color: "var(--orange)"       },
   { key: "due_90",       label: "90 Days",      color: "var(--orange)"       },
+  { key: "notice_due",   label: "Notice Due",   color: "var(--orange)"       },
   { key: "in_progress",  label: "In Progress",  color: "var(--purple-text)"  },
   { key: "missing_docs", label: "Missing Docs", color: "var(--orange)"       },
   { key: "high_value",   label: "High Value",   color: "var(--green)"        },
@@ -44,6 +45,7 @@ export const EMPTY_COPY = {
   due_30: "No renewals are due in the next 30 days.",
   due_60: "No renewals are due in the next 60 days.",
   due_90: "No renewals are due in the next 90 days.",
+  notice_due: "No unhandled notice deadlines in this window.",
   in_progress: "No renewals are in progress.",
   missing_docs: "No renewals are missing documents.",
   high_value: "No high-value renewals in this window.",
@@ -59,17 +61,19 @@ const STATUS_RANK = {
 };
 const RISK_PRIORITY = {
   expired: 0,
-  renewal_not_started: 1,
-  due_30: 2,
-  high_value: 3,
-  due_60: 4,
-  incomplete: 5,
-  no_supplier: 6,
-  no_contract: 7,
-  no_documents: 8,
-  no_po: 9,
-  pending_order: 10,
-  due_90: 11,
+  notice_passed: 1,
+  renewal_not_started: 2,
+  notice_due: 3,
+  due_30: 4,
+  high_value: 5,
+  due_60: 6,
+  incomplete: 7,
+  no_supplier: 8,
+  no_contract: 9,
+  no_documents: 10,
+  no_po: 11,
+  pending_order: 12,
+  due_90: 13,
 };
 
 export function sortText(value) {
@@ -113,6 +117,20 @@ function isOverdue(row) {
     row.daysUntilExpiry < 0;
 }
 
+function hasValue(value) {
+  return value !== null && value !== undefined;
+}
+
+/** True when the unhandled notice deadline comes before (or instead of) the end date. */
+export function noticeIsEarlierDeadline(row) {
+  return hasValue(row.daysUntilNotice) && (!hasValue(row.daysUntilExpiry) || row.daysUntilNotice < row.daysUntilExpiry);
+}
+
+/** Days to the earlier of the notice deadline and the end date. */
+export function effectiveDeadlineDays(row) {
+  return noticeIsEarlierDeadline(row) ? row.daysUntilNotice : row.daysUntilExpiry;
+}
+
 function hasRisk(row, code) {
   return (row.riskFlags ?? []).some((flag) => flag.code === code);
 }
@@ -129,6 +147,7 @@ export function getViewCounts(rows, highValueThreshold = HIGH_VALUE_THRESHOLD) {
     due_30: rows.filter((row) => dueWithin(row, 30)).length,
     due_60: rows.filter((row) => dueWithin(row, 60)).length,
     due_90: rows.filter((row) => dueWithin(row, 90)).length,
+    notice_due: rows.filter((row) => hasValue(row.daysUntilNotice)).length,
     in_progress: rows.filter((row) => IN_PROGRESS_STATUSES.has(row.renewalStatus)).length,
     missing_docs: rows.filter((row) => row.documentCount === 0).length,
     high_value: rows.filter((row) => Number(row.estimatedAnnualValue ?? 0) >= highValueThreshold || hasRisk(row, "high_value")).length,
@@ -145,8 +164,8 @@ export function prioritySortRows(rows) {
     const bInProgress = IN_PROGRESS_STATUSES.has(b.renewalStatus);
     if (!aExpired && !bExpired && aInProgress !== bInProgress) return aInProgress ? 1 : -1;
 
-    const aDays = a.daysUntilExpiry ?? Number.MAX_SAFE_INTEGER;
-    const bDays = b.daysUntilExpiry ?? Number.MAX_SAFE_INTEGER;
+    const aDays = effectiveDeadlineDays(a) ?? Number.MAX_SAFE_INTEGER;
+    const bDays = effectiveDeadlineDays(b) ?? Number.MAX_SAFE_INTEGER;
     if (aDays !== bDays) return aDays - bDays;
 
     const aHighSeverity = highestSeverityScore(a);

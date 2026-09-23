@@ -4,10 +4,12 @@ import {
   renderCustomFieldDisplay,
 } from "../components/pages/renewals/workbenchColumns.js";
 import {
+  effectiveDeadlineDays,
   getPrimaryAction,
   getRiskFlagDisplay,
   getViewCounts,
   includesSearch,
+  noticeIsEarlierDeadline,
   prioritySortRows,
   rowTone,
 } from "../components/pages/renewals/workbenchRules.js";
@@ -42,6 +44,18 @@ describe("RenewalWorkbenchPage helpers", () => {
     ));
     expect(getViewCounts(rows)[`due_${window}`]).toBe(2);
     expect(getViewCounts(rows).overdue).toBe(1);
+  });
+
+  test("uses the notice deadline when it comes before the end date", () => {
+    const noticeDriven = row({ licenseId: 5, daysUntilExpiry: 100, daysUntilNotice: 10, noticeDate: "2026-10-03" });
+    const endDriven = row({ licenseId: 6, daysUntilExpiry: 40 });
+    const lateNotice = row({ licenseId: 7, daysUntilExpiry: 20, daysUntilNotice: 50 });
+
+    expect(noticeIsEarlierDeadline(noticeDriven)).toBe(true);
+    expect(noticeIsEarlierDeadline(lateNotice)).toBe(false);
+    expect(effectiveDeadlineDays(noticeDriven)).toBe(10);
+    expect(prioritySortRows([endDriven, lateNotice, noticeDriven]).map((item) => item.licenseId)).toEqual([5, 7, 6]);
+    expect(getViewCounts([noticeDriven, endDriven, lateNotice]).notice_due).toBe(2);
   });
 
   test("derives prebuilt view counts from all rows", () => {

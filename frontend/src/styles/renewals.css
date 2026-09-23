@@ -59,4 +59,4 @@
 .rw-actions { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .rw-action-btn { padding: 4px 8px; font-size: 11px; min-height: 26px; }
 .rw-action-btn:disabled { opacity: .55; cursor: wait; }
-
+.rw-notice-marker { display: inline-block; margin-left: 5px; padding: 0 4px; border-radius: 3px; background: var(--orange-dim); color: var(--orange-text); font-size: 10px; font-weight: 700; }
