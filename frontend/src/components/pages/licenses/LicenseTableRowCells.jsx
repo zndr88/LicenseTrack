@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LICENSE_TYPES, LICENSE_METRICS, MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
+import { CURRENCIES, LICENSE_TYPES, LICENSE_METRICS, MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
 import { formatCost, getPoTotal } from "../../../utils/helpers.js";
 import Badge from "../../ui/Badge.jsx";
 import { parseLocalizedNumber, formatDate, formatDateTime } from "../../../utils/formatting.js";
@@ -8,7 +8,21 @@ import { formatQuantity } from "../../../utils/quantity.js";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
 import { getCalcTotalValue } from "../../../utils/sort.js";
 import { renewableLabel, supportStatusBadge } from "../../../utils/licenseTypeRules.js";
+import { maintenanceCoverageOptionsForLicenseType } from "../../../utils/maintenanceCoverage.js";
 
+function licenseInvoiceNumbers(license) {
+  return Array.isArray(license.invoiceNumbers)
+    ? license.invoiceNumbers.filter(Boolean)
+    : (license.invoiceNumber ? [license.invoiceNumber] : []);
+}
+
+function currencyOptions(license) {
+  const values = CURRENCIES.includes(license.currency) || !license.currency ? CURRENCIES : [...CURRENCIES, license.currency];
+  return values.map((value) => ({ value, label: value }));
+}
+
+// Optional per-row hooks: isEditable(license) falls back to the read-only cell,
+// getValue(license) reads the input value, getOptions(license) builds select options.
 const INLINE_EDIT_CONFIG = {
   publisher: { fieldKey: "publisherName", inputType: "text", className: "pub-cell", referenceMode: "publisher" },
   description: { fieldKey: "softwareDescription", inputType: "text", className: "lp-td", style: { maxWidth: 240 } },
@@ -26,6 +40,39 @@ const INLINE_EDIT_CONFIG = {
   startDate: { fieldKey: "startDate", inputType: "date", className: "mono", style: { width: 100 } },
   endDate: { fieldKey: "endDate", inputType: "date", className: "mono", style: { width: 100 } },
   noticeDate: { fieldKey: "noticeDate", inputType: "date", className: "mono", style: { width: 110 } },
+  contactEmail: { fieldKey: "contactEmail", inputType: "email", className: "lp-td" },
+  budgetOwnerEmail: { fieldKey: "budgetOwnerEmail", inputType: "email", className: "lp-td" },
+  currency: { fieldKey: "currency", inputType: "select", className: "mono", required: true, getOptions: currencyOptions },
+  purchaseDate: {
+    fieldKey: "purchaseDate",
+    inputType: "date",
+    className: "mono",
+    getValue: (license) => (license.purchaseDate ? String(license.purchaseDate).slice(0, 10) : ""),
+  },
+  portalUrl: {
+    fieldKey: "portalUrl",
+    inputType: "url",
+    className: "lp-td",
+    // Portal URL only applies to SaaS, matching the detail panel.
+    isEditable: (license) => license.licenseType === "saas",
+  },
+  // A single-field edit replaces the whole invoice list, so licenses with
+  // several invoices stay read-only here and are edited in the detail panel.
+  invoiceNumber: {
+    fieldKey: "invoiceNumber",
+    inputType: "text",
+    className: "mono",
+    isEditable: (license) => licenseInvoiceNumbers(license).length <= 1,
+    getValue: (license) => license.invoiceNumber || licenseInvoiceNumbers(license)[0] || "",
+  },
+  maintenanceCoverage: {
+    fieldKey: "maintenanceCoverage",
+    inputType: "select",
+    className: "lp-td",
+    required: true,
+    isEditable: (license) => license.licenseType !== "maintenance",
+    getOptions: (license) => maintenanceCoverageOptionsForLicenseType(license.licenseType),
+  },
 };
 
 function normalizeInlineValue(fieldKey, value, userSettings) {
@@ -36,6 +83,7 @@ function normalizeInlineValue(fieldKey, value, userSettings) {
 }
 
 function InlineEditableCell({ license, col, config, currentValue, onInlineFieldSave, userSettings }) {
+  const options = config.getOptions ? config.getOptions(license) : (config.options ?? []);
   const [value, setValue] = useState(currentValue ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -99,8 +147,8 @@ function InlineEditableCell({ license, col, config, currentValue, onInlineFieldS
       <div className="lp-inline-edit-wrap">
         {config.inputType === "select" ? (
           <select {...commonProps} className={`${commonProps.className} fi-select`}>
-            <option value="">-</option>
-            {(config.options ?? []).map((option) => (
+            {(!config.required || !value) && <option value="">-</option>}
+            {options.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
@@ -189,13 +237,15 @@ function renderCustomFieldCell({ col, license, customFieldValuesMap, displayCurr
 }
 
 function InvoiceNumberCell({ license }) {
-  const invoiceNumbers = Array.isArray(license.invoiceNumbers)
-    ? license.invoiceNumbers.filter(Boolean)
-    : (license.invoiceNumber ? [license.invoiceNumber] : []);
+  const invoiceNumbers = licenseInvoiceNumbers(license);
   const primary = license.invoiceNumber || invoiceNumbers[0] || "";
 
   return (
-    <td key="invoiceNumber" className="mono">
+    <td
+      key="invoiceNumber"
+      className="mono"
+      title={invoiceNumbers.length > 1 ? "Several invoices: edit them in the license details" : undefined}
+    >
       {primary || "-"}
       {invoiceNumbers.length > 1 && <span className="invoice-count-badge">+{invoiceNumbers.length - 1}</span>}
     </td>
@@ -218,7 +268,10 @@ export default function LicenseTableRowCells({
   const locale = userSettings.numberFormatLocale ?? "en-US";
 
   return visibleColumns.map((col) => {
-    const inlineConfig = inlineEditEnabled ? INLINE_EDIT_CONFIG[col.key] : null;
+    const candidateConfig = inlineEditEnabled ? INLINE_EDIT_CONFIG[col.key] : null;
+    const inlineConfig = candidateConfig && (!candidateConfig.isEditable || candidateConfig.isEditable(license))
+      ? candidateConfig
+      : null;
     if (inlineConfig) {
       return (
         <InlineEditableCell
@@ -226,7 +279,7 @@ export default function LicenseTableRowCells({
           license={license}
           col={col}
           config={inlineConfig}
-          currentValue={license[inlineConfig.fieldKey] ?? ""}
+          currentValue={inlineConfig.getValue ? inlineConfig.getValue(license) : (license[inlineConfig.fieldKey] ?? "")}
           onInlineFieldSave={onInlineFieldSave}
           userSettings={userSettings}
         />

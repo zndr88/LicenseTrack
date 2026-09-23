@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import LicenseTableRowCells from "../components/pages/licenses/LicenseTableRowCells.jsx";
 import { rowStyle } from "../components/pages/licenses/licenseTableShared.js";
@@ -202,5 +202,86 @@ describe("LicenseTableRowCells calculated total", () => {
   ])("renders a real zero total for valid zero operands: %o", (values) => {
     renderCells({ id: 1, ...values, currency: "EUR", expiration: { status: "active", label: "Active" } }, [{ key: "calcTotal" }]);
     expect(screen.getByText("€0.00")).toBeInTheDocument();
+  });
+});
+
+describe("LicenseTableRowCells inline edit coverage", () => {
+  const baseLicense = {
+    id: 7,
+    licenseType: "perpetual",
+    currency: "EUR",
+    contactEmail: "sales@vendor.test",
+    budgetOwnerEmail: "",
+    purchaseDate: "2026-03-04T00:00:00",
+    portalUrl: "",
+    maintenanceCoverage: "included",
+    invoiceNumber: "INV-1",
+    invoiceNumbers: ["INV-1"],
+    completeness: { percentage: 100, isComplete: true },
+    expiration: { status: "perpetual", label: "Perpetual" },
+  };
+
+  function renderInline(license, keys, onInlineFieldSave = vi.fn(async () => ({ ok: true }))) {
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <LicenseTableRowCells
+              license={license}
+              visibleColumns={keys.map((key) => ({ key, label: key }))}
+              selectedIds={new Set()}
+              setSelectedIds={vi.fn()}
+              licenses={[license]}
+              customFieldValuesMap={new Map()}
+              displayCurrency="EUR"
+              userSettings={{ numberFormatLocale: "en-US" }}
+              inlineEditEnabled
+              onInlineFieldSave={onInlineFieldSave}
+            />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    return onInlineFieldSave;
+  }
+
+  test("contacts, currency, purchase date, coverage and a single invoice are inline-editable", () => {
+    renderInline({ ...baseLicense, licenseType: "subscription" }, ["contactEmail", "budgetOwnerEmail", "currency", "purchaseDate", "maintenanceCoverage", "invoiceNumber"]);
+
+    expect(screen.getByLabelText("Edit contactEmail")).toHaveValue("sales@vendor.test");
+    expect(screen.getByLabelText("Edit budgetOwnerEmail")).toHaveValue("");
+    const currency = screen.getByLabelText("Edit currency");
+    expect(currency).toHaveValue("EUR");
+    expect(Array.from(currency.options).map((option) => option.value)).not.toContain("");
+    expect(screen.getByLabelText("Edit purchaseDate")).toHaveValue("2026-03-04");
+    const coverage = screen.getByLabelText("Edit maintenanceCoverage");
+    expect(coverage).toHaveValue("included");
+    expect(Array.from(coverage.options).map((option) => option.value)).not.toContain("separately_tracked");
+    expect(screen.getByLabelText("Edit invoiceNumber")).toHaveValue("INV-1");
+  });
+
+  test("saves the edited purchase date through the field patch", async () => {
+    const onSave = renderInline(baseLicense, ["purchaseDate"]);
+    const input = screen.getByLabelText("Edit purchaseDate");
+    fireEvent.change(input, { target: { value: "2026-05-06" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(7, "purchaseDate", "2026-05-06"));
+  });
+
+  test("several invoices, non-SaaS portal URL and maintenance coverage stay read-only", () => {
+    renderInline(
+      { ...baseLicense, licenseType: "maintenance", invoiceNumbers: ["INV-1", "INV-2"] },
+      ["invoiceNumber", "portalUrl", "maintenanceCoverage"],
+    );
+
+    expect(screen.queryByLabelText("Edit invoiceNumber")).not.toBeInTheDocument();
+    expect(screen.getByText("+1")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Edit portalUrl")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Edit maintenanceCoverage")).not.toBeInTheDocument();
+  });
+
+  test("portal URL is inline-editable on SaaS", () => {
+    renderInline({ ...baseLicense, licenseType: "saas", portalUrl: "https://portal.test" }, ["portalUrl"]);
+    expect(screen.getByLabelText("Edit portalUrl")).toHaveValue("https://portal.test");
   });
 });
