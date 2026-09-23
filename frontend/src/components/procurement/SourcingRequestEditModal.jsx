@@ -17,6 +17,8 @@ import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
 import { previewSourcingQuoteDocument, downloadSourcingQuoteDocument } from "../../api/sourcing.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "../../utils/secondaryContacts.js";
+import SupplierContactPrompt from "./SupplierContactPrompt.jsx";
+import { useSupplierContactPrompt } from "../../hooks/useSupplierContactPrompt.js";
 
 function itemDefaults(item) {
   return {
@@ -81,6 +83,12 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
     },
   });
   const { fields } = useFieldArray({ control, name: "items", keyName: "formKey" });
+  const contactPrompt = useSupplierContactPrompt({
+    initialSupplier: request.supplier,
+    supplier: watch("supplier"),
+    initialContact: request.contactEmail,
+    contact: watch("contactEmail"),
+  });
   const { attachments, categoryScopes, addFiles, removeAttachment, changeTarget, changeCategoryScope, clearAttachments } = useStagedDocumentAttachments(request.items?.[0]?.id);
   const [documentPreviewVisible, setDocumentPreviewVisible] = useState(false);
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
@@ -176,6 +184,16 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
                   {errors.contactEmail && <span className="field-error">{errors.contactEmail.message}</span>}
                 </div>
               </div>
+              {contactPrompt.visible && (
+                <SupplierContactPrompt
+                  contactInputId="sourcing-request-contact"
+                  onKeep={contactPrompt.answer}
+                  onClear={() => {
+                    setValue("contactEmail", "", { shouldDirty: true, shouldValidate: true });
+                    contactPrompt.answer();
+                  }}
+                />
+              )}
               <div className="fg">
                 <label htmlFor="sourcing-request-notes">Request Notes</label>
                 <textarea id="sourcing-request-notes" className="fi" rows={3} {...register("notes")} />

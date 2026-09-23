@@ -99,6 +99,9 @@ class PendingOrderUpdate(BaseModel):
     po_number: Optional[str] = None
     procurement_reference: Optional[str] = None
     supplier: Optional[str] = None
+    # Supplier contact for every open line. Omitted leaves line contacts
+    # unchanged; an empty value clears them (a valid answer after a supplier change).
+    contact_email: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[PendingOrderStatus] = None
 

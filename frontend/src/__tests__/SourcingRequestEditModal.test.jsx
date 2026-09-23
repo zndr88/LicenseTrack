@@ -74,6 +74,34 @@ describe("SourcingRequestEditModal", () => {
     expect(screen.queryByLabelText("External Reference")).not.toBeInTheDocument();
   });
 
+  test("prompts to update the supplier contact when the supplier changes, and saves an empty contact", async () => {
+    const { onSave } = renderModal();
+    expect(screen.queryByText(/supplier changed/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Supplier"), { target: { value: "Insight" } });
+
+    expect(await screen.findByText(/supplier changed/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Supplier Contact")).toHaveFocus();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.getByLabelText("Supplier Contact")).toHaveValue("");
+    expect(screen.queryByText(/supplier changed/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Sourcing Request" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({ supplier: "Insight", contactEmail: "" }));
+  });
+
+  test("Keep dismisses the supplier contact prompt without changing the contact", async () => {
+    renderModal();
+    fireEvent.change(screen.getByLabelText("Supplier"), { target: { value: "Insight" } });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Keep" }));
+
+    expect(screen.queryByText(/supplier changed/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Supplier Contact")).toHaveValue("sales@example.com");
+  });
+
   test("preserves hidden legacy values when an open line is edited", async () => {
     const { onSave, onCancel } = renderModal();
     fireEvent.change(screen.getByLabelText(/^Software Description/), { target: { value: "Acme Suite Pro" } });

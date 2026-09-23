@@ -28,6 +28,7 @@ from app.services.custom_fields_service import replace_values_for_sourcing_item
 from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
 from app.services.reference_data_service import resolve_organization, resolve_procurement_reference_fields
 from app.services.sourcing_service import (
+    clean_procurement_identity,
     handle_delete_side_effects,
     resolve_sourcing_item_references,
     sync_sourcing_item_support_defaults,
@@ -249,6 +250,8 @@ async def apply_pending_order_update(
     before = {column.name: getattr(order, column.name) for column in order.__table__.columns}
 
     update_data = payload.model_dump(by_alias=False, exclude_unset=True)
+    contact_update_requested = "contact_email" in update_data
+    contact_email = clean_procurement_identity(update_data.pop("contact_email", None))
     await _normalize_pending_order_data(db, update_data)
     if "status" in update_data and update_data["status"] not in {
         PendingOrderStatus.pending,
@@ -260,6 +263,10 @@ async def apply_pending_order_update(
         )
     for field, value in update_data.items():
         setattr(order, field, value)
+    if contact_update_requested:
+        for item in order.items:
+            if item.status != SourcingStatus.cancelled:
+                item.contact_email = contact_email
 
     after = {column.name: getattr(order, column.name) for column in order.__table__.columns}
     return order, before, after

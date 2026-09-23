@@ -379,6 +379,7 @@ export default function PendingOrdersPage({
                 procurementReference: payload.procurementReference,
                 supplier: payload.supplier,
                 notes: payload.notes,
+                ...(form.contactEmail !== undefined ? { contactEmail: form.contactEmail } : {}),
               })
               : await handleCreatePendingOrder(payload);
             if (success && showPendingOrderModal.order) {

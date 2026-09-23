@@ -20,10 +20,12 @@ import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js"
 import { getConversionDocuments, previewConversionDocument, downloadConversionDocument } from "./conversionDocuments.js";
 import MaintenanceCoverageFields, { supportsMaintenanceCoverage } from "./MaintenanceCoverageFields.jsx";
 import CustomFieldFormFields from "../licenses/CustomFieldFormFields.jsx";
-import { LICENSE_METRICS, LICENSE_TYPES } from "../../constants/licenseData.js";
+import { LICENSE_METRICS, LICENSE_TYPES, SUPPLIER_CONTACT_HELP } from "../../constants/licenseData.js";
 import { parseSecondaryContacts } from "../../utils/secondaryContacts.js";
 import { createLicenseDraftSupplementDefaults } from "../../utils/licenseFormDefaults.js";
 import LineTotalMismatchHint from "./LineTotalMismatchHint.jsx";
+import SupplierContactPrompt from "./SupplierContactPrompt.jsx";
+import { useSupplierContactPrompt } from "../../hooks/useSupplierContactPrompt.js";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -40,8 +42,17 @@ const emptyItem = () => ({
   contactEmail: "",
 });
 
+/** Contact shared by every open line, or "" when the lines disagree or have none. */
+function commonOpenLineContact(order) {
+  const contacts = (order?.items ?? [])
+    .filter((item) => item.status !== "cancelled")
+    .map((item) => String(item.contactEmail ?? "").trim());
+  return contacts.length > 0 && contacts.every((contact) => contact === contacts[0]) ? contacts[0] : "";
+}
+
 const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocument }) => {
   const isNewOrder = !order;
+  const initialContact = commonOpenLineContact(order);
   const locale = userSettings?.numberFormatLocale ?? "en-US";
   const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
 
@@ -49,17 +60,25 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
     register,
     control,
     handleSubmit,
-    formState: { isDirty },
+    formState: { isDirty, errors },
     reset,
     setValue,
+    watch,
   } = useForm({
     resolver: zodResolver(poFormSchema),
     defaultValues: {
       poNumber: order?.poNumber ?? "",
       procurementReference: order?.procurementReference ?? "",
       supplier: order?.supplier ?? "",
+      contactEmail: initialContact,
       notes:    order?.notes    ?? "",
     },
+  });
+  const contactPrompt = useSupplierContactPrompt({
+    initialSupplier: order?.supplier,
+    supplier: watch("supplier"),
+    initialContact,
+    contact: watch("contactEmail"),
   });
 
   const {
@@ -128,7 +147,10 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
           clearAttachments();
         }
       } else {
-        const saved = await onSave({ ...data, attachments, attachmentTargetKeys: (isNewOrder ? items : order.items ?? []).map((line) => String(line.id)) });
+        const { contactEmail, ...orderData } = data;
+        // Only send a contact when it was changed, so differing line contacts are kept otherwise.
+        const contactUpdate = contactEmail.trim() !== initialContact ? { contactEmail: contactEmail.trim() } : {};
+        const saved = await onSave({ ...orderData, ...contactUpdate, attachments, attachmentTargetKeys: (isNewOrder ? items : order.items ?? []).map((line) => String(line.id)) });
         if (saved) reset();
       }
     } finally {
@@ -222,6 +244,25 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
               )}
             />
           </div>
+          {!isNewOrder && (
+            <div className="fg">
+              <label htmlFor="po-contact-email">Supplier Contact</label>
+              <input id="po-contact-email" className="fi" type="email" {...register("contactEmail")} />
+              {errors.contactEmail
+                ? <span className="field-error">{errors.contactEmail.message}</span>
+                : <span className="field-hint">Applies to every open line in this pending order. {SUPPLIER_CONTACT_HELP}</span>}
+            </div>
+          )}
+          {contactPrompt.visible && (
+            <SupplierContactPrompt
+              contactInputId="po-contact-email"
+              onKeep={contactPrompt.answer}
+              onClear={() => {
+                setValue("contactEmail", "", { shouldDirty: true, shouldValidate: true });
+                contactPrompt.answer();
+              }}
+            />
+          )}
           <div className="fg">
             <label htmlFor="po-notes">Notes</label>
             <textarea id="po-notes" className="fi" rows={2} placeholder="PO notes" style={{ resize: "vertical" }} {...register("notes")} />

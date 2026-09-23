@@ -4522,3 +4522,32 @@ async def test_concurrent_single_and_batch_conversion_only_one_succeeds(
     finally:
         app.dependency_overrides.pop(get_db, None)
         await engine.dispose()
+
+
+async def test_pending_order_update_contact_applies_to_open_lines(test_app, auth_headers):
+    item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Contact App", contactEmail="old@reseller.test")
+    po = await _convert_sourcing_to_po(test_app, auth_headers, item["id"])
+
+    changed = await test_app.put(
+        f"/api/pending-orders/{po['id']}",
+        json={"supplier": "New Reseller", "contactEmail": "sales@new-reseller.test"},
+        headers=auth_headers,
+    )
+    assert changed.status_code == 200, changed.text
+    assert [line["contactEmail"] for line in changed.json()["items"]] == ["sales@new-reseller.test"]
+
+    cleared = await test_app.put(
+        f"/api/pending-orders/{po['id']}",
+        json={"contactEmail": ""},
+        headers=auth_headers,
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert [line["contactEmail"] for line in cleared.json()["items"]] in ([None], [""])
+
+    untouched = await test_app.put(
+        f"/api/pending-orders/{po['id']}",
+        json={"notes": "No contact change"},
+        headers=auth_headers,
+    )
+    assert untouched.status_code == 200, untouched.text
+    assert [line["contactEmail"] for line in untouched.json()["items"]] in ([None], [""])

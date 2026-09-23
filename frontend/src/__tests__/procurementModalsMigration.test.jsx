@@ -46,6 +46,43 @@ describe("PendingOrderModal", () => {
     return { onSave, onCancel };
   }
 
+  test("editing an order prompts for the contact after a supplier change and sends the answer", async () => {
+    const onSave = vi.fn().mockResolvedValue(true);
+    render(
+      <PendingOrderModal
+        order={{ id: 5, poNumber: "PO-5", supplier: "SoftwareOne", items: [{ id: 1, status: "converted", contactEmail: "sales@softwareone.test" }] }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Supplier Contact")).toHaveValue("sales@softwareone.test");
+
+    fireEvent.change(screen.getByPlaceholderText(/reseller or direct supplier/i), { target: { value: "Insight" } });
+    expect(await screen.findByText(/supplier changed/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({ supplier: "Insight", contactEmail: "" }));
+  });
+
+  test("editing an order without touching the contact does not send one", async () => {
+    const onSave = vi.fn().mockResolvedValue(true);
+    render(
+      <PendingOrderModal
+        order={{ id: 5, poNumber: "PO-5", supplier: "SoftwareOne", items: [{ id: 1, status: "converted", contactEmail: "a@x.test" }, { id: 2, status: "converted", contactEmail: "b@x.test" }] }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Supplier Contact")).toHaveValue("");
+    fireEvent.change(screen.getByPlaceholderText(/PO notes/i), { target: { value: "Changed" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).not.toHaveProperty("contactEmail");
+  });
+
   test("Save remains enabled when PO Number is empty", () => {
     renderModal();
     expect(screen.getByRole("button", { name: /^save$/i })).not.toBeDisabled();
