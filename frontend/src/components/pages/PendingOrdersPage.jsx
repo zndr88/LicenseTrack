@@ -380,6 +380,7 @@ export default function PendingOrdersPage({
                 supplier: payload.supplier,
                 notes: payload.notes,
                 ...(form.contactEmail !== undefined ? { contactEmail: form.contactEmail } : {}),
+                ...(form.poTotalOverride !== undefined ? { poTotalOverride: form.poTotalOverride } : {}),
               })
               : await handleCreatePendingOrder(payload);
             if (success && showPendingOrderModal.order) {

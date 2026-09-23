@@ -28,6 +28,7 @@ import SupplierContactPrompt from "./SupplierContactPrompt.jsx";
 import { useSupplierContactPrompt } from "../../hooks/useSupplierContactPrompt.js";
 import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
+import { pendingOrderLineCurrencies } from "../../utils/procurementTotals.js";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -55,7 +56,10 @@ function commonOpenLineContact(order) {
 const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocument }) => {
   const isNewOrder = !order;
   const initialContact = commonOpenLineContact(order);
+  const lineCurrencies = pendingOrderLineCurrencies(order);
+  const orderCurrency = lineCurrencies.length === 1 ? lineCurrencies[0] : null;
   const locale = userSettings?.numberFormatLocale ?? "en-US";
+  const initialPoTotal = formatPriceInput(order?.poTotalOverride || "", locale);
   const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
 
   const {
@@ -65,6 +69,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
     formState: { isDirty, errors },
     reset,
     setValue,
+    setError,
     watch,
   } = useForm({
     resolver: zodResolver(poFormSchema),
@@ -73,6 +78,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
       procurementReference: order?.procurementReference ?? "",
       supplier: order?.supplier ?? "",
       contactEmail: initialContact,
+      poTotalOverride: initialPoTotal,
       notes:    order?.notes    ?? "",
     },
   });
@@ -149,10 +155,21 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
           clearAttachments();
         }
       } else {
-        const { contactEmail, ...orderData } = data;
+        const { contactEmail, poTotalOverride, ...orderData } = data;
         // Only send a contact when it was changed, so differing line contacts are kept otherwise.
         const contactUpdate = contactEmail.trim() !== initialContact ? { contactEmail: contactEmail.trim() } : {};
-        const saved = await onSave({ ...orderData, ...contactUpdate, attachments, attachmentTargetKeys: (isNewOrder ? items : order.items ?? []).map((line) => String(line.id)) });
+        const poTotalText = poTotalOverride.trim();
+        const canonicalPoTotal = poTotalText ? parseLocalizedNumber(poTotalText, userSettings) : "";
+        if (canonicalPoTotal === null) {
+          setError("poTotalOverride", { message: "Enter a valid amount." });
+          return;
+        }
+        const storedPoTotal = order.poTotalOverride || "";
+        const poTotalChanged = canonicalPoTotal === "" || storedPoTotal === ""
+          ? canonicalPoTotal !== storedPoTotal
+          : Number(canonicalPoTotal) !== Number(storedPoTotal);
+        const poTotalUpdate = poTotalChanged ? { poTotalOverride: canonicalPoTotal } : {};
+        const saved = await onSave({ ...orderData, ...contactUpdate, ...poTotalUpdate, attachments, attachmentTargetKeys: (isNewOrder ? items : order.items ?? []).map((line) => String(line.id)) });
         if (saved) reset();
       }
     } finally {
@@ -264,6 +281,26 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
                 contactPrompt.answer();
               }}
             />
+          )}
+          {!isNewOrder && (
+            <div className="fg">
+              <label htmlFor="po-total-override">PO total (manual){orderCurrency ? ` (${orderCurrency})` : ""}</label>
+              <input
+                id="po-total-override"
+                className="fi"
+                inputMode="decimal"
+                disabled={!orderCurrency && !order.poTotalOverride}
+                placeholder={orderCurrency ? `e.g. ${formatPriceInput("21000", locale)}` : ""}
+                {...register("poTotalOverride")}
+              />
+              {errors.poTotalOverride
+                ? <span className="field-error">{errors.poTotalOverride.message}</span>
+                : <span className="field-hint">
+                  {orderCurrency || order.poTotalOverride
+                    ? "Use when the quote gives only a total. Line prices are not changed; converted licenses show this as their Total PO Value."
+                    : "Available when every line of this order uses one currency."}
+                </span>}
+            </div>
           )}
           <div className="fg">
             <label htmlFor="po-notes">Notes</label>

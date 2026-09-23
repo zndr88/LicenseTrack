@@ -47,3 +47,23 @@ export function compareProcurementTotals(leftItems = [], rightItems = [], direct
   }
   return 0;
 }
+
+/** Distinct currencies of a pending order's non-cancelled lines. */
+export function pendingOrderLineCurrencies(order) {
+  return [...new Set((order?.items ?? [])
+    .filter((item) => item.status !== "cancelled")
+    .map((item) => String(item.currency || "EUR").trim().toUpperCase()))];
+}
+
+/** A manual PO total applies only to single-currency orders; returns its currency or null. */
+export function pendingOrderOverrideCurrency(order) {
+  if (!order?.poTotalOverride) return null;
+  const currencies = pendingOrderLineCurrencies(order);
+  return currencies.length === 1 ? currencies[0] : null;
+}
+
+/** Informational note for line-based annual-cost views; "" when every PO total matches its lines. */
+export function manualPoTotalNote(count) {
+  if (!count) return "";
+  return `${count} ${count === 1 ? "PO has" : "POs have"} a manual total not reflected here.`;
+}

@@ -5,7 +5,8 @@ import RowActionsMenu from "../../ui/RowActionsMenu.jsx";
 import ProcurementInlineEditCell, { ProcurementInlineEditField } from "../../procurement/ProcurementInlineEditCell.jsx";
 import { CURRENCIES } from "../../../constants/licenseData.js";
 import { formatCost } from "../../../utils/helpers.js";
-import { formatPoTotal, pendingOrderPublishers } from "./usePendingOrdersPageState.js";
+import { formatLinePoTotal, formatPoTotal, pendingOrderPublishers } from "./usePendingOrdersPageState.js";
+import { pendingOrderOverrideCurrency } from "../../../utils/procurementTotals.js";
 import { formatDateTime } from "../../../utils/formatting.js";
 import { procurementLineTotal } from "../../../utils/procurementTotals.js";
 import { formatQuantity } from "../../../utils/quantity.js";
@@ -477,7 +478,14 @@ export default function PendingOrdersTable({
                     ) : <td>{po.supplier || "-"}</td>}
                     <td style={{ color: "var(--text-2)", fontSize: 12 }}>{pendingOrderPublishers(po) || "-"}</td>
                     <td style={{ color: "var(--text-2)" }}>{po.items?.length ?? 0}</td>
-                    <td className="mono" style={{ fontWeight: 600 }}>{formatPoTotal(po, locale)}</td>
+                    <td className="mono" style={{ fontWeight: 600 }}>
+                      {pendingOrderOverrideCurrency(po) ? (
+                        <span title={`Manual PO total. Line total: ${formatLinePoTotal(po, locale)}`}>
+                          {formatPoTotal(po, locale)}
+                          <span className="badge badge-blue po-total-override-badge">Override</span>
+                        </span>
+                      ) : formatPoTotal(po, locale)}
+                    </td>
                     <td>
                       <span className={`badge ${statusClass}`}>
                         <span className="badge-dot" />

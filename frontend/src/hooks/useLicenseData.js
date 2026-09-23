@@ -291,6 +291,7 @@ export function useLicenseData(licenses, {
         legacy: statNumber(apiStats.total_legacy, statNumber(apiStats.legacy)),
         costByCurrency: apiStats.annual_cost_by_currency ?? null,
         excludedFromTotals: apiStats.excluded_from_totals ?? 0,
+        poOverridesNotInAnnual: apiStats.po_overrides_not_in_annual ?? 0,
       };
     }
 
@@ -319,6 +320,7 @@ export function useLicenseData(licenses, {
     legacy: enriched.filter((l) => l.expiration.status === "legacy").length,
     costByCurrency,
     excludedFromTotals: 0,
+    poOverridesNotInAnnual: 0,
     };
   }, [apiStats, enriched, licenses]);
 

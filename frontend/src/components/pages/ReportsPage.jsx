@@ -6,6 +6,7 @@ import Toggle from "../ui/Toggle.jsx";
 import Icon from "../ui/Icon.jsx";
 import CostCentreDropdown from "../reports/CostCentreDropdown.jsx";
 import { queryKeys } from "../../queryKeys.js";
+import { manualPoTotalNote } from "../../utils/procurementTotals.js";
 
 const loadReportSections = () => import("../reports/ReportSections.jsx");
 const ReportSections = lazy(loadReportSections);
@@ -92,6 +93,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
   const lifecycleCounts = report?.counts ?? { active: 0, upcoming: 0, expiring: 0, expired: 0 };
   const unpricedCount = report?.counts?.unpriced ?? 0;
   const invalidPricingCount = report?.counts?.excluded ?? 0;
+  const manualPoTotalCount = report?.counts?.poOverridesNotInAnnual ?? 0;
   const singleCurrency = budgetForecast.singleCurrency ?? null;
   const reportAnnualCost = report?.budgetForecast?.baselineByCurrency ?? {};
   const annualCostByCurrency = Object.keys(reportAnnualCost).length > 0
@@ -311,6 +313,12 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
               <span style={{ fontSize: 11, color: "var(--orange)", display: "flex", alignItems: "center", gap: 3 }}>
                 <Icon name="alert" size={11} color="var(--orange)" />
                 {invalidPricingCount} invalid {invalidPricingCount === 1 ? "price" : "prices"}
+              </span>
+            )}
+            {manualPoTotalCount > 0 && (
+              <span className="report-manual-po-note" title="Annual cost is based on license lines. A manual PO total is kept as the PO value and is never spread across lines.">
+                <Icon name="info" size={11} color="var(--text-3)" />
+                {manualPoTotalNote(manualPoTotalCount)}
               </span>
             )}
           </div>

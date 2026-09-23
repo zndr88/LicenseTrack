@@ -3,15 +3,31 @@ import { formatCost } from "../../../utils/helpers.js";
 import { pendingOrderLabel } from "../../../utils/procurementLabels.js";
 import {
   compareProcurementTotals,
+  pendingOrderOverrideCurrency,
   procurementTotalsByCurrency,
 } from "../../../utils/procurementTotals.js";
 
-export function formatPoTotal(po, locale) {
+/** Line-sum PO value, ignoring any manual PO total. */
+export function formatLinePoTotal(po, locale) {
   if (!po.items?.length) return "-";
 
   const parts = Object.entries(procurementTotalsByCurrency(po.items)).sort(([a], [b]) => a.localeCompare(b));
   if (!parts.length) return "-";
   return parts.map(([currency, amount]) => formatCost(amount, currency, locale)).join(" + ");
+}
+
+/** PO value shown in the overview: the manual PO total when set, else the line sum. */
+export function formatPoTotal(po, locale) {
+  const overrideCurrency = pendingOrderOverrideCurrency(po);
+  if (overrideCurrency) return formatCost(po.poTotalOverride, overrideCurrency, locale);
+  return formatLinePoTotal(po, locale);
+}
+
+function sortableTotalItems(po) {
+  const overrideCurrency = pendingOrderOverrideCurrency(po);
+  return overrideCurrency
+    ? [{ estimatedTotalPrice: po.poTotalOverride, currency: overrideCurrency }]
+    : po.items;
 }
 
 export function pendingOrderPublishers(order) {
@@ -61,7 +77,7 @@ export function filterAndSortPendingOrders(pendingOrders, search, sortCol, sortD
         bVal = b.items?.length ?? 0;
         break;
       case "totalValue": {
-        return compareProcurementTotals(a.items, b.items, sortDir);
+        return compareProcurementTotals(sortableTotalItems(a), sortableTotalItems(b), sortDir);
       }
       case "status":
         aVal = a.status ?? "";

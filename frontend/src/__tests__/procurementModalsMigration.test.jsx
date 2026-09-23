@@ -83,6 +83,37 @@ describe("PendingOrderModal", () => {
     expect(onSave.mock.calls[0][0]).not.toHaveProperty("contactEmail");
   });
 
+  test("editing an order sends a canonical manual PO total", async () => {
+    const onSave = vi.fn().mockResolvedValue(true);
+    render(
+      <PendingOrderModal
+        order={{ id: 5, poNumber: "PO-5", supplier: "S", items: [{ id: 1, status: "converted", currency: "EUR" }] }}
+        userSettings={{ numberFormatLocale: "nl-BE" }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/PO total \(manual\)/), { target: { value: "21.000,50" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({ poTotalOverride: "21000.50" }));
+  });
+
+  test("manual PO total is unavailable for mixed-currency orders", () => {
+    render(
+      <PendingOrderModal
+        order={{ id: 5, poNumber: "PO-5", items: [{ id: 1, currency: "EUR" }, { id: 2, currency: "USD" }] }}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText(/PO total \(manual\)/)).toBeDisabled();
+    expect(screen.getByText(/every line of this order uses one currency/i)).toBeInTheDocument();
+  });
+
   test("Save remains enabled when PO Number is empty", () => {
     renderModal();
     expect(screen.getByRole("button", { name: /^save$/i })).not.toBeDisabled();

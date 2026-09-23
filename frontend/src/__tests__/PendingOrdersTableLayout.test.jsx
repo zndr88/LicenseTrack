@@ -44,3 +44,38 @@ test("pending orders sort by their displayed publisher list", () => {
   ];
   expect(filterAndSortPendingOrders(orders, "", "publisher", "asc").map((order) => order.id)).toEqual([2, 1]);
 });
+
+test("a manual PO total replaces the line value with an Override marker and line-sum tooltip", () => {
+  render(<PendingOrdersTable
+    displayed={[{
+      id: 8,
+      poNumber: "PO-8",
+      status: "pending",
+      poTotalOverride: "21000.00",
+      items: [
+        { id: 1, publisherName: "Acme", softwareDescription: "A", currency: "EUR", quantity: "1", estimatedTotalPrice: "0" },
+        { id: 2, publisherName: "Acme", softwareDescription: "B", currency: "EUR", quantity: "1", estimatedTotalPrice: "0" },
+      ],
+    }]}
+    locale="en-US"
+    settings={{}}
+    perms={{ canEdit: false, canDelete: false }}
+    search=""
+    setSearch={vi.fn()}
+    onSort={vi.fn()}
+    onRowToggle={vi.fn()}
+    onRefetch={vi.fn()}
+  />);
+
+  const marker = screen.getByText("Override");
+  expect(marker.parentElement).toHaveTextContent("€21,000.00");
+  expect(marker.parentElement.getAttribute("title")).toMatch(/Line total: €0\.00/);
+});
+
+test("pending orders sort by the manual PO total when one is set", () => {
+  const orders = [
+    { id: 1, items: [{ estimatedTotalPrice: "500", currency: "EUR" }] },
+    { id: 2, poTotalOverride: "100", items: [{ estimatedTotalPrice: "900", currency: "EUR" }] },
+  ];
+  expect(filterAndSortPendingOrders(orders, "", "totalValue", "asc").map((order) => order.id)).toEqual([2, 1]);
+});

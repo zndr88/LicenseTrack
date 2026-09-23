@@ -27,6 +27,7 @@ import LicenseToolbar from "./licenses/LicenseToolbar.jsx";
 import DocumentPreviewPane from "./licenses/DocumentPreviewPane.jsx";
 import { useDocumentPreview } from "./licenses/useDocumentPreview.js";
 import PoDocumentWarning from "./licenses/PoDocumentWarning.jsx";
+import { manualPoTotalNote } from "../../utils/procurementTotals.js";
 
 export { exportFilteredCsv };
 
@@ -282,7 +283,7 @@ export default function LicensesPage({
     <>
       <div className="page-header">
         <h2>License Overview</h2>
-        <p>{formatNumber(trackedLicenseCount, userSettings)} licenses tracked{visList.totalPoPrice && stats.costByCurrency ? ` · ${formatCostByCurrency(stats.costByCurrency, userSettings.numberFormatLocale ?? "en-US")} active recurring cost${stats.excludedFromTotals > 0 ? ` (${stats.excludedFromTotals} excluded)` : ""}` : ""}{hasColumnFilters ? " · column filters active" : ""}</p>
+        <p>{formatNumber(trackedLicenseCount, userSettings)} licenses tracked{visList.totalPoPrice && stats.costByCurrency ? ` · ${formatCostByCurrency(stats.costByCurrency, userSettings.numberFormatLocale ?? "en-US")} active recurring cost${stats.excludedFromTotals > 0 ? ` (${stats.excludedFromTotals} excluded)` : ""}${stats.poOverridesNotInAnnual > 0 ? ` · ${manualPoTotalNote(stats.poOverridesNotInAnnual)}` : ""}` : ""}{hasColumnFilters ? " · column filters active" : ""}</p>
       </div>
       <div className={`page-content ${selectedLicense ? "lp-page-open" : ""}`}>
         {licensesLoading && (

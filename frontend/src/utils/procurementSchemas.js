@@ -20,6 +20,7 @@ export const poFormSchema = z.object({
   procurementReference: z.string(),
   supplier: z.string(),
   contactEmail: optionalEmail.optional().default(""),
+  poTotalOverride: z.string().optional().default(""),
   notes:    z.string(),
 });
 

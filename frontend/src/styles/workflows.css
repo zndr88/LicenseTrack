@@ -25,6 +25,8 @@
 .supplier-contact-prompt { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: -6px 0 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-2); color: var(--text-2); font-size: 12px; }
 .supplier-contact-prompt-actions { display: flex; gap: 6px; }
 .supplier-contact-prompt-actions .btn { padding: 4px 10px; font-size: 11px; }
+.po-total-override-badge { margin-left: 6px; font-family: var(--font-sans); font-weight: 500; }
+.report-manual-po-note { display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--text-3); }
 .sourcing-request-edit-heading p { color: var(--text-3); font-size: 11px; }
 .sourcing-request-edit-line {
   border: 1px solid var(--border);
