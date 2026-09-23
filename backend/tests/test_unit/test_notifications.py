@@ -365,6 +365,8 @@ async def smtp_settings(db_session) -> GlobalSettings:
         email_enabled=True,
         notification_days=30,
         manager_email="manager@example.com",
+        # These delivery tests are not about completeness; keep every rule off.
+        mandatory_fields={},
     )
     db_session.add(gs)
     await db_session.commit()

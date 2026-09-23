@@ -8,6 +8,8 @@ from app.config import settings
 from app.database import Base
 
 
+# Defaults for a newly created settings row only (fresh installs). Existing rows
+# are never rewritten on upgrade, even when every rule is off.
 _DEFAULT_MANDATORY_FIELDS: dict = {
     "invoice": False,
     "eula": False,
@@ -18,11 +20,11 @@ _DEFAULT_MANDATORY_FIELDS: dict = {
     "endDate": False,
     "noticeDate": False,
     "contractNumber": False,
-    "poNumber": False,
-    "invoiceNumber": False,
+    "poNumber": True,
+    "invoiceNumber": True,
     "contactEmail": False,
     "costCentre": False,
-    "budgetOwnerEmail": False,
+    "budgetOwnerEmail": True,
 }
 
 
@@ -76,7 +78,9 @@ class GlobalSettings(Base):
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
 
     # Which document/field categories are mandatory before a license can be saved
-    mandatory_fields: Mapped[dict] = mapped_column(JSON, nullable=False, default=_DEFAULT_MANDATORY_FIELDS)
+    mandatory_fields: Mapped[dict] = mapped_column(
+        JSON, nullable=False, default=lambda: dict(_DEFAULT_MANDATORY_FIELDS)
+    )
 
     # Auth policy
     session_timeout: Mapped[int] = mapped_column(Integer, nullable=False, default=30)

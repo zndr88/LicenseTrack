@@ -255,9 +255,12 @@ async def test_notifications_exclude_legacy_renewed_retired_and_exempt_records(
 
 
 async def test_notifications_count_procurement_documents_for_completeness(
-    db_session, test_app, auth_headers
+    db_session, test_app, auth_headers, tmp_path
 ):
-    db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}))
+    # The stored invoice must exist on disk to count as available evidence.
+    (tmp_path / "procurement").mkdir()
+    (tmp_path / "procurement" / "invoice.pdf").write_bytes(b"%PDF-1.7")
+    db_session.add(GlobalSettings(id=1, mandatory_fields={"invoice": True}, storage_path=str(tmp_path)))
     order = PendingOrder(po_number="PO-NOTIFY")
     db_session.add(order)
     await db_session.flush()
@@ -281,6 +284,7 @@ async def test_notifications_count_procurement_documents_for_completeness(
     )
     await db_session.commit()
 
+    invalidate_global_settings_cache()
     response = await test_app.get("/api/notifications", headers=auth_headers)
 
     assert response.status_code == 200
