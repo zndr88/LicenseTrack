@@ -9,8 +9,11 @@ from datetime import date, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
+
 from app.models.license import LicenseType
 from app.services.license_service import (
+    annualize_term_cost,
     calc_effective_quantity,
     calc_recurring_annual_cost,
     compute_completeness,
@@ -117,6 +120,23 @@ def test_calc_recurring_annual_cost_keeps_one_year_terms_stable():
     )
 
     assert calc_recurring_annual_cost(lic) == 12000
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        (date(2027, 4, 1), date(2028, 3, 31)),  # one year spanning 29 Feb (366 days)
+        (date(2025, 10, 13), date(2026, 10, 13)),  # anniversary-inclusive end (366 days)
+    ],
+)
+def test_annualize_term_cost_keeps_366_day_terms_unchanged(start, end):
+    assert annualize_term_cost(Decimal("12000"), start, end) == Decimal("12000")
+
+
+def test_annualize_term_cost_still_annualizes_three_year_terms():
+    result = annualize_term_cost(Decimal("36000"), date(2025, 1, 1), date(2027, 12, 31))
+    assert result < Decimal("12100")
+    assert result > Decimal("11900")
 
 
 def test_status_legacy():

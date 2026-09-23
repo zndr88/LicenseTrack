@@ -178,6 +178,17 @@ describe("report cost helpers", () => {
     expect(forecast.recurringRecords[0].annualCost).toBe(3598028.48);
   });
 
+  test.each([
+    ["2027-04-01", "2028-03-31"],
+    ["2025-10-13", "2026-10-13"],
+  ])("keeps a 366-day one-year term (%s to %s) unannualized", (startDate, endDate) => {
+    const forecast = getBudgetForecast([
+      license({ id: 1, startDate, endDate, quantity: "1", unitPrice: "12000", totalPoPrice: "12000" }),
+    ]);
+
+    expect(forecast.recurringRecords[0].annualCost).toBe(12000);
+  });
+
   test("allocates recurring spend by overlapping days for selected report ranges", () => {
     const promo = license({
       id: 1,

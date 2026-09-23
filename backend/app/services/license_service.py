@@ -300,10 +300,19 @@ def _inclusive_term_days(start_date: date | None, end_date: date | None) -> int 
     return (end_date - start_date).days + 1
 
 
+# A one-year term counts 366 inclusive days when it spans 29 February or ends on
+# the anniversary date (the app's own renewal default can produce both).
+_MAX_ONE_YEAR_TERM_DAYS = 366
+
+
 def annualize_term_cost(amount: Decimal, start_date: date | None, end_date: date | None) -> Decimal:
-    """Return normalized yearly cost for a term total using actual calendar days."""
+    """Return normalized yearly cost for a term total using actual calendar days.
+
+    Terms of one year or less (up to 366 inclusive days) are returned unchanged;
+    only genuinely longer terms are scaled to 365 days.
+    """
     term_days = _inclusive_term_days(start_date, end_date)
-    if term_days is None or term_days <= 365:
+    if term_days is None or term_days <= _MAX_ONE_YEAR_TERM_DAYS:
         return amount
     return amount * Decimal("365") / Decimal(term_days)
 

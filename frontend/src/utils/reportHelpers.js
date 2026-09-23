@@ -187,10 +187,14 @@ function getRecurringTermBounds(license) {
   return getTermBounds(license.startDate, license.endDate);
 }
 
+// Mirrors backend annualize_term_cost: a one-year term may count 366 inclusive
+// days (29 February, or an anniversary-inclusive end), so only longer terms scale.
+const MAX_ONE_YEAR_TERM_DAYS = 366;
+
 function annualizeAmount(amount, term) {
   if (!term) return amount;
   const days = inclusiveDayCount(term.from, term.to);
-  return days > 365 ? amount * 365 / days : amount;
+  return days > MAX_ONE_YEAR_TERM_DAYS ? amount * 365 / days : amount;
 }
 
 function getRecurringLicenseValue(license) {

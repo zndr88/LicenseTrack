@@ -29,6 +29,12 @@ export default function PublisherBreakdownSection({ publisherData, vendorData, l
     });
   }, [filteredVendors, sortCol, sortDir]);
 
+  // The table lists publisher-supplier pairs; the summary counts distinct suppliers.
+  const supplierCount = useMemo(
+    () => new Set(vendorData.map((row) => row.supplier).filter(Boolean)).size,
+    [vendorData],
+  );
+
   function handleSort(col) {
     if (sortCol === col) setSortDir((d) => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
@@ -41,7 +47,7 @@ export default function PublisherBreakdownSection({ publisherData, vendorData, l
       isOpen={isOpen}
       onToggle={onToggle}
       forceOpen={forceOpen}
-      summary={`${publisherData.length} publishers · ${vendorData.length} suppliers`}
+      summary={`${publisherData.length} publishers · ${supplierCount} suppliers`}
       title="Publisher & Vendor Overview"
       subtitle="Top publishers and supplier relationships by calculated license value"
     >
