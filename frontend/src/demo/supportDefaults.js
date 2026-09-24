@@ -53,7 +53,27 @@ export function applyBundledIncludedSupportDefaults(data) {
   return data;
 }
 
+/**
+ * Mirrors backend/app/services/procurement_totals.py apply_included_support_defaults:
+ * per-unit included support derives its cost from quantity x unit price, the
+ * "free" basis (no charge) stores a zero cost, and bundled subscription/SaaS
+ * support is re-derived from the license term.
+ */
+export function applyIncludedSupportDefaults(data) {
+  if (data.maintenanceCoverage === "included" && data.maintenancePricingBasis === "per_unit") {
+    const quantity = parseNumber(data.maintenanceQuantity);
+    const unitPrice = parseNumber(data.maintenanceUnitPrice);
+    data.maintenanceCost = quantity === null || unitPrice === null ? null : formatMoney(quantity * unitPrice);
+  }
+  if (data.maintenanceCoverage === "included" && data.maintenancePricingBasis === "free") {
+    data.maintenanceQuantity = null;
+    data.maintenanceUnitPrice = null;
+    data.maintenanceCost = "0";
+  }
+  return applyBundledIncludedSupportDefaults(data);
+}
+
 export function withDefaultMaintenanceCoverage(data) {
   data.maintenanceCoverage = data.maintenanceCoverage || defaultMaintenanceCoverage(data.licenseType);
-  return applyBundledIncludedSupportDefaults(data);
+  return applyIncludedSupportDefaults(data);
 }

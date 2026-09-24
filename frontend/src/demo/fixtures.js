@@ -1,4 +1,4 @@
-import { daysFromNow, datetimeDaysAgo, daysUntil } from "./time.js";
+import { addDaysIso, daysFromNow, datetimeDaysAgo, daysUntil, termEnd, termStart } from "./time.js";
 import { computeTotalPoValue } from "./store.js";
 import { withDefaultMaintenanceCoverage } from "./supportDefaults.js";
 import { isNonExpiringLicenseType } from "../utils/licenseTypeRules.js";
@@ -17,13 +17,13 @@ import { isNonExpiringLicenseType } from "../utils/licenseTypeRules.js";
 const NOTIFICATION_DAYS = 30;
 
 // Mirrors backend/app/services/license_service.py::compute_expiration_status
-// (re-verified 2026-09-21 against 1.1.23, license_service.py:212-258). Priority:
+// (re-verified 2026-09-24 against 1.1.24). Priority:
 // retired > legacy > upcoming > perpetual > renewed/expired > expiring > active.
 // pending_renewal is intentionally NOT an expiration state: it is an overlapping
 // workflow state carried on lifecycleStatus while the record keeps aging from
 // Expiring to Expired by its dates. perpetual applies only to non-expiring
-// license types (perpetual/oem/freeware/service/other); any other type with no
-// end date is active.
+// license types (perpetual/oem/freeware); any other type with no end date,
+// including Service/Other, is active.
 export function computeExpirationStatus({
   isRetired,
   lifecycleStatus,
@@ -44,6 +44,26 @@ export function computeExpirationStatus({
     return "expired";
   }
   if (days <= NOTIFICATION_DAYS) return "expiring";
+  return "active";
+}
+
+// Mirrors backend/app/services/license_service.py compute_support_days_remaining /
+// compute_support_status (1.1.24): included support on perpetual/OEM/freeware
+// records ends on its own date and is active, expiring or expired.
+const INCLUDED_SUPPORT_PARENT_TYPES = new Set(["perpetual", "oem", "freeware"]);
+
+export function computeSupportDaysRemaining(license) {
+  if (!INCLUDED_SUPPORT_PARENT_TYPES.has(license.licenseType)) return null;
+  if (license.maintenanceCoverage !== "included" || !license.maintenanceEndDate) return null;
+  if (license.isRetired || license.lifecycleStatus === "legacy") return null;
+  return daysUntil(license.maintenanceEndDate);
+}
+
+export function computeSupportStatus(license, notificationDays = NOTIFICATION_DAYS) {
+  const days = computeSupportDaysRemaining(license);
+  if (days === null) return null;
+  if (days < 0) return "expired";
+  if (days <= notificationDays) return "expiring";
   return "active";
 }
 
@@ -81,6 +101,13 @@ export function buildLicense(overrides) {
     budgetOwnerEmail: "",
     secondaryContacts: [],
     portalUrl: null,
+    isRenewable: null,
+    typeDescription: null,
+    invoiceNumbers: [],
+    noticeDate: null,
+    noticeHandledAt: null,
+    poTotalOverride: null,
+    procurementBundleId: null,
     notes: null,
     hasMaintenance: false,
     maintenanceCoverage: null,
@@ -120,6 +147,7 @@ export function buildLicense(overrides) {
   };
 
   const merged = withDefaultMaintenanceCoverage({ ...base, ...overrides, isRetired, lifecycleStatus, endDate });
+  if (merged.invoiceNumbers.length === 0 && merged.invoiceNumber) merged.invoiceNumbers = [merged.invoiceNumber];
   merged.daysUntilExpiry = daysUntil(merged.endDate);
   merged.expirationStatus = computeExpirationStatus({
     isRetired: merged.isRetired,
@@ -129,7 +157,21 @@ export function buildLicense(overrides) {
     startDate: merged.startDate,
     endDate: merged.endDate,
   });
+  merged.supportDaysRemaining = computeSupportDaysRemaining(merged);
+  merged.supportStatus = computeSupportStatus(merged);
   return merged;
+}
+
+/** A term that ends endOffset days from now, dated by the app convention (end = start + N years - 1 day). */
+function yearTermEndingIn(endOffset, years = 1) {
+  const endDate = daysFromNow(endOffset);
+  return { startDate: termStart(endDate, years), endDate };
+}
+
+/** A term that starts startOffset days from now, dated by the app convention (end = start + N years - 1 day). */
+function yearTermStartingIn(startOffset, years = 1) {
+  const startDate = daysFromNow(startOffset);
+  return { startDate, endDate: termEnd(startDate, years) };
 }
 
 export function buildSeedData() {
@@ -148,8 +190,7 @@ export function buildSeedData() {
       unitPrice: "42.50",
       totalPoPrice: "10625.00",
       currency: "EUR",
-      startDate: daysFromNow(20 - 365),
-      endDate: daysFromNow(20),
+      ...yearTermEndingIn(20),
       contractNumber: "CTR-AT-2025-014",
       poNumber: "PO-2025-0871",
       invoiceNumber: "INV-AT-99231",
@@ -231,7 +272,7 @@ export function buildSeedData() {
       supplier: "Bluepeak Resellers",
       costCentre: "IT-Operations",
       endOffset: 400,
-      termDays: 1095, // 3-year UTM bundle — keeps startDate/createdAt in the past
+      termYears: 3, // 3-year UTM bundle — keeps startDate/createdAt in the past
     },
     {
       publisherName: "GitHub",
@@ -267,16 +308,14 @@ export function buildSeedData() {
       totalPoPrice: "2398.50",
       supplier: "Acme License Supply",
       costCentre: "IT-Operations",
-      endOffset: 360, // < termDays so startDate/createdAt stay strictly in the past
+      endOffset: 360, // inside the one-year term so startDate/createdAt stay strictly in the past
     },
   ];
 
   activeSpecs.forEach((spec, idx) => {
     const id = idx + 2; // 2..9
-    const termDays = spec.termDays ?? 365; // endOffset must stay below termDays
-    const ageDays = termDays - spec.endOffset; // how long ago the term started
-    const endDate = daysFromNow(spec.endOffset);
-    const startDate = daysFromNow(-ageDays);
+    const { startDate, endDate } = yearTermEndingIn(spec.endOffset, spec.termYears ?? 1);
+    const ageDays = -daysUntil(startDate); // how long ago the term started
     licenses.push(
       buildLicense({
         id,
@@ -292,6 +331,7 @@ export function buildSeedData() {
         endDate,
         contractNumber: `CTR-${spec.publisherName.slice(0, 2).toUpperCase()}-2025-0${id}`,
         poNumber: `PO-2025-0${800 + id}`,
+        invoiceNumber: `INV-2025-${7100 + id}`,
         supplier: spec.supplier,
         costCentre: spec.costCentre,
         budgetOwnerEmail: "budget.owner@example.com",
@@ -316,8 +356,7 @@ export function buildSeedData() {
       unitPrice: "9.50",
       totalPoPrice: "4750.00",
       currency: "EUR",
-      startDate: daysFromNow(-15 - 365),
-      endDate: daysFromNow(-15),
+      ...yearTermEndingIn(-15),
       contractNumber: "CTR-SW-2024-007",
       poNumber: "PO-2024-1120",
       supplier: "Bluepeak Resellers",
@@ -346,10 +385,10 @@ export function buildSeedData() {
       unitPrice: "16.00",
       totalPoPrice: "1920.00",
       currency: "EUR",
-      startDate: daysFromNow(40 - 365),
-      endDate: daysFromNow(40),
+      ...yearTermEndingIn(40),
       contractNumber: "CTR-MIRO-2025-009",
       poNumber: "PO-2025-0642",
+      invoiceNumber: "INV-NS-44120",
       supplier: "Northstar Procurement",
       costCentre: "Design",
       contactEmail: "renewals@miro.com",
@@ -366,7 +405,7 @@ export function buildSeedData() {
 
   // 11. Perpetual (no end date) with separately tracked maintenance.
   const corelMaintenanceStart = daysFromNow(-135);
-  const corelMaintenanceEnd = daysFromNow(230);
+  const corelMaintenanceEnd = termEnd(corelMaintenanceStart);
   const corelMaintenanceCost = "748.50";
   licenses.push(
     buildLicense({
@@ -383,6 +422,7 @@ export function buildSeedData() {
       endDate: null,
       contractNumber: "CTR-COREL-2023-002",
       poNumber: "PO-2023-0455",
+      invoiceNumber: "INV-ACME-2023-118",
       supplier: "Acme License Supply",
       costCentre: "Marketing",
       contactEmail: "sales@corel.com",
@@ -416,6 +456,7 @@ export function buildSeedData() {
       endDate: corelMaintenanceEnd,
       contractNumber: "CTR-COREL-MNT-2026-001",
       poNumber: "PO-2026-0315",
+      invoiceNumber: "INV-ACME-2026-042",
       supplier: "Acme License Supply",
       costCentre: "Marketing",
       contactEmail: "sales@corel.com",
@@ -442,8 +483,7 @@ export function buildSeedData() {
       unitPrice: "18.00",
       totalPoPrice: "5400.00",
       currency: "EUR",
-      startDate: daysFromNow(-800),
-      endDate: daysFromNow(-440),
+      ...yearTermEndingIn(-440),
       contractNumber: "CTR-SYM-2023-011",
       poNumber: "PO-2023-0203",
       supplier: "Northstar Procurement",
@@ -471,10 +511,10 @@ export function buildSeedData() {
       unitPrice: "890.00",
       totalPoPrice: "4450.00",
       currency: "EUR",
-      startDate: daysFromNow(180 - 365),
-      endDate: daysFromNow(180),
+      ...yearTermEndingIn(180),
       contractNumber: "CTR-HS-2025-003",
       poNumber: "PO-2025-0640",
+      invoiceNumber: "INV-DSD-88213",
       supplier: "Direct Software Desk",
       costCentre: "Finance",
       contactEmail: "billing@hubspot.com",
@@ -500,10 +540,10 @@ export function buildSeedData() {
       unitPrice: "310.00",
       totalPoPrice: "14880.00",
       currency: "EUR",
-      startDate: daysFromNow(45 - 365),
-      endDate: daysFromNow(45),
+      ...yearTermEndingIn(45),
       contractNumber: "CTR-VMW-2025-009",
       poNumber: "PO-2025-0902",
+      invoiceNumber: "INV-NS-40977",
       supplier: "Northstar Procurement",
       costCentre: "IT-Operations",
       contactEmail: "renewals@vmware.com",
@@ -517,8 +557,105 @@ export function buildSeedData() {
     })
   );
 
+  // 17. Perpetual license whose included support ends in 25 days: support
+  // status "expiring" (registry badge, notification, Workbench support row
+  // with Start support renewal).
+  const sparxSupportEnd = daysFromNow(25);
+  licenses.push(
+    buildLicense({
+      id: 17,
+      publisherName: "Sparx Systems",
+      softwareDescription: "Enterprise Architect Corporate, perpetual, 15 seats",
+      licenseType: "perpetual",
+      licenseMetric: "per_user",
+      quantity: "15",
+      unitPrice: "320.00",
+      totalPoPrice: "4800.00",
+      currency: "EUR",
+      startDate: termStart(sparxSupportEnd),
+      endDate: null,
+      contractNumber: "CTR-SPX-2025-004",
+      poNumber: "PO-2025-0733",
+      invoiceNumber: "INV-DSD-87501",
+      supplier: "Direct Software Desk",
+      costCentre: "Engineering",
+      contactEmail: "sales@sparxsystems.com",
+      budgetOwnerEmail: "budget.owner@example.com",
+      licenseRef: licenseRef(17),
+      maintenanceCoverage: "included",
+      maintenanceStartDate: termStart(sparxSupportEnd),
+      maintenanceEndDate: sparxSupportEnd,
+      maintenancePricingBasis: "flat",
+      maintenanceCost: "960.00",
+      createdAt: datetimeDaysAgo(340),
+      updatedAt: datetimeDaysAgo(30),
+      completenessPct: 100,
+    })
+  );
+
+  // 18. Managed service opted in to renewal, on an auto-renewing contract: the
+  // notice deadline in 12 days comes before the end date, so the Workbench
+  // lists it by the notice date with an N marker.
+  licenses.push(
+    buildLicense({
+      id: 18,
+      publisherName: "Arctic Wolf",
+      softwareDescription: "Managed Detection & Response service",
+      licenseType: "service",
+      isRenewable: true,
+      licenseMetric: "enterprise",
+      quantity: "1",
+      unitPrice: "18500.00",
+      totalPoPrice: "18500.00",
+      currency: "EUR",
+      ...yearTermEndingIn(75),
+      noticeDate: daysFromNow(12),
+      contractNumber: "CTR-AW-2025-011",
+      poNumber: "PO-2025-0955",
+      invoiceNumber: "INV-BP-55310",
+      supplier: "Bluepeak Resellers",
+      costCentre: "IT-Operations",
+      contactEmail: "renewals@bluepeak.example",
+      budgetOwnerEmail: "security.lead@example.com",
+      licenseRef: licenseRef(18),
+      notes: "Auto-renews unless cancelled about two months before term end.",
+      createdAt: datetimeDaysAgo(290),
+      updatedAt: datetimeDaysAgo(14),
+    })
+  );
+
+  // 19. One-off "Other" purchase whose term ended 20 days ago. It is not
+  // renewable, so the daily job retires it at sign-in and it raises no
+  // expiry alerts.
+  licenses.push(
+    buildLicense({
+      id: 19,
+      publisherName: "Microsoft",
+      softwareDescription: "Azure certification exam vouchers, 12 pack",
+      licenseType: "other",
+      typeDescription: "Training vouchers",
+      licenseMetric: "per_user",
+      quantity: "12",
+      unitPrice: "126.00",
+      totalPoPrice: "1512.00",
+      currency: "EUR",
+      ...yearTermEndingIn(-20),
+      poNumber: "PO-2025-0811",
+      invoiceNumber: "INV-BP-51277",
+      supplier: "Bluepeak Resellers",
+      costCentre: "IT-Operations",
+      contactEmail: "orders@bluepeak.example",
+      budgetOwnerEmail: "budget.owner@example.com",
+      licenseRef: licenseRef(19),
+      createdAt: datetimeDaysAgo(385),
+      updatedAt: datetimeDaysAgo(60),
+    })
+  );
+
   // Sourcing items (2 standalone + a 2-line planned-succession request)
   const plannedSuccessionRequestId = 210;
+  const grafanaFirstTerm = yearTermStartingIn(30);
+  const grafanaSecondTermStart = addDaysIso(grafanaFirstTerm.endDate, 1);
   const sourcingItems = [
     {
       id: 101,
@@ -529,8 +666,7 @@ export function buildSeedData() {
       estimatedUnitPrice: "325.00",
       estimatedTotalPrice: "15600.00",
       currency: "EUR",
-      startDate: daysFromNow(46),
-      endDate: daysFromNow(46 + 365),
+      ...yearTermStartingIn(46),
       supplier: "Northstar Procurement",
       contactEmail: "renewals@vmware.com",
       notes: "Renewal quote received; pending budget sign-off.",
@@ -552,8 +688,7 @@ export function buildSeedData() {
       estimatedUnitPrice: "23.00",
       estimatedTotalPrice: "1725.00",
       currency: "EUR",
-      startDate: daysFromNow(60),
-      endDate: daysFromNow(60 + 365),
+      ...yearTermStartingIn(60),
       supplier: "Direct Software Desk",
       contactEmail: "sales@datadoghq.com",
       notes: "New observability tooling request from Engineering.",
@@ -580,8 +715,7 @@ export function buildSeedData() {
       estimatedUnitPrice: "8.00",
       estimatedTotalPrice: "400.00",
       currency: "EUR",
-      startDate: daysFromNow(30),
-      endDate: daysFromNow(30 + 365),
+      ...grafanaFirstTerm,
       supplier: "Direct Software Desk",
       contactEmail: "sales@grafana.com",
       notes: "First term in a planned two-year commitment.",
@@ -605,8 +739,8 @@ export function buildSeedData() {
       estimatedUnitPrice: "8.50",
       estimatedTotalPrice: "425.00",
       currency: "EUR",
-      startDate: daysFromNow(30 + 365),
-      endDate: daysFromNow(30 + 730),
+      startDate: grafanaSecondTermStart,
+      endDate: termEnd(grafanaSecondTermStart),
       supplier: "Direct Software Desk",
       contactEmail: "sales@grafana.com",
       notes: "Pre-agreed second term; begins when the first term ends.",
@@ -634,8 +768,7 @@ export function buildSeedData() {
       estimatedUnitPrice: "18.00",
       estimatedTotalPrice: "7200.00",
       currency: "EUR",
-      startDate: daysFromNow(30),
-      endDate: daysFromNow(30 + 365),
+      ...yearTermStartingIn(30),
       supplier: "Northstar Procurement",
       contactEmail: "sales@okta.com",
       notes: "SSO rollout — PO raised with Northstar Procurement.",
@@ -652,8 +785,7 @@ export function buildSeedData() {
       estimatedUnitPrice: "133.00",
       estimatedTotalPrice: "5320.00",
       currency: "EUR",
-      startDate: daysFromNow(30),
-      endDate: daysFromNow(30 + 365),
+      ...yearTermStartingIn(30),
       supplier: "Northstar Procurement",
       contactEmail: "sales@okta.com",
       notes: "Bundled with the Workforce Identity order.",
@@ -692,6 +824,9 @@ export function buildSeedData() {
       poNumber: "PO-2026-0142",
       supplier: "Northstar Procurement",
       notes: "Okta SSO + server access bundle for the IT-Operations rollout.",
+      // The quote gave a negotiated bundle total; line prices stay as quoted
+      // and the manual total becomes every converted license's Total PO Value.
+      poTotalOverride: "12000.00",
       status: "pending",
       createdAt: datetimeDaysAgo(12),
       updatedAt: datetimeDaysAgo(4),

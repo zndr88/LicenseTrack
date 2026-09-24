@@ -24,3 +24,23 @@ After `npm run build -- --mode demo`, the marker must be present only in
 
 All demo state lives in browser memory: logging out or refreshing resets it.
 Nothing is written to localStorage; nothing leaves the browser.
+
+## Keeping the fake backend in sync
+
+`store.js`, `handlers.js` and `fixtures.js` re-implement backend rules. Each
+mirror is tagged with a `Mirrors backend/app/...` comment naming the function it
+follows. After a release that changes backend behavior, diff `backend/app`
+since the last re-sync and update the matching mirrors. Fixture terms follow
+the app's date convention: a one-year term ends the day before its anniversary.
+
+The backend's daily license jobs (ended one-off Service/Other retirement,
+scheduled retirements, and maintenance hand-over) run once when the demo
+session starts.
+
+Deliberate simplifications:
+
+- The server-owned-field rejection on license create is not ported.
+- URL sync (deep links) is off, because GitHub Pages has no SPA fallback.
+- Coverage history, audit events, emails, and document storage are not kept.
+- Quote documents are stubbed, and established renewal terms are not validated.
+- A maintenance line whose parent is bought on the same PO is not linked.

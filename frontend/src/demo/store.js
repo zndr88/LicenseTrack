@@ -1,13 +1,21 @@
-import { buildLicense, buildSeedData, computeExpirationStatus } from "./fixtures.js";
 import {
-  applyBundledIncludedSupportDefaults,
+  buildLicense, buildSeedData, computeExpirationStatus, computeSupportDaysRemaining, computeSupportStatus,
+} from "./fixtures.js";
+import {
+  applyIncludedSupportDefaults,
   defaultMaintenanceCoverage,
   isBundledIncludedSupport,
   withDefaultMaintenanceCoverage,
 } from "./supportDefaults.js";
-import { daysUntil } from "./time.js";
+import { addDaysIso, daysUntil, inclusiveTermDays, termEnd } from "./time.js";
 import { sumCanonicalQuantities } from "../utils/quantity.js";
-import { isRenewableLicense } from "../utils/licenseTypeRules.js";
+import {
+  isNonExpiringLicenseType,
+  isRenewableLicense,
+  isRenewalOptInLicenseType,
+  typeDescriptionMissing,
+} from "../utils/licenseTypeRules.js";
+import { procurementIdentityKey } from "../utils/procurementIdentity.js";
 
 /** Module-level in-memory state. Refresh or logout wipes it - that IS the reset story. */
 export const store = {
@@ -53,6 +61,9 @@ const DEFAULT_USER_SETTINGS = {
   sidebar_collapsed: false,
 };
 
+// Mirrors a fresh install's GlobalSettings row (backend/app/models/settings.py,
+// re-verified 2026-09-24 against 1.1.24): new installs require PO number,
+// invoice number and budget owner; the high-value threshold is per currency.
 const DEFAULT_GLOBAL_SETTINGS = {
   mandatory_fields: {
     invoice: false,
@@ -62,12 +73,13 @@ const DEFAULT_GLOBAL_SETTINGS = {
     quote: false,
     startDate: false,
     endDate: false,
+    noticeDate: false,
     contractNumber: false,
-    poNumber: false,
-    invoiceNumber: false,
+    poNumber: true,
+    invoiceNumber: true,
     contactEmail: false,
     costCentre: false,
-    budgetOwnerEmail: false,
+    budgetOwnerEmail: true,
   },
   session_timeout: 30,
   password_min_length: 12,
@@ -84,12 +96,14 @@ const DEFAULT_GLOBAL_SETTINGS = {
   smtp_encryption: "starttls",
   notification_send_hour: 7,
   allowed_email_domains: "",
+  public_base_url: "",
   backup_location: "./backups",
   backup_enabled: false,
   backup_hour: 2,
   backup_keep: 10,
   audit_log_retention_days: 90,
   high_value_threshold: 50000,
+  high_value_thresholds: { EUR: "50000" },
   fiscal_year_start_month: 1,
   email_enabled: false,
   oidc_enabled: false,
@@ -152,17 +166,127 @@ export function decorateLicense(license) {
     startDate: license.startDate,
     endDate: license.endDate,
   });
+  license.supportDaysRemaining = computeSupportDaysRemaining(license);
+  license.supportStatus = computeSupportStatus(license);
   license.updatedAt = new Date().toISOString();
   return license;
+}
+
+// ---------------------------------------------------------------------------
+// License type rules (1.1.24). Mirrors backend/app/services/license_service.py
+// normalise_type_opt_in_fields / is_recurring_license / annualize_term_cost and
+// license_write_service.py normalise_license_type_fields + _sync_invoice_numbers
+// (re-verified 2026-09-24 against 1.1.24).
+// ---------------------------------------------------------------------------
+
+export const TYPE_DESCRIPTION_REQUIRED_DETAIL = "Add a type description for an Other license";
+
+/** Keep isRenewable only on Service/Other, typeDescription only on Other, the supported license only on maintenance lines. */
+export function normaliseTypeOptInFields(data) {
+  if ("isRenewable" in data && !isRenewalOptInLicenseType(data.licenseType)) data.isRenewable = null;
+  if ("typeDescription" in data) {
+    const description = String(data.typeDescription ?? "").trim();
+    data.typeDescription = data.licenseType === "other" && description ? description : null;
+  }
+  if ("maintenanceParentLicenseId" in data && data.licenseType !== "maintenance") {
+    data.maintenanceParentLicenseId = null;
+  }
+  return data;
+}
+
+/** Persisted invariants fixed by the license type: no end date for non-expiring types, no prices for freeware. */
+export function normaliseLicenseTypeFields(data) {
+  if (data.licenseType === "freeware") {
+    data.unitPrice = "";
+    data.totalPoPrice = "";
+  }
+  if (isNonExpiringLicenseType(data.licenseType)) data.endDate = null;
+  return normaliseTypeOptInFields(data);
+}
+
+export function validateTypeDescription(licenseType, typeDescription) {
+  if (typeDescriptionMissing(licenseType, typeDescription)) throw new Error(TYPE_DESCRIPTION_REQUIRED_DETAIL);
+}
+
+/** Keep the legacy primary invoiceNumber mirrored from the invoiceNumbers list. */
+export function syncInvoiceNumbers(data) {
+  if ("invoiceNumbers" in data) {
+    const numbers = (data.invoiceNumbers ?? []).map((value) => String(value ?? "").trim()).filter(Boolean);
+    data.invoiceNumbers = numbers;
+    if (numbers.length) {
+      data.invoiceNumber = numbers[0];
+    } else if (data.invoiceNumber) {
+      data.invoiceNumbers = [data.invoiceNumber];
+    } else {
+      data.invoiceNumber = "";
+    }
+    return data;
+  }
+  if ("invoiceNumber" in data) {
+    const primary = data.invoiceNumber || "";
+    data.invoiceNumber = primary;
+    data.invoiceNumbers = primary ? [primary] : [];
+  }
+  return data;
+}
+
+const RECURRING_LICENSE_TYPES = new Set(["subscription", "saas", "maintenance"]);
+
+/** Whether the license line itself is a recurring (annual-cost) charge; renewable Service/Other count. */
+export function isRecurringLicense(license) {
+  if (RECURRING_LICENSE_TYPES.has(license.licenseType)) return true;
+  return isRenewalOptInLicenseType(license.licenseType) && isRenewableLicense(license);
+}
+
+// A one-year term counts 366 inclusive days when it spans 29 February or ends
+// on the anniversary date, so only genuinely longer terms are scaled to 365 days.
+const MAX_ONE_YEAR_TERM_DAYS = 366;
+
+export function annualizeTermCost(amount, startDate, endDate) {
+  const termDays = inclusiveTermDays(startDate, endDate);
+  if (termDays === null || termDays <= MAX_ONE_YEAR_TERM_DAYS) return amount;
+  return (amount * 365) / termDays;
+}
+
+function lineTotal(license) {
+  return parseDecimal(license.quantity) * parseDecimal(license.unitPrice);
+}
+
+/**
+ * Mirrors backend/app/services/po_total_override_service.py
+ * count_po_overrides_not_in_annual: annual-cost views are line based, so a
+ * manual PO total that differs from its group's line sum is informational there.
+ */
+export function countPoOverridesNotInAnnual(included, allLicenses) {
+  const keyOf = (license) => {
+    const identity = procurementIdentityKey(license);
+    return identity ? identity.join("|") : null;
+  };
+  const lineSums = new Map();
+  for (const license of allLicenses) {
+    const key = keyOf(license);
+    if (key !== null) lineSums.set(key, (lineSums.get(key) ?? 0) + lineTotal(license));
+  }
+  const differing = new Set();
+  for (const license of included) {
+    const key = keyOf(license);
+    if (!license.poTotalOverride || key === null) continue;
+    const override = Number(license.poTotalOverride);
+    if (!Number.isFinite(override)) continue;
+    if (Math.abs(override - (lineSums.get(key) ?? 0)) > 0.000001) differing.add(key);
+  }
+  return differing.size;
 }
 
 /**
  * Dashboard statistics derived from the live store.
  * Mirrors backend/app/services/license_service.py::compute_stats (re-verified
- * 2026-09-21 against 1.1.23, license_service.py:326-430) - counts by
- * expirationStatus, incompleteness, and annual cost (quantity x unitPrice)
- * grouped by currency for active/expiring/perpetual subscription|saas|
- * maintenance licenses that have not been renewed onward.
+ * 2026-09-24 against 1.1.24) - counts by expirationStatus, incompleteness, and
+ * annualized line cost (quantity x unitPrice; terms longer than one year scaled
+ * to 365 days) grouped by currency for active/expiring/perpetual recurring
+ * licenses (subscription, SaaS, maintenance, renewable Service/Other).
+ * po_overrides_not_in_annual counts manual PO totals that line-based annual
+ * cost does not reflect.
  *
  * pending_renewal is a workflow state on lifecycleStatus, not an expiration
  * status, so total_pending is counted from lifecycleStatus independently of the
@@ -182,6 +306,7 @@ export function computeStats() {
   let totalRenewed = 0;
   let totalLegacy = 0;
   const annualCostByCurrency = {};
+  const annualCostLicenses = [];
 
   for (const lic of licenses) {
     const status = lic.expirationStatus;
@@ -209,13 +334,13 @@ export function computeStats() {
     }
 
     if (["active", "perpetual", "expiring"].includes(status)) {
-      if (["subscription", "saas", "maintenance"].includes(lic.licenseType)) {
-        const qty = Number(lic.quantity) || 0;
-        const price = Number(lic.unitPrice) || 0;
+      if (isRecurringLicense(lic)) {
+        const annualCost = annualizeTermCost(lineTotal(lic), lic.startDate, lic.endDate);
         const cur = lic.currency || "EUR";
-        annualCostByCurrency[cur] = (annualCostByCurrency[cur] || 0) + qty * price;
+        annualCostByCurrency[cur] = (annualCostByCurrency[cur] || 0) + annualCost;
+        annualCostLicenses.push(lic);
       }
-      // Perpetual, OEM, Freeware contribute zero - same as backend.
+      // Perpetual, OEM, Freeware and one-off Service/Other contribute zero - same as backend.
     }
   }
 
@@ -233,6 +358,7 @@ export function computeStats() {
     total_legacy: totalLegacy,
     annual_cost_by_currency: annualCostByCurrency,
     excluded_from_totals: 0,
+    po_overrides_not_in_annual: countPoOverridesNotInAnnual(annualCostLicenses, licenses),
   };
 }
 
@@ -276,8 +402,10 @@ function hasMandatoryField(license, key) {
   if (DOCUMENT_CATEGORIES[key]) return hasDocumentCategory(license, DOCUMENT_CATEGORIES[key]);
   if (key === "startDate") return hasValue(license.startDate);
   if (key === "endDate") {
-    return hasValue(license.endDate) || ["perpetual", "oem", "freeware"].includes(license.licenseType);
+    // Non-expiring types and one-off Service/Other intentionally allow no end date.
+    return hasValue(license.endDate) || isNonExpiringLicenseType(license.licenseType) || !isRenewableLicense(license);
   }
+  if (key === "noticeDate") return hasValue(license.noticeDate);
   if (key === "contractNumber") return hasValue(license.contractNumber);
   if (key === "poNumber") return hasValue(license.poNumber);
   if (key === "invoiceNumber") return hasValue(license.invoiceNumber);
@@ -307,53 +435,70 @@ export function withComputedCompleteness(license) {
   };
 }
 
+const dayWord = (days) => (Math.abs(days) === 1 ? "day" : "days");
+const expirySeverity = (days) => (days <= 30 ? "critical" : days <= 60 ? "warning" : "info");
+const noticeSeverity = (days) => (days <= 7 ? "critical" : days <= 30 ? "warning" : "info");
+
+/**
+ * Mirrors backend/app/services/notification_classification.py
+ * classify_license_alerts (re-verified 2026-09-24 against 1.1.24): one-off
+ * Service/Other never raise expiry alerts, included support on
+ * perpetual/OEM/freeware raises support_expiring/support_expired, unhandled
+ * notice deadlines raise notice_due, and a record below 100% is incomplete.
+ */
 export function computeNotifications() {
   const rank = { critical: 0, warning: 1, info: 2 };
-  const threshold = 80;
+  const threshold = 100;
+  const expiryWindow = store.globalSettings.notification_days ?? 90;
+  const noticeWindow = store.globalSettings.notice_notification_days ?? 30;
   return store.licenses
-    .filter((license) => !license.isRetired)
-    .filter((license) => license.lifecycleStatus !== "legacy")
+    .filter((license) => !license.isRetired && !license.retirementScheduled)
+    .filter((license) => !["legacy", "renewed"].includes(license.lifecycleStatus) && license.renewedToId == null)
     .flatMap((license) => {
       const items = [];
-      const isRenewed = license.lifecycleStatus === "renewed";
+      const alert = (type, detail, severity, relevantDate) => items.push({
+        license_id: license.id,
+        software_name: license.softwareDescription,
+        publisher: license.publisherName,
+        type,
+        detail,
+        severity,
+        relevant_date: relevantDate,
+      });
       const isUpcoming = license.startDate ? daysUntil(license.startDate) > 0 : false;
-      const days = license.daysUntilExpiry ?? daysUntil(license.endDate);
-      const completenessPct = computeLicenseCompletenessPct(license);
+      const days = daysUntil(license.endDate);
+      const inProgress = license.lifecycleStatus === "pending_renewal" ? "; renewal is in progress" : "";
 
-      if (license.endDate && !isRenewed && !isUpcoming && days < 0) {
-        const overdue = Math.abs(days);
-        items.push({
-          license_id: license.id,
-          software_name: license.softwareDescription,
-          publisher: license.publisherName,
-          type: "expired",
-          detail: `Expired ${overdue} ${overdue === 1 ? "day" : "days"} ago on ${license.endDate}`,
-          severity: "critical",
-          relevant_date: license.endDate,
-        });
-      } else if (license.endDate && !isRenewed && !isUpcoming && days >= 0 && days <= (store.globalSettings.notification_days ?? 90)) {
-        const severity = days <= 30 ? "critical" : days <= 60 ? "warning" : "info";
-        items.push({
-          license_id: license.id,
-          software_name: license.softwareDescription,
-          publisher: license.publisherName,
-          type: "expiring",
-          detail: `Expires in ${days} ${days === 1 ? "day" : "days"} on ${license.endDate}`,
-          severity,
-          relevant_date: license.endDate,
-        });
+      if (!isUpcoming && isRenewableLicense(license) && license.endDate) {
+        if (days < 0) {
+          alert("expired", `Expired ${-days} ${dayWord(days)} ago on ${license.endDate}${inProgress}`, "critical", license.endDate);
+        } else if (days <= expiryWindow) {
+          alert("expiring", `Expires in ${days} ${dayWord(days)} on ${license.endDate}${inProgress}`, expirySeverity(days), license.endDate);
+        }
       }
 
-      if (!isRenewed && completenessPct != null && completenessPct < threshold) {
-        items.push({
-          license_id: license.id,
-          software_name: license.softwareDescription,
-          publisher: license.publisherName,
-          type: "incomplete",
-          detail: `Record is ${completenessPct}% complete (below ${threshold}%)`,
-          severity: "info",
-          relevant_date: license.endDate,
-        });
+      const supportDays = computeSupportDaysRemaining(license);
+      if (!isUpcoming && supportDays !== null) {
+        const supportEnd = license.maintenanceEndDate;
+        if (supportDays < 0) {
+          alert("support_expired", `Support expired ${-supportDays} ${dayWord(supportDays)} ago on ${supportEnd}`, "critical", supportEnd);
+        } else if (supportDays <= expiryWindow) {
+          alert("support_expiring", `Support ends in ${supportDays} ${dayWord(supportDays)} on ${supportEnd}`, expirySeverity(supportDays), supportEnd);
+        }
+      }
+
+      if (license.noticeDate && !license.noticeHandledAt && !isUpcoming) {
+        const noticeDays = daysUntil(license.noticeDate);
+        if (noticeDays < 0) {
+          alert("notice_due", `Notice deadline passed ${-noticeDays} ${dayWord(noticeDays)} ago on ${license.noticeDate}`, "critical", license.noticeDate);
+        } else if (noticeDays <= noticeWindow) {
+          alert("notice_due", `Notice deadline in ${noticeDays} ${dayWord(noticeDays)} on ${license.noticeDate}`, noticeSeverity(noticeDays), license.noticeDate);
+        }
+      }
+
+      const completenessPct = computeLicenseCompletenessPct(license);
+      if (completenessPct != null && completenessPct < threshold) {
+        alert("incomplete", `Record is ${completenessPct}% complete (below ${threshold}%)`, "info", license.endDate);
       }
       return items;
     })
@@ -373,6 +518,8 @@ export function computePortfolioReportStats() {
     saas: 0,
     oem: 0,
     freeware: 0,
+    service: 0,
+    other: 0,
   };
   for (const license of store.licenses) {
     if (license.isRetired) continue;
@@ -387,9 +534,18 @@ export function computePortfolioReportStats() {
     total_incomplete: stats.total_incomplete,
     annual_cost_by_currency: stats.annual_cost_by_currency,
     excluded_from_totals: stats.excluded_from_totals,
+    po_overrides_not_in_annual: stats.po_overrides_not_in_annual,
     by_license_type: byLicenseType,
   };
 }
+
+// Renewal Workbench. Mirrors backend/app/services/renewal_service.py and
+// renewal_workbench_model.py (re-verified 2026-09-24 against 1.1.24):
+// candidates exclude retired, retirement-scheduled and one-off Service/Other
+// records; an unhandled notice deadline inside the window makes a record a
+// candidate and is flagged; included support on perpetual/OEM/freeware adds
+// "support_renewal" rows; rows sort by the earlier of notice and end date; the
+// high-value flag uses the row currency's threshold only (no FX conversion).
 
 const WORKBENCH_VIEWS = new Set([
   "all",
@@ -401,8 +557,9 @@ const WORKBENCH_VIEWS = new Set([
   "in_progress",
   "missing_docs",
   "high_value",
+  "notice_due",
 ]);
-const RECURRING_LICENSE_TYPES = new Set(["subscription", "saas", "maintenance"]);
+const INCLUDED_SUPPORT_PARENT_TYPES = new Set(["perpetual", "oem", "freeware"]);
 
 function parseDecimal(value) {
   if (value === null || value === undefined || String(value).trim() === "") return 0;
@@ -411,8 +568,8 @@ function parseDecimal(value) {
 }
 
 function estimateAnnualValue(license) {
-  if (!RECURRING_LICENSE_TYPES.has(license.licenseType)) return 0;
-  return parseDecimal(license.quantity) * parseDecimal(license.unitPrice);
+  if (!isRecurringLicense(license)) return 0;
+  return annualizeTermCost(lineTotal(license), license.startDate, license.endDate);
 }
 
 function hasValue(value) {
@@ -421,6 +578,26 @@ function hasValue(value) {
 
 function riskFlag(code, label, severity) {
   return { code, label, severity };
+}
+
+/** Per-currency high-value thresholds; a currency without one is never flagged. */
+function highValueThresholds() {
+  const thresholds = {};
+  for (const [currency, amount] of Object.entries(store.globalSettings.high_value_thresholds ?? {})) {
+    if (amount === null || amount === undefined || String(amount).trim() === "") continue;
+    thresholds[String(currency).trim().toUpperCase()] = parseDecimal(amount);
+  }
+  return thresholds;
+}
+
+function daysUntilNotice(license) {
+  if (!license.noticeDate || license.noticeHandledAt) return null;
+  return daysUntil(license.noticeDate);
+}
+
+function effectiveDeadlineDays(row) {
+  const candidates = [row.daysUntilExpiry, row.daysUntilNotice].filter((days) => days !== null && days !== undefined);
+  return candidates.length ? Math.min(...candidates) : null;
 }
 
 function computeRenewalStatus(license, sourcingItem, daysUntilExpiry) {
@@ -437,6 +614,7 @@ function computeRenewalRiskFlags({
   license,
   renewalStatus,
   daysUntilExpiry,
+  daysUntilNotice: noticeDays = null,
   documentCount,
   estimatedAnnualValue,
   highValueThreshold,
@@ -454,6 +632,13 @@ function computeRenewalRiskFlags({
     flags.push(riskFlag("due_90", "Due within 90 days", "low"));
   }
 
+  if (noticeDays !== null && noticeDays < 0) {
+    flags.push(riskFlag("notice_passed", "Notice deadline passed", "high"));
+  } else if (noticeDays !== null && noticeDays <= 90) {
+    const severity = noticeDays <= 30 ? "high" : noticeDays <= 60 ? "medium" : "low";
+    flags.push(riskFlag("notice_due", `Notice deadline in ${noticeDays} ${noticeDays === 1 ? "day" : "days"}`, severity));
+  }
+
   if (!hasValue(license.supplier)) flags.push(riskFlag("no_supplier", "No supplier", "medium"));
   if (!hasValue(license.contractNumber)) flags.push(riskFlag("no_contract", "No contract", "medium"));
   if (!hasValue(license.poNumber)) flags.push(riskFlag("no_po", "No PO", "low"));
@@ -461,7 +646,9 @@ function computeRenewalRiskFlags({
   if (completenessPct !== null && completenessPct !== undefined && completenessPct < 100) {
     flags.push(riskFlag("incomplete", "Incomplete mandatory fields", "medium"));
   }
-  if (estimatedAnnualValue >= highValueThreshold) flags.push(riskFlag("high_value", "High value", "high"));
+  if (highValueThreshold !== undefined && estimatedAnnualValue >= highValueThreshold) {
+    flags.push(riskFlag("high_value", "High value", "high"));
+  }
   if (renewalStatus === "expired_unresolved" || renewalStatus === "due_soon") {
     flags.push(riskFlag(
       "renewal_not_started",
@@ -480,7 +667,21 @@ function selectRenewalSourcingItem(licenseId) {
   return items.find((item) => item.pendingOrderId != null) ?? items[0] ?? null;
 }
 
-function matchesWorkbenchView(row, view, highValueThreshold) {
+/** Mirrors support_renewal_service.open_support_renewal_filter: a support line that has not become a license yet. */
+export function openSupportRenewalItems(parentLicenseId) {
+  return store.sourcingItems.filter((item) => (
+    item.maintenanceParentLicenseId === parentLicenseId
+    && item.status !== "cancelled"
+    && !store.licenses.some((license) => license.sourceSourcingItemId === item.id)
+  ));
+}
+
+function selectSupportRenewalItem(parentLicenseId) {
+  const items = openSupportRenewalItems(parentLicenseId).sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+  return items.find((item) => item.pendingOrderId != null) ?? items[0] ?? null;
+}
+
+function matchesWorkbenchView(row, view) {
   if (view === "all") return true;
   if (view === "needs_action") return ["expired_unresolved", "due_soon"].includes(row.renewalStatus);
   if (view === "overdue") return row.renewalStatus === "expired_unresolved";
@@ -489,8 +690,120 @@ function matchesWorkbenchView(row, view, highValueThreshold) {
   if (view === "due_90") return row.daysUntilExpiry !== null && row.daysUntilExpiry >= 0 && row.daysUntilExpiry <= 90;
   if (view === "in_progress") return ["pending_renewal", "in_sourcing", "pending_order"].includes(row.renewalStatus);
   if (view === "missing_docs") return row.documentCount === 0;
-  if (view === "high_value") return row.estimatedAnnualValue >= highValueThreshold;
+  if (view === "high_value") return row.riskFlags.some((flag) => flag.code === "high_value");
+  if (view === "notice_due") return row.daysUntilNotice !== null;
   return true;
+}
+
+function isWorkbenchCandidate(license, windowNumber) {
+  if (license.isRetired || license.retirementScheduled || !isRenewableLicense(license)) return false;
+  if (["renewed", "legacy"].includes(license.lifecycleStatus)) return false;
+  if (license.lifecycleStatus === "pending_renewal") return true;
+  const noticeDays = daysUntilNotice(license);
+  if (noticeDays !== null && noticeDays <= windowNumber) return true;
+  return Boolean(license.endDate) && daysUntil(license.endDate) <= windowNumber;
+}
+
+function isSupportCandidate(license, windowNumber) {
+  return INCLUDED_SUPPORT_PARENT_TYPES.has(license.licenseType)
+    && license.maintenanceCoverage === "included"
+    && Boolean(license.maintenanceEndDate)
+    && daysUntil(license.maintenanceEndDate) <= windowNumber
+    && !license.isRetired
+    && license.lifecycleStatus !== "legacy";
+}
+
+function workbenchRowBase(license, sourcingItem) {
+  const pendingOrder = sourcingItem?.pendingOrderId != null
+    ? store.pendingOrders.find((order) => order.id === sourcingItem.pendingOrderId)
+    : null;
+  return {
+    licenseId: license.id,
+    rowKind: "license",
+    licenseRef: license.licenseRef,
+    publisherName: license.publisherName,
+    softwareDescription: license.softwareDescription,
+    licenseType: license.licenseType,
+    licenseMetric: license.licenseMetric,
+    startDate: license.startDate,
+    endDate: license.endDate,
+    noticeDate: null,
+    daysUntilNotice: null,
+    lifecycleStatus: license.lifecycleStatus,
+    contractNumber: license.contractNumber ?? "",
+    poNumber: license.poNumber ?? "",
+    supplier: license.supplier ?? "",
+    costCentre: license.costCentre ?? "",
+    budgetOwnerEmail: license.budgetOwnerEmail ?? "",
+    contactEmail: license.contactEmail ?? "",
+    currency: license.currency ?? "EUR",
+    quantity: license.quantity ?? "",
+    unitPrice: license.unitPrice ?? "",
+    completenessPct: computeLicenseCompletenessPct(license),
+    documentCount: license.documentCount ?? 0,
+    riskFlags: [],
+    sourcingItemId: sourcingItem?.id ?? null,
+    pendingOrderId: sourcingItem?.pendingOrderId ?? null,
+    pendingOrderNumber: pendingOrder?.poNumber ?? null,
+    customFields: license.customFields ?? [],
+  };
+}
+
+function buildLicenseRow(license, thresholds) {
+  const sourcingItem = selectRenewalSourcingItem(license.id);
+  const daysUntilExpiry = daysUntil(license.endDate);
+  const noticeDays = daysUntilNotice(license);
+  const renewalStatus = computeRenewalStatus(license, sourcingItem, daysUntilExpiry);
+  const row = {
+    ...workbenchRowBase(license, sourcingItem),
+    daysUntilExpiry,
+    noticeDate: noticeDays !== null ? license.noticeDate : null,
+    daysUntilNotice: noticeDays,
+    renewalStatus,
+    estimatedAnnualValue: estimateAnnualValue(license),
+  };
+  row.riskFlags = computeRenewalRiskFlags({
+    license,
+    renewalStatus,
+    daysUntilExpiry,
+    daysUntilNotice: noticeDays,
+    documentCount: row.documentCount,
+    estimatedAnnualValue: row.estimatedAnnualValue,
+    highValueThreshold: thresholds[String(license.currency ?? "").trim().toUpperCase()],
+  });
+  return row;
+}
+
+/** Mirrors renewal_service._build_support_row: the included support period of a perpetual/OEM/freeware license. */
+function buildSupportRow(parent, thresholds) {
+  const sourcingItem = selectSupportRenewalItem(parent.id);
+  const daysUntilExpiry = daysUntil(parent.maintenanceEndDate);
+  let renewalStatus;
+  if (sourcingItem?.pendingOrderId != null) renewalStatus = "pending_order";
+  else if (sourcingItem) renewalStatus = "in_sourcing";
+  else renewalStatus = daysUntilExpiry < 0 ? "expired_unresolved" : "due_soon";
+  const row = {
+    ...workbenchRowBase(parent, sourcingItem),
+    rowKind: "support_renewal",
+    softwareDescription: `${parent.softwareDescription} (included support)`,
+    startDate: parent.maintenanceStartDate,
+    endDate: parent.maintenanceEndDate,
+    daysUntilExpiry,
+    renewalStatus,
+    estimatedAnnualValue: annualizeTermCost(
+      parseDecimal(parent.maintenanceCost), parent.maintenanceStartDate, parent.maintenanceEndDate,
+    ),
+    customFields: [],
+  };
+  row.riskFlags = computeRenewalRiskFlags({
+    license: parent,
+    renewalStatus,
+    daysUntilExpiry,
+    documentCount: row.documentCount,
+    estimatedAnnualValue: row.estimatedAnnualValue,
+    highValueThreshold: thresholds[String(parent.currency ?? "").trim().toUpperCase()],
+  });
+  return row;
 }
 
 export function buildRenewalWorkbenchRows({ windowDays = 90, view = "all" } = {}) {
@@ -500,61 +813,25 @@ export function buildRenewalWorkbenchRows({ windowDays = 90, view = "all" } = {}
     throw new Error("window_days must be greater than or equal to 0");
   }
 
-  const highValueThreshold = parseDecimal(store.globalSettings.high_value_threshold ?? 50000);
-  return store.licenses
-    .filter((license) => !license.isRetired)
-    .filter((license) => !["renewed", "legacy"].includes(license.lifecycleStatus))
-    .filter((license) => license.endDate || license.lifecycleStatus === "pending_renewal")
-    .filter((license) => license.lifecycleStatus === "pending_renewal" || (license.daysUntilExpiry !== null && license.daysUntilExpiry <= windowNumber))
-    .map((license) => {
-      const sourcingItem = selectRenewalSourcingItem(license.id);
-      const pendingOrder = sourcingItem?.pendingOrderId != null
-        ? store.pendingOrders.find((order) => order.id === sourcingItem.pendingOrderId)
-        : null;
-      const daysUntilExpiry = license.daysUntilExpiry ?? daysUntil(license.endDate);
-      const documentCount = license.documentCount ?? 0;
-      const estimatedAnnualValue = estimateAnnualValue(license);
-      const renewalStatus = computeRenewalStatus(license, sourcingItem, daysUntilExpiry);
-      const row = {
-        licenseId: license.id,
-        licenseRef: license.licenseRef,
-        publisherName: license.publisherName,
-        softwareDescription: license.softwareDescription,
-        licenseType: license.licenseType,
-        licenseMetric: license.licenseMetric,
-        endDate: license.endDate,
-        daysUntilExpiry,
-        renewalStatus,
-        lifecycleStatus: license.lifecycleStatus,
-        contractNumber: license.contractNumber ?? "",
-        poNumber: license.poNumber ?? "",
-        supplier: license.supplier ?? "",
-        costCentre: license.costCentre ?? "",
-        budgetOwnerEmail: license.budgetOwnerEmail ?? "",
-        contactEmail: license.contactEmail ?? "",
-        currency: license.currency ?? "EUR",
-        quantity: license.quantity ?? "",
-        unitPrice: license.unitPrice ?? "",
-        estimatedAnnualValue,
-        completenessPct: computeLicenseCompletenessPct(license),
-        documentCount,
-        riskFlags: [],
-        sourcingItemId: sourcingItem?.id ?? null,
-        pendingOrderId: sourcingItem?.pendingOrderId ?? null,
-        pendingOrderNumber: pendingOrder?.poNumber ?? null,
-        customFields: license.customFields ?? [],
-      };
-      row.riskFlags = computeRenewalRiskFlags({
-        license,
-        renewalStatus,
-        daysUntilExpiry,
-        documentCount,
-        estimatedAnnualValue,
-        highValueThreshold,
-      });
-      return row;
-    })
-    .filter((row) => matchesWorkbenchView(row, view, highValueThreshold));
+  const thresholds = highValueThresholds();
+  const rows = [
+    ...store.licenses
+      .filter((license) => isWorkbenchCandidate(license, windowNumber))
+      .map((license) => buildLicenseRow(license, thresholds)),
+    ...store.licenses
+      .filter((license) => isSupportCandidate(license, windowNumber))
+      .map((parent) => buildSupportRow(parent, thresholds)),
+  ];
+  // Act on whichever deadline comes first: the notice date or the end date.
+  rows.sort((a, b) => {
+    const aDeadline = effectiveDeadlineDays(a);
+    const bDeadline = effectiveDeadlineDays(b);
+    if ((aDeadline === null) !== (bDeadline === null)) return aDeadline === null ? 1 : -1;
+    if (aDeadline !== bDeadline) return (aDeadline ?? 0) - (bDeadline ?? 0);
+    const byPublisher = String(a.publisherName).localeCompare(String(b.publisherName));
+    return byPublisher !== 0 ? byPublisher : a.licenseId - b.licenseId;
+  });
+  return rows.filter((row) => matchesWorkbenchView(row, view));
 }
 
 function sameContractNumber(a, b) {
@@ -652,13 +929,26 @@ export function computeTotalEstimatedValue(items) {
     .join(" + ");
 }
 
-/** Mirrors backend/app/schemas/pending_order.py:27-58 SourcingItemSummary (nested-in-PO shape). */
+/** Mirrors backend/app/schemas/pending_order.py SourcingItemSummary (nested-in-PO shape). */
 export function toSourcingItemSummary(item) {
   return {
     id: item.id,
     sourcingRequestId: item.sourcingRequestId,
     publisherName: item.publisherName,
     softwareDescription: item.softwareDescription,
+    licenseType: item.licenseType ?? null,
+    licenseMetric: item.licenseMetric ?? null,
+    isRenewable: item.isRenewable ?? null,
+    typeDescription: item.typeDescription ?? null,
+    maintenanceParentLicenseId: item.maintenanceParentLicenseId ?? null,
+    maintenanceCoverage: item.maintenanceCoverage ?? null,
+    maintenanceStartDate: item.maintenanceStartDate ?? null,
+    maintenanceEndDate: item.maintenanceEndDate ?? null,
+    maintenancePricingBasis: item.maintenancePricingBasis ?? null,
+    maintenanceQuantity: item.maintenanceQuantity ?? null,
+    maintenanceUnitPrice: item.maintenanceUnitPrice ?? null,
+    maintenanceCost: item.maintenanceCost ?? null,
+    parentSourcingItemId: item.parentSourcingItemId ?? null,
     quantity: item.quantity,
     estimatedUnitPrice: item.estimatedUnitPrice,
     estimatedTotalPrice: item.estimatedTotalPrice,
@@ -761,6 +1051,7 @@ function buildTrailSourcingItem(item) {
     publisherName: item.publisherName,
     softwareDescription: item.softwareDescription,
     licenseType: item.licenseType,
+    maintenanceParentLicenseId: item.maintenanceParentLicenseId ?? null,
     maintenanceCoverage: item.maintenanceCoverage,
     maintenanceStartDate: item.maintenanceStartDate,
     maintenanceEndDate: item.maintenanceEndDate,
@@ -930,6 +1221,9 @@ export function buildSourcingItem(payload, overrides = {}) {
     licenseType: payload.licenseType ?? null,
     licenseMetric: payload.licenseMetric ?? null,
     portalUrl: payload.portalUrl ?? null,
+    isRenewable: payload.isRenewable ?? null,
+    typeDescription: payload.typeDescription ?? null,
+    maintenanceParentLicenseId: payload.maintenanceParentLicenseId ?? null,
     maintenanceCoverage: payload.maintenanceCoverage ?? null,
     maintenanceStartDate: payload.maintenanceStartDate ?? null,
     maintenanceEndDate: payload.maintenanceEndDate ?? null,
@@ -971,7 +1265,8 @@ export function buildSourcingItem(payload, overrides = {}) {
     updatedAt: now,
     createdBy: 1,
   };
-  return applyBundledIncludedSupportDefaults(item);
+  applyIncludedSupportDefaults(item);
+  return normaliseTypeOptInFields(item);
 }
 
 /**
@@ -1022,10 +1317,43 @@ function buildNewPendingOrder({ poNumber, supplier, notes }) {
     evidenceTransferStatus: null,
     evidenceTransferDetail: null,
     evidenceTransferFailedAt: null,
+    poTotalOverride: null,
     items: [],
     documents: [],
     totalPoValue: null,
   };
+}
+
+// Manual PO total on a pending order. Mirrors
+// backend/app/services/po_total_override_service.py (1.1.24): only allowed
+// while every line shares one currency, never spread across lines.
+export const PENDING_ORDER_CURRENCY_DETAIL = (
+  "A manual PO total needs every line of the pending order in one currency; "
+  + "clear the PO total before adding a line in another currency"
+);
+
+const normalizeCurrency = (value) => String(value ?? "").trim().toUpperCase();
+
+function pendingOrderLineCurrencies(orderId) {
+  return new Set(
+    store.sourcingItems
+      .filter((item) => item.pendingOrderId === orderId && item.status !== "cancelled")
+      .map((item) => normalizeCurrency(item.currency))
+      .filter(Boolean)
+  );
+}
+
+export function assertPendingOrderOverrideCurrencies(orderId) {
+  if (pendingOrderLineCurrencies(orderId).size > 1) throw new Error(PENDING_ORDER_CURRENCY_DETAIL);
+}
+
+export function assertLineCurrencyFitsPendingOrder(orderId, currency) {
+  const order = store.pendingOrders.find((candidate) => candidate.id === orderId);
+  if (!order?.poTotalOverride) return;
+  const currencies = pendingOrderLineCurrencies(orderId);
+  if (currencies.size && !currencies.has(normalizeCurrency(currency))) {
+    throw new Error(PENDING_ORDER_CURRENCY_DETAIL);
+  }
 }
 
 /** Mirrors backend/app/services/sourcing_service.py:257-303 convert_sourcing_item_to_order. */
@@ -1059,6 +1387,7 @@ export function convertSourcingItemToOrder(item, { pendingOrderId, poNumber, sup
     store.pendingOrders.push(order);
   }
 
+  assertLineCurrencyFitsPendingOrder(order.id, item.currency);
   const now = new Date().toISOString();
   item.pendingOrderId = order.id;
   item.status = "converted";
@@ -1122,6 +1451,7 @@ export function convertSourcingRequestToOrder(request, { pendingOrderId, poNumbe
     store.pendingOrders.push(order);
   }
 
+  for (const item of purchaseItems) assertLineCurrencyFitsPendingOrder(order.id, item.currency);
   const now = new Date().toISOString();
   for (const item of purchaseItems) {
     item.pendingOrderId = order.id;
@@ -1503,6 +1833,7 @@ export function addPendingOrderItemsBulk(order, payloads) {
     if ((payload.successorOfItemIds ?? []).length) {
       throw new Error("Successor lines must be added to a sourcing request");
     }
+    assertLineCurrencyFitsPendingOrder(order.id, payload.currency || "EUR");
     const created = buildSourcingItem(
       { ...payload, renewalForLicenseId: null },
       { status: "converted", pendingOrderId: order.id, sourcingRequestId: null }
@@ -1614,14 +1945,20 @@ function markPredecessorRenewed(predecessor, successorId) {
 // ---------------------------------------------------------------------------
 // Planned multi-term succession between the lines of one procurement event.
 // Mirrors backend/app/services/planned_successor_service.py (re-verified
-// 2026-09-21 against 1.1.23). The demo router carries no HTTP status codes, so
+// 2026-09-24 against 1.1.24: renewable Service/Other may chain, and maintenance
+// terms chain with maintenance only). The demo router carries no HTTP status codes, so
 // only the messages are mirrored. The one-request/one-order grouping is
 // simplified to "one procurement event" because demo PO lines drop their
 // sourcing_request_id on conversion; every caller-triggerable content guard
 // (distinct/self/not-found/already-linked/publisher/type/cycle) is preserved.
 // ---------------------------------------------------------------------------
 
-const NON_SUCCEEDABLE_LICENSE_TYPES = new Set(["service", "other", "freeware", "perpetual"]);
+// Types that never renew, regardless of the Service/Other renewable opt-in.
+const NEVER_RENEWED_TYPES = new Set(["freeware", "perpetual"]);
+
+function canTakePartInPlannedChain(item) {
+  return isRenewableLicense(item) && !NEVER_RENEWED_TYPES.has(item.licenseType);
+}
 
 /**
  * Mark lines that are the planned successor of another line as renewals - the
@@ -1717,21 +2054,19 @@ export function setPlannedSuccessors(predecessorItemIds, successorItemId) {
   if (successor != null) {
     const successorPublisher = normalized(successor.publisherName);
     if (!successorPublisher) throw new Error("Successor publisher is required");
-    if (NON_SUCCEEDABLE_LICENSE_TYPES.has(successor.licenseType)) {
+    if (!canTakePartInPlannedChain(successor)) {
       throw new Error("This successor type cannot be renewed");
-    }
-    if (successor.licenseType === "maintenance") {
-      throw new Error("Planned maintenance successors are not available yet");
     }
     for (const predecessor of predecessors) {
       if (normalized(predecessor.publisherName) !== successorPublisher) {
         throw new Error("Linked terms must have the same publisher");
       }
-      if (NON_SUCCEEDABLE_LICENSE_TYPES.has(predecessor.licenseType)) {
+      if (!canTakePartInPlannedChain(predecessor)) {
         throw new Error("This predecessor type cannot be renewed");
       }
-      if (predecessor.licenseType === "maintenance") {
-        throw new Error("Planned maintenance successors are not available yet");
+      // Support chains stay support: maintenance follows maintenance only.
+      if ((predecessor.licenseType === "maintenance") !== (successor.licenseType === "maintenance")) {
+        throw new Error("Maintenance terms can only follow maintenance terms");
       }
     }
   }
@@ -1834,6 +2169,11 @@ function buildPendingOrderItemLicenseData(formData, item, oldLicense, submittedF
   ]) {
     if (item[field] != null && item[field] !== "") data[field] = item[field];
   }
+  for (const field of ["isRenewable", "typeDescription"]) {
+    if (submittedFields.has(field)) continue;
+    const value = item[field] ?? oldLicense?.[field] ?? null;
+    if (value !== null && value !== "") data[field] = value;
+  }
 
   applyIncludedSupportTermFallback(data, submittedFields);
 
@@ -1844,7 +2184,18 @@ function buildPendingOrderItemLicenseData(formData, item, oldLicense, submittedF
     if (oldLicense.licenseType === "maintenance") data.parentLicenseId = oldLicense.parentLicenseId;
     if (oldLicense.skuCode) data.skuCode = oldLicense.skuCode;
     if (oldLicense.costCentre) data.costCentre = oldLicense.costCentre;
-    if (oldLicense.budgetOwnerEmail) data.budgetOwnerEmail = oldLicense.budgetOwnerEmail;
+    // The line's stored owner is the truth. Only a single-predecessor line falls
+    // back to that predecessor; merged coterm lines never inherit the primary's owner.
+    const singlePredecessor = (item.cotermPredecessorIds ?? []).length < 2;
+    if (singlePredecessor && !submittedFields.has("budgetOwnerEmail") && !hasValue(item.budgetOwnerEmail)
+      && oldLicense.budgetOwnerEmail) {
+      data.budgetOwnerEmail = oldLicense.budgetOwnerEmail;
+    }
+  }
+  // A maintenance line started from a license (e.g. Start support renewal) supports that license.
+  if (data.licenseType === "maintenance" && !submittedFields.has("parentLicenseId")
+    && data.parentLicenseId == null && item.maintenanceParentLicenseId != null) {
+    data.parentLicenseId = item.maintenanceParentLicenseId;
   }
 
   return data;
@@ -1875,25 +2226,31 @@ function buildConvertedLicense(itemData, { renewedFromId = null, predecessorId =
 }
 
 /**
- * Mirrors backend/app/services/conversion/license_converter.py:10-54
- * create_purchase_license. The maintenance-parent linking path
- * (create_maintenance_purchase / parentSourcingItemId) is simplified: the
- * demo passes parentLicenseId through without parent mirror-field syncing.
+ * Mirrors backend/app/services/conversion/license_converter.py
+ * create_purchase_license (re-verified 2026-09-24 against 1.1.24):
+ * non-expiring types drop the end date, Other needs a type description, and a
+ * maintenance record with a parentLicenseId is linked to that license and
+ * becomes its active support on its own start date. Parents resolved through
+ * parentSourcingItemId (a parent bought on the same PO) are not linked in the demo.
  */
-function createPurchaseLicense(itemData) {
+function createPurchaseLicense(itemData, itemId = null) {
   const data = { ...itemData };
   delete data.parentSourcingItemId;
-  if (data.licenseType === "perpetual") data.endDate = null;
-  if (data.licenseType === "freeware") {
-    data.unitPrice = "";
-    data.totalPoPrice = "";
+  normaliseLicenseTypeFields(data);
+  if (typeDescriptionMissing(data.licenseType, data.typeDescription)) {
+    throw new Error(itemId != null ? `Item ${itemId}: ${TYPE_DESCRIPTION_REQUIRED_DETAIL}` : TYPE_DESCRIPTION_REQUIRED_DETAIL);
   }
   if (data.licenseType !== "maintenance" && data.parentLicenseId != null) {
     throw new Error("parentLicenseId is only valid for maintenance licenses");
   }
   data.maintenanceCoverage = data.maintenanceCoverage || defaultMaintenanceCoverage(data.licenseType);
-  applyBundledIncludedSupportDefaults(data);
-  return buildConvertedLicense(data);
+  applyIncludedSupportDefaults(data);
+  const license = buildConvertedLicense(data);
+  if (license.licenseType === "maintenance" && license.parentLicenseId != null && license.parentLicenseId !== "") {
+    const parent = store.licenses.find((candidate) => candidate.id === Number(license.parentLicenseId));
+    if (parent) linkOrActivateMaintenance(license, parent);
+  }
+  return license;
 }
 
 /**
@@ -1915,7 +2272,8 @@ export function createRenewalSuccessorFromSourcingItem(sourcingItem, licenseData
   }
   const successorType = data.licenseType ?? oldLic.licenseType;
   data.maintenanceCoverage = data.maintenanceCoverage || defaultMaintenanceCoverage(successorType);
-  applyBundledIncludedSupportDefaults(data);
+  applyIncludedSupportDefaults(data);
+  normaliseLicenseTypeFields(data);
   delete data.parentSourcingItemId;
 
   if (sourcingItem.cotermPredecessorIds && sourcingItem.cotermPredecessorIds.length > 0) {
@@ -1948,6 +2306,15 @@ export function createRenewalSuccessorFromSourcingItem(sourcingItem, licenseData
     licenseRefOverride: oldLic.licenseRef || null,
   });
   markPredecessorRenewed(oldLic, successor.id);
+  // A maintenance renewal supports the same licenses; a future-dated term is
+  // linked now and handed over on its start date (renewal_orchestrator
+  // _activate_maintenance_successor_for_all_parents).
+  if (successor.licenseType === "maintenance") {
+    for (const parentId of maintenanceParentIdsOf(oldLic)) {
+      const parent = store.licenses.find((license) => license.id === parentId);
+      if (parent) linkOrActivateMaintenance(successor, parent);
+    }
+  }
   return { successor, predecessorIds: [oldLic.id] };
 }
 
@@ -1999,6 +2366,9 @@ export function convertPendingOrderToLicenses(order, payload) {
     pendingOrderId: order.id,
     purchaseDate: order.createdAt,
     ...(orderSupplier ? { supplier: orderSupplier } : {}),
+    // The order's manual total is the truth for every license it creates; line
+    // prices are never changed or spread.
+    ...(order.poTotalOverride ? { poTotalOverride: order.poTotalOverride } : {}),
   };
 
   const items = store.sourcingItems.filter((i) => i.pendingOrderId === order.id);
@@ -2016,6 +2386,7 @@ export function convertPendingOrderToLicenses(order, payload) {
         }
         const itemData = buildPendingOrderItemLicenseData(formData, item, oldLic, submittedFields);
         itemData.sourceSourcingItemId = item.id;
+        requireBudgetOwnerForSplitCoterm(item, itemData);
         const { successor, predecessorIds: marked } = createRenewalSuccessorFromSourcingItem(item, itemData);
         newLicenseEntries.push([successor, "renewed"]);
         predecessorIds.push(...marked);
@@ -2032,11 +2403,17 @@ export function convertPendingOrderToLicenses(order, payload) {
     item.status = "converted";
     item.updatedAt = now;
   }
+  const planned = applyPlannedSuccessorLinks(items);
+  predecessorIds.push(...planned.predecessorIds);
   refreshOrderStatus(order);
   rebuildPendingOrderItems(order);
   order.updatedAt = now;
 
-  return buildConversionResponse(newLicenseEntries, predecessorIds);
+  return buildConversionResponse(markPlannedRenewals(newLicenseEntries, planned.successorIds), predecessorIds);
+}
+
+function markPlannedRenewals(newLicenseEntries, plannedSuccessorIds) {
+  return newLicenseEntries.map(([license, type]) => [license, plannedSuccessorIds.has(license.id) ? "renewed" : type]);
 }
 
 /**
@@ -2089,8 +2466,14 @@ export function batchConvertPendingOrderToLicenses(order, payload) {
       requestDate: sourcingItem.createdAt,
       purchaseDate: order.createdAt,
       ...(orderSupplier ? { supplier: orderSupplier } : {}),
+      ...(order.poTotalOverride ? { poTotalOverride: order.poTotalOverride } : {}),
     };
     applyIncludedSupportTermFallback(itemData, submittedFields);
+    if (itemData.licenseType === "maintenance" && !submittedFields.has("parentLicenseId")
+      && sourcingItem.maintenanceParentLicenseId != null) {
+      itemData.parentLicenseId = sourcingItem.maintenanceParentLicenseId;
+    }
+    requireBudgetOwnerForSplitCoterm(sourcingItem, itemData, `Item ${batchItem.sourcingItemId}: `);
 
     if (sourcingItem.renewalForLicenseId != null) {
       delete itemData.parentSourcingItemId;
@@ -2106,23 +2489,360 @@ export function batchConvertPendingOrderToLicenses(order, payload) {
         pendingMaintenanceItems.push([sourcingItem, itemData]);
         continue;
       }
-      newLicenseEntries.push([createPurchaseLicense(itemData), "new_purchase"]);
+      newLicenseEntries.push([createPurchaseLicense(itemData, batchItem.sourcingItemId), "new_purchase"]);
     }
     sourcingItem.status = "converted";
     sourcingItem.updatedAt = now;
   }
 
-  for (const [sourcingItem, itemData] of pendingMaintenanceItems) {
-    newLicenseEntries.push([createPurchaseLicense(itemData), "new_purchase"]);
+  // Planned maintenance chains convert head first; a term without its own
+  // parent supports the same license as its predecessor term.
+  const resolvedParents = new Map();
+  for (const [sourcingItem, itemData] of maintenanceChainOrder(pendingMaintenanceItems, orderItems)) {
+    inheritChainParent(itemData, sourcingItem, orderItems, resolvedParents);
+    resolvedParents.set(sourcingItem.id, itemData.parentLicenseId ?? null);
+    newLicenseEntries.push([createPurchaseLicense(itemData, sourcingItem.id), "new_purchase"]);
     sourcingItem.status = "converted";
     sourcingItem.updatedAt = now;
   }
 
+  const planned = applyPlannedSuccessorLinks(orderItems);
+  predecessorIds.push(...planned.predecessorIds);
   refreshOrderStatus(order);
   rebuildPendingOrderItems(order);
   order.updatedAt = now;
 
-  return buildConversionResponse(newLicenseEntries, predecessorIds);
+  return buildConversionResponse(markPlannedRenewals(newLicenseEntries, planned.successorIds), predecessorIds);
+}
+
+// ---------------------------------------------------------------------------
+// Support lifecycle (1.1.24). Mirrors backend/app/services/maintenance_service.py
+// (activate_maintenance_for_parent, link_or_activate_maintenance,
+// hand_over_due_maintenance, record_included_support_exit),
+// support_renewal_service.py, license_write_service.apply_included_support_update
+// and license_retirement_service.retire_due_licenses (re-verified 2026-09-24).
+// Coverage history is not kept in the demo, so the snapshot steps are omitted.
+// ---------------------------------------------------------------------------
+
+function maintenanceParentIdsOf(maintenance) {
+  return [...new Set([maintenance.parentLicenseId, ...(maintenance.maintenanceParentIds || [])]
+    .filter((id) => id != null)
+    .map(Number))];
+}
+
+function linkMaintenanceToParent(maintenance, parent) {
+  if (!(maintenance.maintenanceParentIds || []).some((id) => Number(id) === Number(parent.id))) {
+    maintenance.maintenanceParentIds = [...(maintenance.maintenanceParentIds || []), parent.id];
+  }
+  if (maintenance.parentLicenseId == null) maintenance.parentLicenseId = parent.id;
+  if (!(parent.linkedMaintenanceIds || []).some((id) => Number(id) === Number(maintenance.id))) {
+    parent.linkedMaintenanceIds = [...(parent.linkedMaintenanceIds || []), maintenance.id];
+  }
+}
+
+/** Make a maintenance record the parent's active support; the parent mirrors the record's term and line total. */
+export function activateMaintenanceForParent(maintenance, parent) {
+  linkMaintenanceToParent(maintenance, parent);
+  parent.activeMaintenanceId = maintenance.id;
+  parent.hasMaintenance = true;
+  parent.maintenanceCoverage = "separately_tracked";
+  parent.maintenanceStartDate = maintenance.startDate;
+  parent.maintenanceEndDate = maintenance.endDate;
+  parent.maintenancePricingBasis = null;
+  parent.maintenanceQuantity = null;
+  parent.maintenanceUnitPrice = null;
+  const total = lineTotal(maintenance);
+  parent.maintenanceCost = hasValue(maintenance.quantity) && hasValue(maintenance.unitPrice) ? total.toFixed(2) : null;
+  decorateLicense(maintenance);
+  decorateLicense(parent);
+}
+
+const startsAfterToday = (license) => Boolean(license.startDate) && daysUntil(license.startDate) > 0;
+
+/** A support record covers the parent now unless something else still does and it starts later. */
+function shouldBecomeActiveNow(maintenance, parent) {
+  if (parent.activeMaintenanceId == null || parent.activeMaintenanceId === maintenance.id) return true;
+  if (!startsAfterToday(maintenance)) return true;
+  const active = store.licenses.find((license) => license.id === parent.activeMaintenanceId);
+  if (!active || active.isRetired) return true;
+  if (active.endDate && daysUntil(active.endDate) < 0) return true;
+  return startsAfterToday(active) && active.startDate > maintenance.startDate;
+}
+
+/** Link a support record to a parent, activating it only if it should cover the parent today. */
+export function linkOrActivateMaintenance(maintenance, parent) {
+  if (shouldBecomeActiveNow(maintenance, parent)) {
+    activateMaintenanceForParent(maintenance, parent);
+    return true;
+  }
+  linkMaintenanceToParent(maintenance, parent);
+  decorateLicense(maintenance);
+  decorateLicense(parent);
+  return false;
+}
+
+const coversToday = (license) => (
+  !license.isRetired
+  && (!license.startDate || daysUntil(license.startDate) <= 0)
+  && (!license.endDate || daysUntil(license.endDate) >= 0)
+);
+
+/** Daily job: each parent's current support record becomes active once its term starts. */
+export function handOverDueMaintenance() {
+  const bestByParent = new Map();
+  for (const candidate of store.licenses.filter((license) => license.licenseType === "maintenance" && coversToday(license))) {
+    for (const parentId of maintenanceParentIdsOf(candidate)) {
+      const best = bestByParent.get(parentId);
+      const key = (license) => `${license.startDate ?? "0000-00-00"}|${String(license.id).padStart(12, "0")}`;
+      if (!best || key(candidate) > key(best)) bestByParent.set(parentId, candidate);
+    }
+  }
+  let handedOver = 0;
+  for (const [parentId, candidate] of bestByParent) {
+    const parent = store.licenses.find((license) => license.id === parentId);
+    if (!parent || parent.isRetired || parent.activeMaintenanceId === candidate.id) continue;
+    const active = store.licenses.find((license) => license.id === parent.activeMaintenanceId);
+    if (active && coversToday(active)) continue;
+    activateMaintenanceForParent(candidate, parent);
+    handedOver++;
+  }
+  return handedOver;
+}
+
+/** Daily job: materialize due scheduled retirements and retire ended one-off Service/Other records. */
+export function retireDueLicenses() {
+  let retired = 0;
+  for (const license of store.licenses) {
+    if (license.isRetired || !license.endDate || daysUntil(license.endDate) >= 0) continue;
+    const scheduledDue = license.retirementScheduled;
+    const endedOneOff = isRenewalOptInLicenseType(license.licenseType)
+      && license.isRenewable !== true
+      && !license.retirementScheduled
+      && license.lifecycleStatus !== "legacy";
+    if (!scheduledDue && !endedOneOff) continue;
+    license.isRetired = true;
+    license.retirementScheduled = false;
+    decorateLicense(license);
+    retired++;
+  }
+  return retired;
+}
+
+/** The backend scheduler's daily license jobs, run once when the demo session starts. */
+export function runDailyLicenseJobs() {
+  return { retired: retireDueLicenses(), handedOver: handOverDueMaintenance() };
+}
+
+/**
+ * When coverage leaves Included with no active record, the parent's stale
+ * included-support mirrors are cleared (the backend first snapshots them into
+ * coverage history, which the demo does not keep).
+ */
+export function recordIncludedSupportExit(license, previousCoverage) {
+  if (previousCoverage !== "included" || license.maintenanceCoverage === "included") return;
+  if (license.activeMaintenanceId != null) return;
+  license.hasMaintenance = false;
+  license.maintenanceStartDate = null;
+  license.maintenanceEndDate = null;
+  license.maintenancePricingBasis = null;
+  license.maintenanceQuantity = null;
+  license.maintenanceUnitPrice = null;
+  license.maintenanceCost = null;
+}
+
+const CANONICAL_MONEY = /^\d+(\.\d+)?$/;
+
+/** Mirrors PUT /api/licenses/{id}/included-support (IncludedSupportUpdate + apply_included_support_update). */
+export function applyIncludedSupportUpdate(license, payload = {}) {
+  const blankToNull = (value) => (value === "" || value === undefined ? null : value);
+  const startDate = blankToNull(payload.maintenanceStartDate);
+  const endDate = blankToNull(payload.maintenanceEndDate);
+  const pricingBasis = payload.maintenancePricingBasis || "flat";
+  const money = {};
+  for (const field of ["maintenanceQuantity", "maintenanceUnitPrice", "maintenanceCost"]) {
+    const value = blankToNull(payload[field]);
+    if (value !== null && (typeof value !== "string" || !CANONICAL_MONEY.test(value))) {
+      throw new Error("Amounts must be plain decimal strings (e.g. '1234.50').");
+    }
+    money[field] = value;
+  }
+  if (startDate && endDate && endDate < startDate) throw new Error("Support end date cannot be before its start date.");
+  if (!INCLUDED_SUPPORT_PARENT_TYPES.has(license.licenseType)) {
+    throw new Error("Included support can only be edited on perpetual, OEM or freeware licenses");
+  }
+  if (license.maintenanceCoverage !== "included") {
+    throw new Error("Set coverage to Included before editing the support period");
+  }
+  if (license.activeMaintenanceId != null) {
+    throw new Error("Support is tracked on a linked maintenance record; edit that record instead");
+  }
+  const perUnit = pricingBasis === "per_unit";
+  license.maintenanceStartDate = startDate;
+  license.maintenanceEndDate = endDate;
+  license.maintenancePricingBasis = pricingBasis;
+  license.maintenanceQuantity = perUnit ? money.maintenanceQuantity : null;
+  license.maintenanceUnitPrice = perUnit ? money.maintenanceUnitPrice : null;
+  license.maintenanceCost = money.maintenanceCost;
+  decorateLicense(license);
+  return license;
+}
+
+/**
+ * Mirrors backend/app/services/support_renewal_service.py start_support_renewal:
+ * one sourcing request with a maintenance line that carries the supported
+ * license. Coverage stays Included until the new record exists.
+ */
+export function startSupportRenewal(parent) {
+  if (!INCLUDED_SUPPORT_PARENT_TYPES.has(parent.licenseType)) {
+    throw new Error("Support renewal applies to perpetual, OEM and freeware licenses");
+  }
+  if (parent.maintenanceCoverage !== "included" || !parent.maintenanceEndDate) {
+    throw new Error("This license has no included support period with an end date");
+  }
+  if (parent.isRetired || parent.lifecycleStatus === "legacy") {
+    throw new Error("Retired or legacy licenses cannot start a support renewal");
+  }
+  if (openSupportRenewalItems(parent.id).length) {
+    throw new Error("A support renewal is already in progress for this license");
+  }
+  const startDate = addDaysIso(parent.maintenanceEndDate, 1);
+  const previousCost = parseDecimal(parent.maintenanceCost) > 0 ? parent.maintenanceCost : null;
+  const item = buildSourcingItem({
+    publisherName: parent.publisherName,
+    softwareDescription: `${parent.softwareDescription} Maintenance`,
+    licenseType: "maintenance",
+    licenseMetric: parent.licenseMetric || "per_user",
+    maintenanceCoverage: "not_applicable",
+    quantity: parent.quantity || null,
+    quantityPerUnit: parent.quantityPerUnit || "1",
+    estimatedUnitPrice: null,
+    estimatedTotalPrice: previousCost,
+    currency: parent.currency,
+    supplier: parent.supplier || null,
+    contactEmail: parent.contactEmail || null,
+    costCentre: parent.costCentre || null,
+    budgetOwnerEmail: parent.budgetOwnerEmail || null,
+    secondaryContacts: [...(parent.secondaryContacts || [])],
+    startDate,
+    endDate: termEnd(startDate),
+    notes: `Support renewal for ${parent.licenseRef || parent.softwareDescription}.`,
+    maintenanceParentLicenseId: parent.id,
+  });
+  store.sourcingItems.push(item);
+  ensureSourcingRequestForItem(item);
+  return item;
+}
+
+/** Force an explicit budget owner when merged coterm predecessors disagree. */
+function requireBudgetOwnerForSplitCoterm(item, data, detailPrefix = "") {
+  const predecessorIds = item.cotermPredecessorIds ?? [];
+  if (predecessorIds.length < 2 || String(data.budgetOwnerEmail ?? "").trim()) return;
+  const owners = new Set(
+    predecessorIds
+      .map((id) => store.licenses.find((license) => license.id === id)?.budgetOwnerEmail)
+      .filter((owner) => owner && owner.trim())
+      .map((owner) => owner.trim().toLowerCase())
+  );
+  if (owners.size > 1) {
+    throw new Error(`${detailPrefix}Choose a budget owner: the merged licenses had different budget owners`);
+  }
+}
+
+/** Order maintenance lines so every planned predecessor converts before its successor. */
+function maintenanceChainOrder(pending, orderItems) {
+  const predecessorOf = new Map(
+    orderItems
+      .filter((item) => item.successorSourcingItemId != null)
+      .map((item) => [item.successorSourcingItemId, item.id])
+  );
+  const depth = (itemId) => {
+    const seen = new Set();
+    let steps = 0;
+    let current = itemId;
+    while (predecessorOf.has(current) && !seen.has(current)) {
+      seen.add(current);
+      current = predecessorOf.get(current);
+      steps++;
+    }
+    return steps;
+  };
+  return [...pending].sort((a, b) => depth(a[0].id) - depth(b[0].id));
+}
+
+/** A planned maintenance term without its own parent supports the same license as its predecessor. */
+function inheritChainParent(itemData, sourcingItem, orderItems, resolvedParents) {
+  if (itemData.parentLicenseId != null && itemData.parentLicenseId !== "") return;
+  const predecessor = orderItems.find((item) => item.successorSourcingItemId === sourcingItem.id);
+  if (!predecessor || !resolvedParents.has(predecessor.id)) return;
+  const parentLicenseId = resolvedParents.get(predecessor.id);
+  if (parentLicenseId != null) itemData.parentLicenseId = parentLicenseId;
+}
+
+/**
+ * Mirrors backend/app/services/conversion/planned_successors.py
+ * apply_planned_successor_links: after every PO line exists as a license, each
+ * planned next term becomes the renewal successor of its predecessor line(s).
+ */
+function applyPlannedSuccessorLinks(orderItems) {
+  const incoming = new Map();
+  const itemIds = new Set(orderItems.map((item) => item.id));
+  for (const item of orderItems) {
+    const targetId = item.successorSourcingItemId;
+    if (targetId == null) continue;
+    if (!itemIds.has(targetId)) throw new Error(`Line ${item.id} has a successor outside this PO`);
+    incoming.set(targetId, [...(incoming.get(targetId) ?? []), item.id]);
+  }
+  const successorIds = new Set();
+  const predecessorIds = [];
+  if (!incoming.size) return { successorIds, predecessorIds };
+
+  const licenseForItem = (itemId) => store.licenses.find((license) => license.sourceSourcingItemId === itemId);
+  const remaining = new Set(incoming.keys());
+  while (remaining.size) {
+    const ready = [...remaining]
+      .filter((targetId) => !incoming.get(targetId).some((sourceId) => remaining.has(sourceId)))
+      .sort((a, b) => a - b);
+    if (!ready.length) throw new Error("Planned successor links contain a cycle");
+    for (const targetId of ready) {
+      const successor = licenseForItem(targetId);
+      const predecessors = incoming.get(targetId).map(licenseForItem);
+      if (!successor || predecessors.some((license) => !license)) {
+        throw new Error("Every linked PO line must create one license");
+      }
+      predecessors.sort((a, b) => String(a.startDate ?? "9999").localeCompare(String(b.startDate ?? "9999")) || a.id - b.id);
+      if (!canTakePartInPlannedChain(successor)) throw new Error(`Line ${targetId} cannot be a renewal successor`);
+      for (const predecessor of predecessors) {
+        assertPredecessorHasNoSuccessor(predecessor);
+        if (normalized(predecessor.publisherName) !== normalized(successor.publisherName)) {
+          throw new Error(`Line ${targetId} must match predecessor publisher`);
+        }
+        if (!canTakePartInPlannedChain(predecessor)) throw new Error(`Line ${targetId} follows a nonrenewable license`);
+        if ((predecessor.licenseType === "maintenance") !== (successor.licenseType === "maintenance")) {
+          throw new Error(`Line ${targetId}: maintenance terms can only follow maintenance terms`);
+        }
+        if (!successor.endDate) throw new Error("Renewal successor must have an end date");
+        if (predecessor.endDate && successor.endDate <= predecessor.endDate) {
+          throw new Error("Renewal successor must extend coverage beyond every predecessor end date");
+        }
+        if (predecessor.startDate && (!successor.startDate || successor.startDate <= predecessor.startDate)) {
+          throw new Error("Renewal successor must start after every predecessor start date");
+        }
+      }
+      const primary = predecessors[0];
+      successor.renewedFromId = primary.id;
+      successor.predecessorId = primary.id;
+      if (predecessors.length > 1) successor.cotermFromIds = predecessors.map((license) => license.id);
+      successor.licenseRef = primary.licenseRef;
+      for (const predecessor of predecessors) {
+        markPredecessorRenewed(predecessor, successor.id);
+        predecessorIds.push(predecessor.id);
+      }
+      decorateLicense(successor);
+      successorIds.add(successor.id);
+      remaining.delete(targetId);
+    }
+  }
+  return { successorIds, predecessorIds };
 }
 
 export function resetStore() {
@@ -2174,5 +2894,6 @@ export function seedStore() {
   store.costCentres = [...costCentres.values()];
   store.userDepartments = { 2: store.costCentres[0] ? [store.costCentres[0].name] : [] };
   resetSettings();
+  runDailyLicenseJobs();
   store.seeded = true;
 }

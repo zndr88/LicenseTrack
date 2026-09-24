@@ -14,9 +14,15 @@ import {
   buildRenewalWorkbenchRows, initiateRenewalBundleRecord,
   assertCanInitiateRenewal, getRenewalActionDays, normalizeRetirementUpdate,
   setPlannedSuccessors, replacePlannedPredecessors, requireNoPlannedLinks,
+  normaliseLicenseTypeFields, normaliseTypeOptInFields, validateTypeDescription, syncInvoiceNumbers,
+  linkOrActivateMaintenance, recordIncludedSupportExit, applyIncludedSupportUpdate, startSupportRenewal,
+  assertLineCurrencyFitsPendingOrder, assertPendingOrderOverrideCurrencies, countPoOverridesNotInAnnual,
 } from "./store.js";
 import { buildLicense } from "./fixtures.js";
+import { applyIncludedSupportDefaults } from "./supportDefaults.js";
 import { datetimeDaysAgo } from "./time.js";
+import { hasSameProcurementIdentity } from "../utils/procurementIdentity.js";
+import { isNonExpiringLicenseType } from "../utils/licenseTypeRules.js";
 import {
   filterLicenses, getBudgetForecast, getCostOverview, getLifecycleCounts,
   getSpendByPublisher, getPortfolioBreakdown, getRenewalCalendar, getVendorTable,
@@ -47,15 +53,23 @@ function buildDemoDetailedReport(query) {
     ...getCostOverview(filtered, { dateRange: effectiveRange }),
     undatedCount: 0,
   };
+  const budgetForecast = getBudgetForecast(filtered, { years: filters.forecastYears, annualGrowthPct: filters.forecastGrowthPct });
+  // Manual PO totals the line-based forecast baseline does not reflect
+  // (reporting_service._build_recurring_forecast_data).
+  const baselineIds = new Set((budgetForecast.recurringRecords || []).map((row) => row.licenseId));
+  const poOverridesNotInAnnual = countPoOverridesNotInAnnual(
+    filtered.filter((license) => baselineIds.has(license.id)),
+    filtered,
+  );
   return {
     generatedAt: new Date().toISOString(),
     filters,
     availableCostCentres: [...new Set(store.licenses.map((license) => license.costCentre).filter(Boolean))].sort(),
     currencyDisclaimer: "All monetary values remain in their native currencies. No currency conversion is applied.",
-    counts: { records: filtered.length, ...getLifecycleCounts(filtered), incomplete: 0, unpriced: costOverview.unpricedCount, excluded: 0, undated: 0, unallocated: 0 },
+    counts: { records: filtered.length, ...getLifecycleCounts(filtered), incomplete: 0, unpriced: costOverview.unpricedCount, excluded: 0, undated: 0, unallocated: 0, poOverridesNotInAnnual },
     financialSummaries: costOverview,
     costOverview,
-    budgetForecast: getBudgetForecast(filtered, { years: filters.forecastYears, annualGrowthPct: filters.forecastGrowthPct }),
+    budgetForecast,
     publisherData: getSpendByPublisher(filtered, { dateRange: effectiveRange }),
     vendorData: getVendorTable(filtered, { dateRange: effectiveRange }),
     portfolioData: getPortfolioBreakdown(filtered),
@@ -88,16 +102,64 @@ function buildDemoReportCsv(query) {
   return rows.map((row) => row.join(",")).join("\r\n") + "\r\n";
 }
 
-// Mirrors backend/app/services/license_write_service.py:42-66 ALLOWED_PATCH_FIELDS
-// (camelCase keys match 1:1 with the demo store's field names, so no snake_case
-// remapping is needed here).
+// Mirrors backend/app/services/license_write_service.py ALLOWED_PATCH_FIELDS and
+// validate_patch_field_input (re-verified 2026-09-24 against 1.1.24; camelCase
+// keys match 1:1 with the demo store's field names).
 const FIELD_PATCH_ALLOWED = new Set([
   "publisherName", "softwareDescription", "licenseType", "licenseMetric", "portalUrl",
-  "quantity", "skuCode", "unitPrice", "totalPoPrice", "currency", "startDate", "endDate",
-  "requestDate", "purchaseDate", "contractNumber", "poNumber", "invoiceNumber", "contactEmail",
-  "supplier", "costCentre", "budgetOwnerEmail", "notes", "maintenanceCoverage",
+  "quantity", "quantityPerUnit", "skuCode", "unitPrice", "totalPoPrice", "currency", "startDate",
+  "endDate", "noticeDate", "requestDate", "purchaseDate", "contractNumber", "poNumber",
+  "procurementReference", "invoiceNumber", "contactEmail", "supplier", "costCentre",
+  "budgetOwnerEmail", "notes", "maintenanceCoverage",
 ]);
-const DATE_PATCH_FIELDS = new Set(["startDate", "endDate"]);
+const DATE_PATCH_FIELDS = new Set(["startDate", "endDate", "noticeDate"]);
+const EMAIL_PATCH_FIELDS = new Set(["contactEmail", "budgetOwnerEmail"]);
+const NUMERIC_PATCH_FIELDS = new Set(["quantity", "quantityPerUnit", "unitPrice", "totalPoPrice"]);
+const REQUIRED_PATCH_FIELDS = new Set(["publisherName", "softwareDescription", "licenseType", "licenseMetric", "currency"]);
+const BLANKABLE_STRING_PATCH_FIELDS = new Set([
+  "quantity", "quantityPerUnit", "skuCode", "unitPrice", "totalPoPrice", "contractNumber", "poNumber",
+  "procurementReference", "invoiceNumber", "contactEmail", "supplier", "costCentre", "budgetOwnerEmail",
+]);
+const MAINTENANCE_COVERAGE_VALUES = new Set(["included", "separately_tracked", "not_applicable", "unknown"]);
+const CANONICAL_MONEY = /^\d+(\.\d+)?$/;
+const SIMPLE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validatePatchFieldInput(field, value) {
+  if (!FIELD_PATCH_ALLOWED.has(field)) {
+    throw new Error(`Field '${field}' is not allowed. Allowed: ${[...FIELD_PATCH_ALLOWED].join(", ")}`);
+  }
+  if (REQUIRED_PATCH_FIELDS.has(field) && (value == null || !String(value).trim())) {
+    throw new Error(`Field '${field}' cannot be empty.`);
+  }
+  if (DATE_PATCH_FIELDS.has(field) && value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`Invalid date for '${field}'. Expected YYYY-MM-DD.`);
+  }
+  if (EMAIL_PATCH_FIELDS.has(field) && value && !SIMPLE_EMAIL.test(value)) {
+    throw new Error(`Invalid email format for '${field}'.`);
+  }
+  if (NUMERIC_PATCH_FIELDS.has(field) && value && !CANONICAL_MONEY.test(value)) {
+    throw new Error(`Invalid numeric value for '${field}'. Expected a plain decimal string such as '1234.50'.`);
+  }
+  if (field === "maintenanceCoverage" && !MAINTENANCE_COVERAGE_VALUES.has(value)) {
+    throw new Error(`Invalid maintenance coverage: ${value}`);
+  }
+}
+
+/** Mirrors maintenance_rules assert_active_maintenance_allows_coverage_change + assert_coverage_allowed_for_type. */
+function assertCoverageChangeAllowed(license, coverage) {
+  if (license.activeMaintenanceId != null && coverage !== "separately_tracked") {
+    throw new Error(
+      "This license has an active maintenance/support record. Disable the linked "
+      + "contract before changing coverage away from separately tracked."
+    );
+  }
+  if (coverage === "separately_tracked" && !MAINTENANCE_PARENT_TYPES.has(license.licenseType)) {
+    throw new Error(
+      "Separately tracked maintenance/support is only valid for perpetual, oem, or freeware Licenses. "
+      + "Use included coverage for subscription or SaaS support bundled into the term."
+    );
+  }
+}
 
 // Mirrors backend/app/services/maintenance_rules.py:30-34 MAINTENANCE_PARENT_TYPES.
 const MAINTENANCE_PARENT_TYPES = new Set(["perpetual", "oem", "freeware"]);
@@ -120,21 +182,8 @@ function linkMaintenanceToParentRecord(maintenance, parent) {
   if (!MAINTENANCE_PARENT_TYPES.has(parent.licenseType)) {
     throw new Error("Maintenance/support tracking can only be linked to perpetual, OEM, or freeware Licenses.");
   }
-  if (!hasMaintenanceParent(maintenance, parent.id)) {
-    maintenance.maintenanceParentIds = [...(maintenance.maintenanceParentIds || []), parent.id];
-  }
-  if (maintenance.parentLicenseId == null) maintenance.parentLicenseId = parent.id;
-  if (!(parent.linkedMaintenanceIds || []).some((id) => Number(id) === Number(maintenance.id))) {
-    parent.linkedMaintenanceIds = [...(parent.linkedMaintenanceIds || []), maintenance.id];
-  }
-  parent.activeMaintenanceId = maintenance.id;
-  parent.hasMaintenance = true;
-  parent.maintenanceCoverage = "separately_tracked";
-  parent.maintenanceStartDate = maintenance.startDate;
-  parent.maintenanceEndDate = maintenance.endDate;
-  parent.maintenanceCost = maintenance.totalPoPrice || maintenance.unitPrice || null;
-  decorateLicense(maintenance);
-  decorateLicense(parent);
+  // A future-dated record is linked now and becomes active on its own start date.
+  linkOrActivateMaintenance(maintenance, parent);
 }
 
 function findSourcingItemOr404(id) {
@@ -192,7 +241,8 @@ function buildDemoDownloadResponse(document) {
 // Fields a PO line-item update may touch. Mirrors backend/app/schemas/sourcing.py:44-61
 // SourcingItemUpdate minus status (the route pops status - pending_order_service.py:188).
 const PO_ITEM_UPDATE_FIELDS = [
-  "publisherName", "softwareDescription", "licenseType", "maintenanceCoverage",
+  "publisherName", "softwareDescription", "licenseType", "isRenewable", "typeDescription",
+  "maintenanceParentLicenseId", "maintenanceCoverage",
   "maintenanceStartDate", "maintenanceEndDate", "maintenancePricingBasis",
   "maintenanceQuantity", "maintenanceUnitPrice", "maintenanceCost",
   "quantity", "estimatedUnitPrice", "estimatedTotalPrice",
@@ -353,6 +403,20 @@ function ensureDemoCostCentre(value) {
   return reference;
 }
 
+/**
+ * License create payload rules shared by POST /api/licenses and /batch
+ * (license_write_service.create_license_record, 1.1.24): invoice numbers keep
+ * the primary mirrored, type-driven invariants apply, and an Other needs a
+ * type description. The server-owned-field rejection is deliberately not ported.
+ */
+function prepareDemoLicenseCreate(payload) {
+  const createData = canonicalizeDemoReferenceFields(payload);
+  syncInvoiceNumbers(createData);
+  normaliseLicenseTypeFields(createData);
+  validateTypeDescription(createData.licenseType, createData.typeDescription);
+  return createData;
+}
+
 function canonicalizeDemoReferenceFields(payload) {
   const result = { ...(payload || {}) };
   if (Object.hasOwn(result, "publisherName")) result.publisherName = ensureDemoOrganization(result.publisherName, "publisher")?.name || "";
@@ -360,6 +424,39 @@ function canonicalizeDemoReferenceFields(payload) {
   if (Object.hasOwn(result, "supplier")) result.supplier = ensureDemoOrganization(result.supplier, "supplier")?.name || null;
   if (Object.hasOwn(result, "costCentre")) result.costCentre = ensureDemoCostCentre(result.costCentre)?.name || null;
   return result;
+}
+
+function normalizeDemoPublicBaseUrl(value) {
+  const text = String(value).trim().replace(/\/+$/, "");
+  if (!text) return "";
+  let parsed;
+  try {
+    parsed = new URL(text);
+  } catch {
+    parsed = null;
+  }
+  if (!parsed || !["http:", "https:"].includes(parsed.protocol) || !parsed.host || parsed.search || parsed.hash) {
+    throw new Error("Public URL must be an http(s) address such as https://licenses.example.com.");
+  }
+  if (/[\r\n <>"]/.test(text)) throw new Error("Public URL contains invalid characters.");
+  return text;
+}
+
+function normalizeDemoHighValueThresholds(value) {
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("high_value_thresholds must map currency codes to amounts.");
+  }
+  const normalized = {};
+  for (const [rawCurrency, rawAmount] of Object.entries(value)) {
+    const currency = String(rawCurrency).trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(currency)) throw new Error(`Unsupported currency code: '${rawCurrency}'.`);
+    if (rawAmount == null || String(rawAmount).trim() === "") continue;
+    const amount = Number(String(rawAmount).trim());
+    if (!Number.isFinite(amount)) throw new Error(`Threshold for ${currency} must be a number.`);
+    if (amount < 0) throw new Error(`Threshold for ${currency} must be zero or more.`);
+    normalized[currency] = String(rawAmount).trim();
+  }
+  return normalized;
 }
 
 // UserResponse is snake_case - no camelCase alias (backend/app/schemas/user.py:8).
@@ -813,9 +910,18 @@ export const routes = [
     handler: async () => ({ data: store.globalSettings, error: null }),
   },
   {
+    // Mirrors GlobalSettingsUpdate validation of the 1.1.24 fields
+    // (backend/app/schemas/settings.py): public_base_url is an http(s) address
+    // without a trailing slash; high_value_thresholds maps 3-letter currency
+    // codes to amounts and a blank amount removes that currency.
     method: "PUT", pattern: /^\/api\/settings\/global$/,
     handler: async ({ body }) => {
-      store.globalSettings = { ...store.globalSettings, ...(body ?? {}) };
+      const update = { ...(body ?? {}) };
+      if (update.public_base_url != null) update.public_base_url = normalizeDemoPublicBaseUrl(update.public_base_url);
+      if (update.high_value_thresholds != null) {
+        update.high_value_thresholds = normalizeDemoHighValueThresholds(update.high_value_thresholds);
+      }
+      store.globalSettings = { ...store.globalSettings, ...update };
       return { data: store.globalSettings, error: null };
     },
   },
@@ -888,6 +994,9 @@ export const routes = [
         licenseType: license.licenseType,
         licenseMetric: license.licenseMetric,
         portalUrl: license.portalUrl ?? null,
+        isRenewable: license.isRenewable ?? null,
+        typeDescription: license.typeDescription ?? null,
+        maintenanceParentLicenseId: null,
         quantity: qty,
         quantityPerUnit: license.quantityPerUnit || "1",
         skuCode: license.skuCode || null,
@@ -918,6 +1027,24 @@ export const routes = [
       store.sourcingItems.push(sourcingItem);
 
       return { data: { license: withComputedCompleteness(license), sourcingItem }, error: null };
+    },
+  },
+  {
+    // Mirrors backend/app/routes/license_renewals.py start_support_renewal (1.1.24).
+    method: "POST", pattern: /^\/api\/licenses\/(?<id>\d+)\/support-renewal$/,
+    handler: async ({ params }) => {
+      const license = findLicenseOr404(Number(params.id));
+      const sourcingItem = startSupportRenewal(license);
+      return { data: { license: withComputedCompleteness(license), sourcingItem }, error: null };
+    },
+  },
+  {
+    // Mirrors backend/app/routes/license_maintenance.py update_included_support (1.1.24).
+    method: "PUT", pattern: /^\/api\/licenses\/(?<id>\d+)\/included-support$/,
+    handler: async ({ params, body }) => {
+      const license = findLicenseOr404(Number(params.id));
+      applyIncludedSupportUpdate(license, body ?? {});
+      return { data: withComputedCompleteness(license), error: null };
     },
   },
   {
@@ -1039,8 +1166,10 @@ export const routes = [
       if (!license.poNumber) throw new Error("A PO number is required to override the total PO value");
       const value = body?.poTotalOverride;
       if (!value) throw new Error("PO total override is required");
+      // The group is the durable procurement identity (pending order, bundle or
+      // PO number) within one currency - po_total_override_service.apply_po_total_override.
       store.licenses
-        .filter((item) => item.poNumber === license.poNumber && item.currency === license.currency)
+        .filter((item) => hasSameProcurementIdentity(item, license))
         .forEach((item) => { item.poTotalOverride = value; decorateLicense(item); });
       return { data: withComputedCompleteness(license), error: null };
     },
@@ -1051,22 +1180,23 @@ export const routes = [
       const license = findLicenseOr404(Number(params.id));
       if (!license.poNumber) throw new Error("A PO number is required to clear the total PO override");
       store.licenses
-        .filter((item) => item.poNumber === license.poNumber && item.currency === license.currency)
+        .filter((item) => hasSameProcurementIdentity(item, license))
         .forEach((item) => { item.poTotalOverride = null; decorateLicense(item); });
       return { data: withComputedCompleteness(license), error: null };
     },
   },
   {
-    // Mirrors backend/app/services/license_write_service.py:276-314.
+    // Mirrors backend/app/services/license_write_service.py apply_license_field_patch
+    // (re-verified 2026-09-24 against 1.1.24).
     method: "PATCH", pattern: /^\/api\/licenses\/(?<id>\d+)\/field$/,
     handler: async ({ params, body }) => {
       const id = Number(params.id);
       const license = findLicenseOr404(id);
-      const { field, value } = body ?? {};
+      const { field } = body ?? {};
+      let { value } = body ?? {};
 
-      if (!FIELD_PATCH_ALLOWED.has(field)) {
-        throw new Error(`Field '${field}' is not allowed. Allowed: ${[...FIELD_PATCH_ALLOWED].join(", ")}`);
-      }
+      validatePatchFieldInput(field, value);
+      if (BLANKABLE_STRING_PATCH_FIELDS.has(field) && value == null) value = "";
 
       let resolvedValue = value;
       if (field === "publisherName") resolvedValue = ensureDemoOrganization(value, "publisher")?.name || "";
@@ -1076,10 +1206,24 @@ export const routes = [
       if (field === "contractNumber") {
         license.contractNumber = value || "";
       } else if (DATE_PATCH_FIELDS.has(field)) {
-        license[field] = value || null;
+        if (field === "noticeDate" && (value || null) !== license.noticeDate) license.noticeHandledAt = null;
+        // Non-expiring types never carry an end date.
+        license[field] = field === "endDate" && isNonExpiringLicenseType(license.licenseType) ? null : value || null;
+      } else if (field === "licenseType") {
+        license.licenseType = value;
+        normaliseLicenseTypeFields(license);
+      } else if (field === "maintenanceCoverage") {
+        assertCoverageChangeAllowed(license, value);
+        const previousCoverage = license.maintenanceCoverage;
+        license.maintenanceCoverage = value;
+        recordIncludedSupportExit(license, previousCoverage);
+      } else if (field === "invoiceNumber") {
+        license.invoiceNumber = value || "";
+        license.invoiceNumbers = value ? [value] : [];
       } else {
         license[field] = resolvedValue;
       }
+      applyIncludedSupportDefaults(license);
       // A changed end date can materialize or clear a scheduled retirement
       // (license_write_service.py:690-701 + normalize_retirement_update).
       if (field === "endDate") {
@@ -1100,6 +1244,14 @@ export const routes = [
   {
     method: "GET", pattern: /^\/api\/licenses\/(?<id>\d+)\/documents$/,
     handler: async () => ({ data: [], error: null }),
+  },
+  {
+    // The demo keeps no coverage history; answer quietly instead of the stub toast.
+    method: "GET", pattern: /^\/api\/licenses\/(?<id>\d+)\/coverage-history$/,
+    handler: async ({ params }) => {
+      findLicenseOr404(Number(params.id));
+      return { data: [], error: null };
+    },
   },
   {
     method: "GET", pattern: /^\/api\/licenses\/(?<id>\d+)\/procurement-trail$/,
@@ -1141,8 +1293,9 @@ export const routes = [
         }
         const now = new Date().toISOString();
         const id = nextId();
+        const createData = prepareDemoLicenseCreate(item.license);
         const license = buildLicense({
-          ...canonicalizeDemoReferenceFields(item.license),
+          ...createData,
           ...(parentLineIndex == null ? {} : { parentLicenseId: pending[parentLineIndex].id }),
           id,
           licenseRef: `LT-2026-${String(id).padStart(4, "0")}`,
@@ -1171,7 +1324,7 @@ export const routes = [
     handler: async ({ body }) => {
       const now = new Date().toISOString();
       const id = nextId();
-      const createData = canonicalizeDemoReferenceFields(body);
+      const createData = prepareDemoLicenseCreate(body);
       // Requesting retirement with a future end date schedules it instead of
       // retiring immediately (normalize_retirement_update(None, create_data)).
       normalizeRetirementUpdate(null, createData);
@@ -1206,10 +1359,36 @@ export const routes = [
     handler: async ({ params, body }) => {
       const license = findLicenseOr404(Number(params.id));
       const updateData = canonicalizeDemoReferenceFields(body);
+      syncInvoiceNumbers(updateData);
+      // Type-driven invariants (license_write_service.apply_license_update):
+      // non-expiring types lose the end date, the renewable flag stays on
+      // Service/Other and the description on Other. An existing Other without a
+      // description stays valid until its type or description is edited.
+      const typeData = {
+        licenseType: updateData.licenseType ?? license.licenseType,
+        unitPrice: "unitPrice" in updateData ? updateData.unitPrice : license.unitPrice,
+        totalPoPrice: "totalPoPrice" in updateData ? updateData.totalPoPrice : license.totalPoPrice,
+        endDate: "endDate" in updateData ? updateData.endDate : license.endDate,
+        isRenewable: "isRenewable" in updateData ? updateData.isRenewable : license.isRenewable,
+        typeDescription: "typeDescription" in updateData ? updateData.typeDescription : license.typeDescription,
+      };
+      normaliseLicenseTypeFields(typeData);
+      for (const field of ["unitPrice", "totalPoPrice", "endDate", "isRenewable", "typeDescription"]) {
+        if (typeData[field] !== license[field] || field in updateData) updateData[field] = typeData[field];
+      }
+      if (typeData.licenseType !== license.licenseType || "typeDescription" in (body ?? {})) {
+        validateTypeDescription(typeData.licenseType, typeData.typeDescription);
+      }
+      if ("maintenanceCoverage" in updateData && updateData.maintenanceCoverage !== license.maintenanceCoverage) {
+        assertCoverageChangeAllowed({ ...license, licenseType: typeData.licenseType }, updateData.maintenanceCoverage);
+      }
+      const previousCoverage = license.maintenanceCoverage;
       // Translate a retirement request / end-date move into immediate or
       // end-of-term retirement before applying (normalize_retirement_update).
       normalizeRetirementUpdate(license, updateData);
       Object.assign(license, updateData);
+      applyIncludedSupportDefaults(license);
+      recordIncludedSupportExit(license, previousCoverage);
       decorateLicense(license);
       return { data: withComputedCompleteness(license), error: null };
     },
@@ -1519,7 +1698,8 @@ export const routes = [
       assertSourcingItemEditable(item);
       const itemPayload = canonicalizeDemoReferenceFields(body);
       const allowed = [
-        "publisherName", "softwareDescription", "licenseType", "quantity", "estimatedUnitPrice", "estimatedTotalPrice",
+        "publisherName", "softwareDescription", "licenseType", "isRenewable", "typeDescription",
+        "maintenanceParentLicenseId", "quantity", "estimatedUnitPrice", "estimatedTotalPrice",
         "currency", "startDate", "endDate", "notes", "status",
       ];
       for (const field of allowed) {
@@ -1527,6 +1707,8 @@ export const routes = [
           item[field] = itemPayload[field];
         }
       }
+      // sourcing_service.normalise_sourcing_item_type_fields (1.1.24).
+      normaliseTypeOptInFields(item);
       const sourcingRequest = store.sourcingRequests.find(
         (candidate) => candidate.id === item.sourcingRequestId
       );
@@ -1640,6 +1822,9 @@ export const routes = [
       const itemId = Number(params.itemId);
       const item = store.sourcingItems.find((i) => i.id === itemId && i.pendingOrderId === order.id);
       if (!item) throw new Error("Pending order item not found");
+      if (body && Object.prototype.hasOwnProperty.call(body, "currency")) {
+        assertLineCurrencyFitsPendingOrder(order.id, body.currency);
+      }
       const itemPayload = canonicalizeDemoReferenceFields(body);
       for (const field of PO_ITEM_UPDATE_FIELDS) {
         if (body && Object.prototype.hasOwnProperty.call(body, field)) {
@@ -1650,6 +1835,8 @@ export const routes = [
         item.estimatedUnitPrice = null;
         item.estimatedTotalPrice = null;
       }
+      applyIncludedSupportDefaults(item);
+      normaliseTypeOptInFields(item);
       item.updatedAt = new Date().toISOString();
       rebuildPendingOrderItems(order);
       return { data: order, error: null };
@@ -1720,17 +1907,38 @@ export const routes = [
     handler: async ({ params }) => ({ data: withPendingOrderLicenseRefs(findPendingOrderOr404(Number(params.id))), error: null }),
   },
   {
-    // Mirrors backend/app/services/pending_order_service.py:100-114 apply_pending_order_update
-    // (PendingOrderUpdate fields only - poNumber, supplier, notes, status; exclude_unset).
+    // Mirrors backend/app/services/pending_order_service.py apply_pending_order_update
+    // (PendingOrderUpdate, exclude_unset; re-verified 2026-09-24 against 1.1.24):
+    // contactEmail rewrites every open line's supplier contact (empty clears it),
+    // and a manual poTotalOverride ("" clears it) needs a single-currency order.
     method: "PUT", pattern: /^\/api\/pending-orders\/(?<id>\d+)$/,
     handler: async ({ params, body }) => {
       const order = findPendingOrderOr404(Number(params.id));
       ensurePendingOrderEditable(order, "update");
+      const has = (field) => Boolean(body) && Object.prototype.hasOwnProperty.call(body, field);
+      let poTotalOverride;
+      if (has("poTotalOverride")) {
+        const value = body.poTotalOverride;
+        if (value == null || value === "") {
+          poTotalOverride = null;
+        } else if (typeof value !== "string" || !CANONICAL_MONEY.test(value)) {
+          throw new Error("PO total must be a plain decimal string (e.g. '1234.50').");
+        } else {
+          assertPendingOrderOverrideCurrencies(order.id);
+          poTotalOverride = value;
+        }
+      }
       const orderPayload = canonicalizeDemoReferenceFields(body);
       for (const field of ["poNumber", "supplier", "notes", "status"]) {
-        if (body && Object.prototype.hasOwnProperty.call(body, field)) {
-          order[field] = orderPayload[field];
+        if (has(field)) order[field] = orderPayload[field];
+      }
+      if (has("poTotalOverride")) order.poTotalOverride = poTotalOverride;
+      if (has("contactEmail")) {
+        const contact = cleanProcurementIdentity(body.contactEmail);
+        for (const item of store.sourcingItems.filter((line) => line.pendingOrderId === order.id && line.status !== "cancelled")) {
+          item.contactEmail = contact;
         }
+        rebuildPendingOrderItems(order);
       }
       order.updatedAt = new Date().toISOString();
       return { data: order, error: null };

@@ -151,7 +151,9 @@ describe("demo router", () => {
     expect(notifications.error).toBeNull();
     expect(notifications.data.some((item) => item.license_id === 1 && item.type === "expiring")).toBe(true);
     expect(notifications.data.some((item) => item.license_id === 10 && item.type === "expired")).toBe(true);
-    expect(notifications.data.some((item) => item.type === "incomplete")).toBe(false);
+    // Fresh-install completeness rules (PO number, invoice number, budget owner):
+    // only the overdue SolarWinds record is seeded without an invoice number.
+    expect(notifications.data.filter((item) => item.type === "incomplete").map((item) => item.license_id)).toEqual([10]);
 
     const reportStats = await demoRequest("/api/reports/portfolio-stats", { method: "GET" });
     expect(reportStats.error).toBeNull();
@@ -178,9 +180,9 @@ describe("demo router", () => {
       body: JSON.stringify({ username: "demo", password: "demo" }),
     });
 
-    const allOff = await demoRequest("/api/notifications", { method: "GET" });
-    expect(allOff.error).toBeNull();
-    expect(allOff.data.some((item) => item.type === "incomplete")).toBe(false);
+    const defaults = await demoRequest("/api/notifications", { method: "GET" });
+    expect(defaults.error).toBeNull();
+    expect(defaults.data.filter((item) => item.type === "incomplete").map((item) => item.license_id)).toEqual([10]);
 
     await demoRequest("/api/settings/global", {
       method: "PUT",
