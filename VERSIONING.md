@@ -1,58 +1,77 @@
 # Versioning
 
-LicenseTrack uses three-part release numbers in the form `major.milestone.train`.
-This resembles Semantic Versioning, but it is not strict SemVer: a train release
-may include backward-compatible product features as well as fixes.
+Starting with 1.2.0, LicenseTrack follows
+[Semantic Versioning](https://semver.org/): release numbers take the form
+`major.minor.patch`, and each part tells operators what kind of change to
+expect before they read the release notes.
 
 ## Major releases
 
-The first number marks a new product generation. It changes only when
-LicenseTrack introduces intentionally breaking compatibility or another
-fundamental change that warrants a new major line.
+The first number changes only when a release intentionally breaks
+compatibility: a stable API or integration contract, a supported upgrade path,
+or a deployment requirement that operators must act on. Major releases are
+rare and always ship with upgrade guidance.
 
 Example: `2.0.0`.
 
-## Milestone releases
+## Minor releases
 
-The second number marks a substantial, coherent step in the product or
-platform. A milestone may introduce an important workflow, runtime baseline,
-architecture evolution, or similarly notable body of work.
+The second number marks a feature release. Minor releases bundle
+backward-compatible work that has accumulated since the previous minor release:
+
+- new product features and workflow improvements;
+- changes to existing behavior that stay backward compatible;
+- database schema migrations;
+- runtime, dependency, and platform baseline updates;
+- documentation and usability improvements.
+
+Minor releases ship when a coherent body of work is ready, typically every six
+to eight weeks, rather than on a fixed date.
 
 Example: `1.2.0`.
 
-A milestone release does not imply that earlier releases in the same major line
-were unstable, and it does not by itself authorize breaking stable API
-contracts.
+## Patch releases
 
-## Release-train updates
+The third number marks a fix-only release for the current minor line. Patch
+releases contain no new features. They may include:
 
-The third number advances the active milestone series. These releases may
-contain any backward-compatible combination of:
-
-- product features;
 - bug fixes;
-- security and deployment hardening;
-- dependency updates;
-- documentation and usability improvements.
+- security fixes and hardening;
+- dependency updates needed for a fix or advisory;
+- documentation corrections.
 
-Examples: `1.1.1`, `1.1.2`.
+Fixes are grouped rather than released one at a time. A patch release goes out
+promptly for security issues, data-integrity risks, or defects that block
+normal use; other fixes wait for the next patch or minor release.
 
-Release notes identify what changed so operators do not need to infer the
-contents from the number alone.
+A patch release avoids database migrations unless a fix requires one.
+
+Example: `1.2.1`.
+
+## Unreleased work
+
+Work merged to `main` between releases is recorded under **Unreleased** in
+[CHANGELOG.md](CHANGELOG.md). `main` is not a release; operators should deploy
+tagged versions.
 
 ## Compatibility
 
 Stable API and integration contracts follow the deprecation and breaking-change
 rules in
 [docs/extension-authors/api-stability.md](docs/extension-authors/api-stability.md).
-New optional fields, new routes, and other additive changes may ship within a
-release train. Breaking stable contracts normally require a new major release
-or a documented deprecation path.
+New optional fields, new routes, and other additive changes may ship in minor
+releases. Breaking stable contracts requires a new major release or a
+documented deprecation path.
 
 Security vulnerabilities, data-corruption risks, and severe authorization
 defects may require an exceptional compatibility change. Such changes must be
 called out clearly in the release notes with operator guidance.
 
-Database migrations may appear in milestone or train releases when they are
-handled by the supported upgrade process and preserve the documented upgrade
-path.
+Database migrations are applied by the supported upgrade process in every
+release type and preserve the documented upgrade path.
+
+## Earlier releases
+
+Releases 1.0.0 through 1.1.24 used a milestone and release-train model in which
+the third number could also carry new features. Their release notes in
+[CHANGELOG.md](CHANGELOG.md) describe what each one contains.

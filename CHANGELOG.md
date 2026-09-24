@@ -3,15 +3,19 @@
 All notable changes to LicenseTrack are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-LicenseTrack uses the three-part milestone and release-train policy described in
-[VERSIONING.md](VERSIONING.md). It is not strict Semantic Versioning: compatible
-features may ship in the third-number release train for the current milestone.
+Starting with 1.2.0, LicenseTrack follows
+[Semantic Versioning](https://semver.org/) as described in
+[VERSIONING.md](VERSIONING.md): minor releases carry features and patch
+releases carry fixes only. Releases 1.0.0 through 1.1.24 used an earlier
+release-train model in which the third number could also carry features.
 
 API stability levels and the breaking-change policy are defined in
 [docs/extension-authors/api-stability.md](docs/extension-authors/api-stability.md). Changes that affect stable API
 contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
+
+Work in progress for 1.2.0.
 
 ## [1.1.24] - 2026-09-24
 
