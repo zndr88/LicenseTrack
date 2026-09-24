@@ -180,17 +180,26 @@ def _rejectable_create_fields(coverage) -> frozenset[str]:
     return _SERVER_OWNED_CREATE_FIELDS
 
 
+def _is_meaningful_create_override(field: str, value) -> bool:
+    """Whether a server-owned create field carries a real value, not a form default."""
+    if field in {"has_maintenance", "is_retired", "retirement_scheduled", "is_completeness_exempt"}:
+        return bool(value)
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return False
+    # Forms preselect the flat pricing basis; on its own it sets nothing.
+    if field == "maintenance_pricing_basis" and value in (MaintenancePricingBasis.flat, MaintenancePricingBasis.flat.value):
+        return False
+    return True
+
+
 def _reject_server_owned_create_overrides(payload: LicenseCreate) -> None:
     """Reject meaningful attempts to set state that creation workflows own."""
     values = payload.model_dump(by_alias=False)
-    blocked = []
-    for field in _rejectable_create_fields(values.get("maintenance_coverage")):
-        value = values.get(field)
-        if field in {"has_maintenance", "is_retired", "retirement_scheduled", "is_completeness_exempt"}:
-            if value:
-                blocked.append(field)
-        elif value is not None:
-            blocked.append(field)
+    blocked = [
+        field
+        for field in _rejectable_create_fields(values.get("maintenance_coverage"))
+        if _is_meaningful_create_override(field, values.get(field))
+    ]
     if blocked:
         raise HTTPException(
             status_code=400,

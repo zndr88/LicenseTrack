@@ -101,7 +101,6 @@ describe("useLicenseCreation", () => {
           parentLicenseId: 99,
           maintenanceParentIds: [12],
           portalUrl: null,
-          isRetired: false,
         }),
       },
       {
@@ -109,6 +108,48 @@ describe("useLicenseCreation", () => {
         parentLineIndex: 0,
       },
     ]);
+  });
+
+  test("sends support period and pricing only for Included coverage (issue #47)", async () => {
+    const { result } = renderCreation();
+    const supportDefaults = {
+      maintenanceStartDate: "",
+      maintenanceEndDate: "",
+      maintenancePricingBasis: "flat",
+      maintenanceQuantity: "",
+      maintenanceUnitPrice: "",
+      maintenanceCost: "",
+    };
+
+    await act(async () => {
+      await result.current([
+        makeForm({ licenseType: "perpetual", maintenanceCoverage: "unknown", ...supportDefaults }),
+        makeForm({ licenseType: "perpetual", maintenanceCoverage: "separately_tracked", ...supportDefaults }),
+        makeForm({
+          licenseType: "perpetual",
+          maintenanceCoverage: "included",
+          ...supportDefaults,
+          maintenanceStartDate: "2026-01-01",
+          maintenanceEndDate: "2026-12-31",
+          maintenanceCost: "250.00",
+        }),
+      ]);
+    });
+
+    const [batch] = createLicenseBatch.mock.calls[0];
+    const supportFields = Object.keys(supportDefaults);
+    for (const line of batch.slice(0, 2)) {
+      supportFields.forEach((field) => expect(line.license).not.toHaveProperty(field));
+      expect(line.license).not.toHaveProperty("isRetired");
+    }
+    expect(batch[2].license).toMatchObject({
+      maintenanceCoverage: "included",
+      maintenanceStartDate: "2026-01-01",
+      maintenanceEndDate: "2026-12-31",
+      maintenancePricingBasis: "flat",
+      maintenanceCost: "250.00",
+      maintenanceQuantity: null,
+    });
   });
 
   test("non-expiring license types null the end date; expiring types keep it", async () => {

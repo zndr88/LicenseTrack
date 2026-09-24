@@ -13,6 +13,7 @@ import LicenseTypeOptInFields from "./LicenseTypeOptInFields.jsx";
 import { buildMaintenanceCompanion } from "../../utils/maintenanceCompanion.js";
 import { useLicenseLines } from "../../hooks/useLicenseLines.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
+import { coverageAfterTypeChange } from "../../utils/maintenanceCoverage.js";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
   supportsMaintenanceCoverage,
@@ -352,7 +353,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           <LicenseFormSection title="Identity">
             <div className="fg"><label htmlFor="inv-publisher-name">Publisher Name</label><ReferenceCombobox id="inv-publisher-name" mode="publisher" value={form.publisherName} onChange={(value) => u("publisherName", value)} /></div>
             <div className="fg"><label htmlFor="inv-software-desc">Software Description</label><input id="inv-software-desc" className="fi" value={form.softwareDescription} onChange={(e) => u("softwareDescription", e.target.value)} /></div>
-            <div className="fg"><label htmlFor="inv-license-type">License Type</label><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isNonExpiringLicenseType(next) ? { endDate: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}) })); if (isFreewareLicenseType(next)) { setDisplayUnitPrice(""); setDisplayTotalPrice(""); } if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+            <div className="fg"><label htmlFor="inv-license-type">License Type</label><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, maintenanceCoverage: coverageAfterTypeChange(f.maintenanceCoverage, f.licenseType, next), ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isNonExpiringLicenseType(next) ? { endDate: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}) })); if (isFreewareLicenseType(next)) { setDisplayUnitPrice(""); setDisplayTotalPrice(""); } if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
             <LicenseTypeOptInFields idPrefix="inv" licenseType={form.licenseType} isRenewable={form.isRenewable} typeDescription={form.typeDescription} onChange={u} error={typeDescriptionMissing(form.licenseType, form.typeDescription) ? TYPE_DESCRIPTION_REQUIRED_MESSAGE : null} />
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="identity" />
           </LicenseFormSection>
@@ -518,6 +519,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                     <select id={`inv-line-${line.id}-license-type`} className="fi fi-select" value={line.licenseType} onChange={(e) => {
                       const next = e.target.value;
                       updateLine(line.id, "licenseType", next);
+                      updateLine(line.id, "maintenanceCoverage", coverageAfterTypeChange(line.maintenanceCoverage, line.licenseType, next));
                       if (next !== "saas") updateLine(line.id, "portalUrl", "");
                       if (isNonExpiringLicenseType(next)) updateLine(line.id, "endDate", "");
                       if (isFreewareLicenseType(next)) {

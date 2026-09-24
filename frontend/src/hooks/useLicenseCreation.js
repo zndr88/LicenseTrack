@@ -7,6 +7,20 @@ import { invalidateNotifications, invalidatePortfolioState } from "../queryInval
 import { defaultDocumentScope } from "../utils/documentCategories.js";
 import { isNonExpiringLicenseType, typeOptInPayload } from "../utils/licenseTypeRules.js";
 
+// Support period/pricing is only user input for Included coverage; for any
+// other coverage the backend owns these fields and rejects them on create.
+function includedSupportPayload(form) {
+  if (form.maintenanceCoverage !== "included") return {};
+  return {
+    maintenanceStartDate: form.maintenanceStartDate || null,
+    maintenanceEndDate: form.maintenanceEndDate || null,
+    maintenancePricingBasis: form.maintenancePricingBasis || null,
+    maintenanceQuantity: form.maintenanceQuantity || null,
+    maintenanceUnitPrice: form.maintenanceUnitPrice || null,
+    maintenanceCost: form.maintenanceCost || null,
+  };
+}
+
 function buildLicensePayload(form) {
   return {
     publisherName: form.publisherName,
@@ -38,15 +52,9 @@ function buildLicensePayload(form) {
     externalRef: form.externalRef || null,
     customFieldValues: form.customFieldValues || [],
     maintenanceCoverage: form.maintenanceCoverage || null,
-    maintenanceStartDate: form.maintenanceStartDate || null,
-    maintenanceEndDate: form.maintenanceEndDate || null,
-    maintenancePricingBasis: form.maintenancePricingBasis || null,
-    maintenanceQuantity: form.maintenanceQuantity || null,
-    maintenanceUnitPrice: form.maintenanceUnitPrice || null,
-    maintenanceCost: form.maintenanceCost || "",
+    ...includedSupportPayload(form),
     ...(form.parentLicenseId ? { parentLicenseId: form.parentLicenseId } : {}),
     ...(form.maintenanceParentIds?.length ? { maintenanceParentIds: form.maintenanceParentIds } : {}),
-    isRetired: false,
   };
 }
 

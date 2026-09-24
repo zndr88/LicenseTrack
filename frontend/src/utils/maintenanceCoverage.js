@@ -27,3 +27,15 @@ export function maintenanceCoverageOptionsForLicenseType(licenseType) {
   }
   return MAINTENANCE_COVERAGE_OPTIONS;
 }
+
+/**
+ * Coverage after a license type change. Coverage follows the new type's default
+ * while it is still untouched ("unknown" or the previous type's default), so a
+ * new subscription is saved as Included; a deliberate choice is kept.
+ */
+export function coverageAfterTypeChange(coverage, previousType, nextType) {
+  const untouched = !coverage
+    || coverage === "unknown"
+    || coverage === defaultMaintenanceCoverageForLicenseType(previousType);
+  return untouched ? defaultMaintenanceCoverageForLicenseType(nextType) : coverage;
+}
