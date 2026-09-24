@@ -41,7 +41,9 @@ contracts will be called out under a **Breaking** heading in future releases.
   Reports note POs whose manual total is not reflected in line-based annual
   cost. Pending Orders CSV exports include **PO Total (manual)**.
 - Added deep links: the browser address follows the page and selected license,
-  Back and Forward work, and sign-in returns to the requested address. A new
+  Back and Forward work, and sign-in returns to the requested address. Opening
+  a License Details section adds it to the address (`/licenses/123#documents`),
+  so a shared link opens that section. A new
   **Public app URL** setting in Admin > Notifications makes notification emails
   link each license to its page.
 - Added unhandled notice deadlines to the Renewal Workbench, with an **N**

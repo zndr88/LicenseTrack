@@ -286,6 +286,24 @@ test("license table supports publisher sorting and search", async ({ page }) => 
   await expect(page.getByText("Zeta Systems")).toBeHidden();
 });
 
+test("a license section link opens that section and follows section toggles", async ({ page }) => {
+  await mockApi(page, { authenticated: true });
+
+  await page.goto("/licenses/2#documents");
+  const documentsHeader = page.getByRole("button", { name: /^Documents/ });
+  await expect(documentsHeader).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByText("Acme Suite").first()).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe("/licenses/2");
+  expect(new URL(page.url()).hash).toBe("#documents");
+
+  await documentsHeader.click();
+  await expect(documentsHeader).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(() => new URL(page.url()).hash).toBe("");
+
+  await page.getByRole("button", { name: /^History/ }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#history");
+});
+
 test("CSV import upload reaches preview without leaving the browser shell", async ({ page }) => {
   const apiState = await mockApi(page, { authenticated: true });
 

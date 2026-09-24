@@ -1,5 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { parseAppPath, pathForState, resolveLicenseKey } from "../../utils/appRoutes.js";
+import {
+  detailSectionFromHash,
+  hashForDetailSection,
+  parseAppPath,
+  pathForState,
+  pathMatchesLicense,
+  resolveLicenseKey,
+} from "../../utils/appRoutes.js";
+
+describe("License Details section hashes", () => {
+  it("maps visible section names to section keys and back", () => {
+    expect(detailSectionFromHash("#documents")).toBe("documents");
+    expect(detailSectionFromHash("#Key-Dates")).toBe("dates");
+    expect(detailSectionFromHash("#custom-fields")).toBe("customFields");
+    expect(detailSectionFromHash("#relationships")).toBe("people");
+    expect(hashForDetailSection("documents")).toBe("#documents");
+    expect(hashForDetailSection("commercial")).toBe("#details");
+  });
+
+  it("ignores unknown hashes and sections without one", () => {
+    expect(detailSectionFromHash("")).toBeNull();
+    expect(detailSectionFromHash("#identity")).toBeNull();
+    expect(detailSectionFromHash("#toString")).toBeNull();
+    expect(detailSectionFromHash("#%E0%A4%A")).toBeNull();
+    expect(hashForDetailSection("identity")).toBe("");
+  });
+
+  it("matches a license path by record id or LT Ref", () => {
+    const license = { id: 20, licenseRef: "LT-2026-00020", licenseRefAliases: ["OLD-9"] };
+    expect(pathMatchesLicense("/licenses/20", license)).toBe(true);
+    expect(pathMatchesLicense("/licenses/lt-2026-00020", license)).toBe(true);
+    expect(pathMatchesLicense("/licenses/OLD-9", license)).toBe(true);
+    expect(pathMatchesLicense("/licenses/21", license)).toBe(false);
+    expect(pathMatchesLicense("/licenses", license)).toBe(false);
+    expect(pathMatchesLicense("/renewals", license)).toBe(false);
+  });
+});
 
 describe("appRoutes", () => {
   it("maps pages to paths and back", () => {

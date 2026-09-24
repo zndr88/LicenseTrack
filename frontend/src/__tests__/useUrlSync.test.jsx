@@ -106,6 +106,37 @@ describe("useUrlSync", () => {
     expect(window.location.pathname).toBe("/renewals");
   });
 
+  it("keeps a section hash when an LT Ref resolves to its record id", async () => {
+    window.history.replaceState(null, "", "/licenses/LT-7#documents");
+    renderHarness({}, [{ id: 7, licenseRef: "LT-7" }]);
+
+    await waitFor(() => expect(window.location.pathname).toBe("/licenses/7"));
+    expect(window.location.hash).toBe("#documents");
+  });
+
+  it("returns to the requested license section after an SSO round trip", async () => {
+    window.history.replaceState(null, "", "/licenses/20#documents");
+    rememberPathForLogin();
+    window.history.replaceState(null, "", "/");
+
+    renderHarness({}, [{ id: 20, licenseRef: "LT-20" }]);
+
+    await waitFor(() => expect(api.selectedId).toBe(20));
+    expect(window.location.pathname).toBe("/licenses/20");
+    expect(window.location.hash).toBe("#documents");
+  });
+
+  it("drops the section hash when another license is opened", async () => {
+    window.history.replaceState(null, "", "/licenses/20#documents");
+    renderHarness({}, [{ id: 20 }, { id: 21 }]);
+    await waitFor(() => expect(api.selectedId).toBe(20));
+
+    act(() => api.setSelectedId(21));
+
+    expect(window.location.pathname).toBe("/licenses/21");
+    expect(window.location.hash).toBe("");
+  });
+
   it("rewrites unknown paths to Licenses", async () => {
     window.history.replaceState(null, "", "/does-not-exist");
     renderHarness();

@@ -59,6 +59,56 @@ export function parseAppPath(pathname, basePath = "/") {
 }
 
 /**
+ * License Details sections a link can open, as URL hash -> section key. The
+ * hash names follow the visible section titles, e.g. /licenses/20#documents.
+ * Identity is always open, so it has no hash.
+ */
+const DETAIL_SECTION_BY_HASH = Object.freeze({
+  "key-dates": "dates",
+  details: "commercial",
+  maintenance: "maintenance",
+  relationships: "people",
+  documents: "documents",
+  completeness: "completeness",
+  notes: "notes",
+  "custom-fields": "customFields",
+  history: "history",
+});
+
+const DETAIL_HASH_BY_SECTION = Object.freeze(
+  Object.fromEntries(Object.entries(DETAIL_SECTION_BY_HASH).map(([hash, section]) => [section, hash])),
+);
+
+/** The License Details section named by a URL hash ("#documents"), or null. */
+export function detailSectionFromHash(hash) {
+  let name = String(hash ?? "").replace(/^#/, "");
+  try {
+    name = decodeURIComponent(name);
+  } catch {
+    return null;
+  }
+  name = name.trim().toLowerCase();
+  return Object.hasOwn(DETAIL_SECTION_BY_HASH, name) ? DETAIL_SECTION_BY_HASH[name] : null;
+}
+
+/** The URL hash for a License Details section ("#documents"), or "" when it has none. */
+export function hashForDetailSection(section) {
+  return Object.hasOwn(DETAIL_HASH_BY_SECTION, section) ? `#${DETAIL_HASH_BY_SECTION[section]}` : "";
+}
+
+/** Whether a browser path points at this license, by record id or LT Ref (or alias). */
+export function pathMatchesLicense(pathname, license, basePath = "/") {
+  if (!license) return false;
+  const { page, licenseKey } = parseAppPath(pathname, basePath);
+  if (page !== "licenses" || !licenseKey) return false;
+  const key = String(licenseKey).trim();
+  if (/^\d+$/.test(key)) return Number(key) === license.id;
+  const upper = key.toUpperCase();
+  return String(license.licenseRef ?? "").toUpperCase() === upper
+    || (license.licenseRefAliases ?? []).some((alias) => String(alias).toUpperCase() === upper);
+}
+
+/**
  * Resolve a /licenses/:key segment to a license id. Numeric keys are record ids;
  * other keys are LT Refs (or aliases). A ref is shared by a renewal chain, so the
  * current term wins: not renewed/legacy, then the latest start date.

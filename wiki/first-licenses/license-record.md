@@ -12,6 +12,14 @@ license; they see it after signing in, if their access allows. An LT Ref such
 as `/licenses/LT-2026-00042` also works and opens the current term of that
 renewal chain.
 
+Opening a section adds its name to the address, for example
+`/licenses/123#documents`, so a shared link opens the license with that section
+expanded. The address names the section you opened last; closing it removes
+the name. Section names follow the headings: `key-dates`, `details`,
+`maintenance`, `relationships`, `documents`, `completeness`, `notes`,
+`custom-fields`, and `history`. Opening and closing sections does not add
+Back steps.
+
 ![The License Details panel, Identity section](../assets/record-02-identity.png)
 
 The **Identity** section is the main view, always visible at the top. It holds key information such as the publisher identity, the license description, and the unique LicenseTrack identifier number.

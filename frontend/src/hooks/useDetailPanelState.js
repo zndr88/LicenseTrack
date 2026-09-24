@@ -15,6 +15,7 @@ import {
 } from "../api/pluginSuggestions.js";
 import { useLicenseDocuments } from "./useLicenseDocuments.js";
 import { useCustomFields } from "./useCustomFields.js";
+import { useDetailSectionLink } from "./useDetailSectionLink.js";
 import { parseLocalizedNumber } from "../utils/formatting.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../utils/customFieldFormValues.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "../utils/secondaryContacts.js";
@@ -83,8 +84,12 @@ export function useDetailPanelState({
     if (coverageData) setCoverageHistory(coverageData);
   }, [license.id, license.licenseType]);
 
-  const toggleSection = (key) =>
+  const updateSectionLink = useDetailSectionLink({ license, setOpenSections });
+
+  const toggleSection = (key) => {
+    updateSectionLink(key, !openSections[key]);
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   useEffect(() => {
     maintenanceRequestRef.current += 1;

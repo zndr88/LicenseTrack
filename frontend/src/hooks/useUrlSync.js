@@ -24,11 +24,14 @@ function takeStoredPath() {
   }
 }
 
-/** Remember the requested path across an SSO round trip, which returns to the site root. */
+/**
+ * Remember the requested path, including a License Details section hash, across
+ * an SSO round trip, which returns to the site root.
+ */
 export function rememberPathForLogin(basePath = APP_BASE_PATH) {
   if (isRootPath(window.location.pathname, basePath)) return;
   try {
-    window.sessionStorage.setItem(POST_LOGIN_PATH_KEY, window.location.pathname);
+    window.sessionStorage.setItem(POST_LOGIN_PATH_KEY, window.location.pathname + window.location.hash);
   } catch {
     // Without storage the user lands on the default page after SSO.
   }
@@ -71,12 +74,15 @@ export function useUrlSync({
     if (!enabled || initializedRef.current) return;
     initializedRef.current = true;
     const storedPath = takeStoredPath();
-    const requestedPath = isRootPath(window.location.pathname, basePath) && storedPath
-      ? storedPath
-      : window.location.pathname;
+    const useStored = isRootPath(window.location.pathname, basePath) && storedPath;
+    const [requestedPath, storedHash] = useStored
+      ? [storedPath.split("#")[0], storedPath.includes("#") ? `#${storedPath.split("#").slice(1).join("#")}` : ""]
+      : [window.location.pathname, window.location.hash];
     const target = parseAppPath(requestedPath, basePath);
-    if (!target.known || requestedPath !== window.location.pathname) {
-      window.history.replaceState(window.history.state, "", pathForState(target, basePath));
+    // A section hash (#documents) only means something next to a license.
+    const hash = target.licenseKey ? storedHash : "";
+    if (!target.known || requestedPath !== window.location.pathname || hash !== window.location.hash) {
+      window.history.replaceState(window.history.state, "", pathForState(target, basePath) + hash);
     }
     expectedRef.current = { page: target.page, awaitingLicense: Boolean(target.licenseKey) };
     if (target.page !== pageRef.current) navigateToPage(target.page);
@@ -112,7 +118,9 @@ export function useUrlSync({
         && (expected.licenseId === undefined || expected.licenseId === selectedId);
       if (!caughtUp) return;
       expectedRef.current = null;
-      if (window.location.pathname !== desired) window.history.replaceState(window.history.state, "", desired);
+      // Keep a requested section hash when an LT Ref resolves to its record id.
+      const hash = page === "licenses" && selectedId != null ? window.location.hash : "";
+      if (window.location.pathname !== desired) window.history.replaceState(window.history.state, "", desired + hash);
       return;
     }
     if (window.location.pathname !== desired) window.history.pushState(window.history.state, "", desired);
