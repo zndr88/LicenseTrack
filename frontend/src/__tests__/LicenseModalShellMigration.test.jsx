@@ -207,15 +207,20 @@ describe("license modal shell migration", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /add additional license line/i }));
-    await user.type(screen.getAllByLabelText(/software description/i)[1], "Secondary Suite");
+    const secondaryDescription = screen.getAllByLabelText(/software description/i)[1];
+    fireEvent.change(secondaryDescription, { target: { value: "Secondary Suite" } });
+    expect(secondaryDescription).toHaveValue("Secondary Suite");
     await user.click(screen.getByRole("button", { name: /Documents/ }));
     const eula = new File(["terms"], "eula.txt", { type: "text/plain" });
     await user.upload(screen.getByLabelText("Upload EULA Document"), eula);
+    await waitFor(() => {
+      const options = screen.getByLabelText("Attach eula.txt to license").options;
+      expect(Array.from(options).map((option) => option.textContent)).toEqual([
+        "Acme — Primary Suite",
+        "Acme — Secondary Suite",
+      ]);
+    });
     const target = screen.getByLabelText("Attach eula.txt to license");
-    expect(Array.from(target.options).map((option) => option.textContent)).toEqual([
-      "Acme — Primary Suite",
-      "Acme — Secondary Suite",
-    ]);
     await user.selectOptions(target, target.options[1].value);
     await user.click(screen.getByRole("button", { name: /save 2 licenses/i }));
 
