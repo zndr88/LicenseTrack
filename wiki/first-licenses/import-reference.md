@@ -60,6 +60,31 @@ the primary owner to **Budget Owner** and any additional people who should be
 copied on renewal emails to **Secondary Contacts**. That target can accept more
 than one source column.
 
+The **Contact Email** column holds the **Supplier Contact**: whoever you bought
+from. Files that use a **Supplier Contact** header, or the older **Publisher
+Contact** header, import into the same field.
+
+## Renewable and Type Description
+
+Registry exports include **Renewable** and **Type Description** columns, and
+both import back:
+
+- **Renewable** accepts `Yes` or `No` (also `true`/`false`, `y`/`n`, `1`/`0`).
+  It is kept only for Service and Other rows and ignored for every other type.
+  A blank cell leaves a Service or Other row as a one-off purchase. An
+  unrecognized value is ignored with a warning.
+- **Type Description** says what an Other purchase is, up to 255 characters. It
+  is kept only for Other rows. An Other row without one still imports, with a
+  warning to add a description when the record is next edited.
+
+A one-off Service or Other row whose end date has already passed is retired by
+the next daily job after import.
+
+Pending Orders CSV exports include a **PO Total (manual)** column with the
+order's manual PO total, when one is set.
+
+## Items and descriptions
+
 Some external exports contain a generic **Item** column as well as a more exact
 software description column. LicenseTrack treats Item as a fallback only. If
 your file has **Software Description**, that value wins; if duplicate recognized
@@ -114,8 +139,9 @@ value.
 
 ## Maintenance and support
 
-Perpetual, OEM, and freeware/open-source rows remain non-expiring when an
-included-support end date is in the past. The preview warns that the included
+Perpetual, OEM, and freeware/open-source rows never store an end date. When a
+file gives one for such a row, it is dropped on import. They remain
+non-expiring when an included-support end date is in the past. The preview warns that the included
 maintenance coverage has expired and requires acknowledgement, but it does not
 classify the parent license as legacy solely because support ended.
 

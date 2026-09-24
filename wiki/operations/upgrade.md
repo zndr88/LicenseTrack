@@ -24,6 +24,41 @@ retrying the upgrade.
 
 ## Before upgrading
 
+### Upgrading to 1.1.24
+
+This release adds five migrations. All of them add new columns and run through
+the normal startup migration process:
+
+- `d1e2f3a4b5c6`: the **Renewable?** flag and **Type Description** for Service
+  and Other, on licenses and sourcing lines. Existing Service and Other records
+  start as one-off purchases.
+- `a7b8c9d0e1f2`: the manual PO total on pending orders.
+- `b2c3d4e5f6a8`: per-currency high-value thresholds. An existing single
+  threshold is copied once to the first admin's display currency (EUR when none
+  is set). The old value is kept but no longer used.
+- `c4d5e6f7a8b0`: the **Public app URL** setting, empty by default.
+- `d5e6f7a8b9c1`: the supported license on maintenance sourcing lines.
+
+Stored admin configuration is not changed: completeness requirements, email
+templates, and other settings keep their current values. Only new installations
+start with PO number, invoice number, and budget owner required.
+
+Existing Service and Other records whose end date has passed are retired by the
+first daily job after the upgrade, unless you mark them **Renewable?** first. To
+review them beforehand, filter License Overview by type before upgrading.
+
+OEM and freeware records that carry an end date keep it until they are next
+saved in the full Edit form, which then clears it. No migration rewrites them.
+
+Keep a full pre-upgrade volume backup for rollback. Downgrading removes the new
+columns and their values: renewable flags, type descriptions, manual PO totals
+on pending orders, per-currency thresholds, the public app URL, and the
+supported license on maintenance sourcing lines.
+
+After upgrading, set **Public app URL** in Admin > Settings > Notifications if
+notification emails should link to licenses, and review the high-value
+thresholds in Admin > Settings > Renewals.
+
 ### Upgrading to 1.1.23
 
 This release adds two migrations: one stores planned successor links between

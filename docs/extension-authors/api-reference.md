@@ -66,6 +66,8 @@ Required scope is `licenses:read` for reads and `licenses:write` for writes.
 | `POST /api/licenses/renewal-bundle/initiate` | Start a coterm renewal bundle |
 | `POST /api/licenses/{license_id}/disable-maintenance` | Disable active linked maintenance |
 | `POST /api/licenses/{license_id}/link-maintenance` | Link an existing maintenance record to an eligible parent |
+| `PUT /api/licenses/{license_id}/included-support` | Edit the included support period of a perpetual, OEM, or freeware record |
+| `POST /api/licenses/{license_id}/support-renewal` | Start procurement for the next support period of included support |
 | `GET /api/licenses/{license_id}/coverage-history` | Read preserved and current maintenance/support coverage periods |
 | `GET /api/renewals/workbench` | Read the renewal workbench model |
 
@@ -83,11 +85,40 @@ multiplied by `unitPrice`.
 License responses include nullable `poTotalOverride`. Set it only through
 `POST /api/licenses/{license_id}/po-total-override` with a canonical decimal
 string such as `{ "poTotalOverride": "1250.00" }`, or clear it through the
-matching `DELETE` endpoint. The operation applies to every license sharing the
-target record's nonblank PO number. New records joining an existing PO inherit
-its override; reassignment to another existing PO adopts the destination PO's
-override. Ordinary create/update payloads and CSV import do not set a manual
-override.
+matching `DELETE` endpoint. The operation applies to every license in the
+target record's procurement group and currency: the same pending order, or for
+records not created from one, the same nonblank PO number. New records joining
+an existing PO inherit its override; reassignment to another existing PO adopts
+the destination PO's override. Ordinary create/update payloads and CSV import
+do not set a manual override. A pending order's `poTotalOverride` is copied to
+every license converted from that order.
+
+Since 1.1.24, license responses also include these additive fields:
+
+- `isRenewable` (nullable boolean) and `typeDescription` (nullable string).
+  `isRenewable` is kept only for `service` and `other` records and controls
+  whether they take part in renewals; `null` counts as not renewable.
+  `typeDescription` is kept only for `other` records, which require one on
+  create and when their type or description is edited.
+- `supportStatus` (`active`, `expiring`, `expired`, or `null`) and
+  `supportDaysRemaining` for perpetual, OEM, and freeware records with included
+  support and a support end date.
+
+`PUT /api/licenses/{license_id}/included-support` accepts
+`maintenanceStartDate`, `maintenanceEndDate`, `maintenancePricingBasis`, and the
+optional money fields `maintenanceQuantity`, `maintenanceUnitPrice`, and
+`maintenanceCost`. It applies only to perpetual, OEM, and freeware records with
+`maintenanceCoverage: "included"` and no active linked maintenance record.
+
+`POST /api/licenses/{license_id}/support-renewal` returns `{ license,
+sourcingItem }`. The sourcing item is a maintenance line with
+`maintenanceParentLicenseId` set to the license; converting it links the new
+maintenance record to that license.
+
+`GET /api/renewals/workbench` rows include `rowKind` (`license` or
+`support_renewal`), `noticeDate`, and `daysUntilNotice`, and accept the
+additional `view=notice_due`. `GET /api/licenses/stats` includes
+`po_overrides_not_in_annual`.
 
 Maintenance records use `parentLicenseId` as the primary compatibility parent.
 Create requests can also provide `maintenanceParentIds` for a maintenance
@@ -170,8 +201,13 @@ Sourcing and license payloads expose the optional camel-case fields
 `licenseType`, `maintenanceCoverage`, `maintenanceStartDate`,
 `maintenanceEndDate`, `maintenancePricingBasis`, `maintenanceQuantity`,
 `maintenanceUnitPrice`, and `maintenanceCost`. Supported pricing-basis values
-are `flat` and `per_unit`. For `per_unit`, the server calculates
-`maintenanceCost` from quantity and unit price.
+are `flat`, `per_unit`, and `free`. For `per_unit`, the server calculates
+`maintenanceCost` from quantity and unit price. For `free`, it stores a
+`maintenanceCost` of `"0"` and clears quantity and unit price.
+
+Sourcing and pending-order lines also accept `isRenewable`, `typeDescription`,
+and, on maintenance lines, `maintenanceParentLicenseId`: the license the line
+will support, which conversion uses as the parent when none is submitted.
 
 A zero-cost `freeware` sourcing line converts directly to a license. A
 freeware line with positive included support follows the pending-order route,
@@ -207,6 +243,13 @@ Pending-order payloads expose `poNumber` and `procurementReference`. `poNumber`
 may be blank while an order is still being tracked, but conversion to active
 licenses requires a real PO number. Treat `procurementReference` as optional
 workflow metadata, not a relationship key.
+
+Pending-order responses include the nullable manual total `poTotalOverride`.
+Set it with `PUT /api/pending-orders/{order_id}` and a canonical decimal string;
+an empty string clears it. It is accepted only while every non-cancelled line
+uses one currency, and a line in another currency is rejected with `422` while
+it is set. The same update accepts `contactEmail`, which replaces the supplier
+contact on every non-cancelled line; an empty value clears it.
 
 `POST /api/pending-orders` also accepts an additive `items` array. Each entry
 uses the same sourcing-item fields accepted by the pending-order item routes;

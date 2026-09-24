@@ -20,6 +20,15 @@ expiry alert value so existing installations behave as before.
 
 From either view you can start the renewal, provided all conditions are met.
 
+A license with an unhandled **notice date** inside the workbench window also
+appears there, even when its end date is further out. When the notice date
+comes first, the workbench lists the row by that date and marks it with an
+**N**. See [notice deadlines](renewal-reference.md#notice-deadlines).
+
+The renewal area in License Details has a close button if you want it out of
+the way while you review the record. It comes back the next time you open the
+license.
+
 Already bought the next term? [Link an existing successor](renewal-reference.md#link-an-existing-successor) instead of creating another purchase.
 
 !!! note "A budget owner is required"
@@ -88,7 +97,9 @@ Looking the license up in the License Overview, you'll see the historical link b
 Open **History** to follow the procurement trail back to the previous term.
 Completed sourcing and purchase orders remain available in their **History** views.
 See [renewal rules and alternatives](renewal-reference.md) for LT references,
-coterm renewals, maintenance exceptions, and coverage gaps.
+coterm renewals, maintenance exceptions, coverage gaps, renewable Service and
+Other records, and renewing support that came included with a perpetual, OEM,
+or freeware license.
 
 <div class="page-nav" markdown>
 [:material-arrow-right: Navigating the tool: dashboard &amp; key views](../navigating/dashboard.md)

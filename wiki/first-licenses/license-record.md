@@ -6,6 +6,12 @@ Clicking a license in the overview opens the **License Details** panel:
 
 The License Details panel holds all the data of your license record.
 
+The browser address follows what you open, for example `/licenses/123` for the
+license with record ID 123. Copy it to send a colleague straight to the
+license; they see it after signing in, if their access allows. An LT Ref such
+as `/licenses/LT-2026-00042` also works and opens the current term of that
+renewal chain.
+
 ![The License Details panel, Identity section](../assets/record-02-identity.png)
 
 The **Identity** section is the main view, always visible at the top. It holds key information such as the publisher identity, the license description, and the unique LicenseTrack identifier number.
@@ -46,7 +52,7 @@ date; changing the notice date clears the handled state.
 
 Your **PO number**, **invoice number**, and — if required — **contract number** are shown in this section. You can also link the license to a dedicated contract from here. More on that later.
 
-A license can have more than one invoice number. Click the invoice number or the add control to manage the invoice-number list. The first invoice number is the primary invoice shown in the overview table and exports.
+A license can have more than one invoice number. Click the invoice number or the add control to manage the invoice-number list. The first invoice number is the primary invoice shown in the overview table and exports. The full **Edit** form lists every invoice number as well, so saving it keeps them all. In the overview table, **Invoice #** can be edited inline only while a license has a single invoice number.
 
 ## Details
 
@@ -55,9 +61,23 @@ A license can have more than one invoice number. Click the invoice number or the
 Here you'll find more detail about the license record: the **license type**, **metric**, **purchase quantity**, **quantity per unit**, **effective quantity**, **SKU code**, and **pricing**.
 
 Use **Service** for implementation, installation, or service costs associated
-with a license purchase. Use **Other** for rare purchase types that should stay
-visible in the registry while you decide how to classify them. Service and
-Other records are not treated as renewable entitlement lines.
+with a license purchase, and for managed services. Use **Other** for rare
+purchase types that should stay visible in the registry; an Other record needs a
+short **Type Description** that says what it is.
+
+Service and Other records are one-off purchases unless **Renewable?** is ticked.
+A one-off record can still have an end date: a daily job retires it once that
+date has passed, and it never raises renewal work or expiry alerts. A renewable
+record behaves like a subscription: it can be renewed, appears in the Renewal
+Workbench, and counts toward recurring cost.
+
+Perpetual, OEM, and freeware/open-source licenses never carry an end date. An
+OEM or freeware record saved with an end date before 1.1.24 keeps it until the
+record is next saved in the full **Edit** form.
+
+The full **Edit** form offers the **Maintenance** type only on records that are
+already maintenance. Add new maintenance from the **Maintenance & Support**
+section of the license it supports.
 
 **Purchase quantity** is the count bought on the order. **Quantity per unit**
 describes how much entitlement each purchased unit represents, such as seats in
@@ -72,10 +92,15 @@ license lines sharing the PO number.
 
 When the invoice provides only one whole-PO amount and no usable line
 breakdown, an Editor or Admin can use the control beside **Total PO Value** to
-set a manual override. The override is shared by every license with that PO
-number: it can be edited or cleared from any member, and a new member joining
-the PO inherits it. Moving a license to an existing PO adopts that PO's
+set a manual override. The override is shared by every license from the same
+pending order (or, for licenses not created from one, the same PO number) in the
+same currency: it can be edited or cleared from any member, and a new member
+joining the PO inherits it. Moving a license to an existing PO adopts that PO's
 override; moving it to a new PO does not carry a grouped override with it.
+
+A **PO total (manual)** entered on a pending order becomes this override on
+every license converted from it. The line prices stay as quoted; the manual
+total is never spread across lines.
 
 Freeware/open-source records have no acquisition price; paid support is
 recorded in **Maintenance & Support**.
@@ -87,11 +112,23 @@ classify support as **Included**. Separately tracked support is available only
 for perpetual, OEM, or freeware/open-source parents.
 
 Included support stays on the parent license. Its start/end dates define the
-coverage period, and its price is either one flat fee or a covered quantity
-multiplied by a support unit price. The resulting support cost is the total for
-that coverage period. For subscription and SaaS records, included support uses
-the subscription dates and total acquisition value, so those support fields are
-derived rather than edited separately.
+coverage period, and its price is one flat fee, a covered quantity multiplied
+by a support unit price, or **Free (no charge)**. The resulting support cost is
+the total for that coverage period; Free stores a zero cost. For subscription
+and SaaS records, included support uses the subscription dates and total
+acquisition value, so those support fields are derived rather than edited
+separately.
+
+On perpetual, OEM, and freeware/open-source records with Included coverage,
+**Edit support** changes the included support period, pricing basis, and cost.
+The cost is optional. When the support has an end date, the section shows its
+status: a badge appears when support is expiring or has expired, and the
+license appears under the **Support due** filter in License Overview. See
+[included support that is ending](renewal-reference.md#included-support-that-is-ending)
+for the renewal route.
+
+Switching coverage away from Included keeps the included period in Coverage
+History, so a later maintenance record does not overwrite it.
 
 Separately tracked support uses its own linked maintenance license, procurement
 evidence, cost, dates, and renewal lifecycle. The parent shows the active
@@ -145,6 +182,9 @@ keeps a separate bounded allowance for multipart request metadata.
 
 Each purchase has a **completeness score**. The completeness requirements are defined by the admin under settings. In this example, the invoice, proof of entitlement, start and end date, contract number, and PO number are all required for a license to count as **complete**. Admins can also include notice date when contractual notice tracking is part of their housekeeping goals.
 
+A new installation starts with PO number, invoice number, and budget owner
+required. An upgraded installation keeps the requirements it already had.
+
 For a freeware/open-source record, EULA, proof-of-entitlement, and
 supplier-contact requirements do not apply. Contract, PO, invoice, and quote
 requirements also do not apply unless the record includes paid support.
@@ -168,6 +208,10 @@ The **Renewal notifications** toggle controls expiry emails for this specific li
   sourcing request and, when one exists, the pending order that created the
   license. The License Record ID identifies this exact database row; it differs
   from the LT Ref retained across a renewal chain.
+
+For a license in a renewal chain, History also holds the **Term chain**, which
+starts collapsed. Expand it to see every term of the chain, including upcoming
+ones, and open any of them.
 
 When a procurement trail exists, the History section can take you back to the original quote-stage sourcing line and the related pending order. Converted or cancelled procurement records open in their history tables, so you can inspect old quote, PO, invoice, price, and note context without reopening the workflow.
 

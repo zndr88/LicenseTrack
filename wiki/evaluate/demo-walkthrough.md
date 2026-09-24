@@ -42,7 +42,10 @@ supplier and pricing context. Completed sourcing and orders are accessible throu
 their respective **History** views.
 
 Prefer to start with an existing order? Open **PO-2026-0142**, the seeded Okta
-order with **Workforce Identity** and **Advanced Server Access** lines.
+order with **Workforce Identity** and **Advanced Server Access** lines. It
+carries a manual PO total marked **Override**: the quote's bundle price, which
+each converted license shows as its Total PO Value while the line prices stay
+as quoted.
 
 ## 3. Start a renewal
 
@@ -53,6 +56,12 @@ order with **Workforce Identity** and **Advanced Server Access** lines.
    its proposed term with the original license's dates.
 4. Continue through a pending order and conversion as in the purchase example,
    or stop here and inspect the renewal's progress from the workbench.
+
+The workbench also shows two other kinds of deadline. **Arctic Wolf** is a
+renewable managed service whose notice deadline comes before its end date, so
+it is listed by the notice date with an **N** marker. **Sparx Systems** is a
+perpetual license whose included support is ending; its row offers **Start
+support renewal**, which creates a maintenance sourcing line for that license.
 
 **What to look for:** starting renewal creates procurement work. The successor
 is recorded when that purchase is converted; starting work does not itself
@@ -67,6 +76,7 @@ extend the current license's coverage. The installed application also supports
 | Documents | License and procurement file operations are unavailable. Contract uploads keep metadata only, and downloads contain placeholder text, not real PDF contents. |
 | CSV import | Import processing and template download require an installed instance. Follow the [first import guide](../first-licenses/importing.md) there. |
 | Server services | SMTP delivery, OIDC sign-in, database backup/restore, API-token creation, and webhook delivery require a real deployment. |
+| Links | The demo keeps one browser address. An installed instance shows the page and selected license in the address, so links can be bookmarked and shared. |
 | Other actions | Some screens are illustrative or simplified. Unsupported actions report that they need a real deployment. |
 
 Use sample information for this walkthrough. Browser download and email-client

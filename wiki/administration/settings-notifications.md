@@ -35,8 +35,10 @@ timeout even when they cannot access administrator settings.
 ## Completeness and custom fields
 
 Admins choose which supported fields and evidence categories contribute to
-license completeness. New requirements are disabled by default so an existing
-portfolio can be improved gradually.
+license completeness. A new installation starts with **PO number**, **invoice
+number**, and **budget owner** required; everything else is off so a portfolio
+can be improved gradually. Upgrading never changes the requirements an existing
+installation has already stored, even when every requirement is off.
 
 Changing mandatory fields recalculates completeness when records reload; it
 does not edit the stored license fields.
@@ -53,22 +55,44 @@ or on license records. Deleting a definition also deletes its stored values.
 ## Notifications
 
 The scheduled notification run evaluates expiring licenses, notice deadlines,
-and incomplete licenses. A non-exempt eligible license is incomplete whenever
-its completeness is below 100%. Upcoming licenses can still be incomplete, but
-do not produce expiry or notice alerts until they are active. Admins
-configure:
+included support that is ending, and incomplete licenses. A non-exempt eligible
+license is incomplete whenever its completeness is below 100%. Upcoming licenses
+can still be incomplete, but do not produce expiry or notice alerts until they
+are active. Admins configure:
 
 - the daily notification hour;
 - the expiry alert window;
 - the notice deadline alert window;
+- the public app URL;
 - the manager digest address;
 - allowed recipient domains; and
 - customizable email introduction and sign-off text.
 
 The manager digest is eligible whenever the run contains an expired, expiring,
-notice-due, or incomplete-license item. An incomplete-only run therefore sends
-the configured manager digest; a run with no eligible items sends no empty
-digest.
+notice-due, support-ending, or incomplete-license item. An incomplete-only run
+therefore sends the configured manager digest; a run with no eligible items
+sends no empty digest.
+
+### Public app URL
+
+**Public app URL** is the address people use to open LicenseTrack, for example
+`https://licenses.example.com`. When it is set, notification emails link each
+license to its own page (`https://licenses.example.com/licenses/123`). Leave it
+empty to send emails without links. The value must be an `http` or `https`
+address without a query string; a trailing slash is removed. Set it to the
+address users reach through your reverse proxy, not the container's internal
+address. See [deep links behind a reverse proxy](../operations/deployment.md#deep-links-and-the-public-app-url).
+
+### Included support alerts
+
+Perpetual, OEM, and freeware/open-source licenses with Included coverage and a
+support end date raise **Support Ending** and **Support Expired** alerts. They
+use the expiry alert window and appear in the in-app notification list and the
+manager digest; they are not emailed to budget owners. Switching the license to
+a separately tracked maintenance record ends them.
+
+One-off Service and Other records (not marked **Renewable?**) never raise
+expiring or expired alerts. A daily job retires them after their end date.
 
 Notification and daily database-backup hours use the full `0..23` range. Hour
 `0` is midnight and is preserved as entered. Blank, non-numeric, and
@@ -99,6 +123,14 @@ expiry** value. It controls when renewal initiation and Link Existing Successor 
 available without changing expiry status, colors, filters, notification timing, or
 the Renewal Workbench viewing window. Until an administrator explicitly saves this
 setting, it inherits the expiry alert window to preserve existing behavior.
+
+The same section holds the **High-Value Thresholds**, one per currency. A
+Renewal Workbench row is flagged high value when its estimated annual value
+reaches the threshold for its own currency. No currency conversion is applied,
+and a currency left blank is never flagged. Your display currency and every
+currency with a threshold are shown; **Show other currencies** reveals the rest.
+When upgrading from a version with a single threshold, that value is copied to
+the display currency of the first admin account (EUR when none is set).
 
 The notice deadline alert window is separate. Notice deadline reminders are
 sent to the configured manager digest address and do not email the budget owner.

@@ -32,9 +32,13 @@ Use multiple lines when one supplier quote covers several products. Expand the
 request row to edit individual lines. Request-level actions manage documents,
 conversion, or cancellation of the whole request.
 
-Active sourcing rows start expanded so same-supplier requests can be scanned
-without opening each parent first. Collapse rows individually when you need a
-shorter overview.
+Active sourcing requests start collapsed, so the overview lists one row per
+request. Expand a request to review or edit its lines.
+
+Each line has an **Est. Line Total**. It defaults to quantity times unit price.
+If you enter a different value, for example a discounted line total from the
+quote, the form shows the calculated value as a hint; the hint does not block
+saving.
 
 Use **Edit Sourcing Request** to update the supplier, contact, request notes,
 and every open line in one save. Publisher, description, type, quantity,
@@ -52,6 +56,12 @@ copy of historical supplier ownership. It can remain unassigned while sourcing
 is unresolved and is human-editable across renewals, but paid lines cannot move
 to a pending order until one supplier is selected. Changing it updates the
 compatible open lines; converted and cancelled history is left unchanged.
+
+The **Supplier Contact** is whoever you buy from: the reseller, or the
+publisher for a direct purchase. When you change the supplier in **Edit
+Sourcing Request** or **Edit Pending Order** and a contact is already set,
+LicenseTrack asks whether to update the contact. You can keep it, clear it, or
+type a new one; an empty contact is a valid answer.
 
 Renewal sourcing records are created automatically when a renewal begins. When
 several renewal lines should end on the same date, coterm merge combines them
@@ -79,12 +89,21 @@ Freeware/open-source lines do not show license acquisition-price fields because
 their acquisition cost is zero. Perpetual and OEM lines retain their acquisition
 pricing independently of support.
 
+**Service** and **Other** lines have a **Renewable?** option, off by default.
+Leave it off for a one-off purchase such as an installation or a training
+voucher: the license is retired automatically after its end date and never
+raises renewal work. Tick it for something that renews, such as a managed
+service; the license then renews and counts toward recurring cost like a
+subscription. **Other** lines also need a short **Type Description** that says
+what was bought.
+
 Perpetual, OEM, freeware/open-source, subscription, and SaaS lines also expose
 **Maintenance / Support**:
 
 - **Included** keeps support on the parent line. For perpetual, OEM, and
-  freeware/open-source lines, support can be entered as a flat coverage fee or
-  as covered quantity times support unit price. For subscription and SaaS
+  freeware/open-source lines, support can be entered as a flat coverage fee, as
+  covered quantity times support unit price, or as **Free (no charge)**, which
+  stores a zero cost and hides the cost fields. For subscription and SaaS
   lines, included support uses the subscription start/end dates and the
   subscription acquisition total, so the derived coverage dates and cost are
   hidden in the forms. The calculated or derived total contributes to the
@@ -118,8 +137,20 @@ links existing lines in the request, including several lines consolidated into
 one later term. The linked lines must move into the same pending order. Their
 planned links remain editable there and are checked against the final dates at
 license conversion. Do not use this for yearly installments of one continuous
-entitlement: one license record can cover its full multi-year term. Planned
-maintenance term links are not supported yet.
+entitlement: one license record can cover its full multi-year term.
+
+Maintenance lines can be planned the same way, for example three separate
+support years on one PO. Maintenance terms follow maintenance terms only. Give
+the first term its supported license at conversion; a later term without its
+own parent supports the same license. At conversion every term is linked to that
+license, but only the term that covers today becomes its active support. Each
+later term takes over on its own start date through a daily check, and the
+previous period stays in the license's Coverage History.
+
+A **Start support renewal** request from the Renewal Workbench (see
+[Renewal rules and alternatives](../first-licenses/renewal-reference.md#included-support-that-is-ending))
+arrives here as one maintenance line that already names the license it
+supports. Conversion prefills that license as the parent.
 
 ## 2. Pending orders
 
@@ -144,6 +175,15 @@ to the same organization is compatible, and request, open-item, pending-order,
 and converted-license mirrors are written with that organization's canonical
 name. Different organizations remain a conflict.
 
+When the quote gives only a total, enter it as **PO total (manual)** in **Edit
+Pending Order**. This is available only while every line uses one currency, and
+a line in another currency cannot be added until the manual total is cleared.
+Line prices are not changed and the total is never spread across lines. The
+Pending Orders overview shows the manual value with an **Override** marker, and
+every license converted from the order carries it as its **Total PO Value**.
+Annual-cost views are calculated from lines, so License Overview and Reports
+note how many POs have a manual total that those views do not reflect.
+
 Quote evidence remains connected to its sourcing origin and is visible from the
 pending order action menu. The PO number and procurement reference are
 metadata; the pending-order database relationship - not matching PO text -
@@ -162,6 +202,18 @@ During conversion you can:
 - copy shared PO-level fields across batch lines;
 - select explicit parents for maintenance lines; and
 - confirm renewal successors and coterm relationships.
+
+**Copy shared fields** copies only values that are filled in on the first line,
+including secondary contacts, and never blanks another line. It confirms how
+many fields it copied to how many lines.
+
+The End Date field is hidden for perpetual, OEM, and freeware/open-source lines,
+because those types never carry an end date.
+
+A line's own budget owner is always used. A renewal line with one predecessor
+falls back to that license's budget owner when the line has none. A merged
+coterm line whose predecessors had different budget owners starts blank, and
+conversion requires you to choose one.
 
 Each staged Quote, Purchase Order, Invoice, EULA, or Entitlement category has a
 **Single / Shared** scope switch. **Shared** makes its files visible on every license

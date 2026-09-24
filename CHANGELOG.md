@@ -13,6 +13,99 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.1.24] - 2026-09-24
+
+### Added
+
+- Added included-support expiry for perpetual, OEM, and freeware licenses. A
+  support status (active, expiring, expired) shows as a registry and detail
+  badge with a **Support due** filter, raises Support Ending and Support Expired
+  alerts for the in-app list and manager digest, and adds a support row to the
+  Renewal Workbench. **Start support renewal** creates a maintenance sourcing
+  line that carries its license into conversion; **Record existing support**
+  opens the maintenance form. **Edit support** corrects the included period with
+  an optional cost, and a new **Free (no charge)** pricing basis stores a zero
+  support cost.
+- Added planned maintenance chains of any length on one PO. Maintenance terms
+  follow maintenance terms only, later terms inherit the supported license, and
+  each term becomes the active support on its own start date through a daily
+  hand-over that keeps the previous period in Coverage History.
+- Added an opt-in **Renewable?** flag for Service and Other. Renewable records
+  renew, appear in the workbench, and count toward recurring cost; one-off
+  records are retired automatically after their end date and raise no expiry
+  alerts. Other records need a **Type Description**. Both are new Registry
+  columns and CSV columns (`Renewable`, `Type Description`).
+- Added a manual **PO total** to Edit Pending Order for single-currency orders.
+  It is marked **Override** in the overview, becomes the Total PO Value of every
+  converted license, and is never spread across lines. License Overview and
+  Reports note POs whose manual total is not reflected in line-based annual
+  cost. Pending Orders CSV exports include **PO Total (manual)**.
+- Added deep links: the browser address follows the page and selected license,
+  Back and Forward work, and sign-in returns to the requested address. A new
+  **Public app URL** setting in Admin > Notifications makes notification emails
+  link each license to its page.
+- Added unhandled notice deadlines to the Renewal Workbench, with an **N**
+  marker, a **Notice Due** view, and ordering by the earlier of notice and end
+  date.
+- Added per-currency high-value thresholds for the workbench, without currency
+  conversion. A currency without a threshold is never flagged.
+- Added inline editing of Supplier Contact, Budget Owner, Currency, Purchase
+  Date, and Maintenance / Support Coverage, of Portal URL on SaaS records, and
+  of Invoice # while a license has a single invoice number.
+
+### Changed
+
+- Renamed the license contact to **Supplier Contact** (whoever you bought from)
+  and the email action to **Email Supplier**, which greets the supplier. Changing
+  the supplier on a sourcing request or pending order now asks whether to update
+  the contact. The API field `contactEmail` and existing CSV headers are
+  unchanged; `supplier_contact` is accepted as an import alias.
+- New installations require PO number, invoice number, and budget owner for
+  completeness. Upgrades keep their stored requirements.
+- Relabelled sourcing and pending-order line estimates **Est. Line Total**, with
+  a hint when the value differs from quantity x unit price, and the per-line
+  price input **Line Total**.
+- Copy shared fields now includes secondary contacts, copies only filled-in
+  values, and confirms what it copied. Edit-line and conversion share one
+  budget-owner rule, and merged coterm lines with different owners require a
+  choice at conversion.
+- The renewal area in License Details can be dismissed until the license is
+  reopened, and the Term chain moved into History, collapsed by default.
+- Sourcing Overview requests start collapsed. Choosing a license type in Add
+  License applies its default coverage, so a new subscription or SaaS license
+  starts as Included. The full Edit form offers the Maintenance type only for
+  existing maintenance records.
+- Perpetual, OEM, and freeware records never store an end date on any write
+  path, and conversion hides the end date for those types instead of offering a
+  Perpetual checkbox. Existing OEM and freeware end dates are not rewritten;
+  they are cleared the next time the record is saved in the full Edit form.
+- Reports count distinct suppliers in the publisher and supplier summary.
+
+### Fixed
+
+- Fixed manual **Add License** being rejected unless Maintenance / Support
+  coverage was Included (a 1.1.23 regression, #47).
+- Fixed one-year terms of 366 days (leap years or anniversary end dates) being
+  scaled down in annual cost.
+- Fixed the full Edit form dropping all but the first invoice number.
+- Kept the included-support period in Coverage History when coverage leaves
+  Included, and kept perpetual, OEM, and freeware included-support details
+  entered on manual create.
+- Fixed a future-dated maintenance renewal taking over the parent's coverage
+  before its start date.
+- Left blank references and empty periods out of Email Supplier messages.
+
+This release includes five additive migrations that run during normal startup:
+`d1e2f3a4b5c6` (renewable Service/Other and type description), `a7b8c9d0e1f2`
+(pending-order PO total), `b2c3d4e5f6a8` (per-currency high-value thresholds;
+an existing single threshold is copied to the display currency),
+`c4d5e6f7a8b0` (public app URL), and `d5e6f7a8b9c1` (the supported license on
+maintenance sourcing lines). Stored admin settings are not changed. Existing
+Service and Other records start as one-off purchases, so any whose end date has
+passed are retired by the first daily job unless marked Renewable first. There
+is no breaking stable public API change; new API fields and routes are
+additive.
+
 ## [1.1.23] - 2026-09-21
 
 ### Added

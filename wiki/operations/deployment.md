@@ -185,3 +185,22 @@ SESSION_COOKIE_SECURE=true
 Ensure the reverse proxy forwards `Host`, `X-Forwarded-For`, and `X-Forwarded-Proto` headers.
 
 Reverse proxies should route both the SPA and `/api/*` paths to this service. A separate browser-facing API origin is only needed for custom split-host deployments that build the frontend with `VITE_API_URL`.
+
+### Deep links and the public app URL
+
+The browser address follows the page and the selected license, for example
+`/licenses/123` or `/renewals`, so users can bookmark and share links. The
+backend answers every non-API path with the app, so a proxy that forwards all
+paths to LicenseTrack needs no change.
+
+- If your proxy forwards only selected paths, forward every non-file path to
+  LicenseTrack as well. Otherwise opening a shared link or reloading on a
+  deep page returns the proxy's own 404.
+- Serve LicenseTrack at the root of its host name, such as
+  `https://licenses.example.com/`. The standard build expects to run at `/`;
+  hosting it under a sub-path such as `https://example.com/licenses/` is not
+  supported without a custom frontend build.
+
+Set **Admin > Settings > Notifications > Public app URL** to the same address
+users open, for example `https://licenses.example.com`. Notification emails then
+link each license to its page. When it is empty, emails are sent without links.
