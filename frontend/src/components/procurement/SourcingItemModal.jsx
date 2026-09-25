@@ -7,7 +7,7 @@ import { formatPriceInput } from "../../utils/helpers.js";
 import { parseTypedNumber } from "../../utils/formatting.js";
 import {
   canonicalizeQuantityInput,
-  formatQuantity,
+  formatQuantityInput,
 } from "../../utils/quantity.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
@@ -219,7 +219,7 @@ const SourcingItemModal = ({
 
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
   const [displayQuantity, setDisplayQuantity] = useState(
-    formatQuantity(draftItem?.quantity, userSettings) || draftItem?.quantity || ""
+    formatQuantityInput(draftItem?.quantity, userSettings)
   );
   const [displayUnitPrice, setDisplayUnitPrice] = useState(
     formatPriceInput(draftItem?.estimatedUnitPrice ?? "", locale)
@@ -345,7 +345,7 @@ const SourcingItemModal = ({
     if (first.quantity != null) {
       const value = String(first.quantity);
       setValue("quantity", value, { shouldDirty: true });
-      setDisplayQuantity(formatQuantity(value, userSettings) || value);
+      setDisplayQuantity(formatQuantityInput(value, userSettings));
     }
     if (first.estimatedUnitPrice != null) {
       const uv = String(first.estimatedUnitPrice);
@@ -503,7 +503,7 @@ const SourcingItemModal = ({
               <div className="fr">
                 <div className="fg">
                   <label htmlFor="si-quantity">Purchase Quantity</label>
-                  <Controller name="quantity" control={control} render={({ field }) => <input id="si-quantity" className="fi" inputMode="decimal" placeholder="e.g. 25" value={displayQuantity} onChange={(event) => { const raw = event.target.value; const canonical = canonicalizeQuantityInput(raw, userSettings); setDisplayQuantity(raw); field.onChange(canonical ?? raw); }} onBlur={() => { const canonical = canonicalizeQuantityInput(field.value, userSettings); if (canonical != null) { field.onChange(canonical); setDisplayQuantity(formatQuantity(canonical, userSettings)); } field.onBlur(); }} />} />
+                  <Controller name="quantity" control={control} render={({ field }) => <input id="si-quantity" className="fi" inputMode="decimal" placeholder="e.g. 25" value={displayQuantity} onChange={(event) => { const raw = event.target.value; const canonical = canonicalizeQuantityInput(raw, userSettings); setDisplayQuantity(raw); field.onChange(canonical ?? raw); }} onBlur={() => { const canonical = canonicalizeQuantityInput(field.value, userSettings); if (canonical != null) { field.onChange(canonical); setDisplayQuantity(formatQuantityInput(canonical, userSettings)); } field.onBlur(); }} />} />
                 </div>
                 <div className="fg"><label htmlFor="si-quantity-per-unit">Quantity per Unit</label><input id="si-quantity-per-unit" className="fi" inputMode="decimal" {...register("quantityPerUnit")} /></div>
                 <div className="fg"><label htmlFor="si-sku-code">SKU Code</label><input id="si-sku-code" className="fi" {...register("skuCode")} /></div>

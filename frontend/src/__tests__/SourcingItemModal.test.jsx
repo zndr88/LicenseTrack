@@ -788,3 +788,33 @@ describe("currency display state", () => {
     }));
   });
 });
+
+describe("quantity input under nl-BE (#63)", () => {
+  const NL_BE = { numberFormatLocale: "nl-BE" };
+
+  test("starts from text that reads back as the stored quantity", async () => {
+    const { onSave } = renderModal({ item: { ...VALID_ITEM, quantity: "1000" }, userSettings: NL_BE });
+
+    const input = screen.getByPlaceholderText("e.g. 25");
+    expect(input).toHaveValue("1000");
+    fireEvent.blur(input);
+    expect(input).toHaveValue("1000");
+
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].items[0].quantity).toBe("1000");
+  });
+
+  test("an edited quantity re-displays as text that reads back unchanged", async () => {
+    const { onSave } = renderModal({ item: VALID_ITEM, userSettings: NL_BE });
+
+    const input = screen.getByPlaceholderText("e.g. 25");
+    fireEvent.change(input, { target: { value: "1500" } });
+    fireEvent.blur(input);
+    expect(input).toHaveValue("1500");
+
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].items[0].quantity).toBe("1500");
+  });
+});

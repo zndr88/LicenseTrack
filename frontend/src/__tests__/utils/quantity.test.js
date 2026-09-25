@@ -3,6 +3,7 @@ import {
   canonicalizePositiveQuantityInput,
   canonicalizeQuantityInput,
   formatQuantity,
+  formatQuantityInput,
   normalizeCanonicalQuantity,
   sumCanonicalQuantities,
 } from "../../utils/quantity.js";
@@ -41,5 +42,29 @@ describe("quantity utilities", () => {
   it("rejects invalid canonical inputs instead of treating them as zero", () => {
     expect(normalizeCanonicalQuantity("seats")).toBeNull();
     expect(sumCanonicalQuantities(["1.25", "seats"])).toBeNull();
+  });
+});
+
+describe("formatQuantityInput (#63)", () => {
+  const nlBE = { numberFormatLocale: "nl-BE" };
+
+  it("starts editable text from a value that reads back unchanged under D1", () => {
+    for (const value of ["1000", "1500", "2.5", "1234567", "0.125", "3"]) {
+      expect(canonicalizeQuantityInput(formatQuantityInput(value, nlBE), nlBE)).toBe(value);
+    }
+  });
+
+  it("shows the user's format without a lone dot group", () => {
+    expect(formatQuantityInput("1000", nlBE)).toBe("1000");
+    expect(formatQuantityInput("2.5", nlBE)).toBe("2,5");
+    expect(formatQuantityInput("1234567", nlBE)).toBe("1.234.567");
+    expect(formatQuantityInput("1.500", nlBE)).toBe("1,5");
+    expect(formatQuantityInput("1500", { numberFormatLocale: "en-US" })).toBe("1,500");
+  });
+
+  it("returns empty or unparseable input as text", () => {
+    expect(formatQuantityInput(null, nlBE)).toBe("");
+    expect(formatQuantityInput("", nlBE)).toBe("");
+    expect(formatQuantityInput("abc", nlBE)).toBe("abc");
   });
 });

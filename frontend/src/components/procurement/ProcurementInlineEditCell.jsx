@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatPriceInput } from "../../utils/helpers.js";
 import { parseTypedNumber } from "../../utils/formatting.js";
-import { formatQuantity } from "../../utils/quantity.js";
+import { formatQuantityInput } from "../../utils/quantity.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
 function displayValue(value, valueType, userSettings) {
   if (value == null || value === "") return "";
-  if (valueType === "quantity") return formatQuantity(value, userSettings) || String(value);
+  if (valueType === "quantity") return formatQuantityInput(value, userSettings);
   if (valueType === "money") {
     return formatPriceInput(value, userSettings?.numberFormatLocale ?? "en-US");
   }
