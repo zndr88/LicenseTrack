@@ -26,11 +26,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    ignore:
-      # jsdom 30.1.0 breaks vitest's URL.createObjectURL shim in tests.
-      # Later releases are still proposed so a fix gets picked up.
-      - dependency-name: "jsdom"
-        versions: ["30.1.0"]
     open-pull-requests-limit: 5
 
   # GitHub Actions used in workflows
