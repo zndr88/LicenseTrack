@@ -1,4 +1,4 @@
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 import { parseSecondaryContacts } from "../../utils/secondaryContacts.js";
 import { isNonExpiringLicenseType, typeOptInPayload } from "../../utils/licenseTypeRules.js";
 
@@ -13,7 +13,7 @@ function normalizeDate(dateValue) {
 function canonicalizeNumber(value, settings) {
   const raw = String(value ?? "").trim();
   if (!raw) return null;
-  return parseLocalizedNumber(raw, settings) ?? raw;
+  return parseTypedNumber(raw, settings) ?? raw;
 }
 
 function parseOptionalInt(value) {

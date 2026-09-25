@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  parseLocalizedNumber,
+  parseTypedNumber,
   formatMoney,
   formatDate,
   formatDateTime,
@@ -9,85 +9,85 @@ import {
   formatPriceDisplay,
 } from "../../utils/formatting.js";
 
-// ── parseLocalizedNumber ─────────────────────────────────────────────────────
+// ── parseTypedNumber ─────────────────────────────────────────────────────
 
-describe("parseLocalizedNumber", () => {
+describe("parseTypedNumber", () => {
   const enUS = { numberFormatLocale: "en-US" };
   const deDE = { numberFormatLocale: "de-DE" };
   const frFR = { numberFormatLocale: "fr-FR" };
 
   it("returns null for null", () => {
-    expect(parseLocalizedNumber(null, enUS)).toBeNull();
+    expect(parseTypedNumber(null, enUS)).toBeNull();
   });
 
   it("returns null for empty string", () => {
-    expect(parseLocalizedNumber("", enUS)).toBeNull();
+    expect(parseTypedNumber("", enUS)).toBeNull();
   });
 
   it("returns null for whitespace-only", () => {
-    expect(parseLocalizedNumber("   ", enUS)).toBeNull();
+    expect(parseTypedNumber("   ", enUS)).toBeNull();
   });
 
   it("parses plain integer (en-US)", () => {
-    expect(parseLocalizedNumber("1000", enUS)).toBe("1000");
+    expect(parseTypedNumber("1000", enUS)).toBe("1000");
   });
 
   it("parses decimal with dot (en-US)", () => {
-    expect(parseLocalizedNumber("1234.50", enUS)).toBe("1234.50");
+    expect(parseTypedNumber("1234.50", enUS)).toBe("1234.50");
   });
 
   it("parses comma-grouped en-US number: 1,234.50 → 1234.50", () => {
-    expect(parseLocalizedNumber("1,234.50", enUS)).toBe("1234.50");
+    expect(parseTypedNumber("1,234.50", enUS)).toBe("1234.50");
   });
 
   it("parses de-DE number: 1.234,50 → 1234.50", () => {
-    expect(parseLocalizedNumber("1.234,50", deDE)).toBe("1234.50");
+    expect(parseTypedNumber("1.234,50", deDE)).toBe("1234.50");
   });
 
   it("parses fr-FR number with narrow no-break space: 1 234,50 → 1234.50", () => {
     // fr-FR uses narrow no-break space (\u202f) as group separator
-    expect(parseLocalizedNumber("1\u202f234,50", frFR)).toBe("1234.50");
+    expect(parseTypedNumber("1\u202f234,50", frFR)).toBe("1234.50");
   });
 
   it("parses fr-FR with regular space as group separator", () => {
-    expect(parseLocalizedNumber("1 234,50", frFR)).toBe("1234.50");
+    expect(parseTypedNumber("1 234,50", frFR)).toBe("1234.50");
   });
 
   it("parses currency symbol prefix (€100)", () => {
-    expect(parseLocalizedNumber("€100", enUS)).toBe("100");
+    expect(parseTypedNumber("€100", enUS)).toBe("100");
   });
 
   it("parses $ prefix", () => {
-    expect(parseLocalizedNumber("$100", enUS)).toBe("100");
+    expect(parseTypedNumber("$100", enUS)).toBe("100");
   });
 
   it("parses negative number", () => {
-    expect(parseLocalizedNumber("-50.00", enUS)).toBe("-50.00");
+    expect(parseTypedNumber("-50.00", enUS)).toBe("-50.00");
   });
 
   it("uses en-US as default when settings is undefined", () => {
-    expect(parseLocalizedNumber("1,234.50", undefined)).toBe("1234.50");
+    expect(parseTypedNumber("1,234.50", undefined)).toBe("1234.50");
   });
 
   it("uses en-US as default when settings has no numberFormatLocale", () => {
-    expect(parseLocalizedNumber("1,234.50", {})).toBe("1234.50");
+    expect(parseTypedNumber("1,234.50", {})).toBe("1234.50");
   });
 
   it("returns null for alphabetic input", () => {
-    expect(parseLocalizedNumber("abc", enUS)).toBeNull();
+    expect(parseTypedNumber("abc", enUS)).toBeNull();
   });
 
-  it("treats 1.234 in de-DE as integer 1234 (period is group separator)", () => {
-    // 1.234 with de-DE: group sep is ".", so "1.234" → "1234"
-    expect(parseLocalizedNumber("1.234", deDE)).toBe("1234");
+  it("treats 1.234 in de-DE as the decimal 1.234 (single dot is a decimal)", () => {
+    // D1: a single dot is a decimal
+    expect(parseTypedNumber("1.234", deDE)).toBe("1.234");
   });
 
   it("preserves a canonical decimal reopened under de-DE", () => {
-    expect(parseLocalizedNumber("1234.50", deDE)).toBe("1234.50");
+    expect(parseTypedNumber("1234.50", deDE)).toBe("1234.50");
   });
 
   it("falls back safely for an unsupported locale", () => {
-    expect(parseLocalizedNumber("1,234.50", { numberFormatLocale: "xx-INVALID" })).toBe("1234.50");
+    expect(parseTypedNumber("1,234.50", { numberFormatLocale: "xx-INVALID" })).toBe("1234.50");
   });
 });
 

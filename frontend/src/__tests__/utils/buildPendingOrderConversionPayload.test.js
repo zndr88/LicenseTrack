@@ -31,7 +31,8 @@ describe("buildPendingOrderConversionPayload", () => {
   it("canonicalizes Belgian quantity and prices", () => {
     const payload = buildPendingOrderConversionPayload(BASE, { numberFormatLocale: "nl-BE" });
 
-    expect(payload.quantity).toBe("1000");
+    // D1: a single dot is a decimal
+    expect(payload.quantity).toBe("1.000");
     expect(payload.quantityPerUnit).toBe("5000000");
     expect(payload.unitPrice).toBe("1234.50");
     expect(payload.totalPoPrice).toBe("1234500.00");

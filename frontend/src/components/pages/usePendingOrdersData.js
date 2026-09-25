@@ -24,7 +24,7 @@ import { queryKeys } from "../../queryKeys.js";
 import { invalidateProcurementRenewalState } from "../../queryInvalidation.js";
 import { fetchLicensesData } from "./licenses/useLicensesPageData.js";
 import { getLicensesFromQueryData } from "../../utils/licenseQueryData.js";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 import { uploadDocument } from "../../api/documents.js";
 import { defaultDocumentScope } from "../../utils/documentCategories.js";
 import { draftDocumentTargetMap, uploadDraftDocuments } from "../../utils/draftDocuments.js";
@@ -140,14 +140,14 @@ export function usePendingOrdersData({
         maintenanceStartDate: item.maintenanceStartDate || null,
         maintenanceEndDate: item.maintenanceEndDate || null,
         maintenancePricingBasis: item.maintenancePricingBasis || null,
-        maintenanceQuantity: parseLocalizedNumber(item.maintenanceQuantity, userSettings) ?? (item.maintenanceQuantity || null),
-        maintenanceUnitPrice: parseLocalizedNumber(item.maintenanceUnitPrice, userSettings) ?? (item.maintenanceUnitPrice || null),
-        maintenanceCost: parseLocalizedNumber(item.maintenanceCost, userSettings) ?? (item.maintenanceCost || null),
-        quantity: parseLocalizedNumber(item.quantity, userSettings) ?? (item.quantity || null),
-        quantityPerUnit: parseLocalizedNumber(item.quantityPerUnit, userSettings) ?? (item.quantityPerUnit || "1"),
+        maintenanceQuantity: parseTypedNumber(item.maintenanceQuantity, userSettings) ?? (item.maintenanceQuantity || null),
+        maintenanceUnitPrice: parseTypedNumber(item.maintenanceUnitPrice, userSettings) ?? (item.maintenanceUnitPrice || null),
+        maintenanceCost: parseTypedNumber(item.maintenanceCost, userSettings) ?? (item.maintenanceCost || null),
+        quantity: parseTypedNumber(item.quantity, userSettings) ?? (item.quantity || null),
+        quantityPerUnit: parseTypedNumber(item.quantityPerUnit, userSettings) ?? (item.quantityPerUnit || "1"),
         skuCode: item.skuCode || null,
-        estimatedUnitPrice: parseLocalizedNumber(item.estimatedUnitPrice, userSettings) ?? (item.estimatedUnitPrice || null),
-        estimatedTotalPrice: parseLocalizedNumber(item.estimatedTotalPrice, userSettings) ?? (item.estimatedTotalPrice || null),
+        estimatedUnitPrice: parseTypedNumber(item.estimatedUnitPrice, userSettings) ?? (item.estimatedUnitPrice || null),
+        estimatedTotalPrice: parseTypedNumber(item.estimatedTotalPrice, userSettings) ?? (item.estimatedTotalPrice || null),
         currency: item.currency || "EUR",
         startDate: item.startDate || null,
         endDate: item.endDate || null,
@@ -259,15 +259,15 @@ export function usePendingOrdersData({
       maintenanceStartDate: item.maintenanceStartDate || null,
       maintenanceEndDate: item.maintenanceEndDate || null,
       maintenancePricingBasis: item.maintenancePricingBasis || null,
-      maintenanceQuantity: parseLocalizedNumber(item.maintenanceQuantity, userSettings) ?? (item.maintenanceQuantity || null),
-      maintenanceUnitPrice: parseLocalizedNumber(item.maintenanceUnitPrice, userSettings) ?? (item.maintenanceUnitPrice || null),
-      maintenanceCost: parseLocalizedNumber(item.maintenanceCost, userSettings) ?? (item.maintenanceCost || null),
+      maintenanceQuantity: parseTypedNumber(item.maintenanceQuantity, userSettings) ?? (item.maintenanceQuantity || null),
+      maintenanceUnitPrice: parseTypedNumber(item.maintenanceUnitPrice, userSettings) ?? (item.maintenanceUnitPrice || null),
+      maintenanceCost: parseTypedNumber(item.maintenanceCost, userSettings) ?? (item.maintenanceCost || null),
       parentSourcingItemId: item.parentSourcingItemId || null,
-      quantity: parseLocalizedNumber(item.quantity, userSettings) ?? (item.quantity || null),
-      quantityPerUnit: parseLocalizedNumber(item.quantityPerUnit, userSettings) ?? (item.quantityPerUnit || "1"),
+      quantity: parseTypedNumber(item.quantity, userSettings) ?? (item.quantity || null),
+      quantityPerUnit: parseTypedNumber(item.quantityPerUnit, userSettings) ?? (item.quantityPerUnit || "1"),
       skuCode: item.skuCode || null,
-      estimatedUnitPrice: parseLocalizedNumber(item.estimatedUnitPrice, userSettings) ?? (item.estimatedUnitPrice || null),
-      estimatedTotalPrice: parseLocalizedNumber(item.estimatedTotalPrice, userSettings) ?? (item.estimatedTotalPrice || null),
+      estimatedUnitPrice: parseTypedNumber(item.estimatedUnitPrice, userSettings) ?? (item.estimatedUnitPrice || null),
+      estimatedTotalPrice: parseTypedNumber(item.estimatedTotalPrice, userSettings) ?? (item.estimatedTotalPrice || null),
       currency: item.currency || "EUR",
       startDate: item.startDate || null,
       endDate: item.endDate || null,

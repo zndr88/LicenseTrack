@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 import {
   defaultMaintenanceCoverageForLicenseType,
   isBundledIncludedSupport,
@@ -17,14 +17,14 @@ export { supportsMaintenanceCoverage, supportsSeparateMaintenanceLine };
 
 function multiplyCanonical(left, right, locale) {
   const settings = { numberFormatLocale: locale };
-  const quantity = parseLocalizedNumber(left, settings);
-  const unitPrice = parseLocalizedNumber(right, settings);
+  const quantity = parseTypedNumber(left, settings);
+  const unitPrice = parseTypedNumber(right, settings);
   if (quantity === null || unitPrice === null) return "";
   return (Number(quantity) * Number(unitPrice)).toFixed(2);
 }
 
 function formatLocalizedPrice(value, locale) {
-  const canonical = parseLocalizedNumber(value, { numberFormatLocale: locale });
+  const canonical = parseTypedNumber(value, { numberFormatLocale: locale });
   return formatPriceInput(canonical ?? value, locale);
 }
 

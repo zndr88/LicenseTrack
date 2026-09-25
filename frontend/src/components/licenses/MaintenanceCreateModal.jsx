@@ -6,7 +6,7 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import Icon from "../ui/Icon.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { formatDate, parseLocalizedNumber } from "../../utils/formatting.js";
+import { formatDate, parseTypedNumber } from "../../utils/formatting.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import { uploadDocument } from "../../api/documents.js";
 import DocumentStagingWorkspace from "../procurement/DocumentStagingWorkspace.jsx";
@@ -125,7 +125,7 @@ export default function MaintenanceCreateModal({
   });
 
   const handleCreate = async () => {
-    const costSave = costRaw ? (parseLocalizedNumber(costRaw, userSettings) ?? "") : "";
+    const costSave = costRaw ? (parseTypedNumber(costRaw, userSettings) ?? "") : "";
 
     const payload = {
       publisherName: parentLicense.publisherName,

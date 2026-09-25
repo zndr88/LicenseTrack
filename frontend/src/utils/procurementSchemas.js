@@ -4,7 +4,7 @@
  */
 import { z } from "zod";
 import { CURRENCIES, LICENSE_TYPES } from "../constants/licenseData.js";
-import { parseLocalizedNumber } from "./formatting.js";
+import { parseTypedNumber } from "./formatting.js";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "./licenseTypeRules.js";
 
 const optionalEmail = z.string().refine(
@@ -80,7 +80,7 @@ export const licenseFormSchema = z.object({
 
 const sourcingRequestLineSchema = (settings) => {
   const optionalNumber = z.string().refine(
-    (value) => !value || parseLocalizedNumber(value, settings) !== null,
+    (value) => !value || parseTypedNumber(value, settings) !== null,
     { message: "Enter a valid number." },
   );
   return z.object({

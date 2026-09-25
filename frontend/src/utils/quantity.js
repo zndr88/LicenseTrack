@@ -1,4 +1,4 @@
-import { parseLocalizedNumber } from "./formatting.js";
+import { parseTypedNumber, toInputText } from "./formatting.js";
 
 function supportedLocale(settings) {
   const requested = settings?.numberFormatLocale ?? "en-US";
@@ -23,7 +23,7 @@ export function normalizeCanonicalQuantity(value) {
 }
 
 export function canonicalizeQuantityInput(value, settings) {
-  const parsed = parseLocalizedNumber(value, settings);
+  const parsed = parseTypedNumber(value, settings);
   return parsed == null ? null : normalizeCanonicalQuantity(parsed);
 }
 
@@ -53,6 +53,18 @@ export function sumCanonicalQuantities(values) {
   const digits = total.toString().padStart(scale + 1, "0");
   const canonical = `${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
   return normalizeCanonicalQuantity(canonical);
+}
+
+/**
+ * Editable text for a quantity input: the user's format, trailing zeros
+ * dropped, and always text that parseTypedNumber reads back as the same
+ * quantity. Use formatQuantity for read-only display.
+ */
+export function formatQuantityInput(value, settings) {
+  if (value == null || value === "") return "";
+  const canonical = normalizeCanonicalQuantity(value);
+  if (canonical == null) return String(value);
+  return toInputText(canonical, settings);
 }
 
 export function formatQuantity(value, settings) {

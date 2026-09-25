@@ -1,4 +1,4 @@
-import { parseLocalizedNumber } from "./formatting.js";
+import { parseTypedNumber } from "./formatting.js";
 
 export function customFieldValueMap(values = []) {
   if (!Array.isArray(values)) return values && typeof values === "object" ? { ...values } : {};
@@ -17,7 +17,7 @@ export function buildCustomFieldValuePayload(definitions = [], values = {}, user
         customFieldDefId: definition.id,
         valueCurrency: normalized === null
           ? null
-          : (parseLocalizedNumber(normalized, userSettings) ?? normalized),
+          : (parseTypedNumber(normalized, userSettings) ?? normalized),
       };
     }
     return { customFieldDefId: definition.id, valueText: normalized };

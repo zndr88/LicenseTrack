@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { parseLocalizedNumber } from "../utils/formatting.js";
+import { parseTypedNumber } from "../utils/formatting.js";
 import { buildMaintenanceCompanion } from "../utils/maintenanceCompanion.js";
 
 /**
@@ -29,8 +29,8 @@ export function useLicenseLines({
     const qtyStr = String(line[qtyField] ?? "").trim();
     const unitStr = String(line[unitField] ?? "").trim();
     if (!qtyStr && !unitStr) return { ...line, [totalField]: "" };
-    const qty = Number(parseLocalizedNumber(qtyStr, userSettings));
-    const unit = Number(parseLocalizedNumber(unitStr, userSettings));
+    const qty = Number(parseTypedNumber(qtyStr, userSettings));
+    const unit = Number(parseTypedNumber(unitStr, userSettings));
     if (Number.isNaN(qty) || Number.isNaN(unit)) return line;
     return { ...line, [totalField]: (qty * unit).toFixed(2) };
   }, [qtyField, unitField, totalField, userSettings]);

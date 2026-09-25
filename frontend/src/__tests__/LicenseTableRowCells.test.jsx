@@ -285,3 +285,71 @@ describe("LicenseTableRowCells inline edit coverage", () => {
     expect(screen.getByLabelText("Edit portalUrl")).toHaveValue("https://portal.test");
   });
 });
+
+describe("LicenseTableRowCells numeric inline edit (#63)", () => {
+  const license = {
+    id: 9,
+    licenseType: "subscription",
+    unitPrice: "0.125",
+    quantity: "1.500",
+    completeness: { percentage: 100, isComplete: true },
+    expiration: { status: "active", label: "Active" },
+  };
+
+  function renderNl(onInlineFieldSave, overrides = {}) {
+    const row = { ...license, ...overrides };
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <LicenseTableRowCells
+              license={row}
+              visibleColumns={[{ key: "unitPrice", label: "unitPrice" }, { key: "quantity", label: "quantity" }]}
+              selectedIds={new Set()}
+              setSelectedIds={vi.fn()}
+              licenses={[row]}
+              customFieldValuesMap={new Map()}
+              displayCurrency="EUR"
+              userSettings={{ numberFormatLocale: "nl-BE" }}
+              inlineEditEnabled
+              onInlineFieldSave={onInlineFieldSave}
+            />
+          </tr>
+        </tbody>
+      </table>,
+    );
+  }
+
+  test("shows stored values in the user's number format", () => {
+    renderNl(vi.fn(async () => ({ ok: true })));
+    expect(screen.getByLabelText("Edit unitPrice")).toHaveValue("0,125");
+    expect(screen.getByLabelText("Edit quantity")).toHaveValue("1,500");
+  });
+
+  test("focusing and leaving a cell without typing saves nothing", async () => {
+    const onSave = vi.fn(async () => ({ ok: true }));
+    renderNl(onSave);
+    fireEvent.blur(screen.getByLabelText("Edit unitPrice"));
+    fireEvent.blur(screen.getByLabelText("Edit quantity"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  test("an untouched whole number of a thousand or more saves nothing", async () => {
+    const onSave = vi.fn(async () => ({ ok: true }));
+    renderNl(onSave, { quantity: "1000", unitPrice: "1234" });
+    fireEvent.blur(screen.getByLabelText("Edit unitPrice"));
+    fireEvent.blur(screen.getByLabelText("Edit quantity"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  test("typed comma-decimal values are saved canonically", async () => {
+    const onSave = vi.fn(async () => ({ ok: true }));
+    renderNl(onSave);
+    const input = screen.getByLabelText("Edit unitPrice");
+    fireEvent.change(input, { target: { value: "0,25" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(9, "unitPrice", "0.25"));
+  });
+});

@@ -11,7 +11,7 @@ import ModalShell from "../ui/ModalShell.jsx";
 import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
 import { downloadConversionDocument, getConversionDocuments, previewConversionDocument } from "./conversionDocuments.js";
 import ParentLicensePicker from "./ParentLicensePicker.jsx";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
@@ -189,8 +189,8 @@ const ConvertPendingOrderModal = ({
       return;
     }
     if (totalManuallyEdited) return;
-    const qty  = Number(parseLocalizedNumber(qtyStr, userSettings));
-    const unit = Number(parseLocalizedNumber(unitStr, userSettings));
+    const qty  = Number(parseTypedNumber(qtyStr, userSettings));
+    const unit = Number(parseTypedNumber(unitStr, userSettings));
     if (!isNaN(qty) && !isNaN(unit)) {
       const computed = (qty * unit).toFixed(2);
       setValue("totalPoPrice", computed, { shouldDirty: true });
@@ -431,7 +431,7 @@ const ConvertPendingOrderModal = ({
                         value={displayUnitPrice}
                         onFocus={() => setDisplayUnitPrice(field.value)}
                         onChange={(e) => {
-                          const raw = parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value;
+                          const raw = parseTypedNumber(e.target.value, userSettings) ?? e.target.value;
                           setDisplayUnitPrice(e.target.value);
                           field.onChange(raw);
                         }}
@@ -455,7 +455,7 @@ const ConvertPendingOrderModal = ({
                         value={displayTotalPrice}
                         onFocus={() => setDisplayTotalPrice(field.value)}
                         onChange={(e) => {
-                          const raw = parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value;
+                          const raw = parseTypedNumber(e.target.value, userSettings) ?? e.target.value;
                           setTotalManuallyEdited(true);
                           setDisplayTotalPrice(e.target.value);
                           field.onChange(raw);

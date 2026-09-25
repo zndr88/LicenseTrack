@@ -7,6 +7,7 @@ import {
 import {
   canonicalizePositiveQuantityInput,
   formatQuantity,
+  formatQuantityInput,
   normalizeCanonicalQuantity,
   sumCanonicalQuantities,
 } from "../../../utils/quantity.js";
@@ -62,7 +63,7 @@ export function useSourcingMerge({ sourcingItems, licenses, queryClient, showToa
 
   const openMergeModal = () => {
     if (!mergeEligible) return;
-    setMergeQuantity(formatQuantity(computedMergeQty, userSettings));
+    setMergeQuantity(formatQuantityInput(computedMergeQty, userSettings));
     setShowMergeModal(true);
   };
 

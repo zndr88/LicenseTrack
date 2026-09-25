@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../../utils/customFieldFormValues.js";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 import { createSourcingRequestEditSchema } from "../../utils/procurementSchemas.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { filterCustomFieldDefinitionsForSourcing } from "../../utils/customFieldSourcing.js";
@@ -62,7 +62,7 @@ function itemDefaults(item) {
 }
 
 function normalizeOptionalNumber(value, userSettings) {
-  return (parseLocalizedNumber(value, userSettings) ?? value) || null;
+  return (parseTypedNumber(value, userSettings) ?? value) || null;
 }
 
 export default function SourcingRequestEditModal({ request, userSettings, onSave, onCancel, onDeleteDocument }) {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CURRENCIES, LICENSE_TYPES, LICENSE_METRICS, MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
 import { formatCost, getPoTotal } from "../../../utils/helpers.js";
 import Badge from "../../ui/Badge.jsx";
-import { parseLocalizedNumber, formatDate, formatDateTime } from "../../../utils/formatting.js";
+import { parseTypedNumber, toInputText, formatDate, formatDateTime } from "../../../utils/formatting.js";
 import { formatCustomFieldValue } from "../../../utils/customFieldPresentation.js";
 import { formatQuantity } from "../../../utils/quantity.js";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
@@ -75,23 +75,34 @@ const INLINE_EDIT_CONFIG = {
   },
 };
 
+const NUMERIC_INLINE_FIELDS = new Set(["quantity", "quantityPerUnit", "unitPrice"]);
+
 function normalizeInlineValue(fieldKey, value, userSettings) {
-  if (fieldKey === "quantity" || fieldKey === "quantityPerUnit" || fieldKey === "unitPrice") {
-    return parseLocalizedNumber(value, userSettings) ?? String(value ?? "");
+  if (NUMERIC_INLINE_FIELDS.has(fieldKey)) {
+    return parseTypedNumber(value, userSettings) ?? String(value ?? "");
   }
+  return value ?? "";
+}
+
+// Keep every stored digit (toInputText, not formatQuantityInput): commit()
+// compares the parsed text with the raw stored value, so trimming "1.500" to
+// "1,5" would save an untouched cell.
+function inlineDisplayValue(fieldKey, value, userSettings) {
+  if (NUMERIC_INLINE_FIELDS.has(fieldKey)) return toInputText(value ?? "", userSettings);
   return value ?? "";
 }
 
 function InlineEditableCell({ license, col, config, currentValue, onInlineFieldSave, userSettings }) {
   const options = config.getOptions ? config.getOptions(license) : (config.options ?? []);
-  const [value, setValue] = useState(currentValue ?? "");
+  const displayValue = inlineDisplayValue(config.fieldKey, currentValue, userSettings);
+  const [value, setValue] = useState(displayValue);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const cancelBlurRef = useRef(false);
 
   useEffect(() => {
-    if (!saving) setValue(currentValue ?? "");
-  }, [currentValue, saving]);
+    if (!saving) setValue(displayValue);
+  }, [displayValue, saving]);
 
   const commit = async () => {
     if (cancelBlurRef.current) {
@@ -112,7 +123,7 @@ function InlineEditableCell({ license, col, config, currentValue, onInlineFieldS
     setSaving(false);
     if (!result?.ok) {
       setError(result?.error || "Save failed");
-      setValue(previousValue);
+      setValue(displayValue);
     }
   };
 
@@ -125,7 +136,7 @@ function InlineEditableCell({ license, col, config, currentValue, onInlineFieldS
     if (event.key === "Escape") {
       event.preventDefault();
       cancelBlurRef.current = true;
-      setValue(currentValue ?? "");
+      setValue(displayValue);
       setError(null);
       event.currentTarget.blur();
     }
