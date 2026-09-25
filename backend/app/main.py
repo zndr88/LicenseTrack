@@ -118,10 +118,13 @@ async def lifespan(app: FastAPI):
         snapshot = await loop.run_in_executor(None, create_pre_migration_snapshot)
     except Exception as exc:
         logger.critical("Could not snapshot the database before upgrading: %s", exc)
-        logger.critical("The application will not migrate without a rollback point. Check disk space and permissions.")
+        logger.critical(
+            "The application will not migrate without a rollback point. Common causes are low disk space "
+            "or missing write permission on the database folder."
+        )
         raise
     if snapshot is not None:
-        logger.warning("Database schema upgrade pending; snapshot saved to %s", snapshot)
+        logger.warning("Database schema upgrade pending; pre-upgrade snapshot: %s", snapshot)
     try:
         await loop.run_in_executor(None, partial(alembic_command.upgrade, alembic_cfg, "head"))
     except Exception as exc:

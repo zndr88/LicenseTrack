@@ -1,4 +1,5 @@
 import asyncio
+import glob
 import json
 import logging
 import ntpath
@@ -116,14 +117,32 @@ def run_database_migrations(db_path: Path | None = None) -> None:
 
 
 PRE_UPGRADE_DIRECTORY = "pre-upgrade"
+_SNAPSHOT_TIMESTAMP_FORMAT = "%Y%m%d_%H%M%S"
+_SNAPSHOT_TIMESTAMP_GLOB = "[0-9]" * 8 + "_" + "[0-9]" * 6
+
+
+def _pre_upgrade_snapshots(snapshot_dir: Path, db_stem: str, revision: str = "*") -> list[Path]:
+    """Snapshots named ``<stem>_pre_upgrade_<revision>_<YYYYmmdd_HHMMSS>.db``, oldest first."""
+    revision_pattern = revision if revision == "*" else glob.escape(revision)
+    pattern = f"{glob.escape(db_stem)}_pre_upgrade_{revision_pattern}_{_SNAPSHOT_TIMESTAMP_GLOB}.db"
+    return sorted(snapshot_dir.glob(pattern), key=lambda path: path.stat().st_mtime)
 
 
 def create_pre_migration_snapshot(keep: int = 3) -> Path | None:
     """Copy the SQLite database before startup migrations change its schema.
 
-    Returns the snapshot path, or None when there is nothing to protect: a
-    non-SQLite database, a new install, or a schema already at head. Keeps
-    the newest *keep* snapshots in ``<database dir>/pre-upgrade``.
+    Returns the path of the snapshot that protects the pending upgrade, or
+    None when there is nothing to protect: a non-SQLite database, a new
+    install, a schema already at head, or a schema revision this release does
+    not know (for example after rolling back to an older image; Alembic then
+    reports its own error).
+
+    Only one snapshot is taken per starting revision. When one already exists
+    (a previous startup's upgrade failed and the container restarted), no new
+    copy is made and the existing, oldest snapshot for that revision is
+    returned, because later copies could contain a half-run migration.
+    Snapshots live in ``<database dir>/pre-upgrade``; the newest *keep* are
+    kept, and the snapshot being returned is never pruned.
     """
     if not app_settings.DATABASE_URL.startswith("sqlite"):
         return None
@@ -134,25 +153,38 @@ def create_pre_migration_snapshot(keep: int = 3) -> Path | None:
     head = ScriptDirectory.from_config(_alembic_config()).get_current_head()
     if current is None or current == head:
         return None
+    if current not in _known_schema_revisions():
+        logger.warning(
+            "Database is at schema revision %s, which this release does not know; no pre-upgrade snapshot taken.",
+            current,
+        )
+        return None
 
     snapshot_dir = db_path.parent / PRE_UPGRADE_DIRECTORY
     snapshot_dir.mkdir(exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    target = snapshot_dir / f"{db_path.stem}_pre_upgrade_{current}_{timestamp}.db"
-    source = sqlite3.connect(str(db_path))
-    destination = sqlite3.connect(str(target))
-    try:
-        source.backup(destination)
-    finally:
-        destination.close()
-        source.close()
+    existing = _pre_upgrade_snapshots(snapshot_dir, db_path.stem, current)
+    if existing:
+        logger.info("Pre-upgrade snapshot for revision %s already exists: %s", current, existing[0])
+        return existing[0]
 
-    snapshots = sorted(
-        snapshot_dir.glob(f"{db_path.stem}_pre_upgrade_*.db"),
-        key=lambda path: path.stat().st_mtime,
-        reverse=True,
-    )
-    for old in snapshots[keep:]:
+    timestamp = datetime.now().strftime(_SNAPSHOT_TIMESTAMP_FORMAT)
+    target = snapshot_dir / f"{db_path.stem}_pre_upgrade_{current}_{timestamp}.db"
+    try:
+        source = sqlite3.connect(str(db_path))
+        try:
+            destination = sqlite3.connect(str(target))
+            try:
+                source.backup(destination)
+            finally:
+                destination.close()
+        finally:
+            source.close()
+    except BaseException:
+        target.unlink(missing_ok=True)  # never leave a partial copy that looks like a rollback point
+        raise
+
+    snapshots = _pre_upgrade_snapshots(snapshot_dir, db_path.stem)
+    for old in snapshots[: max(len(snapshots) - keep, 0)]:
         if old != target:  # never prune the snapshot just taken
             old.unlink(missing_ok=True)
     logger.info("Pre-upgrade database snapshot saved: %s", target)
