@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Enum, Index, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -20,7 +20,11 @@ class AuthProvider(str, enum.Enum):
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = {"sqlite_autoincrement": True}
+    __table_args__ = (
+        # One OIDC identity can belong to only one account.
+        Index("uq_users_oidc_identity", "oidc_issuer", "oidc_subject", unique=True),
+        {"sqlite_autoincrement": True},
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(150), unique=True, nullable=False, index=True)
