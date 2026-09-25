@@ -1,4 +1,5 @@
 import bcrypt
+import pytest
 from sqlalchemy import select
 
 from app.models.user import User, UserRole
@@ -66,5 +67,32 @@ async def test_bearer_write_does_not_need_request_header(test_app, auth_headers)
         "/api/settings",
         json={"theme": "dark"},
         headers={**auth_headers, "X-LicenseTrack-Request": ""},
+    )
+    assert response.status_code == 200, response.text
+
+
+@pytest.mark.parametrize("authorization", ["Basic x", "Bearer "])
+async def test_cookie_write_with_non_bearer_authorization_still_needs_request_header(
+    test_app, db_session, authorization
+):
+    await _login_with_cookie(test_app, db_session)
+    response = await test_app.put(
+        "/api/settings",
+        json={"theme": "dark"},
+        headers={"Authorization": authorization, "X-LicenseTrack-Request": ""},
+    )
+    assert response.status_code == 403
+    assert "request header" in response.json()["detail"].lower()
+
+
+@pytest.mark.parametrize("authorization", ["Basic x", "Bearer "])
+async def test_cookie_write_with_non_bearer_authorization_and_request_header_is_allowed(
+    test_app, db_session, authorization
+):
+    await _login_with_cookie(test_app, db_session)
+    response = await test_app.put(
+        "/api/settings",
+        json={"theme": "dark"},
+        headers={"Authorization": authorization},
     )
     assert response.status_code == 200, response.text
