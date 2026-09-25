@@ -1,5 +1,7 @@
+import logging
 import os
 import sqlite3
+import time
 from datetime import datetime, timedelta
 
 import pytest
@@ -196,3 +198,66 @@ def test_retention_ignores_files_outside_the_naming_convention(tmp_path, monkeyp
     backup_service.create_pre_migration_snapshot(keep=1)
 
     assert all(path.exists() for path in unrelated)
+
+
+def _backdate(path, hours):
+    stamp = time.time() - hours * 3600
+    os.utime(path, (stamp, stamp))
+
+
+def test_stale_snapshot_for_the_same_revision_is_not_reused(tmp_path, monkeypatch):
+    # An upgrade failed weeks ago, the owner rolled back and kept working at the
+    # same revision: the old copy misses all that work, so take a fresh one.
+    db_path = tmp_path / "licenses.db"
+    command.upgrade(backup_service._alembic_config(db_path), _previous_revision())
+    _use_database(monkeypatch, db_path)
+    monkeypatch.setattr(backup_service, "datetime", _SteppingClock())
+    stale = backup_service.create_pre_migration_snapshot()
+    _backdate(stale, 25)
+
+    fresh = backup_service.create_pre_migration_snapshot()
+
+    assert fresh is not None and fresh != stale
+    assert fresh.exists()
+    assert set(_snapshots(tmp_path)) == {stale, fresh}
+
+
+def test_recent_snapshot_for_the_same_revision_is_reused_with_a_warning(tmp_path, monkeypatch, caplog):
+    db_path = tmp_path / "licenses.db"
+    command.upgrade(backup_service._alembic_config(db_path), _previous_revision())
+    _use_database(monkeypatch, db_path)
+    monkeypatch.setattr(backup_service, "datetime", _SteppingClock())
+    first = backup_service.create_pre_migration_snapshot()
+    _backdate(first, 1)
+    # Alembic's fileConfig (run by command.upgrade) disables existing loggers and
+    # replaces the root handlers, so attach the capture handler directly.
+    monkeypatch.setattr(backup_service.logger, "disabled", False)
+    backup_service.logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger=backup_service.logger.name):
+            reused = backup_service.create_pre_migration_snapshot()
+    finally:
+        backup_service.logger.removeHandler(caplog.handler)
+
+    assert reused == first
+    assert _snapshots(tmp_path) == [first]
+    warnings = [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
+    assert any("Reusing pre-upgrade snapshot" in message and str(first) in message for message in warnings)
+
+
+def test_oldest_recent_snapshot_is_reused(tmp_path, monkeypatch):
+    # Several copies of the same revision inside the window: the oldest one is
+    # the clean copy from before the current crash loop started.
+    db_path = tmp_path / "licenses.db"
+    command.upgrade(backup_service._alembic_config(db_path), _previous_revision())
+    _use_database(monkeypatch, db_path)
+    revision = _previous_revision()
+    snapshot_dir = tmp_path / "pre-upgrade"
+    snapshot_dir.mkdir()
+    older = snapshot_dir / f"licenses_pre_upgrade_{revision}_20260925_080000.db"
+    newer = snapshot_dir / f"licenses_pre_upgrade_{revision}_20260925_090000.db"
+    for path, hours in ((older, 3), (newer, 2)):
+        path.write_bytes(b"copy")
+        _backdate(path, hours)
+
+    assert backup_service.create_pre_migration_snapshot() == older

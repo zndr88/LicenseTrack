@@ -8,9 +8,10 @@ import shutil
 import sqlite3
 import stat
 import tempfile
+import time
 import uuid
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 
 from alembic import command as alembic_command
@@ -117,6 +118,8 @@ def run_database_migrations(db_path: Path | None = None) -> None:
 
 
 PRE_UPGRADE_DIRECTORY = "pre-upgrade"
+# A snapshot is reused only by restarts shortly after it was taken (a crash loop).
+PRE_UPGRADE_REUSE_WINDOW = timedelta(hours=24)
 _SNAPSHOT_TIMESTAMP_FORMAT = "%Y%m%d_%H%M%S"
 _SNAPSHOT_TIMESTAMP_GLOB = "[0-9]" * 8 + "_" + "[0-9]" * 6
 
@@ -137,10 +140,13 @@ def create_pre_migration_snapshot(keep: int = 3) -> Path | None:
     not know (for example after rolling back to an older image; Alembic then
     reports its own error).
 
-    Only one snapshot is taken per starting revision. When one already exists
-    (a previous startup's upgrade failed and the container restarted), no new
-    copy is made and the existing, oldest snapshot for that revision is
-    returned, because later copies could contain a half-run migration.
+    Restarts after a failed upgrade reuse the first snapshot: when snapshots
+    for the current revision were taken within ``PRE_UPGRADE_REUSE_WINDOW``,
+    no new copy is made and the oldest of those recent snapshots is returned,
+    because it predates the crash loop and later copies could contain a
+    half-run migration. An older snapshot for the same revision (for example
+    from an upgrade that was rolled back weeks ago) is not reused; a fresh
+    copy is taken so the rollback point includes recent work.
     Snapshots live in ``<database dir>/pre-upgrade``; the newest *keep* are
     kept, and the snapshot being returned is never pruned.
     """
@@ -162,10 +168,23 @@ def create_pre_migration_snapshot(keep: int = 3) -> Path | None:
 
     snapshot_dir = db_path.parent / PRE_UPGRADE_DIRECTORY
     snapshot_dir.mkdir(exist_ok=True)
-    existing = _pre_upgrade_snapshots(snapshot_dir, db_path.stem, current)
-    if existing:
-        logger.info("Pre-upgrade snapshot for revision %s already exists: %s", current, existing[0])
-        return existing[0]
+    now = time.time()
+    window = PRE_UPGRADE_REUSE_WINDOW.total_seconds()
+    recent = [
+        path
+        for path in _pre_upgrade_snapshots(snapshot_dir, db_path.stem, current)
+        if now - path.stat().st_mtime <= window
+    ]
+    if recent:
+        reused = recent[0]
+        taken_at = reused.stat().st_mtime
+        logger.warning(
+            "Reusing pre-upgrade snapshot from %s (%d h old): %s",
+            time.strftime("%Y-%m-%d %H:%M", time.localtime(taken_at)),
+            int((now - taken_at) // 3600),
+            reused,
+        )
+        return reused
 
     timestamp = datetime.now().strftime(_SNAPSHOT_TIMESTAMP_FORMAT)
     target = snapshot_dir / f"{db_path.stem}_pre_upgrade_{current}_{timestamp}.db"
