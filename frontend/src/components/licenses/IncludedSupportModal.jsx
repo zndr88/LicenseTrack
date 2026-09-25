@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import ModalShell from "../ui/ModalShell.jsx";
 import MaintenanceCoverageFields from "../procurement/MaintenanceCoverageFields.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 
 function addDays(isoDate, days) {
   const date = new Date(`${isoDate}T00:00:00Z`);
@@ -50,7 +50,7 @@ export default function IncludedSupportModal({ license, userSettings, onSave, on
   const toCanonical = (value) => {
     const text = String(value ?? "").trim();
     if (!text) return { ok: true, value: null };
-    const parsed = parseLocalizedNumber(text, userSettings);
+    const parsed = parseTypedNumber(text, userSettings);
     return parsed === null ? { ok: false } : { ok: true, value: parsed };
   };
 

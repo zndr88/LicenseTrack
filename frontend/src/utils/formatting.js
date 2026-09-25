@@ -121,9 +121,6 @@ export function toInputText(value, settings, { minFractionDigits = 0 } = {}) {
   return text;
 }
 
-/** @deprecated Temporary alias, removed in Task B5. Use parseTypedNumber. */
-export const parseLocalizedNumber = parseTypedNumber;
-
 // formatPriceDisplay
 
 /**

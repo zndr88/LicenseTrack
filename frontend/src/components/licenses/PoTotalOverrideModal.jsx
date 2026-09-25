@@ -1,7 +1,7 @@
 import { useState } from "react";
 import ModalShell from "../ui/ModalShell.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 
 export default function PoTotalOverrideModal({ license, userSettings, onSave, onClear, onClose }) {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
@@ -11,12 +11,12 @@ export default function PoTotalOverrideModal({ license, userSettings, onSave, on
   const [error, setError] = useState(null);
 
   const formatValue = (rawValue) => {
-    const parsed = parseLocalizedNumber(rawValue, userSettings);
+    const parsed = parseTypedNumber(rawValue, userSettings);
     return parsed === null ? rawValue : formatPriceInput(parsed, locale);
   };
 
   const save = async () => {
-    const parsed = parseLocalizedNumber(value, userSettings);
+    const parsed = parseTypedNumber(value, userSettings);
     if (parsed === null || parsed === undefined || parsed === "") {
       setError("Enter a valid PO total value.");
       return;

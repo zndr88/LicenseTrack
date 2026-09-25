@@ -1,4 +1,4 @@
-import { parseLocalizedNumber } from "./formatting.js";
+import { parseTypedNumber } from "./formatting.js";
 
 function supportedLocale(settings) {
   const requested = settings?.numberFormatLocale ?? "en-US";
@@ -23,7 +23,7 @@ export function normalizeCanonicalQuantity(value) {
 }
 
 export function canonicalizeQuantityInput(value, settings) {
-  const parsed = parseLocalizedNumber(value, settings);
+  const parsed = parseTypedNumber(value, settings);
   return parsed == null ? null : normalizeCanonicalQuantity(parsed);
 }
 

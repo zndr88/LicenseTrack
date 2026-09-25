@@ -1,11 +1,11 @@
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 import { formatCost } from "../../utils/helpers.js";
 
 /** Returns quantity x unit price when an entered line total differs from it, else null. */
 export function lineTotalMismatch(quantity, unitPrice, total, settings) {
-  const qty = Number(parseLocalizedNumber(quantity, settings));
-  const unit = Number(parseLocalizedNumber(unitPrice, settings));
-  const entered = Number(parseLocalizedNumber(total, settings));
+  const qty = Number(parseTypedNumber(quantity, settings));
+  const unit = Number(parseTypedNumber(unitPrice, settings));
+  const entered = Number(parseTypedNumber(total, settings));
   if ([quantity, unitPrice, total].some((value) => String(value ?? "").trim() === "")) return null;
   if (![qty, unit, entered].every(Number.isFinite)) return null;
   const expected = qty * unit;

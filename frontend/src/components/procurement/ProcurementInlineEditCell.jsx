@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 import { formatQuantity } from "../../utils/quantity.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
@@ -17,7 +17,7 @@ function normalizedValue(value, valueType, userSettings) {
   const trimmed = String(value ?? "").trim();
   if (!trimmed) return null;
   if (valueType === "quantity" || valueType === "money") {
-    return parseLocalizedNumber(trimmed, userSettings) ?? trimmed;
+    return parseTypedNumber(trimmed, userSettings) ?? trimmed;
   }
   return trimmed;
 }
@@ -64,7 +64,7 @@ export function ProcurementInlineEditField({
     const nextValue = !trimmed
       ? null
       : valueType === "quantity" || valueType === "money"
-        ? (parseLocalizedNumber(trimmed, userSettings) ?? trimmed)
+        ? (parseTypedNumber(trimmed, userSettings) ?? trimmed)
         : trimmed;
     const previousValue = normalizedValue(formattedCurrentValue, valueType, userSettings);
     if (String(nextValue ?? "") === String(previousValue ?? "")) {

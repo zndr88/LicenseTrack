@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { CURRENCIES, LICENSE_METRICS, LICENSE_TYPES, SUPPLIER_CONTACT_HELP } from "../../constants/licenseData.js";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 import {
   canonicalizeQuantityInput,
   formatQuantity,
@@ -268,8 +268,8 @@ const SourcingItemModal = ({
       return;
     }
     if (totalManuallyEdited) return;
-    const qty = Number(parseLocalizedNumber(qtyStr, userSettings));
-    const unit = Number(parseLocalizedNumber(unitStr, userSettings));
+    const qty = Number(parseTypedNumber(qtyStr, userSettings));
+    const unit = Number(parseTypedNumber(unitStr, userSettings));
     if (!isNaN(qty) && !isNaN(unit)) {
       const computed = (qty * unit).toFixed(2);
       setValue("estimatedTotalPrice", computed, { shouldDirty: true });
@@ -332,8 +332,8 @@ const SourcingItemModal = ({
     !totalManuallyEdited &&
     (quantity ?? "").trim() !== "" &&
     (estimatedUnitPrice ?? "").trim() !== "" &&
-    parseLocalizedNumber(quantity, userSettings) !== null &&
-    parseLocalizedNumber(estimatedUnitPrice, userSettings) !== null;
+    parseTypedNumber(quantity, userSettings) !== null &&
+    parseTypedNumber(estimatedUnitPrice, userSettings) !== null;
 
   const handleParseResult = (result) => {
     const items = result?.multiItems;
@@ -514,8 +514,8 @@ const SourcingItemModal = ({
               </div>
               {!isFreewareLicenseType(licenseType) && (
                 <div className="fr">
-                  <div className="fg"><label htmlFor="si-unit-price">Est. Unit Price <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(excl. tax)</span></label><Controller name="estimatedUnitPrice" control={control} render={({ field }) => <input id="si-unit-price" className="fi" value={displayUnitPrice} onFocus={() => setDisplayUnitPrice(field.value)} onChange={(e) => { const raw = parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value; setDisplayUnitPrice(e.target.value); field.onChange(raw); }} onBlur={() => { setDisplayUnitPrice(formatPriceInput(field.value, locale)); field.onBlur(); }} placeholder={`e.g. ${formatPriceInput("15.00", locale)}`} />} /></div>
-                  <div className="fg"><label htmlFor="si-total-price">Est. Line Total {showAutoLabel && <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(auto)</span>}</label><Controller name="estimatedTotalPrice" control={control} render={({ field }) => <input id="si-total-price" className="fi" value={displayTotalPrice} onFocus={() => setDisplayTotalPrice(field.value)} onChange={(e) => { const raw = parseLocalizedNumber(e.target.value, userSettings) ?? e.target.value; setTotalManuallyEdited(true); setDisplayTotalPrice(e.target.value); field.onChange(raw); }} onBlur={() => { setDisplayTotalPrice(formatPriceInput(field.value, locale)); field.onBlur(); }} placeholder={`e.g. ${formatPriceInput("4500.00", locale)}`} />} /><LineTotalMismatchHint quantity={quantity} unitPrice={estimatedUnitPrice} total={estimatedTotalPrice} currency={watch("currency")} settings={userSettings} /></div>
+                  <div className="fg"><label htmlFor="si-unit-price">Est. Unit Price <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(excl. tax)</span></label><Controller name="estimatedUnitPrice" control={control} render={({ field }) => <input id="si-unit-price" className="fi" value={displayUnitPrice} onFocus={() => setDisplayUnitPrice(field.value)} onChange={(e) => { const raw = parseTypedNumber(e.target.value, userSettings) ?? e.target.value; setDisplayUnitPrice(e.target.value); field.onChange(raw); }} onBlur={() => { setDisplayUnitPrice(formatPriceInput(field.value, locale)); field.onBlur(); }} placeholder={`e.g. ${formatPriceInput("15.00", locale)}`} />} /></div>
+                  <div className="fg"><label htmlFor="si-total-price">Est. Line Total {showAutoLabel && <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(auto)</span>}</label><Controller name="estimatedTotalPrice" control={control} render={({ field }) => <input id="si-total-price" className="fi" value={displayTotalPrice} onFocus={() => setDisplayTotalPrice(field.value)} onChange={(e) => { const raw = parseTypedNumber(e.target.value, userSettings) ?? e.target.value; setTotalManuallyEdited(true); setDisplayTotalPrice(e.target.value); field.onChange(raw); }} onBlur={() => { setDisplayTotalPrice(formatPriceInput(field.value, locale)); field.onBlur(); }} placeholder={`e.g. ${formatPriceInput("4500.00", locale)}`} />} /><LineTotalMismatchHint quantity={quantity} unitPrice={estimatedUnitPrice} total={estimatedTotalPrice} currency={watch("currency")} settings={userSettings} /></div>
                 </div>
               )}
               {licenseType === "saas" && <div className="fg"><label htmlFor="si-portal-url">Portal URL</label><input id="si-portal-url" className="fi" {...register("portalUrl")} /></div>}

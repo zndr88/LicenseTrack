@@ -16,7 +16,7 @@ import {
 import { useLicenseDocuments } from "./useLicenseDocuments.js";
 import { useCustomFields } from "./useCustomFields.js";
 import { useDetailSectionLink } from "./useDetailSectionLink.js";
-import { parseLocalizedNumber } from "../utils/formatting.js";
+import { parseTypedNumber } from "../utils/formatting.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../utils/customFieldFormValues.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "../utils/secondaryContacts.js";
 import { typeOptInPayload } from "../utils/licenseTypeRules.js";
@@ -330,7 +330,7 @@ export function useDetailPanelState({
   // Custom field save factory
   const makeCustomFieldSaveFn = (fieldDef) => async (rawValue) => {
     const normalizedValue = fieldDef.fieldType === "currency"
-      ? (parseLocalizedNumber(rawValue, userSettings) ?? rawValue)
+      ? (parseTypedNumber(rawValue, userSettings) ?? rawValue)
       : rawValue;
     const item =
       fieldDef.fieldType === "currency"

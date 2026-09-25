@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { getCompleteness, getExpirationPresentation } from "../utils/helpers.js";
-import { parseLocalizedNumber } from "../utils/formatting.js";
+import { parseTypedNumber } from "../utils/formatting.js";
 import { finiteNumber, getSortValue } from "../utils/sort.js";
 import { isSupportDue } from "../utils/licenseTypeRules.js";
 
@@ -178,16 +178,16 @@ export function useLicenseData(licenses, {
             if (!String(l.noticeDate ?? "").toLowerCase().includes(val)) return false;
             break;
           case "unitPrice":
-            if (!String(l.unitPrice ?? "").includes(parseLocalizedNumber(val, { numberFormatLocale }) ?? val)) return false;
+            if (!String(l.unitPrice ?? "").includes(parseTypedNumber(val, { numberFormatLocale }) ?? val)) return false;
             break;
           case "totalPoPrice":
-            if (!String(l.totalPoPrice ?? "").includes(parseLocalizedNumber(val, { numberFormatLocale }) ?? val)) return false;
+            if (!String(l.totalPoPrice ?? "").includes(parseTypedNumber(val, { numberFormatLocale }) ?? val)) return false;
             break;
           case "calcTotal": {
             const qty = Number(l.quantity);
             const unit = Number(l.unitPrice);
             const calc = (Number.isFinite(qty) && Number.isFinite(unit)) ? String(qty * unit) : "";
-            if (!calc.includes(parseLocalizedNumber(val, { numberFormatLocale }) ?? val)) return false;
+            if (!calc.includes(parseTypedNumber(val, { numberFormatLocale }) ?? val)) return false;
             break;
           }
           case "maintenanceCoverage":
@@ -230,7 +230,7 @@ export function useLicenseData(licenses, {
               if (fieldType === "boolean") display = raw === true || raw === "true" ? "True" : raw === false || raw === "false" ? "False" : "";
               if (fieldType === "currency" || fieldType === "number") {
                 const numeric = finiteNumber(raw);
-                const input = parseLocalizedNumber(val, { numberFormatLocale });
+                const input = parseTypedNumber(val, { numberFormatLocale });
                 if (numeric === null || input === null || numeric !== Number(input)) return false;
               } else if (!String(display ?? "").toLowerCase().includes(val)) return false;
               continue;

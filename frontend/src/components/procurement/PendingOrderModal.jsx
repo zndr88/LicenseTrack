@@ -9,7 +9,7 @@ import ModalShell from "../ui/ModalShell.jsx";
 import Icon from "../ui/Icon.jsx";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import LicenseDraftSupplementFields from "../licenses/LicenseDraftSupplementFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
@@ -141,10 +141,10 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
       if (isNewOrder) {
         const normalizedItems = items.map((item) => ({
           ...item,
-          quantity: parseLocalizedNumber(item.quantity, userSettings) ?? item.quantity,
-          quantityPerUnit: parseLocalizedNumber(item.quantityPerUnit, userSettings) ?? item.quantityPerUnit,
-          estimatedUnitPrice: parseLocalizedNumber(item.estimatedUnitPrice, userSettings) ?? item.estimatedUnitPrice,
-          estimatedTotalPrice: parseLocalizedNumber(item.estimatedTotalPrice, userSettings) ?? item.estimatedTotalPrice,
+          quantity: parseTypedNumber(item.quantity, userSettings) ?? item.quantity,
+          quantityPerUnit: parseTypedNumber(item.quantityPerUnit, userSettings) ?? item.quantityPerUnit,
+          estimatedUnitPrice: parseTypedNumber(item.estimatedUnitPrice, userSettings) ?? item.estimatedUnitPrice,
+          estimatedTotalPrice: parseTypedNumber(item.estimatedTotalPrice, userSettings) ?? item.estimatedTotalPrice,
           secondaryContacts: parseSecondaryContacts(item.secondaryContacts),
           customFieldValues: buildCustomFieldValuePayload(customFieldDefs, item.customFieldValues, userSettings),
         }));
@@ -159,7 +159,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
         // Only send a contact when it was changed, so differing line contacts are kept otherwise.
         const contactUpdate = contactEmail.trim() !== initialContact ? { contactEmail: contactEmail.trim() } : {};
         const poTotalText = poTotalOverride.trim();
-        const canonicalPoTotal = poTotalText ? parseLocalizedNumber(poTotalText, userSettings) : "";
+        const canonicalPoTotal = poTotalText ? parseTypedNumber(poTotalText, userSettings) : "";
         if (canonicalPoTotal === null) {
           setError("poTotalOverride", { message: "Enter a valid amount." });
           return;

@@ -1,12 +1,12 @@
 import { buildCustomFieldValuePayload, customFieldValueMap } from "./customFieldFormValues.js";
-import { parseLocalizedNumber } from "./formatting.js";
+import { parseTypedNumber } from "./formatting.js";
 import { defaultMaintenanceCoverageForLicenseType, supportsMaintenanceCoverage } from "./maintenanceCoverage.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "./secondaryContacts.js";
 import { resolveLineBudgetOwner } from "./renewalLineDefaults.js";
 import { typeOptInPayload } from "./licenseTypeRules.js";
 
 function normalizeOptionalNumber(value, settings) {
-  return (parseLocalizedNumber(value, settings) ?? value) || null;
+  return (parseTypedNumber(value, settings) ?? value) || null;
 }
 
 export function getSourcingItemInitialTotal(item) {
@@ -161,13 +161,13 @@ export function sourcingEditFormToPayload(data, customFieldDefs, userSettings) {
     ...data,
     customFieldValues: buildCustomFieldValuePayload(customFieldDefs, data.customFieldValues, userSettings),
     secondaryContacts: parseSecondaryContacts(data.secondaryContacts),
-    quantity: parseLocalizedNumber(data.quantity, userSettings) ?? data.quantity,
+    quantity: parseTypedNumber(data.quantity, userSettings) ?? data.quantity,
     estimatedUnitPrice: isFreeware
       ? null
-      : parseLocalizedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice,
+      : parseTypedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice,
     estimatedTotalPrice: isFreeware
       ? null
-      : parseLocalizedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice,
+      : parseTypedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice,
     maintenanceQuantity: normalizeOptionalNumber(data.maintenanceQuantity, userSettings),
     maintenanceUnitPrice: normalizeOptionalNumber(data.maintenanceUnitPrice, userSettings),
     maintenanceCost: normalizeOptionalNumber(data.maintenanceCost, userSettings),

@@ -4,7 +4,7 @@ import ModalShell from "../ui/ModalShell.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import ContactCombobox from "../ui/ContactCombobox.jsx";
 
@@ -59,7 +59,7 @@ export default function FieldEditModal({
     setSaving(true);
     setError(null);
     const saveValue = isNumericField
-      ? (parseLocalizedNumber(value, userSettings) ?? "")
+      ? (parseTypedNumber(value, userSettings) ?? "")
       : value;
     const { data, error: apiError } = onSaveFn
       ? await onSaveFn(saveValue)

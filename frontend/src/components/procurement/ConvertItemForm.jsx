@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { Controller } from "react-hook-form";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { parseLocalizedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 import ParentLicensePicker from "./ParentLicensePicker.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
@@ -313,7 +313,7 @@ export default function ConvertItemForm({
                     onFocus={() => setUnitPriceDisplay(f.value)}
                     onChange={(e) => {
                       setUnitPriceDisplay(e.target.value);
-                      f.onChange(parseLocalizedNumber(e.target.value, { numberFormatLocale: locale }) ?? e.target.value);
+                      f.onChange(parseTypedNumber(e.target.value, { numberFormatLocale: locale }) ?? e.target.value);
                     }}
                     onBlur={() => setUnitPriceDisplay(formatPriceInput(f.value, locale))}
                   />
@@ -333,7 +333,7 @@ export default function ConvertItemForm({
                     onFocus={() => setTotalPriceDisplay(f.value)}
                     onChange={(e) => {
                       setTotalPriceDisplay(e.target.value);
-                      f.onChange(parseLocalizedNumber(e.target.value, { numberFormatLocale: locale }) ?? e.target.value);
+                      f.onChange(parseTypedNumber(e.target.value, { numberFormatLocale: locale }) ?? e.target.value);
                     }}
                     onBlur={() => setTotalPriceDisplay(formatPriceInput(f.value, locale))}
                   />
