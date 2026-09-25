@@ -3,7 +3,7 @@ import { parseTypedNumber, toInputText } from "../../utils/formatting.js";
 import { formatPriceInput } from "../../utils/helpers.js";
 
 const LOCALES = ["en-US", "en-GB", "nl-BE", "nl-NL", "de-DE", "fr-FR", "de-CH"];
-const CANONICAL = ["0.125", "1.234", "12.345", "1234.5", "1234.567", "1000000.25", "3", "-0.5", "15.50"];
+const CANONICAL = ["0.125", "1.234", "12.345", "1234.5", "1234.567", "1000000.25", "3", "-0.5", "15.50", "1000", "1234", "999999", "1234567"];
 const s = (locale) => ({ numberFormatLocale: locale });
 
 describe("parseTypedNumber", () => {
@@ -56,6 +56,14 @@ describe("toInputText", () => {
   it("pads to a minimum number of decimals when asked", () => {
     expect(toInputText("15.5", s("nl-BE"), { minFractionDigits: 2 })).toBe("15,50");
     expect(toInputText("0.125", s("nl-BE"), { minFractionDigits: 2 })).toBe("0,125");
+  });
+
+  it("leaves out a single dot group that would read back as a decimal (D1)", () => {
+    expect(toInputText("1000", s("nl-BE"))).toBe("1000");
+    expect(toInputText("1234", s("de-DE"))).toBe("1234");
+    expect(toInputText("1234567", s("nl-BE"))).toBe("1.234.567");
+    expect(toInputText("1234", s("en-US"))).toBe("1,234");
+    expect(toInputText("1234", s("nl-BE"), { minFractionDigits: 2 })).toBe("1.234,00");
   });
 
   it("returns non-canonical text unchanged", () => {

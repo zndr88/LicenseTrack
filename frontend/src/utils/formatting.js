@@ -108,8 +108,17 @@ export function toInputText(value, settings, { minFractionDigits = 0 } = {}) {
   const [intPart, fracPart = ""] = (negative ? raw.slice(1) : raw).split(".");
   const fraction = fracPart.padEnd(minFractionDigits, "0");
   const grpSep = getGroupSep(locale);
+  const decimalPart = fraction ? getDecimalSep(locale) + fraction : "";
+  const sign = negative ? "-" : "";
   const grouped = grpSep ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, grpSep) : intPart;
-  return `${negative ? "-" : ""}${grouped}${fraction ? getDecimalSep(locale) + fraction : ""}`;
+  const text = `${sign}${grouped}${decimalPart}`;
+  // Decision D1 reads a single dot group with no decimal part ("1.000") as a
+  // decimal, so leave the grouping out when it would not read back the same.
+  const expected = `${sign}${intPart}${fraction ? `.${fraction}` : ""}`;
+  if (grouped !== intPart && parseTypedNumber(text, settings) !== expected) {
+    return `${sign}${intPart}${decimalPart}`;
+  }
+  return text;
 }
 
 /** @deprecated Temporary alias, removed in Task B5. Use parseTypedNumber. */
