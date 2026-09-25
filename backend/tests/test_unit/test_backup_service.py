@@ -68,6 +68,8 @@ def _make_db(path) -> None:
     conn.execute("CREATE TABLE sourcing_items (id INTEGER PRIMARY KEY)")
     conn.execute("CREATE TABLE sourcing_quote_documents (id INTEGER PRIMARY KEY)")
     conn.execute("CREATE TABLE procurement_documents (id INTEGER PRIMARY KEY)")
+    # documents.category is widened to VARCHAR(20) in a later forward migration (e6f7a8b9c0d2).
+    conn.execute("CREATE TABLE documents (id INTEGER PRIMARY KEY, category VARCHAR(11) NOT NULL)")
     # pending_orders gains po_total_override in a later forward migration (a7b8c9d0e1f2).
     conn.execute("CREATE TABLE pending_orders (id INTEGER PRIMARY KEY)")
     # webhook_deliveries exists at the stamped revision; a later forward migration

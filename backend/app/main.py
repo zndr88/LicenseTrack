@@ -79,6 +79,7 @@ from app.routes import (
     users,
     webhooks,
 )
+from app.services.backup_service import create_pre_migration_snapshot
 from app.services.notification_scheduler import start_scheduler
 from app.services.restore_maintenance import restore_maintenance
 from app.version import APP_VERSION
@@ -113,6 +114,17 @@ async def lifespan(app: FastAPI):
         alembic_cfg_path = "alembic.ini"
     alembic_cfg = AlembicConfig(alembic_cfg_path)
     loop = asyncio.get_running_loop()
+    try:
+        snapshot = await loop.run_in_executor(None, create_pre_migration_snapshot)
+    except Exception as exc:
+        logger.critical("Could not snapshot the database before upgrading: %s", exc)
+        logger.critical(
+            "The application will not migrate without a rollback point. Common causes are low disk space "
+            "or missing write permission on the database folder."
+        )
+        raise
+    if snapshot is not None:
+        logger.warning("Database schema upgrade pending; pre-upgrade snapshot: %s", snapshot)
     try:
         await loop.run_in_executor(None, partial(alembic_command.upgrade, alembic_cfg, "head"))
     except Exception as exc:

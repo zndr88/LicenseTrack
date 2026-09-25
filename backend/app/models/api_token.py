@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -8,10 +8,12 @@ from app.database import Base
 
 class ApiToken(Base):
     __tablename__ = "api_tokens"
+    # Uniqueness comes from the table constraint; the index is a plain lookup index.
+    __table_args__ = (Index("ix_api_tokens_token_hash", "token_hash"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(150), nullable=False)
-    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     token_prefix: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     scopes: Mapped[str] = mapped_column(String(500), nullable=False)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)

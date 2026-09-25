@@ -11,9 +11,9 @@ class ExtensionCapability(Base):
     __table_args__ = (UniqueConstraint("key", name="uq_extension_capabilities_key"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    key: Mapped[str] = mapped_column(String(150), nullable=False)
+    key: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(150), nullable=False)
-    capability_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    capability_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="available", server_default="available")
     version: Mapped[str | None] = mapped_column(String(100), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

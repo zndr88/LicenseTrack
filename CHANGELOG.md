@@ -17,6 +17,12 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 Work in progress for 1.2.0.
 
+### Added
+
+- Before a new version changes the database schema, LicenseTrack saves a copy of
+  the database in `pre-upgrade/` next to the database file (newest three kept).
+  Restarts after a failed upgrade reuse the first copy instead of replacing it.
+
 ### Changed
 
 - Updated the frontend test tooling (Vitest 5, jsdom 30.1) and removed automatic
@@ -33,6 +39,9 @@ Work in progress for 1.2.0.
   formats, a number with a single dot and no comma (e.g. `1.234`) is now read
   as a decimal, in number filters too; type `1234` or `1.234,00` for one
   thousand two hundred thirty-four.
+- The database models and migrations now describe the same schema, including
+  the unique OIDC identity index. A test fails the build if they drift apart
+  again. Document categories fit their column on every database.
 
 ### Security
 

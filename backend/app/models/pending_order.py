@@ -39,7 +39,7 @@ class PendingOrder(Base):
         Enum(PendingOrderStatus), nullable=False, default=PendingOrderStatus.pending
     )
     evidence_transfer_status: Mapped[EvidenceTransferStatus | None] = mapped_column(
-        Enum(EvidenceTransferStatus), nullable=True
+        Enum(EvidenceTransferStatus, length=50), nullable=True
     )
     evidence_transfer_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     evidence_transfer_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

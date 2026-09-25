@@ -1,4 +1,5 @@
 import asyncio
+import glob
 import json
 import logging
 import ntpath
@@ -7,9 +8,10 @@ import shutil
 import sqlite3
 import stat
 import tempfile
+import time
 import uuid
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 
 from alembic import command as alembic_command
@@ -113,6 +115,99 @@ def validate_database_file(db_path: Path) -> str:
 def run_database_migrations(db_path: Path | None = None) -> None:
     """Bring a validated restored database to the current application head."""
     alembic_command.upgrade(_alembic_config(db_path), "head")
+
+
+PRE_UPGRADE_DIRECTORY = "pre-upgrade"
+# A snapshot is reused only by restarts shortly after it was taken (a crash loop).
+PRE_UPGRADE_REUSE_WINDOW = timedelta(hours=24)
+_SNAPSHOT_TIMESTAMP_FORMAT = "%Y%m%d_%H%M%S"
+_SNAPSHOT_TIMESTAMP_GLOB = "[0-9]" * 8 + "_" + "[0-9]" * 6
+
+
+def _pre_upgrade_snapshots(snapshot_dir: Path, db_stem: str, revision: str = "*") -> list[Path]:
+    """Snapshots named ``<stem>_pre_upgrade_<revision>_<YYYYmmdd_HHMMSS>.db``, oldest first."""
+    revision_pattern = revision if revision == "*" else glob.escape(revision)
+    pattern = f"{glob.escape(db_stem)}_pre_upgrade_{revision_pattern}_{_SNAPSHOT_TIMESTAMP_GLOB}.db"
+    return sorted(snapshot_dir.glob(pattern), key=lambda path: path.stat().st_mtime)
+
+
+def create_pre_migration_snapshot(keep: int = 3) -> Path | None:
+    """Copy the SQLite database before startup migrations change its schema.
+
+    Returns the path of the snapshot that protects the pending upgrade, or
+    None when there is nothing to protect: a non-SQLite database, a new
+    install, a schema already at head, or a schema revision this release does
+    not know (for example after rolling back to an older image; Alembic then
+    reports its own error).
+
+    Restarts after a failed upgrade reuse the first snapshot: when snapshots
+    for the current revision were taken within ``PRE_UPGRADE_REUSE_WINDOW``,
+    no new copy is made and the oldest of those recent snapshots is returned,
+    because it predates the crash loop and later copies could contain a
+    half-run migration. An older snapshot for the same revision (for example
+    from an upgrade that was rolled back weeks ago) is not reused; a fresh
+    copy is taken so the rollback point includes recent work.
+    Snapshots live in ``<database dir>/pre-upgrade``; the newest *keep* are
+    kept, and the snapshot being returned is never pruned.
+    """
+    if not app_settings.DATABASE_URL.startswith("sqlite"):
+        return None
+    db_path = get_db_path()
+    if not db_path.exists():
+        return None
+    current = current_schema_revision(db_path)
+    head = ScriptDirectory.from_config(_alembic_config()).get_current_head()
+    if current is None or current == head:
+        return None
+    if current not in _known_schema_revisions():
+        logger.warning(
+            "Database is at schema revision %s, which this release does not know; no pre-upgrade snapshot taken.",
+            current,
+        )
+        return None
+
+    snapshot_dir = db_path.parent / PRE_UPGRADE_DIRECTORY
+    snapshot_dir.mkdir(exist_ok=True)
+    now = time.time()
+    window = PRE_UPGRADE_REUSE_WINDOW.total_seconds()
+    recent = [
+        path
+        for path in _pre_upgrade_snapshots(snapshot_dir, db_path.stem, current)
+        if now - path.stat().st_mtime <= window
+    ]
+    if recent:
+        reused = recent[0]
+        taken_at = reused.stat().st_mtime
+        logger.warning(
+            "Reusing pre-upgrade snapshot from %s (%d h old): %s",
+            time.strftime("%Y-%m-%d %H:%M", time.localtime(taken_at)),
+            int((now - taken_at) // 3600),
+            reused,
+        )
+        return reused
+
+    timestamp = datetime.now().strftime(_SNAPSHOT_TIMESTAMP_FORMAT)
+    target = snapshot_dir / f"{db_path.stem}_pre_upgrade_{current}_{timestamp}.db"
+    try:
+        source = sqlite3.connect(str(db_path))
+        try:
+            destination = sqlite3.connect(str(target))
+            try:
+                source.backup(destination)
+            finally:
+                destination.close()
+        finally:
+            source.close()
+    except BaseException:
+        target.unlink(missing_ok=True)  # never leave a partial copy that looks like a rollback point
+        raise
+
+    snapshots = _pre_upgrade_snapshots(snapshot_dir, db_path.stem)
+    for old in snapshots[: max(len(snapshots) - keep, 0)]:
+        if old != target:  # never prune the snapshot just taken
+            old.unlink(missing_ok=True)
+    logger.info("Pre-upgrade database snapshot saved: %s", target)
+    return target
 
 
 def create_backup(backup_location: str) -> Path:
