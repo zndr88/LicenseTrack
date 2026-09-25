@@ -22,6 +22,18 @@ Work in progress for 1.2.0.
 - Updated the frontend test tooling (Vitest 5, jsdom 30.1) and removed automatic
   test retries.
 
+### Fixed
+
+- Numbers with three decimals are no longer multiplied by 1,000 under
+  comma-decimal number formats (e.g. nl-BE, de-DE). This affected Registry
+  inline edits, new pending-order lines, and conversion defaults. Stored
+  values are never re-interpreted, and price inputs keep every decimal
+  instead of rounding to two. Merging sourcing lines under these formats no
+  longer turns a combined quantity such as 1500 into 1.5. Under comma-decimal
+  formats, a number with a single dot and no comma (e.g. `1.234`) is now read
+  as a decimal, in number filters too; type `1234` or `1.234,00` for one
+  thousand two hundred thirty-four.
+
 ## [1.1.24] - 2026-09-24
 
 ### Added
