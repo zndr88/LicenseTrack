@@ -905,6 +905,6 @@ async def test_concurrent_oidc_callbacks_cannot_exceed_the_rate_limit(db_session
         for attempt in range(20)
     ))
     statuses = [resp.status_code for resp in responses]
-    assert runs <= 10
+    assert runs == 10
     assert statuses.count(302) == runs
     assert statuses.count(429) == 20 - runs
