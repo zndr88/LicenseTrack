@@ -97,4 +97,4 @@ references, and the single-source Help Center ownership contract.
 
 ## Stable Release Scope
 
-The stable release track is Docker/web only. Desktop wrappers and unsupported runtimes are outside the stable core scope. Automated document parsing belongs outside core as an optional extension built against the documented document-processor contracts.
+The stable release track covers the Docker/Podman image and the native Linux install described in `docs/maintainer/native-packaging.md`. Desktop wrappers and unsupported runtimes are outside the stable core scope. Release numbering follows [VERSIONING.md](VERSIONING.md). Automated document parsing belongs outside core as an optional extension built against the documented document-processor contracts.

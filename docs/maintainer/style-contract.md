@@ -4,9 +4,9 @@ This contract exists to keep LicenseTrack consistent as it continues to be built
 
 The primary rule is simple: make each change look like it belongs in the codebase that is already here.
 
-## Release Philosophy
+## Change Philosophy
 
-Maintenance releases should reduce drift without hiding large rewrites.
+Changes should reduce drift without hiding large rewrites. Release numbering and cadence are defined in [VERSIONING.md](../../VERSIONING.md).
 
 - Prefer small, reviewable changes that leave the app working after each milestone.
 - Do not reformat or restructure unrelated files just because they are nearby.
