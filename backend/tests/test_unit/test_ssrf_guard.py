@@ -16,7 +16,27 @@ def _resolve_to(monkeypatch, address: str) -> None:
 
 @pytest.mark.parametrize(
     "address",
-    ["127.0.0.1", "10.0.0.5", "169.254.169.254", "100.64.0.1", "0.0.0.0", "224.0.0.1", "::1", "fd00::1", "ff02::1"],
+    [
+        "127.0.0.1",
+        "10.0.0.5",
+        "169.254.169.254",
+        "100.64.0.1",
+        "0.0.0.0",
+        "224.0.0.1",
+        "::1",
+        "fd00::1",
+        "ff02::1",
+        # IPv6 forms that carry an IPv4 address
+        "64:ff9b::a00:1",
+        "64:ff9b::7f00:1",
+        "64:ff9b:1::808:808",
+        "::127.0.0.1",
+        "::a00:1",
+        "::ffff:0:a00:1",
+        "::ffff:10.0.0.1",
+        "2002:a00:1::",
+        "2001:0:4136:e378:8000:63bf:f5ff:fffe",
+    ],
 )
 def test_blocks_non_public_addresses(monkeypatch, address):
     _resolve_to(monkeypatch, address)
@@ -24,7 +44,7 @@ def test_blocks_non_public_addresses(monkeypatch, address):
         ssrf_guard.check_ssrf("https://hooks.example.com/x")
 
 
-@pytest.mark.parametrize("address", ["8.8.8.8", "2001:4860:4860::8888"])
+@pytest.mark.parametrize("address", ["8.8.8.8", "2001:4860:4860::8888", "64:ff9b::808:808", "::ffff:8.8.8.8"])
 def test_allows_public_addresses(monkeypatch, address):
     _resolve_to(monkeypatch, address)
     ssrf_guard.check_ssrf("https://hooks.example.com/x")
