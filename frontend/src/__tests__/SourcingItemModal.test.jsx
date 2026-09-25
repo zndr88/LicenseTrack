@@ -627,7 +627,8 @@ describe("onSave payload shape", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     const payload = onSave.mock.calls[0][0];
     expect(payload.items[1]).toEqual(expect.objectContaining({
-      quantity: "1000",
+      // D1: a single dot is a decimal
+      quantity: "1.000",
       estimatedUnitPrice: "1234.50",
       estimatedTotalPrice: "1234500.00",
     }));

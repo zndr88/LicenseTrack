@@ -1,8 +1,10 @@
 /**
  * Locale-aware formatting utilities.
  *
- * parseLocalizedNumber - converts a user-typed number string (any locale) to
+ * parseTypedNumber - converts number text typed by the user (any locale) to
  *   a canonical decimal string ("1234.50") or null.
+ * toInputText - formats a canonical value as editable text in the user's
+ *   locale, keeping every decimal.
  *
  * All other functions are display-only - they produce human-readable strings
  * from canonical server values.
@@ -31,20 +33,23 @@ function getGroupSep(locale) {
   return grp ? grp.value : "";
 }
 
-// parseLocalizedNumber
+// parseTypedNumber / toInputText
+
+const CANONICAL_NUMBER = /^-?\d+(\.\d+)?$/;
 
 /**
- * Convert a user-typed price/quantity string to a canonical decimal string
- * ("1234.50") or null.
+ * Convert number text TYPED BY THE USER (in their locale) to a canonical
+ * decimal string ("1234.50") or null.
  *
- * Works for any locale the browser supports. Uses Intl.NumberFormat to detect
- * the actual decimal and group separators dynamically.
+ * Only pass user-typed text. Values from the server are already canonical:
+ * display them with toInputText() and never re-parse them. As a safety net,
+ * canonical input is returned unchanged, so parsing twice is harmless.
  *
  * @param {string|null|undefined} raw - User input
  * @param {object} [settings] - { numberFormatLocale?: string }
- * @returns {string|null} Canonical decimal string, or null if not parseable
+ * @returns {string|null}
  */
-export function parseLocalizedNumber(raw, settings) {
+export function parseTypedNumber(raw, settings) {
   if (raw == null || raw === "") return null;
   const str = String(raw).trim();
   if (!str) return null;
@@ -54,9 +59,16 @@ export function parseLocalizedNumber(raw, settings) {
   const grpSep = getGroupSep(locale);
 
   let s = str.replace(/\p{Sc}/gu, "").trim();
+  const compact = s.replace(/[\u00a0\u202f\s]/g, "");
 
-  // Strip group separators only when the input looks localized. This keeps a
-  // canonical "1234.50" value intact when it is reopened under de-DE.
+  // Decision D1: in comma-decimal locales, a single dot with no comma is a
+  // decimal point (a canonical value or a dot typed as decimal), never a
+  // thousands group. Grouped input has two or more groups ("1.234.567") or a
+  // decimal part ("1.234,5").
+  if (decSep !== "." && !compact.includes(decSep) && /^-?\d+\.\d+$/.test(compact)) {
+    return compact;
+  }
+
   const hasLocaleDecimal = decSep !== "." && s.includes(decSep);
   if (grpSep) {
     const esc = grpSep.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -68,19 +80,40 @@ export function parseLocalizedNumber(raw, settings) {
   }
   // Also strip all whitespace-like group separators (space, NBSP, NNBSP)
   s = s.replace(/[\u00a0\u202f\s]/g, "");
-
-  // Normalise decimal separator to "."
+  // Normalise the decimal separator to "."; a malformed string with several
+  // decimal separators is rejected by the canonical check below.
   if (decSep !== ".") {
-    // replaceAll: a malformed string with multiple decimal separators would
-    // pass through as e.g. "1.23.56" and be rejected by the regex below.
     s = s.replaceAll(decSep, ".");
   }
-
-  // Must be a valid number now
-  if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
-
+  if (!CANONICAL_NUMBER.test(s)) return null;
   return s;
 }
+
+/**
+ * Format a CANONICAL number ("1234.567") as editable text in the user's
+ * locale ("1.234,567"), keeping every decimal. Non-canonical text is
+ * returned unchanged.
+ *
+ * @param {string|number|null|undefined} value
+ * @param {object} [settings] - { numberFormatLocale?: string }
+ * @param {{ minFractionDigits?: number }} [options]
+ * @returns {string}
+ */
+export function toInputText(value, settings, { minFractionDigits = 0 } = {}) {
+  if (value === null || value === undefined || value === "") return "";
+  const raw = String(value).trim();
+  if (!CANONICAL_NUMBER.test(raw)) return raw;
+  const locale = getSupportedLocale(settings?.numberFormatLocale || "en-US");
+  const negative = raw.startsWith("-");
+  const [intPart, fracPart = ""] = (negative ? raw.slice(1) : raw).split(".");
+  const fraction = fracPart.padEnd(minFractionDigits, "0");
+  const grpSep = getGroupSep(locale);
+  const grouped = grpSep ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, grpSep) : intPart;
+  return `${negative ? "-" : ""}${grouped}${fraction ? getDecimalSep(locale) + fraction : ""}`;
+}
+
+/** @deprecated Temporary alias, removed in Task B5. Use parseTypedNumber. */
+export const parseLocalizedNumber = parseTypedNumber;
 
 // formatPriceDisplay
 

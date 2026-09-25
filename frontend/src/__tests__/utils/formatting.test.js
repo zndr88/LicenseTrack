@@ -77,9 +77,9 @@ describe("parseLocalizedNumber", () => {
     expect(parseLocalizedNumber("abc", enUS)).toBeNull();
   });
 
-  it("treats 1.234 in de-DE as integer 1234 (period is group separator)", () => {
-    // 1.234 with de-DE: group sep is ".", so "1.234" → "1234"
-    expect(parseLocalizedNumber("1.234", deDE)).toBe("1234");
+  it("treats 1.234 in de-DE as the decimal 1.234 (single dot is a decimal)", () => {
+    // D1: a single dot is a decimal
+    expect(parseLocalizedNumber("1.234", deDE)).toBe("1.234");
   });
 
   it("preserves a canonical decimal reopened under de-DE", () => {
