@@ -88,7 +88,9 @@ async def test_app(db_session, monkeypatch):
     monkeypatch.setattr(backup_module, "AsyncSessionLocal", session_factory)
     app.dependency_overrides[get_db] = override_get_db
     async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"X-LicenseTrack-Request": "1"},
     ) as client:
         yield client
     app.dependency_overrides.pop(get_db, None)

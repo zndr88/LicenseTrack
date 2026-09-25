@@ -113,7 +113,7 @@ async function mockApi(page, { authenticated }) {
   const corsHeaders = {
     "Access-Control-Allow-Origin": E2E_ORIGIN,
     "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Allow-Headers": "content-type, authorization",
+    "Access-Control-Allow-Headers": "content-type, authorization, x-licensetrack-request",
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   };
 

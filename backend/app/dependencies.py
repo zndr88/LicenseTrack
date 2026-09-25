@@ -31,6 +31,9 @@ from app.services.api_token_service import (
 from app.services.settings_service import get_global_settings
 from app.services.human_session_service import get_active_session
 
+SESSION_REQUEST_HEADER = "X-LicenseTrack-Request"
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
 # auto_error=False so the dependency can also read the session cookie.
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -184,6 +187,16 @@ async def get_current_user(
         return user
 
     set_api_token_audit_context(None)
+    if credentials is None and request.method.upper() in _UNSAFE_METHODS:
+        # Browser sessions authenticate with a cookie the browser attaches
+        # automatically. Requiring a header only this app's own code sends
+        # means a write must come from the app itself (a custom header needs
+        # a CORS preflight). Bearer and API-token requests are unaffected.
+        if request.headers.get(SESSION_REQUEST_HEADER) != "1":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Missing application request header",
+            )
     try:
         payload = auth.decode_access_token(token) if credentials is not None else auth.decode_session_cookie(token)
         user_id = int(payload["sub"])
