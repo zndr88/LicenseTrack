@@ -126,6 +126,8 @@ export async function request(path, options = {}) {
 
   const headers = {
     ...options.headers,
+    // Required by the server for session-authenticated writes.
+    "X-LicenseTrack-Request": "1",
   };
 
   // Only set Content-Type to JSON when we're not sending FormData

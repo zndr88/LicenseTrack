@@ -60,6 +60,7 @@ All variables are read from `.env` at container start. Restart the container aft
 | `ALLOW_PRIVATE_OIDC_DISCOVERY` | No | `false` | Unsafe testing-only allowance for private, loopback, link-local, or reserved OIDC hosts. Leave disabled in production. |
 | `SESSION_COOKIE_NAME` | No | `license_lifecycle_session` | Browser session cookie name. |
 | `SESSION_COOKIE_SECURE` | No | `false` | Set to `true` behind HTTPS. |
+| `FORWARDED_ALLOW_IPS` | No | `127.0.0.1` | Reverse proxy address(es) whose `X-Forwarded-*` headers are trusted. Comma-separated. See [Reverse proxy](#reverse-proxy). |
 | `MAX_UPLOAD_SIZE_MB` | No | `20` | Maximum upload size in megabytes. |
 | `ALLOWED_UPLOAD_EXTENSIONS` | No | common office/document extensions | Comma-separated upload extension allow-list. |
 | `PLUGIN_HOST_ENABLED` | No | `false` | Enables the internal Official Extensions host. Leave disabled unless an official signed extension is required. |
@@ -182,7 +183,11 @@ CORS_ORIGINS=https://licenses.example.com
 SESSION_COOKIE_SECURE=true
 ```
 
-Ensure the reverse proxy forwards `Host`, `X-Forwarded-For`, and `X-Forwarded-Proto` headers.
+Ensure the reverse proxy forwards `Host`, `X-Forwarded-For`, and `X-Forwarded-Proto` headers,
+and tell LicenseTrack to trust them by setting `FORWARDED_ALLOW_IPS` to the proxy's address
+(for example `FORWARDED_ALLOW_IPS=172.18.0.2`, or a comma-separated list). Without it,
+LicenseTrack sees every request as coming from the proxy. The audit log then records the
+proxy's address, and sign-in rate limits apply to all users together.
 
 Reverse proxies should route both the SPA and `/api/*` paths to this service. A separate browser-facing API origin is only needed for custom split-host deployments that build the frontend with `VITE_API_URL`.
 

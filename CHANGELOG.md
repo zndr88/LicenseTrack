@@ -34,6 +34,17 @@ Work in progress for 1.2.0.
   as a decimal, in number filters too; type `1234` or `1.234,00` for one
   thousand two hundred thirty-four.
 
+### Security
+
+- Hardened request validation for signed-in browser sessions, outbound URL
+  checks for webhooks and SSO discovery, and API tokens of accounts that must
+  change their password. Scripts that write through a browser session cookie
+  (rather than an API token) must now send the `X-LicenseTrack-Request: 1`
+  header; API-token and bearer requests are unaffected.
+- SSO sign-in rate limiting now counts only failed sign-ins. The deployment
+  guide documents `FORWARDED_ALLOW_IPS` for reverse-proxy setups, and Docker
+  Compose passes it through.
+
 ## [1.1.24] - 2026-09-24
 
 ### Added
