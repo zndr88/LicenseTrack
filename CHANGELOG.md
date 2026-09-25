@@ -17,6 +17,11 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 Work in progress for 1.2.0.
 
+### Changed
+
+- Updated the frontend test tooling (Vitest 5, jsdom 30.1) and removed automatic
+  test retries.
+
 ## [1.1.24] - 2026-09-24
 
 ### Added
