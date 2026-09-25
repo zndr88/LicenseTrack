@@ -847,3 +847,44 @@ async def test_legacy_human_token_cannot_authenticate_a_reused_user_id(db_sessio
     headers = {"Authorization": f"Bearer {legacy_token}"}
     assert (await test_app.get("/api/users/me", headers=headers)).status_code == 401
     assert (await test_app.post("/api/auth/refresh", headers=headers)).status_code == 401
+
+
+async def test_successful_oidc_logins_do_not_consume_the_rate_limit(db_session, test_app):
+    await _add_oidc_settings(db_session)
+    user = User(
+        username="ssoburst",
+        email="ssoburst@test.local",
+        hashed_password=bcrypt.hashpw(b"unused"[:72], bcrypt.gensalt()).decode(),
+        auth_provider=AuthProvider.oidc,
+        role=UserRole.viewer,
+        is_active=True,
+        must_change_password=False,
+    )
+    db_session.add(user)
+    await db_session.commit()
+
+    for attempt in range(12):
+        state = f"burst-state-{attempt}"
+        nonce = f"burst-nonce-{attempt}"
+        with respx.mock(assert_all_called=False) as mock:
+            mock.get(_DISCOVERY_URL).mock(return_value=httpx.Response(200, json=_DISCOVERY_DOC))
+            mock.get(_JWKS_URI).mock(return_value=httpx.Response(200, json=_TEST_JWKS))
+            mock.post(_TOKEN_ENDPOINT).mock(return_value=httpx.Response(200, json={
+                "access_token": "mock-access-token",
+                "token_type": "bearer",
+                "id_token": _build_id_token("ssoburst@test.local", nonce),
+            }))
+            test_app.cookies.set(_app_auth.OIDC_FLOW_COOKIE, _flow_cookie(state, nonce), path="/")
+            resp = await test_app.get(f"/api/auth/oidc/callback?state={state}&code=c{attempt}")
+        assert resp.status_code == 302, f"attempt {attempt} got {resp.status_code}"
+        assert "error" not in resp.headers.get("location", "")
+
+
+async def test_failed_oidc_callbacks_still_rate_limited(db_session, test_app):
+    await _add_oidc_settings(db_session)
+    statuses = []
+    for attempt in range(11):
+        resp = await test_app.get(f"/api/auth/oidc/callback?state=missing-cookie-{attempt}&code=x")
+        statuses.append(resp.status_code)
+    assert statuses[:10] == [302] * 10
+    assert statuses[10] == 429

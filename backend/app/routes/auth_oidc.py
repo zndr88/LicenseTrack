@@ -145,8 +145,23 @@ async def oidc_callback(
     ip = request.client.host if request.client else "unknown"
     if not _check_oidc_rate_limit(ip):
         raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
-    _record_oidc_attempt(ip)
+    response = await _oidc_callback_response(request, db)
+    if _is_failed_login_redirect(response):
+        # Only failures count. Behind a proxy every user can share one IP,
+        # and successful sign-ins must never lock the organisation out.
+        _record_oidc_attempt(ip)
+    return response
 
+
+def _is_failed_login_redirect(response: RedirectResponse) -> bool:
+    location = response.headers.get("location", "")
+    return "error=" in urlparse(location).query
+
+
+async def _oidc_callback_response(
+    request: Request,
+    db: AsyncSession,
+) -> RedirectResponse:
     global_settings = await get_global_settings(db)
     if not authlib_available() or not oidc_is_configured(global_settings):
         return _login_redirect("oidc_unavailable")
