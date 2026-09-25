@@ -115,6 +115,50 @@ def run_database_migrations(db_path: Path | None = None) -> None:
     alembic_command.upgrade(_alembic_config(db_path), "head")
 
 
+PRE_UPGRADE_DIRECTORY = "pre-upgrade"
+
+
+def create_pre_migration_snapshot(keep: int = 3) -> Path | None:
+    """Copy the SQLite database before startup migrations change its schema.
+
+    Returns the snapshot path, or None when there is nothing to protect: a
+    non-SQLite database, a new install, or a schema already at head. Keeps
+    the newest *keep* snapshots in ``<database dir>/pre-upgrade``.
+    """
+    if not app_settings.DATABASE_URL.startswith("sqlite"):
+        return None
+    db_path = get_db_path()
+    if not db_path.exists():
+        return None
+    current = current_schema_revision(db_path)
+    head = ScriptDirectory.from_config(_alembic_config()).get_current_head()
+    if current is None or current == head:
+        return None
+
+    snapshot_dir = db_path.parent / PRE_UPGRADE_DIRECTORY
+    snapshot_dir.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    target = snapshot_dir / f"{db_path.stem}_pre_upgrade_{current}_{timestamp}.db"
+    source = sqlite3.connect(str(db_path))
+    destination = sqlite3.connect(str(target))
+    try:
+        source.backup(destination)
+    finally:
+        destination.close()
+        source.close()
+
+    snapshots = sorted(
+        snapshot_dir.glob(f"{db_path.stem}_pre_upgrade_*.db"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    for old in snapshots[keep:]:
+        if old != target:  # never prune the snapshot just taken
+            old.unlink(missing_ok=True)
+    logger.info("Pre-upgrade database snapshot saved: %s", target)
+    return target
+
+
 def create_backup(backup_location: str) -> Path:
     """
     Create a WAL-safe consistent snapshot of the SQLite database in a timestamped

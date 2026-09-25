@@ -2,6 +2,11 @@
 
 This guide covers a Docker Compose upgrade while keeping the existing database, uploaded documents, database backups, and Official Extension storage intact.
 
+!!! note "Automatic pre-upgrade snapshot"
+    When a new version needs to change the database schema, LicenseTrack first copies the
+    database to `pre-upgrade/` next to the database file (the newest three copies are kept).
+    This is a safety net, not a replacement for the full volume backup described below.
+
 !!! danger "Do not delete the data volume"
     Do not run `docker compose down -v` during an upgrade unless you intentionally want to delete LicenseTrack data. The `-v` flag removes named volumes, including the `/data` volume that stores the SQLite database and uploaded documents.
 
