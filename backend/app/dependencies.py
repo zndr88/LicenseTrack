@@ -156,6 +156,11 @@ async def get_current_user(
                 detail="User not found or inactive",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        if user.must_change_password:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Password change required before using this endpoint",
+            )
 
         token_scopes = set(decode_scopes(api_token))
         required_scopes = await _required_api_token_scopes(request)
