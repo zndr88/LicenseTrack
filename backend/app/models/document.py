@@ -33,7 +33,7 @@ class Document(Base):
     original_filename: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     mime_type: Mapped[str] = mapped_column(String(255), nullable=False)
-    category: Mapped[DocumentCategory] = mapped_column(Enum(DocumentCategory), nullable=False)
+    category: Mapped[DocumentCategory] = mapped_column(Enum(DocumentCategory, length=20), nullable=False)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     uploaded_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 

@@ -80,7 +80,7 @@ class SourcingItem(Base):
     )
     software_description: Mapped[str] = mapped_column(String(500), nullable=False)
     license_type: Mapped[LicenseType | None] = mapped_column(Enum(LicenseType), nullable=True)
-    license_metric: Mapped[LicenseMetric | None] = mapped_column(Enum(LicenseMetric), nullable=True)
+    license_metric: Mapped[LicenseMetric | None] = mapped_column(Enum(LicenseMetric, length=20), nullable=True)
     portal_url: Mapped[str | None] = mapped_column(String, nullable=True)
     is_renewable: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     type_description: Mapped[str | None] = mapped_column(String(255), nullable=True)
