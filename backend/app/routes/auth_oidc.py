@@ -39,8 +39,17 @@ def _check_oidc_rate_limit(ip: str) -> bool:
     return len(_oidc_attempts[ip]) < _MAX_ATTEMPTS
 
 
-def _record_oidc_attempt(ip: str) -> None:
-    _oidc_attempts[ip].append(time())
+def _record_oidc_attempt(ip: str) -> float:
+    attempt = time()
+    _oidc_attempts[ip].append(attempt)
+    return attempt
+
+
+def _release_oidc_attempt(ip: str, attempt: float) -> None:
+    try:
+        _oidc_attempts[ip].remove(attempt)
+    except ValueError:
+        pass
 
 
 logger = logging.getLogger(__name__)
@@ -145,11 +154,13 @@ async def oidc_callback(
     ip = request.client.host if request.client else "unknown"
     if not _check_oidc_rate_limit(ip):
         raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
+    # Count the attempt before it runs so parallel callbacks share the limit.
+    attempt = _record_oidc_attempt(ip)
     response = await _oidc_callback_response(request, db)
-    if _is_failed_login_redirect(response):
+    if not _is_failed_login_redirect(response):
         # Only failures count. Behind a proxy every user can share one IP,
         # and successful sign-ins must never lock the organisation out.
-        _record_oidc_attempt(ip)
+        _release_oidc_attempt(ip, attempt)
     return response
 
 

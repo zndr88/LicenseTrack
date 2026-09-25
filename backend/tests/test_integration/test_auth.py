@@ -888,3 +888,23 @@ async def test_failed_oidc_callbacks_still_rate_limited(db_session, test_app):
         statuses.append(resp.status_code)
     assert statuses[:10] == [302] * 10
     assert statuses[10] == 429
+
+
+async def test_concurrent_oidc_callbacks_cannot_exceed_the_rate_limit(db_session, test_app, monkeypatch):
+    runs = 0
+
+    async def slow_failed_callback(request, db):
+        nonlocal runs
+        runs += 1
+        await asyncio.sleep(0.05)
+        return auth_oidc_module._login_redirect("oidc_failed")
+
+    monkeypatch.setattr(auth_oidc_module, "_oidc_callback_response", slow_failed_callback)
+    responses = await asyncio.gather(*(
+        test_app.get(f"/api/auth/oidc/callback?state=parallel-{attempt}&code=x")
+        for attempt in range(20)
+    ))
+    statuses = [resp.status_code for resp in responses]
+    assert runs <= 10
+    assert statuses.count(302) == runs
+    assert statuses.count(429) == 20 - runs
