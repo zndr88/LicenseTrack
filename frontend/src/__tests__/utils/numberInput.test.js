@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseTypedNumber, toInputText } from "../../utils/formatting.js";
+import { formatPriceInput } from "../../utils/helpers.js";
 
 const LOCALES = ["en-US", "en-GB", "nl-BE", "nl-NL", "de-DE", "fr-FR", "de-CH"];
 const CANONICAL = ["0.125", "1.234", "12.345", "1234.5", "1234.567", "1000000.25", "3", "-0.5", "15.50"];
@@ -67,5 +68,17 @@ describe("toInputText", () => {
     for (const value of CANONICAL) {
       expect(parseTypedNumber(toInputText(value, s(locale)), s(locale))).toBe(value);
     }
+  });
+});
+
+describe("formatPriceInput", () => {
+  it("keeps three decimals instead of rounding", () => {
+    expect(formatPriceInput("0.125", "nl-BE")).toBe("0,125");
+  });
+  it("pads to two decimals", () => {
+    expect(formatPriceInput("1234.5", "en-US")).toBe("1,234.50");
+  });
+  it("reformats typed localized text", () => {
+    expect(formatPriceInput("1234,5", "nl-BE")).toBe("1.234,50");
   });
 });

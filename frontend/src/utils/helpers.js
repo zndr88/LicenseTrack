@@ -1,4 +1,5 @@
 import { NON_ENTITLEMENT_LICENSE_TYPES, NON_EXPIRING_LICENSE_TYPES } from "../constants/licenseData.js";
+import { parseTypedNumber, toInputText } from "./formatting.js";
 import { isRenewableLicense } from "./licenseTypeRules.js";
 import { getProcurementTotal } from "./procurementIdentity.js";
 
@@ -49,16 +50,10 @@ export function formatSignedCostByCurrency(byCurrency, locale = "en-US") {
 
 export function formatPriceInput(value, locale = "en-US") {
   if (value === "" || value === null || value === undefined) return "";
-  const num = parseFloat(String(value).replace(",", "."));
-  if (isNaN(num)) return value;
-  try {
-    return new Intl.NumberFormat(locale, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(num);
-  } catch {
-    return value;
-  }
+  const settings = { numberFormatLocale: locale };
+  const canonical = parseTypedNumber(value, settings);
+  if (canonical === null) return value;
+  return toInputText(canonical, settings, { minFractionDigits: 2 });
 }
 
 export const getPoTotal = (poNumber, currency, allLicenses, selectedLicense = null) => {
