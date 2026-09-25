@@ -84,6 +84,9 @@ function normalizeInlineValue(fieldKey, value, userSettings) {
   return value ?? "";
 }
 
+// Keep every stored digit (toInputText, not formatQuantityInput): commit()
+// compares the parsed text with the raw stored value, so trimming "1.500" to
+// "1,5" would save an untouched cell.
 function inlineDisplayValue(fieldKey, value, userSettings) {
   if (NUMERIC_INLINE_FIELDS.has(fieldKey)) return toInputText(value ?? "", userSettings);
   return value ?? "";
