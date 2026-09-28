@@ -30,6 +30,7 @@ from app.services.lifecycle_rules import (
 )
 from app.services.maintenance_service import (
     link_or_activate_maintenance,
+    recompute_active_maintenance,
     validate_parent_license,
 )
 from app.services.maintenance_rules import (
@@ -217,10 +218,11 @@ async def _restore_existing_maintenance_link(db: AsyncSession, predecessor: Lice
         return
     for entry in snapshot["parents"]:
         parent = await db.get(License, entry["id"])
-        if parent is None or parent.active_maintenance_id != successor.id:
-            raise HTTPException(status_code=409, detail="Maintenance coverage changed after linking; review parent relationships before unlinking")
         previous_active_id = entry["values"]["active_maintenance_id"]
-        if previous_active_id is not None:
+        if parent is None or parent.active_maintenance_id not in {successor.id, previous_active_id}:
+            raise HTTPException(status_code=409, detail="Maintenance coverage changed after linking; review parent relationships before unlinking")
+        successor_was_active = parent.active_maintenance_id == successor.id
+        if successor_was_active and previous_active_id is not None:
             previous_active = await db.get(License, previous_active_id)
             if previous_active is None or previous_active.is_retired:
                 raise HTTPException(status_code=409, detail="Previous maintenance is no longer available for restoring coverage")
@@ -229,10 +231,13 @@ async def _restore_existing_maintenance_link(db: AsyncSession, predecessor: Lice
                 LicenseMaintenanceLink.maintenance_license_id == successor.id,
                 LicenseMaintenanceLink.parent_license_id == parent.id,
             ))
-        for field, value in entry["values"].items():
-            if field in {"maintenance_start_date", "maintenance_end_date"} and value is not None:
-                value = date.fromisoformat(value)
-            setattr(parent, field, value)
+        if successor_was_active:
+            for field, value in entry["values"].items():
+                if field in {"maintenance_start_date", "maintenance_end_date"} and value is not None:
+                    value = date.fromisoformat(value)
+                setattr(parent, field, value)
+        else:
+            await recompute_active_maintenance(db, parent)
     await db.execute(delete(LicenseCoverageHistory).where(
         LicenseCoverageHistory.id.in_(snapshot.get("added_history_ids", [])),
     ))

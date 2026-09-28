@@ -220,9 +220,9 @@ async def test_existing_maintenance_link_undo_preserves_original_successor_paren
     successor = License(**_license_data(license_type=LicenseType.maintenance, parent_license_id=parents[0].id))
     db_session.add_all([predecessor, successor])
     await db_session.flush()
+    await activate_maintenance_for_parent(db_session, successor, parents[0])
     for parent in parents:
         await activate_maintenance_for_parent(db_session, predecessor, parent)
-    await activate_maintenance_for_parent(db_session, successor, parents[0])
     await renewal_orchestrator._snapshot_existing_maintenance_link(db_session, predecessor, successor)
     await renewal_orchestrator._activate_maintenance_successor_for_all_parents(db_session, predecessor, successor)
     await renewal_orchestrator._finish_existing_maintenance_snapshot(db_session, predecessor)

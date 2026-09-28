@@ -194,14 +194,17 @@ async def test_unlink_existing_maintenance_successor_restores_a_recorded_snapsho
         startDate=(today - timedelta(days=365)).isoformat(),
         endDate=(today + timedelta(days=5)).isoformat(),
     )
+    successor_parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
     successor = await _create_license(
         test_app,
         auth_headers,
         licenseType="maintenance",
-        parentLicenseId=parent["id"],
-        startDate=today.isoformat(),
+        parentLicenseId=successor_parent["id"],
+        startDate=(today + timedelta(days=6)).isoformat(),
         endDate=(today + timedelta(days=370)).isoformat(),
     )
+    parent_before = await test_app.get(f"/api/licenses/{parent['id']}", headers=auth_headers)
+    assert parent_before.json()["activeMaintenanceId"] == predecessor["id"]
 
     linked = await test_app.post(
         f"/api/licenses/{predecessor['id']}/link-existing-successor",
@@ -211,6 +214,8 @@ async def test_unlink_existing_maintenance_successor_restores_a_recorded_snapsho
     assert linked.status_code == 200, linked.text
     predecessor_row = await db_session.get(License, predecessor["id"])
     assert predecessor_row.existing_successor_maintenance_state is not None
+    parent_linked = await test_app.get(f"/api/licenses/{parent['id']}", headers=auth_headers)
+    assert parent_linked.json()["activeMaintenanceId"] == predecessor["id"]
 
     unlinked = await test_app.post(
         f"/api/licenses/{predecessor['id']}/unlink-existing-successor",
@@ -221,6 +226,65 @@ async def test_unlink_existing_maintenance_successor_restores_a_recorded_snapsho
     assert predecessor_row.existing_successor_maintenance_state is None
     assert unlinked.json()["predecessor"]["renewedToId"] is None
     assert unlinked.json()["successor"]["renewedFromId"] is None
+    parent_after = await test_app.get(f"/api/licenses/{parent['id']}", headers=auth_headers)
+    assert parent_after.json()["activeMaintenanceId"] == predecessor["id"]
+    assert successor["id"] not in parent_after.json()["linkedMaintenanceIds"]
+
+
+async def test_unlink_existing_maintenance_successor_rejects_changed_coverage(
+    test_app, auth_headers, db_session
+):
+    today = date.today()
+    parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        startDate=(today - timedelta(days=365)).isoformat(),
+        endDate=(today + timedelta(days=5)).isoformat(),
+    )
+    successor = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        startDate=(today + timedelta(days=6)).isoformat(),
+        endDate=(today + timedelta(days=370)).isoformat(),
+    )
+    other_parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    unexpected = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=other_parent["id"],
+        startDate=today.isoformat(),
+        endDate=(today + timedelta(days=365)).isoformat(),
+    )
+
+    linked = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/link-existing-successor",
+        json={"successorLicenseId": successor["id"]},
+        headers=auth_headers,
+    )
+    assert linked.status_code == 200, linked.text
+    linked_unexpected = await test_app.post(
+        f"/api/licenses/{parent['id']}/link-maintenance",
+        json={"maintenanceLicenseId": unexpected["id"]},
+        headers=auth_headers,
+    )
+    assert linked_unexpected.status_code == 200, linked_unexpected.text
+    parent_row = await db_session.get(License, parent["id"])
+    parent_row.active_maintenance_id = unexpected["id"]
+    await db_session.commit()
+
+    unlinked = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/unlink-existing-successor",
+        headers=auth_headers,
+    )
+
+    assert unlinked.status_code == 409
+    assert "Maintenance coverage changed after linking" in unlinked.json()["detail"]
 
 
 async def test_unlink_historical_maintenance_successor_without_snapshot_is_blocked(
