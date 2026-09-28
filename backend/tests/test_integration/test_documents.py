@@ -812,7 +812,7 @@ async def test_post_conversion_procurement_upload_audit_is_document_amendment(
     assert "operation=upload" in detail
     assert "postConversion=true" in detail
     assert "documentCategory=invoice" in detail
-    assert "documentScope=po_number" in detail
+    assert "documentScope=pending_order" in detail
     assert f"relatedLicenseId={license_obj.id}" in detail
     assert f"pendingOrderId={order.id}" in detail
     assert "poNumber=PO-AMEND-UPLOAD" in detail
