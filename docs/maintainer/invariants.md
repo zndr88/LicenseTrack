@@ -22,7 +22,7 @@ yet), **target** (planned for the named release), or **known violation**
 
 | ID | Rule | Owner | Guard | Status |
 |---|---|---|---|---|
-| ID-1 | "Same PO" means the same normalized PO number: trimmed, inner whitespace collapsed, case ignored. | `backend/app/services/procurement_identity.py` (`normalize_po_number`, SQL `licensetrack_normalize_po`); `frontend/src/utils/procurementIdentity.js` | — | target 1.2.0 (#74) |
+| ID-1 | "Same PO" means the same normalized PO number: trimmed, inner whitespace collapsed, case ignored. | `backend/app/services/procurement_identity.py` (`normalize_po_number`, SQL `licensetrack_normalize_po`); `frontend/src/utils/procurementIdentity.js` | `backend/tests/test_integration/test_documents.py` (normalized PO tests); frontend DetailPanel Email Supplier test | holds |
 | ID-2 | A financial group is the pending order, else the manual batch, else the normalized PO number, always per currency. | `po_total_override_service.py` (`procurement_identity_key`) | `backend/tests/test_unit/test_reporting_service.py` | holds |
 | ID-3 | The database schema built by migrations equals the models. | `backend/alembic/versions/*`, `backend/app/models/*` | `backend/tests/test_unit/test_schema_drift.py` | holds |
 

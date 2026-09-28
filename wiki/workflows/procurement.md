@@ -246,7 +246,7 @@ Evidence is scoped to the workflow record that owns it:
 Pending-order identity takes precedence over PO metadata: two unrelated pending
 orders never share evidence merely because their PO numbers match. For direct or
 manual license records, a newly uploaded document explicitly marked **Shared** is
-visible to licenses with the same trimmed PO number. **Single** uploads remain on
+visible to licenses with the same PO number (ignoring case and extra spaces). **Single** uploads remain on
 their selected license. Existing documents are not moved, reassigned, or backfilled
 when this scope metadata is introduced.
 
