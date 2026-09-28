@@ -6,6 +6,8 @@ These docs are for people changing LicenseTrack itself.
   implementation guardrails.
 - `style-contract.md` records coding and review conventions for human and
   AI-assisted changes.
+- `invariants.md` lists the rules LicenseTrack guarantees on every entry
+  point, each with its owner in code and the test that guards it.
 - `native-packaging.md` covers building and validating the native Linux
   bundle.
 - `procurement-history-trail.md` records the intended sourcing history, pending
