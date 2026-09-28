@@ -42,8 +42,7 @@ async def open_support_renewal_license_ids(
     """Licenses that have an open maintenance-renewal line."""
     query = select(SourcingItem.maintenance_parent_license_id).where(
         SourcingItem.maintenance_parent_license_id.is_not(None),
-        SourcingItem.status != SourcingStatus.cancelled,
-        ~exists().where(License.source_sourcing_item_id == SourcingItem.id),
+        *open_support_renewal_filter(SourcingItem.maintenance_parent_license_id),
     )
     if license_ids is not None:
         query = query.where(SourcingItem.maintenance_parent_license_id.in_(license_ids))
