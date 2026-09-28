@@ -59,6 +59,35 @@ async def existing_license(test_app, auth_headers) -> int:
     return resp.json()["id"]
 
 
+async def _create_license(test_app, auth_headers, *, po_number: str) -> dict:
+    response = await test_app.post(
+        "/api/licenses",
+        json={
+            "publisherName": "Acme Corp",
+            "softwareDescription": "Shared PO Suite",
+            "licenseType": "subscription",
+            "licenseMetric": "per_user",
+            "quantity": "1",
+            "currency": "EUR",
+            "poNumber": po_number,
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+async def _upload_shared_document(test_app, auth_headers, license_id: int) -> dict:
+    response = await test_app.post(
+        f"/api/licenses/{license_id}/documents",
+        headers=auth_headers,
+        files={"file": ("shared.pdf", b"%PDF-1.4 shared", "application/pdf")},
+        data={"category": "quote", "scope": "shared"},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
 async def _create_viewer(
     db_session,
     username: str,
@@ -94,6 +123,22 @@ async def _login(test_app, username: str, password: str) -> dict:
     )
     assert response.status_code == 200, response.text
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+async def test_shared_document_matches_po_numbers_that_differ_only_in_case_and_spacing(
+    test_app,
+    auth_headers,
+):
+    first = await _create_license(test_app, auth_headers, po_number="PO  4500123")
+    second = await _create_license(test_app, auth_headers, po_number="po 4500123")
+    await _upload_shared_document(test_app, auth_headers, first["id"])
+
+    listed = await test_app.get(
+        f"/api/licenses/{second['id']}/documents",
+        headers=auth_headers,
+    )
+    assert listed.status_code == 200
+    assert len(listed.json()) == 1
 
 
 async def test_new_po_sharing_preserves_legacy_scope_and_files_on_po_change(
