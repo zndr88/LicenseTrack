@@ -702,10 +702,11 @@ Procurement documents must be resolved by explicit scope with one canonical
 precedence. `target_sourcing_item_id` isolates evidence to one sourcing or
 pending-order line. `pending_order_id` is authoritative whenever present, even if
 the row also carries `shared_po_number`; unrelated pending orders therefore never
-share evidence merely because their PO text matches. For direct/manual workflows,
-new explicitly shared uploads may use normalized `shared_po_number` so licenses with
-the same trimmed PO see the evidence; here normalization is trimming only, with
-case-sensitive matching and no internal-whitespace collapsing. It is distinct
+share evidence merely because their PO text matches. Shared evidence stores the
+PO number as typed, and matches licenses by the normalized PO number
+(`normalize_po_number`: trimmed, inner whitespace collapsed, case ignored) in
+listings, downloads, viewer scope, counts and completeness. Precedence is line
+target → pending order → shared PO → license → manual batch. It is distinct
 from financial PO grouping. `procurement_bundle_id` continues to identify
 one creation batch and preserve older bundle-owned rows. `license_id` owns a Single
 upload. The additive shared-PO field does not migrate, move, or backfill existing

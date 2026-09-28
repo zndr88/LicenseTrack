@@ -29,6 +29,15 @@ function formatProcessingStatus(status) {
   return "Pending";
 }
 
+// Same precedence as the backend scope resolver: line → pending order → PO → batch → license.
+function documentScopeLabel(doc) {
+  if (doc.target_sourcing_item_id != null) return "Single purchase line";
+  if (doc.pending_order_id) return "Shared purchase";
+  if (doc.shared_po_number) return `Shared - PO ${doc.shared_po_number}`;
+  if (doc.procurement_bundle_id) return "Shared manual batch";
+  return "Single license";
+}
+
 export default function DocumentsSection({
   license,
   allLicenses = [],
@@ -152,7 +161,7 @@ export default function DocumentsSection({
                         </div>
                         <div className="doc-file-meta">
                           {formatFileSize(doc.file_size, userSettings)} · {formatDateTime(doc.uploaded_at, userSettings)}
-                          {` · ${doc.target_sourcing_item_id != null ? "Single purchase line" : doc.shared_po_number ? `Shared - PO ${doc.shared_po_number}` : doc.pending_order_id ? "Shared purchase" : doc.procurement_bundle_id ? "Shared manual batch" : "Single license"}`}
+                          {` · ${documentScopeLabel(doc)}`}
                           {latestProcessingByDocument.has(`${documentTypeFor(doc)}:${doc.id}`) && (
                             <span className={`doc-processing-inline-status status-${latestProcessingByDocument.get(`${documentTypeFor(doc)}:${doc.id}`).status}`}>
                               {formatProcessingStatus(latestProcessingByDocument.get(`${documentTypeFor(doc)}:${doc.id}`).status)}

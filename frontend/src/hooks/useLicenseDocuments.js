@@ -169,10 +169,10 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
   const handleFileRemove = (doc) => {
     const sharedScopeWarning = doc?.target_sourcing_item_id != null
       ? " It will be removed from every license created from this purchase line."
-      : doc?.shared_po_number
-      ? ` It will be removed from every license sharing PO number "${doc.shared_po_number}".`
       : doc?.pending_order_id
       ? " It will be removed from every license in this purchase."
+      : doc?.shared_po_number
+      ? ` It will be removed from every license with PO number "${doc.shared_po_number}" (matching ignores case and spacing).`
       : doc?.procurement_bundle_id
         ? " It will be removed from every license in this manual batch."
         : "";

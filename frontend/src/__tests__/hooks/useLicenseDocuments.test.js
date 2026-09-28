@@ -73,7 +73,7 @@ describe("useLicenseDocuments", () => {
 
     act(() => result.current.handleFileRemove({ id: 4, original_filename: "quote.pdf", shared_po_number: "PO-123", scope: "po" }));
     expect(props.setConfirmAction).toHaveBeenCalledWith(expect.objectContaining({
-      message: expect.stringContaining('every license sharing PO number "PO-123"'),
+      message: expect.stringContaining('every license with PO number "PO-123" (matching ignores case and spacing)'),
     }));
     act(() => result.current.handleFileRemove({ id: 5, original_filename: "line.pdf", target_sourcing_item_id: 3, pending_order_id: 8, scope: "po" }));
     expect(props.setConfirmAction).toHaveBeenLastCalledWith(expect.objectContaining({

@@ -153,7 +153,7 @@ async def upload_document(
                     operation="upload",
                     post_conversion=lic.pending_order_id is not None,
                     document_category=procurement_document.category.value,
-                    document_scope=("po_number" if procurement_document.shared_po_number else "pending_order" if is_pending_order_document else "procurement_bundle" if is_bundle_document else "license"),
+                    document_scope=("pending_order" if is_pending_order_document else "po_number" if procurement_document.shared_po_number else "procurement_bundle" if is_bundle_document else "license"),
                     document_id=procurement_document.id,
                     filename=procurement_document.original_filename,
                     related_license_id=license_id,
@@ -447,10 +447,10 @@ async def delete_procurement_document(
             ),
             document_category=category,
             document_scope=(
-                "po_number"
-                if document.shared_po_number is not None
-                else "pending_order"
+                "pending_order"
                 if pending_order_id is not None
+                else "po_number"
+                if document.shared_po_number is not None
                 else "procurement_bundle"
                 if procurement_bundle_id is not None
                 else "license"

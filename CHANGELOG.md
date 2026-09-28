@@ -32,6 +32,11 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- One "same PO" rule: shared documents now match licenses whose PO numbers
+  differ only in case or spacing (listing, downloads, counts and completeness).
+  Email Supplier's "all matching licenses" includes only lines of the same
+  purchase and supplier. Document scope labels and delete warnings describe
+  the actual scope.
 - Maintenance coverage has one owner: a license's active maintenance record is
   always worked out from its linked records by date, on every path (linking,
   CSV import, renewals, the daily hand-over). Linking an older or future record
