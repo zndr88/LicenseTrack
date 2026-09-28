@@ -859,7 +859,10 @@ async def _create_coterm_renewal_successor(
             mark_predecessor_renewed(pred, new_lic.id)
             marked_predecessor_ids.append(pred.id)
 
-    await _activate_maintenance_successor_for_all_parents(db, primary_predecessor, new_lic)
+    for pred_id in predecessor_ids:
+        pred = all_preds.get(pred_id)
+        if pred is not None:
+            await _activate_maintenance_successor_for_all_parents(db, pred, new_lic)
 
     return RenewalConversionResult(
         successor=new_lic,
