@@ -32,6 +32,11 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- One "same PO" rule: shared documents now match licenses whose PO numbers
+  differ only in case or spacing (listing, downloads, counts and completeness).
+  Email Supplier's "all matching licenses" includes only lines of the same
+  purchase and supplier. Document scope labels and delete warnings describe
+  the actual scope.
 - Numbers with three decimals are no longer multiplied by 1,000 under
   comma-decimal number formats (e.g. nl-BE, de-DE). This affected Registry
   inline edits, new pending-order lines, and conversion defaults. Stored

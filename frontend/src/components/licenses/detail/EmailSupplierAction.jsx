@@ -2,19 +2,30 @@ import { useState } from "react";
 import Icon from "../../ui/Icon.jsx";
 import ModalShell from "../../ui/ModalShell.jsx";
 import { buildMultiLicenseEmailHref, buildSingleLicenseEmailHref } from "../../../utils/licenseEmailLinks.js";
+import { normalizeProcurementPoNumber } from "../../../utils/procurementIdentity.js";
 
 const normaliseEmailScopeValue = (value) => (value ?? "").trim().toLowerCase();
 
-function getSamePublisherPoLicenses(license, allLicenses) {
-  const poNumber = normaliseEmailScopeValue(license.poNumber);
-  const publisherName = normaliseEmailScopeValue(license.publisherName);
-  if (!poNumber || !publisherName) return [license];
+// The purchase a line belongs to: its pending order, else its manual batch,
+// else its normalized PO number (ID-1/ID-2, without the currency split).
+function purchaseKey(license) {
+  if (license?.pendingOrderId != null) return `pending-order:${license.pendingOrderId}`;
+  if (license?.procurementBundleId) return `procurement-bundle:${license.procurementBundleId}`;
+  const po = normalizeProcurementPoNumber(license?.poNumber);
+  return po ? `po:${po}` : null;
+}
+
+function getSamePurchaseLicenses(license, allLicenses) {
+  const key = purchaseKey(license);
+  const publisher = normaliseEmailScopeValue(license.publisherName);
+  const supplier = normaliseEmailScopeValue(license.supplier);
+  if (!key || !publisher) return [license];
 
   const matches = (allLicenses || []).filter((candidate) =>
-    normaliseEmailScopeValue(candidate.poNumber) === poNumber &&
-    normaliseEmailScopeValue(candidate.publisherName) === publisherName
+    purchaseKey(candidate) === key
+    && normaliseEmailScopeValue(candidate.publisherName) === publisher
+    && normaliseEmailScopeValue(candidate.supplier) === supplier
   );
-
   return matches.length > 0 ? matches : [license];
 }
 
@@ -45,7 +56,7 @@ function EmailSupplierScopeDialog({ license, matchingLicenses, singleHref, allHr
 
 export default function EmailSupplierAction({ license, allLicenses }) {
   const [emailScopePrompt, setEmailScopePrompt] = useState(false);
-  const publisherPoLicenses = getSamePublisherPoLicenses(license, allLicenses);
+  const publisherPoLicenses = getSamePurchaseLicenses(license, allLicenses);
   const singlePublisherEmailHref = buildSingleLicenseEmailHref(license);
   const allPublisherEmailHref = buildMultiLicenseEmailHref(license, publisherPoLicenses);
   const hasPublisherPoChoice = publisherPoLicenses.length > 1;

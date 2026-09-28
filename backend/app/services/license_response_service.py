@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -27,6 +27,7 @@ from app.services.license_service import (
     compute_support_days_remaining,
     compute_support_status,
 )
+from app.services.procurement_identity import normalize_po_number
 from app.services.settings_service import get_global_settings as _get_cached_global_settings
 
 DEFAULT_NOTIFICATION_DAYS = 30
@@ -60,7 +61,11 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
         lic.procurement_bundle_id for lic in licenses if lic.procurement_bundle_id is not None
     }
     license_ids = {lic.id for lic in licenses if lic.id is not None}
-    po_numbers = {lic.po_number.strip() for lic in licenses if getattr(lic, "po_number", None) and lic.po_number.strip()}
+    po_numbers = {
+        normalize_po_number(lic.po_number)
+        for lic in licenses
+        if getattr(lic, "po_number", None) and normalize_po_number(lic.po_number)
+    }
     source_item_ids = {lic.source_sourcing_item_id for lic in licenses if getattr(lic, "source_sourcing_item_id", None) is not None}
     if not pending_order_ids and not procurement_bundle_ids and not license_ids:
         return {}
@@ -87,7 +92,7 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
         scope_condition = or_(scope_condition, and_(
             ProcurementDocument.target_sourcing_item_id.is_(None),
             ProcurementDocument.pending_order_id.is_(None),
-            ProcurementDocument.shared_po_number.in_(po_numbers),
+            func.licensetrack_normalize_po(ProcurementDocument.shared_po_number).in_(po_numbers),
         ))
     if source_item_ids:
         scope_condition = or_(scope_condition, ProcurementDocument.target_sourcing_item_id.in_(source_item_ids))
@@ -100,8 +105,8 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
     for lic in licenses:
         if getattr(lic, "source_sourcing_item_id", None) is not None:
             source_to_license_ids.setdefault(lic.source_sourcing_item_id, []).append(lic.id)
-        if getattr(lic, "po_number", None) and lic.po_number.strip():
-            po_to_license_ids.setdefault(lic.po_number.strip(), []).append(lic.id)
+        if getattr(lic, "po_number", None) and normalize_po_number(lic.po_number):
+            po_to_license_ids.setdefault(normalize_po_number(lic.po_number), []).append(lic.id)
         if lic.pending_order_id is not None:
             pending_to_license_ids.setdefault(lic.pending_order_id, []).append(lic.id)
         if lic.procurement_bundle_id is not None:
@@ -117,7 +122,7 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
                 documents_by_license_id[license_id].append(document)
             continue
         if document.shared_po_number is not None:
-            for license_id in po_to_license_ids.get(document.shared_po_number, []):
+            for license_id in po_to_license_ids.get(normalize_po_number(document.shared_po_number), []):
                 documents_by_license_id[license_id].append(document)
             continue
         target_license_ids: set[int] = set()

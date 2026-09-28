@@ -827,6 +827,37 @@ describe('DetailPanel history', () => {
 })
 
 describe('DetailPanel email supplier scope', () => {
+  it('groups only lines from the same purchase and supplier', async () => {
+    const user = userEvent.setup()
+    const first = { ...baseLicense, pendingOrderId: 10, supplier: 'X' }
+    const samePurchase = {
+      ...baseLicense,
+      id: 2,
+      pendingOrderId: 10,
+      supplier: 'X',
+      softwareDescription: 'Widget Add-on',
+    }
+    const otherPurchase = {
+      ...baseLicense,
+      id: 3,
+      pendingOrderId: 20,
+      supplier: 'Y',
+      softwareDescription: 'Widget Service',
+    }
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        license={first}
+        allLicenses={[first, samePurchase, otherPurchase]}
+      />
+    )
+
+    await user.click(screen.getByRole('link', { name: /email supplier/i }))
+
+    expect(screen.getByText(/This PO has 2 license lines for Acme Corp/i)).toBeInTheDocument()
+  })
+
   it('prompts for same-PO same-publisher license lines using case-insensitive matching', async () => {
     const user = userEvent.setup()
     const siblingLicense = {
@@ -1168,6 +1199,34 @@ describe('DetailPanel — custom fields section', () => {
 })
 
 describe('DetailPanel documents', () => {
+  it('labels a pending-order document before its shared PO scope', async () => {
+    const user = userEvent.setup()
+    const { getDocuments } = await import('../api/documents.js')
+    getDocuments.mockResolvedValueOnce({
+      data: [{
+        id: 9,
+        category: 'invoice',
+        original_filename: 'invoice.pdf',
+        file_size: 2048,
+        uploaded_at: '2026-01-01T00:00:00Z',
+        pending_order_id: 5,
+        shared_po_number: 'PO-1',
+      }],
+      error: null,
+    })
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+      />
+    )
+
+    await user.click(await screen.findByRole('button', { name: /^documents/i }))
+    expect(await screen.findByText(/Shared purchase/)).toBeInTheDocument()
+    expect(screen.queryByText(/Shared - PO/)).not.toBeInTheDocument()
+  })
+
   it('labels procurement uploads from pending-order licenses as shared purchase evidence', async () => {
     const user = userEvent.setup()
 
