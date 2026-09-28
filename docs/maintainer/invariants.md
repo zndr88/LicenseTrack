@@ -5,8 +5,9 @@ edits, CSV import and update, conversion, the API, and background jobs. Each rul
 names its single owner in code and the test that fails if the rule breaks.
 A rule without a guard test is marked *unguarded* until it has one.
 
-Status: **holds** (guarded), **target** (planned for the named release), or
-**known violation** (with an issue).
+Status: **holds** (guarded), **unguarded** (believed to hold, no guard test
+yet), **target** (planned for the named release), or **known violation**
+(with an issue).
 
 ## Money
 
@@ -30,7 +31,7 @@ Status: **holds** (guarded), **target** (planned for the named release), or
 | ID | Rule | Owner | Guard | Status |
 |---|---|---|---|---|
 | STATE-1 | A license's active maintenance record is computed from its linked records by date, never set by whichever path linked last. | `backend/app/services/maintenance_service.py` (`recompute_active_maintenance`) | — | target 1.2.0 (#64) |
-| STATE-2 | Renewal chains never fork or cycle: each predecessor has at most one successor. | `backend/app/services/lifecycle_rules.py` | `backend/tests/test_integration/test_license_renewals.py` | holds |
+| STATE-2 | Renewal chains never fork or cycle: each predecessor has at most one successor. | `backend/app/services/lifecycle_rules.py` (`assert_predecessor_has_no_successor`) | `backend/tests/test_integration/test_licenses.py` (`test_lifecycle_repair_rejects_successor_cycle`), `backend/tests/test_integration/test_csv_import.py` (`test_csv_import_rejects_predecessor_already_renewed`) | holds |
 
 ## Non-goals
 
