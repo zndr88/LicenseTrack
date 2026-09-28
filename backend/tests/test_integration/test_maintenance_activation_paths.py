@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 
 from app.models.license import License, LicenseCoverageHistory
-from app.services.maintenance_service import hand_over_due_maintenance
+from app.services.maintenance_service import hand_over_due_maintenance, sync_parent_mirror_fields
 
 
 def _payload(**overrides) -> dict:
@@ -171,3 +171,107 @@ async def test_daily_handover_recomputes_active_record_and_snapshots_history(
         ).scalars()
     )
     assert len(history) == 1
+
+
+async def test_disable_maintenance_removes_active_and_future_terms(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    today = date.today()
+    parent, _current = await _create_parent_with_current_maintenance(test_app, auth_headers, suffix="disable")
+    future_start = today + timedelta(days=181)
+    await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        softwareDescription="Planned Maintenance",
+        startDate=future_start.isoformat(),
+        endDate=(future_start + timedelta(days=364)).isoformat(),
+    )
+
+    disabled = await test_app.post(
+        f"/api/licenses/{parent['id']}/disable-maintenance",
+        headers=auth_headers,
+    )
+
+    assert disabled.status_code == 200, disabled.text
+    assert disabled.json()["activeMaintenanceId"] is None
+    assert disabled.json()["linkedMaintenanceIds"] == []
+    assert disabled.json()["hasMaintenance"] is False
+    assert await hand_over_due_maintenance(db_session, today=future_start) == 0
+    refreshed = await test_app.get(f"/api/licenses/{parent['id']}", headers=auth_headers)
+    assert refreshed.json()["activeMaintenanceId"] is None
+    assert refreshed.json()["hasMaintenance"] is False
+
+
+async def test_disable_maintenance_unlinks_future_term_when_no_record_is_active(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    today = date.today()
+    parent = await _create_license(test_app, auth_headers, softwareDescription="Future-only Parent")
+    future = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        softwareDescription="Future-only Maintenance",
+        startDate=(today + timedelta(days=30)).isoformat(),
+        endDate=(today + timedelta(days=394)).isoformat(),
+    )
+    parent_row = await db_session.get(License, parent["id"])
+    parent_row.active_maintenance_id = None
+    await sync_parent_mirror_fields(db_session, parent_row)
+    await db_session.commit()
+
+    disabled = await test_app.post(
+        f"/api/licenses/{parent['id']}/disable-maintenance",
+        headers=auth_headers,
+    )
+
+    assert disabled.status_code == 200, disabled.text
+    assert disabled.json()["activeMaintenanceId"] is None
+    assert disabled.json()["linkedMaintenanceIds"] == []
+    future_row = await db_session.get(License, future["id"])
+    await db_session.refresh(future_row)
+    assert future_row.is_retired is True
+
+
+async def test_disable_maintenance_history_uses_the_line_total(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    today = date.today()
+    parent = await _create_license(test_app, auth_headers, softwareDescription="Cost Parent")
+    maintenance = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        softwareDescription="Cost Maintenance",
+        quantity="2",
+        unitPrice="50",
+        startDate=(today - timedelta(days=30)).isoformat(),
+        endDate=(today + timedelta(days=180)).isoformat(),
+    )
+    maintenance_row = await db_session.get(License, maintenance["id"])
+    maintenance_row.maintenance_cost = "999"
+    await db_session.commit()
+
+    disabled = await test_app.post(
+        f"/api/licenses/{parent['id']}/disable-maintenance",
+        headers=auth_headers,
+    )
+
+    assert disabled.status_code == 200, disabled.text
+    history = await db_session.scalar(
+        select(LicenseCoverageHistory).where(
+            LicenseCoverageHistory.parent_license_id == parent["id"],
+            LicenseCoverageHistory.maintenance_license_id == maintenance["id"],
+        )
+    )
+    assert history.cost == "100"

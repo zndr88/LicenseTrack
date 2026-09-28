@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import CurrentUser, require_editor_or_admin
-from app.models.license import License, LicenseCoverageHistory
+from app.models.license import License, LicenseCoverageHistory, LicenseMaintenanceLink
 from app.services.maintenance_rules import MAINTENANCE_PARENT_TYPES
 from app.models.user import User
 from app.schemas.license import (
@@ -147,7 +147,12 @@ async def disable_maintenance(
             detail=("Maintenance/support tracking can only be disabled on perpetual, OEM, or freeware Licenses."),
         )
 
-    if not license_obj.has_maintenance:
+    has_links = await db.scalar(
+        select(LicenseMaintenanceLink.maintenance_license_id)
+        .where(LicenseMaintenanceLink.parent_license_id == license_obj.id)
+        .limit(1)
+    )
+    if not license_obj.has_maintenance and has_links is None:
         return await load_enriched_license_response(db, license_id, populate_existing=True)
 
     await disable_maintenance_for_parent(db, license_obj)

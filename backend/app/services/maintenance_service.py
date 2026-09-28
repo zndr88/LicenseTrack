@@ -519,45 +519,22 @@ async def disable_maintenance_for_parent(
     db: AsyncSession,
     parent: License,
 ) -> None:
+    """Stop tracking maintenance for a parent: unlink every current and planned record.
+
+    The active period goes to coverage history. Records left without any parent
+    are retired. Ended records stay in history but are unlinked too, so the
+    daily recompute can't reactivate them.
     """
-    Disable maintenance tracking on a parent License. The active maintenance
-    link for this parent is removed. If no other parents are linked to that
-    maintenance record, the maintenance License is retired to preserve the
-    legacy single-parent behavior.
-
-    If there is no active maintenance, this is a no-op (returns
-    without raising).
-
-    Caller commits.
-    """
-    if parent.active_maintenance_id is None:
-        return
-
-    result = await db.execute(select(License).where(License.id == parent.active_maintenance_id))
-    active_child = result.scalar_one_or_none()
-    if active_child is not None:
-        await _snapshot_coverage_period(
-            db,
-            parent,
-            maintenance_license=active_child,
-            coverage_type=MaintenanceCoverage.separately_tracked.value,
-            source_type="maintenance_record_ended",
-            start_date=active_child.start_date,
-            end_date=active_child.end_date,
-            pricing_basis=None,
-            quantity=active_child.quantity,
-            unit_price=active_child.unit_price,
-            cost=active_child.maintenance_cost or (
-                format(calc_line_total(active_child.quantity, active_child.unit_price), "f")
-                if calc_line_total(active_child.quantity, active_child.unit_price) is not None
-                else None
-            ),
-            currency=active_child.currency,
-        )
-        remaining_parent_ids = await detach_maintenance_from_parent(db, active_child, parent)
-        if not remaining_parent_ids:
-            active_child.is_retired = True
-            active_child.is_legacy_unlinked_maintenance = False
-
+    await _snapshot_before_switch(db, parent)
+    link_result = await db.execute(
+        select(License)
+        .join(LicenseMaintenanceLink, LicenseMaintenanceLink.maintenance_license_id == License.id)
+        .where(LicenseMaintenanceLink.parent_license_id == parent.id)
+    )
+    for record in list(link_result.scalars().unique().all()):
+        remaining = await detach_maintenance_from_parent(db, record, parent)
+        if not remaining:
+            record.is_retired = True
+            record.is_legacy_unlinked_maintenance = False
     parent.active_maintenance_id = None
     await sync_parent_mirror_fields(db, parent)
