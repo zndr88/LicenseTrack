@@ -20,6 +20,7 @@ from app.services.email_validation import is_email_domain_allowed, sanitize_emai
 from app.services.license_response_service import get_procurement_documents_by_scope
 from app.services.notification_classification import classify_license_alerts
 from app.services.settings_service import invalidate_global_settings_cache
+from app.services.support_renewal_service import open_support_renewal_license_ids
 
 log = logging.getLogger(__name__)
 
@@ -316,6 +317,7 @@ async def _classify_notifications(
     )
     all_licenses = list(lic_result.scalars().all())
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, all_licenses)
+    open_support_renewal_ids = await open_support_renewal_license_ids(db, [lic.id for lic in all_licenses])
 
     parent_ids = {lic.parent_license_id for lic in all_licenses if lic.parent_license_id is not None}
     parent_map: dict[int, License] = {}
@@ -341,6 +343,7 @@ async def _classify_notifications(
             notice_window_days,
             today=today,
             expiry_notifications_enabled=getattr(license_obj, "renewal_notifications_enabled", True),
+            support_renewal_in_progress=license_obj.id in open_support_renewal_ids,
         )
         for alert in alerts:
             entry = _build_license_entry(

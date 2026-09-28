@@ -77,6 +77,7 @@ def classify_license_alerts(
     *,
     today: date | None = None,
     expiry_notifications_enabled: bool = True,
+    support_renewal_in_progress: bool = False,
 ) -> list[dict[str, Any]]:
     """Return all eligible alerts for one visible, non-retired license.
 
@@ -142,7 +143,8 @@ def classify_license_alerts(
                 _alert(
                     license_obj,
                     "support_expired",
-                    f"Support expired {abs(support_days)} {_day_word(abs(support_days))} ago on {support_end.isoformat()}",
+                    f"Support expired {abs(support_days)} {_day_word(abs(support_days))} ago on {support_end.isoformat()}"
+                    + ("; renewal is in progress" if support_renewal_in_progress else ""),
                     "critical",
                     support_end,
                     support_days,
@@ -153,7 +155,8 @@ def classify_license_alerts(
                 _alert(
                     license_obj,
                     "support_expiring",
-                    f"Support ends in {support_days} {_day_word(support_days)} on {support_end.isoformat()}",
+                    f"Support ends in {support_days} {_day_word(support_days)} on {support_end.isoformat()}"
+                    + ("; renewal is in progress" if support_renewal_in_progress else ""),
                     _expiry_severity(support_days),
                     support_end,
                     support_days,

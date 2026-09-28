@@ -535,6 +535,12 @@ async def apply_license_update(
             update_data.get("start_date", license_obj.start_date),
             update_data.get("end_date", license_obj.end_date),
         )
+    if update_data.get("is_retired") and not license_obj.is_retired:
+        from app.services.support_renewal_service import open_support_renewal_license_ids, renewal_in_progress
+
+        open_ids = await open_support_renewal_license_ids(db, [license_obj.id])
+        if renewal_in_progress(license_obj, open_ids):
+            raise HTTPException(status_code=409, detail="Cancel the renewal first, then retire this license")
     normalize_retirement_update(license_obj, update_data)
     validate_general_license_update_fields(update_data, license_obj)
     if "po_number" in update_data or "currency" in update_data:

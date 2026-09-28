@@ -35,6 +35,27 @@ def open_support_renewal_filter(parent_license_id):
     )
 
 
+async def open_support_renewal_license_ids(
+    db: AsyncSession,
+    license_ids: list[int] | None = None,
+) -> set[int]:
+    """Licenses that have an open maintenance-renewal line."""
+    query = select(SourcingItem.maintenance_parent_license_id).where(
+        SourcingItem.maintenance_parent_license_id.is_not(None),
+        SourcingItem.status != SourcingStatus.cancelled,
+        ~exists().where(License.source_sourcing_item_id == SourcingItem.id),
+    )
+    if license_ids is not None:
+        query = query.where(SourcingItem.maintenance_parent_license_id.in_(license_ids))
+    return set((await db.execute(query)).scalars().all())
+
+
+def renewal_in_progress(license_obj: License, open_support_renewal_ids: set[int]) -> bool:
+    """Return the shared workflow state for license and maintenance renewals."""
+    status = getattr(license_obj.lifecycle_status, "value", license_obj.lifecycle_status)
+    return status == "pending_renewal" or license_obj.id in open_support_renewal_ids
+
+
 def _next_support_term(previous_end: date) -> tuple[date, date]:
     start = previous_end + timedelta(days=1)
     try:
@@ -72,8 +93,11 @@ async def start_support_renewal(
         raise HTTPException(status_code=400, detail="Support renewal applies to perpetual, OEM and freeware licenses")
     if parent.maintenance_coverage != MaintenanceCoverage.included or parent.maintenance_end_date is None:
         raise HTTPException(status_code=400, detail="This license has no included support period with an end date")
-    if parent.is_retired or parent.lifecycle_status == "legacy":
-        raise HTTPException(status_code=409, detail="Retired or legacy licenses cannot start a support renewal")
+    if parent.is_retired or parent.retirement_scheduled or parent.lifecycle_status == "legacy":
+        raise HTTPException(
+            status_code=409,
+            detail="Retired, retirement-scheduled or legacy licenses cannot start a maintenance renewal",
+        )
     existing = await db.scalar(select(SourcingItem.id).where(*open_support_renewal_filter(parent.id)).limit(1))
     if existing is not None:
         raise HTTPException(status_code=409, detail="A support renewal is already in progress for this license")

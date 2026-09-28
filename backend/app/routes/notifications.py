@@ -20,6 +20,7 @@ from app.services.document_availability_service import available_documents
 from app.services.license_response_service import get_procurement_documents_by_scope
 from app.services.notification_classification import classify_license_alerts, sort_alerts
 from app.services.settings_service import get_global_settings
+from app.services.support_renewal_service import open_support_renewal_license_ids
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
@@ -47,6 +48,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
     result = await db.execute(apply_department_filter(query, departments))
     licenses = list(result.scalars().all())
     procurement_documents_by_license_id = await get_procurement_documents_by_scope(db, licenses)
+    open_support_renewal_ids = await open_support_renewal_license_ids(db, [lic.id for lic in licenses])
 
     alerts: list[dict] = []
     today = date.today()
@@ -66,6 +68,7 @@ async def get_notifications(db: DbSession, current_user: CurrentUser) -> list[No
                 expiry_window_days,
                 notice_window_days,
                 today=today,
+                support_renewal_in_progress=license_obj.id in open_support_renewal_ids,
             )
         )
 
