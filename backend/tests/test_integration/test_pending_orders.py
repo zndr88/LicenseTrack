@@ -3842,7 +3842,7 @@ async def test_coterm_renewal_of_maintenance_updates_parent_active_maintenance(
     assert parent_after["lifecycleStatus"] == parent_before["lifecycleStatus"]
 
 
-async def test_coterm_legacy_unlinked_primary_stays_parentless(
+async def test_coterm_legacy_unlinked_primary_inherits_secondary_parent(
     db_session,
     test_app,
     auth_headers,
@@ -3902,8 +3902,10 @@ async def test_coterm_legacy_unlinked_primary_stays_parentless(
     assert response.status_code == 200, response.text
     successor = _new_successor(response.json(), primary.id)
     assert successor["licenseType"] == "maintenance"
-    assert successor["parentLicenseId"] is None
-    assert successor["isLegacyUnlinkedMaintenance"] is True
+    # The new term also covers the secondary predecessor's license, so it
+    # becomes ordinary linked maintenance instead of staying unlinked.
+    assert successor["parentLicenseId"] == parent["id"]
+    assert successor["isLegacyUnlinkedMaintenance"] is False
     assert successor["licenseRef"] == primary.license_ref
     assert successor["renewedFromId"] == primary.id
     assert successor["cotermFromIds"] == [primary.id, secondary["id"]]
@@ -3913,9 +3915,11 @@ async def test_coterm_legacy_unlinked_primary_stays_parentless(
             LicenseMaintenanceLink.maintenance_license_id == successor["id"]
         )
     )
-    assert successor_links.scalars().all() == []
+    assert [link.parent_license_id for link in successor_links.scalars().all()] == [parent["id"]]
     parent_after = await _get_license(test_app, auth_headers, parent["id"])
+    # The secondary term starts first, so it stays active until it ends.
     assert parent_after["activeMaintenanceId"] == secondary["id"]
+    assert successor["id"] in parent_after["linkedMaintenanceIds"]
 
 
 async def test_batch_convert_maintenance_renewal_with_retired_parent_raises(

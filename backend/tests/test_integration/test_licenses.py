@@ -1557,7 +1557,7 @@ async def test_general_update_rejects_non_legacy_lifecycle_status(test_app, auth
     )
 
     assert resp.status_code == 400
-    assert "legacy lifecycle flag" in resp.json()["detail"]
+    assert "Only the legacy flag can be toggled" in resp.json()["detail"]
 
 
 async def test_admin_lifecycle_repair_endpoint_updates_and_audits(test_app, auth_headers):
