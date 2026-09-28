@@ -25,6 +25,8 @@ Work in progress for 1.2.0.
 
 ### Changed
 
+- Added a maintainer invariants document listing the rules LicenseTrack
+  guarantees on every entry point, and a pull request template.
 - Updated the frontend test tooling (Vitest 5, jsdom 30.1) and removed automatic
   test retries.
 
