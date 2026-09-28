@@ -45,6 +45,24 @@ def default_maintenance_coverage(license_type: LicenseType) -> MaintenanceCovera
     return MaintenanceCoverage.unknown
 
 
+def coverage_after_type_change(
+    old_type: LicenseType,
+    new_type: LicenseType,
+    current_coverage: MaintenanceCoverage | None,
+    *,
+    active_maintenance_id: int | None,
+) -> MaintenanceCoverage:
+    """Coverage after a license-type change: keep it whenever it stays valid."""
+    if active_maintenance_id is not None:
+        return MaintenanceCoverage.separately_tracked
+    if current_coverage is not None and (
+        old_type == new_type
+        or (old_type in MAINTENANCE_PARENT_TYPES and new_type in MAINTENANCE_PARENT_TYPES)
+    ):
+        return MaintenanceCoverage(current_coverage)
+    return default_maintenance_coverage(new_type)
+
+
 # ---------------------------------------------------------------------------
 # Rule 1 - parent type must be eligible
 # ---------------------------------------------------------------------------
