@@ -827,6 +827,37 @@ describe('DetailPanel history', () => {
 })
 
 describe('DetailPanel email supplier scope', () => {
+  it('groups only lines from the same purchase and supplier', async () => {
+    const user = userEvent.setup()
+    const first = { ...baseLicense, pendingOrderId: 10, supplier: 'X' }
+    const samePurchase = {
+      ...baseLicense,
+      id: 2,
+      pendingOrderId: 10,
+      supplier: 'X',
+      softwareDescription: 'Widget Add-on',
+    }
+    const otherPurchase = {
+      ...baseLicense,
+      id: 3,
+      pendingOrderId: 20,
+      supplier: 'Y',
+      softwareDescription: 'Widget Service',
+    }
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        license={first}
+        allLicenses={[first, samePurchase, otherPurchase]}
+      />
+    )
+
+    await user.click(screen.getByRole('link', { name: /email supplier/i }))
+
+    expect(screen.getByText(/This PO has 2 license lines for Acme Corp/i)).toBeInTheDocument()
+  })
+
   it('prompts for same-PO same-publisher license lines using case-insensitive matching', async () => {
     const user = userEvent.setup()
     const siblingLicense = {
