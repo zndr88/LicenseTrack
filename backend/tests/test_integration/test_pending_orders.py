@@ -3247,7 +3247,18 @@ async def test_batch_subscription_renewal_persists_confirmed_conversion_values(
 
 
 async def test_convert_po_with_maintenance_renewal_succeeds(db_session, test_app, auth_headers):
+    from app.services.maintenance_service import hand_over_due_maintenance, sync_parent_mirror_fields
+
     parent, maintenance = await _create_parent_with_maintenance(test_app, auth_headers)
+    predecessor_end = date.today() + timedelta(days=5)
+    successor_start = predecessor_end + timedelta(days=1)
+    successor_end = successor_start + timedelta(days=364)
+    maintenance_row = await db_session.get(License, maintenance["id"])
+    parent_row = await db_session.get(License, parent["id"])
+    maintenance_row.start_date = date.today() - timedelta(days=359)
+    maintenance_row.end_date = predecessor_end
+    await sync_parent_mirror_fields(db_session, parent_row)
+    await db_session.commit()
     parent_before = await _get_license(test_app, auth_headers, parent["id"])
     sourcing_item = await _initiate_renewal(test_app, auth_headers, maintenance["id"])
     update_resp = await test_app.put(
@@ -3273,8 +3284,8 @@ async def test_convert_po_with_maintenance_renewal_succeeds(db_session, test_app
                     unitPrice="1800.50",
                     totalPoPrice="3601.00",
                     currency="USD",
-                    startDate="2027-05-06",
-                    endDate="2028-05-05",
+                    startDate=successor_start.isoformat(),
+                    endDate=successor_end.isoformat(),
                     supplier="Renewal Supplier",
                     contactEmail="confirmed-maintenance@example.test",
                     notes="Confirmed maintenance notes",
@@ -3300,8 +3311,8 @@ async def test_convert_po_with_maintenance_renewal_succeeds(db_session, test_app
             "unitPrice": "1800.50",
             "totalPoPrice": "3601.00",
             "currency": "USD",
-            "startDate": "2027-05-06",
-            "endDate": "2028-05-05",
+            "startDate": successor_start.isoformat(),
+            "endDate": successor_end.isoformat(),
             "supplier": "Renewal Supplier",
             "contactEmail": "confirmed-maintenance@example.test",
             "notes": "Confirmed maintenance notes",
@@ -3315,8 +3326,8 @@ async def test_convert_po_with_maintenance_renewal_succeeds(db_session, test_app
             "unitPrice": "1800.50",
             "totalPoPrice": "3601.00",
             "currency": "USD",
-            "startDate": "2027-05-06",
-            "endDate": "2028-05-05",
+            "startDate": successor_start.isoformat(),
+            "endDate": successor_end.isoformat(),
             "supplier": "Renewal Supplier",
             "contactEmail": "confirmed-maintenance@example.test",
             "notes": "Confirmed maintenance notes",
@@ -3328,7 +3339,7 @@ async def test_convert_po_with_maintenance_renewal_succeeds(db_session, test_app
     assert old_maintenance["renewedToId"] == new_license["id"]
 
     parent_after = await _get_license(test_app, auth_headers, parent["id"])
-    assert parent_after["activeMaintenanceId"] == new_license["id"]
+    assert parent_after["activeMaintenanceId"] == maintenance["id"]
     assert new_license["id"] in parent_after["linkedMaintenanceIds"]
     successor_link = await db_session.execute(
         select(LicenseMaintenanceLink).where(
@@ -3337,10 +3348,20 @@ async def test_convert_po_with_maintenance_renewal_succeeds(db_session, test_app
         )
     )
     assert successor_link.scalar_one_or_none() is not None
-    assert parent_after["maintenanceEndDate"] == new_license["endDate"]
-    assert parent_after["maintenanceCost"] == "3601.00"
+    assert parent_after["maintenanceEndDate"] == predecessor_end.isoformat()
+    assert parent_after["maintenanceCost"] == "2500"
     assert new_license["totalPoPrice"] == "3601.00"
     assert parent_after["lifecycleStatus"] == parent_before["lifecycleStatus"]
+
+    assert await hand_over_due_maintenance(db_session, today=predecessor_end) == 0
+    at_end = await _get_license(test_app, auth_headers, parent["id"])
+    assert at_end["activeMaintenanceId"] == maintenance["id"]
+
+    assert await hand_over_due_maintenance(db_session, today=successor_start) == 1
+    after_handover = await _get_license(test_app, auth_headers, parent["id"])
+    assert after_handover["activeMaintenanceId"] == new_license["id"]
+    assert after_handover["maintenanceEndDate"] == successor_end.isoformat()
+    assert after_handover["maintenanceCost"] == "3601.00"
 
 
 async def test_batch_convert_with_maintenance_renewal_succeeds(db_session, test_app, auth_headers):
@@ -3821,7 +3842,7 @@ async def test_coterm_renewal_of_maintenance_updates_parent_active_maintenance(
     assert parent_after["lifecycleStatus"] == parent_before["lifecycleStatus"]
 
 
-async def test_coterm_legacy_unlinked_primary_stays_parentless(
+async def test_coterm_legacy_unlinked_primary_inherits_secondary_parent(
     db_session,
     test_app,
     auth_headers,
@@ -3881,8 +3902,10 @@ async def test_coterm_legacy_unlinked_primary_stays_parentless(
     assert response.status_code == 200, response.text
     successor = _new_successor(response.json(), primary.id)
     assert successor["licenseType"] == "maintenance"
-    assert successor["parentLicenseId"] is None
-    assert successor["isLegacyUnlinkedMaintenance"] is True
+    # The new term also covers the secondary predecessor's license, so it
+    # becomes ordinary linked maintenance instead of staying unlinked.
+    assert successor["parentLicenseId"] == parent["id"]
+    assert successor["isLegacyUnlinkedMaintenance"] is False
     assert successor["licenseRef"] == primary.license_ref
     assert successor["renewedFromId"] == primary.id
     assert successor["cotermFromIds"] == [primary.id, secondary["id"]]
@@ -3892,9 +3915,11 @@ async def test_coterm_legacy_unlinked_primary_stays_parentless(
             LicenseMaintenanceLink.maintenance_license_id == successor["id"]
         )
     )
-    assert successor_links.scalars().all() == []
+    assert [link.parent_license_id for link in successor_links.scalars().all()] == [parent["id"]]
     parent_after = await _get_license(test_app, auth_headers, parent["id"])
+    # The secondary term starts first, so it stays active until it ends.
     assert parent_after["activeMaintenanceId"] == secondary["id"]
+    assert successor["id"] in parent_after["linkedMaintenanceIds"]
 
 
 async def test_batch_convert_maintenance_renewal_with_retired_parent_raises(

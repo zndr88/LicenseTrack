@@ -177,6 +177,7 @@ async def _load_support_candidates(
         .where(License.maintenance_end_date.isnot(None))
         .where(License.maintenance_end_date <= cutoff)
         .where(License.is_retired.is_(False))
+        .where(License.retirement_scheduled.is_(False))
         .where(or_(License.lifecycle_status.is_(None), License.lifecycle_status != "legacy"))
         .options(selectinload(License.documents))
         .order_by(License.maintenance_end_date, License.publisher_name, License.id)

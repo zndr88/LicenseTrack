@@ -20,6 +20,7 @@ from app.models.audit_log import AuditLog
 from app.models.document import Document, DocumentCategory, ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import (
     License,
+    LicenseCoverageHistory,
     LicenseMaintenanceLink,
     LicenseMetric,
     LicenseType,
@@ -57,6 +58,16 @@ async def _create_license(client, headers, **overrides) -> dict:
     resp = await client.post("/api/licenses", json=_minimal_payload(**overrides), headers=headers)
     assert resp.status_code == 201, f"_create_license failed: {resp.text}"
     return resp.json()
+
+
+async def _original_included_support_history(db_session, license_id: int) -> list[LicenseCoverageHistory]:
+    result = await db_session.execute(
+        select(LicenseCoverageHistory).where(
+            LicenseCoverageHistory.parent_license_id == license_id,
+            LicenseCoverageHistory.source_type == "original_included_support",
+        )
+    )
+    return list(result.scalars().all())
 
 
 async def _create_three_generation_chain(client, headers, db_session) -> tuple[dict, dict, dict]:
@@ -194,14 +205,17 @@ async def test_unlink_existing_maintenance_successor_restores_a_recorded_snapsho
         startDate=(today - timedelta(days=365)).isoformat(),
         endDate=(today + timedelta(days=5)).isoformat(),
     )
+    successor_parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
     successor = await _create_license(
         test_app,
         auth_headers,
         licenseType="maintenance",
-        parentLicenseId=parent["id"],
-        startDate=today.isoformat(),
+        parentLicenseId=successor_parent["id"],
+        startDate=(today + timedelta(days=6)).isoformat(),
         endDate=(today + timedelta(days=370)).isoformat(),
     )
+    parent_before = await test_app.get(f"/api/licenses/{parent['id']}", headers=auth_headers)
+    assert parent_before.json()["activeMaintenanceId"] == predecessor["id"]
 
     linked = await test_app.post(
         f"/api/licenses/{predecessor['id']}/link-existing-successor",
@@ -211,6 +225,8 @@ async def test_unlink_existing_maintenance_successor_restores_a_recorded_snapsho
     assert linked.status_code == 200, linked.text
     predecessor_row = await db_session.get(License, predecessor["id"])
     assert predecessor_row.existing_successor_maintenance_state is not None
+    parent_linked = await test_app.get(f"/api/licenses/{parent['id']}", headers=auth_headers)
+    assert parent_linked.json()["activeMaintenanceId"] == predecessor["id"]
 
     unlinked = await test_app.post(
         f"/api/licenses/{predecessor['id']}/unlink-existing-successor",
@@ -221,6 +237,65 @@ async def test_unlink_existing_maintenance_successor_restores_a_recorded_snapsho
     assert predecessor_row.existing_successor_maintenance_state is None
     assert unlinked.json()["predecessor"]["renewedToId"] is None
     assert unlinked.json()["successor"]["renewedFromId"] is None
+    parent_after = await test_app.get(f"/api/licenses/{parent['id']}", headers=auth_headers)
+    assert parent_after.json()["activeMaintenanceId"] == predecessor["id"]
+    assert successor["id"] not in parent_after.json()["linkedMaintenanceIds"]
+
+
+async def test_unlink_existing_maintenance_successor_rejects_changed_coverage(
+    test_app, auth_headers, db_session
+):
+    today = date.today()
+    parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        startDate=(today - timedelta(days=365)).isoformat(),
+        endDate=(today + timedelta(days=5)).isoformat(),
+    )
+    successor = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        startDate=(today + timedelta(days=6)).isoformat(),
+        endDate=(today + timedelta(days=370)).isoformat(),
+    )
+    other_parent = await _create_license(test_app, auth_headers, licenseType="perpetual")
+    unexpected = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="maintenance",
+        parentLicenseId=other_parent["id"],
+        startDate=today.isoformat(),
+        endDate=(today + timedelta(days=365)).isoformat(),
+    )
+
+    linked = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/link-existing-successor",
+        json={"successorLicenseId": successor["id"]},
+        headers=auth_headers,
+    )
+    assert linked.status_code == 200, linked.text
+    linked_unexpected = await test_app.post(
+        f"/api/licenses/{parent['id']}/link-maintenance",
+        json={"maintenanceLicenseId": unexpected["id"]},
+        headers=auth_headers,
+    )
+    assert linked_unexpected.status_code == 200, linked_unexpected.text
+    parent_row = await db_session.get(License, parent["id"])
+    parent_row.active_maintenance_id = unexpected["id"]
+    await db_session.commit()
+
+    unlinked = await test_app.post(
+        f"/api/licenses/{predecessor['id']}/unlink-existing-successor",
+        headers=auth_headers,
+    )
+
+    assert unlinked.status_code == 409
+    assert "Maintenance coverage changed after linking" in unlinked.json()["detail"]
 
 
 async def test_unlink_historical_maintenance_successor_without_snapshot_is_blocked(
@@ -499,6 +574,123 @@ async def test_create_license_accepts_included_maintenance_details(test_app, aut
     # Bundled maintenance mirrors the license term.
     assert data["maintenanceStartDate"] == "2025-01-01"
     assert data["maintenanceEndDate"] == "2025-12-31"
+
+
+async def test_inline_type_change_snapshots_old_included_support_before_defaults(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    license_obj = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        maintenanceCoverage="included",
+        maintenanceStartDate="2024-01-01",
+        maintenanceEndDate="2024-12-31",
+        maintenanceCost="125",
+    )
+
+    response = await test_app.patch(
+        f"/api/licenses/{license_obj['id']}/field",
+        json={"field": "licenseType", "value": "subscription"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["maintenanceCoverage"] == "included"
+    history = await _original_included_support_history(db_session, license_obj["id"])
+    assert len(history) == 1
+    assert history[0].start_date == date(2024, 1, 1)
+    assert history[0].end_date == date(2024, 12, 31)
+    assert history[0].cost == "125"
+
+
+async def test_full_type_change_snapshots_old_included_support_before_defaults(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    license_obj = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        maintenanceCoverage="included",
+        maintenanceStartDate="2023-01-01",
+        maintenanceEndDate="2023-12-31",
+        maintenanceCost="250",
+    )
+
+    response = await test_app.put(
+        f"/api/licenses/{license_obj['id']}",
+        json={"licenseType": "subscription"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["maintenanceCoverage"] == "included"
+    history = await _original_included_support_history(db_session, license_obj["id"])
+    assert len(history) == 1
+    assert history[0].start_date == date(2023, 1, 1)
+    assert history[0].end_date == date(2023, 12, 31)
+    assert history[0].cost == "250"
+
+
+async def test_parent_to_parent_type_change_keeps_included_support_without_history(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    license_obj = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        maintenanceCoverage="included",
+        maintenanceStartDate="2025-01-01",
+        maintenanceEndDate="2025-12-31",
+        maintenanceCost="375",
+    )
+
+    response = await test_app.patch(
+        f"/api/licenses/{license_obj['id']}/field",
+        json={"field": "licenseType", "value": "oem"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["maintenanceCoverage"] == "included"
+    assert response.json()["maintenanceStartDate"] == "2025-01-01"
+    assert response.json()["maintenanceEndDate"] == "2025-12-31"
+    assert response.json()["maintenanceCost"] == "375"
+    assert await _original_included_support_history(db_session, license_obj["id"]) == []
+
+
+async def test_full_update_with_unchanged_parent_type_keeps_included_support(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    license_obj = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="perpetual",
+        maintenanceCoverage="included",
+        maintenanceStartDate="2026-01-01",
+        maintenanceEndDate="2026-12-31",
+        maintenanceCost="500",
+    )
+
+    response = await test_app.put(
+        f"/api/licenses/{license_obj['id']}",
+        json={"licenseType": "perpetual"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["maintenanceCoverage"] == "included"
+    assert response.json()["maintenanceStartDate"] == "2026-01-01"
+    assert response.json()["maintenanceEndDate"] == "2026-12-31"
+    assert await _original_included_support_history(db_session, license_obj["id"]) == []
 
 
 async def test_po_total_override_is_shared_and_clearable(test_app, auth_headers):
@@ -1365,7 +1557,7 @@ async def test_general_update_rejects_non_legacy_lifecycle_status(test_app, auth
     )
 
     assert resp.status_code == 400
-    assert "legacy lifecycle flag" in resp.json()["detail"]
+    assert "Only the legacy flag can be toggled" in resp.json()["detail"]
 
 
 async def test_admin_lifecycle_repair_endpoint_updates_and_audits(test_app, auth_headers):

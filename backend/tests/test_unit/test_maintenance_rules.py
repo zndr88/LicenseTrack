@@ -19,6 +19,7 @@ from app.services.maintenance_rules import (
     assert_non_maintenance_has_no_parent,
     assert_parent_not_retired,
     assert_parent_type_eligible,
+    coverage_after_type_change,
     default_maintenance_coverage,
 )
 
@@ -187,6 +188,48 @@ def test_default_maintenance_coverage_is_unknown_for_optional_parent_types(licen
 @pytest.mark.parametrize("license_type", [LicenseType.maintenance, LicenseType.service, LicenseType.other])
 def test_default_maintenance_coverage_is_not_applicable_for_non_parent_types(license_type):
     assert default_maintenance_coverage(license_type) == MaintenanceCoverage.not_applicable
+
+
+def test_parent_to_parent_keeps_included():
+    assert coverage_after_type_change(
+        LicenseType.perpetual,
+        LicenseType.oem,
+        MaintenanceCoverage.included,
+        active_maintenance_id=None,
+    ) == MaintenanceCoverage.included
+
+
+def test_no_type_change_keeps_coverage():
+    assert coverage_after_type_change(
+        LicenseType.perpetual,
+        LicenseType.perpetual,
+        MaintenanceCoverage.included,
+        active_maintenance_id=None,
+    ) == MaintenanceCoverage.included
+
+
+def test_active_record_keeps_separately_tracked():
+    assert coverage_after_type_change(
+        LicenseType.perpetual,
+        LicenseType.oem,
+        MaintenanceCoverage.separately_tracked,
+        active_maintenance_id=7,
+    ) == MaintenanceCoverage.separately_tracked
+
+
+def test_leaving_parent_types_uses_the_new_default():
+    assert coverage_after_type_change(
+        LicenseType.perpetual,
+        LicenseType.subscription,
+        MaintenanceCoverage.included,
+        active_maintenance_id=None,
+    ) == MaintenanceCoverage.included
+    assert coverage_after_type_change(
+        LicenseType.perpetual,
+        LicenseType.service,
+        MaintenanceCoverage.included,
+        active_maintenance_id=None,
+    ) == MaintenanceCoverage.not_applicable
 
 
 def test_active_maintenance_requires_separately_tracked_coverage():

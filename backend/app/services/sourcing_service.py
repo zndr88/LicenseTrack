@@ -513,6 +513,7 @@ def _validate_coterm_merge_compatibility(
         *(_normalized_identity(item.software_description) for item in items),
     }
     metrics = {_enum_value(license_obj.license_metric) for license_obj in predecessors}
+    types = {_enum_value(license_obj.license_type) for license_obj in predecessors}
     present_skus = {
         _normalized_identity(license_obj.sku_code)
         for license_obj in predecessors
@@ -525,6 +526,8 @@ def _validate_coterm_merge_compatibility(
         raise HTTPException(status_code=400, detail="Coterm merge requires the same software description.")
     if len(metrics) > 1:
         raise HTTPException(status_code=400, detail="Coterm merge requires the same license metric.")
+    if len(types) > 1:
+        raise HTTPException(status_code=400, detail="Coterm merge requires the same license type.")
     if len(present_skus) > 1:
         raise HTTPException(status_code=400, detail="Coterm merge requires matching SKU codes when SKUs are present.")
 

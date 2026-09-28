@@ -31,10 +31,12 @@ from app.services.lifecycle_rules import (
     validate_lifecycle_repair_update,
 )
 from app.services.maintenance_rules import (
+    MAINTENANCE_PARENT_TYPES,
     assert_active_maintenance_allows_retirement,
     assert_active_maintenance_allows_coverage_change,
     assert_active_maintenance_allows_type_change,
     assert_coverage_allowed_for_type,
+    coverage_after_type_change,
     default_maintenance_coverage,
     assert_maintenance_requires_parent,
     assert_non_maintenance_has_no_parent,
@@ -45,6 +47,7 @@ from app.services.maintenance_service import (
     detach_maintenance_from_parent,
     record_included_support_exit,
     retire_maintenance_license,
+    snapshot_included_support,
     sync_parent_mirror_fields,
     validate_parent_license,
 )
@@ -328,6 +331,24 @@ def sync_support_defaults_on_license(license_obj: License) -> None:
         setattr(license_obj, field, data.get(field))
 
 
+async def _snapshot_included_support_before_type_change(
+    db: AsyncSession,
+    license_obj: License,
+    new_type: LicenseType | str,
+) -> None:
+    """Preserve a parent type's included period before non-parent defaults replace it."""
+    try:
+        resolved_new_type = LicenseType(new_type)
+    except ValueError:
+        return
+    if (
+        license_obj.license_type in MAINTENANCE_PARENT_TYPES
+        and resolved_new_type not in MAINTENANCE_PARENT_TYPES
+        and license_obj.maintenance_coverage == MaintenanceCoverage.included
+    ):
+        await snapshot_included_support(db, license_obj)
+
+
 def _clear_notice_handled_if_date_changed(license_obj: License, update_data: dict) -> None:
     """Treat a changed notice date as a new reminder obligation."""
     if "notice_date" not in update_data:
@@ -480,12 +501,13 @@ async def apply_license_update(
     requested_parent_id = update_data.pop("parent_license_id", None)
     _sync_invoice_numbers(update_data)
     await resolve_license_reference_updates(db, update_data)
-    if (
-        "license_type" in update_data
-        and "maintenance_coverage" not in update_data
-        and license_obj.active_maintenance_id is None
-    ):
-        update_data["maintenance_coverage"] = default_maintenance_coverage(update_data["license_type"])
+    if "license_type" in update_data and "maintenance_coverage" not in update_data:
+        update_data["maintenance_coverage"] = coverage_after_type_change(
+            license_obj.license_type,
+            LicenseType(update_data["license_type"]),
+            license_obj.maintenance_coverage,
+            active_maintenance_id=license_obj.active_maintenance_id,
+        )
     type_normalization_data = {
         "license_type": update_data.get("license_type", license_obj.license_type),
         "unit_price": update_data.get("unit_price", license_obj.unit_price),
@@ -513,6 +535,12 @@ async def apply_license_update(
             update_data.get("start_date", license_obj.start_date),
             update_data.get("end_date", license_obj.end_date),
         )
+    if update_data.get("is_retired") and not license_obj.is_retired:
+        from app.services.support_renewal_service import open_support_renewal_license_ids, renewal_in_progress
+
+        open_ids = await open_support_renewal_license_ids(db, [license_obj.id])
+        if renewal_in_progress(license_obj, open_ids):
+            raise HTTPException(status_code=409, detail="Cancel the renewal first, then retire this license")
     normalize_retirement_update(license_obj, update_data)
     validate_general_license_update_fields(update_data, license_obj)
     if "po_number" in update_data or "currency" in update_data:
@@ -548,6 +576,8 @@ async def apply_license_update(
     if (new_type != LicenseType.maintenance or new_parent_id is not None) and not linking_legacy_parent:
         update_data["is_legacy_unlinked_maintenance"] = False
 
+    if "license_type" in update_data:
+        await _snapshot_included_support_before_type_change(db, license_obj, new_type)
     before = {column.name: getattr(license_obj, column.name) for column in license_obj.__table__.columns}
     _clear_notice_handled_if_date_changed(license_obj, update_data)
     for field, value in update_data.items():
@@ -701,6 +731,7 @@ async def apply_license_field_patch(
     elif field in DATETIME_PATCH_FIELDS:
         setattr(license_obj, snake_field, _parse_procurement_milestone_datetime(value) if value else None)
     elif field == "licenseType":
+        await _snapshot_included_support_before_type_change(db, license_obj, value)
         apply_license_type_patch(license_obj, value)
     elif field == "maintenanceCoverage":
         try:
@@ -1069,11 +1100,16 @@ def apply_license_type_patch(license_obj: License, value: str | None) -> None:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    previous_type = license_obj.license_type
     license_obj.license_type = new_type
     if new_type != LicenseType.maintenance:
         license_obj.is_legacy_unlinked_maintenance = False
-    if license_obj.active_maintenance_id is None:
-        license_obj.maintenance_coverage = default_maintenance_coverage(new_type)
+    license_obj.maintenance_coverage = coverage_after_type_change(
+        previous_type,
+        new_type,
+        license_obj.maintenance_coverage,
+        active_maintenance_id=license_obj.active_maintenance_id,
+    )
     type_data = {
         "license_type": new_type,
         "unit_price": license_obj.unit_price,

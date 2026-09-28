@@ -69,6 +69,54 @@ async def _assert_reloaded_ancestry(client, headers, predecessor_id: int, succes
     assert successor_resp.json()["lifecycleStatus"] is None
 
 
+async def test_legacy_license_cannot_start_single_or_bundle_renewal(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    single = await _create_license(test_app, auth_headers, softwareDescription="Legacy single")
+    bundled = await _create_license(
+        test_app, auth_headers, softwareDescription="Legacy bundle one", poNumber="PO-LEGACY"
+    )
+    bundled_peer = await _create_license(
+        test_app, auth_headers, softwareDescription="Legacy bundle two", poNumber="PO-LEGACY"
+    )
+    for license_id in (single["id"], bundled["id"], bundled_peer["id"]):
+        row = await db_session.get(License, license_id)
+        row.lifecycle_status = LifecycleStatus.legacy
+    await db_session.commit()
+
+    single_response = await test_app.post(
+        f"/api/licenses/{single['id']}/initiate-renewal",
+        headers=auth_headers,
+    )
+    bundle_response = await test_app.post(
+        "/api/licenses/renewal-bundle/initiate",
+        json={"licenseIds": [bundled["id"], bundled_peer["id"]]},
+        headers=auth_headers,
+    )
+
+    assert single_response.status_code == 409, single_response.text
+    assert bundle_response.status_code == 409, bundle_response.text
+    for license_id in (single["id"], bundled["id"], bundled_peer["id"]):
+        reloaded = await test_app.get(f"/api/licenses/{license_id}", headers=auth_headers)
+        assert reloaded.json()["lifecycleStatus"] == "legacy"
+
+
+async def test_general_update_cannot_clear_renewed_status(test_app, auth_headers, db_session):
+    predecessor, _successor = await _create_established_renewal_chain(test_app, auth_headers, db_session)
+
+    response = await test_app.put(
+        f"/api/licenses/{predecessor['id']}",
+        json={"lifecycleStatus": None},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 400, response.text
+    reloaded = await test_app.get(f"/api/licenses/{predecessor['id']}", headers=auth_headers)
+    assert reloaded.json()["lifecycleStatus"] == "renewed"
+
+
 async def test_initiate_recurring_renewal_suggests_next_annual_term(test_app, auth_headers):
     predecessor = await _create_license(
         test_app,
