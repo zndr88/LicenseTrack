@@ -32,6 +32,21 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- Maintenance coverage has one owner: a license's active maintenance record is
+  always worked out from its linked records by date, on every path (linking,
+  CSV import, renewals, the daily hand-over). Linking an older or future record
+  no longer replaces coverage that is still running; an overlapping new term
+  takes over when the current one ends. Undoing a link to a renewal that hasn't
+  started yet now works. Disabling maintenance also removes planned terms.
+  Changing between perpetual, OEM and freeware keeps included maintenance, and
+  changing to another type keeps the old included period in history.
+- "Renewal in progress" means the same for licenses and maintenance: maintenance
+  alerts mention it, licenses scheduled for retirement no longer appear in the
+  maintenance renewal list, and a license with a renewal in progress can't be
+  retired until the renewal is cancelled. Legacy licenses can't start a
+  renewal, and a renewed status can't be cleared through a normal edit.
+  Co-term merges require one license type and keep every covered license
+  linked to the new maintenance term.
 - Numbers with three decimals are no longer multiplied by 1,000 under
   comma-decimal number formats (e.g. nl-BE, de-DE). This affected Registry
   inline edits, new pending-order lines, and conversion defaults. Stored
