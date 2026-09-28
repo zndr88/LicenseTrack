@@ -89,10 +89,12 @@ def validate_general_license_update_fields(update_data: dict, license_obj: Licen
                 status_code=400,
                 detail="Pending renewal lifecycle state can only be changed by the renewal workflow.",
             )
-        if status_value != current_value and status_value not in (None, "legacy"):
+        if status_value != current_value and (
+            status_value not in (None, "legacy") or current_value not in (None, "legacy")
+        ):
             raise HTTPException(
                 status_code=400,
-                detail="Only the legacy lifecycle flag can be changed through general license update.",
+                detail="Only the legacy flag can be toggled, and only on licenses outside a renewal workflow.",
             )
 
 
@@ -105,6 +107,8 @@ def assert_can_initiate_renewal(
 ) -> None:
     if license_obj.is_retired or getattr(license_obj, "retirement_scheduled", False):
         raise HTTPException(status_code=409, detail="Retired licenses are not eligible for renewal")
+    if license_obj.lifecycle_status == "legacy":
+        raise HTTPException(status_code=409, detail="Legacy licenses are not eligible for renewal")
     if license_obj.lifecycle_status == "pending_renewal":
         raise HTTPException(status_code=409, detail="Renewal already initiated for this license")
     if license_obj.lifecycle_status == "renewed":
