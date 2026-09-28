@@ -255,6 +255,37 @@ async def link_maintenance_to_parent(
     return link
 
 
+def _covers(record, today: date) -> bool:
+    return (record.start_date is None or record.start_date <= today) and (
+        record.end_date is None or record.end_date >= today
+    )
+
+
+def choose_active_maintenance(candidates, *, current_id: int | None, today: date):
+    """Pick a parent's active maintenance record from its linked records.
+
+    1. Keep the current record while it still covers today (overlapping
+       terms hand over when the current one ends).
+    2. Else the covering record with the latest start (tie: higher id).
+    3. Else the most recently ended record, so a gap stays visible.
+    4. Else the earliest future record.
+    """
+    live = [candidate for candidate in candidates if not getattr(candidate, "is_retired", False)]
+    current = next((candidate for candidate in live if candidate.id == current_id), None)
+    if current is not None and _covers(current, today):
+        return current
+    covering = [candidate for candidate in live if _covers(candidate, today)]
+    if covering:
+        return max(covering, key=lambda candidate: (candidate.start_date or date.min, candidate.id))
+    ended = [candidate for candidate in live if candidate.end_date is not None and candidate.end_date < today]
+    if ended:
+        return max(ended, key=lambda candidate: (candidate.end_date, candidate.id))
+    future = [candidate for candidate in live if candidate.start_date is not None and candidate.start_date > today]
+    if future:
+        return min(future, key=lambda candidate: (candidate.start_date, candidate.id))
+    return None
+
+
 async def activate_maintenance_for_parent(
     db: AsyncSession,
     maintenance_license: License,
