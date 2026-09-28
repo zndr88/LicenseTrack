@@ -141,6 +141,22 @@ async def test_shared_document_matches_po_numbers_that_differ_only_in_case_and_s
     assert len(listed.json()) == 1
 
 
+async def test_shared_document_download_allowed_across_case_and_spacing(
+    test_app,
+    db_session,
+    auth_headers,
+):
+    first = await _create_license(test_app, auth_headers, po_number="PO  4500124")
+    second = await _create_license(test_app, auth_headers, po_number="po 4500124")
+    document = await _upload_shared_document(test_app, auth_headers, first["id"])
+
+    from app.services.procurement_document_scope_service import get_procurement_document_licenses
+
+    stored = await db_session.get(ProcurementDocument, document["id"])
+    covered = await get_procurement_document_licenses(db_session, stored)
+    assert {license_obj.id for license_obj in covered} == {first["id"], second["id"]}
+
+
 async def test_new_po_sharing_preserves_legacy_scope_and_files_on_po_change(
     test_app, auth_headers, db_session, patch_storage,
 ):
