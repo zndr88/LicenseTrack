@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validat
 from pydantic.alias_generators import to_camel
 
 from app.services.email_validation import reject_email_crlf
+from app.schemas.request_base import RequestModel
 
 
 class ColumnMatch(BaseModel):
@@ -31,14 +32,14 @@ class CSVAnalyzeResponse(BaseModel):
     missing_required: list[str]
 
 
-class MappingEntry(BaseModel):
+class MappingEntry(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     raw_header: str = Field(min_length=1, max_length=255)
     target: str = Field(min_length=1, max_length=255)  # internal field name, custom field key, or "skip"
 
 
-class ImportMappingCreate(BaseModel):
+class ImportMappingCreate(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     name: str = Field(min_length=1, max_length=255)
@@ -59,7 +60,7 @@ class ImportMappingResponse(BaseModel):
     updated_at: datetime
 
 
-class ImportExecuteRequest(BaseModel):
+class ImportExecuteRequest(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     mapping: list[MappingEntry]

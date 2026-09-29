@@ -69,6 +69,12 @@ literal value (a set of statuses, a list of fields), a guard test built on
 | OPS-1 | Every copy of the live SQLite database is WAL-consistent and made by one routine; automatic safety copies (pre-upgrade, pre-restore) live in their own folder next to the database and keep the newest three. | `backup_service._copy_sqlite_database`, `_take_safety_snapshot` | `test_backup_service.py::test_sqlite_safety_copies_have_one_owner`, `test_pre_migration_snapshot.py` | holds |
 | OPS-2 | A restore never blocks the event loop; `/api/health` answers throughout. | `routes/backup.py::_perform_restore` | `test_backup.py::test_health_answers_while_a_restore_is_running` | holds |
 
+## API
+
+| ID | Rule | Owner | Guard | Status |
+|---|---|---|---|---|
+| API-1 | No request field is silently dropped: unknown fields are logged, and rejected when `STRICT_REQUEST_FIELDS` is on (always in tests). | `backend/app/schemas/request_base.py::RequestModel` | `backend/tests/test_unit/test_request_models_use_base.py` | holds |
+
 ## Non-goals
 
 - **Budgeting.** LicenseTrack provides the data managers use to prepare budgets. It doesn't do forecasting, budget-vs-actual, allocations or multi-year budget modelling. Annualized cost views are indicative.

@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+from app.schemas.request_base import RequestModel
 
 
 PluginSuggestionStatus = Literal["pending", "accepted", "rejected", "superseded"]
@@ -59,7 +60,7 @@ class PluginSuggestionResponse(BaseModel):
     reviewed_at: datetime | None
 
 
-class PluginSuggestionAcceptRequest(BaseModel):
+class PluginSuggestionAcceptRequest(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     suggested_field_indexes: list[int] | None = None

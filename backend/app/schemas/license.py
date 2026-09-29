@@ -14,6 +14,7 @@ from app.models.license import (
 from app.schemas.custom_fields import CustomFieldValueItem, CustomFieldValueResponse
 from app.services.email_validation import reject_email_crlf
 from app.services.money import is_canonical_money
+from app.schemas.request_base import RequestModel
 
 
 def normalise_invoice_numbers(value: object) -> list[str]:
@@ -158,9 +159,17 @@ class LicenseBase(BaseModel):
     def _normalise_secondary_contacts(cls, value: object) -> list[str]:
         return normalise_secondary_contacts(value)
 
-class LicenseCreate(LicenseBase):
+class LicenseCreate(LicenseBase, RequestModel):
+    # The Add License form collects a purchase date; it was silently dropped
+    # before create accepted it (found by strict request fields).
+    purchase_date: Optional[datetime] = None
     maintenance_parent_ids: list[int] = Field(default_factory=list)
     custom_field_values: list[CustomFieldValueItem] = Field(default_factory=list)
+
+    @field_validator("purchase_date", mode="before")
+    @classmethod
+    def _normalise_blank_purchase_date(cls, value: object) -> object:
+        return None if value == "" else value
 
     @model_validator(mode="after")
     def _validate_term_dates(self) -> "LicenseCreate":
@@ -169,7 +178,7 @@ class LicenseCreate(LicenseBase):
         return self
 
 
-class LicenseBatchCreateItem(BaseModel):
+class LicenseBatchCreateItem(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -187,7 +196,7 @@ class LicenseBatchCreateItem(BaseModel):
         return self
 
 
-class LicenseBatchCreateRequest(BaseModel):
+class LicenseBatchCreateRequest(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -203,7 +212,7 @@ class LicenseBatchCreateRequest(BaseModel):
         return self
 
 
-class LicenseUpdate(BaseModel):
+class LicenseUpdate(RequestModel):
     """Partial update - all fields optional."""
 
     model_config = ConfigDict(
@@ -314,7 +323,7 @@ class LicenseUpdate(BaseModel):
         return normalise_secondary_contacts(value)
 
 
-class LicenseLifecycleRepairRequest(BaseModel):
+class LicenseLifecycleRepairRequest(RequestModel):
     """Admin-only repair payload for lifecycle and renewal-chain fields."""
 
     model_config = ConfigDict(
@@ -503,12 +512,12 @@ class LicenseProcurementTrailResponse(BaseModel):
     conversion: ProcurementTrailConversion
 
 
-class FieldUpdateRequest(BaseModel):
+class FieldUpdateRequest(RequestModel):
     field: str
     value: str | None
 
 
-class PoTotalOverrideRequest(BaseModel):
+class PoTotalOverrideRequest(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -524,7 +533,7 @@ class PoTotalOverrideRequest(BaseModel):
         return value
 
 
-class IncludedSupportUpdate(BaseModel):
+class IncludedSupportUpdate(RequestModel):
     """Included support period on a perpetual/OEM/freeware license (cost optional)."""
 
     model_config = ConfigDict(
@@ -564,7 +573,7 @@ class IncludedSupportUpdate(BaseModel):
         return self
 
 
-class MaintenanceLinkExistingRequest(BaseModel):
+class MaintenanceLinkExistingRequest(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -573,7 +582,7 @@ class MaintenanceLinkExistingRequest(BaseModel):
     maintenance_license_id: int
 
 
-class BulkDeleteRequest(BaseModel):
+class BulkDeleteRequest(RequestModel):
     ids: list[int]
 
 
@@ -601,7 +610,7 @@ class InitiateRenewalResponse(BaseModel):
     sourcing_item: "SourcingItemResponse"
 
 
-class LinkExistingSuccessorRequest(BaseModel):
+class LinkExistingSuccessorRequest(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     successor_license_id: int
@@ -615,7 +624,7 @@ class LinkExistingSuccessorResponse(BaseModel):
     former_successor_license_ref: Optional[str] = None
 
 
-class InitiateRenewalBundleRequest(BaseModel):
+class InitiateRenewalBundleRequest(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,

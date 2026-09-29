@@ -514,13 +514,13 @@ async def test_license_clients_cannot_create_or_set_legacy_unlinked_flag_directl
     auth_headers,
     db_session,
 ):
+    # The flag is server-owned: a request that names it is rejected (strict mode).
     create_response = await test_app.post(
         "/api/licenses",
         headers=auth_headers,
         json=_minimal_payload(isLegacyUnlinkedMaintenance=True),
     )
-    assert create_response.status_code == 201
-    assert create_response.json()["isLegacyUnlinkedMaintenance"] is False
+    assert create_response.status_code == 422
 
     license_obj = await _seed_legacy_unlinked_license(db_session)
     update_response = await test_app.put(
@@ -528,8 +528,16 @@ async def test_license_clients_cannot_create_or_set_legacy_unlinked_flag_directl
         headers=auth_headers,
         json={"isLegacyUnlinkedMaintenance": False, "softwareDescription": "Still Legacy"},
     )
-    assert update_response.status_code == 200
-    assert update_response.json()["isLegacyUnlinkedMaintenance"] is True
+    assert update_response.status_code == 422
+
+    # An update that leaves the flag out keeps it.
+    kept_response = await test_app.put(
+        f"/api/licenses/{license_obj.id}",
+        headers=auth_headers,
+        json={"softwareDescription": "Still Legacy"},
+    )
+    assert kept_response.status_code == 200
+    assert kept_response.json()["isLegacyUnlinkedMaintenance"] is True
 
 
 # ---------------------------------------------------------------------------

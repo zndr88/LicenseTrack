@@ -4,6 +4,7 @@ DATABASE_URL is read from app.config (which reads .env), so alembic.ini
 does NOT need a real sqlalchemy.url value - it is overridden below.
 """
 
+import logging
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -16,8 +17,11 @@ from alembic import context
 config = context.config
 
 # Set up Python logging from alembic.ini
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# Only when Alembic runs from the command line. Inside the app (startup
+# upgrade, restore) logging is already configured by LOG_LEVEL, and
+# alembic.ini's WARN root level would override it.
+if config.config_file_name is not None and not logging.getLogger().handlers:
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # ---------------------------------------------------------------------------
 # Wire up the app's Base metadata + DATABASE_URL
