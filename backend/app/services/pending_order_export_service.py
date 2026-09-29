@@ -47,7 +47,6 @@ async def build_pending_orders_export_csv(db: AsyncSession) -> str:
             "License Unit Price",
             "Line Total",
             "PO Total (manual)",
-            "PO Line",
         ]
     )
 
@@ -81,12 +80,11 @@ def _build_export_rows(
                 "",
                 "",
                 order.po_total_override or "",
-                "",
             ]
         ]
 
     rows: list[list[str | int]] = []
-    for line_number, item in enumerate(items, start=1):
+    for item in items:
         currency = item.currency or "EUR"
         rows.append(
             [
@@ -99,7 +97,7 @@ def _build_export_rows(
                 order.created_at.date().isoformat() if order.created_at else "",
                 _format_total_po_value(items, currency),
                 currency,
-                line_number,
+                item.po_line_number or "",
                 item.publisher_name,
                 item.software_description,
                 item.quantity or "",
@@ -110,7 +108,6 @@ def _build_export_rows(
                     else ""
                 ),
                 order.po_total_override or "",
-                item.po_line_number or "",
             ]
         )
 
