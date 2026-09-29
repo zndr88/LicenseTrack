@@ -9,6 +9,14 @@ Status: **holds** (guarded), **unguarded** (believed to hold, no guard test
 yet), **target** (planned for the named release), or **known violation**
 (with an issue).
 
+**One owner per rule.** Most LicenseTrack regressions came from one job being
+implemented in several places that later drifted apart. Every rule below
+therefore has exactly one owner in code. Other code calls the owner instead of
+re-implementing the rule. Every pull request lists the rules it touches, the
+other implementations it found, and what it did with them. Where a rule is a
+literal value (a set of statuses, a list of fields), a guard test built on
+`backend/tests/single_owner.py` fails if the literal appears outside its owner.
+
 ## Money
 
 | ID | Rule | Owner | Guard | Status |
