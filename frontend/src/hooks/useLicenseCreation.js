@@ -28,7 +28,6 @@ function buildLicensePayload(form) {
     startDate: form.startDate || null,
     endDate: isNonExpiringLicenseType(form.licenseType) ? null : (form.endDate || null),
     noticeDate: form.noticeDate || null,
-    purchaseDate: form.purchaseDate || null,
     contractNumber: form.contractNumber || "",
     poNumber: form.poNumber || "",
     procurementReference: form.procurementReference || "",

@@ -24,7 +24,6 @@ def _form_payload(license_type: str, coverage: str, **overrides) -> dict:
         "startDate": "2026-01-01",
         "endDate": None if license_type in NON_EXPIRING else "2026-12-31",
         "noticeDate": None,
-        "purchaseDate": None,
         "contractNumber": "",
         "poNumber": "",
         "procurementReference": "",

@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
+from app.schemas.request_base import RequestModel
 
 
 PluginStatus = Literal[
@@ -539,7 +540,7 @@ class PluginActionsListResponse(BaseModel):
     actions: list[PluginActionListItem]
 
 
-class PluginActionInvokeRequest(BaseModel):
+class PluginActionInvokeRequest(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     target_type: str
@@ -583,7 +584,7 @@ class PluginSettingsReadResponse(BaseModel):
     missing_required: list[str]
 
 
-class PluginSettingValueUpdate(BaseModel):
+class PluginSettingValueUpdate(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     key: str = Field(min_length=1, max_length=80)
@@ -591,7 +592,7 @@ class PluginSettingValueUpdate(BaseModel):
     masked: bool = False
 
 
-class PluginSettingsUpdateRequest(BaseModel):
+class PluginSettingsUpdateRequest(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     values: list[PluginSettingValueUpdate]

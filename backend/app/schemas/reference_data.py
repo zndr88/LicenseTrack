@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+from app.schemas.request_base import RequestModel
 
 
 class ReferenceModel(BaseModel):
@@ -12,35 +13,35 @@ class ContactReferenceResponse(ReferenceModel):
     email: str
 
 
-class OrganizationCreate(ReferenceModel):
+class OrganizationCreate(ReferenceModel, RequestModel):
     name: str = Field(min_length=1, max_length=255)
     is_publisher: bool = False
     is_supplier: bool = False
 
 
-class OrganizationUpdate(ReferenceModel):
+class OrganizationUpdate(ReferenceModel, RequestModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     is_publisher: bool | None = None
     is_supplier: bool | None = None
 
 
-class OrganizationAliasCreate(ReferenceModel):
+class OrganizationAliasCreate(ReferenceModel, RequestModel):
     name: str = Field(min_length=1, max_length=255)
 
 
-class CostCentreCreate(ReferenceModel):
+class CostCentreCreate(ReferenceModel, RequestModel):
     name: str = Field(min_length=1, max_length=255)
 
 
-class CostCentreUpdate(ReferenceModel):
+class CostCentreUpdate(ReferenceModel, RequestModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
 
 
-class CostCentreAliasCreate(ReferenceModel):
+class CostCentreAliasCreate(ReferenceModel, RequestModel):
     name: str = Field(min_length=1, max_length=255)
 
 
-class MergeRequest(ReferenceModel):
+class MergeRequest(ReferenceModel, RequestModel):
     target_id: int = Field(gt=0)
 
 

@@ -2,9 +2,10 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
+from app.schemas.request_base import RequestModel
 
 
-class WebhookEndpointCreate(BaseModel):
+class WebhookEndpointCreate(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     name: str = Field(min_length=1, max_length=150)
@@ -29,7 +30,7 @@ class WebhookEndpointCreate(BaseModel):
         return cleaned
 
 
-class WebhookEndpointUpdate(BaseModel):
+class WebhookEndpointUpdate(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     name: str | None = Field(default=None, min_length=1, max_length=150)

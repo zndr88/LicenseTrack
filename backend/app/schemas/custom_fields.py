@@ -5,30 +5,40 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 from pydantic.alias_generators import to_camel
 
 from app.models.custom_fields import CustomFieldRenewalBehavior
+from app.schemas.request_base import RequestModel
 
 _BOOLEAN_ADAPTER = TypeAdapter(bool)
 
 
+_LEGACY_CARRY_FORWARD_KEYS = ("carryForwardOnRenewal", "carry_forward_on_renewal")
+
+
 def _migrate_legacy_renewal_behavior(value: object) -> object:
+    """Translate the legacy carry-forward flag into renewalBehavior.
+
+    The legacy keys are consumed here so they are not reported (or rejected) as
+    unknown request fields.
+    """
     if not isinstance(value, dict):
         return value
-    if "renewalBehavior" in value or "renewal_behavior" in value:
-        return value
-    legacy_value = value.get("carryForwardOnRenewal", value.get("carry_forward_on_renewal"))
+    legacy_value = next((value[key] for key in _LEGACY_CARRY_FORWARD_KEYS if key in value), None)
+    cleaned = {key: item for key, item in value.items() if key not in _LEGACY_CARRY_FORWARD_KEYS}
+    if "renewalBehavior" in cleaned or "renewal_behavior" in cleaned:
+        return cleaned
     if legacy_value is not None:
         carry_forward = _BOOLEAN_ADAPTER.validate_python(legacy_value)
         return {
-            **value,
+            **cleaned,
             "renewalBehavior": (
                 CustomFieldRenewalBehavior.copy.value
                 if carry_forward
                 else CustomFieldRenewalBehavior.clear.value
             ),
         }
-    return value
+    return cleaned
 
 
-class CustomFieldDefinitionCreate(BaseModel):
+class CustomFieldDefinitionCreate(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -43,7 +53,7 @@ class CustomFieldDefinitionCreate(BaseModel):
     _migrate_legacy_behavior = model_validator(mode="before")(_migrate_legacy_renewal_behavior)
 
 
-class CustomFieldDefinitionUpdate(BaseModel):
+class CustomFieldDefinitionUpdate(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -62,7 +72,7 @@ class CustomFieldDefinitionUpdate(BaseModel):
     # field_type and field_key are immutable after creation - not included here
 
 
-class CustomFieldDefinitionReorder(BaseModel):
+class CustomFieldDefinitionReorder(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     definition_ids: list[int] = Field(min_length=1)
@@ -88,7 +98,7 @@ class CustomFieldDefinitionResponse(BaseModel):
     updated_at: datetime
 
 
-class CustomFieldValueItem(BaseModel):
+class CustomFieldValueItem(RequestModel):
     """Single field value within a bulk upsert payload."""
 
     model_config = ConfigDict(
@@ -102,7 +112,7 @@ class CustomFieldValueItem(BaseModel):
     value_currency: Optional[str] = None
 
 
-class CustomFieldValuesUpsert(BaseModel):
+class CustomFieldValuesUpsert(RequestModel):
     """Payload for PUT /api/licenses/{id}/custom-fields - replaces all values."""
 
     model_config = ConfigDict(

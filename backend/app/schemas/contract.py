@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 from datetime import datetime
+from app.schemas.request_base import RequestModel
 
 _CONFIG = ConfigDict(
     from_attributes=True,
@@ -32,7 +33,7 @@ class ContractResponse(BaseModel):
     folders: list[ContractFolderResponse] = []
 
 
-class ContractCreate(BaseModel):
+class ContractCreate(RequestModel):
     model_config = ConfigDict(populate_by_name=True)
     contract_number: str = Field(max_length=255)
     publisher_name: str = Field(max_length=255)
@@ -47,7 +48,7 @@ class ContractCreate(BaseModel):
         return value
 
 
-class ContractUpdate(BaseModel):
+class ContractUpdate(RequestModel):
     model_config = ConfigDict(populate_by_name=True)
     contract_number: str | None = Field(default=None, max_length=255)
     publisher_name: str | None = Field(default=None, max_length=255)
@@ -64,7 +65,7 @@ class ContractUpdate(BaseModel):
         return value
 
 
-class ContractFolderCreate(BaseModel):
+class ContractFolderCreate(RequestModel):
     name: str = Field(max_length=255)
 
     @field_validator("name")

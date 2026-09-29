@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.models.user import AuthProvider, UserRole
+from app.schemas.request_base import RequestModel
 
 
 class UserResponse(BaseModel):
@@ -20,7 +21,7 @@ class UserResponse(BaseModel):
     created_at: datetime
 
 
-class UserCreate(BaseModel):
+class UserCreate(RequestModel):
     username: str
     email: EmailStr
     password: str | None = None
@@ -37,7 +38,7 @@ class UserCreate(BaseModel):
         return self
 
 
-class UserUpdate(BaseModel):
+class UserUpdate(RequestModel):
     username: str = Field(min_length=1)
     email: EmailStr
     role: UserRole
@@ -55,18 +56,18 @@ class UserUpdate(BaseModel):
         return self
 
 
-class RoleUpdate(BaseModel):
+class RoleUpdate(RequestModel):
     role: UserRole
 
 
-class ChangePasswordRequest(BaseModel):
+class ChangePasswordRequest(RequestModel):
     current_password: str
     new_password: str
 
 
-class ResetPasswordRequest(BaseModel):
+class ResetPasswordRequest(RequestModel):
     new_password: str
 
 
-class DepartmentAssignment(BaseModel):
+class DepartmentAssignment(RequestModel):
     departments: list[str]
