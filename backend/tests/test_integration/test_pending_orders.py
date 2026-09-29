@@ -4,6 +4,7 @@ import asyncio
 import json
 from datetime import date, timedelta
 
+import pytest
 from sqlalchemy import select, text
 
 from app.config import settings
@@ -4585,3 +4586,36 @@ async def test_pending_order_update_contact_applies_to_open_lines(test_app, auth
     )
     assert untouched.status_code == 200, untouched.text
     assert [line["contactEmail"] for line in untouched.json()["items"]] in ([None], [""])
+
+
+@pytest.mark.parametrize("closed_status", [PendingOrderStatus.converted, PendingOrderStatus.cancelled])
+@pytest.mark.parametrize("whole_request", [False, True])
+async def test_sourcing_cannot_attach_to_a_closed_pending_order(
+    test_app, auth_headers, db_session, closed_status, whole_request
+):
+    first = await _create_sourcing_item(test_app, auth_headers, supplier="Renewal Supplier")
+    order = await _convert_sourcing_to_po(test_app, auth_headers, first["id"])
+    order_row = await db_session.get(PendingOrder, order["id"])
+    order_row.status = closed_status
+    await db_session.commit()
+
+    second = await _create_sourcing_item(test_app, auth_headers, supplier="Renewal Supplier")
+    if whole_request:
+        response = await test_app.post(
+            f"/api/sourcing/requests/{second['sourcingRequestId']}/convert",
+            json={"pendingOrderId": order["id"], "supplier": "Renewal Supplier"},
+            headers=auth_headers,
+        )
+    else:
+        response = await test_app.post(
+            f"/api/sourcing/{second['id']}/convert",
+            json={"pendingOrderId": order["id"], "supplier": "Renewal Supplier"},
+            headers=auth_headers,
+        )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"] == f"Cannot add lines to a {closed_status.value} order"
+    db_session.expire_all()
+    item = await db_session.get(SourcingItem, second["id"])
+    assert item.pending_order_id is None
+    assert item.status == SourcingStatus.sourcing
