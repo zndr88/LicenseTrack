@@ -894,6 +894,8 @@ py -3.12 -m pytest tests
 
 The frontend suite uses Vitest/jsdom for API clients, workflows, UI components, hooks, router permissions, query invalidation, endpoint contract checks, and report interactions. Coverage thresholds are configured in `frontend/vitest.config.js`; browser smoke coverage lives under `frontend/tests/e2e` and runs through Playwright.
 
+The core write paths (add, edit, procurement conversion, maintenance renewal, CSV round trip) are also tested end to end against a real backend: `npm run test:e2e:real` (config `frontend/playwright.real.config.js`, specs in `frontend/tests/real-backend/`) starts uvicorn with a throwaway database and `STRICT_REQUEST_FIELDS=true`, plus the Vite dev server, and checks the stored records through the API. It needs Python 3.12 with the backend requirements installed. Credentials are generated per run by `frontend/tests/real-backend/credentials.js`. CI runs it as the `real-backend-e2e` job.
+
 The backend suite currently covers the route map, health endpoint, startup/lifespan behavior, scheduler helpers, conversion helpers, response builders, CSV analysis/export safety, procurement document download/delete/amendment-audit paths, sourcing request conversion and converted-state locks, pending-order export edge cases, user role invariants, API-token auth, webhooks, extension capabilities, document actions, and document processing result intake/review/custom-field acceptance. Keep new service-level behavior covered close to its owning service and add integration coverage when route dependencies, status codes, scoped document visibility, token scopes, or extension availability are part of the contract.
 
 Run `npm run build` before release packaging.

@@ -38,6 +38,8 @@ Work in progress for 1.2.0.
 
 ### Changed
 
+- Added end-to-end tests that run the real frontend against a real backend for
+  the core write paths.
 - The pending-order export's `PO Line #` column now contains the generated PO
   line number instead of the row's position.
 - Pull requests now include a single-owner audit: every rule a change touches
