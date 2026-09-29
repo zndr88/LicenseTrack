@@ -88,8 +88,9 @@ address. See [deep links behind a reverse proxy](../operations/deployment.md#dee
 Perpetual, OEM, and freeware/open-source licenses with Included coverage and a
 support end date raise **Support Ending** and **Support Expired** alerts. They
 use the expiry alert window and appear in the in-app notification list and the
-manager digest; they are not emailed to budget owners. Switching the license to
-a separately tracked maintenance record ends them.
+manager digest. Like license expiry alerts, they are also emailed to the budget
+owner, with the row marked **Maintenance** and showing the maintenance dates.
+Switching the license to a separately tracked maintenance record ends them.
 
 One-off Service and Other records (not marked **Renewable?**) never raise
 expiring or expired alerts. A daily job retires them after their end date.

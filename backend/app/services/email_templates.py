@@ -12,6 +12,7 @@ from __future__ import annotations
 from html import escape
 from itertools import groupby
 from typing import Any
+from app.services.notification_classification import MAINTENANCE_ALERT_TYPES
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +135,11 @@ def budget_owner_alert(
                     f"[Maintenance: {_html_text(lic.get('parent_software_description'))}]"
                     f"</span>"
                 )
+            if lic.get("coverage_label"):
+                description_display += (
+                    f" <span style='color: #7c3aed; font-weight: 600;'>"
+                    f"[{_html_text(lic['coverage_label'])}]</span>"
+                )
 
             if days is None or days == "":
                 days_text = "-"
@@ -207,7 +213,7 @@ def manager_digest(
     expiring = [n for n in notifications if n.get("type") == "expiring"]
     notice_due = [n for n in notifications if n.get("type") == "notice_due"]
     incomplete = [n for n in notifications if n.get("type") == "incomplete"]
-    support_ending = [n for n in notifications if n.get("type") in {"support_expiring", "support_expired"}]
+    support_ending = [n for n in notifications if n.get("type") in MAINTENANCE_ALERT_TYPES]
 
     total = len(notifications)
 

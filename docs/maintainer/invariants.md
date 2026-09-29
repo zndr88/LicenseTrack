@@ -75,6 +75,12 @@ literal value (a set of statuses, a list of fields), a guard test built on
 |---|---|---|---|---|
 | API-1 | No request field is silently dropped: unknown fields are logged, and rejected when `STRICT_REQUEST_FIELDS` is on (always in tests). | `backend/app/schemas/request_base.py::RequestModel` | `backend/tests/test_unit/test_request_models_use_base.py` | holds |
 
+## Notifications
+
+| ID | Rule | Owner | Guard | Status |
+|---|---|---|---|---|
+| NOTIFY-1 | Which alert types reach budget owners and the manager digest is decided in one place. Budget owners get license and included-maintenance expiry alerts. | `notification_classification.BUDGET_OWNER_ALERT_TYPES`, `MANAGER_DIGEST_ALERT_TYPES` | `test_notifications.py::test_budget_owner_and_digest_alert_types_have_one_owner` | holds |
+
 ## Non-goals
 
 - **Budgeting.** LicenseTrack provides the data managers use to prepare budgets. It doesn't do forecasting, budget-vs-actual, allocations or multi-year budget modelling. Annualized cost views are indicative.

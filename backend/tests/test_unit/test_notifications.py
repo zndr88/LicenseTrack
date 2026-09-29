@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.models.document import ProcurementDocument, ProcurementDocumentCategory
-from app.models.license import License, LicenseType, LicenseMetric
+from app.models.license import License, LicenseType, LicenseMetric, MaintenanceCoverage
 from app.models.pending_order import PendingOrder
 from app.models.settings import GlobalSettings
 from app.services import email_templates
@@ -912,3 +912,67 @@ def test_manager_digest_lists_included_support_ending():
 
     assert "Included Support Ending" in html
     assert "Support ends in 10 days" in html
+
+
+async def test_run_daily_notifications_sends_budget_owner_email_for_ending_included_maintenance(
+    db_session, smtp_settings
+):
+    perpetual = License(
+        publisher_name="Vendor",
+        software_description="Perpetual App",
+        license_type=LicenseType.perpetual,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        maintenance_coverage=MaintenanceCoverage.included,
+        maintenance_start_date=date.today() - timedelta(days=355),
+        maintenance_end_date=date.today() + timedelta(days=10),
+        budget_owner_email="owner@example.com",
+        is_retired=False,
+    )
+    db_session.add(perpetual)
+    await db_session.commit()
+
+    with patch("app.services.notification_sender.send_email", new_callable=AsyncMock) as mock_send:
+        result = await run_daily_notifications(db_session)
+
+    assert result["budget_owner_emails_sent"] == 1
+    owner_call = next(call for call in mock_send.call_args_list if call[0][1] == "owner@example.com")
+    html = owner_call[0][3]  # send_email(gs, to, subject, html, cc=...)
+    assert "Perpetual App" in html
+    assert "Maintenance" in html
+    assert (date.today() + timedelta(days=10)).isoformat() in html or "10 days" in html
+
+
+def test_budget_owner_and_digest_alert_types_have_one_owner():
+    from pathlib import Path
+    from tests.single_owner import find_definitions
+
+    app_dir = Path(__file__).resolve().parents[2] / "app"
+    pattern = r"\{\s*\"expired\",\s*\"expiring\""
+    assert find_definitions(app_dir, pattern, owners={"services/notification_classification.py"}) == []
+
+
+def test_budget_owner_alert_marks_maintenance_rows_and_uses_the_maintenance_end_date():
+    entry = _make_license_entry(days_until_expiry=12)
+    entry.update({
+        "type": "support_expiring",
+        "software_description": "Perpetual App",
+        "license_type": "perpetual",
+        "end_date": "2027-03-31",
+        "coverage_label": "Maintenance",
+    })
+
+    html = email_templates.budget_owner_alert([entry])
+
+    assert "Perpetual App" in html
+    assert "Maintenance" in html
+    assert "2027-03-31" in html
+
+
+def test_maintenance_alert_types_have_one_owner():
+    from pathlib import Path
+    from tests.single_owner import find_definitions
+
+    app_dir = Path(__file__).resolve().parents[2] / "app"
+    pattern = r"\{\s*\"support_expiring\",\s*\"support_expired\"\s*\}"
+    assert find_definitions(app_dir, pattern, owners={"services/notification_classification.py"}) == []
