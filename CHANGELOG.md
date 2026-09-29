@@ -31,6 +31,10 @@ Work in progress for 1.2.0.
   guarantees on every entry point, and a pull request template.
 - Internal: CSV import and export read their field list from one registry (no
   behaviour change).
+- Budget owners now receive Maintenance Ending and Maintenance Expired alerts
+  for the included maintenance on their perpetual, OEM and freeware licenses,
+  alongside license expiry alerts. These rows are marked "Maintenance" and show
+  the maintenance dates.
 - Updated the frontend test tooling (Vitest 5, jsdom 30.1) and removed automatic
   test retries.
 

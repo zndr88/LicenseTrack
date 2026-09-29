@@ -53,6 +53,12 @@ literal value (a set of statuses, a list of fields), a guard test built on
 | IMPORT-1 | Every field marked round-trip in `csv_fields.py` survives export → import. | `backend/app/services/csv_fields.py`; `backend/app/services/csv_importer.py`; `backend/app/services/import_/license_builder.py` | `backend/tests/test_integration/test_csv_round_trip.py` | holds |
 | IMPORT-2 | Frontend export headers equal the backend CSV field registry. | `backend/app/services/csv_fields.py`; `frontend/src/generated/csvFields.json` | `backend/tests/test_unit/test_csv_fields.py` (`test_frontend_csv_field_file_is_up_to_date`) | holds |
 
+## Notifications
+
+| ID | Rule | Owner | Guard | Status |
+|---|---|---|---|---|
+| NOTIFY-1 | Which alert types reach budget owners and the manager digest is decided in one place. Budget owners get license and included-maintenance expiry alerts. | `notification_classification.BUDGET_OWNER_ALERT_TYPES`, `MANAGER_DIGEST_ALERT_TYPES` | `test_notifications.py::test_budget_owner_and_digest_alert_types_have_one_owner` | holds |
+
 ## Non-goals
 
 - **Budgeting.** LicenseTrack provides the data managers use to prepare budgets. It doesn't do forecasting, budget-vs-actual, allocations or multi-year budget modelling. Annualized cost views are indicative.

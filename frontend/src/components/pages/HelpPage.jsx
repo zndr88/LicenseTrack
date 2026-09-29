@@ -378,7 +378,7 @@ const HELP_ARTICLES = [
           "The daily notification run evaluates visible lifecycle, notice deadline, and completeness conditions, creates in-app notifications, and optionally sends SMTP email when email notifications are enabled.",
           "Admins configure the expiration alert window, notice deadline alert window, notification hour, manager digest recipient, allowed recipient domains, SMTP settings, and email template text. A test email checks SMTP without running the full notification workflow.",
           "A non-exempt eligible license is incomplete whenever its completeness is below 100%. Upcoming licenses may still be incomplete, but expiry and notice alerts wait until the license is active.",
-          "Included support on perpetual, OEM, and Freeware / Open Source licenses raises Support Ending and Support Expired alerts on the same window as license expiry. These go to the in-app list and the manager digest, not to budget owners. Switching to a separately tracked maintenance record ends them.",
+          "Included support on perpetual, OEM, and Freeware / Open Source licenses raises Support Ending and Support Expired alerts on the same window as license expiry. These go to the in-app list, the manager digest and the budget owner, like license expiry alerts; the budget owner's email marks those rows Maintenance and shows the maintenance dates. Switching to a separately tracked maintenance record ends them.",
           "When Public app URL is set in Admin > Notifications, notification emails link each license to its page, for example https://licenses.example.com/licenses/123. Leave it empty to send emails without links.",
         ],
       },
