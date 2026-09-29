@@ -105,22 +105,28 @@ test("tabs accept refresh tokens only for their existing session identity", asyn
 });
 
 
-test("split deployment expiry follows each tab's bearer despite another tab's login or cleanup", async () => {
+test("split deployment expiry is kept per session and never derived from the token's server-clock claim", async () => {
   vi.stubEnv("VITE_API_URL", "https://api.another-site.example");
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-01-01T10:00:00Z"));
   try {
     const olderTab = await import("../api/client.js");
     vi.resetModules();
     const newerTab = await import("../api/client.js");
     const jwt = (sessionId, exp) => `header.${window.btoa(JSON.stringify({ session_id: sessionId, exp }))}.signature`;
     olderTab.setToken(jwt("older-session", 100));
+    olderTab.rememberSessionExpiry(100);
     newerTab.setToken(jwt("newer-session", 200));
+    newerTab.rememberSessionExpiry(200);
+    const start = Date.now();
     // Expiry metadata is written under the session-scoped key, not a shared one.
-    expect(window.localStorage.getItem("licensetrack.session.newer-session.expiry")).toBe("200000");
-    expect(olderTab.getSessionExpiry()).toBe(100000);
-    expect(newerTab.getSessionExpiry()).toBe(200000);
+    expect(window.localStorage.getItem("licensetrack.session.newer-session.expiry")).toBe(String(start + 200_000));
+    expect(olderTab.getSessionExpiry()).toBe(start + 100_000);
+    expect(newerTab.getSessionExpiry()).toBe(start + 200_000);
     newerTab.clearToken();
-    expect(olderTab.getSessionExpiry()).toBe(100000);
+    expect(olderTab.getSessionExpiry()).toBe(start + 100_000);
     olderTab.setToken(jwt("older-session", 300));
-    expect(olderTab.getSessionExpiry()).toBe(300000);
-  } finally { vi.unstubAllEnvs(); }
+    olderTab.rememberSessionExpiry(300);
+    expect(olderTab.getSessionExpiry()).toBe(start + 300_000);
+  } finally { vi.useRealTimers(); vi.unstubAllEnvs(); }
 });

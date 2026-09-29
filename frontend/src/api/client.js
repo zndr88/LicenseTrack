@@ -35,15 +35,15 @@ if (tokenChannel) tokenChannel.onmessage = ({ data }) => {
     setToken(data.token, false);
   }
 };
-/** Match expiry to the credentials this tab will send on its next request. */
+/** Store the session deadline on this browser's clock (server sends seconds remaining). */
+export function rememberSessionExpiry(expiresInSeconds) {
+  const seconds = Number(expiresInSeconds);
+  if (!Number.isFinite(seconds) || seconds <= 0) return;
+  window.localStorage.setItem(sessionCoordinationKey("expiry"), String(Date.now() + seconds * 1000));
+}
+
+/** The session deadline on this browser's clock (0 when unknown). */
 export function getSessionExpiry() {
-  if (bearerDeployment && token) {
-    try {
-      const payload = JSON.parse(window.atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-      const expiry = Number(payload.exp) * 1000;
-      return Number.isFinite(expiry) && expiry > 0 ? expiry : 0;
-    } catch { return 0; }
-  }
   return Number(window.localStorage.getItem(sessionCoordinationKey("expiry"))) || 0;
 }
 export function getToken() { return token; }
@@ -88,10 +88,6 @@ export function setToken(value, broadcast = true) {
   if (broadcast) tokenChannel?.postMessage({ token: value });
   // Same-origin requests use the stable cookie. Bearers never enter localStorage.
   unlockSession();
-  try {
-    const payload = JSON.parse(window.atob(value.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-    window.localStorage.setItem(sessionCoordinationKey("expiry"), String(payload.exp * 1000));
-  } catch { /* Demo tokens do not contain JWT claims. */ }
 }
 
 /** Clear local expiry metadata. */

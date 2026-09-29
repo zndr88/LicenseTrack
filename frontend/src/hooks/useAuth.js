@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSession, logoutSession, refreshSession } from "../api/auth.js";
 import { clearDismissedAttentionIds } from "../utils/licenseAttentionSession.js";
-import { getSessionExpiry, lockSession, sessionCoordinationKey, setSessionCoordinationId, setSessionRefreshCheck, unlockSession } from "../api/client.js";
+import { getSessionExpiry, lockSession, rememberSessionExpiry, sessionCoordinationKey, setSessionCoordinationId, setSessionRefreshCheck, unlockSession } from "../api/client.js";
 import { useSessionTimeout } from "./useSessionTimeout.js";
 
 export function toCurrentUser(apiUser) {
@@ -86,9 +86,10 @@ export function useAuth({ sessionTimeout, showToast }) {
         setSessionCoordinationId(data.coordination_id);
         setCoordinationId(data.coordination_id ?? null);
         setAuthoritativeTimeout(data.session_timeout ?? null);
-        if (data.expires_at) window.localStorage.setItem(sessionCoordinationKey("expiry"), String(data.expires_at * 1000));
-        lastRefreshAttemptRef.current = data.expires_at
-          ? data.expires_at * 1000 - bootstrapTimeoutRef.current * 60_000
+        rememberSessionExpiry(data.expires_in);
+        const deadline = getSessionExpiry();
+        lastRefreshAttemptRef.current = deadline
+          ? deadline - bootstrapTimeoutRef.current * 60_000
           : Date.now();
         setCurrentUser(toCurrentUser(data.user));
       } else {
