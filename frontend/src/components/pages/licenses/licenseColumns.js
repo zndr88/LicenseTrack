@@ -54,6 +54,10 @@ export const COLUMN_DEFS = [
   { key: "maintenanceStartDate", label: "Maintenance Start", width: 135, group: "advanced", defaultVisible: false },
   { key: "maintenanceEndDate", label: "Maintenance End", width: 135, group: "advanced", defaultVisible: false },
   { key: "maintenanceCost", label: "Maintenance Cost", width: 135, group: "advanced", defaultVisible: false },
+  { key: "parentLicenseRefs", label: "Covered License(s)", width: 170, group: "advanced", defaultVisible: false },
+  { key: "maintenancePricingBasis", label: "Maintenance Pricing", width: 150, group: "advanced", defaultVisible: false },
+  { key: "maintenanceQuantity", label: "Maintenance Qty", width: 125, group: "advanced", defaultVisible: false },
+  { key: "maintenanceUnitPrice", label: "Maintenance Unit Price", width: 165, group: "advanced", defaultVisible: false },
 ];
 
 export const VISIBLE_IN_LIST_DEFAULTS = COLUMN_DEFS.reduce((defaults, column) => {

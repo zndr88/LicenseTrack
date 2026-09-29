@@ -111,10 +111,14 @@ async def build_license(
         "maintenance_start_date": row.db_maintenance_start_date,
         "maintenance_end_date": row.db_maintenance_end_date,
         "maintenance_pricing_basis": (
-            MaintenancePricingBasis.flat
+            MaintenancePricingBasis(row.maintenance_pricing_basis)
+            if row.maintenance_pricing_basis
+            else MaintenancePricingBasis.flat
             if resolved_maintenance_coverage == MaintenanceCoverage.included and row.maintenance_cost
             else None
         ),
+        "maintenance_quantity": row.maintenance_quantity or None,
+        "maintenance_unit_price": row.maintenance_unit_price or None,
         "maintenance_cost": row.maintenance_cost or None,
         "portal_url": row.portal_url,
         "is_renewable": row.is_renewable,

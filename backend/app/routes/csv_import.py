@@ -109,14 +109,18 @@ async def _validated_column_to_target(
     try:
         headers, _ = read_csv_dict_rows(contents)
         definitions = await get_all_definitions(db)
-        supported_targets = set(_HEADER_MAP.values())
+        supported_targets = set(_HEADER_MAP.values()) | {"parent_license_ref"}
         custom_field_keys = {definition.field_key for definition in definitions}
-        return validate_mapped_import(
+        validated = validate_mapped_import(
             headers,
             mapping,
             supported_targets=supported_targets,
             custom_field_keys=custom_field_keys,
         )
+        return {
+            header: "parent_license_refs" if target == "parent_license_ref" else target
+            for header, target in validated.items()
+        }
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
 

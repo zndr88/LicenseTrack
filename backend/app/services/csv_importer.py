@@ -86,6 +86,7 @@ _VALID_MAINTENANCE_COVERAGE = {
     "included",
     "separately_tracked",
 }
+_VALID_MAINTENANCE_PRICING_BASES = {"flat", "per_unit", "free"}
 _MAINTENANCE_COVERAGE_VALUE_ALIASES = {
     "true": "included",
     "yes": "included",
@@ -149,6 +150,10 @@ class ParsedRow:
     maintenance_end_date: Optional[str] = None
     maintenance_cost: str = ""
     po_total_override: str = ""
+    parent_license_refs: list[str] = field(default_factory=list)
+    maintenance_pricing_basis: Optional[str] = None
+    maintenance_quantity: str = ""
+    maintenance_unit_price: str = ""
     quantity_per_unit: str = ""
     effective_quantity: str = ""
     procurement_reference: str = ""
@@ -645,6 +650,12 @@ def _parse_row(
     maintenance_cost = _parse_localized_numeric_field(
         _field_text(data, "maintenance_cost"), "maintenance_cost", errors, number_format_locale
     )
+    maintenance_quantity = _parse_localized_numeric_field(
+        _field_text(data, "maintenance_quantity"), "maintenance_quantity", errors, number_format_locale
+    )
+    maintenance_unit_price = _parse_localized_numeric_field(
+        _field_text(data, "maintenance_unit_price"), "maintenance_unit_price", errors, number_format_locale
+    )
     has_parse_error = has_parse_error or len(errors) > numeric_error_count
     quantity_per_unit = _derive_quantity_per_unit(
         quantity,
@@ -671,7 +682,12 @@ def _parse_row(
         secondary_contacts = []
 
     # -- Parent linkage (for maintenance rows) ----------------------------
-    parent_license_ref = _field_text(data, "parent_license_ref") or None
+    parent_license_refs = [
+        value.strip()
+        for value in _field_text(data, "parent_license_refs").split(";")
+        if value.strip()
+    ]
+    parent_license_ref = parent_license_refs[0] if parent_license_refs else None
 
     # -- Optional enrichment fields ----------------------------------------
     portal_url = _field_text(data, "portal_url") or None
@@ -685,6 +701,18 @@ def _parse_row(
         warnings.append(f"Unrecognised maintenance_coverage {maintenance_coverage_raw!r}; defaulting to 'unknown'")
         maintenance_coverage_raw = None
     maintenance_coverage = maintenance_coverage_raw or None
+
+    maintenance_pricing_basis = _normalise_enum_value(
+        _field_text(data, "maintenance_pricing_basis")
+    ) or None
+    if (
+        maintenance_pricing_basis
+        and maintenance_pricing_basis not in _VALID_MAINTENANCE_PRICING_BASES
+    ):
+        warnings.append(
+            f"Unrecognised maintenance_pricing_basis {maintenance_pricing_basis!r}; ignoring"
+        )
+        maintenance_pricing_basis = None
 
     if maintenance_coverage == "included" and license_type in _INCLUDED_SUPPORT_PARENT_TYPES:
         if db_maintenance_start_date is None and db_start_date is not None:
@@ -762,6 +790,7 @@ def _parse_row(
         external_ref=_field_text(data, "external_ref") or None,
         license_ref=_field_text(data, "license_ref") or None,
         parent_license_ref=parent_license_ref,
+        parent_license_refs=parent_license_refs,
         portal_url=portal_url,
         is_renewable=is_renewable,
         type_description=type_description,
@@ -769,6 +798,9 @@ def _parse_row(
         maintenance_start_date=maintenance_start_date_str,
         maintenance_end_date=maintenance_end_date_str,
         maintenance_cost=maintenance_cost,
+        maintenance_pricing_basis=maintenance_pricing_basis,
+        maintenance_quantity=maintenance_quantity,
+        maintenance_unit_price=maintenance_unit_price,
         po_total_override=po_total_override,
         import_status=import_status,
         validation_errors=errors,

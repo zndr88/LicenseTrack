@@ -258,9 +258,11 @@ FIELDS: tuple[CsvField, ...] = (
     CsvField("portal_url", "portal_url", update=True, round_trip=True, frontend_key="portalUrl"),
     CsvField("notes", "notes", update=True, round_trip=True, frontend_key="notes"),
     CsvField(
-        "parent_license_ref",
-        "parent_license_ref",
-        aliases=("parent_ref", "parent"),
+        "parent_license_refs",
+        "parent_license_refs",
+        aliases=("parent_license_ref", "parent_ref", "parent"),
+        round_trip=True,
+        frontend_key="parentLicenseRefs",
     ),
     CsvField(
         "maintenance_coverage",
@@ -274,6 +276,7 @@ FIELDS: tuple[CsvField, ...] = (
             "purchase_includes_support",
             "includes_support",
         ),
+        round_trip=True,
         frontend_key="maintenanceCoverage",
     ),
     CsvField(
@@ -286,6 +289,8 @@ FIELDS: tuple[CsvField, ...] = (
             "coverage_start",
             "coverage_start_date",
         ),
+        round_trip=True,
+        frontend_key="maintenanceStartDate",
     ),
     CsvField(
         "maintenance_end_date",
@@ -297,6 +302,8 @@ FIELDS: tuple[CsvField, ...] = (
             "coverage_end",
             "coverage_end_date",
         ),
+        round_trip=True,
+        frontend_key="maintenanceEndDate",
     ),
     CsvField(
         "maintenance_cost",
@@ -307,6 +314,27 @@ FIELDS: tuple[CsvField, ...] = (
             "total_support_cost_eur",
             "coverage_cost",
         ),
+        round_trip=True,
+        frontend_key="maintenanceCost",
+    ),
+    CsvField(
+        "maintenance_pricing_basis",
+        "maintenance_pricing_basis",
+        aliases=("support_pricing_basis",),
+        round_trip=True,
+        frontend_key="maintenancePricingBasis",
+    ),
+    CsvField(
+        "maintenance_quantity",
+        "maintenance_quantity",
+        round_trip=True,
+        frontend_key="maintenanceQuantity",
+    ),
+    CsvField(
+        "maintenance_unit_price",
+        "maintenance_unit_price",
+        round_trip=True,
+        frontend_key="maintenanceUnitPrice",
     ),
     # Export-only / computed fields recognized but intentionally ignored on import.
     CsvField(

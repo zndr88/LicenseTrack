@@ -485,11 +485,15 @@ async def run_import_rows(
     import_errors: list[CSVImportError] = []
     custom_field_failure_count = 0
     inserted_by_row_number: dict[int, int] = {}
+    inserted_by_import_ref: dict[str, int] = {}
     reference_tracker = _ReferenceTracker()
     reference_overrides = reference_overrides or {}
     skipped_rows = expand_skipped_inferred_rows(rows, skipped_rows)
 
-    for parsed, custom_data in zip(rows, custom_rows):
+    row_pairs = list(zip(rows, custom_rows))
+    row_pairs.sort(key=lambda pair: pair[0].license_type == LicenseType.maintenance.value)
+
+    for parsed, custom_data in row_pairs:
         if parsed.row_number in skipped_rows:
             skipped_count += 1
             continue
@@ -536,6 +540,10 @@ async def run_import_rows(
                         parent_license_id = parsed.selected_parent_license_id
                     elif parsed.parent_import_row_number is not None:
                         parent_license_id = inserted_by_row_number.get(parsed.parent_import_row_number)
+                    elif parsed.parent_license_ref:
+                        parent_license_id = inserted_by_import_ref.get(
+                            parsed.parent_license_ref.casefold()
+                        )
                     license_obj = await build_license(parsed, user_id, db, parent_license_id)
                     license_obj.publisher_id = parsed.resolved_publisher_id
                     license_obj.supplier_id = parsed.resolved_supplier_id
@@ -552,6 +560,37 @@ async def run_import_rows(
                         parent = await db.get(License, license_obj.parent_license_id)
                         if parent is not None:
                             await activate_maintenance_for_parent(db, license_obj, parent)
+                        for parent_ref in parsed.parent_license_refs[1:]:
+                            additional_parent_id = inserted_by_import_ref.get(parent_ref.casefold())
+                            if additional_parent_id is not None:
+                                additional_parent = await validate_parent_license(
+                                    db, additional_parent_id
+                                )
+                            else:
+                                parent_matches = (
+                                    await db.execute(
+                                        sa_select(License).where(
+                                            License.license_ref == parent_ref
+                                        )
+                                    )
+                                ).scalars().all()
+                                eligible_parents = []
+                                for candidate in parent_matches:
+                                    try:
+                                        eligible_parents.append(
+                                            await validate_parent_license(db, candidate.id)
+                                        )
+                                    except ValueError:
+                                        continue
+                                if len(eligible_parents) != 1:
+                                    raise ValueError(
+                                        f"parent_license_ref={parent_ref!r} must resolve to exactly "
+                                        "one eligible perpetual, oem, or freeware License"
+                                    )
+                                additional_parent = eligible_parents[0]
+                            await activate_maintenance_for_parent(
+                                db, license_obj, additional_parent
+                            )
                     persisted_license_id = license_obj.id
 
                     if custom_data:
@@ -565,6 +604,8 @@ async def run_import_rows(
 
             if persisted_license_id is not None:
                 inserted_by_row_number[parsed.row_number] = persisted_license_id
+                if parsed.license_ref:
+                    inserted_by_import_ref[parsed.license_ref.casefold()] = persisted_license_id
             reference_tracker.created_ids.update(row_reference_tracker.created_ids)
             reference_tracker.reused_ids.update(row_reference_tracker.reused_ids)
             if did_update:

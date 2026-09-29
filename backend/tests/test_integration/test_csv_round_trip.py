@@ -12,6 +12,7 @@ from enum import Enum
 from sqlalchemy import select
 
 from app.models.license import License, LicenseMaintenanceLink
+from app.models.reference_data import CostCentre, Organization
 from app.services.csv_fields import FIELDS
 
 
@@ -98,7 +99,7 @@ SCENARIO_FIELDS = {
         "notes",
         "lifecycle_status",
     ),
-    "service": ("type_description", "is_renewable"),
+    "other": ("type_description", "is_renewable"),
     "perpetual_included": (
         "maintenance_coverage",
         "maintenance_start_date",
@@ -143,13 +144,32 @@ async def test_every_round_trip_field_has_one_scenario_and_survives_import(
     assert set(scenario_owners) == round_trip_fields
     assert all(count == 1 for count in scenario_owners.values())
 
+    db_session.add_all(
+        [
+            Organization(
+                name="Round Trip Publisher",
+                normalized_name="round trip publisher",
+                is_publisher=True,
+                is_supplier=False,
+            ),
+            Organization(
+                name="Round Trip Supplier",
+                normalized_name="round trip supplier",
+                is_publisher=False,
+                is_supplier=True,
+            ),
+            CostCentre(name="CC-ROUND", normalized_name="cc-round"),
+        ]
+    )
+    await db_session.flush()
+
     rows = [
         _scenario_row("subscription"),
         _scenario_row(
-            "service",
+            "other",
             publisher_name="Round Trip Publisher",
-            software_description="Round Trip Service",
-            license_type="service",
+            software_description="Round Trip Other",
+            license_type="other",
         ),
         _scenario_row(
             "perpetual_included",
@@ -197,7 +217,7 @@ async def test_every_round_trip_field_has_one_scenario_and_survives_import(
     by_description = {license_obj.software_description: license_obj for license_obj in licenses}
     scenario_licenses = {
         "subscription": by_description["Round Trip Subscription"],
-        "service": by_description["Round Trip Service"],
+        "other": by_description["Round Trip Other"],
         "perpetual_included": by_description["Round Trip Perpetual"],
         "maintenance_two_parents": by_description["Round Trip Maintenance"],
     }
