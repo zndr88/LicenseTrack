@@ -17,7 +17,9 @@ config = context.config
 
 # Set up Python logging from alembic.ini
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep the application's own loggers enabled: the default would silence every
+    # logger created before migrations run, including request warnings.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # ---------------------------------------------------------------------------
 # Wire up the app's Base metadata + DATABASE_URL
