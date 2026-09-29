@@ -20,6 +20,7 @@ class CsvField:
     create: bool = True
     update: bool = False
     round_trip: bool = False
+    frontend_key: str | None = None
 
 
 def normalise_header(raw: str) -> str:
@@ -30,15 +31,29 @@ def normalise_header(raw: str) -> str:
 
 
 FIELDS: tuple[CsvField, ...] = (
-    CsvField("license_ref", "license_ref", aliases=("lt_ref",)),
-    CsvField("external_ref", "external_ref", update=True, round_trip=True),
-    CsvField("publisher_name", "publisher_name", aliases=("publisher",), update=True, round_trip=True),
+    CsvField("license_ref", "license_ref", aliases=("lt_ref",), frontend_key="licenseRef"),
+    CsvField(
+        "external_ref",
+        "external_ref",
+        update=True,
+        round_trip=True,
+        frontend_key="externalRef",
+    ),
+    CsvField(
+        "publisher_name",
+        "publisher_name",
+        aliases=("publisher",),
+        update=True,
+        round_trip=True,
+        frontend_key="publisher",
+    ),
     CsvField(
         "software_description",
         "software_description",
         aliases=("description", "item"),
         update=True,
         round_trip=True,
+        frontend_key="description",
     ),
     CsvField(
         "contract_number",
@@ -46,6 +61,7 @@ FIELDS: tuple[CsvField, ...] = (
         aliases=("contract", "contract_no"),
         update=True,
         round_trip=True,
+        frontend_key="contractNumber",
     ),
     CsvField(
         "po_number",
@@ -53,6 +69,7 @@ FIELDS: tuple[CsvField, ...] = (
         aliases=("po", "purchase_order_no"),
         update=True,
         round_trip=True,
+        frontend_key="poNumber",
     ),
     CsvField(
         "procurement_reference",
@@ -60,6 +77,7 @@ FIELDS: tuple[CsvField, ...] = (
         aliases=("procurement_ref",),
         update=True,
         round_trip=True,
+        frontend_key="procurementReference",
     ),
     CsvField(
         "invoice_number",
@@ -67,6 +85,7 @@ FIELDS: tuple[CsvField, ...] = (
         aliases=("invoice",),
         update=True,
         round_trip=True,
+        frontend_key="invoiceNumber",
     ),
     CsvField(
         "contact_email",
@@ -74,14 +93,23 @@ FIELDS: tuple[CsvField, ...] = (
         aliases=("publisher_contact", "supplier_contact"),
         update=True,
         round_trip=True,
+        frontend_key="contactEmail",
     ),
-    CsvField("supplier", "supplier", aliases=("vendor",), update=True, round_trip=True),
+    CsvField(
+        "supplier",
+        "supplier",
+        aliases=("vendor",),
+        update=True,
+        round_trip=True,
+        frontend_key="supplier",
+    ),
     CsvField(
         "cost_centre",
         "cost_centre",
         aliases=("cost_center", "department"),
         update=True,
         round_trip=True,
+        frontend_key="costCentre",
     ),
     CsvField(
         "budget_owner_email",
@@ -89,6 +117,7 @@ FIELDS: tuple[CsvField, ...] = (
         aliases=("budget_owner",),
         update=True,
         round_trip=True,
+        frontend_key="budgetOwnerEmail",
     ),
     CsvField(
         "secondary_contacts",
@@ -106,36 +135,54 @@ FIELDS: tuple[CsvField, ...] = (
         ),
         update=True,
         round_trip=True,
+        frontend_key="secondaryContacts",
     ),
     CsvField(
         "license_type",
         "license_type",
         aliases=("type", "purchase_type"),
         round_trip=True,
+        frontend_key="licenseType",
     ),
-    CsvField("type_description", "type_description", update=True, round_trip=True),
+    CsvField(
+        "type_description",
+        "type_description",
+        update=True,
+        round_trip=True,
+        frontend_key="typeDescription",
+    ),
     CsvField(
         "is_renewable",
         "is_renewable",
         aliases=("renewable",),
         update=True,
         round_trip=True,
+        frontend_key="isRenewable",
     ),
-    CsvField("license_metric", "license_metric", aliases=("metric",), update=True, round_trip=True),
+    CsvField(
+        "license_metric",
+        "license_metric",
+        aliases=("metric",),
+        update=True,
+        round_trip=True,
+        frontend_key="licenseMetric",
+    ),
     CsvField(
         "quantity",
         "quantity",
         aliases=("qty", "purchase_quantity"),
         update=True,
         round_trip=True,
+        frontend_key="quantity",
     ),
-    CsvField("effective_quantity", "effective_quantity"),
+    CsvField("effective_quantity", "effective_quantity", frontend_key="effectiveQuantity"),
     CsvField(
         "quantity_per_unit",
         "quantity_per_unit",
         aliases=("qty_per_unit",),
         update=True,
         round_trip=True,
+        frontend_key="quantityPerUnit",
     ),
     CsvField(
         "sku_code",
@@ -143,6 +190,7 @@ FIELDS: tuple[CsvField, ...] = (
         aliases=("sku", "part_no_sku"),
         update=True,
         round_trip=True,
+        frontend_key="skuCode",
     ),
     CsvField(
         "unit_price",
@@ -150,6 +198,7 @@ FIELDS: tuple[CsvField, ...] = (
         aliases=("unit_price_eur",),
         update=True,
         round_trip=True,
+        frontend_key="unitPrice",
     ),
     CsvField(
         "total_po_price",
@@ -157,13 +206,14 @@ FIELDS: tuple[CsvField, ...] = (
         aliases=("total_price_eur",),
         update=True,
     ),
-    CsvField("currency", "currency", update=True, round_trip=True),
+    CsvField("currency", "currency", update=True, round_trip=True, frontend_key="currency"),
     CsvField(
         "start_date",
         "start_date",
         aliases=("effective_date",),
         update=True,
         round_trip=True,
+        frontend_key="startDate",
     ),
     CsvField(
         "end_date",
@@ -171,6 +221,7 @@ FIELDS: tuple[CsvField, ...] = (
         aliases=("expiry_date", "contractenddate"),
         update=True,
         round_trip=True,
+        frontend_key="endDate",
     ),
     CsvField(
         "notice_date",
@@ -178,12 +229,25 @@ FIELDS: tuple[CsvField, ...] = (
         aliases=("notice_deadline",),
         update=True,
         round_trip=True,
+        frontend_key="noticeDate",
     ),
-    CsvField("request_date", "request_date", update=True, round_trip=True),
+    CsvField(
+        "request_date",
+        "request_date",
+        update=True,
+        round_trip=True,
+        frontend_key="requestDate",
+    ),
     # Purchase Date is a procurement milestone, not a Flexera start-date fallback.
-    CsvField("purchase_date", "purchase_date", update=True, round_trip=True),
-    CsvField("portal_url", "portal_url", update=True, round_trip=True),
-    CsvField("notes", "notes", update=True, round_trip=True),
+    CsvField(
+        "purchase_date",
+        "purchase_date",
+        update=True,
+        round_trip=True,
+        frontend_key="purchaseDate",
+    ),
+    CsvField("portal_url", "portal_url", update=True, round_trip=True, frontend_key="portalUrl"),
+    CsvField("notes", "notes", update=True, round_trip=True, frontend_key="notes"),
     CsvField(
         "parent_license_ref",
         "parent_license_ref",
@@ -201,6 +265,7 @@ FIELDS: tuple[CsvField, ...] = (
             "purchase_includes_support",
             "includes_support",
         ),
+        frontend_key="maintenanceCoverage",
     ),
     CsvField(
         "maintenance_start_date",
@@ -235,13 +300,19 @@ FIELDS: tuple[CsvField, ...] = (
         ),
     ),
     # Export-only / computed fields recognized but intentionally ignored on import.
-    CsvField(None, "license_record_id", aliases=("id",), create=False),
+    CsvField(
+        None,
+        "license_record_id",
+        aliases=("id",),
+        create=False,
+        frontend_key="recordId",
+    ),
     CsvField(None, "docs", create=False),
     CsvField(None, "calc_total", create=False),
     CsvField(None, "expiration", create=False),
     CsvField(None, "complete", create=False),
     # Total PO Value is a derived whole-PO aggregate, not a per-license line total.
-    CsvField(None, "total_po_value", create=False),
+    CsvField(None, "total_po_value", create=False, frontend_key="totalPoPrice"),
     CsvField(None, "created_at", aliases=("created",), create=False),
     CsvField(None, "created_by", create=False),
     CsvField(None, "updated_at", aliases=("last_updated",), create=False),
@@ -267,3 +338,22 @@ def ignored_headers() -> frozenset[str]:
         if csv_field.target is None:
             names.update(normalise_header(name) for name in (csv_field.header, *csv_field.aliases))
     return frozenset(names)
+
+
+def frontend_export_headers() -> dict[str, str]:
+    return {
+        csv_field.frontend_key: csv_field.header
+        for csv_field in FIELDS
+        if csv_field.frontend_key and csv_field.export
+    }
+
+
+if __name__ == "__main__":
+    import json
+    import sys
+    from pathlib import Path
+
+    output = Path(sys.argv[1])
+    output.write_text(
+        json.dumps({"exportHeaders": frontend_export_headers()}, indent=2, sort_keys=True) + "\n"
+    )

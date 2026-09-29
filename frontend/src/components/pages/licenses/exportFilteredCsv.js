@@ -2,6 +2,7 @@ import { getPoTotal } from "../../../utils/helpers.js";
 import { formatDate, formatDateTime } from "../../../utils/formatting.js";
 import { getCalcTotalValue } from "../../../utils/sort.js";
 import { renewableLabel } from "../../../utils/licenseTypeRules.js";
+import csvFields from "../../../generated/csvFields.json";
 
 const INVOICE_LIST_PREFIX = "LT-INVOICES:";
 
@@ -11,43 +12,8 @@ function serializeInvoiceCell(invoiceNumbers, invoiceNumber) {
     : (invoiceNumber ?? "");
 }
 
-// Maps export column keys to stable CSV headers. Importable native fields use
-// snake_case; read-only metadata may also opt in when the importer ignores it.
-const STABLE_EXPORT_FIELD_NAMES = {
-  recordId:         "license_record_id",
-  licenseRef:       "license_ref",
-  externalRef:      "external_ref",
-  publisher:        "publisher_name",
-  description:      "software_description",
-  contractNumber:   "contract_number",
-  poNumber:         "po_number",
-  procurementReference: "procurement_reference",
-  invoiceNumber:    "invoice_number",
-  contactEmail:     "contact_email",
-  supplier:         "supplier",
-  costCentre:       "cost_centre",
-  budgetOwnerEmail: "budget_owner_email",
-  secondaryContacts: "secondary_contacts",
-  licenseType:      "license_type",
-  licenseMetric:    "license_metric",
-  quantity:         "quantity",
-  effectiveQuantity: "effective_quantity",
-  quantityPerUnit:  "quantity_per_unit",
-  skuCode:          "sku_code",
-  unitPrice:        "unit_price",
-  totalPoPrice:     "total_po_value",
-  currency:         "currency",
-  notes:            "notes",
-  startDate:           "start_date",
-  endDate:             "end_date",
-  noticeDate:          "notice_date",
-  requestDate:         "request_date",
-  purchaseDate:        "purchase_date",
-  portalUrl:           "portal_url",
-  isRenewable:         "is_renewable",
-  typeDescription:     "type_description",
-  maintenanceCoverage: "maintenance_coverage",
-};
+// Stable CSV headers come from the backend field registry (backend/app/services/csv_fields.py).
+export const STABLE_EXPORT_FIELD_NAMES = csvFields.exportHeaders;
 
 /**
  * Generate a CSV string from a filtered license array and the active visible columns.
