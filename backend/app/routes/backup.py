@@ -251,7 +251,11 @@ async def _perform_restore(
     try:
         await db.close()
         await _engine.dispose()
-        restore_result = restore_backup_archive(
+        # Off the event loop: unzip, integrity checks, migrations and the file
+        # swap can take minutes. The restore-maintenance gate already answers
+        # every other request with 503 (health stays available).
+        restore_result = await asyncio.to_thread(
+            restore_backup_archive,
             archive_path,
             storage_location=storage_location,
             safety_archive=safety_archive,

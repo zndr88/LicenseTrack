@@ -640,3 +640,46 @@ async def test_backup_restore_rejects_oversized_body_after_read(
         await backup_module.restore_backup(upload, request, db_session, admin)
 
     assert exc_info.value.status_code == 413
+
+
+async def test_health_answers_while_a_restore_is_running(db_session, test_app, auth_headers, monkeypatch):
+    import asyncio
+    import threading
+
+    db_session.add(GlobalSettings(id=1))
+    await db_session.commit()
+    started = threading.Event()
+    release = threading.Event()
+    released_by_test = []
+
+    def _slow_restore(path, *, storage_location, safety_archive):
+        started.set()
+        # Only the test releases it; a blocked event loop can't, so it times out.
+        released_by_test.append(release.wait(timeout=5))
+        return {"archive_type": "database_backup", "restored_documents": False, "schema_revision": "x"}
+
+    monkeypatch.setattr(settings, "RESTART_AFTER_RESTORE", False)
+    monkeypatch.setattr(backup_module, "restore_backup_archive", _slow_restore)
+    monkeypatch.setattr(
+        backup_module,
+        "document_storage_reconciliation",
+        lambda _loc: {"document_records": 0, "available_files": 0, "missing_files": 0, "unavailable_files": 0},
+    )
+
+    files = {"file": ("backup.zip", _make_zip_with_db(), "application/zip")}
+    restore_task = asyncio.create_task(test_app.post("/api/backup/restore", files=files, headers=auth_headers))
+    try:
+        for _ in range(100):
+            if started.is_set():
+                break
+            await asyncio.sleep(0.05)
+        assert started.is_set(), "restore never started"
+
+        health = await asyncio.wait_for(test_app.get("/api/health"), timeout=3)
+        assert health.status_code == 200
+        assert health.json()["status"] == "maintenance"
+    finally:
+        release.set()
+        response = await asyncio.wait_for(restore_task, timeout=15)
+    assert response.status_code == 200, response.text
+    assert released_by_test == [True], "the event loop was blocked while the restore ran"
