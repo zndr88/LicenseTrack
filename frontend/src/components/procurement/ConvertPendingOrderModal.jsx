@@ -300,6 +300,12 @@ const ConvertPendingOrderModal = ({
             </div>
           )}
 
+          {order?.items?.length === 1 && order.items[0].poLineNumber ? (
+            <div className="mono" style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 12 }}>
+              Line {order.items[0].poLineNumber}
+            </div>
+          ) : null}
+
           {order?.id && (
             <div className="plugin-slot-form-row">
               <PluginSlot

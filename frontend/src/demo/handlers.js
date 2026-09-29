@@ -19,6 +19,7 @@ import {
   assertLineCurrencyFitsPendingOrder, assertPendingOrderOverrideCurrencies, countPoOverridesNotInAnnual,
 } from "./store.js";
 import { buildLicense } from "./fixtures.js";
+import { syncLicensePoLine } from "./poLines.js";
 import { applyIncludedSupportDefaults } from "./supportDefaults.js";
 import { datetimeDaysAgo } from "./time.js";
 import { isPendingOrderOpen } from "../utils/pendingOrderState.js";
@@ -419,6 +420,10 @@ function prepareDemoLicenseCreate(payload) {
 }
 
 function canonicalizeDemoReferenceFields(payload) {
+  // PO line numbers are generated only; the real API rejects a request that sets one.
+  if (payload && (Object.hasOwn(payload, "poLineNumber") || Object.hasOwn(payload, "poLineId"))) {
+    throw new Error("PO line numbers are generated and cannot be set");
+  }
   const result = { ...(payload || {}) };
   if (Object.hasOwn(result, "publisherName")) result.publisherName = ensureDemoOrganization(result.publisherName, "publisher")?.name || "";
   if (Object.hasOwn(result, "publisher_name")) result.publisher_name = ensureDemoOrganization(result.publisher_name, "publisher")?.name || "";
@@ -1317,6 +1322,7 @@ export const routes = [
         pending.push(license);
       }
       store.licenses.push(...pending);
+      for (const license of pending) syncLicensePoLine(license);
       return { data: pending.map(withComputedCompleteness), error: null };
     },
   },
@@ -1338,6 +1344,7 @@ export const routes = [
         updatedAt: now,
       });
       store.licenses.push(license);
+      syncLicensePoLine(license);
       if (license.licenseType === "maintenance") {
         const parentIds = [
           license.parentLicenseId,
@@ -1951,8 +1958,9 @@ export const routes = [
         for (const item of store.sourcingItems.filter((line) => line.pendingOrderId === order.id && line.status !== "cancelled")) {
           item.contactEmail = contact;
         }
-        rebuildPendingOrderItems(order);
       }
+      // A new PO number moves every line of the order together (whole-order rule).
+      if (has("contactEmail") || has("poNumber")) rebuildPendingOrderItems(order);
       order.updatedAt = new Date().toISOString();
       return { data: order, error: null };
     },

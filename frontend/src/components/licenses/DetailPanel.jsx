@@ -114,6 +114,8 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
             editFields={editFields}
             currentLicenseType={license.licenseType}
             licenseId={license.id}
+            savedPoNumber={license.poNumber}
+            savedPoLineNumber={license.poLineNumber}
             activeMaintenanceId={license.activeMaintenanceId}
             quickLinkMaintenanceId={quickLinkMaintenanceId}
             setQuickLinkMaintenanceId={setQuickLinkMaintenanceId}

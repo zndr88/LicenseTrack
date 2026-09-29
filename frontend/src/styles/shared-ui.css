@@ -446,6 +446,7 @@ textarea.fi { min-height: 80px; resize: vertical; }
 .dpanel { position: fixed; top: 0; right: 0; bottom: 0; width: var(--detail-panel-w); background: var(--bg-1); border-left: 1px solid var(--border); z-index: 150; overflow-y: auto; box-shadow: -8px 0 32px rgba(0,0,0,.3); animation: slideIn .15s; will-change: transform; }
 @keyframes slideIn { from { transform: translateX(100%) } }
 .dp-field { margin-bottom: 14px; }
+.dp-field-label-muted { font-weight: 400; opacity: 0.75; }
 .dp-field label, .dp-field-label { font-family: var(--font-mono); font-size: 9px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); display: block; margin-bottom: 3px; }
 .dp-field .val { font-family: var(--font-sans); font-size: 12px; color: var(--text-1); }
 .dp-docs { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }

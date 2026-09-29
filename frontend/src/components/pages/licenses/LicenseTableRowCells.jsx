@@ -330,6 +330,8 @@ export default function LicenseTableRowCells({
         return <td key="contractNumber" className="mono">{license.contractNumber || "-"}</td>;
       case "poNumber":
         return <td key="poNumber" className="mono">{license.poNumber || "-"}</td>;
+      case "poLineNumber":
+        return <td key="poLineNumber" className="mono">{license.poLineNumber ?? "-"}</td>;
       case "procurementReference":
         return <td key="procurementReference" className="mono">{license.procurementReference || "-"}</td>;
       case "invoiceNumber":

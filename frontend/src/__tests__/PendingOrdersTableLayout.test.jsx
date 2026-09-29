@@ -79,3 +79,33 @@ test("pending orders sort by the manual PO total when one is set", () => {
   ];
   expect(filterAndSortPendingOrders(orders, "", "totalValue", "asc").map((order) => order.id)).toEqual([2, 1]);
 });
+
+test("the order's lines list shows the generated line number first, gaps included", () => {
+  render(<PendingOrdersTable
+    displayed={[{
+      id: 9,
+      poNumber: "PO-9",
+      status: "pending",
+      items: [
+        { id: 1, publisherName: "Acme", softwareDescription: "A", currency: "EUR", quantity: "1", poLineNumber: 1 },
+        { id: 2, publisherName: "Acme", softwareDescription: "B", currency: "EUR", quantity: "1", poLineNumber: 2 },
+        { id: 3, publisherName: "Acme", softwareDescription: "C", currency: "EUR", quantity: "1", poLineNumber: 4 },
+      ],
+    }]}
+    expandedPendingOrderId={9}
+    locale="en-US"
+    settings={{}}
+    perms={{ canEdit: false, canDelete: false }}
+    search=""
+    setSearch={vi.fn()}
+    onSort={vi.fn()}
+    onRowToggle={vi.fn()}
+    onRefetch={vi.fn()}
+  />);
+
+  const lines = screen.getByText("A").closest("table");
+  const headers = within(lines).getAllByRole("columnheader").map((header) => header.textContent);
+  expect(headers[0]).toBe("Line");
+  const firstCells = within(lines).getAllByRole("row").slice(1).map((row) => within(row).getAllByRole("cell")[0].textContent);
+  expect(firstCells).toEqual(["1", "2", "4"]);
+});

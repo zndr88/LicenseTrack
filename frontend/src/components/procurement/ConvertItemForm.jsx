@@ -96,6 +96,11 @@ export default function ConvertItemForm({
           <span style={{ fontWeight: 600, fontSize: 13, flexShrink: 0 }}>
             {wi.publisherName || `Item ${idx + 1}`}
           </span>
+          {sourcingItem.poLineNumber ? (
+            <span className="mono" style={{ fontSize: 11, color: "var(--text-3)", flexShrink: 0 }}>
+              Line {sourcingItem.poLineNumber}
+            </span>
+          ) : null}
           {wi.softwareDescription && (
             <span style={{ fontSize: 12, color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {wi.softwareDescription}

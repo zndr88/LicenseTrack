@@ -130,6 +130,9 @@ export function useLicenseData(licenses, {
           case "poNumber":
             if (!l.poNumber?.toLowerCase().includes(val)) return false;
             break;
+          case "poLineNumber":
+            if (!String(l.poLineNumber ?? "").includes(val)) return false;
+            break;
           case "procurementReference":
             if (!l.procurementReference?.toLowerCase().includes(val)) return false;
             break;

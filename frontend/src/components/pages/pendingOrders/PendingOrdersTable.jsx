@@ -68,8 +68,9 @@ function PendingOrderItemsRow({
       <td colSpan={9} style={{ padding: 0, background: "var(--bg-2)" }}>
         <table className="pending-order-lines-table">
           <colgroup>
-            <col style={{ width: "21%" }} />
-            <col style={{ width: "27%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "19%" }} />
+            <col style={{ width: "22%" }} />
             <col style={{ width: "7%" }} />
             <col style={{ width: "14%" }} />
             <col style={{ width: "13%" }} />
@@ -78,7 +79,8 @@ function PendingOrderItemsRow({
           </colgroup>
           <thead>
             <tr style={{ background: "var(--bg-3)" }}>
-              <th scope="col" style={{ paddingLeft: 40 }}>Publisher</th>
+              <th scope="col" style={{ paddingLeft: 40 }}>Line</th>
+              <th scope="col">Publisher</th>
               <th scope="col">Description</th>
               <th scope="col">Qty</th>
               <th scope="col">Unit price{!showCurrency && po.items[0]?.currency ? ` (${po.items[0].currency})` : ""}</th>
@@ -107,6 +109,7 @@ function PendingOrderItemsRow({
                   className={canInlineEdit ? "pending-order-line-row-inline-edit" : undefined}
                   style={{ backgroundColor: "var(--bg-2)" }}
                 >
+                  <td className="mono" style={{ paddingLeft: 40 }}>{item.poLineNumber ?? "—"}</td>
                   {canInlineEdit ? (
                     <ProcurementInlineEditCell
                       item={item}
@@ -122,7 +125,7 @@ function PendingOrderItemsRow({
                       <div className="sourcing-inline-context">Pending Order Line ID #{item.id}</div>
                     </ProcurementInlineEditCell>
                   ) : (
-                    <td style={{ paddingLeft: 40, fontWeight: 600 }}>
+                    <td style={{ fontWeight: 600 }}>
                       {item.publisherName}
                       <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400, marginTop: 2 }}>
                         Pending Order Line ID #{item.id}
@@ -193,7 +196,7 @@ function PendingOrderItemsRow({
             })}
             {!readOnly && perms.canEdit && (
               <tr style={{ background: "var(--bg-2)" }}>
-                <td colSpan={showCurrency ? 7 : 6} style={{ paddingLeft: 40 }}>
+                <td colSpan={showCurrency ? 8 : 7} style={{ paddingLeft: 40 }}>
                   <button className="btn btn-g" style={{ padding: "5px 9px", fontSize: 11 }} onClick={() => onAddItem(po)}>
                     <Icon name="plus" size={12} />Add License Line
                   </button>

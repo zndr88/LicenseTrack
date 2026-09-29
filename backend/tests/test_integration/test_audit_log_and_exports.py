@@ -543,6 +543,9 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
         status=SourcingStatus.converted,
         pending_order_id=order.id,
     )
+    # Generated PO line numbers, with a gap (2 and 3 were issued and later removed).
+    first_item.po_line = PoLineRegister(po_key="po-export-1", po_number="PO-EXPORT-1", line_number=1)
+    second_item.po_line = PoLineRegister(po_key="po-export-1", po_number="PO-EXPORT-1", line_number=4)
     db_session.add_all([first_item, second_item])
     await db_session.commit()
 
@@ -566,7 +569,6 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
         "License Unit Price",
         "Line Total",
         "PO Total (manual)",
-        "PO Line",
     ]
     rows = _csv_dicts(response)
     assert len(rows) == 2
@@ -574,7 +576,7 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
     assert [row["Pending Order Line ID"] for row in rows] == [str(first_item.id), str(second_item.id)]
     assert [row["PO Number"] for row in rows] == ["PO-EXPORT-1", "PO-EXPORT-1"]
     assert [row["Procurement Reference"] for row in rows] == ["", ""]
-    assert [row["PO Line #"] for row in rows] == ["1", "2"]
+    assert [row["PO Line #"] for row in rows] == ["1", "4"]
     assert [row["Description"] for row in rows] == [
         "Fabrikam ERP",
         "Fabrikam Security",

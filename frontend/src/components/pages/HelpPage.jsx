@@ -114,6 +114,7 @@ const HELP_ARTICLES = [
           "External Ref: an optional identifier from another system, import source, or internal administration process.",
           "Publisher and Description: identify the software product and the organization that publishes it.",
           "Contract #, PO #, Procurement Reference, and Invoice #: commercial and workflow references used to reconcile the license with contracts, purchase orders, internal requests, and invoices. A license can hold multiple invoice numbers; the first invoice is treated as the primary value shown in the table and CSV exports.",
+          "PO line number: every record with a PO number gets a PO line number that LicenseTrack generates, so PO # plus line identifies one purchase line. It is unique per PO (PO numbers are compared ignoring case and extra spaces), is never reused after a line is removed, and is read-only everywhere. License Details show it in the PO # label, for example PO # · LINE 3; the Registry offers an optional PO Line column (hidden by default). Included maintenance shares its license's line; separately tracked maintenance is its own line. Changing a license's PO number keeps its line number when that number is free on the new PO, otherwise it takes the next free one; changing a pending order's PO number moves all of its lines together. Clearing the PO number removes the line, and a renewal starts without one until its own PO number is set.",
           "Supplier: the reseller or vendor that supplied the license. Leave empty for a direct publisher purchase.",
           "Cost Centre and Budget Owner: identify the internal owner. The budget-owner email receives renewal notifications when configured and when the license's renewal notifications flag is enabled.",
           "Secondary Contacts: additional internal contacts copied on budget-owner renewal emails. They are useful for application owners, technical owners, or shared mailbox stakeholders who should stay informed without replacing the budget owner.",
@@ -137,7 +138,7 @@ const HELP_ARTICLES = [
           "Sourcing Request ID: the database ID for the parent sourcing request that groups one or more sourcing lines.",
           "Sourcing Line ID: the database ID for one requested license line within a sourcing request.",
           "Pending Order ID: the database ID for the pending-order record, independent of its commercial PO Number and optional Procurement Reference.",
-          "Pending Order Line ID: the persistent database ID for one license line attached to a pending order. When a sourcing line moves into a pending order, the same line record is carried forward, so its Sourcing Line ID and Pending Order Line ID intentionally have the same numeric value. It is distinct from the display-only PO Line # used to show row order.",
+          "Pending Order Line ID: the persistent database ID for one license line attached to a pending order. When a sourcing line moves into a pending order, the same line record is carried forward, so its Sourcing Line ID and Pending Order Line ID intentionally have the same numeric value. It is distinct from the generated PO line number, which identifies the line on its PO.",
         ],
       },
       {
