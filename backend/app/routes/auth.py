@@ -25,6 +25,7 @@ from app.services.human_session_service import (
     revoke_session,
     advance_session_security_version,
 )
+from app.schemas.request_base import RequestModel
 
 # Failed-login counters are tracked independently by username and by source IP.
 # Keying only on username (as the original implementation did) let a password
@@ -118,7 +119,7 @@ async def auth_mode(
     }
 
 
-class LoginRequest(BaseModel):
+class LoginRequest(RequestModel):
     username: str
     password: str
 

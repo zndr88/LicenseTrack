@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # OpenAPI schema (/openapi.json) are disabled so the full API surface is not
     # exposed to unauthenticated callers. Enable in development if you want them.
     EXPOSE_API_DOCS: bool = False
+    # Reject request fields a schema doesn't define (422). When False, they are
+    # ignored and logged. Tests always run strict.
+    STRICT_REQUEST_FIELDS: bool = False
 
     @property
     def EFFECTIVE_OIDC_STATE_SECRET(self) -> str:

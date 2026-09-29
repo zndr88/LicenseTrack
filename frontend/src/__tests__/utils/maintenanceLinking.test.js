@@ -64,3 +64,13 @@ describe("maintenance parent types have one owner", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("maintenanceCandidate dates", () => {
+  it("shows dates in the user's format and still finds the stored form", () => {
+    const record = { id: 5, licenseType: "maintenance", startDate: "2026-01-01", endDate: "2026-12-31", maintenanceParentIds: [] };
+    const candidate = maintenanceCandidate(record, [record], { formatDay: (value) => value.split("-").reverse().join("/") });
+    expect(candidate.meta).toContain("01/01/2026 -> 31/12/2026");
+    expect(candidate.searchText).toContain("2026-12-31");
+    expect(candidate.searchText).toContain("31/12/2026");
+  });
+});

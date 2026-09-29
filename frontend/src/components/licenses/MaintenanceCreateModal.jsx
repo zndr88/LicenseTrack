@@ -6,7 +6,7 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import Icon from "../ui/Icon.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { parseTypedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber, formatDate } from "../../utils/formatting.js";
 import LinkPicker from "../ui/LinkPicker.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import { useAllLicenses } from "../../hooks/useAllLicenses.js";
@@ -61,7 +61,7 @@ export default function MaintenanceCreateModal({
       if (aDate !== bDate) return bDate.localeCompare(aDate);
       return (a.licenseRef || "").localeCompare(b.licenseRef || "");
     })
-    .map((license) => maintenanceCandidate(license, allLicenses)), [eligibleMaintenance, showHidden, allLicenses]);
+    .map((license) => maintenanceCandidate(license, allLicenses, { formatDay: (value) => formatDate(value, userSettings) })), [eligibleMaintenance, showHidden, allLicenses, userSettings]);
 
   const canSave = mode === "create"
     ? endDate.trim() !== "" && !saving

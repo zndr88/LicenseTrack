@@ -4,7 +4,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -15,6 +15,7 @@ from app.services.portfolio_reset_service import (
     portfolio_counts,
     reset_portfolio,
 )
+from app.schemas.request_base import RequestModel
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/api/operations", tags=["operations"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
-class PortfolioResetRequest(BaseModel):
+class PortfolioResetRequest(RequestModel):
     confirmation: str = Field(min_length=1, max_length=100)
 
 

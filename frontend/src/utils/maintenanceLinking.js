@@ -35,7 +35,8 @@ export function parentCandidate(license) {
   };
 }
 
-export function maintenanceCandidate(license, allLicenses) {
+// formatDay shows dates in the user's format; search matches both forms.
+export function maintenanceCandidate(license, allLicenses, { formatDay = (value) => value } = {}) {
   const covered = (license.maintenanceParentIds || [])
     .map((id) => allLicenses.find((candidate) => Number(candidate.id) === Number(id)))
     .filter(Boolean);
@@ -48,10 +49,15 @@ export function maintenanceCandidate(license, allLicenses) {
     title: `${refOf(license)} — ${nameOf(license)}`,
     subtitle: subtitle || undefined,
     meta: [license.poNumber || "No PO", license.contractNumber || "No contract",
-      `${license.startDate || "-"} -> ${license.endDate || "-"}`].join(" · "),
+      `${license.startDate ? formatDay(license.startDate) : "-"} -> ${license.endDate ? formatDay(license.endDate) : "-"}`].join(" · "),
     coversText,
     coveredLabel,
-    searchText: lower([...commonSearchParts(license), ...covered.flatMap((parent) => [parent.licenseRef, parent.publisherName, parent.softwareDescription])]),
+    searchText: lower([
+      ...commonSearchParts(license),
+      license.startDate ? formatDay(license.startDate) : "",
+      license.endDate ? formatDay(license.endDate) : "",
+      ...covered.flatMap((parent) => [parent.licenseRef, parent.publisherName, parent.softwareDescription]),
+    ]),
   };
 }
 

@@ -44,7 +44,7 @@ const HELP_ARTICLES = [
           "Budget owner: a line's own budget owner is always used. A renewal line with one predecessor falls back to that license's owner when the line has none. A merged coterm line whose predecessors had different owners stays blank, and conversion requires you to choose one.",
           "During conversion, the End Date field is hidden for perpetual, OEM, and Freeware / Open Source lines, because those types never carry an end date.",
           "A batch conversion must cover every eligible order line exactly once. LicenseTrack rejects missing, duplicate, already converted, or ineligible line IDs before creating any licenses.",
-          "If post-conversion quote or invoice evidence transfer fails, the licenses stay committed and the order remains retryable. A conversion that included an invoice cannot be marked complete until the required invoice evidence still exists in storage.",
+          "An invoice uploaded with a conversion is stored together with the new licenses; if it cannot be stored, nothing is converted and you can retry with the same file. If the post-conversion quote transfer fails, the licenses stay committed and the order remains retryable.",
           "Support cost describes the selected coverage period. Reports annualize recurring multi-year records and allocate selected report ranges by overlapping days.",
         ],
       },

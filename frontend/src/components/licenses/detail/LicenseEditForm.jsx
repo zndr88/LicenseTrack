@@ -1,5 +1,5 @@
 import { formatPriceInput } from "../../../utils/helpers.js";
-import { parseTypedNumber } from "../../../utils/formatting.js";
+import { parseTypedNumber, formatDate } from "../../../utils/formatting.js";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES, SUPPLIER_CONTACT_HELP } from "../../../constants/licenseData.js";
 import {
   defaultMaintenanceCoverageForLicenseType,
@@ -66,7 +66,7 @@ export default function LicenseEditForm({
   const quickLinkCandidates = showQuickLink
     ? allLicenses
       .filter((item) => item.licenseType === "maintenance" && !isHiddenFromLinking(item) && !isLinkedToParent(item, licenseId))
-      .map((item) => maintenanceCandidate(item, allLicenses))
+      .map((item) => maintenanceCandidate(item, allLicenses, { formatDay: (value) => formatDate(value, userSettings) }))
     : [];
   const descriptionMissing = typeDescriptionMissing(editFields.licenseType, editFields.typeDescription);
   const noticeAfterEnd = Boolean(editFields.noticeDate && editFields.endDate && editFields.noticeDate > editFields.endDate);

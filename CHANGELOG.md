@@ -33,9 +33,21 @@ Work in progress for 1.2.0.
   behaviour change).
 - Updated the frontend test tooling (Vitest 5, jsdom 30.1) and removed automatic
   test retries.
+- API requests with fields an endpoint doesn't define are logged as a warning,
+  naming the endpoint and the fields. Set `STRICT_REQUEST_FIELDS=true` to reject
+  them with a 422 instead; this may become the default in a later release, so
+  integrations should send only documented fields.
 
 ### Fixed
 
+- Database restores run in the background of the server process, so the app
+  and `/api/health` keep responding (with status `maintenance`) during a long
+  restore. Pre-restore safety copies are now kept in a `pre-restore` folder
+  next to the database (newest three), and copies left next to the database by
+  older versions are moved there on the next restore.
+- Application log messages (such as warnings about unknown request fields) are
+  no longer silenced after the database upgrade that runs at startup, and keep
+  following the `LOG_LEVEL` setting.
 - Maintenance linking:
   - A license can be changed into Maintenance from the edit form by choosing
     the license it covers in the same step.
@@ -87,6 +99,18 @@ Work in progress for 1.2.0.
 - The database models and migrations now describe the same schema, including
   the unique OIDC identity index. A test fails the build if they drift apart
   again. Document categories fit their column on every database.
+
+- Procurement conversion:
+  - Sourcing lines can no longer be added to a pending order that was
+    converted or cancelled in the meantime.
+  - Conversion can no longer change a line's currency while the order has a
+    manual PO total; clear the total first.
+  - A SaaS portal URL saved on a sourcing or PO line is kept at conversion.
+  - An invoice uploaded with a conversion is stored together with the new
+    licenses: if it can't be stored, nothing is converted and you can retry.
+  - Older conversions whose invoice was lost now say to upload the invoice on
+    the pending order and retry, instead of retrying automatically.
+  - Evidence transfers can no longer run twice at the same time.
 
 ### Security
 

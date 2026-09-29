@@ -21,6 +21,7 @@ import {
 import { buildLicense } from "./fixtures.js";
 import { applyIncludedSupportDefaults } from "./supportDefaults.js";
 import { datetimeDaysAgo } from "./time.js";
+import { isPendingOrderOpen } from "../utils/pendingOrderState.js";
 import { hasSameProcurementIdentity } from "../utils/procurementIdentity.js";
 import { isNonExpiringLicenseType } from "../utils/licenseTypeRules.js";
 import {
@@ -1881,7 +1882,7 @@ export const routes = [
     method: "GET", pattern: /^\/api\/pending-orders$/,
     handler: async () => ({
       data: store.pendingOrders
-        .filter((o) => o.status === "pending" || o.status === "invoice_received")
+        .filter((o) => isPendingOrderOpen(o))
         .slice()
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .map(withPendingOrderLicenseRefs),

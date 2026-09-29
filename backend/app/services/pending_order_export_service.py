@@ -12,7 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.pending_order import PendingOrder, PendingOrderStatus
+from app.models.pending_order import PendingOrder
+from app.services.pending_order_state import OPEN_PENDING_ORDER_STATUSES
 from app.services.csv_safety import safe_csv_row
 from app.services.procurement_totals import procurement_line_total
 
@@ -20,7 +21,7 @@ from app.services.procurement_totals import procurement_line_total
 async def build_pending_orders_export_csv(db: AsyncSession) -> str:
     result = await db.execute(
         select(PendingOrder)
-        .where(PendingOrder.status.in_([PendingOrderStatus.pending, PendingOrderStatus.invoice_received]))
+        .where(PendingOrder.status.in_(OPEN_PENDING_ORDER_STATUSES))
         .options(selectinload(PendingOrder.items))
         .order_by(PendingOrder.created_at.desc())
     )
