@@ -81,3 +81,26 @@ export async function saveAndGetLicense(page, dialog, description) {
   expect(license, `license "${description}" was saved`).not.toBeNull();
   return license;
 }
+
+/** Opens a license's detail panel by its id (deep link). */
+export async function openLicense(page, id) {
+  await page.goto(`/licenses/${id}`);
+  await expect(page.getByText("License Details")).toBeVisible();
+}
+
+/** Opens a collapsed detail-panel section such as "Details" or "Notes". */
+export async function openDetailSection(page, name) {
+  const header = page.getByRole("button", { name, exact: true });
+  if ((await header.getAttribute("aria-expanded")) !== "true") await header.click();
+}
+
+/** Sets the signed-in user's number format on the Settings page ("en-US" or "de-DE"). */
+export async function setNumberFormat(page, locale) {
+  await page.goto("/settings");
+  const select = page.locator("#settings-number-format");
+  if (!(await select.isVisible())) await page.getByRole("button", { name: /^Appearance/i }).click();
+  await select.selectOption(locale);
+  const saved = page.waitForResponse((res) => res.url().endsWith("/api/settings") && res.request().method() === "PUT");
+  await page.locator(".setsec", { has: select }).getByRole("button", { name: "Save", exact: true }).click();
+  expect((await saved).ok()).toBeTruthy();
+}
