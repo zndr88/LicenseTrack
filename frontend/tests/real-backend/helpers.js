@@ -98,8 +98,12 @@ export async function openDetailSection(page, name) {
 export async function setNumberFormat(page, locale) {
   await page.goto("/settings");
   const select = page.locator("#settings-number-format");
-  if (!(await select.isVisible())) await page.getByRole("button", { name: /^Appearance/i }).click();
+  const header = page.getByRole("button", { name: /^Appearance/i });
+  await expect(header).toBeVisible();
+  if ((await header.getAttribute("aria-expanded")) !== "true") await header.click();
+  await expect(select).toBeVisible();
   await select.selectOption(locale);
+  await expect(select).toHaveValue(locale);
   const saved = page.waitForResponse((res) => res.url().endsWith("/api/settings") && res.request().method() === "PUT");
   await page.locator(".setsec", { has: select }).getByRole("button", { name: "Save", exact: true }).click();
   expect((await saved).ok()).toBeTruthy();
