@@ -53,4 +53,14 @@ describe("LinkPicker", () => {
     rerender(<LinkPicker candidates={candidates} selectedIds={[1]} onChange={vi.fn()} relationship={relationship} />);
     expect(screen.getByText("3-day gap between terms")).toBeInTheDocument();
   });
+
+  it("counts hidden records and offers to show them", () => {
+    const onShowHidden = vi.fn();
+    const { rerender } = render(<LinkPicker candidates={candidates} selectedIds={[]} onChange={vi.fn()} hiddenCount={2} onShowHidden={onShowHidden} />);
+    expect(screen.getByText(/2 hidden records \(retired or scheduled for retirement\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show" }));
+    expect(onShowHidden).toHaveBeenCalled();
+    rerender(<LinkPicker candidates={candidates} selectedIds={[]} onChange={vi.fn()} hiddenCount={0} onShowHidden={onShowHidden} />);
+    expect(screen.queryByRole("button", { name: "Show" })).toBeNull();
+  });
 });
