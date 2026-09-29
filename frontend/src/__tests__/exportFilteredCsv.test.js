@@ -12,6 +12,43 @@ URL.createObjectURL = vi.fn().mockReturnValue('blob:mock')
 URL.revokeObjectURL = vi.fn()
 
 import { exportFilteredCsv } from '../components/pages/LicensesPage.jsx'
+import { STABLE_EXPORT_FIELD_NAMES } from '../components/pages/licenses/exportFilteredCsv.js'
+
+const EXPECTED_STABLE_EXPORT_FIELD_NAMES = {
+  recordId: 'license_record_id',
+  licenseRef: 'license_ref',
+  externalRef: 'external_ref',
+  publisher: 'publisher_name',
+  description: 'software_description',
+  contractNumber: 'contract_number',
+  poNumber: 'po_number',
+  procurementReference: 'procurement_reference',
+  invoiceNumber: 'invoice_number',
+  contactEmail: 'contact_email',
+  supplier: 'supplier',
+  costCentre: 'cost_centre',
+  budgetOwnerEmail: 'budget_owner_email',
+  secondaryContacts: 'secondary_contacts',
+  licenseType: 'license_type',
+  licenseMetric: 'license_metric',
+  quantity: 'quantity',
+  effectiveQuantity: 'effective_quantity',
+  quantityPerUnit: 'quantity_per_unit',
+  skuCode: 'sku_code',
+  unitPrice: 'unit_price',
+  totalPoPrice: 'total_po_value',
+  currency: 'currency',
+  notes: 'notes',
+  startDate: 'start_date',
+  endDate: 'end_date',
+  noticeDate: 'notice_date',
+  requestDate: 'request_date',
+  purchaseDate: 'purchase_date',
+  portalUrl: 'portal_url',
+  isRenewable: 'is_renewable',
+  typeDescription: 'type_description',
+  maintenanceCoverage: 'maintenance_coverage',
+}
 
 const makeRow = (overrides = {}) => ({
   id: 1,
@@ -57,6 +94,10 @@ function csvLines() {
 }
 
 describe('exportFilteredCsv', () => {
+  it('keeps the established stable export headers', () => {
+    expect(STABLE_EXPORT_FIELD_NAMES).toEqual(EXPECTED_STABLE_EXPORT_FIELD_NAMES)
+  })
+
   it('exports every invoice number when a license has multiple invoices', () => {
     const row = { ...makeRow(), invoiceNumber: 'INV-1', invoiceNumbers: ['INV-1', 'INV-2'] };
 

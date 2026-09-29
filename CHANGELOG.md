@@ -27,6 +27,8 @@ Work in progress for 1.2.0.
 
 - Added a maintainer invariants document listing the rules LicenseTrack
   guarantees on every entry point, and a pull request template.
+- Internal: CSV import and export read their field list from one registry (no
+  behaviour change).
 - Updated the frontend test tooling (Vitest 5, jsdom 30.1) and removed automatic
   test retries.
 
