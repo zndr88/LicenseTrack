@@ -530,6 +530,7 @@ def _classify_row(
     software_description: str,
     db_end_date: Optional[date],
     license_type: str,
+    explicit_lifecycle: str | None,
 ) -> tuple[str, str | None, bool]:
     """Return (import_status, lifecycle_status, is_completeness_exempt).
 
@@ -543,6 +544,11 @@ def _classify_row(
     imported expiry dates represent included support coverage and must not make
     the license itself legacy.
     """
+    if explicit_lifecycle is not None:
+        if explicit_lifecycle in {"legacy", "renewed"}:
+            return "legacy_exempt", "legacy", True
+        return "active", None, False
+
     today = date.today()
     has_publisher = bool(publisher_name)
     has_description = bool(software_description)
@@ -739,8 +745,17 @@ def _parse_row(
     ):
         warnings.append(EXPIRED_MAINTENANCE_WARNING)
 
+    explicit_lifecycle = None
+    if "lifecycle_status" in data:
+        explicit_lifecycle = _normalise_enum_value(_field_text(data, "lifecycle_status"))
+        if explicit_lifecycle == "pending_renewal":
+            warnings.append("renewal state is not imported")
     import_status, lifecycle_status, is_completeness_exempt = _classify_row(
-        publisher_name, software_description, db_end_date, license_type
+        publisher_name,
+        software_description,
+        db_end_date,
+        license_type,
+        explicit_lifecycle,
     )
 
     if import_status == "error":
@@ -963,7 +978,7 @@ def _assemble_import_row(
             if stripped:
                 custom_data[target] = stripped
             continue
-        if omit_blank_native_values and not stripped:
+        if omit_blank_native_values and not stripped and target != "lifecycle_status":
             continue
         value = stripped if omit_blank_native_values else raw_value
         if target in MULTI_VALUE_TARGETS:

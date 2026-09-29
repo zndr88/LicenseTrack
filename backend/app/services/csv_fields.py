@@ -354,7 +354,12 @@ FIELDS: tuple[CsvField, ...] = (
     CsvField(None, "created_by", create=False),
     CsvField(None, "updated_at", aliases=("last_updated",), create=False),
     CsvField(None, "last_synced_at", aliases=("last_synced",), create=False),
-    CsvField(None, "lifecycle_status", create=False),
+    CsvField(
+        "lifecycle_status",
+        "lifecycle_status",
+        round_trip=True,
+        frontend_key="lifecycleStatus",
+    ),
     CsvField(None, "sync_status", create=False),
 )
 

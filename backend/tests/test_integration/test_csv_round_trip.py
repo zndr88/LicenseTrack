@@ -9,11 +9,13 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
 
+import pytest
 from sqlalchemy import select
 
 from app.models.license import License, LicenseMaintenanceLink
 from app.models.reference_data import CostCentre, Organization
 from app.services.csv_fields import FIELDS
+from app.services.csv_importer import _parse_row
 
 
 @dataclass(frozen=True)
@@ -130,6 +132,50 @@ def _scenario_row(name: str, **required: str) -> dict[str, str]:
 
 def _comparable(value: object) -> object:
     return value.value if isinstance(value, Enum) else value
+
+
+@pytest.mark.parametrize(
+    ("explicit_lifecycle", "expected_lifecycle", "expected_warning"),
+    [
+        ("", None, None),
+        ("active", None, None),
+        ("legacy", "legacy", None),
+        ("renewed", "legacy", None),
+        ("pending_renewal", None, "renewal state is not imported"),
+    ],
+)
+def test_explicit_lifecycle_status_follows_decision_r1(
+    explicit_lifecycle,
+    expected_lifecycle,
+    expected_warning,
+):
+    row = _parse_row(
+        1,
+        {
+            "publisher_name": "Lifecycle Publisher",
+            "software_description": "Expired Subscription",
+            "license_type": "subscription",
+            "end_date": "2000-01-01",
+            "lifecycle_status": explicit_lifecycle,
+        },
+    )
+
+    assert row.lifecycle_status == expected_lifecycle
+    assert (expected_warning in row.warnings) if expected_warning else not row.warnings
+
+
+def test_expired_row_without_lifecycle_column_keeps_legacy_classification():
+    row = _parse_row(
+        1,
+        {
+            "publisher_name": "Lifecycle Publisher",
+            "software_description": "Expired Subscription",
+            "license_type": "subscription",
+            "end_date": "2000-01-01",
+        },
+    )
+
+    assert row.lifecycle_status == "legacy"
 
 
 async def test_every_round_trip_field_has_one_scenario_and_survives_import(
