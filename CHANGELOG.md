@@ -22,8 +22,11 @@ Work in progress for 1.2.0.
 - PO line numbers: every license and pending-order line with a PO number gets
   a generated, read-only PO line number, unique per PO (PO numbers are
   compared ignoring case and spacing) and never reused. The number appears in
-  the API (`poLineNumber`) and as a new last column in the license and
-  pending-order CSV exports. CSV imports of new records keep the file's line
+  the API (`poLineNumber`), as a new last **PO Line** column in the license CSV
+  export, and in the pending-order export. In the app it is shown as
+  `PO # · LINE n` in License Details, as a Line column on pending orders and in
+  the conversion screens, and as an optional PO Line column in the Registry
+  (hidden by default, sortable and filterable). CSV imports of new records keep the file's line
   numbers when they are free; the preview shows any number that has to
   change. Existing records are numbered once during the upgrade, in creation
   order per PO; these historical numbers may not match POs issued before
@@ -35,6 +38,8 @@ Work in progress for 1.2.0.
 
 ### Changed
 
+- The pending-order export's `PO Line #` column now contains the generated PO
+  line number instead of the row's position.
 - Pull requests now include a single-owner audit: every rule a change touches
   names its one owner in code, and literal duplicates are caught by guard tests.
 - Added a maintainer invariants document listing the rules LicenseTrack

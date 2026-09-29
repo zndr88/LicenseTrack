@@ -266,10 +266,43 @@ license.
 
 CSV exports name these internal row identifiers explicitly: **Sourcing Request
 ID**, **Sourcing Line ID**, **Pending Order ID**, and **Pending Order Line ID**.
-They are distinct from commercial PO numbers and display-only line ordering. A
+They are distinct from commercial PO numbers and from the generated PO line
+number described below. A
 sourcing line carried into a pending order retains the same line row, so its
 Sourcing Line ID and Pending Order Line ID intentionally have the same numeric
 value.
+
+### PO line numbers
+
+Every pending-order line and license that has a PO number also has a **PO line
+number**, so PO number plus line identifies one purchase line. LicenseTrack
+generates it; it cannot be typed or edited anywhere in the app or the API.
+
+- Numbers are unique per PO number (compared ignoring case and extra spaces) and
+  count up from 1. The next number is one higher than the highest ever issued on
+  that PO. A number is never reused, even after its line is removed, so gaps are
+  normal and are never closed.
+- Included maintenance shares its license's line. Separately tracked maintenance
+  is its own line, and so is each term of a planned maintenance chain. A
+  co-termed line, where several licenses were merged into one renewal, is one
+  line.
+- When you change a pending order's PO number, all of its lines move together.
+  They keep their numbers if none of them is already used on the new PO;
+  otherwise every line is renumbered after the highest number on the new PO.
+- Converting a pending order gives each license the same line number as the
+  pending-order line it came from.
+- When you change a single license's PO number, it keeps its line number if that
+  number is free on the new PO, and otherwise takes the next free one. Clearing
+  the PO number removes the line, but the number stays used up.
+- A renewal starts without a line number. It gets one when its own PO number is
+  set.
+
+The pending order's line list shows a **Line** column, the conversion screens
+show each line's number, License Details show it in the PO # label (`PO # · LINE
+3`), and the Registry has an optional **PO Line** column, hidden by default, that
+you can sort and filter by. CSV exports include it: the license export has a
+**PO Line** column, and the pending-order export's **PO Line #** column holds the
+generated number.
 
 The License Details **History** section exposes the same procurement trail in
 reverse, letting you navigate from an entitlement back to its quote and PO work.

@@ -83,6 +83,21 @@ the next daily job after import.
 Pending Orders CSV exports include a **PO Total (manual)** column with the
 order's manual PO total, when one is set.
 
+## PO line numbers
+
+The license export contains a **PO Line** column, and CSV import recognizes it
+(also as `po_line_number`, `po_line_item` or `po_line_no`).
+
+- **New records:** a free line number in the file is kept exactly, and gaps
+  survive. A blank number is filled with the next free line. When the number is
+  already taken on that PO, or two new rows in the file claim the same number,
+  the preview flags it and the row is imported with the next free line instead.
+- **Updates matched by LT Ref:** the line number in the file is ignored, and the
+  preview says so. If the row changes the PO number, the same rules as editing a
+  single license apply.
+
+See [Procurement](../workflows/procurement.md) for how line numbers are issued.
+
 ## Items and descriptions
 
 Some external exports contain a generic **Item** column as well as a more exact
