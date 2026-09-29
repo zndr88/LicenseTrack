@@ -88,6 +88,12 @@ literal value (a set of statuses, a list of fields), a guard test built on
 |---|---|---|---|---|
 | NOTIFY-1 | Which alert types reach budget owners and the manager digest is decided in one place. Budget owners get license and included-maintenance expiry alerts. | `notification_classification.BUDGET_OWNER_ALERT_TYPES`, `MANAGER_DIGEST_ALERT_TYPES` | `test_notifications.py::test_budget_owner_and_digest_alert_types_have_one_owner` | holds |
 
+## Sessions
+
+| ID | Rule | Owner | Guard | Status |
+|---|---|---|---|---|
+| SESSION-1 | Session deadlines are measured on the client's own clock from the server's seconds remaining; nothing compares server time with browser time. | `backend/app/routes/auth.py::_expires_in`; `frontend/src/api/client.js::rememberSessionExpiry` | `frontend/src/__tests__/sessionClock.test.js`; `frontend/tests/e2e/session-multitab.spec.js` | holds |
+
 ## Non-goals
 
 - **Budgeting.** LicenseTrack provides the data managers use to prepare budgets. It doesn't do forecasting, budget-vs-actual, allocations or multi-year budget modelling. Annualized cost views are indicative.

@@ -492,7 +492,7 @@ export const routes = [
         return { data: null, error: "Enter any username and password — try demo / demo." };
       }
       seedStore();
-      return { data: { access_token: "demo-token", token_type: "bearer", user: demoUser }, error: null };
+      return { data: { access_token: "demo-token", token_type: "bearer", user: demoUser, expires_in: 1800 }, error: null };
     },
   },
   { method: "POST", pattern: /^\/api\/auth\/logout$/, handler: async () => { resetStore(); return { data: null, error: null }; } },

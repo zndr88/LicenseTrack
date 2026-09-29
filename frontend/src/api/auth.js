@@ -11,7 +11,7 @@
  *   POST /api/auth/change-password - change own password (authenticated)
  */
 
-import { apiUrl, coordinateRefresh, getSessionGeneration, startSessionTransition, getToken, isSessionLocked, lockSession, unlockSession, get, post, setSessionCoordinationId, sessionCoordinationKey, setToken } from "./client.js";
+import { apiUrl, coordinateRefresh, getSessionGeneration, startSessionTransition, getToken, isSessionLocked, lockSession, unlockSession, get, post, setSessionCoordinationId, sessionCoordinationKey, setToken, rememberSessionExpiry } from "./client.js";
 
 /**
  * Detect the public authentication mode.
@@ -53,6 +53,7 @@ export async function login(username, password) {
   if (data?.access_token) {
     setToken(data.access_token);
   }
+  if (data) rememberSessionExpiry(data.expires_in);
   if (data) window.localStorage.setItem("licensetrack.session.authenticated", String(Date.now()));
   return { data, error };
 }
@@ -79,9 +80,9 @@ export async function getSession({ allowLocked = false } = {}) {
   const generation = getSessionGeneration();
   const result = await get("/api/auth/session", { redirectOn401: false });
   if (generation !== getSessionGeneration() || (!allowLocked && isSessionLocked())) return { data: { authenticated: false }, error: null };
-  if (result.data?.expires_at) {
+  if (result.data?.expires_in) {
     setSessionCoordinationId(result.data.coordination_id);
-    window.localStorage.setItem(sessionCoordinationKey("expiry"), String(result.data.expires_at * 1000));
+    rememberSessionExpiry(result.data.expires_in);
   }
   return result;
 }
@@ -96,6 +97,7 @@ export function refreshSession() {
     });
     if (generation === getSessionGeneration() && result.data?.access_token) {
       setToken(result.data.access_token);
+      rememberSessionExpiry(result.data.expires_in);
     }
     return result;
   });
@@ -114,6 +116,9 @@ export async function changePassword(currentPassword, newPassword) {
     current_password: currentPassword,
     new_password: newPassword,
   });
-  if (generation === getSessionGeneration() && result.data?.access_token) setToken(result.data.access_token);
+  if (generation === getSessionGeneration() && result.data?.access_token) {
+    setToken(result.data.access_token);
+    rememberSessionExpiry(result.data.expires_in);
+  }
   return result;
 }

@@ -152,6 +152,7 @@ async def test_session_probe_returns_anonymous_without_cookie(test_app):
         "authenticated": False,
         "user": None,
         "expires_at": None,
+        "expires_in": None,
         "coordination_id": None,
         "session_timeout": None,
     }
@@ -908,3 +909,21 @@ async def test_concurrent_oidc_callbacks_cannot_exceed_the_rate_limit(db_session
     assert runs == 10
     assert statuses.count(302) == runs
     assert statuses.count(429) == 20 - runs
+
+
+async def test_session_login_and_refresh_return_seconds_remaining(db_session, test_app):
+    password = "correctpassword123"
+    db_session.add(_make_user("clockuser", password, UserRole.admin))
+    await db_session.commit()
+
+    login = await test_app.post("/api/auth/login", json={"username": "clockuser", "password": password})
+    assert login.status_code == 200, login.text
+    assert 0 < login.json()["expires_in"] <= 24 * 60 * 60
+
+    session = await test_app.get("/api/auth/session")
+    assert session.json()["authenticated"] is True
+    assert 0 < session.json()["expires_in"] <= 24 * 60 * 60
+
+    refreshed = await test_app.post("/api/auth/refresh")
+    assert refreshed.status_code == 200, refreshed.text
+    assert 0 < refreshed.json()["expires_in"] <= 24 * 60 * 60

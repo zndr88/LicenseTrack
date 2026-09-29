@@ -113,6 +113,33 @@ describe("useAuth", () => {
     expect(result.current.currentUser?.username).toBe("admin");
   });
 
+  test("refresh timing follows the seconds remaining, not the server's absolute clock", async () => {
+    vi.useFakeTimers();
+    // Browser clock is 5 minutes behind the server: expires_at is 35 minutes away on this clock.
+    const serverNow = Math.floor(Date.now() / 1000) + 5 * 60;
+    authApi.getSession.mockResolvedValueOnce({
+      data: {
+        authenticated: true,
+        expires_at: serverNow + 30 * 60,
+        expires_in: 30 * 60,
+        session_timeout: 30,
+        user: { id: 1, username: "admin", role: "admin", must_change_password: false, auth_provider: "local" },
+      },
+      error: null,
+    });
+    authApi.refreshSession.mockResolvedValue({ data: { access_token: "rotated" }, error: null });
+
+    renderAuthHook({ sessionTimeout: 30, showToast: vi.fn() });
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      vi.advanceTimersByTime(29 * 60_000 + 10_000);
+      window.dispatchEvent(new KeyboardEvent("keydown"));
+      await Promise.resolve();
+    });
+    expect(authApi.refreshSession).toHaveBeenCalledTimes(1);
+  });
+
   test("explicit logout clears local auth state after requesting server cleanup", async () => {
     window.sessionStorage.setItem("licensetrack.licenses.dismissedAttentionIds", "[12,34]");
     authApi.getSession.mockResolvedValueOnce({
@@ -176,7 +203,7 @@ test.each(["sparse activity", "reload near expiry"])("refreshes before expiry af
   const started = Date.now();
   const expiresAt = started + (scenario === "sparse activity" ? 30 * 60_000 : 60_000);
   authApi.getSession.mockResolvedValue({ data: {
-    authenticated: true, expires_at: expiresAt / 1000,
+    authenticated: true, expires_at: expiresAt / 1000, expires_in: (expiresAt - started) / 1000,
     user: { id: 1, username: "admin", role: "admin" },
   } });
   authApi.refreshSession.mockImplementation(async () => {

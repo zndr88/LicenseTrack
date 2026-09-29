@@ -138,11 +138,13 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str
     user: UserOut
+    expires_in: int | None = None
 
 
 class SessionResponse(BaseModel):
     authenticated: bool
     expires_at: int | None = None
+    expires_in: int | None = None
     coordination_id: str | None = None
     session_timeout: int | None = None
     user: UserOut | None = None
@@ -151,6 +153,18 @@ class SessionResponse(BaseModel):
 class SessionRefreshResponse(BaseModel):
     access_token: str
     token_type: str
+    expires_in: int | None = None
+
+
+def _expires_in(expires_at: int | None) -> int | None:
+    """Seconds until *expires_at* (server clock). Clients measure it on their own clock."""
+    if not expires_at:
+        return None
+    return max(0, int(expires_at - time()))
+
+
+def _token_expires_in(token: str) -> int | None:
+    return _expires_in(int(auth.decode_access_token(token, verify_expiry=False).get("exp") or 0))
 
 
 def _user_out(user: User) -> UserOut:
@@ -208,6 +222,7 @@ async def session(
         authenticated=True,
         user=_user_out(user),
         expires_at=expires_at,
+        expires_in=_expires_in(expires_at),
         coordination_id=human_session.id,
         session_timeout=gs.session_timeout if gs else None,
     )
@@ -231,7 +246,7 @@ async def refresh_session(
     except auth.JWTError as exc:
         raise HTTPException(status_code=401, detail="Session ended") from exc
     # The stable session cookie must never be replaced by a delayed refresh.
-    return SessionRefreshResponse(access_token=token, token_type="bearer")
+    return SessionRefreshResponse(access_token=token, token_type="bearer", expires_in=_token_expires_in(token))
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -307,6 +322,7 @@ async def login(
         access_token=token,
         token_type="bearer",
         user=_user_out(user),
+        expires_in=_token_expires_in(token),
     )
 
 
@@ -423,4 +439,8 @@ async def change_password(
         )
     except auth.JWTError as exc:
         raise HTTPException(status_code=401, detail="Session ended") from exc
-    return {"access_token": session_token, "token_type": "bearer"}
+    return {
+        "access_token": session_token,
+        "token_type": "bearer",
+        "expires_in": _token_expires_in(session_token),
+    }
