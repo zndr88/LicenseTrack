@@ -39,16 +39,25 @@ export function maintenanceCandidate(license, allLicenses) {
   const covered = (license.maintenanceParentIds || [])
     .map((id) => allLicenses.find((candidate) => Number(candidate.id) === Number(id)))
     .filter(Boolean);
-  const coversText = covered.length
-    ? `Currently covers: ${covered.map((parent) => `${refOf(parent)} ${nameOf(parent)}`).join("; ")}`
-    : "";
+  const coveredLabel = covered.map((parent) => `${refOf(parent)} ${nameOf(parent)}`).join("; ");
+  const coversText = covered.length ? `Currently covers: ${coveredLabel}` : "";
+  const subtitle = [license.isLegacyUnlinkedMaintenance ? "Legacy unlinked" : "", coversText]
+    .filter(Boolean).join(" · ");
   return {
     id: license.id,
-    title: `${refOf(license)} â€” ${nameOf(license)}`,
-    subtitle: coversText || undefined,
+    title: `${refOf(license)} — ${nameOf(license)}`,
+    subtitle: subtitle || undefined,
     meta: [license.poNumber || "No PO", license.contractNumber || "No contract",
       `${license.startDate || "-"} -> ${license.endDate || "-"}`].join(" Â· "),
     coversText,
+    coveredLabel,
     searchText: lower([...commonSearchParts(license), ...covered.flatMap((parent) => [parent.licenseRef, parent.publisherName, parent.softwareDescription])]),
   };
+}
+
+// Asked before a maintenance record that already covers another license is
+// linked to one more. Returns null when the record covers nothing yet.
+export function coversConfirmMessage(candidate) {
+  if (!candidate?.coveredLabel) return null;
+  return `This maintenance record already covers ${candidate.coveredLabel}. Also cover this license?`;
 }

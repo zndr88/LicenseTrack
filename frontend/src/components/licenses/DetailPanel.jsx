@@ -408,7 +408,6 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
         <MaintenanceCreateModal
           parentLicense={license}
           userSettings={userSettings}
-          allLicenses={allLicenses}
           onSuccess={async (parentId) => {
             setShowMaintenanceModal(false);
             const { data: refreshed } = await getLicense(parentId);

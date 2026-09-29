@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  coversConfirmMessage,
   isHiddenFromLinking,
   isLinkedToParent,
   maintenanceCandidate,
@@ -38,5 +39,12 @@ describe("maintenanceLinking", () => {
     expect(isHiddenFromLinking({ ...record, isRetired: true })).toBe(true);
     expect(isHiddenFromLinking({ ...record, retirementScheduled: true })).toBe(true);
     expect(isHiddenFromLinking(record)).toBe(false);
+  });
+
+  it("words the confirmation for a record that already covers something", () => {
+    expect(coversConfirmMessage(maintenanceCandidate(record, all))).toBe(
+      "This maintenance record already covers LT-2 Beta / Tool. Also cover this license?",
+    );
+    expect(coversConfirmMessage(maintenanceCandidate({ ...record, maintenanceParentIds: [] }, all))).toBeNull();
   });
 });
