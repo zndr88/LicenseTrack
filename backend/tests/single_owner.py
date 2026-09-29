@@ -1,4 +1,4 @@
-"""Guard helper: a rule's literal definition may live only in its owner file.
+r"""Guard helper: a rule's literal definition may live only in its owner file.
 
 Usage in a guard test:
 
