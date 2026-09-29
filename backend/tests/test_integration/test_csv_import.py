@@ -134,12 +134,12 @@ async def test_analyze_import_matches_flexera_quantity_fields_natively(test_app,
     assert matched["Quantity per Unit"] == "quantity_per_unit"
 
 
-async def test_analyze_import_keeps_duplicate_description_candidate_recoverable(test_app, auth_headers):
+async def test_analyze_import_reads_item_as_po_line_next_to_a_description(test_app, auth_headers):
     csv_bytes = _make_csv(
         ["Publisher", "Item", "Software Description"],
         [{
             "Publisher": "Acme",
-            "Item": "ERP-EXT-123",
+            "Item": "3",
             "Software Description": "Acme ERP Suite",
         }],
     )
@@ -155,7 +155,7 @@ async def test_analyze_import_keeps_duplicate_description_candidate_recoverable(
     matched = {column["internalField"]: column for column in body["matchedColumns"]}
 
     assert matched["software_description"]["rawHeader"] == "Software Description"
-    assert {"rawHeader": "Item", "sampleValues": ["ERP-EXT-123"]} in body["unrecognizedColumns"]
+    assert matched["po_line_number"]["rawHeader"] == "Item"
     assert body["missingRequired"] == []
 
 
@@ -2445,9 +2445,9 @@ async def test_confirm_import_parses_declared_belgian_locale(
             "publisher_name": "Acme",
             "software_description": "Belgian Suite",
             "start_date": "1-2-2027'",
-            "quantity": "1.000",
+            "quantity": "1.000.000",
             "unit_price": "€1.234,50",
-            "total_po_price": "EUR 1.234.500,00",
+            "total_po_price": "EUR 1.234.500.000,00",
         }],
     )
 
@@ -2465,9 +2465,9 @@ async def test_confirm_import_parses_declared_belgian_locale(
     )
     assert license_obj is not None
     assert license_obj.start_date == date(2027, 2, 1)
-    assert license_obj.quantity == "1000"
+    assert license_obj.quantity == "1000000"
     assert license_obj.unit_price == "1234.50"
-    assert license_obj.total_po_price == "1234500.00"
+    assert license_obj.total_po_price == "1234500000.00"
 
 
 # ---------------------------------------------------------------------------
