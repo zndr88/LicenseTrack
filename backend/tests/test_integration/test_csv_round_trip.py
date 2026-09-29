@@ -12,7 +12,12 @@ from enum import Enum
 import pytest
 from sqlalchemy import select
 
-from app.models.license import License, LicenseMaintenanceLink
+from app.models.license import (
+    License,
+    LicenseMaintenanceLink,
+    MaintenanceCoverage,
+    MaintenancePricingBasis,
+)
 from app.models.reference_data import CostCentre, Organization
 from app.services.csv_fields import FIELDS
 from app.services.csv_importer import _parse_row
@@ -128,6 +133,21 @@ def _scenario_row(name: str, **required: str) -> dict[str, str]:
         **required,
         **{field: SAMPLE_VALUES[field].csv for field in SCENARIO_FIELDS[name]},
     }
+
+
+async def _create_license(test_app, auth_headers, **overrides) -> dict:
+    payload = {
+        "publisherName": "Update Publisher",
+        "softwareDescription": "Update License",
+        "licenseType": "subscription",
+        "licenseMetric": "per_user",
+        "quantity": "1",
+        "currency": "EUR",
+    }
+    payload.update(overrides)
+    response = await test_app.post("/api/licenses", headers=auth_headers, json=payload)
+    assert response.status_code == 201, response.text
+    return response.json()
 
 
 def _comparable(value: object) -> object:
@@ -339,3 +359,130 @@ async def test_conflicting_manual_po_totals_warn_and_first_value_wins(
         )
     ).scalars().all()
     assert {license_obj.po_total_override for license_obj in licenses} == {"500.00"}
+
+
+async def test_update_import_writes_procurement_dates_and_secondary_contacts(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    created = await _create_license(test_app, auth_headers)
+    row = {
+        "license_ref": created["licenseRef"],
+        "publisher_name": "Update Publisher",
+        "software_description": "Update License",
+        "request_date": "2026-03-01T09:15:00+00:00",
+        "purchase_date": "2026-03-15T14:45:00+00:00",
+        "secondary_contacts": "new-one@example.test; new-two@example.test",
+    }
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"update_existing": "true"},
+        files={"file": ("update.csv", _make_csv(list(row), [row]), "text/csv")},
+    )
+
+    assert response.status_code == 200, response.text
+    db_session.expire_all()
+    updated = await db_session.get(License, created["id"])
+    assert updated.request_date == datetime(2026, 3, 1, 9, 15)
+    assert updated.purchase_date == datetime(2026, 3, 15, 14, 45)
+    assert updated.secondary_contacts == ["new-one@example.test", "new-two@example.test"]
+
+
+async def test_update_import_corrects_included_maintenance_fields(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Included Parent",
+        licenseType="perpetual",
+        maintenanceCoverage="included",
+        maintenanceStartDate="2026-01-01",
+        maintenanceEndDate="2026-12-31",
+        maintenanceCost="100.00",
+    )
+    row = {
+        "license_ref": created["licenseRef"],
+        "publisher_name": "Update Publisher",
+        "software_description": "Included Parent",
+        "maintenance_coverage": "included",
+        "maintenance_start_date": "2026-02-01",
+        "maintenance_end_date": "2027-01-31",
+        "maintenance_cost": "246.90",
+        "maintenance_pricing_basis": "per_unit",
+        "maintenance_quantity": "10",
+        "maintenance_unit_price": "24.69",
+    }
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"update_existing": "true"},
+        files={"file": ("included-update.csv", _make_csv(list(row), [row]), "text/csv")},
+    )
+
+    assert response.status_code == 200, response.text
+    db_session.expire_all()
+    updated = await db_session.get(License, created["id"])
+    assert updated.maintenance_coverage == MaintenanceCoverage.included
+    assert updated.maintenance_start_date == date(2026, 2, 1)
+    assert updated.maintenance_end_date == date(2027, 1, 31)
+    assert updated.maintenance_cost == "246.90"
+    assert updated.maintenance_pricing_basis == MaintenancePricingBasis.per_unit
+    assert updated.maintenance_quantity == "10"
+    assert updated.maintenance_unit_price == "24.69"
+
+
+async def test_update_import_ignores_maintenance_fields_when_active_record_exists(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    parent = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Linked Parent",
+        licenseType="perpetual",
+    )
+    await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Linked Maintenance",
+        licenseType="maintenance",
+        parentLicenseId=parent["id"],
+        startDate="2026-01-01",
+        endDate="2027-12-31",
+        unitPrice="50.00",
+    )
+    before = await db_session.get(License, parent["id"])
+    original_end = before.maintenance_end_date
+    row = {
+        "license_ref": parent["licenseRef"],
+        "publisher_name": "Update Publisher",
+        "software_description": "Linked Parent",
+        "maintenance_end_date": "2028-12-31",
+    }
+    csv_bytes = _make_csv(list(row), [row])
+
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        data={"update_existing": "true"},
+        files={"file": ("active-maintenance-update.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    assert "active maintenance" in " ".join(preview.json()["rows"][0]["warnings"]).lower()
+
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"update_existing": "true", "acknowledge_warnings": "true"},
+        files={"file": ("active-maintenance-update.csv", csv_bytes, "text/csv")},
+    )
+    assert confirm.status_code == 200, confirm.text
+    db_session.expire_all()
+    updated = await db_session.get(License, parent["id"])
+    assert updated.maintenance_end_date == original_end

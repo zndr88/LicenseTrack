@@ -35,7 +35,7 @@ from app.services.custom_fields_service import (
 )
 from app.services.import_.duplicate_detection import add_duplicate_warnings
 from app.services.procurement_identity import normalize_po_number
-from app.services.import_.import_update import apply_import_update
+from app.services.import_.import_update import apply_import_update, has_maintenance_update_values
 from app.services.import_.license_builder import build_license
 from app.services.import_.license_matcher import annotate_update_targets
 from app.services.import_.maintenance_parenting import infer_batch_maintenance_parents
@@ -322,6 +322,14 @@ async def prepare_import_rows(
             row.po_total_override = first_value
     if update_existing:
         await annotate_update_targets(db, rows)
+        for row in rows:
+            if row.matched_license_id is None or not has_maintenance_update_values(row):
+                continue
+            target = await db.get(License, row.matched_license_id)
+            if target is not None and target.active_maintenance_id is not None:
+                row.warnings.append(
+                    "Maintenance fields were ignored because this license has active maintenance."
+                )
     await add_duplicate_warnings(rows, db)
 
 
