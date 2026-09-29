@@ -30,7 +30,7 @@ from app.services.procurement_document_transfer_service import (
     write_invoice_procurement_document,
 )
 from app.services.pending_order_state import is_pending_order_open, lock_open_pending_order
-from app.services.po_total_override_service import get_po_total_override
+from app.services.po_total_override_service import assert_line_currency_fits_pending_order, get_po_total_override
 from app.services.storage import delete_file
 from app.services.renewal_workflow import build_pending_order_item_license_data
 
@@ -446,6 +446,9 @@ async def convert_pending_order_to_licenses(
         convert_payload.currency,
         pending_order_id=order_id,
     )
+    # Same rule as editing the order: a manual PO total fixes the currency.
+    if convert_payload.currency:
+        await assert_line_currency_fits_pending_order(db, order_id, convert_payload.currency)
     # Acquire the conditional write lock before creating any licenses.
     await lock_open_pending_order(db, order)
     form_data = convert_payload.model_dump(by_alias=False)
@@ -611,6 +614,11 @@ async def batch_convert_pending_order_to_licenses(
     order = await _load_convertible_order(db, order_id)
     order_item_map = await _validate_batch_coverage(db, order, payload)
     order_po_number = _require_order_po_number(order)
+    # Same rule as editing the order: a manual PO total fixes the currency.
+    # Checked before any license is created.
+    for batch_item in payload:
+        if batch_item.currency:
+            await assert_line_currency_fits_pending_order(db, order_id, batch_item.currency)
     # Acquire the conditional write lock before creating any licenses.
     await lock_open_pending_order(db, order)
 

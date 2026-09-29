@@ -1,6 +1,9 @@
 """Manual PO total on a pending order (single-currency orders only)."""
 
+import json
+
 from app.models.license import License
+from app.models.pending_order import PendingOrder, PendingOrderStatus
 from sqlalchemy import select
 
 
@@ -175,3 +178,76 @@ async def test_stats_count_manual_po_totals_not_in_annual_cost(test_app, auth_he
     assert portfolio.json()["po_overrides_not_in_annual"] == 1
     assert report.status_code == 200, report.text
     assert report.json()["counts"]["poOverridesNotInAnnual"] == 1
+
+
+async def _order_with_manual_total(client, headers, count: int) -> dict:
+    order = await _order_with_lines(client, headers, [_line(softwareDescription=f"Line {i}") for i in range(count)])
+    resp = await client.put(
+        f"/api/pending-orders/{order['id']}", json={"poTotalOverride": "500"}, headers=headers,
+    )
+    assert resp.status_code == 200, resp.text
+    return order
+
+
+async def test_single_conversion_rejects_a_currency_change_under_a_manual_po_total(
+    test_app, auth_headers, db_session,
+):
+    order = await _order_with_manual_total(test_app, auth_headers, 1)
+
+    response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert",
+        data={"data": json.dumps({
+            "publisherName": "Acme",
+            "softwareDescription": "Line 0",
+            "licenseType": "subscription",
+            "licenseMetric": "per_user",
+            "quantity": "1",
+            "unitPrice": "1",
+            "currency": "USD",
+            "startDate": "2026-01-01",
+            "endDate": "2026-12-31",
+            "purchaseDate": "2026-01-01",
+        })},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422, response.text
+    assert "clear the PO total" in response.json()["detail"]
+    db_session.expire_all()
+    assert (await db_session.get(PendingOrder, order["id"])).status == PendingOrderStatus.pending
+    licenses = (await db_session.execute(select(License).where(License.pending_order_id == order["id"]))).scalars().all()
+    assert licenses == []
+
+
+async def test_batch_conversion_rejects_a_currency_change_under_a_manual_po_total(
+    test_app, auth_headers, db_session,
+):
+    order = await _order_with_manual_total(test_app, auth_headers, 2)
+
+    def entry(item, currency):
+        return {
+            "sourcingItemId": item["id"],
+            "publisherName": "Acme",
+            "softwareDescription": item["softwareDescription"],
+            "licenseType": "subscription",
+            "licenseMetric": "per_user",
+            "quantity": "1",
+            "unitPrice": "0",
+            "currency": currency,
+            "startDate": "2026-01-01",
+            "endDate": "2026-12-31",
+            "purchaseDate": "2026-01-01",
+        }
+
+    response = await test_app.post(
+        f"/api/pending-orders/{order['id']}/convert-all",
+        json=[entry(order["items"][0], "EUR"), entry(order["items"][1], "USD")],
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422, response.text
+    assert "clear the PO total" in response.json()["detail"]
+    db_session.expire_all()
+    assert (await db_session.get(PendingOrder, order["id"])).status == PendingOrderStatus.pending
+    licenses = (await db_session.execute(select(License).where(License.pending_order_id == order["id"]))).scalars().all()
+    assert licenses == []
