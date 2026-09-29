@@ -1,12 +1,13 @@
 import { chromium, request } from "@playwright/test";
 import { mkdirSync } from "node:fs";
-import { ADMIN_PASSWORD, ADMIN_USERNAME, INITIAL_ADMIN_PASSWORD } from "./credentials.js";
+import { runCredentials } from "./credentials.js";
 
 const APP_HEADER = { "X-LicenseTrack-Request": "1" };
 
 // Signs in as the seeded admin, completes the forced password change, then
 // signs in through the real login screen and saves the browser state.
 export default async function globalSetup(config) {
+  const { ADMIN_USERNAME, INITIAL_ADMIN_PASSWORD, ADMIN_PASSWORD } = runCredentials();
   const baseURL = config.projects[0].use.baseURL;
   const api = await request.newContext({ baseURL, extraHTTPHeaders: APP_HEADER });
   const login = await api.post("/api/auth/login", {

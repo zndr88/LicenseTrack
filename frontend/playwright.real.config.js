@@ -2,7 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { INITIAL_ADMIN_PASSWORD, JWT_SECRET } from "./tests/real-backend/credentials.js";
+import { runCredentials } from "./tests/real-backend/credentials.js";
+
+const { INITIAL_ADMIN_PASSWORD, JWT_SECRET } = runCredentials();
 
 const BACKEND_PORT = 8765;
 const FRONTEND_PORT = 5178;

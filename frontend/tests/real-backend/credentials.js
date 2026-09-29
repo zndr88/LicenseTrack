@@ -1,7 +1,21 @@
-// Test-only values for the throwaway instance started by playwright.real.config.js.
-// Not used anywhere else. The seeded admin must change its password on first
-// sign-in, so both passwords are needed.
-export const ADMIN_USERNAME = "admin";
-export const INITIAL_ADMIN_PASSWORD = "e2e-Initial-Adm1n-Qx7-2026!";
-export const ADMIN_PASSWORD = "e2e-Changed-Adm1n-Vz4-2026!";
-export const JWT_SECRET = "e2e-jwt-throwaway-instance-only-7f3a9c1d5b8e2a4c6d0f";
+// Random, per-run values for the throwaway instance started by
+// playwright.real.config.js. Nothing is stored: the config generates them
+// once and hands them to the global setup through the environment.
+import { randomBytes } from "node:crypto";
+
+const fresh = (bytes) => randomBytes(bytes).toString("base64url");
+
+export function runCredentials() {
+  if (!process.env.E2E_INITIAL_ADMIN_PASSWORD) {
+    // Mixed case, digit and symbol so the backend's password rules accept them.
+    process.env.E2E_INITIAL_ADMIN_PASSWORD = `Init-${fresh(18)}-9a`;
+    process.env.E2E_ADMIN_PASSWORD = `Admin-${fresh(18)}-9a`;
+    process.env.E2E_JWT_SECRET = fresh(48);
+  }
+  return {
+    ADMIN_USERNAME: "admin",
+    INITIAL_ADMIN_PASSWORD: process.env.E2E_INITIAL_ADMIN_PASSWORD,
+    ADMIN_PASSWORD: process.env.E2E_ADMIN_PASSWORD,
+    JWT_SECRET: process.env.E2E_JWT_SECRET,
+  };
+}
