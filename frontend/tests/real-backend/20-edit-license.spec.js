@@ -41,3 +41,45 @@ test("inline edit keeps 0,125 as 0.125 under a comma-decimal number format", asy
     await setNumberFormat(page, "en-US");
   }
 });
+
+async function editUnitPrice(page, typed) {
+  await page.goto("/");
+  const license = await findLicense(page, "E2E Subscription");
+  await openLicense(page, license.id);
+  await openDetailSection(page, "Details");
+  await page.getByRole("button", { name: "Edit unit price" }).click();
+  await page.locator("#field-edit-value").fill(typed);
+  await page.locator("#field-edit-value").blur();
+}
+
+test("a price typed with thousands separators is stored as typed", async ({ page }) => {
+  await editUnitPrice(page, "2,443.00");
+  const saved = page.waitForResponse((res) => res.url().includes("/field") && res.request().method() === "PATCH");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  const response = await saved;
+  expect(response.status(), await response.text()).toBeLessThan(300);
+
+  const after = await findLicense(page, "E2E Subscription");
+  expect(Number(after.unitPrice)).toBe(2443);
+});
+
+test("a price in another number format is refused with a message, not changed", async ({ page }) => {
+  await setNumberFormat(page, "de-DE");
+  try {
+    const before = await findLicense(page, "E2E Subscription");
+    await editUnitPrice(page, "2,443.00");
+    await expect(page.getByRole("alert").filter({ hasText: /not a valid number/i })).toBeVisible();
+    let patched = false;
+    page.on("request", (req) => {
+      if (req.url().includes("/field") && req.method() === "PATCH") patched = true;
+    });
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("Fix the number above before saving.")).toBeVisible();
+    expect(patched).toBe(false);
+
+    const after = await findLicense(page, "E2E Subscription");
+    expect(after.unitPrice).toBe(before.unitPrice);
+  } finally {
+    await setNumberFormat(page, "en-US");
+  }
+});
