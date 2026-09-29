@@ -202,9 +202,18 @@ FIELDS: tuple[CsvField, ...] = (
     ),
     CsvField(
         "total_po_price",
-        "total_po_price",
-        aliases=("total_price_eur",),
+        "line_total",
+        aliases=("total_po_price", "line_total_eur", "total_price_eur"),
         update=True,
+        round_trip=True,
+        frontend_key="lineTotal",
+    ),
+    CsvField(
+        "po_total_override",
+        "po_total_manual",
+        aliases=("manual_po_total", "po_total_override"),
+        round_trip=True,
+        frontend_key="poTotalOverride",
     ),
     CsvField("currency", "currency", update=True, round_trip=True, frontend_key="currency"),
     CsvField(

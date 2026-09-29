@@ -1,0 +1,275 @@
+"""Generated coverage for every CSV field promised to round-trip."""
+
+from __future__ import annotations
+
+import csv
+import io
+from collections import Counter
+from dataclasses import dataclass
+from datetime import date, datetime
+from enum import Enum
+
+from sqlalchemy import select
+
+from app.models.license import License, LicenseMaintenanceLink
+from app.services.csv_fields import FIELDS
+
+
+@dataclass(frozen=True)
+class SampleValue:
+    csv: str
+    stored: object
+
+
+SAMPLE_VALUES = {
+    "external_ref": SampleValue("EXT-ROUND-TRIP", "EXT-ROUND-TRIP"),
+    "publisher_name": SampleValue("Round Trip Publisher", "Round Trip Publisher"),
+    "software_description": SampleValue("Round Trip Subscription", "Round Trip Subscription"),
+    "contract_number": SampleValue("CONTRACT-42", "CONTRACT-42"),
+    "po_number": SampleValue("PO-ROUND-42", "PO-ROUND-42"),
+    "procurement_reference": SampleValue("PROC-42", "PROC-42"),
+    "invoice_number": SampleValue("INV-42", "INV-42"),
+    "contact_email": SampleValue("publisher@example.test", "publisher@example.test"),
+    "supplier": SampleValue("Round Trip Supplier", "Round Trip Supplier"),
+    "cost_centre": SampleValue("CC-ROUND", "CC-ROUND"),
+    "budget_owner_email": SampleValue("owner@example.test", "owner@example.test"),
+    "secondary_contacts": SampleValue(
+        "first@example.test; second@example.test",
+        ["first@example.test", "second@example.test"],
+    ),
+    "license_type": SampleValue("subscription", "subscription"),
+    "type_description": SampleValue("Managed specialist service", "Managed specialist service"),
+    "is_renewable": SampleValue("Yes", True),
+    "license_metric": SampleValue("per_device", "per_device"),
+    "quantity": SampleValue("3", "3"),
+    "quantity_per_unit": SampleValue("4", "4"),
+    "sku_code": SampleValue("SKU-ROUND", "SKU-ROUND"),
+    "unit_price": SampleValue("25.50", "25.50"),
+    "total_po_price": SampleValue("70.25", "70.25"),
+    "po_total_override": SampleValue("900.75", "900.75"),
+    "currency": SampleValue("USD", "USD"),
+    "start_date": SampleValue("2026-01-15", date(2026, 1, 15)),
+    "end_date": SampleValue("2027-01-14", date(2027, 1, 14)),
+    "notice_date": SampleValue("2026-11-15", date(2026, 11, 15)),
+    "request_date": SampleValue("2025-11-01T10:30:00+00:00", datetime(2025, 11, 1, 10, 30)),
+    "purchase_date": SampleValue("2025-12-01T12:45:00+00:00", datetime(2025, 12, 1, 12, 45)),
+    "portal_url": SampleValue("https://portal.example.test/licenses", "https://portal.example.test/licenses"),
+    "notes": SampleValue("Preserve this round-trip note", "Preserve this round-trip note"),
+    "maintenance_coverage": SampleValue("included", "included"),
+    "maintenance_start_date": SampleValue("2026-02-01", date(2026, 2, 1)),
+    "maintenance_end_date": SampleValue("2027-01-31", date(2027, 1, 31)),
+    "maintenance_cost": SampleValue("123.45", "123.45"),
+    "maintenance_pricing_basis": SampleValue("per_unit", "per_unit"),
+    "maintenance_quantity": SampleValue("5", "5"),
+    "maintenance_unit_price": SampleValue("24.69", "24.69"),
+    "parent_license_refs": SampleValue("PARENT-ONE; PARENT-TWO", ("PARENT-ONE", "PARENT-TWO")),
+    "lifecycle_status": SampleValue("legacy", "legacy"),
+}
+
+SCENARIO_FIELDS = {
+    "subscription": (
+        "external_ref",
+        "publisher_name",
+        "software_description",
+        "contract_number",
+        "po_number",
+        "procurement_reference",
+        "invoice_number",
+        "contact_email",
+        "supplier",
+        "cost_centre",
+        "budget_owner_email",
+        "secondary_contacts",
+        "license_type",
+        "license_metric",
+        "quantity",
+        "quantity_per_unit",
+        "sku_code",
+        "unit_price",
+        "total_po_price",
+        "po_total_override",
+        "currency",
+        "start_date",
+        "end_date",
+        "notice_date",
+        "request_date",
+        "purchase_date",
+        "portal_url",
+        "notes",
+        "lifecycle_status",
+    ),
+    "service": ("type_description", "is_renewable"),
+    "perpetual_included": (
+        "maintenance_coverage",
+        "maintenance_start_date",
+        "maintenance_end_date",
+        "maintenance_cost",
+        "maintenance_pricing_basis",
+        "maintenance_quantity",
+        "maintenance_unit_price",
+    ),
+    "maintenance_two_parents": ("parent_license_refs",),
+}
+
+
+def _make_csv(headers: list[str], rows: list[dict[str, str]]) -> bytes:
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=headers, extrasaction="ignore", restval="")
+    writer.writeheader()
+    writer.writerows(rows)
+    return output.getvalue().encode()
+
+
+def _scenario_row(name: str, **required: str) -> dict[str, str]:
+    return {
+        **required,
+        **{field: SAMPLE_VALUES[field].csv for field in SCENARIO_FIELDS[name]},
+    }
+
+
+def _comparable(value: object) -> object:
+    return value.value if isinstance(value, Enum) else value
+
+
+async def test_every_round_trip_field_has_one_scenario_and_survives_import(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    round_trip_fields = {field.target for field in FIELDS if field.round_trip}
+    scenario_owners = Counter(field for fields in SCENARIO_FIELDS.values() for field in fields)
+
+    assert set(SAMPLE_VALUES) == round_trip_fields
+    assert set(scenario_owners) == round_trip_fields
+    assert all(count == 1 for count in scenario_owners.values())
+
+    rows = [
+        _scenario_row("subscription"),
+        _scenario_row(
+            "service",
+            publisher_name="Round Trip Publisher",
+            software_description="Round Trip Service",
+            license_type="service",
+        ),
+        _scenario_row(
+            "perpetual_included",
+            publisher_name="Round Trip Publisher",
+            software_description="Round Trip Perpetual",
+            license_type="perpetual",
+            currency="EUR",
+        ),
+        {
+            "license_ref": "PARENT-ONE",
+            "publisher_name": "Round Trip Publisher",
+            "software_description": "Round Trip Parent One",
+            "license_type": "perpetual",
+        },
+        {
+            "license_ref": "PARENT-TWO",
+            "publisher_name": "Round Trip Publisher",
+            "software_description": "Round Trip Parent Two",
+            "license_type": "perpetual",
+        },
+        _scenario_row(
+            "maintenance_two_parents",
+            publisher_name="Round Trip Publisher",
+            software_description="Round Trip Maintenance",
+            license_type="maintenance",
+            start_date="2026-01-01",
+            end_date="2027-12-31",
+        ),
+    ]
+    headers = list(dict.fromkeys(key for row in rows for key in row))
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"acknowledge_warnings": "true"},
+        files={"file": ("round-trip.csv", _make_csv(headers, rows), "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["importedCount"] == len(rows)
+
+    licenses = (
+        await db_session.execute(
+            select(License).where(License.publisher_name == "Round Trip Publisher")
+        )
+    ).scalars().all()
+    by_description = {license_obj.software_description: license_obj for license_obj in licenses}
+    scenario_licenses = {
+        "subscription": by_description["Round Trip Subscription"],
+        "service": by_description["Round Trip Service"],
+        "perpetual_included": by_description["Round Trip Perpetual"],
+        "maintenance_two_parents": by_description["Round Trip Maintenance"],
+    }
+
+    for scenario, fields in SCENARIO_FIELDS.items():
+        license_obj = scenario_licenses[scenario]
+        for field in fields:
+            if field == "parent_license_refs":
+                continue
+            assert _comparable(getattr(license_obj, field)) == SAMPLE_VALUES[field].stored, (
+                scenario,
+                field,
+            )
+
+    maintenance = scenario_licenses["maintenance_two_parents"]
+    links = (
+        await db_session.execute(
+            select(LicenseMaintenanceLink).where(
+                LicenseMaintenanceLink.maintenance_license_id == maintenance.id
+            )
+        )
+    ).scalars().all()
+    linked_descriptions = {
+        (await db_session.get(License, link.parent_license_id)).software_description
+        for link in links
+    }
+    assert linked_descriptions == {"Round Trip Parent One", "Round Trip Parent Two"}
+
+
+async def test_conflicting_manual_po_totals_warn_and_first_value_wins(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    rows = [
+        {
+            "publisher_name": "Override Publisher",
+            "software_description": "First line",
+            "license_type": "subscription",
+            "po_number": "PO  42",
+            "currency": "EUR",
+            "po_total_manual": "500.00",
+        },
+        {
+            "publisher_name": "Override Publisher",
+            "software_description": "Second line",
+            "license_type": "subscription",
+            "po_number": " po 42 ",
+            "currency": "EUR",
+            "po_total_manual": "700.00",
+        },
+    ]
+    csv_bytes = _make_csv(list(rows[0]), rows)
+
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("conflicting-totals.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    assert "first value" in " ".join(preview.json()["rows"][1]["warnings"]).lower()
+
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"acknowledge_warnings": "true"},
+        files={"file": ("conflicting-totals.csv", csv_bytes, "text/csv")},
+    )
+    assert confirm.status_code == 200, confirm.text
+    licenses = (
+        await db_session.execute(
+            select(License).where(License.publisher_name == "Override Publisher")
+        )
+    ).scalars().all()
+    assert {license_obj.po_total_override for license_obj in licenses} == {"500.00"}

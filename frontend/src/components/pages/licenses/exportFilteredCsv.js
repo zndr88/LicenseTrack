@@ -97,6 +97,8 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "quantityPerUnit": return fmtQty(l.quantityPerUnit);
         case "skuCode": return l.skuCode ?? "";
         case "unitPrice": return fmtDecimal(l.unitPrice);
+        case "lineTotal": return fmtDecimal(l.totalPoPrice);
+        case "poTotalOverride": return fmtDecimal(l.poTotalOverride);
         case "currency": return l.currency ?? "";
         case "totalPoPrice": {
           const total = getPoTotal(l.poNumber, l.currency, allLicenses ?? rows, l);

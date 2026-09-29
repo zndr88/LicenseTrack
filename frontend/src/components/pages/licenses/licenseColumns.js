@@ -28,6 +28,8 @@ export const COLUMN_DEFS = [
   { key: "quantityPerUnit", label: "Qty / Unit", settingsLabel: "Quantity per Unit", width: 95, group: "standard", defaultVisible: false, detailKey: "quantityPerUnit" },
   { key: "skuCode", label: "SKU", settingsLabel: "SKU Code", width: 100, group: "standard", defaultVisible: false, detailKey: "skuCode" },
   { key: "unitPrice", label: "Unit Price", width: 110, group: "standard", defaultVisible: false, detailKey: "unitPrice" },
+  { key: "lineTotal", label: "Line Total", width: 110, group: "standard", defaultVisible: false },
+  { key: "poTotalOverride", label: "Manual PO Total", width: 130, group: "advanced", defaultVisible: false },
   { key: "totalPoPrice", label: "Total PO Value", width: 120, group: "computed", defaultVisible: true, detailKey: "totalPoPrice", computed: true },
   { key: "currency", label: "Currency", width: 85, group: "standard", defaultVisible: false },
   { key: "startDate", label: "Start Date", width: 100, group: "standard", defaultVisible: true, settingsKey: "dates", settingsLabel: "Dates", grouped: true },

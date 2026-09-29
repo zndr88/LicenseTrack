@@ -148,6 +148,7 @@ class ParsedRow:
     maintenance_start_date: Optional[str] = None
     maintenance_end_date: Optional[str] = None
     maintenance_cost: str = ""
+    po_total_override: str = ""
     quantity_per_unit: str = ""
     effective_quantity: str = ""
     procurement_reference: str = ""
@@ -638,6 +639,9 @@ def _parse_row(
     total_po_price = _parse_localized_numeric_field(
         _field_text(data, "total_po_price"), "total_po_price", errors, number_format_locale
     )
+    po_total_override = _parse_localized_numeric_field(
+        _field_text(data, "po_total_override"), "po_total_override", errors, number_format_locale
+    )
     maintenance_cost = _parse_localized_numeric_field(
         _field_text(data, "maintenance_cost"), "maintenance_cost", errors, number_format_locale
     )
@@ -765,6 +769,7 @@ def _parse_row(
         maintenance_start_date=maintenance_start_date_str,
         maintenance_end_date=maintenance_end_date_str,
         maintenance_cost=maintenance_cost,
+        po_total_override=po_total_override,
         import_status=import_status,
         validation_errors=errors,
         warnings=warnings,

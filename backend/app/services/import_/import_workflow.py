@@ -34,6 +34,7 @@ from app.services.custom_fields_service import (
     validate_imported_custom_rows,
 )
 from app.services.import_.duplicate_detection import add_duplicate_warnings
+from app.services.procurement_identity import normalize_po_number
 from app.services.import_.import_update import apply_import_update
 from app.services.import_.license_builder import build_license
 from app.services.import_.license_matcher import annotate_update_targets
@@ -306,6 +307,19 @@ async def prepare_import_rows(
     """Run maintenance parent inference, update-target annotation, then duplicate detection."""
     await apply_import_row_overrides(rows, db, row_parent_overrides)
     infer_batch_maintenance_parents(rows)
+    first_po_overrides: dict[tuple[str, str], str] = {}
+    for row in rows:
+        po_key = normalize_po_number(row.po_number)
+        if not po_key or not row.po_total_override:
+            continue
+        group = (po_key, row.currency)
+        first_value = first_po_overrides.setdefault(group, row.po_total_override)
+        if row.po_total_override != first_value:
+            row.warnings.append(
+                "Conflicting manual PO total for the same PO and currency; "
+                f"the first value ({first_value}) will be used."
+            )
+            row.po_total_override = first_value
     if update_existing:
         await annotate_update_targets(db, rows)
     await add_duplicate_warnings(rows, db)

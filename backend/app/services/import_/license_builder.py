@@ -124,6 +124,7 @@ async def build_license(
         "sku_code": row.sku_code,
         "unit_price": row.unit_price,
         "total_po_price": row.total_po_price,
+        "po_total_override": row.po_total_override or None,
         "currency": row.currency,
         "start_date": row.db_start_date,
         "end_date": None if is_non_expiring_license_type(license_type) else row.db_end_date,
