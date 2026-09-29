@@ -76,6 +76,18 @@ Work in progress for 1.2.0.
   the unique OIDC identity index. A test fails the build if they drift apart
   again. Document categories fit their column on every database.
 
+- Procurement conversion:
+  - Sourcing lines can no longer be added to a pending order that was
+    converted or cancelled in the meantime.
+  - Conversion can no longer change a line's currency while the order has a
+    manual PO total; clear the total first.
+  - A SaaS portal URL saved on a sourcing or PO line is kept at conversion.
+  - An invoice uploaded with a conversion is stored together with the new
+    licenses: if it can't be stored, nothing is converted and you can retry.
+  - Older conversions whose invoice was lost now say to upload the invoice on
+    the pending order and retry, instead of retrying automatically.
+  - Evidence transfers can no longer run twice at the same time.
+
 ### Security
 
 - Hardened request validation for signed-in browser sessions, outbound URL

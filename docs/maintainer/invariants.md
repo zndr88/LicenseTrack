@@ -53,6 +53,15 @@ literal value (a set of statuses, a list of fields), a guard test built on
 | IMPORT-1 | Every field marked round-trip in `csv_fields.py` survives export → import. | `backend/app/services/csv_fields.py`; `backend/app/services/csv_importer.py`; `backend/app/services/import_/license_builder.py` | `backend/tests/test_integration/test_csv_round_trip.py` | holds |
 | IMPORT-2 | Frontend export headers equal the backend CSV field registry. | `backend/app/services/csv_fields.py`; `frontend/src/generated/csvFields.json` | `backend/tests/test_unit/test_csv_fields.py` (`test_frontend_csv_field_file_is_up_to_date`) | holds |
 
+## Procurement
+
+| ID | Rule | Owner | Guard | Status |
+|---|---|---|---|---|
+| PROC-1 | Only open pending orders (pending, invoice received) can gain lines, be edited, cancelled or converted; closing wins any race. | `backend/app/services/pending_order_state.py`; `frontend/src/utils/pendingOrderState.js` | `backend/tests/test_unit/test_pending_order_state.py`; `test_pending_orders.py` (`test_sourcing_cannot_attach_to_a_closed_pending_order`) | holds |
+| PROC-2 | A manual PO total fixes the order's currency, in editing and in conversion. | `backend/app/services/po_total_override_service.py` (`assert_line_currency_fits_pending_order`) | `backend/tests/test_integration/test_pending_order_po_total.py` (`*_rejects_a_currency_change_*`) | holds |
+| PROC-3 | A conversion's invoice is stored in the same transaction as its licenses; if it can't be stored, nothing converts. | `backend/app/services/pending_order_conversion_service.py` (`_complete_conversion`) | `test_pending_orders.py` (`test_invoice_*`) | holds |
+| PROC-4 | One evidence transfer runs per order at a time. | `pending_order_conversion_service.py` (`claim_evidence_transfer`) | `test_pending_orders.py` (`test_*evidence*claim*`) | holds |
+
 ## Non-goals
 
 - **Budgeting.** LicenseTrack provides the data managers use to prepare budgets. It doesn't do forecasting, budget-vs-actual, allocations or multi-year budget modelling. Annualized cost views are indicative.

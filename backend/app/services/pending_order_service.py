@@ -26,6 +26,7 @@ from app.services.document_availability_service import with_file_availability
 from app.services.draft_document_service import require_no_single_documents
 from app.services.custom_fields_service import replace_values_for_sourcing_item
 from app.services.license_service import normalise_type_opt_in_fields
+from app.services.pending_order_state import OPEN_PENDING_ORDER_STATUSES, ensure_pending_order_editable
 from app.services.po_total_override_service import (
     assert_line_currency_fits_pending_order,
     assert_pending_order_override_currencies,
@@ -182,7 +183,7 @@ async def list_pending_order_records(
     offset: int,
     include_evidence_issues: bool = False,
 ) -> list[PendingOrder]:
-    status_filter = PendingOrder.status.in_([PendingOrderStatus.pending, PendingOrderStatus.invoice_received])
+    status_filter = PendingOrder.status.in_(OPEN_PENDING_ORDER_STATUSES)
     if include_evidence_issues:
         status_filter = or_(
             status_filter,
@@ -212,9 +213,7 @@ async def list_pending_order_history_records(
     offset: int,
 ) -> list[PendingOrder]:
     query = (
-        _pending_order_list_query(
-            PendingOrder.status.in_([PendingOrderStatus.converted, PendingOrderStatus.cancelled])
-        )
+        _pending_order_list_query(PendingOrder.status.not_in(OPEN_PENDING_ORDER_STATUSES))
         .order_by(PendingOrder.updated_at.desc(), PendingOrder.created_at.desc())
         .offset(offset)
     )
@@ -259,10 +258,7 @@ async def apply_pending_order_update(
     contact_update_requested = "contact_email" in update_data
     contact_email = clean_procurement_identity(update_data.pop("contact_email", None))
     await _normalize_pending_order_data(db, update_data)
-    if "status" in update_data and update_data["status"] not in {
-        PendingOrderStatus.pending,
-        PendingOrderStatus.invoice_received,
-    }:
+    if "status" in update_data and update_data["status"] not in OPEN_PENDING_ORDER_STATUSES:
         raise HTTPException(
             status_code=422,
             detail="Pending order status can only be changed to pending or invoice_received from the edit path",
@@ -454,11 +450,6 @@ async def delete_pending_order_item_record(
         label=label,
         order_cancelled=order_cancelled,
     )
-
-
-def ensure_pending_order_editable(order: PendingOrder, *, action: str = "modify") -> None:
-    if order.status in {PendingOrderStatus.converted, PendingOrderStatus.cancelled}:
-        raise HTTPException(status_code=409, detail=f"Cannot {action} a {order.status.value} order")
 
 
 def _find_order_item(order: PendingOrder, item_id: int) -> SourcingItem:

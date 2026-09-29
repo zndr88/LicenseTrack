@@ -11,6 +11,7 @@ import { formatDateTime } from "../../../utils/formatting.js";
 import { procurementLineTotal } from "../../../utils/procurementTotals.js";
 import { formatQuantity } from "../../../utils/quantity.js";
 import { hasPurchaseOrderNumber, pendingOrderLabel } from "../../../utils/procurementLabels.js";
+import { isPendingOrderOpen } from "../../../utils/pendingOrderState.js";
 import TermLinkContext from "../../procurement/TermLinkContext.jsx";
 
 function SortIndicator({ active, dir }) {
@@ -41,10 +42,6 @@ function SortableHeader({ column, label, sortCol, sortDir, onSort }) {
       <SortIndicator active={sortCol === column} dir={sortDir} />
     </th>
   );
-}
-
-function isPendingOrderEditable(order) {
-  return order.status === "pending" || order.status === "invoice_received";
 }
 
 function PendingOrderItemsRow({
@@ -102,7 +99,7 @@ function PendingOrderItemsRow({
                   )}
                 </div>
               );
-              const canInlineEdit = inlineEditEnabled && !readOnly && isPendingOrderEditable(po) && perms.canEdit;
+              const canInlineEdit = inlineEditEnabled && !readOnly && isPendingOrderOpen(po) && perms.canEdit;
               return (
                 <tr
                   key={item.id}
@@ -352,8 +349,9 @@ export default function PendingOrdersTable({
               </tr>
             ) : displayed.map((po) => {
               const isExpanded = expandedPendingOrderIds ? expandedPendingOrderIds.has(po.id) : expandedPendingOrderId === po.id;
-              const canInlineEditOrder = inlineEditEnabled && !readOnly && isPendingOrderEditable(po) && perms.canEdit;
-              const canDelete = po.status === "pending" || po.status === "invoice_received";
+              const canInlineEditOrder = inlineEditEnabled && !readOnly && isPendingOrderOpen(po) && perms.canEdit;
+              // Cancel is allowed on every open order (backend: cancel_pending_order_record).
+              const canCancel = isPendingOrderOpen(po);
               const isInvoiceReceived = po.status === "invoice_received";
               const evidenceStatus = po.evidenceTransferStatus ?? po.evidence_transfer_status;
               const evidenceDetail = po.evidenceTransferDetail ?? po.evidence_transfer_detail;
@@ -396,8 +394,8 @@ export default function PendingOrdersTable({
                   danger: true,
                   separatorBefore: true,
                   hidden: !perms.canDelete,
-                  disabled: !canDelete,
-                  title: canDelete ? "Cancel this pending order" : "Cannot cancel this order",
+                  disabled: !canCancel,
+                  title: canCancel ? "Cancel this pending order" : "Cannot cancel this order",
                   onClick: () => onDelete(po.id),
                 },
               ];
@@ -520,7 +518,7 @@ export default function PendingOrdersTable({
                             <Icon name="plus" size={12} />Add License
                           </button>
                         )}
-                        {!readOnly && perms.canEdit && isPendingOrderEditable(po) && !hasPoNumber && hasLineItems && (
+                        {!readOnly && perms.canEdit && isPendingOrderOpen(po) && !hasPoNumber && hasLineItems && (
                           <button type="button" className="btn btn-p" onClick={() => onEdit(po)}>
                             <Icon name="plus" size={12} />Add PO number
                           </button>

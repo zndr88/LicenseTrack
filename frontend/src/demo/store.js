@@ -15,6 +15,7 @@ import {
   isRenewalOptInLicenseType,
   typeDescriptionMissing,
 } from "../utils/licenseTypeRules.js";
+import { isPendingOrderOpen } from "../utils/pendingOrderState.js";
 import { procurementIdentityKey } from "../utils/procurementIdentity.js";
 
 /** Module-level in-memory state. Refresh or logout wipes it - that IS the reset story. */
@@ -2045,7 +2046,7 @@ export function setPlannedSuccessors(predecessorItemIds, successorItemId) {
     allItems = store.sourcingItems.filter((item) => item.sourcingRequestId === requestId);
   } else {
     const order = store.pendingOrders.find((candidate) => candidate.id === orderId);
-    if (!order || (order.status !== "pending" && order.status !== "invoice_received")) {
+    if (!order || !isPendingOrderOpen(order)) {
       throw new Error("The pending order is no longer editable");
     }
     allItems = store.sourcingItems.filter((item) => item.pendingOrderId === orderId);

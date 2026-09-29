@@ -4,6 +4,7 @@ import asyncio
 import json
 from datetime import date, timedelta
 
+import pytest
 from sqlalchemy import select, text
 
 from app.config import settings
@@ -1623,7 +1624,7 @@ async def test_batch_invoice_upload_creates_po_scoped_procurement_document(
     assert invoice_docs[0]["original_filename"] == "batch-invoice.pdf"
 
 
-async def test_invoice_transfer_failure_records_retryable_state_after_conversion(
+async def test_invoice_storage_failure_refuses_the_whole_conversion(
     test_app,
     auth_headers,
     db_session,
@@ -1651,23 +1652,54 @@ async def test_invoice_transfer_failure_records_retryable_state_after_conversion
         headers=auth_headers,
     )
 
-    assert resp.status_code == 200, resp.text
-    license_id = resp.json()[0]["id"]
-    assert (await test_app.get(f"/api/licenses/{license_id}", headers=auth_headers)).status_code == 200
-
+    assert resp.status_code == 503, resp.text
+    assert "invoice could not be stored" in resp.json()["detail"].lower()
     db_session.expire_all()
     order = await db_session.get(PendingOrder, order_id)
-    assert order.status == "converted"
-    assert order.evidence_transfer_status == "failed"
-    assert "simulated storage failure" in order.evidence_transfer_detail
-    assert order.evidence_transfer_failed_at is not None
+    assert order.status == PendingOrderStatus.pending
+    licenses = (
+        await db_session.execute(select(License).where(License.pending_order_id == order_id))
+    ).scalars().all()
+    assert licenses == []
 
-    audit_resp = await test_app.get(
-        "/api/audit-log?action=po.evidence_transfer_failed",
+
+async def test_invoice_is_stored_in_the_conversion_transaction(
+    test_app,
+    auth_headers,
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
+    order_resp = await test_app.post(
+        "/api/pending-orders",
+        json={"poNumber": "PO-INVOICE-OK", "supplier": "Invoice Supplier"},
         headers=auth_headers,
     )
-    assert audit_resp.status_code == 200, audit_resp.text
-    assert audit_resp.json()["results"][0]["targetId"] == str(order_id)
+    assert order_resp.status_code == 201, order_resp.text
+    order_id = order_resp.json()["id"]
+
+    resp = await test_app.post(
+        f"/api/pending-orders/{order_id}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber="PO-INVOICE-OK"))},
+        files={"file": ("invoice.pdf", b"invoice", "application/pdf")},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    db_session.expire_all()
+    order = await db_session.get(PendingOrder, order_id)
+    assert order.status == PendingOrderStatus.converted
+    assert order.evidence_transfer_status is None
+    invoices = (
+        await db_session.execute(
+            select(ProcurementDocument).where(
+                ProcurementDocument.pending_order_id == order_id,
+                ProcurementDocument.category == ProcurementDocumentCategory.invoice,
+            )
+        )
+    ).scalars().all()
+    assert len(invoices) == 1
 
 
 async def test_quote_transfer_failure_preserves_committed_invoice_evidence(
@@ -1729,13 +1761,17 @@ async def test_completion_failure_does_not_delete_committed_evidence_files(
     monkeypatch,
 ):
     monkeypatch.setattr(_storage_module.settings, "STORAGE_PATH", str(tmp_path))
-    order_resp = await test_app.post(
-        "/api/pending-orders",
-        json={"poNumber": "PO-COMPLETE-FAIL", "supplier": "Invoice Supplier"},
+    # A quote makes the post-commit evidence transfer run (the invoice itself
+    # is stored inside the conversion transaction).
+    sourcing_item = await _create_sourcing_item(test_app, auth_headers, softwareDescription="Completion Failure")
+    upload_resp = await test_app.post(
+        f"/api/sourcing/requests/{sourcing_item['sourcingRequestId']}/quote-documents",
+        files={"file": ("quote.pdf", b"quote", "application/pdf")},
         headers=auth_headers,
     )
-    assert order_resp.status_code == 201, order_resp.text
-    order_id = order_resp.json()["id"]
+    assert upload_resp.status_code == 201, upload_resp.text
+    order = await _convert_sourcing_to_po(test_app, auth_headers, sourcing_item["id"])
+    order_id = order["id"]
 
     async def fail_completion(*_args, **_kwargs):
         raise OSError("simulated completion failure")
@@ -1743,7 +1779,7 @@ async def test_completion_failure_does_not_delete_committed_evidence_files(
     monkeypatch.setattr(_conversion_service, "_mark_evidence_transfer_complete", fail_completion)
     response = await test_app.post(
         f"/api/pending-orders/{order_id}/convert",
-        data={"data": json.dumps(_single_convert_form(poNumber="PO-COMPLETE-FAIL"))},
+        data={"data": json.dumps(_single_convert_form(poNumber=order["poNumber"]))},
         files={"file": ("invoice.pdf", b"committed invoice", "application/pdf")},
         headers=auth_headers,
     )
@@ -2009,7 +2045,9 @@ async def test_missing_required_invoice_blocks_manual_and_scheduled_completion(
     invoice = invoice_result.scalar_one()
     _storage_module.delete_file(invoice.filename)
     stored_order = await db_session.get(PendingOrder, order_id)
+    # Shape of an order converted by an older version: invoice required, never stored.
     stored_order.evidence_transfer_status = EvidenceTransferStatus.failed
+    stored_order.evidence_invoice_required = True
     await db_session.commit()
 
     manual_retry = await test_app.post(
@@ -2031,8 +2069,10 @@ async def test_missing_required_invoice_blocks_manual_and_scheduled_completion(
     assert attempted == 1
     db_session.expire_all()
     stored_order = await db_session.get(PendingOrder, order_id)
-    assert stored_order.evidence_transfer_status == EvidenceTransferStatus.failed
-    assert stored_order.evidence_transfer_attempts == 1
+    # Retrying can't create a missing invoice: escalate at once, keep the attempt budget.
+    assert stored_order.evidence_transfer_status == EvidenceTransferStatus.escalated
+    assert stored_order.evidence_transfer_attempts == 0
+    assert "upload the invoice on the pending order" in stored_order.evidence_transfer_detail.lower()
 
 
 async def test_sourcing_quote_carries_forward_as_po_scoped_procurement_document(
@@ -4585,3 +4625,95 @@ async def test_pending_order_update_contact_applies_to_open_lines(test_app, auth
     )
     assert untouched.status_code == 200, untouched.text
     assert [line["contactEmail"] for line in untouched.json()["items"]] in ([None], [""])
+
+
+@pytest.mark.parametrize("closed_status", [PendingOrderStatus.converted, PendingOrderStatus.cancelled])
+@pytest.mark.parametrize("whole_request", [False, True])
+async def test_sourcing_cannot_attach_to_a_closed_pending_order(
+    test_app, auth_headers, db_session, closed_status, whole_request
+):
+    first = await _create_sourcing_item(test_app, auth_headers, supplier="Renewal Supplier")
+    order = await _convert_sourcing_to_po(test_app, auth_headers, first["id"])
+    order_row = await db_session.get(PendingOrder, order["id"])
+    order_row.status = closed_status
+    await db_session.commit()
+
+    second = await _create_sourcing_item(test_app, auth_headers, supplier="Renewal Supplier")
+    if whole_request:
+        response = await test_app.post(
+            f"/api/sourcing/requests/{second['sourcingRequestId']}/convert",
+            json={"pendingOrderId": order["id"], "supplier": "Renewal Supplier"},
+            headers=auth_headers,
+        )
+    else:
+        response = await test_app.post(
+            f"/api/sourcing/{second['id']}/convert",
+            json={"pendingOrderId": order["id"], "supplier": "Renewal Supplier"},
+            headers=auth_headers,
+        )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"] == f"Cannot add lines to a {closed_status.value} order"
+    db_session.expire_all()
+    item = await db_session.get(SourcingItem, second["id"])
+    assert item.pending_order_id is None
+    assert item.status == SourcingStatus.sourcing
+
+
+async def test_evidence_transfer_is_claimed_so_a_second_runner_skips(db_session):
+    order = PendingOrder(
+        po_number="PO-CLAIM",
+        supplier="Claim Supplier",
+        status=PendingOrderStatus.converted,
+        evidence_transfer_status=EvidenceTransferStatus.pending,
+        evidence_transfer_attempts=0,
+    )
+    db_session.add(order)
+    await db_session.commit()
+
+    token = await _conversion_service.claim_evidence_transfer(db_session, order.id)
+    assert token is not None
+    assert await _conversion_service.claim_evidence_transfer(db_session, order.id) is None
+
+    await _conversion_service.release_evidence_transfer(db_session, order.id, token)
+    assert await _conversion_service.claim_evidence_transfer(db_session, order.id) is not None
+
+
+async def test_a_stale_evidence_claim_can_be_taken_over(db_session):
+    from datetime import datetime, timezone
+
+    order = PendingOrder(
+        po_number="PO-STALE",
+        supplier="Stale Supplier",
+        status=PendingOrderStatus.converted,
+        evidence_transfer_status=EvidenceTransferStatus.pending,
+        evidence_transfer_claim_token="old",
+        evidence_transfer_claimed_at=datetime.now(timezone.utc)
+        - _conversion_service.EVIDENCE_CLAIM_TIMEOUT
+        - timedelta(seconds=1),
+    )
+    db_session.add(order)
+    await db_session.commit()
+
+    assert await _conversion_service.claim_evidence_transfer(db_session, order.id) is not None
+
+
+async def test_manual_retry_is_refused_while_another_transfer_holds_the_claim(
+    test_app, auth_headers, db_session
+):
+    order = PendingOrder(
+        po_number="PO-BUSY",
+        supplier="Busy Supplier",
+        status=PendingOrderStatus.converted,
+        evidence_transfer_status=EvidenceTransferStatus.failed,
+    )
+    db_session.add(order)
+    await db_session.commit()
+    assert await _conversion_service.claim_evidence_transfer(db_session, order.id) is not None
+
+    response = await test_app.post(
+        f"/api/pending-orders/{order.id}/retry-evidence-transfer", headers=auth_headers
+    )
+
+    assert response.status_code == 409, response.text
+    assert "already running" in response.json()["detail"]
