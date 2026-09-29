@@ -29,6 +29,7 @@ from app.services.maintenance_rules import assert_coverage_allowed_for_type, def
 from app.services.money import MoneyParseError, parse_money
 from app.services.license_service import normalise_type_opt_in_fields
 from app.services.pending_order_state import ensure_pending_order_editable, lock_open_pending_order
+from app.services.po_line_service import sync_order_lines
 from app.services.po_total_override_service import assert_line_currency_fits_pending_order
 from app.services.planned_successor_service import require_no_planned_links
 from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
@@ -1404,6 +1405,13 @@ async def _resolve_conversion_order(
     return order
 
 
+async def _number_order_lines(db: AsyncSession, order: PendingOrder) -> None:
+    """Give every live line of *order* its PO line number (see po_line_service)."""
+    await db.flush()
+    await db.refresh(order, attribute_names=["items"])
+    await sync_order_lines(db, order)
+
+
 async def convert_sourcing_item_to_order(
     db: AsyncSession,
     item: SourcingItem,
@@ -1447,6 +1455,7 @@ async def convert_sourcing_item_to_order(
     item.status = SourcingStatus.converted
     item.supplier = order.supplier
     item.supplier_id = order.supplier_id
+    await _number_order_lines(db, order)
     if request is not None:
         await refresh_sourcing_request_status(db, request)
     return order
@@ -1492,6 +1501,7 @@ async def convert_sourcing_request_to_order(
         item.status = SourcingStatus.converted
         item.supplier = order.supplier
         item.supplier_id = order.supplier_id
+    await _number_order_lines(db, order)
     await refresh_sourcing_request_status(db, request)
     return order
 

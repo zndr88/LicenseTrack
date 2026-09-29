@@ -139,6 +139,14 @@ class SourcingItem(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     pending_order_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("pending_orders.id"), nullable=True)
+    po_line_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("po_line_register.id"), nullable=True, index=True
+    )
+    po_line: Mapped["PoLineRegister | None"] = relationship(lazy="joined")  # noqa: F821
+
+    @property
+    def po_line_number(self) -> int | None:
+        return self.po_line.line_number if self.po_line is not None else None
     created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     sourcing_request: Mapped["SourcingRequest | None"] = relationship(  # noqa: F821
         "SourcingRequest", back_populates="items", foreign_keys=[sourcing_request_id]

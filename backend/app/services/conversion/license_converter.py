@@ -12,6 +12,7 @@ from app.services.license_service import (
     validate_term_date_order,
 )
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
+from app.services.po_line_service import sync_license_line
 from app.services.po_total_override_service import inherit_po_total_override
 from app.services.reference_data_service import resolve_license_reference_fields
 from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
@@ -81,5 +82,6 @@ async def create_purchase_license(
     new_license = License(**item_data, created_by=created_by)
     db.add(new_license)
     await db.flush()
+    await sync_license_line(db, new_license)
     new_license.license_ref = await generate_license_ref(db)
     return new_license

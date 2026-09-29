@@ -22,6 +22,7 @@ const EXPECTED_STABLE_EXPORT_FIELD_NAMES = {
   description: 'software_description',
   contractNumber: 'contract_number',
   poNumber: 'po_number',
+  poLineNumber: 'po_line',
   procurementReference: 'procurement_reference',
   invoiceNumber: 'invoice_number',
   contactEmail: 'contact_email',

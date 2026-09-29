@@ -61,6 +61,7 @@ from app.services.license_service import (
     validate_term_date_order,
 )
 from app.services.license_retirement_service import normalize_retirement_update
+from app.services.po_line_service import sync_license_line
 from app.services.po_total_override_service import (
     inherit_po_total_override,
     resolve_reassigned_po_total_override,
@@ -448,6 +449,7 @@ async def create_license_record(
     license_obj = License(**create_data, created_by=created_by)
     db.add(license_obj)
     await db.flush()
+    await sync_license_line(db, license_obj)
     license_obj.license_ref = await generate_license_ref(db)
     await replace_values_for_license(db, license_obj.id, custom_field_values)
     return license_obj
@@ -582,6 +584,8 @@ async def apply_license_update(
     _clear_notice_handled_if_date_changed(license_obj, update_data)
     for field, value in update_data.items():
         setattr(license_obj, field, value)
+    if "po_number" in update_data:
+        await sync_license_line(db, license_obj)
     sync_support_defaults_on_license(license_obj)
     await record_included_support_exit(db, license_obj, before.get("maintenance_coverage"))
     if any(before[field] != getattr(license_obj, field) for field in ("start_date", "end_date")):
@@ -758,6 +762,7 @@ async def apply_license_field_patch(
             license_obj.currency,
         )
         license_obj.po_number = value or ""
+        await sync_license_line(db, license_obj)
     elif field == "currency":
         license_obj.po_total_override = await resolve_reassigned_po_total_override(
             db,

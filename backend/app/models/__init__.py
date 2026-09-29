@@ -20,6 +20,7 @@ from app.models.license import (  # noqa: F401
     LifecycleStatus,
     MaintenanceCoverage,
 )
+from app.models.po_line import PoLineRegister  # noqa: F401
 from app.models.pending_order import PendingOrder, PendingOrderStatus  # noqa: F401
 from app.models.plugin import (  # noqa: F401
     Plugin,

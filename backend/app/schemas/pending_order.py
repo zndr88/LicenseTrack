@@ -66,6 +66,7 @@ class SourcingItemSummary(BaseModel):
     notes: Optional[str] = None
     custom_field_values: list[CustomFieldValueItem] = []
     status: str
+    po_line_number: Optional[int] = None
     renewal_for_license_id: Optional[int] = None
     coterm_predecessor_ids: Optional[list[int]] = None
     quote_documents: list[SourcingQuoteDocumentResponse] = []

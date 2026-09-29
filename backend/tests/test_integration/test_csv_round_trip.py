@@ -35,6 +35,8 @@ SAMPLE_VALUES = {
     "software_description": SampleValue("Round Trip Subscription", "Round Trip Subscription"),
     "contract_number": SampleValue("CONTRACT-42", "CONTRACT-42"),
     "po_number": SampleValue("PO-ROUND-42", "PO-ROUND-42"),
+    # A gap on purpose: 4 is kept exactly, not renumbered to 1.
+    "po_line_number": SampleValue("4", 4),
     "procurement_reference": SampleValue("PROC-42", "PROC-42"),
     "invoice_number": SampleValue("INV-42", "INV-42"),
     "contact_email": SampleValue("publisher@example.test", "publisher@example.test"),
@@ -81,6 +83,7 @@ SCENARIO_FIELDS = {
         "software_description",
         "contract_number",
         "po_number",
+        "po_line_number",
         "procurement_reference",
         "invoice_number",
         "contact_email",
@@ -592,3 +595,129 @@ async def test_update_import_ignores_maintenance_fields_when_active_record_exist
     db_session.expire_all()
     updated = await db_session.get(License, parent["id"])
     assert updated.maintenance_end_date == original_end
+
+
+async def _line_numbers(db_session, publisher: str) -> dict[str, int | None]:
+    db_session.expire_all()
+    licenses = (
+        await db_session.execute(select(License).where(License.publisher_name == publisher))
+    ).scalars().all()
+    return {license_obj.software_description: license_obj.po_line_number for license_obj in licenses}
+
+
+async def test_mixed_import_preview_matches_the_line_numbers_that_are_written(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    await _create_license(test_app, auth_headers, publisherName="Existing PO", poNumber="PO-MIX")
+    base = {"publisher_name": "Mixed Lines", "license_type": "subscription", "currency": "EUR"}
+    rows = [
+        {**base, "software_description": "taken", "po_number": "PO-MIX", "po_line": "1"},
+        {**base, "software_description": "free gap", "po_number": "PO-MIX", "po_line": "4"},
+        {**base, "software_description": "new po", "po_number": "PO-NEW", "po_line": "2"},
+        {**base, "software_description": "claims 3 first", "po_number": "PO-NEW2", "po_line": "3"},
+        {**base, "software_description": "claims 3 second", "po_number": "po-new2", "po_line": "3"},
+        {**base, "software_description": "blank line", "po_number": "PO-NEW2", "po_line": ""},
+    ]
+    csv_bytes = _make_csv(list(rows[0]), rows)
+
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("mixed-lines.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    warnings = {row["softwareDescription"]: " ".join(row["warnings"]) for row in preview.json()["rows"]}
+    assert "already used" in warnings["taken"] and "line 2" in warnings["taken"]
+    assert "already used" in warnings["claims 3 second"] and "line 4" in warnings["claims 3 second"]
+    assert "PO line" not in warnings["free gap"]
+    assert "PO line" not in warnings["new po"]
+    assert "PO line" not in warnings["claims 3 first"]
+    assert "PO line" not in warnings["blank line"]
+
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"acknowledge_warnings": "true"},
+        files={"file": ("mixed-lines.csv", csv_bytes, "text/csv")},
+    )
+    assert confirm.status_code == 200, confirm.text
+    assert await _line_numbers(db_session, "Mixed Lines") == {
+        "taken": 2,
+        "free gap": 4,
+        "new po": 2,
+        "claims 3 first": 3,
+        "claims 3 second": 4,
+        "blank line": 5,
+    }
+
+
+async def test_update_import_ignores_the_files_line_number_but_follows_a_po_change(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    other = await _create_license(test_app, auth_headers, publisherName="Line Owner", poNumber="PO-TARGET")
+    created = await _create_license(
+        test_app, auth_headers, softwareDescription="Update License", poNumber="PO-SOURCE"
+    )
+    assert other["poLineNumber"] == 1 and created["poLineNumber"] == 1
+
+    ignored = {
+        "license_ref": created["licenseRef"],
+        "publisher_name": "Update Publisher",
+        "software_description": "Update License",
+        "po_line": "9",
+    }
+    preview = await test_app.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        data={"update_existing": "true"},
+        files={"file": ("ignored.csv", _make_csv(list(ignored), [ignored]), "text/csv")},
+    )
+    assert "ignored" in " ".join(preview.json()["rows"][0]["warnings"])
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"update_existing": "true", "acknowledge_warnings": "true"},
+        files={"file": ("ignored.csv", _make_csv(list(ignored), [ignored]), "text/csv")},
+    )
+    assert confirm.status_code == 200, confirm.text
+    db_session.expire_all()
+    assert (await db_session.get(License, created["id"])).po_line_number == 1
+
+    moved = {**ignored, "po_line": "", "po_number": "PO-TARGET"}
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"update_existing": "true", "acknowledge_warnings": "true"},
+        files={"file": ("moved.csv", _make_csv(list(moved), [moved]), "text/csv")},
+    )
+    assert confirm.status_code == 200, confirm.text
+    db_session.expire_all()
+    updated = await db_session.get(License, created["id"])
+    assert updated.po_number == "PO-TARGET" and updated.po_line_number == 2
+
+
+async def test_license_export_lists_the_po_line_and_a_deleted_lines_gap_stays(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    ids = {}
+    for description in ("first", "second", "third"):
+        created = await _create_license(
+            test_app, auth_headers, softwareDescription=description, poNumber="PO-GAP"
+        )
+        ids[description] = created["id"]
+    # Line 2 is removed: the number stays used up, so the gap stays.
+    deleted = await test_app.delete(f"/api/licenses/{ids['second']}", headers=auth_headers)
+    assert deleted.status_code in (200, 204), deleted.text
+
+    export = await test_app.get("/api/licenses/export", headers=auth_headers)
+    assert export.status_code == 200
+    rows = list(csv.DictReader(io.StringIO(export.text)))
+    assert {row["Software Description"]: row["PO Line"] for row in rows} == {"first": "1", "third": "3"}
+    later = await _create_license(test_app, auth_headers, softwareDescription="later", poNumber="PO-GAP")
+    assert later["poLineNumber"] == 4

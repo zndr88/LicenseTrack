@@ -161,6 +161,9 @@ class ParsedRow:
     secondary_contacts: list[str] = field(default_factory=list)
     is_renewable: Optional[bool] = None
     type_description: Optional[str] = None
+    # PO line number requested by the file; honoured for new records only
+    # when free (po_line_service decides).
+    po_line_number: Optional[int] = None
     validation_errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     duplicate_warnings: list[object] = field(default_factory=list)
@@ -241,6 +244,19 @@ def _parse_optional_yes_no(raw: str, field_name: str, warnings: list[str]) -> Op
     if value in _NO_VALUES:
         return False
     warnings.append(f"Unrecognised {field_name} {raw!r}; expected Yes or No, ignoring")
+    return None
+
+
+_MAX_PO_LINE_NUMBER = 999_999
+
+
+def _parse_po_line_number(raw: str, warnings: list[str]) -> Optional[int]:
+    """Parse the PO Line cell; blank or invalid means "assign the next free number"."""
+    if not raw:
+        return None
+    if raw.isascii() and raw.isdigit() and 0 < int(raw) <= _MAX_PO_LINE_NUMBER:
+        return int(raw)
+    warnings.append(f"PO line {raw!r} must be a whole number from 1 to {_MAX_PO_LINE_NUMBER}; a new number will be assigned")
     return None
 
 
@@ -704,6 +720,7 @@ def _parse_row(
     type_description = _field_text(data, "type_description")[:255] or None
     if license_type == "other" and not type_description:
         warnings.append("Other rows should have a type_description; add one when the record is next edited")
+    po_line_number = _parse_po_line_number(_field_text(data, "po_line_number"), warnings)
 
     maintenance_coverage_raw = _normalise_maintenance_coverage_value(_field_text(data, "maintenance_coverage"))
     if maintenance_coverage_raw and maintenance_coverage_raw not in _VALID_MAINTENANCE_COVERAGE:
@@ -812,6 +829,7 @@ def _parse_row(
         portal_url=portal_url,
         is_renewable=is_renewable,
         type_description=type_description,
+        po_line_number=po_line_number,
         maintenance_coverage=maintenance_coverage,
         maintenance_start_date=maintenance_start_date_str,
         maintenance_end_date=maintenance_end_date_str,

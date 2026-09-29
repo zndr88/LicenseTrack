@@ -33,6 +33,7 @@ literal value (a set of statuses, a list of fields), a guard test built on
 | ID-1 | "Same PO" means the same normalized PO number: trimmed, inner whitespace collapsed, case ignored. | `backend/app/services/procurement_identity.py` (`normalize_po_number`, SQL `licensetrack_normalize_po`); `frontend/src/utils/procurementIdentity.js` | `backend/tests/test_integration/test_documents.py` (normalized PO tests); frontend DetailPanel Email Supplier test | holds |
 | ID-2 | A financial group is the pending order, else the manual batch, else the normalized PO number, always per currency. | `po_total_override_service.py` (`procurement_identity_key`) | `backend/tests/test_unit/test_reporting_service.py` | holds |
 | ID-3 | The database schema built by migrations equals the models. | `backend/alembic/versions/*`, `backend/app/models/*` | `backend/tests/test_unit/test_schema_drift.py` | holds |
+| ID-4 | Every record with a PO number has a PO line number, unique per normalized PO number and never reused. PO line numbers are generated only; no request can set them. | `backend/app/services/po_line_service.py` | `backend/tests/test_integration/test_po_line_service.py`; `backend/tests/test_unit/test_po_line_guard.py` (only the owner writes lines); commit guard in `backend/tests/conftest.py` (fails any request that commits a record whose line does not match its PO number) | holds |
 
 ## State
 

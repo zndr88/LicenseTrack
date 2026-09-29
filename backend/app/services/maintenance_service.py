@@ -28,6 +28,7 @@ from app.services.maintenance_rules import (
     assert_parent_not_retired,
     assert_parent_type_eligible,
 )
+from app.services.po_line_service import sync_license_line
 from app.services.po_total_override_service import inherit_po_total_override
 from app.services.reference_data_service import resolve_license_reference_fields
 
@@ -509,6 +510,7 @@ async def create_maintenance_for_parent(
     )
     db.add(maintenance_license)
     await db.flush()
+    await sync_license_line(db, maintenance_license)
     maintenance_license.license_ref = await generate_license_ref(db)
     await link_or_activate_maintenance(db, maintenance_license, parent)
 
