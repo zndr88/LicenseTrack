@@ -108,3 +108,11 @@ export async function setNumberFormat(page, locale) {
   await page.locator(".setsec", { has: select }).getByRole("button", { name: "Save", exact: true }).click();
   expect((await saved).ok()).toBeTruthy();
 }
+
+/** YYYY-MM-DD for today plus `days` (negative for the past), for dates that must stay near today. */
+export function isoDateFromToday(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}

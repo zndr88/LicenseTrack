@@ -17,6 +17,7 @@ test("Add License: perpetual with included maintenance keeps the entered mainten
   await dialog.locator("#inv-maintenance-start").fill("2026-01-01");
   await dialog.locator("#inv-maintenance-end").fill("2027-01-01");
   await dialog.locator("#inv-maintenance-cost").fill("250");
+  await dialog.locator("#inv-purchase-date").fill("2026-01-05");
 
   const license = await saveAndGetLicense(page, dialog, "E2E Perpetual Included");
   expect(license.licenseType).toBe("perpetual");
@@ -24,6 +25,7 @@ test("Add License: perpetual with included maintenance keeps the entered mainten
   expect(license.maintenanceStartDate).toBe("2026-01-01");
   expect(license.maintenanceEndDate).toBe("2027-01-01");
   expect(Number(license.maintenanceCost)).toBe(250);
+  expect(license.purchaseDate).toMatch(/^2026-01-05/);
 });
 
 test("Add License: perpetual with separately tracked maintenance", async ({ page }) => {

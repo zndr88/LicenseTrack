@@ -1,7 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { apiGet, fillLicenseBasics, openAddLicense, openDetailSection, openLicense, saveAndGetLicense } from "./helpers.js";
+import { apiGet, fillLicenseBasics, isoDateFromToday, openAddLicense, openDetailSection, openLicense, saveAndGetLicense } from "./helpers.js";
 
 const DESCRIPTION = "E2E Maintenance Renewal";
+// The workbench row and the "renewal in progress" alert depend on the maintenance
+// end being near today, so the dates are computed, never fixed.
+const MAINTENANCE_START = isoDateFromToday(-345);
+const MAINTENANCE_END = isoDateFromToday(20);
 
 test("starting a maintenance renewal creates a sourcing request and blocks retiring the license", async ({ page }) => {
   // A perpetual whose included maintenance ends soon shows up on the renewal workbench.
@@ -13,13 +17,13 @@ test("starting a maintenance renewal creates a sourcing request and blocks retir
     budgetOwner: "owner@example.com",
     description: DESCRIPTION,
     type: "perpetual",
-    startDate: "2025-10-01",
+    startDate: MAINTENANCE_START,
     quantity: 2,
     unitPrice: 300,
   });
   await dialog.locator("#inv-maintenance-coverage").selectOption("included");
-  await dialog.locator("#inv-maintenance-start").fill("2025-10-01");
-  await dialog.locator("#inv-maintenance-end").fill("2026-10-20");
+  await dialog.locator("#inv-maintenance-start").fill(MAINTENANCE_START);
+  await dialog.locator("#inv-maintenance-end").fill(MAINTENANCE_END);
   await dialog.locator("#inv-maintenance-cost").fill("90");
   const license = await saveAndGetLicense(page, dialog, DESCRIPTION);
 
