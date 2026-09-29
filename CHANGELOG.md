@@ -36,6 +36,11 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- Database restores run in the background of the server process, so the app
+  and `/api/health` keep responding (with status `maintenance`) during a long
+  restore. Pre-restore safety copies are now kept in a `pre-restore` folder
+  next to the database (newest three), and copies left next to the database by
+  older versions are moved there on the next restore.
 - CSV export → import now preserves line totals, manual PO totals,
   maintenance pricing (per-unit and free), and which licenses a maintenance
   record covers (several allowed, separated by ";"). An exported lifecycle

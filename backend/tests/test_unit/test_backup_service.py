@@ -526,8 +526,9 @@ def test_restore_backup_replaces_db(tmp_path, monkeypatch):
     assert db_path.exists()
 
     # A pre-restore safety copy must have been created alongside the db.
-    safety_copies = list(tmp_path.glob("license_lifecycle_pre_restore_*.db"))
+    safety_copies = list((tmp_path / "pre-restore").glob("test_pre_restore_*.db"))
     assert len(safety_copies) == 1
+    assert list(tmp_path.glob("*_pre_restore_*.db")) == []
 
     # The mutation must be gone (restored content predates it).
     conn = sqlite3.connect(str(db_path))
@@ -567,7 +568,8 @@ def test_restore_migration_failure_leaves_live_database_untouched(tmp_path, monk
     marker = connection.execute("SELECT value FROM marker").fetchone()[0]
     connection.close()
     assert marker == "current"
-    assert list(tmp_path.glob("license_lifecycle_pre_restore_*.db")) == []
+    assert list(tmp_path.glob("*_pre_restore_*.db")) == []
+    assert list((tmp_path / "pre-restore").glob("*.db")) == []
 
 
 # ---------------------------------------------------------------------------
@@ -628,3 +630,40 @@ def test_restore_removes_wal_and_shm(tmp_path, monkeypatch):
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     conn.close()
     assert "mutation_marker" not in tables
+
+
+def test_pre_restore_copies_keep_the_newest_three_and_adopt_old_loose_copies(tmp_path, monkeypatch):
+    db_path = tmp_path / "live.db"
+    _make_db(db_path)
+    monkeypatch.setattr("app.services.backup_service.get_db_path", lambda: db_path)
+    # Two copies left next to the database by older versions.
+    for stamp in ("20260714_210912", "20260725_213330"):
+        (tmp_path / f"license_lifecycle_pre_restore_{stamp}.db").write_bytes(b"old")
+    folder = tmp_path / "pre-restore"
+    folder.mkdir()
+    for index, stamp in enumerate(("20260801_000000", "20260802_000000")):
+        path = folder / f"live_pre_restore_{stamp}.db"
+        path.write_bytes(b"x")
+        os.utime(path, (1_700_000_000 + index, 1_700_000_000 + index))
+
+    zip_path = create_backup(str(tmp_path / "backups"))
+    restore_backup(zip_path)
+
+    assert list(tmp_path.glob("*_pre_restore_*.db")) == []  # nothing loose next to the database
+    kept = sorted(folder.glob("*.db"))
+    assert len(kept) == 3
+    assert any(path.name.startswith("live_pre_restore_") and path.stat().st_size > 10 for path in kept)
+
+
+def test_sqlite_safety_copies_have_one_owner():
+    import re
+
+    from tests.single_owner import find_definitions
+
+    app_dir = Path(__file__).resolve().parents[2] / "app"
+    # Statements that start with a call (docstrings and comments mention backup() in prose).
+    code_call = r"^\s*\w+\.backup\("
+    assert find_definitions(app_dir, code_call, owners={"services/backup_service.py"}) == []
+    lines = (app_dir / "services" / "backup_service.py").read_text(encoding="utf-8").splitlines()
+    calls = [line for line in lines if re.search(code_call, line)]
+    assert len(calls) == 1, f"only _copy_sqlite_database may call sqlite3 backup(): {calls}"

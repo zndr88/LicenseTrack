@@ -62,6 +62,13 @@ literal value (a set of statuses, a list of fields), a guard test built on
 | PROC-3 | A conversion's invoice is stored in the same transaction as its licenses; if it can't be stored, nothing converts. | `backend/app/services/pending_order_conversion_service.py` (`_complete_conversion`) | `test_pending_orders.py` (`test_invoice_*`) | holds |
 | PROC-4 | One evidence transfer runs per order at a time. | `pending_order_conversion_service.py` (`claim_evidence_transfer`) | `test_pending_orders.py` (`test_*evidence*claim*`) | holds |
 
+## Operations
+
+| ID | Rule | Owner | Guard | Status |
+|---|---|---|---|---|
+| OPS-1 | Every copy of the live SQLite database is WAL-consistent and made by one routine; automatic safety copies (pre-upgrade, pre-restore) live in their own folder next to the database and keep the newest three. | `backup_service._copy_sqlite_database`, `_take_safety_snapshot` | `test_backup_service.py::test_sqlite_safety_copies_have_one_owner`, `test_pre_migration_snapshot.py` | holds |
+| OPS-2 | A restore never blocks the event loop; `/api/health` answers throughout. | `routes/backup.py::_perform_restore` | `test_backup.py::test_health_answers_while_a_restore_is_running` | holds |
+
 ## Non-goals
 
 - **Budgeting.** LicenseTrack provides the data managers use to prepare budgets. It doesn't do forecasting, budget-vs-actual, allocations or multi-year budget modelling. Annualized cost views are indicative.
