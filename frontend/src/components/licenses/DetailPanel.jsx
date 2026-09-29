@@ -61,6 +61,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     toast, setToast,
     editingLicense, setEditingLicense,
     editFields, setEditFields,
+    quickLinkMaintenanceId, setQuickLinkMaintenanceId,
     savingLicense, noticeActionBusy, editError,
     displayUnitPrice, setDisplayUnitPrice,
     handleFullEditSave, handleStartFullEdit, handleMarkNoticeHandled,
@@ -112,6 +113,10 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
           <LicenseEditForm
             editFields={editFields}
             currentLicenseType={license.licenseType}
+            licenseId={license.id}
+            activeMaintenanceId={license.activeMaintenanceId}
+            quickLinkMaintenanceId={quickLinkMaintenanceId}
+            setQuickLinkMaintenanceId={setQuickLinkMaintenanceId}
             setEditFields={setEditFields}
             editError={editError}
             savingLicense={savingLicense}
@@ -120,7 +125,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
             userSettings={userSettings}
             customFieldDefs={customFieldDefs}
             customFieldsLoading={customFieldsLoading}
-            onSave={handleFullEditSave}
+            onSave={() => handleFullEditSave()}
             onCancel={() => setEditingLicense(false)}
           />
         ) : (
@@ -408,7 +413,6 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
         <MaintenanceCreateModal
           parentLicense={license}
           userSettings={userSettings}
-          allLicenses={allLicenses}
           onSuccess={async (parentId) => {
             setShowMaintenanceModal(false);
             const { data: refreshed } = await getLicense(parentId);
@@ -425,7 +429,6 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
       {showLegacyLinkModal && (
         <LegacyMaintenanceLinkModal
           license={license}
-          allLicenses={allLicenses}
           onClose={() => setShowLegacyLinkModal(false)}
           onSuccess={async (refreshed, parentId) => {
             setShowLegacyLinkModal(false);
@@ -463,6 +466,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
           currentValue={fieldEdit.currentValue}
           inputType={fieldEdit.inputType}
           selectOptions={fieldEdit.selectOptions}
+          hint={fieldEdit.hint}
           blankOptionLabel={fieldEdit.blankOptionLabel}
           onSaveFn={fieldEdit.onSaveFn}
           onSave={fieldEdit.onSaveCallback ?? handleFieldSaved}

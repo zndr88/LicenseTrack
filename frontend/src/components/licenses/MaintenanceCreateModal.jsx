@@ -6,55 +6,20 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import Icon from "../ui/Icon.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { formatDate, parseTypedNumber } from "../../utils/formatting.js";
+import { parseTypedNumber, formatDate } from "../../utils/formatting.js";
+import LinkPicker from "../ui/LinkPicker.jsx";
+import ConfirmDialog from "../ui/ConfirmDialog.jsx";
+import { useAllLicenses } from "../../hooks/useAllLicenses.js";
+import {
+  coversConfirmMessage,
+  isHiddenFromLinking,
+  isLinkedToParent,
+  maintenanceCandidate,
+} from "../../utils/maintenanceLinking.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import { uploadDocument } from "../../api/documents.js";
 import DocumentStagingWorkspace from "../procurement/DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "../procurement/useStagedDocumentAttachments.js";
-
-function isLinkedToParent(license, parentId) {
-  // parentLicenseId is retained on detached maintenance records as historical
-  // provenance. Only the association list represents an active link.
-  return (license.maintenanceParentIds || []).some((id) => Number(id) === Number(parentId));
-}
-
-function optionSearchText(license) {
-  return [
-    license.id,
-    license.licenseRef,
-    license.publisherName,
-    license.softwareDescription,
-    license.poNumber,
-    license.contractNumber,
-    license.startDate,
-    license.endDate,
-  ].filter(Boolean).join(" ").toLowerCase();
-}
-
-function MaintenanceRecordOption({ license, selected, onSelect, userSettings }) {
-  return (
-    <button
-      type="button"
-      className={`maint-record-option${selected ? " is-selected" : ""}`}
-      onClick={onSelect}
-    >
-      <span className="maint-record-main">
-        <span className="maint-record-ref">{license.licenseRef || `#${license.id}`}</span>
-        <span className="maint-record-title">{license.publisherName} / {license.softwareDescription}</span>
-      </span>
-      <span className="maint-record-meta">
-        {license.isLegacyUnlinkedMaintenance && <span className="maint-record-legacy-label">Legacy unlinked</span>}
-        <span>{license.poNumber || "No PO"}</span>
-        <span>{license.contractNumber || "No contract"}</span>
-        <span>
-          {license.startDate ? formatDate(license.startDate, userSettings) : "-"}
-          {" -> "}
-          {license.endDate ? formatDate(license.endDate, userSettings) : "-"}
-        </span>
-      </span>
-    </button>
-  );
-}
 
 /**
  * Modal for creating or linking a separately tracked maintenance/support contract.
@@ -62,7 +27,6 @@ function MaintenanceRecordOption({ license, selected, onSelect, userSettings }) 
 export default function MaintenanceCreateModal({
   parentLicense,
   userSettings,
-  allLicenses = [],
   onSuccess,
   onClose,
 }) {
@@ -75,31 +39,29 @@ export default function MaintenanceCreateModal({
   const [poNumber, setPoNumber] = useState("");
   const [contractNumber, setContractNumber] = useState("");
   const [supplier, setSupplier] = useState(parentLicense.supplier || "");
-  const [query, setQuery] = useState("");
+  const { licenses: allLicenses } = useAllLicenses();
+  const [showHidden, setShowHidden] = useState(false);
+  const [confirmCovers, setConfirmCovers] = useState(null);
   const [selectedMaintenanceId, setSelectedMaintenanceId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [createdLicenseId, setCreatedLicenseId] = useState(null);
   const { attachments, categoryScopes, addFiles, removeAttachment, changeCategoryScope } = useStagedDocumentAttachments();
 
-  const existingMaintenanceOptions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (allLicenses || [])
-      .filter((license) => (
-        license.licenseType === "maintenance" &&
-        !license.isRetired &&
-        !license.retired &&
-        !license.retirementScheduled &&
-        !isLinkedToParent(license, parentLicense.id)
-      ))
-      .filter((license) => !q || optionSearchText(license).includes(q))
-      .sort((a, b) => {
-        const aDate = a.endDate || "";
-        const bDate = b.endDate || "";
-        if (aDate !== bDate) return bDate.localeCompare(aDate);
-        return (a.licenseRef || "").localeCompare(b.licenseRef || "");
-      });
-  }, [allLicenses, parentLicense.id, query]);
+  const eligibleMaintenance = useMemo(() => (allLicenses || []).filter((license) => (
+    license.licenseType === "maintenance" && !isLinkedToParent(license, parentLicense.id)
+  )), [allLicenses, parentLicense.id]);
+  const existingMaintenanceOptions = useMemo(() => (showHidden
+    ? eligibleMaintenance
+    : eligibleMaintenance.filter((license) => !isHiddenFromLinking(license)))
+    .slice()
+    .sort((a, b) => {
+      const aDate = a.endDate || "";
+      const bDate = b.endDate || "";
+      if (aDate !== bDate) return bDate.localeCompare(aDate);
+      return (a.licenseRef || "").localeCompare(b.licenseRef || "");
+    })
+    .map((license) => maintenanceCandidate(license, allLicenses, { formatDay: (value) => formatDate(value, userSettings) })), [eligibleMaintenance, showHidden, allLicenses, userSettings]);
 
   const canSave = mode === "create"
     ? endDate.trim() !== "" && !saving
@@ -112,7 +74,6 @@ export default function MaintenanceCreateModal({
     poNumber !== "" ||
     contractNumber !== "" ||
     supplier !== (parentLicense.supplier || "") ||
-    query !== "" ||
     selectedMaintenanceId !== "";
   const handleClose = () => {
     if (saving) return;
@@ -150,8 +111,16 @@ export default function MaintenanceCreateModal({
     return createLicense(payload);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (confirmed = false) => {
     if (!canSave) return;
+    if (mode === "link" && !confirmed) {
+      const selected = existingMaintenanceOptions.find((option) => String(option.id) === String(selectedMaintenanceId));
+      const message = coversConfirmMessage(selected);
+      if (message) {
+        setConfirmCovers(message);
+        return;
+      }
+    }
     setSaving(true);
     setError(null);
 
@@ -205,7 +174,7 @@ export default function MaintenanceCreateModal({
         footer={(
           <>
             <button type="button" className="btn btn-g btn-sm" disabled={saving} onClick={requestClose}>{createdLicenseId != null ? "Close" : "Cancel"}</button>
-            <button type="button" className="btn btn-p btn-sm" disabled={!canSave} onClick={handleSave}>
+            <button type="button" className="btn btn-p btn-sm" disabled={!canSave} onClick={() => handleSave()}>
               {saving
                 ? "Saving..."
                 : createdLicenseId != null
@@ -338,32 +307,17 @@ export default function MaintenanceCreateModal({
             </>
           ) : (
             <div className="maint-existing-picker">
-              <label htmlFor="maint-existing-search">Search Maintenance / Support Records</label>
-              <input
-                id="maint-existing-search"
-                className="fi"
-                type="search"
-                placeholder="Search by LT ref, publisher, description, PO, contract, or date"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                autoFocus
+              <strong>Search Maintenance / Support Records</strong>
+              <LinkPicker
+                candidates={existingMaintenanceOptions}
+                selectedIds={selectedMaintenanceId ? [Number(selectedMaintenanceId)] : []}
+                onChange={(ids) => setSelectedMaintenanceId(ids[0] ? String(ids[0]) : "")}
+                searchPlaceholder="Search by LT ref, publisher, description, PO, contract, or date"
+                listLabel="Existing maintenance records"
+                emptyMessage="No eligible maintenance records match this search."
+                hiddenCount={showHidden ? 0 : eligibleMaintenance.length - eligibleMaintenance.filter((license) => !isHiddenFromLinking(license)).length}
+                onShowHidden={() => setShowHidden(true)}
               />
-              <div className="maint-record-list" role="listbox" aria-label="Existing maintenance records">
-                {existingMaintenanceOptions.length === 0 && (
-                  <div className="maint-record-empty">
-                    No eligible maintenance records match this search.
-                  </div>
-                )}
-                {existingMaintenanceOptions.map((license) => (
-                  <MaintenanceRecordOption
-                    key={license.id}
-                    license={license}
-                    selected={String(license.id) === String(selectedMaintenanceId)}
-                    onSelect={() => setSelectedMaintenanceId(String(license.id))}
-                    userSettings={userSettings}
-                  />
-                ))}
-              </div>
               <div className="maint-record-count">
                 {existingMaintenanceOptions.length} eligible maintenance{" "}
                 {existingMaintenanceOptions.length === 1 ? "record" : "records"}
@@ -378,6 +332,15 @@ export default function MaintenanceCreateModal({
           )}
         </div>
       </ModalShell>
+      {confirmCovers && (
+        <ConfirmDialog
+          title="Cover one more license?"
+          message={confirmCovers}
+          confirmLabel="Also cover this license"
+          onConfirm={() => { setConfirmCovers(null); handleSave(true); }}
+          onCancel={() => setConfirmCovers(null)}
+        />
+      )}
       {showDiscardDialog && (
         <DiscardChangesDialog
           onKeep={() => setShowDiscardDialog(false)}

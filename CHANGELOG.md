@@ -52,6 +52,18 @@ Work in progress for 1.2.0.
 - Application log messages (such as warnings about unknown request fields) are
   no longer silenced after the database upgrade that runs at startup, and keep
   following the `LOG_LEVEL` setting.
+- Maintenance linking:
+  - A license can be changed into Maintenance from the edit form by choosing
+    the license it covers in the same step.
+  - Choosing "Separately tracked" coverage offers a quick link to an existing
+    maintenance record.
+  - Maintenance records that already cover another license stay visible in
+    link searches, marked "Currently covers", and ask before covering one more.
+  - The Renewal Workbench's "Record existing support" now lists existing
+    records to link.
+  - All maintenance link dialogs search the same fields (including PO number,
+    contract, dates and the covered license), and show how many retired
+    records are hidden.
 - CSV export → import now preserves line totals, manual PO totals,
   maintenance pricing (per-unit and free), and which licenses a maintenance
   record covers (several allowed, separated by ";"). An exported lifecycle

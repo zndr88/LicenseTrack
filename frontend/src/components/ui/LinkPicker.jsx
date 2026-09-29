@@ -22,6 +22,8 @@ export default function LinkPicker({
   listLabel = "Eligible records",
   relationship,
   disabled = false,
+  hiddenCount = 0,
+  onShowHidden,
 }) {
   const [query, setQuery] = useState("");
   const selected = useMemo(() => new Set(selectedIds.map(String)), [selectedIds]);
@@ -99,6 +101,12 @@ export default function LinkPicker({
         })}
         {filtered.length === 0 && <div className="link-picker-empty">{emptyMessage}</div>}
       </div>
+      {hiddenCount > 0 && onShowHidden && (
+        <div className="link-picker-hidden">
+          {hiddenCount} hidden {hiddenCount === 1 ? "record" : "records"} (retired or scheduled for retirement)
+          <button type="button" className="btn btn-g btn-sm" onClick={onShowHidden}>Show</button>
+        </div>
+      )}
     </div>
   );
 }

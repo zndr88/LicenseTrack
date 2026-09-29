@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, test, vi } from "vitest";
@@ -18,6 +18,11 @@ function render(ui, options) {
 vi.mock("../api/licenses.js", () => ({
   createLicense: vi.fn(),
   linkMaintenanceToParent: vi.fn(),
+}));
+
+let mockLicenses = [];
+vi.mock("../hooks/useAllLicenses.js", () => ({
+  useAllLicenses: () => ({ licenses: mockLicenses, isLoading: false }),
 }));
 
 vi.mock("../components/ui/Icon.jsx", () => ({
@@ -177,12 +182,7 @@ describe("MaintenanceCreateModal", () => {
     const user = userEvent.setup();
     const onSuccess = vi.fn();
     linkMaintenanceToParent.mockResolvedValueOnce({ data: { id: 42 }, error: null });
-
-    render(
-      <MaintenanceCreateModal
-        parentLicense={parentLicense}
-        userSettings={userSettings}
-        allLicenses={[
+    mockLicenses = [
           {
             id: 77,
             parentLicenseId: 42,
@@ -198,7 +198,12 @@ describe("MaintenanceCreateModal", () => {
             isRetired: false,
             isLegacyUnlinkedMaintenance: true,
           },
-        ]}
+        ];
+
+    render(
+      <MaintenanceCreateModal
+        parentLicense={parentLicense}
+        userSettings={userSettings}
         onSuccess={onSuccess}
         onClose={vi.fn()}
       />
@@ -207,7 +212,7 @@ describe("MaintenanceCreateModal", () => {
     await user.click(screen.getByRole("tab", { name: /link existing/i }));
     expect(screen.queryByLabelText("Upload Quote Document")).not.toBeInTheDocument();
     expect(screen.getByText("Legacy unlinked")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /LT-2026-0077/i }));
+    await user.click(screen.getByRole("option", { name: /LT-2026-0077/i }));
     await user.click(screen.getByRole("button", { name: /link existing record/i }));
 
     await waitFor(() => {
@@ -236,5 +241,35 @@ describe("MaintenanceCreateModal", () => {
 
     fireEvent.click(document.querySelector(".overlay"));
     expect(onClose).toHaveBeenCalledTimes(3);
+  });
+
+  const coveringRecord = {
+    id: 88,
+    licenseRef: "LT-88",
+    publisherName: "Acme",
+    softwareDescription: "Shared support",
+    licenseType: "maintenance",
+    endDate: "2026-12-31",
+    maintenanceParentIds: [2],
+  };
+  const otherParent = { id: 2, licenseRef: "LT-2", publisherName: "Beta", softwareDescription: "Tool", licenseType: "oem" };
+
+  test("a record already covering another license stays linkable, with confirmation", async () => {
+    const user = userEvent.setup();
+    const onSuccess = vi.fn();
+    linkMaintenanceToParent.mockClear();
+    linkMaintenanceToParent.mockResolvedValue({ data: { id: 42 }, error: null });
+    mockLicenses = [coveringRecord, otherParent];
+    render(<MaintenanceCreateModal parentLicense={parentLicense} userSettings={userSettings} onSuccess={onSuccess} onClose={vi.fn()} />);
+    await user.click(screen.getByRole("tab", { name: /link existing/i }));
+    expect(screen.getByText("Currently covers: LT-2 Beta / Tool")).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: /LT-88/i }));
+    await user.click(screen.getByRole("button", { name: /link existing record/i }));
+    expect(await screen.findByText("This maintenance record already covers LT-2 Beta / Tool. Also cover this license?")).toBeInTheDocument();
+    await user.click(within(screen.getByRole("dialog", { name: /cover one more license/i })).getByRole("button", { name: /^cancel$/i }));
+    expect(linkMaintenanceToParent).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: /link existing record/i }));
+    await user.click(await screen.findByRole("button", { name: /also cover this license/i }));
+    await waitFor(() => expect(linkMaintenanceToParent).toHaveBeenCalledWith(42, 88));
   });
 });

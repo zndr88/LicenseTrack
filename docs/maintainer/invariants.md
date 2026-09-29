@@ -46,6 +46,13 @@ literal value (a set of statuses, a list of fields), a guard test built on
 | STATE-6 | Legacy licenses can't start a renewal; a renewed status can't be cleared through a general edit. | `lifecycle_rules.py` | `test_license_renewals.py` (`test_legacy_license_cannot_start_single_or_bundle_renewal`, `test_general_update_cannot_clear_renewed_status`) | holds |
 | STATE-7 | A co-term merge needs one license type, and its maintenance successor covers every predecessor's licenses. | `sourcing_service.py` (`_validate_coterm_merge_compatibility`); `renewal_orchestrator.py` | `backend/tests/test_integration/test_coterm_maintenance.py` | holds |
 
+## Frontend
+
+| ID | Rule | Owner | Guard | Status |
+|---|---|---|---|---|
+| UI-1 | Every maintenance-linking dialog reads the shared license list and searches the same fields. | `frontend/src/hooks/useAllLicenses.js`, `frontend/src/utils/maintenanceLinking.js` | `frontend/src/__tests__/utils/maintenanceLinking.test.js`, `frontend/src/__tests__/RenewalWorkbenchLinkExisting.test.jsx` | holds |
+| UI-2 | Which license types may be a maintenance parent is defined once in the frontend and matches the backend. | `frontend/src/utils/maintenanceCoverage.js` (`MAINTENANCE_PARENT_TYPES`) | `backend/tests/test_unit/test_maintenance_rules.py` (`test_frontend_maintenance_parent_types_match_backend`) | holds |
+
 ## Import and export
 
 | ID | Rule | Owner | Guard | Status |

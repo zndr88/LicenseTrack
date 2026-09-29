@@ -4,6 +4,7 @@ import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../../constants/l
 import { formatCost, getEffectiveQuantity, getPoTotal } from "../../../utils/helpers.js";
 import { formatQuantity } from "../../../utils/quantity.js";
 import { getCalcTotalValue } from "../../../utils/sort.js";
+import { INLINE_LICENSE_TYPE_HINT, inlineLicenseTypeOptions } from "../../../utils/licenseTypeRules.js";
 import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
@@ -54,7 +55,7 @@ export default function CommercialSection({
                     </div>
                     {perms.canEdit && (
                       <button type="button" className="dp-field-edit-icon" aria-label="Edit license type"
-                        onClick={() => openFieldEdit({ fieldKey: "licenseType", fieldLabel: "License Type", currentValue: license.licenseType || "", inputType: "select", selectOptions: LICENSE_TYPES })}
+                        onClick={() => openFieldEdit({ fieldKey: "licenseType", fieldLabel: "License Type", currentValue: license.licenseType || "", inputType: "select", selectOptions: inlineLicenseTypeOptions(license.licenseType), hint: INLINE_LICENSE_TYPE_HINT })}
                       >
                         <Icon name="edit" size={11} />
                       </button>
