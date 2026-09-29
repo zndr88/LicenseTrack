@@ -20,6 +20,8 @@ from typing import Optional
 
 import logging
 
+from app.services.csv_fields import header_map as _registry_header_map
+from app.services.csv_fields import ignored_headers as _registry_ignored_headers
 from app.services.import_.date_parser import DATE_FORMAT_VARIANTS, parse_import_date
 from app.services.money import MoneyParseError, parse_localized_money
 
@@ -29,115 +31,7 @@ logger = logging.getLogger("license_lifecycle.csv_importer")
 # Constants
 # ---------------------------------------------------------------------------
 
-# Maps normalised CSV header → internal field name.
-# Normalised = lowercase, spaces replaced with underscores.
-_HEADER_MAP: dict[str, str] = {
-    "publisher_name": "publisher_name",
-    "publisher": "publisher_name",
-    "software_description": "software_description",
-    "description": "software_description",
-    "start_date": "start_date",
-    "end_date": "end_date",
-    "notice_date": "notice_date",
-    "contract_number": "contract_number",
-    "contract": "contract_number",
-    "po_number": "po_number",
-    "po": "po_number",
-    "procurement_reference": "procurement_reference",
-    "procurement_ref": "procurement_reference",
-    "request_date": "request_date",
-    "purchase_date": "purchase_date",
-    "invoice_number": "invoice_number",
-    "invoice": "invoice_number",
-    "contact_email": "contact_email",
-    "supplier": "supplier",
-    "cost_centre": "cost_centre",
-    "cost_center": "cost_centre",
-    "department": "cost_centre",
-    "license_type": "license_type",
-    "type": "license_type",
-    "purchase_type": "license_type",
-    "license_metric": "license_metric",
-    "metric": "license_metric",
-    "parent_license_ref": "parent_license_ref",
-    "parent_ref": "parent_license_ref",
-    "parent": "parent_license_ref",
-    "quantity": "quantity",
-    "qty": "quantity",
-    "purchase_quantity": "quantity",  # "Purchase Quantity" (v1.0.3 export label)
-    "quantity_per_unit": "quantity_per_unit",
-    "qty_per_unit": "quantity_per_unit",
-    "effective_quantity": "effective_quantity",
-    "sku_code": "sku_code",
-    "sku": "sku_code",
-    "unit_price": "unit_price",
-    "total_po_price": "total_po_price",
-    "currency": "currency",
-    "notes": "notes",
-    "budget_owner_email": "budget_owner_email",
-    "secondary_contacts": "secondary_contacts",
-    "secondary_contact": "secondary_contacts",
-    "secondary_contact_email": "secondary_contacts",
-    "application_owner": "secondary_contacts",
-    "application_owner_email": "secondary_contacts",
-    "app_owner": "secondary_contacts",
-    "app_owner_email": "secondary_contacts",
-    "technical_owner": "secondary_contacts",
-    "technical_owner_email": "secondary_contacts",
-    "external_ref": "external_ref",
-    "license_ref": "license_ref",
-    # Flexera aliases - normalised from Flexera column names
-    "purchase_order_no": "po_number",  # "Purchase Order No."
-    "unit_price_eur": "unit_price",  # "Unit Price (EUR)"
-    "total_price_eur": "total_po_price",  # "Total Price (EUR)"
-    "effective_date": "start_date",  # "Effective Date"
-    "expiry_date": "end_date",  # "Expiry Date"
-    "vendor": "supplier",  # "Vendor"
-    "part_no_sku": "sku_code",  # "Part No./SKU"
-    "contract_no": "contract_number",  # "Contract No."
-    # Flexera fallback columns
-    "item": "software_description",  # "Item" (fallback for description)
-    # NOTE: "purchase_date" now maps to the real purchase_date procurement
-    # milestone field (see above), not start_date. Flexera exports that relied
-    # on Purchase Date as a start-date fallback now populate purchase_date.
-    "contractenddate": "end_date",  # "ContractEndDate" (fallback for end)
-    # LicenseTrack export display-label aliases (pre-round-trip-fix exports)
-    "lt_ref": "license_ref",  # "LT Ref"
-    "publisher_contact": "contact_email",  # "Publisher Contact" (pre-1.1.24 label)
-    "supplier_contact": "contact_email",  # "Supplier Contact"
-    "budget_owner": "budget_owner_email",  # "Budget Owner"
-    "application_owner_email_address": "secondary_contacts",
-    "notice_deadline": "notice_date",  # "Notice Deadline"
-    "portal_url": "portal_url",  # "Portal URL"
-    "is_renewable": "is_renewable",
-    "renewable": "is_renewable",  # "Renewable"
-    "type_description": "type_description",  # "Type Description"
-    "maintenance_coverage": "maintenance_coverage",
-    "maintenance_support_coverage": "maintenance_coverage",  # "Maintenance / Support Coverage"
-    "maintenance_start": "maintenance_start_date",
-    "maintenance_start_date": "maintenance_start_date",
-    "support_start": "maintenance_start_date",
-    "support_start_date": "maintenance_start_date",
-    "coverage_start": "maintenance_start_date",
-    "coverage_start_date": "maintenance_start_date",
-    "maintenance_end": "maintenance_end_date",
-    "maintenance_end_date": "maintenance_end_date",
-    "support_end": "maintenance_end_date",
-    "support_end_date": "maintenance_end_date",
-    "coverage_end": "maintenance_end_date",
-    "coverage_end_date": "maintenance_end_date",
-    "maintenance_cost": "maintenance_cost",
-    "support_cost": "maintenance_cost",
-    "total_support_cost": "maintenance_cost",
-    "total_support_cost_eur": "maintenance_cost",
-    "coverage_cost": "maintenance_cost",
-    "includes_maintenance": "maintenance_coverage",
-    "include_maintenance": "maintenance_coverage",
-    "maintenance_included": "maintenance_coverage",
-    "purchase_includes_maintenance": "maintenance_coverage",
-    "purchase_includes_support": "maintenance_coverage",
-    "includes_support": "maintenance_coverage",
-}
+_HEADER_MAP: dict[str, str] = _registry_header_map()
 
 _FALLBACK_HEADER_ALIASES: frozenset[str] = frozenset(
     {
@@ -145,36 +39,7 @@ _FALLBACK_HEADER_ALIASES: frozenset[str] = frozenset(
     }
 )
 
-# Export-only / computed columns (normalised header form). These are recognised
-# on import but intentionally mapped to nothing, so round-tripping a full
-# LicenseTrack export does not prompt the user to create custom fields for them.
-# Covers computed/metadata columns. Maintenance coverage fields are importable
-# for included-support rows, but linked child-maintenance mirror fields are
-# ignored by the builder unless the row itself says coverage is included.
-_IGNORED_HEADERS: frozenset[str] = frozenset(
-    {
-        "id",
-        "license_record_id",
-        "docs",
-        "calc_total",
-        "expiration",
-        "complete",
-        # "Total PO Value" (v1.0.3 export label) is a derived whole-PO aggregate  -
-        # importing it into the per-license total_po_price column would be wrong.
-        # The legacy "Total PO Price" header still maps to the stored column above
-        # so pre-1.0.3 exports round-trip unchanged.
-        "total_po_value",
-        "created",
-        "created_at",
-        "created_by",
-        "last_updated",
-        "updated_at",
-        "last_synced",
-        "last_synced_at",
-        "lifecycle_status",
-        "sync_status",
-    }
-)
+_IGNORED_HEADERS: frozenset[str] = _registry_ignored_headers()
 
 # Ordered list used for headers_missing reporting.
 _RECOMMENDED_FIELDS = [
