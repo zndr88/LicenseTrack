@@ -451,6 +451,38 @@ async def test_update_import_corrects_included_maintenance_fields(
     assert updated.maintenance_unit_price == "24.69"
 
 
+async def test_maintenance_refs_to_existing_licenses_ignore_case_for_every_parent(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    first = await _create_license(
+        test_app, auth_headers, softwareDescription="Covered One", licenseType="perpetual"
+    )
+    second = await _create_license(
+        test_app, auth_headers, softwareDescription="Covered Two", licenseType="perpetual"
+    )
+    row = {
+        "publisher_name": "Update Publisher",
+        "software_description": "Shared Maintenance",
+        "license_type": "maintenance",
+        "start_date": "2026-01-01",
+        "end_date": "2026-12-31",
+        "currency": "EUR",
+        "parent_license_refs": f"{first['licenseRef'].lower()}; {second['licenseRef'].lower()}",
+    }
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("shared-maintenance.csv", _make_csv(list(row), [row]), "text/csv")},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["errors"] == []
+    links = (await db_session.execute(select(LicenseMaintenanceLink.parent_license_id))).scalars().all()
+    assert sorted(links) == sorted([first["id"], second["id"]])
+
+
 async def test_update_import_rejects_coverage_not_valid_for_the_license_type(
     test_app,
     auth_headers,
