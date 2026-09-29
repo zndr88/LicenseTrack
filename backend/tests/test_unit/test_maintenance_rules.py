@@ -252,3 +252,17 @@ def test_recurring_types_reject_separately_tracked_coverage(license_type):
 @pytest.mark.parametrize("license_type", [LicenseType.perpetual, LicenseType.oem, LicenseType.freeware])
 def test_parent_types_allow_separately_tracked_coverage(license_type):
     assert_coverage_allowed_for_type(license_type, MaintenanceCoverage.separately_tracked)
+
+
+def test_frontend_maintenance_parent_types_match_backend():
+    """frontend/src/utils/maintenanceCoverage.js mirrors MAINTENANCE_PARENT_TYPES."""
+    import re
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[3] / "frontend" / "src" / "utils" / "maintenanceCoverage.js"
+    ).read_text(encoding="utf-8")
+    match = re.search(r"export const MAINTENANCE_PARENT_TYPES = \[([^\]]*)\]", source)
+    assert match, "MAINTENANCE_PARENT_TYPES export missing from maintenanceCoverage.js"
+    frontend = set(re.findall(r'"([a-z]+)"', match.group(1)))
+    assert frontend == {t.value for t in MAINTENANCE_PARENT_TYPES}

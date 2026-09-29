@@ -10,10 +10,16 @@ vi.mock("../api/licenses.js", () => ({
   linkMaintenanceToParent: vi.fn(),
 }));
 
-const license = { id: 7, licenseType: "maintenance", isLegacyUnlinkedMaintenance: true };
-const parent = { id: 42, licenseType: "perpetual", licenseRef: "LT-42", publisherName: "Acme", softwareDescription: "Suite" };
+let mockLicenses = [];
+vi.mock("../hooks/useAllLicenses.js", () => ({
+  useAllLicenses: () => ({ licenses: mockLicenses, isLoading: false }),
+}));
 
-function renderModal(props) {
+const license = { id: 7, licenseType: "maintenance", isLegacyUnlinkedMaintenance: true };
+const parent = { id: 42, licenseType: "perpetual", licenseRef: "LT-42", publisherName: "Acme", softwareDescription: "Suite", poNumber: "PO-4242" };
+
+function renderModal({ allLicenses = [parent], ...props }) {
+  mockLicenses = allLicenses;
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={queryClient}><LegacyMaintenanceLinkModal {...props} /></QueryClientProvider>);
 }
@@ -25,7 +31,7 @@ describe("LegacyMaintenanceLinkModal", () => {
     linkMaintenanceToParent.mockResolvedValueOnce({ data: {}, error: null });
     getLicense.mockResolvedValueOnce({ data: { ...license, isLegacyUnlinkedMaintenance: false }, error: null });
 
-    renderModal({ license, allLicenses: [parent], onSuccess, onClose: vi.fn() });
+    renderModal({ license, onSuccess, onClose: vi.fn() });
     await user.click(screen.getByRole("option", { name: /LT-42/i }));
     await user.click(screen.getByRole("button", { name: /link maintenance/i }));
 
@@ -39,7 +45,7 @@ describe("LegacyMaintenanceLinkModal", () => {
     const user = userEvent.setup();
     linkMaintenanceToParent.mockResolvedValueOnce({ data: null, error: "Parent is retired" });
     const onSuccess = vi.fn();
-    renderModal({ license, allLicenses: [parent], onSuccess, onClose: vi.fn() });
+    renderModal({ license, onSuccess, onClose: vi.fn() });
     await user.click(screen.getByRole("option", { name: /LT-42/i }));
     await user.click(screen.getByRole("button", { name: /link maintenance/i }));
 
@@ -51,11 +57,31 @@ describe("LegacyMaintenanceLinkModal", () => {
     const user = userEvent.setup();
     linkMaintenanceToParent.mockResolvedValueOnce({ data: {}, error: null });
     getLicense.mockResolvedValueOnce({ data: null, error: "Refresh failed" });
-    renderModal({ license, allLicenses: [parent], onSuccess: vi.fn(), onClose: vi.fn() });
+    renderModal({ license, onSuccess: vi.fn(), onClose: vi.fn() });
     await user.click(screen.getByRole("option", { name: /LT-42/i }));
     await user.click(screen.getByRole("button", { name: /link maintenance/i }));
 
     expect(await screen.findByText(/linked, but the refreshed record could not be loaded/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /link maintenance/i })).toBeDisabled();
+  });
+
+  test("finds a parent by its PO number, like the other maintenance dialogs", async () => {
+    const user = userEvent.setup();
+    renderModal({ license, onSuccess: vi.fn(), onClose: vi.fn() });
+    await user.type(screen.getByRole("searchbox"), "PO-4242");
+    expect(screen.getByRole("option", { name: /LT-42/i })).toBeInTheDocument();
+    await user.clear(screen.getByRole("searchbox"));
+    await user.type(screen.getByRole("searchbox"), "nomatch");
+    expect(screen.queryByRole("option", { name: /LT-42/i })).toBeNull();
+  });
+
+  test("counts hidden retired parents and can show them", async () => {
+    const user = userEvent.setup();
+    const retired = { ...parent, id: 43, licenseRef: "LT-43", isRetired: true };
+    renderModal({ license, allLicenses: [parent, retired], onSuccess: vi.fn(), onClose: vi.fn() });
+    expect(screen.queryByRole("option", { name: /LT-43/i })).toBeNull();
+    expect(screen.getByText(/1 hidden record /)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show" }));
+    expect(screen.getByRole("option", { name: /LT-43/i })).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+from app.schemas.request_base import RequestModel
 
 
 class DocumentActionResponse(BaseModel):
@@ -10,7 +11,7 @@ class DocumentActionResponse(BaseModel):
     description: str
 
 
-class DocumentActionInvoke(BaseModel):
+class DocumentActionInvoke(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     document_type: str = Field(pattern="^(license_document|procurement_document)$")

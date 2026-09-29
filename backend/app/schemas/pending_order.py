@@ -14,6 +14,7 @@ from app.schemas.document import ProcurementDocumentResponse
 from app.schemas.sourcing import SourcingQuoteDocumentResponse
 from app.schemas.sourcing import SourcingItemCreate
 from app.schemas.custom_fields import CustomFieldValueItem
+from app.schemas.request_base import RequestModel
 
 
 class SourcingItemSummary(BaseModel):
@@ -80,7 +81,7 @@ class SourcingItemSummary(BaseModel):
         return self
 
 
-class PendingOrderCreate(BaseModel):
+class PendingOrderCreate(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -93,7 +94,7 @@ class PendingOrderCreate(BaseModel):
     items: list[SourcingItemCreate] = []
 
 
-class PendingOrderUpdate(BaseModel):
+class PendingOrderUpdate(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -158,7 +159,7 @@ class PendingOrderResponse(BaseModel):
                 item.is_renewal = True
         return self
 
-class PendingOrderConvertRequest(BaseModel):
+class PendingOrderConvertRequest(RequestModel):
     """License fields submitted when converting a pending order to a live license."""
 
     model_config = ConfigDict(
@@ -306,7 +307,7 @@ class PendingOrderConvertRequest(BaseModel):
         return reject_email_crlf(v)
 
 
-class ConvertSourcingItemRequest(BaseModel):
+class ConvertSourcingItemRequest(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,

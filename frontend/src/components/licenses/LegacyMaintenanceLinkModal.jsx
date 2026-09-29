@@ -3,19 +3,25 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getLicense, linkMaintenanceToParent } from "../../api/licenses.js";
 import { queryKeys } from "../../queryKeys.js";
 import ModalShell from "../ui/ModalShell.jsx";
+import LinkPicker from "../ui/LinkPicker.jsx";
+import { useAllLicenses } from "../../hooks/useAllLicenses.js";
+import { isMaintenanceParentType } from "../../utils/maintenanceCoverage.js";
+import { isHiddenFromLinking, parentCandidate } from "../../utils/maintenanceLinking.js";
 
-const PARENT_TYPES = new Set(["perpetual", "oem", "freeware"]);
-
-export default function LegacyMaintenanceLinkModal({ license, allLicenses = [], onSuccess, onClose }) {
+export default function LegacyMaintenanceLinkModal({ license, onSuccess, onClose }) {
   const queryClient = useQueryClient();
+  const { licenses } = useAllLicenses();
   const [parentId, setParentId] = useState("");
-  const [query, setQuery] = useState("");
+  const [showHidden, setShowHidden] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [linkedRefreshFailed, setLinkedRefreshFailed] = useState(false);
-  const parents = useMemo(() => allLicenses
-    .filter((item) => PARENT_TYPES.has(item.licenseType) && !item.isRetired && !item.retired && !item.retirementScheduled)
-    .filter((item) => `${item.licenseRef || ""} ${item.publisherName || ""} ${item.softwareDescription || ""}`.toLowerCase().includes(query.trim().toLowerCase())), [allLicenses, query]);
+  const eligible = useMemo(() => licenses.filter((item) => isMaintenanceParentType(item.licenseType)), [licenses]);
+  const visible = useMemo(
+    () => (showHidden ? eligible : eligible.filter((item) => !isHiddenFromLinking(item))),
+    [eligible, showHidden],
+  );
+  const candidates = useMemo(() => visible.map(parentCandidate), [visible]);
 
   const save = async () => {
     if (!parentId) return;
@@ -52,15 +58,16 @@ export default function LegacyMaintenanceLinkModal({ license, allLicenses = [], 
         )}
         {!linkedRefreshFailed && <>
         <p>This maintenance record was imported without its original purchase parent. Choose an eligible parent to complete the link.</p>
-        <input className="fi" type="search" placeholder="Search by LT ref, publisher, or description" value={query} onChange={(event) => setQuery(event.target.value)} autoFocus />
-        <div role="listbox" aria-label="Eligible parent licenses" className="legacy-maintenance-parent-list">
-          {parents.map((parent) => (
-            <button key={parent.id} type="button" role="option" aria-selected={String(parent.id) === String(parentId)} className={`legacy-maintenance-parent-option${String(parent.id) === String(parentId) ? " is-selected" : ""}`} onClick={() => setParentId(String(parent.id))}>
-              {parent.licenseRef || `LT-${parent.id}`} — {parent.publisherName} / {parent.softwareDescription}
-            </button>
-          ))}
-          {parents.length === 0 && <div className="legacy-maintenance-parent-empty">No eligible parent licenses found.</div>}
-        </div>
+        <LinkPicker
+          candidates={candidates}
+          selectedIds={parentId ? [Number(parentId)] : []}
+          onChange={(ids) => setParentId(ids[0] ? String(ids[0]) : "")}
+          searchPlaceholder="Search by LT ref, publisher, description, PO, contract, or date"
+          listLabel="Eligible parent licenses"
+          emptyMessage="No eligible parent licenses found."
+          hiddenCount={showHidden ? 0 : eligible.length - visible.length}
+          onShowHidden={() => setShowHidden(true)}
+        />
         {error && <div className="field-error legacy-maintenance-link-error">{error}</div>}
         </>}
       </div>

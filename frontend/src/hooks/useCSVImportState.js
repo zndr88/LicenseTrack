@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getLicenses } from "../api/licenses.js";
+import { isMaintenanceParentType } from "../utils/maintenanceCoverage.js";
 import { normalizeNumberFormatOptionValue } from "../constants/numberFormats.js";
 import { useCSVImportAnalysis } from "./useCSVImportAnalysis.js";
 import { useCSVImportPreview } from "./useCSVImportPreview.js";
@@ -30,7 +31,7 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     if (!Array.isArray(data)) return;
     setEligibleMaintenanceParents(
       data
-        .filter((license) => ["perpetual", "oem", "freeware"].includes(license.licenseType))
+        .filter((license) => isMaintenanceParentType(license.licenseType))
         .sort((a, b) => {
           const left = `${a.publisherName || ""} ${a.softwareDescription || ""} ${a.licenseRef || ""}`;
           const right = `${b.publisherName || ""} ${b.softwareDescription || ""} ${b.licenseRef || ""}`;
@@ -45,7 +46,7 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
       if (cancelled || !Array.isArray(data)) return;
       setEligibleMaintenanceParents(
         data
-          .filter((license) => ["perpetual", "oem", "freeware"].includes(license.licenseType))
+          .filter((license) => isMaintenanceParentType(license.licenseType))
           .sort((a, b) => {
             const left = `${a.publisherName || ""} ${a.softwareDescription || ""} ${a.licenseRef || ""}`;
             const right = `${b.publisherName || ""} ${b.softwareDescription || ""} ${b.licenseRef || ""}`;

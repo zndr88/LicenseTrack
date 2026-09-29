@@ -1,11 +1,21 @@
 import { formatPriceInput } from "../../../utils/helpers.js";
-import { parseTypedNumber } from "../../../utils/formatting.js";
+import { parseTypedNumber, formatDate } from "../../../utils/formatting.js";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES, SUPPLIER_CONTACT_HELP } from "../../../constants/licenseData.js";
 import {
   defaultMaintenanceCoverageForLicenseType,
+  isMaintenanceParentType,
   maintenanceCoverageOptionsForLicenseType,
   supportsMaintenanceCoverage,
+  supportsSeparateMaintenanceLine,
 } from "../../../utils/maintenanceCoverage.js";
+import {
+  isHiddenFromLinking,
+  isLinkedToParent,
+  maintenanceCandidate,
+  parentCandidate,
+} from "../../../utils/maintenanceLinking.js";
+import { useAllLicenses } from "../../../hooks/useAllLicenses.js";
+import LinkPicker from "../../ui/LinkPicker.jsx";
 import Icon from "../../ui/Icon.jsx";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
 import ContactCombobox from "../../ui/ContactCombobox.jsx";
@@ -21,6 +31,10 @@ import InvoiceNumberRows from "../InvoiceNumberRows.jsx";
 export default function LicenseEditForm({
   editFields,
   currentLicenseType,
+  licenseId,
+  activeMaintenanceId,
+  quickLinkMaintenanceId = "",
+  setQuickLinkMaintenanceId,
   setEditFields,
   editError,
   savingLicense,
@@ -32,11 +46,28 @@ export default function LicenseEditForm({
   onSave,
   onCancel,
 }) {
-  // A maintenance record needs a parent license, which this form cannot pick,
-  // so other types cannot be switched to Maintenance here.
-  const licenseTypeOptions = currentLicenseType === "maintenance"
-    ? LICENSE_TYPES
-    : LICENSE_TYPES.filter((option) => option.value !== "maintenance");
+  const { licenses: allLicenses } = useAllLicenses();
+  // Maintenance needs a parent, chosen below in the same save. A license that
+  // already has active maintenance of its own can't become maintenance.
+  const licenseTypeOptions = LICENSE_TYPES.map((option) => (
+    option.value === "maintenance" && currentLicenseType !== "maintenance" && activeMaintenanceId
+      ? { ...option, disabled: true }
+      : option
+  ));
+  const switchingToMaintenance = editFields.licenseType === "maintenance" && currentLicenseType !== "maintenance";
+  const parentCandidates = switchingToMaintenance
+    ? allLicenses
+      .filter((item) => isMaintenanceParentType(item.licenseType) && !isHiddenFromLinking(item) && item.id !== licenseId)
+      .map(parentCandidate)
+    : [];
+  const showQuickLink = currentLicenseType !== "maintenance"
+    && supportsSeparateMaintenanceLine(editFields.licenseType)
+    && editFields.maintenanceCoverage === "separately_tracked";
+  const quickLinkCandidates = showQuickLink
+    ? allLicenses
+      .filter((item) => item.licenseType === "maintenance" && !isHiddenFromLinking(item) && !isLinkedToParent(item, licenseId))
+      .map((item) => maintenanceCandidate(item, allLicenses, { formatDay: (value) => formatDate(value, userSettings) }))
+    : [];
   const descriptionMissing = typeDescriptionMissing(editFields.licenseType, editFields.typeDescription);
   const noticeAfterEnd = Boolean(editFields.noticeDate && editFields.endDate && editFields.noticeDate > editFields.endDate);
   const maintenanceCoverageOptions = maintenanceCoverageOptionsForLicenseType(editFields.licenseType);
@@ -158,10 +189,10 @@ export default function LicenseEditForm({
             });
           }}>
             <option value="">—</option>
-            {licenseTypeOptions.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            {licenseTypeOptions.map((t) => <option key={t.value} value={t.value} disabled={t.disabled}>{t.label}</option>)}
           </select>
-          {currentLicenseType !== "maintenance" && (
-            <span className="field-hint">Maintenance records are added from the parent license (Maintenance / Support).</span>
+          {currentLicenseType !== "maintenance" && activeMaintenanceId && (
+            <span className="field-hint">This license has active maintenance of its own; unlink it before changing the type to Maintenance.</span>
           )}
         </div>
         <div className="fg">
@@ -172,6 +203,20 @@ export default function LicenseEditForm({
           </select>
         </div>
       </div>
+      {switchingToMaintenance && (
+        <div className="fg">
+          <span className="fg-label">Maintenance for</span>
+          <LinkPicker
+            candidates={parentCandidates}
+            selectedIds={editFields.parentLicenseId ? [Number(editFields.parentLicenseId)] : []}
+            onChange={(ids) => setEditFields((p) => ({ ...p, parentLicenseId: ids[0] ? String(ids[0]) : "" }))}
+            searchPlaceholder="Search by LT ref, publisher, description, PO, contract, or date"
+            listLabel="Licenses this maintenance can cover"
+            emptyMessage="No eligible parent licenses found."
+          />
+          {!editFields.parentLicenseId && <span className="field-hint">Choose the license this maintenance covers to save.</span>}
+        </div>
+      )}
       <LicenseTypeOptInFields
         idPrefix="license-edit"
         licenseType={editFields.licenseType}
@@ -192,6 +237,19 @@ export default function LicenseEditForm({
           <select id="license-edit-maintenance-coverage" className="fi fi-select" value={maintenanceCoverageValue} onChange={(e) => setEditFields((p) => ({ ...p, maintenanceCoverage: e.target.value }))}>
             {maintenanceCoverageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
+        </div>
+      )}
+      {showQuickLink && setQuickLinkMaintenanceId && (
+        <div className="fg">
+          <span className="fg-label">Link an existing maintenance record (optional)</span>
+          <LinkPicker
+            candidates={quickLinkCandidates}
+            selectedIds={quickLinkMaintenanceId ? [Number(quickLinkMaintenanceId)] : []}
+            onChange={(ids) => setQuickLinkMaintenanceId(ids[0] ? String(ids[0]) : "")}
+            searchPlaceholder="Search by LT ref, publisher, description, PO, contract, or date"
+            listLabel="Existing maintenance records"
+            emptyMessage="No eligible maintenance records were found."
+          />
         </div>
       )}
       {customFields("maintenance")}
@@ -242,7 +300,7 @@ export default function LicenseEditForm({
       {customFields("__catchall__")}
       <div className="dp-btn-row">
         <button className="btn btn-g btn-sm" disabled={savingLicense} onClick={onCancel}>Cancel</button>
-        <button className="btn btn-p btn-sm" disabled={savingLicense || descriptionMissing} onClick={onSave}>
+        <button className="btn btn-p btn-sm" disabled={savingLicense || descriptionMissing || (switchingToMaintenance && !editFields.parentLicenseId)} onClick={onSave}>
           <Icon name="check" size={12} /> {savingLicense ? "Saving..." : "Save Changes"}
         </button>
       </div>

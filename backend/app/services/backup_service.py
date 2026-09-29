@@ -118,10 +118,55 @@ def run_database_migrations(db_path: Path | None = None) -> None:
 
 
 PRE_UPGRADE_DIRECTORY = "pre-upgrade"
+PRE_RESTORE_DIRECTORY = "pre-restore"
+PRE_RESTORE_KEEP = 3
 # A snapshot is reused only by restarts shortly after it was taken (a crash loop).
 PRE_UPGRADE_REUSE_WINDOW = timedelta(hours=24)
 _SNAPSHOT_TIMESTAMP_FORMAT = "%Y%m%d_%H%M%S"
 _SNAPSHOT_TIMESTAMP_GLOB = "[0-9]" * 8 + "_" + "[0-9]" * 6
+
+
+def _copy_sqlite_database(source_path: Path, target_path: Path) -> None:
+    """WAL-consistent copy via sqlite3's backup API. A failed copy leaves no partial file.
+
+    The only place LicenseTrack copies a live SQLite database.
+    """
+    try:
+        source = sqlite3.connect(str(source_path))
+        try:
+            destination = sqlite3.connect(str(target_path))
+            try:
+                source.backup(destination)
+            finally:
+                destination.close()
+        finally:
+            source.close()
+    except BaseException:
+        target_path.unlink(missing_ok=True)
+        raise
+
+
+def _take_safety_snapshot(db_path: Path, snapshot_dir: Path, name: str, *, keep: int, prune_glob: str) -> Path:
+    """Copy *db_path* into *snapshot_dir*/*name* and keep the newest *keep*.
+
+    Snapshots matching *prune_glob* beyond *keep* are removed, oldest first,
+    but never the one just taken.
+    """
+    snapshot_dir.mkdir(exist_ok=True)
+    target = snapshot_dir / name
+    _copy_sqlite_database(db_path, target)
+    snapshots = sorted(snapshot_dir.glob(prune_glob), key=lambda path: path.stat().st_mtime)
+    for old in snapshots[: max(len(snapshots) - keep, 0)]:
+        if old != target:
+            old.unlink(missing_ok=True)
+    return target
+
+
+def _adopt_loose_pre_restore_copies(database_dir: Path, snapshot_dir: Path) -> None:
+    """Move pre-restore copies that older versions left next to the database into the folder."""
+    snapshot_dir.mkdir(exist_ok=True)
+    for loose in database_dir.glob("*_pre_restore_*.db"):
+        loose.replace(snapshot_dir / loose.name)
 
 
 def _pre_upgrade_snapshots(snapshot_dir: Path, db_stem: str, revision: str = "*") -> list[Path]:
@@ -187,25 +232,13 @@ def create_pre_migration_snapshot(keep: int = 3) -> Path | None:
         return reused
 
     timestamp = datetime.now().strftime(_SNAPSHOT_TIMESTAMP_FORMAT)
-    target = snapshot_dir / f"{db_path.stem}_pre_upgrade_{current}_{timestamp}.db"
-    try:
-        source = sqlite3.connect(str(db_path))
-        try:
-            destination = sqlite3.connect(str(target))
-            try:
-                source.backup(destination)
-            finally:
-                destination.close()
-        finally:
-            source.close()
-    except BaseException:
-        target.unlink(missing_ok=True)  # never leave a partial copy that looks like a rollback point
-        raise
-
-    snapshots = _pre_upgrade_snapshots(snapshot_dir, db_path.stem)
-    for old in snapshots[: max(len(snapshots) - keep, 0)]:
-        if old != target:  # never prune the snapshot just taken
-            old.unlink(missing_ok=True)
+    target = _take_safety_snapshot(
+        db_path,
+        snapshot_dir,
+        f"{db_path.stem}_pre_upgrade_{current}_{timestamp}.db",
+        keep=keep,
+        prune_glob=f"{glob.escape(db_path.stem)}_pre_upgrade_*_{_SNAPSHOT_TIMESTAMP_GLOB}.db",
+    )
     logger.info("Pre-upgrade database snapshot saved: %s", target)
     return target
 
@@ -240,13 +273,7 @@ def create_backup(backup_location: str) -> Path:
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             tmp_path = Path(tmp.name)
 
-        src_conn = sqlite3.connect(str(db_path))
-        dst_conn = sqlite3.connect(str(tmp_path))
-        try:
-            src_conn.backup(dst_conn)
-        finally:
-            dst_conn.close()
-            src_conn.close()
+        _copy_sqlite_database(db_path, tmp_path)
 
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.write(tmp_path, arcname=db_path.name)
@@ -333,13 +360,7 @@ def _create_database_and_storage_archive(
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             tmp_path = Path(tmp.name)
 
-        src_conn = sqlite3.connect(str(db_path))
-        dst_conn = sqlite3.connect(str(tmp_path))
-        try:
-            src_conn.backup(dst_conn)
-        finally:
-            dst_conn.close()
-            src_conn.close()
+        _copy_sqlite_database(db_path, tmp_path)
 
         archived_files = 0
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -611,18 +632,18 @@ def restore_backup(zip_path: Path) -> Path:
         raise
 
     try:
-        # Safety snapshot before overwrite - WAL-consistent via
-        # sqlite3.Connection.backup() so dirty WAL pages are checkpointed into
-        # the snapshot before we unlink them.
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safety_copy = db_path.with_name(f"license_lifecycle_pre_restore_{timestamp}.db")
-        _snap_src = sqlite3.connect(str(db_path))
-        _snap_dst = sqlite3.connect(str(safety_copy))
-        try:
-            _snap_src.backup(_snap_dst)
-        finally:
-            _snap_dst.close()
-            _snap_src.close()
+        # Safety snapshot before overwrite: WAL-consistent, in its own folder,
+        # newest PRE_RESTORE_KEEP kept.
+        snapshot_dir = db_path.parent / PRE_RESTORE_DIRECTORY
+        _adopt_loose_pre_restore_copies(db_path.parent, snapshot_dir)
+        timestamp = datetime.now().strftime(_SNAPSHOT_TIMESTAMP_FORMAT)
+        safety_copy = _take_safety_snapshot(
+            db_path,
+            snapshot_dir,
+            f"{db_path.stem}_pre_restore_{timestamp}.db",
+            keep=PRE_RESTORE_KEEP,
+            prune_glob="*_pre_restore_*.db",
+        )
 
         # Remove stale WAL and SHM files before replacing the database.
         # If these survive the file swap, SQLite replays them against the freshly
@@ -633,7 +654,7 @@ def restore_backup(zip_path: Path) -> Path:
     finally:
         staged_db.unlink(missing_ok=True)
 
-    logger.info("Restore complete. Safety snapshot saved as %s", safety_copy.name)
+    logger.info("Restore complete. Safety snapshot saved as %s", safety_copy)
     return safety_copy
 
 

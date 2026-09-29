@@ -1,4 +1,4 @@
-import { NON_EXPIRING_LICENSE_TYPES, RENEWAL_OPT_IN_LICENSE_TYPES } from "../constants/licenseData.js";
+import { LICENSE_TYPES, NON_EXPIRING_LICENSE_TYPES, RENEWAL_OPT_IN_LICENSE_TYPES } from "../constants/licenseData.js";
 
 /**
  * A license type that never carries a fixed end date (perpetual/oem/freeware).
@@ -78,4 +78,16 @@ export function supportsPlannedTerms(item) {
 /** Maintenance terms only follow maintenance terms, and other types never follow maintenance. */
 export function canFollowInTermChain(predecessor, successor) {
   return (predecessor?.licenseType === "maintenance") === (successor?.licenseType === "maintenance");
+}
+
+export const INLINE_LICENSE_TYPE_HINT = "To change a license into Maintenance, use Edit and choose the license it covers.";
+
+/**
+ * License Type choices for the single-field (inline) edit. Changing to
+ * Maintenance needs a parent license, so only the full edit form offers it.
+ */
+export function inlineLicenseTypeOptions(currentType) {
+  return currentType === "maintenance"
+    ? LICENSE_TYPES
+    : LICENSE_TYPES.filter((option) => option.value !== "maintenance");
 }

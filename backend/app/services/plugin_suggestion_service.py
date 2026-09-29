@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.custom_fields import CustomFieldDefinition, CustomFieldValue
 from app.models.license import License
-from app.models.pending_order import PendingOrder, PendingOrderStatus
+from app.models.pending_order import PendingOrder
 from app.models.plugin import Plugin, PluginPermission
 from app.models.plugin_suggestion import PluginSuggestion
 from app.models.sourcing import SourcingItem, SourcingStatus
@@ -30,6 +30,7 @@ from app.services.license_write_service import (
     apply_license_update,
     validate_patch_field_input,
 )
+from app.services.pending_order_state import is_pending_order_open
 
 
 SUPPORTED_TARGET_TYPES = {
@@ -225,7 +226,7 @@ async def _resolve_target_license_id(
         if (
             item is None
             or item.pending_order is None
-            or item.pending_order.status not in {PendingOrderStatus.pending, PendingOrderStatus.invoice_received}
+            or not is_pending_order_open(item.pending_order)
         ):
             raise PluginSuggestionError("Pending order item suggestion target not found")
         return None
@@ -235,7 +236,7 @@ async def _resolve_target_license_id(
             PendingOrder,
             _parse_int_target_id(target_id, "Pending order conversion suggestion targetId must be an integer"),
         )
-        if order is None or order.status not in {PendingOrderStatus.pending, PendingOrderStatus.invoice_received}:
+        if order is None or not is_pending_order_open(order):
             raise PluginSuggestionError("Pending order conversion suggestion target not found")
         return None
 

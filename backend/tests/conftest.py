@@ -3,6 +3,7 @@ import os
 # Set test environment variables before any app imports so that pydantic-settings
 # picks them up when constructing the Settings singleton in app.config.
 os.environ.setdefault("JWT_SECRET", "test-secret-not-for-production")
+os.environ.setdefault("STRICT_REQUEST_FIELDS", "true")
 
 import pytest
 import bcrypt

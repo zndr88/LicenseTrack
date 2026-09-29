@@ -3,12 +3,13 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+from app.schemas.request_base import RequestModel
 
 
 DocumentProcessingStatus = Literal["pending", "accepted", "rejected", "superseded"]
 
 
-class SuggestedField(BaseModel):
+class SuggestedField(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     field: str = Field(min_length=1, max_length=150)
@@ -18,7 +19,7 @@ class SuggestedField(BaseModel):
     note: str | None = Field(default=None, max_length=1000)
 
 
-class DocumentProcessingResultCreate(BaseModel):
+class DocumentProcessingResultCreate(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     document_type: str = Field(pattern="^(license_document|procurement_document)$")
@@ -56,7 +57,7 @@ class DocumentProcessingReviewResponse(BaseModel):
     applied_fields: list[str] = Field(default_factory=list)
 
 
-class DocumentProcessingAcceptRequest(BaseModel):
+class DocumentProcessingAcceptRequest(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     suggested_field_indexes: list[int] | None = None

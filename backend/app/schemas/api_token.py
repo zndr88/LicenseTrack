@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from app.schemas.request_base import RequestModel
 
 
 ApiTokenScope = Literal[
@@ -16,7 +17,7 @@ ApiTokenScope = Literal[
     "extensions:write",
 ]
 
-class ApiTokenCreate(BaseModel):
+class ApiTokenCreate(RequestModel):
     name: str = Field(min_length=1, max_length=150)
     scopes: list[ApiTokenScope]
 

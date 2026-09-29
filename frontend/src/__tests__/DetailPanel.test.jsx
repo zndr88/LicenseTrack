@@ -69,8 +69,16 @@ vi.mock('../api/licenses.js', () => ({
   linkMaintenanceToParent: vi.fn(),
 }))
 
+// Dialogs read the license list through this hook, so tests feed it from the
+// allLicenses prop the panel is rendered with.
+let mockAllLicenses = []
+vi.mock('../hooks/useAllLicenses.js', () => ({
+  useAllLicenses: () => ({ licenses: mockAllLicenses, isLoading: false }),
+}))
+
 beforeEach(() => {
   vi.clearAllMocks()
+  mockAllLicenses = []
 })
 
 afterEach(() => {
@@ -80,6 +88,7 @@ afterEach(() => {
 })
 
 function render(ui) {
+  mockAllLicenses = ui.props?.allLicenses ?? []
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -1889,14 +1898,137 @@ describe('DetailPanel full edit form', () => {
     expect(onUpdate.mock.calls[0][1]).not.toHaveProperty('invoiceNumber')
   })
 
-  it('only offers Maintenance as a type when the license already is maintenance', async () => {
+  const perpetualParent = { ...baseLicense, id: 42, licenseRef: 'LT-42', publisherName: 'Acme', softwareDescription: 'Suite', licenseType: 'perpetual', poNumber: 'PO-42' }
+
+  it('changes a license into maintenance by choosing the license it covers in the same save', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn().mockResolvedValue(true)
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        onUpdate={onUpdate}
+        license={{ ...baseLicense, licenseType: 'other', typeDescription: 'Misc' }}
+        allLicenses={[baseLicense, perpetualParent]}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.selectOptions(screen.getByLabelText('License Type'), 'maintenance')
+    expect(screen.getByText('Maintenance for')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled()
+    // The license being edited is never offered as its own parent.
+    expect(screen.queryByRole('option', { name: /LT-2026-00001/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('option', { name: /LT-42/ }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith(1, expect.objectContaining({
+      licenseType: 'maintenance',
+      parentLicenseId: 42,
+    })))
+  })
+
+  it('does not send parentLicenseId when the type is not changed to maintenance', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn().mockResolvedValue(true)
+    render(<DetailPanel {...baseProps} user={{ id: 2, role: 'admin' }} onUpdate={onUpdate} allLicenses={[baseLicense, perpetualParent]} />)
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.selectOptions(screen.getByLabelText('License Type'), 'maintenance')
+    await user.click(screen.getByRole('option', { name: /LT-42/ }))
+    await user.selectOptions(screen.getByLabelText('License Type'), 'saas')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalled())
+    expect(onUpdate.mock.calls[0][1]).not.toHaveProperty('parentLicenseId')
+  })
+
+  it('disables the Maintenance type for a license that has active maintenance of its own', async () => {
+    const user = userEvent.setup()
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        license={{ ...baseLicense, licenseType: 'perpetual', activeMaintenanceId: 77 }}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    const typeSelect = screen.getByLabelText('License Type')
+    expect(within(typeSelect).getByRole('option', { name: 'Maintenance' })).toBeDisabled()
+    expect(screen.getByText(/has active maintenance of its own; unlink it before changing the type to Maintenance/)).toBeInTheDocument()
+  })
+
+  it('does not offer Maintenance in the inline license type edit, and says where to do it', async () => {
     const user = userEvent.setup()
     render(<DetailPanel {...baseProps} user={{ id: 2, role: 'admin' }} />)
 
-    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.click(await screen.findByRole('button', { name: /edit license type/i }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).queryByRole('option', { name: 'Maintenance' })).not.toBeInTheDocument()
+    expect(within(dialog).getByText(/use Edit and choose the license it covers/i)).toBeInTheDocument()
+  })
 
-    const typeSelect = screen.getByLabelText('License Type')
-    expect(within(typeSelect).queryByRole('option', { name: 'Maintenance' })).not.toBeInTheDocument()
-    expect(within(typeSelect).getByRole('option', { name: 'Perpetual' })).toBeInTheDocument()
+  const perpetualLicense = { ...baseLicense, licenseType: 'perpetual', endDate: '', maintenanceCoverage: 'unknown' }
+  const maintenanceRecord = {
+    ...baseLicense, id: 60, licenseRef: 'LT-60', licenseType: 'maintenance', publisherName: 'Acme',
+    softwareDescription: 'Suite support', maintenanceParentIds: [],
+  }
+
+  it('offers a quick link to an existing maintenance record under Separately tracked, linked after the save', async () => {
+    const user = userEvent.setup()
+    const calls = []
+    const onUpdate = vi.fn().mockImplementation(async () => { calls.push('update'); return true })
+    linkMaintenanceToParent.mockImplementation(async () => { calls.push('link'); return { data: {}, error: null } })
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        onUpdate={onUpdate}
+        license={perpetualLicense}
+        allLicenses={[perpetualLicense, maintenanceRecord]}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    expect(screen.queryByText(/Link an existing maintenance record/)).not.toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Maintenance / Support Coverage'), 'separately_tracked')
+    expect(screen.getByText('Link an existing maintenance record (optional)')).toBeInTheDocument()
+    await user.click(screen.getByRole('option', { name: /LT-60/ }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(linkMaintenanceToParent).toHaveBeenCalledWith(1, 60))
+    expect(calls).toEqual(['update', 'link'])
+    expect(JSON.stringify(onUpdate.mock.calls[0][1])).not.toContain('60')
+  })
+
+  it('asks before quick-linking a maintenance record that already covers another license', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn().mockResolvedValue(true)
+    linkMaintenanceToParent.mockResolvedValue({ data: {}, error: null })
+    const other = { ...baseLicense, id: 2, licenseRef: 'LT-2', publisherName: 'Beta', softwareDescription: 'Tool', licenseType: 'oem' }
+    const covering = { ...maintenanceRecord, maintenanceParentIds: [2] }
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        onUpdate={onUpdate}
+        license={perpetualLicense}
+        allLicenses={[perpetualLicense, other, covering]}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.selectOptions(screen.getByLabelText('Maintenance / Support Coverage'), 'separately_tracked')
+    await user.click(screen.getByRole('option', { name: /LT-60/ }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    const dialog = await screen.findByRole('dialog', { name: /cover one more license/i })
+    expect(within(dialog).getByText('This maintenance record already covers LT-2 Beta / Tool. Also cover this license?')).toBeInTheDocument()
+    expect(onUpdate).not.toHaveBeenCalled()
+    await user.click(within(dialog).getByRole('button', { name: /also cover this license/i }))
+    await waitFor(() => expect(linkMaintenanceToParent).toHaveBeenCalledWith(1, 60))
+    expect(onUpdate).toHaveBeenCalledTimes(1)
   })
 })

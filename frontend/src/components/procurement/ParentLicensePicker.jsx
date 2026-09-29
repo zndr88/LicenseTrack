@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from "react";
+import { isMaintenanceParentType } from "../../utils/maintenanceCoverage.js";
+import { isHiddenFromLinking } from "../../utils/maintenanceLinking.js";
 
 function isEligibleExistingParent(license) {
   return (
-    (license.licenseType === "perpetual" || license.licenseType === "oem" || license.licenseType === "freeware") &&
-    !license.isRetired &&
-    !license.retired &&
-    !license.retirementScheduled
+    isMaintenanceParentType(license.licenseType) &&
+    !isHiddenFromLinking(license)
   );
 }
 
@@ -47,7 +47,7 @@ export default function ParentLicensePicker({
     .map((item, idx) => ({ item, idx, watched: watchedItems[idx] ?? {} }))
     .filter(({ item, idx, watched }) => (
       idx !== currentIndex &&
-      (watched.licenseType === "perpetual" || watched.licenseType === "oem" || watched.licenseType === "freeware") &&
+      isMaintenanceParentType(watched.licenseType) &&
       item.id
     ))
     .map(({ item, idx }) => ({

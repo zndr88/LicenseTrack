@@ -44,7 +44,7 @@ Before overwriting a routine database backup, LicenseTrack validates the
 candidate SQLite database and takes a WAL-consistent safety snapshot of the
 current database using SQLite's backup API, named with a `pre_restore`
 timestamp. It then replaces the live database file. Managed document files are
-left unchanged.
+left unchanged. While a restore runs, the application answers other requests with a short 'restore in progress' message; `/api/health` keeps answering with status `maintenance`.
 
 A database-only restore preserves document records and configuration in the
 database, but it does not guarantee that the referenced managed files are
@@ -108,7 +108,7 @@ archive has first been copied off-host.
 
 - **WAL-safe snapshot** - a consistent copy of the database taken via SQLite's backup API, safe to use even when the database is under active write load.
 - **Database backup retention** - the maximum number of database backup zip files kept on disk before older ones are pruned.
-- **Safety snapshot** - a WAL-consistent copy of the current database file created automatically before any database restore begins, taken via SQLite's backup API so dirty WAL pages are always included.
+- **Safety snapshot** - a WAL-consistent copy of the current database file created automatically before any database restore begins, taken via SQLite's backup API so dirty WAL pages are always included. It is saved in the `pre-restore` folder next to the database; the newest three are kept.
 - **Portfolio reset recovery archive** - a pre-reset archive containing both the database and managed portfolio documents, retained separately from routine database-backup pruning and directly restorable from the admin interface.
 - **Document-restore safety archive** - a database-and-document snapshot created automatically before another database-and-document archive is restored.
 - **`SIGTERM` restart** - the process signal sent to LicenseTrack after a restore when `RESTART_AFTER_RESTORE=true`, triggering a clean process restart under a process manager.
@@ -120,7 +120,7 @@ Admins only.
 ## Things to know
 
 !!! danger "Restore is irreversible"
-    Database restore is irreversible once the restored database is in place. All database rows written between the backup's timestamp and the moment of restore will be gone. The safety snapshot created before overwrite is a raw `.db` file saved next to the database, not a numbered database backup - it will not appear in the database backup list and is not managed by the retention policy.
+    Database restore is irreversible once the restored database is in place. All database rows written between the backup's timestamp and the moment of restore will be gone. The safety snapshot created before overwrite is a raw `.db` file in the `pre-restore` folder next to the database. It isn't a numbered backup and doesn't appear in the backup list; LicenseTrack keeps the newest three. Copies that older versions left next to the database are moved into that folder on the next restore.
 
 - The database backup covers the database file only. Uploaded documents (license attachments, contract files, sourcing documents, and procurement documents) are stored on the filesystem separately and are not included in the database backup zip. You must back up the document storage directory - shown in the Storage settings - independently using your own backup tooling. A warning banner on the database backup admin page makes this explicit.
 - After a database-only restore, document counters distinguish records from currently available files. Missing files are warnings, not database corruption, and records are not deleted automatically.
