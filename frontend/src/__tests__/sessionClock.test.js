@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
 import { getSessionExpiry, rememberSessionExpiry } from "../api/client.js";
+
+// Every non-test source file, as raw text.
+const sources = import.meta.glob(["../**/*.{js,jsx}", "!../__tests__/**", "!../**/__tests__/**"], {
+  query: "?raw", import: "default", eager: true,
+});
 
 describe("session deadline", () => {
   afterEach(() => vi.useRealTimers());
@@ -14,20 +17,10 @@ describe("session deadline", () => {
   });
 
   it("is written only by rememberSessionExpiry", () => {
-    const root = join(__dirname, "..");
-    const offenders = [];
-    const walk = (dir) => {
-      for (const name of readdirSync(dir)) {
-        const path = join(dir, name);
-        if (statSync(path).isDirectory()) { if (name !== "__tests__") walk(path); continue; }
-        if (!/\.(js|jsx)$/.test(name)) continue;
-        const text = readFileSync(path, "utf8");
-        if (/setItem\(\s*sessionCoordinationKey\("expiry"\)/.test(text) && !path.endsWith(join("api", "client.js"))) {
-          offenders.push(path);
-        }
-      }
-    };
-    walk(root);
+    expect(Object.keys(sources).length).toBeGreaterThan(50);
+    const offenders = Object.entries(sources)
+      .filter(([path, text]) => /setItem\(\s*sessionCoordinationKey\("expiry"\)/.test(text) && !path.endsWith("api/client.js"))
+      .map(([path]) => path);
     expect(offenders).toEqual([]);
   });
 });
