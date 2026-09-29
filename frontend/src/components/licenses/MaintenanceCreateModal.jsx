@@ -5,8 +5,8 @@ import LicenseFormSection from "./LicenseFormSection.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import Icon from "../ui/Icon.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
-import { formatPriceInput } from "../../utils/helpers.js";
-import { parseTypedNumber, formatDate } from "../../utils/formatting.js";
+import { formatDate, toInputText } from "../../utils/formatting.js";
+import NumberInput, { isValidNumberValue } from "../ui/NumberInput.jsx";
 import LinkPicker from "../ui/LinkPicker.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import { useAllLicenses } from "../../hooks/useAllLicenses.js";
@@ -30,12 +30,11 @@ export default function MaintenanceCreateModal({
   onSuccess,
   onClose,
 }) {
-  const locale = userSettings?.numberFormatLocale ?? "en-US";
   const [mode, setMode] = useState("create");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  // Canonical cost from NumberInput (or the typed text while it's invalid).
   const [costRaw, setCostRaw] = useState("");
-  const [costDisplay, setCostDisplay] = useState("");
   const [poNumber, setPoNumber] = useState("");
   const [contractNumber, setContractNumber] = useState("");
   const [supplier, setSupplier] = useState(parentLicense.supplier || "");
@@ -64,7 +63,7 @@ export default function MaintenanceCreateModal({
     .map((license) => maintenanceCandidate(license, allLicenses, { formatDay: (value) => formatDate(value, userSettings) })), [eligibleMaintenance, showHidden, allLicenses, userSettings]);
 
   const canSave = mode === "create"
-    ? endDate.trim() !== "" && !saving
+    ? endDate.trim() !== "" && isValidNumberValue(costRaw) && !saving
     : selectedMaintenanceId !== "" && !saving;
 
   const isDirty = attachments.length > 0 || mode !== "create" ||
@@ -86,7 +85,7 @@ export default function MaintenanceCreateModal({
   });
 
   const handleCreate = async () => {
-    const costSave = costRaw ? (parseTypedNumber(costRaw, userSettings) ?? "") : "";
+    const costSave = costRaw;
 
     const payload = {
       publisherName: parentLicense.publisherName,
@@ -245,17 +244,13 @@ export default function MaintenanceCreateModal({
 
                 <div className="fg">
                   <label htmlFor="maint-cost">Support Cost (coverage period)</label>
-                  <input
+                  <NumberInput
                     id="maint-cost"
-                    className="fi"
-                    value={costDisplay}
-                    onFocus={() => setCostDisplay(costRaw)}
-                    onChange={(e) => {
-                      setCostDisplay(e.target.value);
-                      setCostRaw(e.target.value);
-                    }}
-                    onBlur={() => setCostDisplay(formatPriceInput(costRaw, locale))}
-                    placeholder="e.g. 2500.00"
+                    value={costRaw}
+                    settings={userSettings}
+                    minFractionDigits={2}
+                    onChange={setCostRaw}
+                    placeholder={`e.g. ${toInputText("2500.00", userSettings)}`}
                   />
                 </div>
 

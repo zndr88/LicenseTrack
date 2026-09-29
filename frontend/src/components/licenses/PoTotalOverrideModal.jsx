@@ -1,23 +1,16 @@
 import { useState } from "react";
 import ModalShell from "../ui/ModalShell.jsx";
-import { formatPriceInput } from "../../utils/helpers.js";
-import { parseTypedNumber } from "../../utils/formatting.js";
+import NumberInput, { isValidNumberValue } from "../ui/NumberInput.jsx";
 
 export default function PoTotalOverrideModal({ license, userSettings, onSave, onClear, onClose }) {
-  const locale = userSettings?.numberFormatLocale ?? "en-US";
-  const initialValue = license.poTotalOverride || "";
-  const [value, setValue] = useState(formatPriceInput(initialValue, locale));
+  // Canonical value from NumberInput (or the typed text while it's invalid).
+  const [value, setValue] = useState(license.poTotalOverride || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const formatValue = (rawValue) => {
-    const parsed = parseTypedNumber(rawValue, userSettings);
-    return parsed === null ? rawValue : formatPriceInput(parsed, locale);
-  };
-
   const save = async () => {
-    const parsed = parseTypedNumber(value, userSettings);
-    if (parsed === null || parsed === undefined || parsed === "") {
+    const parsed = value;
+    if (!parsed || !isValidNumberValue(parsed)) {
       setError("Enter a valid PO total value.");
       return;
     }
@@ -61,13 +54,12 @@ export default function PoTotalOverrideModal({ license, userSettings, onSave, on
         </p>
         <div className="fg" style={{ marginBottom: 0 }}>
           <label htmlFor="po-total-override-value">Total PO value ({license.currency || "EUR"})</label>
-          <input
+          <NumberInput
             id="po-total-override-value"
-            className="fi"
-            inputMode="decimal"
             value={value}
-            onChange={(event) => setValue(event.target.value)}
-            onBlur={() => setValue(formatValue(value))}
+            settings={userSettings}
+            minFractionDigits={2}
+            onChange={setValue}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
