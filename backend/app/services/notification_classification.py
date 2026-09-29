@@ -16,6 +16,12 @@ from app.services.license_service import (
 INCOMPLETE_COMPLETENESS_THRESHOLD = 100
 SEVERITY_RANK: dict[str, int] = {"critical": 0, "warning": 1, "info": 2}
 
+# Who receives which alert types. The single place that decides routing.
+BUDGET_OWNER_ALERT_TYPES = frozenset({"expired", "expiring", "support_expiring", "support_expired"})
+MANAGER_DIGEST_ALERT_TYPES = frozenset(
+    {"expired", "expiring", "notice_due", "incomplete", "support_expiring", "support_expired"}
+)
+
 
 def is_incomplete_completeness(completeness: int | None) -> bool:
     """Return whether a non-exempt completeness result is incomplete."""

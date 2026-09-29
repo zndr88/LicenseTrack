@@ -134,6 +134,11 @@ def budget_owner_alert(
                     f"[Maintenance: {_html_text(lic.get('parent_software_description'))}]"
                     f"</span>"
                 )
+            if lic.get("coverage_label"):
+                description_display += (
+                    f" <span style='color: #7c3aed; font-weight: 600;'>"
+                    f"[{_html_text(lic['coverage_label'])}]</span>"
+                )
 
             if days is None or days == "":
                 days_text = "-"

@@ -18,15 +18,16 @@ from app.services.email_service import send_email
 from app.services.email_templates import budget_owner_alert, manager_digest
 from app.services.email_validation import is_email_domain_allowed, sanitize_email_header
 from app.services.license_response_service import get_procurement_documents_by_scope
-from app.services.notification_classification import classify_license_alerts
+from app.services.notification_classification import (
+    BUDGET_OWNER_ALERT_TYPES,
+    MANAGER_DIGEST_ALERT_TYPES,
+    classify_license_alerts,
+)
 from app.services.settings_service import invalidate_global_settings_cache
 from app.services.support_renewal_service import open_support_renewal_license_ids
 
 log = logging.getLogger(__name__)
 
-_MANAGER_DIGEST_TYPES = frozenset(
-    {"expired", "expiring", "notice_due", "incomplete", "support_expiring", "support_expired"}
-)
 _RUN_LOCK_STALE_AFTER = timedelta(minutes=15)
 
 
@@ -244,7 +245,7 @@ async def _deliver_notifications(
             log.error("Failed to email notification owner %s: %s", owner_email, exc)
             summary["errors"].append(_delivery_error(owner_email, "budget_owner", exc))
 
-    has_manager_notifications = any(n["type"] in _MANAGER_DIGEST_TYPES for n in all_notifications)
+    has_manager_notifications = any(n["type"] in MANAGER_DIGEST_ALERT_TYPES for n in all_notifications)
     if gs.manager_email and has_manager_notifications:
         await _require_notification_run_ownership(db, token)
         summary["intended_messages"] += 1
@@ -353,7 +354,7 @@ async def _classify_notifications(
                 public_base_url=getattr(gs, "public_base_url", None),
             )
             all_notifications.append(entry)
-            if alert["type"] in {"expired", "expiring"} and license_obj.budget_owner_email:
+            if alert["type"] in BUDGET_OWNER_ALERT_TYPES and license_obj.budget_owner_email:
                 expiring_by_owner.setdefault(license_obj.budget_owner_email, []).append(entry)
 
     return expiring_by_owner, all_notifications
@@ -428,4 +429,11 @@ def _build_license_entry(
         if parent is not None:
             entry["parent_publisher_name"] = parent.publisher_name
             entry["parent_software_description"] = parent.software_description
+    if alert["type"] in {"support_expiring", "support_expired"}:
+        # The row is about the included maintenance, not the license term.
+        maintenance_end = license_obj.maintenance_end_date
+        maintenance_start = license_obj.maintenance_start_date
+        entry["start_date"] = maintenance_start.isoformat() if maintenance_start else ""
+        entry["end_date"] = maintenance_end.isoformat() if maintenance_end else ""
+        entry["coverage_label"] = "Maintenance"
     return entry
