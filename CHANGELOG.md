@@ -34,6 +34,13 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- CSV export → import now preserves line totals, manual PO totals,
+  maintenance pricing (per-unit and free), and which licenses a maintenance
+  record covers (several allowed, separated by ";"). An exported lifecycle
+  status is honoured: Legacy stays Legacy, and an active record that expired
+  recently is no longer turned into Legacy. Update imports can correct an
+  included maintenance period. The API export gained request and purchase
+  dates, portal URL, maintenance fields, line total and manual PO total.
 - One "same PO" rule: shared documents now match licenses whose PO numbers
   differ only in case or spacing (listing, downloads, counts and completeness).
   Email Supplier's "all matching licenses" includes only lines of the same
