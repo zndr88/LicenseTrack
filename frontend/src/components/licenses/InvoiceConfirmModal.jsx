@@ -6,8 +6,8 @@ import Icon from "../ui/Icon.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
-import { formatPriceInput } from "../../utils/helpers.js";
-import { parseTypedNumber } from "../../utils/formatting.js";
+import NumberInput, { isValidNumberValue } from "../ui/NumberInput.jsx";
+import { toInputText } from "../../utils/formatting.js";
 import { isNonExpiringLicenseType, TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
 import LicenseTypeOptInFields from "./LicenseTypeOptInFields.jsx";
 import { buildMaintenanceCompanion } from "../../utils/maintenanceCompanion.js";
@@ -66,14 +66,13 @@ const emptyAdditionalLine = (primaryForm) => ({
   isMaintenanceCompanion: false,
 });
 
-const normalizeLocalizedValue = (value, userSettings) => (
-  (parseTypedNumber(value, userSettings) ?? value) || ""
-);
-
-const formatLocalizedPriceInput = (value, userSettings) => {
-  const locale = userSettings?.numberFormatLocale ?? "en-US";
-  return formatPriceInput(normalizeLocalizedValue(value, userSettings), locale);
-};
+// Number fields hold canonical values from NumberInput (or the typed text
+// while it's invalid, which blocks Save).
+const NUMBER_FIELDS = [
+  "quantity", "quantityPerUnit", "unitPrice", "totalPoPrice",
+  "maintenanceQuantity", "maintenanceUnitPrice", "maintenanceCost",
+];
+const hasInvalidNumber = (line) => NUMBER_FIELDS.some((field) => !isValidNumberValue(line[field]));
 
 const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
@@ -160,12 +159,6 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     return () => { cancelled = true; };
   }, [form.licenseType]);
 
-  const [displayUnitPrice, setDisplayUnitPrice] = useState(
-    formatPriceInput(data.unitPrice || "", locale)
-  );
-  const [displayTotalPrice, setDisplayTotalPrice] = useState(
-    formatPriceInput(data.totalPoPrice || "", locale)
-  );
 
   const addLine = () => {
     setFormTouched(true);
@@ -245,12 +238,12 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         _documentTargetKey: PRIMARY_LINE_ID,
         unitPrice: isFreewareLicenseType(form.licenseType) ? "" : form.unitPrice,
         totalPoPrice: isFreewareLicenseType(form.licenseType) ? "" : form.totalPoPrice,
-        quantityPerUnit: normalizeLocalizedValue(form.quantityPerUnit, userSettings) || "1",
+        quantityPerUnit: form.quantityPerUnit || "1",
         secondaryContacts: parseSecondaryContacts(form.secondaryContacts),
         customFieldValues: buildCustomFieldValuePayload(customFieldDefs, form.customFieldValues, userSettings),
-        maintenanceQuantity: normalizeLocalizedValue(form.maintenanceQuantity, userSettings),
-        maintenanceUnitPrice: normalizeLocalizedValue(form.maintenanceUnitPrice, userSettings),
-        maintenanceCost: normalizeLocalizedValue(form.maintenanceCost, userSettings),
+        maintenanceQuantity: form.maintenanceQuantity || "",
+        maintenanceUnitPrice: form.maintenanceUnitPrice || "",
+        maintenanceCost: form.maintenanceCost || "",
       },
       ...additionalLines.map((line) => ({
         ...sharedFields,
@@ -264,7 +257,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         endDate: isNonExpiringLicenseType(line.licenseType) ? "" : line.endDate,
         noticeDate: line.noticeDate || form.noticeDate,
         quantity: line.quantity,
-        quantityPerUnit: normalizeLocalizedValue(line.quantityPerUnit, userSettings) || "1",
+        quantityPerUnit: line.quantityPerUnit || "1",
         purchaseDate: line.purchaseDate || form.purchaseDate,
         externalRef: line.externalRef,
         costCentre: line.costCentre || form.costCentre,
@@ -274,10 +267,10 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         skuCode: line.skuCode,
         unitPrice: isFreewareLicenseType(line.licenseType)
           ? ""
-          : normalizeLocalizedValue(line.unitPrice, userSettings),
+          : line.unitPrice || "",
         totalPoPrice: isFreewareLicenseType(line.licenseType)
           ? ""
-          : normalizeLocalizedValue(line.totalPoPrice, userSettings),
+          : line.totalPoPrice || "",
         currency: line.currency || form.currency,
         notes: line.notes,
         portalUrl: line.portalUrl,
@@ -285,9 +278,9 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         maintenanceStartDate: line.maintenanceStartDate,
         maintenanceEndDate: line.maintenanceEndDate,
         maintenancePricingBasis: line.maintenancePricingBasis,
-        maintenanceQuantity: normalizeLocalizedValue(line.maintenanceQuantity, userSettings),
-        maintenanceUnitPrice: normalizeLocalizedValue(line.maintenanceUnitPrice, userSettings),
-        maintenanceCost: normalizeLocalizedValue(line.maintenanceCost, userSettings),
+        maintenanceQuantity: line.maintenanceQuantity || "",
+        maintenanceUnitPrice: line.maintenanceUnitPrice || "",
+        maintenanceCost: line.maintenanceCost || "",
         parentLineIndex: line.isMaintenanceCompanion
           ? (line.parentLineId === PRIMARY_LINE_ID ? 0 : lineIndexById.get(line.parentLineId))
           : null,
@@ -338,7 +331,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
       footer={(
         <>
           <button className="btn btn-g" onClick={requestClose} disabled={isSubmitting}>Cancel</button>
-          <button className="btn btn-p" onClick={handleSave} disabled={isSubmitting || [form, ...additionalLines].some((line) => typeDescriptionMissing(line.licenseType, line.typeDescription))}>
+          <button className="btn btn-p" onClick={handleSave} disabled={isSubmitting || [form, ...additionalLines].some((line) => typeDescriptionMissing(line.licenseType, line.typeDescription) || hasInvalidNumber(line))}>
             <Icon name="check" size={14} />
             {isSubmitting
               ? "Saving..."
@@ -353,7 +346,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           <LicenseFormSection title="Identity">
             <div className="fg"><label htmlFor="inv-publisher-name">Publisher Name</label><ReferenceCombobox id="inv-publisher-name" mode="publisher" value={form.publisherName} onChange={(value) => u("publisherName", value)} /></div>
             <div className="fg"><label htmlFor="inv-software-desc">Software Description</label><input id="inv-software-desc" className="fi" value={form.softwareDescription} onChange={(e) => u("softwareDescription", e.target.value)} /></div>
-            <div className="fg"><label htmlFor="inv-license-type">License Type</label><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, maintenanceCoverage: coverageAfterTypeChange(f.maintenanceCoverage, f.licenseType, next), ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isNonExpiringLicenseType(next) ? { endDate: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}) })); if (isFreewareLicenseType(next)) { setDisplayUnitPrice(""); setDisplayTotalPrice(""); } if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+            <div className="fg"><label htmlFor="inv-license-type">License Type</label><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, maintenanceCoverage: coverageAfterTypeChange(f.maintenanceCoverage, f.licenseType, next), ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isNonExpiringLicenseType(next) ? { endDate: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}) })); if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
             <LicenseTypeOptInFields idPrefix="inv" licenseType={form.licenseType} isRenewable={form.isRenewable} typeDescription={form.typeDescription} onChange={u} error={typeDescriptionMissing(form.licenseType, form.typeDescription) ? TYPE_DESCRIPTION_REQUIRED_MESSAGE : null} />
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="identity" />
           </LicenseFormSection>
@@ -469,15 +462,15 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
 
           <LicenseFormSection title="Details">
             <div className="fr">
-              <div className="fg"><label htmlFor="inv-quantity">Purchase Quantity</label><input id="inv-quantity" className="fi" type="number" value={form.quantity} onChange={(e) => u("quantity", e.target.value)} /></div>
-              <div className="fg"><label htmlFor="inv-quantity-per-unit">Quantity per Unit</label><input id="inv-quantity-per-unit" className="fi" inputMode="decimal" value={form.quantityPerUnit} onChange={(e) => u("quantityPerUnit", e.target.value)} /></div>
+              <div className="fg"><label htmlFor="inv-quantity">Purchase Quantity</label><NumberInput id="inv-quantity" value={form.quantity} settings={userSettings} onChange={(next) => u("quantity", next)} /></div>
+              <div className="fg"><label htmlFor="inv-quantity-per-unit">Quantity per Unit</label><NumberInput id="inv-quantity-per-unit" value={form.quantityPerUnit} settings={userSettings} onChange={(next) => u("quantityPerUnit", next)} /></div>
               <div className="fg"><label htmlFor="inv-sku-code">SKU Code</label><input id="inv-sku-code" className="fi" value={form.skuCode} placeholder="SKU or product code" onChange={(e) => u("skuCode", e.target.value)} /></div>
             </div>
             <div className="fr">
               <div className="fg"><label htmlFor="inv-license-metric">License Metric</label><select id="inv-license-metric" className="fi fi-select" value={form.licenseMetric} onChange={(e) => u("licenseMetric", e.target.value)}><option value="">Select...</option>{LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
               <div className="fg"><label htmlFor="inv-currency">Currency</label><select id="inv-currency" className="fi fi-select" value={form.currency} onChange={(e) => u("currency", e.target.value)}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
             </div>
-            {!isFreewareLicenseType(form.licenseType) && <div className="fr"><div className="fg"><label htmlFor="inv-unit-price">Unit Price</label><input id="inv-unit-price" className="fi" value={displayUnitPrice} onChange={(e) => { setDisplayUnitPrice(e.target.value); u("unitPrice", parseTypedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayUnitPrice(formatPriceInput(form.unitPrice, locale))} /></div><div className="fg"><label htmlFor="inv-total-price">Line Total</label><input id="inv-total-price" className="fi" value={displayTotalPrice} onChange={(e) => { setDisplayTotalPrice(e.target.value); u("totalPoPrice", parseTypedNumber(e.target.value, userSettings) ?? e.target.value); }} onBlur={() => setDisplayTotalPrice(formatPriceInput(form.totalPoPrice, locale))} /></div></div>}
+            {!isFreewareLicenseType(form.licenseType) && <div className="fr"><div className="fg"><label htmlFor="inv-unit-price">Unit Price</label><NumberInput id="inv-unit-price" value={form.unitPrice} settings={userSettings} minFractionDigits={2} onChange={(next) => u("unitPrice", next)} /></div><div className="fg"><label htmlFor="inv-total-price">Line Total</label><NumberInput id="inv-total-price" value={form.totalPoPrice} settings={userSettings} minFractionDigits={2} onChange={(next) => u("totalPoPrice", next)} /></div></div>}
             {form.licenseType === "saas" && <div className="fg"><label htmlFor="inv-portal-url">Portal URL</label><input id="inv-portal-url" className="fi" value={form.portalUrl} onChange={(e) => u("portalUrl", e.target.value)} placeholder="https://..." /></div>}
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="commercial" />
           </LicenseFormSection>
@@ -606,11 +599,11 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               <div className="fr">
                 <div className="fg">
                     <label htmlFor={`inv-line-${line.id}-quantity`}>Purchase Quantity</label>
-                    <input id={`inv-line-${line.id}-quantity`} type="number" className="fi" value={line.quantity} onChange={(e) => updateLine(line.id, "quantity", e.target.value)} />
+                    <NumberInput id={`inv-line-${line.id}-quantity`} value={line.quantity} settings={userSettings} onChange={(next) => updateLine(line.id, "quantity", next)} />
                 </div>
                 <div className="fg">
                     <label htmlFor={`inv-line-${line.id}-quantity-per-unit`}>Quantity per Unit</label>
-                    <input id={`inv-line-${line.id}-quantity-per-unit`} className="fi" inputMode="decimal" value={line.quantityPerUnit} onChange={(e) => updateLine(line.id, "quantityPerUnit", e.target.value)} />
+                    <NumberInput id={`inv-line-${line.id}-quantity-per-unit`} value={line.quantityPerUnit} settings={userSettings} onChange={(next) => updateLine(line.id, "quantityPerUnit", next)} />
                 </div>
                 <div className="fg">
                     <label htmlFor={`inv-line-${line.id}-sku-code`}>SKU Code</label>
@@ -621,32 +614,24 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 <div className="fr">
                   <div className="fg">
                       <label htmlFor={`inv-line-${line.id}-unit-price`}>Unit Price</label>
-                      <input
+                      <NumberInput
                         id={`inv-line-${line.id}-unit-price`}
-                        className="fi"
                         value={line.unitPrice}
-                        onChange={(e) => updateLine(line.id, "unitPrice", e.target.value)}
-                        onBlur={(e) => updateLine(
-                          line.id,
-                          "unitPrice",
-                          formatLocalizedPriceInput(e.target.value, userSettings)
-                        )}
-                        placeholder={formatPriceInput("0.00", locale)}
+                        settings={userSettings}
+                        minFractionDigits={2}
+                        onChange={(next) => updateLine(line.id, "unitPrice", next)}
+                        placeholder={toInputText("0.00", userSettings)}
                       />
                   </div>
                   <div className="fg">
                       <label htmlFor={`inv-line-${line.id}-total-price`}>Line Total</label>
-                      <input
+                      <NumberInput
                         id={`inv-line-${line.id}-total-price`}
-                        className="fi"
                         value={line.totalPoPrice}
-                        onChange={(e) => updateLine(line.id, "totalPoPrice", e.target.value)}
-                        onBlur={(e) => updateLine(
-                          line.id,
-                          "totalPoPrice",
-                          formatLocalizedPriceInput(e.target.value, userSettings)
-                        )}
-                        placeholder={formatPriceInput("0.00", locale)}
+                        settings={userSettings}
+                        minFractionDigits={2}
+                        onChange={(next) => updateLine(line.id, "totalPoPrice", next)}
+                        placeholder={toInputText("0.00", userSettings)}
                       />
                   </div>
                   <div className="fg" style={{ flex: "0 0 90px" }}>
