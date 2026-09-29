@@ -16,7 +16,7 @@ from app.services.license_service import (
 from app.services.lifecycle_rules import validate_established_renewal_terms
 from app.services.import_.invoice_values import parse_invoice_cell
 from app.services.license_write_service import sync_support_defaults_on_license
-from app.services.maintenance_rules import coverage_after_type_change
+from app.services.maintenance_rules import assert_coverage_allowed_for_type, coverage_after_type_change
 from app.services.maintenance_service import record_included_support_exit, sync_parent_mirror_fields
 from app.services.po_total_override_service import resolve_reassigned_po_total_override
 
@@ -167,6 +167,9 @@ async def apply_import_update(
     if license_obj.active_maintenance_id is None and has_maintenance_update_values(row):
         if row.maintenance_coverage:
             imported_coverage = MaintenanceCoverage(row.maintenance_coverage)
+            # Same rule as create imports and the edit form: raises ValueError,
+            # which the import reports as a row error.
+            assert_coverage_allowed_for_type(license_obj.license_type, imported_coverage)
             license_obj.maintenance_coverage = coverage_after_type_change(
                 license_obj.license_type,
                 license_obj.license_type,

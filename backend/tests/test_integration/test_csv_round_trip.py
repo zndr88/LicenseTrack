@@ -451,6 +451,37 @@ async def test_update_import_corrects_included_maintenance_fields(
     assert updated.maintenance_unit_price == "24.69"
 
 
+async def test_update_import_rejects_coverage_not_valid_for_the_license_type(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    created = await _create_license(
+        test_app,
+        auth_headers,
+        softwareDescription="Subscription Coverage",
+        licenseType="subscription",
+    )
+    row = {
+        "license_ref": created["licenseRef"],
+        "publisher_name": "Update Publisher",
+        "software_description": "Subscription Coverage",
+        "maintenance_coverage": "separately_tracked",
+    }
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"update_existing": "true"},
+        files={"file": ("coverage-update.csv", _make_csv(list(row), [row]), "text/csv")},
+    )
+
+    assert response.status_code == 200, response.text
+    assert any("Separately tracked" in error["reason"] for error in response.json()["errors"])
+    db_session.expire_all()
+    unchanged = await db_session.get(License, created["id"])
+    assert unchanged.maintenance_coverage == MaintenanceCoverage.included
+
+
 async def test_update_import_ignores_maintenance_fields_when_active_record_exists(
     test_app,
     auth_headers,
