@@ -1,7 +1,10 @@
 import { MAINTENANCE_COVERAGE_OPTIONS } from "../constants/licenseData.js";
 
 const INCLUDED_SUPPORT_LICENSE_TYPES = new Set(["freeware", "perpetual", "oem", "subscription", "saas"]);
-const SEPARATE_MAINTENANCE_PARENT_TYPES = new Set(["freeware", "perpetual", "oem"]);
+// Mirrors backend/app/services/maintenance_rules.py MAINTENANCE_PARENT_TYPES; a
+// backend test checks that both lists match.
+export const MAINTENANCE_PARENT_TYPES = ["freeware", "perpetual", "oem"];
+const SEPARATE_MAINTENANCE_PARENT_TYPES = new Set(MAINTENANCE_PARENT_TYPES);
 
 export function supportsMaintenanceCoverage(licenseType) {
   return INCLUDED_SUPPORT_LICENSE_TYPES.has(licenseType);
@@ -10,6 +13,9 @@ export function supportsMaintenanceCoverage(licenseType) {
 export function supportsSeparateMaintenanceLine(licenseType) {
   return SEPARATE_MAINTENANCE_PARENT_TYPES.has(licenseType);
 }
+
+/** Which licenses may be the parent of a maintenance record. */
+export const isMaintenanceParentType = supportsSeparateMaintenanceLine;
 
 export function isBundledIncludedSupport(licenseType, coverage) {
   return (licenseType === "subscription" || licenseType === "saas") && coverage === "included";

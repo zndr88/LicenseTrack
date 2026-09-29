@@ -20,6 +20,7 @@ import { parseTypedNumber } from "../utils/formatting.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../utils/customFieldFormValues.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "../utils/secondaryContacts.js";
 import { typeOptInPayload } from "../utils/licenseTypeRules.js";
+import { isMaintenanceParentType } from "../utils/maintenanceCoverage.js";
 import { normaliseInvoiceNumbers, toEditableRows } from "../components/licenses/InvoiceNumberRows.jsx";
 
 /**
@@ -70,7 +71,7 @@ export function useDetailPanelState({
   });
 
   const fetchMaintenanceHistory = useCallback(async (id) => {
-    if (!["perpetual", "oem", "freeware"].includes(license.licenseType)) return;
+    if (!isMaintenanceParentType(license.licenseType)) return;
     const targetId = id ?? license.id;
     const requestId = ++maintenanceRequestRef.current;
     setHistoryLoading(true);
