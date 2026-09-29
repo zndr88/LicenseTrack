@@ -25,6 +25,8 @@ function errorMessage(error, text, settings) {
  *   isn't a valid number, it calls onChange with the typed text unchanged and
  *   shows a message; the value is never cleared or rewritten. The server
  *   rejects non-canonical numbers, so invalid text can't be stored.
+ * - `invalid` marks the field for the form's own rules (for example "must be
+ *   greater than zero"); describe those with `describedBy`.
  */
 export default function NumberInput({
   value,
@@ -34,6 +36,7 @@ export default function NumberInput({
   className = "fi",
   onBlur,
   describedBy,
+  invalid = false,
   ...inputProps
 }) {
   const contextSettings = useNumberFormatSettings();
@@ -86,7 +89,7 @@ export default function NumberInput({
         value={text}
         onChange={handleChange}
         onBlur={handleBlur}
-        aria-invalid={message ? true : undefined}
+        aria-invalid={message || invalid ? true : undefined}
         aria-describedby={described}
         data-number-input=""
       />

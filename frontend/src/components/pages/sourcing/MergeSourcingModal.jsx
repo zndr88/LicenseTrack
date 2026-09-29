@@ -2,10 +2,8 @@ import Icon from "../../ui/Icon.jsx";
 import ModalShell from "../../ui/ModalShell.jsx";
 import DiscardChangesDialog from "../../ui/DiscardChangesDialog.jsx";
 import { useModalGuard } from "../../../hooks/useModalGuard.js";
-import {
-  canonicalizePositiveQuantityInput,
-  formatQuantity,
-} from "../../../utils/quantity.js";
+import NumberInput from "../../ui/NumberInput.jsx";
+import { formatQuantity, positiveCanonicalQuantity } from "../../../utils/quantity.js";
 
 export default function MergeSourcingModal({
   selectedItems,
@@ -18,7 +16,7 @@ export default function MergeSourcingModal({
   onMerge,
   userSettings,
 }) {
-  const canonicalMergeQuantity = canonicalizePositiveQuantityInput(mergeQuantity, userSettings);
+  const canonicalMergeQuantity = positiveCanonicalQuantity(mergeQuantity);
   const mergeQuantityValid = canonicalMergeQuantity != null;
   const isDirty = !merging && canonicalMergeQuantity !== computedMergeQty;
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose });
@@ -88,15 +86,13 @@ export default function MergeSourcingModal({
           <label htmlFor="merge-final-quantity" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 4 }}>
             Final quantity for merged item
           </label>
-          <input
+          <NumberInput
             id="merge-final-quantity"
-            className="fi"
-            type="text"
-            inputMode="decimal"
             value={mergeQuantity}
-            onChange={(e) => setMergeQuantity(e.target.value)}
-            aria-invalid={!mergeQuantityValid}
-            aria-describedby={!mergeQuantityValid ? "merge-final-quantity-error" : undefined}
+            settings={userSettings}
+            onChange={setMergeQuantity}
+            invalid={!mergeQuantityValid}
+            describedBy={!mergeQuantityValid ? "merge-final-quantity-error" : undefined}
             style={{ width: 120, fontSize: 13 }}
           />
           {!mergeQuantityValid && (

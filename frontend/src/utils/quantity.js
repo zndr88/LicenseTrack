@@ -1,4 +1,4 @@
-import { parseTypedNumber, toInputText } from "./formatting.js";
+import { toInputText } from "./formatting.js";
 
 function supportedLocale(settings) {
   const requested = settings?.numberFormatLocale ?? "en-US";
@@ -22,13 +22,9 @@ export function normalizeCanonicalQuantity(value) {
   return `${sign && !isZero ? "-" : ""}${integer}${fraction ? `.${fraction}` : ""}`;
 }
 
-export function canonicalizeQuantityInput(value, settings) {
-  const parsed = parseTypedNumber(value, settings);
-  return parsed == null ? null : normalizeCanonicalQuantity(parsed);
-}
-
-export function canonicalizePositiveQuantityInput(value, settings) {
-  const canonical = canonicalizeQuantityInput(value, settings);
+/** A canonical quantity (from NumberInput) greater than zero, normalized; else null. */
+export function positiveCanonicalQuantity(value) {
+  const canonical = normalizeCanonicalQuantity(value);
   if (canonical == null || canonical === "0" || canonical.startsWith("-")) return null;
   return canonical;
 }
@@ -56,9 +52,8 @@ export function sumCanonicalQuantities(values) {
 }
 
 /**
- * Editable text for a quantity input: the user's format, trailing zeros
- * dropped, and always text that parseTypedNumber reads back as the same
- * quantity. Use formatQuantity for read-only display.
+ * Editable text for a quantity input: the user's format with trailing zeros
+ * dropped. Use formatQuantity for read-only display.
  */
 export function formatQuantityInput(value, settings) {
   if (value == null || value === "") return "";
