@@ -37,6 +37,7 @@ from app.services.import_.duplicate_detection import add_duplicate_warnings
 from app.services.procurement_identity import normalize_po_number
 from app.services.import_.import_update import apply_import_update, has_maintenance_update_values
 from app.services.import_.license_builder import build_license, resolve_maintenance_parent_ref
+from app.services.import_.license_refs import ref_key
 from app.services.import_.license_matcher import annotate_update_targets
 from app.services.import_.maintenance_parenting import infer_batch_maintenance_parents
 from app.services.import_.reference_resolution import (
@@ -550,7 +551,7 @@ async def run_import_rows(
                         parent_license_id = inserted_by_row_number.get(parsed.parent_import_row_number)
                     elif parsed.parent_license_ref:
                         parent_license_id = inserted_by_import_ref.get(
-                            parsed.parent_license_ref.lower()
+                            ref_key(parsed.parent_license_ref)
                         )
                     license_obj = await build_license(parsed, user_id, db, parent_license_id)
                     license_obj.publisher_id = parsed.resolved_publisher_id
@@ -569,7 +570,7 @@ async def run_import_rows(
                         if parent is not None:
                             await activate_maintenance_for_parent(db, license_obj, parent)
                         for parent_ref in parsed.parent_license_refs[1:]:
-                            additional_parent_id = inserted_by_import_ref.get(parent_ref.lower())
+                            additional_parent_id = inserted_by_import_ref.get(ref_key(parent_ref))
                             if additional_parent_id is not None:
                                 additional_parent = await validate_parent_license(
                                     db, additional_parent_id
@@ -593,7 +594,7 @@ async def run_import_rows(
             if persisted_license_id is not None:
                 inserted_by_row_number[parsed.row_number] = persisted_license_id
                 if parsed.license_ref:
-                    inserted_by_import_ref[parsed.license_ref.lower()] = persisted_license_id
+                    inserted_by_import_ref[ref_key(parsed.license_ref)] = persisted_license_id
             reference_tracker.created_ids.update(row_reference_tracker.created_ids)
             reference_tracker.reused_ids.update(row_reference_tracker.reused_ids)
             if did_update:

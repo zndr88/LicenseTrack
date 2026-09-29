@@ -483,6 +483,34 @@ async def test_maintenance_refs_to_existing_licenses_ignore_case_for_every_paren
     assert sorted(links) == sorted([first["id"], second["id"]])
 
 
+async def test_update_import_matches_lt_ref_ignoring_case_and_spaces(
+    test_app,
+    auth_headers,
+    db_session,
+):
+    created = await _create_license(
+        test_app, auth_headers, softwareDescription="Case Target", licenseType="subscription"
+    )
+    row = {
+        "license_ref": f"  {created['licenseRef'].lower()} ",
+        "publisher_name": "Update Publisher",
+        "software_description": "Case Target",
+        "notes": "updated through a lowercase ref",
+    }
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"update_existing": "true"},
+        files={"file": ("case-update.csv", _make_csv(list(row), [row]), "text/csv")},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["updatedCount"] == 1
+    db_session.expire_all()
+    updated = await db_session.get(License, created["id"])
+    assert updated.notes == "updated through a lowercase ref"
+
+
 async def test_update_import_rejects_coverage_not_valid_for_the_license_type(
     test_app,
     auth_headers,

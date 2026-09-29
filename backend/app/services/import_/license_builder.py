@@ -4,8 +4,10 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import HTTPException
-from sqlalchemy import func, select as sa_select
+from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.services.import_.license_refs import license_ref_matches
 
 from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.services.csv_importer import ParsedRow
@@ -28,7 +30,7 @@ async def resolve_maintenance_parent_ref(db: AsyncSession, ref: str) -> License:
     Matching ignores case. Raises ValueError when the ref is unknown, points to
     an ineligible or retired license, or is ambiguous.
     """
-    parent_result = await db.execute(sa_select(License).where(func.lower(License.license_ref) == ref.lower()))
+    parent_result = await db.execute(sa_select(License).where(license_ref_matches(ref)))
     parent_matches = parent_result.scalars().all()
     if not parent_matches:
         raise ValueError(f"parent_license_ref={ref!r} does not resolve to any existing License")
@@ -78,7 +80,7 @@ async def build_license(
         elif license_type != LicenseType.maintenance:
             # Renewal path: resolve ref to a predecessor license (FK structural link only).
             # Raise if the ref is ambiguous (multiple matches) to mirror the maintenance path.
-            pred_result = await db.execute(sa_select(License).where(License.license_ref == row.parent_license_ref))
+            pred_result = await db.execute(sa_select(License).where(license_ref_matches(row.parent_license_ref)))
             pred_matches = pred_result.scalars().all()
             if len(pred_matches) > 1:
                 raise ValueError(

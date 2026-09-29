@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License
 from app.services.csv_importer import ParsedRow
+from app.services.import_.license_refs import license_ref_in, ref_key
 
 
 async def annotate_update_targets(db: AsyncSession, rows: list[ParsedRow]) -> None:
@@ -16,24 +17,24 @@ async def annotate_update_targets(db: AsyncSession, rows: list[ParsedRow]) -> No
     Error rows and rows without an LT Ref are left as "create".
     """
     importable_rows = [row for row in rows if row.import_status != "error"]
-    refs = {(row.license_ref or "").strip() for row in importable_rows}
+    refs = {ref_key(row.license_ref) for row in importable_rows}
     refs.discard("")
     heads_by_ref: dict[str, list[License]] = {}
     if refs:
         result = await db.execute(
             select(License).where(
-                License.license_ref.in_(refs),
+                license_ref_in(refs),
                 License.is_retired.is_(False),
                 License.renewed_to_id.is_(None),
             )
         )
         for license_obj in result.scalars().all():
-            heads_by_ref.setdefault(license_obj.license_ref, []).append(license_obj)
+            heads_by_ref.setdefault(ref_key(license_obj.license_ref), []).append(license_obj)
 
     for row in importable_rows:
         row.import_action = "create"
         row.matched_license_id = None
-        ref = (row.license_ref or "").strip()
+        ref = ref_key(row.license_ref)
         heads = heads_by_ref.get(ref, [])
         if len(heads) == 1:
             row.import_action = "update"

@@ -20,6 +20,7 @@ from typing import Optional
 
 import logging
 
+from app.models.license import MaintenancePricingBasis
 from app.services.csv_fields import header_map as _registry_header_map
 from app.services.csv_fields import normalise_header
 from app.services.csv_fields import ignored_headers as _registry_ignored_headers
@@ -86,7 +87,7 @@ _VALID_MAINTENANCE_COVERAGE = {
     "included",
     "separately_tracked",
 }
-_VALID_MAINTENANCE_PRICING_BASES = {"flat", "per_unit", "free"}
+_VALID_MAINTENANCE_PRICING_BASES = {basis.value for basis in MaintenancePricingBasis}
 _MAINTENANCE_COVERAGE_VALUE_ALIASES = {
     "true": "included",
     "yes": "included",
