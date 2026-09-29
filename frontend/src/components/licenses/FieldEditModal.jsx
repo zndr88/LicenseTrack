@@ -18,6 +18,7 @@ import ContactCombobox from "../ui/ContactCombobox.jsx";
  *   currentValue  {string} - pre-filled value
  *   inputType     {string} - "text" | "date" | "email" | "number" | "textarea" | "select"
  *   selectOptions {Array} - [{value, label}] required when inputType="select"
+ *   hint          {string} - optional helper text shown under a select
  *   onSave        {Function(updatedLicense)} - called on successful save
  *   onClose       {Function} - called to dismiss modal
  */
@@ -31,6 +32,7 @@ export default function FieldEditModal({
   currentValue,
   inputType,
   selectOptions,
+  hint,
   blankOptionLabel = "—",
   onSave,
   onClose,
@@ -111,19 +113,22 @@ export default function FieldEditModal({
               autoFocus
             />
           ) : inputType === "select" ? (
-            <select
-              id="field-edit-value"
-              className="fi fi-select"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              autoFocus
-            >
-              <option value="">{blankOptionLabel}</option>
-              {(selectOptions ?? []).map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+            <>
+              <select
+                id="field-edit-value"
+                className="fi fi-select"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoFocus
+              >
+                <option value="">{blankOptionLabel}</option>
+                {(selectOptions ?? []).map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              {hint && <span className="field-hint">{hint}</span>}
+            </>
           ) : fieldKey === "budgetOwnerEmail" ? (
             <ContactCombobox
               id="field-edit-value"

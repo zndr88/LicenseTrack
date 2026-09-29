@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../queryKeys.js";
 import { formatPriceInput, getCompleteness, getExpirationPresentation, normalizeLicense } from "../utils/helpers.js";
 import { ROLE_PERMISSIONS } from "../constants/permissions.js";
 import {
   getLicense,
   getCoverageHistory,
   getMaintenanceForParent,
+  linkMaintenanceToParent,
   markLicenseNoticeHandled,
   upsertCustomFieldValues,
 } from "../api/licenses.js";
@@ -21,6 +24,8 @@ import { buildCustomFieldValuePayload, customFieldValueMap } from "../utils/cust
 import { formatSecondaryContacts, parseSecondaryContacts } from "../utils/secondaryContacts.js";
 import { typeOptInPayload } from "../utils/licenseTypeRules.js";
 import { isMaintenanceParentType } from "../utils/maintenanceCoverage.js";
+import { coversConfirmMessage, maintenanceCandidate } from "../utils/maintenanceLinking.js";
+import { useAllLicenses } from "./useAllLicenses.js";
 import { normaliseInvoiceNumbers, toEditableRows } from "../components/licenses/InvoiceNumberRows.jsx";
 
 /**
@@ -42,6 +47,10 @@ export function useDetailPanelState({
   const [displayUnitPrice, setDisplayUnitPrice] = useState("");
   const [editingLicense, setEditingLicense] = useState(false);
   const [editFields, setEditFields] = useState({});
+  // Kept out of editFields so it never reaches the update request.
+  const [quickLinkMaintenanceId, setQuickLinkMaintenanceId] = useState("");
+  const { licenses: allLicenses } = useAllLicenses();
+  const queryClient = useQueryClient();
   const [savingLicense, setSavingLicense] = useState(false);
   const [noticeActionBusy, setNoticeActionBusy] = useState(false);
   const [editError, setEditError] = useState(null);
@@ -268,20 +277,52 @@ export function useDetailPanelState({
   };
 
   // Full edit
-  const handleFullEditSave = async () => {
+  const handleFullEditSave = async ({ skipCoversConfirm = false } = {}) => {
+    if (quickLinkMaintenanceId && !skipCoversConfirm) {
+      const selected = allLicenses.find((item) => String(item.id) === String(quickLinkMaintenanceId));
+      const message = selected ? coversConfirmMessage(maintenanceCandidate(selected, allLicenses)) : null;
+      if (message) {
+        setConfirmAction({
+          title: "Cover one more license?",
+          message,
+          confirmLabel: "Also cover this license",
+          onConfirm: () => {
+            setConfirmAction(null);
+            handleFullEditSave({ skipCoversConfirm: true });
+          },
+        });
+        return;
+      }
+    }
     setSavingLicense(true);
     setEditError(null);
+    // parentLicenseId only travels when switching a license into Maintenance.
+    const { parentLicenseId, ...fields } = editFields;
+    const switchingToMaintenance = fields.licenseType === "maintenance" && license.licenseType !== "maintenance";
     const ok = await onUpdate(license.id, {
-      ...editFields,
-      ...typeOptInPayload(editFields),
-      invoiceNumbers: normaliseInvoiceNumbers(editFields.invoiceNumbers ?? []),
-      purchaseDate: editFields.purchaseDate || null,
-      secondaryContacts: parseSecondaryContacts(editFields.secondaryContacts),
-      customFieldValues: buildCustomFieldValuePayload(customFieldDefs, editFields.customFieldValues, userSettings),
+      ...fields,
+      ...(switchingToMaintenance ? { parentLicenseId: Number(parentLicenseId) } : {}),
+      ...typeOptInPayload(fields),
+      invoiceNumbers: normaliseInvoiceNumbers(fields.invoiceNumbers ?? []),
+      purchaseDate: fields.purchaseDate || null,
+      secondaryContacts: parseSecondaryContacts(fields.secondaryContacts),
+      customFieldValues: buildCustomFieldValuePayload(customFieldDefs, fields.customFieldValues, userSettings),
     });
-    setSavingLicense(false);
     if (ok === false) {
+      setSavingLicense(false);
       setEditError("Save failed. Review the message above and try again.");
+      return;
+    }
+    let linkError = null;
+    if (quickLinkMaintenanceId) {
+      const { error } = await linkMaintenanceToParent(license.id, Number(quickLinkMaintenanceId));
+      if (error) linkError = error;
+      else await queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
+    }
+    setSavingLicense(false);
+    if (linkError) {
+      setEditError(`Saved, but the maintenance record could not be linked: ${linkError}`);
+      setQuickLinkMaintenanceId("");
       return;
     }
     await refreshCustomFields();
@@ -289,6 +330,7 @@ export function useDetailPanelState({
   };
 
   const handleStartFullEdit = () => {
+    setQuickLinkMaintenanceId("");
     setEditFields({
       publisherName: license.publisherName || "",
       softwareDescription: license.softwareDescription || "",
@@ -371,6 +413,7 @@ export function useDetailPanelState({
     // Full edit
     editingLicense, setEditingLicense,
     editFields, setEditFields,
+    quickLinkMaintenanceId, setQuickLinkMaintenanceId,
     savingLicense,
     noticeActionBusy,
     editError,

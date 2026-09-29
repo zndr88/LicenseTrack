@@ -1,6 +1,7 @@
 // frontend/src/components/licenses/detail/IdentitySection.jsx
 import { LICENSE_TYPES } from "../../../constants/licenseData.js";
 import { daysBetween, todayStr } from "../../../utils/helpers.js";
+import { INLINE_LICENSE_TYPE_HINT, inlineLicenseTypeOptions } from "../../../utils/licenseTypeRules.js";
 import Icon from "../../ui/Icon.jsx";
 import Badge from "../../ui/Badge.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
@@ -128,7 +129,7 @@ export default function IdentitySection({
                   )}
                   {perms.canEdit && (
                     <button type="button" className="dp-field-edit-icon" aria-label="Edit license type"
-                      onClick={() => openFieldEdit({ fieldKey: "licenseType", fieldLabel: "License Type", currentValue: license.licenseType || "", inputType: "select", selectOptions: LICENSE_TYPES })}
+                      onClick={() => openFieldEdit({ fieldKey: "licenseType", fieldLabel: "License Type", currentValue: license.licenseType || "", inputType: "select", selectOptions: inlineLicenseTypeOptions(license.licenseType), hint: INLINE_LICENSE_TYPE_HINT })}
                     >
                       <Icon name="edit" size={11} />
                     </button>
