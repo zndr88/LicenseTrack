@@ -4,8 +4,7 @@ from types import SimpleNamespace
 from typing import Awaitable, Callable, Optional
 
 from fastapi import HTTPException, UploadFile
-from sqlalchemy import exists, select, update
-from sqlalchemy.exc import InvalidRequestError
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -30,6 +29,7 @@ from app.services.procurement_document_transfer_service import (
     validate_invoice_file,
     write_invoice_procurement_document,
 )
+from app.services.pending_order_state import is_pending_order_open, lock_open_pending_order
 from app.services.po_total_override_service import get_po_total_override
 from app.services.storage import delete_file
 from app.services.renewal_workflow import build_pending_order_item_license_data
@@ -174,33 +174,11 @@ async def _load_convertible_order(db: AsyncSession, order_id: int) -> PendingOrd
     order = result.scalar_one_or_none()
     if order is None:
         raise HTTPException(status_code=404, detail="Pending order not found")
-    if order.status == PendingOrderStatus.converted:
+    if not is_pending_order_open(order):
+        if order.status == PendingOrderStatus.cancelled:
+            raise HTTPException(status_code=409, detail="Pending order has been cancelled")
         raise HTTPException(status_code=409, detail="Pending order has already been converted")
-    if order.status == PendingOrderStatus.cancelled:
-        raise HTTPException(status_code=409, detail="Pending order has been cancelled")
     return order
-
-
-async def _lock_pending_order(db: AsyncSession, order: PendingOrder) -> None:
-    lock_result = await db.execute(
-        update(PendingOrder)
-        .where(PendingOrder.id == order.id)
-        .where(PendingOrder.status.in_([PendingOrderStatus.pending, PendingOrderStatus.invoice_received]))
-        .values(notes=order.notes)
-        .execution_options(synchronize_session=False)
-    )
-    try:
-        await db.flush()
-    except InvalidRequestError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail="Pending order has already been converted",
-        ) from exc
-    if lock_result.rowcount == 0:
-        raise HTTPException(
-            status_code=409,
-            detail="Pending order has already been converted",
-        )
 
 
 async def _sourcing_request_has_quote_documents(db: AsyncSession, request_id: int) -> bool:
@@ -469,7 +447,7 @@ async def convert_pending_order_to_licenses(
         pending_order_id=order_id,
     )
     # Acquire the conditional write lock before creating any licenses.
-    await _lock_pending_order(db, order)
+    await lock_open_pending_order(db, order)
     form_data = convert_payload.model_dump(by_alias=False)
     # The order's manual total is the truth for every license it creates; line
     # prices are never changed or spread.
@@ -634,7 +612,7 @@ async def batch_convert_pending_order_to_licenses(
     order_item_map = await _validate_batch_coverage(db, order, payload)
     order_po_number = _require_order_po_number(order)
     # Acquire the conditional write lock before creating any licenses.
-    await _lock_pending_order(db, order)
+    await lock_open_pending_order(db, order)
 
     for batch_item in payload:
         _enforce_order_supplier(
