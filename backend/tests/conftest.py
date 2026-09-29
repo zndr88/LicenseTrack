@@ -24,6 +24,7 @@ from app.main import app
 from app.models.user import User, UserRole
 from app.routes import backup as backup_module
 from app.models.license import License as _GuardLicense
+from app.models.pending_order import PendingOrder as _GuardPendingOrder
 from app.models.sourcing import SourcingItem as _GuardSourcingItem
 from app.models.sourcing import SourcingStatus as _GuardSourcingStatus
 from app.request_context import current_request
@@ -35,41 +36,69 @@ from sqlalchemy.orm.base import NO_VALUE
 
 _TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
+
 def _loaded(obj, attribute):
-    """The attribute's value if it is already loaded, else None (never triggers a lazy load)."""
-    value = _sa_inspect(obj).attrs[attribute].loaded_value
-    return None if value is NO_VALUE else value
+    """The attribute's value if it is already loaded, else NO_VALUE (never triggers a lazy load)."""
+    return _sa_inspect(obj).attrs[attribute].loaded_value
+
+
+def _line_problem(obj, po_key, *, is_new):
+    """Why *obj*'s PO line does not match its PO number, or None when it does (or cannot be told)."""
+    line_id = _loaded(obj, "po_line_id")
+    line = _loaded(obj, "po_line")
+    line = None if line is NO_VALUE else line
+    if line_id is NO_VALUE and line is None and not is_new:
+        return None  # expired or never loaded: cannot tell without a query
+    has_line = line is not None or line_id not in (None, NO_VALUE)
+    if po_key and not has_line:
+        return "has a PO number but no PO line"
+    if po_key and line is not None and line.po_key != po_key:
+        return f"holds a PO line issued on another PO ({line.po_key!r})"
+    if not po_key and has_line:
+        return "has no PO number but still holds a PO line"
+    return None
+
+
+def _unnumbered_records(session):
+    """Records written in this commit whose PO line does not match their PO number."""
+    new = set(session.new)
+    written = list(session.new) + list(session.dirty)
+    items = [obj for obj in written if isinstance(obj, _GuardSourcingItem)]
+    for obj in written:
+        if isinstance(obj, _GuardPendingOrder):
+            items.extend(item for item in (_loaded(obj, "items") or []) if item not in items)
+    problems = []
+    for obj in written:
+        if isinstance(obj, _GuardLicense):
+            po_number = _loaded(obj, "po_number")
+            if po_number is NO_VALUE:
+                continue
+            problem = _line_problem(obj, normalize_po_number(po_number), is_new=obj in new)
+            if problem:
+                problems.append(f"License {obj.id} ({po_number!r}) {problem}")
+    for item in items:
+        order = _loaded(item, "pending_order")
+        if order in (None, NO_VALUE) or _loaded(item, "status") == _GuardSourcingStatus.cancelled:
+            continue
+        order_po = _loaded(order, "po_number")
+        if order_po is NO_VALUE:
+            continue
+        problem = _line_problem(item, normalize_po_number(order_po), is_new=item in new)
+        if problem:
+            problems.append(f"SourcingItem {item.id} on {order_po!r} {problem}")
+    return problems
 
 
 @event.listens_for(Session, "before_commit")
 def _every_po_has_a_line(session):
-    """Test-only invariant: inside an API request, nothing commits a PO number without a PO line."""
+    """Test-only invariant: inside an API request, every record written keeps a PO line that matches its PO number."""
     if current_request.get() == "(no request)":
         return  # fixtures and direct service tests may build rows by hand
-    missing = []
-    for obj in list(session.identity_map.values()) + list(session.new):
-        if isinstance(obj, _GuardLicense):
-            if (
-                normalize_po_number(_loaded(obj, "po_number"))
-                and _loaded(obj, "po_line_id") is None
-                and _loaded(obj, "po_line") is None
-            ):
-                missing.append(f"License {obj.id} ({_loaded(obj, 'po_number')!r})")
-        elif isinstance(obj, _GuardSourcingItem):
-            order = _loaded(obj, "pending_order")
-            if (
-                order is not None
-                and normalize_po_number(_loaded(order, "po_number"))
-                and _loaded(obj, "status") != _GuardSourcingStatus.cancelled
-                and _loaded(obj, "po_line_id") is None
-                and _loaded(obj, "po_line") is None
-            ):
-                missing.append(f"SourcingItem {obj.id} on {_loaded(order, 'po_number')!r}")
-    assert not missing, (
-        f"{current_request.get()} committed records with a PO number but no PO line "
-        f"(a writer skipped po_line_service): {', '.join(missing)}"
+    problems = _unnumbered_records(session)
+    assert not problems, (
+        f"{current_request.get()} committed records whose PO line does not match their PO number "
+        f"(a writer skipped po_line_service): {'; '.join(problems)}"
     )
-
 
 
 @pytest.fixture(autouse=True)

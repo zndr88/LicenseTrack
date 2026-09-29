@@ -37,6 +37,7 @@ from app.services.maintenance_rules import (
     assert_coverage_allowed_for_type,
     default_maintenance_coverage,
 )
+from app.services.po_line_service import sync_license_line
 from app.services.po_total_override_service import inherit_po_total_override
 from app.services.reference_data_service import resolve_license_reference_fields, resolve_organization
 from app.services.renewal_workflow import build_renewal_sourcing_item
@@ -846,6 +847,7 @@ async def _create_coterm_renewal_successor(
     )
     db.add(new_lic)
     await db.flush()
+    await sync_license_line(db, new_lic)
 
     primary_pred = all_preds.get(predecessor_ids[0])
     new_lic.license_ref = (
@@ -897,6 +899,7 @@ async def _create_single_renewal_successor(
     )
     db.add(new_lic)
     await db.flush()
+    await sync_license_line(db, new_lic)
     new_lic.license_ref = old_license.license_ref or await generate_license_ref(db)
 
     mark_predecessor_renewed(old_license, new_lic.id)

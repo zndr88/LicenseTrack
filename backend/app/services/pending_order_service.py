@@ -27,6 +27,7 @@ from app.services.draft_document_service import require_no_single_documents
 from app.services.custom_fields_service import replace_values_for_sourcing_item
 from app.services.license_service import normalise_type_opt_in_fields
 from app.services.pending_order_state import OPEN_PENDING_ORDER_STATUSES, ensure_pending_order_editable
+from app.services.po_line_service import sync_order_lines
 from app.services.po_total_override_service import (
     assert_line_currency_fits_pending_order,
     assert_pending_order_override_currencies,
@@ -102,6 +103,7 @@ def to_pending_order_response(order: PendingOrder, storage_base: str | None = No
                 SourcingItemSummary.model_validate(
                     {
                         **{column.name: getattr(item, column.name) for column in item.__table__.columns},
+                        "po_line_number": item.po_line_number,
                         "quote_documents": _quote_document_responses(item, storage_base),
                         "custom_field_values": list(item.custom_field_values),
                         **converted_license_refs.get(item.id, {}),
@@ -273,6 +275,10 @@ async def apply_pending_order_update(
         await assert_pending_order_override_currencies(db, order.id)
 
     after = {column.name: getattr(order, column.name) for column in order.__table__.columns}
+    if "po_number" in update_data:
+        # Last on purpose: numbering flushes, which expires server-updated columns
+        # the snapshot above has already read.
+        await sync_order_lines(db, order)
     return order, before, after
 
 
@@ -376,6 +382,8 @@ async def add_pending_order_items_bulk_record(
         if created_item_ids is not None:
             created_item_ids.append(item.id)
 
+    await db.refresh(order, attribute_names=["items"])
+    await sync_order_lines(db, order)
     return order
 
 
