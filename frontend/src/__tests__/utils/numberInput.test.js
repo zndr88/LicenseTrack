@@ -101,7 +101,8 @@ describe("formatPriceInput", () => {
   it("pads to two decimals", () => {
     expect(formatPriceInput("1234.5", "en-US")).toBe("1,234.50");
   });
-  it("reformats typed localized text", () => {
-    expect(formatPriceInput("1234,5", "nl-BE")).toBe("1.234,50");
+  it("never re-reads or rewrites typed text (issue #82)", () => {
+    expect(formatPriceInput("2,443.00", "en-US")).toBe("2,443.00");
+    expect(formatPriceInput("1234,5", "nl-BE")).toBe("1234,5");
   });
 });

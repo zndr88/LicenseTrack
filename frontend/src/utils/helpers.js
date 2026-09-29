@@ -1,5 +1,5 @@
 import { NON_ENTITLEMENT_LICENSE_TYPES, NON_EXPIRING_LICENSE_TYPES } from "../constants/licenseData.js";
-import { parseTypedNumber, toInputText } from "./formatting.js";
+import { toInputText } from "./formatting.js";
 import { isRenewableLicense } from "./licenseTypeRules.js";
 import { getProcurementTotal } from "./procurementIdentity.js";
 
@@ -48,12 +48,14 @@ export function formatSignedCostByCurrency(byCurrency, locale = "en-US") {
   return formatCostByCurrency(byCurrency, locale, { includeNegative: true, includeZero: true });
 }
 
+/**
+ * Show a stored (canonical) price with at least two decimals in the user's
+ * number format. Anything else is returned unchanged: this never re-reads or
+ * rewrites what a user typed (issue #82). Typed input goes through NumberInput.
+ */
 export function formatPriceInput(value, locale = "en-US") {
   if (value === "" || value === null || value === undefined) return "";
-  const settings = { numberFormatLocale: locale };
-  const canonical = parseTypedNumber(value, settings);
-  if (canonical === null) return value;
-  return toInputText(canonical, settings, { minFractionDigits: 2 });
+  return toInputText(value, { numberFormatLocale: locale }, { minFractionDigits: 2 });
 }
 
 export const getPoTotal = (poNumber, currency, allLicenses, selectedLicense = null) => {
