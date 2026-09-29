@@ -425,7 +425,6 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
       {showLegacyLinkModal && (
         <LegacyMaintenanceLinkModal
           license={license}
-          allLicenses={allLicenses}
           onClose={() => setShowLegacyLinkModal(false)}
           onSuccess={async (refreshed, parentId) => {
             setShowLegacyLinkModal(false);
