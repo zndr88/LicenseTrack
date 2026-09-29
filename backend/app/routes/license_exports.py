@@ -91,6 +91,15 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
         "Notes",
         "Renewable",
         "Type Description",
+        "Request Date",
+        "Purchase Date",
+        "Portal URL",
+        "Maintenance Coverage",
+        "Maintenance Start",
+        "Maintenance End",
+        "Maintenance Cost",
+        "Line Total",
+        "Manual PO Total",
     ]
     writer.writerow(headers)
 
@@ -180,6 +189,15 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
                     lic.notes or "",
                     {True: "Yes", False: "No"}.get(lic.is_renewable, ""),
                     lic.type_description or "",
+                    lic.request_date.isoformat() if lic.request_date else "",
+                    lic.purchase_date.isoformat() if lic.purchase_date else "",
+                    lic.portal_url or "",
+                    lic.maintenance_coverage.value if lic.maintenance_coverage else "",
+                    lic.maintenance_start_date.isoformat() if lic.maintenance_start_date else "",
+                    lic.maintenance_end_date.isoformat() if lic.maintenance_end_date else "",
+                    lic.maintenance_cost or "",
+                    lic.total_po_price or "",
+                    lic.po_total_override or "",
                 ]
             )
         )
