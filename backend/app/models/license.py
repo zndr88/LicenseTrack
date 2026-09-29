@@ -113,6 +113,14 @@ class License(Base):
         Integer, ForeignKey("contracts.id", use_alter=True, name="fk_license_contract", ondelete="SET NULL"), nullable=True, index=True
     )
     po_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    po_line_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("po_line_register.id"), nullable=True, index=True
+    )
+    po_line: Mapped["PoLineRegister | None"] = relationship(lazy="joined")  # noqa: F821
+
+    @property
+    def po_line_number(self) -> int | None:
+        return self.po_line.line_number if self.po_line is not None else None
     procurement_reference: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     invoice_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     invoice_numbers: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
