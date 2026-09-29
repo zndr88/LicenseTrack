@@ -21,6 +21,7 @@ from typing import Optional
 import logging
 
 from app.services.csv_fields import header_map as _registry_header_map
+from app.services.csv_fields import normalise_header
 from app.services.csv_fields import ignored_headers as _registry_ignored_headers
 from app.services.import_.date_parser import DATE_FORMAT_VARIANTS, parse_import_date
 from app.services.money import MoneyParseError, parse_localized_money
@@ -236,13 +237,8 @@ def _parse_optional_yes_no(raw: str, field_name: str, warnings: list[str]) -> Op
     return None
 
 
-def _normalise_header(raw: str) -> str:
-    """Lowercase, strip whitespace, replace any sequence of non-alphanumeric
-    characters (spaces, dots, slashes, parentheses, etc.) with a single
-    underscore, then strip leading/trailing underscores."""
-    s = raw.strip().lower()
-    s = re.sub(r"[^a-z0-9]+", "_", s)
-    return s.strip("_")
+# One header normaliser, shared with the field registry.
+_normalise_header = normalise_header
 
 
 def build_custom_field_header_map(definitions: list[object]) -> dict[str, str]:

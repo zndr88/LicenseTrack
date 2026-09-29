@@ -133,7 +133,7 @@ FIELDS: tuple[CsvField, ...] = (
             "technical_owner_email",
             "application_owner_email_address",
         ),
-        update=True,
+        update=False,  # not written by import_update.py yet
         round_trip=True,
         frontend_key="secondaryContacts",
     ),
@@ -234,7 +234,7 @@ FIELDS: tuple[CsvField, ...] = (
     CsvField(
         "request_date",
         "request_date",
-        update=True,
+        update=False,  # not written by import_update.py yet
         round_trip=True,
         frontend_key="requestDate",
     ),
@@ -242,7 +242,7 @@ FIELDS: tuple[CsvField, ...] = (
     CsvField(
         "purchase_date",
         "purchase_date",
-        update=True,
+        update=False,  # not written by import_update.py yet
         round_trip=True,
         frontend_key="purchaseDate",
     ),
