@@ -1,10 +1,11 @@
 import logging
-from datetime import datetime, time, timezone
+import secrets
+from datetime import datetime, time, timedelta, timezone
 from types import SimpleNamespace
-from typing import Awaitable, Callable, Optional
+from typing import Awaitable, Callable, Literal, Optional
 
 from fastapi import HTTPException, UploadFile
-from sqlalchemy import exists, select
+from sqlalchemy import exists, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -288,6 +289,45 @@ async def _mark_evidence_transfer_failed(
     await db.commit()
 
 
+EVIDENCE_CLAIM_TIMEOUT = timedelta(minutes=15)
+_RETRYABLE_EVIDENCE_STATUSES = (
+    EvidenceTransferStatus.pending,
+    EvidenceTransferStatus.failed,
+    EvidenceTransferStatus.escalated,
+)
+
+
+async def claim_evidence_transfer(db: AsyncSession, order_id: int) -> str | None:
+    """Claim an order's evidence transfer; None when another runner holds a fresh claim."""
+    now = datetime.now(timezone.utc)
+    token = secrets.token_urlsafe(32)
+    result = await db.execute(
+        update(PendingOrder)
+        .where(PendingOrder.id == order_id)
+        .where(PendingOrder.evidence_transfer_status.in_(_RETRYABLE_EVIDENCE_STATUSES))
+        .where(
+            or_(
+                PendingOrder.evidence_transfer_claimed_at.is_(None),
+                PendingOrder.evidence_transfer_claimed_at <= now - EVIDENCE_CLAIM_TIMEOUT,
+            )
+        )
+        .values(evidence_transfer_claim_token=token, evidence_transfer_claimed_at=now)
+        .execution_options(synchronize_session=False)
+    )
+    await db.commit()
+    return token if result.rowcount else None
+
+
+async def release_evidence_transfer(db: AsyncSession, order_id: int, token: str) -> None:
+    await db.execute(
+        update(PendingOrder)
+        .where(PendingOrder.id == order_id, PendingOrder.evidence_transfer_claim_token == token)
+        .values(evidence_transfer_claim_token=None, evidence_transfer_claimed_at=None)
+        .execution_options(synchronize_session=False)
+    )
+    await db.commit()
+
+
 async def _run_evidence_transfer_after_conversion_commit(
     *,
     db: AsyncSession,
@@ -296,7 +336,14 @@ async def _run_evidence_transfer_after_conversion_commit(
     actor: User | SimpleNamespace,
     ip_address: str | None,
     transfer: Callable[[], Awaitable[list[StoredProcurementPath]]],
+    on_busy: Literal["skip", "raise"] = "skip",
 ) -> None:
+    """Run one evidence transfer under a claim so two runners never overlap."""
+    token = await claim_evidence_transfer(db, order_id)
+    if token is None:
+        if on_busy == "raise":
+            raise HTTPException(status_code=409, detail="An evidence transfer for this order is already running")
+        return
     try:
         # Each evidence phase commits its document rows before returning and
         # compensates its own files if that commit fails.  Once transfer()
@@ -314,6 +361,8 @@ async def _run_evidence_transfer_after_conversion_commit(
             ip_address=ip_address,
             detail=f"{type(exc).__name__}: {exc}",
         )
+    finally:
+        await release_evidence_transfer(db, order_id, token)
 
 
 async def _transfer_conversion_evidence(
@@ -838,6 +887,7 @@ async def retry_evidence_transfer(
         actor=actor_snapshot,
         ip_address=ip_address,
         transfer=transfer_evidence,
+        on_busy="raise",
     )
 
 

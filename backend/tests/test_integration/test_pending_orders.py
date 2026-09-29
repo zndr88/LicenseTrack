@@ -4658,3 +4658,62 @@ async def test_sourcing_cannot_attach_to_a_closed_pending_order(
     item = await db_session.get(SourcingItem, second["id"])
     assert item.pending_order_id is None
     assert item.status == SourcingStatus.sourcing
+
+
+async def test_evidence_transfer_is_claimed_so_a_second_runner_skips(db_session):
+    order = PendingOrder(
+        po_number="PO-CLAIM",
+        supplier="Claim Supplier",
+        status=PendingOrderStatus.converted,
+        evidence_transfer_status=EvidenceTransferStatus.pending,
+        evidence_transfer_attempts=0,
+    )
+    db_session.add(order)
+    await db_session.commit()
+
+    token = await _conversion_service.claim_evidence_transfer(db_session, order.id)
+    assert token is not None
+    assert await _conversion_service.claim_evidence_transfer(db_session, order.id) is None
+
+    await _conversion_service.release_evidence_transfer(db_session, order.id, token)
+    assert await _conversion_service.claim_evidence_transfer(db_session, order.id) is not None
+
+
+async def test_a_stale_evidence_claim_can_be_taken_over(db_session):
+    from datetime import datetime, timezone
+
+    order = PendingOrder(
+        po_number="PO-STALE",
+        supplier="Stale Supplier",
+        status=PendingOrderStatus.converted,
+        evidence_transfer_status=EvidenceTransferStatus.pending,
+        evidence_transfer_claim_token="old",
+        evidence_transfer_claimed_at=datetime.now(timezone.utc)
+        - _conversion_service.EVIDENCE_CLAIM_TIMEOUT
+        - timedelta(seconds=1),
+    )
+    db_session.add(order)
+    await db_session.commit()
+
+    assert await _conversion_service.claim_evidence_transfer(db_session, order.id) is not None
+
+
+async def test_manual_retry_is_refused_while_another_transfer_holds_the_claim(
+    test_app, auth_headers, db_session
+):
+    order = PendingOrder(
+        po_number="PO-BUSY",
+        supplier="Busy Supplier",
+        status=PendingOrderStatus.converted,
+        evidence_transfer_status=EvidenceTransferStatus.failed,
+    )
+    db_session.add(order)
+    await db_session.commit()
+    assert await _conversion_service.claim_evidence_transfer(db_session, order.id) is not None
+
+    response = await test_app.post(
+        f"/api/pending-orders/{order.id}/retry-evidence-transfer", headers=auth_headers
+    )
+
+    assert response.status_code == 409, response.text
+    assert "already running" in response.json()["detail"]
