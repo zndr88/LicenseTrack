@@ -16,6 +16,12 @@ The override belongs to the import, not to your account. This lets you import a
 supplier or legacy spreadsheet that uses different separators without changing
 how LicenseTrack displays numbers elsewhere.
 
+**Export Full Data** and **Export Current View** write plain decimals
+(`1234.5`). Import those files with `1,234.50`. Files from **Export Current
+View (localized)** use your number format; import them with that format.
+Under `1.234,50` and `1 234,50`, a number with one dot and exactly three digits
+after it (`1.234`) is ambiguous and the row is refused rather than guessed.
+
 The same import settings also apply to date parsing. Native and mapped imports
 accept ISO dates or the date format selected for the file, including custom date
 fields. Far-future end dates such as `1-1-2099` are treated as a perpetual
