@@ -4,6 +4,7 @@ import LicenseFormSection from "./LicenseFormSection.jsx";
 import ContactCombobox from "../ui/ContactCombobox.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import NumberInput from "../ui/NumberInput.jsx";
+import LicenseTypeLabel from "./LicenseTypeLabel.jsx";
 
 export default function LicenseDraftSupplementFields({
   item, onChange, idPrefix, customFieldDefs = [], customFieldsLoading = false, sectioned = false,
@@ -17,7 +18,7 @@ export default function LicenseDraftSupplementFields({
   );
   const details = <>
     <div className="fr">
-      {showLicenseType && <div className="fg"><label htmlFor={`${idPrefix}-type`}>License Type</label><select id={`${idPrefix}-type`} className="fi fi-select" {...field("licenseType")}><option value="">Not specified</option>{LICENSE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>}
+      {showLicenseType && <div className="fg"><LicenseTypeLabel htmlFor={`${idPrefix}-type`} /><select id={`${idPrefix}-type`} className="fi fi-select" {...field("licenseType")}><option value="">Not specified</option>{LICENSE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>}
       <div className="fg"><label htmlFor={`${idPrefix}-metric`}>License Metric</label><select id={`${idPrefix}-metric`} className="fi fi-select" {...field("licenseMetric")}>{LICENSE_METRICS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
     </div>
     {item.licenseType === "saas" && <div className="fg"><label htmlFor={`${idPrefix}-portal`}>Portal URL</label><input id={`${idPrefix}-portal`} className="fi" {...field("portalUrl")} /></div>}

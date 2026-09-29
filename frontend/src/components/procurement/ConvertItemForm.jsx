@@ -14,6 +14,7 @@ import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
 import { BUDGET_OWNER_REQUIRED_MESSAGE } from "../../utils/procurementSchemas.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { ModalSectionExpansionContext } from "../ui/ModalSectionExpansionContext.js";
+import LicenseTypeLabel from "../licenses/LicenseTypeLabel.jsx";
 
 /**
  * Determines whether a watched form item has all required fields filled.
@@ -195,7 +196,7 @@ export default function ConvertItemForm({
           </div>
           <div className="fr">
             <div className="fg">
-              <label htmlFor={`ca-license-type-${idx}`}>License Type</label>
+              <LicenseTypeLabel htmlFor={`ca-license-type-${idx}`} />
               <select
                 id={`ca-license-type-${idx}`}
                 className="fi fi-select"

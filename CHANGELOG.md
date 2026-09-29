@@ -19,6 +19,9 @@ Work in progress for 1.2.0.
 
 ### Added
 
+- A small ⓘ next to License Type, in every form that has one, explains the
+  difference between Maintenance and Service. Tooltips open on hover and on
+  keyboard focus.
 - PO line numbers: every license and pending-order line with a PO number gets
   a generated, read-only PO line number, unique per PO (PO numbers are
   compared ignoring case and spacing) and never reused. The number appears in

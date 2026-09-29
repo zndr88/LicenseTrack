@@ -42,6 +42,7 @@ import TermLinkContext from "./TermLinkContext.jsx";
 import LineTotalMismatchHint from "./LineTotalMismatchHint.jsx";
 import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
+import LicenseTypeLabel from "../licenses/LicenseTypeLabel.jsx";
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
@@ -549,7 +550,7 @@ const SourcingItemModal = ({
                 <LicenseFormSection title="Identity">
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-publisher`}>Publisher <span className="field-required">*</span></label><ReferenceCombobox id={`sourcing-line-${line.id}-publisher`} mode="publisher" value={line.publisherName} onChange={(value) => updateAdditionalLine(line.id, "publisherName", value)} placeholder="Software publisher" /></div>
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-software`}>Software Description <span className="field-required">*</span></label><input id={`sourcing-line-${line.id}-software`} className="fi" value={line.softwareDescription} onChange={(event) => updateAdditionalLine(line.id, "softwareDescription", event.target.value)} placeholder="Product or service name" /></div>
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-license-type`}>License Type (optional)</label><select id={`sourcing-line-${line.id}-license-type`} className="fi fi-select" value={line.licenseType} onChange={(event) => {
+                  <div className="fg"><LicenseTypeLabel htmlFor={`sourcing-line-${line.id}-license-type`} optional /><select id={`sourcing-line-${line.id}-license-type`} className="fi fi-select" value={line.licenseType} onChange={(event) => {
                     const nextType = event.target.value;
                     updateAdditionalLine(line.id, "licenseType", nextType);
                     if (!supportsSeparateMaintenanceLine(nextType)) {

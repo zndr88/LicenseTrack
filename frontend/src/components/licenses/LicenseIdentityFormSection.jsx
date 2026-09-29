@@ -3,6 +3,7 @@ import { LICENSE_TYPES } from "../../constants/licenseData.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import LicenseFormSection from "./LicenseFormSection.jsx";
 import LicenseTypeOptInFields from "./LicenseTypeOptInFields.jsx";
+import LicenseTypeLabel from "./LicenseTypeLabel.jsx";
 
 export default function LicenseIdentityFormSection({
   idPrefix,
@@ -46,7 +47,7 @@ export default function LicenseIdentityFormSection({
         {errors.softwareDescription && <span className="field-error">{errors.softwareDescription.message}</span>}
       </div>
       <div className="fg">
-        <label htmlFor={fieldId("licenseType", "type")}>License Type <span className="optional-label">(optional)</span></label>
+        <LicenseTypeLabel htmlFor={fieldId("licenseType", "type")} optional />
         <select id={fieldId("licenseType", "type")} className="fi fi-select" {...register(fieldName("licenseType"))}>
           <option value="">Not specified</option>
           {LICENSE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
