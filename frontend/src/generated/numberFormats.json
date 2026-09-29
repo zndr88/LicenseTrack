@@ -1,0 +1,187 @@
+{
+  "currencyCodes": [
+    "AUD",
+    "BRL",
+    "CAD",
+    "CHF",
+    "CNY",
+    "CZK",
+    "DKK",
+    "EUR",
+    "GBP",
+    "HKD",
+    "HUF",
+    "ILS",
+    "INR",
+    "JPY",
+    "KRW",
+    "MXN",
+    "NOK",
+    "NZD",
+    "PLN",
+    "RON",
+    "SEK",
+    "SGD",
+    "USD",
+    "ZAR"
+  ],
+  "currencySymbols": "$£¥₩₪€₹₺₽",
+  "separators": {
+    "ar-SA": {
+      "decimal": ".",
+      "group": ","
+    },
+    "bg-BG": {
+      "decimal": ",",
+      "group": " "
+    },
+    "cs-CZ": {
+      "decimal": ",",
+      "group": " "
+    },
+    "da-DK": {
+      "decimal": ",",
+      "group": "."
+    },
+    "de-AT": {
+      "decimal": ",",
+      "group": "."
+    },
+    "de-CH": {
+      "decimal": ".",
+      "group": "'"
+    },
+    "de-DE": {
+      "decimal": ",",
+      "group": "."
+    },
+    "en-AU": {
+      "decimal": ".",
+      "group": ","
+    },
+    "en-CA": {
+      "decimal": ".",
+      "group": ","
+    },
+    "en-GB": {
+      "decimal": ".",
+      "group": ","
+    },
+    "en-NZ": {
+      "decimal": ".",
+      "group": ","
+    },
+    "en-US": {
+      "decimal": ".",
+      "group": ","
+    },
+    "es-AR": {
+      "decimal": ",",
+      "group": "."
+    },
+    "es-ES": {
+      "decimal": ",",
+      "group": "."
+    },
+    "es-MX": {
+      "decimal": ".",
+      "group": ","
+    },
+    "fi-FI": {
+      "decimal": ",",
+      "group": " "
+    },
+    "fr-BE": {
+      "decimal": ",",
+      "group": "."
+    },
+    "fr-CA": {
+      "decimal": ",",
+      "group": " "
+    },
+    "fr-CH": {
+      "decimal": ".",
+      "group": "'"
+    },
+    "fr-FR": {
+      "decimal": ",",
+      "group": " "
+    },
+    "he-IL": {
+      "decimal": ".",
+      "group": ","
+    },
+    "hr-HR": {
+      "decimal": ",",
+      "group": "."
+    },
+    "hu-HU": {
+      "decimal": ",",
+      "group": " "
+    },
+    "it-IT": {
+      "decimal": ",",
+      "group": "."
+    },
+    "ja-JP": {
+      "decimal": ".",
+      "group": ","
+    },
+    "ko-KR": {
+      "decimal": ".",
+      "group": ","
+    },
+    "nb-NO": {
+      "decimal": ",",
+      "group": " "
+    },
+    "nl-BE": {
+      "decimal": ",",
+      "group": "."
+    },
+    "nl-NL": {
+      "decimal": ",",
+      "group": "."
+    },
+    "pl-PL": {
+      "decimal": ",",
+      "group": " "
+    },
+    "pt-BR": {
+      "decimal": ",",
+      "group": "."
+    },
+    "pt-PT": {
+      "decimal": ",",
+      "group": " "
+    },
+    "ro-RO": {
+      "decimal": ",",
+      "group": "."
+    },
+    "ru-RU": {
+      "decimal": ",",
+      "group": " "
+    },
+    "sk-SK": {
+      "decimal": ",",
+      "group": " "
+    },
+    "sv-SE": {
+      "decimal": ",",
+      "group": " "
+    },
+    "tr-TR": {
+      "decimal": ",",
+      "group": "."
+    },
+    "zh-CN": {
+      "decimal": ".",
+      "group": ","
+    },
+    "zh-TW": {
+      "decimal": ".",
+      "group": ","
+    }
+  }
+}
