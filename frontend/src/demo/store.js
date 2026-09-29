@@ -17,6 +17,7 @@ import {
 } from "../utils/licenseTypeRules.js";
 import { isPendingOrderOpen } from "../utils/pendingOrderState.js";
 import { procurementIdentityKey } from "../utils/procurementIdentity.js";
+import { syncAllPoLines, syncLicensePoLine, syncOrderPoLines } from "./poLines.js";
 
 /** Module-level in-memory state. Refresh or logout wipes it - that IS the reset story. */
 export const store = {
@@ -26,6 +27,7 @@ export const store = {
   sourcingItems: [],
   sourcingRequests: [],
   pendingOrders: [],
+  poLineRegister: [],
   organizations: [],
   costCentres: [],
   userDepartments: {},
@@ -154,6 +156,7 @@ export function nextId() {
  */
 export function decorateLicense(license) {
   withDefaultMaintenanceCoverage(license);
+  syncLicensePoLine(license);
   license.daysUntilExpiry = daysUntil(license.endDate);
   const successor = license.renewedToId == null
     ? null
@@ -963,6 +966,7 @@ export function toSourcingItemSummary(item) {
     renewalForLicenseId: item.renewalForLicenseId,
     successorSourcingItemId: item.successorSourcingItemId ?? null,
     cotermPredecessorIds: item.cotermPredecessorIds,
+    poLineNumber: item.poLineNumber ?? null,
     quoteDocuments: [],
     isRenewal: item.renewalForLicenseId != null,
   };
@@ -970,6 +974,7 @@ export function toSourcingItemSummary(item) {
 
 /** Recomputes a pending order's items (from the live sourcingItems collection) and its totalPoValue. */
 export function rebuildPendingOrderItems(order) {
+  syncOrderPoLines(order);
   order.items = markPlannedRenewalLines(
     store.sourcingItems
       .filter((i) => i.pendingOrderId === order.id)
@@ -2214,6 +2219,10 @@ function buildConvertedLicense(itemData, { renewedFromId = null, predecessorId =
   const id = nextId();
   const license = buildLicense({
     ...itemData,
+    // A new record (including a renewal successor) starts without a PO line
+    // and gets one from its own PO number.
+    poLineId: null,
+    poLineNumber: null,
     id,
     renewedFromId,
     predecessorId,
@@ -2223,6 +2232,7 @@ function buildConvertedLicense(itemData, { renewedFromId = null, predecessorId =
     updatedAt: now,
   });
   store.licenses.push(license);
+  syncLicensePoLine(license);
   return license;
 }
 
@@ -2853,6 +2863,7 @@ export function resetStore() {
   store.sourcingItems = [];
   store.sourcingRequests = [];
   store.pendingOrders = [];
+  store.poLineRegister = [];
   store.organizations = [];
   store.costCentres = [];
   store.userDepartments = {};
@@ -2869,6 +2880,8 @@ export function seedStore() {
   store.sourcingItems = seed.sourcingItems;
   store.sourcingRequests = seed.sourcingRequests;
   store.pendingOrders = seed.pendingOrders;
+  store.poLineRegister = [];
+  syncAllPoLines();
   const organizations = new Map();
   const organizationValues = [
     ...store.licenses.flatMap((license) => [[license.publisherName, "publisher"], [license.supplier, "supplier"]]),

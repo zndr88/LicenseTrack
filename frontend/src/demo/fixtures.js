@@ -761,6 +761,8 @@ export function buildSeedData() {
   const poLineItemsRaw = [
     {
       id: 103,
+      // Seeded PO lines: 1 and 4, so the demo shows a gap.
+      poLineNumber: 1,
       sourcingRequestId: null,
       publisherName: "Okta",
       softwareDescription: "Workforce Identity, 400 users",
@@ -778,6 +780,7 @@ export function buildSeedData() {
     },
     {
       id: 104,
+      poLineNumber: 4,
       sourcingRequestId: null,
       publisherName: "Okta",
       softwareDescription: "Advanced Server Access, 40 servers",
