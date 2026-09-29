@@ -45,8 +45,9 @@ Work in progress for 1.2.0.
   restore. Pre-restore safety copies are now kept in a `pre-restore` folder
   next to the database (newest three), and copies left next to the database by
   older versions are moved there on the next restore.
-- Application log messages (warnings such as unknown request fields) are no longer
-  silenced after the database upgrade that runs at startup.
+- Application log messages (such as warnings about unknown request fields) are
+  no longer silenced after the database upgrade that runs at startup, and keep
+  following the `LOG_LEVEL` setting.
 - CSV export → import now preserves line totals, manual PO totals,
   maintenance pricing (per-unit and free), and which licenses a maintenance
   record covers (several allowed, separated by ";"). An exported lifecycle
