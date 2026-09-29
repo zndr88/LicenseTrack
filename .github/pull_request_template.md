@@ -16,4 +16,4 @@
 
 ## Notes
 
-<!-- Deviations from the plan, follow-ups, migration or upgrade notes, duplicates found but not in scope. -->
+<!-- Implementation notes: design choices a reviewer should know and why, follow-ups, migration or upgrade notes, duplicates found but not in scope. Explain each on its own terms; don't refer to internal documents readers can't see. -->
