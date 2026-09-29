@@ -1,5 +1,7 @@
 """Manual PO total on a pending order (single-currency orders only)."""
 
+import csv
+import io
 import json
 
 from app.models.license import License
@@ -137,9 +139,8 @@ async def test_pending_order_export_includes_manual_total(test_app, auth_headers
     response = await test_app.get("/api/pending-orders/export", headers=auth_headers)
 
     assert response.status_code == 200, response.text
-    header, row = response.text.splitlines()[:2]
-    assert header.endswith("PO Total (manual)")
-    assert row.endswith("750.00")
+    row = next(csv.DictReader(io.StringIO(response.text)))
+    assert row["PO Total (manual)"] == "750.00"
 
 
 async def test_stats_count_manual_po_totals_not_in_annual_cost(test_app, auth_headers):

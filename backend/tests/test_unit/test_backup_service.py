@@ -45,7 +45,10 @@ def _make_db(path) -> None:
             parent_license_id INTEGER REFERENCES licenses(id),
             is_legacy_unlinked_maintenance BOOLEAN NOT NULL DEFAULT 0,
             is_retired BOOLEAN NOT NULL DEFAULT 0,
-            end_date DATE
+            end_date DATE,
+            created_at DATETIME,
+            po_number VARCHAR(200) NOT NULL DEFAULT '',
+            source_sourcing_item_id INTEGER
         )"""
     )
     conn.execute(
@@ -65,13 +68,17 @@ def _make_db(path) -> None:
     # revision 8a9b0c1d2e3f and are touched by later forward migrations. Keep
     # the compact restore fixture structurally valid for that stamped revision.
     conn.execute("CREATE TABLE custom_field_definitions (id INTEGER PRIMARY KEY)")
-    conn.execute("CREATE TABLE sourcing_items (id INTEGER PRIMARY KEY)")
+    # sourcing_items and pending_orders gain PO line columns in a later forward
+    # migration (5f0abf342086), which also reads created_at and po_number.
+    conn.execute(
+        "CREATE TABLE sourcing_items (id INTEGER PRIMARY KEY, created_at DATETIME, pending_order_id INTEGER)"
+    )
     conn.execute("CREATE TABLE sourcing_quote_documents (id INTEGER PRIMARY KEY)")
     conn.execute("CREATE TABLE procurement_documents (id INTEGER PRIMARY KEY)")
     # documents.category is widened to VARCHAR(20) in a later forward migration (e6f7a8b9c0d2).
     conn.execute("CREATE TABLE documents (id INTEGER PRIMARY KEY, category VARCHAR(11) NOT NULL)")
     # pending_orders gains po_total_override in a later forward migration (a7b8c9d0e1f2).
-    conn.execute("CREATE TABLE pending_orders (id INTEGER PRIMARY KEY)")
+    conn.execute("CREATE TABLE pending_orders (id INTEGER PRIMARY KEY, po_number VARCHAR(255) NOT NULL DEFAULT '')")
     # webhook_deliveries exists at the stamped revision; a later forward migration
     # (f4a5b6c7d8e9) adds columns and a (status, claimed_at) index to it.
     conn.execute(
