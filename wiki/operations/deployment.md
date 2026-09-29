@@ -48,6 +48,7 @@ All variables are read from `.env` at container start. Restart the container aft
 | `HOST` | No | `0.0.0.0` | Backend bind host inside the container. |
 | `LOG_LEVEL` | No | `INFO` | Backend log level. |
 | `EXPOSE_API_DOCS` | No | `false` | Exposes `/docs`, `/redoc`, and `/openapi.json`. Enable only for local development. |
+| `STRICT_REQUEST_FIELDS` | No | `false` | Reject API request fields an endpoint doesn't define (422). Default `false`: they are ignored and logged as a warning. |
 | `CORS_ORIGINS` | No | `http://localhost:8080` | Browser URL(s) allowed to call the API. Must match exactly. |
 | `DATABASE_URL` | No | `sqlite+aiosqlite:////data/licenses.db` | SQLite database connection string. |
 | `STORAGE_PATH` | No | `/data/storage` | Uploaded document storage path. |
