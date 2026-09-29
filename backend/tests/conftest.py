@@ -23,8 +23,53 @@ from app.main import app
 
 from app.models.user import User, UserRole
 from app.routes import backup as backup_module
+from app.models.license import License as _GuardLicense
+from app.models.sourcing import SourcingItem as _GuardSourcingItem
+from app.models.sourcing import SourcingStatus as _GuardSourcingStatus
+from app.request_context import current_request
+from app.services.procurement_identity import normalize_po_number
+from sqlalchemy import event
+from sqlalchemy import inspect as _sa_inspect
+from sqlalchemy.orm import Session
+from sqlalchemy.orm.base import NO_VALUE
 
 _TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
+
+def _loaded(obj, attribute):
+    """The attribute's value if it is already loaded, else None (never triggers a lazy load)."""
+    value = _sa_inspect(obj).attrs[attribute].loaded_value
+    return None if value is NO_VALUE else value
+
+
+@event.listens_for(Session, "before_commit")
+def _every_po_has_a_line(session):
+    """Test-only invariant: inside an API request, nothing commits a PO number without a PO line."""
+    if current_request.get() == "(no request)":
+        return  # fixtures and direct service tests may build rows by hand
+    missing = []
+    for obj in list(session.identity_map.values()) + list(session.new):
+        if isinstance(obj, _GuardLicense):
+            if (
+                normalize_po_number(_loaded(obj, "po_number"))
+                and _loaded(obj, "po_line_id") is None
+                and _loaded(obj, "po_line") is None
+            ):
+                missing.append(f"License {obj.id} ({_loaded(obj, 'po_number')!r})")
+        elif isinstance(obj, _GuardSourcingItem):
+            order = _loaded(obj, "pending_order")
+            if (
+                order is not None
+                and normalize_po_number(_loaded(order, "po_number"))
+                and _loaded(obj, "status") != _GuardSourcingStatus.cancelled
+                and _loaded(obj, "po_line_id") is None
+                and _loaded(obj, "po_line") is None
+            ):
+                missing.append(f"SourcingItem {obj.id} on {_loaded(order, 'po_number')!r}")
+    assert not missing, (
+        f"{current_request.get()} committed records with a PO number but no PO line "
+        f"(a writer skipped po_line_service): {', '.join(missing)}"
+    )
+
 
 
 @pytest.fixture(autouse=True)
