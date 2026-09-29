@@ -24,6 +24,7 @@ def _form_payload(license_type: str, coverage: str, **overrides) -> dict:
         "startDate": "2026-01-01",
         "endDate": None if license_type in NON_EXPIRING else "2026-12-31",
         "noticeDate": None,
+        "purchaseDate": None,
         "contractNumber": "",
         "poNumber": "",
         "procurementReference": "",
@@ -156,3 +157,12 @@ async def test_add_license_then_full_edit_round_trip(test_app, auth_headers, lic
 
     assert updated.status_code == 200, updated.text
     assert updated.json()["poNumber"] == "PO-9"
+
+
+async def test_add_license_saves_the_purchase_date_the_form_collects(test_app, auth_headers):
+    payload = _form_payload("subscription", "included", purchaseDate="2026-02-03")
+    response = await test_app.post("/api/licenses/batch", json={"items": [{"license": payload}]}, headers=auth_headers)
+    assert response.status_code in (200, 201), response.text
+    created = response.json()[0]
+    fetched = await test_app.get(f"/api/licenses/{created['id']}", headers=auth_headers)
+    assert fetched.json()["purchaseDate"].startswith("2026-02-03")

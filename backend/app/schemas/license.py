@@ -160,8 +160,16 @@ class LicenseBase(BaseModel):
         return normalise_secondary_contacts(value)
 
 class LicenseCreate(LicenseBase, RequestModel):
+    # The Add License form collects a purchase date; it was silently dropped
+    # before create accepted it (found by strict request fields).
+    purchase_date: Optional[datetime] = None
     maintenance_parent_ids: list[int] = Field(default_factory=list)
     custom_field_values: list[CustomFieldValueItem] = Field(default_factory=list)
+
+    @field_validator("purchase_date", mode="before")
+    @classmethod
+    def _normalise_blank_purchase_date(cls, value: object) -> object:
+        return None if value == "" else value
 
     @model_validator(mode="after")
     def _validate_term_dates(self) -> "LicenseCreate":
