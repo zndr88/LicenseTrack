@@ -544,19 +544,21 @@ def _classify_row(
     imported expiry dates represent included support coverage and must not make
     the license itself legacy.
     """
+    has_publisher = bool(publisher_name)
+    has_description = bool(software_description)
+    if not has_publisher and not has_description:
+        return "error", None, False
+
     if explicit_lifecycle is not None:
         if explicit_lifecycle in {"legacy", "renewed"}:
+            if not has_publisher or not has_description:
+                return "legacy_incomplete", "legacy", False
             return "legacy_exempt", "legacy", True
         return "active", None, False
 
     today = date.today()
-    has_publisher = bool(publisher_name)
-    has_description = bool(software_description)
     non_expiring_license = license_type in _INCLUDED_SUPPORT_PARENT_TYPES
     end_in_past = not non_expiring_license and db_end_date is not None and db_end_date < today
-
-    if not has_publisher and not has_description:
-        return "error", None, False
 
     if end_in_past and (not has_publisher or not has_description):
         return "legacy_incomplete", "legacy", False

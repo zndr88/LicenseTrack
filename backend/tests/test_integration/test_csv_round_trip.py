@@ -198,6 +198,21 @@ def test_expired_row_without_lifecycle_column_keeps_legacy_classification():
     assert row.lifecycle_status == "legacy"
 
 
+def test_explicit_lifecycle_does_not_bypass_required_identity_fields():
+    row = _parse_row(
+        1,
+        {
+            "publisher_name": "",
+            "software_description": "",
+            "license_type": "subscription",
+            "lifecycle_status": "legacy",
+        },
+    )
+
+    assert row.import_status == "error"
+    assert row.validation_errors
+
+
 async def test_every_round_trip_field_has_one_scenario_and_survives_import(
     test_app,
     auth_headers,
