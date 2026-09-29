@@ -42,10 +42,10 @@ export function maintenanceCandidate(license, allLicenses) {
   const coveredLabel = covered.map((parent) => `${refOf(parent)} ${nameOf(parent)}`).join("; ");
   const coversText = covered.length ? `Currently covers: ${coveredLabel}` : "";
   const subtitle = [license.isLegacyUnlinkedMaintenance ? "Legacy unlinked" : "", coversText]
-    .filter(Boolean).join(" · ");
+    .filter(Boolean).join(" Â· ");
   return {
     id: license.id,
-    title: `${refOf(license)} — ${nameOf(license)}`,
+    title: `${refOf(license)} â€” ${nameOf(license)}`,
     subtitle: subtitle || undefined,
     meta: [license.poNumber || "No PO", license.contractNumber || "No contract",
       `${license.startDate || "-"} -> ${license.endDate || "-"}`].join(" Â· "),
