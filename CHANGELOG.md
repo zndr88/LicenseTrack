@@ -113,10 +113,27 @@ Work in progress for 1.2.0.
   inline edits, new pending-order lines, and conversion defaults. Stored
   values are never re-interpreted, and price inputs keep every decimal
   instead of rounding to two. Merging sourcing lines under these formats no
-  longer turns a combined quantity such as 1500 into 1.5. Under comma-decimal
-  formats, a number with a single dot and no comma (e.g. `1.234`) is now read
-  as a decimal, in number filters too; type `1234` or `1.234,00` for one
-  thousand two hundred thirty-four.
+  longer turns a combined quantity such as 1500 into 1.5.
+- Typed amounts with thousands separators are read correctly, for example
+  `2,443.00` under the `1,234.50` number format (#82). Input that doesn't match
+  your number format is refused with a message next to the field instead of
+  being changed or cleared: under `1.234,50`, `2,443.00` is refused rather than
+  saved as 2.443. Every screen that takes a price, quantity, total or cost now
+  uses one number input with one set of rules, shared with the server, and the
+  API rejects numbers that aren't plain decimals (such as `1,5`).
+- Under comma-decimal number formats, a number with a single dot and exactly
+  three digits after it (e.g. `1.234`) is refused as ambiguous, in number
+  filters and CSV import too; type `1234` for a whole number or `1,234` for a
+  decimal.
+- **Export Current View (localized)** writes numbers with the same separators
+  the importer reads, keeping every quantity decimal, so the file imports back
+  with the same number format. Before, a quantity of 1000 under `1.234,50` was
+  written as `1.000`, and Swiss formats used a typographic apostrophe.
+- CSV import reads an `Item` column as the PO line number. Purchasing exports
+  (Flexera among them) use `Item` for the line and `Description` for the
+  product. Earlier versions read `Item` as the software description; a file
+  that uses `Item` for the product text needs that column mapped to Software
+  Description (or renamed to `Description`) before import.
 - The database models and migrations now describe the same schema, including
   the unique OIDC identity index. A test fails the build if they drift apart
   again. Document categories fit their column on every database.

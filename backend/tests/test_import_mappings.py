@@ -221,7 +221,7 @@ async def test_execute_import_parses_declared_belgian_locale(
             "Publisher": "Acme",
             "Description": "Mapped Belgian Suite",
             "Start": "01/02/2027",
-            "Qty": "1.000",
+            "Qty": "1.000.000",
             "Price": "1.234,50",
         }],
     )
@@ -250,8 +250,33 @@ async def test_execute_import_parses_declared_belgian_locale(
     )
     assert license_obj is not None
     assert license_obj.start_date == date(2027, 2, 1)
-    assert license_obj.quantity == "1000"
+    assert license_obj.quantity == "1000000"
     assert license_obj.unit_price == "1234.50"
+
+
+async def test_execute_import_refuses_an_ambiguous_number(test_app, db_session, auth_headers):
+    # Under nl-BE, "1.000" could be one thousand or one: refused, not guessed.
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Qty"],
+        [{"Publisher": "Acme", "Description": "Ambiguous Suite", "Qty": "1.000"}],
+    )
+    mapping = [
+        {"rawHeader": "Publisher", "target": "publisher_name"},
+        {"rawHeader": "Description", "target": "software_description"},
+        {"rawHeader": "Qty", "target": "quantity"},
+    ]
+
+    resp = await test_app.post(
+        "/api/import/execute",
+        headers=auth_headers,
+        files={"file": ("data.csv", csv_bytes, "text/csv")},
+        data={"mapping_json": json.dumps({"mapping": mapping}), "number_format_locale": "nl-BE"},
+    )
+
+    assert "ambiguous" in resp.text.lower(), resp.text
+    assert await db_session.scalar(
+        select(License).where(License.software_description == "Ambiguous Suite")
+    ) is None
 
 
 async def test_execute_import_skip_target_ignored(test_app, auth_headers):

@@ -4,14 +4,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { BUDGET_OWNER_REQUIRED_MESSAGE, licenseFormSchema } from "../../utils/procurementSchemas.js";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
 import Icon from "../ui/Icon.jsx";
-import { formatPriceInput } from "../../utils/helpers.js";
+import NumberInput, { isValidNumberValue } from "../ui/NumberInput.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import { buildPendingOrderConversionPayload } from "./buildPendingOrderConversionPayload.js";
 import { downloadConversionDocument, getConversionDocuments, previewConversionDocument } from "./conversionDocuments.js";
 import ParentLicensePicker from "./ParentLicensePicker.jsx";
-import { parseTypedNumber } from "../../utils/formatting.js";
 import PluginSlot from "../plugins/PluginSlot.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
@@ -96,12 +95,6 @@ const ConvertPendingOrderModal = ({
     clearAttachments,
   } = useStagedDocumentAttachments(order?.items?.[0]?.id);
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
-  const [displayUnitPrice, setDisplayUnitPrice] = useState(
-    formatPriceInput(prefill.unitPrice || "", locale)
-  );
-  const [displayTotalPrice, setDisplayTotalPrice] = useState(
-    formatPriceInput(prefill.totalPoPrice || "", locale)
-  );
 
   const {
     register,
@@ -185,25 +178,20 @@ const ConvertPendingOrderModal = ({
     if (!qtyStr && !unitStr) {
       setTotalManuallyEdited(false);
       setValue("totalPoPrice", "", { shouldDirty: true });
-      setDisplayTotalPrice("");
       return;
     }
     if (totalManuallyEdited) return;
-    const qty  = Number(parseTypedNumber(qtyStr, userSettings));
-    const unit = Number(parseTypedNumber(unitStr, userSettings));
-    if (!isNaN(qty) && !isNaN(unit)) {
-      const computed = (qty * unit).toFixed(2);
+    // Quantity and unit price are canonical values from NumberInput.
+    if (qtyStr && unitStr && isValidNumberValue(qtyStr) && isValidNumberValue(unitStr)) {
+      const computed = (Number(qtyStr) * Number(unitStr)).toFixed(2);
       setValue("totalPoPrice", computed, { shouldDirty: true });
-      setDisplayTotalPrice(formatPriceInput(computed, locale));
     }
-  }, [quantity, unitPrice, totalManuallyEdited, setValue, userSettings, locale]);
+  }, [quantity, unitPrice, totalManuallyEdited, setValue]);
 
   useEffect(() => {
     if (!isFreewareLicenseType(licenseType)) return;
     setValue("unitPrice", "", { shouldDirty: true });
     setValue("totalPoPrice", "", { shouldDirty: true });
-    setDisplayUnitPrice("");
-    setDisplayTotalPrice("");
     setTotalManuallyEdited(false);
   }, [licenseType, setValue]);
 
@@ -215,6 +203,7 @@ const ConvertPendingOrderModal = ({
     (isNonExpiringLicenseType(licenseType) || String(watch("endDate") ?? "").trim() !== "") &&
     !typeDescriptionMissing(licenseType, watch("typeDescription")) &&
     String(quantity  ?? "").trim() !== "" &&
+    ["quantity", "quantityPerUnit", "unitPrice", "totalPoPrice"].every((name) => isValidNumberValue(watch(name))) &&
     (!prefill.budgetOwnerRequired || String(watch("budgetOwnerEmail") ?? "").trim() !== "") &&
     (isFreewareLicenseType(licenseType) || String(unitPrice ?? "").trim() !== "");
 
@@ -230,15 +219,11 @@ const ConvertPendingOrderModal = ({
         continue;
       }
       setValue(fieldName, String(value), { shouldDirty: true, shouldValidate: true });
-      if (fieldName === "unitPrice") {
-        setDisplayUnitPrice(formatPriceInput(value, locale));
-      }
       if (fieldName === "totalPoPrice") {
         setTotalManuallyEdited(true);
-        setDisplayTotalPrice(formatPriceInput(value, locale));
       }
     }
-  }, [locale, setValue, watch]);
+  }, [setValue, watch]);
 
   const onSubmit = useCallback(async (data) => {
     setSaving(true);
@@ -419,8 +404,8 @@ const ConvertPendingOrderModal = ({
 
           <LicenseFormSection title="Details">
           <div className="fr">
-            <div className="fg"><label htmlFor="cpo-quantity">Purchase Quantity <span style={{ color: "var(--red)" }}>*</span></label><input id="cpo-quantity" className="fi" {...register("quantity")} /></div>
-            <div className="fg"><label htmlFor="cpo-quantity-per-unit">Quantity per Unit</label><input id="cpo-quantity-per-unit" className="fi" inputMode="decimal" {...register("quantityPerUnit")} /></div>
+            <div className="fg"><label htmlFor="cpo-quantity">Purchase Quantity <span style={{ color: "var(--red)" }}>*</span></label><Controller name="quantity" control={control} render={({ field }) => <NumberInput id="cpo-quantity" value={field.value ?? ""} settings={userSettings} onChange={field.onChange} onBlur={field.onBlur} />} /></div>
+            <div className="fg"><label htmlFor="cpo-quantity-per-unit">Quantity per Unit</label><Controller name="quantityPerUnit" control={control} render={({ field }) => <NumberInput id="cpo-quantity-per-unit" value={field.value ?? ""} settings={userSettings} onChange={field.onChange} onBlur={field.onBlur} />} /></div>
             <div className="fg"><label htmlFor="cpo-sku-code">SKU Code</label><input id="cpo-sku-code" className="fi" placeholder="SKU or product code" {...register("skuCode")} /></div>
           </div>
           {!isFreewareLicenseType(licenseType) && (
@@ -431,20 +416,13 @@ const ConvertPendingOrderModal = ({
                     name="unitPrice"
                     control={control}
                     render={({ field }) => (
-                      <input
+                      <NumberInput
                         id="cpo-unit-price"
-                        className="fi"
-                        value={displayUnitPrice}
-                        onFocus={() => setDisplayUnitPrice(field.value)}
-                        onChange={(e) => {
-                          const raw = parseTypedNumber(e.target.value, userSettings) ?? e.target.value;
-                          setDisplayUnitPrice(e.target.value);
-                          field.onChange(raw);
-                        }}
-                        onBlur={() => {
-                          setDisplayUnitPrice(formatPriceInput(field.value, locale));
-                          field.onBlur();
-                        }}
+                        value={field.value ?? ""}
+                        settings={userSettings}
+                        minFractionDigits={2}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
                       />
                     )}
                   />
@@ -455,21 +433,16 @@ const ConvertPendingOrderModal = ({
                     name="totalPoPrice"
                     control={control}
                     render={({ field }) => (
-                      <input
+                      <NumberInput
                         id="cpo-total-price"
-                        className="fi"
-                        value={displayTotalPrice}
-                        onFocus={() => setDisplayTotalPrice(field.value)}
-                        onChange={(e) => {
-                          const raw = parseTypedNumber(e.target.value, userSettings) ?? e.target.value;
+                        value={field.value ?? ""}
+                        settings={userSettings}
+                        minFractionDigits={2}
+                        onChange={(next) => {
                           setTotalManuallyEdited(true);
-                          setDisplayTotalPrice(e.target.value);
-                          field.onChange(raw);
+                          field.onChange(next);
                         }}
-                        onBlur={() => {
-                          setDisplayTotalPrice(formatPriceInput(field.value, locale));
-                          field.onBlur();
-                        }}
+                        onBlur={field.onBlur}
                       />
                     )}
                   />

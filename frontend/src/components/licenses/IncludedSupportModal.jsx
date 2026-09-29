@@ -1,8 +1,7 @@
 import { useCallback, useState } from "react";
 import ModalShell from "../ui/ModalShell.jsx";
 import MaintenanceCoverageFields from "../procurement/MaintenanceCoverageFields.jsx";
-import { formatPriceInput } from "../../utils/helpers.js";
-import { parseTypedNumber } from "../../utils/formatting.js";
+import { isValidNumberValue } from "../ui/NumberInput.jsx";
 
 function addDays(isoDate, days) {
   const date = new Date(`${isoDate}T00:00:00Z`);
@@ -18,7 +17,7 @@ function suggestedPeriod(license) {
   return { start, end: addDays(oneYearLater.toISOString().slice(0, 10), -1) };
 }
 
-function initialValues(license, locale) {
+function initialValues(license) {
   const hasPeriod = Boolean(license.maintenanceStartDate || license.maintenanceEndDate);
   const suggestion = hasPeriod ? null : suggestedPeriod(license);
   return {
@@ -27,8 +26,8 @@ function initialValues(license, locale) {
     maintenanceEndDate: license.maintenanceEndDate || suggestion?.end || "",
     maintenancePricingBasis: license.maintenancePricingBasis || "flat",
     maintenanceQuantity: license.maintenanceQuantity || "",
-    maintenanceUnitPrice: formatPriceInput(license.maintenanceUnitPrice || "", locale),
-    maintenanceCost: formatPriceInput(license.maintenanceCost || "", locale),
+    maintenanceUnitPrice: license.maintenanceUnitPrice || "",
+    maintenanceCost: license.maintenanceCost || "",
     suggested: Boolean(suggestion),
   };
 }
@@ -39,7 +38,7 @@ function initialValues(license, locale) {
  */
 export default function IncludedSupportModal({ license, userSettings, onSave, onClose }) {
   const locale = userSettings?.numberFormatLocale ?? "en-US";
-  const [values, setValues] = useState(() => initialValues(license, locale));
+  const [values, setValues] = useState(() => initialValues(license));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -47,11 +46,11 @@ export default function IncludedSupportModal({ license, userSettings, onSave, on
     setValues((current) => ({ ...current, [field]: value }));
   }, []);
 
+  // Values are canonical (NumberInput), or the typed text while it's invalid.
   const toCanonical = (value) => {
     const text = String(value ?? "").trim();
     if (!text) return { ok: true, value: null };
-    const parsed = parseTypedNumber(text, userSettings);
-    return parsed === null ? { ok: false } : { ok: true, value: parsed };
+    return isValidNumberValue(text) ? { ok: true, value: text } : { ok: false };
   };
 
   const save = async () => {

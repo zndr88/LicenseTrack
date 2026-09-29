@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../queryKeys.js";
-import { formatPriceInput, getCompleteness, getExpirationPresentation, normalizeLicense } from "../utils/helpers.js";
+import { getCompleteness, getExpirationPresentation, normalizeLicense } from "../utils/helpers.js";
 import { ROLE_PERMISSIONS } from "../constants/permissions.js";
 import {
   getLicense,
@@ -19,7 +19,6 @@ import {
 import { useLicenseDocuments } from "./useLicenseDocuments.js";
 import { useCustomFields } from "./useCustomFields.js";
 import { useDetailSectionLink } from "./useDetailSectionLink.js";
-import { parseTypedNumber } from "../utils/formatting.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../utils/customFieldFormValues.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "../utils/secondaryContacts.js";
 import { typeOptInPayload } from "../utils/licenseTypeRules.js";
@@ -44,7 +43,6 @@ export function useDetailPanelState({
   const [fieldEdit, setFieldEdit] = useState(null);
   const [invoiceNumbersEdit, setInvoiceNumbersEdit] = useState(false);
   const [secondaryContactsEdit, setSecondaryContactsEdit] = useState(false);
-  const [displayUnitPrice, setDisplayUnitPrice] = useState("");
   const [editingLicense, setEditingLicense] = useState(false);
   const [editFields, setEditFields] = useState({});
   // Kept out of editFields so it never reaches the update request.
@@ -364,17 +362,12 @@ export function useDetailPanelState({
       notes: license.notes || "",
       customFieldValues: customFieldValueMap(customFieldValues),
     });
-    setDisplayUnitPrice(
-      formatPriceInput(license.unitPrice || "", userSettings?.numberFormatLocale ?? "en-US")
-    );
     setEditingLicense(true);
   };
 
   // Custom field save factory
-  const makeCustomFieldSaveFn = (fieldDef) => async (rawValue) => {
-    const normalizedValue = fieldDef.fieldType === "currency"
-      ? (parseTypedNumber(rawValue, userSettings) ?? rawValue)
-      : rawValue;
+  // Currency fields arrive canonical: FieldEditModal edits them with NumberInput.
+  const makeCustomFieldSaveFn = (fieldDef) => async (normalizedValue) => {
     const item =
       fieldDef.fieldType === "currency"
         ? { customFieldDefId: fieldDef.id, valueCurrency: normalizedValue || null }
@@ -417,7 +410,6 @@ export function useDetailPanelState({
     savingLicense,
     noticeActionBusy,
     editError,
-    displayUnitPrice, setDisplayUnitPrice,
     handleFullEditSave, handleStartFullEdit,
     handleMarkNoticeHandled,
 

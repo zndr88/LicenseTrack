@@ -47,7 +47,7 @@ describe("useSourcingMerge untouched final quantity (#63)", () => {
 
   test.each([
     ["1000", "500", "1500", "1500"],
-    ["1.5", "1", "2,5", "2.5"],
+    ["1.5", "1", "2.5", "2.5"],
   ])("merging %s + %s pre-fills %s and keeps %s", async (first, second, prefill, total) => {
     api.mergeSourcingItems.mockResolvedValue({ data: { id: 99, quantity: total }, error: null });
     const { result } = renderMerge(sourcingItems(first, second));

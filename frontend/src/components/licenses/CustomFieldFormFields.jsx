@@ -1,3 +1,5 @@
+import NumberInput from "../ui/NumberInput.jsx";
+
 function CustomFieldInput({ definition, value, onChange, idPrefix }) {
   const id = `${idPrefix}-custom-${definition.id}`;
   if (definition.fieldType === "boolean") {
@@ -9,12 +11,15 @@ function CustomFieldInput({ definition, value, onChange, idPrefix }) {
       </select>
     );
   }
+  if (definition.fieldType === "currency") {
+    // Uses the signed-in user's number format from NumberFormatContext.
+    return <NumberInput id={id} value={value ?? ""} minFractionDigits={2} onChange={onChange} />;
+  }
   return (
     <input
       id={id}
       className="fi"
       type={definition.fieldType === "date" ? "date" : "text"}
-      inputMode={definition.fieldType === "currency" ? "decimal" : undefined}
       value={value ?? ""}
       onChange={(event) => onChange(event.target.value)}
     />

@@ -10,6 +10,7 @@ import LicenseIdentityFormSection from "../licenses/LicenseIdentityFormSection.j
 import LicenseDatesContractFormSection from "../licenses/LicenseDatesContractFormSection.jsx";
 import MaintenanceCoverageFields, { supportsMaintenanceCoverage } from "./MaintenanceCoverageFields.jsx";
 import LineTotalMismatchHint from "./LineTotalMismatchHint.jsx";
+import NumberInput from "../ui/NumberInput.jsx";
 
 export default function SourcingRequestLineEditor({
   item,
@@ -96,12 +97,12 @@ export default function SourcingRequestLineEditor({
           <div className="fr">
             <div className="fg">
               <label htmlFor={`${idPrefix}-quantity`}>Purchase Quantity</label>
-              <input id={`${idPrefix}-quantity`} className="fi" inputMode="decimal" {...register(fieldName("quantity"))} />
+              <Controller name={fieldName("quantity")} control={control} render={({ field }) => <NumberInput id={`${idPrefix}-quantity`} value={field.value ?? ""} settings={userSettings} onChange={field.onChange} onBlur={field.onBlur} />} />
               {errors.quantity && <span className="field-error">{errors.quantity.message}</span>}
             </div>
             <div className="fg">
               <label htmlFor={`${idPrefix}-quantity-per-unit`}>Quantity per Unit</label>
-              <input id={`${idPrefix}-quantity-per-unit`} className="fi" inputMode="decimal" {...register(fieldName("quantityPerUnit"))} />
+              <Controller name={fieldName("quantityPerUnit")} control={control} render={({ field }) => <NumberInput id={`${idPrefix}-quantity-per-unit`} value={field.value ?? ""} settings={userSettings} onChange={field.onChange} onBlur={field.onBlur} />} />
               {errors.quantityPerUnit && <span className="field-error">{errors.quantityPerUnit.message}</span>}
             </div>
             <div className="fg">
@@ -126,12 +127,12 @@ export default function SourcingRequestLineEditor({
           <div className="fr">
             <div className="fg">
               <label htmlFor={`${idPrefix}-unit`}>Estimated Unit Price</label>
-              <input id={`${idPrefix}-unit`} className="fi" inputMode="decimal" {...register(fieldName("estimatedUnitPrice"))} />
+              <Controller name={fieldName("estimatedUnitPrice")} control={control} render={({ field }) => <NumberInput id={`${idPrefix}-unit`} value={field.value ?? ""} settings={userSettings} minFractionDigits={2} onChange={field.onChange} onBlur={field.onBlur} />} />
               {errors.estimatedUnitPrice && <span className="field-error">{errors.estimatedUnitPrice.message}</span>}
             </div>
             <div className="fg">
               <label htmlFor={`${idPrefix}-total`}>Est. Line Total</label>
-              <input id={`${idPrefix}-total`} className="fi" inputMode="decimal" {...register(fieldName("estimatedTotalPrice"))} />
+              <Controller name={fieldName("estimatedTotalPrice")} control={control} render={({ field }) => <NumberInput id={`${idPrefix}-total`} value={field.value ?? ""} settings={userSettings} minFractionDigits={2} onChange={field.onChange} onBlur={field.onBlur} />} />
               {errors.estimatedTotalPrice
                 ? <span className="field-error">{errors.estimatedTotalPrice.message}</span>
                 : <LineTotalMismatchHint quantity={values.quantity} unitPrice={values.estimatedUnitPrice} total={values.estimatedTotalPrice} currency={values.currency} settings={userSettings} />}

@@ -78,6 +78,14 @@ class MoneyParseError(ValueError):
     """Raised when a value is not a canonical decimal money string."""
 
 
+class AmbiguousNumberError(MoneyParseError):
+    """Raised for input like "1.234" under a comma-decimal, dot-grouping format.
+
+    It could mean 1234 (a thousands group) or 1.234 (a decimal point), so it is
+    rejected instead of guessed.
+    """
+
+
 def _strip_currency_affixes(raw: str) -> str:
     """Remove supported currency symbols/codes without backtracking regexes."""
     value = raw.strip()
@@ -101,46 +109,58 @@ def is_canonical_money(raw: str) -> bool:
     return bool(_CANONICAL_RE.match(raw.strip()))
 
 
+def number_format_separators(number_format_locale: str) -> tuple[str, str | None]:
+    """(decimal separator, group separator) for a number format; en-US when unknown."""
+    return _LOCALE_SEPS.get(number_format_locale, (".", ","))
+
+
+_WHITESPACE_RE = re.compile(r"[\s\u00a0\u202f\u2009]")
+# A single dot group ("1.234", "-12.345") under a dot-grouping, comma-decimal format.
+_AMBIGUOUS_DOT_RE = re.compile(r"^-?[1-9]\d{0,2}\.\d{3}$")
+
+
 def parse_localized_money(raw: str | None, number_format_locale: str) -> str | None:
-    """Convert a localized money string to a canonical decimal string.
+    """Convert typed or imported number text to a canonical decimal string.
 
-    Uses *number_format_locale* (BCP 47 tag, e.g. 'de-DE') to detect decimal
-    and grouping separators.  Falls back to en-US conventions for unrecognised
-    locales.
+    The same rules as the frontend's parseTypedNumberResult; both run the
+    shared cases in tests/fixtures/number_parsing_cases.json.
 
-    Returns the canonical decimal string (e.g. '1234.50'), or None for blank.
-    Raises MoneyParseError when the value cannot be normalised.
+    - Blank input returns None. Currency symbols and codes, and any whitespace
+      (used as grouping), are ignored.
+    - Accepted: plain digits with the format's decimal separator ("1234,5"),
+      or correctly grouped digits ("1.234,5", "1.234.567"). A dot that can't
+      be grouping is read as a decimal point ("1.5", "1234.567").
+    - Rejected with AmbiguousNumberError: a single dot group under a
+      dot-grouping, comma-decimal format ("1.234").
+    - Rejected with MoneyParseError: anything else, including another
+      format's separators ("2,443.00" under de-DE).
     """
     if raw is None or not raw.strip():
         return None
+    s = _WHITESPACE_RE.sub("", _strip_currency_affixes(raw))
+    if not s:
+        return None
+    dec_sep, grp_sep = number_format_separators(number_format_locale)
+    grp_sep = None if grp_sep is None or _WHITESPACE_RE.fullmatch(grp_sep) else grp_sep
 
-    s = _strip_currency_affixes(raw)
+    if is_canonical_money(s):
+        if dec_sep != "." and grp_sep == "." and _AMBIGUOUS_DOT_RE.match(s):
+            raise AmbiguousNumberError(
+                f"{raw.strip()!r} is ambiguous in the {number_format_locale} number format: "
+                f"write {s.replace('.', '')} for a whole number, or {s.replace('.', dec_sep)} for a decimal."
+            )
+        return s
 
-    dec_sep, grp_sep = _LOCALE_SEPS.get(number_format_locale, (".", ","))
-
-    # Strip explicit grouping separators only when they look like grouping.
-    # This preserves canonical "1234.50" input under locales such as de-DE
-    # while still interpreting the locale-ambiguous "1.000" as one thousand.
-    has_decimal_sep = dec_sep != "." and dec_sep in s
-    grouping_pattern = (
-        rf"^-?\d{{1,3}}({re.escape(grp_sep)}\d{{3}})+"
-        rf"({re.escape(dec_sep)}\d+)?$"
-        if grp_sep
-        else ""
-    )
-    if grp_sep and (has_decimal_sep or re.match(grouping_pattern, s)):
-        s = s.replace(grp_sep, "")
-    # Also strip common Unicode space variants used as grouping separators
-    s = re.sub(r"[\s\u00a0\u202f\u2009]", "", s)
-
-    # Convert locale decimal separator to canonical '.'
-    if dec_sep != ".":
+    dec = re.escape(dec_sep)
+    plain = rf"^-?\d+({dec}\d+)?$"
+    grouped = rf"^-?\d{{1,3}}({re.escape(grp_sep)}\d{{3}})+({dec}\d+)?$" if grp_sep else None
+    if re.match(plain, s) or (grouped and re.match(grouped, s)):
+        if grp_sep:
+            s = s.replace(grp_sep, "")
         s = s.replace(dec_sep, ".")
-
-    if not is_canonical_money(s):
-        raise MoneyParseError(f"Cannot parse {raw!r} as a number for locale {number_format_locale!r}.")
-
-    return s
+        if is_canonical_money(s):
+            return s
+    raise MoneyParseError(f"Cannot parse {raw!r} as a number in the {number_format_locale} number format.")
 
 
 def parse_money(raw: str | None) -> Decimal | None:
@@ -155,3 +175,29 @@ def parse_money(raw: str | None) -> Decimal | None:
     if not is_canonical_money(raw):
         raise MoneyParseError(f"Non-canonical money value: {raw!r}. Expected a plain decimal string (e.g. '1234.50').")
     return Decimal(raw.strip())
+
+
+def frontend_number_formats() -> dict:
+    """Separators and currency markers for the frontend's parser (generated file).
+
+    The frontend reads frontend/src/generated/numberFormats.json instead of the
+    browser's locale data, so both parsers use the same separators.
+    """
+    return {
+        "separators": {
+            locale: {"decimal": dec, "group": grp}
+            for locale, (dec, grp) in sorted(_LOCALE_SEPS.items())
+        },
+        "currencySymbols": "".join(sorted(_CURRENCY_SYMBOLS)),
+        "currencyCodes": sorted(_CURRENCY_CODES),
+    }
+
+
+if __name__ == "__main__":
+    import json
+    import sys
+    from pathlib import Path
+
+    Path(sys.argv[1]).write_text(
+        json.dumps(frontend_number_formats(), indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8"
+    )

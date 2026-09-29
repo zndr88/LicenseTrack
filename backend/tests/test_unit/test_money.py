@@ -176,9 +176,13 @@ class TestParseLocalizedMoney:
         from app.services.money import parse_localized_money
         assert parse_localized_money("1234,50", "de-DE") == "1234.50"
 
-    def test_de_de_integer(self):
-        from app.services.money import parse_localized_money
-        assert parse_localized_money("1.000", "de-DE") == "1000"
+    def test_de_de_single_dot_group_is_ambiguous(self):
+        # "1.000" could be one thousand or one: rejected instead of guessed.
+        from app.services.money import AmbiguousNumberError, parse_localized_money
+        with pytest.raises(AmbiguousNumberError):
+            parse_localized_money("1.000", "de-DE")
+        assert parse_localized_money("1000", "de-DE") == "1000"
+        assert parse_localized_money("1.000,00", "de-DE") == "1000.00"
 
     # --- fr-FR: narrow no-break space group, comma decimal ---
     def test_fr_fr_nbspace_group(self):

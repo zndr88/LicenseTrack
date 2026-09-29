@@ -243,20 +243,21 @@ def test_native_and_mapped_row_assembly_preserve_equivalent_parsed_values():
     assert native.custom_rows == mapped_custom_rows == [{"cf_asset_owner": "Alice"}]
 
 
-def test_item_fallback_does_not_override_explicit_software_description():
+def test_item_is_the_po_line_and_leaves_the_description_alone():
     csv_bytes = _csv(
         ["publisher_name", "Item", "software_description"],
         [{
             "publisher_name": "Acme",
-            "Item": "ERP-EXT-123",
+            "Item": "3",
             "software_description": "Acme ERP Suite",
         }],
     )
 
     result = parse_csv(csv_bytes)
 
-    assert result.headers_found == ["publisher_name", "software_description"]
+    assert result.headers_found == ["publisher_name", "po_line_number", "software_description"]
     assert result.rows[0].software_description == "Acme ERP Suite"
+    assert str(result.rows[0].po_line_number) == "3"
 
 
 @pytest.mark.parametrize("header", ["Contract Owner", "cf_contract_owner"])
@@ -396,7 +397,7 @@ def test_localized_numeric_fields_land_canonical():
         [{
             "publisher_name": "Acme",
             "software_description": "Widget",
-            "quantity": "1.000",
+            "quantity": "1.000.000",
             "unit_price": "1.234,50",
             "total_po_price": "1.234.500,00",
         }],
@@ -404,7 +405,7 @@ def test_localized_numeric_fields_land_canonical():
 
     row = parse_csv(csv_bytes, number_format_locale="nl-BE").rows[0]
 
-    assert row.quantity == "1000"
+    assert row.quantity == "1000000"
     assert row.unit_price == "1234.50"
     assert row.total_po_price == "1234500.00"
     assert row.import_status == "active"

@@ -24,7 +24,6 @@ import { queryKeys } from "../../queryKeys.js";
 import { invalidateProcurementRenewalState } from "../../queryInvalidation.js";
 import { fetchLicensesData } from "./licenses/useLicensesPageData.js";
 import { getLicensesFromQueryData } from "../../utils/licenseQueryData.js";
-import { parseTypedNumber } from "../../utils/formatting.js";
 import { uploadDocument } from "../../api/documents.js";
 import { defaultDocumentScope } from "../../utils/documentCategories.js";
 import { draftDocumentTargetMap, uploadDraftDocuments } from "../../utils/draftDocuments.js";
@@ -87,7 +86,7 @@ export function usePendingOrdersData({
   onPortfolioStateChange,
   onNotificationsReload,
   onNavigateToLicense,
-  userSettings,
+  userSettings: _userSettings,
   includeHistory = false,
 }) {
   const queryClient = useQueryClient();
@@ -140,14 +139,14 @@ export function usePendingOrdersData({
         maintenanceStartDate: item.maintenanceStartDate || null,
         maintenanceEndDate: item.maintenanceEndDate || null,
         maintenancePricingBasis: item.maintenancePricingBasis || null,
-        maintenanceQuantity: parseTypedNumber(item.maintenanceQuantity, userSettings) ?? (item.maintenanceQuantity || null),
-        maintenanceUnitPrice: parseTypedNumber(item.maintenanceUnitPrice, userSettings) ?? (item.maintenanceUnitPrice || null),
-        maintenanceCost: parseTypedNumber(item.maintenanceCost, userSettings) ?? (item.maintenanceCost || null),
-        quantity: parseTypedNumber(item.quantity, userSettings) ?? (item.quantity || null),
-        quantityPerUnit: parseTypedNumber(item.quantityPerUnit, userSettings) ?? (item.quantityPerUnit || "1"),
+        maintenanceQuantity: item.maintenanceQuantity || null,
+        maintenanceUnitPrice: item.maintenanceUnitPrice || null,
+        maintenanceCost: item.maintenanceCost || null,
+        quantity: item.quantity || null,
+        quantityPerUnit: item.quantityPerUnit || "1",
         skuCode: item.skuCode || null,
-        estimatedUnitPrice: parseTypedNumber(item.estimatedUnitPrice, userSettings) ?? (item.estimatedUnitPrice || null),
-        estimatedTotalPrice: parseTypedNumber(item.estimatedTotalPrice, userSettings) ?? (item.estimatedTotalPrice || null),
+        estimatedUnitPrice: item.estimatedUnitPrice || null,
+        estimatedTotalPrice: item.estimatedTotalPrice || null,
         currency: item.currency || "EUR",
         startDate: item.startDate || null,
         endDate: item.endDate || null,
@@ -188,7 +187,7 @@ export function usePendingOrdersData({
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory });
     onPortfolioStateChange?.();
     return { ok: true, partial: attachmentErrors.length > 0, data };
-  }, [showError, queryClient, onPortfolioStateChange, userSettings]);
+  }, [showError, queryClient, onPortfolioStateChange]);
 
   const handleUpdatePendingOrder = useCallback(async (id, payload) => {
     const { data, error } = await apiUpdatePendingOrder(id, payload);
@@ -259,15 +258,15 @@ export function usePendingOrdersData({
       maintenanceStartDate: item.maintenanceStartDate || null,
       maintenanceEndDate: item.maintenanceEndDate || null,
       maintenancePricingBasis: item.maintenancePricingBasis || null,
-      maintenanceQuantity: parseTypedNumber(item.maintenanceQuantity, userSettings) ?? (item.maintenanceQuantity || null),
-      maintenanceUnitPrice: parseTypedNumber(item.maintenanceUnitPrice, userSettings) ?? (item.maintenanceUnitPrice || null),
-      maintenanceCost: parseTypedNumber(item.maintenanceCost, userSettings) ?? (item.maintenanceCost || null),
+      maintenanceQuantity: item.maintenanceQuantity || null,
+      maintenanceUnitPrice: item.maintenanceUnitPrice || null,
+      maintenanceCost: item.maintenanceCost || null,
       parentSourcingItemId: item.parentSourcingItemId || null,
-      quantity: parseTypedNumber(item.quantity, userSettings) ?? (item.quantity || null),
-      quantityPerUnit: parseTypedNumber(item.quantityPerUnit, userSettings) ?? (item.quantityPerUnit || "1"),
+      quantity: item.quantity || null,
+      quantityPerUnit: item.quantityPerUnit || "1",
       skuCode: item.skuCode || null,
-      estimatedUnitPrice: parseTypedNumber(item.estimatedUnitPrice, userSettings) ?? (item.estimatedUnitPrice || null),
-      estimatedTotalPrice: parseTypedNumber(item.estimatedTotalPrice, userSettings) ?? (item.estimatedTotalPrice || null),
+      estimatedUnitPrice: item.estimatedUnitPrice || null,
+      estimatedTotalPrice: item.estimatedTotalPrice || null,
       currency: item.currency || "EUR",
       startDate: item.startDate || null,
       endDate: item.endDate || null,
@@ -289,7 +288,7 @@ export function usePendingOrdersData({
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
     showSuccess(`${items.length} item${items.length > 1 ? "s" : ""} added to pending order`);
     return { ok: true, data };
-  }, [showError, showSuccess, queryClient, userSettings]);
+  }, [showError, showSuccess, queryClient]);
 
   const handleUpdatePOItem = useCallback(async (orderId, itemId, payload) => {
     const { data, error } = await apiUpdatePendingOrderItem(orderId, itemId, payload);

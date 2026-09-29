@@ -77,9 +77,10 @@ describe("parseTypedNumber", () => {
     expect(parseTypedNumber("abc", enUS)).toBeNull();
   });
 
-  it("treats 1.234 in de-DE as the decimal 1.234 (single dot is a decimal)", () => {
-    // D1: a single dot is a decimal
-    expect(parseTypedNumber("1.234", deDE)).toBe("1.234");
+  it("rejects 1.234 in de-DE as ambiguous (a thousand or a decimal)", () => {
+    expect(parseTypedNumber("1.234", deDE)).toBeNull();
+    expect(parseTypedNumber("1234", deDE)).toBe("1234");
+    expect(parseTypedNumber("1,234", deDE)).toBe("1.234");
   });
 
   it("preserves a canonical decimal reopened under de-DE", () => {

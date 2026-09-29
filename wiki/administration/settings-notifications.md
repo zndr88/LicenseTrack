@@ -24,6 +24,12 @@ Number formats are identified by their rendered pattern (`1,234.50`,
 personal number format as its default while allowing a per-file override for
 source data that uses another separator convention.
 
+Typed prices, quantities and totals follow the same format. Grouping is
+optional (`2443.00` and `2,443.00` are the same under `1,234.50`), but text in
+another format is refused with a message rather than changed. Under `1.234,50`
+and `1 234,50`, a single dot followed by exactly three digits, such as
+`1.234`, is ambiguous and refused: type `1234` or `1,234`.
+
 ## Session expiry
 
 Each login has an independently revocable session with server-enforced sliding

@@ -3,12 +3,8 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { CURRENCIES, LICENSE_METRICS, LICENSE_TYPES, SUPPLIER_CONTACT_HELP } from "../../constants/licenseData.js";
-import { formatPriceInput } from "../../utils/helpers.js";
-import { parseTypedNumber } from "../../utils/formatting.js";
-import {
-  canonicalizeQuantityInput,
-  formatQuantityInput,
-} from "../../utils/quantity.js";
+import { toInputText } from "../../utils/formatting.js";
+import NumberInput, { isValidNumberValue } from "../ui/NumberInput.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import Icon from "../ui/Icon.jsx";
@@ -32,7 +28,6 @@ import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js"
 import { buildMaintenanceCompanion } from "../../utils/maintenanceCompanion.js";
 import { useLicenseLines } from "../../hooks/useLicenseLines.js";
 import {
-  getSourcingItemInitialTotal,
   maintenanceCompanionToPayload,
   sourcingAdditionalLineToPayload,
   sourcingEditFormToPayload,
@@ -218,15 +213,6 @@ const SourcingItemModal = ({
 
 
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
-  const [displayQuantity, setDisplayQuantity] = useState(
-    formatQuantityInput(draftItem?.quantity, userSettings)
-  );
-  const [displayUnitPrice, setDisplayUnitPrice] = useState(
-    formatPriceInput(draftItem?.estimatedUnitPrice ?? "", locale)
-  );
-  const [displayTotalPrice, setDisplayTotalPrice] = useState(
-    formatPriceInput(getSourcingItemInitialTotal(draftItem), locale)
-  );
 
   const hasUnsavedChanges = isDirty || additionalLines.length > 0 || attachments.length > 0;
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({
@@ -264,25 +250,20 @@ const SourcingItemModal = ({
     if (!qtyStr && !unitStr) {
       setTotalManuallyEdited(false);
       setValue("estimatedTotalPrice", "", { shouldDirty: true });
-      setDisplayTotalPrice("");
       return;
     }
     if (totalManuallyEdited) return;
-    const qty = Number(parseTypedNumber(qtyStr, userSettings));
-    const unit = Number(parseTypedNumber(unitStr, userSettings));
-    if (!isNaN(qty) && !isNaN(unit)) {
-      const computed = (qty * unit).toFixed(2);
+    // Quantity and unit price are canonical values from NumberInput.
+    if (qtyStr && unitStr && isValidNumberValue(qtyStr) && isValidNumberValue(unitStr)) {
+      const computed = (Number(qtyStr) * Number(unitStr)).toFixed(2);
       setValue("estimatedTotalPrice", computed, { shouldDirty: true });
-      setDisplayTotalPrice(formatPriceInput(computed, locale));
     }
-  }, [quantity, estimatedUnitPrice, totalManuallyEdited, setValue, userSettings, locale]);
+  }, [quantity, estimatedUnitPrice, totalManuallyEdited, setValue]);
 
   useEffect(() => {
     if (!isFreewareLicenseType(licenseType)) return;
     setValue("estimatedUnitPrice", "", { shouldDirty: true });
     setValue("estimatedTotalPrice", "", { shouldDirty: true });
-    setDisplayUnitPrice("");
-    setDisplayTotalPrice("");
     setTotalManuallyEdited(false);
   }, [licenseType, setValue]);
 
@@ -294,10 +275,12 @@ const SourcingItemModal = ({
   const publisherVal = watch("publisherName");
   const softwareVal = watch("softwareDescription");
   const currentFields = watch();
+  const numbersValid = (values) => ["quantity", "quantityPerUnit", "estimatedUnitPrice", "estimatedTotalPrice", "maintenanceQuantity", "maintenanceUnitPrice", "maintenanceCost"].every((name) => isValidNumberValue(values[name]));
   const additionalLinesValid = additionalLines.every(
     (l) => (l.publisherName ?? "").trim() !== ""
       && (l.softwareDescription ?? "").trim() !== ""
       && !typeDescriptionMissing(l.licenseType, l.typeDescription)
+      && numbersValid(l)
   );
   const maintenanceLineAdded = additionalLines.some((line) => line.isMaintenanceCompanion);
   const addMaintenanceLine = () => {
@@ -326,14 +309,15 @@ const SourcingItemModal = ({
   const canSave =
     (publisherVal ?? "").trim() !== "" &&
     (softwareVal ?? "").trim() !== "" &&
+    numbersValid(watch()) &&
     additionalLinesValid;
 
   const showAutoLabel =
     !totalManuallyEdited &&
     (quantity ?? "").trim() !== "" &&
     (estimatedUnitPrice ?? "").trim() !== "" &&
-    parseTypedNumber(quantity, userSettings) !== null &&
-    parseTypedNumber(estimatedUnitPrice, userSettings) !== null;
+    isValidNumberValue(quantity) &&
+    isValidNumberValue(estimatedUnitPrice);
 
   const handleParseResult = (result) => {
     const items = result?.multiItems;
@@ -345,17 +329,14 @@ const SourcingItemModal = ({
     if (first.quantity != null) {
       const value = String(first.quantity);
       setValue("quantity", value, { shouldDirty: true });
-      setDisplayQuantity(formatQuantityInput(value, userSettings));
     }
     if (first.estimatedUnitPrice != null) {
       const uv = String(first.estimatedUnitPrice);
       setValue("estimatedUnitPrice", uv, { shouldDirty: true });
-      setDisplayUnitPrice(formatPriceInput(uv, locale));
     }
     if (first.estimatedTotalPrice != null) {
       const tv = String(first.estimatedTotalPrice);
       setValue("estimatedTotalPrice", tv, { shouldDirty: true });
-      setDisplayTotalPrice(formatPriceInput(tv, locale));
       setTotalManuallyEdited(true);
     }
     if (first.currency) setValue("currency", first.currency, { shouldDirty: true });
@@ -503,9 +484,9 @@ const SourcingItemModal = ({
               <div className="fr">
                 <div className="fg">
                   <label htmlFor="si-quantity">Purchase Quantity</label>
-                  <Controller name="quantity" control={control} render={({ field }) => <input id="si-quantity" className="fi" inputMode="decimal" placeholder="e.g. 25" value={displayQuantity} onChange={(event) => { const raw = event.target.value; const canonical = canonicalizeQuantityInput(raw, userSettings); setDisplayQuantity(raw); field.onChange(canonical ?? raw); }} onBlur={() => { const canonical = canonicalizeQuantityInput(field.value, userSettings); if (canonical != null) { field.onChange(canonical); setDisplayQuantity(formatQuantityInput(canonical, userSettings)); } field.onBlur(); }} />} />
+                  <Controller name="quantity" control={control} render={({ field }) => <NumberInput id="si-quantity" placeholder="e.g. 25" value={field.value ?? ""} settings={userSettings} onChange={field.onChange} onBlur={field.onBlur} />} />
                 </div>
-                <div className="fg"><label htmlFor="si-quantity-per-unit">Quantity per Unit</label><input id="si-quantity-per-unit" className="fi" inputMode="decimal" {...register("quantityPerUnit")} /></div>
+                <div className="fg"><label htmlFor="si-quantity-per-unit">Quantity per Unit</label><Controller name="quantityPerUnit" control={control} render={({ field }) => <NumberInput id="si-quantity-per-unit" value={field.value ?? ""} settings={userSettings} onChange={field.onChange} onBlur={field.onBlur} />} /></div>
                 <div className="fg"><label htmlFor="si-sku-code">SKU Code</label><input id="si-sku-code" className="fi" {...register("skuCode")} /></div>
               </div>
               <div className="fr">
@@ -514,8 +495,8 @@ const SourcingItemModal = ({
               </div>
               {!isFreewareLicenseType(licenseType) && (
                 <div className="fr">
-                  <div className="fg"><label htmlFor="si-unit-price">Est. Unit Price <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(excl. tax)</span></label><Controller name="estimatedUnitPrice" control={control} render={({ field }) => <input id="si-unit-price" className="fi" value={displayUnitPrice} onFocus={() => setDisplayUnitPrice(field.value)} onChange={(e) => { const raw = parseTypedNumber(e.target.value, userSettings) ?? e.target.value; setDisplayUnitPrice(e.target.value); field.onChange(raw); }} onBlur={() => { setDisplayUnitPrice(formatPriceInput(field.value, locale)); field.onBlur(); }} placeholder={`e.g. ${formatPriceInput("15.00", locale)}`} />} /></div>
-                  <div className="fg"><label htmlFor="si-total-price">Est. Line Total {showAutoLabel && <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(auto)</span>}</label><Controller name="estimatedTotalPrice" control={control} render={({ field }) => <input id="si-total-price" className="fi" value={displayTotalPrice} onFocus={() => setDisplayTotalPrice(field.value)} onChange={(e) => { const raw = parseTypedNumber(e.target.value, userSettings) ?? e.target.value; setTotalManuallyEdited(true); setDisplayTotalPrice(e.target.value); field.onChange(raw); }} onBlur={() => { setDisplayTotalPrice(formatPriceInput(field.value, locale)); field.onBlur(); }} placeholder={`e.g. ${formatPriceInput("4500.00", locale)}`} />} /><LineTotalMismatchHint quantity={quantity} unitPrice={estimatedUnitPrice} total={estimatedTotalPrice} currency={watch("currency")} settings={userSettings} /></div>
+                  <div className="fg"><label htmlFor="si-unit-price">Est. Unit Price <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(excl. tax)</span></label><Controller name="estimatedUnitPrice" control={control} render={({ field }) => <NumberInput id="si-unit-price" value={field.value ?? ""} settings={userSettings} minFractionDigits={2} onChange={field.onChange} onBlur={field.onBlur} placeholder={`e.g. ${toInputText("15.00", userSettings)}`} />} /></div>
+                  <div className="fg"><label htmlFor="si-total-price">Est. Line Total {showAutoLabel && <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 400 }}>(auto)</span>}</label><Controller name="estimatedTotalPrice" control={control} render={({ field }) => <NumberInput id="si-total-price" value={field.value ?? ""} settings={userSettings} minFractionDigits={2} onChange={(next) => { setTotalManuallyEdited(true); field.onChange(next); }} onBlur={field.onBlur} placeholder={`e.g. ${toInputText("4500.00", userSettings)}`} />} /><LineTotalMismatchHint quantity={quantity} unitPrice={estimatedUnitPrice} total={estimatedTotalPrice} currency={watch("currency")} settings={userSettings} /></div>
                 </div>
               )}
               {licenseType === "saas" && <div className="fg"><label htmlFor="si-portal-url">Portal URL</label><input id="si-portal-url" className="fi" {...register("portalUrl")} /></div>}
@@ -594,8 +575,8 @@ const SourcingItemModal = ({
                   showCoreDetails={false}
                   commercialSummary={<>
                     <div className="fr">
-                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-quantity`}>Purchase Quantity</label><input id={`sourcing-line-${line.id}-quantity`} className="fi" inputMode="decimal" value={line.quantity} onChange={(event) => updateAdditionalLine(line.id, "quantity", event.target.value)} placeholder="e.g. 10" /></div>
-                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-quantity-per-unit`}>Quantity per Unit</label><input id={`sourcing-line-${line.id}-quantity-per-unit`} className="fi" inputMode="decimal" value={line.quantityPerUnit} onChange={(event) => updateAdditionalLine(line.id, "quantityPerUnit", event.target.value)} /></div>
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-quantity`}>Purchase Quantity</label><NumberInput id={`sourcing-line-${line.id}-quantity`} value={line.quantity} settings={userSettings} onChange={(next) => updateAdditionalLine(line.id, "quantity", next)} placeholder="e.g. 10" /></div>
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-quantity-per-unit`}>Quantity per Unit</label><NumberInput id={`sourcing-line-${line.id}-quantity-per-unit`} value={line.quantityPerUnit} settings={userSettings} onChange={(next) => updateAdditionalLine(line.id, "quantityPerUnit", next)} /></div>
                       <div className="fg"><label htmlFor={`sourcing-line-${line.id}-sku`}>SKU Code</label><input id={`sourcing-line-${line.id}-sku`} className="fi" value={line.skuCode} onChange={(event) => updateAdditionalLine(line.id, "skuCode", event.target.value)} /></div>
                     </div>
                     <div className="fr">
@@ -603,8 +584,8 @@ const SourcingItemModal = ({
                       <div className="fg"><label htmlFor={`sourcing-line-${line.id}-currency`}>Currency</label><select id={`sourcing-line-${line.id}-currency`} className="fi fi-select" value={line.currency} onChange={(event) => updateAdditionalLine(line.id, "currency", event.target.value)}>{CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></div>
                     </div>
                     {!isFreewareLicenseType(line.licenseType) && <div className="fr">
-                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-unit-price`}>Est. Unit Price</label><input id={`sourcing-line-${line.id}-unit-price`} className="fi" inputMode="decimal" value={line.estimatedUnitPrice} onChange={(event) => updateAdditionalLine(line.id, "estimatedUnitPrice", event.target.value)} placeholder="Unit price" /></div>
-                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-total-price`}>Est. Line Total</label><input id={`sourcing-line-${line.id}-total-price`} className="fi" inputMode="decimal" value={line.estimatedTotalPrice} onChange={(event) => updateAdditionalLine(line.id, "estimatedTotalPrice", event.target.value)} placeholder="Total price" /><LineTotalMismatchHint quantity={line.quantity} unitPrice={line.estimatedUnitPrice} total={line.estimatedTotalPrice} currency={line.currency} settings={userSettings} /></div>
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-unit-price`}>Est. Unit Price</label><NumberInput id={`sourcing-line-${line.id}-unit-price`} value={line.estimatedUnitPrice} settings={userSettings} minFractionDigits={2} onChange={(next) => updateAdditionalLine(line.id, "estimatedUnitPrice", next)} placeholder="Unit price" /></div>
+                      <div className="fg"><label htmlFor={`sourcing-line-${line.id}-total-price`}>Est. Line Total</label><NumberInput id={`sourcing-line-${line.id}-total-price`} value={line.estimatedTotalPrice} settings={userSettings} minFractionDigits={2} onChange={(next) => updateAdditionalLine(line.id, "estimatedTotalPrice", next)} placeholder="Total price" /><LineTotalMismatchHint quantity={line.quantity} unitPrice={line.estimatedUnitPrice} total={line.estimatedTotalPrice} currency={line.currency} settings={userSettings} /></div>
                     </div>}
                     {line.licenseType === "saas" && <div className="fg"><label htmlFor={`sourcing-line-${line.id}-portal`}>Portal URL</label><input id={`sourcing-line-${line.id}-portal`} className="fi" value={line.portalUrl} onChange={(event) => updateAdditionalLine(line.id, "portalUrl", event.target.value)} /></div>}
                   </>}

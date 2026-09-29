@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  canonicalizePositiveQuantityInput,
-  canonicalizeQuantityInput,
   formatQuantity,
   formatQuantityInput,
   normalizeCanonicalQuantity,
+  positiveCanonicalQuantity,
   sumCanonicalQuantities,
 } from "../../utils/quantity.js";
+import { parseTypedNumber } from "../../utils/formatting.js";
 
 describe("quantity utilities", () => {
   const enUS = { numberFormatLocale: "en-US" };
@@ -22,20 +22,18 @@ describe("quantity utilities", () => {
     expect(formatQuantity("5.000", enUS)).toBe("5");
   });
 
-  it("canonicalizes and displays comma-decimal quantities", () => {
-    expect(canonicalizeQuantityInput("3,750", deDE)).toBe("3.75");
+  it("displays comma-decimal quantities", () => {
     expect(formatQuantity("3.75", deDE)).toBe("3,75");
   });
 
-  it("preserves the exact value of a canonicalized fractional override", () => {
-    expect(canonicalizePositiveQuantityInput("4.1250", enUS)).toBe("4.125");
-    expect(canonicalizePositiveQuantityInput("4,1250", deDE)).toBe("4.125");
+  it("preserves the exact value of a fractional override", () => {
+    expect(positiveCanonicalQuantity("4.1250")).toBe("4.125");
   });
 
   it.each(["", "invalid", "0", "0.0", "-1", "-0.25"])(
     "rejects non-positive or invalid final quantity %j",
     (value) => {
-      expect(canonicalizePositiveQuantityInput(value, enUS)).toBeNull();
+      expect(positiveCanonicalQuantity(value)).toBeNull();
     }
   );
 
@@ -50,7 +48,7 @@ describe("formatQuantityInput (#63)", () => {
 
   it("starts editable text from a value that reads back unchanged under D1", () => {
     for (const value of ["1000", "1500", "2.5", "1234567", "0.125", "3"]) {
-      expect(canonicalizeQuantityInput(formatQuantityInput(value, nlBE), nlBE)).toBe(value);
+      expect(parseTypedNumber(formatQuantityInput(value, nlBE), nlBE)).toBe(value);
     }
   });
 

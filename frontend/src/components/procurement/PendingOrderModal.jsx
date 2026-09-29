@@ -8,8 +8,8 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
 import Icon from "../ui/Icon.jsx";
 import PluginSlot from "../plugins/PluginSlot.jsx";
-import { formatPriceInput } from "../../utils/helpers.js";
-import { parseTypedNumber } from "../../utils/formatting.js";
+import { toInputText } from "../../utils/formatting.js";
+import NumberInput, { isValidNumberValue } from "../ui/NumberInput.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import LicenseDraftSupplementFields from "../licenses/LicenseDraftSupplementFields.jsx";
 import { useCustomFieldDefinitions } from "../../hooks/useCustomFieldDefinitions.js";
@@ -53,13 +53,19 @@ function commonOpenLineContact(order) {
   return contacts.length > 0 && contacts.every((contact) => contact === contacts[0]) ? contacts[0] : "";
 }
 
+// Line numbers are canonical (NumberInput), or the typed text while invalid.
+const ITEM_NUMBER_FIELDS = [
+  "quantity", "quantityPerUnit", "estimatedUnitPrice", "estimatedTotalPrice",
+  "maintenanceQuantity", "maintenanceUnitPrice", "maintenanceCost",
+];
+
 const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocument }) => {
   const isNewOrder = !order;
   const initialContact = commonOpenLineContact(order);
   const lineCurrencies = pendingOrderLineCurrencies(order);
   const orderCurrency = lineCurrencies.length === 1 ? lineCurrencies[0] : null;
   const locale = userSettings?.numberFormatLocale ?? "en-US";
-  const initialPoTotal = formatPriceInput(order?.poTotalOverride || "", locale);
+  const initialPoTotal = order?.poTotalOverride || "";
   const { definitions: customFieldDefs, loading: customFieldsLoading } = useCustomFieldDefinitions();
 
   const {
@@ -141,10 +147,6 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
       if (isNewOrder) {
         const normalizedItems = items.map((item) => ({
           ...item,
-          quantity: parseTypedNumber(item.quantity, userSettings) ?? item.quantity,
-          quantityPerUnit: parseTypedNumber(item.quantityPerUnit, userSettings) ?? item.quantityPerUnit,
-          estimatedUnitPrice: parseTypedNumber(item.estimatedUnitPrice, userSettings) ?? item.estimatedUnitPrice,
-          estimatedTotalPrice: parseTypedNumber(item.estimatedTotalPrice, userSettings) ?? item.estimatedTotalPrice,
           secondaryContacts: parseSecondaryContacts(item.secondaryContacts),
           customFieldValues: buildCustomFieldValuePayload(customFieldDefs, item.customFieldValues, userSettings),
         }));
@@ -158,9 +160,9 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
         const { contactEmail, poTotalOverride, ...orderData } = data;
         // Only send a contact when it was changed, so differing line contacts are kept otherwise.
         const contactUpdate = contactEmail.trim() !== initialContact ? { contactEmail: contactEmail.trim() } : {};
-        const poTotalText = poTotalOverride.trim();
-        const canonicalPoTotal = poTotalText ? parseTypedNumber(poTotalText, userSettings) : "";
-        if (canonicalPoTotal === null) {
+        // Canonical value from NumberInput, or the typed text while it's invalid.
+        const canonicalPoTotal = String(poTotalOverride ?? "").trim();
+        if (!isValidNumberValue(canonicalPoTotal)) {
           setError("poTotalOverride", { message: "Enter a valid amount." });
           return;
         }
@@ -193,7 +195,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
         footer={(
           <>
             <button className="btn btn-g" onClick={requestClose} disabled={saving}>Cancel</button>
-            <button className="btn btn-p" disabled={saving || (isNewOrder && items.some((line) => typeDescriptionMissing(line.licenseType, line.typeDescription)))} onClick={handleSubmit(onSubmit)}>
+            <button className="btn btn-p" disabled={saving || (isNewOrder && items.some((line) => typeDescriptionMissing(line.licenseType, line.typeDescription) || ITEM_NUMBER_FIELDS.some((field) => !isValidNumberValue(line[field]))))} onClick={handleSubmit(onSubmit)}>
               {saving ? "Saving..." : isNewOrder && items.filter((i) => i.publisherName.trim()).length > 0
                 ? `Save Pending Order + ${items.filter((i) => i.publisherName.trim()).length} Item${items.filter((i) => i.publisherName.trim()).length > 1 ? "s" : ""}`
                 : "Save"}
@@ -285,13 +287,21 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
           {!isNewOrder && (
             <div className="fg">
               <label htmlFor="po-total-override">PO total (manual){orderCurrency ? ` (${orderCurrency})` : ""}</label>
-              <input
-                id="po-total-override"
-                className="fi"
-                inputMode="decimal"
-                disabled={!orderCurrency && !order.poTotalOverride}
-                placeholder={orderCurrency ? `e.g. ${formatPriceInput("21000", locale)}` : ""}
-                {...register("poTotalOverride")}
+              <Controller
+                name="poTotalOverride"
+                control={control}
+                render={({ field }) => (
+                  <NumberInput
+                    id="po-total-override"
+                    value={field.value ?? ""}
+                    settings={userSettings}
+                    minFractionDigits={2}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    disabled={!orderCurrency && !order.poTotalOverride}
+                    placeholder={orderCurrency ? `e.g. ${toInputText("21000", userSettings)}` : ""}
+                  />
+                )}
               />
               {errors.poTotalOverride
                 ? <span className="field-error">{errors.poTotalOverride.message}</span>
@@ -360,8 +370,8 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
                     commercialSummary={(
                       <>
                         <div className="fr">
-                          <div className="fg"><label htmlFor={`pending-item-${item.id}-quantity`}>Purchase Quantity</label><input id={`pending-item-${item.id}-quantity`} className="fi" inputMode="decimal" placeholder="e.g. 10" value={item.quantity} onChange={(e) => updateItem(item.id, "quantity", e.target.value)} /></div>
-                          <div className="fg"><label htmlFor={`pending-item-${item.id}-quantity-per-unit`}>Quantity per Unit</label><input id={`pending-item-${item.id}-quantity-per-unit`} className="fi" inputMode="decimal" value={item.quantityPerUnit} onChange={(e) => updateItem(item.id, "quantityPerUnit", e.target.value)} /></div>
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-quantity`}>Purchase Quantity</label><NumberInput id={`pending-item-${item.id}-quantity`} placeholder="e.g. 10" value={item.quantity} settings={userSettings} onChange={(next) => updateItem(item.id, "quantity", next)} /></div>
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-quantity-per-unit`}>Quantity per Unit</label><NumberInput id={`pending-item-${item.id}-quantity-per-unit`} value={item.quantityPerUnit} settings={userSettings} onChange={(next) => updateItem(item.id, "quantityPerUnit", next)} /></div>
                           <div className="fg"><label htmlFor={`pending-item-${item.id}-sku`}>SKU Code</label><input id={`pending-item-${item.id}-sku`} className="fi" value={item.skuCode} onChange={(e) => updateItem(item.id, "skuCode", e.target.value)} /></div>
                         </div>
                         <div className="fr">
@@ -369,8 +379,8 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
                           <div className="fg"><label htmlFor={`pending-item-${item.id}-currency`}>Currency</label><select id={`pending-item-${item.id}-currency`} className="fi fi-select" value={item.currency} onChange={(e) => updateItem(item.id, "currency", e.target.value)}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
                         </div>
                         <div className="fr">
-                          <div className="fg"><label htmlFor={`pending-item-${item.id}-unit-price`}>Unit Price</label><input id={`pending-item-${item.id}-unit-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("500", locale)}`} value={item.estimatedUnitPrice} onChange={(e) => updateItem(item.id, "estimatedUnitPrice", e.target.value)} /></div>
-                          <div className="fg"><label htmlFor={`pending-item-${item.id}-total-price`}>Est. Line Total</label><input id={`pending-item-${item.id}-total-price`} className="fi" inputMode="decimal" placeholder={`e.g. ${formatPriceInput("5000", locale)}`} value={item.estimatedTotalPrice} onChange={(e) => updateItem(item.id, "estimatedTotalPrice", e.target.value)} /><LineTotalMismatchHint quantity={item.quantity} unitPrice={item.estimatedUnitPrice} total={item.estimatedTotalPrice} currency={item.currency} settings={userSettings} /></div>
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-unit-price`}>Unit Price</label><NumberInput id={`pending-item-${item.id}-unit-price`} placeholder={`e.g. ${toInputText("500", userSettings, { minFractionDigits: 2 })}`} value={item.estimatedUnitPrice} settings={userSettings} minFractionDigits={2} onChange={(next) => updateItem(item.id, "estimatedUnitPrice", next)} /></div>
+                          <div className="fg"><label htmlFor={`pending-item-${item.id}-total-price`}>Est. Line Total</label><NumberInput id={`pending-item-${item.id}-total-price`} placeholder={`e.g. ${toInputText("5000", userSettings, { minFractionDigits: 2 })}`} value={item.estimatedTotalPrice} settings={userSettings} minFractionDigits={2} onChange={(next) => updateItem(item.id, "estimatedTotalPrice", next)} /><LineTotalMismatchHint quantity={item.quantity} unitPrice={item.estimatedUnitPrice} total={item.estimatedTotalPrice} currency={item.currency} settings={userSettings} /></div>
                         </div>
                         {item.licenseType === "saas" && <div className="fg"><label htmlFor={`pending-item-${item.id}-portal`}>Portal URL</label><input id={`pending-item-${item.id}-portal`} className="fi" value={item.portalUrl} onChange={(event) => updateItem(item.id, "portalUrl", event.target.value)} /></div>}
                       </>

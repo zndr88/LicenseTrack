@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { parseTypedNumber } from "../utils/formatting.js";
+import { isValidNumberValue } from "../utils/formatting.js";
 import { buildMaintenanceCompanion } from "../utils/maintenanceCompanion.js";
 
 /**
@@ -16,7 +16,7 @@ import { buildMaintenanceCompanion } from "../utils/maintenanceCompanion.js";
  */
 export function useLicenseLines({
   emptyLine,
-  userSettings,
+  userSettings: _userSettings,
   priceFields = {},
   relationshipFields = ["costCentre", "budgetOwnerEmail", "secondaryContacts"],
   initialLines = [],
@@ -29,11 +29,12 @@ export function useLicenseLines({
     const qtyStr = String(line[qtyField] ?? "").trim();
     const unitStr = String(line[unitField] ?? "").trim();
     if (!qtyStr && !unitStr) return { ...line, [totalField]: "" };
-    const qty = Number(parseTypedNumber(qtyStr, userSettings));
-    const unit = Number(parseTypedNumber(unitStr, userSettings));
-    if (Number.isNaN(qty) || Number.isNaN(unit)) return line;
+    // Line numbers are canonical values from NumberInput.
+    if (!isValidNumberValue(qtyStr) || !isValidNumberValue(unitStr)) return line;
+    const qty = Number(qtyStr);
+    const unit = Number(unitStr);
     return { ...line, [totalField]: (qty * unit).toFixed(2) };
-  }, [qtyField, unitField, totalField, userSettings]);
+  }, [qtyField, unitField, totalField]);
 
   const addLine = useCallback(() => setLines((prev) => [...prev, emptyLine()]), [emptyLine]);
 

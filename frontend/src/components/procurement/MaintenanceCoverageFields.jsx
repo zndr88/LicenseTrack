@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { parseTypedNumber } from "../../utils/formatting.js";
+import { toInputText } from "../../utils/formatting.js";
+import NumberInput, { isValidNumberValue } from "../ui/NumberInput.jsx";
 import {
   defaultMaintenanceCoverageForLicenseType,
   isBundledIncludedSupport,
@@ -15,17 +16,10 @@ export function isFreewareLicenseType(licenseType) {
 
 export { supportsMaintenanceCoverage, supportsSeparateMaintenanceLine };
 
-function multiplyCanonical(left, right, locale) {
-  const settings = { numberFormatLocale: locale };
-  const quantity = parseTypedNumber(left, settings);
-  const unitPrice = parseTypedNumber(right, settings);
-  if (quantity === null || unitPrice === null) return "";
+// Quantity and unit price are canonical values from NumberInput.
+function multiplyCanonical(quantity, unitPrice) {
+  if (!quantity || !unitPrice || !isValidNumberValue(quantity) || !isValidNumberValue(unitPrice)) return "";
   return (Number(quantity) * Number(unitPrice)).toFixed(2);
-}
-
-function formatLocalizedPrice(value, locale) {
-  const canonical = parseTypedNumber(value, { numberFormatLocale: locale });
-  return formatPriceInput(canonical ?? value, locale);
 }
 
 export default function MaintenanceCoverageFields({
@@ -53,6 +47,7 @@ export default function MaintenanceCoverageFields({
   const canAddSeparateLine = supportsSeparateMaintenanceLine(licenseType);
   const coverageOptions = maintenanceCoverageOptionsForLicenseType(licenseType);
   const bundledIncludedSupport = isBundledIncludedSupport(licenseType, coverage);
+  const numberSettings = useMemo(() => ({ numberFormatLocale: locale }), [locale]);
 
   useEffect(() => {
     if (!supportsMaintenanceCoverage(licenseType) || coverage !== "separately_tracked" || canAddSeparateLine) return;
@@ -105,7 +100,7 @@ export default function MaintenanceCoverageFields({
   if (!supportsMaintenanceCoverage(licenseType)) return null;
 
   const updatePerUnitTotal = (quantity, unitPrice) => {
-    onChange("maintenanceCost", multiplyCanonical(quantity, unitPrice, locale));
+    onChange("maintenanceCost", multiplyCanonical(quantity, unitPrice));
   };
 
   return (
@@ -196,16 +191,13 @@ export default function MaintenanceCoverageFields({
               <label htmlFor={`${idPrefix}-maintenance-cost`}>
                 Total support cost <span style={{ fontWeight: 400, color: "var(--text-3)" }}>({currency}, coverage period)</span>
               </label>
-              <input
+              <NumberInput
                 id={`${idPrefix}-maintenance-cost`}
-                className="fi"
                 value={cost ?? ""}
-                onChange={(event) => onChange("maintenanceCost", event.target.value)}
-                onBlur={(event) => onChange(
-                  "maintenanceCost",
-                  formatLocalizedPrice(event.target.value, locale)
-                )}
-                placeholder={formatPriceInput("2500.00", locale)}
+                settings={numberSettings}
+                minFractionDigits={2}
+                onChange={(next) => onChange("maintenanceCost", next)}
+                placeholder={toInputText("2500.00", numberSettings)}
               />
             </div>
           ) : (
@@ -213,13 +205,13 @@ export default function MaintenanceCoverageFields({
               <div className="fr">
                 <div className="fg">
                   <label htmlFor={`${idPrefix}-maintenance-quantity`}>Covered quantity</label>
-                  <input
+                  <NumberInput
                     id={`${idPrefix}-maintenance-quantity`}
-                    className="fi"
                     value={supportQuantity ?? ""}
-                    onChange={(event) => {
-                      onChange("maintenanceQuantity", event.target.value);
-                      updatePerUnitTotal(event.target.value, supportUnitPrice);
+                    settings={numberSettings}
+                    onChange={(next) => {
+                      onChange("maintenanceQuantity", next);
+                      updatePerUnitTotal(next, supportUnitPrice);
                     }}
                   />
                 </div>
@@ -227,19 +219,16 @@ export default function MaintenanceCoverageFields({
                   <label htmlFor={`${idPrefix}-maintenance-unit-price`}>
                     Support unit price <span style={{ fontWeight: 400, color: "var(--text-3)" }}>({currency})</span>
                   </label>
-                  <input
+                  <NumberInput
                     id={`${idPrefix}-maintenance-unit-price`}
-                    className="fi"
                     value={supportUnitPrice ?? ""}
-                    onChange={(event) => {
-                      onChange("maintenanceUnitPrice", event.target.value);
-                      updatePerUnitTotal(supportQuantity, event.target.value);
+                    settings={numberSettings}
+                    minFractionDigits={2}
+                    onChange={(next) => {
+                      onChange("maintenanceUnitPrice", next);
+                      updatePerUnitTotal(supportQuantity, next);
                     }}
-                    onBlur={(event) => onChange(
-                      "maintenanceUnitPrice",
-                      formatLocalizedPrice(event.target.value, locale)
-                    )}
-                    placeholder={formatPriceInput("250.00", locale)}
+                    placeholder={toInputText("250.00", numberSettings)}
                   />
                 </div>
               </div>

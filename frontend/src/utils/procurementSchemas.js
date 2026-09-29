@@ -4,7 +4,7 @@
  */
 import { z } from "zod";
 import { CURRENCIES, LICENSE_TYPES } from "../constants/licenseData.js";
-import { parseTypedNumber } from "./formatting.js";
+import { isValidNumberValue } from "./formatting.js";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "./licenseTypeRules.js";
 
 const optionalEmail = z.string().refine(
@@ -78,9 +78,11 @@ export const licenseFormSchema = z.object({
   }
 });
 
-const sourcingRequestLineSchema = (settings) => {
+const sourcingRequestLineSchema = (_settings) => {
+  // Line numbers are canonical values from NumberInput, which also explains
+  // invalid input next to the field.
   const optionalNumber = z.string().refine(
-    (value) => !value || parseTypedNumber(value, settings) !== null,
+    (value) => isValidNumberValue(value),
     { message: "Enter a valid number." },
   );
   return z.object({

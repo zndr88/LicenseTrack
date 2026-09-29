@@ -3,6 +3,7 @@ import CustomFieldFormSection, { CustomFieldPlacement } from "./CustomFieldFormS
 import LicenseFormSection from "./LicenseFormSection.jsx";
 import ContactCombobox from "../ui/ContactCombobox.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import NumberInput from "../ui/NumberInput.jsx";
 
 export default function LicenseDraftSupplementFields({
   item, onChange, idPrefix, customFieldDefs = [], customFieldsLoading = false, sectioned = false,
@@ -21,7 +22,7 @@ export default function LicenseDraftSupplementFields({
     </div>
     {item.licenseType === "saas" && <div className="fg"><label htmlFor={`${idPrefix}-portal`}>Portal URL</label><input id={`${idPrefix}-portal`} className="fi" {...field("portalUrl")} /></div>}
     <div className="fr">
-      <div className="fg"><label htmlFor={`${idPrefix}-quantity-per-unit`}>Quantity per Unit</label><input id={`${idPrefix}-quantity-per-unit`} className="fi" inputMode="decimal" {...field("quantityPerUnit")} /></div>
+      <div className="fg"><label htmlFor={`${idPrefix}-quantity-per-unit`}>Quantity per Unit</label><NumberInput id={`${idPrefix}-quantity-per-unit`} value={item.quantityPerUnit ?? ""} onChange={(next) => onChange("quantityPerUnit", next)} /></div>
       <div className="fg"><label htmlFor={`${idPrefix}-sku`}>SKU Code</label><input id={`${idPrefix}-sku`} className="fi" {...field("skuCode")} /></div>
     </div>
   </>;

@@ -5,10 +5,9 @@ import {
   updateSourcingItem as apiUpdateSourcingItem,
 } from "../../../api/sourcing.js";
 import {
-  canonicalizePositiveQuantityInput,
   formatQuantity,
-  formatQuantityInput,
   normalizeCanonicalQuantity,
+  positiveCanonicalQuantity,
   sumCanonicalQuantities,
 } from "../../../utils/quantity.js";
 
@@ -63,7 +62,8 @@ export function useSourcingMerge({ sourcingItems, licenses, queryClient, showToa
 
   const openMergeModal = () => {
     if (!mergeEligible) return;
-    setMergeQuantity(formatQuantityInput(computedMergeQty, userSettings));
+    // Canonical; NumberInput shows it in the user's number format.
+    setMergeQuantity(computedMergeQty ?? "");
     setShowMergeModal(true);
   };
 
@@ -72,7 +72,7 @@ export function useSourcingMerge({ sourcingItems, licenses, queryClient, showToa
   };
 
   const handleMerge = useCallback(async () => {
-    const finalQty = canonicalizePositiveQuantityInput(mergeQuantity, userSettings);
+    const finalQty = positiveCanonicalQuantity(mergeQuantity);
     if (finalQty == null) {
       showToast("Enter a valid final quantity greater than zero.", "error");
       return;

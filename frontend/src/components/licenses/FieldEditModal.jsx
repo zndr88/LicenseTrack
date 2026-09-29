@@ -3,8 +3,7 @@ import { patchLicenseField } from "../../api/licenses.js";
 import ModalShell from "../ui/ModalShell.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
-import { formatPriceInput } from "../../utils/helpers.js";
-import { parseTypedNumber } from "../../utils/formatting.js";
+import NumberInput, { isValidNumberValue } from "../ui/NumberInput.jsx";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import ContactCombobox from "../ui/ContactCombobox.jsx";
 
@@ -19,6 +18,7 @@ import ContactCombobox from "../ui/ContactCombobox.jsx";
  *   inputType     {string} - "text" | "date" | "email" | "number" | "textarea" | "select"
  *   selectOptions {Array} - [{value, label}] required when inputType="select"
  *   hint          {string} - optional helper text shown under a select
+ *   numeric       {boolean} - edit as a number (for example a custom currency field)
  *   onSave        {Function(updatedLicense)} - called on successful save
  *   onClose       {Function} - called to dismiss modal
  */
@@ -38,9 +38,10 @@ export default function FieldEditModal({
   onClose,
   onSaveFn,
   userSettings,
+  numeric = false,
 }) {
-  const isPriceField = PRICE_FIELD_KEYS.includes(fieldKey);
-  const isNumericField = NUMERIC_FIELD_KEYS.includes(fieldKey);
+  const isPriceField = PRICE_FIELD_KEYS.includes(fieldKey) || numeric;
+  const isNumericField = NUMERIC_FIELD_KEYS.includes(fieldKey) || numeric;
   const referenceMode = fieldKey === "publisherName"
     ? "publisher"
     : fieldKey === "supplier"
@@ -48,8 +49,9 @@ export default function FieldEditModal({
       : fieldKey === "costCentre"
         ? "costCentre"
         : null;
-  const locale = userSettings?.numberFormatLocale ?? "en-US";
-  const initialValue = isPriceField ? formatPriceInput(currentValue ?? "", locale) : (currentValue ?? "");
+  // Numeric fields hold the stored (canonical) value; NumberInput shows it in
+  // the user's number format and reads what they type.
+  const initialValue = currentValue ?? "";
   const [value, setValue] = useState(initialValue);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -58,11 +60,13 @@ export default function FieldEditModal({
   const { showDiscardDialog, setShowDiscardDialog, requestClose } = useModalGuard({ isDirty, onClose });
 
   const handleSave = async () => {
+    if (isNumericField && !isValidNumberValue(value)) {
+      setError("Fix the number above before saving.");
+      return;
+    }
     setSaving(true);
     setError(null);
-    const saveValue = isNumericField
-      ? (parseTypedNumber(value, userSettings) ?? "")
-      : value;
+    const saveValue = value;
     const { data, error: apiError } = onSaveFn
       ? await onSaveFn(saveValue)
       : await patchLicenseField(licenseId, fieldKey, saveValue);
@@ -146,6 +150,16 @@ export default function FieldEditModal({
               onKeyDown={handleKeyDown}
               autoFocus
             />
+          ) : isNumericField ? (
+            <NumberInput
+              id="field-edit-value"
+              value={value}
+              onChange={setValue}
+              settings={userSettings}
+              minFractionDigits={isPriceField ? 2 : 0}
+              onKeyDown={handleKeyDown}
+              autoFocus
+            />
           ) : (
             <input
               id="field-edit-value"
@@ -153,7 +167,6 @@ export default function FieldEditModal({
               type={inputType}
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              onBlur={isPriceField ? () => setValue(formatPriceInput(value, locale)) : undefined}
               onKeyDown={handleKeyDown}
               autoFocus
             />

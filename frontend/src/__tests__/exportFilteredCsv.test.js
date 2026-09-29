@@ -13,6 +13,7 @@ URL.revokeObjectURL = vi.fn()
 
 import { exportFilteredCsv } from '../components/pages/LicensesPage.jsx'
 import { STABLE_EXPORT_FIELD_NAMES } from '../components/pages/licenses/exportFilteredCsv.js'
+import { parseTypedNumber } from '../utils/formatting.js'
 
 const EXPECTED_STABLE_EXPORT_FIELD_NAMES = {
   recordId: 'license_record_id',
@@ -102,6 +103,22 @@ afterEach(() => {
 
 function csvLines() {
   return capturedCsvContent.replace(/^\ufeff/, '').split(/\r?\n/)
+}
+
+// Splits one CSV line on commas outside double quotes.
+function parseCsvLine(line) {
+  const cells = []
+  let cell = ''
+  let quoted = false
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i]
+    if (quoted && char === '"' && line[i + 1] === '"') { cell += '"'; i += 1 }
+    else if (char === '"') quoted = !quoted
+    else if (char === ',' && !quoted) { cells.push(cell); cell = '' }
+    else cell += char
+  }
+  cells.push(cell)
+  return cells
 }
 
 describe('exportFilteredCsv', () => {
@@ -355,6 +372,22 @@ describe('exportFilteredCsv', () => {
     // nl-BE uses comma as decimal separator
     expect(lines[1]).toBe('"100,00"')
   })
+
+  it.each(['nl-BE', 'de-DE', 'de-CH', 'fr-FR', 'en-US'])(
+    'localized %s numbers import back with the same number format',
+    (numberFormatLocale) => {
+      const row = makeRow({ quantity: '1000', unitPrice: '1234.5', maintenanceQuantity: '12500' })
+      const cols = [
+        { key: 'quantity', label: 'Quantity' },
+        { key: 'unitPrice', label: 'Unit Price' },
+        { key: 'maintenanceQuantity', label: 'Maintenance Quantity' },
+      ]
+      const settings = { numberFormatLocale }
+      exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map(), { localized: true, userSettings: settings })
+      const cells = parseCsvLine(csvLines()[1])
+      expect(cells.map((cell) => parseTypedNumber(cell, settings))).toEqual(['1000', '1234.50', '12500'])
+    },
+  )
 
   it('custom field column returns valueText from customFieldValuesMap', () => {
     const cfDef = { id: 1, fieldType: 'text' }

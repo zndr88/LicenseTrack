@@ -1,16 +1,18 @@
 /**
  * Locale-aware formatting utilities.
  *
- * parseTypedNumber - converts number text typed by the user (any locale) to
- *   a canonical decimal string ("1234.50") or null.
+ * parseTypedNumberResult / parseTypedNumber - read number text TYPED BY THE
+ *   USER in their number format, exactly once (in NumberInput). They use the
+ *   same rules and separators as the backend's parse_localized_money; both
+ *   run backend/tests/fixtures/number_parsing_cases.json.
  * toInputText - formats a canonical value as editable text in the user's
- *   locale, keeping every decimal.
+ *   number format, keeping every decimal.
  *
  * All other functions are display-only - they produce human-readable strings
  * from canonical server values.
  */
 
-// Locale separator detection
+import numberFormats from "../generated/numberFormats.json";
 
 function getSupportedLocale(locale) {
   try {
@@ -21,77 +23,118 @@ function getSupportedLocale(locale) {
   }
 }
 
-function getDecimalSep(locale) {
-  const parts = new Intl.NumberFormat(getSupportedLocale(locale)).formatToParts(1.1);
-  const dec = parts.find((p) => p.type === "decimal");
-  return dec ? dec.value : ".";
+// Separators come from the backend's table (generated file), not from the
+// browser's locale data, which varies between browsers and versions.
+function separatorsFor(settings) {
+  const locale = settings?.numberFormatLocale || "en-US";
+  const entry = numberFormats.separators[locale] ?? numberFormats.separators["en-US"];
+  return { decimal: entry.decimal, group: entry.group };
 }
-
-function getGroupSep(locale) {
-  const parts = new Intl.NumberFormat(getSupportedLocale(locale)).formatToParts(1000);
-  const grp = parts.find((p) => p.type === "group");
-  return grp ? grp.value : "";
-}
-
-// parseTypedNumber / toInputText
 
 const CANONICAL_NUMBER = /^-?\d+(\.\d+)?$/;
+const WHITESPACE = /[\s\u00a0\u202f\u2009]/g;
+const IS_WHITESPACE = /^[\s\u00a0\u202f\u2009]$/;
+// A single dot group ("1.234") under a dot-grouping, comma-decimal format.
+const AMBIGUOUS_DOT = /^-?[1-9]\d{0,2}\.\d{3}$/;
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function stripCurrency(text) {
+  let value = text.trim();
+  const symbols = numberFormats.currencySymbols;
+  if (value && symbols.includes(value[0])) value = value.slice(1).trim();
+  if (value && symbols.includes(value[value.length - 1])) value = value.slice(0, -1).trim();
+  const words = value.split(/\s+/);
+  if (words.length > 1 && numberFormats.currencyCodes.includes(words[0].toUpperCase())) value = words.slice(1).join(" ");
+  const tail = value.split(/\s+/);
+  if (tail.length > 1 && numberFormats.currencyCodes.includes(tail[tail.length - 1].toUpperCase())) {
+    value = tail.slice(0, -1).join(" ");
+  }
+  return value;
+}
 
 /**
- * Convert number text TYPED BY THE USER (in their locale) to a canonical
- * decimal string ("1234.50") or null.
+ * Read number text TYPED BY THE USER in their number format.
  *
- * Only pass user-typed text. Values from the server are already canonical:
- * display them with toInputText() and never re-parse them. As a safety net,
- * canonical input is returned unchanged, so parsing twice is harmless.
+ * Returns { value, error }:
+ * - value: canonical decimal string ("1234.50"), or null for blank or rejected input;
+ * - error: null, "invalid" (doesn't match the number format) or "ambiguous"
+ *   ("1.234" under a dot-grouping, comma-decimal format).
  *
- * @param {string|null|undefined} raw - User input
+ * Only NumberInput (and user-typed filters) should call this. Stored values
+ * are already canonical: never re-read them as typed text.
+ *
+ * @param {string|null|undefined} raw
  * @param {object} [settings] - { numberFormatLocale?: string }
- * @returns {string|null}
+ * @returns {{ value: string|null, error: null|"invalid"|"ambiguous" }}
+ */
+export function parseTypedNumberResult(raw, settings) {
+  if (raw == null) return { value: null, error: null };
+  const text = stripCurrency(String(raw)).replace(WHITESPACE, "");
+  if (!text) return { value: null, error: null };
+  const { decimal, group: rawGroup } = separatorsFor(settings);
+  const group = rawGroup && !IS_WHITESPACE.test(rawGroup) ? rawGroup : null;
+
+  if (CANONICAL_NUMBER.test(text)) {
+    if (decimal !== "." && group === "." && AMBIGUOUS_DOT.test(text)) return { value: null, error: "ambiguous" };
+    return { value: text, error: null };
+  }
+  const dec = escapeRegExp(decimal);
+  const plain = new RegExp(`^-?\\d+(${dec}\\d+)?$`);
+  const grouped = group ? new RegExp(`^-?\\d{1,3}(${escapeRegExp(group)}\\d{3})+(${dec}\\d+)?$`) : null;
+  if (plain.test(text) || (grouped && grouped.test(text))) {
+    const canonical = (group ? text.split(group).join("") : text).split(decimal).join(".");
+    if (CANONICAL_NUMBER.test(canonical)) return { value: canonical, error: null };
+  }
+  return { value: null, error: "invalid" };
+}
+
+/** Whether a value held by a form is a stored (canonical) number, or blank. */
+export function isValidNumberValue(value) {
+  return value === null || value === undefined || value === "" || CANONICAL_NUMBER.test(String(value).trim());
+}
+
+/**
+ * Canonical value of typed text, or null when blank or rejected.
+ * Prefer parseTypedNumberResult where the reason matters.
  */
 export function parseTypedNumber(raw, settings) {
-  if (raw == null || raw === "") return null;
-  const str = String(raw).trim();
-  if (!str) return null;
+  return parseTypedNumberResult(raw, settings).value;
+}
 
-  const locale = getSupportedLocale(settings?.numberFormatLocale || "en-US");
-  const decSep = getDecimalSep(locale);
-  const grpSep = getGroupSep(locale);
+/**
+ * A short example of the user's number format ("1.234,56"), for messages.
+ */
+export function numberFormatExample(settings) {
+  return toInputText("1234.56", settings);
+}
 
-  let s = str.replace(/\p{Sc}/gu, "").trim();
-  const compact = s.replace(/[\u00a0\u202f\s]/g, "");
-
-  // Decision D1: in comma-decimal locales, a single dot with no comma is a
-  // decimal point (a canonical value or a dot typed as decimal), never a
-  // thousands group. Grouped input has two or more groups ("1.234.567") or a
-  // decimal part ("1.234,5").
-  if (decSep !== "." && !compact.includes(decSep) && /^-?\d+\.\d+$/.test(compact)) {
-    return compact;
+/**
+ * The message for typed text that parseTypedNumberResult refused.
+ *
+ * @param {"invalid"|"ambiguous"} error
+ * @param {string} text - what the user typed
+ * @param {object} [settings] - { numberFormatLocale?: string }
+ */
+export function numberInputErrorMessage(error, text, settings) {
+  if (error === "ambiguous") {
+    const digits = text.replace(/[^\d-]/g, "");
+    const asDecimal = toInputText(text.replace(/[^\d.-]/g, ""), settings);
+    return `"${text.trim()}" is ambiguous in your number format. Type ${digits} for a whole number, or ${asDecimal} for a decimal.`;
   }
+  return `Not a valid number in your number format (for example ${numberFormatExample(settings)}).`;
+}
 
-  const hasLocaleDecimal = decSep !== "." && s.includes(decSep);
-  if (grpSep) {
-    const esc = grpSep.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const decEsc = decSep.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const groupingPattern = new RegExp(`^-?\\d{1,3}(${esc}\\d{3})+(${decEsc}\\d+)?$`);
-    if (hasLocaleDecimal || groupingPattern.test(s)) {
-      s = s.replace(new RegExp(esc, "g"), "");
-    }
-  }
-  // Also strip all whitespace-like group separators (space, NBSP, NNBSP)
-  s = s.replace(/[\u00a0\u202f\s]/g, "");
-  // Normalise the decimal separator to "."; a malformed string with several
-  // decimal separators is rejected by the canonical check below.
-  if (decSep !== ".") {
-    s = s.replaceAll(decSep, ".");
-  }
-  if (!CANONICAL_NUMBER.test(s)) return null;
-  return s;
+/** True when two canonical numbers (or blanks) are the same number. */
+export function sameNumberValue(a, b) {
+  const left = String(a ?? "").trim();
+  const right = String(b ?? "").trim();
+  if (!left || !right) return left === right;
+  return Number(left) === Number(right);
 }
 
 /**
  * Format a CANONICAL number ("1234.567") as editable text in the user's
- * locale ("1.234,567"), keeping every decimal. Non-canonical text is
+ * number format ("1.234,567"), keeping every decimal. Non-canonical text is
  * returned unchanged.
  *
  * @param {string|number|null|undefined} value
@@ -103,17 +146,16 @@ export function toInputText(value, settings, { minFractionDigits = 0 } = {}) {
   if (value === null || value === undefined || value === "") return "";
   const raw = String(value).trim();
   if (!CANONICAL_NUMBER.test(raw)) return raw;
-  const locale = getSupportedLocale(settings?.numberFormatLocale || "en-US");
+  const { decimal, group } = separatorsFor(settings);
   const negative = raw.startsWith("-");
   const [intPart, fracPart = ""] = (negative ? raw.slice(1) : raw).split(".");
   const fraction = fracPart.padEnd(minFractionDigits, "0");
-  const grpSep = getGroupSep(locale);
-  const decimalPart = fraction ? getDecimalSep(locale) + fraction : "";
+  const decimalPart = fraction ? decimal + fraction : "";
   const sign = negative ? "-" : "";
-  const grouped = grpSep ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, grpSep) : intPart;
+  const grouped = group ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, group) : intPart;
   const text = `${sign}${grouped}${decimalPart}`;
-  // Decision D1 reads a single dot group with no decimal part ("1.000") as a
-  // decimal, so leave the grouping out when it would not read back the same.
+  // Leave the grouping out when it wouldn't read back as the same number
+  // (for example "1.000" is ambiguous under de-DE).
   const expected = `${sign}${intPart}${fraction ? `.${fraction}` : ""}`;
   if (grouped !== intPart && parseTypedNumber(text, settings) !== expected) {
     return `${sign}${intPart}${decimalPart}`;
