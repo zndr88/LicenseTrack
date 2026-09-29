@@ -61,8 +61,11 @@ npm run lint
 npm run test:run
 npm run test:coverage
 npm run test:e2e
+npm run test:e2e:real
 npm run build
 ```
+
+`npm run test:e2e:real` starts a throwaway backend (fresh SQLite database, strict request fields) and the Vite dev server, then runs the real-backend suite in `frontend/tests/real-backend/`. It needs Python 3.12 with the backend requirements installed (set `E2E_PYTHON` to use another interpreter). Test credentials are generated on every run and are never stored.
 
 Before release, also refresh dependency checks from the current manifests:
 

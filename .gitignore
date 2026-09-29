@@ -38,3 +38,5 @@ backend/plugins/
 
 backend/.venv/
 backend/licenses.db-journal
+
+frontend/tests/real-backend/.auth/

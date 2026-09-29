@@ -82,6 +82,7 @@ literal value (a set of statuses, a list of fields), a guard test built on
 | ID | Rule | Owner | Guard | Status |
 |---|---|---|---|---|
 | API-1 | No request field is silently dropped: unknown fields are logged, and rejected when `STRICT_REQUEST_FIELDS` is on (always in tests). | `backend/app/schemas/request_base.py::RequestModel` | `backend/tests/test_unit/test_request_models_use_base.py` | holds |
+| API-2 | The core write paths (add, edit, procurement conversion, maintenance renewal, CSV round trip) are tested end to end against a real backend with strict request fields. | `frontend/tests/real-backend/` | CI job `real-backend-e2e` | holds |
 
 ## Notifications
 
