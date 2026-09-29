@@ -28,6 +28,7 @@ from app.services.lifecycle_rules import clear_pending_renewal_if_current
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.money import MoneyParseError, parse_money
 from app.services.license_service import normalise_type_opt_in_fields
+from app.services.pending_order_state import ensure_pending_order_editable, lock_open_pending_order
 from app.services.po_total_override_service import assert_line_currency_fits_pending_order
 from app.services.planned_successor_service import require_no_planned_links
 from app.services.procurement_totals import apply_included_support_defaults, procurement_line_total
@@ -1350,6 +1351,10 @@ async def _resolve_conversion_order(
         order = await db.get(PendingOrder, pending_order_id)
         if order is None:
             raise ValueError("Pending order not found")
+        ensure_pending_order_editable(order, action="add lines to")
+        await lock_open_pending_order(
+            db, order, closed_detail=f"Cannot add lines to a {order.status.value} order"
+        )
         order_supplier = clean_procurement_identity(order.supplier)
         if order_supplier is None:
             raise HTTPException(status_code=422, detail="The selected pending order must have a supplier")
