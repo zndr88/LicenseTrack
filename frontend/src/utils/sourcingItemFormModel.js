@@ -1,12 +1,13 @@
 import { buildCustomFieldValuePayload, customFieldValueMap } from "./customFieldFormValues.js";
-import { parseTypedNumber } from "./formatting.js";
 import { defaultMaintenanceCoverageForLicenseType, supportsMaintenanceCoverage } from "./maintenanceCoverage.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "./secondaryContacts.js";
 import { resolveLineBudgetOwner } from "./renewalLineDefaults.js";
 import { typeOptInPayload } from "./licenseTypeRules.js";
 
-function normalizeOptionalNumber(value, settings) {
-  return (parseTypedNumber(value, settings) ?? value) || null;
+// Form numbers are canonical (NumberInput); never re-read them as typed text.
+function normalizeOptionalNumber(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
 }
 
 export function getSourcingItemInitialTotal(item) {
@@ -161,13 +162,9 @@ export function sourcingEditFormToPayload(data, customFieldDefs, userSettings) {
     ...data,
     customFieldValues: buildCustomFieldValuePayload(customFieldDefs, data.customFieldValues, userSettings),
     secondaryContacts: parseSecondaryContacts(data.secondaryContacts),
-    quantity: parseTypedNumber(data.quantity, userSettings) ?? data.quantity,
-    estimatedUnitPrice: isFreeware
-      ? null
-      : parseTypedNumber(data.estimatedUnitPrice, userSettings) ?? data.estimatedUnitPrice,
-    estimatedTotalPrice: isFreeware
-      ? null
-      : parseTypedNumber(data.estimatedTotalPrice, userSettings) ?? data.estimatedTotalPrice,
+    quantity: data.quantity,
+    estimatedUnitPrice: isFreeware ? null : data.estimatedUnitPrice,
+    estimatedTotalPrice: isFreeware ? null : data.estimatedTotalPrice,
     maintenanceQuantity: normalizeOptionalNumber(data.maintenanceQuantity, userSettings),
     maintenanceUnitPrice: normalizeOptionalNumber(data.maintenanceUnitPrice, userSettings),
     maintenanceCost: normalizeOptionalNumber(data.maintenanceCost, userSettings),

@@ -53,6 +53,8 @@ describe("sourcing item API-to-form normalization", () => {
 });
 
 describe("sourcing item form-to-API normalization", () => {
+  // Forms hold canonical numbers (NumberInput already read what was typed), so
+  // the builders pass them through unchanged whatever the number format.
   const settings = { numberFormatLocale: "de-DE" };
   const customFieldDefs = [{ id: 7, fieldType: "currency" }];
 
@@ -64,12 +66,12 @@ describe("sourcing item form-to-API normalization", () => {
       licenseMetric: "per_user",
       portalUrl: "https://stale.example",
       maintenanceCoverage: "included",
-      quantity: "1.234,5",
+      quantity: "1234.5",
       quantityPerUnit: "",
-      estimatedUnitPrice: "25,00",
-      estimatedTotalPrice: "50,00",
+      estimatedUnitPrice: "25.00",
+      estimatedTotalPrice: "50.00",
       secondaryContacts: "one@example.com; two@example.com",
-      customFieldValues: { 7: "12,50" },
+      customFieldValues: { 7: "12.50" },
     }, customFieldDefs, settings)).toMatchObject({
       licenseType: "freeware",
       portalUrl: null,
@@ -91,10 +93,10 @@ describe("sourcing item form-to-API normalization", () => {
       softwareDescription: "Suite",
       licenseType: "saas",
       portalUrl: "https://portal.example",
-      quantity: "2,5",
+      quantity: "2.5",
       quantityPerUnit: "1",
-      estimatedUnitPrice: "10,00",
-      estimatedTotalPrice: "25,00",
+      estimatedUnitPrice: "10.00",
+      estimatedTotalPrice: "25.00",
       secondaryContacts: "owner@example.com",
       customFieldValues: {},
       parentItemIndex: 0,
@@ -111,12 +113,12 @@ describe("sourcing item form-to-API normalization", () => {
     expect(sourcingEditFormToPayload({
       id: 42,
       licenseType: "subscription",
-      quantity: "2,5",
-      estimatedUnitPrice: "10,00",
-      estimatedTotalPrice: "25,00",
-      maintenanceQuantity: "1,5",
-      maintenanceUnitPrice: "2,00",
-      maintenanceCost: "3,00",
+      quantity: "2.5",
+      estimatedUnitPrice: "10.00",
+      estimatedTotalPrice: "25.00",
+      maintenanceQuantity: "1.5",
+      maintenanceUnitPrice: "2.00",
+      maintenanceCost: "3.00",
       secondaryContacts: "owner@example.com",
       customFieldValues: {},
     }, [], settings)).toMatchObject({
@@ -136,8 +138,8 @@ describe("sourcing item form-to-API normalization", () => {
       publisherName: "Acme",
       softwareDescription: "Support",
       quantity: "1",
-      estimatedUnitPrice: "12,50",
-      estimatedTotalPrice: "12,50",
+      estimatedUnitPrice: "12.50",
+      estimatedTotalPrice: "12.50",
       currency: "EUR",
     }, 42, settings)).toMatchObject({
       licenseType: "maintenance",

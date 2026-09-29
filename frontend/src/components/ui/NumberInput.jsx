@@ -1,12 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { useNumberFormatSettings } from "./NumberFormatContext.js";
 import { numberFormatExample, parseTypedNumberResult, toInputText } from "../../utils/formatting.js";
 
-const CANONICAL_NUMBER = /^-?\d+(\.\d+)?$/;
+export { isValidNumberValue } from "../../utils/formatting.js";
 
-/** Whether a value held by a form is a valid stored number (or blank). */
-export function isValidNumberValue(value) {
-  return value === null || value === undefined || value === "" || CANONICAL_NUMBER.test(String(value).trim());
-}
+const DEFAULT_SETTINGS = { numberFormatLocale: "en-US" };
 
 function errorMessage(error, text, settings) {
   if (error === "ambiguous") {
@@ -31,13 +29,15 @@ function errorMessage(error, text, settings) {
 export default function NumberInput({
   value,
   onChange,
-  settings,
+  settings: settingsProp,
   minFractionDigits = 0,
   className = "fi",
   onBlur,
   describedBy,
   ...inputProps
 }) {
+  const contextSettings = useNumberFormatSettings();
+  const settings = settingsProp ?? contextSettings ?? DEFAULT_SETTINGS;
   const [text, setText] = useState(() => toInputText(value ?? "", settings, { minFractionDigits }));
   const [error, setError] = useState(null);
   const [showError, setShowError] = useState(false);

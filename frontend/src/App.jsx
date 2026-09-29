@@ -68,6 +68,7 @@ import { useAppSettings } from "./hooks/useAppSettings.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { useLicenseCreation } from "./hooks/useLicenseCreation.js";
 import { useToast } from "./hooks/useToast.js";
+import { NumberFormatContext } from "./components/ui/NumberFormatContext.js";
 
 const DEFAULT_SIDEBAR_STATS = { active: 0, upcoming: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 };
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
@@ -86,6 +87,10 @@ export default function App() {
     handleSettingsDiscard,
     handleToggleSidebar,
   } = useAppSettings({ showError });
+  const numberFormatSettings = useMemo(
+    () => ({ numberFormatLocale: userSettings.numberFormatLocale }),
+    [userSettings.numberFormatLocale],
+  );
   const {
     currentUser,
     setCurrentUser,
@@ -192,6 +197,7 @@ export default function App() {
   const sidebarW = userSettings.sidebarCollapsed ? 52 : 240;
 
   return (
+    <NumberFormatContext.Provider value={numberFormatSettings}>
     <div className="app" style={{ paddingLeft: sidebarW }}>
       <Sidebar
         page={page}
@@ -274,5 +280,6 @@ export default function App() {
         </div>
       )}
     </div>
+    </NumberFormatContext.Provider>
   );
 }

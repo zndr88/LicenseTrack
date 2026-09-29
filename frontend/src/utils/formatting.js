@@ -88,6 +88,11 @@ export function parseTypedNumberResult(raw, settings) {
   return { value: null, error: "invalid" };
 }
 
+/** Whether a value held by a form is a stored (canonical) number, or blank. */
+export function isValidNumberValue(value) {
+  return value === null || value === undefined || value === "" || CANONICAL_NUMBER.test(String(value).trim());
+}
+
 /**
  * Canonical value of typed text, or null when blank or rejected.
  * Prefer parseTypedNumberResult where the reason matters.
