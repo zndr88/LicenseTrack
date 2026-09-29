@@ -1,12 +1,15 @@
-import { parseTypedNumber } from "../../utils/formatting.js";
+import { isValidNumberValue } from "../../utils/formatting.js";
 import { formatCost } from "../../utils/helpers.js";
 
-/** Returns quantity x unit price when an entered line total differs from it, else null. */
-export function lineTotalMismatch(quantity, unitPrice, total, settings) {
-  const qty = Number(parseTypedNumber(quantity, settings));
-  const unit = Number(parseTypedNumber(unitPrice, settings));
-  const entered = Number(parseTypedNumber(total, settings));
-  if ([quantity, unitPrice, total].some((value) => String(value ?? "").trim() === "")) return null;
+/**
+ * Returns quantity x unit price when an entered line total differs from it, else null.
+ * The values are canonical form numbers (NumberInput); invalid ones give no hint.
+ */
+export function lineTotalMismatch(quantity, unitPrice, total, _settings) {
+  if ([quantity, unitPrice, total].some((value) => String(value ?? "").trim() === "" || !isValidNumberValue(value))) return null;
+  const qty = Number(quantity);
+  const unit = Number(unitPrice);
+  const entered = Number(total);
   if (![qty, unit, entered].every(Number.isFinite)) return null;
   const expected = qty * unit;
   return Math.abs(expected - entered) >= 0.005 ? expected : null;
