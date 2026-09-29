@@ -1,8 +1,7 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import { Controller } from "react-hook-form";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../constants/licenseData.js";
-import { formatPriceInput } from "../../utils/helpers.js";
-import { parseTypedNumber } from "../../utils/formatting.js";
+import NumberInput from "../ui/NumberInput.jsx";
 import ParentLicensePicker from "./ParentLicensePicker.jsx";
 import MaintenanceCoverageFields, {
   isFreewareLicenseType,
@@ -59,12 +58,7 @@ export default function ConvertItemForm({
   useEffect(() => {
     if (sectionCommand?.sequence) setIsExpanded(sectionCommand.open);
   }, [sectionCommand]);
-  const [unitPriceDisplay, setUnitPriceDisplay] = useState(
-    () => formatPriceInput(sourcingItem.estimatedUnitPrice || "", locale)
-  );
-  const [totalPriceDisplay, setTotalPriceDisplay] = useState(
-    () => formatPriceInput(sourcingItem.estimatedTotalPrice || "", locale)
-  );
+  const numberSettings = useMemo(() => ({ numberFormatLocale: locale }), [locale]);
 
   const wi = watchedItem ?? {};
   const ready = isItemReady(wi);
@@ -221,8 +215,6 @@ export default function ConvertItemForm({
                     if (isFreewareLicenseType(nextType)) {
                       setValue(`items.${idx}.unitPrice`, "", { shouldDirty: true });
                       setValue(`items.${idx}.totalPoPrice`, "", { shouldDirty: true });
-                      setUnitPriceDisplay("");
-                      setTotalPriceDisplay("");
                     }
                   },
                 })}
@@ -292,11 +284,15 @@ export default function ConvertItemForm({
           <div className="fr">
             <div className="fg">
               <label htmlFor={`ca-quantity-${idx}`}>Purchase Quantity <span style={{ color: "var(--red)" }}>*</span></label>
-              <input id={`ca-quantity-${idx}`} className="fi" {...register(`items.${idx}.quantity`)} />
+              <Controller control={control} name={`items.${idx}.quantity`} render={({ field: f }) => (
+                <NumberInput id={`ca-quantity-${idx}`} value={f.value ?? ""} settings={numberSettings} onChange={f.onChange} onBlur={f.onBlur} />
+              )} />
             </div>
             <div className="fg">
               <label htmlFor={`ca-quantity-per-unit-${idx}`}>Quantity per Unit</label>
-              <input id={`ca-quantity-per-unit-${idx}`} className="fi" inputMode="decimal" {...register(`items.${idx}.quantityPerUnit`)} />
+              <Controller control={control} name={`items.${idx}.quantityPerUnit`} render={({ field: f }) => (
+                <NumberInput id={`ca-quantity-per-unit-${idx}`} value={f.value ?? ""} settings={numberSettings} onChange={f.onChange} onBlur={f.onBlur} />
+              )} />
             </div>
             <div className="fg">
               <label htmlFor={`ca-sku-code-${idx}`}>SKU Code</label>
@@ -311,16 +307,13 @@ export default function ConvertItemForm({
                 control={control}
                 name={`items.${idx}.unitPrice`}
                 render={({ field: f }) => (
-                  <input
+                  <NumberInput
                     id={`ca-unit-price-${idx}`}
-                    className="fi"
-                    value={unitPriceDisplay}
-                    onFocus={() => setUnitPriceDisplay(f.value)}
-                    onChange={(e) => {
-                      setUnitPriceDisplay(e.target.value);
-                      f.onChange(parseTypedNumber(e.target.value, { numberFormatLocale: locale }) ?? e.target.value);
-                    }}
-                    onBlur={() => setUnitPriceDisplay(formatPriceInput(f.value, locale))}
+                    value={f.value ?? ""}
+                    settings={numberSettings}
+                    minFractionDigits={2}
+                    onChange={f.onChange}
+                    onBlur={f.onBlur}
                   />
                 )}
               />
@@ -331,16 +324,13 @@ export default function ConvertItemForm({
                 control={control}
                 name={`items.${idx}.totalPoPrice`}
                 render={({ field: f }) => (
-                  <input
+                  <NumberInput
                     id={`ca-total-price-${idx}`}
-                    className="fi"
-                    value={totalPriceDisplay}
-                    onFocus={() => setTotalPriceDisplay(f.value)}
-                    onChange={(e) => {
-                      setTotalPriceDisplay(e.target.value);
-                      f.onChange(parseTypedNumber(e.target.value, { numberFormatLocale: locale }) ?? e.target.value);
-                    }}
-                    onBlur={() => setTotalPriceDisplay(formatPriceInput(f.value, locale))}
+                    value={f.value ?? ""}
+                    settings={numberSettings}
+                    minFractionDigits={2}
+                    onChange={f.onChange}
+                    onBlur={f.onBlur}
                   />
                 )}
               />

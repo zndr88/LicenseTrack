@@ -1,4 +1,3 @@
-import { parseTypedNumber } from "../../utils/formatting.js";
 import { parseSecondaryContacts } from "../../utils/secondaryContacts.js";
 import { isNonExpiringLicenseType, typeOptInPayload } from "../../utils/licenseTypeRules.js";
 
@@ -10,10 +9,11 @@ function normalizeDate(dateValue) {
   return null;
 }
 
-function canonicalizeNumber(value, settings) {
+// Form values are canonical (NumberInput); an invalid value is sent as typed
+// and the server refuses it. Never re-read them as typed text.
+function canonicalizeNumber(value) {
   const raw = String(value ?? "").trim();
-  if (!raw) return null;
-  return parseTypedNumber(raw, settings) ?? raw;
+  return raw || null;
 }
 
 function parseOptionalInt(value) {

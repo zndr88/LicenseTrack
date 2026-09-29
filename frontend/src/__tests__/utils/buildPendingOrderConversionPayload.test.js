@@ -18,20 +18,21 @@ const BASE = {
   portalUrl: "",
   parentLicenseId: "",
   quantity: "1.000",
-  quantityPerUnit: "5.000.000",
+  quantityPerUnit: "5000000",
   skuCode: "",
-  unitPrice: "1.234,50",
-  totalPoPrice: "1.234.500,00",
+  unitPrice: "1234.50",
+  totalPoPrice: "1234500.00",
   currency: "EUR",
   budgetOwnerEmail: "",
   notes: "",
 };
 
 describe("buildPendingOrderConversionPayload", () => {
-  it("canonicalizes Belgian quantity and prices", () => {
+  it("sends the form's canonical numbers unchanged, whatever the number format", () => {
+    // NumberInput already turned typed text into canonical values. Re-reading
+    // "1.000" as typed text would reject it as ambiguous under nl-BE.
     const payload = buildPendingOrderConversionPayload(BASE, { numberFormatLocale: "nl-BE" });
 
-    // D1: a single dot is a decimal
     expect(payload.quantity).toBe("1.000");
     expect(payload.quantityPerUnit).toBe("5000000");
     expect(payload.unitPrice).toBe("1234.50");
