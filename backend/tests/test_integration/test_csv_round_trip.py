@@ -653,6 +653,28 @@ async def test_mixed_import_preview_matches_the_line_numbers_that_are_written(
     }
 
 
+async def test_purchasing_export_item_column_is_the_po_line(test_app, auth_headers, db_session):
+    # Purchasing exports (Flexera among them) number PO lines in "Item" and
+    # put the product text in "Description".
+    header = ["Publisher", "Description", "Item", "PO Number", "License Type", "Currency"]
+    rows = [
+        {"Publisher": "Item Export", "Description": "Suite seats", "Item": "1", "PO Number": "PO-ITEM",
+         "License Type": "subscription", "Currency": "EUR"},
+        {"Publisher": "Item Export", "Description": "Add-on", "Item": "2", "PO Number": "PO-ITEM",
+         "License Type": "subscription", "Currency": "EUR"},
+    ]
+    csv_bytes = _make_csv(header, rows)
+
+    confirm = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        data={"acknowledge_warnings": "true"},
+        files={"file": ("purchasing-export.csv", csv_bytes, "text/csv")},
+    )
+    assert confirm.status_code == 200, confirm.text
+    assert await _line_numbers(db_session, "Item Export") == {"Suite seats": 1, "Add-on": 2}
+
+
 async def test_update_import_ignores_the_files_line_number_but_follows_a_po_change(
     test_app,
     auth_headers,

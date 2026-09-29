@@ -33,7 +33,7 @@
     "invoice": "invoice_number",
     "invoice_number": "invoice_number",
     "is_renewable": "is_renewable",
-    "item": "software_description",
+    "item": "po_line_number",
     "license_metric": "license_metric",
     "license_ref": "license_ref",
     "license_type": "license_type",

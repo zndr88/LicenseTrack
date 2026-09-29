@@ -86,7 +86,10 @@ order's manual PO total, when one is set.
 ## PO line numbers
 
 The license export contains a **PO Line** column, and CSV import recognizes it
-(also as `po_line_number`, `po_line_item` or `po_line_no`).
+(also as `po_line_number`, `po_line_item`, `po_line_no` or `Item`). Purchasing
+exports often call the line `Item` and the product `Description`; LicenseTrack
+reads them that way. If your file uses `Item` for the product text, map that
+column to **Software Description** instead.
 
 - **New records:** a free line number in the file is kept exactly, and gaps
   survive. A blank number is filled with the next free line. When the number is
