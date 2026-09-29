@@ -32,6 +32,8 @@ export default function LicenseEditForm({
   editFields,
   currentLicenseType,
   licenseId,
+  savedPoNumber = "",
+  savedPoLineNumber = null,
   activeMaintenanceId,
   quickLinkMaintenanceId = "",
   setQuickLinkMaintenanceId,
@@ -69,6 +71,7 @@ export default function LicenseEditForm({
       .map((item) => maintenanceCandidate(item, allLicenses, { formatDay: (value) => formatDate(value, userSettings) }))
     : [];
   const descriptionMissing = typeDescriptionMissing(editFields.licenseType, editFields.typeDescription);
+  const poNumberChanged = (editFields.poNumber ?? "").trim() !== (savedPoNumber ?? "").trim();
   const noticeAfterEnd = Boolean(editFields.noticeDate && editFields.endDate && editFields.noticeDate > editFields.endDate);
   const maintenanceCoverageOptions = maintenanceCoverageOptionsForLicenseType(editFields.licenseType);
   const maintenanceCoverageValue = maintenanceCoverageOptions.some(
@@ -131,6 +134,9 @@ export default function LicenseEditForm({
         <div className="fg">
           <label htmlFor="license-edit-po">PO #</label>
           <input id="license-edit-po" className="fi" value={editFields.poNumber} onChange={(e) => setEditFields((p) => ({ ...p, poNumber: e.target.value }))} />
+          {savedPoLineNumber && poNumberChanged ? (
+            <span className="field-hint">The PO line number may change if it's already used on the new PO.</span>
+          ) : null}
         </div>
       </div>
       <div className="fg">

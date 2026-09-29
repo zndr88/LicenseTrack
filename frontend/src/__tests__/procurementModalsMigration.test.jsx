@@ -411,6 +411,11 @@ describe("ConvertPendingOrderModal", () => {
     return { onConfirm, onCancel };
   }
 
+  test("shows the PO line number of a single-line order", () => {
+    renderModal({ order: { ...ORDER, items: [{ id: 5, poLineNumber: 2 }] } });
+    expect(screen.getByText("Line 2")).toBeInTheDocument();
+  });
+
   test("Save is disabled when publisher is empty", () => {
     renderModal({ prefill: { ...PREFILL, publisherName: "" } });
     expect(screen.getByRole("button", { name: /confirm & create license/i })).toBeDisabled();
@@ -874,6 +879,16 @@ describe("ConvertAllModal", () => {
 
     expect(document.getElementById("ca-end-date-0")).toBeDisabled();
     expect(document.getElementById("ca-end-date-0")).toHaveValue("Non-expiring");
+  });
+
+  test("each conversion item shows its PO line number", () => {
+    const order = {
+      ...MULTI_ORDER,
+      items: MULTI_ORDER.items.map((item, index) => ({ ...item, poLineNumber: index === 0 ? 1 : 4 })),
+    };
+    renderModal({ order, licenses: RENEWAL_LICENSES });
+    expect(screen.getByText("Line 1")).toBeInTheDocument();
+    expect(screen.getByText("Line 4")).toBeInTheDocument();
   });
 
   test("header controls collapse and expand every conversion item", async () => {

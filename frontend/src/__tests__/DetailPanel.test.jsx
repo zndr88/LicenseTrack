@@ -2032,3 +2032,52 @@ describe('DetailPanel full edit form', () => {
     expect(onUpdate).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('DetailPanel PO line number', () => {
+  it('shows the line number in the PO # label and keeps the value to the PO number', async () => {
+    const user = userEvent.setup()
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 1, role: 'admin' }}
+        license={{ ...baseLicense, poNumber: '4500123', poLineNumber: 3 }}
+      />
+    )
+
+    await user.click(screen.getByText('Key Dates & Contract'))
+    const label = screen.getByText(/^PO #/, { selector: '.dp-field-label' })
+    expect(label).toHaveTextContent('PO # · LINE 3')
+    expect(screen.getByText('4500123')).toBeInTheDocument()
+  })
+
+  it('shows only the PO # label when there is no PO number', async () => {
+    const user = userEvent.setup()
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 1, role: 'admin' }}
+        license={{ ...baseLicense, poNumber: '', poLineNumber: null }}
+      />
+    )
+
+    await user.click(screen.getByText('Key Dates & Contract'))
+    expect(screen.getByText(/^PO #/, { selector: '.dp-field-label' }).textContent.trim()).toBe('PO #')
+  })
+
+  it('warns that the line number may change only after the PO number is edited', async () => {
+    const user = userEvent.setup()
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 1, role: 'admin' }}
+        license={{ ...baseLicense, poNumber: 'PO-001', poLineNumber: 2 }}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    expect(screen.queryByText(/line number may change/i)).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('PO #'), { target: { value: 'PO-002' } })
+    expect(screen.getByText(/line number may change/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/PO line/i)).not.toBeInTheDocument()
+  })
+})

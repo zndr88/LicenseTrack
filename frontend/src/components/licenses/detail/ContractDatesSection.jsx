@@ -85,7 +85,9 @@ export default function ContractDatesSection({
               </div>
             </div>
             <div className="dp-field">
-              <span className="dp-field-label">PO #</span>
+              <span className="dp-field-label">
+                PO #{license.poNumber && license.poLineNumber ? <span className="dp-field-label-muted"> · LINE {license.poLineNumber}</span> : null}
+              </span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.poNumber || "\u2014"}</div>
                 {perms.canEdit && (
