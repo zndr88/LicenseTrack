@@ -75,6 +75,9 @@ Work in progress for 1.2.0.
 - The database models and migrations now describe the same schema, including
   the unique OIDC identity index. A test fails the build if they drift apart
   again. Document categories fit their column on every database.
+- An active user is no longer logged out when their computer's clock runs
+  behind the server's: session responses now include the seconds remaining,
+  and the browser measures them on its own clock.
 
 ### Security
 

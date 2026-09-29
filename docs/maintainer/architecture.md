@@ -918,8 +918,9 @@ expired session rows. The additive Alembic revision is `e3c4d5e6f7a8`; downgradi
 removes session identities and requires users to sign in again.
 
 The frontend uses cookies for same-origin requests and in-memory bearer tokens
-for split API deployments. Bearer refresh scheduling reads that tab's actual
-token expiry rather than shared cookie-expiry metadata. BroadcastChannel shares refreshed credentials only
+for split API deployments. Refresh scheduling reads the session deadline that
+`rememberSessionExpiry` stored on the browser's own clock (see the state machine
+below). BroadcastChannel shares refreshed credentials only
 between tabs already holding the same identity, without persisting tokens.
 Activity and logout locking are shared within the frontend origin. Browser-session
 cookies still use SameSite=Lax; cross-site split deployments rely on bearer login
@@ -936,3 +937,25 @@ Session-cookie requests that change data (POST, PUT, PATCH, DELETE) must carry t
 `X-LicenseTrack-Request: 1` header. The frontend API client always sends it; bearer and
 API-token requests don't need it. The header forces a CORS preflight, so other sites
 can't make a signed-in browser send writes.
+
+### Session state machine
+
+- **Server.** A login creates a `HumanSession` (`issued_at`, `expires_at`). The
+  effective expiry is `min(expires_at, issued_at + session_timeout)`. Only
+  `POST /api/auth/refresh` slides it; ordinary requests don't. Logout writes a
+  revocation tombstone, and a password change bumps the security version. The
+  session, login, refresh and change-password responses return `expires_in`
+  (seconds remaining, from `routes/auth.py::_expires_in`).
+- **Client.** `rememberSessionExpiry` (`api/client.js`) stores `now + expires_in`
+  on the browser clock under a namespaced localStorage key shared by all tabs of
+  that session; it is the only writer. User input stamps a shared activity key,
+  and a 1-second timer logs out after `session_timeout` of inactivity. While
+  activity is recent, the client refreshes once
+  `now >= expiry - min(60 s, timeout / 2)`. In-flight refreshes are shared across
+  callers.
+- **Tabs.** Expiry and activity are shared through localStorage. Logout and login
+  propagate through storage events. Bearer tokens (split deployments) are shared
+  through a BroadcastChannel, same session only. A generation counter drops
+  responses that arrive after a logout or login.
+- **Tests.** `sessionClock.test.js`, `sessionCoordination.test.js`, and the
+  multi-tab test `frontend/tests/e2e/session-multitab.spec.js`.
