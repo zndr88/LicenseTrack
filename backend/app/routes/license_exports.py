@@ -100,6 +100,7 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
         "Maintenance Cost",
         "Line Total",
         "Manual PO Total",
+        "PO Line",
     ]
     writer.writerow(headers)
 
@@ -198,6 +199,7 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
                     lic.maintenance_cost or "",
                     lic.total_po_price or "",
                     lic.po_total_override or "",
+                    lic.po_line_number or "",
                 ]
             )
         )

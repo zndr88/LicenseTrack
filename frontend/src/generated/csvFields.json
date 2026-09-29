@@ -26,6 +26,7 @@
     "notes": "notes",
     "noticeDate": "notice_date",
     "parentLicenseRefs": "parent_license_refs",
+    "poLineNumber": "po_line",
     "poNumber": "po_number",
     "poTotalOverride": "po_total_manual",
     "portalUrl": "portal_url",

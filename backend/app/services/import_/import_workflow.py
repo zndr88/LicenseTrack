@@ -34,6 +34,7 @@ from app.services.custom_fields_service import (
     validate_imported_custom_rows,
 )
 from app.services.import_.duplicate_detection import add_duplicate_warnings
+from app.services.po_line_service import plan_new_lines, sync_license_line
 from app.services.procurement_identity import normalize_po_number
 from app.services.import_.import_update import apply_import_update, has_maintenance_update_values
 from app.services.import_.license_builder import build_license, resolve_maintenance_parent_ref
@@ -332,6 +333,28 @@ async def prepare_import_rows(
                     "Maintenance fields were ignored because this license has active maintenance."
                 )
     await add_duplicate_warnings(rows, db)
+    await add_po_line_warnings(rows, db)
+
+
+async def add_po_line_warnings(rows: list[ParsedRow], db: AsyncSession) -> None:
+    """Flag PO line numbers the import cannot keep, so the preview matches what is written.
+
+    New records keep the file's line number when it is free; otherwise they get
+    the next free one (old -> new). Existing records ignore the file's number.
+    Rows are considered in the order the import writes them (maintenance last).
+    """
+    creates = [row for row in rows if row.import_status != "error" and row.import_action == "create"]
+    creates.sort(key=lambda row: row.license_type == LicenseType.maintenance.value)
+    planned = await plan_new_lines(db, [(row.po_number, row.po_line_number) for row in creates])
+    for row, number in zip(creates, planned):
+        if row.po_line_number is not None and number is not None and number != row.po_line_number:
+            row.warnings.append(
+                f"PO line {row.po_line_number} is already used on PO {row.po_number}; "
+                f"it will be imported as line {number} (the next free line)."
+            )
+    for row in rows:
+        if row.import_status != "error" and row.import_action == "update" and row.po_line_number is not None:
+            row.warnings.append("PO line from the file is ignored for existing records.")
 
 
 def expand_skipped_inferred_rows(rows: list[ParsedRow], skipped_rows: set[int]) -> set[int]:
@@ -537,6 +560,7 @@ async def run_import_rows(
                             is_update=True,
                         )
                         await apply_import_update(target, parsed, custom_data, db, number_format_locale, date_format)
+                        await sync_license_line(db, target)
                         did_update = True
                         persisted_license_id = target.id
 
@@ -559,6 +583,7 @@ async def run_import_rows(
                     license_obj.cost_centre_id = parsed.resolved_cost_centre_id
                     db.add(license_obj)
                     await db.flush()
+                    await sync_license_line(db, license_obj, requested=parsed.po_line_number)
                     license_obj.license_ref = await generate_license_ref(db)
                     # F3: wire renewal chain - mark predecessor as renewed with back-link
                     if license_obj.predecessor_id is not None:

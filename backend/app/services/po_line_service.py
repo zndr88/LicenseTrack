@@ -58,6 +58,36 @@ async def allocate_line(db: AsyncSession, po_number: str, *, requested: int | No
     raise RuntimeError(f"Could not allocate a PO line on {po_number!r}")
 
 
+async def plan_new_lines(
+    db: AsyncSession, requests: list[tuple[str, int | None]]
+) -> list[int | None]:
+    """The line each new record would get, in order, without writing anything.
+
+    Mirrors ``allocate_line`` so an import preview matches what the import
+    writes: a requested number is kept when free, otherwise the next free
+    number (highest ever + 1) is used. A blank PO number gets no line (None).
+    """
+    keys = {normalize_po_number(po_number) for po_number, _requested in requests} - {""}
+    used: dict[str, set[int]] = {key: set() for key in keys}
+    if keys:
+        rows = await db.execute(
+            select(PoLineRegister.po_key, PoLineRegister.line_number).where(PoLineRegister.po_key.in_(keys))
+        )
+        for po_key, number in rows.all():
+            used[po_key].add(number)
+    planned: list[int | None] = []
+    for po_number, requested in requests:
+        po_key = normalize_po_number(po_number)
+        if not po_key:
+            planned.append(None)
+            continue
+        taken = used[po_key]
+        number = requested if requested is not None and requested > 0 and requested not in taken else max(taken, default=0) + 1
+        taken.add(number)
+        planned.append(number)
+    return planned
+
+
 async def _audit(db: AsyncSession, text: str, *, target_type: str, target_id: int | None, label: str) -> None:
     await log_event(
         db,

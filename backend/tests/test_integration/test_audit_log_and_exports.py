@@ -11,6 +11,7 @@ from app.services.human_session_service import issue_session_token
 from app.models.audit_log import AuditLog
 from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder, PendingOrderStatus
+from app.models.po_line import PoLineRegister
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User, UserRole
 
@@ -326,6 +327,7 @@ async def test_licenses_export_headers_and_representative_csv_content(
         end_date=date(2026, 12, 31),
         contract_number="CTR-1",
         po_number="PO-1",
+        po_line=PoLineRegister(po_key="po-1", po_number="PO-1", line_number=3),
         invoice_number="INV-1",
         invoice_numbers=["INV-1", "INV-2"],
         contact_email="licensing@contoso.test",
@@ -357,7 +359,7 @@ async def test_licenses_export_headers_and_representative_csv_content(
     response = await test_app.get("/api/licenses/export", headers=auth_headers)
 
     _assert_csv_download(response, "licenses_export.csv")
-    assert _csv_lines(response)[0][-9:] == [
+    assert _csv_lines(response)[0][-10:] == [
         "Request Date",
         "Purchase Date",
         "Portal URL",
@@ -367,6 +369,7 @@ async def test_licenses_export_headers_and_representative_csv_content(
         "Maintenance Cost",
         "Line Total",
         "Manual PO Total",
+        "PO Line",
     ]
     rows = _csv_dicts(response)
     assert len(rows) == 1
@@ -389,6 +392,7 @@ async def test_licenses_export_headers_and_representative_csv_content(
     assert row["Maintenance Cost"] == "75.00"
     assert row["Line Total"] == "999.99"
     assert row["Manual PO Total"] == "450.00"
+    assert row["PO Line"] == "3"
 
 
 async def test_csv_export_endpoints_neutralize_formula_cells(
@@ -562,6 +566,7 @@ async def test_pending_orders_export_headers_and_representative_csv_content(
         "License Unit Price",
         "Line Total",
         "PO Total (manual)",
+        "PO Line",
     ]
     rows = _csv_dicts(response)
     assert len(rows) == 2
