@@ -1,6 +1,7 @@
 // frontend/src/components/licenses/detail/IdentitySection.jsx
 import { LICENSE_TYPES } from "../../../constants/licenseData.js";
 import { daysBetween, todayStr } from "../../../utils/helpers.js";
+import { isMaintenanceParentType } from "../../../utils/maintenanceCoverage.js";
 import { INLINE_LICENSE_TYPE_HINT, inlineLicenseTypeOptions } from "../../../utils/licenseTypeRules.js";
 import Icon from "../../ui/Icon.jsx";
 import Badge from "../../ui/Badge.jsx";
@@ -60,7 +61,7 @@ export default function IdentitySection({
               <Icon name="link" size={11} /> Go to parent license
             </button>
           )}
-          {(license.licenseType === "perpetual" || license.licenseType === "oem" || license.licenseType === "freeware") &&
+          {isMaintenanceParentType(license.licenseType) &&
             license.activeMaintenanceId && (
               <button
                 type="button"

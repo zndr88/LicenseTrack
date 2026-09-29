@@ -48,3 +48,19 @@ describe("maintenanceLinking", () => {
     expect(coversConfirmMessage(maintenanceCandidate({ ...record, maintenanceParentIds: [] }, all))).toBeNull();
   });
 });
+
+describe("maintenance parent types have one owner", () => {
+  // Other rules that happen to use the same three types are named here on purpose.
+  const OTHER_RULES = ["/constants/licenseData.js", "/utils/reportHelpers.js", "/utils/maintenanceCoverage.js"];
+  const sources = import.meta.glob("../../**/*.{js,jsx}", { query: "?raw", import: "default", eager: true });
+
+  it("does not spell out the perpetual/oem/freeware list outside its owner", () => {
+    const copy = /"perpetual"[^\n]*"oem"[^\n]*"freeware"|"freeware"[^\n]*"perpetual"[^\n]*"oem"|=== "perpetual" \|\| [^\n]*=== "oem"/;
+    const offenders = Object.entries(sources)
+      .filter(([path]) => !/__tests__|\.test\.|\/demo\/|\/generated\//.test(path))
+      .filter(([path]) => !OTHER_RULES.some((owner) => path.endsWith(owner)))
+      .filter(([, text]) => copy.test(text))
+      .map(([path]) => path);
+    expect(offenders).toEqual([]);
+  });
+});
