@@ -274,13 +274,16 @@ value.
 The License Details **History** section exposes the same procurement trail in
 reverse, letting you navigate from an entitlement back to its quote and PO work.
 
-If evidence transfer fails after license creation, the licenses remain committed
-and the order records a recoverable transfer status. LicenseTrack retries the
-transfer, and Admins or Editors can request another retry without reconverting
-the order. Quote and invoice transfer phases are committed independently, so a
-later status failure does not remove evidence that was already stored. When an
-invoice was supplied during conversion, retry cannot mark the transfer complete
-unless the required invoice evidence still exists in document storage.
+An invoice supplied during conversion is stored in the same step as the new
+licenses. If the invoice cannot be stored, nothing is converted, the order stays
+open, and you can retry with the same file.
+
+If the quote transfer fails after license creation, the licenses remain
+committed and the order records a recoverable transfer status. LicenseTrack
+retries the transfer, and Admins or Editors can request another retry without
+reconverting the order. Only one transfer runs for an order at a time. An order
+converted by an older version whose invoice was never stored is flagged for
+attention: upload the invoice on the pending order, then retry the transfer.
 
 For a multi-line pending order, conversion must include every eligible line
 exactly once. Missing, duplicate, already converted, or ineligible line IDs are
