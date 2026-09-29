@@ -62,3 +62,12 @@ def test_open_status_set_has_no_multiline_copy():
         and multiline.search(path.read_text(encoding="utf-8"))
     ]
     assert hits == []
+
+
+def test_frontend_open_statuses_match_the_backend():
+    source = (
+        Path(__file__).resolve().parents[3] / "frontend" / "src" / "utils" / "pendingOrderState.js"
+    ).read_text(encoding="utf-8")
+    listed = re.search(r"OPEN_PENDING_ORDER_STATUSES = \[([^\]]*)\]", source).group(1)
+    frontend = {value.strip().strip('"') for value in listed.split(",")}
+    assert frontend == {status.value for status in OPEN_PENDING_ORDER_STATUSES}
