@@ -23,6 +23,7 @@ from app.services.conversion.pending_order_status import mark_item_converted, re
 from app.services.conversion_response_service import build_conversion_response
 from app.services.custom_fields_service import replace_values_for_license, transfer_sourcing_values_to_license
 from app.services.procurement_document_transfer_service import (
+    INVOICE_MISSING_DETAIL,
     StoredProcurementPath,
     copy_quote_documents_to_procurement_documents,
     require_invoice_evidence,
@@ -321,30 +322,10 @@ async def _transfer_conversion_evidence(
     order_id: int,
     order_po_number: str,
     actor_id: int | None,
-    file_data: tuple[bytes, str, str] | None,
     quote_request_ids: list[int],
 ) -> list[StoredProcurementPath]:
+    """Copy sourcing quotes onto the converted order (the invoice is already stored)."""
     written_paths: list[StoredProcurementPath] = []
-    if file_data is not None:
-        content, filename, mime_type = file_data
-        written_paths.append(
-            await write_invoice_procurement_document(
-                db,
-                content,
-                filename,
-                mime_type,
-                order_po_number,
-                order_id,
-                actor_id,
-            )
-        )
-        try:
-            await db.commit()
-        except Exception:
-            _cleanup_written_procurement_files(written_paths)
-            await db.rollback()
-            raise
-
     if quote_request_ids:
         written_paths.extend(
             await copy_quote_documents_to_procurement_documents(
@@ -377,7 +358,8 @@ async def _complete_conversion(
     order_label = order.po_number or order.supplier or ""
     if evidence_transfer_required:
         order.evidence_transfer_status = EvidenceTransferStatus.pending
-        order.evidence_invoice_required = file_data is not None
+        # The invoice (if any) is written inside the conversion transaction below.
+        order.evidence_invoice_required = False
         order.evidence_transfer_detail = None
         order.evidence_transfer_failed_at = None
 
@@ -391,7 +373,27 @@ async def _complete_conversion(
         target_label=order_label,
         detail=f"{len(new_license_entries)} license(s) created",
     )
-    await db.commit()
+    # The invoice commits with the licenses, or nothing converts.
+    invoice_paths: list[StoredProcurementPath] = []
+    if file_data is not None:
+        content, filename, mime_type = file_data
+        try:
+            invoice_paths.append(
+                await write_invoice_procurement_document(
+                    db, content, filename, mime_type, order_po_number, order.id, actor_snapshot.id
+                )
+            )
+        except Exception as exc:
+            await db.rollback()
+            raise HTTPException(
+                status_code=503,
+                detail="The invoice could not be stored, so nothing was converted. Check document storage and try again.",
+            ) from exc
+    try:
+        await db.commit()
+    except Exception:
+        _cleanup_written_procurement_files(invoice_paths)
+        raise
 
     if evidence_transfer_required:
         async def transfer_evidence() -> list[StoredProcurementPath]:
@@ -400,7 +402,6 @@ async def _complete_conversion(
                 order_id=order.id,
                 order_po_number=order_po_number,
                 actor_id=actor_snapshot.id,
-                file_data=file_data,
                 quote_request_ids=quote_request_ids,
             )
 
@@ -493,7 +494,7 @@ async def convert_pending_order_to_licenses(
     new_license_entries: list[tuple[int, str]] = []
     predecessor_ids: list[int] = []
     quote_request_ids: list[int] = []
-    evidence_transfer_required = file_data is not None
+    evidence_transfer_required = False
 
     if not order.items:
         new_lic, conversion_type, item_predecessor_ids = await _create_prepared_conversion_license(
@@ -636,7 +637,7 @@ async def batch_convert_pending_order_to_licenses(
     created_parent_by_sourcing_item_id: dict[int, License] = {}
     pending_maintenance_items: list[tuple[BatchConvertItem, dict]] = []
     resolved_maintenance_parents: dict[int, tuple[int | None, int | None]] = {}
-    evidence_transfer_required = file_data is not None
+    evidence_transfer_required = False
 
     for batch_item in payload:
         sourcing_item = order_item_map[batch_item.sourcing_item_id]
@@ -877,12 +878,39 @@ async def sweep_stale_evidence_transfers() -> int:
                 order.po_number or order.supplier or "",
                 [item.sourcing_request_id for item in order.items if item.sourcing_request_id is not None],
                 order.evidence_transfer_attempts,
+                order.evidence_invoice_required,
             )
             for order in result.scalars().all()
         ]
 
     count = 0
-    for order_id, order_po_number, order_label, quote_ids, attempts in stuck:
+    for order_id, order_po_number, order_label, quote_ids, attempts, invoice_required in stuck:
+        if invoice_required:
+            # An order from an older version whose invoice was never stored.
+            # Retrying can't create it, so surface it at once instead of
+            # burning the attempt budget.
+            async with AsyncSessionLocal() as db:
+                try:
+                    await require_invoice_evidence(db, order_id)
+                except RuntimeError:
+                    order = await db.get(PendingOrder, order_id)
+                    if order is not None:
+                        order.evidence_transfer_status = EvidenceTransferStatus.escalated
+                        order.evidence_transfer_detail = INVOICE_MISSING_DETAIL
+                        await log_event(
+                            db,
+                            "po.evidence_transfer_escalated",
+                            actor=_SYSTEM_ACTOR,
+                            ip_address=None,
+                            target_type="pending_order",
+                            target_id=str(order_id),
+                            target_label=order_label,
+                            detail=INVOICE_MISSING_DETAIL,
+                        )
+                        await db.commit()
+                    count += 1
+                    continue
+
         new_attempts = attempts + 1
 
         if new_attempts > MAX_EVIDENCE_SWEEP_ATTEMPTS:
