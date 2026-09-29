@@ -1382,11 +1382,23 @@ export const routes = [
       if ("maintenanceCoverage" in updateData && updateData.maintenanceCoverage !== license.maintenanceCoverage) {
         assertCoverageChangeAllowed({ ...license, licenseType: typeData.licenseType }, updateData.maintenanceCoverage);
       }
+      // Changing a license into Maintenance needs its parent in the same save
+      // (license_write_service _validate_maintenance_parent_transition).
+      const switchingToMaintenance = typeData.licenseType === "maintenance" && license.licenseType !== "maintenance";
+      const newParent = switchingToMaintenance
+        ? (updateData.parentLicenseId == null
+          ? (() => { throw new Error("Maintenance licenses must have a parent license"); })()
+          : findLicenseOr404(Number(updateData.parentLicenseId)))
+        : null;
+      if (newParent && !MAINTENANCE_PARENT_TYPES.has(newParent.licenseType)) {
+        throw new Error("Maintenance/support tracking can only be linked to perpetual, OEM, or freeware Licenses.");
+      }
       const previousCoverage = license.maintenanceCoverage;
       // Translate a retirement request / end-date move into immediate or
       // end-of-term retirement before applying (normalize_retirement_update).
       normalizeRetirementUpdate(license, updateData);
       Object.assign(license, updateData);
+      if (newParent) linkMaintenanceToParentRecord(license, newParent);
       applyIncludedSupportDefaults(license);
       recordIncludedSupportExit(license, previousCoverage);
       decorateLicense(license);

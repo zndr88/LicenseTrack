@@ -87,6 +87,19 @@ Support** section, choose whether to create a new maintenance record or link an
 existing maintenance record from the searchable list. The active maintenance
 record supplies the mirrored maintenance dates and cost shown on the parent.
 
+Every maintenance linking dialog searches the same fields: LT ref, publisher,
+description, PO number, contract number, dates and the licenses a record already
+covers. A record that already covers another license stays in the list, marked
+**Currently covers**, and asks for confirmation before covering one more.
+Retired records are hidden; the dialog says how many and offers to show them.
+When you edit a license and choose **Separately tracked**, you can also pick an
+existing maintenance record to link in the same step.
+
+To turn an existing license into a maintenance record, choose **Maintenance** as
+the License Type in **Edit** and pick **Maintenance for**, the license it
+covers. A license that has active maintenance of its own can't be changed to
+Maintenance until that maintenance is unlinked.
+
 One maintenance record can be linked to more than one eligible parent. This is
 useful when a later renewal covers several perpetual purchases under one
 support contract. Each parent keeps its own active-maintenance pointer, while
