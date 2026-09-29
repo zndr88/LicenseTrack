@@ -156,6 +156,14 @@ describe("license column registry", () => {
     expect(VISIBLE_IN_LIST_DEFAULTS.notes).toBe(false);
   });
 
+  test("offers PO Line as a hidden, sortable, filterable column", () => {
+    const column = COLUMN_DEFS.find((def) => def.key === "poLineNumber");
+    expect(column.label).toBe("PO Line");
+    expect(VISIBLE_IN_LIST_DEFAULTS.poLineNumber).toBe(false);
+    expect(hasSortAccessor(column)).toBe(true);
+    expect(isColumnFilterable(column)).toBe(true);
+  });
+
   test("includes hidden and custom columns in full-data exports but excludes selection", () => {
     const custom = makeCustomFieldColumnDefs([{ id: 4, fieldKey: "owner", name: "Owner" }]);
     const fullExportKeys = getFullExportColumns([...COLUMN_DEFS, ...custom]).map((column) => column.key);

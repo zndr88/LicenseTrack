@@ -75,6 +75,7 @@ const STATIC_SORT_ACCESSORS = {
   description: (license) => license.softwareDescription ?? null,
   contractNumber: (license) => license.contractNumber ?? null,
   poNumber: (license) => license.poNumber ?? null,
+  poLineNumber: (license) => finiteNumber(license.poLineNumber),
   procurementReference: (license) => license.procurementReference ?? null,
   invoiceNumber: (license) => license.invoiceNumber ?? license.invoiceNumbers?.[0] ?? null,
   costCentre: (license) => license.costCentre ?? null,

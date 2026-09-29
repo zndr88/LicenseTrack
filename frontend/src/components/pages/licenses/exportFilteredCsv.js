@@ -83,6 +83,7 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "description": return l.softwareDescription ?? "";
         case "contractNumber": return l.contractNumber ?? "";
         case "poNumber": return l.poNumber ?? "";
+        case "poLineNumber": return l.poLineNumber ?? "";
         case "procurementReference": return l.procurementReference ?? "";
         case "invoiceNumber": return serializeInvoiceCell(l.invoiceNumbers, l.invoiceNumber);
         case "costCentre": return l.costCentre ?? "";
