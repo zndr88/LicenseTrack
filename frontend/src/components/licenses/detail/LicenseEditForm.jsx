@@ -1,5 +1,5 @@
-import { formatPriceInput } from "../../../utils/helpers.js";
-import { parseTypedNumber, formatDate } from "../../../utils/formatting.js";
+import { formatDate } from "../../../utils/formatting.js";
+import NumberInput from "../../ui/NumberInput.jsx";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES, SUPPLIER_CONTACT_HELP } from "../../../constants/licenseData.js";
 import {
   defaultMaintenanceCoverageForLicenseType,
@@ -40,8 +40,6 @@ export default function LicenseEditForm({
   setEditFields,
   editError,
   savingLicense,
-  displayUnitPrice,
-  setDisplayUnitPrice,
   userSettings,
   customFieldDefs = [],
   customFieldsLoading = false,
@@ -173,7 +171,7 @@ export default function LicenseEditForm({
         </div>
       </div>
       {customFields("people")}
-      <div className="fg"><label htmlFor="license-edit-total-price">Line Total</label><input id="license-edit-total-price" className="fi" inputMode="decimal" value={editFields.totalPoPrice || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, totalPoPrice: parseTypedNumber(e.target.value, userSettings) ?? e.target.value }))} /></div>
+      <div className="fg"><label htmlFor="license-edit-total-price">Line Total</label><NumberInput id="license-edit-total-price" value={editFields.totalPoPrice || ""} settings={userSettings} minFractionDigits={2} onChange={(next) => setEditFields((previous) => ({ ...previous, totalPoPrice: next }))} /></div>
       <div className="fg"><label htmlFor="license-edit-notes">Notes / Comments</label><textarea id="license-edit-notes" className="fi" rows={3} value={editFields.notes || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, notes: e.target.value }))} /></div>
       {customFields("notes")}
       <div className="fr">
@@ -262,11 +260,11 @@ export default function LicenseEditForm({
       <div className="fr">
         <div className="fg">
           <label htmlFor="license-edit-quantity">Purchase Quantity</label>
-          <input id="license-edit-quantity" className="fi" inputMode="decimal" value={editFields.quantity} onChange={(e) => setEditFields((p) => ({ ...p, quantity: parseTypedNumber(e.target.value, userSettings) ?? e.target.value }))} />
+          <NumberInput id="license-edit-quantity" value={editFields.quantity} settings={userSettings} onChange={(next) => setEditFields((p) => ({ ...p, quantity: next }))} />
         </div>
         <div className="fg">
           <label htmlFor="license-edit-quantity-per-unit">Quantity per Unit</label>
-          <input id="license-edit-quantity-per-unit" className="fi" inputMode="decimal" value={editFields.quantityPerUnit || "1"} onChange={(e) => setEditFields((p) => ({ ...p, quantityPerUnit: parseTypedNumber(e.target.value, userSettings) ?? e.target.value }))} />
+          <NumberInput id="license-edit-quantity-per-unit" value={editFields.quantityPerUnit || "1"} settings={userSettings} onChange={(next) => setEditFields((p) => ({ ...p, quantityPerUnit: next }))} />
         </div>
       </div>
       <div className="fr">
@@ -278,20 +276,12 @@ export default function LicenseEditForm({
       <div className="fr">
         <div className="fg">
           <label htmlFor="license-edit-unit-price">Unit Price</label>
-          <input
+          <NumberInput
             id="license-edit-unit-price"
-            className="fi"
-            value={displayUnitPrice}
-            onFocus={() => setDisplayUnitPrice(editFields.unitPrice)}
-            onChange={(e) => {
-              setDisplayUnitPrice(e.target.value);
-              setEditFields((p) => ({ ...p, unitPrice: parseTypedNumber(e.target.value, userSettings) ?? e.target.value }));
-            }}
-            onBlur={() =>
-              setDisplayUnitPrice(
-                formatPriceInput(editFields.unitPrice, userSettings?.numberFormatLocale ?? "en-US")
-              )
-            }
+            value={editFields.unitPrice}
+            settings={userSettings}
+            minFractionDigits={2}
+            onChange={(next) => setEditFields((p) => ({ ...p, unitPrice: next }))}
           />
         </div>
         <div className="fg">

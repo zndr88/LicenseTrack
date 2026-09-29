@@ -18,6 +18,7 @@ import ContactCombobox from "../ui/ContactCombobox.jsx";
  *   inputType     {string} - "text" | "date" | "email" | "number" | "textarea" | "select"
  *   selectOptions {Array} - [{value, label}] required when inputType="select"
  *   hint          {string} - optional helper text shown under a select
+ *   numeric       {boolean} - edit as a number (for example a custom currency field)
  *   onSave        {Function(updatedLicense)} - called on successful save
  *   onClose       {Function} - called to dismiss modal
  */
@@ -37,9 +38,10 @@ export default function FieldEditModal({
   onClose,
   onSaveFn,
   userSettings,
+  numeric = false,
 }) {
-  const isPriceField = PRICE_FIELD_KEYS.includes(fieldKey);
-  const isNumericField = NUMERIC_FIELD_KEYS.includes(fieldKey);
+  const isPriceField = PRICE_FIELD_KEYS.includes(fieldKey) || numeric;
+  const isNumericField = NUMERIC_FIELD_KEYS.includes(fieldKey) || numeric;
   const referenceMode = fieldKey === "publisherName"
     ? "publisher"
     : fieldKey === "supplier"

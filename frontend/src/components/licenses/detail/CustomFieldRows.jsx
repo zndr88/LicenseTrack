@@ -62,6 +62,7 @@ export default function CustomFieldRows({
                   fieldLabel: fieldDef.name,
                   currentValue: inputConfig.currentValue ?? rawValue ?? "",
                   inputType: inputConfig.inputType,
+                  numeric: fieldDef.fieldType === "currency",
                   selectOptions: inputConfig.selectOptions,
                   blankOptionLabel: inputConfig.blankOptionLabel,
                   onSaveFn: makeCustomFieldSaveFn(fieldDef),

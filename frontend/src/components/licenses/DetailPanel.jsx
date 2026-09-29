@@ -63,7 +63,6 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     editFields, setEditFields,
     quickLinkMaintenanceId, setQuickLinkMaintenanceId,
     savingLicense, noticeActionBusy, editError,
-    displayUnitPrice, setDisplayUnitPrice,
     handleFullEditSave, handleStartFullEdit, handleMarkNoticeHandled,
     openSections, setOpenSections, toggleSection,
     maintenanceHistory, setMaintenanceHistory,
@@ -122,8 +121,6 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
             setEditFields={setEditFields}
             editError={editError}
             savingLicense={savingLicense}
-            displayUnitPrice={displayUnitPrice}
-            setDisplayUnitPrice={setDisplayUnitPrice}
             userSettings={userSettings}
             customFieldDefs={customFieldDefs}
             customFieldsLoading={customFieldsLoading}
@@ -467,6 +464,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
           fieldLabel={fieldEdit.fieldLabel}
           currentValue={fieldEdit.currentValue}
           inputType={fieldEdit.inputType}
+          numeric={fieldEdit.numeric}
           selectOptions={fieldEdit.selectOptions}
           hint={fieldEdit.hint}
           blankOptionLabel={fieldEdit.blankOptionLabel}
