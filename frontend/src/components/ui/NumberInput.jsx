@@ -1,19 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useNumberFormatSettings } from "./NumberFormatContext.js";
-import { numberFormatExample, parseTypedNumberResult, toInputText } from "../../utils/formatting.js";
+import { numberInputErrorMessage, parseTypedNumberResult, toInputText } from "../../utils/formatting.js";
 
 export { isValidNumberValue } from "../../utils/formatting.js";
 
 const DEFAULT_SETTINGS = { numberFormatLocale: "en-US" };
-
-function errorMessage(error, text, settings) {
-  if (error === "ambiguous") {
-    const digits = text.replace(/[^\d-]/g, "");
-    const asDecimal = toInputText(text.replace(/[^\d.-]/g, ""), settings);
-    return `"${text.trim()}" is ambiguous in your number format. Type ${digits} for a whole number, or ${asDecimal} for a decimal.`;
-  }
-  return `Not a valid number in your number format (for example ${numberFormatExample(settings)}).`;
-}
 
 /**
  * The one input for numbers people type (prices, quantities, totals, costs).
@@ -77,7 +68,7 @@ export default function NumberInput({
     onBlur?.(event);
   };
 
-  const message = error && showError ? errorMessage(error, text, settings) : null;
+  const message = error && showError ? numberInputErrorMessage(error, text, settings) : null;
   const described = [describedBy, message ? messageId : null].filter(Boolean).join(" ") || undefined;
 
   return (

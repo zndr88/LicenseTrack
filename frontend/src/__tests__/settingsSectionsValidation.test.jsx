@@ -152,15 +152,26 @@ describe("RenewalsSection validation", () => {
     updateGlobalSettings.mockResolvedValue({ data: {}, error: null });
     render(<RenewalsSection {...sectionProps(baseRenewalSettings({ highValueThresholds: { EUR: "50000", SEK: "" } }))} />);
 
-    expect(screen.getByLabelText("EUR")).toHaveValue(50000);
+    expect(screen.getByLabelText("EUR")).toHaveValue("50,000");
     expect(screen.queryByLabelText("SEK")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /show other currencies/i }));
-    expect(screen.getByLabelText("SEK")).toHaveValue(null);
+    expect(screen.getByLabelText("SEK")).toHaveValue("");
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(updateGlobalSettings).toHaveBeenCalledWith(
       expect.objectContaining({ high_value_thresholds: expect.objectContaining({ EUR: "50000", SEK: "" }) }),
     ));
+  });
+
+  test("reads thresholds in the user's number format and refuses other input", async () => {
+    updateGlobalSettings.mockResolvedValue({ data: {}, error: null });
+    const props = sectionProps(baseRenewalSettings({ highValueThresholds: {} }), {
+      userSettings: { displayCurrency: "EUR", numberFormatLocale: "de-DE" },
+    });
+    render(<RenewalsSection {...props} />);
+    fireEvent.change(screen.getByLabelText("EUR"), { target: { value: "2,443.00" } });
+    fireEvent.blur(screen.getByLabelText("EUR"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/not a valid number/i);
   });
 
   test("shows the admin's display currency and configured currencies, hiding the rest", () => {
@@ -171,7 +182,7 @@ describe("RenewalsSection validation", () => {
     );
 
     expect(screen.getByLabelText("USD")).toBeInTheDocument();
-    expect(screen.getByLabelText("SEK")).toHaveValue(500000);
+    expect(screen.getByLabelText("SEK")).toHaveValue("500,000");
     expect(screen.queryByLabelText("EUR")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /show other currencies \(7\)/i })).toHaveAttribute("aria-expanded", "false");
   });

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CURRENCIES, LICENSE_TYPES, LICENSE_METRICS, MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
 import { formatCost, getPoTotal } from "../../../utils/helpers.js";
 import Badge from "../../ui/Badge.jsx";
-import { parseTypedNumber, toInputText, formatDate, formatDateTime } from "../../../utils/formatting.js";
+import { numberInputErrorMessage, parseTypedNumberResult, sameNumberValue, toInputText, formatDate, formatDateTime } from "../../../utils/formatting.js";
 import { formatCustomFieldValue } from "../../../utils/customFieldPresentation.js";
 import { formatQuantity } from "../../../utils/quantity.js";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
@@ -77,16 +77,7 @@ const INLINE_EDIT_CONFIG = {
 
 const NUMERIC_INLINE_FIELDS = new Set(["quantity", "quantityPerUnit", "unitPrice"]);
 
-function normalizeInlineValue(fieldKey, value, userSettings) {
-  if (NUMERIC_INLINE_FIELDS.has(fieldKey)) {
-    return parseTypedNumber(value, userSettings) ?? String(value ?? "");
-  }
-  return value ?? "";
-}
-
-// Keep every stored digit (toInputText, not formatQuantityInput): commit()
-// compares the parsed text with the raw stored value, so trimming "1.500" to
-// "1,5" would save an untouched cell.
+// Keep every stored digit (toInputText, not formatQuantityInput).
 function inlineDisplayValue(fieldKey, value, userSettings) {
   if (NUMERIC_INLINE_FIELDS.has(fieldKey)) return toInputText(value ?? "", userSettings);
   return value ?? "";
@@ -110,9 +101,21 @@ function InlineEditableCell({ license, col, config, currentValue, onInlineFieldS
       return;
     }
     if (saving) return;
-    const nextValue = normalizeInlineValue(config.fieldKey, value, userSettings);
-    const previousValue = currentValue ?? "";
-    if (String(nextValue) === String(previousValue)) {
+    const numeric = NUMERIC_INLINE_FIELDS.has(config.fieldKey);
+    let nextValue = value ?? "";
+    if (numeric) {
+      const parsed = parseTypedNumberResult(value, userSettings);
+      if (parsed.error) {
+        setError(numberInputErrorMessage(parsed.error, String(value ?? ""), userSettings));
+        return;
+      }
+      nextValue = parsed.value ?? "";
+    }
+    // Numbers compare with the stored value, never with the displayed text.
+    const unchanged = numeric
+      ? sameNumberValue(nextValue, currentValue)
+      : String(nextValue) === String(currentValue ?? "");
+    if (unchanged) {
       setError(null);
       return;
     }

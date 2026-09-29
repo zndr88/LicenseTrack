@@ -109,6 +109,30 @@ export function numberFormatExample(settings) {
 }
 
 /**
+ * The message for typed text that parseTypedNumberResult refused.
+ *
+ * @param {"invalid"|"ambiguous"} error
+ * @param {string} text - what the user typed
+ * @param {object} [settings] - { numberFormatLocale?: string }
+ */
+export function numberInputErrorMessage(error, text, settings) {
+  if (error === "ambiguous") {
+    const digits = text.replace(/[^\d-]/g, "");
+    const asDecimal = toInputText(text.replace(/[^\d.-]/g, ""), settings);
+    return `"${text.trim()}" is ambiguous in your number format. Type ${digits} for a whole number, or ${asDecimal} for a decimal.`;
+  }
+  return `Not a valid number in your number format (for example ${numberFormatExample(settings)}).`;
+}
+
+/** True when two canonical numbers (or blanks) are the same number. */
+export function sameNumberValue(a, b) {
+  const left = String(a ?? "").trim();
+  const right = String(b ?? "").trim();
+  if (!left || !right) return left === right;
+  return Number(left) === Number(right);
+}
+
+/**
  * Format a CANONICAL number ("1234.567") as editable text in the user's
  * number format ("1.234,567"), keeping every decimal. Non-canonical text is
  * returned unchanged.

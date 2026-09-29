@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatPriceInput } from "../../utils/helpers.js";
-import { parseTypedNumber } from "../../utils/formatting.js";
+import { numberInputErrorMessage, parseTypedNumberResult, sameNumberValue } from "../../utils/formatting.js";
 import { formatQuantityInput } from "../../utils/quantity.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 
@@ -13,13 +13,8 @@ function displayValue(value, valueType, userSettings) {
   return String(value);
 }
 
-function normalizedValue(value, valueType, userSettings) {
-  const trimmed = String(value ?? "").trim();
-  if (!trimmed) return null;
-  if (valueType === "quantity" || valueType === "money") {
-    return parseTypedNumber(trimmed, userSettings) ?? trimmed;
-  }
-  return trimmed;
+function isNumeric(valueType) {
+  return valueType === "quantity" || valueType === "money";
 }
 
 export function ProcurementInlineEditField({
@@ -61,13 +56,20 @@ export function ProcurementInlineEditField({
       return;
     }
 
-    const nextValue = !trimmed
-      ? null
-      : valueType === "quantity" || valueType === "money"
-        ? (parseTypedNumber(trimmed, userSettings) ?? trimmed)
-        : trimmed;
-    const previousValue = normalizedValue(formattedCurrentValue, valueType, userSettings);
-    if (String(nextValue ?? "") === String(previousValue ?? "")) {
+    let nextValue = trimmed || null;
+    if (trimmed && isNumeric(valueType)) {
+      const parsed = parseTypedNumberResult(trimmed, userSettings);
+      if (parsed.error) {
+        setError(numberInputErrorMessage(parsed.error, trimmed, userSettings));
+        return;
+      }
+      nextValue = parsed.value;
+    }
+    // Numbers compare with the stored value, never with the displayed text.
+    const unchanged = isNumeric(valueType)
+      ? sameNumberValue(nextValue, currentValue)
+      : String(nextValue ?? "") === String(formattedCurrentValue).trim();
+    if (unchanged) {
       setError(null);
       return;
     }

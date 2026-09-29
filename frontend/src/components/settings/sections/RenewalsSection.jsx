@@ -3,6 +3,7 @@ import { updateGlobalSettings } from "../../../api/settings.js";
 import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
 import { CURRENCIES } from "../../../constants/licenseData.js";
+import NumberInput, { isValidNumberValue } from "../../ui/NumberInput.jsx";
 
 export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, userSettings, onError, onToast, navGuard }) {
   const [saving, setSaving] = useState(false);
@@ -22,16 +23,12 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
   const renderThresholdInput = (currency) => (
     <div className="fg" key={currency}>
       <label htmlFor={`settings-high-value-threshold-${currency}`}>{currency}</label>
-      <input
+      <NumberInput
         id={`settings-high-value-threshold-${currency}`}
-        className="fi"
-        type="number"
-        min="0"
-        step="1000"
         placeholder="Not flagged"
+        settings={userSettings}
         value={globalSettings.highValueThresholds?.[currency] ?? ""}
-        onChange={(e) => {
-          const value = e.target.value;
+        onChange={(value) => {
           setGlobalSettings(s => ({ ...s, highValueThresholds: { ...(s.highValueThresholds ?? {}), [currency]: value } }));
           markDirty("renewals");
         }}
@@ -48,8 +45,7 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
         payloadThresholds[currency] = "";
         continue;
       }
-      const amount = Number(raw);
-      if (!Number.isFinite(amount) || amount < 0) {
+      if (!isValidNumberValue(raw) || Number(raw) < 0) {
         onError(`High-value threshold for ${currency} must be a non-negative number.`);
         return;
       }

@@ -71,3 +71,41 @@ describe("ProcurementInlineEditField quantity under nl-BE (#63)", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(5, "quantity", "3.75"));
   });
 });
+
+describe("ProcurementInlineEditField money under de-DE", () => {
+  function renderPrice(onSave) {
+    render(
+      <ProcurementInlineEditField
+        item={{ id: 7 }}
+        fieldKey="estimatedUnitPrice"
+        label="Unit price"
+        currentValue="100.00"
+        valueType="money"
+        userSettings={{ numberFormatLocale: "de-DE" }}
+        onSave={onSave}
+      />,
+    );
+    return screen.getByRole("textbox", { name: /edit unit price/i });
+  }
+
+  test.each([
+    ["2,443.00", /not a valid number/i],
+    ["2.443", /ambiguous/i],
+  ])("refuses %j with a message instead of saving", async (typed, message) => {
+    const onSave = vi.fn(async () => ({ ok: true }));
+    const input = renderPrice(onSave);
+    fireEvent.change(input, { target: { value: typed } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(input).toHaveAttribute("aria-invalid", "true"));
+    expect(screen.getByTitle(message)).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  test("saves text in the user's format canonically", async () => {
+    const onSave = vi.fn(async () => ({ ok: true }));
+    const input = renderPrice(onSave);
+    fireEvent.change(input, { target: { value: "2.443,50" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(7, "estimatedUnitPrice", "2443.50"));
+  });
+});

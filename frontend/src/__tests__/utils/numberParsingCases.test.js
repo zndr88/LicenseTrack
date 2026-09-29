@@ -2,11 +2,10 @@
 // (backend/tests/test_unit/test_number_parsing_cases.py).
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { parseTypedNumberResult } from "../../utils/formatting.js";
 
 const { cases } = JSON.parse(
-  readFileSync(join(__dirname, "..", "..", "..", "..", "backend", "tests", "fixtures", "number_parsing_cases.json"), "utf8"),
+  readFileSync(new URL("../../../../backend/tests/fixtures/number_parsing_cases.json", import.meta.url), "utf8"),
 );
 
 describe("shared number parsing cases", () => {
