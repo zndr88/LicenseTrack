@@ -9,7 +9,7 @@ import pytest
 from app import auth
 from app.services.human_session_service import issue_session_token
 from app.models.audit_log import AuditLog
-from app.models.license import License, LicenseMetric, LicenseType
+from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage
 from app.models.pending_order import PendingOrder, PendingOrderStatus
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User, UserRole
@@ -318,8 +318,8 @@ async def test_licenses_export_headers_and_representative_csv_content(
         license_metric=LicenseMetric.per_user,
         quantity="25",
         unit_price="12.00",
-        # Deliberately stale stored aggregate: the export must derive
-        # Total PO Value (25 × 12.00 = 300.00), not emit this column.
+        # Deliberately stale line total. The legacy Total PO Value column uses
+        # the manual PO override, while the new Line Total emits this value.
         total_po_price="999.99",
         currency="EUR",
         start_date=date(2026, 1, 1),
@@ -333,6 +333,14 @@ async def test_licenses_export_headers_and_representative_csv_content(
         cost_centre="IT",
         budget_owner_email="owner@test.local",
         secondary_contacts=["legal@test.local", "finance@test.local"],
+        request_date=datetime(2025, 11, 1, 10, 30, tzinfo=timezone.utc),
+        purchase_date=datetime(2025, 12, 1, 12, 45, tzinfo=timezone.utc),
+        portal_url="https://portal.contoso.test",
+        maintenance_coverage=MaintenanceCoverage.included,
+        maintenance_start_date=date(2026, 1, 1),
+        maintenance_end_date=date(2026, 12, 31),
+        maintenance_cost="75.00",
+        po_total_override="450.00",
         notes="primary export row",
     )
     retired = License(
@@ -349,6 +357,17 @@ async def test_licenses_export_headers_and_representative_csv_content(
     response = await test_app.get("/api/licenses/export", headers=auth_headers)
 
     _assert_csv_download(response, "licenses_export.csv")
+    assert _csv_lines(response)[0][-9:] == [
+        "Request Date",
+        "Purchase Date",
+        "Portal URL",
+        "Maintenance Coverage",
+        "Maintenance Start",
+        "Maintenance End",
+        "Maintenance Cost",
+        "Line Total",
+        "Manual PO Total",
+    ]
     rows = _csv_dicts(response)
     assert len(rows) == 1
     row = rows[0]
@@ -357,10 +376,19 @@ async def test_licenses_export_headers_and_representative_csv_content(
     assert row["External Ref"] == "ERP-1"
     assert row["Publisher"] == "Contoso"
     assert row["Software Description"] == "Contoso Analytics"
-    assert row["Total PO Value"] == "300.00"
+    assert row["Total PO Value"] == "450.00"
     assert row["Invoice Number"] == 'LT-INVOICES:["INV-1", "INV-2"]'
     assert row["Secondary Contacts"] == "legal@test.local; finance@test.local"
     assert row["Notes"] == "primary export row"
+    assert row["Request Date"] == "2025-11-01T10:30:00+00:00"
+    assert row["Purchase Date"] == "2025-12-01T12:45:00+00:00"
+    assert row["Portal URL"] == "https://portal.contoso.test"
+    assert row["Maintenance Coverage"] == "included"
+    assert row["Maintenance Start"] == "2026-01-01"
+    assert row["Maintenance End"] == "2026-12-31"
+    assert row["Maintenance Cost"] == "75.00"
+    assert row["Line Total"] == "999.99"
+    assert row["Manual PO Total"] == "450.00"
 
 
 async def test_csv_export_endpoints_neutralize_formula_cells(

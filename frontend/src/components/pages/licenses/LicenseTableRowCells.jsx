@@ -432,6 +432,25 @@ export default function LicenseTableRowCells({
         return <td key="maintenanceEndDate" className="mono">{license.maintenanceEndDate ? formatDate(license.maintenanceEndDate, userSettings) : "-"}</td>;
       case "maintenanceCost":
         return <td key="maintenanceCost" className="mono lp-mono-bold">{formatCost(license.maintenanceCost, license.currency || displayCurrency, locale)}</td>;
+      case "lineTotal":
+        return <td key="lineTotal" className="mono lp-mono-bold">{formatCost(license.totalPoPrice, license.currency || displayCurrency, locale)}</td>;
+      case "poTotalOverride":
+        return <td key="poTotalOverride" className="mono lp-mono-bold">{formatCost(license.poTotalOverride, license.currency || displayCurrency, locale)}</td>;
+      case "parentLicenseRefs": {
+        const parentIds = new Set(license.maintenanceParentIds ?? []);
+        const refs = licenses
+          .filter((candidate) => parentIds.has(candidate.id))
+          .map((candidate) => candidate.licenseRef)
+          .filter(Boolean)
+          .join("; ");
+        return <td key="parentLicenseRefs" className="mono">{refs || "-"}</td>;
+      }
+      case "maintenancePricingBasis":
+        return <td key="maintenancePricingBasis" className="lp-td">{license.maintenancePricingBasis || "-"}</td>;
+      case "maintenanceQuantity":
+        return <td key="maintenanceQuantity" className="mono td-center">{formatQuantity(license.maintenanceQuantity, userSettings) || "-"}</td>;
+      case "maintenanceUnitPrice":
+        return <td key="maintenanceUnitPrice" className="mono lp-mono-bold">{formatCost(license.maintenanceUnitPrice, license.currency || displayCurrency, locale)}</td>;
       default:
         if (col.key.startsWith("cf_") && col._cfDef) {
           return renderCustomFieldCell({ col, license, customFieldValuesMap, displayCurrency, locale, userSettings });

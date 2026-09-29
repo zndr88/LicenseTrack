@@ -89,6 +89,8 @@ const STATIC_SORT_ACCESSORS = {
   quantityPerUnit: (license) => finiteNumber(license.quantityPerUnit),
   skuCode: (license) => license.skuCode ?? null,
   unitPrice: (license) => finiteNumber(license.unitPrice),
+  lineTotal: (license) => finiteNumber(license.totalPoPrice),
+  poTotalOverride: (license) => finiteNumber(license.poTotalOverride),
   totalPoPrice: (license, { allLicenses }) => finiteNumber(
     getPoTotal(license.poNumber, license.currency, allLicenses, license),
   ),
@@ -116,6 +118,17 @@ const STATIC_SORT_ACCESSORS = {
   maintenanceStartDate: (license) => dateOnlyValue(license.maintenanceStartDate),
   maintenanceEndDate: (license) => dateOnlyValue(license.maintenanceEndDate),
   maintenanceCost: (license) => finiteNumber(license.maintenanceCost),
+  parentLicenseRefs: (license, { allLicenses }) => {
+    const parentIds = new Set(license.maintenanceParentIds ?? []);
+    return allLicenses
+      .filter((candidate) => parentIds.has(candidate.id))
+      .map((candidate) => candidate.licenseRef)
+      .filter(Boolean)
+      .join("; ") || null;
+  },
+  maintenancePricingBasis: (license) => license.maintenancePricingBasis ?? null,
+  maintenanceQuantity: (license) => finiteNumber(license.maintenanceQuantity),
+  maintenanceUnitPrice: (license) => finiteNumber(license.maintenanceUnitPrice),
 };
 
 export function getSortValue(license, colKey, context = {}) {

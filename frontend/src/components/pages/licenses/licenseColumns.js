@@ -28,6 +28,8 @@ export const COLUMN_DEFS = [
   { key: "quantityPerUnit", label: "Qty / Unit", settingsLabel: "Quantity per Unit", width: 95, group: "standard", defaultVisible: false, detailKey: "quantityPerUnit" },
   { key: "skuCode", label: "SKU", settingsLabel: "SKU Code", width: 100, group: "standard", defaultVisible: false, detailKey: "skuCode" },
   { key: "unitPrice", label: "Unit Price", width: 110, group: "standard", defaultVisible: false, detailKey: "unitPrice" },
+  { key: "lineTotal", label: "Line Total", width: 110, group: "standard", defaultVisible: false },
+  { key: "poTotalOverride", label: "Manual PO Total", width: 130, group: "advanced", defaultVisible: false },
   { key: "totalPoPrice", label: "Total PO Value", width: 120, group: "computed", defaultVisible: true, detailKey: "totalPoPrice", computed: true },
   { key: "currency", label: "Currency", width: 85, group: "standard", defaultVisible: false },
   { key: "startDate", label: "Start Date", width: 100, group: "standard", defaultVisible: true, settingsKey: "dates", settingsLabel: "Dates", grouped: true },
@@ -52,6 +54,10 @@ export const COLUMN_DEFS = [
   { key: "maintenanceStartDate", label: "Maintenance Start", width: 135, group: "advanced", defaultVisible: false },
   { key: "maintenanceEndDate", label: "Maintenance End", width: 135, group: "advanced", defaultVisible: false },
   { key: "maintenanceCost", label: "Maintenance Cost", width: 135, group: "advanced", defaultVisible: false },
+  { key: "parentLicenseRefs", label: "Covered License(s)", width: 170, group: "advanced", defaultVisible: false },
+  { key: "maintenancePricingBasis", label: "Maintenance Pricing", width: 150, group: "advanced", defaultVisible: false },
+  { key: "maintenanceQuantity", label: "Maintenance Qty", width: 125, group: "advanced", defaultVisible: false },
+  { key: "maintenanceUnitPrice", label: "Maintenance Unit Price", width: 165, group: "advanced", defaultVisible: false },
 ];
 
 export const VISIBLE_IN_LIST_DEFAULTS = COLUMN_DEFS.reduce((defaults, column) => {

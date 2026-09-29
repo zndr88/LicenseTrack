@@ -20,6 +20,7 @@ from typing import Optional
 
 import logging
 
+from app.models.license import MaintenancePricingBasis
 from app.services.csv_fields import header_map as _registry_header_map
 from app.services.csv_fields import normalise_header
 from app.services.csv_fields import ignored_headers as _registry_ignored_headers
@@ -86,6 +87,7 @@ _VALID_MAINTENANCE_COVERAGE = {
     "included",
     "separately_tracked",
 }
+_VALID_MAINTENANCE_PRICING_BASES = {basis.value for basis in MaintenancePricingBasis}
 _MAINTENANCE_COVERAGE_VALUE_ALIASES = {
     "true": "included",
     "yes": "included",
@@ -148,6 +150,11 @@ class ParsedRow:
     maintenance_start_date: Optional[str] = None
     maintenance_end_date: Optional[str] = None
     maintenance_cost: str = ""
+    po_total_override: str = ""
+    parent_license_refs: list[str] = field(default_factory=list)
+    maintenance_pricing_basis: Optional[str] = None
+    maintenance_quantity: str = ""
+    maintenance_unit_price: str = ""
     quantity_per_unit: str = ""
     effective_quantity: str = ""
     procurement_reference: str = ""
@@ -524,6 +531,7 @@ def _classify_row(
     software_description: str,
     db_end_date: Optional[date],
     license_type: str,
+    explicit_lifecycle: str | None,
 ) -> tuple[str, str | None, bool]:
     """Return (import_status, lifecycle_status, is_completeness_exempt).
 
@@ -537,14 +545,21 @@ def _classify_row(
     imported expiry dates represent included support coverage and must not make
     the license itself legacy.
     """
-    today = date.today()
     has_publisher = bool(publisher_name)
     has_description = bool(software_description)
-    non_expiring_license = license_type in _INCLUDED_SUPPORT_PARENT_TYPES
-    end_in_past = not non_expiring_license and db_end_date is not None and db_end_date < today
-
     if not has_publisher and not has_description:
         return "error", None, False
+
+    if explicit_lifecycle is not None:
+        if explicit_lifecycle in {"legacy", "renewed"}:
+            if not has_publisher or not has_description:
+                return "legacy_incomplete", "legacy", False
+            return "legacy_exempt", "legacy", True
+        return "active", None, False
+
+    today = date.today()
+    non_expiring_license = license_type in _INCLUDED_SUPPORT_PARENT_TYPES
+    end_in_past = not non_expiring_license and db_end_date is not None and db_end_date < today
 
     if end_in_past and (not has_publisher or not has_description):
         return "legacy_incomplete", "legacy", False
@@ -638,8 +653,17 @@ def _parse_row(
     total_po_price = _parse_localized_numeric_field(
         _field_text(data, "total_po_price"), "total_po_price", errors, number_format_locale
     )
+    po_total_override = _parse_localized_numeric_field(
+        _field_text(data, "po_total_override"), "po_total_override", errors, number_format_locale
+    )
     maintenance_cost = _parse_localized_numeric_field(
         _field_text(data, "maintenance_cost"), "maintenance_cost", errors, number_format_locale
+    )
+    maintenance_quantity = _parse_localized_numeric_field(
+        _field_text(data, "maintenance_quantity"), "maintenance_quantity", errors, number_format_locale
+    )
+    maintenance_unit_price = _parse_localized_numeric_field(
+        _field_text(data, "maintenance_unit_price"), "maintenance_unit_price", errors, number_format_locale
     )
     has_parse_error = has_parse_error or len(errors) > numeric_error_count
     quantity_per_unit = _derive_quantity_per_unit(
@@ -667,7 +691,12 @@ def _parse_row(
         secondary_contacts = []
 
     # -- Parent linkage (for maintenance rows) ----------------------------
-    parent_license_ref = _field_text(data, "parent_license_ref") or None
+    parent_license_refs = [
+        value.strip()
+        for value in _field_text(data, "parent_license_refs").split(";")
+        if value.strip()
+    ]
+    parent_license_ref = parent_license_refs[0] if parent_license_refs else None
 
     # -- Optional enrichment fields ----------------------------------------
     portal_url = _field_text(data, "portal_url") or None
@@ -681,6 +710,18 @@ def _parse_row(
         warnings.append(f"Unrecognised maintenance_coverage {maintenance_coverage_raw!r}; defaulting to 'unknown'")
         maintenance_coverage_raw = None
     maintenance_coverage = maintenance_coverage_raw or None
+
+    maintenance_pricing_basis = _normalise_enum_value(
+        _field_text(data, "maintenance_pricing_basis")
+    ) or None
+    if (
+        maintenance_pricing_basis
+        and maintenance_pricing_basis not in _VALID_MAINTENANCE_PRICING_BASES
+    ):
+        warnings.append(
+            f"Unrecognised maintenance_pricing_basis {maintenance_pricing_basis!r}; ignoring"
+        )
+        maintenance_pricing_basis = None
 
     if maintenance_coverage == "included" and license_type in _INCLUDED_SUPPORT_PARENT_TYPES:
         if db_maintenance_start_date is None and db_start_date is not None:
@@ -707,8 +748,17 @@ def _parse_row(
     ):
         warnings.append(EXPIRED_MAINTENANCE_WARNING)
 
+    explicit_lifecycle = None
+    if "lifecycle_status" in data:
+        explicit_lifecycle = _normalise_enum_value(_field_text(data, "lifecycle_status"))
+        if explicit_lifecycle == "pending_renewal":
+            warnings.append("renewal state is not imported")
     import_status, lifecycle_status, is_completeness_exempt = _classify_row(
-        publisher_name, software_description, db_end_date, license_type
+        publisher_name,
+        software_description,
+        db_end_date,
+        license_type,
+        explicit_lifecycle,
     )
 
     if import_status == "error":
@@ -758,6 +808,7 @@ def _parse_row(
         external_ref=_field_text(data, "external_ref") or None,
         license_ref=_field_text(data, "license_ref") or None,
         parent_license_ref=parent_license_ref,
+        parent_license_refs=parent_license_refs,
         portal_url=portal_url,
         is_renewable=is_renewable,
         type_description=type_description,
@@ -765,6 +816,10 @@ def _parse_row(
         maintenance_start_date=maintenance_start_date_str,
         maintenance_end_date=maintenance_end_date_str,
         maintenance_cost=maintenance_cost,
+        maintenance_pricing_basis=maintenance_pricing_basis,
+        maintenance_quantity=maintenance_quantity,
+        maintenance_unit_price=maintenance_unit_price,
+        po_total_override=po_total_override,
         import_status=import_status,
         validation_errors=errors,
         warnings=warnings,
@@ -926,7 +981,7 @@ def _assemble_import_row(
             if stripped:
                 custom_data[target] = stripped
             continue
-        if omit_blank_native_values and not stripped:
+        if omit_blank_native_values and not stripped and target != "lifecycle_status":
             continue
         value = stripped if omit_blank_native_values else raw_value
         if target in MULTI_VALUE_TARGETS:

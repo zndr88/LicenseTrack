@@ -7,6 +7,8 @@ from fastapi import HTTPException
 from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.import_.license_refs import license_ref_matches
+
 from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.services.csv_importer import ParsedRow
 from app.services.license_service import (
@@ -20,6 +22,39 @@ from app.services.maintenance_service import validate_parent_license
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, default_maintenance_coverage
 from app.services.po_total_override_service import inherit_po_total_override
 from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
+
+
+async def resolve_maintenance_parent_ref(db: AsyncSession, ref: str) -> License:
+    """Resolve an LT-Ref in a CSV row to the one license a maintenance record can cover.
+
+    Matching ignores case. Raises ValueError when the ref is unknown, points to
+    an ineligible or retired license, or is ambiguous.
+    """
+    parent_result = await db.execute(sa_select(License).where(license_ref_matches(ref)))
+    parent_matches = parent_result.scalars().all()
+    if not parent_matches:
+        raise ValueError(f"parent_license_ref={ref!r} does not resolve to any existing License")
+    eligible_parents = []
+    for p in parent_matches:
+        try:
+            await validate_parent_license(db, p.id)
+            eligible_parents.append(p)
+        except ValueError:
+            pass
+    if not eligible_parents:
+        first = parent_matches[0]
+        if first.license_type not in (LicenseType.perpetual, LicenseType.oem, LicenseType.freeware):
+            raise ValueError(
+                f"parent_license_ref={ref!r} resolves to a "
+                f"{first.license_type.value} License; maintenance can only attach to perpetual, oem, or freeware"
+            )
+        raise ValueError(f"parent_license_ref={ref!r} resolves to a retired License")
+    if len(eligible_parents) > 1:
+        raise ValueError(
+            f"parent_license_ref={ref!r} resolves to multiple "
+            f"perpetual, oem, or freeware Licenses; parent selection is ambiguous"
+        )
+    return eligible_parents[0]
 
 
 async def build_license(
@@ -41,38 +76,11 @@ async def build_license(
 
     if row.parent_license_ref and row.maintenance_parent_action != "import_legacy_unlinked":
         if license_type == LicenseType.maintenance and parent_license_id is None:
-            # Maintenance path: resolve ref to a valid perpetual/oem/freeware parent
-            parent_result = await db.execute(sa_select(License).where(License.license_ref == row.parent_license_ref))
-            parent_matches = parent_result.scalars().all()
-            if not parent_matches:
-                raise ValueError(
-                    f"parent_license_ref={row.parent_license_ref!r} does not resolve to any existing License"
-                )
-            eligible_parents = []
-            for p in parent_matches:
-                try:
-                    await validate_parent_license(db, p.id)
-                    eligible_parents.append(p)
-                except ValueError:
-                    pass
-            if not eligible_parents:
-                first = parent_matches[0]
-                if first.license_type not in (LicenseType.perpetual, LicenseType.oem, LicenseType.freeware):
-                    raise ValueError(
-                        f"parent_license_ref={row.parent_license_ref!r} resolves to a "
-                        f"{first.license_type.value} License; maintenance can only attach to perpetual, oem, or freeware"
-                    )
-                raise ValueError(f"parent_license_ref={row.parent_license_ref!r} resolves to a retired License")
-            if len(eligible_parents) > 1:
-                raise ValueError(
-                    f"parent_license_ref={row.parent_license_ref!r} resolves to multiple "
-                    f"perpetual, oem, or freeware Licenses; parent selection is ambiguous"
-                )
-            parent_license_id = eligible_parents[0].id
+            parent_license_id = (await resolve_maintenance_parent_ref(db, row.parent_license_ref)).id
         elif license_type != LicenseType.maintenance:
             # Renewal path: resolve ref to a predecessor license (FK structural link only).
             # Raise if the ref is ambiguous (multiple matches) to mirror the maintenance path.
-            pred_result = await db.execute(sa_select(License).where(License.license_ref == row.parent_license_ref))
+            pred_result = await db.execute(sa_select(License).where(license_ref_matches(row.parent_license_ref)))
             pred_matches = pred_result.scalars().all()
             if len(pred_matches) > 1:
                 raise ValueError(
@@ -111,10 +119,14 @@ async def build_license(
         "maintenance_start_date": row.db_maintenance_start_date,
         "maintenance_end_date": row.db_maintenance_end_date,
         "maintenance_pricing_basis": (
-            MaintenancePricingBasis.flat
+            MaintenancePricingBasis(row.maintenance_pricing_basis)
+            if row.maintenance_pricing_basis
+            else MaintenancePricingBasis.flat
             if resolved_maintenance_coverage == MaintenanceCoverage.included and row.maintenance_cost
             else None
         ),
+        "maintenance_quantity": row.maintenance_quantity or None,
+        "maintenance_unit_price": row.maintenance_unit_price or None,
         "maintenance_cost": row.maintenance_cost or None,
         "portal_url": row.portal_url,
         "is_renewable": row.is_renewable,
@@ -124,6 +136,7 @@ async def build_license(
         "sku_code": row.sku_code,
         "unit_price": row.unit_price,
         "total_po_price": row.total_po_price,
+        "po_total_override": row.po_total_override or None,
         "currency": row.currency,
         "start_date": row.db_start_date,
         "end_date": None if is_non_expiring_license_type(license_type) else row.db_end_date,

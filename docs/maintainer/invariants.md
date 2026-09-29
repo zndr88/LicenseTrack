@@ -38,6 +38,13 @@ yet), **target** (planned for the named release), or **known violation**
 | STATE-6 | Legacy licenses can't start a renewal; a renewed status can't be cleared through a general edit. | `lifecycle_rules.py` | `test_license_renewals.py` (`test_legacy_license_cannot_start_single_or_bundle_renewal`, `test_general_update_cannot_clear_renewed_status`) | holds |
 | STATE-7 | A co-term merge needs one license type, and its maintenance successor covers every predecessor's licenses. | `sourcing_service.py` (`_validate_coterm_merge_compatibility`); `renewal_orchestrator.py` | `backend/tests/test_integration/test_coterm_maintenance.py` | holds |
 
+## Import and export
+
+| ID | Rule | Owner | Guard | Status |
+|---|---|---|---|---|
+| IMPORT-1 | Every field marked round-trip in `csv_fields.py` survives export → import. | `backend/app/services/csv_fields.py`; `backend/app/services/csv_importer.py`; `backend/app/services/import_/license_builder.py` | `backend/tests/test_integration/test_csv_round_trip.py` | holds |
+| IMPORT-2 | Frontend export headers equal the backend CSV field registry. | `backend/app/services/csv_fields.py`; `frontend/src/generated/csvFields.json` | `backend/tests/test_unit/test_csv_fields.py` (`test_frontend_csv_field_file_is_up_to_date`) | holds |
+
 ## Non-goals
 
 - **Budgeting.** LicenseTrack provides the data managers use to prepare budgets. It doesn't do forecasting, budget-vs-actual, allocations or multi-year budget modelling. Annualized cost views are indicative.

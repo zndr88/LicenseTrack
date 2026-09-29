@@ -34,8 +34,10 @@ from app.services.custom_fields_service import (
     validate_imported_custom_rows,
 )
 from app.services.import_.duplicate_detection import add_duplicate_warnings
-from app.services.import_.import_update import apply_import_update
-from app.services.import_.license_builder import build_license
+from app.services.procurement_identity import normalize_po_number
+from app.services.import_.import_update import apply_import_update, has_maintenance_update_values
+from app.services.import_.license_builder import build_license, resolve_maintenance_parent_ref
+from app.services.import_.license_refs import ref_key
 from app.services.import_.license_matcher import annotate_update_targets
 from app.services.import_.maintenance_parenting import infer_batch_maintenance_parents
 from app.services.import_.reference_resolution import (
@@ -306,8 +308,29 @@ async def prepare_import_rows(
     """Run maintenance parent inference, update-target annotation, then duplicate detection."""
     await apply_import_row_overrides(rows, db, row_parent_overrides)
     infer_batch_maintenance_parents(rows)
+    first_po_overrides: dict[tuple[str, str], str] = {}
+    for row in rows:
+        po_key = normalize_po_number(row.po_number)
+        if not po_key or not row.po_total_override:
+            continue
+        group = (po_key, row.currency)
+        first_value = first_po_overrides.setdefault(group, row.po_total_override)
+        if row.po_total_override != first_value:
+            row.warnings.append(
+                "Conflicting manual PO total for the same PO and currency; "
+                f"the first value ({first_value}) will be used."
+            )
+            row.po_total_override = first_value
     if update_existing:
         await annotate_update_targets(db, rows)
+        for row in rows:
+            if row.matched_license_id is None or not has_maintenance_update_values(row):
+                continue
+            target = await db.get(License, row.matched_license_id)
+            if target is not None and target.active_maintenance_id is not None:
+                row.warnings.append(
+                    "Maintenance fields were ignored because this license has active maintenance."
+                )
     await add_duplicate_warnings(rows, db)
 
 
@@ -471,11 +494,15 @@ async def run_import_rows(
     import_errors: list[CSVImportError] = []
     custom_field_failure_count = 0
     inserted_by_row_number: dict[int, int] = {}
+    inserted_by_import_ref: dict[str, int] = {}
     reference_tracker = _ReferenceTracker()
     reference_overrides = reference_overrides or {}
     skipped_rows = expand_skipped_inferred_rows(rows, skipped_rows)
 
-    for parsed, custom_data in zip(rows, custom_rows):
+    row_pairs = list(zip(rows, custom_rows))
+    row_pairs.sort(key=lambda pair: pair[0].license_type == LicenseType.maintenance.value)
+
+    for parsed, custom_data in row_pairs:
         if parsed.row_number in skipped_rows:
             skipped_count += 1
             continue
@@ -522,6 +549,10 @@ async def run_import_rows(
                         parent_license_id = parsed.selected_parent_license_id
                     elif parsed.parent_import_row_number is not None:
                         parent_license_id = inserted_by_row_number.get(parsed.parent_import_row_number)
+                    elif parsed.parent_license_ref:
+                        parent_license_id = inserted_by_import_ref.get(
+                            ref_key(parsed.parent_license_ref)
+                        )
                     license_obj = await build_license(parsed, user_id, db, parent_license_id)
                     license_obj.publisher_id = parsed.resolved_publisher_id
                     license_obj.supplier_id = parsed.resolved_supplier_id
@@ -538,6 +569,17 @@ async def run_import_rows(
                         parent = await db.get(License, license_obj.parent_license_id)
                         if parent is not None:
                             await activate_maintenance_for_parent(db, license_obj, parent)
+                        for parent_ref in parsed.parent_license_refs[1:]:
+                            additional_parent_id = inserted_by_import_ref.get(ref_key(parent_ref))
+                            if additional_parent_id is not None:
+                                additional_parent = await validate_parent_license(
+                                    db, additional_parent_id
+                                )
+                            else:
+                                additional_parent = await resolve_maintenance_parent_ref(db, parent_ref)
+                            await activate_maintenance_for_parent(
+                                db, license_obj, additional_parent
+                            )
                     persisted_license_id = license_obj.id
 
                     if custom_data:
@@ -551,6 +593,8 @@ async def run_import_rows(
 
             if persisted_license_id is not None:
                 inserted_by_row_number[parsed.row_number] = persisted_license_id
+                if parsed.license_ref:
+                    inserted_by_import_ref[ref_key(parsed.license_ref)] = persisted_license_id
             reference_tracker.created_ids.update(row_reference_tracker.created_ids)
             reference_tracker.reused_ids.update(row_reference_tracker.reused_ids)
             if did_update:

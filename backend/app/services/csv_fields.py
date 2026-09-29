@@ -133,7 +133,7 @@ FIELDS: tuple[CsvField, ...] = (
             "technical_owner_email",
             "application_owner_email_address",
         ),
-        update=False,  # not written by import_update.py yet
+        update=True,
         round_trip=True,
         frontend_key="secondaryContacts",
     ),
@@ -202,9 +202,18 @@ FIELDS: tuple[CsvField, ...] = (
     ),
     CsvField(
         "total_po_price",
-        "total_po_price",
-        aliases=("total_price_eur",),
+        "line_total",
+        aliases=("total_po_price", "line_total_eur", "total_price_eur"),
         update=True,
+        round_trip=True,
+        frontend_key="lineTotal",
+    ),
+    CsvField(
+        "po_total_override",
+        "po_total_manual",
+        aliases=("manual_po_total", "po_total_override"),
+        round_trip=True,
+        frontend_key="poTotalOverride",
     ),
     CsvField("currency", "currency", update=True, round_trip=True, frontend_key="currency"),
     CsvField(
@@ -234,7 +243,7 @@ FIELDS: tuple[CsvField, ...] = (
     CsvField(
         "request_date",
         "request_date",
-        update=False,  # not written by import_update.py yet
+        update=True,
         round_trip=True,
         frontend_key="requestDate",
     ),
@@ -242,16 +251,18 @@ FIELDS: tuple[CsvField, ...] = (
     CsvField(
         "purchase_date",
         "purchase_date",
-        update=False,  # not written by import_update.py yet
+        update=True,
         round_trip=True,
         frontend_key="purchaseDate",
     ),
     CsvField("portal_url", "portal_url", update=True, round_trip=True, frontend_key="portalUrl"),
     CsvField("notes", "notes", update=True, round_trip=True, frontend_key="notes"),
     CsvField(
-        "parent_license_ref",
-        "parent_license_ref",
-        aliases=("parent_ref", "parent"),
+        "parent_license_refs",
+        "parent_license_refs",
+        aliases=("parent_license_ref", "parent_ref", "parent"),
+        round_trip=True,
+        frontend_key="parentLicenseRefs",
     ),
     CsvField(
         "maintenance_coverage",
@@ -265,6 +276,8 @@ FIELDS: tuple[CsvField, ...] = (
             "purchase_includes_support",
             "includes_support",
         ),
+        update=True,
+        round_trip=True,
         frontend_key="maintenanceCoverage",
     ),
     CsvField(
@@ -277,6 +290,9 @@ FIELDS: tuple[CsvField, ...] = (
             "coverage_start",
             "coverage_start_date",
         ),
+        update=True,
+        round_trip=True,
+        frontend_key="maintenanceStartDate",
     ),
     CsvField(
         "maintenance_end_date",
@@ -288,6 +304,9 @@ FIELDS: tuple[CsvField, ...] = (
             "coverage_end",
             "coverage_end_date",
         ),
+        update=True,
+        round_trip=True,
+        frontend_key="maintenanceEndDate",
     ),
     CsvField(
         "maintenance_cost",
@@ -298,6 +317,31 @@ FIELDS: tuple[CsvField, ...] = (
             "total_support_cost_eur",
             "coverage_cost",
         ),
+        update=True,
+        round_trip=True,
+        frontend_key="maintenanceCost",
+    ),
+    CsvField(
+        "maintenance_pricing_basis",
+        "maintenance_pricing_basis",
+        aliases=("support_pricing_basis",),
+        update=True,
+        round_trip=True,
+        frontend_key="maintenancePricingBasis",
+    ),
+    CsvField(
+        "maintenance_quantity",
+        "maintenance_quantity",
+        update=True,
+        round_trip=True,
+        frontend_key="maintenanceQuantity",
+    ),
+    CsvField(
+        "maintenance_unit_price",
+        "maintenance_unit_price",
+        update=True,
+        round_trip=True,
+        frontend_key="maintenanceUnitPrice",
     ),
     # Export-only / computed fields recognized but intentionally ignored on import.
     CsvField(
@@ -317,7 +361,12 @@ FIELDS: tuple[CsvField, ...] = (
     CsvField(None, "created_by", create=False),
     CsvField(None, "updated_at", aliases=("last_updated",), create=False),
     CsvField(None, "last_synced_at", aliases=("last_synced",), create=False),
-    CsvField(None, "lifecycle_status", create=False),
+    CsvField(
+        "lifecycle_status",
+        "lifecycle_status",
+        round_trip=True,
+        frontend_key="lifecycleStatus",
+    ),
     CsvField(None, "sync_status", create=False),
 )
 

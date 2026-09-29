@@ -4,7 +4,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.license import License, LicenseType
+from app.models.license import License, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.services.contract_identity_service import resolve_contract_id_for_number
 from app.services.csv_importer import ParsedRow
 from app.services.custom_fields_service import upsert_imported_values_for_license
@@ -16,7 +16,8 @@ from app.services.license_service import (
 from app.services.lifecycle_rules import validate_established_renewal_terms
 from app.services.import_.invoice_values import parse_invoice_cell
 from app.services.license_write_service import sync_support_defaults_on_license
-from app.services.maintenance_service import sync_parent_mirror_fields
+from app.services.maintenance_rules import assert_coverage_allowed_for_type, coverage_after_type_change
+from app.services.maintenance_service import record_included_support_exit, sync_parent_mirror_fields
 from app.services.po_total_override_service import resolve_reassigned_po_total_override
 
 # ParsedRow attr -> License attr for plain string fields patched only when non-empty.
@@ -36,6 +37,21 @@ _STRING_PATCH_FIELDS: list[tuple[str, str]] = [
     ("unit_price", "unit_price"),
     ("total_po_price", "total_po_price"),
 ]
+
+_MAINTENANCE_UPDATE_FIELDS = (
+    "maintenance_coverage",
+    "db_maintenance_start_date",
+    "db_maintenance_end_date",
+    "maintenance_cost",
+    "maintenance_pricing_basis",
+    "maintenance_quantity",
+    "maintenance_unit_price",
+)
+
+
+def has_maintenance_update_values(row: ParsedRow) -> bool:
+    """Whether an import row asks to change any included-maintenance field."""
+    return any(getattr(row, field) not in (None, "") for field in _MAINTENANCE_UPDATE_FIELDS)
 
 
 async def apply_import_update(
@@ -146,6 +162,35 @@ async def apply_import_update(
         license_obj.purchase_date = row.db_purchase_date
     if row.secondary_contacts:
         license_obj.secondary_contacts = row.secondary_contacts
+
+    previous_coverage = license_obj.maintenance_coverage
+    if license_obj.active_maintenance_id is None and has_maintenance_update_values(row):
+        if row.maintenance_coverage:
+            imported_coverage = MaintenanceCoverage(row.maintenance_coverage)
+            # Same rule as create imports and the edit form: raises ValueError,
+            # which the import reports as a row error.
+            assert_coverage_allowed_for_type(license_obj.license_type, imported_coverage)
+            license_obj.maintenance_coverage = coverage_after_type_change(
+                license_obj.license_type,
+                license_obj.license_type,
+                imported_coverage,
+                active_maintenance_id=None,
+            )
+        if row.db_maintenance_start_date is not None:
+            license_obj.maintenance_start_date = row.db_maintenance_start_date
+        if row.db_maintenance_end_date is not None:
+            license_obj.maintenance_end_date = row.db_maintenance_end_date
+        if row.maintenance_cost:
+            license_obj.maintenance_cost = row.maintenance_cost
+        if row.maintenance_pricing_basis:
+            license_obj.maintenance_pricing_basis = MaintenancePricingBasis(
+                row.maintenance_pricing_basis
+            )
+        if row.maintenance_quantity:
+            license_obj.maintenance_quantity = row.maintenance_quantity
+        if row.maintenance_unit_price:
+            license_obj.maintenance_unit_price = row.maintenance_unit_price
+        await record_included_support_exit(db, license_obj, previous_coverage)
 
     if previous_dates != (license_obj.start_date, license_obj.end_date):
         await validate_established_renewal_terms(db, license_obj)

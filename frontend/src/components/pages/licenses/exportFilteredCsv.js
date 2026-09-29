@@ -97,6 +97,8 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "quantityPerUnit": return fmtQty(l.quantityPerUnit);
         case "skuCode": return l.skuCode ?? "";
         case "unitPrice": return fmtDecimal(l.unitPrice);
+        case "lineTotal": return fmtDecimal(l.totalPoPrice);
+        case "poTotalOverride": return fmtDecimal(l.poTotalOverride);
         case "currency": return l.currency ?? "";
         case "totalPoPrice": {
           const total = getPoTotal(l.poNumber, l.currency, allLicenses ?? rows, l);
@@ -132,6 +134,18 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "maintenanceStartDate": return fmtDate(l.maintenanceStartDate);
         case "maintenanceEndDate": return fmtDate(l.maintenanceEndDate);
         case "maintenanceCost": return fmtDecimal(l.maintenanceCost);
+        case "parentLicenseRefs": {
+          if (l.licenseType !== "maintenance") return "";
+          const parentIds = new Set(l.maintenanceParentIds ?? []);
+          return (allLicenses ?? rows)
+            .filter((candidate) => parentIds.has(candidate.id))
+            .map((candidate) => candidate.licenseRef)
+            .filter(Boolean)
+            .join("; ");
+        }
+        case "maintenancePricingBasis": return l.maintenancePricingBasis ?? "";
+        case "maintenanceQuantity": return fmtQty(l.maintenanceQuantity);
+        case "maintenanceUnitPrice": return fmtDecimal(l.maintenanceUnitPrice);
         default: {
           if (col.key.startsWith("cf_") && col._cfDef) {
             const values = customFieldValuesMap?.get(l.id) ?? [];
