@@ -9,6 +9,7 @@ import zoneinfo
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from app.services.email_validation import reject_email_crlf
 from app.services.money import SUPPORTED_NUMBER_FORMAT_LOCALES
+from app.schemas.request_base import RequestModel
 
 
 # Cache available timezones at module load time to avoid repeated filesystem I/O
@@ -20,7 +21,7 @@ _VALID_TIMEZONES: frozenset[str] = frozenset(zoneinfo.available_timezones())
 # ---------------------------------------------------------------------------
 
 
-class UserSettingsUpdate(BaseModel):
+class UserSettingsUpdate(RequestModel):
     """Partial update - all fields optional."""
 
     visible_in_list: Optional[dict] = None
@@ -81,7 +82,7 @@ class UserSettingsResponse(BaseModel):
 _SMTP_PASSWORD_MASK = "••••••••"
 
 
-class GlobalSettingsUpdate(BaseModel):
+class GlobalSettingsUpdate(RequestModel):
     """Partial update - all fields optional."""
 
     mandatory_fields: Optional[dict] = None

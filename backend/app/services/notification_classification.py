@@ -16,8 +16,10 @@ from app.services.license_service import (
 INCOMPLETE_COMPLETENESS_THRESHOLD = 100
 SEVERITY_RANK: dict[str, int] = {"critical": 0, "warning": 1, "info": 2}
 
+# Alerts about included maintenance rather than the license term.
+MAINTENANCE_ALERT_TYPES = frozenset({"support_expiring", "support_expired"})
 # Who receives which alert types. The single place that decides routing.
-BUDGET_OWNER_ALERT_TYPES = frozenset({"expired", "expiring", "support_expiring", "support_expired"})
+BUDGET_OWNER_ALERT_TYPES = frozenset({"expired", "expiring"}) | MAINTENANCE_ALERT_TYPES
 MANAGER_DIGEST_ALERT_TYPES = frozenset(
     {"expired", "expiring", "notice_due", "incomplete", "support_expiring", "support_expired"}
 )

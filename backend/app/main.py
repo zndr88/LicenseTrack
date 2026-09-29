@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
+from app.request_context import current_request
 
 logging.basicConfig(
     level=settings.LOG_LEVEL.upper(),
@@ -277,19 +278,23 @@ async def add_security_headers(request: Request, call_next):
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    if request.url.path == "/api/health":
-        return await call_next(request)
-    start = time.perf_counter()
-    response = await call_next(request)
-    duration_ms = (time.perf_counter() - start) * 1000
-    logger.info(
-        "%s %s %s %.1fms",
-        request.method,
-        request.url.path,
-        response.status_code,
-        duration_ms,
-    )
-    return response
+    token = current_request.set(f"{request.method} {request.url.path}")
+    try:
+        if request.url.path == "/api/health":
+            return await call_next(request)
+        start = time.perf_counter()
+        response = await call_next(request)
+        duration_ms = (time.perf_counter() - start) * 1000
+        logger.info(
+            "%s %s %s %.1fms",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+        )
+        return response
+    finally:
+        current_request.reset(token)
 
 
 @app.middleware("http")

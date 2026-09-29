@@ -169,6 +169,11 @@ async def copy_quote_documents_to_procurement_documents(
         raise
 
 
+INVOICE_MISSING_DETAIL = (
+    "Required invoice evidence is missing. Upload the invoice on the pending order, then retry the evidence transfer."
+)
+
+
 async def require_invoice_evidence(db: AsyncSession, pending_order_id: int) -> None:
     gs_result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
     gs_row = gs_result.scalar_one_or_none()
@@ -182,4 +187,4 @@ async def require_invoice_evidence(db: AsyncSession, pending_order_id: int) -> N
     )
     documents = result.scalars().all()
     if not documents or not any(storage.get_file_path(doc.filename, storage_base).exists() for doc in documents):
-        raise RuntimeError("Required invoice evidence is missing from the procurement document store")
+        raise RuntimeError(INVOICE_MISSING_DETAIL)

@@ -17,7 +17,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTask
@@ -38,6 +38,7 @@ from app.services.backup_service import (
 )
 from app.services.restore_maintenance import restore_maintenance
 from app.services.settings_service import invalidate_global_settings_cache
+from app.schemas.request_base import RequestModel
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ router = APIRouter(prefix="/api/backup", tags=["backup"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
-class ServerRestoreRequest(BaseModel):
+class ServerRestoreRequest(RequestModel):
     filename: str = Field(min_length=1, max_length=500)
 
 
@@ -250,7 +251,11 @@ async def _perform_restore(
     try:
         await db.close()
         await _engine.dispose()
-        restore_result = restore_backup_archive(
+        # Off the event loop: unzip, integrity checks, migrations and the file
+        # swap can take minutes. The restore-maintenance gate already answers
+        # every other request with 503 (health stays available).
+        restore_result = await asyncio.to_thread(
+            restore_backup_archive,
             archive_path,
             storage_location=storage_location,
             safety_archive=safety_archive,

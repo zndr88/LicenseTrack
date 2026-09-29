@@ -20,6 +20,7 @@ from app.services.email_validation import is_email_domain_allowed, sanitize_emai
 from app.services.license_response_service import get_procurement_documents_by_scope
 from app.services.notification_classification import (
     BUDGET_OWNER_ALERT_TYPES,
+    MAINTENANCE_ALERT_TYPES,
     MANAGER_DIGEST_ALERT_TYPES,
     classify_license_alerts,
 )
@@ -429,7 +430,7 @@ def _build_license_entry(
         if parent is not None:
             entry["parent_publisher_name"] = parent.publisher_name
             entry["parent_software_description"] = parent.software_description
-    if alert["type"] in {"support_expiring", "support_expired"}:
+    if alert["type"] in MAINTENANCE_ALERT_TYPES:
         # The row is about the included maintenance, not the license term.
         maintenance_end = license_obj.maintenance_end_date
         maintenance_start = license_obj.maintenance_start_date

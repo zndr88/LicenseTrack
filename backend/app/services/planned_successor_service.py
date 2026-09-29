@@ -5,10 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import LicenseType
-from app.models.pending_order import PendingOrder, PendingOrderStatus
+from app.models.pending_order import PendingOrder
 from app.models.sourcing import SourcingItem, SourcingStatus
 from app.services.license_service import is_renewable_license
 from app.services.lifecycle_rules import normalize_entitlement_identity
+from app.services.pending_order_state import is_pending_order_open
 
 # Types that never renew, regardless of the Service/Other renewable opt-in.
 _NEVER_RENEWED_TYPES = frozenset({LicenseType.freeware, LicenseType.perpetual})
@@ -77,7 +78,7 @@ async def set_planned_successors(
         )
     else:
         order = await db.get(PendingOrder, order_id)
-        if order is None or order.status not in {PendingOrderStatus.pending, PendingOrderStatus.invoice_received}:
+        if order is None or not is_pending_order_open(order):
             raise HTTPException(status_code=409, detail="The pending order is no longer editable")
         all_result = await db.execute(select(SourcingItem).where(SourcingItem.pending_order_id == order_id))
     all_items = list(all_result.scalars().all())

@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.document import Document
 from app.models.license import License
-from app.models.pending_order import PendingOrder, PendingOrderStatus
+from app.models.pending_order import PendingOrder
 from app.models.plugin import Plugin, PluginAction, PluginPermission
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
@@ -33,6 +33,7 @@ from app.services.plugin_runtime_service import (
 )
 from app.services.plugin_suggestion_service import PluginSuggestionError, create_plugin_suggestions_from_runtime_output
 from app.services.plugin_host_service import plugin_can_run
+from app.services.pending_order_state import is_pending_order_open
 
 
 class PluginActionError(ValueError):
@@ -374,7 +375,7 @@ async def _build_pending_order_item_context(
     if (
         item is None
         or item.pending_order is None
-        or item.pending_order.status not in {PendingOrderStatus.pending, PendingOrderStatus.invoice_received}
+        or not is_pending_order_open(item.pending_order)
     ):
         raise PluginActionError("Pending order item not found")
     quote_documents = item.sourcing_request.quote_documents if item.sourcing_request is not None else []
@@ -416,7 +417,7 @@ async def _build_pending_order_conversion_context(
         )
     )
     order = result.scalar_one_or_none()
-    if order is None or order.status not in {PendingOrderStatus.pending, PendingOrderStatus.invoice_received}:
+    if order is None or not is_pending_order_open(order):
         raise PluginActionError("Pending order not found")
     item_ids = {item.id for item in order.items if item.pending_order_id == order.id}
     requested_item_ids = _int_list(client_context.get("selectedLineItemIds"))

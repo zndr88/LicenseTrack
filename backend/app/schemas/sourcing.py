@@ -8,9 +8,10 @@ from app.models.license import LicenseMetric, LicenseType, MaintenanceCoverage, 
 from app.models.sourcing import SourcingStatus
 from app.schemas.custom_fields import CustomFieldValueItem
 from app.services.money import is_canonical_money
+from app.schemas.request_base import RequestModel
 
 
-class SourcingItemCreate(BaseModel):
+class SourcingItemCreate(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -76,7 +77,7 @@ class SourcingItemCreate(BaseModel):
             raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
         return v
 
-class SourcingItemUpdate(BaseModel):
+class SourcingItemUpdate(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -205,7 +206,7 @@ class SourcingItemResponse(BaseModel):
         return self
 
 
-class CotermMergeRequest(BaseModel):
+class CotermMergeRequest(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -214,14 +215,14 @@ class CotermMergeRequest(BaseModel):
     sourcing_item_ids: list[int]
 
 
-class SourcingSuccessorLinkRequest(BaseModel):
+class SourcingSuccessorLinkRequest(RequestModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     predecessor_item_ids: list[int]
     successor_item_id: int
 
 
-class SourcingRequestCreate(BaseModel):
+class SourcingRequestCreate(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -233,7 +234,7 @@ class SourcingRequestCreate(BaseModel):
     items: list[SourcingItemCreate]
 
 
-class SourcingRequestItemUpdate(BaseModel):
+class SourcingRequestItemUpdate(RequestModel):
     """Editable request line fields submitted with one atomic request update."""
 
     model_config = ConfigDict(
@@ -279,7 +280,7 @@ class SourcingRequestItemUpdate(BaseModel):
         return value
 
 
-class SourcingRequestUpdate(BaseModel):
+class SourcingRequestUpdate(RequestModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,

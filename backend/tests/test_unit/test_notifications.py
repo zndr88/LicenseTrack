@@ -967,3 +967,12 @@ def test_budget_owner_alert_marks_maintenance_rows_and_uses_the_maintenance_end_
     assert "Perpetual App" in html
     assert "Maintenance" in html
     assert "2027-03-31" in html
+
+
+def test_maintenance_alert_types_have_one_owner():
+    from pathlib import Path
+    from tests.single_owner import find_definitions
+
+    app_dir = Path(__file__).resolve().parents[2] / "app"
+    pattern = r"\{\s*\"support_expiring\",\s*\"support_expired\"\s*\}"
+    assert find_definitions(app_dir, pattern, owners={"services/notification_classification.py"}) == []
