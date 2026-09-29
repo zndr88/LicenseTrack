@@ -125,6 +125,10 @@ Work in progress for 1.2.0.
   three digits after it (e.g. `1.234`) is refused as ambiguous, in number
   filters and CSV import too; type `1234` for a whole number or `1,234` for a
   decimal.
+- **Export Current View (localized)** writes numbers with the same separators
+  the importer reads, keeping every quantity decimal, so the file imports back
+  with the same number format. Before, a quantity of 1000 under `1.234,50` was
+  written as `1.000`, and Swiss formats used a typographic apostrophe.
 - CSV import reads an `Item` column as the PO line number. Purchasing exports
   (Flexera among them) use `Item` for the line and `Description` for the
   product. Earlier versions read `Item` as the software description; a file

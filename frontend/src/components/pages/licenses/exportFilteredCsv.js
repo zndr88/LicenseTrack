@@ -1,5 +1,6 @@
 import { getPoTotal } from "../../../utils/helpers.js";
-import { formatDate, formatDateTime } from "../../../utils/formatting.js";
+import { formatDate, formatDateTime, toInputText } from "../../../utils/formatting.js";
+import { formatQuantityInput } from "../../../utils/quantity.js";
 import { getCalcTotalValue } from "../../../utils/sort.js";
 import { renewableLabel } from "../../../utils/licenseTypeRules.js";
 import csvFields from "../../../generated/csvFields.json";
@@ -45,24 +46,20 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
     ? (val) => (val ? formatDateTime(val, userSettings) : "")
     : (val) => val ?? "";
 
+  // Localized numbers use the same separators the importer reads
+  // (toInputText), so a localized export imports back with the same format.
   const fmtDecimal = localized
-    ? (val, fractionDigits = 2) => {
+    ? (val) => {
         const n = parseFloat(val);
         if (val == null || val === "" || isNaN(n)) return "";
-        return new Intl.NumberFormat(userSettings?.numberFormatLocale ?? "en-US", {
-          minimumFractionDigits: fractionDigits,
-          maximumFractionDigits: fractionDigits,
-        }).format(n);
+        return toInputText(n.toFixed(2), userSettings, { minFractionDigits: 2 });
       }
     : (val) => val ?? "";
 
   const fmtQty = localized
     ? (val) => {
-        const n = parseFloat(val);
-        if (val == null || val === "" || isNaN(n)) return "";
-        return new Intl.NumberFormat(userSettings?.numberFormatLocale ?? "en-US", {
-          maximumFractionDigits: 4,
-        }).format(n);
+        if (val == null || val === "") return "";
+        return formatQuantityInput(val, userSettings);
       }
     : (val) => val ?? "";
 
