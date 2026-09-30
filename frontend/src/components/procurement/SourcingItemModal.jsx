@@ -42,6 +42,8 @@ import TermLinkContext from "./TermLinkContext.jsx";
 import LineTotalMismatchHint from "./LineTotalMismatchHint.jsx";
 import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
+import LicenseTypeLabel from "../licenses/LicenseTypeLabel.jsx";
+import FieldLabel from "../ui/FieldLabel.jsx";
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
@@ -474,7 +476,7 @@ const SourcingItemModal = ({
             </LicenseDatesContractFormSection>
 
             {supportsMaintenanceCoverage(licenseType) && (
-              <LicenseFormSection title="Maintenance / Support">
+              <LicenseFormSection title="Maintenance">
                 <MaintenanceCoverageFields idPrefix="si" licenseType={licenseType} coverage={maintenanceCoverage} startDate={maintenanceStartDate} endDate={maintenanceEndDate} pricingBasis={maintenancePricingBasis} supportQuantity={maintenanceQuantity} supportUnitPrice={maintenanceUnitPrice} cost={maintenanceCost} licenseQuantity={quantity} licenseStartDate={startDate} licenseEndDate={endDate} licenseTotalCost={estimatedTotalPrice} currency={watch("currency")} locale={locale} onChange={(field, value) => setValue(field, value, { shouldDirty: true })} onAddSeparate={addMaintenanceLine} separateLineAdded={maintenanceLineAdded} embedded />
                 {customFields("maintenance")}
               </LicenseFormSection>
@@ -510,7 +512,7 @@ const SourcingItemModal = ({
                   <Controller name="supplier" control={control} render={({ field }) => <ReferenceCombobox id="si-supplier" mode="supplier" placeholder="Reseller or direct supplier" {...field} onChange={(value) => { const previousSupplier = watch("supplier"); field.onChange(value); if (String(previousSupplier || "").trim().toLocaleLowerCase() !== value.trim().toLocaleLowerCase()) setValue("contactEmail", "", { shouldDirty: true }); }} />} />
                   <span className="field-hint">Applies to every line in this {pendingOrderId ? "pending order" : "sourcing request"}.</span>
                 </div>
-                <div className="fg"><label htmlFor="si-contact-email">Supplier Contact</label><input id="si-contact-email" className="fi" type="email" placeholder="contact@example.com" {...register("contactEmail")} />{errors.contactEmail ? <span className="field-error">{errors.contactEmail.message}</span> : <span className="field-hint">{SUPPLIER_CONTACT_HELP}</span>}</div>
+                <div className="fg"><FieldLabel htmlFor="si-contact-email" info={SUPPLIER_CONTACT_HELP}>Supplier Contact</FieldLabel><input id="si-contact-email" className="fi" type="email" placeholder="contact@example.com" {...register("contactEmail")} />{errors.contactEmail && <span className="field-error">{errors.contactEmail.message}</span>}</div>
               </div>
               <div className="fr">
                 <div className="fg"><label htmlFor="si-cost-centre">Cost Centre</label><Controller name="costCentre" control={control} render={({ field }) => <ReferenceCombobox id="si-cost-centre" mode="costCentre" {...field} />} /></div>
@@ -549,7 +551,7 @@ const SourcingItemModal = ({
                 <LicenseFormSection title="Identity">
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-publisher`}>Publisher <span className="field-required">*</span></label><ReferenceCombobox id={`sourcing-line-${line.id}-publisher`} mode="publisher" value={line.publisherName} onChange={(value) => updateAdditionalLine(line.id, "publisherName", value)} placeholder="Software publisher" /></div>
                   <div className="fg"><label htmlFor={`sourcing-line-${line.id}-software`}>Software Description <span className="field-required">*</span></label><input id={`sourcing-line-${line.id}-software`} className="fi" value={line.softwareDescription} onChange={(event) => updateAdditionalLine(line.id, "softwareDescription", event.target.value)} placeholder="Product or service name" /></div>
-                  <div className="fg"><label htmlFor={`sourcing-line-${line.id}-license-type`}>License Type (optional)</label><select id={`sourcing-line-${line.id}-license-type`} className="fi fi-select" value={line.licenseType} onChange={(event) => {
+                  <div className="fg"><LicenseTypeLabel htmlFor={`sourcing-line-${line.id}-license-type`} optional /><select id={`sourcing-line-${line.id}-license-type`} className="fi fi-select" value={line.licenseType} onChange={(event) => {
                     const nextType = event.target.value;
                     updateAdditionalLine(line.id, "licenseType", nextType);
                     if (!supportsSeparateMaintenanceLine(nextType)) {
@@ -589,7 +591,7 @@ const SourcingItemModal = ({
                     </div>}
                     {line.licenseType === "saas" && <div className="fg"><label htmlFor={`sourcing-line-${line.id}-portal`}>Portal URL</label><input id={`sourcing-line-${line.id}-portal`} className="fi" value={line.portalUrl} onChange={(event) => updateAdditionalLine(line.id, "portalUrl", event.target.value)} /></div>}
                   </>}
-                  maintenanceSection={supportsMaintenanceCoverage(line.licenseType) ? <LicenseFormSection title="Maintenance / Support">
+                  maintenanceSection={supportsMaintenanceCoverage(line.licenseType) ? <LicenseFormSection title="Maintenance">
                     <MaintenanceCoverageFields idPrefix={`sourcing-line-${line.id}`} licenseType={line.licenseType} coverage={line.maintenanceCoverage} startDate={line.maintenanceStartDate} endDate={line.maintenanceEndDate} pricingBasis={line.maintenancePricingBasis} supportQuantity={line.maintenanceQuantity} supportUnitPrice={line.maintenanceUnitPrice} cost={line.maintenanceCost} licenseQuantity={line.quantity} licenseStartDate={line.startDate} licenseEndDate={line.endDate} licenseTotalCost={line.estimatedTotalPrice} currency={line.currency} locale={locale} onChange={(field, value) => updateAdditionalLine(line.id, field, value)} onAddSeparate={() => addAdditionalMaintenanceLine(line)} separateLineAdded={hasAdditionalMaintenanceLine(line.id)} embedded />
                     <CustomFieldPlacement definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)} idPrefix={`sourcing-line-${line.id}`} loading={customFieldsLoading} section="maintenance" />
                   </LicenseFormSection> : null}

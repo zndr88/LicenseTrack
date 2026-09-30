@@ -21,6 +21,17 @@ Work in progress for 1.2.0.
 
 - My Settings → Appearance has a per-user option to show or hide the Portfolio
   overview in the sidebar (shown by default).
+- Help and the user guide explain how to track SSL/TLS certificates, domain
+  names and other renewable items with the Other type, Type Description and
+  Renewable?.
+- Hovering or focusing the Expiring or Expired stage on the Licenses page shows
+  a breakdown, for example "12 expiring · 5 renewal in progress · 1 retiring ·
+  6 not started". A license with a renewal in progress that is also scheduled
+  for retirement counts as renewal in progress. The stats API gained
+  `expiring_breakdown` and `expired_breakdown`.
+- A small ⓘ next to License Type, in every form that has one, explains the
+  difference between Maintenance and Service. Tooltips open on hover and on
+  keyboard focus.
 - PO line numbers: every license and pending-order line with a PO number gets
   a generated, read-only PO line number, unique per PO (PO numbers are
   compared ignoring case and spacing) and never reused. The number appears in
@@ -40,6 +51,26 @@ Work in progress for 1.2.0.
 
 ### Changed
 
+- Forms show fewer permanent hint lines: background explanations (for example
+  Supplier Contact, the manual PO total and several settings) moved into ⓘ
+  tooltips that open on hover or keyboard focus. Hints that prevent a mistake
+  stay visible.
+- The app uses **Maintenance** consistently where it said "Support" or
+  "Maintenance / Support" (screens, alerts, emails, error messages, Help). For
+  example, "Support due" is now "Maintenance due" and "Start support renewal"
+  is now "Start maintenance renewal". Standalone support contracts, such as
+  premium or third-party support, are recorded as a Service. API fields and
+  routes, alert type keys and CSV headers are unchanged; older CSV headers are
+  still accepted on import.
+- Help no longer lists the session timeout under My Settings: the session
+  timeout and minimum password length are server-wide settings.
+- Opening a document preview in the Sourcing and Pending Orders document dialogs
+  collapses the document list and shows a much larger preview; the Add License
+  document list also collapses while a preview is open. The contract dialog
+  opens with Linked licenses collapsed (with a count) and its document folders
+  expanded.
+- Internal: updated `brace-expansion` (a dependency of the lint tooling) to
+  5.0.12 to clear a published advisory. It is not part of the app bundle.
 - Added end-to-end tests that run the real frontend against a real backend for
   the core write paths.
 - The pending-order export's `PO Line #` column now contains the generated PO
@@ -66,6 +97,8 @@ Work in progress for 1.2.0.
 - Unit prices are shown with every stored decimal (at least two), so 0.1234 no
   longer displays as 0.12; totals keep two decimals. The localized CSV export
   keeps unit price decimals too.
+- Reading or scrolling inside a focused document preview now counts as activity,
+  so a long read no longer ends the session.
 - Database restores run in the background of the server process, so the app
   and `/api/health` keep responding (with status `maintenance`) during a long
   restore. Pre-restore safety copies are now kept in a `pre-restore` folder

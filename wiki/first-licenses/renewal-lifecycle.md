@@ -55,7 +55,7 @@ license. When you receive a quote from your supplier, update the record with
 the current figures and attach the quote to the request. Once procurement work
 is ready to track, convert it to a **pending order**.
 
-For support classification and custom-field behavior, see
+For maintenance classification and custom-field behavior, see
 [information carried into the next term](renewal-reference.md#information-carried-into-the-next-term).
 
 ![Editing the sourcing record and attaching the quote](../assets/renewal-05-edit-sourcing.png)
@@ -98,7 +98,7 @@ Open **History** to follow the procurement trail back to the previous term.
 Completed sourcing and purchase orders remain available in their **History** views.
 See [renewal rules and alternatives](renewal-reference.md) for LT references,
 coterm renewals, maintenance exceptions, coverage gaps, renewable Service and
-Other records, and renewing support that came included with a perpetual, OEM,
+Other records, and renewing maintenance that came included with a perpetual, OEM,
 or freeware license.
 
 <div class="page-nav" markdown>

@@ -144,7 +144,7 @@ async def disable_maintenance(
     if license_obj.license_type not in MAINTENANCE_PARENT_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=("Maintenance/support tracking can only be disabled on perpetual, OEM, or freeware Licenses."),
+            detail=("Maintenance tracking can only be disabled on perpetual, OEM, or freeware Licenses."),
         )
 
     has_links = await db.scalar(
@@ -190,7 +190,7 @@ async def link_existing_maintenance(
     if parent.license_type not in MAINTENANCE_PARENT_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=("Maintenance/support tracking can only be linked to perpetual, OEM, or freeware Licenses."),
+            detail=("Maintenance tracking can only be linked to perpetual, OEM, or freeware Licenses."),
         )
 
     maintenance_result = await db.execute(

@@ -55,7 +55,7 @@ export default function IncludedSupportModal({ license, userSettings, onSave, on
 
   const save = async () => {
     if (values.maintenanceStartDate && values.maintenanceEndDate && values.maintenanceEndDate < values.maintenanceStartDate) {
-      setError("Support end date cannot be before its start date.");
+      setError("Maintenance end date cannot be before its start date.");
       return;
     }
     const perUnit = values.maintenancePricingBasis === "per_unit";
@@ -79,12 +79,12 @@ export default function IncludedSupportModal({ license, userSettings, onSave, on
       maintenanceCost: free ? null : cost.value,
     });
     setSaving(false);
-    if (!ok) setError("The support period could not be saved.");
+    if (!ok) setError("The maintenance period could not be saved.");
   };
 
   return (
     <ModalShell
-      title="Edit included support"
+      title="Edit included maintenance"
       titleId="dialog-title-included-support"
       onClose={onClose}
       modalStyle={{ width: 480, maxWidth: "92vw" }}
@@ -92,7 +92,7 @@ export default function IncludedSupportModal({ license, userSettings, onSave, on
         <>
           <button type="button" className="btn btn-g btn-sm" onClick={onClose}>Cancel</button>
           <button type="button" className="btn btn-p btn-sm" disabled={saving} onClick={save}>
-            {saving ? "Saving..." : "Save support"}
+            {saving ? "Saving..." : "Save maintenance"}
           </button>
         </>
       )}
@@ -101,7 +101,7 @@ export default function IncludedSupportModal({ license, userSettings, onSave, on
         <p className="field-hint" style={{ marginTop: 0 }}>
           {values.suggested
             ? "Suggested one-year period from the license start date. Adjust it before saving."
-            : "Correct the included support period. The cost is optional."}
+            : "Correct the included maintenance period. The cost is optional."}
         </p>
         <MaintenanceCoverageFields
           idPrefix="included-support"

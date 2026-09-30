@@ -312,9 +312,22 @@ export function computeStats() {
   let totalLegacy = 0;
   const annualCostByCurrency = {};
   const annualCostLicenses = [];
+  // Mirrors license_service._workflow_bucket: an open renewal wins over a
+  // scheduled retirement, so each license lands in one bucket.
+  const breakdowns = {
+    expiring: { renewal_in_progress: 0, retiring: 0, not_started: 0 },
+    expired: { renewal_in_progress: 0, retiring: 0, not_started: 0 },
+  };
 
   for (const lic of licenses) {
     const status = lic.expirationStatus;
+
+    if (breakdowns[status]) {
+      const bucket = lic.lifecycleStatus === "pending_renewal"
+        ? "renewal_in_progress"
+        : (lic.retirementScheduled ? "retiring" : "not_started");
+      breakdowns[status][bucket]++;
+    }
 
     if (status === "retired") totalRetired++;
     else if (status === "legacy") totalLegacy++;
@@ -354,6 +367,8 @@ export function computeStats() {
     total_active: totalActive,
     total_expiring: totalExpiring,
     total_expired: totalExpired,
+    expiring_breakdown: breakdowns.expiring,
+    expired_breakdown: breakdowns.expired,
     total_upcoming: totalUpcoming,
     total_pending: totalPending,
     total_retirement_scheduled: totalRetirementScheduled,
@@ -486,9 +501,9 @@ export function computeNotifications() {
       if (!isUpcoming && supportDays !== null) {
         const supportEnd = license.maintenanceEndDate;
         if (supportDays < 0) {
-          alert("support_expired", `Support expired ${-supportDays} ${dayWord(supportDays)} ago on ${supportEnd}`, "critical", supportEnd);
+          alert("support_expired", `Maintenance expired ${-supportDays} ${dayWord(supportDays)} ago on ${supportEnd}`, "critical", supportEnd);
         } else if (supportDays <= expiryWindow) {
-          alert("support_expiring", `Support ends in ${supportDays} ${dayWord(supportDays)} on ${supportEnd}`, expirySeverity(supportDays), supportEnd);
+          alert("support_expiring", `Maintenance ends in ${supportDays} ${dayWord(supportDays)} on ${supportEnd}`, expirySeverity(supportDays), supportEnd);
         }
       }
 
@@ -790,7 +805,7 @@ function buildSupportRow(parent, thresholds) {
   const row = {
     ...workbenchRowBase(parent, sourcingItem),
     rowKind: "support_renewal",
-    softwareDescription: `${parent.softwareDescription} (included support)`,
+    softwareDescription: `${parent.softwareDescription} (included maintenance)`,
     startDate: parent.maintenanceStartDate,
     endDate: parent.maintenanceEndDate,
     daysUntilExpiry,
@@ -1766,7 +1781,7 @@ export function convertFreewareSourcingItems(items) {
       throw new Error(`Sourcing item ${item.id} is not Freeware / Open Source`);
     }
     if (item.maintenanceCoverage === "included" && Number(item.maintenanceCost) > 0) {
-      throw new Error(`Sourcing item ${item.id} has paid included support and requires the purchase-order workflow`);
+      throw new Error(`Sourcing item ${item.id} has paid included maintenance and requires the purchase-order workflow`);
     }
     if (item.renewalForLicenseId != null) {
       throw new Error(`Sourcing item ${item.id} is a renewal and must follow the purchase workflow`);
@@ -2678,15 +2693,15 @@ export function applyIncludedSupportUpdate(license, payload = {}) {
     }
     money[field] = value;
   }
-  if (startDate && endDate && endDate < startDate) throw new Error("Support end date cannot be before its start date.");
+  if (startDate && endDate && endDate < startDate) throw new Error("Maintenance end date cannot be before its start date.");
   if (!INCLUDED_SUPPORT_PARENT_TYPES.has(license.licenseType)) {
-    throw new Error("Included support can only be edited on perpetual, OEM or freeware licenses");
+    throw new Error("Included maintenance can only be edited on perpetual, OEM or freeware licenses");
   }
   if (license.maintenanceCoverage !== "included") {
-    throw new Error("Set coverage to Included before editing the support period");
+    throw new Error("Set coverage to Included before editing the maintenance period");
   }
   if (license.activeMaintenanceId != null) {
-    throw new Error("Support is tracked on a linked maintenance record; edit that record instead");
+    throw new Error("Maintenance is tracked on a linked maintenance record; edit that record instead");
   }
   const perUnit = pricingBasis === "per_unit";
   license.maintenanceStartDate = startDate;
@@ -2706,16 +2721,16 @@ export function applyIncludedSupportUpdate(license, payload = {}) {
  */
 export function startSupportRenewal(parent) {
   if (!INCLUDED_SUPPORT_PARENT_TYPES.has(parent.licenseType)) {
-    throw new Error("Support renewal applies to perpetual, OEM and freeware licenses");
+    throw new Error("Maintenance renewal applies to perpetual, OEM and freeware licenses");
   }
   if (parent.maintenanceCoverage !== "included" || !parent.maintenanceEndDate) {
-    throw new Error("This license has no included support period with an end date");
+    throw new Error("This license has no included maintenance period with an end date");
   }
   if (parent.isRetired || parent.lifecycleStatus === "legacy") {
-    throw new Error("Retired or legacy licenses cannot start a support renewal");
+    throw new Error("Retired, retirement-scheduled or legacy licenses cannot start a maintenance renewal");
   }
   if (openSupportRenewalItems(parent.id).length) {
-    throw new Error("A support renewal is already in progress for this license");
+    throw new Error("A maintenance renewal is already in progress for this license");
   }
   const startDate = addDaysIso(parent.maintenanceEndDate, 1);
   const previousCost = parseDecimal(parent.maintenanceCost) > 0 ? parent.maintenanceCost : null;
@@ -2737,7 +2752,7 @@ export function startSupportRenewal(parent) {
     secondaryContacts: [...(parent.secondaryContacts || [])],
     startDate,
     endDate: termEnd(startDate),
-    notes: `Support renewal for ${parent.licenseRef || parent.softwareDescription}.`,
+    notes: `Maintenance renewal for ${parent.licenseRef || parent.softwareDescription}.`,
     maintenanceParentLicenseId: parent.id,
   });
   store.sourcingItems.push(item);

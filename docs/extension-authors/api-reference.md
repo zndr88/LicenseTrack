@@ -118,7 +118,10 @@ maintenance record to that license.
 `GET /api/renewals/workbench` rows include `rowKind` (`license` or
 `support_renewal`), `noticeDate`, and `daysUntilNotice`, and accept the
 additional `view=notice_due`. `GET /api/licenses/stats` includes
-`po_overrides_not_in_annual`.
+`po_overrides_not_in_annual`, plus `expiring_breakdown` and `expired_breakdown`
+(each `{ renewal_in_progress, retiring, not_started }`, summing to `total_expiring`
+and `total_expired`; a license in renewal that is also retiring counts as
+`renewal_in_progress`).
 
 Maintenance records use `parentLicenseId` as the primary compatibility parent.
 Create requests can also provide `maintenanceParentIds` for a maintenance

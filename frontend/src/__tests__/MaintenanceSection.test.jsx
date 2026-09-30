@@ -45,8 +45,8 @@ describe("MaintenanceSection", () => {
   it("hides linking controls until coverage is separately tracked", () => {
     render(<MaintenanceSection {...baseProps} />);
 
-    expect(screen.queryByRole("button", { name: /add maintenance \/ support contract/i })).not.toBeInTheDocument();
-    expect(screen.getByText(/classify maintenance or support coverage/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add maintenance record/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/choose the maintenance coverage/i)).toBeInTheDocument();
   });
 
   it("shows linking controls for separately tracked coverage", () => {
@@ -57,7 +57,7 @@ describe("MaintenanceSection", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: /add maintenance \/ support contract/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add maintenance record/i })).toBeInTheDocument();
   });
 
   it("does not offer separate maintenance linking for subscriptions", () => {
@@ -72,7 +72,7 @@ describe("MaintenanceSection", () => {
       />
     );
 
-    expect(screen.queryByRole("button", { name: /add maintenance \/ support contract/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add maintenance record/i })).not.toBeInTheDocument();
   });
 
   it("filters separately tracked coverage from subscription coverage edits", () => {
@@ -115,7 +115,7 @@ describe("MaintenanceSection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /coverage history/i }));
     expect(screen.getByRole("dialog", { name: /coverage history/i })).toBeInTheDocument();
-    expect(screen.getByText("Included support")).toBeInTheDocument();
+    expect(screen.getByText("Included maintenance")).toBeInTheDocument();
   });
 
   it("keeps coverage history available after active maintenance is disabled", () => {
@@ -141,7 +141,7 @@ describe("MaintenanceSection", () => {
     );
 
     expect(screen.getByRole("button", { name: /coverage history/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /edit maintenance \/ support record/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /edit maintenance record/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /disable linked contract/i })).not.toBeInTheDocument();
   });
 

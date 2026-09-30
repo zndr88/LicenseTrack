@@ -29,6 +29,7 @@ import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldR
 import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
+import LicenseTypeLabel from "../licenses/LicenseTypeLabel.jsx";
 
 const APPLYABLE_PLUGIN_FIELDS = new Set([
   "publisherName",
@@ -327,7 +328,7 @@ const ConvertPendingOrderModal = ({
           </div>
           <div className="fr">
             <div className="fg">
-              <label htmlFor="cpo-license-type">License Type</label>
+              <LicenseTypeLabel htmlFor="cpo-license-type" />
               <select id="cpo-license-type" className="fi fi-select" {...register("licenseType", { onChange: (e) => { const nextType = e.target.value; if (nextType !== "saas") setValue("portalUrl", "", { shouldDirty: true }); if (nextType !== "maintenance") setValue("parentLicenseId", "", { shouldDirty: true }); if (isNonExpiringLicenseType(nextType)) setValue("endDate", "", { shouldDirty: true }); } })}>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
             </div>
             <div className="fg"><label htmlFor="cpo-license-metric">License Metric</label><select id="cpo-license-metric" className="fi fi-select" {...register("licenseMetric")}>{LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
@@ -379,7 +380,7 @@ const ConvertPendingOrderModal = ({
           <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="dates" />
           </LicenseFormSection>
 
-          {supportsMaintenanceCoverage(licenseType) && <LicenseFormSection title="Maintenance / Support">
+          {supportsMaintenanceCoverage(licenseType) && <LicenseFormSection title="Maintenance">
           <MaintenanceCoverageFields
             idPrefix="cpo"
             licenseType={licenseType}

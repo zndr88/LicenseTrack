@@ -321,6 +321,7 @@ export default function LicensesPage({
               expired: stats.expired,
               renewed: stats.renewed,
             }}
+            breakdowns={{ expiring: stats.expiringBreakdown, expired: stats.expiredBreakdown }}
             onStageClick={(key) => {
               if (key === 'sourcing') {
                 onNavigateToSourcing(null);

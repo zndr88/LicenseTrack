@@ -155,7 +155,7 @@ def assert_active_maintenance_allows_coverage_change(
     """Raise ValueError when an active linked record would contradict coverage."""
     if active_maintenance_id is not None and new_coverage != MaintenanceCoverage.separately_tracked:
         raise ValueError(
-            "This license has an active maintenance/support record. Disable the linked "
+            "This license has an active maintenance record. Disable the linked "
             "contract before changing coverage away from separately tracked."
         )
 
@@ -174,6 +174,6 @@ def assert_coverage_allowed_for_type(
     if resolved_type in MAINTENANCE_PARENT_TYPES:
         return
     raise ValueError(
-        "Separately tracked maintenance/support is only valid for perpetual, oem, or freeware Licenses. "
+        "Separately tracked maintenance is only valid for perpetual, oem, or freeware Licenses. "
         "Use included coverage for subscription or SaaS support bundled into the term."
     )

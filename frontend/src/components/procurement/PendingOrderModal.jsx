@@ -29,6 +29,8 @@ import { useSupplierContactPrompt } from "../../hooks/useSupplierContactPrompt.j
 import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
 import { pendingOrderLineCurrencies } from "../../utils/procurementTotals.js";
+import LicenseTypeLabel from "../licenses/LicenseTypeLabel.jsx";
+import FieldLabel from "../ui/FieldLabel.jsx";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -267,11 +269,11 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
           </div>
           {!isNewOrder && (
             <div className="fg">
-              <label htmlFor="po-contact-email">Supplier Contact</label>
+              <FieldLabel htmlFor="po-contact-email" info={SUPPLIER_CONTACT_HELP}>Supplier Contact</FieldLabel>
               <input id="po-contact-email" className="fi" type="email" {...register("contactEmail")} />
               {errors.contactEmail
                 ? <span className="field-error">{errors.contactEmail.message}</span>
-                : <span className="field-hint">Applies to every open line in this pending order. {SUPPLIER_CONTACT_HELP}</span>}
+                : <span className="field-hint">Applies to every open line in this pending order.</span>}
             </div>
           )}
           {contactPrompt.visible && (
@@ -286,7 +288,13 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
           )}
           {!isNewOrder && (
             <div className="fg">
-              <label htmlFor="po-total-override">PO total (manual){orderCurrency ? ` (${orderCurrency})` : ""}</label>
+              <FieldLabel
+                htmlFor="po-total-override"
+                infoLabel="About the manual PO total"
+                info={(orderCurrency || order.poTotalOverride) ? "Use when the quote gives only a total. Line prices are not changed; converted licenses show this as their Total PO Value." : undefined}
+              >
+                PO total (manual){orderCurrency ? ` (${orderCurrency})` : ""}
+              </FieldLabel>
               <Controller
                 name="poTotalOverride"
                 control={control}
@@ -305,11 +313,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
               />
               {errors.poTotalOverride
                 ? <span className="field-error">{errors.poTotalOverride.message}</span>
-                : <span className="field-hint">
-                  {orderCurrency || order.poTotalOverride
-                    ? "Use when the quote gives only a total. Line prices are not changed; converted licenses show this as their Total PO Value."
-                    : "Available when every line of this order uses one currency."}
-                </span>}
+                : !(orderCurrency || order.poTotalOverride) && <span className="field-hint">Available when every line of this order uses one currency.</span>}
             </div>
           )}
           <div className="fg">
@@ -345,7 +349,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
                       <input id={`pending-item-${item.id}-software`} className="fi" placeholder="Product or service name" value={item.softwareDescription} onChange={(e) => updateItem(item.id, "softwareDescription", e.target.value)} />
                     </div>
                     <div className="fg" style={{ gridColumn: "1 / -1" }}>
-                      <label htmlFor={`pending-item-${item.id}-type`}>License Type</label>
+                      <LicenseTypeLabel htmlFor={`pending-item-${item.id}-type`} />
                       <select id={`pending-item-${item.id}-type`} className="fi fi-select" value={item.licenseType} onChange={(event) => updateItem(item.id, "licenseType", event.target.value)}>
                         <option value="">Not specified</option>
                         {LICENSE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -387,7 +391,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
                     )}
                     showCoreDetails={false}
                     maintenanceSection={supportsMaintenanceCoverage(item.licenseType) ? (
-                      <LicenseFormSection title="Maintenance / Support">
+                      <LicenseFormSection title="Maintenance">
                         <MaintenanceCoverageFields idPrefix={`pending-item-${item.id}`} licenseType={item.licenseType} coverage={item.maintenanceCoverage} startDate={item.maintenanceStartDate} endDate={item.maintenanceEndDate} pricingBasis={item.maintenancePricingBasis} supportQuantity={item.maintenanceQuantity} supportUnitPrice={item.maintenanceUnitPrice} cost={item.maintenanceCost} licenseQuantity={item.quantity} licenseStartDate={item.startDate} licenseEndDate={item.endDate} licenseTotalCost={item.estimatedTotalPrice} currency={item.currency} locale={locale} onChange={(field, value) => updateItem(item.id, field, value)} embedded />
                         <CustomFieldFormFields definitions={customFieldDefs} values={item.customFieldValues || {}} onChange={(values) => updateItem(item.id, "customFieldValues", values)} idPrefix={`pending-item-${item.id}`} loading={customFieldsLoading} section="maintenance" />
                       </LicenseFormSection>

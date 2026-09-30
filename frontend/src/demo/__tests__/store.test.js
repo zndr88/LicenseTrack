@@ -69,6 +69,15 @@ describe("demo store seed/reset", () => {
     expect(stats.total_retirement_scheduled).toBeGreaterThanOrEqual(1);
   });
 
+  it("breaks Expiring and Expired down into parts that add up to the stage count", () => {
+    seedStore();
+    const stats = computeStats();
+    const sum = (parts) => Object.values(parts).reduce((total, n) => total + n, 0);
+    expect(sum(stats.expiring_breakdown)).toBe(stats.total_expiring);
+    expect(sum(stats.expired_breakdown)).toBe(stats.total_expired);
+    expect(Object.keys(stats.expiring_breakdown)).toEqual(["renewal_in_progress", "retiring", "not_started"]);
+  });
+
   it("treats only non-expiring types with no end date as perpetual", () => {
     const base = {
       isRetired: false,

@@ -55,6 +55,7 @@ nav:
       - Procurement from Sourcing to License: workflows/procurement.md
       - Contracts and Documents: workflows/contracts-documents.md
       - Reports and Calculations: workflows/reports.md
+      - Certificates, Domains and Renewables: workflows/renewables.md
       - Dashboard & Key Views: navigating/dashboard.md
   - Administration:
       - Overview: administration/index.md

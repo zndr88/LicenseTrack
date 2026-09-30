@@ -65,7 +65,7 @@ describe("SourcingRequestEditModal", () => {
     expect(screen.getByRole("button", { name: "Request Details" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Identity" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Key Dates & Contract" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Maintenance / Support" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Maintenance" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Details" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Relationships" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Notes" })).toBeInTheDocument();

@@ -140,12 +140,22 @@ describe("RenewalsSection validation", () => {
     updateGlobalSettings.mockResolvedValue({ data: {}, error: null });
     render(<RenewalsSection {...sectionProps(baseRenewalSettings({ notificationDays: 45 }))} />);
 
-    expect(screen.getByLabelText(/Allow renewal actions/i)).toHaveValue(45);
+    expect(screen.getByLabelText(/^Allow renewal actions/i)).toHaveValue(45);
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(updateGlobalSettings).toHaveBeenCalledWith(
       expect.objectContaining({ renewal_action_days: 45 }),
     ));
+  });
+
+  test("background explanations open from an ⓘ instead of staying on screen", () => {
+    render(<RenewalsSection {...sectionProps(baseRenewalSettings())} />);
+    expect(screen.queryByText(/Quarter labels in the renewal calendar/)).toBeNull();
+    fireEvent.focus(screen.getByRole("button", { name: "About Fiscal Year Start Month" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Quarter labels in the renewal calendar align to this month.");
+    fireEvent.blur(screen.getByRole("button", { name: "About Fiscal Year Start Month" }));
+    fireEvent.focus(screen.getByRole("button", { name: "About High-Value Thresholds" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("flagged as high-value");
   });
 
   test("saves one high-value threshold per currency, blank meaning not flagged", async () => {

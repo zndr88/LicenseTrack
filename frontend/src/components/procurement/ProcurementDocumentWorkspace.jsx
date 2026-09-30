@@ -17,6 +17,7 @@ export default function ProcurementDocumentWorkspace({
   const documentKind = label.replace(/ Document$/, "");
   const [preview, setPreview] = useState(null);
   const [expanded, setExpanded] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   const previewUrlRef = useRef(null);
   const requestRef = useRef(0);
 
@@ -38,13 +39,21 @@ export default function ProcurementDocumentWorkspace({
   // A selected local file deliberately replaces the stored-document preview.
   }, [file]);
 
+  const previewing = Boolean(file || preview);
+
   useEffect(() => {
-    onPreviewVisibilityChange?.(Boolean(file || preview));
-  }, [file, preview, onPreviewVisibilityChange]);
+    onPreviewVisibilityChange?.(previewing);
+  }, [previewing, onPreviewVisibilityChange]);
+
+  // The list gives way to the preview; it comes back when the preview closes.
+  useEffect(() => {
+    if (!previewing) setListOpen(false);
+  }, [previewing]);
 
   const openPreview = async (document) => {
     if (!isPreviewablePdf(document) || !previewDocument) return;
     clearPreview();
+    setListOpen(false);
     const requestId = ++requestRef.current;
     setPreview({ document, loading: true, url: null });
     const { data, error } = await previewDocument(document.id);
@@ -89,7 +98,18 @@ export default function ProcurementDocumentWorkspace({
         />
       </div>
 
-      {documents.length > 0 && (
+      {documents.length > 0 && previewing && (
+        <button
+          type="button"
+          className="btn btn-g procurement-document-list-toggle"
+          aria-expanded={listOpen}
+          onClick={() => setListOpen((open) => !open)}
+        >
+          {listOpen ? "Hide documents" : `Show documents (${documents.length})`}
+        </button>
+      )}
+
+      {documents.length > 0 && (!previewing || listOpen) && (
         <div className="procurement-document-list">
           <span className="procurement-document-list-label">Attached to this workflow</span>
           {documents.map((document) => (

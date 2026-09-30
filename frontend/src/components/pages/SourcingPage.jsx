@@ -283,7 +283,7 @@ export default function SourcingPage({
   }) => {
     if (!companion) return true;
     if (!parentItemId) {
-      showToast("License line saved, but support line could not be linked.", "warning");
+      showToast("License line saved, but the maintenance line could not be linked.", "warning");
       return false;
     }
 

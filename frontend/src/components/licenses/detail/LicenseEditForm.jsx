@@ -23,6 +23,8 @@ import CustomFieldFormFields from "../CustomFieldFormFields.jsx";
 import LicenseTypeOptInFields from "../LicenseTypeOptInFields.jsx";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../../utils/licenseTypeRules.js";
 import InvoiceNumberRows from "../InvoiceNumberRows.jsx";
+import LicenseTypeLabel from "../LicenseTypeLabel.jsx";
+import FieldLabel from "../../ui/FieldLabel.jsx";
 
 /**
  * Full-panel edit form shown when editingLicense is true.
@@ -151,9 +153,8 @@ export default function LicenseEditForm({
       </div>
       {customFields("dates")}
       <div className="fg">
-        <label htmlFor="license-edit-contact">Supplier Contact</label>
+        <FieldLabel htmlFor="license-edit-contact" info={SUPPLIER_CONTACT_HELP}>Supplier Contact</FieldLabel>
         <input id="license-edit-contact" className="fi" type="email" value={editFields.contactEmail} onChange={(e) => setEditFields((p) => ({ ...p, contactEmail: e.target.value }))} />
-        <span className="field-hint">{SUPPLIER_CONTACT_HELP}</span>
       </div>
       <div className="fg">
         <label htmlFor="license-edit-budget-owner">Budget Owner Email</label>
@@ -176,7 +177,7 @@ export default function LicenseEditForm({
       {customFields("notes")}
       <div className="fr">
         <div className="fg">
-          <label htmlFor="license-edit-type">License Type</label>
+          <LicenseTypeLabel htmlFor="license-edit-type" />
           <select id="license-edit-type" className="fi fi-select" value={editFields.licenseType} onChange={(e) => {
             const t = e.target.value;
             setEditFields((p) => {
@@ -237,7 +238,7 @@ export default function LicenseEditForm({
       )}
       {supportsMaintenanceCoverage(editFields.licenseType) && (
         <div className="fg">
-          <label htmlFor="license-edit-maintenance-coverage">Maintenance / Support Coverage</label>
+          <label htmlFor="license-edit-maintenance-coverage">Maintenance Coverage</label>
           <select id="license-edit-maintenance-coverage" className="fi fi-select" value={maintenanceCoverageValue} onChange={(e) => setEditFields((p) => ({ ...p, maintenanceCoverage: e.target.value }))}>
             {maintenanceCoverageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>

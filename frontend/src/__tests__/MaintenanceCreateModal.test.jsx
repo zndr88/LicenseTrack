@@ -57,7 +57,7 @@ describe("MaintenanceCreateModal", () => {
     render(<MaintenanceCreateModal parentLicense={parentLicense} userSettings={userSettings} onSuccess={onSuccess} onClose={onClose} />);
     fireEvent.change(screen.getByLabelText(/end date/i), { target: { value: "2026-12-31" } });
     await user.upload(screen.getByLabelText("Upload Quote Document"), new File(["quote"], "quote.txt", { type: "text/plain" }));
-    await user.click(screen.getByRole("button", { name: /create maintenance \/ support record/i }));
+    await user.click(screen.getByRole("button", { name: /create maintenance record/i }));
     expect(await screen.findByText(/Maintenance record created. Retry/)).toBeInTheDocument();
     await user.click(screen.getAllByRole("button", { name: /^close$/i })[0]);
     await user.click(screen.getByRole("button", { name: /^discard$/i }));
@@ -80,7 +80,7 @@ describe("MaintenanceCreateModal", () => {
     const eula = new File(["eula"], "eula.txt", { type: "text/plain" });
     await user.upload(screen.getByLabelText("Upload Quote Document"), quote);
     await user.upload(screen.getByLabelText("Upload EULA Document"), eula);
-    await user.click(screen.getByRole("button", { name: /create maintenance \/ support record/i }));
+    await user.click(screen.getByRole("button", { name: /create maintenance record/i }));
     expect(await screen.findByText(/Maintenance record created. Retry/)).toBeInTheDocument();
     expect(uploadDocument).toHaveBeenNthCalledWith(1, 99, quote, "quote", "shared");
     expect(uploadDocument).toHaveBeenNthCalledWith(2, 99, eula, "eula", "license");
@@ -104,10 +104,10 @@ describe("MaintenanceCreateModal", () => {
       />
     );
 
-    expect(screen.getByRole("dialog", { name: /add maintenance \/ support contract/i })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /add maintenance record/i })).toBeInTheDocument();
     expect(screen.getByText(/Acme - Acme Suite/)).toBeInTheDocument();
     expect(screen.getByLabelText(/supplier/i)).toHaveValue("Acme Support");
-    expect(screen.getByRole("button", { name: /create maintenance \/ support record/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /create maintenance record/i })).toBeDisabled();
   });
 
   test("successful submit calls createLicense and onSuccess with the same payload/result behavior", async () => {
@@ -126,12 +126,12 @@ describe("MaintenanceCreateModal", () => {
 
     fireEvent.change(screen.getByLabelText(/end date/i), { target: { value: "2026-12-31" } });
     fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: "2026-01-01" } });
-    await user.type(screen.getByLabelText(/support cost/i), "2500.50");
+    await user.type(screen.getByLabelText(/maintenance cost/i), "2500.50");
     await user.type(screen.getByLabelText(/po number/i), "PO-123");
     await user.type(screen.getByLabelText(/contract number/i), "C-123");
     await user.clear(screen.getByLabelText(/supplier/i));
     await user.type(screen.getByLabelText(/supplier/i), "Support Partner");
-    await user.click(screen.getByRole("button", { name: /create maintenance \/ support record/i }));
+    await user.click(screen.getByRole("button", { name: /create maintenance record/i }));
 
     await waitFor(() => {
       expect(createLicense).toHaveBeenCalledWith({
@@ -172,7 +172,7 @@ describe("MaintenanceCreateModal", () => {
     );
 
     fireEvent.change(screen.getByLabelText(/end date/i), { target: { value: "2026-12-31" } });
-    await user.click(screen.getByRole("button", { name: /create maintenance \/ support record/i }));
+    await user.click(screen.getByRole("button", { name: /create maintenance record/i }));
 
     expect(await screen.findByText("Could not create maintenance")).toBeInTheDocument();
     expect(onSuccess).not.toHaveBeenCalled();

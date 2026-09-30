@@ -60,8 +60,8 @@ as quoted.
 The workbench also shows two other kinds of deadline. **Arctic Wolf** is a
 renewable managed service whose notice deadline comes before its end date, so
 it is listed by the notice date with an **N** marker. **Sparx Systems** is a
-perpetual license whose included support is ending; its row offers **Start
-support renewal**, which creates a maintenance sourcing line for that license.
+perpetual license whose included maintenance is ending; its row offers **Start
+maintenance renewal**, which creates a maintenance sourcing line for that license.
 
 **What to look for:** starting renewal creates procurement work. The successor
 is recorded when that purchase is converted; starting work does not itself

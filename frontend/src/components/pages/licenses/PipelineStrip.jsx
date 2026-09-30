@@ -1,4 +1,7 @@
-export default function PipelineStrip({ stats, onStageClick, activeFilters }) {
+import Tooltip from "../../ui/Tooltip.jsx";
+import { expiryBreakdownText } from "../../../utils/expiryBreakdown.js";
+
+export default function PipelineStrip({ stats, onStageClick, activeFilters, breakdowns }) {
   const stages = [
     { key: 'sourcing',  label: 'Sourcing',  color: 'renewed' },
     { key: 'pending',   label: 'Pending',   color: 'pending' },
@@ -29,14 +32,16 @@ export default function PipelineStrip({ stats, onStageClick, activeFilters }) {
 
         return (
           <div key={stage.key} style={{ display: 'contents' }}>
-            <button
-              className={`kp-stage${isActive ? ' kp-stage--active' : ''}`}
-              onClick={() => onStageClick(stage.key)}
-              aria-pressed={isActive}
-            >
-              <span className={numClass}>{displayCount}</span>
-              <span className="kp-label">{stage.label}</span>
-            </button>
+            <Tooltip content={expiryBreakdownText(stage.label.toLowerCase(), count, breakdowns?.[stage.key])}>
+              <button
+                className={`kp-stage${isActive ? ' kp-stage--active' : ''}`}
+                onClick={() => onStageClick(stage.key)}
+                aria-pressed={isActive}
+              >
+                <span className={numClass}>{displayCount}</span>
+                <span className="kp-label">{stage.label}</span>
+              </button>
+            </Tooltip>
             {showArrow && <div className="kp-arrow" aria-hidden="true">→</div>}
           </div>
         )

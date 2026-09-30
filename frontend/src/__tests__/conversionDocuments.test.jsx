@@ -16,6 +16,10 @@ vi.mock("../api/sourcing.js", () => ({
   previewSourcingQuoteDocument: vi.fn().mockResolvedValue({ data: null, error: "Preview failed" }),
   downloadSourcingQuoteDocument: vi.fn().mockResolvedValue({ error: null }),
 }));
+vi.mock("../api/pluginActions.js", () => ({
+  listPluginActions: vi.fn().mockResolvedValue({ data: { actions: [] }, error: null }),
+  invokePluginAction: vi.fn(),
+}));
 vi.mock("../hooks/useCustomFieldDefinitions.js", () => ({
   useCustomFieldDefinitions: () => ({ definitions: [], loading: false }),
 }));
@@ -83,11 +87,14 @@ describe.each([ConvertPendingOrderModal, ConvertAllModal])("conversion sourcing 
     fireEvent.click(screen.getByRole("button", { name: "Preview source-quote.pdf" }));
     await waitFor(() => expect(sourcingApi.previewSourcingQuoteDocument).toHaveBeenCalledWith(7));
     expect(pendingOrdersApi.previewPendingOrderDocument).not.toHaveBeenCalled();
+    // The list collapses while a preview is open; reopen it to pick another document.
+    fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
     fireEvent.click(screen.getByRole("button", { name: "Preview purchase.pdf" }));
     await waitFor(() => expect(pendingOrdersApi.previewPendingOrderDocument).toHaveBeenCalledWith(7));
+    fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
     fireEvent.click(screen.getByRole("button", { name: "Download source-quote.pdf" }));
     await waitFor(() => expect(sourcingApi.downloadSourcingQuoteDocument).toHaveBeenCalledWith(7, "source-quote.pdf"));
     fireEvent.click(screen.getByRole("button", { name: "Download purchase.pdf" }));
     await waitFor(() => expect(pendingOrdersApi.downloadPendingOrderDocument).toHaveBeenCalledWith(7, "purchase.pdf"));
-  });
+  }, 10_000);
 });

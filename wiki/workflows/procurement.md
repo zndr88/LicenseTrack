@@ -87,7 +87,7 @@ to the Registry and the paid lines to the pending order.
 
 Freeware/open-source lines do not show license acquisition-price fields because
 their acquisition cost is zero. Perpetual and OEM lines retain their acquisition
-pricing independently of support.
+pricing independently of maintenance.
 
 **Service** and **Other** lines have a **Renewable?** option, off by default.
 Leave it off for a one-off purchase such as an installation or a training
@@ -98,35 +98,35 @@ subscription. **Other** lines also need a short **Type Description** that says
 what was bought.
 
 Perpetual, OEM, freeware/open-source, subscription, and SaaS lines also expose
-**Maintenance / Support**:
+**Maintenance**:
 
-- **Included** keeps support on the parent line. For perpetual, OEM, and
-  freeware/open-source lines, support can be entered as a flat coverage fee, as
-  covered quantity times support unit price, or as **Free (no charge)**, which
+- **Included** keeps maintenance on the parent line. For perpetual, OEM, and
+  freeware/open-source lines, maintenance can be entered as a flat coverage fee, as
+  covered quantity times maintenance unit price, or as **Free (no charge)**, which
   stores a zero cost and hides the cost fields. For subscription and SaaS
-  lines, included support uses the subscription start/end dates and the
+  lines, included maintenance uses the subscription start/end dates and the
   subscription acquisition total, so the derived coverage dates and cost are
   hidden in the forms. The calculated or derived total contributes to the
   sourcing estimate and pending-order total exactly once.
 - **Separately tracked** offers an explicit **Add maintenance line** action. The
   new line is prefilled but editable, follows the paid PO path, and retains its
   parent relationship during conversion. This option is available only for
-  perpetual, OEM, or freeware/open-source parents. A different support supplier
+  perpetual, OEM, or freeware/open-source parents. A different maintenance supplier
   creates a separate linked sourcing request. If a later renewal covers several
   eligible parent purchases, the resulting maintenance license can be linked to
   the additional parents from License Details.
 - **Unknown** and **Not applicable** do not create another line.
 
-Freeware with a positive included-support cost follows the PO path because the
-support purchase needs normal procurement evidence.
+Freeware with a positive included-maintenance cost follows the PO path because the
+maintenance purchase needs normal procurement evidence.
 
-Support prices always describe the displayed coverage period. When coverage is
+Maintenance prices always describe the displayed coverage period. When coverage is
 renewed, the new coverage becomes a new procurement/license line instead of
 overwriting the expired period. Reports annualize recurring multi-year records
 and allocate selected report ranges by overlapping days.
 
 Dates entered during sourcing and pending-order work are planning values. The
-license manager confirms the delivered entitlement and support start/end dates
+license manager confirms the delivered entitlement and maintenance start/end dates
 during final conversion because publisher dates can change between quote,
 order, and delivery.
 
@@ -140,15 +140,15 @@ license conversion. Do not use this for yearly installments of one continuous
 entitlement: one license record can cover its full multi-year term.
 
 Maintenance lines can be planned the same way, for example three separate
-support years on one PO. Maintenance terms follow maintenance terms only. Give
+maintenance years on one PO. Maintenance terms follow maintenance terms only. Give
 the first term its supported license at conversion; a later term without its
 own parent supports the same license. At conversion every term is linked to that
-license, but only the term that covers today becomes its active support. Each
+license, but only the term that covers today becomes its active maintenance. Each
 later term takes over on its own start date through a daily check, and the
 previous period stays in the license's Coverage History.
 
-A **Start support renewal** request from the Renewal Workbench (see
-[Renewal rules and alternatives](../first-licenses/renewal-reference.md#included-support-that-is-ending))
+A **Start maintenance renewal** request from the Renewal Workbench (see
+[Renewal rules and alternatives](../first-licenses/renewal-reference.md#included-maintenance-that-is-ending))
 arrives here as one maintenance line that already names the license it
 supports. Conversion prefills that license as the parent.
 

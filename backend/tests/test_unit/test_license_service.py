@@ -444,6 +444,31 @@ def test_compute_stats():
     assert stats["total_upcoming"] == 1
 
 
+def test_compute_stats_breaks_down_expiring_and_expired_once_each():
+    today = date.today()
+    soon = today + timedelta(days=10)
+    past = today - timedelta(days=5)
+    licenses = [
+        make_license(id=1, end_date=soon),                                              # expiring, not started
+        make_license(id=2, end_date=soon, lifecycle_status="pending_renewal"),          # expiring, renewal
+        make_license(id=3, end_date=soon, retirement_scheduled=True),                   # expiring, retiring
+        make_license(                                                                   # both: counts as renewal
+            id=4, end_date=soon, lifecycle_status="pending_renewal", retirement_scheduled=True,
+        ),
+        make_license(id=5, end_date=past),                                              # expired, not started
+        make_license(id=6, end_date=past, lifecycle_status="pending_renewal"),          # expired, renewal
+    ]
+
+    stats = compute_stats(
+        licenses=licenses, documents_by_license_id={}, mandatory_fields={}, notification_days=30,
+    )
+
+    assert stats["expiring_breakdown"] == {"renewal_in_progress": 2, "retiring": 1, "not_started": 1}
+    assert stats["expired_breakdown"] == {"renewal_in_progress": 1, "retiring": 0, "not_started": 1}
+    assert sum(stats["expiring_breakdown"].values()) == stats["total_expiring"]
+    assert sum(stats["expired_breakdown"].values()) == stats["total_expired"]
+
+
 def test_compute_stats_counts_pending_as_overlapping_workflow_state():
     today = date.today()
     pending_expiring = make_license(
