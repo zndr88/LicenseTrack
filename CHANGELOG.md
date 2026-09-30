@@ -38,6 +38,10 @@ Work in progress for 1.2.0.
 
 ### Changed
 
+- Opening a document preview in the Sourcing and Pending Orders document dialogs
+  collapses the document list and shows a much larger preview; the Add License
+  document list also collapses while a preview is open. The contract dialog
+  opens with Linked licenses collapsed (with a count).
 - Added end-to-end tests that run the real frontend against a real backend for
   the core write paths.
 - The pending-order export's `PO Line #` column now contains the generated PO
@@ -61,6 +65,8 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- Reading or scrolling inside a focused document preview now counts as activity,
+  so a long read no longer ends the session.
 - Database restores run in the background of the server process, so the app
   and `/api/health` keep responding (with status `maintenance`) during a long
   restore. Pre-restore safety copies are now kept in a `pre-restore` folder

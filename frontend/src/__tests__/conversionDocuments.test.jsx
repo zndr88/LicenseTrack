@@ -83,8 +83,11 @@ describe.each([ConvertPendingOrderModal, ConvertAllModal])("conversion sourcing 
     fireEvent.click(screen.getByRole("button", { name: "Preview source-quote.pdf" }));
     await waitFor(() => expect(sourcingApi.previewSourcingQuoteDocument).toHaveBeenCalledWith(7));
     expect(pendingOrdersApi.previewPendingOrderDocument).not.toHaveBeenCalled();
+    // The list collapses while a preview is open; reopen it to pick another document.
+    fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
     fireEvent.click(screen.getByRole("button", { name: "Preview purchase.pdf" }));
     await waitFor(() => expect(pendingOrdersApi.previewPendingOrderDocument).toHaveBeenCalledWith(7));
+    fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
     fireEvent.click(screen.getByRole("button", { name: "Download source-quote.pdf" }));
     await waitFor(() => expect(sourcingApi.downloadSourcingQuoteDocument).toHaveBeenCalledWith(7, "source-quote.pdf"));
     fireEvent.click(screen.getByRole("button", { name: "Download purchase.pdf" }));
