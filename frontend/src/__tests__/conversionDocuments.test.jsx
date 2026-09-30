@@ -16,6 +16,10 @@ vi.mock("../api/sourcing.js", () => ({
   previewSourcingQuoteDocument: vi.fn().mockResolvedValue({ data: null, error: "Preview failed" }),
   downloadSourcingQuoteDocument: vi.fn().mockResolvedValue({ error: null }),
 }));
+vi.mock("../api/pluginActions.js", () => ({
+  listPluginActions: vi.fn().mockResolvedValue({ data: { actions: [] }, error: null }),
+  invokePluginAction: vi.fn(),
+}));
 vi.mock("../hooks/useCustomFieldDefinitions.js", () => ({
   useCustomFieldDefinitions: () => ({ definitions: [], loading: false }),
 }));
