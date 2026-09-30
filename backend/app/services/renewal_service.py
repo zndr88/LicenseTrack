@@ -246,7 +246,7 @@ def _build_support_row(
         row_kind="support_renewal",
         license_ref=parent.license_ref,
         publisher_name=parent.publisher_name,
-        software_description=f"{parent.software_description} (included support)",
+        software_description=f"{parent.software_description} (included maintenance)",
         license_type=parent.license_type,
         license_metric=parent.license_metric,
         start_date=parent.maintenance_start_date,

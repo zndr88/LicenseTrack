@@ -227,9 +227,9 @@ async def link_maintenance_to_parent(
 ) -> LicenseMaintenanceLink:
     """Create the association row linking a maintenance license to a parent."""
     if maintenance_license.license_type != LicenseType.maintenance:
-        raise ValueError("Only maintenance licenses can be linked to maintenance/support parents")
+        raise ValueError("Only maintenance licenses can be linked to maintenance parents")
     if maintenance_license.is_retired:
-        raise ValueError("Retired maintenance licenses cannot be linked to maintenance/support parents")
+        raise ValueError("Retired maintenance licenses cannot be linked to maintenance parents")
     assert_parent_type_eligible(parent)
     assert_parent_not_retired(parent)
 

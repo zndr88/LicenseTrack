@@ -2231,7 +2231,7 @@ async def test_patch_maintenance_coverage_rejects_bundled_support_while_child_is
     )
 
     assert resp.status_code == 400
-    assert "active maintenance/support record" in resp.json()["detail"]
+    assert "active maintenance record" in resp.json()["detail"]
 
 
 async def test_disable_maintenance_clears_link(test_app, auth_headers):
