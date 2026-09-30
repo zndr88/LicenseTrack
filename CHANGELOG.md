@@ -38,6 +38,8 @@ Work in progress for 1.2.0.
 
 ### Changed
 
+- Internal: updated `brace-expansion` (a dependency of the lint tooling) to
+  5.0.12 to clear a published advisory. It is not part of the app bundle.
 - Added end-to-end tests that run the real frontend against a real backend for
   the core write paths.
 - The pending-order export's `PO Line #` column now contains the generated PO
