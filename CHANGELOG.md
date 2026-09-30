@@ -41,7 +41,8 @@ Work in progress for 1.2.0.
 - Opening a document preview in the Sourcing and Pending Orders document dialogs
   collapses the document list and shows a much larger preview; the Add License
   document list also collapses while a preview is open. The contract dialog
-  opens with Linked licenses collapsed (with a count).
+  opens with Linked licenses collapsed (with a count) and its document folders
+  expanded.
 - Added end-to-end tests that run the real frontend against a real backend for
   the core write paths.
 - The pending-order export's `PO Line #` column now contains the generated PO
