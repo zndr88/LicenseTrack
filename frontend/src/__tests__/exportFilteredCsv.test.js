@@ -373,6 +373,19 @@ describe('exportFilteredCsv', () => {
     expect(lines[1]).toBe('"100,00"')
   })
 
+  it('unit prices keep every stored decimal in localized exports', () => {
+    const cols = [
+      { key: 'unitPrice', label: 'Unit Price' },
+      { key: 'maintenanceUnitPrice', label: 'Maintenance Unit Price' },
+    ]
+    const row = makeRow({ unitPrice: '0.1234', maintenanceUnitPrice: '0.125' })
+    exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map(), {
+      localized: true,
+      userSettings: { numberFormatLocale: 'nl-BE' },
+    })
+    expect(csvLines()[1]).toBe('"0,1234","0,125"')
+  })
+
   it.each(['nl-BE', 'de-DE', 'de-CH', 'fr-FR', 'en-US'])(
     'localized %s numbers import back with the same number format',
     (numberFormatLocale) => {

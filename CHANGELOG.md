@@ -19,6 +19,8 @@ Work in progress for 1.2.0.
 
 ### Added
 
+- My Settings → Appearance has a per-user option to show or hide the Portfolio
+  overview in the sidebar (shown by default).
 - PO line numbers: every license and pending-order line with a PO number gets
   a generated, read-only PO line number, unique per PO (PO numbers are
   compared ignoring case and spacing) and never reused. The number appears in
@@ -61,6 +63,9 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- Unit prices are shown with every stored decimal (at least two), so 0.1234 no
+  longer displays as 0.12; totals keep two decimals. The localized CSV export
+  keeps unit price decimals too.
 - Database restores run in the background of the server process, so the app
   and `/api/health` keep responding (with status `maintenance`) during a long
   restore. Pre-restore safety copies are now kept in a `pre-restore` folder

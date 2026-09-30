@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { disableMaintenance, getCoverageHistory, getMaintenanceForParent, updateIncludedSupport } from "../../../api/licenses.js";
 import { formatCost } from "../../../utils/helpers.js";
-import { formatDate } from "../../../utils/formatting.js";
+import { formatDate, formatUnitPrice } from "../../../utils/formatting.js";
 import { MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
 import {
   isBundledIncludedSupport,
@@ -182,10 +182,10 @@ export default function MaintenanceSection({
                   license.maintenanceUnitPrice && (
                     <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 4 }}>
                       {license.maintenanceQuantity} covered units x{" "}
-                      {formatCost(
+                      {formatUnitPrice(
                         license.maintenanceUnitPrice,
                         license.currency || userSettings?.displayCurrency || "EUR",
-                        userSettings?.numberFormatLocale ?? "en-US"
+                        userSettings
                       )} per unit
                     </div>
                   )}

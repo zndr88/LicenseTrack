@@ -216,6 +216,36 @@ export function formatMoney(canonical, currency, settings) {
   }
 }
 
+/** Currency codes some records carry that Intl does not know. */
+export const CURRENCY_ALIASES = { EURO: "EUR" };
+
+/**
+ * A unit price for display: every stored decimal, at least two, with the
+ * currency. Totals keep two decimals (formatCost / formatMoney).
+ *
+ * @param {string|number|null|undefined} canonical - e.g. "0.1234"
+ * @param {string} currency - ISO 4217 code
+ * @param {object} [settings] - { numberFormatLocale?: string }
+ * @returns {string}
+ */
+export function formatUnitPrice(canonical, currency, settings) {
+  const raw = String(canonical ?? "").trim();
+  if (!raw || !CANONICAL_NUMBER.test(raw)) return "—";
+  const decimals = Math.max(2, (raw.split(".")[1] ?? "").length);
+  const locale = settings?.numberFormatLocale ?? "en-US";
+  const code = CURRENCY_ALIASES[currency] ?? currency ?? "EUR";
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: Math.min(decimals, 20),
+    }).format(Number(raw));
+  } catch {
+    return raw;
+  }
+}
+
 // formatDate
 
 /**

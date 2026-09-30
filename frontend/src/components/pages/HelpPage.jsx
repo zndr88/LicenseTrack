@@ -350,6 +350,7 @@ const HELP_ARTICLES = [
           "Admin Settings is grouped into General, Data Management, Integrations, and Operations. Data Management contains canonical Companies and Cost Centres, plus license and import configuration.",
           "Reference data uses canonical IDs and keeps display-name mirrors synchronized for compatibility. Names and aliases are normalized for matching; viewer department access uses canonical cost-centre assignments while preserving the existing name-based API shape.",
           "My Settings remains user-specific and covers personal preferences such as display currency, number/date/time formats, time zone, session timeout, appearance, and saved license views.",
+          "Appearance in My Settings also has a per-user option to show or hide the Portfolio overview in the sidebar (shown by default). Unit prices are shown with every stored decimal (at least two), for example 0.1234, while totals always show two decimals.",
         ],
       },
       {

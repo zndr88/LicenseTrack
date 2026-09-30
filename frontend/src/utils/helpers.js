@@ -1,5 +1,5 @@
 import { NON_ENTITLEMENT_LICENSE_TYPES, NON_EXPIRING_LICENSE_TYPES } from "../constants/licenseData.js";
-import { toInputText } from "./formatting.js";
+import { CURRENCY_ALIASES, toInputText } from "./formatting.js";
 import { isRenewableLicense } from "./licenseTypeRules.js";
 import { getProcurementTotal } from "./procurementIdentity.js";
 
@@ -11,8 +11,6 @@ export const isEditorOrAdmin = (user) => user?.role === "admin" || user?.role ==
 export const canEdit = (user) => isEditorOrAdmin(user);
 export const todayStr = () => new Date().toISOString().split("T")[0];
 export const daysBetween = (a, b) => Math.ceil((new Date(b) - new Date(a)) / 86400000);
-
-const CURRENCY_ALIASES = { EURO: "EUR" };
 
 export const formatCost = (value, currency = "USD", locale = "en-US") => {
   if (value === null || value === undefined || value === "") return "—";
