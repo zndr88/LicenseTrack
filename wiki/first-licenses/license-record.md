@@ -79,6 +79,9 @@ date has passed, and it never raises renewal work or expiry alerts. A renewable
 record behaves like a subscription: it can be renewed, appears in the Renewal
 Workbench, and counts toward recurring cost.
 
+See [Certificates, Domains and Other Renewables](../workflows/renewables.md) for a
+worked example.
+
 Perpetual, OEM, and freeware/open-source licenses never carry an end date. An
 OEM or freeware record saved with an end date before 1.1.24 keeps it until the
 record is next saved in the full **Edit** form.

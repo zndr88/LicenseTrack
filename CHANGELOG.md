@@ -19,6 +19,9 @@ Work in progress for 1.2.0.
 
 ### Added
 
+- Help and the user guide explain how to track SSL/TLS certificates, domain
+  names and other renewable items with the Other type, Type Description and
+  Renewable?.
 - Hovering or focusing the Expiring or Expired stage on the Licenses page shows
   a breakdown, for example "12 expiring · 5 renewal in progress · 1 retiring ·
   6 not started". A license with a renewal in progress that is also scheduled
