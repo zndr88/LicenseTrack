@@ -3,6 +3,7 @@ import { SUPPLIER_CONTACT_HELP } from "../../../constants/licenseData.js";
 import { buildSingleLicenseEmailHref } from "../../../utils/licenseEmailLinks.js";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
+import FieldLabel from "../../ui/FieldLabel.jsx";
 
 function uniqueIds(values) {
   const seen = new Set();
@@ -106,7 +107,7 @@ export default function PeopleSection({
           )}
           {license.lifecycleStatus !== "pending_renewal" ? (
             <div className="dp-field">
-              <span className="dp-field-label" title={SUPPLIER_CONTACT_HELP}>Supplier Contact</span>
+              <FieldLabel as="span" className="dp-field-label" info={SUPPLIER_CONTACT_HELP}>Supplier Contact</FieldLabel>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <a href={mailto} className="email-link dp-fieldval-sm" title={license.contactEmail || undefined}>
                   <Icon name="mail" size={12} color="var(--accent)" />
@@ -124,7 +125,7 @@ export default function PeopleSection({
             </div>
           ) : (
             <div className="dp-field">
-              <span className="dp-field-label" title={SUPPLIER_CONTACT_HELP}>Supplier Contact</span>
+              <FieldLabel as="span" className="dp-field-label" info={SUPPLIER_CONTACT_HELP}>Supplier Contact</FieldLabel>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val dp-fieldval-sm">{license.contactEmail || "—"}</div>
                 {perms.canEdit && (

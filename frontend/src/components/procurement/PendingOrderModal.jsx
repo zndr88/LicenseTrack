@@ -30,6 +30,7 @@ import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
 import { pendingOrderLineCurrencies } from "../../utils/procurementTotals.js";
 import LicenseTypeLabel from "../licenses/LicenseTypeLabel.jsx";
+import FieldLabel from "../ui/FieldLabel.jsx";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -268,11 +269,11 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
           </div>
           {!isNewOrder && (
             <div className="fg">
-              <label htmlFor="po-contact-email">Supplier Contact</label>
+              <FieldLabel htmlFor="po-contact-email" info={SUPPLIER_CONTACT_HELP}>Supplier Contact</FieldLabel>
               <input id="po-contact-email" className="fi" type="email" {...register("contactEmail")} />
               {errors.contactEmail
                 ? <span className="field-error">{errors.contactEmail.message}</span>
-                : <span className="field-hint">Applies to every open line in this pending order. {SUPPLIER_CONTACT_HELP}</span>}
+                : <span className="field-hint">Applies to every open line in this pending order.</span>}
             </div>
           )}
           {contactPrompt.visible && (
@@ -287,7 +288,13 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
           )}
           {!isNewOrder && (
             <div className="fg">
-              <label htmlFor="po-total-override">PO total (manual){orderCurrency ? ` (${orderCurrency})` : ""}</label>
+              <FieldLabel
+                htmlFor="po-total-override"
+                infoLabel="About the manual PO total"
+                info={(orderCurrency || order.poTotalOverride) ? "Use when the quote gives only a total. Line prices are not changed; converted licenses show this as their Total PO Value." : undefined}
+              >
+                PO total (manual){orderCurrency ? ` (${orderCurrency})` : ""}
+              </FieldLabel>
               <Controller
                 name="poTotalOverride"
                 control={control}
@@ -306,11 +313,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
               />
               {errors.poTotalOverride
                 ? <span className="field-error">{errors.poTotalOverride.message}</span>
-                : <span className="field-hint">
-                  {orderCurrency || order.poTotalOverride
-                    ? "Use when the quote gives only a total. Line prices are not changed; converted licenses show this as their Total PO Value."
-                    : "Available when every line of this order uses one currency."}
-                </span>}
+                : !(orderCurrency || order.poTotalOverride) && <span className="field-hint">Available when every line of this order uses one currency.</span>}
             </div>
           )}
           <div className="fg">

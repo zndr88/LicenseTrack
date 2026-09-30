@@ -1121,7 +1121,7 @@ describe("ConvertAllModal", () => {
     fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: "2026-01-01" } });
     fireEvent.change(screen.getByLabelText(/^end date/i), { target: { value: "2026-12-31" } });
 
-    const emailInput = screen.getByLabelText(/supplier contact/i);
+    const emailInput = screen.getByLabelText(/^supplier contact$/i);
     fireEvent.change(emailInput, { target: { value: "not-an-email" } });
 
     await user.click(screen.getByRole("button", { name: /confirm & create licenses/i }));
