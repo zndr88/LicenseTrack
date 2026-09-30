@@ -2352,7 +2352,7 @@ async def test_disable_maintenance_rejects_non_perpetual(test_app, auth_headers)
 
     assert resp.status_code == 400
     assert resp.json()["detail"] == (
-        "Maintenance/support tracking can only be disabled on perpetual, OEM, or freeware Licenses."
+        "Maintenance tracking can only be disabled on perpetual, OEM, or freeware Licenses."
     )
 
 
