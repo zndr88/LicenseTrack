@@ -44,11 +44,11 @@ never interpreted with locale-specific comma replacement.
 | Spend by PO value | Procurement events use pending-order ID, procurement-bundle ID, then normalized PO number plus currency; a manual override is used once when present, otherwise calculated lines are summed |
 | Difference | PO-value spend minus license-line spend |
 | Lifecycle budget | Line value grouped by active, expiring, and expired status |
-| Recurring annual cost | Active subscription, SaaS, maintenance, and current paid included-support costs, annualized when the term is longer than one year |
+| Recurring annual cost | Active subscription, SaaS, maintenance, and current paid included-maintenance costs, annualized when the term is longer than one year |
 | Budget forecast | Recurring annual baseline projected by the selected horizon and growth rate |
-| Renewal calendar | Subscription/SaaS term expiry, separately tracked maintenance expiry, and included-support coverage expiry across the next four configured fiscal quarters |
+| Renewal calendar | Subscription/SaaS term expiry, separately tracked maintenance expiry, and included-maintenance coverage expiry across the next four configured fiscal quarters |
 | Publisher/vendor overview | Calculated line value grouped by publisher and supplier |
-| Perpetual licenses & maintenance | Perpetual acquisition value beside included or separately tracked support, grouped by currency |
+| Perpetual licenses & maintenance | Perpetual acquisition value beside included or separately tracked maintenance, grouped by currency |
 | Purchase Order Value Tracker | One row per PO and currency, comparing the authoritative PO value with its priced license lines |
 
 The two headline spend totals use Purchase Quantity multiplied by Unit Price as
@@ -74,23 +74,23 @@ Multiple publishers), PO value, line value, and Difference. Lines without a PO
 number remain individually counted and are reported as unkeyed rather than
 being silently grouped together.
 
-Freeware/open-source records without paid included support contribute zero to
-monetary totals and are not counted as unpriced purchases. When paid support is
+Freeware/open-source records without paid included maintenance contribute zero to
+monetary totals and are not counted as unpriced purchases. When paid maintenance is
 included on a freeware, perpetual, or OEM parent, its current coverage-period
 total contributes to recurring cost and forecast calculations.
 
-Recurring subscription, SaaS, maintenance, and included-support values use the
+Recurring subscription, SaaS, maintenance, and included-maintenance values use the
 stored value for the complete term or coverage period. When that term is longer
 than one year, the forecast baseline annualizes it by calendar days. When a
 report range is selected, recurring value is allocated by overlapping days. For
 example, an 18-month record worth EUR 12,000 contributes roughly the first 12
 months of value to a first-year range and the remaining 6 months of value to
 the following year. Expired or not-yet-started included coverage is excluded.
-Separately tracked support is represented and reported through its own
+Separately tracked maintenance is represented and reported through its own
 maintenance license line.
 
 The **Perpetual Licenses & Maintenance** section lists perpetual parent records
-with their acquisition value and support classification. Included coverage uses
+with their acquisition value and maintenance classification. Included coverage uses
 the parent record's maintenance cost. Separately tracked coverage uses linked
 maintenance records and displays those records beneath the parent. Missing
 included cost or a missing separate record is flagged in the table, and mixed

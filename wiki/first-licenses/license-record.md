@@ -30,7 +30,7 @@ The record is organized into the following sections:
 
 - Key Dates & Contract
 - Details
-- Maintenance & Support
+- Maintenance
 - Relationships
 - Documents
 - Completeness & Flags
@@ -84,7 +84,7 @@ OEM or freeware record saved with an end date before 1.1.24 keeps it until the
 record is next saved in the full **Edit** form.
 
 The full **Edit** form offers the **Maintenance** type only on records that are
-already maintenance. Add new maintenance from the **Maintenance & Support**
+already maintenance. Add new maintenance from the **Maintenance**
 section of the license it supports.
 
 **Purchase quantity** is the count bought on the order. **Quantity per unit**
@@ -110,38 +110,38 @@ A **PO total (manual)** entered on a pending order becomes this override on
 every license converted from it. The line prices stay as quoted; the manual
 total is never spread across lines.
 
-Freeware/open-source records have no acquisition price; paid support is
-recorded in **Maintenance & Support**.
+Freeware/open-source records have no acquisition price; paid maintenance is
+recorded in **Maintenance**.
 
-## Maintenance & Support
+## Maintenance
 
 Perpetual, OEM, freeware/open-source, subscription, and SaaS records can
-classify support as **Included**. Separately tracked support is available only
+classify maintenance as **Included**. Separately tracked maintenance is available only
 for perpetual, OEM, or freeware/open-source parents.
 
-Included support stays on the parent license. Its start/end dates define the
+Included maintenance stays on the parent license. Its start/end dates define the
 coverage period, and its price is one flat fee, a covered quantity multiplied
-by a support unit price, or **Free (no charge)**. The resulting support cost is
+by a maintenance unit price, or **Free (no charge)**. The resulting maintenance cost is
 the total for that coverage period; Free stores a zero cost. For subscription
-and SaaS records, included support uses the subscription dates and total
-acquisition value, so those support fields are derived rather than edited
+and SaaS records, included maintenance uses the subscription dates and total
+acquisition value, so those maintenance fields are derived rather than edited
 separately.
 
 On perpetual, OEM, and freeware/open-source records with Included coverage,
-**Edit support** changes the included support period, pricing basis, and cost.
-The cost is optional. When the support has an end date, the section shows its
-status: a badge appears when support is expiring or has expired, and the
-license appears under the **Support due** filter in License Overview. See
-[included support that is ending](renewal-reference.md#included-support-that-is-ending)
+**Edit maintenance** changes the included maintenance period, pricing basis, and cost.
+The cost is optional. When the maintenance has an end date, the section shows its
+status: a badge appears when maintenance is expiring or has expired, and the
+license appears under the **Maintenance due** filter in License Overview. See
+[included maintenance that is ending](renewal-reference.md#included-maintenance-that-is-ending)
 for the renewal route.
 
 Switching coverage away from Included keeps the included period in Coverage
 History, so a later maintenance record does not overwrite it.
 
-Separately tracked support uses its own linked maintenance license, procurement
+Separately tracked maintenance uses its own linked maintenance license, procurement
 evidence, cost, dates, and renewal lifecycle. The parent shows the active
 maintenance line's current dates and cost for convenient review. A maintenance
-line can be linked to more than one eligible parent when one support renewal
+line can be linked to more than one eligible parent when one maintenance renewal
 covers several perpetual, OEM, or freeware/open-source records. Open the
 maintenance record's **Relationships** section to review every linked parent
 license.
@@ -195,7 +195,7 @@ required. An upgraded installation keeps the requirements it already had.
 
 For a freeware/open-source record, EULA, proof-of-entitlement, and
 supplier-contact requirements do not apply. Contract, PO, invoice, and quote
-requirements also do not apply unless the record includes paid support.
+requirements also do not apply unless the record includes paid maintenance.
 Department and budget-owner requirements remain useful and continue to apply
 when enabled.
 

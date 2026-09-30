@@ -17,7 +17,7 @@ LT reference automatically. It cannot be supplied or edited manually.
 
 The **Review License Data** step can create several license lines together.
 Use **Add License** inside that review to add another entitlement. Each eligible
-line has the same included support choice, and each eligible perpetual, OEM, or
+line has the same included maintenance choice, and each eligible perpetual, OEM, or
 freeware/open-source line also has the separately tracked maintenance choice.
 Price fields use your personal number format. LicenseTrack saves all lines as one database operation:
 if any line fails, no part of the batch is created.
@@ -34,7 +34,7 @@ ordinary **License Type** field. There is no separate acquisition mode. A
 directly created record can leave commercial references and prices empty.
 EULA, proof-of-entitlement, and publisher-contact completeness checks are not
 applicable to this type. Contract, PO, invoice, and quote checks are also not
-applicable while the record has no paid included support. Department and budget
+applicable while the record has no paid included maintenance. Department and budget
 owner requirements still apply so the record retains useful organizational
 ownership.
 
@@ -66,24 +66,24 @@ date. A recurring license without an end date remains active but incomplete;
 only genuinely non-expiring license types receive perpetual status. Historical
 records with an invalid date range remain visible so an editor can repair them.
 
-## Maintenance and support records
+## Maintenance records
 
-Separately purchased maintenance or support is represented by a maintenance
+Separately purchased maintenance is represented by a maintenance
 license linked to an eligible parent. Eligible parents are active perpetual,
 OEM, or freeware/open-source records.
 
-Choose **Included** when support belongs on the parent record. For perpetual,
+Choose **Included** when maintenance belongs on the parent record. For perpetual,
 OEM, and freeware/open-source parents, its start/end dates define the coverage
 period and its price can be a flat coverage fee or a covered quantity
-multiplied by a support unit price. For subscription and SaaS records, included
-support follows the subscription dates and total acquisition value, so the
-coverage dates and support cost are derived automatically.
+multiplied by a maintenance unit price. For subscription and SaaS records, included
+maintenance follows the subscription dates and total acquisition value, so the
+coverage dates and maintenance cost are derived automatically.
 
 Choose **Separately tracked** to add a real maintenance line with its own
 procurement evidence and renewal lifecycle. You can create that line while
 sourcing, while editing a pending-order line, during direct license entry, or
 later from the parent license. From the parent license's **Maintenance &
-Support** section, choose whether to create a new maintenance record or link an
+Maintenance** section, choose whether to create a new maintenance record or link an
 existing maintenance record from the searchable list. The active maintenance
 record supplies the mirrored maintenance dates and cost shown on the parent.
 
@@ -102,7 +102,7 @@ Maintenance until that maintenance is unlinked.
 
 One maintenance record can be linked to more than one eligible parent. This is
 useful when a later renewal covers several perpetual purchases under one
-support contract. Each parent keeps its own active-maintenance pointer, while
+maintenance contract. Each parent keeps its own active-maintenance pointer, while
 the maintenance record keeps the parent list for review and history.
 
 An imported maintenance record may be marked **legacy unlinked** when its
@@ -119,7 +119,7 @@ When either kind of coverage is renewed, create a new line for the new coverage
 period. This preserves the cost and dates of the expired period instead of
 rewriting them.
 
-License Details also exposes **Coverage History**. When included support is
+License Details also exposes **Coverage History**. When included maintenance is
 replaced by a separately tracked maintenance record, or one active maintenance
 record is replaced by another, LicenseTrack stores an immutable snapshot of the
 previous dates, cost, pricing basis, quantity, and currency. The history view
