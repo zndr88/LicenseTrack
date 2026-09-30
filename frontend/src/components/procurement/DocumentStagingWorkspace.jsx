@@ -37,6 +37,7 @@ export default function DocumentStagingWorkspace({
   const [localPreviewId, setLocalPreviewId] = useState(null);
   const [storedPreview, setStoredPreview] = useState(null);
   const [expanded, setExpanded] = useState(false);
+  const [collapseSignal, setCollapseSignal] = useState(0);
   const [downloadError, setDownloadError] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [removedDocumentKeys, setRemovedDocumentKeys] = useState(() => new Set());
@@ -67,6 +68,7 @@ export default function DocumentStagingWorkspace({
 
   const openStoredPreview = async (document) => {
     if (!isPreviewablePdf(document) || !previewDocument) return;
+    setCollapseSignal((count) => count + 1);
     setLocalPreviewId(null);
     clearStoredPreview();
     const requestId = ++requestRef.current;
@@ -85,6 +87,7 @@ export default function DocumentStagingWorkspace({
   };
 
   const openLocalPreview = (id) => {
+    setCollapseSignal((count) => count + 1);
     clearStoredPreview();
     setLocalPreviewId(id);
   };
@@ -120,6 +123,7 @@ export default function DocumentStagingWorkspace({
         title={attachments.length ? `Documents · ${attachments.length} ready` : "Documents"}
         icon="upload"
         defaultOpen={defaultOpen}
+        collapseSignal={collapseSignal}
         className="document-staging-section"
       >
         <p className="document-staging-intro">

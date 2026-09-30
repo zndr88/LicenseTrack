@@ -8,6 +8,7 @@ export default function LicenseFormSection({
   children,
   className = "",
   defaultOpen = true,
+  collapseSignal = 0,
 }) {
   const titleId = useId();
   const bodyId = useId();
@@ -18,6 +19,11 @@ export default function LicenseFormSection({
   useEffect(() => {
     if (sectionCommand?.sequence) setOpen(sectionCommand.open);
   }, [sectionCommand]);
+
+  // A parent can close the section by changing collapseSignal (the user can reopen it).
+  useEffect(() => {
+    if (collapseSignal) setOpen(false);
+  }, [collapseSignal]);
 
   return (
     <section className={classes} aria-labelledby={titleId}>
