@@ -33,6 +33,7 @@ class UserSettingsUpdate(RequestModel):
     saved_views: Optional[list] = None
     renewal_workbench_columns: Optional[dict] = None
     sidebar_collapsed: Optional[bool] = None
+    show_portfolio_overview: Optional[bool] = None
     ui_size: Optional[Literal["normal", "large", "larger"]] = None
     date_format: Optional[Literal["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"]] = None
     time_format: Optional[Literal["12h", "24h"]] = None
@@ -69,6 +70,7 @@ class UserSettingsResponse(BaseModel):
     saved_views: list
     renewal_workbench_columns: dict = Field(default_factory=dict)
     sidebar_collapsed: bool = False
+    show_portfolio_overview: bool = True
     ui_size: str = "normal"
     date_format: str = "DD/MM/YYYY"
     time_format: str = "24h"

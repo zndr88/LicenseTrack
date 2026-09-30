@@ -55,6 +55,7 @@ class UserSettings(Base):
 
     # Sidebar state
     sidebar_collapsed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    show_portfolio_overview: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
 
     # Number format locale (controls thousands/decimal separator style)
     number_format_locale: Mapped[str] = mapped_column(String(10), nullable=False, default="en-US")
