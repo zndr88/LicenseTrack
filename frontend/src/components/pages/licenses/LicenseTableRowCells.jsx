@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CURRENCIES, LICENSE_TYPES, LICENSE_METRICS, MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
 import { formatCost, getPoTotal } from "../../../utils/helpers.js";
 import Badge from "../../ui/Badge.jsx";
-import { numberInputErrorMessage, parseTypedNumberResult, sameNumberValue, toInputText, formatDate, formatDateTime } from "../../../utils/formatting.js";
+import { numberInputErrorMessage, parseTypedNumberResult, sameNumberValue, toInputText, formatDate, formatDateTime, formatUnitPrice } from "../../../utils/formatting.js";
 import { formatCustomFieldValue } from "../../../utils/customFieldPresentation.js";
 import { formatQuantity } from "../../../utils/quantity.js";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
@@ -365,7 +365,7 @@ export default function LicenseTableRowCells({
       case "skuCode":
         return <td key="skuCode" className="mono lp-sku">{license.skuCode || "-"}</td>;
       case "unitPrice":
-        return <td key="unitPrice" className="mono lp-mono-bold">{formatCost(license.unitPrice, license.currency || displayCurrency, locale)}</td>;
+        return <td key="unitPrice" className="mono lp-mono-bold">{formatUnitPrice(license.unitPrice, license.currency || displayCurrency, userSettings)}</td>;
       case "currency":
         return <td key="currency" className="mono">{license.currency || "-"}</td>;
       case "totalPoPrice":
@@ -455,7 +455,7 @@ export default function LicenseTableRowCells({
       case "maintenanceQuantity":
         return <td key="maintenanceQuantity" className="mono td-center">{formatQuantity(license.maintenanceQuantity, userSettings) || "-"}</td>;
       case "maintenanceUnitPrice":
-        return <td key="maintenanceUnitPrice" className="mono lp-mono-bold">{formatCost(license.maintenanceUnitPrice, license.currency || displayCurrency, locale)}</td>;
+        return <td key="maintenanceUnitPrice" className="mono lp-mono-bold">{formatUnitPrice(license.maintenanceUnitPrice, license.currency || displayCurrency, userSettings)}</td>;
       default:
         if (col.key.startsWith("cf_") && col._cfDef) {
           return renderCustomFieldCell({ col, license, customFieldValuesMap, displayCurrency, locale, userSettings });

@@ -4,7 +4,7 @@ import SearchBox from "../../ui/SearchBox.jsx";
 import RowActionsMenu from "../../ui/RowActionsMenu.jsx";
 import ProcurementInlineEditCell from "../../procurement/ProcurementInlineEditCell.jsx";
 import { formatCost } from "../../../utils/helpers.js";
-import { formatDateTime } from "../../../utils/formatting.js";
+import { formatDateTime, formatUnitPrice } from "../../../utils/formatting.js";
 import { sourcingRequestPublishers } from "./sourcingPageState.js";
 import { procurementLineTotal, procurementTotalsByCurrency } from "../../../utils/procurementTotals.js";
 import { formatQuantity } from "../../../utils/quantity.js";
@@ -185,7 +185,7 @@ function SourcingItemsRow({
                   {canInlineEdit ? (
                     <ProcurementInlineEditCell item={si} fieldKey="estimatedUnitPrice" label="Estimated unit price" currentValue={si.estimatedUnitPrice} valueType="money" userSettings={userSettings} onSave={onInlineFieldSave} />
                   ) : (
-                    <td>{linePrice(si.estimatedUnitPrice, si.currency, locale)}</td>
+                    <td>{si.estimatedUnitPrice == null || si.estimatedUnitPrice === "" ? "-" : formatUnitPrice(si.estimatedUnitPrice, si.currency || "EUR", userSettings)}</td>
                   )}
                   <td>{linePrice(procurementLineTotal(si), si.currency, locale)}</td>
                   <td>

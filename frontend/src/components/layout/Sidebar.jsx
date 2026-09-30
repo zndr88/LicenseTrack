@@ -2,7 +2,7 @@ import React from "react";
 import { APP_VERSION } from "../../version.js";
 import Icon from "../ui/Icon.jsx";
 
-export default function Sidebar({ page, setPage, setSelectedId, currentUser, collapsed, onToggleCollapse, stats = { active: 0, upcoming: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 } }) {
+export default function Sidebar({ page, setPage, setSelectedId, currentUser, collapsed, onToggleCollapse, showPortfolioOverview = true, stats = { active: 0, upcoming: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 } }) {
   const role = currentUser.role;
 
   const allNavItems = [
@@ -92,7 +92,7 @@ export default function Sidebar({ page, setPage, setSelectedId, currentUser, col
       </div>
 
       {/* Portfolio Overview widget */}
-      {!collapsed && (
+      {!collapsed && showPortfolioOverview && (
         <div className="sb-portfolio">
           <div className="sb-portfolio-label">PORTFOLIO OVERVIEW</div>
           <div className="sb-portfolio-group-label">Coverage</div>

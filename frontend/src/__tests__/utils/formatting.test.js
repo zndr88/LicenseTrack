@@ -7,6 +7,7 @@ import {
   formatNumber,
   formatFileSize,
   formatPriceDisplay,
+  formatUnitPrice,
 } from "../../utils/formatting.js";
 
 // ── parseTypedNumber ─────────────────────────────────────────────────────
@@ -268,5 +269,29 @@ describe("formatPriceDisplay", () => {
 
   it("returns empty string for non-canonical input (can't parse)", () => {
     expect(formatPriceDisplay("€100", { numberFormatLocale: "en-US" })).toBe("");
+  });
+});
+
+// ── formatUnitPrice ──────────────────────────────────────────────────────────
+
+describe("formatUnitPrice", () => {
+  const nlBE = { numberFormatLocale: "nl-BE" };
+  it.each([
+    ["0.1234", "0,1234"],
+    ["15.5", "15,50"],
+    ["0.125", "0,125"],
+    ["1234", "1.234,00"],
+  ])("shows %s with every stored decimal and at least two", (value, digits) => {
+    expect(formatUnitPrice(value, "EUR", nlBE)).toContain(digits);
+  });
+
+  it("shows a dash for blank or unreadable values", () => {
+    expect(formatUnitPrice("", "EUR", nlBE)).toBe("—");
+    expect(formatUnitPrice(null, "EUR", nlBE)).toBe("—");
+    expect(formatUnitPrice("abc", "EUR", nlBE)).toBe("—");
+  });
+
+  it("understands the EURO currency alias like the totals do", () => {
+    expect(formatUnitPrice("2.5", "EURO", { numberFormatLocale: "en-US" })).toContain("2.50");
   });
 });

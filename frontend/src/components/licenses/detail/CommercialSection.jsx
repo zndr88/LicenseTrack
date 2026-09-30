@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../../constants/licenseData.js";
 import { formatCost, getEffectiveQuantity, getPoTotal } from "../../../utils/helpers.js";
+import { formatUnitPrice } from "../../../utils/formatting.js";
 import { formatQuantity } from "../../../utils/quantity.js";
 import { getCalcTotalValue } from "../../../utils/sort.js";
 import { INLINE_LICENSE_TYPE_HINT, inlineLicenseTypeOptions } from "../../../utils/licenseTypeRules.js";
@@ -164,7 +165,7 @@ export default function CommercialSection({
                 <div className="dp-field">
                   <span className="dp-field-label">Unit Price</span>
                   <div style={{ display: "flex", alignItems: "center" }}>
-                    <div className="val dp-mono-val">{license.unitPrice ? fmtCost(license.unitPrice) : "—"}</div>
+                    <div className="val dp-mono-val">{license.unitPrice ? formatUnitPrice(license.unitPrice, license.currency || userSettings.displayCurrency || "EUR", userSettings) : "—"}</div>
                     {perms.canEdit && (
                       <button type="button" className="dp-field-edit-icon" aria-label="Edit unit price"
                         onClick={() => openFieldEdit({ fieldKey: "unitPrice", fieldLabel: "Unit Price", currentValue: license.unitPrice || "", inputType: "text" })}

@@ -56,6 +56,11 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
       }
     : (val) => val ?? "";
 
+  // Unit prices keep every stored decimal (fmtDecimal rounds to two, for totals).
+  const fmtUnitDecimal = localized
+    ? (val) => (val == null || val === "" ? "" : toInputText(String(val), userSettings, { minFractionDigits: 2 }))
+    : (val) => val ?? "";
+
   const fmtQty = localized
     ? (val) => {
         if (val == null || val === "") return "";
@@ -94,7 +99,7 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "effectiveQuantity": return fmtQty(l.effectiveQuantity);
         case "quantityPerUnit": return fmtQty(l.quantityPerUnit);
         case "skuCode": return l.skuCode ?? "";
-        case "unitPrice": return fmtDecimal(l.unitPrice);
+        case "unitPrice": return fmtUnitDecimal(l.unitPrice);
         case "lineTotal": return fmtDecimal(l.totalPoPrice);
         case "poTotalOverride": return fmtDecimal(l.poTotalOverride);
         case "currency": return l.currency ?? "";
@@ -143,7 +148,7 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         }
         case "maintenancePricingBasis": return l.maintenancePricingBasis ?? "";
         case "maintenanceQuantity": return fmtQty(l.maintenanceQuantity);
-        case "maintenanceUnitPrice": return fmtDecimal(l.maintenanceUnitPrice);
+        case "maintenanceUnitPrice": return fmtUnitDecimal(l.maintenanceUnitPrice);
         default: {
           if (col.key.startsWith("cf_") && col._cfDef) {
             const values = customFieldValuesMap?.get(l.id) ?? [];

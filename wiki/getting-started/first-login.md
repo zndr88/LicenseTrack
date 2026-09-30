@@ -23,7 +23,8 @@ Log in with the new password and the setup is complete.
 ## Make it yours
 
 Open your personal settings to check number format, date format, and time zone
-before entering data. Display currency and UI size are also configured per user.
+before entering data. Display currency and UI size are also configured per user,
+and so is whether the sidebar shows the **Portfolio overview** (shown by default).
 
 ![Personal appearance settings](../assets/login-04-personal-settings.png)
 

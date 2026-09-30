@@ -7,7 +7,7 @@ import { CURRENCIES } from "../../../constants/licenseData.js";
 import { formatCost } from "../../../utils/helpers.js";
 import { formatLinePoTotal, formatPoTotal, pendingOrderPublishers } from "./usePendingOrdersPageState.js";
 import { pendingOrderOverrideCurrency } from "../../../utils/procurementTotals.js";
-import { formatDateTime } from "../../../utils/formatting.js";
+import { formatDateTime, formatUnitPrice } from "../../../utils/formatting.js";
 import { procurementLineTotal } from "../../../utils/procurementTotals.js";
 import { formatQuantity } from "../../../utils/quantity.js";
 import { hasPurchaseOrderNumber, pendingOrderLabel } from "../../../utils/procurementLabels.js";
@@ -152,7 +152,7 @@ function PendingOrderItemsRow({
                   ) : <td>{formatQuantity(item.quantity, userSettings) || "-"}</td>}
                   {canInlineEdit ? (
                     <ProcurementInlineEditCell item={item} fieldKey="estimatedUnitPrice" label="Estimated unit price" currentValue={item.estimatedUnitPrice} valueType="money" userSettings={userSettings} onSave={saveItemField} />
-                  ) : <td>{formatCost(item.estimatedUnitPrice, item.currency, locale)}</td>}
+                  ) : <td>{formatUnitPrice(item.estimatedUnitPrice, item.currency, userSettings)}</td>}
                   <td>{formatCost(procurementLineTotal(item), item.currency, locale)}</td>
                   {showCurrency && (canInlineEdit ? (
                     <ProcurementInlineEditCell item={item} fieldKey="currency" label="Currency" currentValue={item.currency} options={CURRENCIES} userSettings={userSettings} onSave={saveItemField} />

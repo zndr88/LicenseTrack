@@ -19,6 +19,8 @@ Work in progress for 1.2.0.
 
 ### Added
 
+- My Settings → Appearance has a per-user option to show or hide the Portfolio
+  overview in the sidebar (shown by default).
 - Help and the user guide explain how to track SSL/TLS certificates, domain
   names and other renewable items with the Other type, Type Description and
   Renewable?.
@@ -92,6 +94,9 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- Unit prices are shown with every stored decimal (at least two), so 0.1234 no
+  longer displays as 0.12; totals keep two decimals. The localized CSV export
+  keeps unit price decimals too.
 - Reading or scrolling inside a focused document preview now counts as activity,
   so a long read no longer ends the session.
 - Database restores run in the background of the server process, so the app
