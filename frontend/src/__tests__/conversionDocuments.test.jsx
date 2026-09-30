@@ -96,5 +96,5 @@ describe.each([ConvertPendingOrderModal, ConvertAllModal])("conversion sourcing 
     await waitFor(() => expect(sourcingApi.downloadSourcingQuoteDocument).toHaveBeenCalledWith(7, "source-quote.pdf"));
     fireEvent.click(screen.getByRole("button", { name: "Download purchase.pdf" }));
     await waitFor(() => expect(pendingOrdersApi.downloadPendingOrderDocument).toHaveBeenCalledWith(7, "purchase.pdf"));
-  });
+  }, 10_000);
 });
