@@ -206,6 +206,7 @@ export default function App() {
         currentUser={currentUser}
         collapsed={userSettings.sidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
+        showPortfolioOverview={userSettings.showPortfolioOverview !== false}
         stats={sidebarStats}
       />
 

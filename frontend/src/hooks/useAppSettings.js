@@ -34,6 +34,7 @@ const DEFAULT_USER_SETTINGS = {
   savedViews: [],
   renewalWorkbenchColumns: {},
   sidebarCollapsed: false,
+  showPortfolioOverview: true,
 };
 
 const DEFAULT_GLOBAL_SETTINGS = {
@@ -100,6 +101,7 @@ export function useAppSettings({ showError }) {
           savedViews: data.saved_views ?? s.savedViews,
           renewalWorkbenchColumns: data.renewal_workbench_columns ?? s.renewalWorkbenchColumns,
           sidebarCollapsed: data.sidebar_collapsed ?? s.sidebarCollapsed,
+          showPortfolioOverview: data.show_portfolio_overview ?? s.showPortfolioOverview,
         };
         savedUserSettingsRef.current = {
           theme: next.theme,
@@ -109,6 +111,7 @@ export function useAppSettings({ showError }) {
           dateFormat: next.dateFormat,
           timeFormat: next.timeFormat,
           timeZone: next.timeZone,
+          showPortfolioOverview: next.showPortfolioOverview,
         };
         return next;
       });
@@ -184,6 +187,8 @@ export function useAppSettings({ showError }) {
           savedUserSettingsRef.current.timeFormat ?? prev.timeFormat,
         timeZone:
           savedUserSettingsRef.current.timeZone ?? prev.timeZone,
+        showPortfolioOverview:
+          savedUserSettingsRef.current.showPortfolioOverview ?? prev.showPortfolioOverview,
       }));
       document.documentElement.setAttribute(
         "data-theme",

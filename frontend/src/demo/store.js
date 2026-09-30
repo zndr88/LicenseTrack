@@ -62,6 +62,7 @@ const DEFAULT_USER_SETTINGS = {
   saved_views: [],
   renewal_workbench_columns: {},
   sidebar_collapsed: false,
+  show_portfolio_overview: true,
 };
 
 // Mirrors a fresh install's GlobalSettings row (backend/app/models/settings.py,

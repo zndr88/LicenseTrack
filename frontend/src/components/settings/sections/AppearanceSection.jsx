@@ -5,6 +5,7 @@ import {
   normalizeNumberFormatOptionValue,
 } from "../../../constants/numberFormats.js";
 import { SectionHeader } from "../SectionShared.jsx";
+import Checkbox from "../../ui/Checkbox.jsx";
 import { formatDate, formatMoney, formatDateTime } from "../../../utils/formatting.js";
 
 const PREVIEW_DATE = "2025-12-31";
@@ -30,6 +31,7 @@ export default function AppearanceSection({ isOpen, isDirty, onToggle, markDirty
       column_order: userSettings.columnOrder,
       saved_views: userSettings.savedViews,
       sidebar_collapsed: userSettings.sidebarCollapsed,
+      show_portfolio_overview: userSettings.showPortfolioOverview !== false,
     });
     setSaving(false);
     if (error) { onError(error); return; }
@@ -43,6 +45,7 @@ export default function AppearanceSection({ isOpen, isDirty, onToggle, markDirty
         dateFormat: userSettings.dateFormat,
         timeFormat: userSettings.timeFormat,
         timeZone: userSettings.timeZone,
+        showPortfolioOverview: userSettings.showPortfolioOverview !== false,
       },
     });
     clearDirty("appearance");
@@ -129,6 +132,15 @@ export default function AppearanceSection({ isOpen, isDirty, onToggle, markDirty
                 <select id="settings-time-zone" className="fi fi-select" value={userSettings.timeZone ?? "UTC"} onChange={(e) => set("timeZone", e.target.value)}>
                   {TIME_ZONES.map((timeZone) => <option key={timeZone} value={timeZone}>{timeZone}</option>)}
                 </select>
+              </div>
+            </div>
+            <div className="fr">
+              <div className="fg">
+                <Checkbox
+                  checked={userSettings.showPortfolioOverview !== false}
+                  onChange={(checked) => set("showPortfolioOverview", checked)}
+                  label="Show portfolio overview in the sidebar"
+                />
               </div>
             </div>
             <div className="set-appearance-preview">
