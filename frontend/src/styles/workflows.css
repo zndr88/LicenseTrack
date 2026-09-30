@@ -11,6 +11,9 @@
 .procurement-document-modal.has-document-preview .procurement-document-workspace { grid-column: 2; grid-row: 1; }
 .procurement-document-modal.has-document-preview .procurement-document-workspace .document-assisted-preview { min-height: 560px; }
 .procurement-document-modal.has-document-preview .procurement-document-workspace .document-assisted-preview .document-preview-body { height: calc(90vh - 280px); min-height: 480px; }
+/* With the document list collapsed the preview takes the space. */
+.procurement-document-modal.has-document-preview .procurement-document-workspace .document-assisted-preview { min-height: 70vh; margin-left: 0; }
+.procurement-document-modal.has-document-preview .procurement-document-workspace .document-assisted-preview .document-preview-body { height: calc(90vh - 230px); min-height: 60vh; }
 .pending-order-license-line { min-width: 0; margin-bottom: 12px; }
 .pending-order-license-line + .pending-order-license-line { padding-top: 18px; border-top: 1px solid var(--border-lt); }
 .pending-order-license-line .license-form-section:first-child, .license-line-item-sections .license-form-section:first-child { padding-top: 0; border-top: 0; }
