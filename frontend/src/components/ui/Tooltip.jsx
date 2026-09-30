@@ -23,11 +23,19 @@ export default function Tooltip({ content, children, placement = "top" }) {
     });
   }, [open, placement]);
 
+  // Escape closes an open tooltip first, and nothing else: the listener runs
+  // in the capture phase on window, before a surrounding dialog's own Escape
+  // handler, so the dialog stays open until the next Escape.
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (event) => { if (event.key === "Escape") setOpen(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const onKey = (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [open]);
 
   if (content == null || content === "") return children;

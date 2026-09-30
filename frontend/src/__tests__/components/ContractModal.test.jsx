@@ -93,6 +93,19 @@ describe("ContractModal", () => {
     expect(screen.getByLabelText("Contract document preview")).toHaveTextContent(/select a pdf/i);
   });
 
+  test("opens with Linked Licenses collapsed and counted, and Documents expanded", async () => {
+    const user = userEvent.setup();
+    const licenses = [1, 2, 3].map((id) => ({ id, publisherName: "Acme Corp", softwareDescription: `Product ${id}`, licenseRef: `LT-${id}`, expirationStatus: "active" }));
+    await renderLoadedModal({}, { licenses });
+    const header = screen.getByRole("button", { name: /linked licenses \(3\)/i });
+    expect(header).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/Product 1/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /toggle general folder/i })).toHaveAttribute("aria-expanded", "true");
+    await user.click(header);
+    expect(header).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Product 1/)).toBeInTheDocument();
+  });
+
   test.each([
     ["General", "general.pdf", 21],
     ["Invoices", "invoice.pdf", 22],
@@ -101,7 +114,6 @@ describe("ContractModal", () => {
     contractsApi.previewContractDocument.mockResolvedValue({ data: { url: "blob:contract-preview" }, error: null });
     contractsApi.downloadContractDocument.mockResolvedValue({ error: null });
     await renderLoadedModal();
-    await user.click(screen.getByRole("button", { name: `Toggle ${folder} folder` }));
     await user.click(screen.getByRole("button", { name: `Preview ${filename}` }));
 
     expect(await screen.findByTitle(`Preview of ${filename}`)).toHaveAttribute("src", "blob:contract-preview#zoom=page-width");
@@ -119,7 +131,6 @@ describe("ContractModal", () => {
     const showError = vi.fn();
     contractsApi.previewContractDocument.mockResolvedValueOnce({ error: "File missing" });
     await renderLoadedModal({ showError });
-    await user.click(screen.getByRole("button", { name: "Toggle General folder" }));
     await user.click(screen.getByRole("button", { name: "Preview general.pdf" }));
     expect(showError).toHaveBeenCalledWith("Preview failed: File missing");
     expect(screen.getByLabelText("Contract document preview")).toHaveTextContent(/select a pdf/i);
@@ -135,9 +146,7 @@ describe("ContractModal", () => {
   });
 
   test("does not offer PDF preview for other file types", async () => {
-    const user = userEvent.setup();
     await renderLoadedModal({}, { documents: [{ id: 21, originalFilename: "terms.docx", folderId: null }] });
-    await user.click(screen.getByRole("button", { name: "Toggle General folder" }));
     expect(screen.queryByRole("button", { name: /preview/i })).not.toBeInTheDocument();
   });
 
@@ -282,7 +291,6 @@ describe("ContractModal", () => {
     await user.click(within(confirm).getByRole("button", { name: /^delete$/i }));
     await waitFor(() => expect(contractsApi.deleteFolder).toHaveBeenCalledWith(10, 7));
 
-    await user.click(screen.getByRole("button", { name: /toggle general folder/i }));
     await user.click(screen.getAllByRole("button", { name: /delete document/i })[0]);
     confirm = screen.getByRole("dialog", { name: /delete document/i });
     await user.click(within(confirm).getByRole("button", { name: /^delete$/i }));
@@ -296,7 +304,6 @@ describe("ContractModal", () => {
       user: { id: 2, role: "viewer", username: "viewer", allowDownloads: false },
     });
 
-    await user.click(screen.getByRole("button", { name: /toggle general folder/i }));
     const documentButton = screen.getByRole("button", { name: /general\.pdf/i });
 
     expect(documentButton).toBeDisabled();
@@ -314,7 +321,6 @@ describe("ContractModal", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: /toggle general folder/i }));
     const documentButton = screen.getByRole("button", { name: /general\.pdf/i });
 
     expect(documentButton).toBeDisabled();

@@ -8,6 +8,7 @@ export default function LicenseFormSection({
   children,
   className = "",
   defaultOpen = true,
+  command = null,
 }) {
   const titleId = useId();
   const bodyId = useId();
@@ -18,6 +19,12 @@ export default function LicenseFormSection({
   useEffect(() => {
     if (sectionCommand?.sequence) setOpen(sectionCommand.open);
   }, [sectionCommand]);
+
+  // A parent can open or close the section with a new { sequence, open } command;
+  // the user can still toggle it by hand afterwards.
+  useEffect(() => {
+    if (command?.sequence) setOpen(command.open);
+  }, [command]);
 
   return (
     <section className={classes} aria-labelledby={titleId}>

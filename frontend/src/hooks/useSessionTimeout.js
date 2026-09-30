@@ -30,10 +30,25 @@ export function useSessionTimeout(timeoutMinutes, onTimeout, onActivity, coordin
       window.localStorage.setItem(activityKey, String(lastActivity));
       check();
     };
+    // Reading or scrolling a PDF happens inside its frame, whose events never
+    // reach this page. A focused, visible preview counts as activity.
+    const PREVIEW_PING_MS = 30 * 1000;
+    let lastPreviewPing = 0;
+    const readingPreview = () =>
+      document.visibilityState === "visible"
+      && document.hasFocus()
+      && document.activeElement?.tagName === "IFRAME"
+      && document.activeElement.closest("[data-document-preview]") !== null;
+    const checkPreview = () => {
+      if (readingPreview() && Date.now() - lastPreviewPing >= PREVIEW_PING_MS) {
+        lastPreviewPing = Date.now();
+        handleActivity();
+      }
+    };
     window.localStorage.setItem(activityKey, String(lastActivity));
     const events = ["mousedown", "keydown", "scroll", "touchstart"];
     events.forEach(event => window.addEventListener(event, handleActivity, { capture: true, passive: true }));
-    const timer = setInterval(check, Math.min(1000, timeoutMs));
+    const timer = setInterval(() => { checkPreview(); check(); }, Math.min(1000, timeoutMs));
     check();
     return () => {
       clearInterval(timer);

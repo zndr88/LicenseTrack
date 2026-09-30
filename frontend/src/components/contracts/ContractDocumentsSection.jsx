@@ -120,8 +120,10 @@ export default function ContractDocumentsSection({
     onChanged?.();
   };
 
+  // Folders start expanded; the map only records the ones the user toggled.
+  const isFolderExpanded = (folderId) => expandedFolders[folderId] ?? true;
   const toggleFolder = (folderId) =>
-    setExpandedFolders((prev) => ({ ...prev, [folderId]: !prev[folderId] }));
+    setExpandedFolders((prev) => ({ ...prev, [folderId]: !(prev[folderId] ?? true) }));
 
   // Documents
 
@@ -209,7 +211,7 @@ export default function ContractDocumentsSection({
             )}
             {/* General folder (system - no rename/delete) */}
             {(() => {
-              const generalIsExpanded = !!expandedFolders["general"];
+              const generalIsExpanded = isFolderExpanded("general");
               return (
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: generalIsExpanded ? 8 : 0 }}>
@@ -249,7 +251,7 @@ export default function ContractDocumentsSection({
 
             {/* Per-folder sections */}
             {folders.map((folder) => {
-              const isExpanded = !!expandedFolders[folder.id];
+              const isExpanded = isFolderExpanded(folder.id);
               const folderDocs = documents.filter((d) => d.folderId === folder.id);
               return (
                 <div key={folder.id} style={{ marginTop: 16 }}>
