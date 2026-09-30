@@ -26,7 +26,7 @@ export default function DocumentPreviewPanel({
   const encodedPreviewUrl = previewUrl ? encodeURI(previewUrl) : null;
 
   return (
-    <Root className={classes} aria-label={ariaLabel}>
+    <Root className={classes} aria-label={ariaLabel} data-document-preview>
       <div className="lp-document-preview-hd">
         <div className="lp-document-preview-title">
           <span>{label}</span>
