@@ -7,6 +7,7 @@ import Icon from "../ui/Icon.jsx";
 import CostCentreDropdown from "../reports/CostCentreDropdown.jsx";
 import { queryKeys } from "../../queryKeys.js";
 import { manualPoTotalNote } from "../../utils/procurementTotals.js";
+import InfoTip from "../ui/InfoTip.jsx";
 
 const loadReportSections = () => import("../reports/ReportSections.jsx");
 const ReportSections = lazy(loadReportSections);
@@ -316,9 +317,9 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
               </span>
             )}
             {manualPoTotalCount > 0 && (
-              <span className="report-manual-po-note" title="Annual cost is based on license lines. A manual PO total is kept as the PO value and is never spread across lines.">
-                <Icon name="info" size={11} color="var(--text-3)" />
+              <span className="report-manual-po-note">
                 {manualPoTotalNote(manualPoTotalCount)}
+                <InfoTip label="About the manual PO total">Annual cost is based on license lines. A manual PO total is kept as the PO value and is never spread across lines.</InfoTip>
               </span>
             )}
           </div>

@@ -43,6 +43,7 @@ import LineTotalMismatchHint from "./LineTotalMismatchHint.jsx";
 import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
 import LicenseTypeLabel from "../licenses/LicenseTypeLabel.jsx";
+import FieldLabel from "../ui/FieldLabel.jsx";
 
 const schema = z.object({
   publisherName:       z.string().min(1, "Publisher is required."),
@@ -511,7 +512,7 @@ const SourcingItemModal = ({
                   <Controller name="supplier" control={control} render={({ field }) => <ReferenceCombobox id="si-supplier" mode="supplier" placeholder="Reseller or direct supplier" {...field} onChange={(value) => { const previousSupplier = watch("supplier"); field.onChange(value); if (String(previousSupplier || "").trim().toLocaleLowerCase() !== value.trim().toLocaleLowerCase()) setValue("contactEmail", "", { shouldDirty: true }); }} />} />
                   <span className="field-hint">Applies to every line in this {pendingOrderId ? "pending order" : "sourcing request"}.</span>
                 </div>
-                <div className="fg"><label htmlFor="si-contact-email">Supplier Contact</label><input id="si-contact-email" className="fi" type="email" placeholder="contact@example.com" {...register("contactEmail")} />{errors.contactEmail ? <span className="field-error">{errors.contactEmail.message}</span> : <span className="field-hint">{SUPPLIER_CONTACT_HELP}</span>}</div>
+                <div className="fg"><FieldLabel htmlFor="si-contact-email" info={SUPPLIER_CONTACT_HELP}>Supplier Contact</FieldLabel><input id="si-contact-email" className="fi" type="email" placeholder="contact@example.com" {...register("contactEmail")} />{errors.contactEmail && <span className="field-error">{errors.contactEmail.message}</span>}</div>
               </div>
               <div className="fr">
                 <div className="fg"><label htmlFor="si-cost-centre">Cost Centre</label><Controller name="costCentre" control={control} render={({ field }) => <ReferenceCombobox id="si-cost-centre" mode="costCentre" {...field} />} /></div>

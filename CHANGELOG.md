@@ -41,6 +41,10 @@ Work in progress for 1.2.0.
 
 ### Changed
 
+- Forms show fewer permanent hint lines: background explanations (for example
+  Supplier Contact, the manual PO total and several settings) moved into ⓘ
+  tooltips that open on hover or keyboard focus. Hints that prevent a mistake
+  stay visible.
 - The app uses **Maintenance** consistently where it said "Support" or
   "Maintenance / Support" (screens, alerts, emails, error messages, Help). For
   example, "Support due" is now "Maintenance due" and "Start support renewal"

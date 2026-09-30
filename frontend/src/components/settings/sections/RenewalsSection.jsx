@@ -4,6 +4,7 @@ import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
 import { CURRENCIES } from "../../../constants/licenseData.js";
 import NumberInput, { isValidNumberValue } from "../../ui/NumberInput.jsx";
+import FieldLabel from "../../ui/FieldLabel.jsx";
 
 export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, userSettings, onError, onToast, navGuard }) {
   const [saving, setSaving] = useState(false);
@@ -78,10 +79,7 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
           <div className="set-section-stack">
             <div className="fr">
               <div className="fg">
-                <label htmlFor="settings-renewal-action-days">Allow renewal actions X days before expiry</label>
-                <p className="set-field-hint">
-                  Controls when procurement initiation and existing-successor linking become available. Expiration badges and notifications are unchanged.
-                </p>
+                <FieldLabel htmlFor="settings-renewal-action-days" info="Controls when procurement initiation and existing-successor linking become available. Expiration badges and notifications are unchanged.">Allow renewal actions X days before expiry</FieldLabel>
                 <input
                   id="settings-renewal-action-days"
                   className="fi"
@@ -98,10 +96,7 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
               </div>
             </div>
             <div className="fg">
-              <span className="fg-label">High-Value Thresholds</span>
-              <p className="set-field-hint">
-                Licenses with an estimated annual value at or above the threshold for their own currency are flagged as high-value in the Renewal Workbench. No currency conversion is applied; leave a currency blank to never flag it.
-              </p>
+              <FieldLabel as="span" info="Licenses with an estimated annual value at or above the threshold for their own currency are flagged as high-value in the Renewal Workbench. No currency conversion is applied; leave a currency blank to never flag it.">High-Value Thresholds</FieldLabel>
               <div className="set-currency-thresholds">
                 {primaryCurrencies.map(renderThresholdInput)}
                 {showOtherCurrencies && otherCurrencies.map(renderThresholdInput)}
@@ -119,10 +114,7 @@ export default function RenewalsSection({ isOpen, isDirty, onToggle, markDirty, 
             </div>
             <div className="fr set-form-row-spaced">
               <div className="fg">
-                <label htmlFor="settings-fiscal-year-start-month">Fiscal Year Start Month</label>
-                <p className="set-field-hint">
-                  Quarter labels in the renewal calendar align to this month. January = calendar quarters.
-                </p>
+                <FieldLabel htmlFor="settings-fiscal-year-start-month" info="Quarter labels in the renewal calendar align to this month. January = calendar quarters.">Fiscal Year Start Month</FieldLabel>
                 <select
                   id="settings-fiscal-year-start-month"
                   className="fi"

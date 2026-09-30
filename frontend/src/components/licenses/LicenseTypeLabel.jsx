@@ -1,4 +1,4 @@
-import InfoTip from "../ui/InfoTip.jsx";
+import FieldLabel from "../ui/FieldLabel.jsx";
 
 // The one explanation of Maintenance vs Service (also stated in Help).
 export const LICENSE_TYPE_HELP = [
@@ -9,13 +9,12 @@ export const LICENSE_TYPE_HELP = [
 /** The License Type label with its ⓘ. Used by every license-type picker. */
 export default function LicenseTypeLabel({ htmlFor, optional = false }) {
   return (
-    <div className="fg-label-row">
-      <label htmlFor={htmlFor}>
-        License Type{optional && <> <span className="optional-label">(optional)</span></>}
-      </label>
-      <InfoTip label="What Maintenance and Service mean">
-        {LICENSE_TYPE_HELP.map((line) => <div key={line}>{line}</div>)}
-      </InfoTip>
-    </div>
+    <FieldLabel
+      htmlFor={htmlFor}
+      infoLabel="What Maintenance and Service mean"
+      info={LICENSE_TYPE_HELP.map((line) => <div key={line}>{line}</div>)}
+    >
+      License Type{optional && <> <span className="optional-label">(optional)</span></>}
+    </FieldLabel>
   );
 }

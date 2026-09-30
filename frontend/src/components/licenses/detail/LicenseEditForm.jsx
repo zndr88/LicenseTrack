@@ -24,6 +24,7 @@ import LicenseTypeOptInFields from "../LicenseTypeOptInFields.jsx";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../../utils/licenseTypeRules.js";
 import InvoiceNumberRows from "../InvoiceNumberRows.jsx";
 import LicenseTypeLabel from "../LicenseTypeLabel.jsx";
+import FieldLabel from "../../ui/FieldLabel.jsx";
 
 /**
  * Full-panel edit form shown when editingLicense is true.
@@ -152,9 +153,8 @@ export default function LicenseEditForm({
       </div>
       {customFields("dates")}
       <div className="fg">
-        <label htmlFor="license-edit-contact">Supplier Contact</label>
+        <FieldLabel htmlFor="license-edit-contact" info={SUPPLIER_CONTACT_HELP}>Supplier Contact</FieldLabel>
         <input id="license-edit-contact" className="fi" type="email" value={editFields.contactEmail} onChange={(e) => setEditFields((p) => ({ ...p, contactEmail: e.target.value }))} />
-        <span className="field-hint">{SUPPLIER_CONTACT_HELP}</span>
       </div>
       <div className="fg">
         <label htmlFor="license-edit-budget-owner">Budget Owner Email</label>

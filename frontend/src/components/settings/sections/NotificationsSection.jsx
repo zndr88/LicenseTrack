@@ -4,6 +4,7 @@ import { normalizeGlobalSettings } from "../../../utils/settingsNormalizer.js";
 import { allowedEmailDomain, parseIntegerInput } from "../../../utils/validation.js";
 import { notificationsSaveSchema } from "../../../utils/settingsSchemas.js";
 import { SectionHeader, SectionSaveButton } from "../SectionShared.jsx";
+import FieldLabel from "../../ui/FieldLabel.jsx";
 
 export default function NotificationsSection({ isOpen, isDirty, onToggle, markDirty, clearDirty, globalSettings, setGlobalSettings, onError, onToast, navGuard }) {
   const [saving, setSaving] = useState(false);
@@ -63,10 +64,7 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
               </div>
             </div>
             <div className="fg">
-              <label htmlFor="settings-public-base-url">Public app URL</label>
-              <p className="set-field-hint">
-                The address people use to open LicenseTrack, e.g. https://licenses.example.com. When set, notification emails link each license to its page. Leave empty to send emails without links.
-              </p>
+              <FieldLabel htmlFor="settings-public-base-url" info="The address people use to open LicenseTrack, e.g. https://licenses.example.com. When set, notification emails link each license to its page. Leave empty to send emails without links.">Public app URL</FieldLabel>
               <input id="settings-public-base-url" className="fi" type="url" placeholder="https://licenses.yourcompany.com" value={globalSettings.publicBaseUrl ?? ""} onChange={(e) => { setGlobalSettings(s => ({ ...s, publicBaseUrl: e.target.value })); markDirty("notifications"); }} />
             </div>
             <div className="fr">
@@ -80,8 +78,7 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
               </div>
             </div>
             <div className="fg set-spaced-field">
-              <label htmlFor="settings-allowed-domains">Allowed Outbound Domains</label>
-              <p className="set-field-hint">Only these domains can receive notification emails. Leave empty to allow all domains.</p>
+              <FieldLabel htmlFor="settings-allowed-domains" info="Only these domains can receive notification emails. Leave empty to allow all domains.">Allowed Outbound Domains</FieldLabel>
               {globalSettings.allowedEmailDomains.length > 0 && (
                 <div className="set-domain-list">
                   {globalSettings.allowedEmailDomains.map((d) => (
