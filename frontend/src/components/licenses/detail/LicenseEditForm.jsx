@@ -23,6 +23,7 @@ import CustomFieldFormFields from "../CustomFieldFormFields.jsx";
 import LicenseTypeOptInFields from "../LicenseTypeOptInFields.jsx";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../../utils/licenseTypeRules.js";
 import InvoiceNumberRows from "../InvoiceNumberRows.jsx";
+import LicenseTypeLabel from "../LicenseTypeLabel.jsx";
 
 /**
  * Full-panel edit form shown when editingLicense is true.
@@ -176,7 +177,7 @@ export default function LicenseEditForm({
       {customFields("notes")}
       <div className="fr">
         <div className="fg">
-          <label htmlFor="license-edit-type">License Type</label>
+          <LicenseTypeLabel htmlFor="license-edit-type" />
           <select id="license-edit-type" className="fi fi-select" value={editFields.licenseType} onChange={(e) => {
             const t = e.target.value;
             setEditFields((p) => {

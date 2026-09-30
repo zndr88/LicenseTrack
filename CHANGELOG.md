@@ -19,6 +19,9 @@ Work in progress for 1.2.0.
 
 ### Added
 
+- A small ⓘ next to License Type, in every form that has one, explains the
+  difference between Maintenance and Service. Tooltips open on hover and on
+  keyboard focus.
 - PO line numbers: every license and pending-order line with a PO number gets
   a generated, read-only PO line number, unique per PO (PO numbers are
   compared ignoring case and spacing) and never reused. The number appears in
@@ -43,6 +46,8 @@ Work in progress for 1.2.0.
   document list also collapses while a preview is open. The contract dialog
   opens with Linked licenses collapsed (with a count) and its document folders
   expanded.
+- Internal: updated `brace-expansion` (a dependency of the lint tooling) to
+  5.0.12 to clear a published advisory. It is not part of the app bundle.
 - Added end-to-end tests that run the real frontend against a real backend for
   the core write paths.
 - The pending-order export's `PO Line #` column now contains the generated PO

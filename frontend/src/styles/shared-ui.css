@@ -786,3 +786,31 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .sec-badge.mfa { background: var(--green-dim); color: var(--green-text); border-color: var(--green-border); }
 .sec-badge.no-mfa { background: var(--orange-dim); color: var(--orange-text); border-color: var(--orange-border); }
 
+
+/* Tooltip (components/ui/Tooltip.jsx) */
+.tip {
+  position: fixed;
+  z-index: 10000;
+  max-width: 280px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--text-1);
+  color: var(--bg-1);
+  font-size: 11px;
+  line-height: 1.4;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 6px));
+}
+.tip--bottom { transform: translate(-50%, 6px); }
+.info-tip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  cursor: help;
+}
+.info-tip:hover, .info-tip:focus-visible { color: var(--text-1); }
+.fg-label-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.fg-label-row label { margin-bottom: 0; }
