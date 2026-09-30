@@ -420,6 +420,26 @@ def calc_recurring_annual_cost(license_obj: "License") -> Decimal | None:
 # ---------------------------------------------------------------------------
 
 
+_BREAKDOWN_KEYS = ("renewal_in_progress", "retiring", "not_started")
+
+
+def _workflow_bucket(lic: "License") -> str:
+    """One bucket per license for the Expiring/Expired breakdown.
+
+    An open renewal wins over a scheduled retirement, so every license is
+    counted once and the parts add up to the stage count.
+    """
+    if lic.lifecycle_status == "pending_renewal":
+        return "renewal_in_progress"
+    if getattr(lic, "retirement_scheduled", False):
+        return "retiring"
+    return "not_started"
+
+
+def _breakdown_dict(counts: Counter[str]) -> dict[str, int]:
+    return {key: counts.get(key, 0) for key in _BREAKDOWN_KEYS}
+
+
 def compute_stats(
     licenses: list["License"],
     documents_by_license_id: dict[int, list["Document"]],
@@ -433,6 +453,7 @@ def compute_stats(
     total_pending = 0
     total_retirement_scheduled = 0
     status_counts: Counter[str] = Counter()
+    breakdowns: dict[str, Counter[str]] = {"expiring": Counter(), "expired": Counter()}
     annual_cost_by_currency: dict[str, Decimal] = {}
     annual_cost_licenses: list["License"] = []
     excluded_from_totals = 0
@@ -450,6 +471,8 @@ def compute_stats(
         completeness = compute_completeness(lic, docs, mandatory_fields)
 
         status_counts[status] += 1
+        if status in breakdowns:
+            breakdowns[status][_workflow_bucket(lic)] += 1
         if lic.lifecycle_status == "pending_renewal":
             total_pending += 1
         if getattr(lic, "retirement_scheduled", False):
@@ -515,6 +538,8 @@ def compute_stats(
         "total_active": status_counts["active"] + status_counts["perpetual"] + status_counts["expiring"],
         "total_expiring": status_counts["expiring"],
         "total_expired": status_counts["expired"],
+        "expiring_breakdown": _breakdown_dict(breakdowns["expiring"]),
+        "expired_breakdown": _breakdown_dict(breakdowns["expired"]),
         "total_upcoming": status_counts["upcoming"],
         "total_pending": total_pending,
         "total_retirement_scheduled": total_retirement_scheduled,
