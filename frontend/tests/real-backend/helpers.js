@@ -100,10 +100,16 @@ export async function setNumberFormat(page, locale) {
   const select = page.locator("#settings-number-format");
   const header = page.getByRole("button", { name: /^Appearance/i });
   await expect(header).toBeVisible();
-  if ((await header.getAttribute("aria-expanded")) !== "true") await header.click();
+  // A collapsed section still counts as visible and accepts selectOption, but
+  // its Save button cannot be clicked. Retry until the section reports open.
+  await expect(async () => {
+    if ((await header.getAttribute("aria-expanded")) !== "true") await header.click();
+    await expect(header).toHaveAttribute("aria-expanded", "true", { timeout: 1_000 });
+  }).toPass();
   await expect(select).toBeVisible();
   await select.selectOption(locale);
   await expect(select).toHaveValue(locale);
+  await expect(header).toHaveAttribute("aria-expanded", "true");
   const saved = page.waitForResponse((res) => res.url().endsWith("/api/settings") && res.request().method() === "PUT");
   await page.locator(".setsec", { has: select }).getByRole("button", { name: "Save", exact: true }).click();
   expect((await saved).ok()).toBeTruthy();

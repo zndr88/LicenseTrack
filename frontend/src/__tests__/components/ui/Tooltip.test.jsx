@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import Tooltip from "../../../components/ui/Tooltip.jsx";
 
 function renderTip() {
@@ -31,6 +31,24 @@ describe("Tooltip", () => {
     fireEvent.focus(trigger);
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
+  test("Escape closes the tooltip without reaching a surrounding dialog", () => {
+    const dialogEscape = vi.fn();
+    const onDocumentKey = (event) => { if (event.key === "Escape") dialogEscape(); };
+    document.addEventListener("keydown", onDocumentKey, true);
+    try {
+      const trigger = renderTip();
+      fireEvent.focus(trigger);
+      fireEvent.keyDown(trigger, { key: "Escape" });
+      expect(screen.queryByRole("tooltip")).toBeNull();
+      expect(dialogEscape).not.toHaveBeenCalled();
+
+      fireEvent.keyDown(trigger, { key: "Escape" });
+      expect(dialogEscape).toHaveBeenCalledTimes(1);
+    } finally {
+      document.removeEventListener("keydown", onDocumentKey, true);
+    }
   });
 
   test("keeps the child's own handlers", () => {
