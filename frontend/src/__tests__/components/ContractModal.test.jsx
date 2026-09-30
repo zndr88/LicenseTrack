@@ -93,6 +93,19 @@ describe("ContractModal", () => {
     expect(screen.getByLabelText("Contract document preview")).toHaveTextContent(/select a pdf/i);
   });
 
+  test("opens with Linked Licenses collapsed and counted, and Documents expanded", async () => {
+    const user = userEvent.setup();
+    const licenses = [1, 2, 3].map((id) => ({ id, publisherName: "Acme Corp", softwareDescription: `Product ${id}`, licenseRef: `LT-${id}`, expirationStatus: "active" }));
+    await renderLoadedModal({}, { licenses });
+    const header = screen.getByRole("button", { name: /linked licenses \(3\)/i });
+    expect(header).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/Product 1/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /toggle general folder/i })).toBeInTheDocument();
+    await user.click(header);
+    expect(header).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Product 1/)).toBeInTheDocument();
+  });
+
   test.each([
     ["General", "general.pdf", 21],
     ["Invoices", "invoice.pdf", 22],

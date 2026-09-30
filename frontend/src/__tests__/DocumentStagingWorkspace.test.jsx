@@ -123,4 +123,21 @@ describe("DocumentStagingWorkspace list collapse", () => {
     expect(screen.getByRole("button", { name: "Preview stored.pdf" })).toBeInTheDocument();
     expect(screen.getByLabelText("stored.pdf preview")).toBeInTheDocument();
   });
+
+  test("closing the preview brings the list back", async () => {
+    const previewDocument = vi.fn().mockResolvedValue({ data: { url: "blob:stored-preview" }, error: null });
+    render(
+      <DocumentStagingWorkspace
+        {...baseProps}
+        documents={[{ id: 17, category: "quote", originalFilename: "stored.pdf", mimeType: "application/pdf" }]}
+        previewDocument={previewDocument}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Preview stored.pdf" }));
+    await waitFor(() => expect(screen.getByTitle("Preview of stored.pdf")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Preview stored.pdf" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close document preview" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Preview stored.pdf" })).toBeInTheDocument());
+  });
 });

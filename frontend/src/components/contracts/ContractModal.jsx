@@ -49,7 +49,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
   const [previewDownloading, setPreviewDownloading] = useState(false);
 
   // Collapsible sections
-  const [licensesOpen, setLicensesOpen] = useState(true);
+  const [licensesOpen, setLicensesOpen] = useState(false);
 
   // Unsaved-changes guard (edit mode only)
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
@@ -288,7 +288,7 @@ export default function ContractModal({ contractId, onClose, onNavigateToLicense
                   onBlur={(e) => { e.currentTarget.style.color = "var(--text-2)"; }}
                 >
                   <Icon name={licensesOpen ? "chevron-down" : "chevron-right"} size={14} />
-                  Linked Licenses
+                  Linked Licenses ({licenses.length})
                 </button>
                 {licensesOpen && (licenses.length === 0 ? (
                   <p style={{ fontSize: 13, color: "var(--text-3)", margin: 0 }}>

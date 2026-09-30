@@ -37,7 +37,8 @@ export default function DocumentStagingWorkspace({
   const [localPreviewId, setLocalPreviewId] = useState(null);
   const [storedPreview, setStoredPreview] = useState(null);
   const [expanded, setExpanded] = useState(false);
-  const [collapseSignal, setCollapseSignal] = useState(0);
+  const [sectionCommand, setSectionCommand] = useState(null);
+  const collapsedByPreviewRef = useRef(false);
   const [downloadError, setDownloadError] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [removedDocumentKeys, setRemovedDocumentKeys] = useState(() => new Set());
@@ -66,9 +67,16 @@ export default function DocumentStagingWorkspace({
     previousAttachmentCountRef.current = attachments.length;
   }, [attachments, clearStoredPreview]);
 
+  // Clicking Preview gives the space to the preview; closing it brings the list back.
+  const commandSection = (open) => setSectionCommand((current) => ({ sequence: (current?.sequence ?? 0) + 1, open }));
+  const collapseListForPreview = () => {
+    collapsedByPreviewRef.current = true;
+    commandSection(false);
+  };
+
   const openStoredPreview = async (document) => {
     if (!isPreviewablePdf(document) || !previewDocument) return;
-    setCollapseSignal((count) => count + 1);
+    collapseListForPreview();
     setLocalPreviewId(null);
     clearStoredPreview();
     const requestId = ++requestRef.current;
@@ -87,7 +95,7 @@ export default function DocumentStagingWorkspace({
   };
 
   const openLocalPreview = (id) => {
-    setCollapseSignal((count) => count + 1);
+    collapseListForPreview();
     clearStoredPreview();
     setLocalPreviewId(id);
   };
@@ -113,9 +121,18 @@ export default function DocumentStagingWorkspace({
 
   const localPreview = attachments.find((attachment) => attachment.id === localPreviewId);
 
+  const previewVisible = Boolean(localPreview || storedPreview);
+
   useEffect(() => {
-    onPreviewVisibilityChange?.(Boolean(localPreview || storedPreview));
-  }, [localPreview, storedPreview, onPreviewVisibilityChange]);
+    onPreviewVisibilityChange?.(previewVisible);
+  }, [previewVisible, onPreviewVisibilityChange]);
+
+  useEffect(() => {
+    if (!previewVisible && collapsedByPreviewRef.current) {
+      collapsedByPreviewRef.current = false;
+      commandSection(true);
+    }
+  }, [previewVisible]);
 
   return (
     <aside className="procurement-document-workspace document-staging-workspace" aria-label="Document workspace">
@@ -123,7 +140,7 @@ export default function DocumentStagingWorkspace({
         title={attachments.length ? `Documents · ${attachments.length} ready` : "Documents"}
         icon="upload"
         defaultOpen={defaultOpen}
-        collapseSignal={collapseSignal}
+        command={sectionCommand}
         className="document-staging-section"
       >
         <p className="document-staging-intro">
