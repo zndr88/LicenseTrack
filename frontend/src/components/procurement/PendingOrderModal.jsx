@@ -29,6 +29,7 @@ import { useSupplierContactPrompt } from "../../hooks/useSupplierContactPrompt.j
 import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
 import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
 import { pendingOrderLineCurrencies } from "../../utils/procurementTotals.js";
+import LicenseTypeLabel from "../licenses/LicenseTypeLabel.jsx";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
 
@@ -345,7 +346,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
                       <input id={`pending-item-${item.id}-software`} className="fi" placeholder="Product or service name" value={item.softwareDescription} onChange={(e) => updateItem(item.id, "softwareDescription", e.target.value)} />
                     </div>
                     <div className="fg" style={{ gridColumn: "1 / -1" }}>
-                      <label htmlFor={`pending-item-${item.id}-type`}>License Type</label>
+                      <LicenseTypeLabel htmlFor={`pending-item-${item.id}-type`} />
                       <select id={`pending-item-${item.id}-type`} className="fi fi-select" value={item.licenseType} onChange={(event) => updateItem(item.id, "licenseType", event.target.value)}>
                         <option value="">Not specified</option>
                         {LICENSE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

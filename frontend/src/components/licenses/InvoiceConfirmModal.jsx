@@ -28,6 +28,7 @@ import { formatSecondaryContacts, parseSecondaryContacts } from "../../utils/sec
 import LicenseFormSection from "./LicenseFormSection.jsx";
 import DocumentStagingWorkspace from "../procurement/DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "../procurement/useStagedDocumentAttachments.js";
+import LicenseTypeLabel from "./LicenseTypeLabel.jsx";
 
 const PRIMARY_LINE_ID = "primary";
 
@@ -346,7 +347,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           <LicenseFormSection title="Identity">
             <div className="fg"><label htmlFor="inv-publisher-name">Publisher Name</label><ReferenceCombobox id="inv-publisher-name" mode="publisher" value={form.publisherName} onChange={(value) => u("publisherName", value)} /></div>
             <div className="fg"><label htmlFor="inv-software-desc">Software Description</label><input id="inv-software-desc" className="fi" value={form.softwareDescription} onChange={(e) => u("softwareDescription", e.target.value)} /></div>
-            <div className="fg"><label htmlFor="inv-license-type">License Type</label><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, maintenanceCoverage: coverageAfterTypeChange(f.maintenanceCoverage, f.licenseType, next), ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isNonExpiringLicenseType(next) ? { endDate: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}) })); if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+            <div className="fg"><LicenseTypeLabel htmlFor="inv-license-type" /><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, maintenanceCoverage: coverageAfterTypeChange(f.maintenanceCoverage, f.licenseType, next), ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isNonExpiringLicenseType(next) ? { endDate: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}) })); if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
             <LicenseTypeOptInFields idPrefix="inv" licenseType={form.licenseType} isRenewable={form.isRenewable} typeDescription={form.typeDescription} onChange={u} error={typeDescriptionMissing(form.licenseType, form.typeDescription) ? TYPE_DESCRIPTION_REQUIRED_MESSAGE : null} />
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="identity" />
           </LicenseFormSection>
@@ -508,7 +509,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 <input id={`inv-line-${line.id}-software`} className="fi" value={line.softwareDescription} onChange={(e) => updateLine(line.id, "softwareDescription", e.target.value)} placeholder="Product or service name" />
               </div>
                 <div className="fg">
-                    <label htmlFor={`inv-line-${line.id}-license-type`}>License Type</label>
+                    <LicenseTypeLabel htmlFor={`inv-line-${line.id}-license-type`} />
                     <select id={`inv-line-${line.id}-license-type`} className="fi fi-select" value={line.licenseType} onChange={(e) => {
                       const next = e.target.value;
                       updateLine(line.id, "licenseType", next);
