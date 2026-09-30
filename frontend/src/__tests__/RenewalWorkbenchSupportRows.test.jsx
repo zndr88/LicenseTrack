@@ -7,7 +7,7 @@ const supportRow = {
   licenseId: 3,
   rowKind: "support_renewal",
   publisherName: "Acme",
-  softwareDescription: "Server (included support)",
+  softwareDescription: "Server (included maintenance)",
   renewalStatus: "due_soon",
   daysUntilExpiry: 20,
   endDate: "2026-10-13",
@@ -18,7 +18,7 @@ const supportRow = {
 };
 
 describe("Renewal Workbench support rows", () => {
-  it("offers Start support renewal and Record support", () => {
+  it("offers Start maintenance renewal and Record maintenance", () => {
     const onStartSupportRenewal = vi.fn();
     const onRecordSupport = vi.fn();
     render(
@@ -37,8 +37,8 @@ describe("Renewal Workbench support rows", () => {
     );
 
     expect(screen.queryByRole("button", { name: /initiate renewal/i })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /start support renewal/i }));
-    fireEvent.click(screen.getByRole("button", { name: /record existing support/i }));
+    fireEvent.click(screen.getByRole("button", { name: /start maintenance renewal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /record existing maintenance/i }));
 
     expect(onStartSupportRenewal).toHaveBeenCalledWith(supportRow);
     expect(onRecordSupport).toHaveBeenCalledWith(supportRow);

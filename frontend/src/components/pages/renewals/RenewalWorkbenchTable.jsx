@@ -120,27 +120,27 @@ function renderCell(column, row, { startingId, locale, userSettings, canStartRen
                 <button
                   type="button"
                   className="btn btn-p rw-action-btn"
-                  aria-label={`Start support renewal for ${row.softwareDescription}`}
-                  title="Create a sourcing request for the next support period"
+                  aria-label={`Start maintenance renewal for ${row.softwareDescription}`}
+                  title="Create a sourcing request for the next maintenance period"
                   disabled={startingId === row.licenseId}
                   onClick={(event) => {
                     event.stopPropagation();
                     onStartSupportRenewal?.(row);
                   }}
                 >
-                  {startingId === row.licenseId ? "Starting" : "Start support renewal"}
+                  {startingId === row.licenseId ? "Starting" : "Start maintenance renewal"}
                 </button>
                 <button
                   type="button"
                   className="btn btn-g rw-action-btn"
-                  aria-label={`Record existing support for ${row.softwareDescription}`}
-                  title="Support was already bought: record it directly"
+                  aria-label={`Record existing maintenance for ${row.softwareDescription}`}
+                  title="Maintenance was already bought: record it directly"
                   onClick={(event) => {
                     event.stopPropagation();
                     onRecordSupport?.(row);
                   }}
                 >
-                  Record support
+                  Record maintenance
                 </button>
               </>
             )}

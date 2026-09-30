@@ -475,7 +475,7 @@ const SourcingItemModal = ({
             </LicenseDatesContractFormSection>
 
             {supportsMaintenanceCoverage(licenseType) && (
-              <LicenseFormSection title="Maintenance / Support">
+              <LicenseFormSection title="Maintenance">
                 <MaintenanceCoverageFields idPrefix="si" licenseType={licenseType} coverage={maintenanceCoverage} startDate={maintenanceStartDate} endDate={maintenanceEndDate} pricingBasis={maintenancePricingBasis} supportQuantity={maintenanceQuantity} supportUnitPrice={maintenanceUnitPrice} cost={maintenanceCost} licenseQuantity={quantity} licenseStartDate={startDate} licenseEndDate={endDate} licenseTotalCost={estimatedTotalPrice} currency={watch("currency")} locale={locale} onChange={(field, value) => setValue(field, value, { shouldDirty: true })} onAddSeparate={addMaintenanceLine} separateLineAdded={maintenanceLineAdded} embedded />
                 {customFields("maintenance")}
               </LicenseFormSection>
@@ -590,7 +590,7 @@ const SourcingItemModal = ({
                     </div>}
                     {line.licenseType === "saas" && <div className="fg"><label htmlFor={`sourcing-line-${line.id}-portal`}>Portal URL</label><input id={`sourcing-line-${line.id}-portal`} className="fi" value={line.portalUrl} onChange={(event) => updateAdditionalLine(line.id, "portalUrl", event.target.value)} /></div>}
                   </>}
-                  maintenanceSection={supportsMaintenanceCoverage(line.licenseType) ? <LicenseFormSection title="Maintenance / Support">
+                  maintenanceSection={supportsMaintenanceCoverage(line.licenseType) ? <LicenseFormSection title="Maintenance">
                     <MaintenanceCoverageFields idPrefix={`sourcing-line-${line.id}`} licenseType={line.licenseType} coverage={line.maintenanceCoverage} startDate={line.maintenanceStartDate} endDate={line.maintenanceEndDate} pricingBasis={line.maintenancePricingBasis} supportQuantity={line.maintenanceQuantity} supportUnitPrice={line.maintenanceUnitPrice} cost={line.maintenanceCost} licenseQuantity={line.quantity} licenseStartDate={line.startDate} licenseEndDate={line.endDate} licenseTotalCost={line.estimatedTotalPrice} currency={line.currency} locale={locale} onChange={(field, value) => updateAdditionalLine(line.id, field, value)} onAddSeparate={() => addAdditionalMaintenanceLine(line)} separateLineAdded={hasAdditionalMaintenanceLine(line.id)} embedded />
                     <CustomFieldPlacement definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateAdditionalLine(line.id, "customFieldValues", values)} idPrefix={`sourcing-line-${line.id}`} loading={customFieldsLoading} section="maintenance" />
                   </LicenseFormSection> : null}

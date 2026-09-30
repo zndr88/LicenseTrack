@@ -58,7 +58,7 @@ export default function MaintenanceSection({
   const handleSaveIncludedSupport = async (support) => {
     const { data, error } = await updateIncludedSupport(license.id, support);
     if (error) {
-      setToast(`Could not save support: ${error}`);
+      setToast(`Could not save maintenance: ${error}`);
       setTimeout(() => setToast(null), 6000);
       return false;
     }
@@ -89,7 +89,7 @@ export default function MaintenanceSection({
 
   return (
     <>
-      <DetailSectionHeader sectionKey="maintenance" title="Maintenance / Support" isOpen={isOpen} onToggle={onToggle} />
+      <DetailSectionHeader sectionKey="maintenance" title="Maintenance" isOpen={isOpen} onToggle={onToggle} />
 
       {isOpen && (
         <div className="dp-section-body" id="dp-section-maintenance">
@@ -105,7 +105,7 @@ export default function MaintenanceSection({
               <div className="dp-btn-row">
               {canEditIncludedSupport && (
                 <button type="button" className="btn btn-g btn-sm" onClick={() => setShowIncludedSupportModal(true)}>
-                  <Icon name="edit" size={12} /> Edit support
+                  <Icon name="edit" size={12} /> Edit maintenance
                 </button>
               )}
               <button
@@ -113,7 +113,7 @@ export default function MaintenanceSection({
                 className="btn btn-g btn-sm"
                 onClick={() => openFieldEdit({
                   fieldKey: "maintenanceCoverage",
-                  fieldLabel: "Maintenance / Support Coverage",
+                  fieldLabel: "Maintenance Coverage",
                   currentValue: coverage,
                   inputType: "select",
                   selectOptions: maintenanceCoverageOptionsForLicenseType(license.licenseType),
@@ -128,11 +128,11 @@ export default function MaintenanceSection({
           {!license.hasMaintenance && canLinkSupportRecord && (
             <div className="dp-field" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.5 }}>
-                Separately tracked — no active maintenance / support record is linked.
+                Separately tracked — no active maintenance record is linked.
               </div>
               {perms.canEdit && (
                 <button type="button" className="btn btn-g btn-sm" style={{ flexShrink: 0 }} onClick={() => setShowMaintenanceModal(true)}>
-                  <Icon name="plus" size={12} /> Add maintenance / support contract
+                  <Icon name="plus" size={12} /> Add maintenance record
                 </button>
               )}
             </div>
@@ -141,12 +141,12 @@ export default function MaintenanceSection({
           {!license.hasMaintenance && !canLinkSupportRecord && (
             <div className="dp-field" style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.5 }}>
               {bundledIncluded
-                ? `Support is part of the ${license.licenseType === "saas" ? "SaaS" : "subscription"} term and price. No separate contract record is needed.`
+                ? `Maintenance is part of the ${license.licenseType === "saas" ? "SaaS" : "subscription"} term and price. No separate maintenance record is needed.`
                 : coverage === "included"
-                ? "Maintenance or support is included with this license. No separate contract record is needed."
+                ? "Maintenance is included with this license. No separate maintenance record is needed."
                 : coverage === "not_applicable"
-                  ? "Maintenance or support tracking does not apply to this license."
-                  : "Classify maintenance or support coverage before linking a separate contract record."}
+                  ? "Maintenance tracking does not apply to this license."
+                  : "Choose the maintenance coverage before linking a separate maintenance record."}
             </div>
           )}
 
@@ -163,10 +163,10 @@ export default function MaintenanceSection({
                 </div>
               </div>
               {license.maintenancePricingBasis === "free" ? (
-                <div className="dp-note">Support is free of charge.</div>
+                <div className="dp-note">Maintenance is free of charge.</div>
               ) : (
               <div className="dp-field">
-                <span className="dp-field-label">Total Support Cost (coverage period)</span>
+                <span className="dp-field-label">Total Maintenance Cost (coverage period)</span>
                 <div className="val dp-mono-val">
                   {license.maintenanceCost && maintenanceCurrency
                     ? formatCost(
@@ -193,7 +193,7 @@ export default function MaintenanceSection({
               )}
               {license.hasMaintenance && (
                 <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 4, fontFamily: "var(--font-mono)", letterSpacing: "0.04em", lineHeight: 1.5 }}>
-                  Values mirror the currently active maintenance / support contract record.
+                  Values mirror the currently active maintenance record.
                   Edit them by opening that record.
                 </div>
               )}
@@ -201,7 +201,7 @@ export default function MaintenanceSection({
               {(license.hasMaintenance || coverageHistory.length > 0) && <div className="dp-btn-row" style={{ marginTop: 12 }}>
                 {license.activeMaintenanceId && (
                   <button type="button" className="btn btn-g btn-sm" onClick={() => onNavigate?.(license.activeMaintenanceId)}>
-                    <Icon name="edit" size={12} /> Edit Maintenance / Support Record
+                    <Icon name="edit" size={12} /> Edit Maintenance Record
                   </button>
                 )}
                 {coverageHistory.length > 0 && <button type="button" className="btn btn-g btn-sm" onClick={() => setShowCoverageHistory(true)}>

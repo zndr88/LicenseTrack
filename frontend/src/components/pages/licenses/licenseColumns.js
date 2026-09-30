@@ -51,7 +51,7 @@ export const COLUMN_DEFS = [
   { key: "lifecycleStatus", label: "Lifecycle Status", width: 130, group: "advanced", defaultVisible: false },
   { key: "syncStatus", label: "Sync Status", width: 110, group: "advanced", defaultVisible: false },
   { key: "lastSyncedAt", label: "Last Synced", width: 145, group: "advanced", defaultVisible: false },
-  { key: "maintenanceCoverage", label: "Maintenance / Support Coverage", width: 190, group: "advanced", defaultVisible: false },
+  { key: "maintenanceCoverage", label: "Maintenance Coverage", width: 190, group: "advanced", defaultVisible: false },
   { key: "maintenanceStartDate", label: "Maintenance Start", width: 135, group: "advanced", defaultVisible: false },
   { key: "maintenanceEndDate", label: "Maintenance End", width: 135, group: "advanced", defaultVisible: false },
   { key: "maintenanceCost", label: "Maintenance Cost", width: 135, group: "advanced", defaultVisible: false },

@@ -151,13 +151,13 @@ function validatePatchFieldInput(field, value) {
 function assertCoverageChangeAllowed(license, coverage) {
   if (license.activeMaintenanceId != null && coverage !== "separately_tracked") {
     throw new Error(
-      "This license has an active maintenance/support record. Disable the linked "
+      "This license has an active maintenance record. Disable the linked "
       + "contract before changing coverage away from separately tracked."
     );
   }
   if (coverage === "separately_tracked" && !MAINTENANCE_PARENT_TYPES.has(license.licenseType)) {
     throw new Error(
-      "Separately tracked maintenance/support is only valid for perpetual, oem, or freeware Licenses. "
+      "Separately tracked maintenance is only valid for perpetual, oem, or freeware Licenses. "
       + "Use included coverage for subscription or SaaS support bundled into the term."
     );
   }
@@ -179,10 +179,10 @@ function hasMaintenanceParent(license, parentId) {
 
 function linkMaintenanceToParentRecord(maintenance, parent) {
   if (maintenance.licenseType !== "maintenance") {
-    throw new Error("Only maintenance licenses can be linked to maintenance/support parents");
+    throw new Error("Only maintenance licenses can be linked to maintenance parents");
   }
   if (!MAINTENANCE_PARENT_TYPES.has(parent.licenseType)) {
-    throw new Error("Maintenance/support tracking can only be linked to perpetual, OEM, or freeware Licenses.");
+    throw new Error("Maintenance tracking can only be linked to perpetual, OEM, or freeware Licenses.");
   }
   // A future-dated record is linked now and becomes active on its own start date.
   linkOrActivateMaintenance(maintenance, parent);
@@ -1120,7 +1120,7 @@ export const routes = [
 
       if (!MAINTENANCE_PARENT_TYPES.has(license.licenseType)) {
         throw new Error(
-          "Maintenance/support tracking can only be disabled on perpetual, OEM, or freeware Licenses."
+          "Maintenance tracking can only be disabled on perpetual, OEM, or freeware Licenses."
         );
       }
       if (!license.hasMaintenance || license.activeMaintenanceId == null) {
@@ -1399,7 +1399,7 @@ export const routes = [
           : findLicenseOr404(Number(updateData.parentLicenseId)))
         : null;
       if (newParent && !MAINTENANCE_PARENT_TYPES.has(newParent.licenseType)) {
-        throw new Error("Maintenance/support tracking can only be linked to perpetual, OEM, or freeware Licenses.");
+        throw new Error("Maintenance tracking can only be linked to perpetual, OEM, or freeware Licenses.");
       }
       const previousCoverage = license.maintenanceCoverage;
       // Translate a retirement request / end-date move into immediate or

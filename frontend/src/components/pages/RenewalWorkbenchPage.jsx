@@ -160,7 +160,7 @@ export default function RenewalWorkbenchPage({
     setStartingId(row.licenseId);
     const result = await startSupportRenewal(row.licenseId);
     setStartingId(null);
-    if (result.ok) showSuccess?.("Support renewal started. A sourcing request was created.");
+    if (result.ok) showSuccess?.("Maintenance renewal started. A sourcing request was created.");
   };
 
   const handleRecordSupport = async (row) => {
@@ -184,7 +184,7 @@ export default function RenewalWorkbenchPage({
               queryClient.invalidateQueries({ queryKey: queryKeys.renewals }),
               queryClient.invalidateQueries({ queryKey: queryKeys.licenses }),
             ]);
-            showSuccess?.("Support record saved.");
+            showSuccess?.("Maintenance record saved.");
           }}
           onClose={() => setSupportRecordLicense(null)}
         />

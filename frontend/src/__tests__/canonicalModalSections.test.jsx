@@ -17,7 +17,7 @@ vi.mock("../hooks/useCustomFieldDefinitions.js", () => ({
 const CANONICAL_SECTIONS = [
   "Identity",
   "Key Dates & Contract",
-  "Maintenance / Support",
+  "Maintenance",
   "Details",
   "Relationships",
   "Notes",

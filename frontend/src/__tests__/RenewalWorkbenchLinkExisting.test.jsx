@@ -60,7 +60,7 @@ describe("Renewal Workbench: Record existing support", () => {
       </QueryClientProvider>,
     );
     const user = userEvent.setup();
-    fireEvent.click(await screen.findByRole("button", { name: /record existing support/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /record existing maintenance/i }));
     await user.click(await screen.findByRole("tab", { name: /link existing/i }));
     expect(await screen.findByRole("option", { name: /LT-50/ })).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText(/No eligible maintenance records/)).toBeNull());

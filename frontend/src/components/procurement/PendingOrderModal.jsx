@@ -388,7 +388,7 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
                     )}
                     showCoreDetails={false}
                     maintenanceSection={supportsMaintenanceCoverage(item.licenseType) ? (
-                      <LicenseFormSection title="Maintenance / Support">
+                      <LicenseFormSection title="Maintenance">
                         <MaintenanceCoverageFields idPrefix={`pending-item-${item.id}`} licenseType={item.licenseType} coverage={item.maintenanceCoverage} startDate={item.maintenanceStartDate} endDate={item.maintenanceEndDate} pricingBasis={item.maintenancePricingBasis} supportQuantity={item.maintenanceQuantity} supportUnitPrice={item.maintenanceUnitPrice} cost={item.maintenanceCost} licenseQuantity={item.quantity} licenseStartDate={item.startDate} licenseEndDate={item.endDate} licenseTotalCost={item.estimatedTotalPrice} currency={item.currency} locale={locale} onChange={(field, value) => updateItem(item.id, field, value)} embedded />
                         <CustomFieldFormFields definitions={customFieldDefs} values={item.customFieldValues || {}} onChange={(values) => updateItem(item.id, "customFieldValues", values)} idPrefix={`pending-item-${item.id}`} loading={customFieldsLoading} section="maintenance" />
                       </LicenseFormSection>

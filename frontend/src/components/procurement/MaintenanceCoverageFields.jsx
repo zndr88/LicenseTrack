@@ -105,7 +105,7 @@ export default function MaintenanceCoverageFields({
 
   return (
     <div className={embedded ? "maintenance-coverage-fields" : "fs"}>
-      {!embedded && <h4>Maintenance / Support</h4>}
+      {!embedded && <h4>Maintenance</h4>}
       {!hideCoverage && <div className="fg">
         <label htmlFor={`${idPrefix}-maintenance-coverage`}>Coverage</label>
         <select
@@ -189,7 +189,7 @@ export default function MaintenanceCoverageFields({
           {pricingBasis === "free" ? null : (pricingBasis || "flat") === "flat" ? (
             <div className="fg">
               <label htmlFor={`${idPrefix}-maintenance-cost`}>
-                Total support cost <span style={{ fontWeight: 400, color: "var(--text-3)" }}>({currency}, coverage period)</span>
+                Total maintenance cost <span style={{ fontWeight: 400, color: "var(--text-3)" }}>({currency}, coverage period)</span>
               </label>
               <NumberInput
                 id={`${idPrefix}-maintenance-cost`}
@@ -217,7 +217,7 @@ export default function MaintenanceCoverageFields({
                 </div>
                 <div className="fg">
                   <label htmlFor={`${idPrefix}-maintenance-unit-price`}>
-                    Support unit price <span style={{ fontWeight: 400, color: "var(--text-3)" }}>({currency})</span>
+                    Maintenance unit price <span style={{ fontWeight: 400, color: "var(--text-3)" }}>({currency})</span>
                   </label>
                   <NumberInput
                     id={`${idPrefix}-maintenance-unit-price`}
@@ -233,7 +233,7 @@ export default function MaintenanceCoverageFields({
                 </div>
               </div>
               <div className="fg">
-                <label htmlFor={`${idPrefix}-maintenance-cost`}>Total support cost</label>
+                <label htmlFor={`${idPrefix}-maintenance-cost`}>Total maintenance cost</label>
                 <input
                   id={`${idPrefix}-maintenance-cost`}
                   className="fi"

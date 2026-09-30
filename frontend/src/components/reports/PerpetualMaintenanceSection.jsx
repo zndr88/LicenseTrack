@@ -36,7 +36,7 @@ export default function PerpetualMaintenanceSection({ data, locale, isOpen, onTo
       onToggle={onToggle}
       forceOpen={forceOpen}
       title="Perpetual Licenses & Maintenance"
-      subtitle="Purchase value alongside support included on the license or tracked as a separate maintenance record"
+      subtitle="Purchase value alongside maintenance included on the license or tracked as a separate maintenance record"
       summary={`${data.rows.length} perpetual license${data.rows.length === 1 ? "" : "s"} · ${formatCostByCurrency(data.maintenanceByCurrency, locale)} maintenance`}
     >
       {data.rows.length === 0 ? <EmptyState /> : (

@@ -3,7 +3,7 @@ import { formatCost } from "../../../utils/helpers.js";
 import { formatDate } from "../../../utils/formatting.js";
 
 function periodLabel(item) {
-  if (item.sourceType === "original_included_support") return "Included support";
+  if (item.sourceType === "original_included_support") return "Included maintenance";
   return item.isCurrent ? "Current maintenance contract" : "Maintenance contract";
 }
 
