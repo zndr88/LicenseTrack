@@ -311,9 +311,22 @@ export function computeStats() {
   let totalLegacy = 0;
   const annualCostByCurrency = {};
   const annualCostLicenses = [];
+  // Mirrors license_service._workflow_bucket: an open renewal wins over a
+  // scheduled retirement, so each license lands in one bucket.
+  const breakdowns = {
+    expiring: { renewal_in_progress: 0, retiring: 0, not_started: 0 },
+    expired: { renewal_in_progress: 0, retiring: 0, not_started: 0 },
+  };
 
   for (const lic of licenses) {
     const status = lic.expirationStatus;
+
+    if (breakdowns[status]) {
+      const bucket = lic.lifecycleStatus === "pending_renewal"
+        ? "renewal_in_progress"
+        : (lic.retirementScheduled ? "retiring" : "not_started");
+      breakdowns[status][bucket]++;
+    }
 
     if (status === "retired") totalRetired++;
     else if (status === "legacy") totalLegacy++;
@@ -353,6 +366,8 @@ export function computeStats() {
     total_active: totalActive,
     total_expiring: totalExpiring,
     total_expired: totalExpired,
+    expiring_breakdown: breakdowns.expiring,
+    expired_breakdown: breakdowns.expired,
     total_upcoming: totalUpcoming,
     total_pending: totalPending,
     total_retirement_scheduled: totalRetirementScheduled,

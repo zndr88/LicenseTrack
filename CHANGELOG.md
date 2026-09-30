@@ -19,6 +19,11 @@ Work in progress for 1.2.0.
 
 ### Added
 
+- Hovering or focusing the Expiring or Expired stage on the Licenses page shows
+  a breakdown, for example "12 expiring · 5 renewal in progress · 1 retiring ·
+  6 not started". A license with a renewal in progress that is also scheduled
+  for retirement counts as renewal in progress. The stats API gained
+  `expiring_breakdown` and `expired_breakdown`.
 - A small ⓘ next to License Type, in every form that has one, explains the
   difference between Maintenance and Service. Tooltips open on hover and on
   keyboard focus.

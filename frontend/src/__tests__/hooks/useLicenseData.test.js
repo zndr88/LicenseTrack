@@ -79,6 +79,19 @@ describe("useLicenseData", () => {
     })
   })
 
+  test("maps the expiring and expired breakdowns from the API stats", () => {
+    const { result } = renderHook(() => useLicenseData([makeLicense()], {
+      ...defaultOptions,
+      apiStats: {
+        total: 3, total_active: 2, total_expiring: 2, total_expired: 1,
+        expiring_breakdown: { renewal_in_progress: 1, retiring: 0, not_started: 1 },
+        expired_breakdown: { renewal_in_progress: 0, retiring: 1, not_started: 0 },
+      },
+    }))
+    expect(result.current.stats.expiringBreakdown).toEqual({ renewalInProgress: 1, retiring: 0, notStarted: 1 })
+    expect(result.current.stats.expiredBreakdown).toEqual({ renewalInProgress: 0, retiring: 1, notStarted: 0 })
+  })
+
   // 4k
   test("returns all licenses when no filters applied", () => {
     const licenses = [makeLicense(), makeLicense(), makeLicense()]

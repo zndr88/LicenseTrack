@@ -9,6 +9,15 @@ function statNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function breakdownFrom(raw) {
+  if (!raw) return null;
+  return {
+    renewalInProgress: statNumber(raw.renewal_in_progress),
+    retiring: statNumber(raw.retiring),
+    notStarted: statNumber(raw.not_started),
+  };
+}
+
 const FILTER_FIELD_BY_COLUMN = {
   recordId: "id",
   licenseRef: "licenseRef",
@@ -289,6 +298,8 @@ export function useLicenseData(licenses, {
         active,
         expiring,
         expired: statNumber(apiStats.total_expired, statNumber(apiStats.expired)),
+        expiringBreakdown: breakdownFrom(apiStats.expiring_breakdown),
+        expiredBreakdown: breakdownFrom(apiStats.expired_breakdown),
         upcoming: statNumber(apiStats.total_upcoming, statNumber(apiStats.upcoming)),
         pending: statNumber(apiStats.total_pending, statNumber(apiStats.pending)),
         retirementScheduled: statNumber(apiStats.total_retirement_scheduled),
