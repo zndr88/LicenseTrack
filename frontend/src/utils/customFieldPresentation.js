@@ -8,7 +8,7 @@ const SECTION_LABELS = {
   commercial: "Details",
   people: "Relationships",
   documents: "Documents",
-  maintenance: "Maintenance / Support",
+  maintenance: "Maintenance",
   notes: "Notes",
   __catchall__: "Custom Fields",
 };

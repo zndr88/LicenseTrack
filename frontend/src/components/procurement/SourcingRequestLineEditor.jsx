@@ -69,7 +69,7 @@ export default function SourcingRequestLineEditor({
         </LicenseDatesContractFormSection>
 
         {supportsMaintenanceCoverage(values.licenseType) && (
-          <LicenseFormSection title="Maintenance / Support">
+          <LicenseFormSection title="Maintenance">
             <MaintenanceCoverageFields
               idPrefix={idPrefix}
               licenseType={values.licenseType}

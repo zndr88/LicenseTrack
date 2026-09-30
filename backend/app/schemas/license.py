@@ -571,7 +571,7 @@ class IncludedSupportUpdate(RequestModel):
             and self.maintenance_end_date is not None
             and self.maintenance_end_date < self.maintenance_start_date
         ):
-            raise ValueError("Support end date cannot be before its start date.")
+            raise ValueError("Maintenance end date cannot be before its start date.")
         return self
 
 

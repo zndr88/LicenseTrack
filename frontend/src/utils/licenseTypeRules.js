@@ -53,10 +53,10 @@ export function typeOptInPayload(data) {
 export function supportStatusBadge(license) {
   const days = license?.supportDaysRemaining;
   if (license?.supportStatus === "expired") {
-    return { type: "red", label: "Support expired" };
+    return { type: "red", label: "Maintenance expired" };
   }
   if (license?.supportStatus === "expiring") {
-    return { type: "orange", label: days === 0 ? "Support ends today" : `Support ends in ${days}d` };
+    return { type: "orange", label: days === 0 ? "Maintenance ends today" : `Maintenance ends in ${days}d` };
   }
   return null;
 }

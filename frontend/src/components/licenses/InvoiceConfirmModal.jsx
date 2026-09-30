@@ -455,7 +455,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           </LicenseFormSection>
 
           {supportsMaintenanceCoverage(form.licenseType) && (
-            <LicenseFormSection title="Maintenance / Support">
+            <LicenseFormSection title="Maintenance">
               <MaintenanceCoverageFields idPrefix="inv" licenseType={form.licenseType} coverage={form.maintenanceCoverage} startDate={form.maintenanceStartDate} endDate={form.maintenanceEndDate} pricingBasis={form.maintenancePricingBasis} supportQuantity={form.maintenanceQuantity} supportUnitPrice={form.maintenanceUnitPrice} cost={form.maintenanceCost} licenseQuantity={form.quantity} licenseStartDate={form.startDate} licenseEndDate={isNonExpiringLicenseType(form.licenseType) ? "" : form.endDate} licenseTotalCost={form.totalPoPrice} currency={form.currency} locale={locale} onChange={updatePrimaryMaintenance} onAddSeparate={() => addMaintenanceLine(PRIMARY_LINE_ID, form)} separateLineAdded={hasMaintenanceCompanion(PRIMARY_LINE_ID)} embedded />
               <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="maintenance" />
             </LicenseFormSection>
@@ -559,7 +559,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               </div>
               <CustomFieldFormFields definitions={customFieldDefs} values={line.customFieldValues || {}} onChange={(values) => updateLine(line.id, "customFieldValues", values)} idPrefix={`inv-line-${line.id}`} loading={customFieldsLoading} section="dates" />
               </LicenseFormSection>
-              {supportsMaintenanceCoverage(line.licenseType) && <LicenseFormSection title="Maintenance / Support">
+              {supportsMaintenanceCoverage(line.licenseType) && <LicenseFormSection title="Maintenance">
               <MaintenanceCoverageFields
                 idPrefix={`inv-line-${line.id}`}
                 licenseType={line.licenseType}

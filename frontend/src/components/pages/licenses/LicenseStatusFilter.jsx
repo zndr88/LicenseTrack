@@ -13,7 +13,7 @@ const CHIPS = [
   { key: "complete",        label: "Complete",   color: "var(--green)"       },
   { key: "incomplete",      label: "Incomplete", color: "var(--orange)"      },
   { key: "_sep_support" },
-  { key: "support_due",     label: "Support due", color: "var(--orange)"     },
+  { key: "support_due",     label: "Maintenance due", color: "var(--orange)"     },
 ];
 
 export default function LicenseStatusFilter({ statusFilters, setStatusFilters, setCurrentPage }) {

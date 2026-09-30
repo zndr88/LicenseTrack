@@ -89,9 +89,9 @@ async def start_support_renewal(
     if parent is None:
         raise HTTPException(status_code=404, detail="License not found")
     if parent.license_type not in INCLUDED_SUPPORT_PARENT_TYPES:
-        raise HTTPException(status_code=400, detail="Support renewal applies to perpetual, OEM and freeware licenses")
+        raise HTTPException(status_code=400, detail="Maintenance renewal applies to perpetual, OEM and freeware licenses")
     if parent.maintenance_coverage != MaintenanceCoverage.included or parent.maintenance_end_date is None:
-        raise HTTPException(status_code=400, detail="This license has no included support period with an end date")
+        raise HTTPException(status_code=400, detail="This license has no included maintenance period with an end date")
     if parent.is_retired or parent.retirement_scheduled or parent.lifecycle_status == "legacy":
         raise HTTPException(
             status_code=409,
@@ -99,7 +99,7 @@ async def start_support_renewal(
         )
     existing = await db.scalar(select(SourcingItem.id).where(*open_support_renewal_filter(parent.id)).limit(1))
     if existing is not None:
-        raise HTTPException(status_code=409, detail="A support renewal is already in progress for this license")
+        raise HTTPException(status_code=409, detail="A maintenance renewal is already in progress for this license")
 
     start_date, end_date = _next_support_term(parent.maintenance_end_date)
     previous_cost = _previous_cost(parent)
@@ -123,7 +123,7 @@ async def start_support_renewal(
         secondary_contacts=list(parent.secondary_contacts or []),
         start_date=start_date,
         end_date=end_date,
-        notes=f"Support renewal for {parent.license_ref or parent.software_description}.",
+        notes=f"Maintenance renewal for {parent.license_ref or parent.software_description}.",
         status=SourcingStatus.sourcing,
         maintenance_parent_license_id=parent.id,
         created_by=actor.id,

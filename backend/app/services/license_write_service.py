@@ -1273,11 +1273,11 @@ async def apply_included_support_update(
     This is a correction of the stored period; it adds no coverage history.
     """
     if license_obj.license_type not in INCLUDED_SUPPORT_PARENT_TYPES:
-        raise HTTPException(status_code=400, detail="Included support can only be edited on perpetual, OEM or freeware licenses")
+        raise HTTPException(status_code=400, detail="Included maintenance can only be edited on perpetual, OEM or freeware licenses")
     if license_obj.maintenance_coverage != MaintenanceCoverage.included:
-        raise HTTPException(status_code=400, detail="Set coverage to Included before editing the support period")
+        raise HTTPException(status_code=400, detail="Set coverage to Included before editing the maintenance period")
     if license_obj.active_maintenance_id is not None:
-        raise HTTPException(status_code=409, detail="Support is tracked on a linked maintenance record; edit that record instead")
+        raise HTTPException(status_code=409, detail="Maintenance is tracked on a linked maintenance record; edit that record instead")
 
     per_unit = payload.maintenance_pricing_basis == MaintenancePricingBasis.per_unit
     license_obj.maintenance_start_date = payload.maintenance_start_date

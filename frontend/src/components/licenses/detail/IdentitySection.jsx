@@ -73,9 +73,9 @@ export default function IdentitySection({
                   fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase",
                   display: "inline-flex", alignItems: "center", gap: 4,
                 }}
-                aria-label="Navigate to maintenance or support record"
+                aria-label="Go to the maintenance record"
               >
-                <Icon name="link" size={11} /> Go to maintenance / support record
+                <Icon name="link" size={11} /> Go to the maintenance record
               </button>
             )}
           <div className="dp-ident">

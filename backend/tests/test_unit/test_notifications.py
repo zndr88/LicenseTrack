@@ -907,11 +907,11 @@ def test_included_support_alerts(support_days, coverage, expected):
 
 def test_manager_digest_lists_included_support_ending():
     html = email_templates.manager_digest([
-        {**_make_license_entry(), "type": "support_expiring", "detail": "Support ends in 10 days on 2026-09-05"},
+        {**_make_license_entry(), "type": "support_expiring", "detail": "Maintenance ends in 10 days on 2026-09-05"},
     ])
 
-    assert "Included Support Ending" in html
-    assert "Support ends in 10 days" in html
+    assert "Included Maintenance Ending" in html
+    assert "Maintenance ends in 10 days" in html
 
 
 async def test_run_daily_notifications_sends_budget_owner_email_for_ending_included_maintenance(

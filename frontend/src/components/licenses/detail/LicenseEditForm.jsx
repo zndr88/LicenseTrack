@@ -238,7 +238,7 @@ export default function LicenseEditForm({
       )}
       {supportsMaintenanceCoverage(editFields.licenseType) && (
         <div className="fg">
-          <label htmlFor="license-edit-maintenance-coverage">Maintenance / Support Coverage</label>
+          <label htmlFor="license-edit-maintenance-coverage">Maintenance Coverage</label>
           <select id="license-edit-maintenance-coverage" className="fi fi-select" value={maintenanceCoverageValue} onChange={(e) => setEditFields((p) => ({ ...p, maintenanceCoverage: e.target.value }))}>
             {maintenanceCoverageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>

@@ -48,7 +48,7 @@ around that workflow.
 - Converts completed purchases into active license records while preserving
   their procurement history.
 - Handles paid licenses, freeware and open-source entitlements, included
-  support, and separately purchased maintenance.
+  maintenance, and separately purchased maintenance.
 - Maintains a searchable license registry with custom fields, completeness
   checks, documents, contracts, secondary renewal contacts, and audit history.
 - Governs companies and cost centres as canonical reference data with aliases,

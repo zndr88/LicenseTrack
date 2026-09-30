@@ -353,8 +353,8 @@ describe("onSave payload shape", () => {
     await user.selectOptions(screen.getByLabelText(/pricing basis/i), "per_unit");
     expect(screen.getByLabelText(/covered quantity/i)).toHaveValue("10");
 
-    await user.type(screen.getByLabelText(/support unit price/i), "12.50");
-    expect(screen.getByLabelText(/^total support cost$/i)).toHaveValue("125.00");
+    await user.type(screen.getByLabelText(/maintenance unit price/i), "12.50");
+    expect(screen.getByLabelText(/^total maintenance cost$/i)).toHaveValue("125.00");
 
     await user.click(screen.getByRole("button", { name: /^save$/i }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -387,7 +387,7 @@ describe("onSave payload shape", () => {
     await waitFor(() => {
       expect(screen.queryByLabelText(/coverage start/i)).not.toBeInTheDocument();
       expect(screen.queryByLabelText(/coverage end/i)).not.toBeInTheDocument();
-      expect(screen.queryByLabelText(/total support cost/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/total maintenance cost/i)).not.toBeInTheDocument();
     });
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 

@@ -120,13 +120,13 @@ describe("demo parity with 1.1.24", () => {
 
       const notifications = await demoRequest("/api/notifications", { method: "GET" });
       expect(notifications.data).toContainEqual(expect.objectContaining({
-        license_id: 17, type: "support_expiring", detail: `Support ends in 25 days on ${daysFromNow(25)}`,
+        license_id: 17, type: "support_expiring", detail: `Maintenance ends in 25 days on ${daysFromNow(25)}`,
       }));
 
       const { data } = await demoRequest("/api/renewals/workbench", { method: "GET" });
       expect(data.find((row) => row.licenseId === 17)).toMatchObject({
         rowKind: "support_renewal",
-        softwareDescription: "Enterprise Architect Corporate, perpetual, 15 seats (included support)",
+        softwareDescription: "Enterprise Architect Corporate, perpetual, 15 seats (included maintenance)",
         endDate: daysFromNow(25),
         daysUntilExpiry: 25,
         renewalStatus: "due_soon",
@@ -148,7 +148,7 @@ describe("demo parity with 1.1.24", () => {
       expect(started.data.sourcingItem.sourcingRequestId).not.toBeNull();
 
       const again = await demoRequest("/api/licenses/17/support-renewal", { method: "POST", body: json({}) });
-      expect(again.error).toBe("A support renewal is already in progress for this license");
+      expect(again.error).toBe("A maintenance renewal is already in progress for this license");
 
       const { data } = await demoRequest("/api/renewals/workbench", { method: "GET" });
       expect(data.find((row) => row.rowKind === "support_renewal" && row.licenseId === 17).renewalStatus).toBe("in_sourcing");
@@ -199,9 +199,9 @@ describe("demo parity with 1.1.24", () => {
       expect(perUnit.data.maintenanceCost).toBe("1050.00");
 
       const wrongType = await demoRequest("/api/licenses/1/included-support", { method: "PUT", body: json({}) });
-      expect(wrongType.error).toBe("Included support can only be edited on perpetual, OEM or freeware licenses");
+      expect(wrongType.error).toBe("Included maintenance can only be edited on perpetual, OEM or freeware licenses");
       const linked = await demoRequest("/api/licenses/11/included-support", { method: "PUT", body: json({}) });
-      expect(linked.error).toBe("Set coverage to Included before editing the support period");
+      expect(linked.error).toBe("Set coverage to Included before editing the maintenance period");
     });
 
     it("clears stale included-support dates when coverage leaves Included", async () => {

@@ -150,24 +150,26 @@ of blocking the file.
 
 Flexera-style boolean columns such as **Includes Maintenance**, **Purchase
 Includes Maintenance**, or **Purchase Includes Support** can map to
-**Maintenance / Support Coverage**. True-like values become **Included**;
+**Maintenance Coverage**. True-like values become **Included**;
 false-like or blank values leave the coverage unset so LicenseTrack can apply
 the normal default for the license type.
 
-For perpetual, OEM, or freeware rows with included support, imported
-**Effective Date** and **Expiry Date** become support coverage dates while the
-license record itself remains non-expiring. If no support-cost column is
-mapped, LicenseTrack defaults **Total Support Cost** from the line total and
+Older CSV headers such as `support_cost` or `includes_support` are still recognized.
+
+For perpetual, OEM, or freeware rows with included maintenance, imported
+**Effective Date** and **Expiry Date** become maintenance coverage dates while the
+license record itself remains non-expiring. If no maintenance-cost column is
+mapped, LicenseTrack defaults **Total Maintenance Cost** from the line total and
 shows a warning so you can verify it is not the original perpetual acquisition
 value.
 
-## Maintenance and support
+## Maintenance
 
 Perpetual, OEM, and freeware/open-source rows never store an end date. When a
 file gives one for such a row, it is dropped on import. They remain
-non-expiring when an included-support end date is in the past. The preview warns that the included
+non-expiring when an included-maintenance end date is in the past. The preview warns that the included
 maintenance coverage has expired and requires acknowledgement, but it does not
-classify the parent license as legacy solely because support ended.
+classify the parent license as legacy solely because maintenance ended.
 
 Separately tracked maintenance imports need one explicit parent reference, or a
 clear parent that LicenseTrack can infer earlier in the same file. Import
@@ -188,7 +190,7 @@ records; editors and admins can choose an eligible parent later, which clears
 the exception and establishes the normal maintenance relationship.
 If one maintenance renewal covers several perpetual, OEM, or
 freeware/open-source records, add the additional parent links from the parent
-license's **Maintenance & Support** section after import.
+license's **Maintenance** section after import.
 
 ## Mapping a custom file
 

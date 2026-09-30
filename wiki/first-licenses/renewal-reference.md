@@ -80,31 +80,31 @@ one behaves like a subscription: it can be renewed, appears in the workbench,
 and counts toward recurring cost. A one-off record never raises renewal work or
 expiry alerts, and a daily job retires it after its end date.
 
-## Included support that is ending
+## Included maintenance that is ending
 
-Perpetual, OEM, and freeware/open-source licenses can have support included
-with the purchase for a limited period. When that support has an end date, the
-license shows a support status: active, expiring (inside the expiry alert
-window), or expired. Expiring and expired support shows a badge in License
-Overview and in the Maintenance section, the **Support due** filter lists these
+Perpetual, OEM, and freeware/open-source licenses can have maintenance included
+with the purchase for a limited period. When that maintenance has an end date, the
+license shows a maintenance status: active, expiring (inside the expiry alert
+window), or expired. Expiring and expired maintenance shows a badge in License
+Overview and in the Maintenance section, the **Maintenance due** filter lists these
 licenses, and the notification list and manager digest include them.
 
 Inside the workbench window, the license also gets its own workbench row,
-marked *(included support)*, with two actions:
+marked *(included maintenance)*, with two actions:
 
-- **Start support renewal** is the usual route. It creates a sourcing request
+- **Start maintenance renewal** is the usual route. It creates a sourcing request
   with one maintenance line that already names the license it supports. The
-  line starts the day after the included support ends and runs one year, and it
+  line starts the day after the included maintenance ends and runs one year, and it
   copies the quantity, supplier, contact, cost centre, budget owner, and the
-  previous support cost as its estimate. The license keeps its Included coverage
+  previous maintenance cost as its estimate. The license keeps its Included coverage
   until the new maintenance record is created at conversion. The included
   period is then kept in Coverage History.
-- **Record existing support** opens the ordinary maintenance form, for support
+- **Record existing maintenance** opens the ordinary maintenance form, for maintenance
   that was already bought outside LicenseTrack.
 
-To correct the included period itself, use **Edit support** in the license's
-Maintenance section. The support cost is optional, and **Free (no charge)**
-records support that costs nothing.
+To correct the included period itself, use **Edit maintenance** in the license's
+Maintenance section. The maintenance cost is optional, and **Free (no charge)**
+records maintenance that costs nothing.
 
 ## Information carried into the next term
 
@@ -113,7 +113,7 @@ copied into a renewal. Copied values are a snapshot taken when renewal starts;
 fields configured to start blank can be completed for the new term during
 sourcing or pending-order review.
 
-The predecessor's explicit maintenance/support classification travels with the
+The predecessor's explicit maintenance classification travels with the
 renewal. Older recurring records without a stored classification use the
 type-appropriate default, including through coterm merging and final conversion.
 
@@ -161,11 +161,11 @@ Choose the year it belongs to. Shared remains available for evidence that
 applies to the whole order. Later invoice uploads on a linked term also default
 to Single.
 
-Maintenance lines can form a planned chain of any length, such as three support
+Maintenance lines can form a planned chain of any length, such as three maintenance
 years bought together. Maintenance terms follow maintenance terms only. Every
 term supports the same license: a later term without its own parent inherits it
 from the term before. Only the term that covers today becomes the license's
-active support at conversion. Each later term takes over on its own start date
+active maintenance at conversion. Each later term takes over on its own start date
 through a daily check, and the previous period moves to Coverage History. A
 maintenance renewal that starts in the future works the same way: it is linked
 at conversion and becomes active on its start date.

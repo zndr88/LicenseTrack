@@ -48,7 +48,7 @@ fields temporarily if the preview is too wide; this does not change the data.
 Review flagged rows and reference-data suggestions before confirming. Correct
 source values, choose the appropriate reference match, or skip a row you cannot
 resolve yet. A maintenance row may need a parent license; follow the
-[maintenance rules](import-reference.md#maintenance-and-support) if one is flagged.
+[maintenance rules](import-reference.md#maintenance) if one is flagged.
 
 Acknowledge applicable warnings, check the number of rows to be imported, and
 choose **Import**. Read the completion summary for imported, updated, skipped,

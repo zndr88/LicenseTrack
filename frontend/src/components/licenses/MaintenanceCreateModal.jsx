@@ -165,7 +165,7 @@ export default function MaintenanceCreateModal({
   return (
     <>
       <ModalShell
-        title="Add Maintenance / Support Contract"
+        title="Add Maintenance Record"
         sectionControls
         titleId="dialog-title-maintenance-create"
         onClose={requestClose}
@@ -179,7 +179,7 @@ export default function MaintenanceCreateModal({
                 : createdLicenseId != null
                   ? "Retry document uploads"
                 : mode === "create"
-                  ? "Create Maintenance / Support Record"
+                  ? "Create Maintenance Record"
                   : "Link Existing Record"}
             </button>
           </>
@@ -187,7 +187,7 @@ export default function MaintenanceCreateModal({
       >
         <div className="modal-bd">
           <p className="maint-modal-intro">
-            Maintenance / support will be linked to{" "}
+            Maintenance will be linked to{" "}
             <strong>{parentLicense.publisherName} - {parentLicense.softwareDescription}</strong>.
           </p>
 
@@ -243,7 +243,7 @@ export default function MaintenanceCreateModal({
                 </div>
 
                 <div className="fg">
-                  <label htmlFor="maint-cost">Support Cost (coverage period)</label>
+                  <label htmlFor="maint-cost">Maintenance Cost (coverage period)</label>
                   <NumberInput
                     id="maint-cost"
                     value={costRaw}
@@ -302,7 +302,7 @@ export default function MaintenanceCreateModal({
             </>
           ) : (
             <div className="maint-existing-picker">
-              <strong>Search Maintenance / Support Records</strong>
+              <strong>Search Maintenance Records</strong>
               <LinkPicker
                 candidates={existingMaintenanceOptions}
                 selectedIds={selectedMaintenanceId ? [Number(selectedMaintenanceId)] : []}

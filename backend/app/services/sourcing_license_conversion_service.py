@@ -36,7 +36,7 @@ async def convert_freeware_sourcing_items(
         if not is_direct_freeware_item(item):
             raise HTTPException(
                 status_code=422,
-                detail=f"Sourcing item {item.id} has paid included support and requires the purchase-order workflow",
+                detail=f"Sourcing item {item.id} has paid included maintenance and requires the purchase-order workflow",
             )
         if item.renewal_for_license_id is not None:
             raise HTTPException(

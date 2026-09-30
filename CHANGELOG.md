@@ -41,6 +41,15 @@ Work in progress for 1.2.0.
 
 ### Changed
 
+- The app uses **Maintenance** consistently where it said "Support" or
+  "Maintenance / Support" (screens, alerts, emails, error messages, Help). For
+  example, "Support due" is now "Maintenance due" and "Start support renewal"
+  is now "Start maintenance renewal". Standalone support contracts, such as
+  premium or third-party support, are recorded as a Service. API fields and
+  routes, alert type keys and CSV headers are unchanged; older CSV headers are
+  still accepted on import.
+- Help no longer lists the session timeout under My Settings: the session
+  timeout and minimum password length are server-wide settings.
 - Opening a document preview in the Sourcing and Pending Orders document dialogs
   collapses the document list and shows a much larger preview; the Add License
   document list also collapses while a preview is open. The contract dialog

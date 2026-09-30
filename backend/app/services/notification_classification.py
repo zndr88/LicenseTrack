@@ -151,7 +151,7 @@ def classify_license_alerts(
                 _alert(
                     license_obj,
                     "support_expired",
-                    f"Support expired {abs(support_days)} {_day_word(abs(support_days))} ago on {support_end.isoformat()}"
+                    f"Maintenance expired {abs(support_days)} {_day_word(abs(support_days))} ago on {support_end.isoformat()}"
                     + ("; renewal is in progress" if support_renewal_in_progress else ""),
                     "critical",
                     support_end,
@@ -163,7 +163,7 @@ def classify_license_alerts(
                 _alert(
                     license_obj,
                     "support_expiring",
-                    f"Support ends in {support_days} {_day_word(support_days)} on {support_end.isoformat()}"
+                    f"Maintenance ends in {support_days} {_day_word(support_days)} on {support_end.isoformat()}"
                     + ("; renewal is in progress" if support_renewal_in_progress else ""),
                     _expiry_severity(support_days),
                     support_end,

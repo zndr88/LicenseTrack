@@ -752,7 +752,7 @@ def _parse_row(
             if fallback_cost:
                 maintenance_cost = fallback_cost
                 warnings.append(
-                    "maintenance_cost defaulted from the license line total for included support; "
+                    "maintenance_cost defaulted from the license line total for included maintenance; "
                     "verify this is not the perpetual acquisition value."
                 )
 

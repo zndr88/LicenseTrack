@@ -451,7 +451,7 @@ describe('DetailPanel maintenance support details', () => {
       </QueryClientProvider>
     )
     const { rerender } = rtlRender(panel(1, '100'))
-    await user.click(screen.getByText('Maintenance / Support'))
+    await user.click(screen.getByText('Maintenance'))
     expect(await screen.findByText('$100.00')).toBeInTheDocument()
 
     rerender(panel(2, '200'))
@@ -481,13 +481,13 @@ describe('DetailPanel maintenance support details', () => {
       />
     )
 
-    await user.click(screen.getByText('Maintenance / Support'))
+    await user.click(screen.getByText('Maintenance'))
 
     expect(screen.getByText('Included')).toBeInTheDocument()
-    expect(screen.getByText(/Support is part of the subscription term and price/)).toBeInTheDocument()
+    expect(screen.getByText(/Maintenance is part of the subscription term and price/)).toBeInTheDocument()
     expect(screen.queryByText('Maintenance Start')).not.toBeInTheDocument()
-    expect(screen.queryByText('Total Support Cost (coverage period)')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /add maintenance \/ support contract/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('Total Maintenance Cost (coverage period)')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /add maintenance record/i })).not.toBeInTheDocument()
   })
 
   it('keeps included support dates and cost for perpetual licenses', async () => {
@@ -509,7 +509,7 @@ describe('DetailPanel maintenance support details', () => {
       />
     )
 
-    await user.click(screen.getByText('Maintenance / Support'))
+    await user.click(screen.getByText('Maintenance'))
 
     expect(screen.getByText('Maintenance Start')).toBeInTheDocument()
     expect(screen.getByText('31/12/2026')).toBeInTheDocument()
@@ -1803,14 +1803,14 @@ describe('DetailPanel included support editing', () => {
       />
     )
 
-    await user.click(screen.getByText('Maintenance / Support'))
-    await user.click(screen.getByRole('button', { name: /edit support/i }))
+    await user.click(screen.getByText('Maintenance'))
+    await user.click(screen.getByRole('button', { name: /edit maintenance/i }))
 
-    const dialog = screen.getByRole('dialog', { name: 'Edit included support' })
+    const dialog = screen.getByRole('dialog', { name: 'Edit included maintenance' })
     expect(within(dialog).getByLabelText('Coverage Start')).toHaveValue('2026-07-25')
     expect(within(dialog).getByLabelText('Coverage End')).toHaveValue('2027-07-24')
     expect(within(dialog).queryByLabelText('Coverage')).not.toBeInTheDocument()
-    await user.click(within(dialog).getByRole('button', { name: 'Save support' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Save maintenance' }))
 
     await waitFor(() => expect(updateIncludedSupport).toHaveBeenCalledWith(28, {
       maintenanceStartDate: '2026-07-25',
@@ -1841,15 +1841,15 @@ describe('DetailPanel included support editing', () => {
     }
     render(<DetailPanel {...baseProps} user={{ id: 1, role: 'admin' }} license={freeLicense} />)
 
-    await user.click(screen.getByText('Maintenance / Support'))
-    expect(screen.queryByText('Total Support Cost (coverage period)')).not.toBeInTheDocument()
-    expect(screen.getByText('Support is free of charge.')).toBeInTheDocument()
+    await user.click(screen.getByText('Maintenance'))
+    expect(screen.queryByText('Total Maintenance Cost (coverage period)')).not.toBeInTheDocument()
+    expect(screen.getByText('Maintenance is free of charge.')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /edit support/i }))
-    const dialog = screen.getByRole('dialog', { name: 'Edit included support' })
+    await user.click(screen.getByRole('button', { name: /edit maintenance/i }))
+    const dialog = screen.getByRole('dialog', { name: 'Edit included maintenance' })
     expect(within(dialog).getByLabelText('Pricing basis')).toHaveValue('free')
-    expect(within(dialog).queryByLabelText(/total support cost/i)).not.toBeInTheDocument()
-    await user.click(within(dialog).getByRole('button', { name: 'Save support' }))
+    expect(within(dialog).queryByLabelText(/total maintenance cost/i)).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Save maintenance' }))
 
     await waitFor(() => expect(updateIncludedSupport).toHaveBeenCalledWith(29, expect.objectContaining({
       maintenancePricingBasis: 'free',
@@ -1867,9 +1867,9 @@ describe('DetailPanel included support editing', () => {
       />
     )
 
-    await user.click(screen.getByText('Maintenance / Support'))
+    await user.click(screen.getByText('Maintenance'))
 
-    expect(screen.queryByRole('button', { name: /edit support/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /edit maintenance/i })).not.toBeInTheDocument()
   })
 })
 
@@ -1993,7 +1993,7 @@ describe('DetailPanel full edit form', () => {
 
     await user.click(screen.getByRole('button', { name: /^edit$/i }))
     expect(screen.queryByText(/Link an existing maintenance record/)).not.toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Maintenance / Support Coverage'), 'separately_tracked')
+    await user.selectOptions(screen.getByLabelText('Maintenance Coverage'), 'separately_tracked')
     expect(screen.getByText('Link an existing maintenance record (optional)')).toBeInTheDocument()
     await user.click(screen.getByRole('option', { name: /LT-60/ }))
     await user.click(screen.getByRole('button', { name: /save changes/i }))
@@ -2020,7 +2020,7 @@ describe('DetailPanel full edit form', () => {
     )
 
     await user.click(screen.getByRole('button', { name: /^edit$/i }))
-    await user.selectOptions(screen.getByLabelText('Maintenance / Support Coverage'), 'separately_tracked')
+    await user.selectOptions(screen.getByLabelText('Maintenance Coverage'), 'separately_tracked')
     await user.click(screen.getByRole('option', { name: /LT-60/ }))
     await user.click(screen.getByRole('button', { name: /save changes/i }))
 

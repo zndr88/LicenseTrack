@@ -61,7 +61,7 @@ or on license records. Deleting a definition also deletes its stored values.
 ## Notifications
 
 The scheduled notification run evaluates expiring licenses, notice deadlines,
-included support that is ending, and incomplete licenses. A non-exempt eligible
+included maintenance that is ending, and incomplete licenses. A non-exempt eligible
 license is incomplete whenever its completeness is below 100%. Upcoming licenses
 can still be incomplete, but do not produce expiry or notice alerts until they
 are active. Admins configure:
@@ -75,7 +75,7 @@ are active. Admins configure:
 - customizable email introduction and sign-off text.
 
 The manager digest is eligible whenever the run contains an expired, expiring,
-notice-due, support-ending, or incomplete-license item. An incomplete-only run
+notice-due, maintenance-ending, or incomplete-license item. An incomplete-only run
 therefore sends the configured manager digest; a run with no eligible items
 sends no empty digest.
 
@@ -89,10 +89,10 @@ address without a query string; a trailing slash is removed. Set it to the
 address users reach through your reverse proxy, not the container's internal
 address. See [deep links behind a reverse proxy](../operations/deployment.md#deep-links-and-the-public-app-url).
 
-### Included support alerts
+### Included maintenance alerts
 
 Perpetual, OEM, and freeware/open-source licenses with Included coverage and a
-support end date raise **Support Ending** and **Support Expired** alerts. They
+maintenance end date raise **Maintenance Ending** and **Maintenance Expired** alerts. They
 use the expiry alert window and appear in the in-app notification list and the
 manager digest. Like license expiry alerts, they are also emailed to the budget
 owner, with the row marked **Maintenance** and showing the maintenance dates.

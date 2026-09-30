@@ -380,7 +380,7 @@ const ConvertPendingOrderModal = ({
           <CustomFieldFormFields definitions={customFieldDefs} values={customFieldValues} onChange={(values) => setValue("customFieldValues", values, { shouldDirty: true })} idPrefix="cpo" loading={customFieldsLoading} section="dates" />
           </LicenseFormSection>
 
-          {supportsMaintenanceCoverage(licenseType) && <LicenseFormSection title="Maintenance / Support">
+          {supportsMaintenanceCoverage(licenseType) && <LicenseFormSection title="Maintenance">
           <MaintenanceCoverageFields
             idPrefix="cpo"
             licenseType={licenseType}

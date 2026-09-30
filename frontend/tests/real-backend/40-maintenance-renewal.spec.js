@@ -30,7 +30,7 @@ test("starting a maintenance renewal creates a sourcing request and blocks retir
   // Start the renewal from the workbench.
   await page.getByRole("link", { name: "Renewals" }).or(page.getByRole("button", { name: "Renewals" })).first().click();
   const started = page.waitForResponse((res) => res.url().includes(`/api/licenses/${license.id}/`) && res.request().method() === "POST");
-  await page.getByRole("button", { name: `Start support renewal for ${DESCRIPTION}` }).click();
+  await page.getByRole("button", { name: `Start maintenance renewal for ${DESCRIPTION}` }).click();
   const response = await started;
   expect(response.status(), await response.text()).toBeLessThan(300);
 

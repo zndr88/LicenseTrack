@@ -233,7 +233,7 @@ def test_leaving_parent_types_uses_the_new_default():
 
 
 def test_active_maintenance_requires_separately_tracked_coverage():
-    with pytest.raises(ValueError, match="active maintenance/support record"):
+    with pytest.raises(ValueError, match="active maintenance record"):
         assert_active_maintenance_allows_coverage_change(2, MaintenanceCoverage.included)
     assert_active_maintenance_allows_coverage_change(2, MaintenanceCoverage.separately_tracked)
 

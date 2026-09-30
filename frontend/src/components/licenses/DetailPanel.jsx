@@ -384,7 +384,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
             setConfirmAction({
               title: "Delete License",
               message: hasActiveMaintenance
-                ? `This license has an active maintenance / support contract linked. Deleting it will also retire the linked record(s). This cannot be undone.`
+                ? `This license has an active maintenance record linked. Deleting it will also retire the linked record(s). This cannot be undone.`
                 : `Are you sure you want to delete the license for "${license.publisherName} — ${license.softwareDescription}"? All associated documents will also be removed. This action cannot be undone.`,
               confirmLabel: "Delete License",
               danger: true,
