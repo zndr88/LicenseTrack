@@ -1,8 +1,8 @@
 # Certificates, Domains and Other Renewables
 
 LicenseTrack can track anything that expires and has to be renewed, not only
-software licenses. SSL/TLS certificates, domain names, support plans billed
-per year and similar items use the same renewal workflow as subscriptions.
+software licenses. SSL/TLS certificates, domain names, memberships billed per
+year and similar items use the same renewal workflow as subscriptions.
 
 ## Recording one
 

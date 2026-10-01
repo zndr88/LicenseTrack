@@ -1,5 +1,5 @@
 /**
- * Build the prefill for a separate maintenance/support line that accompanies a
+ * Build the prefill for a separate maintenance line that accompanies a
  * parent license line. Single source of truth for the companion field mapping so
  * every modal (sourcing, pending order, manual) inherits the same fields.
  *
@@ -16,7 +16,7 @@ export function buildMaintenanceCompanion(parent = {}, { idFactory, parentLineId
     isMaintenanceCompanion: true,
     parentLineId: parentLineId ?? parent.id ?? null,
     publisherName: parent.publisherName ?? "",
-    softwareDescription: `${parent.softwareDescription || "Software"} maintenance/support`,
+    softwareDescription: `${parent.softwareDescription || "Software"} maintenance`,
     quantity: parent.quantity || "1",
     quantityPerUnit: parent.quantityPerUnit || "1",
     currency: parent.currency || "EUR",

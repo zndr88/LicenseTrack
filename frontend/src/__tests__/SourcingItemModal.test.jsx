@@ -497,7 +497,7 @@ describe("onSave payload shape", () => {
     await user.selectOptions(screen.getByLabelText(/^coverage$/i), "separately_tracked");
     await user.click(screen.getByRole("button", { name: /add maintenance line/i }));
 
-    expect(screen.getByDisplayValue("Acme Suite maintenance/support")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Acme Suite maintenance")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /save 2 lines/i }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));

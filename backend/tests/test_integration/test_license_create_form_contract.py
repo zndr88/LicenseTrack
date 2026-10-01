@@ -66,7 +66,7 @@ def _companion_payload() -> dict:
     return _form_payload(
         "maintenance",
         None,
-        softwareDescription="Suite maintenance/support",
+        softwareDescription="Suite maintenance",
         endDate="2026-12-31",
         maintenancePricingBasis=None,
     )

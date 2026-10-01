@@ -29,7 +29,7 @@ describe("buildMaintenanceCompanion", () => {
       isMaintenanceCompanion: true,
       parentLineId: "L1",
       publisherName: "Acme",
-      softwareDescription: "Suite maintenance/support",
+      softwareDescription: "Suite maintenance",
       quantity: "5",
       quantityPerUnit: "2",
       currency: "USD",
@@ -63,7 +63,7 @@ describe("buildMaintenanceCompanion", () => {
   test("falls back to sensible defaults for a blank parent", () => {
     const companion = buildMaintenanceCompanion({}, { idFactory: () => "C4" });
     expect(companion).toMatchObject({
-      softwareDescription: "Software maintenance/support",
+      softwareDescription: "Software maintenance",
       quantity: "1",
       quantityPerUnit: "1",
       currency: "EUR",
