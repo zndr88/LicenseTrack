@@ -233,7 +233,7 @@ vi.mock("../components/procurement/SourcingItemModal.jsx", () => ({
           ...(formData.get("maintenanceCompanion") === "on" ? {
             maintenanceCompanion: {
               publisherName: "Created Publisher",
-              softwareDescription: "Created Sourcing App maintenance/support",
+              softwareDescription: "Created Sourcing App maintenance",
               licenseType: "maintenance",
               quantity: "3",
               currency: "EUR",
@@ -1719,7 +1719,7 @@ describe("SourcingPage workflows", () => {
     sourcingApi.getSourcingRequests.mockResolvedValue({ data: [request], error: null });
     sourcingApi.addSourcingRequestItem.mockResolvedValueOnce({ data: { ...request, items: [...request.items, createdPrimary] }, error: null });
     sourcingApi.createSourcingRequest.mockResolvedValueOnce({ data: {
-      id: 9, items: [{ id: 91, sourcingRequestId: 9, publisherName: "Created Publisher", softwareDescription: "Created Sourcing App maintenance/support", status: "sourcing" }],
+      id: 9, items: [{ id: 91, sourcingRequestId: 9, publisherName: "Created Publisher", softwareDescription: "Created Sourcing App maintenance", status: "sourcing" }],
     }, error: null });
     sourcingApi.uploadSourcingQuoteDocument.mockResolvedValueOnce({ data: { id: 1 }, error: null });
 

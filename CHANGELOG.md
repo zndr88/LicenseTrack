@@ -51,6 +51,9 @@ Work in progress for 1.2.0.
 
 ### Changed
 
+- A separately tracked maintenance line added next to a license is now
+  pre-filled with "*product* maintenance" instead of "*product*
+  maintenance/support". Existing records keep their description.
 - Forms show fewer permanent hint lines: background explanations (for example
   Supplier Contact, the manual PO total and several settings) moved into ⓘ
   tooltips that open on hover or keyboard focus. Hints that prevent a mistake
