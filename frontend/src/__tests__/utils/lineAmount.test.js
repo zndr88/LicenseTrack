@@ -1,7 +1,7 @@
 // Shared line-amount cases, also run by the backend
 // (backend/tests/test_unit/test_line_amount.py).
 import { describe, expect, it } from "vitest";
-import { getLineAmount, unitPriceFromTotal } from "../../utils/lineAmount.js";
+import { getLineAmount, getLineAmountText, unitPriceFromTotal } from "../../utils/lineAmount.js";
 import cases from "../../../../backend/tests/fixtures/line_amount_cases.json";
 
 describe("shared line amount cases", () => {
@@ -15,5 +15,16 @@ describe("shared line amount cases", () => {
 describe("shared unit price from total cases", () => {
   it.each(cases.unit_price_from_total.map((c) => [`${c.total} / ${c.quantity}`, c]))("%s", (_label, c) => {
     expect(unitPriceFromTotal(c.total, c.quantity)).toBe(c.expected);
+  });
+});
+
+describe("getLineAmountText", () => {
+  it("formats the amount with two decimals and hides float noise", () => {
+    expect(getLineAmountText({ quantity: "3", unitPrice: "33.3333" })).toBe("100.00");
+    expect(getLineAmountText({ quantity: "5", unitPrice: "12.80" })).toBe("64.00");
+  });
+
+  it("is empty when the line amount is unknown", () => {
+    expect(getLineAmountText({ quantity: "", unitPrice: "12.80" })).toBe("");
   });
 });

@@ -25,6 +25,7 @@ import { TYPE_DESCRIPTION_REQUIRED_MESSAGE, typeDescriptionMissing } from "../..
 import InvoiceNumberRows from "../InvoiceNumberRows.jsx";
 import LicenseTypeLabel from "../LicenseTypeLabel.jsx";
 import FieldLabel from "../../ui/FieldLabel.jsx";
+import CalculatedLineTotal from "../CalculatedLineTotal.jsx";
 
 /**
  * Full-panel edit form shown when editingLicense is true.
@@ -172,7 +173,7 @@ export default function LicenseEditForm({
         </div>
       </div>
       {customFields("people")}
-      <div className="fg"><label htmlFor="license-edit-total-price">Line Total</label><NumberInput id="license-edit-total-price" value={editFields.totalPoPrice || ""} settings={userSettings} minFractionDigits={2} onChange={(next) => setEditFields((previous) => ({ ...previous, totalPoPrice: next }))} /></div>
+      <CalculatedLineTotal id="license-edit-line-total" quantity={editFields.quantity} unitPrice={editFields.unitPrice} currency={editFields.currency} locale={userSettings?.numberFormatLocale ?? "en-US"} />
       <div className="fg"><label htmlFor="license-edit-notes">Notes / Comments</label><textarea id="license-edit-notes" className="fi" rows={3} value={editFields.notes || ""} onChange={(e) => setEditFields((previous) => ({ ...previous, notes: e.target.value }))} /></div>
       {customFields("notes")}
       <div className="fr">

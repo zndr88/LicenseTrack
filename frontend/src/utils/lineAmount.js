@@ -17,6 +17,12 @@ export function getLineAmount(license) {
   return quantity === null || unitPrice === null ? null : quantity * unitPrice;
 }
 
+// Line amount as a two-decimal string for money inputs (empty when unknown).
+export function getLineAmountText(license) {
+  const amount = getLineAmount(license);
+  return amount === null ? "" : amount.toFixed(2);
+}
+
 export function unitPriceFromTotal(total, quantity) {
   const parsedTotal = canonicalNumber(total);
   const parsedQuantity = canonicalNumber(quantity);

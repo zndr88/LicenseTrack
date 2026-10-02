@@ -22,7 +22,7 @@ import ContactCombobox from "../ui/ContactCombobox.jsx";
  *   onSave        {Function(updatedLicense)} - called on successful save
  *   onClose       {Function} - called to dismiss modal
  */
-const PRICE_FIELD_KEYS = ["unitPrice", "totalPoPrice"];
+const PRICE_FIELD_KEYS = ["unitPrice"];
 const NUMERIC_FIELD_KEYS = ["quantity", "quantityPerUnit", ...PRICE_FIELD_KEYS];
 
 export default function FieldEditModal({

@@ -41,7 +41,7 @@ export const createManualEntryData = () => ({
   publisherName: "", softwareDescription: "", startDate: "", endDate: "", noticeDate: "",
   contractNumber: "", poNumber: "", invoiceNumber: "", contactEmail: "",
   supplier: "", costCentre: "", licenseType: "", licenseMetric: "",
-  portalUrl: "", quantity: "", skuCode: "", unitPrice: "", totalPoPrice: "", currency: "EUR", notes: "", budgetOwnerEmail: "", fileName: "manual-entry",
+  portalUrl: "", quantity: "", skuCode: "", unitPrice: "", currency: "EUR", notes: "", budgetOwnerEmail: "", fileName: "manual-entry",
   strategyUsed: "manual", attemptedStrategies: [], fallbackUsed: false, engineDetails: [],
 });
 

@@ -29,6 +29,8 @@ import LicenseFormSection from "./LicenseFormSection.jsx";
 import DocumentStagingWorkspace from "../procurement/DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "../procurement/useStagedDocumentAttachments.js";
 import LicenseTypeLabel from "./LicenseTypeLabel.jsx";
+import CalculatedLineTotal from "./CalculatedLineTotal.jsx";
+import { getLineAmountText } from "../../utils/lineAmount.js";
 
 const PRIMARY_LINE_ID = "primary";
 
@@ -47,7 +49,6 @@ const emptyAdditionalLine = (primaryForm) => ({
   quantityPerUnit: primaryForm.quantityPerUnit || "1",
   skuCode: "",
   unitPrice: "",
-  totalPoPrice: "",
   currency: primaryForm.currency || "EUR",
   notes: "",
   externalRef: "",
@@ -70,7 +71,7 @@ const emptyAdditionalLine = (primaryForm) => ({
 // Number fields hold canonical values from NumberInput (or the typed text
 // while it's invalid, which blocks Save).
 const NUMBER_FIELDS = [
-  "quantity", "quantityPerUnit", "unitPrice", "totalPoPrice",
+  "quantity", "quantityPerUnit", "unitPrice",
   "maintenanceQuantity", "maintenanceUnitPrice", "maintenanceCost",
 ];
 const hasInvalidNumber = (line) => NUMBER_FIELDS.some((field) => !isValidNumberValue(line[field]));
@@ -125,7 +126,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
     isRenewable: data.isRenewable ?? false,
     typeDescription: data.typeDescription || "",
     quantity: data.quantity || "", quantityPerUnit: data.quantityPerUnit || "1", skuCode: data.skuCode || "", unitPrice: data.unitPrice || "",
-    totalPoPrice: data.totalPoPrice || "", currency: data.currency || "EUR", notes: data.notes || "",
+    currency: data.currency || "EUR", notes: data.notes || "",
     budgetOwnerEmail: data.budgetOwnerEmail || "",
     externalRef: data.externalRef || "",
     secondaryContacts: formatSecondaryContacts(data.secondaryContacts),
@@ -238,7 +239,6 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         ...form,
         _documentTargetKey: PRIMARY_LINE_ID,
         unitPrice: isFreewareLicenseType(form.licenseType) ? "" : form.unitPrice,
-        totalPoPrice: isFreewareLicenseType(form.licenseType) ? "" : form.totalPoPrice,
         quantityPerUnit: form.quantityPerUnit || "1",
         secondaryContacts: parseSecondaryContacts(form.secondaryContacts),
         customFieldValues: buildCustomFieldValuePayload(customFieldDefs, form.customFieldValues, userSettings),
@@ -269,9 +269,6 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
         unitPrice: isFreewareLicenseType(line.licenseType)
           ? ""
           : line.unitPrice || "",
-        totalPoPrice: isFreewareLicenseType(line.licenseType)
-          ? ""
-          : line.totalPoPrice || "",
         currency: line.currency || form.currency,
         notes: line.notes,
         portalUrl: line.portalUrl,
@@ -347,7 +344,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
           <LicenseFormSection title="Identity">
             <div className="fg"><label htmlFor="inv-publisher-name">Publisher Name</label><ReferenceCombobox id="inv-publisher-name" mode="publisher" value={form.publisherName} onChange={(value) => u("publisherName", value)} /></div>
             <div className="fg"><label htmlFor="inv-software-desc">Software Description</label><input id="inv-software-desc" className="fi" value={form.softwareDescription} onChange={(e) => u("softwareDescription", e.target.value)} /></div>
-            <div className="fg"><LicenseTypeLabel htmlFor="inv-license-type" /><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, maintenanceCoverage: coverageAfterTypeChange(f.maintenanceCoverage, f.licenseType, next), ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isNonExpiringLicenseType(next) ? { endDate: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "", totalPoPrice: "" } : {}) })); if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+            <div className="fg"><LicenseTypeLabel htmlFor="inv-license-type" /><select id="inv-license-type" className="fi fi-select" value={form.licenseType} onChange={(e) => { const next = e.target.value; setFormTouched(true); setForm((f) => ({ ...f, licenseType: next, maintenanceCoverage: coverageAfterTypeChange(f.maintenanceCoverage, f.licenseType, next), ...(next !== "maintenance" ? { parentLicenseId: "" } : {}), ...(next !== "saas" ? { portalUrl: "" } : {}), ...(isNonExpiringLicenseType(next) ? { endDate: "" } : {}), ...(isFreewareLicenseType(next) ? { unitPrice: "" } : {}) })); if (!supportsSeparateMaintenanceLine(next)) removeMaintenanceCompanion(PRIMARY_LINE_ID); }}><option value="">Select...</option>{LICENSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
             <LicenseTypeOptInFields idPrefix="inv" licenseType={form.licenseType} isRenewable={form.isRenewable} typeDescription={form.typeDescription} onChange={u} error={typeDescriptionMissing(form.licenseType, form.typeDescription) ? TYPE_DESCRIPTION_REQUIRED_MESSAGE : null} />
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="identity" />
           </LicenseFormSection>
@@ -378,7 +375,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                     "publisherName", "softwareDescription", "startDate", "endDate", "noticeDate",
                     "contractNumber", "poNumber", "invoiceNumber", "contactEmail",
                     "supplier", "costCentre", "licenseType", "licenseMetric",
-                    "quantity", "skuCode", "unitPrice", "totalPoPrice", "currency",
+                    "quantity", "skuCode", "unitPrice", "currency",
                     "notes", "budgetOwnerEmail", "portalUrl",
                   ];
                   const first = result.multiItems[0];
@@ -397,7 +394,6 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                       quantity: item.quantity ?? "",
                       skuCode: item.skuCode ?? "",
                       unitPrice: item.unitPrice ?? "",
-                      totalPoPrice: item.totalPoPrice ?? "",
                       currency: item.currency ?? first.currency ?? "EUR",
                       notes: item.notes ?? "",
                       portalUrl: item.portalUrl ?? "",
@@ -419,7 +415,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                   "publisherName", "softwareDescription", "startDate", "endDate", "noticeDate",
                   "contractNumber", "poNumber", "invoiceNumber", "contactEmail",
                   "supplier", "costCentre", "licenseType", "licenseMetric",
-                  "quantity", "skuCode", "unitPrice", "totalPoPrice", "currency",
+                  "quantity", "skuCode", "unitPrice", "currency",
                   "notes", "budgetOwnerEmail",
                 ]);
                 suggestions.forEach(({ field, value, confidence }) => {
@@ -456,7 +452,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
 
           {supportsMaintenanceCoverage(form.licenseType) && (
             <LicenseFormSection title="Maintenance">
-              <MaintenanceCoverageFields idPrefix="inv" licenseType={form.licenseType} coverage={form.maintenanceCoverage} startDate={form.maintenanceStartDate} endDate={form.maintenanceEndDate} pricingBasis={form.maintenancePricingBasis} supportQuantity={form.maintenanceQuantity} supportUnitPrice={form.maintenanceUnitPrice} cost={form.maintenanceCost} licenseQuantity={form.quantity} licenseStartDate={form.startDate} licenseEndDate={isNonExpiringLicenseType(form.licenseType) ? "" : form.endDate} licenseTotalCost={form.totalPoPrice} currency={form.currency} locale={locale} onChange={updatePrimaryMaintenance} onAddSeparate={() => addMaintenanceLine(PRIMARY_LINE_ID, form)} separateLineAdded={hasMaintenanceCompanion(PRIMARY_LINE_ID)} embedded />
+              <MaintenanceCoverageFields idPrefix="inv" licenseType={form.licenseType} coverage={form.maintenanceCoverage} startDate={form.maintenanceStartDate} endDate={form.maintenanceEndDate} pricingBasis={form.maintenancePricingBasis} supportQuantity={form.maintenanceQuantity} supportUnitPrice={form.maintenanceUnitPrice} cost={form.maintenanceCost} licenseQuantity={form.quantity} licenseStartDate={form.startDate} licenseEndDate={isNonExpiringLicenseType(form.licenseType) ? "" : form.endDate} licenseTotalCost={getLineAmountText(form)} currency={form.currency} locale={locale} onChange={updatePrimaryMaintenance} onAddSeparate={() => addMaintenanceLine(PRIMARY_LINE_ID, form)} separateLineAdded={hasMaintenanceCompanion(PRIMARY_LINE_ID)} embedded />
               <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="maintenance" />
             </LicenseFormSection>
           )}
@@ -471,7 +467,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
               <div className="fg"><label htmlFor="inv-license-metric">License Metric</label><select id="inv-license-metric" className="fi fi-select" value={form.licenseMetric} onChange={(e) => u("licenseMetric", e.target.value)}><option value="">Select...</option>{LICENSE_METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
               <div className="fg"><label htmlFor="inv-currency">Currency</label><select id="inv-currency" className="fi fi-select" value={form.currency} onChange={(e) => u("currency", e.target.value)}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
             </div>
-            {!isFreewareLicenseType(form.licenseType) && <div className="fr"><div className="fg"><label htmlFor="inv-unit-price">Unit Price</label><NumberInput id="inv-unit-price" value={form.unitPrice} settings={userSettings} minFractionDigits={2} onChange={(next) => u("unitPrice", next)} /></div><div className="fg"><label htmlFor="inv-total-price">Line Total</label><NumberInput id="inv-total-price" value={form.totalPoPrice} settings={userSettings} minFractionDigits={2} onChange={(next) => u("totalPoPrice", next)} /></div></div>}
+            {!isFreewareLicenseType(form.licenseType) && <div className="fr"><div className="fg"><label htmlFor="inv-unit-price">Unit Price</label><NumberInput id="inv-unit-price" value={form.unitPrice} settings={userSettings} minFractionDigits={2} onChange={(next) => u("unitPrice", next)} /></div><CalculatedLineTotal id="inv-line-total" quantity={form.quantity} unitPrice={form.unitPrice} currency={form.currency} locale={locale} /></div>}
             {form.licenseType === "saas" && <div className="fg"><label htmlFor="inv-portal-url">Portal URL</label><input id="inv-portal-url" className="fi" value={form.portalUrl} onChange={(e) => u("portalUrl", e.target.value)} placeholder="https://..." /></div>}
             <CustomFieldFormFields definitions={customFieldDefs} values={form.customFieldValues} onChange={(values) => u("customFieldValues", values)} idPrefix="inv" loading={customFieldsLoading} section="commercial" />
           </LicenseFormSection>
@@ -518,7 +514,6 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                       if (isNonExpiringLicenseType(next)) updateLine(line.id, "endDate", "");
                       if (isFreewareLicenseType(next)) {
                         updateLine(line.id, "unitPrice", "");
-                        updateLine(line.id, "totalPoPrice", "");
                       }
                       if (!supportsSeparateMaintenanceLine(next)) {
                         removeMaintenanceCompanion(line.id);
@@ -573,7 +568,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                 licenseQuantity={line.quantity}
                 licenseStartDate={line.startDate}
                 licenseEndDate={isNonExpiringLicenseType(line.licenseType) ? "" : line.endDate}
-                licenseTotalCost={line.totalPoPrice}
+                licenseTotalCost={getLineAmountText(line)}
                 currency={line.currency}
                 locale={locale}
                 onChange={(field, value) => updateLineMaintenance(line.id, field, value)}
@@ -624,17 +619,7 @@ const InvoiceConfirmModal = ({ data, userSettings, onConfirm, onCancel }) => {
                         placeholder={toInputText("0.00", userSettings)}
                       />
                   </div>
-                  <div className="fg">
-                      <label htmlFor={`inv-line-${line.id}-total-price`}>Line Total</label>
-                      <NumberInput
-                        id={`inv-line-${line.id}-total-price`}
-                        value={line.totalPoPrice}
-                        settings={userSettings}
-                        minFractionDigits={2}
-                        onChange={(next) => updateLine(line.id, "totalPoPrice", next)}
-                        placeholder={toInputText("0.00", userSettings)}
-                      />
-                  </div>
+                  <CalculatedLineTotal id={`inv-line-${line.id}-line-total`} quantity={line.quantity} unitPrice={line.unitPrice} currency={line.currency} locale={locale} />
                   <div className="fg" style={{ flex: "0 0 90px" }}>
                     <label htmlFor={`inv-line-${line.id}-currency`}>Currency</label>
                     <select id={`inv-line-${line.id}-currency`} className="fi fi-select" value={line.currency} onChange={(e) => updateLine(line.id, "currency", e.target.value)}>
