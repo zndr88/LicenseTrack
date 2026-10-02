@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getProcurementBreakdown, getProcurementTotal } from "../../utils/procurementIdentity.js";
+import { getIndexedProcurementBreakdown, getProcurementBreakdown, getProcurementTotal, indexProcurementLines } from "../../utils/procurementIdentity.js";
 
 const line = (overrides) => ({ id: 1, poNumber: "PO-1", currency: "EUR", quantity: "1", unitPrice: "100", ...overrides });
 
@@ -26,5 +26,25 @@ describe("getProcurementBreakdown", () => {
   it("getProcurementTotal returns the breakdown total", () => {
     const all = [line({ id: 1, poTotalOverride: "180" }), line({ id: 2 })];
     expect(getProcurementTotal(all[1], all)).toBe(180);
+  });
+});
+
+describe("indexed procurement breakdown", () => {
+  it("gives the same figures as the unindexed breakdown for every line", () => {
+    const all = [
+      line({ id: 1, poTotalOverride: "180" }),
+      line({ id: 2, quantity: "3" }),
+      line({ id: 3, retired: true }),
+      line({ id: 4, poNumber: "PO-2", currency: "USD" }),
+      line({ id: 5, poNumber: " po-2 ", currency: "USD", unitPrice: "" }),
+      line({ id: 6, pendingOrderId: 7 }),
+      line({ id: 7, pendingOrderId: 7, unitPrice: "20" }),
+      { id: 8, poNumber: "", currency: "EUR", quantity: "1", unitPrice: "5" },
+      { id: 9, poNumber: "PO-3", currency: "", quantity: "1", unitPrice: "5" },
+    ];
+    const index = indexProcurementLines(all);
+    for (const license of all) {
+      expect(getIndexedProcurementBreakdown(license, index)).toEqual(getProcurementBreakdown(license, all));
+    }
   });
 });

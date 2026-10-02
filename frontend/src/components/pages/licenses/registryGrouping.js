@@ -3,7 +3,8 @@
 import { LICENSE_TYPES } from "../../../constants/licenseData.js";
 import { getLineAmount } from "../../../utils/lineAmount.js";
 import {
-  getProcurementBreakdown,
+  getIndexedProcurementBreakdown,
+  indexProcurementLines,
   normalizeProcurementPoNumber,
   procurementIdentityKey,
 } from "../../../utils/procurementIdentity.js";
@@ -136,7 +137,7 @@ function addAmount(byCurrency, currency, amount) {
   byCurrency[currency] = (byCurrency[currency] ?? 0) + amount;
 }
 
-function summarize(columnKey, shownLines, allGroupLines, allLicenses, fallbackCurrency) {
+function summarize(columnKey, shownLines, allGroupLines, procurementIndex, fallbackCurrency) {
   const lineSumByCurrency = {};
   let earliestEndDate = null;
   for (const license of shownLines) {
@@ -157,7 +158,7 @@ function summarize(columnKey, shownLines, allGroupLines, allLicenses, fallbackCu
       const identity = procurementIdentityKey(license);
       if (identity === null || seen.has(identity.join("|"))) continue;
       seen.add(identity.join("|"));
-      const { lineSum, override, total } = getProcurementBreakdown(license, allLicenses);
+      const { lineSum, override, total } = getIndexedProcurementBreakdown(license, procurementIndex);
       addAmount(poTotalByCurrency, identity[1], total);
       if (override !== null && Math.abs(override - lineSum) > 0.005) poOverrideMismatch = true;
     }
@@ -173,7 +174,7 @@ function summarize(columnKey, shownLines, allGroupLines, allLicenses, fallbackCu
   };
 }
 
-function buildLevel(shownLines, allLines, groupBy, depth, parentId, allLicenses, fallbackCurrency) {
+function buildLevel(shownLines, allLines, groupBy, depth, parentId, procurementIndex, fallbackCurrency) {
   const column = getGroupableColumn(groupBy[depth]);
   const allByKey = new Map(partition(allLines, column).map((group) => [group.key ?? BLANK, group.lines]));
   return partition(shownLines, column).map((group) => {
@@ -190,8 +191,8 @@ function buildLevel(shownLines, allLines, groupBy, depth, parentId, allLicenses,
       lines: group.lines,
       children: isLast
         ? []
-        : buildLevel(group.lines, allGroupLines, groupBy, depth + 1, id, allLicenses, fallbackCurrency),
-      summary: summarize(column.key, group.lines, allGroupLines, allLicenses, fallbackCurrency),
+        : buildLevel(group.lines, allGroupLines, groupBy, depth + 1, id, procurementIndex, fallbackCurrency),
+      summary: summarize(column.key, group.lines, allGroupLines, procurementIndex, fallbackCurrency),
     };
   });
 }
@@ -203,7 +204,9 @@ function buildLevel(shownLines, allLines, groupBy, depth, parentId, allLicenses,
 export function groupLicenses(sortedLines, groupBy, { allLicenses = sortedLines, fallbackCurrency = "EUR" } = {}) {
   const levels = sanitizeGroupBy(groupBy);
   if (levels.length === 0) return [];
-  return buildLevel(sortedLines, allLicenses, levels, 0, "", allLicenses, fallbackCurrency);
+  // Only PO groups need the purchase figures, so index only when one is asked for.
+  const procurementIndex = levels.includes("poNumber") ? indexProcurementLines(allLicenses) : new Map();
+  return buildLevel(sortedLines, allLicenses, levels, 0, "", procurementIndex, fallbackCurrency);
 }
 
 /** Display rows for the table: group headers, plus lines of open leaf groups. */
