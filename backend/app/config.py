@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     OFFICIAL_EXTENSION_PUBLIC_KEYS: str = "[]"
     PLUGIN_RUNTIME_LOG_MAX_BYTES: int = 65536
     MAX_PLUGIN_DOCUMENT_SIZE_MB: int = 10
-    ALLOWED_UPLOAD_EXTENSIONS: str = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx"
+    ALLOWED_UPLOAD_EXTENSIONS: str = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx,.lic,.msg"
     BACKUP_LOCATION: str = "./backups"
     RESTART_AFTER_RESTORE: bool = False
     ADMIN_PASSWORD: str = "admin"

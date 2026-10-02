@@ -356,12 +356,14 @@ def validate_upload(
             detail=f"File exceeds the maximum allowed size of {settings.MAX_UPLOAD_SIZE_MB} MB.",
         )
     ext = Path(file.filename or "").suffix.lower()
-    allowed_exts = frozenset(e.strip().lower() for e in settings.ALLOWED_UPLOAD_EXTENSIONS.split(",") if e.strip())
+    from app.services.upload_policy import allowed_upload_extensions
+
+    allowed_exts = allowed_upload_extensions()
     if ext not in allowed_exts:
         raise HTTPException(
             status_code=422,
             detail=(
-                f"File extension '{ext or '(none)'}' is not allowed. Accepted types: {', '.join(sorted(allowed_exts))}"
+                f"File extension '{ext or '(none)'}' is not allowed. Accepted types: {', '.join(allowed_exts)}"
             ),
         )
     if allowed_mimes is not None:

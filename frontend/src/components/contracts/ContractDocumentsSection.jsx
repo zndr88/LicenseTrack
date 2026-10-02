@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Icon from "../ui/Icon.jsx";
+import { useUploadAccept } from "../../hooks/useUploadAccept.js";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import { isPreviewablePdf } from "../../utils/documentPreview.js";
 import {
@@ -364,6 +365,7 @@ export default function ContractDocumentsSection({
 }
 
 function DocSection({ docs, canEdit, canDownload = true, uploading, downloadingId, onUpload, onDownload, onPreview, onDeleteRequest }) {
+  const uploadAccept = useUploadAccept();
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) onUpload(file);
@@ -435,7 +437,7 @@ function DocSection({ docs, canEdit, canDownload = true, uploading, downloadingI
             style={{ display: "none" }}
             onChange={handleFileChange}
             disabled={uploading}
-            accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx,.doc"
+            accept={uploadAccept}
           />
         </label>
       )}

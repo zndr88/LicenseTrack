@@ -19,6 +19,9 @@ Work in progress for 1.2.0.
 
 ### Added
 
+- Documents can be `.lic` license files and `.msg` Outlook messages. Existing
+  installations that set `ALLOWED_UPLOAD_EXTENSIONS` themselves (for example
+  the native installer's environment file) need to add `.lic,.msg` to it.
 - My Settings → Appearance has a per-user option to show or hide the Portfolio
   overview in the sidebar (shown by default).
 - Help and the user guide explain how to track SSL/TLS certificates, domain
@@ -112,6 +115,10 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- Document file pickers offer exactly the file types the server accepts. They
+  used their own lists: license and procurement pickers left out Excel, Word
+  and CSV files, and the contract picker offered `.doc`, which the server
+  refused.
 - Linking terms within one request follows one rule in both Set predecessors
   and Set next term: a line can't roll into an earlier-starting term, a link
   that would close a loop isn't offered, and lines that can't be linked are

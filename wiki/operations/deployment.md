@@ -63,7 +63,7 @@ All variables are read from `.env` at container start. Restart the container aft
 | `SESSION_COOKIE_SECURE` | No | `false` | Set to `true` behind HTTPS. |
 | `FORWARDED_ALLOW_IPS` | No | `127.0.0.1` | Reverse proxy address(es) whose `X-Forwarded-*` headers are trusted. Comma-separated. See [Reverse proxy](#reverse-proxy). |
 | `MAX_UPLOAD_SIZE_MB` | No | `20` | Maximum upload size in megabytes. |
-| `ALLOWED_UPLOAD_EXTENSIONS` | No | common office/document extensions | Comma-separated upload extension allow-list. |
+| `ALLOWED_UPLOAD_EXTENSIONS` | No | `.pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx,.lic,.msg` | Comma-separated upload extension allow-list. The upload file pickers offer exactly these types. |
 | `PLUGIN_HOST_ENABLED` | No | `false` | Enables the internal Official Extensions host. Leave disabled unless an official signed extension is required. |
 | `PLUGIN_HOST_DEVELOPER_MODE` | No | `false` | Allows unsigned developer packages and marks them non-official. Unsupported for production. |
 | `OFFICIAL_EXTENSION_PUBLIC_KEYS` | No | `[]` | JSON array of pinned Ed25519 release keys with `keyId`, `signer`, and base64 raw `publicKey`. Obtain values only from official LicenseTrack releases. |

@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import CurrentUser, require_editor_or_admin
+from app.services.upload_policy import DOCUMENT_MIME_TYPES, allowed_upload_extensions
 from app.models.document import Document, DocumentCategory, ProcurementDocument, ProcurementDocumentCategory
 from app.models.license import License
 from app.models.user import User
@@ -41,23 +42,6 @@ logger = logging.getLogger(__name__)
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
-# MIME types that are considered valid for upload (browser-reported values vary)
-_ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
-    {
-        "application/pdf",
-        "image/png",
-        "image/jpeg",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-excel",
-        "text/csv",
-        "text/plain",
-        "application/csv",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/msword",
-        # Some browsers send generic binary for office documents validated by extension
-        "application/octet-stream",
-    }
-)
 _DEFAULT_SHARED_CATEGORIES = {
     DocumentCategory.quote,
     DocumentCategory.purchase_order,
@@ -68,6 +52,12 @@ _DEFAULT_SHARED_CATEGORIES = {
 # ---------------------------------------------------------------------------
 # Upload
 # ---------------------------------------------------------------------------
+
+
+@router.get("/api/documents/upload-types")
+async def get_upload_types(_current_user: CurrentUser) -> dict:
+    """File extensions this installation accepts for document uploads."""
+    return {"extensions": allowed_upload_extensions()}
 
 
 @router.post(
@@ -93,7 +83,7 @@ async def upload_document(
 
     # Read content once for validation; storage.save_file will seek(0) to re-read
     content = await file.read()
-    storage.validate_upload(file, content, allowed_mimes=_ALLOWED_MIME_TYPES)
+    storage.validate_upload(file, content, allowed_mimes=DOCUMENT_MIME_TYPES)
     await file.seek(0)
 
     original_filename = file.filename or "upload"
