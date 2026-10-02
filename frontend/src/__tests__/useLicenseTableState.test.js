@@ -111,4 +111,20 @@ describe("useLicenseTableState", () => {
     const secondVisit = renderHook(() => useLicenseTableState());
     expect([...secondVisit.result.current.dismissedAttentionIds]).toEqual([12, 34]);
   });
+
+  test("changing the grouping collapses every group", () => {
+    const { result } = renderHook(() => useLicenseTableState());
+    act(() => result.current.setGroupBy(["poNumber"]));
+    act(() => result.current.toggleGroup("poNumber:po-1"));
+    expect(result.current.expandedGroupIds.has("poNumber:po-1")).toBe(true);
+    act(() => result.current.setGroupBy(["poNumber", "publisher"]));
+    expect(result.current.groupBy).toEqual(["poNumber", "publisher"]);
+    expect(result.current.expandedGroupIds.size).toBe(0);
+  });
+
+  test("sanitizes the grouping it is given", () => {
+    const { result } = renderHook(() => useLicenseTableState());
+    act(() => result.current.setGroupBy(["bogus", "status", "status", "currency", "publisher"]));
+    expect(result.current.groupBy).toEqual(["status", "currency"]);
+  });
 });
