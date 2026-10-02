@@ -112,6 +112,10 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- A price cleared on a renewal line stayed cleared only until conversion: Convert
+  to License refilled the previous term's unit price, maintenance unit price or
+  maintenance cost. Prices now come from the renewal line only; starting a
+  renewal still copies the previous price there as a reference.
 - Convert All kept the PO line's estimated total as the license Line Total even
   when real unit prices were entered at conversion.
 - Subscriptions and SaaS with included maintenance could take their maintenance

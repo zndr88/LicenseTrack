@@ -71,12 +71,16 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       maintenanceEndDate:  si.maintenanceEndDate || renewal?.maintenanceEndDate || "",
       maintenancePricingBasis: si.maintenancePricingBasis || renewal?.maintenancePricingBasis || "flat",
       maintenanceQuantity: si.maintenanceQuantity || renewal?.maintenanceQuantity || "",
-      maintenanceUnitPrice: si.maintenanceUnitPrice || renewal?.maintenanceUnitPrice || "",
-      maintenanceCost:     si.maintenanceCost || renewal?.maintenanceCost || "",
+      // Prices come from the renewal line only (see unitPrice below).
+      maintenanceUnitPrice: si.maintenanceUnitPrice || "",
+      maintenanceCost:     si.maintenanceCost || "",
       quantity:            si.quantity || renewal?.quantity || "",
       quantityPerUnit:     si.quantityPerUnit || renewal?.quantityPerUnit || "1",
       skuCode:             si.skuCode || renewal?.skuCode || "",
-      unitPrice:           si.estimatedUnitPrice || renewal?.unitPrice || "",
+      // Starting a renewal copies the previous price onto the line as a
+      // reference; an empty price there was cleared on purpose, so it is not
+      // refilled from the renewed license.
+      unitPrice:           si.estimatedUnitPrice || "",
       currency:            si.currency || renewal?.currency || defaultCurrency,
       budgetOwnerEmail:    budgetOwner.value,
       budgetOwnerRequired: budgetOwner.required,
