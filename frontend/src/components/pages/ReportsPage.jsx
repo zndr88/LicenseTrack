@@ -84,7 +84,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
   }
 
   const costOverview = report?.costOverview ?? {};
-  const budgetForecast = report?.budgetForecast ?? { forecastRows: [], recurringRecords: [], baselineByCurrency: {}, singleCurrency: null, fallbackCount: 0 };
+  const budgetForecast = report?.budgetForecast ?? { forecastRows: [], recurringRecords: [], baselineByCurrency: {}, singleCurrency: null };
   const publisherData = report?.publisherData ?? [];
   const portfolioData = report?.portfolioData ?? { byType: [], byMetric: [] };
   const renewalData = report?.renewalData ?? [];

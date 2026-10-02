@@ -232,7 +232,7 @@ describe("report cost helpers", () => {
     expect(getVendorTable([promo], opts)[0].totalSpendByCurrency.EUR).toBe(3978.02);
   });
 
-  test("breaks calculated budget down by overview lifecycle status with PO fallback pricing", () => {
+  test("breaks calculated budget down by overview lifecycle status from quantity x unit price", () => {
     const overview = getCostOverview([
       license({ id: 1, expirationStatus: "active", quantity: "4", unitPrice: "250", totalPoPrice: "20" }),
       license({ id: 2, expirationStatus: "perpetual", quantity: "", unitPrice: "", totalPoPrice: "500" }),
@@ -242,7 +242,7 @@ describe("report cost helpers", () => {
     ]);
 
     expect(overview.lifecycleBudgetByStatus).toEqual({
-      active: { EUR: 1500 },
+      active: { EUR: 1000 },
       expiring: { EUR: 250 },
       expired: { EUR: 50000 },
     });
@@ -316,14 +316,14 @@ describe("report cost helpers", () => {
     ]);
   });
 
-  test("marks recurring records that must fall back to legacy stored PO pricing", () => {
+  test("does not fall back to the stored line total when quantity or unit price is missing", () => {
     const forecast = getBudgetForecast([
       license({ id: 1, quantity: "", unitPrice: "", totalPoPrice: "900" }),
     ]);
 
-    expect(forecast.baselineByCurrency).toEqual({ EUR: 900 });
-    expect(forecast.fallbackCount).toBe(1);
-    expect(forecast.recurringRecords[0].costSource).toBe("po_fallback");
+    expect(forecast.baselineByCurrency).toEqual({});
+    expect(forecast.recurringRecords.every((row) => row.annualCost === 0)).toBe(true);
+    expect(forecast).not.toHaveProperty("fallbackCount");
   });
 
   test("excludes expired recurring records from the active forecast baseline", () => {
@@ -489,7 +489,8 @@ describe("getRenewalCalendar fiscal year alignment", () => {
       id: 1,
       endDate,
       expirationStatus: "expiring",
-      totalPoPrice: "1000",
+      quantity: "1",
+      unitPrice: "1000",
       currency: "EUR",
       ...overrides,
     };

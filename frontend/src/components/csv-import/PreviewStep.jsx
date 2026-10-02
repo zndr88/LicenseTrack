@@ -18,7 +18,7 @@ const IMPORTER_COLUMNS = [
   ["type", "Type"],
   ["quantity", "Qty"],
   ["unitPrice", "Unit Price"],
-  ["totalPoPrice", "Total Price"],
+  ["lineTotal", "Line Total"],
   ["startDate", "Start Date"],
   ["endDate", "End Date"],
   ["noticeDate", "Notice Date"],
@@ -684,7 +684,7 @@ export default function PreviewStep({
               {showColumn("type") && <th scope="col">Type</th>}
               {showColumn("quantity") && <th scope="col">Qty</th>}
               {showColumn("unitPrice") && <th scope="col">Unit Price</th>}
-              {showColumn("totalPoPrice") && <th scope="col">Total Price</th>}
+              {showColumn("lineTotal") && <th scope="col">Line Total</th>}
               {showColumn("startDate") && <th scope="col">Start Date</th>}
               {showColumn("endDate") && <th scope="col">End Date</th>}
               {showColumn("noticeDate") && <th scope="col">Notice Date</th>}
@@ -732,7 +732,7 @@ export default function PreviewStep({
                     {showColumn("type") && <td>{LICENSE_TYPES.find((t) => t.value === row.licenseType)?.label || row.licenseType || empty}</td>}
                     {showColumn("quantity") && <td className="mono csv-mono-sm">{row.quantity || empty}</td>}
                     {showColumn("unitPrice") && <td className="mono csv-mono-sm">{row.unitPrice || empty}</td>}
-                    {showColumn("totalPoPrice") && <td className="mono csv-mono-sm">{row.totalPoPrice || empty}</td>}
+                    {showColumn("lineTotal") && <td className="mono csv-mono-sm">{row.lineTotal || empty}</td>}
                     {showColumn("startDate") && <td className="mono csv-mono-sm">{row.startDate || empty}</td>}
                     {showColumn("endDate") && <td className="mono csv-mono-sm">{row.endDate || (row.importStatus !== "error" ? <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>Perpetual</span> : empty)}</td>}
                     {showColumn("noticeDate") && <td className="mono csv-mono-sm">{row.noticeDate || empty}</td>}

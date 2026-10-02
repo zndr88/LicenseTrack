@@ -177,12 +177,6 @@ export default function CostForecastSection({
               />
               <span className="report-chip-suffix">%</span>
             </div>
-            {budgetForecast.fallbackCount > 0 && (
-              <span className="report-inline-warning">
-                <Icon name="alert" size={11} color="var(--orange)" />
-                {budgetForecast.fallbackCount} recurring record{budgetForecast.fallbackCount === 1 ? "" : "s"} use legacy stored PO pricing
-              </span>
-            )}
           </div>
 
           {budgetForecast.forecastRows.length === 0 ? (
@@ -245,9 +239,6 @@ export default function CostForecastSection({
                         </td>
                         <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: 12 }}>
                           {row.annualCost > 0 ? formatCost(row.annualCost, row.currency, locale) : "-"}
-                          {row.costSource === "po_fallback" && (
-                            <span style={{ marginLeft: 4, color: "var(--orange)" }} title="Line quantity or unit price is missing; using legacy stored PO pricing">!</span>
-                          )}
                         </td>
                       </tr>
                     ))}

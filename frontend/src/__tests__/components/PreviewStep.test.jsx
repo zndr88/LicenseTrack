@@ -124,7 +124,7 @@ describe("PreviewStep — warning summary", () => {
           licenseType: "maintenance",
           quantity: "1",
           unitPrice: "",
-          totalPoPrice: "",
+          lineTotal: "",
           startDate: "",
           endDate: "",
           noticeDate: "",

@@ -281,7 +281,7 @@ describe('exportFilteredCsv', () => {
 
   it('calcTotal is empty string when quantity or unitPrice is missing', () => {
     const row = makeRow({ quantity: null, unitPrice: null })
-    const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
+    const cols = [{ key: 'calcTotal', label: 'Line Total' }]
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
     const lines = csvLines()
     expect(lines[1]).toBe('')
@@ -289,7 +289,7 @@ describe('exportFilteredCsv', () => {
 
   it('calcTotal is quantity × unitPrice when both are numeric', () => {
     const row = makeRow({ quantity: '5', unitPrice: '100' })
-    const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
+    const cols = [{ key: 'calcTotal', label: 'Line Total' }]
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
     const lines = csvLines()
     expect(lines[1]).toBe('500')
@@ -300,7 +300,7 @@ describe('exportFilteredCsv', () => {
     ['5', '0', '0'],
   ])('preserves calculated totals for quantity %s and unit price %s', (quantity, unitPrice, expected) => {
     const row = makeRow({ quantity, unitPrice })
-    const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
+    const cols = [{ key: 'calcTotal', label: 'Line Total' }]
 
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
 
@@ -309,7 +309,7 @@ describe('exportFilteredCsv', () => {
 
   it('preserves zero calculated totals in localized exports', () => {
     const row = makeRow({ quantity: '5', unitPrice: '0' })
-    const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
+    const cols = [{ key: 'calcTotal', label: 'Line Total' }]
 
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map(), {
       localized: true,
