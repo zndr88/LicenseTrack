@@ -135,8 +135,8 @@ Work in progress for 1.2.0.
 - Maintenance linking:
   - A license can be changed into Maintenance from the edit form by choosing
     the license it covers in the same step.
-  - Choosing "Separately tracked" coverage offers a quick link to an existing
-    maintenance record.
+  - Choosing "Separately tracked" coverage, in the edit form or with Edit
+    coverage, offers a quick link to an existing maintenance record.
   - Maintenance records that already cover another license stay visible in
     link searches, marked "Currently covers", and ask before covering one more.
   - The Renewal Workbench's "Record existing support" now lists existing
