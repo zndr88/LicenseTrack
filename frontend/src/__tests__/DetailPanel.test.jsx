@@ -2031,6 +2031,96 @@ describe('DetailPanel full edit form', () => {
     await waitFor(() => expect(linkMaintenanceToParent).toHaveBeenCalledWith(1, 60))
     expect(onUpdate).toHaveBeenCalledTimes(1)
   })
+
+  async function openCoverageEdit(user) {
+    const button = screen.queryByRole('button', { name: /edit coverage/i })
+    if (!button) await user.click(screen.getByText('Maintenance', { selector: '.dp-section-title, .dp-section-hdr *' }))
+    await user.click(await screen.findByRole('button', { name: /edit coverage/i }))
+    return screen.findByRole('dialog', { name: /maintenance coverage/i })
+  }
+
+  it('Edit coverage offers the same quick link under Separately tracked, linked after the coverage is saved', async () => {
+    const user = userEvent.setup()
+    const { patchLicenseField } = await import('../api/licenses.js')
+    const calls = []
+    patchLicenseField.mockImplementation(async () => {
+      calls.push('patch')
+      return { data: { ...perpetualLicense, maintenanceCoverage: 'separately_tracked' }, error: null }
+    })
+    linkMaintenanceToParent.mockImplementation(async () => { calls.push('link'); return { data: {}, error: null } })
+    const onUpdate = vi.fn().mockResolvedValue(true)
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        onUpdate={onUpdate}
+        license={perpetualLicense}
+        allLicenses={[perpetualLicense, maintenanceRecord]}
+      />
+    )
+
+    const dialog = await openCoverageEdit(user)
+    expect(within(dialog).queryByText(/Link an existing maintenance record/)).not.toBeInTheDocument()
+    await user.selectOptions(within(dialog).getByLabelText('Maintenance Coverage'), 'separately_tracked')
+    expect(within(dialog).getByText('Link an existing maintenance record (optional)')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('option', { name: /LT-60/ }))
+    await user.click(within(dialog).getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(linkMaintenanceToParent).toHaveBeenCalledWith(1, 60))
+    expect(patchLicenseField).toHaveBeenCalledWith(1, 'maintenanceCoverage', 'separately_tracked')
+    expect(calls).toEqual(['patch', 'link'])
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /maintenance coverage/i })).not.toBeInTheDocument())
+  })
+
+  it('Edit coverage asks before quick-linking a record that already covers another license', async () => {
+    const user = userEvent.setup()
+    const { patchLicenseField } = await import('../api/licenses.js')
+    patchLicenseField.mockResolvedValue({ data: { ...perpetualLicense, maintenanceCoverage: 'separately_tracked' }, error: null })
+    linkMaintenanceToParent.mockResolvedValue({ data: {}, error: null })
+    const other = { ...baseLicense, id: 2, licenseRef: 'LT-2', publisherName: 'Beta', softwareDescription: 'Tool', licenseType: 'oem' }
+    const covering = { ...maintenanceRecord, maintenanceParentIds: [2] }
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        license={perpetualLicense}
+        allLicenses={[perpetualLicense, other, covering]}
+      />
+    )
+
+    const dialog = await openCoverageEdit(user)
+    await user.selectOptions(within(dialog).getByLabelText('Maintenance Coverage'), 'separately_tracked')
+    await user.click(within(dialog).getByRole('option', { name: /LT-60/ }))
+    await user.click(within(dialog).getByRole('button', { name: /^save$/i }))
+
+    const confirm = await screen.findByRole('dialog', { name: /cover one more license/i })
+    expect(patchLicenseField).not.toHaveBeenCalled()
+    await user.click(within(confirm).getByRole('button', { name: /also cover this license/i }))
+    await waitFor(() => expect(linkMaintenanceToParent).toHaveBeenCalledWith(1, 60))
+    expect(patchLicenseField).toHaveBeenCalledTimes(1)
+  })
+
+  it('Edit coverage without a quick link only saves the coverage', async () => {
+    const user = userEvent.setup()
+    const { patchLicenseField } = await import('../api/licenses.js')
+    patchLicenseField.mockResolvedValue({ data: { ...perpetualLicense, maintenanceCoverage: 'included' }, error: null })
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        license={perpetualLicense}
+        allLicenses={[perpetualLicense, maintenanceRecord]}
+      />
+    )
+
+    const dialog = await openCoverageEdit(user)
+    await user.selectOptions(within(dialog).getByLabelText('Maintenance Coverage'), 'included')
+    expect(within(dialog).queryByText(/Link an existing maintenance record/)).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(patchLicenseField).toHaveBeenCalledWith(1, 'maintenanceCoverage', 'included'))
+    expect(linkMaintenanceToParent).not.toHaveBeenCalled()
+  })
 })
 
 describe('DetailPanel PO line number', () => {

@@ -30,6 +30,21 @@ describe("term succession", () => {
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
+  it("Set predecessors doesn't offer a later term or a line that would close a loop", () => {
+    const items = [
+      { id: 1, sourcingRequestId: 8, softwareDescription: "Year 1", startDate: "2026-01-01", successorSourcingItemId: 2 },
+      { id: 2, sourcingRequestId: 8, softwareDescription: "Year 2", startDate: "2027-01-01", successorSourcingItemId: 3 },
+      { id: 3, sourcingRequestId: 8, softwareDescription: "Year 3", startDate: "2028-01-01" },
+      { id: 4, sourcingRequestId: 8, softwareDescription: "Year 4", startDate: "2029-01-01" },
+    ];
+    render(<TermPredecessorsModal target={items[1]} items={items} onSave={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByRole("option", { name: /Year 1/ })).toBeEnabled();
+    expect(screen.getByRole("option", { name: /Year 3/ })).toBeDisabled();
+    expect(screen.getByText("Already comes after this line")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Year 4/ })).toBeDisabled();
+    expect(screen.getByText("Starts on or after this line")).toBeInTheDocument();
+  });
+
   it("shows a whole linked chain including upcoming terms", () => {
     const allLicenses = [
       { id: 1, softwareDescription: "A", startDate: "2026-01-01", endDate: "2026-12-31", renewedToId: 2, expirationStatus: "active", quantity: "10" },

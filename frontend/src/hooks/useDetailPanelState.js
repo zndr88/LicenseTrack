@@ -9,6 +9,7 @@ import {
   getMaintenanceForParent,
   linkMaintenanceToParent,
   markLicenseNoticeHandled,
+  patchLicenseField,
   upsertCustomFieldValues,
 } from "../api/licenses.js";
 import {
@@ -274,24 +275,62 @@ export function useDetailPanelState({
     setTimeout(() => setToast(null), 5000);
   };
 
-  // Full edit
-  const handleFullEditSave = async ({ skipCoversConfirm = false } = {}) => {
-    if (quickLinkMaintenanceId && !skipCoversConfirm) {
-      const selected = allLicenses.find((item) => String(item.id) === String(quickLinkMaintenanceId));
-      const message = selected ? coversConfirmMessage(maintenanceCandidate(selected, allLicenses)) : null;
-      if (message) {
-        setConfirmAction({
-          title: "Cover one more license?",
-          message,
-          confirmLabel: "Also cover this license",
-          onConfirm: () => {
-            setConfirmAction(null);
-            handleFullEditSave({ skipCoversConfirm: true });
-          },
-        });
+  // Quick link to an existing maintenance record (full edit and Edit coverage).
+  // Asks first when the record already covers another license; onCancel runs
+  // when the user declines.
+  const confirmQuickLinkThen = (quickLinkId, proceed, onCancel) => {
+    const selected = quickLinkId
+      ? allLicenses.find((item) => String(item.id) === String(quickLinkId))
+      : null;
+    const message = selected ? coversConfirmMessage(maintenanceCandidate(selected, allLicenses)) : null;
+    if (!message) return proceed();
+    setConfirmAction({
+      title: "Cover one more license?",
+      message,
+      confirmLabel: "Also cover this license",
+      onConfirm: () => {
+        setConfirmAction(null);
+        proceed();
+      },
+      onCancel,
+    });
+    return undefined;
+  };
+
+  const linkQuickMaintenance = async (quickLinkId) => {
+    const { error } = await linkMaintenanceToParent(license.id, Number(quickLinkId));
+    if (!error) await queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
+    return error ?? null;
+  };
+
+  // Edit coverage
+  const [coverageEditOpen, setCoverageEditOpen] = useState(false);
+  const openCoverageEdit = () => setCoverageEditOpen(true);
+  const closeCoverageEdit = () => setCoverageEditOpen(false);
+  const handleCoverageSave = ({ coverage, quickLinkId }) => new Promise((resolve) => {
+    confirmQuickLinkThen(quickLinkId, async () => {
+      const { data, error } = await patchLicenseField(license.id, "maintenanceCoverage", coverage);
+      if (error) {
+        resolve({ error });
         return;
       }
-    }
+      onUpdate(license.id, normalizeLicense(data));
+      if (quickLinkId) {
+        const linkError = await linkQuickMaintenance(quickLinkId);
+        if (linkError) {
+          resolve({ error: `Coverage saved, but the maintenance record could not be linked: ${linkError}` });
+          return;
+        }
+      }
+      setCoverageEditOpen(false);
+      resolve({ error: null });
+    }, () => resolve({ error: null }));
+  });
+
+  // Full edit
+  const handleFullEditSave = () => confirmQuickLinkThen(quickLinkMaintenanceId, saveFullEdit);
+
+  const saveFullEdit = async () => {
     setSavingLicense(true);
     setEditError(null);
     // parentLicenseId only travels when switching a license into Maintenance.
@@ -311,12 +350,7 @@ export function useDetailPanelState({
       setEditError("Save failed. Review the message above and try again.");
       return;
     }
-    let linkError = null;
-    if (quickLinkMaintenanceId) {
-      const { error } = await linkMaintenanceToParent(license.id, Number(quickLinkMaintenanceId));
-      if (error) linkError = error;
-      else await queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
-    }
+    const linkError = quickLinkMaintenanceId ? await linkQuickMaintenance(quickLinkMaintenanceId) : null;
     setSavingLicense(false);
     if (linkError) {
       setEditError(`Saved, but the maintenance record could not be linked: ${linkError}`);
@@ -396,6 +430,7 @@ export function useDetailPanelState({
 
     // Field edit
     fieldEdit, openFieldEdit, closeFieldEdit, handleFieldSaved,
+    coverageEditOpen, openCoverageEdit, closeCoverageEdit, handleCoverageSave,
     invoiceNumbersEdit, openInvoiceNumbersEdit, closeInvoiceNumbersEdit,
     secondaryContactsEdit, openSecondaryContactsEdit, closeSecondaryContactsEdit,
 

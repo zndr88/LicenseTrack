@@ -15,6 +15,7 @@ import EmailSupplierAction from "./detail/EmailSupplierAction.jsx";
 import { NotesSection, CatchallCustomFieldsSection } from "./detail/NotesSection.jsx";
 import HistorySection from "./detail/HistorySection.jsx";
 import FieldEditModal from "./FieldEditModal.jsx";
+import MaintenanceCoverageModal from "./MaintenanceCoverageModal.jsx";
 import MaintenanceCreateModal from "./MaintenanceCreateModal.jsx";
 import LegacyMaintenanceLinkModal from "./LegacyMaintenanceLinkModal.jsx";
 import InvoiceNumbersModal from "./InvoiceNumbersModal.jsx";
@@ -56,6 +57,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     confirmAction, setConfirmAction,
     showMaintenanceModal, setShowMaintenanceModal,
     fieldEdit, openFieldEdit, closeFieldEdit, handleFieldSaved,
+    coverageEditOpen, closeCoverageEdit, openCoverageEdit, handleCoverageSave,
     invoiceNumbersEdit, openInvoiceNumbersEdit, closeInvoiceNumbersEdit,
     secondaryContactsEdit, openSecondaryContactsEdit, closeSecondaryContactsEdit,
     toast, setToast,
@@ -214,6 +216,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
                 customFieldValues={customFieldValues}
                 vis={vis}
                 openFieldEdit={openFieldEdit}
+                onEditCoverage={openCoverageEdit}
                 makeCustomFieldSaveFn={makeCustomFieldSaveFn}
                 closeFieldEdit={closeFieldEdit}
                 customFieldsLoading={customFieldsLoading}
@@ -403,7 +406,10 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
           confirmLabel={confirmAction.confirmLabel}
           danger={confirmAction.danger}
           onConfirm={confirmAction.onConfirm}
-          onCancel={() => setConfirmAction(null)}
+          onCancel={() => {
+            confirmAction.onCancel?.();
+            setConfirmAction(null);
+          }}
         />
       )}
 
@@ -453,6 +459,16 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               + (formerRef ? `; ${formerRef} remains reserved` : "")
             );
           }}
+        />
+      )}
+
+      {coverageEditOpen && (
+        <MaintenanceCoverageModal
+          license={license}
+          allLicenses={allLicenses}
+          userSettings={userSettings}
+          onSave={handleCoverageSave}
+          onClose={closeCoverageEdit}
         />
       )}
 

@@ -119,6 +119,13 @@ Work in progress for 1.2.0.
   used their own lists: license and procurement pickers left out Excel, Word
   and CSV files, and the contract picker offered `.doc`, which the server
   refused.
+- Linking terms within one request follows one rule in both Set predecessors
+  and Set next term: a line can't roll into an earlier-starting term, a link
+  that would close a loop isn't offered, and lines that can't be linked are
+  shown with the reason instead of being hidden or failing on save.
+- The Documents section opens expanded in every add, edit and conversion
+  dialog. It started collapsed in Add License, Convert All and the single
+  purchase-order conversion.
 - Convert All kept the PO line's estimated total as the license Line Total even
   when real unit prices were entered at conversion.
 - Subscriptions and SaaS with included maintenance could take their maintenance
@@ -142,8 +149,8 @@ Work in progress for 1.2.0.
 - Maintenance linking:
   - A license can be changed into Maintenance from the edit form by choosing
     the license it covers in the same step.
-  - Choosing "Separately tracked" coverage offers a quick link to an existing
-    maintenance record.
+  - Choosing "Separately tracked" coverage, in the edit form or with Edit
+    coverage, offers a quick link to an existing maintenance record.
   - Maintenance records that already cover another license stay visible in
     link searches, marked "Currently covers", and ask before covering one more.
   - The Renewal Workbench's "Record existing support" now lists existing
