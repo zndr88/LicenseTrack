@@ -49,7 +49,7 @@ function customFieldSortValue(license, def, customFieldValuesMap) {
 }
 
 // Order expiration by visible urgency/lifecycle state, then by its date/days tie-breaker.
-const EXPIRATION_ORDER = { expired: 0, expiring: 1, upcoming: 2, active: 3, perpetual: 4, renewed: 5, retired: 6, legacy: 7 };
+export const EXPIRATION_ORDER = Object.freeze({ expired: 0, expiring: 1, upcoming: 2, active: 3, perpetual: 4, renewed: 5, retired: 6, legacy: 7 });
 function expirationSortValue(license) {
   const expiration = license.expiration ?? {};
   const status = expiration.status ?? license.expirationStatus;
