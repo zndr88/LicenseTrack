@@ -100,6 +100,11 @@ async def set_planned_successors(
 
     changes = {item_id: successor_item_id for item_id in predecessor_item_ids}
     _assert_acyclic(all_items, changes)
+    if successor is not None and successor.start_date is not None:
+        # A later term can never become the predecessor of an earlier one.
+        for predecessor in predecessors:
+            if predecessor.start_date is not None and predecessor.start_date >= successor.start_date:
+                raise HTTPException(status_code=422, detail="A predecessor must start before its next term")
     for predecessor in predecessors:
         predecessor.successor_sourcing_item_id = successor_item_id
     await db.flush()

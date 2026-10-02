@@ -2096,6 +2096,14 @@ export function setPlannedSuccessors(predecessorItemIds, successorItemId) {
 
   const changes = new Map(predecessorItemIds.map((id) => [id, successorItemId]));
   assertPlannedLinksAcyclic(allItems, changes);
+  if (successor?.startDate) {
+    // A later term can never become the predecessor of an earlier one.
+    for (const predecessor of predecessors) {
+      if (predecessor.startDate && predecessor.startDate >= successor.startDate) {
+        throw new Error("A predecessor must start before its next term");
+      }
+    }
+  }
   const now = new Date().toISOString();
   for (const predecessor of predecessors) {
     predecessor.successorSourcingItemId = successorItemId;

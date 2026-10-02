@@ -238,3 +238,24 @@ async def test_link_edit_can_add_and_remove_predecessor_and_blocks_split(test_ap
     reread = await test_app.get(f"/api/sourcing/requests/{request['id']}", headers=auth_headers)
     assert reread.status_code == 200, reread.text
     assert reread.json()["items"][0]["successorSourcingItemId"] is None
+
+
+async def test_successor_links_require_the_predecessor_to_start_first(test_app, auth_headers):
+    request = await _request(test_app, auth_headers, _item("Suite 2026", "2026-01-01", "2026-12-31"))
+    later = await _add(test_app, auth_headers, request["id"], _item("Suite 2028", "2028-01-01", "2028-12-31"))
+    middle = await _add(test_app, auth_headers, request["id"], _item("Suite 2027", "2027-01-01", "2027-12-31"))
+
+    backwards = await test_app.put(
+        "/api/sourcing/requests/successor-links",
+        json={"predecessorItemIds": [later["id"]], "successorItemId": middle["id"]},
+        headers=auth_headers,
+    )
+    assert backwards.status_code == 422
+    assert backwards.json()["detail"] == "A predecessor must start before its next term"
+
+    forwards = await test_app.put(
+        "/api/sourcing/requests/successor-links",
+        json={"predecessorItemIds": [middle["id"]], "successorItemId": later["id"]},
+        headers=auth_headers,
+    )
+    assert forwards.status_code == 204, forwards.text
