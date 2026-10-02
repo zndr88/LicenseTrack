@@ -135,8 +135,6 @@ describe("license modal shell migration", () => {
     expect(screen.getByDisplayValue("Acme")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Acme Suite")).toBeInTheDocument();
     expect(screen.getByDisplayValue("INV-1")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Upload Invoice Document")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Documents/ }));
     expect(screen.getByLabelText("Upload Invoice Document")).toBeInTheDocument();
     expect(screen.getByLabelText("Upload Quote Document")).toBeInTheDocument();
     expect(screen.getByLabelText("Upload Purchase Order Document")).toBeInTheDocument();
@@ -177,7 +175,6 @@ describe("license modal shell migration", () => {
           onCancel={vi.fn()}
         />
       );
-      fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
       const file = new File(["%PDF-1.7"], "manual-invoice.pdf", { type: "application/pdf" });
       fireEvent.change(screen.getByLabelText(/upload invoice document/i), { target: { files: [file] } });
       expect(await screen.findByTitle("Preview of manual-invoice.pdf")).not.toHaveAttribute("sandbox");
@@ -210,7 +207,6 @@ describe("license modal shell migration", () => {
     const secondaryDescription = screen.getAllByLabelText(/software description/i)[1];
     fireEvent.change(secondaryDescription, { target: { value: "Secondary Suite" } });
     expect(secondaryDescription).toHaveValue("Secondary Suite");
-    await user.click(screen.getByRole("button", { name: /Documents/ }));
     const eula = new File(["terms"], "eula.txt", { type: "text/plain" });
     await user.upload(screen.getByLabelText("Upload EULA Document"), eula);
     await waitFor(() => {

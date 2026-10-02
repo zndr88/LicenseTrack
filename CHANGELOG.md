@@ -112,6 +112,9 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- The Documents section opens expanded in every add, edit and conversion
+  dialog. It started collapsed in Add License, Convert All and the single
+  purchase-order conversion.
 - Convert All kept the PO line's estimated total as the license Line Total even
   when real unit prices were entered at conversion.
 - Subscriptions and SaaS with included maintenance could take their maintenance

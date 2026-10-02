@@ -297,7 +297,6 @@ export default function MaintenanceCreateModal({
                   onRemoveAttachment={removeAttachment}
                   onCategoryScopeChange={changeCategoryScope}
                   userSettings={userSettings}
-                  defaultOpen
                 />
               </fieldset>
             </>
