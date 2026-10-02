@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { CURRENCIES, LICENSE_TYPES, LICENSE_METRICS, MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
-import { formatCost, getPoTotal } from "../../../utils/helpers.js";
+import { formatCost } from "../../../utils/helpers.js";
+import Icon from "../../ui/Icon.jsx";
+import { getProcurementBreakdown } from "../../../utils/procurementIdentity.js";
 import Badge from "../../ui/Badge.jsx";
 import { numberInputErrorMessage, parseTypedNumberResult, sameNumberValue, toInputText, formatDate, formatDateTime, formatUnitPrice } from "../../../utils/formatting.js";
 import { formatCustomFieldValue } from "../../../utils/customFieldPresentation.js";
@@ -368,8 +370,19 @@ export default function LicenseTableRowCells({
         return <td key="unitPrice" className="mono lp-mono-bold">{formatUnitPrice(license.unitPrice, license.currency || displayCurrency, userSettings)}</td>;
       case "currency":
         return <td key="currency" className="mono">{license.currency || "-"}</td>;
-      case "totalPoPrice":
-        return <td key="totalPoPrice" className="mono lp-mono-bold">{formatCost(getPoTotal(license.poNumber, license.currency, licenses, license), license.currency || displayCurrency, locale)}</td>;
+      case "totalPoPrice": {
+        const purchase = getProcurementBreakdown(license, licenses);
+        return (
+          <td key="totalPoPrice" className="mono lp-mono-bold">
+            {formatCost(purchase.total, license.currency || displayCurrency, locale)}
+            {purchase.override !== null && (
+              <span className="lp-manual-po-total" role="img" aria-label="Manual PO total" title="Manual PO total">
+                <Icon name="lock" size={11} />
+              </span>
+            )}
+          </td>
+        );
+      }
       case "calcTotal": {
         const total = getLineAmount(license);
         if (total === null) return <td key="calcTotal" className="mono lp-mono-bold">-</td>;
@@ -437,8 +450,6 @@ export default function LicenseTableRowCells({
         return <td key="maintenanceEndDate" className="mono">{license.maintenanceEndDate ? formatDate(license.maintenanceEndDate, userSettings) : "-"}</td>;
       case "maintenanceCost":
         return <td key="maintenanceCost" className="mono lp-mono-bold">{formatCost(license.maintenanceCost, license.currency || displayCurrency, locale)}</td>;
-      case "poTotalOverride":
-        return <td key="poTotalOverride" className="mono lp-mono-bold">{formatCost(license.poTotalOverride, license.currency || displayCurrency, locale)}</td>;
       case "parentLicenseRefs": {
         const parentIds = new Set(license.maintenanceParentIds ?? []);
         const refs = licenses

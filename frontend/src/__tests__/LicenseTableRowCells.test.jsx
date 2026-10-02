@@ -353,3 +353,28 @@ describe("LicenseTableRowCells numeric inline edit (#63)", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(9, "unitPrice", "0.25"));
   });
 });
+
+describe("LicenseTableRowCells Total PO Value", () => {
+  const base = {
+    id: 1,
+    poNumber: "PO-1",
+    currency: "EUR",
+    quantity: "1",
+    unitPrice: "100",
+    completeness: { percentage: 100, isComplete: true },
+    expiration: { status: "active", label: "Active" },
+  };
+
+  test("marks a Total PO Value that comes from a manual PO total", () => {
+    renderCells({ ...base, poTotalOverride: "80" }, [{ key: "totalPoPrice" }]);
+    const cell = screen.getByRole("cell");
+    expect(cell).toHaveTextContent("€80.00");
+    expect(screen.getByLabelText("Manual PO total")).toBeInTheDocument();
+  });
+
+  test("shows no marker for a calculated Total PO Value", () => {
+    renderCells(base, [{ key: "totalPoPrice" }]);
+    expect(screen.getByRole("cell")).toHaveTextContent("€100.00");
+    expect(screen.queryByLabelText("Manual PO total")).not.toBeInTheDocument();
+  });
+});

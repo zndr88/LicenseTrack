@@ -29,7 +29,8 @@ export const COLUMN_DEFS = [
   { key: "quantityPerUnit", label: "Qty / Unit", settingsLabel: "Quantity per Unit", width: 95, group: "standard", defaultVisible: false, detailKey: "quantityPerUnit" },
   { key: "skuCode", label: "SKU", settingsLabel: "SKU Code", width: 100, group: "standard", defaultVisible: false, detailKey: "skuCode" },
   { key: "unitPrice", label: "Unit Price", width: 110, group: "standard", defaultVisible: false, detailKey: "unitPrice" },
-  { key: "poTotalOverride", label: "Manual PO Total", width: 130, group: "advanced", defaultVisible: false },
+  // Export-only: the Total PO Value column marks a manual total instead.
+  { key: "poTotalOverride", label: "Manual PO Total", width: 130, group: "advanced", defaultVisible: false, exportOnly: true },
   { key: "totalPoPrice", label: "Total PO Value", width: 120, group: "computed", defaultVisible: true, detailKey: "totalPoPrice", computed: true },
   { key: "currency", label: "Currency", width: 85, group: "standard", defaultVisible: false },
   { key: "startDate", label: "Start Date", width: 100, group: "standard", defaultVisible: true, settingsKey: "dates", settingsLabel: "Dates", grouped: true },
@@ -69,6 +70,7 @@ export const VISIBLE_IN_LIST_DEFAULTS = COLUMN_DEFS.reduce((defaults, column) =>
 export const SETTINGS_COLUMN_DEFS = COLUMN_DEFS.filter((column, index, columns) => (
   column.group
   && !column.always
+  && !column.exportOnly
   && (!column.settingsKey || columns.findIndex((item) => item.settingsKey === column.settingsKey) === index)
 ));
 

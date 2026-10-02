@@ -102,6 +102,8 @@ Work in progress for 1.2.0.
   or net unit price; for a negotiated PO total, use the manual PO total. In CSV
   imports a line total fills a missing unit price or is checked against it; a
   Total PO Price column is no longer imported.
+- The Registry's Total PO Value shows a lock icon when it comes from a manual PO
+  total.
 
 ### Deprecated
 

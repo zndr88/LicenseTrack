@@ -10,6 +10,7 @@ import { hasSortAccessor } from "../utils/sort.js";
 import {
   COLUMN_DEFS,
   getFullExportColumns,
+  SETTINGS_COLUMN_DEFS,
   makeCustomFieldColumnDefs,
   VISIBLE_IN_LIST_DEFAULTS,
 } from "../components/pages/licenses/licenseColumns.js";
@@ -173,5 +174,16 @@ describe("license column registry", () => {
     expect(fullExportKeys).toContain("notes");
     expect(fullExportKeys).toContain("createdAt");
     expect(fullExportKeys).toContain("cf_owner");
+  });
+});
+
+describe("export-only columns", () => {
+  const manualPoTotal = COLUMN_DEFS.find((column) => column.key === "poTotalOverride");
+
+  test("the manual PO total is exported but never shown as a Registry column", () => {
+    expect(manualPoTotal.exportOnly).toBe(true);
+    expect(getVisibleColumns([manualPoTotal], { poTotalOverride: true })).toEqual([]);
+    expect(SETTINGS_COLUMN_DEFS.some((column) => column.key === "poTotalOverride")).toBe(false);
+    expect(getFullExportColumns(COLUMN_DEFS).some((column) => column.key === "poTotalOverride")).toBe(true);
   });
 });

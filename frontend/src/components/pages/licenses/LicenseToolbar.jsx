@@ -24,7 +24,7 @@ function buildColumnSelectorGroups(activeColumns) {
   const seen = new Set();
   const byGroup = new Map();
   for (const column of activeColumns) {
-    if (!column.group || column.always || column.tableOnly) continue;
+    if (!column.group || column.always || column.tableOnly || column.exportOnly) continue;
     const key = getSelectorKey(column);
     if (seen.has(key)) continue;
     seen.add(key);
