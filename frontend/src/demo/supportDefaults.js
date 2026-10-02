@@ -26,8 +26,10 @@ export function isBundledIncludedSupport(licenseType, maintenanceCoverage) {
   return BUNDLED_INCLUDED_SUPPORT_TYPES.has(licenseType) && maintenanceCoverage === "included";
 }
 
+// Mirrors backend/app/services/support_coverage_defaults.py: only a procurement
+// estimate (Est. Line Total) can override quantity x unit price.
 export function calculateAcquisitionTotal(data) {
-  const total = parseNumber(data.totalPoPrice ?? data.estimatedTotalPrice);
+  const total = parseNumber(data.estimatedTotalPrice);
   if (total !== null) return formatMoney(total);
 
   const quantity = parseNumber(data.quantity);
