@@ -115,6 +115,10 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- A price cleared on a renewal line stayed cleared only until conversion: Convert
+  to License refilled the previous term's unit price, maintenance unit price or
+  maintenance cost. Prices now come from the renewal line only; starting a
+  renewal still copies the previous price there as a reference.
 - Document file pickers offer exactly the file types the server accepts. They
   used their own lists: license and procurement pickers left out Excel, Word
   and CSV files, and the contract picker offered `.doc`, which the server

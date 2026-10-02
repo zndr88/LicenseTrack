@@ -376,3 +376,24 @@ def test_included_maintenance_cost_defaults_from_quantity_times_unit_price():
     )
 
     assert data["maintenance_cost"] == "100"
+
+
+def test_cleared_renewal_prices_are_not_refilled_from_the_previous_term():
+    old_license = make_license(unit_price="250", maintenance_unit_price="30", maintenance_cost="300")
+    item = make_sourcing_item(estimated_unit_price=None, maintenance_unit_price=None, maintenance_cost=None)
+
+    data = build_pending_order_item_license_data({}, set(), item, old_license)
+
+    assert data.get("unit_price") in (None, "")
+    assert data.get("maintenance_unit_price") in (None, "")
+    assert data.get("maintenance_cost") in (None, "")
+
+
+def test_renewal_prices_still_come_from_the_renewal_line():
+    old_license = make_license(unit_price="250", maintenance_cost="300")
+    item = make_sourcing_item(estimated_unit_price="275", maintenance_cost="320")
+
+    data = build_pending_order_item_license_data({}, set(), item, old_license)
+
+    assert data["unit_price"] == "275"
+    assert data["maintenance_cost"] == "320"
