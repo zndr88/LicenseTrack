@@ -1,3 +1,5 @@
+import { getLineAmount } from "./lineAmount.js";
+
 export function normalizeProcurementPoNumber(value) {
   return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 }
@@ -38,8 +40,5 @@ export function getProcurementTotal(selected, allLicenses) {
       && license.poTotalOverride !== "",
   );
   if (override) return Number(override.poTotalOverride) || 0;
-  return matching.reduce(
-    (sum, license) => sum + (parseFloat(license.quantity) || 0) * (parseFloat(license.unitPrice) || 0),
-    0,
-  );
+  return matching.reduce((sum, license) => sum + (getLineAmount(license) ?? 0), 0);
 }

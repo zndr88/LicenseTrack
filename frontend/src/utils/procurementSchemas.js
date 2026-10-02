@@ -56,7 +56,6 @@ export const licenseFormSchema = z.object({
   quantityPerUnit:     z.string(),
   skuCode:             z.string(),
   unitPrice:           z.string(),
-  totalPoPrice:        z.string(),
   currency:            z.string(),
   budgetOwnerEmail:    optionalEmail,
   budgetOwnerRequired: z.boolean().optional(),

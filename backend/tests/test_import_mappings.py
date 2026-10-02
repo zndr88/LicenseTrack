@@ -383,3 +383,34 @@ async def test_flexera_preview_endpoint_removed(test_app, auth_headers):
         files={"file": ("data.csv", csv_bytes, "text/csv")},
     )
     assert resp.status_code in (404, 405)
+
+
+async def test_execute_import_does_not_store_a_total_po_price_mapping(test_app, db_session, auth_headers):
+    """A mapping profile saved before 1.2.0 may still target total_po_price."""
+    csv_bytes = _make_csv(
+        ["Publisher", "Description", "Qty", "Price", "PO Total"],
+        [{"Publisher": "Acme", "Description": "Legacy Mapped Suite", "Qty": "2", "Price": "10", "PO Total": "5000"}],
+    )
+    mapping = [
+        {"rawHeader": "Publisher", "target": "publisher_name"},
+        {"rawHeader": "Description", "target": "software_description"},
+        {"rawHeader": "Qty", "target": "quantity"},
+        {"rawHeader": "Price", "target": "unit_price"},
+        {"rawHeader": "PO Total", "target": "total_po_price"},
+    ]
+
+    resp = await test_app.post(
+        "/api/import/execute",
+        headers=auth_headers,
+        files={"file": ("data.csv", csv_bytes, "text/csv")},
+        data={"mapping_json": json.dumps({"mapping": mapping})},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["importedCount"] == 1
+    license_obj = await db_session.scalar(
+        select(License).where(License.software_description == "Legacy Mapped Suite")
+    )
+    assert license_obj is not None
+    assert license_obj.total_po_price == ""
+    assert license_obj.unit_price == "10"

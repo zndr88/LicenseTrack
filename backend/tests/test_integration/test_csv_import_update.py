@@ -16,7 +16,7 @@ def _row(license_ref):
         start_date=None, end_date=None, contract_number="", po_number="",
         invoice_number="", contact_email="", supplier="", cost_centre="",
         license_type="subscription", license_metric="per_user", quantity="",
-        sku_code="", unit_price="", total_po_price="", currency="EUR",
+        sku_code="", unit_price="", line_total="", currency="EUR",
         notes=None, budget_owner_email="", external_ref=None,
         license_ref=license_ref, parent_license_ref=None, portal_url=None,
         maintenance_coverage=None, import_status="active",

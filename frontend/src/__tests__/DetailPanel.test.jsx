@@ -424,7 +424,7 @@ describe('DetailPanel commercial details', () => {
 
     await user.click(screen.getByText('Details'))
 
-    const label = await screen.findByText('Calculated total')
+    const label = await screen.findByText('Line Total')
     expect(label.parentElement).toHaveTextContent(expected)
   })
 })
@@ -2079,5 +2079,32 @@ describe('DetailPanel PO line number', () => {
     fireEvent.change(screen.getByLabelText('PO #'), { target: { value: 'PO-002' } })
     expect(screen.getByText(/line number may change/i)).toBeInTheDocument()
     expect(screen.queryByLabelText(/PO line/i)).not.toBeInTheDocument()
+  })
+})
+
+
+describe('DetailPanel full edit Line Total', () => {
+  it('shows a calculated Line Total instead of an input and sends no stored total', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn().mockResolvedValue(true)
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 1, role: 'admin' }}
+        license={{ ...baseLicense, quantity: '4', unitPrice: '25', totalPoPrice: '9999' }}
+        onUpdate={onUpdate}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    expect(screen.queryByRole('textbox', { name: 'Line Total' })).not.toBeInTheDocument()
+    expect(screen.getByText('Line Total')).toBeInTheDocument()
+    expect(screen.getByText(/100\.00/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalled())
+    expect(onUpdate.mock.calls[0][1]).not.toHaveProperty('totalPoPrice')
   })
 })

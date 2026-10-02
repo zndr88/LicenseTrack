@@ -22,7 +22,7 @@ export const NATIVE_FIELDS = [
   { value: "quantity_per_unit",    label: "Quantity per Unit" },
   { value: "sku_code",             label: "SKU Code" },
   { value: "unit_price",           label: "Unit Price" },
-  { value: "total_po_price",       label: "Legacy PO Price (stored only; not used)" },
+  { value: "line_total",           label: "Line Total (checks or fills the unit price)" },
   { value: "currency",             label: "Currency" },
   { value: "notes",                label: "Notes" },
   { value: "budget_owner_email",   label: "Budget Owner Email" },
@@ -34,5 +34,5 @@ export const NATIVE_FIELDS = [
   { value: "is_renewable",         label: "Renewable (Service / Other: Yes / No)" },
   { value: "type_description",     label: "Type Description (Other)" },
   { value: "maintenance_coverage", label: "Maintenance Coverage" },
-  { value: "__calc_total__",       label: "Calc. Total — derived from Qty × Unit Price, skip this column", disabled: true },
+  { value: "total_po_price",       label: "Total PO Price (not imported; warns)" },
 ];

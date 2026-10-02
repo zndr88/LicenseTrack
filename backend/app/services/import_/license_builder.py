@@ -135,7 +135,6 @@ async def build_license(
         "quantity_per_unit": row.quantity_per_unit or "1",
         "sku_code": row.sku_code,
         "unit_price": row.unit_price,
-        "total_po_price": row.total_po_price,
         "po_total_override": row.po_total_override or None,
         "currency": row.currency,
         "start_date": row.db_start_date,

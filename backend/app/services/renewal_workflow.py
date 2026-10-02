@@ -124,8 +124,7 @@ def build_renewal_sourcing_item(
         quantity_per_unit=license_obj.quantity_per_unit or "1",
         sku_code=license_obj.sku_code or None,
         estimated_unit_price=license_obj.unit_price or None,
-        # Seed with this license's own line total (qty × unit price), not the
-        # stored total_po_price: that column is a deprecated whole-PO aggregate.
+        # Seed with this license's own line total (quantity x unit price).
         estimated_total_price=(
             format(line_total, "f")
             if (line_total := calc_line_total(license_obj.quantity, license_obj.unit_price)) is not None
@@ -192,11 +191,6 @@ def build_pending_order_item_license_data(
     apply_fallback("quantity_per_unit", item.quantity_per_unit, getattr(old_license, "quantity_per_unit", None))
     apply_fallback("sku_code", item.sku_code, getattr(old_license, "sku_code", None))
     apply_fallback("unit_price", item.estimated_unit_price, getattr(old_license, "unit_price", None))
-    apply_fallback(
-        "total_po_price",
-        item.estimated_total_price,
-        getattr(old_license, "total_po_price", None),
-    )
     apply_fallback("currency", item.currency, getattr(old_license, "currency", None))
     apply_fallback("start_date", item.start_date)
     apply_fallback("end_date", item.end_date)
@@ -262,8 +256,10 @@ def build_pending_order_item_license_data(
             data["maintenance_start_date"] = data.get("start_date")
         if "maintenance_end_date" not in submitted_fields and "end_date" in submitted_fields:
             data["maintenance_end_date"] = data.get("end_date")
-        if "maintenance_cost" not in submitted_fields and "total_po_price" in submitted_fields:
-            data["maintenance_cost"] = data.get("total_po_price")
+        if "maintenance_cost" not in submitted_fields and submitted_fields & {"quantity", "unit_price"}:
+            line_total = calc_line_total(data.get("quantity"), data.get("unit_price"))
+            if line_total is not None:
+                data["maintenance_cost"] = format(line_total, "f")
 
     if old_license is not None and old_license.license_type == LicenseType.maintenance:
         apply_fallback("parent_license_id", old_license.parent_license_id)

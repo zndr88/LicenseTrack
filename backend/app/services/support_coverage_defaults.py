@@ -31,10 +31,15 @@ def is_bundled_included_support(
 def calculate_acquisition_total(
     quantity: object,
     unit_price: object,
-    total_po_price: object,
+    estimated_total: object = None,
 ) -> str | None:
+    """Acquisition value of one line.
+
+    Procurement estimates keep their own Est. Line Total; licenses always use
+    quantity x unit price (the stored license Line Total is retired).
+    """
     try:
-        total = parse_money(total_po_price)
+        total = parse_money(estimated_total)
         if total is not None:
             return format(total, "f")
         parsed_quantity = parse_money(quantity)
@@ -59,7 +64,7 @@ def apply_bundled_included_support_defaults(data: dict[str, Any]) -> None:
     acquisition_total = calculate_acquisition_total(
         data.get("quantity"),
         data.get("unit_price") or data.get("estimated_unit_price"),
-        data.get("total_po_price") or data.get("estimated_total_price"),
+        data.get("estimated_total_price"),
     )
     if acquisition_total is not None:
         data["maintenance_cost"] = acquisition_total

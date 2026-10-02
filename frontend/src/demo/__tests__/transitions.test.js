@@ -510,6 +510,21 @@ describe("renewal golden path transitions", () => {
     expect(list.data.some((o) => o.id === 201)).toBe(false);
   });
 
+  it("included maintenance defaults its cost from quantity x unit price, not a stored total, on convert-all", async () => {
+    const payload = [
+      {
+        sourcingItemId: 103, publisherName: "Okta", softwareDescription: "Workforce Identity, 400 users",
+        licenseType: "subscription", maintenanceCoverage: "included", quantity: "4", unitPrice: "25", totalPoPrice: "9999",
+        startDate: "2026-01-01", endDate: "2026-12-31",
+      },
+      { sourcingItemId: 104, publisherName: "Okta", softwareDescription: "Advanced Server Access, 40 servers", quantity: "40", unitPrice: "133.00" },
+    ];
+    const { data, error } = await demoRequest("/api/pending-orders/201/convert-all", { method: "POST", body: JSON.stringify(payload) });
+    expect(error).toBeNull();
+    const included = data.find((l) => l.softwareDescription === "Workforce Identity, 400 users");
+    expect(Number(included.maintenanceCost)).toBe(100);
+  });
+
   it("new-purchase conversion yields conversionType new_purchase and no renewal chain", async () => {
     // Sourcing item 102 (Datadog) is a standalone, non-renewal item.
     await demoRequest("/api/sourcing/102/convert", { method: "POST", body: JSON.stringify({ poNumber: "PO-2026-0555" }) });

@@ -1,6 +1,7 @@
 {
   "exportHeaders": {
     "budgetOwnerEmail": "budget_owner_email",
+    "calcTotal": "line_total",
     "contactEmail": "contact_email",
     "contractNumber": "contract_number",
     "costCentre": "cost_centre",
@@ -15,7 +16,6 @@
     "licenseRef": "license_ref",
     "licenseType": "license_type",
     "lifecycleStatus": "lifecycle_status",
-    "lineTotal": "line_total",
     "maintenanceCost": "maintenance_cost",
     "maintenanceCoverage": "maintenance_coverage",
     "maintenanceEndDate": "maintenance_end_date",

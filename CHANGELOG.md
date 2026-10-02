@@ -95,8 +95,28 @@ Work in progress for 1.2.0.
   them with a 422 instead; this may become the default in a later release, so
   integrations should send only documented fields.
 
+- Line Total is always quantity × unit price. The separate Line Total input is
+  gone from license, invoice and conversion forms, which show the calculated
+  value instead, and the Registry has one Line Total column (formerly
+  Calc. Total). For an invoice line that doesn't divide evenly, enter a precise
+  or net unit price; for a negotiated PO total, use the manual PO total. In CSV
+  imports a line total fills a missing unit price or is checked against it; a
+  Total PO Price column is no longer imported.
+
+### Deprecated
+
+- The `totalPoPrice` license API field. It is still accepted and returned but no
+  longer used; it will be removed in 1.3.0.
+
 ### Fixed
 
+- Convert All kept the PO line's estimated total as the license Line Total even
+  when real unit prices were entered at conversion.
+- Subscriptions and SaaS with included maintenance could take their maintenance
+  cost from an outdated stored total instead of quantity × unit price.
+- The Add Maintenance dialog stored the coverage cost as the unit price, so
+  totals and reports multiplied it by the covered quantity. New records are
+  correct, and existing records created this way are corrected on upgrade.
 - Unit prices are shown with every stored decimal (at least two), so 0.1234 no
   longer displays as 0.12; totals keep two decimals. The localized CSV export
   keeps unit price decimals too.
@@ -122,13 +142,14 @@ Work in progress for 1.2.0.
   - All maintenance link dialogs search the same fields (including PO number,
     contract, dates and the covered license), and show how many retired
     records are hidden.
-- CSV export → import now preserves line totals, manual PO totals,
+- CSV export → import now preserves manual PO totals,
   maintenance pricing (per-unit and free), and which licenses a maintenance
   record covers (several allowed, separated by ";"). An exported lifecycle
   status is honoured: Legacy stays Legacy, and an active record that expired
   recently is no longer turned into Legacy. Update imports can correct an
   included maintenance period. The API export gained request and purchase
-  dates, portal URL, maintenance fields, line total and manual PO total.
+  dates, portal URL, maintenance fields and manual PO total, and its Line Total
+  column is quantity × unit price.
 - One "same PO" rule: shared documents now match licenses whose PO numbers
   differ only in case or spacing (listing, downloads, counts and completeness).
   Email Supplier's "all matching licenses" includes only lines of the same

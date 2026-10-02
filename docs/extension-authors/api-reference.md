@@ -315,8 +315,12 @@ Integrations must return the candidate key supplied by preview and must not
 cache a decision across a new preview; execution revalidates target activity,
 name, role, and batch conflicts before writing.
 
-The importable `total_po_price` field is a legacy stored compatibility value.
-It does not set `poTotalOverride` or replace the calculated whole-PO value.
+`totalPoPrice` / `total_po_price` on license requests and responses is
+**deprecated** and will be removed in 1.3.0. Values sent through the API are
+still stored, but LicenseTrack never uses them: a license's Line Total is
+always `quantity × unitPrice`, and the PO total is the sum of line totals unless
+`poTotalOverride` is set. CSV imports treat a `line_total` column as a check or
+as a way to fill a missing unit price; a `total_po_price` column is not imported.
 
 Report recurring-cost calculations annualize subscription, SaaS, maintenance,
 and paid included-support records when their stored term is longer than one

@@ -1831,7 +1831,8 @@ async def test_confirm_maps_perpetual_included_support_dates_and_defaults_cost(
             "maintenance_coverage",
             "effective_date",
             "expiry_date",
-            "total_po_price",
+            "quantity",
+            "unit_price",
         ],
         [{
             "publisher_name": "Acme",
@@ -1840,7 +1841,8 @@ async def test_confirm_maps_perpetual_included_support_dates_and_defaults_cost(
             "maintenance_coverage": "included",
             "effective_date": _FUTURE_START,
             "expiry_date": _FUTURE_END,
-            "total_po_price": "2500.00",
+            "quantity": "5",
+            "unit_price": "500.00",
         }],
     )
 
@@ -2439,7 +2441,7 @@ async def test_confirm_import_parses_declared_belgian_locale(
             "start_date",
             "quantity",
             "unit_price",
-            "total_po_price",
+            "line_total",
         ],
         [{
             "publisher_name": "Acme",
@@ -2447,7 +2449,7 @@ async def test_confirm_import_parses_declared_belgian_locale(
             "start_date": "1-2-2027'",
             "quantity": "1.000.000",
             "unit_price": "€1.234,50",
-            "total_po_price": "EUR 1.234.500.000,00",
+            "line_total": "EUR 1.234.500.000,00",
         }],
     )
 
@@ -2467,7 +2469,7 @@ async def test_confirm_import_parses_declared_belgian_locale(
     assert license_obj.start_date == date(2027, 2, 1)
     assert license_obj.quantity == "1000000"
     assert license_obj.unit_price == "1234.50"
-    assert license_obj.total_po_price == "1234500000.00"
+    assert license_obj.total_po_price == ""
 
 
 # ---------------------------------------------------------------------------
@@ -2533,13 +2535,13 @@ async def test_confirm_clean_import_succeeds_without_acknowledgement(test_app, a
 
 async def test_confirm_import_price_mismatch_returns_409_without_acknowledgement(test_app, auth_headers):
     csv_bytes = _make_csv(
-        ["publisher_name", "software_description", "quantity", "unit_price", "total_po_price"],
+        ["publisher_name", "software_description", "quantity", "unit_price", "line_total"],
         [{
             "publisher_name": "SonarSource",
             "software_description": "SonarQube",
             "quantity": "5000000",
             "unit_price": "1000",
-            "total_po_price": "1000",
+            "line_total": "1000",
         }],
     )
 

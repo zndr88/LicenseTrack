@@ -9,6 +9,7 @@ import {
 } from "./supportDefaults.js";
 import { addDaysIso, daysUntil, inclusiveTermDays, termEnd } from "./time.js";
 import { sumCanonicalQuantities } from "../utils/quantity.js";
+import { formatLineAmount } from "../utils/lineAmount.js";
 import {
   isNonExpiringLicenseType,
   isRenewableLicense,
@@ -2146,8 +2147,12 @@ function applyIncludedSupportTermFallback(data, submittedFields = new Set()) {
   if (!submittedFields.has("maintenanceEndDate") && submittedFields.has("endDate")) {
     data.maintenanceEndDate = data.endDate;
   }
-  if (!submittedFields.has("maintenanceCost") && submittedFields.has("totalPoPrice")) {
-    data.maintenanceCost = data.totalPoPrice;
+  if (
+    !submittedFields.has("maintenanceCost")
+    && (submittedFields.has("quantity") || submittedFields.has("unitPrice"))
+  ) {
+    const lineAmount = formatLineAmount(data);
+    if (lineAmount !== "") data.maintenanceCost = lineAmount;
   }
   return data;
 }
@@ -2173,7 +2178,6 @@ function buildPendingOrderItemLicenseData(formData, item, oldLicense, submittedF
   if (item.portalUrl != null) data.portalUrl = item.portalUrl;
   if (item.skuCode != null) data.skuCode = item.skuCode;
   if (item.estimatedUnitPrice != null) data.unitPrice = item.estimatedUnitPrice;
-  if (item.estimatedTotalPrice != null) data.totalPoPrice = item.estimatedTotalPrice;
   if (item.maintenanceCoverage != null) data.maintenanceCoverage = item.maintenanceCoverage;
   if (item.maintenanceStartDate != null) data.maintenanceStartDate = item.maintenanceStartDate;
   if (item.maintenanceEndDate != null) data.maintenanceEndDate = item.maintenanceEndDate;

@@ -146,21 +146,6 @@ function getLicenseLineValue(license) {
   };
 }
 
-function getCalculatedLicenseValue(license) {
-  const lineValue = getLicenseLineValue(license);
-  if (lineValue.source !== "missing") return lineValue;
-
-  const totalPoPrice = parsePrice(license.totalPoPrice);
-  if (totalPoPrice !== null) {
-    return {
-      amount: totalPoPrice,
-      source: "po_fallback",
-    };
-  }
-
-  return lineValue;
-}
-
 function getMaintenanceRecordValue(license) {
   const maintenanceCost = parsePrice(license.maintenanceCost);
   if (maintenanceCost !== null) return maintenanceCost;
@@ -209,7 +194,7 @@ function getRecurringLicenseValue(license) {
       ? { amount: maintenanceCost, source: "included_support" }
       : { amount: 0, source: "missing" };
   }
-  return getCalculatedLicenseValue(license);
+  return getLicenseLineValue(license);
 }
 
 function getAnnualizedRecurringLicenseValue(license) {
@@ -241,7 +226,7 @@ function getReportLicenseValue(license, range) {
   if (range && isRecurringLicense(license)) {
     return getAllocatedRecurringLicenseValue(license, range);
   }
-  return getCalculatedLicenseValue(license);
+  return getLicenseLineValue(license);
 }
 
 function isCurrentMaintenanceCoverage(license) {
@@ -592,7 +577,7 @@ export function getPerpetualMaintenanceReport(licenses) {
     .filter((license) => license.licenseType === "perpetual")
     .map((license) => {
       const currency = license.currency || "USD";
-      const purchase = getCalculatedLicenseValue(license);
+      const purchase = getLicenseLineValue(license);
       const linkedRecords = [
         ...(maintenanceByParent.get(license.id) ?? []),
         ...(Array.isArray(license.linkedMaintenanceIds)
@@ -683,7 +668,6 @@ export function getPerpetualMaintenanceReport(licenses) {
  *   recurringRecords: object[],
  *   baselineByCurrency: {[currency: string]: number},
  *   singleCurrency: string | null,
- *   fallbackCount: number,
  * }}
  */
 export function getBudgetForecast(licenses, { years = 5, annualGrowthPct = 0 } = {}) {
@@ -721,7 +705,6 @@ export function getBudgetForecast(licenses, { years = 5, annualGrowthPct = 0 } =
     recurringRecords: recurringRecords.sort((a, b) => b.annualCost - a.annualCost),
     baselineByCurrency,
     singleCurrency,
-    fallbackCount: recurringRecords.filter((row) => row.costSource === "po_fallback").length,
   };
 }
 

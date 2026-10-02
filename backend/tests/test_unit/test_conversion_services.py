@@ -133,6 +133,7 @@ async def test_create_purchase_license_mirrors_bundled_subscription_support(db_s
         maintenance_end_date=date(2025, 12, 31),
         maintenance_cost="999.00",
         unit_price="300.00",
+        # Stale stored value: the cost follows quantity x unit price.
         total_po_price="3600.00",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 12, 31),
@@ -148,7 +149,7 @@ async def test_create_purchase_license_mirrors_bundled_subscription_support(db_s
 
     assert new_license.maintenance_start_date == date(2026, 1, 1)
     assert new_license.maintenance_end_date == date(2026, 12, 31)
-    assert new_license.maintenance_cost == "3600.00"
+    assert new_license.maintenance_cost == "300.00"
 
 
 async def test_create_maintenance_purchase_uses_created_parent_map(db_session):

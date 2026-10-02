@@ -226,7 +226,6 @@ def test_build_pending_order_item_license_data_preserves_submitted_values():
         "software_description": "Form Software",
         "quantity": "1",
         "unit_price": "11",
-        "total_po_price": "11",
         "currency": "GBP",
         "start_date": date(2027, 1, 1),
         "end_date": None,
@@ -259,7 +258,6 @@ def test_build_pending_order_item_license_data_preserves_submitted_values():
     assert data["software_description"] == "Form Software"
     assert data["quantity"] == "1"
     assert data["unit_price"] == "11"
-    assert data["total_po_price"] == "11"
     assert data["currency"] == "GBP"
     assert data["start_date"] == date(2027, 1, 1)
     assert data["end_date"] is None
@@ -280,7 +278,6 @@ def test_build_pending_order_item_license_data_fills_only_omitted_fields():
         "license_metric": LicenseMetric.per_user,
         "quantity": "",
         "unit_price": "",
-        "total_po_price": "",
         "currency": "EUR",
         "supplier": "",
         "contact_email": "",
@@ -313,7 +310,7 @@ def test_build_pending_order_item_license_data_fills_only_omitted_fields():
     assert data["software_description"] == "Form Software"
     assert data["quantity"] == "10"
     assert data["unit_price"] == "95"
-    assert data["total_po_price"] == "950"
+    assert "total_po_price" not in data
     assert data["currency"] == "USD"
     assert data["start_date"] == date(2027, 2, 1)
     assert data["end_date"] == date(2028, 1, 31)
@@ -358,3 +355,24 @@ def test_mark_predecessor_renewed_does_not_overwrite_existing_successor():
 
     assert exc_info.value.status_code == 409
     assert predecessor.renewed_to_id == 98
+
+
+def test_renewal_successor_does_not_copy_stored_line_total():
+    old_license = make_license(total_po_price="9999.00")
+    item = make_sourcing_item(estimated_total_price="950")
+
+    data = build_pending_order_item_license_data({}, set(), item, old_license)
+
+    assert "total_po_price" not in data
+
+
+def test_included_maintenance_cost_defaults_from_quantity_times_unit_price():
+    form_data = {"quantity": "4", "unit_price": "25", "maintenance_coverage": MaintenanceCoverage.included}
+    old_license = make_license()
+    item = make_sourcing_item()
+
+    data = build_pending_order_item_license_data(
+        form_data, {"quantity", "unit_price", "maintenance_coverage"}, item, old_license
+    )
+
+    assert data["maintenance_cost"] == "100"

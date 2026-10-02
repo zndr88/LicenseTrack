@@ -1,0 +1,20 @@
+{
+  "line_amount": [
+    {"quantity": "400", "unit_price": "18", "expected": "7200"},
+    {"quantity": "3", "unit_price": "33.3333", "expected": "99.9999"},
+    {"quantity": "40", "unit_price": "133.00", "expected": "5320"},
+    {"quantity": "0", "unit_price": "10", "expected": "0"},
+    {"quantity": "", "unit_price": "18", "expected": null},
+    {"quantity": "4", "unit_price": "", "expected": null},
+    {"quantity": "1,5", "unit_price": "10", "expected": null}
+  ],
+  "unit_price_from_total": [
+    {"total": "5000", "quantity": "4", "expected": "1250"},
+    {"total": "5000", "quantity": "3", "expected": "1666.666667"},
+    {"total": "100.00", "quantity": "3", "expected": "33.333333"},
+    {"total": "0.30", "quantity": "30", "expected": "0.01"},
+    {"total": "100", "quantity": "0", "expected": null},
+    {"total": "", "quantity": "3", "expected": null},
+    {"total": "100", "quantity": "", "expected": null}
+  ]
+}

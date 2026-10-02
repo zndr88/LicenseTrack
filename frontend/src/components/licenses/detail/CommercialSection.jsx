@@ -4,7 +4,7 @@ import { LICENSE_TYPES, LICENSE_METRICS, CURRENCIES } from "../../../constants/l
 import { formatCost, getEffectiveQuantity, getPoTotal } from "../../../utils/helpers.js";
 import { formatUnitPrice } from "../../../utils/formatting.js";
 import { formatQuantity } from "../../../utils/quantity.js";
-import { getCalcTotalValue } from "../../../utils/sort.js";
+import { getLineAmount } from "../../../utils/lineAmount.js";
 import { INLINE_LICENSE_TYPE_HINT, inlineLicenseTypeOptions } from "../../../utils/licenseTypeRules.js";
 import Icon from "../../ui/Icon.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
@@ -36,7 +36,7 @@ export default function CommercialSection({
   const fmtCost = (amount) =>
     formatCost(amount, license.currency || userSettings.displayCurrency || "EUR", userSettings.numberFormatLocale ?? "en-US");
   const effectiveQuantity = getEffectiveQuantity(license);
-  const calculatedTotal = getCalcTotalValue(license);
+  const calculatedTotal = getLineAmount(license);
 
   return (
     <>
@@ -178,7 +178,7 @@ export default function CommercialSection({
               )}
               {calculatedTotal !== null && (
                 <div className="dp-field">
-                  <span className="dp-field-label">Calculated total</span>
+                  <span className="dp-field-label">Line Total</span>
                   <div className="val dp-mono-val">{fmtCost(calculatedTotal)}</div>
                 </div>
               )}

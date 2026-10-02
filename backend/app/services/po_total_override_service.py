@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.license import License
 from app.models.pending_order import PendingOrder
 from app.models.sourcing import SourcingItem, SourcingStatus
-from app.services.money import MoneyParseError, parse_money
 from app.services.procurement_identity import normalize_po_number
 
 
@@ -277,12 +276,10 @@ def _license_identity(license_obj) -> tuple[str, str] | None:
 
 
 def _line_total(license_obj) -> Decimal:
-    try:
-        quantity = parse_money(str(license_obj.quantity) if license_obj.quantity else None) or Decimal("0")
-        unit_price = parse_money(str(license_obj.unit_price) if license_obj.unit_price else None) or Decimal("0")
-    except MoneyParseError:
-        return Decimal("0")
-    return quantity * unit_price
+    # Local import: license_service imports this module.
+    from app.services.license_service import calc_line_total
+
+    return calc_line_total(license_obj.quantity, license_obj.unit_price) or Decimal("0")
 
 
 def count_po_overrides_not_in_annual(included: Iterable, all_licenses: Iterable) -> int:

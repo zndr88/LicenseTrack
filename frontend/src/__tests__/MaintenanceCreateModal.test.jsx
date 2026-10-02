@@ -143,8 +143,7 @@ describe("MaintenanceCreateModal", () => {
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         quantity: "25",
-        unitPrice: "2500.50",
-        totalPoPrice: "2500.50",
+        unitPrice: "100.02",
         currency: "USD",
         poNumber: "PO-123",
         contractNumber: "C-123",
@@ -155,6 +154,30 @@ describe("MaintenanceCreateModal", () => {
       });
       expect(onSuccess).toHaveBeenCalledWith(42);
     });
+  });
+
+  test("stores the coverage cost as quantity x unit price", async () => {
+    const user = userEvent.setup();
+    createLicense.mockResolvedValueOnce({ data: { id: 99 }, error: null });
+
+    render(
+      <MaintenanceCreateModal
+        parentLicense={{ ...parentLicense, quantity: "4" }}
+        userSettings={userSettings}
+        onSuccess={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/end date/i), { target: { value: "2027-12-31" } });
+    await user.type(screen.getByLabelText(/maintenance cost/i), "5150");
+    await user.click(screen.getByRole("button", { name: /create maintenance record/i }));
+
+    await waitFor(() => expect(createLicense).toHaveBeenCalled());
+    const payload = createLicense.mock.calls[createLicense.mock.calls.length - 1][0];
+    expect(payload.quantity).toBe("4");
+    expect(payload.unitPrice).toBe("1287.5");
+    expect(payload).not.toHaveProperty("totalPoPrice");
   });
 
   test("API error is displayed and onSuccess is not called", async () => {

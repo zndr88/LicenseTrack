@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { getPoTotal } from "../utils/helpers.js";
-import { getCalcTotalValue, getSortValue } from "../utils/sort.js";
+import { getLineAmount } from "../utils/lineAmount.js";
+import { getSortValue } from "../utils/sort.js";
 
 const sort = (rows, key, direction = "asc", context = {}) => rows
   .map((row, index) => ({ row, index, value: getSortValue(row, key, context) }))
@@ -92,14 +93,14 @@ describe("License Overview sort accessors", () => {
 
   test.each([
     ["blank", "100"], ["5", ""], [null, "100"], ["100", undefined], ["invalid", "100"],
-  ])("Calc. Total treats missing operand %s as missing", (quantity, unitPrice) => {
-    expect(getCalcTotalValue({ quantity, unitPrice })).toBeNull();
+  ])("Line Total treats missing operand %s as missing", (quantity, unitPrice) => {
+    expect(getLineAmount({ quantity, unitPrice })).toBeNull();
     expect(getSortValue({ quantity, unitPrice }, "calcTotal")).toBeNull();
   });
 
-  test.each([[0, 100, 0], ["0", "100", 0], [5, "0", 0]])("Calc. Total agrees for valid zero operands", (quantity, unitPrice, expected) => {
+  test.each([[0, 100, 0], ["0", "100", 0], [5, "0", 0]])("Line Total agrees for valid zero operands", (quantity, unitPrice, expected) => {
     const license = { quantity, unitPrice };
-    expect(getCalcTotalValue(license)).toBe(expected);
+    expect(getLineAmount(license)).toBe(expected);
     expect(getSortValue(license, "calcTotal")).toBe(expected);
   });
 

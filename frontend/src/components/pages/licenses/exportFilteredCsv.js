@@ -1,7 +1,7 @@
 import { getPoTotal } from "../../../utils/helpers.js";
 import { formatDate, formatDateTime, toInputText } from "../../../utils/formatting.js";
 import { formatQuantityInput } from "../../../utils/quantity.js";
-import { getCalcTotalValue } from "../../../utils/sort.js";
+import { formatLineAmount, getLineAmount } from "../../../utils/lineAmount.js";
 import { renewableLabel } from "../../../utils/licenseTypeRules.js";
 import csvFields from "../../../generated/csvFields.json";
 
@@ -100,7 +100,6 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
         case "quantityPerUnit": return fmtQty(l.quantityPerUnit);
         case "skuCode": return l.skuCode ?? "";
         case "unitPrice": return fmtUnitDecimal(l.unitPrice);
-        case "lineTotal": return fmtDecimal(l.totalPoPrice);
         case "poTotalOverride": return fmtDecimal(l.poTotalOverride);
         case "currency": return l.currency ?? "";
         case "totalPoPrice": {
@@ -108,7 +107,8 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
           return fmtDecimal(total != null ? String(total) : "");
         }
         case "calcTotal": {
-          const total = getCalcTotalValue(l);
+          if (!localized) return formatLineAmount(l);
+          const total = getLineAmount(l);
           return total === null ? "" : fmtDecimal(String(total));
         }
         case "startDate": return fmtDate(l.startDate);

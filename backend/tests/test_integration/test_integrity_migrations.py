@@ -1,6 +1,7 @@
 """Regression coverage for the relationship-integrity repair migrations."""
 
 import json
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -270,3 +271,107 @@ def test_legacy_unlinked_maintenance_constraint_states(tmp_path, monkeypatch):
                 is_legacy_unlinked_maintenance=True,
             )
     engine.dispose()
+
+
+def test_maintenance_dialog_unit_price_migration_fixes_only_the_dialog_signature(tmp_path, monkeypatch):
+    """The Add Maintenance dialog stored the coverage cost as the unit price next
+    to the parent's quantity; only rows with exactly that signature are fixed."""
+    database_path = tmp_path / "maintenance-dialog.sqlite"
+    config = _alembic_config(database_path, monkeypatch)
+    command.upgrade(config, "2ce70b265de2")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    try:
+        with engine.begin() as connection:
+            parent_id = _insert_license(connection, license_type=LicenseType.perpetual)
+            signature = _insert_license(
+                connection,
+                license_type=LicenseType.maintenance,
+                parent_license_id=parent_id,
+                quantity="4",
+                unit_price="5150",
+                total_po_price="5150",
+            )
+            single_quantity = _insert_license(
+                connection,
+                license_type=LicenseType.maintenance,
+                parent_license_id=parent_id,
+                quantity="1",
+                unit_price="5150",
+                total_po_price="5150",
+            )
+            other_type = _insert_license(
+                connection,
+                license_type=LicenseType.subscription,
+                quantity="4",
+                unit_price="5150",
+                total_po_price="5150",
+            )
+            different_total = _insert_license(
+                connection,
+                license_type=LicenseType.maintenance,
+                parent_license_id=parent_id,
+                quantity="4",
+                unit_price="1287.5",
+                total_po_price="5150",
+            )
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            unit_prices = dict(
+                connection.execute(
+                    text("SELECT id, unit_price FROM licenses WHERE id != :parent_id"),
+                    {"parent_id": parent_id},
+                ).all()
+            )
+        assert unit_prices[signature] == "1287.5"
+        assert unit_prices[single_quantity] == "5150"
+        assert unit_prices[other_type] == "5150"
+        assert unit_prices[different_total] == "1287.5"
+    finally:
+        engine.dispose()
+
+
+def test_maintenance_dialog_migration_corrects_the_parent_cost_mirror(tmp_path, monkeypatch):
+    database_path = tmp_path / "maintenance-mirror.sqlite"
+    config = _alembic_config(database_path, monkeypatch)
+    command.upgrade(config, "2ce70b265de2")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    try:
+        with engine.begin() as connection:
+            def parent_with_active_child(child_quantity, mirrored_cost):
+                parent_id = _insert_license(connection, license_type=LicenseType.perpetual)
+                child_id = _insert_license(
+                    connection,
+                    license_type=LicenseType.maintenance,
+                    parent_license_id=parent_id,
+                    quantity=child_quantity,
+                    unit_price="5150",
+                    total_po_price="5150",
+                )
+                connection.execute(
+                    text(
+                        "UPDATE licenses SET active_maintenance_id = :child, has_maintenance = 1, "
+                        "maintenance_cost = :cost WHERE id = :id"
+                    ),
+                    {"child": child_id, "cost": mirrored_cost, "id": parent_id},
+                )
+                return parent_id, child_id
+
+            corrected_parent, corrected_child = parent_with_active_child("4", "20600")
+            untouched_parent, untouched_child = parent_with_active_child("1", "5150")
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            def row(license_id, column):
+                return connection.execute(
+                    text(f"SELECT {column} FROM licenses WHERE id = :id"), {"id": license_id}
+                ).scalar_one()
+
+            assert row(corrected_child, "unit_price") == "1287.5"
+            assert Decimal(row(corrected_parent, "maintenance_cost")) == Decimal("5150")
+            assert row(untouched_child, "unit_price") == "5150"
+            assert row(untouched_parent, "maintenance_cost") == "5150"
+    finally:
+        engine.dispose()

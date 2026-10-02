@@ -15,6 +15,8 @@ import { BUDGET_OWNER_REQUIRED_MESSAGE } from "../../utils/procurementSchemas.js
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { ModalSectionExpansionContext } from "../ui/ModalSectionExpansionContext.js";
 import LicenseTypeLabel from "../licenses/LicenseTypeLabel.jsx";
+import CalculatedLineTotal from "../licenses/CalculatedLineTotal.jsx";
+import { getLineAmountText } from "../../utils/lineAmount.js";
 
 /**
  * Determines whether a watched form item has all required fields filled.
@@ -215,7 +217,6 @@ export default function ConvertItemForm({
                     }
                     if (isFreewareLicenseType(nextType)) {
                       setValue(`items.${idx}.unitPrice`, "", { shouldDirty: true });
-                      setValue(`items.${idx}.totalPoPrice`, "", { shouldDirty: true });
                     }
                   },
                 })}
@@ -277,7 +278,7 @@ export default function ConvertItemForm({
             licenseQuantity={wi.quantity}
             licenseStartDate={wi.startDate}
             licenseEndDate={isNonExpiringLicenseType(wi.licenseType) ? "" : wi.endDate}
-            licenseTotalCost={wi.totalPoPrice}
+            licenseTotalCost={getLineAmountText(wi)}
             currency={wi.currency}
             locale={locale}
             onChange={(field, value) => setValue(`items.${idx}.${field}`, value, { shouldDirty: true })}
@@ -319,23 +320,7 @@ export default function ConvertItemForm({
                 )}
               />
             </div>
-            <div className="fg">
-              <label htmlFor={`ca-total-price-${idx}`}>Line Total</label>
-              <Controller
-                control={control}
-                name={`items.${idx}.totalPoPrice`}
-                render={({ field: f }) => (
-                  <NumberInput
-                    id={`ca-total-price-${idx}`}
-                    value={f.value ?? ""}
-                    settings={numberSettings}
-                    minFractionDigits={2}
-                    onChange={f.onChange}
-                    onBlur={f.onBlur}
-                  />
-                )}
-              />
-            </div>
+            <CalculatedLineTotal id={`ca-line-total-${idx}`} quantity={wi.quantity} unitPrice={wi.unitPrice} currency={wi.currency} locale={locale} />
           </div>
           )}
           <div className="fr">

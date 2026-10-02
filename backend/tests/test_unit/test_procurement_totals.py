@@ -119,3 +119,39 @@ def test_pending_order_response_total_preserves_decimal_precision_and_string_con
 
     assert total == "$9,007,199,254,740,992.02"
     assert isinstance(total, str)
+
+
+def test_bundled_included_support_cost_ignores_stored_line_total():
+    from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
+
+    data = {
+        "license_type": "subscription",
+        "maintenance_coverage": "included",
+        "start_date": None,
+        "end_date": None,
+        "quantity": "5",
+        "unit_price": "12.80",
+        "total_po_price": "2351.22",
+    }
+
+    apply_bundled_included_support_defaults(data)
+
+    assert data["maintenance_cost"] == "64.00"
+
+
+def test_bundled_included_support_cost_keeps_estimate_total_for_procurement_lines():
+    from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
+
+    data = {
+        "license_type": "subscription",
+        "maintenance_coverage": "included",
+        "start_date": None,
+        "end_date": None,
+        "quantity": "5",
+        "estimated_unit_price": "12.80",
+        "estimated_total_price": "60.00",
+    }
+
+    apply_bundled_included_support_defaults(data)
+
+    assert data["maintenance_cost"] == "60.00"

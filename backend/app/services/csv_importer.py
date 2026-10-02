@@ -25,6 +25,7 @@ from app.services.csv_fields import header_map as _registry_header_map
 from app.services.csv_fields import normalise_header
 from app.services.csv_fields import ignored_headers as _registry_ignored_headers
 from app.services.import_.date_parser import DATE_FORMAT_VARIANTS, parse_import_date
+from app.services.license_service import calc_line_total, unit_price_from_total
 from app.services.money import MoneyParseError, parse_localized_money
 
 logger = logging.getLogger("license_lifecycle.csv_importer")
@@ -101,7 +102,16 @@ _MAINTENANCE_COVERAGE_VALUE_ALIASES = {
 
 _TOTAL_PRICE_MISMATCH_RATIO = Decimal("10")
 _TOTAL_PRICE_MISMATCH_MIN_DELTA = Decimal("1")
-PRICE_MISMATCH_WARNING_PREFIX = "Calculated total (quantity x unit_price) differs from total_po_price"
+PRICE_MISMATCH_WARNING_PREFIX = "Calculated total (quantity x unit_price) differs from the line total"
+LINE_TOTAL_DIFFERS_WARNING = (
+    "Line total in the file differs from quantity x unit price; LicenseTrack uses quantity x unit price. "
+    "Enter a more precise unit price if the file's line total is correct."
+)
+UNIT_PRICE_FROM_LINE_TOTAL_WARNING = "The unit price was calculated from the line total and quantity; check it."
+LEGACY_PO_PRICE_WARNING = (
+    "The Total PO Price column was not imported: it is a PO value, not a line amount. "
+    "Line totals are quantity x unit price; set a manual PO total in License Details if needed."
+)
 EXPIRED_MAINTENANCE_WARNING = "Included maintenance coverage has expired"
 MULTI_VALUE_TARGETS = frozenset({"secondary_contacts"})
 _CSV_DELIMITERS = (",", ";", "\t")
@@ -135,7 +145,7 @@ class ParsedRow:
     quantity: str
     sku_code: str
     unit_price: str
-    total_po_price: str
+    line_total: str
     currency: str
     notes: Optional[str]
     budget_owner_email: str
@@ -314,16 +324,16 @@ def _parse_localized_numeric_field(
 def _add_total_price_mismatch_warning(
     quantity: str,
     unit_price: str,
-    total_po_price: str,
+    line_total: str,
     warnings: list[str],
 ) -> None:
-    """Warn when Qty x Unit Price is wildly inconsistent with Total PO Price."""
-    if not quantity or not unit_price or not total_po_price:
+    """Warn when Qty x Unit Price is wildly inconsistent with the file's line total."""
+    if not quantity or not unit_price or not line_total:
         return
     try:
         qty = Decimal(quantity)
         unit = Decimal(unit_price)
-        total = Decimal(total_po_price)
+        total = Decimal(line_total)
     except InvalidOperation:
         return
 
@@ -342,17 +352,6 @@ def _add_total_price_mismatch_warning(
         f"{PRICE_MISMATCH_WARNING_PREFIX} by 10x or more; "
         "check whether the mapped quantity is a purchase quantity rather than an entitlement quantity per unit"
     )
-
-
-def _calculate_line_total(quantity: str, unit_price: str, total_po_price: str) -> str | None:
-    if total_po_price:
-        return total_po_price
-    if not quantity or not unit_price:
-        return None
-    try:
-        return format(Decimal(quantity) * Decimal(unit_price), "f")
-    except (InvalidOperation, ValueError):
-        return None
 
 
 def _derive_quantity_per_unit(
@@ -666,9 +665,13 @@ def _parse_row(
         _field_text(data, "effective_quantity"), "effective_quantity", errors, number_format_locale
     )
     unit_price = _parse_localized_numeric_field(_field_text(data, "unit_price"), "unit_price", errors, number_format_locale)
-    total_po_price = _parse_localized_numeric_field(
-        _field_text(data, "total_po_price"), "total_po_price", errors, number_format_locale
+    file_line_total = _parse_localized_numeric_field(
+        _field_text(data, "line_total"), "line_total", errors, number_format_locale
     )
+    # "total_po_price" covers mapping profiles saved before 1.2.0 that still
+    # target the old field name.
+    if _field_text(data, "legacy_po_price") or _field_text(data, "total_po_price"):
+        warnings.append(LEGACY_PO_PRICE_WARNING)
     po_total_override = _parse_localized_numeric_field(
         _field_text(data, "po_total_override"), "po_total_override", errors, number_format_locale
     )
@@ -689,7 +692,21 @@ def _parse_row(
         warnings,
         quantity_per_unit_provided=bool(quantity_per_unit_raw.strip()),
     )
-    _add_total_price_mismatch_warning(quantity, unit_price, total_po_price, warnings)
+    if file_line_total and quantity and not unit_price:
+        derived = unit_price_from_total(file_line_total, quantity)
+        if derived is not None:
+            unit_price = derived
+            warnings.append(UNIT_PRICE_FROM_LINE_TOTAL_WARNING)
+    _add_total_price_mismatch_warning(quantity, unit_price, file_line_total, warnings)
+    calculated_line_total = calc_line_total(quantity, unit_price)
+    if (
+        file_line_total
+        and calculated_line_total is not None
+        and abs(calculated_line_total - Decimal(file_line_total)) > Decimal("0.01")
+        and not any(w.startswith(PRICE_MISMATCH_WARNING_PREFIX) for w in warnings)
+    ):
+        warnings.append(LINE_TOTAL_DIFFERS_WARNING)
+    line_total = format(calculated_line_total, "f") if calculated_line_total is not None else ""
 
     # -- Budget owner email - reject SMTP command-injection payloads ------
     # (CVE-2026-53533 hardening: this value eventually reaches
@@ -748,9 +765,8 @@ def _parse_row(
             db_maintenance_end_date = db_end_date
             maintenance_end_date_str = end_date_str
         if not maintenance_cost:
-            fallback_cost = _calculate_line_total(quantity, unit_price, total_po_price)
-            if fallback_cost:
-                maintenance_cost = fallback_cost
+            if calculated_line_total is not None:
+                maintenance_cost = line_total
                 warnings.append(
                     "maintenance_cost defaulted from the license line total for included maintenance; "
                     "verify this is not the perpetual acquisition value."
@@ -817,7 +833,7 @@ def _parse_row(
         effective_quantity=effective_quantity,
         sku_code=_field_text(data, "sku_code"),
         unit_price=unit_price,
-        total_po_price=total_po_price,
+        line_total=line_total,
         currency=currency,
         notes=_field_text(data, "notes") or None,
         budget_owner_email=budget_owner_email,

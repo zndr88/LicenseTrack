@@ -173,14 +173,6 @@ def _line_value(license_obj: License) -> tuple[Decimal | None, str]:
     return (value, "line") if value is not None else (None, "missing")
 
 
-def _calculated_value(license_obj: License) -> tuple[Decimal | None, str]:
-    value, source = _line_value(license_obj)
-    if value is not None or source == "excluded":
-        return value, source
-    stored = _money(license_obj.total_po_price)
-    return (stored, "legacy_po_fallback") if stored is not None else (None, "missing")
-
-
 def _allocation(
     license_obj: License,
     value: Decimal | None,
@@ -300,8 +292,6 @@ def _money_issue_counts(licenses: list[License]) -> tuple[int, int]:
             if _has_included_support_record(license_obj):
                 relevant.append(license_obj.maintenance_cost)
         relevant.append(license_obj.po_total_override)
-        if _line_value(license_obj)[0] is None:
-            relevant.append(license_obj.total_po_price)
         invalid = any(
             raw is not None and str(raw).strip() != "" and _money(raw) is None
             for raw in relevant
@@ -400,7 +390,7 @@ def _build_lifecycle_spend_data(
             if line_value is not None:
                 _add(unallocated_values, currency, line_value)
 
-        calculated, calculated_source = _calculated_value(license_obj)
+        calculated, calculated_source = _line_value(license_obj)
         allocated_calculated, calculated_status = _allocation(license_obj, calculated, selected)
         if calculated_status != "undated" and allocated_calculated is not None and calculated_source != "excluded":
             lifecycle_status = "active" if status == "perpetual" else status
@@ -754,7 +744,7 @@ def _build_perpetual_maintenance_data(visible: list[License]) -> dict:
     for license_obj in visible:
         if license_obj.license_type != LicenseType.perpetual:
             continue
-        purchase, purchase_source = _calculated_value(license_obj)
+        purchase, purchase_source = _line_value(license_obj)
         currency = _currency(license_obj)
         maintenance_by_currency: dict[str, Decimal] = {}
         records = maintenance_by_parent.get(license_obj.id, [])
@@ -767,7 +757,7 @@ def _build_perpetual_maintenance_data(visible: list[License]) -> dict:
             maintenance_source = "included" if support is not None else "included_missing"
         elif records:
             for record in records:
-                record_value, _ = _calculated_value(record)
+                record_value, _ = _line_value(record)
                 if record_value is not None:
                     _add(maintenance_by_currency, _currency(record), record_value)
             maintenance_source = "separately_tracked" if maintenance_by_currency else "separate_missing"
@@ -780,8 +770,8 @@ def _build_perpetual_maintenance_data(visible: list[License]) -> dict:
             for record in records:
                 if _currency(record) == maintenance_currency and record.id not in counted_maintenance:
                     counted_maintenance.add(record.id)
-                    _add(maintenance_totals, maintenance_currency, _calculated_value(record)[0])
-                    _add(total_by_currency, maintenance_currency, _calculated_value(record)[0])
+                    _add(maintenance_totals, maintenance_currency, _line_value(record)[0])
+                    _add(total_by_currency, maintenance_currency, _line_value(record)[0])
         term = _term(license_obj)
         rows.append(
             {
@@ -803,7 +793,7 @@ def _build_perpetual_maintenance_data(visible: list[License]) -> dict:
                         "publisher": record.publisher_name or "Unknown",
                         "description": record.software_description or "",
                         "currency": _currency(record),
-                        "amount": _calculated_value(record)[0],
+                        "amount": _line_value(record)[0],
                         "po_number": record.po_number or "",
                         "start_date": record.start_date,
                         "end_date": record.end_date,

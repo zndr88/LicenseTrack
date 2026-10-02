@@ -39,7 +39,7 @@ const EXPECTED_STABLE_EXPORT_FIELD_NAMES = {
   quantityPerUnit: 'quantity_per_unit',
   skuCode: 'sku_code',
   unitPrice: 'unit_price',
-  lineTotal: 'line_total',
+  calcTotal: 'line_total',
   poTotalOverride: 'po_total_manual',
   totalPoPrice: 'total_po_value',
   currency: 'currency',
@@ -198,13 +198,33 @@ describe('exportFilteredCsv', () => {
     expect(lines[1]).toBe('500')
   })
 
+  it('exports Line Total as quantity x unit price under the line_total header', () => {
+    const row = makeRow({ quantity: '4', unitPrice: '25', totalPoPrice: '9999' })
+
+    exportFilteredCsv([row], [{ key: 'calcTotal', label: 'Line Total' }], 'en-US', 'EUR', [row], new Map())
+
+    const lines = csvLines()
+    expect(lines[0]).toBe('line_total')
+    expect(lines[1]).toBe('100')
+  })
+
+  it('exports Line Total without floating-point noise', () => {
+    const row = makeRow({ quantity: '3', unitPrice: '0.1' })
+
+    exportFilteredCsv([row], [{ key: 'calcTotal', label: 'Line Total' }], 'en-US', 'EUR', [row], new Map())
+
+    expect(csvLines()[1]).toBe('0.3')
+  })
+
   it('exports line, manual PO, maintenance pricing, and covered-license fields', () => {
     const firstParent = makeRow({ id: 10, licenseRef: 'LT-2026-00010', licenseType: 'perpetual' })
     const secondParent = makeRow({ id: 11, licenseRef: 'LT-2026-00011', licenseType: 'perpetual' })
     const maintenance = makeRow({
       id: 12,
       licenseType: 'maintenance',
-      totalPoPrice: '95.50',
+      quantity: '5',
+      unitPrice: '19.10',
+      totalPoPrice: '9999',
       poTotalOverride: '1000.00',
       maintenanceParentIds: [10, 11],
       maintenancePricingBasis: 'per_unit',
@@ -212,7 +232,7 @@ describe('exportFilteredCsv', () => {
       maintenanceUnitPrice: '19.10',
     })
     const cols = [
-      { key: 'lineTotal', label: 'Line Total' },
+      { key: 'calcTotal', label: 'Line Total' },
       { key: 'poTotalOverride', label: 'Manual PO Total' },
       { key: 'parentLicenseRefs', label: 'Covered License(s)' },
       { key: 'maintenancePricingBasis', label: 'Maintenance Pricing' },
@@ -230,7 +250,7 @@ describe('exportFilteredCsv', () => {
     )
 
     expect(csvLines()[0]).toBe('line_total,po_total_manual,parent_license_refs,maintenance_pricing_basis,maintenance_quantity,maintenance_unit_price')
-    expect(csvLines()[1]).toBe('95.50,1000.00,LT-2026-00010; LT-2026-00011,per_unit,5,19.10')
+    expect(csvLines()[1]).toBe('95.5,1000.00,LT-2026-00010; LT-2026-00011,per_unit,5,19.10')
   })
 
   it('uses normalized procurement identity for Current View totals', () => {
@@ -269,7 +289,7 @@ describe('exportFilteredCsv', () => {
 
   it('calcTotal is empty string when quantity or unitPrice is missing', () => {
     const row = makeRow({ quantity: null, unitPrice: null })
-    const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
+    const cols = [{ key: 'calcTotal', label: 'Line Total' }]
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
     const lines = csvLines()
     expect(lines[1]).toBe('')
@@ -277,7 +297,7 @@ describe('exportFilteredCsv', () => {
 
   it('calcTotal is quantity × unitPrice when both are numeric', () => {
     const row = makeRow({ quantity: '5', unitPrice: '100' })
-    const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
+    const cols = [{ key: 'calcTotal', label: 'Line Total' }]
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
     const lines = csvLines()
     expect(lines[1]).toBe('500')
@@ -288,7 +308,7 @@ describe('exportFilteredCsv', () => {
     ['5', '0', '0'],
   ])('preserves calculated totals for quantity %s and unit price %s', (quantity, unitPrice, expected) => {
     const row = makeRow({ quantity, unitPrice })
-    const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
+    const cols = [{ key: 'calcTotal', label: 'Line Total' }]
 
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map())
 
@@ -297,7 +317,7 @@ describe('exportFilteredCsv', () => {
 
   it('preserves zero calculated totals in localized exports', () => {
     const row = makeRow({ quantity: '5', unitPrice: '0' })
-    const cols = [{ key: 'calcTotal', label: 'Calc. Total' }]
+    const cols = [{ key: 'calcTotal', label: 'Line Total' }]
 
     exportFilteredCsv([row], cols, 'en-US', 'EUR', [row], new Map(), {
       localized: true,

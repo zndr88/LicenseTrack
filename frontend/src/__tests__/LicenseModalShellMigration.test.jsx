@@ -297,21 +297,18 @@ describe("license modal shell migration", () => {
 
     await user.click(screen.getByRole("button", { name: /add additional license line/i }));
     const additionalUnitPrice = screen.getAllByLabelText(/^unit price$/i)[1];
-    const additionalTotalPrice = screen.getAllByLabelText(/^line total$/i)[1];
     fireEvent.change(screen.getAllByLabelText(/^notice date$/i)[1], { target: { value: "2027-05-01" } });
     expect(additionalUnitPrice).toHaveAttribute("placeholder", "0,00");
-    expect(additionalTotalPrice).toHaveAttribute("placeholder", "0,00");
 
     await user.type(additionalUnitPrice, "1.234,50");
-    await user.type(additionalTotalPrice, "2.469,00");
     await user.click(screen.getByRole("button", { name: /save 2 licenses/i }));
 
     const [allForms] = onConfirm.mock.calls[0];
     expect(allForms[1]).toEqual(expect.objectContaining({
       unitPrice: "1234.50",
-      totalPoPrice: "2469.00",
       noticeDate: "2027-05-01",
     }));
+    expect(allForms[1]).not.toHaveProperty("totalPoPrice");
   });
 
   test("InvoiceConfirmModal synchronously locks repeated submissions", () => {

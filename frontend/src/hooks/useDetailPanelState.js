@@ -356,7 +356,6 @@ export function useDetailPanelState({
       quantityPerUnit: license.quantityPerUnit || "1",
       skuCode: license.skuCode || "",
       unitPrice: license.unitPrice || "",
-      totalPoPrice: license.totalPoPrice || "",
       currency: license.currency || "EUR",
       maintenanceCoverage: license.maintenanceCoverage || "unknown",
       notes: license.notes || "",

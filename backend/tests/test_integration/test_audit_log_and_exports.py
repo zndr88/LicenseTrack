@@ -319,8 +319,8 @@ async def test_licenses_export_headers_and_representative_csv_content(
         license_metric=LicenseMetric.per_user,
         quantity="25",
         unit_price="12.00",
-        # Deliberately stale line total. The legacy Total PO Value column uses
-        # the manual PO override, while the new Line Total emits this value.
+        # Deliberately stale stored value. Total PO Value uses the manual PO
+        # override and Line Total is quantity x unit price; nothing reads this.
         total_po_price="999.99",
         currency="EUR",
         start_date=date(2026, 1, 1),
@@ -390,7 +390,7 @@ async def test_licenses_export_headers_and_representative_csv_content(
     assert row["Maintenance Start"] == "2026-01-01"
     assert row["Maintenance End"] == "2026-12-31"
     assert row["Maintenance Cost"] == "75.00"
-    assert row["Line Total"] == "999.99"
+    assert row["Line Total"] == "300.00"
     assert row["Manual PO Total"] == "450.00"
     assert row["PO Line"] == "3"
 

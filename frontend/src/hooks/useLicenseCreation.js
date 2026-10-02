@@ -44,7 +44,6 @@ function buildLicensePayload(form) {
     quantityPerUnit: form.quantityPerUnit || "1",
     skuCode: form.skuCode || "",
     unitPrice: form.unitPrice || "",
-    totalPoPrice: form.totalPoPrice || "",
     currency: form.currency || "EUR",
     notes: form.notes || null,
     budgetOwnerEmail: form.budgetOwnerEmail || "",
