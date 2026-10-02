@@ -80,6 +80,11 @@ export default function LicenseTableHeader({
                 dragHappenedRef.current = true;
                 e.dataTransfer.setData("colKey", col.key);
               }}
+              onDragEnd={() => {
+                // Browsers send no click after a drag, so clear the flag here
+                // (for example after a drop on the grouping strip).
+                dragHappenedRef.current = false;
+              }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();

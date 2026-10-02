@@ -74,4 +74,40 @@ describe("LicenseTableHeader sortable capability", () => {
     const update = setSelectedIds.mock.calls[0][0];
     expect([...update(new Set([99]))]).toEqual([99, 2, 3]);
   });
+
+  test("a drag that ends elsewhere does not block the next sort click", () => {
+    const handleSortCol = vi.fn();
+    const dragHappenedRef = { current: false };
+    render(
+      <table>
+        <LicenseTableHeader
+          visibleColumns={[{ key: "publisher", label: "Publisher", width: 100 }]}
+          selectAllRef={{ current: null }}
+          allDisplayedSelected={false}
+          displayRows={[]}
+          selectionLabel="Select all licenses on this page"
+          setSelectedIds={vi.fn()}
+          dragHappenedRef={dragHappenedRef}
+          setUserSettings={vi.fn()}
+          setHoveredCol={vi.fn()}
+          hoveredCol={null}
+          handleSortCol={handleSortCol}
+          sortCol={null}
+          sortDir="asc"
+          handleHideColumn={vi.fn()}
+          filterRowOpen={false}
+          columnFilters={{}}
+          setColumnFilters={vi.fn()}
+          departments={[]}
+          datesFromOptions={[]}
+          datesToOptions={[]}
+        />
+      </table>,
+    );
+    const header = screen.getByRole("columnheader", { name: /Publisher/ });
+    fireEvent.dragStart(header, { dataTransfer: { setData: () => {} } });
+    fireEvent.dragEnd(header);
+    fireEvent.click(header);
+    expect(handleSortCol).toHaveBeenCalledWith("publisher");
+  });
 });
