@@ -558,3 +558,22 @@
   color: var(--text-2);
   font-size: 11px;
 }
+
+/* Registry grouping */
+.lp-group-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 12px; border-bottom: 1px dashed var(--border); background: var(--bg-2); font-size: 12px; }
+.lp-group-hint { color: var(--text-3); font-style: italic; }
+.lp-group-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-1); color: var(--text-1); font-weight: 600; }
+.lp-group-chip-remove { display: inline-flex; border: 0; background: none; color: var(--text-3); cursor: pointer; padding: 2px; border-radius: 50%; }
+.lp-group-chip-remove:hover, .lp-group-chip-remove:focus-visible { color: var(--text-1); background: var(--bg-3); }
+.lp-group-picker { width: auto; min-width: 150px; height: 26px; padding: 0 8px; font-size: 12px; }
+.lp-group-notice { color: var(--orange-text); }
+.lp-group-actions { margin-left: auto; display: inline-flex; gap: 6px; }
+.lp-group-actions .lp-compact-action { flex: none; }
+.lp-group-row > td { background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 0; cursor: pointer; }
+.lp-group-row[data-depth="1"] > td { background: var(--bg-1); }
+.lp-group-cell { display: flex; align-items: center; gap: 14px; min-height: 36px; white-space: nowrap; overflow: hidden; }
+.lp-group-toggle { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; color: var(--text-1); font-weight: 700; font-size: 12px; cursor: pointer; padding: 4px; border-radius: 4px; }
+.lp-group-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lp-group-meta { color: var(--text-2); font-size: 11px; }
+.lp-group-warning { display: inline-flex; margin-left: 4px; vertical-align: middle; }
+.lp-group-footer { padding: 8px 16px; font-size: 11px; color: var(--text-3); border-top: 1px solid var(--border); font-family: var(--font-mono); }

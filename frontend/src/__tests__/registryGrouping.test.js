@@ -188,9 +188,9 @@ describe("grouping performance guard", () => {
       publisherName: `Publisher ${i % 40}`,
       poTotalOverride: i % 10 === 0 ? "1000" : "",
     }));
-    const started = performance.now();
+    const started = Date.now();
     const nodes = groupLicenses(many, ["poNumber", "publisher"], { allLicenses: many });
     flattenGroups(nodes, new Set(allGroupIds(nodes)));
-    expect(performance.now() - started).toBeLessThan(500);
+    expect(Date.now() - started).toBeLessThan(500);
   });
 });
