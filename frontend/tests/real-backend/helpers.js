@@ -56,7 +56,6 @@ export async function fillLicenseBasics(dialog, fields) {
     poNumber: "#inv-po-number",
     quantity: "#inv-quantity",
     unitPrice: "#inv-unit-price",
-    lineTotal: "#inv-total-price",
     supplier: "#inv-supplier",
     costCentre: "#inv-cost-centre",
     budgetOwner: "#inv-budget-owner",

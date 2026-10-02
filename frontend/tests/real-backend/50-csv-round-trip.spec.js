@@ -4,7 +4,7 @@ import { apiGet, apiPost, apiSend, findLicense } from "./helpers.js";
 const DESCRIPTION = "E2E CSV Round Trip";
 
 test("a license exported with Export Full Data comes back unchanged through the native import", async ({ page }, testInfo) => {
-  // Setup through the API: a license with an entered line total, a manual PO total,
+  // Setup through the API: a license with quantity and unit price, a manual PO total,
   // per-unit maintenance pricing and a PO number (which receives a PO line).
   const created = await apiPost(page, "/api/licenses", {
     publisherName: "E2E Publisher",
@@ -13,7 +13,6 @@ test("a license exported with Export Full Data comes back unchanged through the 
     licenseMetric: "per_user",
     quantity: "5",
     unitPrice: "10",
-    totalPoPrice: "55",
     currency: "EUR",
     startDate: "2026-01-01",
     poNumber: "E2E-CSV-PO",
@@ -63,7 +62,9 @@ test("a license exported with Export Full Data comes back unchanged through the 
   // A PO line number is never reused: the number freed by the deletion stays retired.
   expect(restored.poLineNumber).toBeGreaterThan(original.poLineNumber);
   expect(restored.poTotalOverride).toBe(original.poTotalOverride);
-  expect(Number(restored.totalPoPrice)).toBe(Number(original.totalPoPrice));
+  // The Line Total is calculated, so only quantity and unit price travel.
+  expect(Number(restored.quantity)).toBe(5);
+  expect(Number(restored.unitPrice)).toBe(10);
   expect(restored.maintenancePricingBasis).toBe("per_unit");
   expect(Number(restored.maintenanceQuantity)).toBe(5);
   expect(Number(restored.maintenanceUnitPrice)).toBe(3);

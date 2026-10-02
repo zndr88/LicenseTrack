@@ -32,6 +32,9 @@ def _canonical(value: Decimal) -> str:
 
 def upgrade() -> None:
     bind = op.get_bind()
+    columns = {column["name"] for column in sa.inspect(bind).get_columns("licenses")}
+    if not {"license_type", "parent_license_id", "quantity", "unit_price", "total_po_price"} <= columns:
+        return
     rows = bind.execute(
         sa.text(
             "SELECT id, quantity, unit_price FROM licenses "
