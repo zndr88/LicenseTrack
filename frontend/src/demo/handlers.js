@@ -488,7 +488,12 @@ const demoViewer = {
   allow_downloads: false,
 };
 
+// Mirrors the server's default ALLOWED_UPLOAD_EXTENSIONS (backend/app/config.py),
+// sorted as GET /api/documents/upload-types returns it.
+export const DEMO_UPLOAD_EXTENSIONS = [".csv", ".docx", ".jpeg", ".jpg", ".lic", ".msg", ".pdf", ".png", ".txt", ".xls", ".xlsx"];
+
 export const routes = [
+  { method: "GET", pattern: /^\/api\/documents\/upload-types$/, handler: async () => ({ data: { extensions: DEMO_UPLOAD_EXTENSIONS }, error: null }) },
   { method: "GET", pattern: /^\/api\/auth\/mode$/, handler: async () => ({ data: { oidc_enabled: false, oidc_available: false }, error: null }) },
   {
     method: "POST", pattern: /^\/api\/auth\/login$/,

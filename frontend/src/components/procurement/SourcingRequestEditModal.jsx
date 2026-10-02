@@ -241,7 +241,6 @@ export default function SourcingRequestEditModal({ request, userSettings, onSave
           onPreviewVisibilityChange={setDocumentPreviewVisible}
           targetOptions={(request.items ?? []).map((item, index) => ({ value: String(item.id), label: item.softwareDescription || `Line ${index + 1}` }))}
           userSettings={userSettings}
-          defaultOpen
         />
         </div>
       </ModalShell>

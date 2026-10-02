@@ -62,7 +62,7 @@ DEFAULT_TOKEN_EXPIRY = 1440
 DEFAULT_MAX_UPLOAD_SIZE_MB = 20
 DEFAULT_MAX_PLUGIN_PACKAGE_SIZE_MB = 50
 DEFAULT_MAX_PLUGIN_DOCUMENT_SIZE_MB = 10
-DEFAULT_ALLOWED_UPLOAD_EXTENSIONS = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx"
+DEFAULT_ALLOWED_UPLOAD_EXTENSIONS = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx,.lic,.msg"
 
 
 class InstallerError(RuntimeError):

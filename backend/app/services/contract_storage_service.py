@@ -13,22 +13,8 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import storage
+from app.services.upload_policy import DOCUMENT_MIME_TYPES
 
-_ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
-    {
-        "application/pdf",
-        "image/png",
-        "image/jpeg",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-excel",
-        "text/csv",
-        "text/plain",
-        "application/csv",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/msword",
-        "application/octet-stream",
-    }
-)
 
 
 async def get_storage_base(db: AsyncSession) -> str | None:
@@ -49,4 +35,4 @@ async def require_storage_base(db: AsyncSession) -> str | None:
 
 
 def validate_contract_upload(file: UploadFile, content: bytes) -> None:
-    storage.validate_upload(file, content, allowed_mimes=_ALLOWED_MIME_TYPES)
+    storage.validate_upload(file, content, allowed_mimes=DOCUMENT_MIME_TYPES)

@@ -391,3 +391,27 @@ describe("buildConvertItemDefaults line total", () => {
     expect(d).not.toHaveProperty("totalPoPrice");
   });
 });
+
+describe("buildConvertItemDefaults renewal prices", () => {
+  it("doesn't refill prices cleared on the renewal line from the previous term", () => {
+    const si = makeSI({
+      isRenewal: true,
+      renewalForLicenseId: 42,
+      estimatedUnitPrice: "",
+      maintenanceUnitPrice: "",
+      maintenanceCost: "",
+    });
+    const license = makeLicense({ unitPrice: "250", maintenanceUnitPrice: "30", maintenanceCost: "300" });
+    const [defaults] = buildConvertItemDefaults({ ...baseOrder, items: [si] }, [license]);
+    expect(defaults.unitPrice).toBe("");
+    expect(defaults.maintenanceUnitPrice).toBe("");
+    expect(defaults.maintenanceCost).toBe("");
+    expect(defaults.publisherName).toBe("Adobe");
+  });
+
+  it("still uses prices kept on the renewal line", () => {
+    const si = makeSI({ isRenewal: true, renewalForLicenseId: 42, estimatedUnitPrice: "275" });
+    const [defaults] = buildConvertItemDefaults({ ...baseOrder, items: [si] }, [makeLicense({ unitPrice: "250" })]);
+    expect(defaults.unitPrice).toBe("275");
+  });
+});

@@ -1,46 +1,29 @@
 import { useMemo, useState } from "react";
 import { formatDate } from "../../utils/formatting.js";
-import { termDateRelationship } from "../../utils/termRelationship.js";
+import { TERM_LINK_REASONS, termDateRelationship, termLinkBlock } from "../../utils/termRelationship.js";
 import Icon from "../ui/Icon.jsx";
 import LinkPicker from "../ui/LinkPicker.jsx";
 import ModalShell from "../ui/ModalShell.jsx";
-
-// Every line that already leads (directly or transitively) to `target`. Picking
-// one of these as the next term would form a cycle, so they are not offered.
-function ancestorIds(target, items) {
-  const ancestors = new Set();
-  let frontier = items.filter((item) => item.successorSourcingItemId === target.id).map((item) => item.id);
-  while (frontier.length) {
-    const next = [];
-    for (const id of frontier) {
-      if (ancestors.has(id)) continue;
-      ancestors.add(id);
-      for (const predecessor of items.filter((item) => item.successorSourcingItemId === id)) {
-        next.push(predecessor.id);
-      }
-    }
-    frontier = next;
-  }
-  return ancestors;
-}
 
 export default function TermSuccessorModal({ target, items, userSettings, onSave, onCreateNew, onCancel }) {
   const [selectedId, setSelectedId] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const excluded = useMemo(() => ancestorIds(target, items), [target, items]);
   const candidates = useMemo(() => items
-    .filter((item) => item.id !== target.id
-      && item.sourcingRequestId === target.sourcingRequestId
-      && !excluded.has(item.id))
-    .map((item) => ({
-      id: item.id,
-      title: item.softwareDescription || `Line #${item.id}`,
-      subtitle: item.publisherName || null,
-      meta: item.startDate && item.endDate
-        ? `${formatDate(item.startDate, userSettings)} – ${formatDate(item.endDate, userSettings)}`
-        : null,
-    })), [items, target, excluded, userSettings]);
+    .filter((item) => item.id !== target.id && item.sourcingRequestId === target.sourcingRequestId)
+    .map((item) => {
+      const block = termLinkBlock(target, item, items);
+      return {
+        id: item.id,
+        title: item.softwareDescription || `Line #${item.id}`,
+        subtitle: item.publisherName || null,
+        meta: item.startDate && item.endDate
+          ? `${formatDate(item.startDate, userSettings)} – ${formatDate(item.endDate, userSettings)}`
+          : null,
+        disabled: block !== null,
+        disabledReason: block ? TERM_LINK_REASONS.asSuccessor[block] ?? null : null,
+      };
+    }), [items, target, userSettings]);
 
   const relationship = (option) => {
     const item = items.find((candidate) => candidate.id === option.id);

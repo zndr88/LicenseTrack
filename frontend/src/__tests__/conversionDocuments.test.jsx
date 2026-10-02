@@ -82,7 +82,6 @@ describe.each([ConvertPendingOrderModal, ConvertAllModal])("conversion sourcing 
       onCancel={vi.fn()}
     /></QueryClientProvider>);
 
-    fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
     expect(screen.getByText("From sourcing request #4")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Preview source-quote.pdf" }));
     await waitFor(() => expect(sourcingApi.previewSourcingQuoteDocument).toHaveBeenCalledWith(7));

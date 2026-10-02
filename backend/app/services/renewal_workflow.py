@@ -190,7 +190,10 @@ def build_pending_order_item_license_data(
     apply_fallback("quantity", item.quantity, getattr(old_license, "quantity", None))
     apply_fallback("quantity_per_unit", item.quantity_per_unit, getattr(old_license, "quantity_per_unit", None))
     apply_fallback("sku_code", item.sku_code, getattr(old_license, "sku_code", None))
-    apply_fallback("unit_price", item.estimated_unit_price, getattr(old_license, "unit_price", None))
+    # Prices come from the renewal line only: starting a renewal already copies
+    # the previous price there as a reference, so an empty price was cleared on
+    # purpose and must not be refilled from the previous term.
+    apply_fallback("unit_price", item.estimated_unit_price)
     apply_fallback("currency", item.currency, getattr(old_license, "currency", None))
     apply_fallback("start_date", item.start_date)
     apply_fallback("end_date", item.end_date)
@@ -244,12 +247,8 @@ def build_pending_order_item_license_data(
         item.maintenance_quantity,
         getattr(old_license, "maintenance_quantity", None),
     )
-    apply_fallback(
-        "maintenance_unit_price",
-        item.maintenance_unit_price,
-        getattr(old_license, "maintenance_unit_price", None),
-    )
-    apply_fallback("maintenance_cost", item.maintenance_cost, getattr(old_license, "maintenance_cost", None))
+    apply_fallback("maintenance_unit_price", item.maintenance_unit_price)
+    apply_fallback("maintenance_cost", item.maintenance_cost)
 
     if getattr(data.get("maintenance_coverage"), "value", data.get("maintenance_coverage")) == MaintenanceCoverage.included.value:
         if "maintenance_start_date" not in submitted_fields and "start_date" in submitted_fields:

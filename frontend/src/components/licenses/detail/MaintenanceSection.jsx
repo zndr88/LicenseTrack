@@ -5,7 +5,6 @@ import { formatDate, formatUnitPrice } from "../../../utils/formatting.js";
 import { MAINTENANCE_COVERAGE_OPTIONS } from "../../../constants/licenseData.js";
 import {
   isBundledIncludedSupport,
-  maintenanceCoverageOptionsForLicenseType,
   supportsSeparateMaintenanceLine,
 } from "../../../utils/maintenanceCoverage.js";
 import Icon from "../../ui/Icon.jsx";
@@ -35,6 +34,7 @@ export default function MaintenanceSection({
   customFieldValues,
   vis,
   openFieldEdit,
+  onEditCoverage,
   makeCustomFieldSaveFn,
   closeFieldEdit,
   customFieldsLoading,
@@ -111,13 +111,7 @@ export default function MaintenanceSection({
               <button
                 type="button"
                 className="btn btn-g btn-sm"
-                onClick={() => openFieldEdit({
-                  fieldKey: "maintenanceCoverage",
-                  fieldLabel: "Maintenance Coverage",
-                  currentValue: coverage,
-                  inputType: "select",
-                  selectOptions: maintenanceCoverageOptionsForLicenseType(license.licenseType),
-                })}
+                onClick={onEditCoverage}
               >
                 <Icon name="edit" size={12} /> Edit coverage
               </button>

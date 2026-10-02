@@ -662,7 +662,6 @@ const SourcingItemModal = ({
             onDeleteDocument={onDeleteDocument}
             targetOptions={[{ value: "primary", label: softwareVal || "Line 1" }, ...additionalLines.map((line, index) => ({ value: String(line.id), label: line.softwareDescription || `Line ${index + 2}` }))]}
             userSettings={userSettings}
-            defaultOpen
             onPreviewVisibilityChange={setDocumentPreviewVisible}
           />
         </div>
