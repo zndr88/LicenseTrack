@@ -1,6 +1,12 @@
 import Icon from "../../ui/Icon.jsx";
+import Tooltip from "../../ui/Tooltip.jsx";
 import { formatCostByCurrency } from "../../../utils/helpers.js";
 import { formatDate } from "../../../utils/formatting.js";
+
+const PO_MISMATCH_TEXT = "The manual PO total differs from the sum of this PO's lines.";
+
+// Keeps focus and key presses on the warning from toggling the group row.
+const stop = (event) => event.stopPropagation();
 
 function lineCountText({ shownCount, totalCount }) {
   const noun = totalCount === 1 ? "line" : "lines";
@@ -31,12 +37,18 @@ export default function LicenseGroupRow({ node, colSpan, expanded, onToggle, loc
             <span className="lp-group-meta mono">
               Total PO Value {formatCostByCurrency(summary.poTotalByCurrency, locale)}
               {summary.poOverrideMismatch && (
-                <span
-                  className="lp-group-warning"
-                  title="The manual PO total differs from the sum of this PO's lines."
-                >
-                  <Icon name="alert" size={12} color="var(--orange-text)" />
-                </span>
+                <Tooltip content={PO_MISMATCH_TEXT}>
+                  <span
+                    className="lp-group-warning"
+                    tabIndex={0}
+                    role="img"
+                    aria-label={PO_MISMATCH_TEXT}
+                    onClick={stop}
+                    onKeyDown={stop}
+                  >
+                    <Icon name="alert" size={12} color="var(--orange-text)" />
+                  </span>
+                </Tooltip>
               )}
             </span>
           )}

@@ -40,7 +40,7 @@ describe("LicenseGroupRow", () => {
     expect(screen.getByText(/12,520\.00/)).toBeInTheDocument();
     expect(screen.getByText(/Total PO Value/)).toBeInTheDocument();
     expect(screen.getByText(/12,000\.00/)).toBeInTheDocument();
-    expect(screen.getByTitle(/manual PO total differs/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /manual PO total differs/i })).toBeInTheDocument();
   });
 
   it("shows '5 lines' when nothing is filtered out", () => {
@@ -55,5 +55,21 @@ describe("LicenseGroupRow", () => {
     expect(onToggle).toHaveBeenCalledWith("poNumber:po-1");
     fireEvent.click(screen.getByText("3 of 5 lines"));
     expect(onToggle).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the warning text in a tooltip when the warning is focused", () => {
+    renderRow();
+    fireEvent.focus(screen.getByRole("img", { name: /manual PO total differs/i }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("The manual PO total differs from the sum of this PO's lines.");
+  });
+
+  it("focusing or pressing Enter on the warning does not toggle the group", () => {
+    const { onToggle } = renderRow();
+    const warning = screen.getByRole("img", { name: /manual PO total differs/i });
+    expect(warning).toHaveAttribute("tabindex", "0");
+    fireEvent.focus(warning);
+    fireEvent.keyDown(warning, { key: "Enter" });
+    fireEvent.click(warning);
+    expect(onToggle).not.toHaveBeenCalled();
   });
 });
