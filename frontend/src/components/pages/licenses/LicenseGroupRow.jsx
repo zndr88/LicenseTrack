@@ -42,7 +42,7 @@ export default function LicenseGroupRow({ node, colSpan, expanded, onToggle, loc
                     className="lp-group-warning"
                     tabIndex={0}
                     role="img"
-                    aria-label={PO_MISMATCH_TEXT}
+                    aria-label="PO total mismatch"
                     onClick={stop}
                     onKeyDown={stop}
                   >

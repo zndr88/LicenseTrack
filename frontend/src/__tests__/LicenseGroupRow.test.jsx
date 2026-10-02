@@ -40,7 +40,7 @@ describe("LicenseGroupRow", () => {
     expect(screen.getByText(/12,520\.00/)).toBeInTheDocument();
     expect(screen.getByText(/Total PO Value/)).toBeInTheDocument();
     expect(screen.getByText(/12,000\.00/)).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /manual PO total differs/i })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "PO total mismatch" })).toBeInTheDocument();
   });
 
   it("shows '5 lines' when nothing is filtered out", () => {
@@ -59,13 +59,13 @@ describe("LicenseGroupRow", () => {
 
   it("shows the warning text in a tooltip when the warning is focused", () => {
     renderRow();
-    fireEvent.focus(screen.getByRole("img", { name: /manual PO total differs/i }));
+    fireEvent.focus(screen.getByRole("img", { name: "PO total mismatch" }));
     expect(screen.getByRole("tooltip")).toHaveTextContent("The manual PO total differs from the sum of this PO's lines.");
   });
 
   it("focusing or pressing Enter on the warning does not toggle the group", () => {
     const { onToggle } = renderRow();
-    const warning = screen.getByRole("img", { name: /manual PO total differs/i });
+    const warning = screen.getByRole("img", { name: "PO total mismatch" });
     expect(warning).toHaveAttribute("tabindex", "0");
     fireEvent.focus(warning);
     fireEvent.keyDown(warning, { key: "Enter" });
