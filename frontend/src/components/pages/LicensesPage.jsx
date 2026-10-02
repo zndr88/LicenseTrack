@@ -177,6 +177,7 @@ export default function LicensesPage({
     statusFilters, setStatusFilters,
     columnFilters, setColumnFilters,
     sortCol, sortDir, setSortCol, setSortDir,
+    groupBy, setGroupBy,
     showError, showSuccess,
   });
 

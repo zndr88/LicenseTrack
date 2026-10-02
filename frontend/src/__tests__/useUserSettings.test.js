@@ -61,6 +61,7 @@ describe("useUserSettings saved views", () => {
         visibleInList: { publisher: true, licenseType: true },
         sortCol: "publisher",
         sortDir: "desc",
+        groupBy: [],
       },
     ]);
     expect(props.showSuccess).toHaveBeenCalledWith("View saved.");
@@ -233,5 +234,54 @@ describe("useUserSettings saved views", () => {
     expect(props.setSortCol).toHaveBeenLastCalledWith("publisher");
     expect(props.setSortDir).toHaveBeenLastCalledWith("desc");
     expect(props.setUserSettings).toHaveBeenLastCalledWith(baseUserSettings);
+  });
+
+  test("handleSaveView saves the grouping with the view", async () => {
+    const { result } = setup({ groupBy: ["poNumber", "publisher"], setGroupBy: vi.fn() });
+
+    await act(async () => {
+      await result.current.handleSaveView("By PO");
+    });
+
+    const saved = updateSettings.mock.calls[0][0].saved_views.find((view) => view.name === "By PO");
+    expect(saved.groupBy).toEqual(["poNumber", "publisher"]);
+  });
+
+  test("handleLoadView restores a sanitized grouping, and older views load ungrouped", async () => {
+    const setGroupBy = vi.fn();
+    const { result } = setup({ setGroupBy });
+
+    await act(async () => {
+      await result.current.handleLoadView({ name: "V", groupBy: ["status", "bogus"] });
+    });
+    expect(setGroupBy).toHaveBeenLastCalledWith(["status"]);
+
+    await act(async () => {
+      await result.current.handleLoadView({ name: "Old" });
+    });
+    expect(setGroupBy).toHaveBeenLastCalledWith([]);
+  });
+
+  test("handleRevertToDefault clears the grouping", async () => {
+    const setGroupBy = vi.fn();
+    const { result } = setup({ groupBy: ["poNumber"], setGroupBy });
+
+    await act(async () => {
+      await result.current.handleRevertToDefault();
+    });
+
+    expect(setGroupBy).toHaveBeenLastCalledWith([]);
+  });
+
+  test("a failed view load puts the previous grouping back", async () => {
+    updateSettings.mockResolvedValueOnce({ data: null, error: "Save failed" });
+    const setGroupBy = vi.fn();
+    const { result } = setup({ groupBy: ["poNumber"], setGroupBy });
+
+    await act(async () => {
+      await result.current.handleLoadView({ name: "V", groupBy: ["status"] });
+    });
+
+    expect(setGroupBy).toHaveBeenLastCalledWith(["poNumber"]);
   });
 });
