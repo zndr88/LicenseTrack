@@ -34,5 +34,5 @@ export const NATIVE_FIELDS = [
   { value: "is_renewable",         label: "Renewable (Service / Other: Yes / No)" },
   { value: "type_description",     label: "Type Description (Other)" },
   { value: "maintenance_coverage", label: "Maintenance Coverage" },
-  { value: "legacy_po_price",      label: "Total PO Price (not imported; warns)" },
+  { value: "total_po_price",       label: "Total PO Price (not imported; warns)" },
 ];
