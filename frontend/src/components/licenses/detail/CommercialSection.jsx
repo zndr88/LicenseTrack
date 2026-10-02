@@ -178,7 +178,7 @@ export default function CommercialSection({
               )}
               {calculatedTotal !== null && (
                 <div className="dp-field">
-                  <span className="dp-field-label">Calculated total</span>
+                  <span className="dp-field-label">Line Total</span>
                   <div className="val dp-mono-val">{fmtCost(calculatedTotal)}</div>
                 </div>
               )}

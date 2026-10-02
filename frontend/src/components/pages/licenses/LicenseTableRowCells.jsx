@@ -437,8 +437,6 @@ export default function LicenseTableRowCells({
         return <td key="maintenanceEndDate" className="mono">{license.maintenanceEndDate ? formatDate(license.maintenanceEndDate, userSettings) : "-"}</td>;
       case "maintenanceCost":
         return <td key="maintenanceCost" className="mono lp-mono-bold">{formatCost(license.maintenanceCost, license.currency || displayCurrency, locale)}</td>;
-      case "lineTotal":
-        return <td key="lineTotal" className="mono lp-mono-bold">{formatCost(license.totalPoPrice, license.currency || displayCurrency, locale)}</td>;
       case "poTotalOverride":
         return <td key="poTotalOverride" className="mono lp-mono-bold">{formatCost(license.poTotalOverride, license.currency || displayCurrency, locale)}</td>;
       case "parentLicenseRefs": {

@@ -424,7 +424,7 @@ describe('DetailPanel commercial details', () => {
 
     await user.click(screen.getByText('Details'))
 
-    const label = await screen.findByText('Calculated total')
+    const label = await screen.findByText('Line Total')
     expect(label.parentElement).toHaveTextContent(expected)
   })
 })

@@ -93,12 +93,12 @@ describe("License Overview sort accessors", () => {
 
   test.each([
     ["blank", "100"], ["5", ""], [null, "100"], ["100", undefined], ["invalid", "100"],
-  ])("Calc. Total treats missing operand %s as missing", (quantity, unitPrice) => {
+  ])("Line Total treats missing operand %s as missing", (quantity, unitPrice) => {
     expect(getLineAmount({ quantity, unitPrice })).toBeNull();
     expect(getSortValue({ quantity, unitPrice }, "calcTotal")).toBeNull();
   });
 
-  test.each([[0, 100, 0], ["0", "100", 0], [5, "0", 0]])("Calc. Total agrees for valid zero operands", (quantity, unitPrice, expected) => {
+  test.each([[0, 100, 0], ["0", "100", 0], [5, "0", 0]])("Line Total agrees for valid zero operands", (quantity, unitPrice, expected) => {
     const license = { quantity, unitPrice };
     expect(getLineAmount(license)).toBe(expected);
     expect(getSortValue(license, "calcTotal")).toBe(expected);

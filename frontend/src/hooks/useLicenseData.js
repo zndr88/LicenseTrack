@@ -192,9 +192,6 @@ export function useLicenseData(licenses, {
           case "unitPrice":
             if (!String(l.unitPrice ?? "").includes(parseTypedNumber(val, { numberFormatLocale }) ?? val)) return false;
             break;
-          case "totalPoPrice":
-            if (!String(l.totalPoPrice ?? "").includes(parseTypedNumber(val, { numberFormatLocale }) ?? val)) return false;
-            break;
           case "calcTotal": {
             const qty = Number(l.quantity);
             const unit = Number(l.unitPrice);
