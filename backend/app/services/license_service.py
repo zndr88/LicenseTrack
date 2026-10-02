@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 from collections import Counter
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
@@ -367,6 +367,27 @@ def calc_line_total(quantity: str | None, unit_price: str | None) -> Decimal | N
     if qty is None or price is None:
         return None
     return qty * price
+
+
+_UNIT_PRICE_FROM_TOTAL_PLACES = Decimal("0.000001")
+
+
+def unit_price_from_total(total: str | None, quantity: str | None) -> str | None:
+    """Unit price that reproduces *total* for *quantity*, at most 6 decimals.
+
+    Used where only a line total is known (the Add Maintenance dialog, CSV rows
+    without a unit price). Returns None for blank, non-canonical or zero input.
+    """
+    try:
+        parsed_total = parse_money(total or None)
+        parsed_quantity = parse_money(quantity or None)
+    except MoneyParseError:
+        return None
+    if parsed_total is None or parsed_quantity is None or parsed_quantity == 0:
+        return None
+    unit = (parsed_total / parsed_quantity).quantize(_UNIT_PRICE_FROM_TOTAL_PLACES, rounding=ROUND_HALF_UP)
+    text = format(unit, "f")
+    return text.rstrip("0").rstrip(".") if "." in text else text
 
 
 def calc_effective_quantity(quantity: str | None, quantity_per_unit: str | None) -> Decimal | None:
