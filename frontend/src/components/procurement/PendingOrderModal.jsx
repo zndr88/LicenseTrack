@@ -421,7 +421,6 @@ const PendingOrderModal = ({ order, userSettings, onSave, onCancel, onDeleteDocu
             onDeleteDocument={order ? onDeleteDocument : null}
             targetOptions={(isNewOrder ? items : order.items ?? []).map((line, index) => ({ value: String(line.id), label: line.softwareDescription || `Line ${index + 1}` }))}
             userSettings={userSettings}
-            defaultOpen
           />
         </div>
       </ModalShell>
