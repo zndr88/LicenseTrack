@@ -56,6 +56,28 @@ limited to the displayed page and is cleared when filters or pagination hide
 the selected rows. Search, filter, saved-view, and page-size changes return the
 table to a valid page instead of leaving an empty out-of-range view.
 
+## Group the list
+
+Click the **Group columns** button in the toolbar to open the grouping strip
+above the table. Drag a column header onto the strip, or use **+ Add
+grouping**, to group the list by PO #, Publisher, Supplier, Cost Centre, Type,
+Start year, End year, Status, Currency, Contract # or Budget Owner. While the
+strip is open, the headers you can group by are underlined; dropping any other
+header shows a short message instead. Add a second column to nest one grouping
+inside the other (for example PO # then Publisher). Dropping a header on
+another header still reorders the columns.
+
+Groups start collapsed. Click a group header, or press Enter or Space on it,
+to open it; **Expand all** and **Collapse all** are in the strip. Each header
+shows the line count ("3 of 5 lines" when filters hide some), the line total
+per currency, and the earliest end date of the live lines. A PO # group also
+shows the **Total PO Value**, with a warning when a manual PO total differs from
+the sum of the PO's lines.
+
+While the list is grouped it scrolls instead of paging, and the select-all box
+selects every line that matches the filters. Saved views keep the grouping, and
+CSV export stays a flat list in grouped order.
+
 ## The toolbar buttons
 
 ![The License Overview toolbar buttons](../assets/nav-05-toolbar-buttons.png)
@@ -69,6 +91,7 @@ The leftmost icon is the **Saved Views** bookmark covered above. The remaining b
 | **Inline Edit** | Quick-edit certain license details without opening the License Details panel. |
 | **Refresh view** | Refreshes the current view. |
 | **Column categories** | Shows or hides groups of list columns while you build a view. Changes are saved to your personal settings immediately. |
+| **Group columns** | Opens the grouping strip, where you group the list by one or two columns. |
 | **Show column filters** | Enables the advanced filter, which can be combined with your saved views. |
 | **Export CSV** | Exports your license list — choose between your current view or the full data set. |
 

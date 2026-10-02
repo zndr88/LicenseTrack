@@ -28,14 +28,8 @@ export function hasSameProcurementIdentity(license, selected) {
     && identity[1] === selectedIdentity[1];
 }
 
-// The one owner of a purchase's figures: the sum of its non-retired lines
-// (quantity x unit price) and the manual PO total, which replaces that sum
-// once per purchase.
-export function getProcurementBreakdown(selected, allLicenses) {
-  if (procurementIdentityKey(selected) === null) return { lineSum: 0, override: null, total: 0 };
-  const matching = (allLicenses ?? []).filter(
-    (license) => hasSameProcurementIdentity(license, selected) && !license.retired,
-  );
+function breakdownOfLines(lines) {
+  const matching = lines.filter((license) => !license.retired);
   const overrideLine = matching.find(
     (license) => license.poTotalOverride !== null
       && license.poTotalOverride !== undefined
@@ -44,6 +38,41 @@ export function getProcurementBreakdown(selected, allLicenses) {
   const lineSum = matching.reduce((sum, license) => sum + (getLineAmount(license) ?? 0), 0);
   const override = overrideLine ? (Number(overrideLine.poTotalOverride) || 0) : null;
   return { lineSum, override, total: override ?? lineSum };
+}
+
+// The one owner of a purchase's figures: the sum of its non-retired lines
+// (quantity x unit price) and the manual PO total, which replaces that sum
+// once per purchase.
+export function getProcurementBreakdown(selected, allLicenses) {
+  if (procurementIdentityKey(selected) === null) return { lineSum: 0, override: null, total: 0 };
+  return breakdownOfLines((allLicenses ?? []).filter((license) => hasSameProcurementIdentity(license, selected)));
+}
+
+function identityMapKey(identity) {
+  return `${identity[0]}\u0000${identity[1]}`;
+}
+
+// Groups licenses by procurement identity once, so many purchases can be
+// summarised without scanning the whole list for each of them.
+export function indexProcurementLines(allLicenses) {
+  const index = new Map();
+  for (const license of allLicenses ?? []) {
+    const identity = procurementIdentityKey(license);
+    if (identity === null) continue;
+    const key = identityMapKey(identity);
+    const lines = index.get(key);
+    if (lines) lines.push(license);
+    else index.set(key, [license]);
+  }
+  return index;
+}
+
+// Same figures as getProcurementBreakdown, read from an index built by
+// indexProcurementLines.
+export function getIndexedProcurementBreakdown(selected, index) {
+  const identity = procurementIdentityKey(selected);
+  if (identity === null) return { lineSum: 0, override: null, total: 0 };
+  return breakdownOfLines(index.get(identityMapKey(identity)) ?? []);
 }
 
 export function getProcurementTotal(selected, allLicenses) {

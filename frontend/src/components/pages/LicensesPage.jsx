@@ -24,7 +24,9 @@ import LicenseBulkActions from "./licenses/LicenseBulkActions.jsx";
 import LicenseStatusFilter from "./licenses/LicenseStatusFilter.jsx";
 import LicenseTable from "./licenses/LicenseTable.jsx";
 import LicenseToolbar from "./licenses/LicenseToolbar.jsx";
+import LicenseGroupStrip from "./licenses/LicenseGroupStrip.jsx";
 import DocumentPreviewPane from "./licenses/DocumentPreviewPane.jsx";
+import { allGroupIds, findGroupPathIds, flattenGroups, groupLicenses, groupedLines } from "./licenses/registryGrouping.js";
 import { useDocumentPreview } from "./licenses/useDocumentPreview.js";
 import PoDocumentWarning from "./licenses/PoDocumentWarning.jsx";
 import { manualPoTotalNote } from "../../utils/procurementTotals.js";
@@ -79,6 +81,9 @@ export default function LicensesPage({
     columnFilters, setColumnFilters, hasColumnFilters,
     hoveredCol, setHoveredCol,
     dismissedAttentionIds, setDismissedAttentionIds,
+    groupBy, setGroupBy,
+    expandedGroupIds, setExpandedGroupIds, toggleGroup,
+    groupStripOpen, setGroupStripOpen,
   } = useLicenseTableState();
 
   // Local state
@@ -118,6 +123,16 @@ export default function LicensesPage({
     currentPage, pageSize, sortCol, sortDir, globalSettings, userSettings, apiStats,
     customFieldDefs, customFieldValuesMap,
   });
+
+  const groupNodes = useMemo(
+    () => (groupBy.length > 0 ? groupLicenses(sorted, groupBy, { allLicenses: enriched, fallbackCurrency: displayCurrency }) : null),
+    [sorted, groupBy, enriched, displayCurrency],
+  );
+  const groupRows = useMemo(
+    () => (groupNodes ? flattenGroups(groupNodes, expandedGroupIds) : null),
+    [groupNodes, expandedGroupIds],
+  );
+  const exportRows = useMemo(() => (groupNodes ? groupedLines(groupNodes) : sorted), [groupNodes, sorted]);
 
   const datesFromOptions = useMemo(
     () => [...new Set(licenses.map((l) => l.startDate?.slice(0, 4)).filter(Boolean))].sort().reverse().map((y) => ({ value: y, label: y })),
@@ -162,6 +177,7 @@ export default function LicensesPage({
     statusFilters, setStatusFilters,
     columnFilters, setColumnFilters,
     sortCol, sortDir, setSortCol, setSortDir,
+    groupBy, setGroupBy,
     showError, showSuccess,
   });
 
@@ -231,6 +247,22 @@ export default function LicensesPage({
     onSourcingCreated,
     onNavigateToSourcing,
   });
+
+  // After an inline edit, open the groups that now contain the edited line.
+  const [revealLicenseId, setRevealLicenseId] = useState(null);
+  useEffect(() => {
+    if (revealLicenseId === null || !groupNodes) return;
+    const path = findGroupPathIds(groupNodes, revealLicenseId);
+    if (path.length > 0) {
+      setExpandedGroupIds((previous) => new Set([...previous, ...path]));
+    }
+    setRevealLicenseId(null);
+  }, [groupNodes, revealLicenseId, setExpandedGroupIds]);
+
+  const handleInlineFieldSave = useCallback(async (id, field, value) => {
+    if (groupBy.length > 0) setRevealLicenseId(id);
+    return handleLicenseFieldPatch(id, field, value);
+  }, [groupBy.length, handleLicenseFieldPatch]);
 
   // UI handlers
   useEffect(() => {
@@ -377,7 +409,10 @@ export default function LicensesPage({
                 handleSetVisibleColumnGroup={handleSetVisibleColumnGroup}
                 activeColumns={activeColumns}
                 visList={visList}
-                filtered={sorted}
+                filtered={exportRows}
+                groupStripOpen={groupStripOpen}
+                onToggleGroupStrip={() => setGroupStripOpen((open) => !open)}
+                grouped={groupBy.length > 0}
                 displayCurrency={displayCurrency}
                 licenses={licenses}
                 customFieldValuesMap={customFieldValuesMap}
@@ -391,6 +426,14 @@ export default function LicensesPage({
                 setStatusFilters={setStatusFilters}
                 setCurrentPage={setCurrentPage}
               />
+              {(groupStripOpen || groupBy.length > 0) && (
+                <LicenseGroupStrip
+                  groupBy={groupBy}
+                  onChange={setGroupBy}
+                  onExpandAll={() => setExpandedGroupIds(new Set(allGroupIds(groupNodes ?? [])))}
+                  onCollapseAll={() => setExpandedGroupIds(new Set())}
+                />
+              )}
             <LicenseTable
               filtered={sorted}
               sorted={sorted}
@@ -425,8 +468,13 @@ export default function LicensesPage({
               selectedId={selectedId}
               setSelectedId={setSelectedId}
               inlineEditEnabled={inlineEditEnabled}
-              onInlineFieldSave={handleLicenseFieldPatch}
+              onInlineFieldSave={handleInlineFieldSave}
               layoutVersion={attentionLayoutVersion}
+              groupRows={groupRows}
+              groupCount={groupNodes?.length ?? 0}
+              expandedGroupIds={expandedGroupIds}
+              onToggleGroup={toggleGroup}
+              showGroupableColumns={groupStripOpen || groupBy.length > 0}
             />
             </div>
           )}

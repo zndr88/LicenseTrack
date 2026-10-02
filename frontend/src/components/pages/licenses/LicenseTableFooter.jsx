@@ -2,6 +2,8 @@ import { formatNumber } from "../../../utils/formatting.js";
 
 export default function LicenseTableFooter({
   useVirtual,
+  grouped = false,
+  groupCount = 0,
   filtered,
   hasColumnFilters,
   currentPage,
@@ -11,6 +13,15 @@ export default function LicenseTableFooter({
   totalPages,
   userSettings,
 }) {
+  if (grouped) {
+    return (
+      <div className="lp-group-footer">
+        {formatNumber(groupCount, userSettings)} {groupCount === 1 ? "group" : "groups"} · {formatNumber(filtered.length, userSettings)} {filtered.length === 1 ? "line" : "lines"}
+        {hasColumnFilters && " / column filters active"}
+      </div>
+    );
+  }
+
   if (useVirtual) {
     return (
       <div style={{

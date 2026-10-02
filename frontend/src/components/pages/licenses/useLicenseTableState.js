@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DEFAULT_STATUS_FILTERS } from "../../../constants/licenseData.js";
 import {
   loadDismissedAttentionIds,
   saveDismissedAttentionIds,
 } from "../../../utils/licenseAttentionSession.js";
+import { sanitizeGroupBy } from "./registryGrouping.js";
 
 export function useLicenseTableState() {
   const [search, setSearch] = useState("");
@@ -18,6 +19,24 @@ export function useLicenseTableState() {
   const [columnFilters, setColumnFilters] = useState({});
   const [hoveredCol, setHoveredCol] = useState(null);
   const [dismissedAttentionIds, setDismissedAttentionIds] = useState(loadDismissedAttentionIds);
+
+  const [groupBy, setGroupByState] = useState([]);
+  const [expandedGroupIds, setExpandedGroupIds] = useState(() => new Set());
+  const [groupStripOpen, setGroupStripOpen] = useState(false);
+
+  const setGroupBy = useCallback((next) => {
+    setGroupByState(sanitizeGroupBy(next));
+    setExpandedGroupIds(new Set());
+  }, []);
+
+  const toggleGroup = useCallback((id) => {
+    setExpandedGroupIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     saveDismissedAttentionIds(dismissedAttentionIds);
@@ -51,5 +70,8 @@ export function useLicenseTableState() {
     columnFilters, setColumnFilters, hasColumnFilters,
     hoveredCol, setHoveredCol,
     dismissedAttentionIds, setDismissedAttentionIds,
+    groupBy, setGroupBy,
+    expandedGroupIds, setExpandedGroupIds, toggleGroup,
+    groupStripOpen, setGroupStripOpen,
   };
 }

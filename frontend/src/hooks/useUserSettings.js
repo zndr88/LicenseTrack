@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { updateSettings } from "../api/settings.js";
 import { DEFAULT_STATUS_FILTERS } from "../constants/licenseData.js";
 import { VISIBLE_IN_LIST_DEFAULTS } from "../components/pages/licenses/licenseColumns.js";
+import { sanitizeGroupBy } from "../components/pages/licenses/registryGrouping.js";
 
 function withDefaultFlag(view, isDefault) {
   if (isDefault) return { ...view, isDefault: true };
@@ -22,6 +23,8 @@ export function useUserSettings({
   sortDir,
   setSortCol,
   setSortDir,
+  groupBy = [],
+  setGroupBy = () => {},
   showError,
   showSuccess,
 }) {
@@ -55,6 +58,7 @@ export function useUserSettings({
       visibleInList: userSettings.visibleInList,
       sortCol: sortCol ?? null,
       sortDir,
+      groupBy,
       ...(existingView?.isDefault ? { isDefault: true } : {}),
     };
     const updatedViews = [
@@ -68,7 +72,7 @@ export function useUserSettings({
       return;
     }
     if (ok) showSuccess("View saved.");
-  }, [userSettings, statusFilters, columnFilters, sortCol, sortDir, setUserSettings, showSuccess, commitSettings]);
+  }, [userSettings, statusFilters, columnFilters, sortCol, sortDir, groupBy, setUserSettings, showSuccess, commitSettings]);
 
   const handleDeleteView = useCallback(async (name) => {
     const updatedViews = userSettings.savedViews.filter((v) => v.name !== name);
@@ -104,6 +108,7 @@ export function useUserSettings({
     }));
     setSortCol(view.sortCol ?? null);
     setSortDir(view.sortDir ?? "asc");
+    setGroupBy(sanitizeGroupBy(view.groupBy));
 
     const ok = await commitSettings({
       visible_in_list: newVisibleInList,
@@ -115,8 +120,9 @@ export function useUserSettings({
       setUserSettings(userSettings);
       setSortCol(sortCol ?? null);
       setSortDir(sortDir);
+      setGroupBy(groupBy);
     }
-  }, [userSettings, statusFilters, columnFilters, sortCol, sortDir, setStatusFilters, setColumnFilters, setUserSettings, setSortCol, setSortDir, commitSettings]);
+  }, [userSettings, statusFilters, columnFilters, sortCol, sortDir, groupBy, setStatusFilters, setColumnFilters, setUserSettings, setSortCol, setSortDir, setGroupBy, commitSettings]);
 
   const handleHideColumn = useCallback(async (colKey) => {
     const updatedVisList = { ...userSettings.visibleInList, [colKey]: false };
@@ -154,6 +160,7 @@ export function useUserSettings({
     }));
     setSortCol(null);
     setSortDir("asc");
+    setGroupBy([]);
 
     const ok = await commitSettings({
       visible_in_list: defaultVisibleInList,
@@ -165,8 +172,9 @@ export function useUserSettings({
       setUserSettings(userSettings);
       setSortCol(sortCol ?? null);
       setSortDir(sortDir);
+      setGroupBy(groupBy);
     }
-  }, [userSettings, statusFilters, columnFilters, sortCol, sortDir, setStatusFilters, setColumnFilters, setUserSettings, setSortCol, setSortDir, commitSettings]);
+  }, [userSettings, statusFilters, columnFilters, sortCol, sortDir, groupBy, setStatusFilters, setColumnFilters, setUserSettings, setSortCol, setSortDir, setGroupBy, commitSettings]);
 
   return {
     handleSaveView,

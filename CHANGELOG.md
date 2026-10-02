@@ -51,6 +51,12 @@ Work in progress for 1.2.0.
 - Before a new version changes the database schema, LicenseTrack saves a copy of
   the database in `pre-upgrade/` next to the database file (newest three kept).
   Restarts after a failed upgrade reuse the first copy instead of replacing it.
+- Group the Registry by a column, with an optional second level (for example
+  PO # then Publisher). Drag a column header onto the grouping strip or pick
+  one from the list. Groups start collapsed and show their line count, line
+  total per currency and earliest end date; purchase-order groups also show the
+  Total PO Value and flag a manual PO total that differs from its lines. Saved
+  views keep the grouping, and CSV export stays flat in grouped order.
 
 ### Changed
 
