@@ -6,7 +6,7 @@ import { numberInputErrorMessage, parseTypedNumberResult, sameNumberValue, toInp
 import { formatCustomFieldValue } from "../../../utils/customFieldPresentation.js";
 import { formatQuantity } from "../../../utils/quantity.js";
 import ReferenceCombobox from "../../ui/ReferenceCombobox.jsx";
-import { getCalcTotalValue } from "../../../utils/sort.js";
+import { getLineAmount } from "../../../utils/lineAmount.js";
 import { renewableLabel, supportStatusBadge } from "../../../utils/licenseTypeRules.js";
 import { maintenanceCoverageOptionsForLicenseType } from "../../../utils/maintenanceCoverage.js";
 
@@ -371,7 +371,7 @@ export default function LicenseTableRowCells({
       case "totalPoPrice":
         return <td key="totalPoPrice" className="mono lp-mono-bold">{formatCost(getPoTotal(license.poNumber, license.currency, licenses, license), license.currency || displayCurrency, locale)}</td>;
       case "calcTotal": {
-        const total = getCalcTotalValue(license);
+        const total = getLineAmount(license);
         if (total === null) return <td key="calcTotal" className="mono lp-mono-bold">-</td>;
         return <td key="calcTotal" className="mono lp-mono-bold">{formatCost(total, license.currency || displayCurrency, locale)}</td>;
       }

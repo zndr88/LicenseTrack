@@ -1,5 +1,6 @@
 import { LICENSE_METRICS, LICENSE_TYPES, MAINTENANCE_COVERAGE_OPTIONS } from "../constants/licenseData.js";
 import { getPoTotal } from "./helpers.js";
+import { getLineAmount } from "./lineAmount.js";
 import { renewableLabel } from "./licenseTypeRules.js";
 
 const labelFor = (options, value) => options.find((option) => option.value === value)?.label ?? value ?? null;
@@ -26,12 +27,6 @@ export const dateTimeValue = (value) => {
   const time = new Date(value).getTime();
   return Number.isFinite(time) ? time : null;
 };
-
-export function getCalcTotalValue(license) {
-  const quantity = finiteNumber(license.quantity);
-  const unitPrice = finiteNumber(license.unitPrice);
-  return quantity === null || unitPrice === null ? null : quantity * unitPrice;
-}
 
 function customFieldDefinition(colKey, customFieldDefs = []) {
   if (!colKey?.startsWith("cf_")) return null;
@@ -90,7 +85,6 @@ const STATIC_SORT_ACCESSORS = {
   quantityPerUnit: (license) => finiteNumber(license.quantityPerUnit),
   skuCode: (license) => license.skuCode ?? null,
   unitPrice: (license) => finiteNumber(license.unitPrice),
-  lineTotal: (license) => finiteNumber(license.totalPoPrice),
   poTotalOverride: (license) => finiteNumber(license.poTotalOverride),
   totalPoPrice: (license, { allLicenses }) => finiteNumber(
     getPoTotal(license.poNumber, license.currency, allLicenses, license),
@@ -106,7 +100,7 @@ const STATIC_SORT_ACCESSORS = {
   isRenewable: (license) => renewableLabel(license) || null,
   notes: (license) => license.notes ?? null,
   docs: (license) => finiteNumber(license.documentCount ?? 0),
-  calcTotal: (license) => getCalcTotalValue(license),
+  calcTotal: (license) => getLineAmount(license),
   expiration: (license) => expirationSortValue(license),
   complete: (license) => finiteNumber(license.completeness?.percentage),
   createdBy: (license) => license.createdByName || license.createdByEmail || (license.createdBy ? `User #${license.createdBy}` : "Unknown / legacy record"),
