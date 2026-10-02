@@ -21,7 +21,6 @@ const BASE = {
   quantityPerUnit: "5000000",
   skuCode: "",
   unitPrice: "1234.50",
-  totalPoPrice: "1234500.00",
   currency: "EUR",
   budgetOwnerEmail: "",
   notes: "",
@@ -36,7 +35,7 @@ describe("buildPendingOrderConversionPayload", () => {
     expect(payload.quantity).toBe("1.000");
     expect(payload.quantityPerUnit).toBe("5000000");
     expect(payload.unitPrice).toBe("1234.50");
-    expect(payload.totalPoPrice).toBe("1234500.00");
+    expect(payload).not.toHaveProperty("totalPoPrice");
   });
 
   it("clears the end date for non-expiring license types", () => {
@@ -44,5 +43,17 @@ describe("buildPendingOrderConversionPayload", () => {
 
     expect(buildPendingOrderConversionPayload({ ...withEnd, licenseType: "oem" }, {}).endDate).toBeNull();
     expect(buildPendingOrderConversionPayload({ ...withEnd, licenseType: "subscription" }, {}).endDate).toBe("2026-12-31");
+  });
+});
+
+
+describe("buildPendingOrderConversionPayload line total", () => {
+  it("never sends a stored line total", () => {
+    const payload = buildPendingOrderConversionPayload(
+      { ...BASE, quantity: "1", unitPrice: "250", totalPoPrice: "0.01" },
+      { numberFormatLocale: "en-US" },
+    );
+    expect(payload).not.toHaveProperty("totalPoPrice");
+    expect(payload.unitPrice).toBe("250");
   });
 });

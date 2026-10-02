@@ -30,6 +30,8 @@ import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import DocumentStagingWorkspace from "./DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "./useStagedDocumentAttachments.js";
 import LicenseTypeLabel from "../licenses/LicenseTypeLabel.jsx";
+import CalculatedLineTotal from "../licenses/CalculatedLineTotal.jsx";
+import { getLineAmountText } from "../../utils/lineAmount.js";
 
 const APPLYABLE_PLUGIN_FIELDS = new Set([
   "publisherName",
@@ -52,7 +54,6 @@ const APPLYABLE_PLUGIN_FIELDS = new Set([
   "quantityPerUnit",
   "skuCode",
   "unitPrice",
-  "totalPoPrice",
   "currency",
   "budgetOwnerEmail",
   "notes",
@@ -95,7 +96,6 @@ const ConvertPendingOrderModal = ({
     changeCategoryScope: changeAttachmentCategoryScope,
     clearAttachments,
   } = useStagedDocumentAttachments(order?.items?.[0]?.id);
-  const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
 
   const {
     register,
@@ -140,7 +140,6 @@ const ConvertPendingOrderModal = ({
       quantityPerUnit:     prefill.quantityPerUnit     || "1",
       skuCode:             prefill.skuCode             || "",
       unitPrice:           prefill.unitPrice           || "",
-      totalPoPrice:        prefill.totalPoPrice        || "",
       currency:            prefill.currency            || "EUR",
       budgetOwnerEmail:    prefill.budgetOwnerEmail    || "",
       budgetOwnerRequired: Boolean(prefill.budgetOwnerRequired),
@@ -154,7 +153,6 @@ const ConvertPendingOrderModal = ({
 
   const quantity     = watch("quantity");
   const unitPrice    = watch("unitPrice");
-  const totalPoPrice = watch("totalPoPrice");
   const startDate = watch("startDate");
   const endDate = watch("endDate");
   const licenseType  = watch("licenseType");
@@ -172,28 +170,9 @@ const ConvertPendingOrderModal = ({
   const conversionDraftFields = watch();
   const customFieldValues = watch("customFieldValues") || {};
 
-  // Auto-compute totalPoPrice from quantity x unitPrice when not manually edited.
-  useEffect(() => {
-    const qtyStr  = String(quantity  ?? "").trim();
-    const unitStr = String(unitPrice ?? "").trim();
-    if (!qtyStr && !unitStr) {
-      setTotalManuallyEdited(false);
-      setValue("totalPoPrice", "", { shouldDirty: true });
-      return;
-    }
-    if (totalManuallyEdited) return;
-    // Quantity and unit price are canonical values from NumberInput.
-    if (qtyStr && unitStr && isValidNumberValue(qtyStr) && isValidNumberValue(unitStr)) {
-      const computed = (Number(qtyStr) * Number(unitStr)).toFixed(2);
-      setValue("totalPoPrice", computed, { shouldDirty: true });
-    }
-  }, [quantity, unitPrice, totalManuallyEdited, setValue]);
-
   useEffect(() => {
     if (!isFreewareLicenseType(licenseType)) return;
     setValue("unitPrice", "", { shouldDirty: true });
-    setValue("totalPoPrice", "", { shouldDirty: true });
-    setTotalManuallyEdited(false);
   }, [licenseType, setValue]);
 
   const canSave =
@@ -204,7 +183,7 @@ const ConvertPendingOrderModal = ({
     (isNonExpiringLicenseType(licenseType) || String(watch("endDate") ?? "").trim() !== "") &&
     !typeDescriptionMissing(licenseType, watch("typeDescription")) &&
     String(quantity  ?? "").trim() !== "" &&
-    ["quantity", "quantityPerUnit", "unitPrice", "totalPoPrice"].every((name) => isValidNumberValue(watch(name))) &&
+    ["quantity", "quantityPerUnit", "unitPrice"].every((name) => isValidNumberValue(watch(name))) &&
     (!prefill.budgetOwnerRequired || String(watch("budgetOwnerEmail") ?? "").trim() !== "") &&
     (isFreewareLicenseType(licenseType) || String(unitPrice ?? "").trim() !== "");
 
@@ -220,9 +199,6 @@ const ConvertPendingOrderModal = ({
         continue;
       }
       setValue(fieldName, String(value), { shouldDirty: true, shouldValidate: true });
-      if (fieldName === "totalPoPrice") {
-        setTotalManuallyEdited(true);
-      }
     }
   }, [setValue, watch]);
 
@@ -394,7 +370,7 @@ const ConvertPendingOrderModal = ({
             licenseQuantity={quantity}
             licenseStartDate={startDate}
             licenseEndDate={isNonExpiringLicenseType(licenseType) ? "" : endDate}
-            licenseTotalCost={totalPoPrice}
+            licenseTotalCost={getLineAmountText({ quantity, unitPrice })}
             currency={currency}
             locale={locale}
             onChange={(field, value) => setValue(field, value, { shouldDirty: true })}
@@ -428,26 +404,7 @@ const ConvertPendingOrderModal = ({
                     )}
                   />
               </div>
-              <div className="fg">
-                  <label htmlFor="cpo-total-price">Line Total</label>
-                  <Controller
-                    name="totalPoPrice"
-                    control={control}
-                    render={({ field }) => (
-                      <NumberInput
-                        id="cpo-total-price"
-                        value={field.value ?? ""}
-                        settings={userSettings}
-                        minFractionDigits={2}
-                        onChange={(next) => {
-                          setTotalManuallyEdited(true);
-                          field.onChange(next);
-                        }}
-                        onBlur={field.onBlur}
-                      />
-                    )}
-                  />
-              </div>
+              <CalculatedLineTotal id="cpo-line-total" quantity={quantity} unitPrice={unitPrice} currency={currency} locale={locale} />
             </div>
           )}
           <div className="fg">

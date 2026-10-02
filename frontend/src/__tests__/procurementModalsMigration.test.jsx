@@ -383,7 +383,6 @@ describe("ConvertSourcingModal", () => {
 
 describe("ConvertPendingOrderModal", () => {
   const ORDER = { id: 1, poNumber: "PO-1", items: [] };
-  // Include totalPoPrice so the auto-compute effect doesn't dirty the form on mount.
   const PREFILL = {
     publisherName: "Acme Corp",
     softwareDescription: "Acme Suite",
@@ -391,7 +390,6 @@ describe("ConvertPendingOrderModal", () => {
     endDate: "2026-12-31",
     quantity: "10",
     unitPrice: "25.00",
-    totalPoPrice: "250.00",
     currency: "EUR",
   };
 
@@ -429,6 +427,7 @@ describe("ConvertPendingOrderModal", () => {
   test("labels the per-line total as Line Total, never as a PO total", () => {
     renderModal();
     expect(screen.getByLabelText("Line Total")).toBeInTheDocument();
+    expect(screen.getByLabelText("Line Total")).toHaveTextContent("250.00");
     expect(screen.queryByText(/Total PO (Price|Value)/)).not.toBeInTheDocument();
   });
 
@@ -622,7 +621,6 @@ describe("ConvertPendingOrderModal", () => {
       quantityPerUnit: "1",
       skuCode: "SKU-1",
       unitPrice: "25.00",
-      totalPoPrice: "250.00",
       currency: "EUR",
       budgetOwnerEmail: "budget@example.com",
       notes: "Ship it",
@@ -640,7 +638,6 @@ describe("ConvertPendingOrderModal", () => {
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         unitPrice: "50.00",
-        totalPoPrice: "500.00",
       },
     });
 
@@ -848,7 +845,6 @@ describe("ConvertAllModal", () => {
       quantity: "9",
       skuCode: "SKU-OLD",
       unitPrice: "99.00",
-      totalPoPrice: "891.00",
       currency: "GBP",
       budgetOwnerEmail: "budget-renew@example.com",
     },
@@ -1007,7 +1003,6 @@ describe("ConvertAllModal", () => {
       licenseMetric: screen.getByLabelText(/license metric/i).value,
       quantity: screen.getByLabelText(/purchase quantity/i).value,
       unitPrice: screen.getByLabelText(/^unit price/i).value,
-      totalPoPrice: screen.getByLabelText(/^line total$/i).value,
       currency: screen.getByLabelText(/^currency$/i).value,
       notes: screen.getByLabelText(/notes \/ comments/i).value,
     };
@@ -1025,7 +1020,6 @@ describe("ConvertAllModal", () => {
       licenseMetric: screen.getByLabelText(/license metric/i).value,
       quantity: screen.getByLabelText(/purchase quantity/i).value,
       unitPrice: screen.getByLabelText(/^unit price/i).value,
-      totalPoPrice: screen.getByLabelText(/^line total$/i).value,
       currency: screen.getByLabelText(/^currency$/i).value,
       notes: screen.getByLabelText(/notes \/ comments/i).value,
     };
@@ -1038,7 +1032,6 @@ describe("ConvertAllModal", () => {
       licenseMetric: "per_device",
       quantity: "12",
       unitPrice: "55.00",
-      totalPoPrice: "660.00",
       supplier: "PO Supplier",
       contactEmail: "line@example.com",
       currency: "USD",
@@ -1291,7 +1284,6 @@ describe("ConvertAllModal", () => {
           quantityPerUnit: "1",
           skuCode: "",
           unitPrice: "12.50",
-          totalPoPrice: "50.00",
           currency: "USD",
           budgetOwnerEmail: "",
           notes: null,
@@ -1330,7 +1322,6 @@ describe("ConvertAllModal", () => {
           quantityPerUnit: "1",
           skuCode: "SKU-OLD",
           unitPrice: "30.00",
-          totalPoPrice: "210.00",
           currency: "EUR",
           budgetOwnerEmail: "budget-renew@example.com",
           notes: null,
@@ -1345,7 +1336,7 @@ describe("ConvertAllModal", () => {
     renderModal({ order: MULTI_ORDER, licenses: RENEWAL_LICENSES });
 
     expect(screen.getByDisplayValue("12.50")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("210.00")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Line Total").map((el) => el.textContent)).toEqual([expect.stringContaining("50.00"), expect.stringContaining("210.00")]);
     expect(screen.getByDisplayValue("https://renew.example.com")).toBeInTheDocument();
     expect(screen.getByDisplayValue("CN-OLD")).toBeInTheDocument();
     expect(screen.getByText("Renewal")).toBeInTheDocument();

@@ -109,7 +109,7 @@ describe("buildConvertItemDefaults", () => {
     const [d] = buildConvertItemDefaults(order, [makeLicense()]);
     expect(d.quantity).toBe("12");
     expect(d.unitPrice).toBe("55.00");
-    expect(d.totalPoPrice).toBe("660.00");
+    expect(d).not.toHaveProperty("totalPoPrice");
     expect(d.startDate).toBe("2026-03-01");
     expect(d.endDate).toBe("2027-02-28");
     expect(d.supplier).toBe("Default Supplier");
@@ -380,5 +380,14 @@ describe("buildConvertItemDefaults", () => {
   it("accepts already formatted purchase-line contacts", () => {
     const order = { ...baseOrder, items: [makeSI({ secondaryContacts: "  legal@example.com  " })] };
     expect(buildConvertItemDefaults(order, [])[0].secondaryContacts).toBe("legal@example.com");
+  });
+});
+
+
+describe("buildConvertItemDefaults line total", () => {
+  it("does not prefill a line total from the estimate or the renewed license", () => {
+    const si = makeSI({ quantity: "16", estimatedUnitPrice: "0.01", estimatedTotalPrice: "0.16" });
+    const [d] = buildConvertItemDefaults({ ...baseOrder, items: [si] }, [makeLicense({ totalPoPrice: "9999" })]);
+    expect(d).not.toHaveProperty("totalPoPrice");
   });
 });

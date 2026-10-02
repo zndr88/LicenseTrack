@@ -77,7 +77,6 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       quantityPerUnit:     si.quantityPerUnit || renewal?.quantityPerUnit || "1",
       skuCode:             si.skuCode || renewal?.skuCode || "",
       unitPrice:           si.estimatedUnitPrice || renewal?.unitPrice || "",
-      totalPoPrice:        si.estimatedTotalPrice || renewal?.totalPoPrice || "",
       currency:            si.currency || renewal?.currency || defaultCurrency,
       budgetOwnerEmail:    budgetOwner.value,
       budgetOwnerRequired: budgetOwner.required,

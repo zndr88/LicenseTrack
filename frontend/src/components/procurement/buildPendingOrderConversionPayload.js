@@ -53,7 +53,6 @@ export function buildPendingOrderConversionPayload(data, settings) {
     quantityPerUnit:     canonicalizeNumber(data.quantityPerUnit, settings) || "1",
     skuCode:             data.skuCode,
     unitPrice:           data.licenseType === "freeware" ? null : canonicalizeNumber(data.unitPrice, settings),
-    totalPoPrice:        data.licenseType === "freeware" ? null : canonicalizeNumber(data.totalPoPrice, settings),
     currency:            data.currency,
     budgetOwnerEmail:    data.budgetOwnerEmail,
     secondaryContacts:   parseSecondaryContacts(data.secondaryContacts),
