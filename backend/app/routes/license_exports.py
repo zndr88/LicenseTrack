@@ -197,7 +197,7 @@ async def export_licenses(request: Request, db: DbSession, _current_user: Curren
                     lic.maintenance_start_date.isoformat() if lic.maintenance_start_date else "",
                     lic.maintenance_end_date.isoformat() if lic.maintenance_end_date else "",
                     lic.maintenance_cost or "",
-                    lic.total_po_price or "",
+                    format(line, "f") if (line := calc_line_total(lic.quantity, lic.unit_price)) is not None else "",
                     lic.po_total_override or "",
                     lic.po_line_number or "",
                 ]
