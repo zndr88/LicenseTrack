@@ -55,6 +55,7 @@ export function rowStyle(license, upcomingReplacement = false) {
 
 export function getVisibleColumns(activeColumns, visList) {
   return activeColumns.filter((col) => {
+    if (col.exportOnly) return false;
     if (col.always) return true;
     if ((col.settingsKey && visList[col.settingsKey] === false)
       || ((col.key === "startDate" || col.key === "endDate") && visList.dates === false)) {

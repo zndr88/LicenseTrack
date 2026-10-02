@@ -28,17 +28,24 @@ export function hasSameProcurementIdentity(license, selected) {
     && identity[1] === selectedIdentity[1];
 }
 
-export function getProcurementTotal(selected, allLicenses) {
-  const selectedIdentity = procurementIdentityKey(selected);
-  if (selectedIdentity === null) return 0;
+// The one owner of a purchase's figures: the sum of its non-retired lines
+// (quantity x unit price) and the manual PO total, which replaces that sum
+// once per purchase.
+export function getProcurementBreakdown(selected, allLicenses) {
+  if (procurementIdentityKey(selected) === null) return { lineSum: 0, override: null, total: 0 };
   const matching = (allLicenses ?? []).filter(
     (license) => hasSameProcurementIdentity(license, selected) && !license.retired,
   );
-  const override = matching.find(
+  const overrideLine = matching.find(
     (license) => license.poTotalOverride !== null
       && license.poTotalOverride !== undefined
       && license.poTotalOverride !== "",
   );
-  if (override) return Number(override.poTotalOverride) || 0;
-  return matching.reduce((sum, license) => sum + (getLineAmount(license) ?? 0), 0);
+  const lineSum = matching.reduce((sum, license) => sum + (getLineAmount(license) ?? 0), 0);
+  const override = overrideLine ? (Number(overrideLine.poTotalOverride) || 0) : null;
+  return { lineSum, override, total: override ?? lineSum };
+}
+
+export function getProcurementTotal(selected, allLicenses) {
+  return getProcurementBreakdown(selected, allLicenses).total;
 }

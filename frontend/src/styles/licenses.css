@@ -222,6 +222,7 @@
 .lp-td { font-size: 12px; color: var(--text-2); }
 .lp-sku { font-family: var(--font-mono); font-size: 10px; color: var(--text-2); }
 .lp-mono-bold { font-family: var(--font-mono); font-weight: 500; }
+.lp-manual-po-total { display: inline-flex; margin-left: 4px; vertical-align: -1px; color: var(--text-3); }
 .lp-date-sub { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); }
 .lp-comp-row { display: flex; align-items: center; gap: 5px; }
 .lp-comp-pct { font-family: var(--font-mono); font-size: 10px; font-weight: 500; }
