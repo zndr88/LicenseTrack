@@ -2,7 +2,8 @@
 
 The Add Maintenance dialog stored the coverage-period cost as the unit price
 while copying the parent's quantity, so quantity x unit price overstated the
-cost. Only rows with that exact signature are corrected.
+cost. Only rows with that exact signature are corrected, along with the copy
+of their cost that the covered parent keeps.
 
 Revision ID: ed0290d95ac3
 Revises: 2ce70b265de2
@@ -42,6 +43,9 @@ def upgrade() -> None:
             "AND unit_price <> '' AND unit_price = total_po_price"
         )
     ).fetchall()
+    # A parent keeps a copy of its active maintenance child's cost; correct that
+    # copy for the children fixed below.
+    update_parent_mirror = {"active_maintenance_id", "maintenance_cost"} <= columns
     for row in rows:
         try:
             quantity = Decimal(row.quantity)
@@ -50,10 +54,16 @@ def upgrade() -> None:
             continue
         if quantity <= 1:
             continue
+        unit = _canonical(total / quantity)
         bind.execute(
             sa.text("UPDATE licenses SET unit_price = :unit WHERE id = :id"),
-            {"unit": _canonical(total / quantity), "id": row.id},
+            {"unit": unit, "id": row.id},
         )
+        if update_parent_mirror:
+            bind.execute(
+                sa.text("UPDATE licenses SET maintenance_cost = :cost WHERE active_maintenance_id = :id"),
+                {"cost": format(quantity * Decimal(unit), "f"), "id": row.id},
+            )
 
 
 def downgrade() -> None:
