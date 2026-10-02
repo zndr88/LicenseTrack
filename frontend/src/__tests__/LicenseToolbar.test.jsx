@@ -220,4 +220,12 @@ describe("LicenseToolbar", () => {
       true
     );
   });
+
+  test("the Group columns button toggles the grouping strip", () => {
+    const { onToggleGroupStrip } = setup({ groupStripOpen: false, onToggleGroupStrip: vi.fn(), grouped: false });
+    const button = screen.getByRole("button", { name: "Group columns" });
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(button);
+    expect(onToggleGroupStrip).toHaveBeenCalledTimes(1);
+  });
 });

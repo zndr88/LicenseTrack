@@ -56,6 +56,7 @@ export default function LicenseToolbar({
   activeColumns, visList, filtered, displayCurrency, licenses, customFieldValuesMap,
   showError,
   inlineEditEnabled, onToggleInlineEdit, canInlineEdit,
+  groupStripOpen = false, onToggleGroupStrip, grouped = false,
 }) {
   const [viewsOpen, setViewsOpen] = useState(false);
   const [newViewName, setNewViewName] = useState("");
@@ -367,6 +368,16 @@ export default function LicenseToolbar({
           </div>,
           document.body
         )}
+        <button
+          type="button"
+          className={`toolbar-btn ${groupStripOpen || grouped ? "toolbar-btn-active" : ""}`}
+          onClick={onToggleGroupStrip}
+          title="Group columns"
+          aria-label="Group columns"
+          aria-pressed={groupStripOpen}
+        >
+          <Icon name="list" size={15} />
+        </button>
         <button
           type="button"
           className={`toolbar-btn ${filterRowOpen || hasColumnFilters ? "toolbar-btn-active" : ""}`}
