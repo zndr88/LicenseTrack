@@ -115,6 +115,8 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- The Registry's column titles stay on top while the table scrolls. Only the
+  select-all box stayed; the titles scrolled away with the rows.
 - A price cleared on a renewal line stayed cleared only until conversion: Convert
   to License refilled the previous term's unit price, maintenance unit price or
   maintenance cost. Prices now come from the renewal line only; starting a

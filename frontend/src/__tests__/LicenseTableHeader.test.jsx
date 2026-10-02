@@ -75,3 +75,36 @@ describe("LicenseTableHeader sortable capability", () => {
     expect([...update(new Set([99]))]).toEqual([99, 2, 3]);
   });
 });
+
+describe("LicenseTableHeader sticky titles", () => {
+  test("title cells leave positioning to the stylesheet, so they stay on top while scrolling", () => {
+    render(
+      <table>
+        <LicenseTableHeader
+          visibleColumns={[{ key: "select", label: "", width: 36 }, { key: "publisher", label: "Publisher", width: 140 }]}
+          selectAllRef={{ current: null }}
+          allDisplayedSelected={false}
+          displayRows={[]}
+          selectionLabel="Select all"
+          setSelectedIds={vi.fn()}
+          dragHappenedRef={{ current: false }}
+          setUserSettings={vi.fn()}
+          setHoveredCol={vi.fn()}
+          hoveredCol={null}
+          handleSortCol={vi.fn()}
+          sortCol={null}
+          sortDir="asc"
+          handleHideColumn={vi.fn()}
+          filterRowOpen={false}
+          columnFilters={{}}
+          setColumnFilters={vi.fn()}
+          departments={[]}
+          datesFromOptions={[]}
+          datesToOptions={[]}
+        />
+      </table>,
+    );
+    // An inline position overrides the sticky header rule in licenses.css.
+    expect(screen.getByRole("columnheader", { name: /Publisher/ }).style.position).toBe("");
+  });
+});
