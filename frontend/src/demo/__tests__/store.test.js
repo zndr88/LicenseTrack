@@ -99,3 +99,20 @@ describe("demo store seed/reset", () => {
     expect(store.pendingOrders).toEqual([]);
   });
 });
+
+describe("planned term links", () => {
+  it("refuses a later term as the predecessor of an earlier one", async () => {
+    const { store, setPlannedSuccessors } = await import("../store.js");
+    const base = { sourcingRequestId: 9901, pendingOrderId: null, status: "sourcing", publisherName: "Acme", licenseType: "subscription", isRenewable: true };
+    store.sourcingItems.push(
+      { ...base, id: 99021, startDate: "2027-01-01", successorSourcingItemId: null },
+      { ...base, id: 99031, startDate: "2028-01-01", successorSourcingItemId: null },
+    );
+    try {
+      expect(() => setPlannedSuccessors([99031], 99021)).toThrow("A predecessor must start before its next term");
+      expect(() => setPlannedSuccessors([99021], 99031)).not.toThrow();
+    } finally {
+      store.sourcingItems = store.sourcingItems.filter((item) => item.sourcingRequestId !== 9901);
+    }
+  });
+});

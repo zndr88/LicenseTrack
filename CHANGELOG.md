@@ -112,6 +112,10 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- Linking terms within one request follows one rule in both Set predecessors
+  and Set next term: a line can't roll into an earlier-starting term, a link
+  that would close a loop isn't offered, and lines that can't be linked are
+  shown with the reason instead of being hidden or failing on save.
 - Convert All kept the PO line's estimated total as the license Line Total even
   when real unit prices were entered at conversion.
 - Subscriptions and SaaS with included maintenance could take their maintenance
