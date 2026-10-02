@@ -62,6 +62,16 @@ export const GROUPABLE_COLUMNS = Object.freeze([
     compare: (a, b) => collator.compare(a.label, b.label),
   },
   {
+    key: "startYear",
+    label: "Start year",
+    blankLabel: "(No start date)",
+    read: (l) => {
+      const year = /^\d{4}/.exec(String(l.startDate ?? ""))?.[0];
+      return year ? { key: year, label: year } : null;
+    },
+    compare: (a, b) => Number(a.key) - Number(b.key),
+  },
+  {
     key: "endYear",
     label: "End year",
     blankLabel: "(No end date)",
@@ -99,6 +109,15 @@ const COLUMN_BY_KEY = new Map(GROUPABLE_COLUMNS.map((column) => [column.key, col
 
 export function getGroupableColumn(key) {
   return COLUMN_BY_KEY.get(key) ?? null;
+}
+
+// Table column key -> grouping key, where they differ.
+const COLUMN_TO_GROUPING = { startDate: "startYear", endDate: "endYear", expiration: "status" };
+
+/** The grouping a dragged table column maps to, or null when it can't be grouped. */
+export function groupingKeyForColumn(columnKey) {
+  const key = COLUMN_TO_GROUPING[columnKey] ?? columnKey;
+  return COLUMN_BY_KEY.has(key) ? key : null;
 }
 
 export function sanitizeGroupBy(value) {

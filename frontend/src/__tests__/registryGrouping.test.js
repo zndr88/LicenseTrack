@@ -14,10 +14,10 @@ import {
 const value = (key, license) => getGroupableColumn(key).read(license);
 
 describe("groupable columns", () => {
-  it("offers exactly the ten approved columns", () => {
+  it("offers exactly the eleven approved columns", () => {
     expect(GROUPABLE_COLUMNS.map((c) => c.key)).toEqual([
       "poNumber", "publisher", "supplier", "costCentre", "licenseType",
-      "endYear", "status", "currency", "contractNumber", "budgetOwnerEmail",
+      "startYear", "endYear", "status", "currency", "contractNumber", "budgetOwnerEmail",
     ]);
     expect(MAX_GROUP_LEVELS).toBe(2);
   });
@@ -35,6 +35,8 @@ describe("groupable columns", () => {
     expect(value("licenseType", { licenseType: "saas" })).toEqual({ key: "saas", label: "SaaS" });
     expect(value("endYear", { endDate: "2027-10-31" })).toEqual({ key: "2027", label: "2027" });
     expect(value("endYear", { endDate: "" })).toBeNull();
+    expect(value("startYear", { startDate: "2026-11-01" })).toEqual({ key: "2026", label: "2026" });
+    expect(value("startYear", { startDate: "" })).toBeNull();
     expect(value("status", { expiration: { status: "expiring" } })).toEqual({ key: "expiring", label: "Expiring" });
     expect(value("currency", { currency: "eur" })).toEqual({ key: "EUR", label: "EUR" });
   });
@@ -192,5 +194,16 @@ describe("grouping performance guard", () => {
     const nodes = groupLicenses(many, ["poNumber", "publisher"], { allLicenses: many });
     flattenGroups(nodes, new Set(allGroupIds(nodes)));
     expect(Date.now() - started).toBeLessThan(500);
+  });
+});
+
+describe("groupingKeyForColumn", () => {
+  it("maps table columns to their grouping, and refuses the rest", async () => {
+    const { groupingKeyForColumn } = await import("../components/pages/licenses/registryGrouping.js");
+    expect(groupingKeyForColumn("startDate")).toBe("startYear");
+    expect(groupingKeyForColumn("endDate")).toBe("endYear");
+    expect(groupingKeyForColumn("expiration")).toBe("status");
+    expect(groupingKeyForColumn("poNumber")).toBe("poNumber");
+    expect(groupingKeyForColumn("unitPrice")).toBeNull();
   });
 });

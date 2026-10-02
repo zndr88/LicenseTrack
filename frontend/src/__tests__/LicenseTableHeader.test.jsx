@@ -111,3 +111,46 @@ describe("LicenseTableHeader sortable capability", () => {
     expect(handleSortCol).toHaveBeenCalledWith("publisher");
   });
 });
+
+describe("LicenseTableHeader groupable columns", () => {
+  function renderWith(showGroupableColumns) {
+    render(
+      <table>
+        <LicenseTableHeader
+          visibleColumns={[{ key: "poNumber", label: "PO #", width: 100 }, { key: "unitPrice", label: "Unit Price", width: 100 }]}
+          selectAllRef={{ current: null }}
+          allDisplayedSelected={false}
+          displayRows={[]}
+          selectionLabel="Select all"
+          setSelectedIds={vi.fn()}
+          dragHappenedRef={{ current: false }}
+          setUserSettings={vi.fn()}
+          setHoveredCol={vi.fn()}
+          hoveredCol={null}
+          handleSortCol={vi.fn()}
+          sortCol={null}
+          sortDir="asc"
+          handleHideColumn={vi.fn()}
+          filterRowOpen={false}
+          columnFilters={{}}
+          setColumnFilters={vi.fn()}
+          departments={[]}
+          datesFromOptions={[]}
+          datesToOptions={[]}
+          showGroupableColumns={showGroupableColumns}
+        />
+      </table>,
+    );
+  }
+
+  test("marks groupable headers while the grouping strip is shown", () => {
+    renderWith(true);
+    expect(screen.getByRole("columnheader", { name: /PO #/ })).toHaveClass("lp-th-groupable");
+    expect(screen.getByRole("columnheader", { name: /Unit Price/ })).not.toHaveClass("lp-th-groupable");
+  });
+
+  test("marks nothing when the strip is hidden", () => {
+    renderWith(false);
+    expect(screen.getByRole("columnheader", { name: /PO #/ })).not.toHaveClass("lp-th-groupable");
+  });
+});

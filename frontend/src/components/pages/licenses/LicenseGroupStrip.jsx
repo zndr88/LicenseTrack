@@ -1,13 +1,10 @@
 import { useState } from "react";
 import Icon from "../../ui/Icon.jsx";
-import { GROUPABLE_COLUMNS, MAX_GROUP_LEVELS, getGroupableColumn } from "./registryGrouping.js";
+import { COLUMN_DEFS } from "./licenseColumns.js";
+import { GROUPABLE_COLUMNS, MAX_GROUP_LEVELS, getGroupableColumn, groupingKeyForColumn } from "./registryGrouping.js";
 
-// Table column key -> grouping key, where they differ.
-const COLUMN_TO_GROUPING = { endDate: "endYear", expiration: "status" };
-
-export function groupingKeyForColumn(columnKey) {
-  const key = COLUMN_TO_GROUPING[columnKey] ?? columnKey;
-  return getGroupableColumn(key) ? key : null;
+function columnLabel(columnKey) {
+  return COLUMN_DEFS.find((column) => column.key === columnKey)?.label || "This column";
 }
 
 export default function LicenseGroupStrip({ groupBy, onChange, onExpandAll, onCollapseAll }) {
@@ -30,7 +27,10 @@ export default function LicenseGroupStrip({ groupBy, onChange, onExpandAll, onCo
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault();
-        add(groupingKeyForColumn(event.dataTransfer.getData("colKey")));
+        const columnKey = event.dataTransfer.getData("colKey");
+        const key = groupingKeyForColumn(columnKey);
+        if (key) add(key);
+        else if (columnKey) setNotice(`${columnLabel(columnKey)} can't be used for grouping`);
       }}
     >
       {groupBy.length === 0 ? (
@@ -56,24 +56,26 @@ export default function LicenseGroupStrip({ groupBy, onChange, onExpandAll, onCo
           <Icon name="refresh" size={13} />
         </button>
       )}
-      {groupBy.length < MAX_GROUP_LEVELS && (
-        <select
-          className="fi fi-select lp-group-picker"
-          aria-label="Add grouping"
-          value=""
-          onChange={(event) => add(event.target.value)}
-        >
-          <option value="">+ Add grouping</option>
-          {remaining.map((column) => <option key={column.key} value={column.key}>{column.label}</option>)}
-        </select>
-      )}
       {notice && <span className="lp-group-notice" role="status">{notice}</span>}
-      {groupBy.length > 0 && (
-        <span className="lp-group-actions">
-          <button type="button" className="btn btn-g lp-compact-action" onClick={onExpandAll}>Expand all</button>
-          <button type="button" className="btn btn-g lp-compact-action" onClick={onCollapseAll}>Collapse all</button>
-        </span>
-      )}
+      <span className="lp-group-actions">
+        {groupBy.length < MAX_GROUP_LEVELS && (
+          <select
+            className="fi fi-select lp-group-picker"
+            aria-label="Add grouping"
+            value=""
+            onChange={(event) => add(event.target.value)}
+          >
+            <option value="">+ Add grouping</option>
+            {remaining.map((column) => <option key={column.key} value={column.key}>{column.label}</option>)}
+          </select>
+        )}
+        {groupBy.length > 0 && (
+          <>
+            <button type="button" className="btn btn-g lp-compact-action" onClick={onExpandAll}>Expand all</button>
+            <button type="button" className="btn btn-g lp-compact-action" onClick={onCollapseAll}>Collapse all</button>
+          </>
+        )}
+      </span>
     </section>
   );
 }

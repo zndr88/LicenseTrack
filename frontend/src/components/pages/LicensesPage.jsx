@@ -474,6 +474,7 @@ export default function LicensesPage({
               groupCount={groupNodes?.length ?? 0}
               expandedGroupIds={expandedGroupIds}
               onToggleGroup={toggleGroup}
+              showGroupableColumns={groupStripOpen || groupBy.length > 0}
             />
             </div>
           )}

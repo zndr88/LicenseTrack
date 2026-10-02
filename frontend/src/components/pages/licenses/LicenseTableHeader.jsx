@@ -1,6 +1,7 @@
 import LicenseTableFilters from "./LicenseTableFilters.jsx";
 import { isColumnFilterable } from "./licenseTableShared.js";
 import { hasSortAccessor } from "../../../utils/sort.js";
+import { groupingKeyForColumn } from "./registryGrouping.js";
 
 function SortIndicator({ active, sortDir }) {
   if (!active) return null;
@@ -32,6 +33,7 @@ export default function LicenseTableHeader({
   departments,
   datesFromOptions,
   datesToOptions,
+  showGroupableColumns = false,
 }) {
   return (
     <thead>
@@ -71,10 +73,12 @@ export default function LicenseTableHeader({
           }
 
           const sortable = hasSortAccessor(col);
+          const groupable = showGroupableColumns && groupingKeyForColumn(col.key) !== null;
           return (
             <th
               scope="col"
               key={col.key}
+              className={groupable ? "lp-th-groupable" : undefined}
               draggable
               onDragStart={(e) => {
                 dragHappenedRef.current = true;
@@ -122,7 +126,11 @@ export default function LicenseTableHeader({
                 position: "relative",
                 whiteSpace: "nowrap",
               }}
-              title={sortable ? "Click to sort / Drag to reorder" : "Drag to reorder"}
+              title={[
+                sortable ? "Click to sort" : null,
+                "Drag to reorder",
+                groupable ? "Drag onto the grouping strip to group" : null,
+              ].filter(Boolean).join(" / ")}
             >
               {col.label}
               {sortable && <SortIndicator active={sortCol === col.key} sortDir={sortDir} />}

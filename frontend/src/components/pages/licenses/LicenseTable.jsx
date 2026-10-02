@@ -47,6 +47,7 @@ export default function LicenseTable({
   groupCount = 0,
   expandedGroupIds = new Set(),
   onToggleGroup,
+  showGroupableColumns = false,
 }) {
   const tblWrapRef = useRef(null);
   const selectAllRef = useRef(null);
@@ -173,6 +174,7 @@ export default function LicenseTable({
             departments={departments}
             datesFromOptions={datesFromOptions}
             datesToOptions={datesToOptions}
+            showGroupableColumns={showGroupableColumns}
           />
           <tbody>
             {filtered.length === 0 ? (

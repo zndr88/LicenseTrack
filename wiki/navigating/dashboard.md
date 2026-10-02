@@ -61,9 +61,11 @@ table to a valid page instead of leaving an empty out-of-range view.
 Click the **Group columns** button in the toolbar to open the grouping strip
 above the table. Drag a column header onto the strip, or use **+ Add
 grouping**, to group the list by PO #, Publisher, Supplier, Cost Centre, Type,
-End year, Status, Currency, Contract # or Budget Owner. Add a second column to
-nest one grouping inside the other (for example PO # then Publisher). Dropping
-a header on another header still reorders the columns.
+Start year, End year, Status, Currency, Contract # or Budget Owner. While the
+strip is open, the headers you can group by are underlined; dropping any other
+header shows a short message instead. Add a second column to nest one grouping
+inside the other (for example PO # then Publisher). Dropping a header on
+another header still reorders the columns.
 
 Groups start collapsed. Click a group header, or press Enter or Space on it,
 to open it; **Expand all** and **Collapse all** are in the strip. Each header
