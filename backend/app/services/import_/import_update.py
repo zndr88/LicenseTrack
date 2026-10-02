@@ -35,7 +35,6 @@ _STRING_PATCH_FIELDS: list[tuple[str, str]] = [
     ("quantity_per_unit", "quantity_per_unit"),
     ("sku_code", "sku_code"),
     ("unit_price", "unit_price"),
-    ("total_po_price", "total_po_price"),
 ]
 
 _MAINTENANCE_UPDATE_FIELDS = (

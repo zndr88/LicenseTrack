@@ -190,7 +190,7 @@ class CSVImportPreviewRow(BaseModel):
     effective_quantity: str = ""
     sku_code: str = ""
     unit_price: str = ""
-    total_po_price: str = ""
+    line_total: str = ""
     currency: str = "EUR"
     notes: Optional[str] = None
     budget_owner_email: str = ""

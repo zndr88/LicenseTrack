@@ -212,14 +212,17 @@ FIELDS: tuple[CsvField, ...] = (
         round_trip=True,
         frontend_key="unitPrice",
     ),
+    # Line Total is always quantity x unit price. An imported line total only
+    # fills a missing unit price or is checked; it is never stored.
     CsvField(
-        "total_po_price",
         "line_total",
-        aliases=("total_po_price", "line_total_eur", "total_price_eur"),
-        update=True,
-        round_trip=True,
-        frontend_key="lineTotal",
+        "line_total",
+        aliases=("line_total_eur", "total_price_eur"),
+        frontend_key="calcTotal",
     ),
+    # Pre-1.2.0 per-line "Total PO Price" (often a whole-PO value): recognized
+    # so the importer can warn, never imported.
+    CsvField("legacy_po_price", "total_po_price", export=False),
     CsvField(
         "po_total_override",
         "po_total_manual",
@@ -364,7 +367,7 @@ FIELDS: tuple[CsvField, ...] = (
         frontend_key="recordId",
     ),
     CsvField(None, "docs", create=False),
-    CsvField(None, "calc_total", create=False),
+    CsvField(None, "calc_total", create=False, export=False),
     CsvField(None, "expiration", create=False),
     CsvField(None, "complete", create=False),
     # Total PO Value is a derived whole-PO aggregate, not a per-license line total.

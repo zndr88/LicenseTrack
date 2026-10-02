@@ -393,21 +393,22 @@ def test_declared_date_format_controls_ambiguous_dates():
 
 def test_localized_numeric_fields_land_canonical():
     csv_bytes = _csv(
-        ["publisher_name", "software_description", "quantity", "unit_price", "total_po_price"],
+        ["publisher_name", "software_description", "quantity", "unit_price", "line_total"],
         [{
             "publisher_name": "Acme",
             "software_description": "Widget",
             "quantity": "1.000.000",
-            "unit_price": "1.234,50",
-            "total_po_price": "1.234.500,00",
+            "unit_price": "1,50",
+            "line_total": "1.500.000,00",
         }],
     )
 
     row = parse_csv(csv_bytes, number_format_locale="nl-BE").rows[0]
 
     assert row.quantity == "1000000"
-    assert row.unit_price == "1234.50"
-    assert row.total_po_price == "1234500.00"
+    assert row.unit_price == "1.50"
+    assert row.line_total == "1500000.00"
+    assert not row.warnings
     assert row.import_status == "active"
 
 
@@ -484,13 +485,13 @@ def test_missing_quantity_per_unit_does_not_default_import_update_value():
 
 def test_quantity_price_mismatch_adds_row_warning():
     csv_bytes = _csv(
-        ["publisher_name", "software_description", "quantity", "unit_price", "total_po_price"],
+        ["publisher_name", "software_description", "quantity", "unit_price", "line_total"],
         [{
             "publisher_name": "SonarSource",
             "software_description": "SonarQube",
             "quantity": "5000000",
             "unit_price": "1000",
-            "total_po_price": "1000",
+            "line_total": "1000",
         }],
     )
 
@@ -502,19 +503,19 @@ def test_quantity_price_mismatch_adds_row_warning():
 
 def test_localized_numeric_fields_accept_currency_affixes():
     csv_bytes = _csv(
-        ["publisher_name", "software_description", "unit_price", "total_po_price"],
+        ["publisher_name", "software_description", "unit_price", "line_total"],
         [{
             "publisher_name": "Acme",
             "software_description": "Widget",
             "unit_price": "€11.000,00",
-            "total_po_price": "EUR 11.000,00",
+            "line_total": "EUR 11.000,00",
         }],
     )
 
     row = parse_csv(csv_bytes, number_format_locale="de-DE").rows[0]
 
     assert row.unit_price == "11000.00"
-    assert row.total_po_price == "11000.00"
+    assert row.line_total == ""
     assert row.import_status == "active"
 
 
@@ -1097,7 +1098,7 @@ def _make_row(**kwargs) -> ParsedRow:
         quantity="",
         sku_code="",
         unit_price="",
-        total_po_price="",
+        line_total="",
         currency="EUR",
         notes=None,
         budget_owner_email="",
@@ -1188,7 +1189,7 @@ def test_build_warning_summary_currency_defaulted():
 def test_build_warning_summary_price_mismatch_gates():
     row = _make_row(
         warnings=[
-            "Calculated total (quantity x unit_price) differs from total_po_price by 10x or more; "
+            "Calculated total (quantity x unit_price) differs from the line total by 10x or more; "
             "check whether the mapped quantity is a purchase quantity rather than an entitlement quantity per unit"
         ]
     )
@@ -1261,3 +1262,75 @@ def test_renewable_and_type_description_columns_are_parsed():
     assert any("is_renewable" in warning for warning in rows[2].warnings)
     assert any("type_description" in warning for warning in rows[2].warnings)
     assert rows[2].validation_errors == []
+
+
+def test_line_total_fills_missing_unit_price_with_warning():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "quantity", "line_total"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "quantity": "3", "line_total": "100.00"}],
+    )
+
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.unit_price == "33.333333"
+    assert row.line_total == "99.999999"
+    assert any("unit price was calculated from the line total" in w for w in row.warnings)
+
+
+def test_line_total_matching_quantity_times_price_adds_no_warning():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "quantity", "unit_price", "line_total"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "quantity": "400", "unit_price": "18", "line_total": "7200.00"}],
+    )
+
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.unit_price == "18"
+    assert row.line_total == "7200"
+    assert not any("line total" in w.lower() for w in row.warnings)
+
+
+def test_line_total_that_differs_warns_and_is_not_used():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "quantity", "unit_price", "line_total"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "quantity": "7", "unit_price": "33.33", "line_total": "233.33"}],
+    )
+
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.line_total == "233.31"
+    assert any("differs from quantity x unit price" in w for w in row.warnings)
+
+
+def test_total_po_price_column_is_not_imported_and_warns():
+    csv_bytes = _csv(
+        ["publisher_name", "software_description", "quantity", "unit_price", "Total PO Price"],
+        [{"publisher_name": "Acme", "software_description": "Widget", "quantity": "2", "unit_price": "10", "Total PO Price": "5000"}],
+    )
+
+    row = parse_csv(csv_bytes).rows[0]
+
+    assert row.line_total == "20"
+    assert any("Total PO Price column was not imported" in w for w in row.warnings)
+
+
+def test_mapped_total_po_price_target_from_older_profile_warns_and_is_not_stored():
+    from app.services.import_.mapped_parser import parse_mapped_csv
+
+    csv_bytes = _csv(
+        ["Publisher", "Description", "Qty", "Price", "PO Total"],
+        [{"Publisher": "Acme", "Description": "Widget", "Qty": "2", "Price": "10", "PO Total": "5000"}],
+    )
+    mapping = {
+        "Publisher": "publisher_name",
+        "Description": "software_description",
+        "Qty": "quantity",
+        "Price": "unit_price",
+        "PO Total": "total_po_price",
+    }
+
+    result, _ = parse_mapped_csv(csv_bytes, mapping, "EUR")
+
+    row = result.rows[0]
+    assert row.line_total == "20"
+    assert any("Total PO Price column was not imported" in w for w in row.warnings)

@@ -109,7 +109,9 @@ async def _validated_column_to_target(
     try:
         headers, _ = read_csv_dict_rows(contents)
         definitions = await get_all_definitions(db)
-        supported_targets = set(_HEADER_MAP.values()) | {"parent_license_ref"}
+        # "total_po_price": mapping profiles saved before 1.2.0 still target the
+        # retired field; the importer warns and skips it.
+        supported_targets = set(_HEADER_MAP.values()) | {"parent_license_ref", "total_po_price"}
         custom_field_keys = {definition.field_key for definition in definitions}
         validated = validate_mapped_import(
             headers,
