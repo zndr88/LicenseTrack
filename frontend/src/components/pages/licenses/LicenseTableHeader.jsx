@@ -114,7 +114,6 @@ export default function LicenseTableHeader({
                 minWidth: col.width,
                 cursor: sortable ? "pointer" : "default",
                 userSelect: "none",
-                position: "relative",
                 whiteSpace: "nowrap",
               }}
               title={sortable ? "Click to sort / Drag to reorder" : "Drag to reorder"}

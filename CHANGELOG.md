@@ -112,6 +112,8 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- The Registry's column titles stay on top while the table scrolls. Only the
+  select-all box stayed; the titles scrolled away with the rows.
 - Convert All kept the PO line's estimated total as the license Line Total even
   when real unit prices were entered at conversion.
 - Subscriptions and SaaS with included maintenance could take their maintenance
