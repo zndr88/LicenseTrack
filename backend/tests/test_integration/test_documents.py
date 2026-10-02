@@ -1522,3 +1522,34 @@ async def test_document_upload_rejects_oversized_content_length(
     )
 
     assert resp.status_code == 413
+
+
+async def test_upload_types_lists_the_allowed_extensions(test_app, auth_headers):
+    response = await test_app.get("/api/documents/upload-types", headers=auth_headers)
+    assert response.status_code == 200
+    extensions = response.json()["extensions"]
+    assert ".pdf" in extensions and ".lic" in extensions and ".msg" in extensions
+    assert extensions == sorted(extensions)
+
+
+async def test_upload_types_require_a_signed_in_user(test_app):
+    response = await test_app.get("/api/documents/upload-types")
+    assert response.status_code == 401
+
+
+async def test_upload_outlook_message_and_license_file(test_app, auth_headers, existing_license):
+    url = f"/api/licenses/{existing_license}/documents"
+    message = await test_app.post(
+        url,
+        files={"file": ("approval.msg", b"\xd0\xcf\x11\xe0 outlook", "application/vnd.ms-outlook")},
+        data={"category": "invoice"},
+        headers=auth_headers,
+    )
+    assert message.status_code == 201, message.text
+    license_file = await test_app.post(
+        url,
+        files={"file": ("product.lic", b"LICENSE KEYFILE", "application/octet-stream")},
+        data={"category": "entitlement"},
+        headers=auth_headers,
+    )
+    assert license_file.status_code == 201, license_file.text

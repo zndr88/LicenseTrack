@@ -3,6 +3,7 @@ import Icon from "../ui/Icon.jsx";
 import DocumentPreviewPanel from "../ui/DocumentPreviewPanel.jsx";
 import LocalDocumentPreviewPanel from "../ui/LocalDocumentPreviewPanel.jsx";
 import { getPreviewFilename, isPreviewablePdf } from "../../utils/documentPreview.js";
+import { useUploadAccept } from "../../hooks/useUploadAccept.js";
 
 export default function ProcurementDocumentWorkspace({
   documents = [],
@@ -14,6 +15,7 @@ export default function ProcurementDocumentWorkspace({
   onPreviewVisibilityChange,
   children,
 }) {
+  const uploadAccept = useUploadAccept();
   const documentKind = label.replace(/ Document$/, "");
   const [preview, setPreview] = useState(null);
   const [expanded, setExpanded] = useState(false);
@@ -93,7 +95,7 @@ export default function ProcurementDocumentWorkspace({
           id={inputId}
           type="file"
           aria-label={`Upload ${label}`}
-          accept=".pdf,.png,.jpg,.jpeg,.txt"
+          accept={uploadAccept}
           onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
         />
       </div>

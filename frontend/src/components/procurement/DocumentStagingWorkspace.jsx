@@ -13,6 +13,7 @@ import {
 } from "../../utils/documentCategories.js";
 import { getPreviewFilename, isPreviewablePdf } from "../../utils/documentPreview.js";
 import { isFileAvailable } from "../../utils/documentAvailability.js";
+import { useUploadAccept } from "../../hooks/useUploadAccept.js";
 
 const categoryFor = (document) => document.category ?? document.documentCategory ?? document.document_category ?? "purchase_order";
 
@@ -34,6 +35,7 @@ export default function DocumentStagingWorkspace({
   userSettings,
   defaultOpen = false,
 }) {
+  const uploadAccept = useUploadAccept();
   const [localPreviewId, setLocalPreviewId] = useState(null);
   const [storedPreview, setStoredPreview] = useState(null);
   const [expanded, setExpanded] = useState(false);
@@ -263,7 +265,7 @@ export default function DocumentStagingWorkspace({
                 type="file"
                 multiple
                 aria-label={`Upload ${category.shortLabel} Document`}
-                accept=".pdf,.png,.jpg,.jpeg,.txt"
+                accept={uploadAccept}
                 onChange={(event) => {
                   onAddFiles(category.key, Array.from(event.target.files ?? []));
                   event.target.value = "";
