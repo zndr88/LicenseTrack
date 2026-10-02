@@ -32,7 +32,6 @@ export default function DocumentStagingWorkspace({
   onPreviewVisibilityChange,
   targetOptions = [],
   userSettings,
-  defaultOpen = false,
 }) {
   const [localPreviewId, setLocalPreviewId] = useState(null);
   const [storedPreview, setStoredPreview] = useState(null);
@@ -139,7 +138,6 @@ export default function DocumentStagingWorkspace({
       <LicenseFormSection
         title={attachments.length ? `Documents · ${attachments.length} ready` : "Documents"}
         icon="upload"
-        defaultOpen={defaultOpen}
         command={sectionCommand}
         className="document-staging-section"
       >

@@ -13,7 +13,6 @@ const baseProps = {
   onCategoryScopeChange: vi.fn(),
   previewDocument: vi.fn(),
   downloadDocument: vi.fn(),
-  defaultOpen: true,
 };
 
 beforeEach(() => {
@@ -139,5 +138,30 @@ describe("DocumentStagingWorkspace list collapse", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Close document preview" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Preview stored.pdf" })).toBeInTheDocument());
+  });
+});
+
+describe("DocumentStagingWorkspace default state", () => {
+  test("opens the Documents section by default", () => {
+    render(<DocumentStagingWorkspace {...baseProps} />);
+    expect(screen.getByRole("button", { name: /Documents/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Upload Invoice Document")).toBeInTheDocument();
+  });
+});
+
+// Every non-test source file, as raw text.
+const sources = import.meta.glob(["../**/*.{js,jsx}", "!../__tests__/**", "!../**/__tests__/**"], {
+  query: "?raw", import: "default", eager: true,
+});
+
+describe("Documents section open state has one owner", () => {
+  test("no dialog decides on its own whether Documents starts open", () => {
+    // Each usage runs from the tag to its self-closing "/>"; props may contain "=>".
+    const offenders = Object.entries(sources)
+      .filter(([, text]) => (text.match(/<DocumentStagingWorkspace\b[\s\S]*?\/>/g) ?? [])
+        .some((usage) => /\bdefaultOpen\b/.test(usage)))
+      .map(([path]) => path.replace(/^\.\.\//, ""));
+    expect(Object.keys(sources).length).toBeGreaterThan(50);
+    expect(offenders).toEqual([]);
   });
 });

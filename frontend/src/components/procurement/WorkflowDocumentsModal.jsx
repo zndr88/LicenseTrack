@@ -71,7 +71,6 @@ export default function WorkflowDocumentsModal({
           onDeleteDocument={onDeleteDocument}
           targetOptions={items.map((item, index) => ({ value: String(item.id), label: item.softwareDescription || `Line ${index + 1}` }))}
           userSettings={userSettings}
-          defaultOpen
           readOnly={readOnly}
         />
     </ModalShell>
