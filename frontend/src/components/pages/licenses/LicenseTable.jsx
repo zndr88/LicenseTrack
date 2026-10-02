@@ -1,6 +1,7 @@
 import { useRef, useEffect, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Icon from "../../ui/Icon.jsx";
+import LicenseGroupRow from "./LicenseGroupRow.jsx";
 import LicenseTableFooter from "./LicenseTableFooter.jsx";
 import LicenseTableHeader from "./LicenseTableHeader.jsx";
 import LicenseTableRowCells from "./LicenseTableRowCells.jsx";
@@ -42,12 +43,17 @@ export default function LicenseTable({
   inlineEditEnabled,
   onInlineFieldSave,
   layoutVersion,
+  groupRows = null,
+  groupCount = 0,
+  expandedGroupIds = new Set(),
+  onToggleGroup,
 }) {
   const tblWrapRef = useRef(null);
   const selectAllRef = useRef(null);
   const dragHappenedRef = useRef(false);
 
-  const useVirtual = filtered.length > VIRTUAL_THRESHOLD;
+  const grouped = Array.isArray(groupRows);
+  const useVirtual = grouped || filtered.length > VIRTUAL_THRESHOLD;
   const displayRows = useVirtual ? sorted : paginatedItems;
   const allDisplayedSelected = displayRows.length > 0 && displayRows.every((license) => selectedIds.has(license.id));
   const someDisplayedSelected = displayRows.some((license) => selectedIds.has(license.id));
@@ -55,7 +61,7 @@ export default function LicenseTable({
   const licensesById = useMemo(() => new Map(licenses.map((license) => [license.id, license])), [licenses]);
 
   const rowVirtualizer = useVirtualizer({
-    count: filtered.length,
+    count: grouped ? groupRows.length : filtered.length,
     getScrollElement: () => tblWrapRef.current,
     estimateSize: () => 40,
     overscan: 10,
@@ -78,13 +84,13 @@ export default function LicenseTable({
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", measure);
     };
-  }, [filterRowOpen, filtered.length, layoutVersion, useVirtual]);
+  }, [filterRowOpen, filtered.length, layoutVersion, useVirtual, grouped]);
 
   useEffect(() => {
     if (useVirtual && tblWrapRef.current) {
       tblWrapRef.current.scrollTop = 0;
     }
-  }, [filtered.length, useVirtual]);
+  }, [filtered.length, useVirtual, grouped]);
 
   useEffect(() => {
     if (selectAllRef.current) {
@@ -192,7 +198,22 @@ export default function LicenseTable({
                       <td colSpan={visibleColumns.length} style={{ height: paddingTop, padding: 0, border: 0 }} />
                     </tr>
                   )}
-                  {virtualItems.map((virtualRow) => renderRow(sorted[virtualRow.index]))}
+                  {virtualItems.map((virtualRow) => {
+                    if (!grouped) return renderRow(sorted[virtualRow.index]);
+                    const row = groupRows[virtualRow.index];
+                    if (row.type === "line") return renderRow(row.license);
+                    return (
+                      <LicenseGroupRow
+                        key={`group:${row.node.id}`}
+                        node={row.node}
+                        colSpan={visibleColumns.length}
+                        expanded={expandedGroupIds.has(row.node.id)}
+                        onToggle={onToggleGroup}
+                        locale={userSettings?.numberFormatLocale ?? "en-US"}
+                        userSettings={userSettings}
+                      />
+                    );
+                  })}
                   {paddingBottom > 0 && (
                     <tr aria-hidden="true">
                       <td colSpan={visibleColumns.length} style={{ height: paddingBottom, padding: 0, border: 0 }} />
@@ -208,6 +229,8 @@ export default function LicenseTable({
       </div>
       <LicenseTableFooter
         useVirtual={useVirtual}
+        grouped={grouped}
+        groupCount={groupCount}
         filtered={filtered}
         hasColumnFilters={hasColumnFilters}
         currentPage={currentPage}
