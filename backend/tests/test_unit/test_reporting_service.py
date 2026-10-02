@@ -346,3 +346,12 @@ def test_report_csv_neutralizes_formula_like_text():
     content = build_report_export_csv(report)
 
     assert "'=WEBSERVICE('bad')" in content
+
+
+def test_line_without_quantity_or_price_is_unpriced_even_with_stored_total():
+    licenses = [make_license(quantity="", unit_price="", total_po_price="5000")]
+
+    report = build_report_model(licenses, ReportOptions(forecast_years=1, annual_uplift_pct=Decimal("0")))
+
+    assert report.counts.unpriced == 1
+    assert report.financial_summaries["lifecycleBudgetByStatus"]["active"] == {}
