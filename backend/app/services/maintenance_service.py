@@ -88,9 +88,7 @@ async def sync_parent_mirror_fields(
     parent.maintenance_pricing_basis = None
     parent.maintenance_quantity = None
     parent.maintenance_unit_price = None
-    # Mirror the child's own line total (qty × unit price), not the stored
-    # total_po_price: that column is a deprecated whole-PO aggregate and would
-    # attribute the entire PO's value to this one maintenance line.
+    # Mirror the child's own line total (quantity x unit price).
     line_total = calc_line_total(active_child.quantity, active_child.unit_price)
     parent.maintenance_cost = format(line_total, "f") if line_total is not None else None
 
