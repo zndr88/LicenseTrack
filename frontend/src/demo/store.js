@@ -9,7 +9,7 @@ import {
 } from "./supportDefaults.js";
 import { addDaysIso, daysUntil, inclusiveTermDays, termEnd } from "./time.js";
 import { sumCanonicalQuantities } from "../utils/quantity.js";
-import { getLineAmount } from "../utils/lineAmount.js";
+import { formatLineAmount } from "../utils/lineAmount.js";
 import {
   isNonExpiringLicenseType,
   isRenewableLicense,
@@ -2151,8 +2151,8 @@ function applyIncludedSupportTermFallback(data, submittedFields = new Set()) {
     !submittedFields.has("maintenanceCost")
     && (submittedFields.has("quantity") || submittedFields.has("unitPrice"))
   ) {
-    const lineAmount = getLineAmount(data);
-    if (lineAmount !== null) data.maintenanceCost = String(lineAmount);
+    const lineAmount = formatLineAmount(data);
+    if (lineAmount !== "") data.maintenanceCost = lineAmount;
   }
   return data;
 }

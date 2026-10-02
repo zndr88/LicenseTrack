@@ -1,7 +1,7 @@
 import { getPoTotal } from "../../../utils/helpers.js";
 import { formatDate, formatDateTime, toInputText } from "../../../utils/formatting.js";
 import { formatQuantityInput } from "../../../utils/quantity.js";
-import { getLineAmount } from "../../../utils/lineAmount.js";
+import { formatLineAmount, getLineAmount } from "../../../utils/lineAmount.js";
 import { renewableLabel } from "../../../utils/licenseTypeRules.js";
 import csvFields from "../../../generated/csvFields.json";
 
@@ -107,6 +107,7 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
           return fmtDecimal(total != null ? String(total) : "");
         }
         case "calcTotal": {
+          if (!localized) return formatLineAmount(l);
           const total = getLineAmount(l);
           return total === null ? "" : fmtDecimal(String(total));
         }

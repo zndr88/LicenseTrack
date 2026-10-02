@@ -208,6 +208,14 @@ describe('exportFilteredCsv', () => {
     expect(lines[1]).toBe('100')
   })
 
+  it('exports Line Total without floating-point noise', () => {
+    const row = makeRow({ quantity: '3', unitPrice: '0.1' })
+
+    exportFilteredCsv([row], [{ key: 'calcTotal', label: 'Line Total' }], 'en-US', 'EUR', [row], new Map())
+
+    expect(csvLines()[1]).toBe('0.3')
+  })
+
   it('exports line, manual PO, maintenance pricing, and covered-license fields', () => {
     const firstParent = makeRow({ id: 10, licenseRef: 'LT-2026-00010', licenseType: 'perpetual' })
     const secondParent = makeRow({ id: 11, licenseRef: 'LT-2026-00011', licenseType: 'perpetual' })

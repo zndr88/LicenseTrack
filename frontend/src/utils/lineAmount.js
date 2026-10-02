@@ -23,10 +23,20 @@ export function getLineAmountText(license) {
   return amount === null ? "" : amount.toFixed(2);
 }
 
+function trimmedDecimal(value) {
+  return value.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+// Line amount as canonical text (at most 6 decimals, trailing zeros trimmed),
+// for exports and defaults where float noise must not show. Empty when unknown.
+export function formatLineAmount(license) {
+  const amount = getLineAmount(license);
+  return amount === null ? "" : trimmedDecimal(amount);
+}
+
 export function unitPriceFromTotal(total, quantity) {
   const parsedTotal = canonicalNumber(total);
   const parsedQuantity = canonicalNumber(quantity);
   if (parsedTotal === null || parsedQuantity === null || parsedQuantity === 0) return null;
-  const text = (parsedTotal / parsedQuantity).toFixed(6);
-  return text.replace(/0+$/, "").replace(/\.$/, "");
+  return trimmedDecimal(parsedTotal / parsedQuantity);
 }
