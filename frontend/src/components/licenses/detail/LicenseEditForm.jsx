@@ -10,10 +10,10 @@ import {
 } from "../../../utils/maintenanceCoverage.js";
 import {
   isHiddenFromLinking,
-  isLinkedToParent,
-  maintenanceCandidate,
   parentCandidate,
+  quickLinkMaintenanceCandidates,
 } from "../../../utils/maintenanceLinking.js";
+import MaintenanceQuickLinkField from "../MaintenanceQuickLinkField.jsx";
 import { useAllLicenses } from "../../../hooks/useAllLicenses.js";
 import LinkPicker from "../../ui/LinkPicker.jsx";
 import Icon from "../../ui/Icon.jsx";
@@ -67,9 +67,7 @@ export default function LicenseEditForm({
     && supportsSeparateMaintenanceLine(editFields.licenseType)
     && editFields.maintenanceCoverage === "separately_tracked";
   const quickLinkCandidates = showQuickLink
-    ? allLicenses
-      .filter((item) => item.licenseType === "maintenance" && !isHiddenFromLinking(item) && !isLinkedToParent(item, licenseId))
-      .map((item) => maintenanceCandidate(item, allLicenses, { formatDay: (value) => formatDate(value, userSettings) }))
+    ? quickLinkMaintenanceCandidates(allLicenses, licenseId, { formatDay: (value) => formatDate(value, userSettings) })
     : [];
   const descriptionMissing = typeDescriptionMissing(editFields.licenseType, editFields.typeDescription);
   const poNumberChanged = (editFields.poNumber ?? "").trim() !== (savedPoNumber ?? "").trim();
@@ -246,17 +244,11 @@ export default function LicenseEditForm({
         </div>
       )}
       {showQuickLink && setQuickLinkMaintenanceId && (
-        <div className="fg">
-          <span className="fg-label">Link an existing maintenance record (optional)</span>
-          <LinkPicker
-            candidates={quickLinkCandidates}
-            selectedIds={quickLinkMaintenanceId ? [Number(quickLinkMaintenanceId)] : []}
-            onChange={(ids) => setQuickLinkMaintenanceId(ids[0] ? String(ids[0]) : "")}
-            searchPlaceholder="Search by LT ref, publisher, description, PO, contract, or date"
-            listLabel="Existing maintenance records"
-            emptyMessage="No eligible maintenance records were found."
-          />
-        </div>
+        <MaintenanceQuickLinkField
+          candidates={quickLinkCandidates}
+          value={quickLinkMaintenanceId}
+          onChange={setQuickLinkMaintenanceId}
+        />
       )}
       {customFields("maintenance")}
       <div className="fr">

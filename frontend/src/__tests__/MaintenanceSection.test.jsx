@@ -75,23 +75,19 @@ describe("MaintenanceSection", () => {
     expect(screen.queryByRole("button", { name: /add maintenance record/i })).not.toBeInTheDocument();
   });
 
-  it("filters separately tracked coverage from subscription coverage edits", () => {
-    const openFieldEdit = vi.fn();
+  it("Edit coverage opens the coverage dialog", () => {
+    const onEditCoverage = vi.fn();
     render(
       <MaintenanceSection
         {...baseProps}
-        openFieldEdit={openFieldEdit}
+        onEditCoverage={onEditCoverage}
         license={{ ...baseProps.license, licenseType: "subscription", maintenanceCoverage: "included" }}
       />
     );
 
     fireEvent.click(screen.getByRole("button", { name: /edit coverage/i }));
 
-    expect(openFieldEdit).toHaveBeenCalledWith(expect.objectContaining({
-      selectOptions: expect.not.arrayContaining([
-        expect.objectContaining({ value: "separately_tracked" }),
-      ]),
-    }));
+    expect(onEditCoverage).toHaveBeenCalledTimes(1);
   });
 
   it("opens the coverage history modal without adding another detail section", () => {

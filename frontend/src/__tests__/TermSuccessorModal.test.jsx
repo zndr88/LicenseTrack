@@ -33,15 +33,30 @@ describe("TermSuccessorModal", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(3, [4, 1]));
   });
 
-  it("does not offer ancestors of the current line as its next term", () => {
+  it("shows ancestors of the current line as unavailable, with the reason", () => {
     const items = [
       base({ id: 1, softwareDescription: "This line" }),
       base({ id: 2, softwareDescription: "Earlier term", successorSourcingItemId: 1 }),
       base({ id: 3, softwareDescription: "Sibling" }),
     ];
     render(<TermSuccessorModal target={items[0]} items={items} onSave={vi.fn()} onCreateNew={vi.fn()} onCancel={vi.fn()} />);
-    expect(screen.queryByRole("option", { name: /Earlier term/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /Sibling/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Earlier term/ })).toBeDisabled();
+    expect(screen.getByText("Already comes before this line")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Sibling/ })).toBeEnabled();
+  });
+
+  it("doesn't offer an earlier term, or a maintenance line for a license", () => {
+    const items = [
+      base({ id: 2, softwareDescription: "Year 2", licenseType: "subscription", startDate: "2027-01-01" }),
+      base({ id: 1, softwareDescription: "Year 1", licenseType: "subscription", startDate: "2026-01-01" }),
+      base({ id: 5, softwareDescription: "Support", licenseType: "maintenance", startDate: "2028-01-01" }),
+      base({ id: 3, softwareDescription: "Year 3", licenseType: "subscription", startDate: "2028-01-01" }),
+    ];
+    render(<TermSuccessorModal target={items[0]} items={items} onSave={vi.fn()} onCreateNew={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByRole("option", { name: /Year 1/ })).toBeDisabled();
+    expect(screen.getByText("Starts on or before this line")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Support/ })).toBeDisabled();
+    expect(screen.getByRole("option", { name: /Year 3/ })).toBeEnabled();
   });
 
   it("falls back to creating a brand-new term line", () => {

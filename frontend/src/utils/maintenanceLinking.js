@@ -61,6 +61,15 @@ export function maintenanceCandidate(license, allLicenses, { formatDay = (value)
   };
 }
 
+// Existing maintenance records a license can quick-link to while its coverage
+// is Separately tracked. Shared by the full edit form and the Edit coverage
+// dialog, so both offer the same records.
+export function quickLinkMaintenanceCandidates(allLicenses, licenseId, options) {
+  return (allLicenses ?? [])
+    .filter((item) => item.licenseType === "maintenance" && !isHiddenFromLinking(item) && !isLinkedToParent(item, licenseId))
+    .map((item) => maintenanceCandidate(item, allLicenses, options));
+}
+
 // Asked before a maintenance record that already covers another license is
 // linked to one more. Returns null when the record covers nothing yet.
 export function coversConfirmMessage(candidate) {
