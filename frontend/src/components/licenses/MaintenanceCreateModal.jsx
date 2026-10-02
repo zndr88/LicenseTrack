@@ -20,6 +20,7 @@ import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import { uploadDocument } from "../../api/documents.js";
 import DocumentStagingWorkspace from "../procurement/DocumentStagingWorkspace.jsx";
 import { useStagedDocumentAttachments } from "../procurement/useStagedDocumentAttachments.js";
+import { unitPriceFromTotal } from "../../utils/lineAmount.js";
 
 /**
  * Modal for creating or linking a separately tracked maintenance/support contract.
@@ -85,7 +86,8 @@ export default function MaintenanceCreateModal({
   });
 
   const handleCreate = async () => {
-    const costSave = costRaw;
+    // The covered quantity is kept, so the cost is stored as quantity x unit price.
+    const quantity = parentLicense.quantity || "1";
 
     const payload = {
       publisherName: parentLicense.publisherName,
@@ -95,9 +97,8 @@ export default function MaintenanceCreateModal({
       parentLicenseId: parentLicense.id,
       startDate: startDate || null,
       endDate,
-      quantity: parentLicense.quantity || "1",
-      unitPrice: costSave,
-      totalPoPrice: costSave,
+      quantity,
+      unitPrice: unitPriceFromTotal(costRaw, quantity) ?? costRaw,
       currency: parentLicense.currency || userSettings?.displayCurrency || "EUR",
       poNumber,
       contractNumber,
