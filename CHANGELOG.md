@@ -92,7 +92,8 @@ Work in progress for 1.2.0.
 - Added a maintainer invariants document listing the rules LicenseTrack
   guarantees on every entry point, and a pull request template.
 - Internal: CSV import and export read their field list from one registry (no
-  behaviour change).
+  behaviour change). License updates, field patches and import updates share
+  the notice-date reminder reset rule.
 - Budget owners now receive Maintenance Ending and Maintenance Expired alerts
   for the included maintenance on their perpetual, OEM and freeware licenses,
   alongside license expiry alerts. These rows are marked "Maintenance" and show

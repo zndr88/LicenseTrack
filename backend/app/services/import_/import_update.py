@@ -18,6 +18,7 @@ from app.services.import_.invoice_values import parse_invoice_cell
 from app.services.license_write_service import sync_support_defaults_on_license
 from app.services.maintenance_rules import assert_coverage_allowed_for_type, coverage_after_type_change
 from app.services.maintenance_service import record_included_support_exit, sync_parent_mirror_fields
+from app.services.notice_reminder_rules import clear_notice_handled_if_date_changed
 from app.services.po_total_override_service import resolve_reassigned_po_total_override
 
 # ParsedRow attr -> License attr for plain string fields patched only when non-empty.
@@ -151,9 +152,7 @@ async def apply_import_update(
     if row.db_end_date is not None and not is_non_expiring_license_type(license_obj.license_type):
         license_obj.end_date = row.db_end_date
     if row.db_notice_date is not None:
-        if row.db_notice_date != license_obj.notice_date:
-            license_obj.notice_handled_at = None
-            license_obj.notice_handled_by_user_id = None
+        clear_notice_handled_if_date_changed(license_obj, row.db_notice_date)
         license_obj.notice_date = row.db_notice_date
     if row.db_request_date is not None:
         license_obj.request_date = row.db_request_date
