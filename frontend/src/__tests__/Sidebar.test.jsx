@@ -1,10 +1,20 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
 import Sidebar from "../components/layout/Sidebar.jsx";
 
 describe("Sidebar portfolio overview", () => {
+  test("shows the injected preview label and its explanation on focus", () => {
+    vi.stubEnv("VITE_BUILD_LABEL", "Preview · main (abc1234)");
+    vi.stubEnv("VITE_BUILD_TOOLTIP", "Unreleased changes after v1.1.24");
+    render(<Sidebar currentUser={{ role: "admin" }} collapsed={false} setPage={vi.fn()} setSelectedId={vi.fn()} onToggleCollapse={vi.fn()} />);
+    const label = screen.getByText("Preview · main (abc1234)");
+    fireEvent.focus(label);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Unreleased changes after v1.1.24");
+    vi.unstubAllEnvs();
+  });
+
   test("shows the upcoming license count", () => {
     render(
       <Sidebar

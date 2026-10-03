@@ -1,6 +1,7 @@
 import React from "react";
 import { APP_VERSION } from "../../version.js";
 import Icon from "../ui/Icon.jsx";
+import Tooltip from "../ui/Tooltip.jsx";
 
 export default function Sidebar({ page, setPage, setSelectedId, currentUser, collapsed, onToggleCollapse, showPortfolioOverview = true, stats = { active: 0, upcoming: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 } }) {
   const role = currentUser.role;
@@ -147,7 +148,11 @@ export default function Sidebar({ page, setPage, setSelectedId, currentUser, col
         </div>
       )}
 
-      {!collapsed && <div className="sb-version">v{APP_VERSION}</div>}
+      {!collapsed && (
+        <Tooltip content={import.meta.env.VITE_BUILD_TOOLTIP ?? `Unreleased changes after v${APP_VERSION}`}>
+          <div className="sb-version" tabIndex={import.meta.env.VITE_BUILD_TOOLTIP === "" ? undefined : 0}>{import.meta.env.VITE_BUILD_LABEL || "Preview"}</div>
+        </Tooltip>
+      )}
     </nav>
   );
 }

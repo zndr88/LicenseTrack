@@ -9,6 +9,9 @@ RUN npm ci
 COPY frontend/ ./
 
 # Build the stable web client.
+ARG LT_BUILD_REF
+ARG LT_BUILD_SHA
+ENV LT_BUILD_REF=${LT_BUILD_REF} LT_BUILD_SHA=${LT_BUILD_SHA}
 RUN npm run build
 
 
