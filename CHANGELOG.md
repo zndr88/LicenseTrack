@@ -20,8 +20,9 @@ Work in progress for 1.2.0.
 ### Added
 
 - Documents can be `.lic` license files and `.msg` Outlook messages. Existing
-  installations that set `ALLOWED_UPLOAD_EXTENSIONS` themselves (for example
-  the native installer's environment file) need to add `.lic,.msg` to it.
+  native installations using the previous default extension list gain them
+  automatically on upgrade. Installations with a customized
+  `ALLOWED_UPLOAD_EXTENSIONS` value need to add `.lic,.msg` to it.
 - My Settings → Appearance has a per-user option to show or hide the Portfolio
   overview in the sidebar (shown by default).
 - Help and the user guide explain how to track SSL/TLS certificates, domain
