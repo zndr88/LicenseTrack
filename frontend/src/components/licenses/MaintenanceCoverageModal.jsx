@@ -4,7 +4,7 @@ import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import { formatDate } from "../../utils/formatting.js";
 import { maintenanceCoverageOptionsForLicenseType, supportsSeparateMaintenanceLine } from "../../utils/maintenanceCoverage.js";
-import { quickLinkMaintenanceCandidates } from "../../utils/maintenanceLinking.js";
+import { maintenanceLinkCandidates } from "../../utils/maintenanceLinking.js";
 import MaintenanceQuickLinkField from "./MaintenanceQuickLinkField.jsx";
 
 /**
@@ -26,7 +26,7 @@ export default function MaintenanceCoverageModal({ license, allLicenses, userSet
     && coverage === "separately_tracked";
   const candidates = useMemo(
     () => (showQuickLink
-      ? quickLinkMaintenanceCandidates(allLicenses, license.id, { formatDay: (value) => formatDate(value, userSettings) })
+      ? maintenanceLinkCandidates(allLicenses, license.id, { formatDay: (value) => formatDate(value, userSettings) })
       : []),
     [showQuickLink, allLicenses, license.id, userSettings],
   );

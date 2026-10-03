@@ -61,13 +61,17 @@ export function maintenanceCandidate(license, allLicenses, { formatDay = (value)
   };
 }
 
-// Existing maintenance records a license can quick-link to while its coverage
-// is Separately tracked. Shared by the full edit form and the Edit coverage
-// dialog, so both offer the same records.
-export function quickLinkMaintenanceCandidates(allLicenses, licenseId, options) {
-  return (allLicenses ?? [])
-    .filter((item) => item.licenseType === "maintenance" && !isHiddenFromLinking(item) && !isLinkedToParent(item, licenseId))
-    .map((item) => maintenanceCandidate(item, allLicenses, options));
+// All maintenance linking surfaces use the same eligibility. Retired records
+// remain eligible, but are only shown after the user asks to reveal them.
+export function maintenanceLinkCandidates(allLicenses, licenseId, options) {
+  const groups = { all: [], visible: [], hidden: [] };
+  for (const item of allLicenses ?? []) {
+    if (item.licenseType !== "maintenance" || isLinkedToParent(item, licenseId)) continue;
+    const candidate = maintenanceCandidate(item, allLicenses, options);
+    groups.all.push(candidate);
+    groups[isHiddenFromLinking(item) ? "hidden" : "visible"].push(candidate);
+  }
+  return groups;
 }
 
 // Asked before a maintenance record that already covers another license is
