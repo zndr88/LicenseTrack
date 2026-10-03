@@ -166,6 +166,12 @@ the [architecture map](docs/maintainer/architecture.md) and
 [style contract](docs/maintainer/style-contract.md). Backend and frontend
 dependencies and commands are recorded beside their respective projects.
 
+Frontend builds identify matching release tags with the released version.
+Other builds show a preview label with their branch and commit. Local builds
+read Git metadata automatically; source archives can supply `LT_BUILD_REF`
+and `LT_BUILD_SHA`. Container builds accept the same names as build arguments,
+for example `--build-arg LT_BUILD_REF=refs/heads/main --build-arg LT_BUILD_SHA=<commit>`.
+
 ## Licensing
 
 LicenseTrack is distributed under the LicenseTrack Source-Available License,

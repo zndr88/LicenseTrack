@@ -19,6 +19,9 @@ Work in progress for 1.2.0.
 
 ### Added
 
+- The sidebar identifies unreleased builds as previews with their branch and
+  commit. Matching release-tag builds show the released version.
+
 - Documents can be `.lic` license files and `.msg` Outlook messages. Existing
   installations that set `ALLOWED_UPLOAD_EXTENSIONS` themselves (for example
   the native installer's environment file) need to add `.lic,.msg` to it.
