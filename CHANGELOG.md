@@ -93,6 +93,8 @@ Work in progress for 1.2.0.
   guarantees on every entry point, and a pull request template.
 - Internal: CSV import and export read their field list from one registry (no
   behaviour change).
+- The demo mirrors canonical-number validation and notice handling, including
+  clearing handling state when the notice date changes.
 - Budget owners now receive Maintenance Ending and Maintenance Expired alerts
   for the included maintenance on their perpetual, OEM and freeware licenses,
   alongside license expiry alerts. These rows are marked "Maintenance" and show
