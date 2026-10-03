@@ -71,6 +71,25 @@ def test_semver_comparison_treats_stable_as_newer_than_prerelease():
         installer.parse_version("release-nine")
 
 
+@pytest.mark.parametrize("configured", [
+    ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx",
+    ".pdf,.txt",
+    ".txt,.pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.docx",
+    "",
+    None,
+])
+def test_upgrade_upload_extensions_changes_only_exact_old_default(tmp_path, configured):
+    current = {"PUBLIC_URL": "https://licenses.example.test"}
+    if configured is not None:
+        current["ALLOWED_UPLOAD_EXTENSIONS"] = configured
+    before = current.copy()
+    merged = installer.merge_new_configuration_defaults(current, install_paths(tmp_path), {"port": 8000})
+    expected = installer.DEFAULT_ALLOWED_UPLOAD_EXTENSIONS if configured == ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx" else configured
+    assert merged.get("ALLOWED_UPLOAD_EXTENSIONS") == expected
+    assert merged["PUBLIC_URL"] == current["PUBLIC_URL"]
+    assert current == before
+
+
 def test_environment_encoding_round_trips_quotes_and_spaces(tmp_path: Path):
     values = {
         "PLAIN": "value",
