@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
+import defaultsSource from "../../utils/buildConvertItemDefaults.js?raw";
 
 const baseOrder = { poNumber: "PO-001", supplier: "Default Supplier", items: [] };
 
@@ -39,6 +40,22 @@ const makeLicense = (overrides = {}) => ({
 });
 
 describe("buildConvertItemDefaults", () => {
+  it("does not define a second custom-field value map", () => {
+    expect(defaultsSource).not.toMatch(/customFieldValues:\s*Object\.fromEntries/);
+  });
+
+  it.each([
+    [undefined, {}],
+    [[], {}],
+    [[{ customFieldDefId: 7, valueCurrency: "12.50", valueText: "other" }], { 7: "12.50" }],
+    [[{ customFieldDefId: 7, valueCurrency: "", valueText: "other" }], { 7: "" }],
+    [[{ customFieldDefId: 7, valueCurrency: null, valueText: "text" }], { 7: "text" }],
+    [[{ customFieldDefId: 7, valueCurrency: null, valueText: null }], { 7: "" }],
+  ])("preserves custom-field currency/text precedence and blanks (%j)", (values, expected) => {
+    const [defaults] = buildConvertItemDefaults({ ...baseOrder, items: [makeSI({ customFieldValues: values })] }, []);
+    expect(defaults.customFieldValues).toEqual(expected);
+  });
+
   it("returns one entry per order item", () => {
     const order = { ...baseOrder, items: [makeSI({ id: 1 }), makeSI({ id: 2 })] };
     expect(buildConvertItemDefaults(order, [])).toHaveLength(2);

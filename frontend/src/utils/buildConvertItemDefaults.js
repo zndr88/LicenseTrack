@@ -1,6 +1,7 @@
 import { defaultMaintenanceCoverageForLicenseType } from "./maintenanceCoverage.js";
 import { formatSecondaryContacts } from "./secondaryContacts.js";
 import { resolveLineBudgetOwner } from "./renewalLineDefaults.js";
+import { customFieldValueMap } from "./customFieldFormValues.js";
 
 /**
  * Builds conversion form defaults for pending-order items.
@@ -85,10 +86,7 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       budgetOwnerEmail:    budgetOwner.value,
       budgetOwnerRequired: budgetOwner.required,
       secondaryContacts:   formatSecondaryContacts(si.secondaryContacts || renewal?.secondaryContacts),
-      customFieldValues:   Object.fromEntries((si.customFieldValues || []).map((value) => [
-        value.customFieldDefId,
-        value.valueCurrency ?? value.valueText ?? "",
-      ])),
+      customFieldValues:   customFieldValueMap(si.customFieldValues || []),
       notes:               buildNotes(order.notes, si.notes, renewal?.notes),
     };
   });
