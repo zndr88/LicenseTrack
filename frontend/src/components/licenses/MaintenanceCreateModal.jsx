@@ -12,9 +12,7 @@ import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import { useAllLicenses } from "../../hooks/useAllLicenses.js";
 import {
   coversConfirmMessage,
-  isHiddenFromLinking,
-  isLinkedToParent,
-  maintenanceCandidate,
+  maintenanceLinkCandidates,
 } from "../../utils/maintenanceLinking.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import { uploadDocument } from "../../api/documents.js";
@@ -48,20 +46,17 @@ export default function MaintenanceCreateModal({
   const [createdLicenseId, setCreatedLicenseId] = useState(null);
   const { attachments, categoryScopes, addFiles, removeAttachment, changeCategoryScope } = useStagedDocumentAttachments();
 
-  const eligibleMaintenance = useMemo(() => (allLicenses || []).filter((license) => (
-    license.licenseType === "maintenance" && !isLinkedToParent(license, parentLicense.id)
-  )), [allLicenses, parentLicense.id]);
-  const existingMaintenanceOptions = useMemo(() => (showHidden
-    ? eligibleMaintenance
-    : eligibleMaintenance.filter((license) => !isHiddenFromLinking(license)))
-    .slice()
-    .sort((a, b) => {
+  const maintenanceCandidates = useMemo(() => maintenanceLinkCandidates(
+    (allLicenses || []).slice().sort((a, b) => {
       const aDate = a.endDate || "";
       const bDate = b.endDate || "";
       if (aDate !== bDate) return bDate.localeCompare(aDate);
       return (a.licenseRef || "").localeCompare(b.licenseRef || "");
-    })
-    .map((license) => maintenanceCandidate(license, allLicenses, { formatDay: (value) => formatDate(value, userSettings) })), [eligibleMaintenance, showHidden, allLicenses, userSettings]);
+    }),
+    parentLicense.id,
+    { formatDay: (value) => formatDate(value, userSettings) },
+  ), [allLicenses, parentLicense.id, userSettings]);
+  const existingMaintenanceOptions = showHidden ? maintenanceCandidates.all : maintenanceCandidates.visible;
 
   const canSave = mode === "create"
     ? endDate.trim() !== "" && isValidNumberValue(costRaw) && !saving
@@ -310,7 +305,7 @@ export default function MaintenanceCreateModal({
                 searchPlaceholder="Search by LT ref, publisher, description, PO, contract, or date"
                 listLabel="Existing maintenance records"
                 emptyMessage="No eligible maintenance records match this search."
-                hiddenCount={showHidden ? 0 : eligibleMaintenance.length - eligibleMaintenance.filter((license) => !isHiddenFromLinking(license)).length}
+                hiddenCount={showHidden ? 0 : maintenanceCandidates.hidden.length}
                 onShowHidden={() => setShowHidden(true)}
               />
               <div className="maint-record-count">
