@@ -248,7 +248,7 @@ async def test_editors_can_execute_import_and_read_but_cannot_manage_saved_mappi
         "/api/import/execute",
         headers=role_headers[UserRole.editor],
         files=_csv_file(),
-        data={"mapping_json": mapping_json},
+        data={"mapping_json": mapping_json, "acknowledge_warnings": "true"},
     )
     mappings_response = await test_app.get(
         "/api/import/mappings",

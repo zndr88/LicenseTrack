@@ -129,6 +129,7 @@ async def test_importing_historical_maintenance_keeps_current_record(test_app, a
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("historical.csv", output.getvalue().encode(), "text/csv")},
+        data={"acknowledge_warnings": "true"},
     )
 
     assert imported.status_code == 200, imported.text
