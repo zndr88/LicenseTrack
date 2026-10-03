@@ -1,0 +1,22 @@
+[
+  {
+    "name": "mixed currencies sharing the same PO",
+    "lines": [
+      { "id": 1, "poNumber": "PO-MIXED", "currency": "EUR", "quantity": "2", "unitPrice": "10" },
+      { "id": 2, "poNumber": "PO-MIXED", "currency": "USD", "quantity": "3", "unitPrice": "40" },
+      { "id": 3, "poNumber": "PO-MIXED", "currency": "EUR", "quantity": "1", "unitPrice": "5" }
+    ],
+    "lineTotals": { "EUR": "25", "USD": "120" },
+    "poTotals": { "EUR": "25", "USD": "120" }
+  },
+  {
+    "name": "a manual PO total applies only to its currency",
+    "lines": [
+      { "id": 1, "poNumber": "PO-MIXED", "currency": "EUR", "quantity": "2", "unitPrice": "10", "poTotalOverride": "80" },
+      { "id": 2, "poNumber": "PO-MIXED", "currency": "USD", "quantity": "3", "unitPrice": "40" },
+      { "id": 3, "poNumber": "PO-MIXED", "currency": "EUR", "quantity": "1", "unitPrice": "5" }
+    ],
+    "lineTotals": { "EUR": "25", "USD": "120" },
+    "poTotals": { "EUR": "80", "USD": "120" }
+  }
+]
