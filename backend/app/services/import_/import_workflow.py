@@ -385,7 +385,7 @@ def build_warning_summary(rows: list[ParsedRow], skipped_rows: set[int] | None =
     """Compute per-category warning counts across all parsed rows.
 
     Only non-error rows are counted for rows_with_warnings_count.
-    Inferred-parent, duplicate, price-mismatch, and expired-maintenance
+    Defaulted-currency, inferred-parent, duplicate, price-mismatch, and expired-maintenance
     warnings drive has_warnings. The enum and date fields remain zero-valued
     response compatibility fields because invalid enums and dates are hard row
     errors.
@@ -451,9 +451,15 @@ def build_warning_summary(rows: list[ParsedRow], skipped_rows: set[int] | None =
 
 
 def _row_to_schema(row: ParsedRow) -> CSVImportPreviewRow:
+    warnings = list(row.warnings)
+    if row.currency_defaulted:
+        warnings.append(
+            f"Currency was blank or missing; defaulted to {row.currency}. Confirm this currency before importing."
+        )
     return CSVImportPreviewRow.model_validate(
         {
             **vars(row),
+            "warnings": warnings,
             "request_date": row.db_request_date.isoformat() if row.db_request_date else None,
             "purchase_date": row.db_purchase_date.isoformat() if row.db_purchase_date else None,
             "inferred_parent_row_number": row.parent_import_row_number,

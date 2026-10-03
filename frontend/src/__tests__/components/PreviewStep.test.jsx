@@ -42,6 +42,23 @@ const defaultProps = {
 };
 
 describe("PreviewStep — warning summary", () => {
+  it("identifies a defaulted currency row and requires explicit acknowledgement", () => {
+    render(<PreviewStep {...defaultProps} previewData={{
+      ...basePreviewData,
+      totalRows: 1,
+      warningSummary: { ...basePreviewData.warningSummary, hasWarnings: true, defaultedCurrencyCount: 1 },
+      rows: [{
+        rowNumber: 1, publisherName: "Acme", softwareDescription: "Free tool",
+        licenseType: "freeware", currency: "EUR", importStatus: "active",
+        validationErrors: [], duplicateWarnings: [],
+        warnings: ["Currency was blank or missing; defaulted to EUR. Confirm this currency before importing."],
+      }],
+    }} />);
+    expect(screen.getByText(/defaulted to EUR/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /acknowledge warnings and import/i })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /^Import \d+ licenses?$/ })).toBeNull();
+  });
+
   it("does not show warning summary for a clean import", () => {
     render(<PreviewStep {...defaultProps} />);
     expect(document.querySelector("[data-testid='csv-warning-summary']")).toBeNull();

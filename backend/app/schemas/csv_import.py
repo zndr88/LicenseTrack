@@ -140,7 +140,7 @@ class DuplicateWarning(BaseModel):
 class ImportWarningSummary(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    defaulted_currency_count: int = 0  # rows where currency was absent/blank (info only, does not gate)
+    defaulted_currency_count: int = 0  # rows where currency was absent/blank
     # Retained as zero-valued compatibility fields. Invalid enums and dates are
     # hard row errors and are not accepted warning categories.
     defaulted_enum_count: int = 0
@@ -157,7 +157,8 @@ class ImportWarningSummary(BaseModel):
     def has_warnings(self) -> bool:
         """True when high-signal warnings require acknowledgement."""
         return (
-            self.inferred_parent_count > 0
+            self.defaulted_currency_count > 0
+            or self.inferred_parent_count > 0
             or self.duplicate_warning_count > 0
             or self.price_mismatch_count > 0
             or self.expired_maintenance_count > 0
