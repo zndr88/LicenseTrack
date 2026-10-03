@@ -150,7 +150,7 @@ export default function Sidebar({ page, setPage, setSelectedId, currentUser, col
 
       {!collapsed && (
         <Tooltip content={import.meta.env.VITE_BUILD_TOOLTIP ?? `Unreleased changes after v${APP_VERSION}`}>
-          <div className="sb-version" tabIndex={0}>{import.meta.env.VITE_BUILD_LABEL || "Preview"}</div>
+          <div className="sb-version" tabIndex={import.meta.env.VITE_BUILD_TOOLTIP === "" ? undefined : 0}>{import.meta.env.VITE_BUILD_LABEL || "Preview"}</div>
         </Tooltip>
       )}
     </nav>
